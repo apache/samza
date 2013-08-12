@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <prerequisites>
+    <maven>3.0.0</maven>
+  </prerequisites>
+
+  <groupId>samza</groupId>
+  <artifactId>samza-example-parent</artifactId>
+  <version>0.7.0</version>
+  <packaging>pom</packaging>
+  <name>Samza Parent</name>
+  <description>
+    Samza is a stream processing system. Think of it as Map-Reduce for streams.
+  </description>
+  <url>https://github.com/linkedin/hello-samza</url>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>samza</groupId>
+        <artifactId>samza-wikipedia</artifactId>
+        <version>0.7.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.samza</groupId>
+        <artifactId>samza-api</artifactId>
+        <version>0.7.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.samza</groupId>
+        <artifactId>samza-core_2.8.1</artifactId>
+        <version>0.7.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.samza</groupId>
+        <artifactId>samza-serializers_2.8.1</artifactId>
+        <version>0.7.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.samza</groupId>
+        <artifactId>samza-shell</artifactId>
+        <classifier>dist</classifier>
+        <type>tgz</type>
+        <version>0.7.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.samza</groupId>
+        <artifactId>samza-yarn_2.8.1</artifactId>
+        <version>0.7.0</version>
+        <classifier>yarn-2.0.5-alpha</classifier>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.samza</groupId>
+        <artifactId>samza-kafka_2.8.1</artifactId>
+        <version>0.7.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.kafka</groupId>
+        <artifactId>kafka_2.8.1</artifactId>
+        <version>0.8.1-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.schwering</groupId>
+        <artifactId>irclib</artifactId>
+        <version>1.10</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>1.6.2</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-log4j12</artifactId>
+        <version>1.6.2</version>
+      </dependency>
+      <dependency>
+        <groupId>org.codehaus.jackson</groupId>
+        <artifactId>jackson-jaxrs</artifactId>
+        <version>1.8.5</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <properties>
+    <!-- maven specific properties -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <modules>
+    <module>samza-job-package</module>
+    <module>samza-wikipedia</module>
+  </modules>
+
+  <developers>
+    <developer>
+      <name>Chris Riccomini</name>
+      <email>criccomini@gmail.com</email>
+      <timezone>-8</timezone>
+    </developer>
+  </developers>
+
+  <licenses>
+    <license>
+      <name>Apache License 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.html</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <scm>
+    <connection>scm:git:git://github.com/linkedin/hello-samza.git</connection>
+    <developerConnection>scm:git:git@github.com:linkedin/hello-samza.git</developerConnection>
+    <url>http://github.com/linkedin/hello-samza/</url>
+  </scm>
+
+  <issueManagement>
+    <system>github</system>
+    <url>http://github.com/linkedin/hello-samza/issues</url>
+  </issueManagement>
+
+  <repositories>
+    <repository>
+      <id>apache-releases</id>
+      <url>https://repository.apache.org/content/groups/public</url>
+    </repository>
+    <repository>
+      <id>scala-tools.org</id>
+      <name>Scala-tools Maven2 Repository</name>
+      <url>https://oss.sonatype.org/content/groups/scala-tools</url>
+    </repository>
+    <!-- for zkclient -->
+    <repository>
+      <id>sonatype</id>
+      <url>http://oss.sonatype.org/content/groups/public</url>
+    </repository>
+  </repositories>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>scala-tools.org</id>
+      <name>Scala-tools Maven2 Repository</name>
+      <url>http://scala-tools.org/repo-releases</url>
+    </pluginRepository>
+  </pluginRepositories>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.rat</groupId>
+          <artifactId>apache-rat-plugin</artifactId>
+          <version>0.9</version>
+          <configuration>
+            <excludes>
+              <exclude>.git/**</exclude>
+              <exclude>*.md</exclude>
+              <exclude>docs/**</exclude>
+              <exclude>config/**</exclude>
+              <exclude>bin/**</exclude>
+              <exclude>.gitignore</exclude>
+              <exclude>**/.cache/**</exclude>
+              <exclude>deploy/**</exclude>
+            </excludes>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+        <version>0.9</version>
+        <executions>
+          <execution>
+            <phase>test</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <artifactId>maven-install-plugin</artifactId>
+        <version>2.3.1</version>
+        <inherited>false</inherited>
+        <executions>
+          <execution>
+            <id>install-kafka</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>install-file</goal>
+            </goals>
+            <configuration>
+              <groupId>org.apache.kafka</groupId>
+              <artifactId>kafka_2.8.1</artifactId>
+              <version>0.8.1-SNAPSHOT</version>
+              <packaging>jar</packaging>
+              <file>${basedir}/lib/kafka_2.8.1-0.8.1-SNAPSHOT.jar</file>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

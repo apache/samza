@@ -1,0 +1,115 @@
+#!/bin/bash
+
+# This script will download, setup, start, and stop servers for Kafka, YARN, and ZooKeeper.
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+BASE_DIR=$(dirname $DIR)
+DEPLOY_ROOT_DIR=$BASE_DIR/deploy
+DEPLOY_DOWNLOAD_DIR=$BASE_DIR/deploy/download
+COMMAND=$1
+SYSTEM=$2
+
+DOWNLOAD_KAFKA=https://dist.apache.org/repos/dist/release/kafka/kafka_2.8.0-0.8.0-beta1.tgz
+DOWNLOAD_YARN=http://mirrors.sonic.net/apache/hadoop/common/hadoop-2.0.5-alpha/hadoop-2.0.5-alpha.tar.gz
+DOWNLOAD_ZOOKEEPER=http://apache.mirrors.pair.com/zookeeper/zookeeper-3.4.3/zookeeper-3.4.3.tar.gz
+
+install_zookeeper() {
+  install "zookeeper-3.4.3"
+  cp $DEPLOY_ROOT_DIR/$SYSTEM/conf/zoo_sample.cfg $DEPLOY_ROOT_DIR/$SYSTEM/conf/zoo.cfg
+}
+
+install_yarn() {
+  install "hadoop-2.0.5-alpha"
+  cp $BASE_DIR/conf/yarn-site.xml $DEPLOY_ROOT_DIR/$SYSTEM/etc/hadoop/yarn-site.xml
+}
+
+install_kafka() {
+  install "kafka_2.8.0-0.8.0-beta1"
+}
+
+install() {
+  PACKAGE_DIR=$1
+  mkdir -p $DEPLOY_DOWNLOAD_DIR
+  rm -rf $DEPLOY_ROOT_DIR/$SYSTEM
+  DOWNLOAD_COMMAND="curl \$DOWNLOAD_""`echo $SYSTEM|tr '[a-z]' '[A-Z]'`"
+  eval $DOWNLOAD_COMMAND > $DEPLOY_DOWNLOAD_DIR/$SYSTEM.tar.gz
+  tar -xvf $DEPLOY_DOWNLOAD_DIR/$SYSTEM.tar.gz -C $DEPLOY_DOWNLOAD_DIR
+  mv $DEPLOY_DOWNLOAD_DIR/$PACKAGE_DIR $DEPLOY_ROOT_DIR/$SYSTEM
+}
+
+start_zookeeper() {
+  cd $DEPLOY_ROOT_DIR/$SYSTEM
+  bin/zkServer.sh start
+  cd - > /dev/null
+}
+
+start_yarn() {
+  cd $DEPLOY_ROOT_DIR/$SYSTEM
+  mkdir -p pids logs
+  nohup bin/yarn resourcemanager > logs/rm.log 2>&1 &
+  RM_PID=$!
+  echo $RM_PID > pids/rm.pid
+  nohup bin/yarn nodemanager > logs/nm.log 2>&1 &
+  NM_PID=$!
+  echo $NM_PID > pids/nm.pid
+  cd - > /dev/null
+}
+
+start_kafka() {
+  mkdir -p $DEPLOY_ROOT_DIR/$SYSTEM/logs
+  cd $DEPLOY_ROOT_DIR/$SYSTEM
+  nohup bin/kafka-server-start.sh config/server.properties > logs/kafka.log 2>&1 &
+  cd - > /dev/null
+}
+
+stop_zookeeper() {
+  cd $DEPLOY_ROOT_DIR/$SYSTEM
+  bin/zkServer.sh stop
+  cd - > /dev/null
+}
+
+stop_yarn() {
+  cd $DEPLOY_ROOT_DIR/$SYSTEM
+  RM_PID=`cat pids/rm.pid`
+  NM_PID=`cat pids/nm.pid`
+  kill $RM_PID
+  kill $NM_PID
+  rm -rf pids/rm.pid
+  rm -rf pids/nm.pid
+  cd - > /dev/null
+}
+
+stop_kafka() {
+  cd $DEPLOY_ROOT_DIR/$SYSTEM
+  bin/kafka-server-stop.sh
+  cd - > /dev/null
+}
+
+# If no command and system is specified, then bootstrap from scratch
+if test -z "$COMMAND" && test -z "$SYSTEM"; then
+  $DIR/grid stop kafka
+  $DIR/grid stop yarn
+  $DIR/grid stop zookeeper
+  rm -rf $DEPLOY_ROOT_DIR
+  $DIR/grid install zookeeper
+  $DIR/grid install yarn
+  $DIR/grid install kafka
+  $DIR/grid start zookeeper
+  $DIR/grid start yarn
+  $DIR/grid start kafka
+  exit 0
+elif [ "$COMMAND" == "help" ] || test -z "$COMMAND" || test -z "$SYSTEM"; then
+  echo
+  echo "  Usage.."
+  echo
+  echo "  $ grid"
+  echo "  $ grid install [yarn|kafka|zookeeper]"
+  echo "  $ grid start [yarn|kafka|zookeeper]"
+  echo "  $ grid stop [yarn|kafka|zookeeper]"
+  echo
+  exit 1
+else
+  echo "EXECUTING: $COMMAND $SYSTEM"
+  
+  "$COMMAND"_"$SYSTEM"
+fi
