@@ -1,0 +1,15 @@
+# Job
+job.name=emitter
+
+# Task
+task.class=samza.test.integration.join.Emitter
+task.inputs=kafka.epoch
+
+stores.emitter-state.factory=samza.storage.kv.KeyValueStorageEngineFactory
+stores.emitter-state.key.serde=string
+stores.emitter-state.msg.serde=string
+stores.emitter-state.changelog=kafka.emitter-state
+
+task.window.ms=0
+
+count=100000

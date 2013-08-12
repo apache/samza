@@ -1,0 +1,18 @@
+# Job
+job.name=checker
+
+systems.kafka.partitioner.class=samza.test.integration.join.EpochPartitioner
+
+# Task
+task.class=samza.test.integration.join.Checker
+task.inputs=kafka.completed-keys
+
+stores.checker-state.factory=samza.storage.kv.KeyValueStorageEngineFactory
+stores.checker-state.key.serde=string
+stores.checker-state.msg.serde=string
+stores.checker-state.changelog=kafka.checker-state
+
+task.window.ms=300000
+
+num.partitions=4
+expected.keys=100000

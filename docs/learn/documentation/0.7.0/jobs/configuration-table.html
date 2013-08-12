@@ -1,0 +1,224 @@
+<html>
+  <body>
+    <table cellspacing="2" border="1" cellpadding="2">
+      <tbody>
+        <tr><th>Name</th><th>Default</th><th>Description</th></tr>
+        <tr>
+          <td><strong>Job</strong></td>
+          <td> </td>
+          <td> </td>
+        </tr>
+        <tr>
+          <td>job.factory.class</td>
+          <td>none</td>
+          <td><strong>Required:</strong> The job factory to use when running a task. This can be either samza.job.local.LocalJobFactory, or samza.job.yarn.YarnJobFactory.</td>
+        </tr>
+        <tr>
+          <td>job.name</td>
+          <td>none</td>
+          <td><strong>Required:</strong> The name of your job. This is the name that will appear on the Samza dashboard, when your job is running.</td>
+        </tr>
+        <tr>
+          <td>job.id</td>
+          <td>1</td>
+          <td>An ID string that is used to distinguish between multiple concurrent executions of the same Samza job.</td>
+        </tr>
+        <tr>
+          <td><strong>Task</strong></td>
+          <td> </td>
+          <td> </td>
+        </tr>
+        <tr>
+          <td>task.class</td>
+          <td>none</td>
+          <td><strong>Required:</strong> The package name of the StreamTask to execute. For example, samza.task.example.MyStreamerTask.</td>
+        </tr>
+        <tr>
+          <td>task.execute</td>
+          <td>bin/run-task.sh</td>
+          <td>The command that a StreamJob should invoke to start the TaskRunner.</td>
+        </tr>
+        <tr>
+          <td>task.message.buffer.size</td>
+          <td>10000</td>
+          <td>The number of messages that the TaskRunner will buffer in the event loop queue, before it begins blocking StreamConsumers.</td>
+        </tr>
+        <tr>
+          <td>task.inputs</td>
+          <td>none</td>
+          <td><strong>Required:</strong> A CSV list of stream names that the TaskRunner should use to read messages from for your StreamTasks (e.g. page-view-event,service-metrics).</td>
+        </tr>
+        <tr>
+          <td>task.window.ms</td>
+          <td>-1</td>
+          <td>How often the TaskRunner should call window() on a WindowableTask. A negative number tells the TaskRunner to never call window().</td>
+        </tr>
+        <tr>
+          <td>task.commit.ms</td>
+          <td>60000</td>
+          <td>How often the TaskRunner should call writeCheckpoint for a partition.</td>
+        </tr>
+        <tr>
+          <td>task.command.class</td>
+          <td>samza.task.ShellCommandBuilder</td>
+          <td>The class to use to build environment variables for the task.execute command.</td>
+        </tr>
+        <tr>
+          <td>task.lifecycle.listeners</td>
+          <td>none</td>
+          <td>A CSV list of lifecycle listener names that the TaskRunner notify when lifecycle events occur (e.g. my-lifecycle-manager).</td>
+        </tr>
+        <tr>
+          <td>task.lifecycle.listener.%s.class</td>
+          <td>none</td>
+          <td>The class name for a lifecycle listener factory (e.g. task.lifecycle.listener.my-lifecycle-manager.class=foo.bar.MyLifecycleManagerFactory)</td>
+        </tr>
+        <tr>
+          <td>task.checkpoint.factory</td>
+          <td>none</td>
+          <td>The class name for the checkpoint manager to use (e.g. samza.task.state.KafkaCheckpointManagerFactory)</td>
+        </tr>
+        <tr>
+          <td>task.checkpoint.failure.retry.ms</td>
+          <td>10000</td>
+          <td>If readLastCheckpoint, or writeCheckpoint fails, the TaskRunner will wait this interval before retrying the checkpoint.</td>
+        </tr>
+        <tr>
+          <td colspan="1">task.opts</td>
+          <td colspan="1">none</td>
+          <td colspan="1">JVM options that should be attached to each JVM that is running StreamTasks. If you wish to reference the log directory from this parameter, use logs/. <span>If you wish to reference code in the Samza job's TGZ package use __package/.</span></td>
+        </tr>
+        <tr>
+          <td><strong>System</strong></td>
+          <td> </td>
+          <td> </td>
+        </tr>
+        <tr>
+          <td>systems.%s.samza.consumer.factory</td>
+          <td>none</td>
+          <td>The StreamConsumerFactory class to use when creating a new StreamConsumer for this system (e.g. samza.stream.kafka.KafkaConsumerFactory).</td>
+        </tr>
+        <tr>
+          <td>systems.%s.samza.producer.factory</td>
+          <td>none</td>
+          <td>The StreamProducerFactory class to use when creating a new StreamProducer for this system (e.g. samza.stream.kafka.KafkaProducerFactory).</td>
+        </tr>
+        <tr>
+          <td>systems.%s.samza.partition.manager</td>
+          <td>none</td>
+          <td>The PartitionManager class to use when fetching partition information about streams for the system (e.g. samza.stream.kafka.KafkaPartitionManager).</td>
+        </tr>
+        <tr>
+          <td>systems.%s.producer.reconnect.interval.ms</td>
+          <td>10000</td>
+          <td>If a producer fails, the TaskRunner will wait this interval before retrying.</td>
+        </tr>
+        <tr>
+          <td>systems.%s.*</td>
+          <td>none</td>
+          <td>For both Kafka and Databus, any configuration you supply under this namespace will be given to the underlying Kafka consumer/producer, and Databus consumer/producer. This is useful for configuring things like autooffset.reset, socket buffer size, fetch size, batch size, etc.</td>
+        </tr>
+        <tr>
+          <td><strong>Stream</strong></td>
+          <td> </td>
+          <td> </td>
+        </tr>
+        <tr>
+          <td>streams.%s.system</td>
+          <td>none</td>
+          <td>The name of the system associated with this stream (e.g. kafka-aggregate-tracking). This name must match with a system defined in the configuration file.</td>
+        </tr>
+        <tr>
+          <td>streams.%s.stream</td>
+          <td>none</td>
+          <td>The name of the stream in the system (e.g. PageViewEvent).</td>
+        </tr>
+        <tr>
+          <td>streams.%s.serde</td>
+          <td>none</td>
+          <td>The serde to use to serialize and deserialize messages for this stream. If undefined, the TaskRunner will try to fall back to the default serde, if it's defined.</td>
+        </tr>
+        <tr>
+          <td>streams.%s.consumer.reset.offset</td>
+          <td>false</td>
+          <td>If set to true, the TaskRunner will ignore the last checkpoint offset for this stream, and use null as the offset for the stream instead. In the case of Kafka's consumer, it will fall back to autooffset.reset. In the case of Databus' consumer, it will fall back to SCN 0.</td>
+        </tr>
+        <tr>
+          <td>streams.%s.consumer.failure.retry.ms</td>
+          <td>10000</td>
+          <td>If a StreamConsumer fails, the TaskRunner will wait this interval before retrying.</td>
+        </tr>
+        <tr>
+          <td>streams.%s.consumer.max.bytes.per.sec</td>
+          <td>none</td>
+          <td>The maximum number of bytes that the TaskRunner will allow from all partitions that it's reading for this stream. For example, if you have an input stream with two partitions, and 1 MB/sec max, then the maximum bytes the TaskRunner will read per second from all of the input stream's partitions is 1 MB/sec.</td>
+        </tr>
+        <tr>
+          <td>streams.%s.producer.reconnect.interval.ms</td>
+          <td>10000</td>
+          <td>If a StreamProducer fails, the TaskRunner will wait this interval before retrying.</td>
+        </tr>
+        <tr>
+          <td><strong>Serdes</strong></td>
+          <td> </td>
+          <td> </td>
+        </tr>
+        <tr>
+          <td>serializers.registry.%s.class</td>
+          <td>none</td>
+          <td>The name of a class that implements both SerializerFactory and DeserializerFactory (e.g. serializers.registry.json.class=samza.serializers.JsonSerdeFactory).</td>
+        </tr>
+        <tr>
+          <td>serializers.default</td>
+          <td>none</td>
+          <td>The default serde to use, if one is not defined for an input or output stream (e.g. serializers.default=json).</td>
+        </tr>
+        <tr>
+          <td><strong>YARN</strong></td>
+          <td> </td>
+          <td> </td>
+        </tr>
+        <tr>
+          <td>yarn.package.path</td>
+          <td>none</td>
+          <td>The tgz location of your Samza job. This tgz file is well structured. See the YARN section for details.</td>
+        </tr>
+        <tr>
+          <td>yarn.container.memory.mb</td>
+          <td>768</td>
+          <td>How much memory to ask for (per-container), when Samza is starting a YARN container.</td>
+        </tr>
+        <tr>
+          <td>yarn.container.count</td>
+          <td>1</td>
+          <td>How many containers to start when a Samza job is started in YARN. Partitions are divided evenly among the containers.</td>
+        </tr>
+        <tr>
+          <td colspan="1">yarn.am.opts</td>
+          <td colspan="1">none</td>
+          <td colspan="1"><span>JVM options that should be attached to each JVM that is running the ApplicationMaster. If you wish to reference the log directory from this parameter, use logs/. If you wish to reference code in the Samza job's TGZ package use __package/.</span></td>
+        </tr>
+        <tr>
+          <td><strong>Metrics</strong></td>
+          <td> </td>
+          <td> </td>
+        </tr>
+        <tr>
+          <td>metrics.reporter.%s.class</td>
+          <td>none</td>
+          <td>The package and class for a metrics reporter (e.g. metrics.reporter.foo-bar.class=samza.metrics.reporter.MetricsSnapshotReporter).</td>
+        </tr>
+        <tr>
+          <td>metrics.reporter.%s.window.ms</td>
+          <td>10000</td>
+          <td>How often the TaskRunner tells the metrics reporter to send update or send its metrics.</td>
+        </tr>
+        <tr>
+          <td>metrics.reporters</td>
+          <td>none</td>
+          <td>A CSV list of metric reporter names (e.g. metrics.reporters=foo-bar).</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>

@@ -1,0 +1,161 @@
+html {
+	height: 100%;
+}
+
+body {
+	margin: 0px;
+	font-family: helvetica;
+	height: 100%;
+}
+
+.header {
+	background-color: #F5F4F0;
+}
+
+.page {
+	margin-left: 15%;
+	width: 70%;
+}
+
+.body {
+	line-height: 150%;
+	margin-left: 16.67em;
+	font-size: .9em;
+}
+
+div.logo {
+	display: inline-block;
+	width: 12em;
+	font-family: 'Ropa Sans', sans-serif;
+	background-color: #FF0000;
+	padding: .5em 1em;
+}
+
+div.nav-footer {
+	margin: .5em 0em;
+}
+
+.right {
+	float: right;
+}
+
+.left {
+	float: left;
+}
+
+.top-icons {
+	float: right;
+	padding-top: .5em;
+}
+
+.top-icon {
+	font-size: 3em;
+	color: #d3d2d0;
+	margin-left: .2em;
+}
+
+.committer-icon {
+  font-size: 1.1em;
+	margin-right: .3em;
+}
+
+a.logo {
+	font-size: 3em;
+	color: white;
+	text-decoration: none;
+}
+
+.menu {
+	float: left;
+}
+
+.menu-inner {
+	width: 12em;
+	padding: 0em 1em;
+	line-height: 120%;
+}
+
+.menu-title {
+	font-weight: bold;
+}
+
+.menu-category {
+	padding: .5em 0em 1.5em 0em;
+	font-size: .8em;
+}
+
+h2 {
+	margin: 1em 0em;
+}
+
+h4 {
+	margin: .5em 0em;
+}
+
+a {
+	text-decoration: none;
+	color: #1B91E0;
+}
+
+small {
+	color: #ccc;
+}
+
+img[alt=diagram] {
+	width: 90%;
+}
+
+img[alt=diagram-medium] {
+	width: 40%;
+}
+
+img[alt=diagram-small] {
+	width: 25%;
+}
+
+code {
+	display: block;
+	line-height: 120%;
+	overflow-x: scroll;
+	width: 100%;
+	padding: 1em;
+	background-color: #eee;
+}
+
+table {
+	width: 100%;
+	text-align: left;
+}
+
+div.documentation-second-level {
+	margin-left: 20px;
+}
+
+/* footer */
+html, body, .container {
+  height: 100%;
+}
+
+body > .container {
+  height: auto;
+  min-height: 100%;
+}
+
+.footer {
+  clear: both;
+  position: relative;
+  z-index: 10;
+  height: 5em;
+  margin-top: -5em;
+  background-color: #F5F4F0;
+}
+
+.footer-content {
+  padding: 1em;
+}
+
+.container-inner {
+  padding-bottom: 5em;
+}
+
+/* end footer */

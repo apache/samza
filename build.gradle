@@ -1,0 +1,182 @@
+buildscript {
+  repositories {
+    mavenCentral()
+  }
+
+  apply from: file('gradle/buildscript.gradle'), to: buildscript 
+}
+
+allprojects {
+  repositories {
+    // Required for Kafka. Kafka's 0.8.0-beta1 Maven Central
+    // POM is broken. Should go away in future releases.
+    maven {
+      url 'https://repository.apache.org/content/groups/public'
+    }
+    mavenCentral()
+    mavenLocal()
+  }
+}
+
+apply from: file('gradle/license.gradle')
+apply from: file('gradle/maven.gradle')
+apply from: file("gradle/dependency-versions.gradle")
+apply from: file("gradle/dependency-versions-scala-" + scalaVersion + ".gradle")
+
+subprojects {
+  group = "org.apache.samza"
+
+  apply plugin: 'jacoco'
+  apply plugin: 'eclipse'
+  apply plugin: 'idea'
+  apply plugin: 'project-report'
+}
+
+project(':samza-api') {
+  apply plugin: 'java'
+
+  dependencies {
+    testCompile "junit:junit:$junitVersion"
+  }
+}
+
+project(":samza-core_$scalaVersion") {
+  apply plugin: 'scala'
+
+  dependencies {
+    compile project(':samza-api')
+    compile "org.scala-lang:scala-library:$scalaVersion"
+    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
+    compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
+    compile "org.codehaus.jackson:jackson-jaxrs:$jacksonVersion"
+    testCompile "junit:junit:$junitVersion"
+  }
+}
+
+project(":samza-kafka_$scalaVersion") {
+  apply plugin: 'scala'
+
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaVersion")
+    compile project(":samza-serializers_$scalaVersion")
+    compile "org.scala-lang:scala-library:$scalaVersion"
+    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
+    compile "com.101tec:zkclient:$zkClientVersion"
+    compile "org.codehaus.jackson:jackson-jaxrs:$jacksonVersion"
+    // these can all go away when kafka is in maven
+    compile files("lib/kafka_$scalaVersion-" + kafkaVersion + ".jar")
+    compile "com.yammer.metrics:metrics-core:$metricsVersion"
+    compile "com.yammer.metrics:metrics-annotation:$metricsVersion"
+    // end these can all go away when kafka is in maven
+    testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    // these can all go away when kafka is in maven
+    testCompile files("lib/kafka_$scalaVersion-$kafkaVersion-test.jar")
+    // end these can all go away when kafka is in maven
+  }
+}
+
+project(":samza-serializers_$scalaVersion") {
+  apply plugin: 'scala'
+
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaVersion")
+    compile "org.scala-lang:scala-library:$scalaVersion"
+    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
+    compile "org.codehaus.jackson:jackson-jaxrs:$jacksonVersion"
+    testCompile "junit:junit:$junitVersion"
+  }
+}
+
+project(":samza-yarn_$scalaVersion") {
+  apply plugin: 'scala'
+
+  jar {  
+    classifier = "yarn-$yarnVersion"
+  }
+
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaVersion")
+    compile "org.scala-lang:scala-library:$scalaVersion"
+    compile "org.scala-lang:scala-compiler:$scalaVersion"
+    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
+    compile "org.codehaus.jackson:jackson-jaxrs:$jacksonVersion"
+    compile "commons-httpclient:commons-httpclient:$commonsHttpClientVersion"
+    compile "org.eclipse.jetty:jetty-webapp:$jettyVersion"
+    compile("org.apache.hadoop:hadoop-yarn-api:$yarnVersion") {
+      exclude module: 'slf4j-log4j12'
+    }
+    compile("org.apache.hadoop:hadoop-yarn-common:$yarnVersion") {
+      exclude module: 'slf4j-log4j12'
+    }
+    compile("org.apache.hadoop:hadoop-yarn-client:$yarnVersion") {
+      exclude module: 'slf4j-log4j12'
+    }
+    compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
+      exclude module: 'slf4j-log4j12'
+      exclude module: 'servlet-api'
+      exclude module: 'jetty'
+      exclude module: 'jetty-util'
+    }
+    compile("org.scalatra:scalatra_$scalaVersion:$scalatraVersion") {
+      exclude module: 'scala-compiler'
+      exclude module: 'slf4j-api'
+    }
+    compile("org.scalatra:scalatra-scalate_$scalaVersion:$scalatraVersion") {
+      exclude module: 'scala-compiler'
+      exclude module: 'slf4j-api'
+    }
+    testCompile "junit:junit:$junitVersion"
+  }
+
+  repositories {
+    maven {
+      url "http://repo.typesafe.com/typesafe/releases"
+    }
+  }
+}
+
+project(":samza-shell") {
+  apply plugin: 'java'
+
+  task shellTarGz(type: Tar) { 
+    compression = Compression.GZIP 
+    classifier = 'dist'
+    from 'src/main/bash'
+  }
+}
+
+project(":samza-kv_$scalaVersion") {
+  apply plugin: 'scala'
+
+  dependencies {
+    compile project(':samza-api')
+    compile "org.scala-lang:scala-library:$scalaVersion"
+    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
+    compile "org.fusesource.leveldbjni:leveldbjni-all:$leveldbVersion"
+    testCompile "junit:junit:$junitVersion"
+  }
+}
+
+project(":samza-test_$scalaVersion") {
+  apply plugin: 'scala'
+
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-kv_$scalaVersion")
+    compile "org.scala-lang:scala-library:$scalaVersion"
+    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
+    compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
+    compile "javax.mail:mail:1.4"
+    compile files("../samza-kafka/lib/kafka_$scalaVersion-" + kafkaVersion + ".jar")
+    testCompile "junit:junit:$junitVersion"
+    testCompile files("../samza-kafka/lib/kafka_$scalaVersion-" + kafkaVersion + "-test.jar")
+    testCompile "com.101tec:zkclient:$zkClientVersion"
+    testCompile project(":samza-core_$scalaVersion")
+    testCompile project(":samza-kafka_$scalaVersion")
+  }
+}
+

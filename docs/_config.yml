@@ -1,0 +1,5 @@
+permalink: /:categories/:title
+name: Samza
+pygments: true
+markdown: redcarpet
+exclude: ['_notes']

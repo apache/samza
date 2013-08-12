@@ -1,0 +1,12 @@
+# Job
+job.name=counter-task
+
+# Task
+task.class=samza.test.integration.StatePerfTestTask
+task.inputs=kafka.input
+
+# Stores
+stores.mystore.factory=samza.storage.kv.KeyValueStorageEngineFactory
+stores.mystore.key.serde=string
+stores.mystore.msg.serde=string
+stores.mystore.changelog=kafka.mystore

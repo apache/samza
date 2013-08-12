@@ -1,0 +1,78 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.apache.samza.storage.kv
+
+import java.io.File
+import org.apache.samza.config.Config
+import org.apache.samza.serializers._
+import org.apache.samza.SamzaException
+import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.task.MessageCollector
+import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.storage.StorageEngineFactory
+import org.apache.samza.storage.StorageEngine
+
+class KeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] {
+  def getStorageEngine(
+    storeName: String,
+    storeDir: File,
+    keySerde: Serde[K],
+    msgSerde: Serde[V],
+    collector: MessageCollector,
+    config: Config,
+    registry: MetricsRegistry,
+    changeLogSystemStreamPartition: SystemStreamPartition): StorageEngine = {
+
+    val storageConfig = config.subset("stores." + storeName + ".", true)
+    val batchSize = config.getInt("batch.size", 500)
+    val cacheSize = config.getInt("cache.size", math.max(batchSize, 1000))
+    val enableCache = cacheSize > 0
+
+    if (cacheSize > 0 && cacheSize < batchSize) {
+      throw new SamzaException("A stores cache.size cannot be less than batch.size as batched values reside in cache.")
+    }
+
+    if (keySerde == null) {
+      throw new SamzaException("Must define a key serde when using key value storage.")
+    }
+
+    if (msgSerde == null) {
+      throw new SamzaException("Must define a message serde when using key value storage.")
+    }
+
+    val levelDb = new LevelDbKeyValueStore(storeDir, LevelDbKeyValueStore.options(storageConfig))
+    val maybeLoggedStore = if (changeLogSystemStreamPartition == null) {
+      levelDb
+    } else {
+      new LoggedStore(levelDb, changeLogSystemStreamPartition, collector)
+    }
+    val serialized = new SerializedKeyValueStore[K, V](maybeLoggedStore, keySerde, msgSerde)
+    val maybeCachedStore = if (enableCache) {
+      new CachedStore(serialized, cacheSize, batchSize)
+    } else {
+      serialized
+    }
+    val db = maybeCachedStore
+
+    // Decide if we should use raw bytes when restoring
+
+    new KeyValueStorageEngine(db, levelDb, batchSize)
+  }
+}

@@ -1,0 +1,19 @@
+subprojects {
+  apply plugin: 'maven-publish'
+
+  publishing {
+    publications {
+      mavenJava(MavenPublication) {
+        from components.java
+
+        if(project.name == 'samza-shell') {
+          artifact shellTarGz {
+            group "org.apache.samza"
+            name "samza-shell"
+            classifier "dist"
+          }
+        }
+      }
+    }
+  }
+}

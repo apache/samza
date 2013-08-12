@@ -1,0 +1,13 @@
+# Job
+job.name=joiner
+
+# Task
+task.class=samza.test.integration.join.Joiner
+task.inputs=kafka.emitted
+
+stores.joiner-state.factory=samza.storage.kv.KeyValueStorageEngineFactory
+stores.joiner-state.key.serde=string
+stores.joiner-state.msg.serde=string
+stores.joiner-state.changelog=kafka.checker-state
+
+num.partitions=4

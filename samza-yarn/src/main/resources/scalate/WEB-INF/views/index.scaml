@@ -1,0 +1,107 @@
+-#
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+  
+    http://www.apache.org/licenses/LICENSE-2.0
+  
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+-@ val state: org.apache.samza.job.yarn.SamzaAppMasterState
+-@ val config: scala.collection.immutable.TreeMap[String, String]
+-@ val rmHttpAddress: String
+-@ val jobName: String = config.get("job.name").getOrElse("MISSING JOB NAME")
+-@ val username: String = org.apache.hadoop.security.UserGroupInformation.getCurrentUser.getShortUserName
+- attributes("title") = jobName
+
+%div.container
+  %h1= jobName
+  %table(class="table table-bordered" style="margin-top: 10px;")
+    %tr
+      %td(colspan="2")
+        %h4 Application Master
+    %tr
+      %td Hostname
+      %td
+        %a(target="_blank" href="http://#{state.nodeHost}:#{state.nodeHttpPort.toString}")= state.nodeHost
+    %tr
+      %td User
+      %td= username
+    %tr
+      %td Tracking port
+      %td= state.trackingPort.toString
+    %tr
+      %td RPC port
+      %td= state.rpcPort.toString
+    %tr
+      %td Attempt ID
+      %td= state.appAttemptId
+    %tr
+      %td Application master task ID
+      %td= state.taskId
+    %tr
+      %td Application master container
+      %td 
+        %a(target="_blank" href="http://#{state.nodeHost}:#{state.nodeHttpPort.toString}/node/containerlogs/#{state.containerId.toString}/#{username}")= state.containerId.toString
+    %tr
+      %td(colspan="2")
+        %h4 Containers
+    %tr
+      %td Running containers
+      %td
+        %ul
+          - for((taskId, container) <- state.runningTasks)
+            %li
+              Task group #{taskId.toString}
+              %ul
+                %li
+                  %a(target="_blank" href="http://#{container.getNodeHttpAddress}/node/containerlogs/#{container.getId.toString}/#{username}")= container.getId.toString
+                %li
+                  %a(target="_blank" href="http://#{container.getNodeHttpAddress}")= container.getNodeHttpAddress
+    %tr
+      %td Completed
+      %td= state.completedTasks.toString
+    %tr
+      %td Needed
+      %td= state.neededContainers.toString
+    %tr
+      %td Failed
+      %td= state.failedContainers.toString
+    %tr
+      %td Released
+      %td= state.releasedContainers.toString
+    %tr
+      %td(colspan="2")
+        %h4 Task Groups
+    %tr
+      %td Partition Assignment
+      %td
+        - for((taskId, partitions) <- state.taskPartitions)
+          = taskId
+          = "(Partitions: %s)" format partitions.map(_.getPartitionId).toList.sorted.mkString(", ")
+          %br
+    %tr
+      %td Total
+      %td= state.taskCount.toString
+    %tr
+      %td Unclaimed
+      %td= state.unclaimedTasks.size.toString
+    %tr
+      %td Finished
+      %td= state.finishedTasks.size.toString
+    %tr
+      %td(colspan="2")
+        %h4 Config
+    - for(entrySet <- new java.util.TreeMap[String, String](config.asInstanceOf[Map[String, String]]).entrySet)
+      %tr
+        %td= entrySet.getKey
+        %td= entrySet.getValue
+  %script(src="js/bootstrap.min.js")
