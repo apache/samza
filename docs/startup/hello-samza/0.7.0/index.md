@@ -3,17 +3,19 @@ layout: page
 title: Hello Samza
 ---
 
-<!-- TODO remove samza code warning when we get our git repo setup -->
-
-*NOTE: The Samza code is not available until we get an Apache git repository. Follow along [here](https://issues.apache.org/jira/browse/INFRA-6617).*
-
 <!-- TODO Make github project public when code is up. -->
 
 The [hello-samza](http://github.com/linkedin/hello-samza) project is a stand-alone project designed to help you run your first Samza job.
 
 ### Get the Code
 
-Start by checking out the hello-samza project.
+You'll need to check out and publish Samza, since it's not available in a Maven repository right now.
+
+    git clone http://git-wip-us.apache.org/repos/asf/incubator-samza.git
+    cd incubator-samza
+    ./gradlew -PscalaVersion=2.8.1 clean publishToMavenLocal
+
+Next, check out the hello-samza project.
 
     git clone git://github.com/linkedin/hello-samza.git
 

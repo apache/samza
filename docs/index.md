@@ -4,10 +4,6 @@ layout: default
 
 ## What is Samza?
 
-<!-- TODO remove samza code warning when we get our git repo setup -->
-
-*NOTE: The Samza code is not available until we get an Apache git repository. Follow along [here](https://issues.apache.org/jira/browse/INFRA-6617).*
-
 Apache Samza is a distributed stream processing framework. It uses <a target="_blank" href="http://kafka.apache.org">Apache Kafka</a> for messaging, and <a target="_blank" href="http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html">Apache Hadoop YARN</a> to provide fault tolerance, processor isolation, security, and resource management.
 
 * **Simpe API:** Unlike most low-level messaging system APIs, Samza provides a very simple call-back based "process message" API that should be familiar to anyone that's used Map/Reduce.

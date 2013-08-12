@@ -3,10 +3,6 @@ layout: page
 title: Download
 ---
 
-<!-- TODO remove samza code warning when we get our git repo setup -->
-
-*NOTE: The Samza code is not available until we get an Apache git repository. Follow along [here](https://issues.apache.org/jira/browse/INFRA-6617).*
-
 <!-- TODO update maven dependency versions appropriately -->
 
 If you want to play around with Samza for the first time, go to [Hello Samza](/startup/hello-samza/0.7.0).
