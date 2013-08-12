@@ -27,7 +27,7 @@ We have put particular effort into allowing Samza jobs to manage large amounts o
 
 This means that you can view a Samza job as being both a piece of processing code, but also a co-partitioned "table" of state. This allows rich local queries and scans against this state. These tables are made fault-tolerant by producing a "changelog" stream which is used to restore the state of the table on fail-over. This stream is just another Samza stream, it can even be used as input for other jobs.
 
-![Stateful Processing](/img/samza_state.png)
+![Stateful Processing](/img/0.7.0/learn/documentation/introduction/samza_state.png)
 
 In our experience most processing flows require joins against other data sourceIn the absence of state maintenance, any joining or aggregation has to be done by querying an external data system. This tends to be one or two orders of magnitude slower than sequential processing. For example per-node throughput for Kafka would easily be in the 100k-500k messages/sec range (depending on message size) but remote queries against a key-value store tend to be closer to 1-5k queries-per-second per node.
 
