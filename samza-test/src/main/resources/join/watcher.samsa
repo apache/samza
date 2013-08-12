@@ -8,6 +8,6 @@ task.inputs=kafka.epoch
 task.window.ms=300000
 
 max.time.between.epochs.ms=600000
-mail.smtp.host=email.corp.linkedin.com
-mail.to=samza-eng@linkedin.com
+mail.smtp.host=TODO
+mail.to=dev@samza.incubator.apache.org
 mail.from=gregor@incubator.apache.org
