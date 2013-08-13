@@ -43,7 +43,7 @@ Before you can run a Samza job, you need to build a package for it. This package
 
 After you've built your Samza package, you can start a job on the grid using the run-job.sh script.
 
-    deploy/samza/bin/run-job.sh --config-factory=samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties
+    deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties
 
 The job will consume a feed of real-time edits from Wikipedia, and produce them to a Kafka topic called "wikipedia-raw". Give the job a minute to startup, and then tail the Kafka topic:
 
@@ -55,8 +55,8 @@ Pretty neat, right? Now, check out the YARN UI again ([http://localhost:8088](ht
 
 Let's calculate some statistics based on the messages in the wikipedia-raw topic. Start two more jobs:
 
-    deploy/samza/bin/run-job.sh --config-factory=samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-parser.properties
-    deploy/samza/bin/run-job.sh --config-factory=samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-stats.properties
+    deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-parser.properties
+    deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-stats.properties
 
 The first job (wikipedia-parser) parses the messages in wikipedia-raw, and extracts information about the size of the edit, who made the change, etc. You can take a look at its output with:
 
