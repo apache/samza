@@ -17,12 +17,10 @@
  * under the License.
  */
 
-package org.apache.samza.system
+package org.apache.samza.system;
 
-import java.util.ArrayDeque
+public interface MessageChooser {
+  void update(IncomingMessageEnvelope envelopes);
 
-class DefaultPicker extends IncomingMessageEnvelopePicker {
-  var q = new ArrayDeque[IncomingMessageEnvelope]()
-  def update(envelope: IncomingMessageEnvelope) = q.add(envelope)
-  def pick = q.poll
+  IncomingMessageEnvelope choose();
 }

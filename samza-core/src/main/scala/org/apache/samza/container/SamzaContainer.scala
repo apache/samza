@@ -53,7 +53,7 @@ import org.apache.samza.util.Util
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.system.SystemProducers
 import org.apache.samza.task.ReadableCollector
-import org.apache.samza.system.DefaultPicker
+import org.apache.samza.system.DefaultChooser
 import org.apache.samza.system.SystemConsumers
 
 object SamzaContainer extends Logging {
@@ -227,9 +227,9 @@ object SamzaContainer extends Logging {
 
     val jvm = new JvmMetrics(samzaContainerMetrics.registry)
 
-    info("Setting up incoming message envelope picker.")
+    info("Setting up message chooser.")
 
-    val picker = new DefaultPicker
+    val chooser = new DefaultChooser
 
     info("Setting up metrics reporters.")
 
@@ -259,7 +259,7 @@ object SamzaContainer extends Logging {
 
     val consumerMultiplexer = new SystemConsumers(
       // TODO add config values for no new message timeout and max msgs per stream partition
-      picker = picker,
+      chooser = chooser,
       consumers = consumers,
       serdeManager = serdeManager)
 
@@ -528,9 +528,9 @@ class SamzaContainer(
   }
 
   def process(coordinator: ReadableCoordinator) {
-    trace("Attempting to pick a message to process.")
+    trace("Attempting to choose a message to process.")
 
-    val envelope = consumerMultiplexer.pick
+    val envelope = consumerMultiplexer.choose
 
     if (envelope != null) {
       val partition = envelope.getSystemStreamPartition.getPartition

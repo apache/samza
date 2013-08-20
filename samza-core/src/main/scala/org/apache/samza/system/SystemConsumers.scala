@@ -25,7 +25,7 @@ import grizzled.slf4j.Logging
 import org.apache.samza.serializers.SerdeManager
 
 class SystemConsumers(
-  picker: IncomingMessageEnvelopePicker,
+  chooser: MessageChooser,
   consumers: Map[String, SystemConsumer],
   serdeManager: SerdeManager,
   maxMsgsPerStreamPartition: Int = 1000,
@@ -34,7 +34,7 @@ class SystemConsumers(
   // TODO add metrics
 
   var unprocessedMessages = Map[SystemStreamPartition, Queue[IncomingMessageEnvelope]]()
-  var neededByPicker = Set[SystemStreamPartition]()
+  var neededByChooser = Set[SystemStreamPartition]()
   var fetchMap = Map[SystemStreamPartition, java.lang.Integer]()
   var timeout = noNewMessagesTimeout
 
@@ -57,47 +57,47 @@ class SystemConsumers(
   def register(systemStreamPartition: SystemStreamPartition, lastReadOffset: String) {
     debug("Registering stream: %s, %s" format (systemStreamPartition, lastReadOffset))
 
-    neededByPicker += systemStreamPartition
+    neededByChooser += systemStreamPartition
     fetchMap += systemStreamPartition -> maxMsgsPerStreamPartition
     unprocessedMessages += systemStreamPartition -> Queue[IncomingMessageEnvelope]()
     consumers(systemStreamPartition.getSystem).register(systemStreamPartition, lastReadOffset)
   }
 
-  def pick = {
-    val picked = picker.pick
+  def choose = {
+    val envelopeFromChooser = chooser.choose
 
-    if (picked == null) {
-      debug("Picker returned null.")
+    if (envelopeFromChooser == null) {
+      debug("Chooser returned null.")
 
-      // Allow blocking if the picker didn't pick a message.
+      // Allow blocking if the chooser didn't choose a message.
       timeout = noNewMessagesTimeout
     } else {
-      debug("Picker returned an incoming message envelope: %s" format picked)
+      debug("Chooser returned an incoming message envelope: %s" format envelopeFromChooser)
 
       // Don't block if we have a message to process.
       timeout = 0
 
-      // Ok to give the picker a new message from this stream.
-      neededByPicker += picked.getSystemStreamPartition
+      // Ok to give the chooser a new message from this stream.
+      neededByChooser += envelopeFromChooser.getSystemStreamPartition
     }
 
     refresh
-    picked
+    envelopeFromChooser
   }
 
   private def refresh {
-    debug("Refreshing picker with new messages.")
+    debug("Refreshing chooser with new messages.")
 
     // Poll every system for new messages.
     consumers.keys.foreach(poll(_))
 
-    // Update the picker.
-    neededByPicker.foreach(systemStreamPartition =>
-      // If we have messages for a stream that the picker needs, then update.
+    // Update the chooser.
+    neededByChooser.foreach(systemStreamPartition =>
+      // If we have messages for a stream that the chooser needs, then update.
       if (fetchMap(systemStreamPartition).intValue < maxMsgsPerStreamPartition) {
-        picker.update(unprocessedMessages(systemStreamPartition).dequeue)
+        chooser.update(unprocessedMessages(systemStreamPartition).dequeue)
         fetchMap += systemStreamPartition -> (fetchMap(systemStreamPartition).intValue + 1)
-        neededByPicker -= systemStreamPartition
+        neededByChooser -= systemStreamPartition
       })
   }
 
