@@ -92,8 +92,15 @@ class CachedStore[K, V](val store: KeyValueStore[K, V],
     val found = cache.get(key)
     if (found == null || found.dirty == null)
       this.dirtyCount += 1
-    else
-      found.dirty.remove()
+    else {
+      // If we are removing the head of the list, move the head to the next element.
+      if(found.dirty.prev == null) {
+        this.dirty = found.dirty.next
+        this.dirty.prev = null
+      } else {
+        found.dirty.remove
+      }
+    }
     this.dirty = new mutable.DoubleLinkedList(key, this.dirty)
 
     // add the key to the cache (but don't allocate a new cache entry if we already have one)
