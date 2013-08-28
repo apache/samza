@@ -22,9 +22,9 @@ package org.apache.samza.util;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.samza.metrics.Counter;
@@ -56,30 +56,28 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
   private final BlockingEnvelopeMapMetrics metrics;
   private final ConcurrentHashMap<SystemStreamPartition, BlockingQueue<IncomingMessageEnvelope>> bufferedMessages;
   private final Map<SystemStreamPartition, Boolean> noMoreMessage;
-  private final int queueSize;
   private final Clock clock;
 
   public BlockingEnvelopeMap() {
-    this(1000, new NoOpMetricsRegistry());
+    this(new NoOpMetricsRegistry());
   }
 
   public BlockingEnvelopeMap(Clock clock) {
-    this(1000, new NoOpMetricsRegistry(), clock);
+    this(new NoOpMetricsRegistry(), clock);
   }
 
-  public BlockingEnvelopeMap(int queueSize, MetricsRegistry metricsRegistry) {
-    this(queueSize, metricsRegistry, new Clock() {
+  public BlockingEnvelopeMap(MetricsRegistry metricsRegistry) {
+    this(metricsRegistry, new Clock() {
       public long currentTimeMillis() {
         return System.currentTimeMillis();
       }
     });
   }
 
-  public BlockingEnvelopeMap(int queueSize, MetricsRegistry metricsRegistry, Clock clock) {
-    this.metrics = new BlockingEnvelopeMapMetrics(queueSize, metricsRegistry);
+  public BlockingEnvelopeMap(MetricsRegistry metricsRegistry, Clock clock) {
+    this.metrics = new BlockingEnvelopeMapMetrics(metricsRegistry);
     this.bufferedMessages = new ConcurrentHashMap<SystemStreamPartition, BlockingQueue<IncomingMessageEnvelope>>();
     this.noMoreMessage = new ConcurrentHashMap<SystemStreamPartition, Boolean>();
-    this.queueSize = queueSize;
     this.clock = clock;
   }
 
@@ -89,7 +87,7 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
   }
 
   protected BlockingQueue<IncomingMessageEnvelope> newBlockingQueue() {
-    return new ArrayBlockingQueue<IncomingMessageEnvelope>(queueSize);
+    return new LinkedBlockingQueue<IncomingMessageEnvelope>();
   }
 
   public List<IncomingMessageEnvelope> poll(Map<SystemStreamPartition, Integer> systemStreamPartitionAndMaxPerStream, long timeout) throws InterruptedException {
@@ -152,26 +150,26 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
     return messagesToReturn;
   }
 
-  protected void add(SystemStreamPartition systemStreamPartition, IncomingMessageEnvelope envelope) throws InterruptedException {
-    bufferedMessages.get(systemStreamPartition).put(envelope);
+  protected void add(SystemStreamPartition systemStreamPartition, IncomingMessageEnvelope envelope) {
+    bufferedMessages.get(systemStreamPartition).add(envelope);
     metrics.incBufferedMessageCount(systemStreamPartition, 1);
   }
 
-  protected void addAll(SystemStreamPartition systemStreamPartition, List<IncomingMessageEnvelope> envelopes) throws InterruptedException {
+  protected void addAll(SystemStreamPartition systemStreamPartition, List<IncomingMessageEnvelope> envelopes) {
     BlockingQueue<IncomingMessageEnvelope> queue = bufferedMessages.get(systemStreamPartition);
 
     for (IncomingMessageEnvelope envelope : envelopes) {
-      queue.put(envelope);
+      queue.add(envelope);
     }
 
     metrics.incBufferedMessageCount(systemStreamPartition, envelopes.size());
   }
 
-  protected int getNumMessagesInQueue(SystemStreamPartition systemStreamPartition) {
+  public int getNumMessagesInQueue(SystemStreamPartition systemStreamPartition) {
     BlockingQueue<IncomingMessageEnvelope> queue = bufferedMessages.get(systemStreamPartition);
 
     if (queue == null) {
-      return 0;
+      throw new NullPointerException("Attempting to get queue for " + systemStreamPartition + ", but the system/stream/partition was never registered.");
     } else {
       return queue.size();
     }
@@ -197,18 +195,15 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
     private final ConcurrentHashMap<SystemStreamPartition, Counter> pollCountMap;
     private final ConcurrentHashMap<SystemStreamPartition, Counter> blockingPollCountMap;
     private final ConcurrentHashMap<SystemStreamPartition, Counter> blockingPollTimeoutCountMap;
-    // TODO use the queueSize gauge
-    private final Gauge<Integer> queueSize;
     private final Counter pollCount;
 
-    public BlockingEnvelopeMapMetrics(int queueSize, MetricsRegistry metricsRegistry) {
+    public BlockingEnvelopeMapMetrics(MetricsRegistry metricsRegistry) {
       this.metricsRegistry = metricsRegistry;
       this.bufferedMessageCountMap = new ConcurrentHashMap<SystemStreamPartition, Counter>();
       this.noMoreMessageGaugeMap = new ConcurrentHashMap<SystemStreamPartition, Gauge<Boolean>>();
       this.pollCountMap = new ConcurrentHashMap<SystemStreamPartition, Counter>();
       this.blockingPollCountMap = new ConcurrentHashMap<SystemStreamPartition, Counter>();
       this.blockingPollTimeoutCountMap = new ConcurrentHashMap<SystemStreamPartition, Counter>();
-      this.queueSize = metricsRegistry.<Integer> newGauge(GROUP, "QueueSize", queueSize);
       this.pollCount = metricsRegistry.newCounter(GROUP, "PollCount");
     }
 

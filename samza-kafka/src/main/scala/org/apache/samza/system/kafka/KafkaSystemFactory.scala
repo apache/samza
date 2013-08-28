@@ -53,6 +53,7 @@ class KafkaSystemFactory extends SystemFactory {
     val bufferSize = consumerConfig.socketReceiveBufferBytes
     val autoOffsetResetDefault = consumerConfig.autoOffsetReset
     val autoOffsetResetTopics = config.getAutoOffsetResetTopics(systemName)
+    val fetchThreshold = config.getConsumerFetchThreshold(systemName).getOrElse("0").toInt
     val offsetGetter = new GetOffset(autoOffsetResetDefault, autoOffsetResetTopics)
     val deserializer = config.getConsumerMsgDeserializerClass(systemName) match {
       case Some(deserializerClass) => Util.getObj[Decoder[Object]](deserializerClass)
@@ -68,10 +69,9 @@ class KafkaSystemFactory extends SystemFactory {
       brokerListString = brokerListString,
       metricsRegistry = registry,
       clientId = clientId,
-      // TODO make this configurable?
-      queueSize = 1000,
       timeout = timeout,
       bufferSize = bufferSize,
+      fetchThreshold = fetchThreshold,
       offsetGetter = offsetGetter)
   }
 

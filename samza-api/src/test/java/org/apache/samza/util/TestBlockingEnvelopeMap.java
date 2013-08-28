@@ -23,9 +23,9 @@ import static org.junit.Assert.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import org.apache.samza.Partition;
@@ -105,7 +105,7 @@ public class TestBlockingEnvelopeMap {
       @Override
       public void run() {
         try {
-       // Should trigger a take() call.
+          // Should trigger a take() call.
           map.poll(FETCH, -1);
         } catch (InterruptedException e) {
           throw new RuntimeException(e);
@@ -151,13 +151,12 @@ public class TestBlockingEnvelopeMap {
     assertFalse(t.isAlive());
   }
 
-  public class MockQueue extends ArrayBlockingQueue<IncomingMessageEnvelope> {
+  public class MockQueue extends LinkedBlockingQueue<IncomingMessageEnvelope> {
     private static final long serialVersionUID = 1L;
     private final CountDownLatch pollTimeoutBarrier;
     private long timeout;
 
     public MockQueue() {
-      super(1000);
       this.pollTimeoutBarrier = new CountDownLatch(1);
     }
 

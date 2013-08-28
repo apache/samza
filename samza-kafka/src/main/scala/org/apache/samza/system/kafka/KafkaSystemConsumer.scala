@@ -56,14 +56,14 @@ private[kafka] class KafkaSystemConsumer(
   brokerListString: String,
   metricsRegistry: MetricsRegistry,
   clientId: String = "undefined-client-id-" + UUID.randomUUID.toString,
-  queueSize: Int = 1000,
   timeout: Int = Int.MaxValue,
   bufferSize: Int = 1024000,
   brokerMetadataFailureRefreshMs: Long = 10000,
+  fetchThreshold: Int = 0,
   offsetGetter: GetOffset = new GetOffset("fail"),
   deserializer: Decoder[Object] = new DefaultDecoder().asInstanceOf[Decoder[Object]],
   keyDeserializer: Decoder[Object] = new DefaultDecoder().asInstanceOf[Decoder[Object]],
-  clock: () => Long = { System.currentTimeMillis }) extends BlockingEnvelopeMap(queueSize, metricsRegistry, new Clock {
+  clock: () => Long = { System.currentTimeMillis }) extends BlockingEnvelopeMap(metricsRegistry, new Clock {
   def currentTimeMillis = clock()
 }) with Toss with Logging {
 
@@ -154,6 +154,10 @@ private[kafka] class KafkaSystemConsumer(
       setIsAtHead(toSystemStreamPartition(tp), isAtHighWatermark)
     }
 
+    def needsMoreMessages(tp: TopicAndPartition) = {
+      getNumMessagesInQueue(toSystemStreamPartition(tp)) <= fetchThreshold
+    }
+
     def addMessage(tp: TopicAndPartition, msg: MessageAndOffset, highWatermark: Long) = {
       trace("Incoming message %s: %s." format (tp, msg))
 
@@ -171,7 +175,6 @@ private[kafka] class KafkaSystemConsumer(
         null
       }
 
-      // TODO use kafka encoder/decoder here, if they were defined in config
       add(systemStreamPartition, new IncomingMessageEnvelope(systemStreamPartition, offset, key, message))
 
       setIsAtHead(systemStreamPartition, isAtHead)

@@ -38,6 +38,8 @@ import org.apache.samza.SamzaException
 import kafka.message.ByteBufferMessageSet
 
 class TestBrokerProxy {
+  val tp2 = new TopicAndPartition("Redbird", 2013)
+
   def getMockBrokerProxy() = {
     val sink = new MessageSink {
       val receivedMessages = new scala.collection.mutable.ListBuffer[(TopicAndPartition, MessageAndOffset, Boolean)]()
@@ -47,6 +49,9 @@ class TestBrokerProxy {
 
       def setIsAtHighWatermark(tp: TopicAndPartition, isAtHighWatermark: Boolean) {
       }
+
+      // Never need messages for tp2.
+      def needsMoreMessages(tp: TopicAndPartition): Boolean = !tp.equals(tp2)
     }
 
     val config = new MapConfig(Map[String, String]("job.name" -> "Jobby McJob",
@@ -100,7 +105,7 @@ class TestBrokerProxy {
               por
             }
 
-            val map = scala.Predef.Map[TopicAndPartition, PartitionOffsetsResponse](tp -> partitionOffsetResponse)
+            val map = scala.Predef.Map[TopicAndPartition, PartitionOffsetsResponse](tp -> partitionOffsetResponse, tp2 -> partitionOffsetResponse)
             when(offsetResponse.partitionErrorAndOffsets).thenReturn(map)
             offsetResponse
           }
@@ -134,7 +139,13 @@ class TestBrokerProxy {
 
           override def send(request: TopicMetadataRequest): TopicMetadataResponse = sc.send(request)
 
-          override def fetch(request: FetchRequest): FetchResponse = sc.fetch(request)
+          override def fetch(request: FetchRequest): FetchResponse = {
+            // Verify that we only get fetch requests for one tp, even though 
+            // two were registered. This is to verify that 
+            // sink.needsMoreMessages works.
+            assertEquals(1, request.requestInfo.size)
+            sc.fetch(request)
+          }
 
           override def getOffsetsBefore(request: OffsetRequest): OffsetResponse = sc.getOffsetsBefore(request)
 
@@ -156,6 +167,8 @@ class TestBrokerProxy {
 
     bp.start
     bp.addTopicPartition(tp, "0")
+    // Add tp2, which should never receive messages since sink disables it.
+    bp.addTopicPartition(tp2, "0")
     Thread.sleep(1000)
     assertEquals(2, sink.receivedMessages.size)
     assertEquals(42, sink.receivedMessages.get(0)._2.offset)

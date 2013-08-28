@@ -135,7 +135,7 @@ abstract class BrokerProxy(
   }, "BrokerProxy thread pointed at %s:%d for client %s" format (host, port, clientID))
 
   private def fetchMessages(): Unit = {
-    val response: FetchResponse = simpleConsumer.defaultFetch(nextOffsets.toList: _*)
+    val response: FetchResponse = simpleConsumer.defaultFetch(nextOffsets.filterKeys(messageSink.needsMoreMessages(_)).toList: _*)
     firstCall = false
     firstCallBarrier.countDown()
     if (response.hasError) {

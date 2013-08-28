@@ -27,4 +27,6 @@ private[kafka] trait MessageSink {
   def addMessage(tp: TopicAndPartition, msg: MessageAndOffset, highWatermark: Long): Unit
 
   def abdicate(tp: TopicAndPartition, lastOffset: Long): Unit
+  
+  def needsMoreMessages(tp: TopicAndPartition): Boolean
 }

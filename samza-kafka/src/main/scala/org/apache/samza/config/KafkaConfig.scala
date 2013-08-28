@@ -36,6 +36,12 @@ object KafkaConfig {
   val CONSUMER_KEY_DESERIALIZER = SystemConfig.SYSTEM_PREFIX + "consumer.key.deserializer.class"
   val CONSUMER_MSG_DESERIALIZER = SystemConfig.SYSTEM_PREFIX + "consumer.deserializer.class"
 
+  /**
+   * Defines how low a queue can get for a single system/stream/partition
+   * combination before trying to fetch more messages for it.
+   */
+  val CONSUMER_FETCH_THRESHOLD = SystemConfig.SYSTEM_PREFIX + ".samza.fetch.threshold"
+
   implicit def Config2Kafka(config: Config) = new KafkaConfig(config)
 }
 
@@ -47,6 +53,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   // custom consumer config
   def getConsumerKeyDeserializerClass(name: String) = getOption(KafkaConfig.CONSUMER_KEY_DESERIALIZER format name)
   def getConsumerMsgDeserializerClass(name: String) = getOption(KafkaConfig.CONSUMER_MSG_DESERIALIZER format name)
+  def getConsumerFetchThreshold(name: String) = getOption(KafkaConfig.CONSUMER_FETCH_THRESHOLD format name)
 
   /**
    * Returns a map of topic -> auto.offset.reset value for all streams that
@@ -83,7 +90,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     consumerProps.putAll(injectedProps)
     new ConsumerConfig(consumerProps)
   }
- 
+
   def getKafkaSystemProducerConfig(
     systemName: String,
     clientId: String = "undefined-samza-producer-" format UUID.randomUUID.toString,
