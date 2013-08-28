@@ -79,7 +79,8 @@ class TestKeyValueStores(cache: Boolean) {
     val k = b("k2")
     store.put(k, b("v1"))
     store.put(k, b("v2"))
-    assertTrue(Arrays.equals(b("v2"), store.get(k)))
+    store.put(k, b("v3"))
+    assertTrue(Arrays.equals(b("v3"), store.get(k)))
   }
 
   @Test
