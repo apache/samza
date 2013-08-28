@@ -93,7 +93,8 @@ class CachedStore[K, V](val store: KeyValueStore[K, V],
     if (found == null || found.dirty == null) {
       this.dirtyCount += 1
     } else {
-      // If we are removing the head of the list, move the head to the next element.
+      // If we are removing the head of the list, move the head to the next 
+      // element. See SAMZA-45 for details.
       if(found.dirty.prev == null) {
         this.dirty = found.dirty.next
         this.dirty.prev = null
