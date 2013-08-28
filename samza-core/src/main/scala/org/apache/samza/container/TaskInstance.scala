@@ -1,4 +1,5 @@
 /*
+
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -201,9 +202,9 @@ class TaskInstance(
 
       storageManager.flush
 
-      trace("Committing producers for partition: %s" format partition)
+      trace("Flushing producers for partition: %s" format partition)
 
-      producerMultiplexer.commit(metrics.source)
+      producerMultiplexer.flush(metrics.source)
 
       if (checkpointManager != null) {
         trace("Committing checkpoint manager for partition: %s" format partition)

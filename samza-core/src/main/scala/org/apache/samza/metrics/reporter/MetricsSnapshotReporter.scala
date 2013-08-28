@@ -135,8 +135,8 @@ class MetricsSnapshotReporter(
 
       producer.send(source, new OutgoingMessageEnvelope(out, host, null, maybeSerialized))
 
-      // Always commit, since we don't want metrics to get batched up.
-      producer.commit(source)
+      // Always flush, since we don't want metrics to get batched up.
+      producer.flush(source)
     }
 
     debug("Finished flushing metrics.")

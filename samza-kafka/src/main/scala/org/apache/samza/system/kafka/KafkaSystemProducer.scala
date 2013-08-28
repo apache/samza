@@ -68,11 +68,11 @@ class KafkaSystemProducer(
       envelope.getMessage)
 
     if (sourceBuffers(source).size >= batchSize) {
-      commit(source)
+      flush(source)
     }
   }
 
-  def commit(source: String) {
+  def flush(source: String) {
     val buffer = sourceBuffers(source)
     var done = false
 

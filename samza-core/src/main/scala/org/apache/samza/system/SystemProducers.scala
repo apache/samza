@@ -39,8 +39,8 @@ class SystemProducers(
     producers.values.foreach(_.register(source))
   }
 
-  def commit(source: String) {
-    producers.values.foreach(_.commit(source))
+  def flush(source: String) {
+    producers.values.foreach(_.flush(source))
   }
 
   def send(source: String, envelope: OutgoingMessageEnvelope) {

@@ -91,7 +91,7 @@ class TestKafkaSystemProducer {
   }
 
   @Test
-  def testKafkaProducerCommit {
+  def testKafkaProducerFlush {
     val props = getProps
     val msgs = scala.collection.mutable.ListBuffer[String]()
     val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a")
@@ -105,13 +105,13 @@ class TestKafkaSystemProducer {
       }
     })
 
-    // commit should trigger the count down
+    // flush should trigger the count down
     producer.register("test")
     producer.start
     producer.send("test", msg1)
     producer.send("test", msg2)
     assertEquals(0, msgs.size)
-    producer.commit("test")
+    producer.flush("test")
     assertEquals(2, msgs.size)
     assertEquals("a", msgs(0))
     assertEquals("b", msgs(1))

@@ -28,5 +28,5 @@ public interface SystemProducer {
 
   void send(String source, OutgoingMessageEnvelope envelope);
 
-  void commit(String source);
+  void flush(String source);
 }
