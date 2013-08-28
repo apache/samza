@@ -90,9 +90,9 @@ class CachedStore[K, V](val store: KeyValueStore[K, V],
   def put(key: K, value: V) {
     // add the key to the front of the dirty list (and remove any prior occurrences to dedupe)
     val found = cache.get(key)
-    if (found == null || found.dirty == null)
+    if (found == null || found.dirty == null) {
       this.dirtyCount += 1
-    else {
+    } else {
       // If we are removing the head of the list, move the head to the next element.
       if(found.dirty.prev == null) {
         this.dirty = found.dirty.next
