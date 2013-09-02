@@ -7,7 +7,7 @@ Here are a few of the high-level design decisions that we think make Samza a bit
 
 ### The Stream Model
 
-Streams are the input and output to Samza jobs. Samza has a very strong model of a stream&mdash;they are more then just a simple message exchange mechanism. A stream in Samza is a partitioned, ordered, replayable, multi-subscriber, lossless sequence of messages. The stream acts as a buffer that isolates processing stages from one another.
+Streams are the input and output to Samza jobs. Samza has a very strong model of a stream&mdash;it is more than just a simple message exchange mechanism. A stream in Samza is a partitioned, ordered, replayable, multi-subscriber, lossless sequence of messages. The stream acts as a buffer that isolates processing stages from one another.
 
 This stronger model requires persistence, fault-tolerance, and buffering in the stream implementation, but it has several benefits.
 
@@ -29,11 +29,11 @@ This means that you can view a Samza job as being both a piece of processing cod
 
 ![Stateful Processing](/img/0.7.0/learn/documentation/introduction/samza_state.png)
 
-In our experience most processing flows require joins against other data sourceIn the absence of state maintenance, any joining or aggregation has to be done by querying an external data system. This tends to be one or two orders of magnitude slower than sequential processing. For example per-node throughput for Kafka would easily be in the 100k-500k messages/sec range (depending on message size) but remote queries against a key-value store tend to be closer to 1-5k queries-per-second per node.
+In our experience most processing flows require joins against other data source. In the absence of state maintenance, any joining or aggregation has to be done by querying an external data system. This tends to be one or two orders of magnitude slower than sequential processing. For example per-node throughput for Kafka would easily be in the 100k-500k messages/sec range (depending on message size) but remote queries against a key-value store tend to be closer to 1-5k queries-per-second per node.
 
 Worse mixing in queries from throughput-oriented stream processing on databases and services that also support live user traffic with low latency is a recipe for disaster. By offloading this into the stream processing system you effectively isolate the high-throughput stream processing from low-latency systems.
 
-By instead moving the data to the processing remote communication is completely eliminated for reads. If the data, once partitioned, fits in memory, then these lookups will be purely in memory and can run at outrageously fast rates.
+By instead moving the data to the processing, remote communication is completely eliminated for reads. If the data, once partitioned, fits in memory, then these lookups will be purely in memory and can run at outrageously fast rates.
 
 This pattern is not always appropriate and not required (nothing prevents external calls). To make use of this approach you must be able to produce a feed of changes from your databases, which not everyone can do. It also may be the case that much of the logic required to access the data properly is in an online service. In this case calling the service from your Samza job may be more convenient.
 

@@ -61,13 +61,13 @@ Example code:
     public class MyStatefulTask implements StreamTask, InitableTask {
       private KeyValueStore<String, String> store;
       
-      public void init(Config config, TaskContextPartition context) {
+      public void init(Config config, TaskContext context) {
         this.store = (KeyValueStore<String, String>) context.getStore("store");
       }
 
-      public void process(MessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
-        System.out.println("Adding " + envelope.getMessage() + " => " + envelope.getMessage() + " to the store.");
-        store.put((String) envelope.getMessage(), (String) envelope.getMessage());
+      public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
+        System.out.println("Adding " + envelope.getKey() + " => " + envelope.getMessage() + " to the store.");
+        store.put((String) envelope.getKey(), (String) envelope.getMessage());
       }
     }
 
@@ -87,9 +87,9 @@ This shows the put() API, but KeyValueStore gives a fairly general key-value int
 The above code shows usage of the key-value storage engine, but it is not too hard to implement an alternate storage engine. To do so, you implement methods to restore the contents of the store from a stream, flush any cached content on commit, and close the store:
 
     public interface StorageEngine {
-      void restore(StreamConsumer consumer);
+      void restore(Iterator<IncomingMessageEnvelope> envelopes);
       void flush();
-      void close();
+      void stop();
     }
 
 The user specifies the type of storage engine they want by passing in a factory for that store in their configuration.

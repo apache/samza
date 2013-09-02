@@ -3,14 +3,13 @@ layout: page
 title: Event Loop
 ---
 
-The event loop is the [TaskRunner](task-runner.html)'s single thread that is in charge of [reading](streams.html), [writing](streams.html), [metrics flushing](metrics.html), [checkpointing](checkpointing.html), and [windowing](windowing.html). It's the code that puts all of this stuff together. Each StreamConsumer reads messages on its own thread, but writes messages into a centralized message queue. The TaskRunner uses this queue to funnel all of the messages into the event loop. Here's how the event loop works:
+The event loop is the [TaskRunner](task-runner.html)'s single thread that is in charge of [reading](streams.html), [writing](streams.html), [metrics flushing](metrics.html), [checkpointing](checkpointing.html), and [windowing](windowing.html). It's the code that puts all of this stuff together. Each SystemConsumer reads messages on its own thread, but writes messages into a centralized message queue. The TaskRunner uses this queue to funnel all of the messages into the event loop. Here's how the event loop works:
 
-1. Take a message from the incoming message queue (the queue that the StreamConsumers are putting their messages)
+1. Take a message from the incoming message queue (the queue that the SystemConsumers are putting their messages)
 2. Give the message to the appropriate StreamTask by calling process() on it
-3. Send any StreamTask output from the process() call to the appropriate StreamProducers
-4. Call window() on the StreamTask if it implements WindowableTask, and the window time has expired
-5. Send any StreamTask output from the window() call to the appropriate StreamProducers
-6. Write checkpoints for any partitions that are past the defined checkpoint commit interval
+3. Call window() on the StreamTask if it implements WindowableTask, and the window time has expired
+4. Send any StreamTask output from the process() and window() call to the appropriate SystemProducers
+5. Write checkpoints for any partitions that are past the defined checkpoint commit interval
 
 The TaskRunner does this, in a loop, until it is shutdown.
 
@@ -37,12 +36,12 @@ public interface TaskLifecycleListener {
   /**
    * Called before a message is processed by a task.
    */
-  void beforeProcess(MessageEnvelope envelope, Config config, TaskContext context);
+  void beforeProcess(IncomingMessageEnvelope envelope, Config config, TaskContext context);
 
   /**
    * Called after a message is processed by a task.
    */
-  void afterProcess(MessageEnvelope envelope, Config config, TaskContext context);
+  void afterProcess(IncomingMessageEnvelope envelope, Config config, TaskContext context);
 
   /**
    * Called before all tasks in TaskRunner are closed.

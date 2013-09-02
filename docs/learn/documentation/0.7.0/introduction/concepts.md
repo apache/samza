@@ -35,9 +35,9 @@ A job is itself distributed by breaking it into multiple *tasks*. The *task* is 
 
 The task processes messages from each of its input partitions *in order by offset*. There is no defined ordering between partitions.
 
-The position of the task in its input partitions can be represented by set of offsets, one for each partition.
+The position of the task in its input partitions can be represented by a set of offsets, one for each partition.
 
-The number of tasks a job has is fixed and does not change (though the computational resources assigned to the job may go up and down). The number of tasks a job has also determines the maximum parallelism of the job as each task processes messages sequentially. There cannot be more tasks than input partitions (or there would be some task with no input).
+The number of tasks a job has is fixed and does not change (though the computational resources assigned to the job may go up and down). The number of tasks a job has also determines the maximum parallelism of the job as each task processes messages sequentially. There cannot be more tasks than input partitions (or there would be some tasks with no input).
 
 The partitions assigned to a task will never change: if a task is on a machine that fails the task will be restarted elsewhere still consuming the same stream partitions.
 

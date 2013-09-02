@@ -31,7 +31,7 @@ Stream processing is a higher level of abstraction on top of messaging systems, 
 
 Samza is a stream processing framework with the following features:
 
-* **Simpe API:** Samza provides a very simple call-back based "process message" API.
+* **Simple API:** Samza provides a very simple call-back based "process message" API.
 * **Managed state:** Samza manages snapshotting and restoration of a stream processor's state. Samza will restore a stream processor's state to a snapshot consistent with the processor's last read messages when the processor is restarted. Samza is built to handle large amounts of state (even many gigabytes per partition).
 * **Fault tolerance:** Samza will work with YARN to transparently migrate your tasks whenever a machine in the cluster fails.
 * **Durability:** Samza uses Kafka to guarantee that no messages will ever be lost.

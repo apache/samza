@@ -9,12 +9,12 @@ Samza also provides a metrics library that the TaskRunner uses. It allows a Stre
 public class MyJavaStreamerTask implements StreamTask, InitableTask {
   private static final Counter messageCount;
 
-  public void init(Config config, TaskContextPartition context) {
+  public void init(Config config, TaskContext context) {
     this.messageCount = context.getMetricsRegistry().newCounter(MyJavaStreamerTask.class.toString(), "MessageCount");
   }
 
   @Override
-  public void process(MessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
+  public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
     System.out.println(envelope.getMessage().toString());
     messageCount.inc();
   }
@@ -31,7 +31,11 @@ public interface MetricsRegistry {
 }
 
 public interface MetricsReporter {
-  void report(MessageCollector collector, ReadableMetricsRegistry registry, long currentTimeMillis, Partition partition);
+  void start();
+
+  void register(String source, ReadableMetricsRegistry registry);
+
+  void stop();
 }
 ```
 
@@ -45,6 +49,6 @@ The TaskRunner, itself, also gets a MetricsRegistry that it can use to create co
 
 ### MetricsReporter
 
-The other important interface is the MetricsReporter. The TaskRunner uses MetricsReporter implementations to send its MetricsRegistry counters and gauges to whatever metrics infrastructure the reporter uses. A Samza job's configuration determines which MetricsReporters the TaskRunner will use. Out of the box, Samza comes with a MetricsSnapshotReporter that sends JSON metrics messages to a Kafka topic.
+The other important interface is the MetricsReporter. The TaskRunner uses MetricsReporter implementations to send its MetricsRegistry counters and gauges to whatever metrics infrastructure the reporter uses. A Samza job's configuration determines which MetricsReporters the TaskRunner will use. Out of the box, Samza comes with a MetricsSnapshotReporter that sends JSON metrics messages to a Kafka topic, and a JmxReporter that records metrics to be read via JMX.
 
 ## [Windowing &raquo;](windowing.html)

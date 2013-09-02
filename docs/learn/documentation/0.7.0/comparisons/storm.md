@@ -11,7 +11,7 @@ title: Storm
 
 Storm has more conceptual building blocks than Samza. "Spouts" in Storm are similar to Streams in Samza, and Samza does not have an equivalent of their transient zeromq communication.
 
-There are also several approaches to handling delivery guarantees.
+There are also several approaches used by Storm for handling delivery guarantees.
 
 The primary approach is implemented by keeping a record of all emitted records in memory until they are acknowledged by all elements of a particular processing graph. In this mode messages that timeout are re-emitted. This seems to imply that messages can be processed out of order. This mechanism requires some co-operation from the user code which must maintain the ancestry of records in order to properly acknowledge its input. This is detailed in-depth on [Storm's wiki](https://github.com/nathanmarz/storm/wiki/Guaranteeing-message-processing).
 
@@ -21,7 +21,7 @@ This mechanism also implies that individual stages may produce back pressure up 
 
 Storm offers a secondary approach to delivery guarantees called [transactional topologies](https://github.com/nathanmarz/storm/wiki/Transactional-topologies). These require an underlying system similar to Kafka that maintains strongly sequenced messages. Transactional topologies seem to be limited to a single input stream.
 
-Samza always offers guaranteed delivery and ordering of input within a stream partition. We make no guarantee of ordering between different input streams or input stream partitions. Since all stages are repayable there is no need for the user code to track its ancestry.
+Samza always offers guaranteed delivery and ordering of input within a stream partition. We make no guarantee of ordering between different input streams or input stream partitions. Since all stages are replayable there is no need for the user code to track its ancestry.
 
 Like Storm's transactional topologies Samza provides a unique "offset" which is a sequential integer uniquely denoting the message in that stream partition. That is the first message in a stream partition has offset 0, the second offset 1, etc. Samza always records the position of a job in its input streams as a vector of offsets for the input stream partitions it consumers.
 
@@ -35,9 +35,9 @@ Samza provides [built-in primitives](../container/state-management.html) for man
 
 ### Partitioning and Parallelism
 
-Storm's [parallelism model](https://github.com/nathanmarz/storm/wiki/Understanding-the-parallelism-of-a-Storm-topology) maps fairly similar to Samza's. The biggest difference is that Samza holds only a single job per process and the process is single threaded regardless of the number of tasks it contains. Storm's more optimistic parallelism model has the advantage of taking better advantage of excess capacity on an idle machine. However this significantly complicates the resource model. In Samza since each container map exactly to a CPU core a job run in 100 containers will use 100 CPU cores. This allows us to better model the CPU usage on a machine and ensure that we don't see uneven performance based on the other tasks that happen to be collocated on that machine. 
+Storm's [parallelism model](https://github.com/nathanmarz/storm/wiki/Understanding-the-parallelism-of-a-Storm-topology) is fairly similar to Samza's. The biggest difference is that Samza holds only a single job per process and the process is single threaded regardless of the number of tasks it contains. Storm's more optimistic parallelism model has the advantage of taking better advantage of excess capacity on an idle machine. However this significantly complicates the resource model. In Samza, since each container maps to exactly one CPU core, a job run in 100 containers will use 100 CPU cores. This allows us to better model the CPU usage on a machine and ensure that we don't see uneven performance based on the other tasks that happen to be collocated on that machine.
 
-Storm supports "dynamic rebalancing", which means adding more threads or processes to a topology without restarting the topology or cluster. This is a convenient feature, especially for during development. We haven't added this yet as philosophically we feel that these kind of changes should go through a normal configuration management process (i.e. version control, notification, etc) as they impact production performance. In other words the jobs + configs should fully recreate the state of the cluster.
+Storm supports "dynamic rebalancing", which means adding more threads or processes to a topology without restarting the topology or cluster. This is a convenient feature, especially during development. We haven't added this yet as philosophically we feel that these kind of changes should go through a normal configuration management process (i.e. version control, notification, etc) as they impact production performance. In other words the jobs + configs should fully recreate the state of the cluster.
 
 ### Deployment &amp; Execution
 
@@ -63,7 +63,7 @@ Each job in a Samza graph is an independent entity that communicates with other 
 
 ### Maturity
 
-We can't speak to Storm's maturity, but it has an [impressive amount of adopters](https://github.com/nathanmarz/storm/wiki/Powered-By), a strong feature set, and seems to be under active development. It integrates well with many common messaging systems (RabbitMQ, Kesrel, Kafka, etc).
+We can't speak to Storm's maturity, but it has an [impressive number of adopters](https://github.com/nathanmarz/storm/wiki/Powered-By), a strong feature set, and seems to be under active development. It integrates well with many common messaging systems (RabbitMQ, Kesrel, Kafka, etc).
 
 Samza is pretty immature, though it builds on solid components. YARN is fairly new, but is already being run on 3000+ node clusters at Yahoo!, and the project is under active development by both [Hortonworks](http://hortonworks.com/) and [Cloudera](http://www.cloudera.com/content/cloudera/en/home.html). Kafka has a strong [powered by](https://cwiki.apache.org/KAFKA/powered-by.html) page, and has seen its share of adoption, recently. It's also frequently used with Storm. Samza is a brand new project that is in use at LinkedIn. Our hope is that others will find it useful, and adopt it as well.
 
