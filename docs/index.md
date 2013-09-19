@@ -6,7 +6,7 @@ layout: default
 
 Apache Samza is a distributed stream processing framework. It uses <a target="_blank" href="http://kafka.apache.org">Apache Kafka</a> for messaging, and <a target="_blank" href="http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html">Apache Hadoop YARN</a> to provide fault tolerance, processor isolation, security, and resource management.
 
-* **Simpe API:** Unlike most low-level messaging system APIs, Samza provides a very simple call-back based "process message" API that should be familiar to anyone that's used Map/Reduce.
+* **Simple API:** Unlike most low-level messaging system APIs, Samza provides a very simple call-back based "process message" API that should be familiar to anyone that's used Map/Reduce.
 * **Managed state:** Samza manages snapshotting and restoration of a stream processor's state. Samza will restore a stream processor's state to a snapshot consistent with the processor's last read messages when the processor is restarted.
 * **Fault tolerance:** Samza will work with YARN to restart your stream processor if there is a machine or processor failure.
 * **Durability:** Samza uses Kafka to guarantee that messages will be processed in the order they were written to a partition, and that no messages will ever be lost.
