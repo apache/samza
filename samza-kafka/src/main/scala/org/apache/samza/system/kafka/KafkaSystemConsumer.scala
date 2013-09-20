@@ -54,7 +54,7 @@ object KafkaSystemConsumer {
 private[kafka] class KafkaSystemConsumer(
   systemName: String,
   brokerListString: String,
-  metricsRegistry: MetricsRegistry,
+  metrics: KafkaSystemConsumerMetrics,
   clientId: String = "undefined-client-id-" + UUID.randomUUID.toString,
   timeout: Int = Int.MaxValue,
   bufferSize: Int = 1024000,
@@ -63,20 +63,18 @@ private[kafka] class KafkaSystemConsumer(
   offsetGetter: GetOffset = new GetOffset("fail"),
   deserializer: Decoder[Object] = new DefaultDecoder().asInstanceOf[Decoder[Object]],
   keyDeserializer: Decoder[Object] = new DefaultDecoder().asInstanceOf[Decoder[Object]],
-  clock: () => Long = { System.currentTimeMillis }) extends BlockingEnvelopeMap(metricsRegistry, new Clock {
+  clock: () => Long = { System.currentTimeMillis }) extends BlockingEnvelopeMap(metrics.registry, new Clock {
   def currentTimeMillis = clock()
 }) with Toss with Logging {
 
   type HostPort = (String, Int)
   val brokerProxies = scala.collection.mutable.Map[HostPort, BrokerProxy]()
   var lastReadOffsets = Map[SystemStreamPartition, String]()
-  val topicAndPartitionMetrics = new TopicAndPartitionMetrics(metricsRegistry)
 
   def start() {
     val topicPartitionsAndOffsets = lastReadOffsets.map {
       case (systemStreamPartition, offset) =>
         val topicAndPartition = KafkaSystemConsumer.toTopicAndPartition(systemStreamPartition)
-        topicAndPartitionMetrics.addNewTopicAndPartition(topicAndPartition)
         (topicAndPartition, offset)
     }
 
@@ -89,6 +87,8 @@ private[kafka] class KafkaSystemConsumer(
     super.register(systemStreamPartition, lastReadOffset)
 
     lastReadOffsets += systemStreamPartition -> lastReadOffset
+
+    metrics.registerTopicAndPartition(KafkaSystemConsumer.toTopicAndPartition(systemStreamPartition))
   }
 
   def stop() {
@@ -122,7 +122,7 @@ private[kafka] class KafkaSystemConsumer(
 
             brokerOption match {
               case Some(broker) =>
-                val brokerProxy = brokerProxies.getOrElseUpdate((broker.host, broker.port), new BrokerProxy(broker.host, broker.port, systemName, clientId, metricsRegistry, topicAndPartitionMetrics, timeout, bufferSize, offsetGetter) {
+                val brokerProxy = brokerProxies.getOrElseUpdate((broker.host, broker.port), new BrokerProxy(broker.host, broker.port, systemName, clientId, metrics, timeout, bufferSize, offsetGetter) {
                   val messageSink: MessageSink = sink
                 })
 

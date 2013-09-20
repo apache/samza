@@ -17,30 +17,34 @@
  * under the License.
  */
 
-package org.apache.samza.util;
+package org.apache.samza.metrics
 
-import org.apache.samza.metrics.Counter;
-import org.apache.samza.metrics.Gauge;
-import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.container.SamzaContainerMetrics
 
-public class NoOpMetricsRegistry implements MetricsRegistry {
-  @Override
-  public Counter newCounter(String group, String name) {
-    return new Counter(name);
+/**
+ * MetricsHelper is a little helper class to make it easy to register and
+ * manage counters and gauges.
+ */
+trait MetricsHelper {
+  val group = this.getClass.getName
+  val registry: MetricsRegistry
+
+  def newCounter(name: String) = {
+    registry.newCounter(group, (getPrefix + name).toLowerCase)
   }
 
-  @Override
-  public Counter newCounter(String group, Counter counter) {
-    return counter;
+  def newGauge[T](name: String, value: T) = {
+    registry.newGauge(group, new Gauge((getPrefix + name).toLowerCase, value))
   }
 
-  @Override
-  public <T> Gauge<T> newGauge(String group, String name, T value) {
-    return new Gauge<T>(name, value);
+  def newGauge[T](name: String, value: () => T) = {
+    registry.newGauge(group, new Gauge((getPrefix + name).toLowerCase, value()) {
+      override def getValue = value()
+    })
   }
 
-  @Override
-  public <T> Gauge<T> newGauge(String group, Gauge<T> gauge) {
-    return gauge;
-  }
+  /**
+   * Returns a prefix for metric names.
+   */
+  def getPrefix = ""
 }

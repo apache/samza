@@ -18,6 +18,7 @@
  */
 
 package org.apache.samza.metrics
+
 import grizzled.slf4j.Logging
 import java.util.concurrent.ConcurrentHashMap
 
@@ -25,7 +26,7 @@ import java.util.concurrent.ConcurrentHashMap
  * A class that holds all metrics registered with it. It can be registered
  * with one or more MetricReporters to flush metrics.
  */
-class MetricsRegistryMap extends ReadableMetricsRegistry with Logging {
+class MetricsRegistryMap(val name: String) extends ReadableMetricsRegistry with Logging {
   var listeners = Set[ReadableMetricsRegistryListener]()
 
   /*
@@ -33,26 +34,40 @@ class MetricsRegistryMap extends ReadableMetricsRegistry with Logging {
    */
   val metrics = new ConcurrentHashMap[String, ConcurrentHashMap[String, Metric]]
 
+  def this() = this("unknown")
+
+  def newCounter(group: String, counter: Counter) = {
+    debug("Add new counter %s %s %s." format (group, counter.getName, counter))
+    putAndGetGroup(group).putIfAbsent(counter.getName, counter)
+    val realCounter = metrics.get(group).get(counter.getName).asInstanceOf[Counter]
+    listeners.foreach(_.onCounter(group, realCounter))
+    realCounter
+  }
+
   def newCounter(group: String, name: String) = {
     debug("Creating new counter %s %s." format (group, name))
-    putAndGetGroup(group).putIfAbsent(name, new Counter(name))
-    val counter = metrics.get(group).get(name).asInstanceOf[Counter]
-    listeners.foreach(_.onCounter(group, counter))
-    counter
+    newCounter(group, new Counter(name))
+  }
+
+  def newGauge[T](group: String, gauge: Gauge[T]) = {
+    debug("Adding new gauge %s %s %s." format (group, gauge.getName, gauge))
+    putAndGetGroup(group).putIfAbsent(gauge.getName, gauge)
+    val realGauge = metrics.get(group).get(gauge.getName).asInstanceOf[Gauge[T]]
+    listeners.foreach(_.onGauge(group, realGauge))
+    realGauge
   }
 
   def newGauge[T](group: String, name: String, value: T) = {
     debug("Creating new gauge %s %s %s." format (group, name, value))
-    putAndGetGroup(group).putIfAbsent(name, new Gauge[T](name, value))
-    val gauge = metrics.get(group).get(name).asInstanceOf[Gauge[T]]
-    listeners.foreach(_.onGauge(group, gauge))
-    gauge
+    newGauge(group, new Gauge[T](name, value))
   }
 
   private def putAndGetGroup(group: String) = {
     metrics.putIfAbsent(group, new ConcurrentHashMap[String, Metric])
     metrics.get(group)
   }
+
+  def getName = name
 
   def getGroups = metrics.keySet()
 

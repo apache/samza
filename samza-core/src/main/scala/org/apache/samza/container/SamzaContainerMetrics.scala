@@ -21,13 +21,16 @@ package org.apache.samza.container
 
 import org.apache.samza.metrics.ReadableMetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.metrics.MetricsHelper
 
 class SamzaContainerMetrics(
-  val containerName: String = "unnamed-container",
-  val registry: ReadableMetricsRegistry = new MetricsRegistryMap) {
+  val source: String = "unknown",
+  val registry: ReadableMetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
 
-  val source = containerName
-  val commits = registry.newCounter("samza.task.SamzaContainer", "commits")
-
-  // TODO .. etc ..
+  val commits = newCounter("commit-calls")
+  val windows = newCounter("window-calls")
+  val processes = newCounter("process-calls")
+  val sends = newCounter("send-calls")
+  val envelopes = newCounter("process-envelopes")
+  val nullEnvelopes = newCounter("process-null-envelopes")
 }

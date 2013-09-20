@@ -27,23 +27,17 @@ import kafka.producer.KeyedMessage
 import kafka.producer.Producer
 import kafka.producer.ProducerConfig
 import org.apache.samza.config.Config
-import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.util.KafkaUtil
 import org.apache.samza.system.SystemProducer
 import org.apache.samza.system.OutgoingMessageEnvelope
-
-object KafkaSystemProducerMetrics {
-  val metricsGroup = "samza.kafka.producer"
-}
 
 class KafkaSystemProducer(
   systemName: String,
   batchSize: Int,
   reconnectIntervalMs: Long,
-  registry: MetricsRegistry,
-  getProducer: () => Producer[Object, Object]) extends SystemProducer with Logging {
+  getProducer: () => Producer[Object, Object],
+  metrics: KafkaSystemProducerMetrics) extends SystemProducer with Logging {
 
-  val flushReconnectCounter = registry.newCounter(KafkaSystemProducerMetrics.metricsGroup, "Producer-%s-Reconnects" format systemName)
   var sourceBuffers = Map[String, ArrayBuffer[KeyedMessage[Object, Object]]]()
   var producer: Producer[Object, Object] = null
 
@@ -58,9 +52,15 @@ class KafkaSystemProducer(
 
   def register(source: String) {
     sourceBuffers += source -> ArrayBuffer()
+
+    metrics.setBufferSize(source, () => sourceBuffers(source).size)
   }
 
   def send(source: String, envelope: OutgoingMessageEnvelope) {
+    debug("Enqueueing message: %s, %s." format (source, envelope))
+
+    metrics.sends.inc
+
     sourceBuffers(source) += new KeyedMessage[Object, Object](
       envelope.getSystemStream.getStream,
       envelope.getKey,
@@ -78,6 +78,8 @@ class KafkaSystemProducer(
 
     debug("Flushing buffer with size: %s." format buffer.size)
 
+    metrics.flushes.inc
+
     while (!done) {
       try {
         if (producer == null) {
@@ -88,12 +90,13 @@ class KafkaSystemProducer(
 
         producer.send(buffer: _*)
         done = true
+        metrics.flushSizes.inc(buffer.size)
       } catch {
         case e: Throwable =>
           warn("Triggering a reconnect for %s because connection failed: %s" format (systemName, e.getMessage))
           debug("Exception while producing to %s." format systemName, e)
 
-          flushReconnectCounter.inc
+          metrics.reconnects.inc
 
           if (producer != null) {
             producer.close

@@ -32,10 +32,8 @@ import org.apache.samza.util.DaemonThreadFactory
 /**
  * Straight up ripoff of Hadoop's metrics2 JvmMetrics class.
  */
-class JvmMetrics(group: String, registry: MetricsRegistry) extends Runnable with Logging {
-  final val M = 1024 * 1024.0f
-
-  def this(registry: MetricsRegistry) = this("samza.jvm", registry)
+class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runnable with Logging {
+  final val M = 1024 * 1024.0F
 
   val memoryMXBean = ManagementFactory.getMemoryMXBean()
   val gcBeans = ManagementFactory.getGarbageCollectorMXBeans()
@@ -44,18 +42,18 @@ class JvmMetrics(group: String, registry: MetricsRegistry) extends Runnable with
   val executor = Executors.newScheduledThreadPool(1, new DaemonThreadFactory)
 
   // jvm metrics
-  val gMemNonHeapUsedM = registry.newGauge[Float](group, "MemNonHeapUsedM", 0)
-  val gMemNonHeapCommittedM = registry.newGauge[Float](group, "MemNonHeapCommittedM", 0)
-  val gMemHeapUsedM = registry.newGauge[Float](group, "MemHeapUsedM", 0)
-  val gMemHeapCommittedM = registry.newGauge[Float](group, "MemHeapCommittedM", 0)
-  val gThreadsNew = registry.newGauge[Long](group, "ThreadsNew", 0)
-  val gThreadsRunnable = registry.newGauge[Long](group, "ThreadsRunnable", 0)
-  val gThreadsBlocked = registry.newGauge[Long](group, "ThreadsBlocked", 0)
-  val gThreadsWaiting = registry.newGauge[Long](group, "ThreadsWaiting", 0)
-  val gThreadsTimedWaiting = registry.newGauge[Long](group, "ThreadsTimedWaiting", 0)
-  val gThreadsTerminated = registry.newGauge[Long](group, "ThreadsTerminated", 0)
-  val cGcCount = registry.newCounter(group, "GcCount")
-  val cGcTimeMillis = registry.newCounter(group, "GcTimeMillis")
+  val gMemNonHeapUsedM = newGauge("mem-non-heap-used-mb", 0.0F)
+  val gMemNonHeapCommittedM = newGauge("mem-non-heap-committed-mb", 0.0F)
+  val gMemHeapUsedM = newGauge("mem-heap-used-mb", 0.0F)
+  val gMemHeapCommittedM = newGauge("mem-heap-committed-mb", 0.0F)
+  val gThreadsNew = newGauge("threads-new", 0L)
+  val gThreadsRunnable = newGauge("threads-runnable", 0L)
+  val gThreadsBlocked = newGauge("threads-blocked", 0L)
+  val gThreadsWaiting = newGauge("threads-waiting", 0L)
+  val gThreadsTimedWaiting = newGauge("threads-timed-waiting", 0L)
+  val gThreadsTerminated = newGauge("threads-terminated", 0L)
+  val cGcCount = newCounter("gc-count")
+  val cGcTimeMillis = newCounter("gc-time-millis")
 
   def start {
     executor.scheduleWithFixedDelay(this, 0, 5, TimeUnit.SECONDS)
@@ -107,7 +105,7 @@ class JvmMetrics(group: String, registry: MetricsRegistry) extends Runnable with
     gcBeanCounters.get(gcName) match {
       case Some(gcBeanCounterTuple) => gcBeanCounterTuple
       case _ => {
-        val t = (registry.newCounter(group, "GcCount" + gcName), registry.newCounter(group, "GcTimeMillis" + gcName))
+        val t = (newCounter("%s-gc-count" format gcName), newCounter("%s-gc-time-millis" format gcName))
         gcBeanCounters += (gcName -> t)
         t
       }

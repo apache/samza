@@ -17,29 +17,25 @@
  * under the License.
  */
 
-package org.apache.samza.container
+package org.apache.samza.system.kafka
 
-import org.apache.samza.metrics.ReadableMetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.Partition
-import org.apache.samza.metrics.MetricsHelper
+import org.apache.samza.metrics.ReadableMetricsRegistry
 import org.apache.samza.system.SystemStream
+import org.apache.samza.metrics.MetricsHelper
+import org.apache.samza.Partition
 import org.apache.samza.metrics.Gauge
+import org.apache.samza.metrics.MetricsRegistry
 
-class TaskInstanceMetrics(
-  val source: String = "unknown",
-  val registry: ReadableMetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+class KafkaSystemProducerMetrics(val systemName: String = "unknown", val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+  val reconnects = newCounter("producer-reconnects")
+  val sends = newCounter("producer-sends")
+  val flushes = newCounter("flushes")
+  val flushSizes = newCounter("flush-sizes")
 
-  val commits = newCounter("commit-calls")
-  val commitsSkipped = newCounter("commit-skipped")
-  val windows = newCounter("window-calls")
-  val windowsSkipped = newCounter("window-skipped")
-  val processes = newCounter("process-calls")
-  val sends = newCounter("send-calls")
-  val sendsSkipped = newCounter("send-skipped")
-  val messagesSent = newCounter("messages-sent")
-
-  def addOffsetGauge(systemStream: SystemStream, getValue: () => String) {
-    newGauge("%s-%s-offset" format (systemStream.getSystem, systemStream.getStream), getValue)
+  def setBufferSize(source: String, getValue: () => Int) {
+    newGauge("%s-producer-buffer-size" format source, getValue)
   }
+
+  override def getPrefix = systemName + "-"
 }

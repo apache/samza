@@ -17,30 +17,25 @@
  * under the License.
  */
 
-package org.apache.samza.util;
+package org.apache.samza.storage.kv
 
-import org.apache.samza.metrics.Counter;
-import org.apache.samza.metrics.Gauge;
-import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.metrics.Counter
+import org.apache.samza.metrics.MetricsHelper
 
-public class NoOpMetricsRegistry implements MetricsRegistry {
-  @Override
-  public Counter newCounter(String group, String name) {
-    return new Counter(name);
-  }
+class LevelDbKeyValueStoreMetrics(
+  val storeName: String = "unknown",
+  val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
 
-  @Override
-  public Counter newCounter(String group, Counter counter) {
-    return counter;
-  }
+  val gets = newCounter("gets")
+  val ranges = newCounter("ranges")
+  val alls = newCounter("alls")
+  val puts = newCounter("puts")
+  val deletes = newCounter("deletes")
+  val flushes = newCounter("flushes")
+  val bytesWritten = newCounter("bytes-written")
+  val bytesRead = newCounter("bytes-read")
 
-  @Override
-  public <T> Gauge<T> newGauge(String group, String name, T value) {
-    return new Gauge<T>(name, value);
-  }
-
-  @Override
-  public <T> Gauge<T> newGauge(String group, Gauge<T> gauge) {
-    return gauge;
-  }
+  override def getPrefix = storeName + "-"
 }

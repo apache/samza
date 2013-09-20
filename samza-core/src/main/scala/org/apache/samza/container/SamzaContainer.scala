@@ -55,6 +55,9 @@ import org.apache.samza.system.SystemProducers
 import org.apache.samza.task.ReadableCollector
 import org.apache.samza.system.DefaultChooser
 import org.apache.samza.system.SystemConsumers
+import org.apache.samza.system.SystemProducersMetrics
+import org.apache.samza.system.SystemConsumersMetrics
+import org.apache.samza.metrics.MetricsRegistryMap
 
 object SamzaContainer extends Logging {
   def main(args: Array[String]) {
@@ -83,7 +86,10 @@ object SamzaContainer extends Logging {
     info("Using partitions: %s" format partitions)
     info("Using configuration: %s" format config)
 
-    val samzaContainerMetrics = new SamzaContainerMetrics(containerName)
+    val registry = new MetricsRegistryMap(containerName)
+    val samzaContainerMetrics = new SamzaContainerMetrics(containerName, registry)
+    val systemProducersMetrics = new SystemProducersMetrics(registry)
+    val systemConsumersMetrics = new SystemConsumersMetrics(registry)
 
     val inputStreams = config.getInputStreams
     val inputSystems = inputStreams.map(_.getSystem)
@@ -261,11 +267,13 @@ object SamzaContainer extends Logging {
       // TODO add config values for no new message timeout and max msgs per stream partition
       chooser = chooser,
       consumers = consumers,
-      serdeManager = serdeManager)
+      serdeManager = serdeManager,
+      metrics = systemConsumersMetrics)
 
     val producerMultiplexer = new SystemProducers(
       producers = producers,
-      serdeManager = serdeManager)
+      serdeManager = serdeManager,
+      metrics = systemProducersMetrics)
 
     val listeners = config.getLifecycleListeners match {
       case Some(listeners) => {
@@ -324,7 +332,7 @@ object SamzaContainer extends Logging {
 
       val collector = new ReadableCollector
 
-      val taskInstanceMetrics = new TaskInstanceMetrics(partition)
+      val taskInstanceMetrics = new TaskInstanceMetrics("Partition-%s" format partition.getPartitionId)
 
       val storeConsumers = changeLogSystemStreams
         .map {
@@ -402,8 +410,8 @@ object SamzaContainer extends Logging {
       config = config,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
-      checkpointManager = checkpointManager,
       metrics = samzaContainerMetrics,
+      checkpointManager = checkpointManager,
       reporters = reporters,
       jvm = jvm)
   }
@@ -414,8 +422,8 @@ class SamzaContainer(
   config: Config,
   consumerMultiplexer: SystemConsumers,
   producerMultiplexer: SystemProducers,
+  metrics: SamzaContainerMetrics,
   checkpointManager: CheckpointManager = null,
-  metrics: SamzaContainerMetrics = new SamzaContainerMetrics,
   reporters: Map[String, MetricsReporter] = Map(),
   jvm: JvmMetrics = null) extends Runnable with Logging {
 
@@ -530,6 +538,8 @@ class SamzaContainer(
   def process(coordinator: ReadableCoordinator) {
     trace("Attempting to choose a message to process.")
 
+    metrics.processes.inc
+
     val envelope = consumerMultiplexer.choose
 
     if (envelope != null) {
@@ -537,14 +547,20 @@ class SamzaContainer(
 
       trace("Processing incoming message envelope for partition %s." format partition)
 
+      metrics.envelopes.inc
+
       taskInstances(partition).process(envelope, coordinator)
     } else {
       trace("No incoming message envelope was available.")
+
+      metrics.nullEnvelopes.inc
     }
   }
 
   def window(coordinator: ReadableCoordinator) {
     trace("Windowing stream tasks.")
+
+    metrics.windows.inc
 
     taskInstances.values.foreach(_.window(coordinator))
   }
@@ -552,11 +568,15 @@ class SamzaContainer(
   def send {
     trace("Triggering send in task instances.")
 
+    metrics.sends.inc
+
     taskInstances.values.foreach(_.send)
   }
 
   def commit(coordinator: ReadableCoordinator) {
     trace("Committing task instances.")
+
+    metrics.commits.inc
 
     taskInstances.values.foreach(_.commit(coordinator))
   }

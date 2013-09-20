@@ -17,29 +17,33 @@
  * under the License.
  */
 
-package org.apache.samza.container
+package org.apache.samza.storage.kv
 
-import org.apache.samza.metrics.ReadableMetricsRegistry
+import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.Partition
+import org.apache.samza.metrics.Counter
 import org.apache.samza.metrics.MetricsHelper
-import org.apache.samza.system.SystemStream
-import org.apache.samza.metrics.Gauge
 
-class TaskInstanceMetrics(
-  val source: String = "unknown",
-  val registry: ReadableMetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+class CachedStoreMetrics(
+  val storeName: String = "unknown",
+  val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
 
-  val commits = newCounter("commit-calls")
-  val commitsSkipped = newCounter("commit-skipped")
-  val windows = newCounter("window-calls")
-  val windowsSkipped = newCounter("window-skipped")
-  val processes = newCounter("process-calls")
-  val sends = newCounter("send-calls")
-  val sendsSkipped = newCounter("send-skipped")
-  val messagesSent = newCounter("messages-sent")
+  val gets = newCounter("gets")
+  val ranges = newCounter("ranges")
+  val alls = newCounter("alls")
+  val cacheHits = newCounter("cache-hits")
+  val puts = newCounter("puts")
+  val deletes = newCounter("deletes")
+  val flushes = newCounter("flushes")
+  val flushBatchSize = newCounter("flush-batch-size")
 
-  def addOffsetGauge(systemStream: SystemStream, getValue: () => String) {
-    newGauge("%s-%s-offset" format (systemStream.getSystem, systemStream.getStream), getValue)
+  def setDirtyCount(getValue: () => Int) {
+    newGauge("dirty-count", getValue)
   }
+
+  def setCacheSize(getValue: () => Int) {
+    newGauge("cache-size", getValue)
+  }
+  
+  override def getPrefix = storeName + "-"
 }

@@ -42,6 +42,7 @@ import org.apache.samza.task.ReadableCollector
 import org.apache.samza.system.SystemConsumers
 import org.apache.samza.system.SystemProducers
 import org.apache.samza.task.ReadableCoordinator
+import org.apache.samza.metrics.Gauge
 
 class TaskInstance(
   task: StreamTask,
@@ -136,6 +137,8 @@ class TaskInstance(
         for ((systemStream, offset) <- checkpoint.getOffsets) {
           if (!resetInputStreams.getOrElse(systemStream, false)) {
             offsets += systemStream -> offset
+
+            metrics.addOffsetGauge(systemStream, () => offsets(systemStream))
           } else {
             info("Got offset %s for %s, but ignoring, since stream was configured to reset offsets." format (offset, systemStream))
           }
@@ -156,6 +159,8 @@ class TaskInstance(
   }
 
   def process(envelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator) {
+    metrics.processes.inc
+
     listeners.foreach(_.beforeProcess(envelope, config, context))
 
     trace("Processing incoming message envelope for partition: %s, %s" format (partition, envelope.getSystemStreamPartition))
@@ -173,18 +178,25 @@ class TaskInstance(
     if (isWindowableTask && windowMs >= 0 && lastWindowMs + windowMs < clock()) {
       trace("Windowing for partition: %s" format partition)
 
+      metrics.windows.inc
+
       task.asInstanceOf[WindowableTask].window(collector, coordinator)
       lastWindowMs = clock()
 
       trace("Assigned last window time for partition: %s, %s" format (partition, lastWindowMs))
     } else {
       trace("Skipping window for partition: %s" format partition)
+
+      metrics.windowsSkipped.inc
     }
   }
 
   def send {
     if (collector.envelopes.size > 0) {
       trace("Sending messages for partition: %s, %s" format (partition, collector.envelopes.size))
+
+      metrics.sends.inc
+      metrics.messagesSent.inc(collector.envelopes.size)
 
       collector.envelopes.foreach(envelope => producerMultiplexer.send(metrics.source, envelope))
 
@@ -193,12 +205,16 @@ class TaskInstance(
       collector.reset
     } else {
       trace("Skipping send for partition %s because no messages were collected." format partition)
+
+      metrics.sendsSkipped.inc
     }
   }
 
   def commit(coordinator: ReadableCoordinator) {
     if (lastCommitMs + commitMs < clock() || coordinator.isCommitRequested || coordinator.isShutdownRequested) {
       trace("Flushing state stores for partition: %s" format partition)
+
+      metrics.commits.inc
 
       storageManager.flush
 
@@ -213,6 +229,10 @@ class TaskInstance(
       }
 
       lastCommitMs = clock()
+    } else {
+      trace("Skipping commit for partition: %s" format partition)
+
+      metrics.commitsSkipped.inc
     }
   }
 

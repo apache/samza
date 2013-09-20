@@ -51,13 +51,13 @@ class TestKafkaSystemProducer {
     val props = getProps
     @volatile var msgsSent = new CountDownLatch(1)
 
-    val producer = new KafkaSystemProducer("test", 1, 100, new MetricsRegistryMap, () => {
+    val producer = new KafkaSystemProducer("test", 1, 100, () => {
       new Producer[Object, Object](new ProducerConfig(props)) {
         override def send(messages: KeyedMessage[Object, Object]*) {
           msgsSent.countDown
         }
       }
-    })
+    }, new KafkaSystemProducerMetrics)
 
     producer.register("test")
     producer.start
@@ -72,13 +72,13 @@ class TestKafkaSystemProducer {
     val props = getProps
     @volatile var msgsSent = 0
 
-    val producer = new KafkaSystemProducer("test", 2, 100, new MetricsRegistryMap, () => {
+    val producer = new KafkaSystemProducer("test", 2, 100, () => {
       new Producer[Object, Object](new ProducerConfig(props)) {
         override def send(messages: KeyedMessage[Object, Object]*) {
           msgsSent += 1
         }
       }
-    })
+    }, new KafkaSystemProducerMetrics)
 
     // second message should trigger the count down
     producer.register("test")
@@ -97,13 +97,13 @@ class TestKafkaSystemProducer {
     val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a")
     val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b")
 
-    val producer = new KafkaSystemProducer("test", 3, 100, new MetricsRegistryMap, () => {
+    val producer = new KafkaSystemProducer("test", 3, 100, () => {
       new Producer[Object, Object](new ProducerConfig(props)) {
         override def send(messages: KeyedMessage[Object, Object]*) {
           msgs ++= messages.map(_.message.asInstanceOf[String])
         }
       }
-    })
+    }, new KafkaSystemProducerMetrics)
 
     // flush should trigger the count down
     producer.register("test")
@@ -128,7 +128,7 @@ class TestKafkaSystemProducer {
     props.put("producer.type", "sync")
 
     var failCount = 0
-    val producer = new KafkaSystemProducer("test", 1, 100, new MetricsRegistryMap, () => {
+    val producer = new KafkaSystemProducer("test", 1, 100, () => {
       failCount += 1
       if (failCount <= 5) {
         throw new RuntimeException("Pretend to fail in factory")
@@ -144,7 +144,7 @@ class TestKafkaSystemProducer {
           }
         }
       }
-    })
+    }, new KafkaSystemProducerMetrics)
 
     producer.register("test")
     producer.start

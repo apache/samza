@@ -41,6 +41,7 @@ import org.apache.samza.system.SystemFactory
 class KafkaSystemFactory extends SystemFactory {
   def getConsumer(systemName: String, config: Config, registry: MetricsRegistry) = {
     val clientId = KafkaUtil.getClientId("samza-consumer", config)
+    val metrics = new KafkaSystemConsumerMetrics(systemName, registry)
 
     // Kind of goofy to need a producer config for consumers, but we need metadata.
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
@@ -67,7 +68,7 @@ class KafkaSystemFactory extends SystemFactory {
     new KafkaSystemConsumer(
       systemName = systemName,
       brokerListString = brokerListString,
-      metricsRegistry = registry,
+      metrics = metrics,
       clientId = clientId,
       timeout = timeout,
       bufferSize = bufferSize,
@@ -83,6 +84,7 @@ class KafkaSystemFactory extends SystemFactory {
     val reconnectIntervalMs = Option(producerConfig.retryBackoffMs)
       .getOrElse(10000)
     val getProducer = () => { new Producer[Object, Object](producerConfig) }
+    val metrics = new KafkaSystemProducerMetrics(systemName, registry)
 
     // Unlike consumer, no need to use encoders here, since they come for free 
     // inside the producer configs. Kafka's producer will handle all of this 
@@ -92,8 +94,8 @@ class KafkaSystemFactory extends SystemFactory {
       systemName,
       batchSize,
       reconnectIntervalMs,
-      registry,
-      getProducer)
+      getProducer,
+      metrics)
   }
 
   def getAdmin(systemName: String, config: Config) = {

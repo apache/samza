@@ -57,22 +57,27 @@ class KeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] {
       throw new SamzaException("Must define a message serde when using key value storage.")
     }
 
-    val levelDb = new LevelDbKeyValueStore(storeDir, LevelDbKeyValueStore.options(storageConfig))
+    val levelDbMetrics = new LevelDbKeyValueStoreMetrics(storeName, registry)
+    val levelDb = new LevelDbKeyValueStore(storeDir, LevelDbKeyValueStore.options(storageConfig), levelDbMetrics)
     val maybeLoggedStore = if (changeLogSystemStreamPartition == null) {
       levelDb
     } else {
-      new LoggedStore(levelDb, changeLogSystemStreamPartition, collector)
+      val loggedStoreMetrics = new LoggedStoreMetrics(storeName, registry)
+      new LoggedStore(levelDb, changeLogSystemStreamPartition, collector, loggedStoreMetrics)
     }
-    val serialized = new SerializedKeyValueStore[K, V](maybeLoggedStore, keySerde, msgSerde)
+    val serializedMetrics = new SerializedKeyValueStoreMetrics(storeName, registry)
+    val serialized = new SerializedKeyValueStore[K, V](maybeLoggedStore, keySerde, msgSerde, serializedMetrics)
     val maybeCachedStore = if (enableCache) {
-      new CachedStore(serialized, cacheSize, batchSize)
+      val cachedStoreMetrics = new CachedStoreMetrics(storeName, registry)
+      new CachedStore(serialized, cacheSize, batchSize, cachedStoreMetrics)
     } else {
       serialized
     }
     val db = maybeCachedStore
+    val keyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics(storeName, registry)
 
     // Decide if we should use raw bytes when restoring
 
-    new KeyValueStorageEngine(db, levelDb, batchSize)
+    new KeyValueStorageEngine(db, levelDb, keyValueStorageEngineMetrics, batchSize)
   }
 }

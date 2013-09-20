@@ -44,57 +44,76 @@ object LevelDbKeyValueStore {
 
 class LevelDbKeyValueStore(
   val dir: File,
-  val options: Options) extends KeyValueStore[Array[Byte], Array[Byte]] with Logging {
+  val options: Options,
+  val metrics: LevelDbKeyValueStoreMetrics = new LevelDbKeyValueStoreMetrics) extends KeyValueStore[Array[Byte], Array[Byte]] with Logging {
 
   private lazy val db = factory.open(dir, options)
   private val lexicographic = new LexicographicComparator()
 
   def get(key: Array[Byte]): Array[Byte] = {
+    metrics.gets.inc
     require(key != null, "Null key not allowed.")
     val found = db.get(key)
-    if (found == null)
-      null
-    else
-      found
+    if (found != null) {
+      metrics.bytesRead.inc(found.size)
+    }
+    found
   }
 
   def put(key: Array[Byte], value: Array[Byte]) {
+    metrics.puts.inc
     require(key != null, "Null key not allowed.")
-    if (value == null)
+    if (value == null) {
       db.delete(key)
-    else
+    } else {
+      metrics.bytesWritten.inc(key.size + value.size)
       db.put(key, value)
+    }
   }
 
   def putAll(entries: java.util.List[Entry[Array[Byte], Array[Byte]]]) {
     val batch = db.createWriteBatch()
     val iter = entries.iterator
+    var wrote = 0
+    var deletes = 0
     while (iter.hasNext) {
+      wrote += 1
       val curr = iter.next()
-      if (curr.getValue == null)
+      if (curr.getValue == null) {
+        deletes += 1
         batch.delete(curr.getKey)
-      else
-        batch.put(curr.getKey, curr.getValue)
+      } else {
+        val key = curr.getKey
+        val value = curr.getValue
+        metrics.bytesWritten.inc(key.size + value.size)
+        batch.put(key, value)
+      }
     }
     db.write(batch)
+    metrics.puts.inc(wrote)
+    metrics.deletes.inc(deletes)
   }
 
   def delete(key: Array[Byte]) {
+    metrics.deletes.inc
     put(key, null)
   }
 
   def range(from: Array[Byte], to: Array[Byte]): KeyValueIterator[Array[Byte], Array[Byte]] = {
+    metrics.ranges.inc
     require(from != null && to != null, "Null bound not allowed.")
     new LevelDbRangeIterator(db.iterator, from, to)
   }
 
   def all(): KeyValueIterator[Array[Byte], Array[Byte]] = {
+    metrics.alls.inc
     val iter = db.iterator()
     iter.seekToFirst()
     new LevelDbIterator(iter)
   }
 
   def flush {
+    metrics.flushes.inc
     // TODO can't find a flush for leveldb
     trace("Flushing, but flush in LevelDbKeyValueStore doesn't do anything.")
   }
@@ -114,8 +133,14 @@ class LevelDbKeyValueStore(
     def remove() = iter.remove()
     def hasNext() = iter.hasNext()
     def next() = {
-      val curr = iter.next()
-      new Entry(curr.getKey, curr.getValue)
+      val curr = iter.next
+      val key = curr.getKey
+      val value = curr.getValue
+      metrics.bytesRead.inc(key.size)
+      if (value != null) {
+        metrics.bytesRead.inc(value.size)
+      }
+      new Entry(key, value)
     }
     override def finalize() {
       if (open) {

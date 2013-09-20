@@ -54,31 +54,24 @@ class TestBrokerProxy {
       def needsMoreMessages(tp: TopicAndPartition): Boolean = !tp.equals(tp2)
     }
 
+    val system = "daSystem"
     val config = new MapConfig(Map[String, String]("job.name" -> "Jobby McJob",
-      "systems.daSystem.Redbird.consumer.auto.offset.reset" -> "largest"))
-    val metricsRegistry = {
-      val registry = Mockito.mock(classOf[MetricsRegistry])
-      val gauge = Mockito.mock(classOf[Gauge[Long]])
-      when(gauge.getValue()).thenReturn(0l)
-      when(registry.newGauge[Long](anyString(), anyString(), anyLong())).thenReturn(gauge)
-
-      val counter = Mockito.mock(classOf[Counter])
-      when(registry.newCounter(anyString(), anyString())).thenReturn(counter)
-      registry
-    }
-
+      "systems.%s.Redbird.consumer.auto.offset.reset".format(system) -> "largest"))
+    val host = "host"
+    val port = 2222
     val tp = new TopicAndPartition("Redbird", 2012)
-    val tpMetrics = new TopicAndPartitionMetrics(metricsRegistry)
+    val metrics = new KafkaSystemConsumerMetrics(system)
 
-    tpMetrics.addNewTopicAndPartition(tp)
+    metrics.registerBrokerProxy(host, port)
+    metrics.registerTopicAndPartition(tp)
+    metrics.topicPartitions(host, port).set(1)
 
     val bp = new BrokerProxy(
-      "host",
-      2222,
-      "daSystem",
+      host,
+      port,
+      system,
       "daClientId",
-      metricsRegistry,
-      tpMetrics,
+      metrics,
       offsetGetter = new GetOffset("fail", Map("Redbird" -> "largest"))) {
 
       val messageSink: MessageSink = sink

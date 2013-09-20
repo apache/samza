@@ -34,10 +34,9 @@ import org.apache.samza.SamzaException
 import java.util.Timer
 import java.util.TimerTask
 import org.apache.samza.task.ReadableCollector
+import org.apache.samza.metrics.MetricsHelper
 
 object SamzaAppMasterMetrics {
-  val metricsGroup = "samza.yarn.am"
-
   val sourceName = "ApplicationMaster"
 }
 
@@ -46,11 +45,13 @@ object SamzaAppMasterMetrics {
  * registry, we might as well use it. This class takes Samza's application
  * master state, and converts it to metrics.
  */
-class SamzaAppMasterMetrics(config: Config, state: SamzaAppMasterState, registry: ReadableMetricsRegistry) extends YarnAppMasterListener with Logging {
-  import SamzaAppMasterMetrics._
+class SamzaAppMasterMetrics(
+  val config: Config,
+  val state: SamzaAppMasterState,
+  val registry: ReadableMetricsRegistry) extends MetricsHelper with YarnAppMasterListener with Logging {
 
   val jvm = new JvmMetrics(registry)
-  val mEventLoops = registry.newCounter(metricsGroup, "EventLoops")
+  val mEventLoops = newCounter("event-loops")
   val reporters = config.getMetricReporterNames.map(reporterName => {
     val metricsFactoryClassName = config
       .getMetricsFactoryClass(reporterName)
@@ -66,17 +67,18 @@ class SamzaAppMasterMetrics(config: Config, state: SamzaAppMasterState, registry
   }).toMap
 
   override def onInit() {
-    val mRunningContainers = registry.newGauge(metricsGroup, "RunningContainers", { state.runningTasks.size })
-    val mNeededContainers = registry.newGauge(metricsGroup, "NeededContainers", { state.neededContainers })
-    val mCompletedContainers = registry.newGauge(metricsGroup, "CompletedContainers", { state.completedTasks })
-    val mFailedContainers = registry.newGauge(metricsGroup, "FailedContainers", { state.failedContainers })
-    val mReleasedContainers = registry.newGauge(metricsGroup, "ReleasedContainers", { state.releasedContainers })
-    val mTasks = registry.newGauge(metricsGroup, "TaskCount", { state.taskCount })
-    val mHost = registry.newGauge(metricsGroup, "HttpHost", { state.nodeHost })
-    val mTrackingPort = registry.newGauge(metricsGroup, "HttpPort", { state.trackingPort })
-    val mRpcPort = registry.newGauge(metricsGroup, "RpcPort", { state.rpcPort })
-    val mAppAttemptId = registry.newGauge(metricsGroup, "AppAttemptId", { state.appAttemptId.toString })
+    val mRunningContainers = newGauge("running-containers", () => state.runningTasks.size)
+    val mNeededContainers = newGauge("needed-containers", () => state.neededContainers)
+    val mCompletedContainers = newGauge("completed-containers", () => state.completedTasks)
+    val mFailedContainers = newGauge("failed-containers", () => state.failedContainers)
+    val mReleasedContainers = newGauge("released-containers", () => state.releasedContainers)
+    val mTasks = newGauge("task-count", () => state.taskCount)
+    val mHost = newGauge("http-host", () => state.nodeHost)
+    val mTrackingPort = newGauge("http-port", () => state.trackingPort)
+    val mRpcPort = newGauge("rpc-port", () => state.rpcPort)
+    val mAppAttemptId = newGauge("app-attempt-id", () => state.appAttemptId.toString)
 
+    jvm.start
     reporters.values.foreach(_.start)
   }
 

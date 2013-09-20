@@ -17,30 +17,15 @@
  * under the License.
  */
 
-package org.apache.samza.util;
+package org.apache.samza.metrics
 
-import org.apache.samza.metrics.Counter;
-import org.apache.samza.metrics.Gauge;
-import org.apache.samza.metrics.MetricsRegistry;
+import org.junit.Test
+import org.junit.Assert._
+import org.apache.samza.container.SamzaContainerMetrics
 
-public class NoOpMetricsRegistry implements MetricsRegistry {
-  @Override
-  public Counter newCounter(String group, String name) {
-    return new Counter(name);
-  }
-
-  @Override
-  public Counter newCounter(String group, Counter counter) {
-    return counter;
-  }
-
-  @Override
-  public <T> Gauge<T> newGauge(String group, String name, T value) {
-    return new Gauge<T>(name, value);
-  }
-
-  @Override
-  public <T> Gauge<T> newGauge(String group, Gauge<T> gauge) {
-    return gauge;
+class TestMetricsHelper {
+  @Test
+  def testMetricsHelperGroupShouldBePAckageName {
+    assertEquals(classOf[SamzaContainerMetrics].getName, new SamzaContainerMetrics().group)
   }
 }

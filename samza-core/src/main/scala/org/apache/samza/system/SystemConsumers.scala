@@ -21,17 +21,18 @@ package org.apache.samza.system
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable.Queue
-import grizzled.slf4j.Logging
+
 import org.apache.samza.serializers.SerdeManager
+
+import grizzled.slf4j.Logging
 
 class SystemConsumers(
   chooser: MessageChooser,
   consumers: Map[String, SystemConsumer],
   serdeManager: SerdeManager,
+  metrics: SystemConsumersMetrics = new SystemConsumersMetrics,
   maxMsgsPerStreamPartition: Int = 1000,
   noNewMessagesTimeout: Long = 10) extends Logging {
-
-  // TODO add metrics
 
   var unprocessedMessages = Map[SystemStreamPartition, Queue[IncomingMessageEnvelope]]()
   var neededByChooser = Set[SystemStreamPartition]()
@@ -41,6 +42,12 @@ class SystemConsumers(
   debug("Got stream consumers: %s" format consumers)
   debug("Got max messages per stream: %s" format maxMsgsPerStreamPartition)
   debug("Got no new message timeout: %s" format noNewMessagesTimeout)
+
+  metrics.setUnprocessedMessages(() => fetchMap.values.map(maxMsgsPerStreamPartition - _.intValue).sum)
+  metrics.setNeededByChooser(() => neededByChooser.size)
+  metrics.setTimeout(() => timeout)
+  metrics.setMaxMessagesPerStreamPartition(() => maxMsgsPerStreamPartition)
+  metrics.setNoNewMessagesTimeout(() => noNewMessagesTimeout)
 
   def start {
     debug("Starting consumers.")
@@ -61,6 +68,8 @@ class SystemConsumers(
     fetchMap += systemStreamPartition -> maxMsgsPerStreamPartition
     unprocessedMessages += systemStreamPartition -> Queue[IncomingMessageEnvelope]()
     consumers(systemStreamPartition.getSystem).register(systemStreamPartition, lastReadOffset)
+
+    metrics.registerSystem(systemStreamPartition.getSystem)
   }
 
   def choose = {
@@ -69,10 +78,14 @@ class SystemConsumers(
     if (envelopeFromChooser == null) {
       debug("Chooser returned null.")
 
+      metrics.choseNull.inc
+
       // Allow blocking if the chooser didn't choose a message.
       timeout = noNewMessagesTimeout
     } else {
       debug("Chooser returned an incoming message envelope: %s" format envelopeFromChooser)
+
+      metrics.choseObject.inc
 
       // Don't block if we have a message to process.
       timeout = 0
@@ -104,6 +117,8 @@ class SystemConsumers(
   private def poll(systemName: String) = {
     debug("Polling system consumer: %s" format systemName)
 
+    metrics.systemPolls(systemName).inc
+
     val consumer = consumers(systemName)
 
     debug("Filtering for system: %s, %s" format (systemName, fetchMap))
@@ -112,9 +127,13 @@ class SystemConsumers(
 
     debug("Fetching: %s" format systemFetchMap)
 
+    metrics.systemStreamPartitionFetchesPerPoll(systemName).inc(systemFetchMap.size)
+
     val incomingEnvelopes = consumer.poll(systemFetchMap, timeout)
 
     debug("Got incoming message envelopes: %s" format incomingEnvelopes)
+
+    metrics.systemMessagesPerPoll(systemName).inc
 
     // We have new un-processed envelopes, so update maps accordingly.
     incomingEnvelopes.foreach(envelope => {

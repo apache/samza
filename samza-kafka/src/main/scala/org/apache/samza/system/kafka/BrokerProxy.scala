@@ -45,11 +45,10 @@ abstract class BrokerProxy(
   val port: Int,
   val system: String,
   val clientID: String,
-  val metricsRegistry: MetricsRegistry,
-  tpMetrics: TopicAndPartitionMetrics,
+  val metrics: KafkaSystemConsumerMetrics,
   val timeout: Int = Int.MaxValue,
   val bufferSize: Int = 1024000,
-  offsetGetter: GetOffset = new GetOffset("fail")) extends Toss with Logging with BrokerProxyMetrics {
+  offsetGetter: GetOffset = new GetOffset("fail")) extends Toss with Logging {
 
   val messageSink: MessageSink
 
@@ -70,6 +69,8 @@ abstract class BrokerProxy(
 
   var simpleConsumer = createSimpleConsumer()
 
+  metrics.registerBrokerProxy(host, port)
+
   def createSimpleConsumer() = {
     val hostString = "%s:%d" format (host, port)
     info("Creating new SimpleConsumer for host %s for system %s" format (hostString, system))
@@ -88,13 +89,13 @@ abstract class BrokerProxy(
     val offset = offsetGetter.getNextOffset(simpleConsumer, tp, lastCheckpointedOffset)
     nextOffsets += tp -> offset
 
-    tpGaugeInc
+    metrics.topicPartitions(host, port).set(nextOffsets.size)
   }
 
   def removeTopicPartition(tp: TopicAndPartition) = {
     if (nextOffsets.containsKey(tp)) {
       nextOffsets.remove(tp)
-      tpGaugeDec
+      metrics.topicPartitions(host, port).set(nextOffsets.size)
       debug("Removed %s" format tp)
     } else {
       warn("Asked to remove topic and partition %s, but not in map (keys = %s)" format (tp, nextOffsets.keys().mkString(",")))
@@ -125,7 +126,7 @@ abstract class BrokerProxy(
               debug("Stack trace for fetchMessages exception.", e)
               simpleConsumer.close()
               simpleConsumer = createSimpleConsumer()
-              reconnectCounter.inc
+              metrics.reconnects(host, port).inc
             }
           }
         }
@@ -135,6 +136,7 @@ abstract class BrokerProxy(
   }, "BrokerProxy thread pointed at %s:%d for client %s" format (host, port, clientID))
 
   private def fetchMessages(): Unit = {
+    metrics.brokerReads(host, port).inc
     val response: FetchResponse = simpleConsumer.defaultFetch(nextOffsets.filterKeys(messageSink.needsMoreMessages(_)).toList: _*)
     firstCall = false
     firstCallBarrier.countDown()
@@ -177,9 +179,11 @@ abstract class BrokerProxy(
 
         nextOffset = message.nextOffset
 
-        tpMetrics.getReadsCounter(tp).inc
-        tpMetrics.getBytesReadCounter(tp).inc(message.message.payloadSize + message.message.keySize)
-        tpMetrics.getOffsetCounter(tp).set(nextOffset)
+        val bytesSize = message.message.payloadSize + message.message.keySize
+        metrics.reads(tp).inc
+        metrics.bytesRead(tp).inc(bytesSize)
+        metrics.brokerBytesRead(host, port).inc(bytesSize)
+        metrics.offsets(tp).set(nextOffset)
       }
 
       nextOffsets.replace(tp, nextOffset) // use replace rather than put in case this tp was removed while we were fetching.
@@ -187,7 +191,7 @@ abstract class BrokerProxy(
       // Update high water mark
       val hw = data.hw
       if (hw >= 0) {
-        getLagGauge(tp).set(hw - nextOffset)
+        metrics.lag(tp).set(hw - nextOffset)
       } else {
         debug("Got a high water mark less than 0 (%d) for %s, so skipping." format (hw, tp))
       }

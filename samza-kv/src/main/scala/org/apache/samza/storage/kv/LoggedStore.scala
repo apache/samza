@@ -29,56 +29,74 @@ import grizzled.slf4j.Logging
 /**
  * A key/value store decorator that adds a changelog for any changes made to the underlying store
  */
-class LoggedStore[K,V](val store: KeyValueStore[K, V],
-                       val systemStreamPartition: SystemStreamPartition,
-                       val collector: MessageCollector) extends KeyValueStore[K, V] with Logging {
+class LoggedStore[K, V](
+  val store: KeyValueStore[K, V],
+  val systemStreamPartition: SystemStreamPartition,
+  val collector: MessageCollector,
+  val metrics: LoggedStoreMetrics = new LoggedStoreMetrics) extends KeyValueStore[K, V] with Logging {
 
   val systemStream = systemStreamPartition.getSystemStream
   val partitionId = systemStreamPartition.getPartition.getPartitionId
 
   /* pass through methods */
-  def get(key: K) = store.get(key)
-  def range(from: K, to: K) = store.range(from, to)
-  def all() = store.all()
-  
+  def get(key: K) = {
+    metrics.gets.inc
+    store.get(key)
+  }
+
+  def range(from: K, to: K) = {
+    metrics.ranges.inc
+    store.range(from, to)
+  }
+
+  def all() = {
+    metrics.alls.inc
+    store.all()
+  }
+
   /**
    * Perform the local update and log it out to the changelog
    */
   def put(key: K, value: V) {
+    metrics.puts.inc
     store.put(key, value)
     collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, key, value))
   }
-  
+
   /**
    * Perform multiple local updates and log out all changes to the changelog
    */
-  def putAll(entries: java.util.List[Entry[K,V]]) {
+  def putAll(entries: java.util.List[Entry[K, V]]) {
+    metrics.puts.inc(entries.size)
     store.putAll(entries)
     val iter = entries.iterator
-    while(iter.hasNext) {
+    while (iter.hasNext) {
       val curr = iter.next
       collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, curr.getKey, curr.getValue))
     }
   }
-  
+
   /**
-   * Perform the local delete and log it out to the changelog 
+   * Perform the local delete and log it out to the changelog
    */
   def delete(key: K) {
+    metrics.deletes.inc
     store.delete(key)
     collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, key, null))
   }
-  
+
   def flush {
     trace("Flushing.")
 
+    metrics.flushes.inc
+
     store.flush
   }
-  
+
   def close {
     trace("Closing.")
 
     store.close
   }
-  
+
 }

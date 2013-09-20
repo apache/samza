@@ -64,7 +64,7 @@ class TestJmxReporter {
   @Test
   def testJmxReporter {
     val registry = new MetricsRegistryMap
-    val jvm = new JvmMetrics("test", registry)
+    val jvm = new JvmMetrics(registry)
     val reporter = new JmxReporterFactory().getMetricsReporter("", "", new MapConfig(Map[String, String]()))
 
     reporter.register("test", registry)
@@ -72,7 +72,7 @@ class TestJmxReporter {
     jvm.run
 
     val mbserver = JMXConnectorFactory.connect(url).getMBeanServerConnection
-    val stateViaJMX = mbserver.getAttribute(new ObjectName("test:type=test,name=MemNonHeapUsedM"), "Value").asInstanceOf[Float]
+    val stateViaJMX = mbserver.getAttribute(new ObjectName("org.apache.samza.metrics.JvmMetrics:type=test,name=mem-non-heap-used-mb"), "Value").asInstanceOf[Float]
 
     assertTrue(stateViaJMX > 0)
 

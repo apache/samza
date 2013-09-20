@@ -37,17 +37,41 @@ import org.apache.samza.storage.StorageEngine
 class KeyValueStorageEngine[K, V](
   db: KeyValueStore[K, V],
   rawDb: KeyValueStore[Array[Byte], Array[Byte]],
+  metrics: KeyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics,
   batchSize: Int = 500) extends StorageEngine with KeyValueStore[K, V] with Logging {
 
   var count = 0
 
   /* delegate to underlying store */
-  def get(key: K): V = db.get(key)
-  def put(key: K, value: V) = db.put(key, value)
-  def putAll(entries: java.util.List[Entry[K, V]]) = db.putAll(entries)
-  def delete(key: K) = db.delete(key)
-  def range(from: K, to: K) = db.range(from, to)
-  def all() = db.all()
+  def get(key: K): V = {
+    metrics.gets.inc
+    db.get(key)
+  }
+
+  def put(key: K, value: V) = {
+    metrics.puts.inc
+    db.put(key, value)
+  }
+
+  def putAll(entries: java.util.List[Entry[K, V]]) = {
+    metrics.puts.inc(entries.size)
+    db.putAll(entries)
+  }
+
+  def delete(key: K) = {
+    metrics.deletes.inc
+    db.delete(key)
+  }
+
+  def range(from: K, to: K) = {
+    metrics.ranges.inc
+    db.range(from, to)
+  }
+
+  def all() = {
+    metrics.alls.inc
+    db.all()
+  }
 
   /**
    * Restore the contents of this key/value store from the change log,
@@ -57,13 +81,18 @@ class KeyValueStorageEngine[K, V](
     val batch = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](batchSize)
 
     for (envelope <- envelopes) {
-      batch.add(new Entry(envelope.getKey.asInstanceOf[Array[Byte]], envelope.getMessage.asInstanceOf[Array[Byte]]))
+      val keyBytes = envelope.getKey.asInstanceOf[Array[Byte]]
+      val valBytes = envelope.getMessage.asInstanceOf[Array[Byte]]
+
+      batch.add(new Entry(keyBytes, valBytes))
 
       if (batch.size >= batchSize) {
         rawDb.putAll(batch)
         batch.clear()
       }
 
+      metrics.restoredBytes.inc(keyBytes.size + valBytes.size)
+      metrics.restoredMessages.inc
       count += 1
 
       if (count % 1000000 == 0) {
@@ -78,6 +107,8 @@ class KeyValueStorageEngine[K, V](
 
   def flush() = {
     trace("Flushing.")
+
+    metrics.flushes.inc
 
     db.flush
   }

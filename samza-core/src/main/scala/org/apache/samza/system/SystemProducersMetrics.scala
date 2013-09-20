@@ -17,29 +17,21 @@
  * under the License.
  */
 
-package org.apache.samza.container
+package org.apache.samza.system
 
-import org.apache.samza.metrics.ReadableMetricsRegistry
+import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.Partition
 import org.apache.samza.metrics.MetricsHelper
-import org.apache.samza.system.SystemStream
-import org.apache.samza.metrics.Gauge
+import org.apache.samza.metrics.Counter
 
-class TaskInstanceMetrics(
-  val source: String = "unknown",
-  val registry: ReadableMetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+class SystemProducersMetrics(val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+  val flushes = newCounter("flushes")
+  val sends = newCounter("sends")
+  val sourceFlushes = scala.collection.mutable.Map[String, Counter]()
+  val sourceSends = scala.collection.mutable.Map[String, Counter]()
 
-  val commits = newCounter("commit-calls")
-  val commitsSkipped = newCounter("commit-skipped")
-  val windows = newCounter("window-calls")
-  val windowsSkipped = newCounter("window-skipped")
-  val processes = newCounter("process-calls")
-  val sends = newCounter("send-calls")
-  val sendsSkipped = newCounter("send-skipped")
-  val messagesSent = newCounter("messages-sent")
-
-  def addOffsetGauge(systemStream: SystemStream, getValue: () => String) {
-    newGauge("%s-%s-offset" format (systemStream.getSystem, systemStream.getStream), getValue)
+  def registerSource(source: String) {
+    sourceFlushes += source -> newCounter("%s-flushes" format source)
+    sourceSends += source -> newCounter("%s-sends" format source)
   }
 }

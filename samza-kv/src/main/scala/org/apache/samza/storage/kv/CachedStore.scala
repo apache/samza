@@ -42,9 +42,11 @@ import grizzled.slf4j.Logging
  * @param cacheEntries The number of entries to hold in the in memory-cache
  * @param writeBatchSize The number of entries to batch together before forcing a write
  */
-class CachedStore[K, V](val store: KeyValueStore[K, V],
+class CachedStore[K, V](
+  val store: KeyValueStore[K, V],
   val cacheSize: Int,
-  val writeBatchSize: Int) extends KeyValueStore[K, V] with Logging {
+  val writeBatchSize: Int,
+  val metrics: CachedStoreMetrics = new CachedStoreMetrics) extends KeyValueStore[K, V] with Logging {
 
   /** the number of items in the dirty list */
   private var dirtyCount = 0
@@ -66,9 +68,15 @@ class CachedStore[K, V](val store: KeyValueStore[K, V],
     }
   }
 
+  metrics.setDirtyCount(() => dirtyCount)
+  metrics.setCacheSize(() => cache.size)
+
   def get(key: K) = {
+    metrics.gets.inc
+
     val c = cache.get(key)
     if (c != null) {
+      metrics.cacheHits.inc
       c.value
     } else {
       val v = store.get(key)
@@ -78,16 +86,20 @@ class CachedStore[K, V](val store: KeyValueStore[K, V],
   }
 
   def range(from: K, to: K) = {
+    metrics.ranges.inc
     flush()
     store.range(from, to)
   }
 
   def all() = {
+    metrics.alls.inc
     flush()
     store.all()
   }
 
   def put(key: K, value: V) {
+    metrics.puts.inc
+
     // add the key to the front of the dirty list (and remove any prior occurrences to dedupe)
     val found = cache.get(key)
     if (found == null || found.dirty == null) {
@@ -95,7 +107,7 @@ class CachedStore[K, V](val store: KeyValueStore[K, V],
     } else {
       // If we are removing the head of the list, move the head to the next 
       // element. See SAMZA-45 for details.
-      if(found.dirty.prev == null) {
+      if (found.dirty.prev == null) {
         this.dirty = found.dirty.next
         this.dirty.prev = null
       } else {
@@ -123,6 +135,8 @@ class CachedStore[K, V](val store: KeyValueStore[K, V],
   def flush() {
     trace("Flushing.")
 
+    metrics.flushes.inc
+
     // write out the contents of the dirty list oldest first
     val batch = new java.util.ArrayList[Entry[K, V]](this.dirtyCount)
     for (k <- this.dirty.reverse) {
@@ -132,6 +146,7 @@ class CachedStore[K, V](val store: KeyValueStore[K, V],
     }
     store.putAll(batch)
     store.flush
+    metrics.flushBatchSize.inc(batch.size)
 
     // reset the dirty list
     this.dirty = new mutable.DoubleLinkedList[K]()
@@ -153,6 +168,8 @@ class CachedStore[K, V](val store: KeyValueStore[K, V],
    * Perform the local delete and log it out to the changelog
    */
   def delete(key: K) {
+    metrics.deletes.inc
+
     put(key, null.asInstanceOf[V])
   }
 
@@ -160,10 +177,9 @@ class CachedStore[K, V](val store: KeyValueStore[K, V],
     trace("Closing.")
 
     flush
-    
+
     store.close
   }
-
 }
 
 private case class CacheEntry[K, V](var value: V, var dirty: mutable.DoubleLinkedList[K])
