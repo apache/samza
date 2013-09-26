@@ -22,4 +22,9 @@ under the License.
     <name>yarn.scheduler.minimum-allocation-mb</name>
     <value>128</value>
   </property>
+
+  <property>
+    <name>yarn.nodemanager.vmem-pmem-ratio</name>
+    <value>10</value>
+  </property>
 </configuration>
