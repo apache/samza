@@ -41,6 +41,7 @@ import TestSamzaAppMasterTaskManager._
 import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemFactory
 import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.SamzaException
 
 object TestSamzaAppMasterTaskManager {
   def getContainer(containerId: ContainerId) = new Container {
@@ -428,4 +429,6 @@ class MockSystemFactory extends SystemFactory {
 
 class MockSinglePartitionManager extends SystemAdmin {
   def getPartitions(streamName: String) = Set(new Partition(0))
+  
+  def getLastOffsets(streams: java.util.Set[String]) = throw new SamzaException("Need to implement this")
 }

@@ -17,14 +17,34 @@
  * under the License.
  */
 
-package org.apache.samza.system;
+package org.apache.samza.system.chooser
 
-import java.util.Map;
-import java.util.Set;
-import org.apache.samza.Partition;
+import org.apache.samza.system.IncomingMessageEnvelope
+import org.apache.samza.system.SystemStreamPartition
 
-public interface SystemAdmin {
-  Set<Partition> getPartitions(String streamName);
+class MockMessageChooser extends MessageChooser {
+  var envelopes = scala.collection.mutable.Queue[IncomingMessageEnvelope]()
+  var starts = 0
+  var stops = 0
+  var registers = Map[SystemStreamPartition, String]()
 
-  Map<SystemStreamPartition, String> getLastOffsets(Set<String> streams);
+  def start = starts += 1
+
+  def stop = stops += 1
+
+  def register(systemStreamPartition: SystemStreamPartition, lastReadOffset: String) = registers += systemStreamPartition -> lastReadOffset
+
+  def update(envelope: IncomingMessageEnvelope) {
+    envelopes += envelope
+  }
+
+  def choose = {
+    try {
+      envelopes.dequeue
+    } catch {
+      case e: NoSuchElementException => null
+    }
+  }
+
+  def getEnvelopes = envelopes
 }

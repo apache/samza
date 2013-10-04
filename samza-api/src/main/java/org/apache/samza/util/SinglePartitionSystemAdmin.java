@@ -21,10 +21,12 @@ package org.apache.samza.util;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
-
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemStreamPartition;
 
 /**
  * A simple helper admin class that defines a single partition (partition 0) for
@@ -42,5 +44,10 @@ public class SinglePartitionSystemAdmin implements SystemAdmin {
   @Override
   public Set<Partition> getPartitions(String streamName) {
     return Collections.unmodifiableSet(ONE_PARTITION);
+  }
+
+  @Override
+  public Map<SystemStreamPartition, String> getLastOffsets(Set<String> streams) {
+    throw new SamzaException("Method unsupported for single partition admin.");
   }
 }

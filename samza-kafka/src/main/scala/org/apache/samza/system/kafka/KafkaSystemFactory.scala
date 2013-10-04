@@ -103,7 +103,15 @@ class KafkaSystemFactory extends SystemFactory {
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
     val brokerListString = Option(producerConfig.brokerList)
       .getOrElse(throw new SamzaException("No broker list defined in config for %s." format systemName))
+    val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
+    val timeout = consumerConfig.socketTimeoutMs
+    val bufferSize = consumerConfig.socketReceiveBufferBytes
 
-    new KafkaSystemAdmin(systemName, brokerListString, clientId)
+    new KafkaSystemAdmin(
+      systemName,
+      brokerListString,
+      timeout,
+      bufferSize,
+      clientId)
   }
 }

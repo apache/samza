@@ -21,15 +21,14 @@ package org.apache.samza.system
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable.Queue
-
 import org.apache.samza.serializers.SerdeManager
-
 import grizzled.slf4j.Logging
+import org.apache.samza.system.chooser.MessageChooser
 
 class SystemConsumers(
   chooser: MessageChooser,
   consumers: Map[String, SystemConsumer],
-  serdeManager: SerdeManager,
+  serdeManager: SerdeManager = new SerdeManager,
   metrics: SystemConsumersMetrics = new SystemConsumersMetrics,
   maxMsgsPerStreamPartition: Int = 1000,
   noNewMessagesTimeout: Long = 10) extends Logging {
@@ -52,13 +51,21 @@ class SystemConsumers(
   def start {
     debug("Starting consumers.")
 
+    consumers
+      .keySet
+      .foreach(metrics.registerSystem)
+
     consumers.values.foreach(_.start)
+
+    chooser.start
   }
 
   def stop {
     debug("Stopping consumers.")
 
     consumers.values.foreach(_.stop)
+
+    chooser.stop
   }
 
   def register(systemStreamPartition: SystemStreamPartition, lastReadOffset: String) {
@@ -68,8 +75,7 @@ class SystemConsumers(
     fetchMap += systemStreamPartition -> maxMsgsPerStreamPartition
     unprocessedMessages += systemStreamPartition -> Queue[IncomingMessageEnvelope]()
     consumers(systemStreamPartition.getSystem).register(systemStreamPartition, lastReadOffset)
-
-    metrics.registerSystem(systemStreamPartition.getSystem)
+    chooser.register(systemStreamPartition, lastReadOffset)
   }
 
   def choose = {

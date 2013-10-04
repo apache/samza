@@ -105,6 +105,7 @@ object TestKafkaCheckpointManager {
     Utils.rm(server1.config.logDirs)
     Utils.rm(server2.config.logDirs)
     Utils.rm(server3.config.logDirs)
+    zookeeper.shutdown
   }
 }
 

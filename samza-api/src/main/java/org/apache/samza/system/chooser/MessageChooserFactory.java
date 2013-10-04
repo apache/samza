@@ -17,12 +17,11 @@
  * under the License.
  */
 
-package org.apache.samza.system
+package org.apache.samza.system.chooser;
 
-import java.util.ArrayDeque
+import org.apache.samza.config.Config;
+import org.apache.samza.metrics.MetricsRegistry;
 
-class DefaultChooser extends MessageChooser {
-  var q = new ArrayDeque[IncomingMessageEnvelope]()
-  def update(envelope: IncomingMessageEnvelope) = q.add(envelope)
-  def choose = q.poll
+public interface MessageChooserFactory {
+  MessageChooser getChooser(Config config, MetricsRegistry registry);
 }

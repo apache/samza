@@ -35,6 +35,7 @@ object TaskConfig {
   val LIFECYCLE_LISTENER = "task.lifecycle.listener.%s.class" // task.lifecycle.listener.li-generator.class
   val CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory" // class name to use when sending offset checkpoints
   val TASK_JMX_ENABLED = "task.jmx.enabled" // Start up a JMX server for this task?
+  val MESSAGE_CHOOSER_CLASS_NAME = "task.chooser.class"
 
   implicit def Config2Task(config: Config) = new TaskConfig(config)
 }
@@ -72,4 +73,6 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) {
   def getCheckpointManagerFactory() = getOption(TaskConfig.CHECKPOINT_MANAGER_FACTORY)
 
   def getJmxServerEnabled = getBoolean(TaskConfig.TASK_JMX_ENABLED, true)
+  
+  def getMessageChooserClass = getOption(TaskConfig.MESSAGE_CHOOSER_CLASS_NAME)
 }

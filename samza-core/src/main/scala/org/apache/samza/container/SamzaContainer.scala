@@ -53,11 +53,14 @@ import org.apache.samza.util.Util
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.system.SystemProducers
 import org.apache.samza.task.ReadableCollector
-import org.apache.samza.system.DefaultChooser
 import org.apache.samza.system.SystemConsumers
+import org.apache.samza.system.chooser.MessageChooser
+import org.apache.samza.system.chooser.MessageChooserFactory
 import org.apache.samza.system.SystemProducersMetrics
 import org.apache.samza.system.SystemConsumersMetrics
 import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.system.chooser.DefaultChooser
+import org.apache.samza.system.chooser.RoundRobinChooserFactory
 
 object SamzaContainer extends Logging {
   def main(args: Array[String]) {
@@ -120,6 +123,10 @@ object SamzaContainer extends Logging {
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
       (systemName, Util.getObj[SystemFactory](systemFactoryClassName))
     }).toMap
+
+    val systemAdmins = systemNames
+      .map(systemName => (systemName, systemFactories(systemName).getAdmin(systemName, config)))
+      .toMap
 
     info("Got system factories: %s" format systemFactories.keys)
 
@@ -235,7 +242,11 @@ object SamzaContainer extends Logging {
 
     info("Setting up message chooser.")
 
-    val chooser = new DefaultChooser
+    val chooserFactoryClassName = config.getMessageChooserClass.getOrElse(classOf[RoundRobinChooserFactory].getName)
+
+    val chooserFactory = Util.getObj[MessageChooserFactory](chooserFactoryClassName)
+
+    val chooser = DefaultChooser(systemAdmins, chooserFactory, config, samzaContainerMetrics.registry)
 
     info("Setting up metrics reporters.")
 
