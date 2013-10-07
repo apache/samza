@@ -24,7 +24,6 @@ package org.apache.samza.system.kafka
 import org.junit.Assert._
 import org.junit.Test
 import kafka.zk.EmbeddedZookeeper
-import org.apache.samza.checkpoint.Checkpoint
 import org.junit.BeforeClass
 import org.junit.AfterClass
 import org.apache.samza.util.ClientUtilTopicMetadataStore
@@ -39,16 +38,12 @@ import kafka.server.KafkaServer
 import kafka.producer.Producer
 import kafka.server.KafkaConfig
 import kafka.utils.Utils
-import org.apache.samza.system.SystemStream
 import kafka.utils.ZKStringSerializer
 import scala.collection.JavaConversions._
 import kafka.producer.KeyedMessage
-import kafka.message.MessageAndMetadata
-import scala.collection.mutable.ArrayBuffer
 import kafka.consumer.Consumer
 import kafka.consumer.ConsumerConfig
 import java.util.Properties
-import com.sun.xml.internal.xsom.impl.parser.state.group
 
 object TestKafkaSystemAdmin {
   val TOPIC = "input"
