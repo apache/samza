@@ -30,6 +30,10 @@ public class Gauge<T> implements Metric {
     this.ref = new AtomicReference<T>(value);
   }
 
+  public boolean compareAndSet(T expected, T n) {
+    return ref.compareAndSet(expected, n);
+  }
+
   public T set(T n) {
     return ref.getAndSet(n);
   }
