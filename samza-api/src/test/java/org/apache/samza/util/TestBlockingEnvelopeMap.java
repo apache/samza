@@ -126,7 +126,17 @@ public class TestBlockingEnvelopeMap {
   @Test
   public void testShouldPollWithATimeout() throws InterruptedException {
     MockQueue q = new MockQueue();
-    final BlockingEnvelopeMap map = new MockBlockingEnvelopeMap(q);
+    // Always use the same time in this test so that we can be sure we get a
+    // 100ms poll, rather than a 99ms poll (for example). Have to do this
+    // because BlockingEnvelopeMap calls clock.currentTimeMillis twice, and
+    // uses the second call to determine the actual poll time.
+    final BlockingEnvelopeMap map = new MockBlockingEnvelopeMap(q, new Clock() {
+      private final long NOW = System.currentTimeMillis();
+
+      public long currentTimeMillis() {
+        return NOW;
+      }
+    });
 
     map.register(SSP, "0");
 
@@ -182,7 +192,15 @@ public class TestBlockingEnvelopeMap {
     }
 
     public MockBlockingEnvelopeMap(BlockingQueue<IncomingMessageEnvelope> injectedQueue) {
-      super();
+      this(injectedQueue, new Clock() {
+        public long currentTimeMillis() {
+          return System.currentTimeMillis();
+        }
+      });
+    }
+
+    public MockBlockingEnvelopeMap(BlockingQueue<IncomingMessageEnvelope> injectedQueue, Clock clock) {
+      super(new NoOpMetricsRegistry(), clock);
 
       this.injectedQueue = injectedQueue;
     }
