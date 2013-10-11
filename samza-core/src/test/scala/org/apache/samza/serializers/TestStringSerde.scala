@@ -19,27 +19,20 @@
 
 package org.apache.samza.serializers
 
-import java.nio.ByteBuffer
-import org.apache.samza.config.Config
+import org.junit.Assert._
+import org.junit.Test
+import java.util.Arrays
 
-/**
- * A serializer for strings
- */
-class StringSerdeFactory extends SerdeFactory[String] {
-  def getSerde(name: String, config: Config): Serde[String] =
-    new StringSerde(config.get("encoding", "UTF-8"))
-}
+class TestStringSerde {
+  @Test
+  def testStringSerde {
+    val serde = new StringSerde("UTF-8")
+    assertEquals(null, serde.toBytes(null))
+    assertEquals(null, serde.fromBytes(null))
 
-class StringSerde(val encoding: String) extends Serde[String] {
-  def toBytes(obj: String): Array[Byte] = if (obj != null) {
-    obj.toString.getBytes(encoding)
-  } else {
-    null
-  }
-
-  def fromBytes(bytes: Array[Byte]): String = if (bytes != null) {
-    new String(bytes, 0, bytes.size, encoding)
-  } else {
-    null
+    val fooBar = "foo bar"
+    val fooBarBytes = serde.toBytes(fooBar)
+    assertTrue(Arrays.equals(fooBar.getBytes("UTF-8"), fooBarBytes))
+    assertEquals(fooBar, serde.fromBytes(fooBarBytes))
   }
 }
