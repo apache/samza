@@ -31,7 +31,7 @@ class IntegerSerdeFactory extends SerdeFactory[Integer] {
 
 class IntegerSerde extends Serde[Integer] {
   def toBytes(obj: Integer): Array[Byte] = if (obj != null) {
-    ByteBuffer.allocate(4).putInt(obj).array
+    ByteBuffer.allocate(4).putInt(obj.intValue).array
   } else {
     null
   }
