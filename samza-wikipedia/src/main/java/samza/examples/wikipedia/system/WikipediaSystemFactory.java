@@ -26,11 +26,12 @@ import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
+import org.apache.samza.util.SinglePartitionSystemAdmin;
 
 public class WikipediaSystemFactory implements SystemFactory {
   @Override
   public SystemAdmin getAdmin(String systemName, Config config) {
-    return new WikipediaSystemAdmin();
+    return new SinglePartitionSystemAdmin();
   }
 
   @Override
