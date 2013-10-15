@@ -25,19 +25,19 @@ import org.apache.samza.config.Config
 /**
  * A serializer for integers
  */
-class IntegerSerdeFactory extends SerdeFactory[Integer] {
-  def getSerde(name: String, config: Config): Serde[Integer] = new IntegerSerde
+class IntegerSerdeFactory extends SerdeFactory[java.lang.Integer] {
+  def getSerde(name: String, config: Config): Serde[java.lang.Integer] = new IntegerSerde
 }
 
-class IntegerSerde extends Serde[Integer] {
-  def toBytes(obj: Integer): Array[Byte] = if (obj != null) {
+class IntegerSerde extends Serde[java.lang.Integer] {
+  def toBytes(obj: java.lang.Integer): Array[Byte] = if (obj != null) {
     ByteBuffer.allocate(4).putInt(obj.intValue).array
   } else {
     null
   }
 
   // big-endian by default
-  def fromBytes(bytes: Array[Byte]): Integer = if (bytes != null) {
+  def fromBytes(bytes: Array[Byte]): java.lang.Integer = if (bytes != null) {
     ByteBuffer.wrap(bytes).getInt
   } else {
     null

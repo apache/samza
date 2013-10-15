@@ -25,6 +25,7 @@ import java.util.Random
 
 import scala.collection.JavaConversions._
 
+import org.apache.samza.serializers.IntegerSerde
 import org.iq80.leveldb.Options
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -139,6 +140,16 @@ class TestKeyValueStores(cache: Boolean) {
     vals.foreach(v => assertTrue(Arrays.equals(v, store.get(v))))
     vals.foreach(v => store.delete(v))
     vals.foreach(v => assertNull(store.get(v)))
+  }
+
+  @Test
+  def testSerializedValueIsNull {
+    val serializedStore = new SerializedKeyValueStore(
+      store,
+      new IntegerSerde,
+      new IntegerSerde)
+
+    serializedStore.putAll(List(new Entry[java.lang.Integer, java.lang.Integer](0, null)))
   }
 
   def checkRange(vals: IndexedSeq[String], iter: KeyValueIterator[Array[Byte], Array[Byte]]) {

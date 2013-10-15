@@ -61,7 +61,10 @@ class SerializedKeyValueStore[K, V](
       val curr = iter.next
       val keyBytes = keySerde.toBytes(curr.getKey)
       val valBytes = msgSerde.toBytes(curr.getValue)
-      bytesSerialized += keyBytes.size + valBytes.size
+      bytesSerialized += keyBytes.size
+      if (valBytes != null) {
+        bytesSerialized += valBytes.size
+      }
       list.add(new Entry(keyBytes, valBytes))
     }
     store.putAll(list)
