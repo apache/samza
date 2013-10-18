@@ -40,7 +40,6 @@
       <groupId>org.apache.samza</groupId>
       <artifactId>samza-yarn_2.8.1</artifactId>
       <scope>runtime</scope>
-      <classifier>yarn-2.0.5-alpha</classifier>
     </dependency>
     <dependency>
       <groupId>org.apache.samza</groupId>
