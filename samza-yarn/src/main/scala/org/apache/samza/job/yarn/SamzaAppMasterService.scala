@@ -32,6 +32,9 @@ import org.apache.samza.SamzaException
  * up the web service when initialized.
  */
 class SamzaAppMasterService(config: Config, state: SamzaAppMasterState, registry: ReadableMetricsRegistry, clientHelper: ClientHelper) extends YarnAppMasterListener with Logging {
+  var rpcApp: WebAppServer = null
+  var webApp: WebAppServer = null
+
   override def onInit() {
     // try starting the samza AM dashboard. try ten times, just in case we 
     // pick a port that's already in use.
@@ -41,13 +44,13 @@ class SamzaAppMasterService(config: Config, state: SamzaAppMasterState, registry
       info("Starting webapp at rpc %d, tracking port %d" format (rpcPort, trackingPort))
 
       try {
-        val rpcapp = new WebAppServer("/", rpcPort)
-        rpcapp.addServlet("/*", new ApplicationMasterRestServlet(config, state, registry))
-        rpcapp.start
+        rpcApp = new WebAppServer("/", rpcPort)
+        rpcApp.addServlet("/*", new ApplicationMasterRestServlet(config, state, registry))
+        rpcApp.start
 
-        val webapp = new WebAppServer("/", trackingPort)
-        webapp.addServlet("/*", new ApplicationMasterWebServlet(config, state))
-        webapp.start
+        webApp = new WebAppServer("/", trackingPort)
+        webApp.addServlet("/*", new ApplicationMasterWebServlet(config, state))
+        webApp.start
 
         state.rpcPort = rpcPort
         state.trackingPort = trackingPort
@@ -61,6 +64,18 @@ class SamzaAppMasterService(config: Config, state: SamzaAppMasterState, registry
 
     if (state.rpcPort == 0 || state.trackingPort == 0) {
       throw new SamzaException("Giving up trying to start the webapp, since we keep getting ports that are already in use")
+    }
+  }
+
+  override def onShutdown() {
+    if (rpcApp != null) {
+      rpcApp.context.stop
+      rpcApp.server.stop
+    }
+
+    if (webApp != null) {
+      webApp.context.stop
+      webApp.server.stop
     }
   }
 }

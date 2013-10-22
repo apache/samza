@@ -26,6 +26,7 @@ import org.apache.samza.config.Config
 import scala.collection.JavaConversions._
 import scala.collection.immutable.TreeMap
 import org.apache.hadoop.yarn.conf.YarnConfiguration
+import org.apache.hadoop.yarn.webapp.util.WebAppUtils
 
 class ApplicationMasterWebServlet(config: Config, state: SamzaAppMasterState) extends ScalatraServlet with ScalateSupport {
   val yarnConfig = new YarnConfiguration
@@ -38,6 +39,6 @@ class ApplicationMasterWebServlet(config: Config, state: SamzaAppMasterState) ex
     layoutTemplate("/WEB-INF/views/index.scaml",
       "config" -> TreeMap(config.toMap.toArray: _*),
       "state" -> state,
-      "rmHttpAddress" -> YarnConfiguration.getRMWebAppURL(yarnConfig))
+      "rmHttpAddress" -> WebAppUtils.getRMWebAppURLWithScheme(yarnConfig))
   }
 }

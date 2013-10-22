@@ -104,10 +104,6 @@ project(":samza-serializers_$scalaVersion") {
 project(":samza-yarn_$scalaVersion") {
   apply plugin: 'scala'
 
-  jar {  
-    classifier = "yarn-$yarnVersion"
-  }
-
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")

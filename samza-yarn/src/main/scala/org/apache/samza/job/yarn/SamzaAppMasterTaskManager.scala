@@ -38,8 +38,8 @@ import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
 import org.apache.samza.util.Util
 import scala.collection.JavaConversions._
 import org.apache.samza.SamzaException
-import org.apache.hadoop.yarn.client.AMRMClient
-import org.apache.hadoop.yarn.client.AMRMClient.ContainerRequest
+import org.apache.hadoop.yarn.client.api.AMRMClient
+import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
 import org.apache.hadoop.yarn.api.records.Priority
 import org.apache.hadoop.yarn.api.records.Resource
 import org.apache.hadoop.yarn.util.Records
@@ -49,7 +49,6 @@ import org.apache.hadoop.yarn.util.ConverterUtils
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest
 import org.apache.hadoop.yarn.conf.YarnConfiguration
-import org.apache.hadoop.yarn.api.ContainerManager
 import org.apache.hadoop.yarn.api.records.LocalResourceType
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility
 import org.apache.hadoop.yarn.ipc.YarnRPC
@@ -59,6 +58,11 @@ import org.apache.hadoop.net.NetUtils
 import java.util.Collections
 import java.security.PrivilegedAction
 import org.apache.samza.job.ShellCommandBuilder
+import org.apache.hadoop.io.DataOutputBuffer
+import org.apache.hadoop.yarn.security.AMRMTokenIdentifier
+import java.nio.ByteBuffer
+import org.apache.hadoop.yarn.client.api.NMClient
+import org.apache.hadoop.yarn.client.api.impl.NMClientImpl
 
 object SamzaAppMasterTaskManager {
   val DEFAULT_CONTAINER_MEM = 256
@@ -79,7 +83,7 @@ case class TaskFailure(val count: Int, val lastFailure: Long)
  * containers, handling failures, and notifying the application master that the
  * job is done.
  */
-class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaAppMasterState, amClient: AMRMClient, conf: YarnConfiguration) extends YarnAppMasterListener with Logging {
+class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaAppMasterState, amClient: AMRMClient[ContainerRequest], conf: YarnConfiguration) extends YarnAppMasterListener with Logging {
   import SamzaAppMasterTaskManager._
 
   state.taskCount = config.getTaskCount match {
@@ -92,16 +96,26 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
   val partitions = Util.getMaxInputStreamPartitions(config)
   var taskFailures = Map[Int, TaskFailure]()
   var tooManyFailedContainers = false
+  var containerManager: NMClientImpl = null
 
   override def shouldShutdown = state.completedTasks == state.taskCount || tooManyFailedContainers
 
   override def onInit() {
     state.neededContainers = state.taskCount
     state.unclaimedTasks = (0 until state.taskCount).toSet
+    containerManager = new NMClientImpl()
+    containerManager.init(conf)
+    containerManager.start
 
     info("Requesting %s containers" format state.taskCount)
 
     requestContainers(config.getContainerMaxMemoryMb.getOrElse(DEFAULT_CONTAINER_MEM), config.getContainerMaxCpuCores.getOrElse(DEFAULT_CPU_CORES), state.neededContainers)
+  }
+
+  override def onShutdown {
+    if (containerManager != null) {
+      containerManager.stop
+    }
   }
 
   override def onContainerAllocated(container: Container) {
@@ -124,15 +138,12 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
         info("Task ID %s using command %s" format (taskId, command))
         val env = cmdBuilder.buildEnvironment.map { case (k, v) => (k, Util.envVarEscape(v)) }
         info("Task ID %s using env %s" format (taskId, env))
-        val user = UserGroupInformation.getCurrentUser
-        info("Task ID %s using user %s" format (taskId, user))
         val path = new Path(config.getPackagePath.get)
         info("Starting task ID %s using package path %s" format (taskId, path))
 
         startContainer(
           path,
           container,
-          user,
           env.toMap,
           "export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec ./__package/%s 1>logs/%s 2>logs/%s" format (ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR, command, ApplicationConstants.STDOUT, ApplicationConstants.STDERR))
 
@@ -273,26 +284,11 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
     }
   }
 
-  protected def startContainer(packagePath: Path, container: Container, ugi: UserGroupInformation, env: Map[String, String], cmds: String*) {
-    info("starting container %s %s %s %s %s" format (packagePath, container, ugi, env, cmds))
+  protected def startContainer(packagePath: Path, container: Container, env: Map[String, String], cmds: String*) {
+    info("starting container %s %s %s %s" format (packagePath, container, env, cmds))
     // connect to container manager (based on similar code in the ContainerLauncher in Hadoop MapReduce)
     val contToken = container.getContainerToken
     val address = container.getNodeId.getHost + ":" + container.getNodeId.getPort
-    var user = ugi
-
-    if (UserGroupInformation.isSecurityEnabled) {
-      debug("security is enabled")
-      val hadoopToken = new Token[ContainerTokenIdentifier](contToken.getIdentifier.array, contToken.getPassword.array, new Text(contToken.getKind), new Text(contToken.getService))
-      user = UserGroupInformation.createRemoteUser(address)
-      user.addToken(hadoopToken)
-      debug("changed user to %s" format user)
-    }
-
-    val containerManager = user.doAs(new PrivilegedAction[ContainerManager] {
-      def run(): ContainerManager = {
-        return YarnRPC.create(conf).getProxy(classOf[ContainerManager], NetUtils.createSocketAddr(address), conf).asInstanceOf[ContainerManager]
-      }
-    })
 
     // set the local package so that the containers and app master are provisioned with it
     val packageResource = Records.newRecord(classOf[LocalResource])
@@ -305,12 +301,24 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
     packageResource.setType(LocalResourceType.ARCHIVE)
     packageResource.setVisibility(LocalResourceVisibility.APPLICATION)
 
+    // copy tokens (copied from dist shell example)
+    val credentials = UserGroupInformation.getCurrentUser.getCredentials
+    val dob = new DataOutputBuffer
+    credentials.writeTokenStorageToStream(dob)
+    // now remove the AM->RM token so that containers cannot access it
+    val iter = credentials.getAllTokens.iterator
+    while (iter.hasNext) {
+      val token = iter.next
+      if (token.getKind.equals(AMRMTokenIdentifier.KIND_NAME)) {
+        iter.remove
+      }
+    }
+    val allTokens = ByteBuffer.wrap(dob.getData, 0, dob.getLength)
+
     // start the container
     val ctx = Records.newRecord(classOf[ContainerLaunchContext])
     ctx.setEnvironment(env)
-    ctx.setContainerId(container.getId())
-    ctx.setResource(container.getResource())
-    ctx.setUser(user.getShortUserName())
+    ctx.setTokens(allTokens.duplicate)
     ctx.setCommands(cmds.toList)
     ctx.setLocalResources(Collections.singletonMap("__package", packageResource))
 
@@ -319,7 +327,7 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
 
     val startContainerRequest = Records.newRecord(classOf[StartContainerRequest])
     startContainerRequest.setContainerLaunchContext(ctx)
-    containerManager.startContainer(startContainerRequest)
+    containerManager.startContainer(container, ctx)
   }
 
   protected def requestContainers(memMb: Int, cpuCores: Int, containers: Int) {
@@ -329,6 +337,6 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
     priority.setPriority(0)
     capability.setMemory(memMb)
     capability.setVirtualCores(cpuCores)
-    amClient.addContainerRequest(new ContainerRequest(capability, null, null, priority, containers))
+    (0 until containers).foreach(idx => amClient.addContainerRequest(new ContainerRequest(capability, null, null, priority)))
   }
 }

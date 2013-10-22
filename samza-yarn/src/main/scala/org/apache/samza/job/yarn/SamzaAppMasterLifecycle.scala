@@ -20,7 +20,7 @@
 package org.apache.samza.job.yarn
 import grizzled.slf4j.Logging
 import org.apache.samza.SamzaException
-import org.apache.hadoop.yarn.client.AMRMClient
+import org.apache.hadoop.yarn.client.api.AMRMClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
 
@@ -29,7 +29,7 @@ import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
  * this means registering and unregistering with the RM, and shutting down
  * when the RM tells us to Reboot.
  */
-class SamzaAppMasterLifecycle(containerMem: Int, containerCpu: Int, state: SamzaAppMasterState, amClient: AMRMClient, conf: YarnConfiguration) extends YarnAppMasterListener with Logging {
+class SamzaAppMasterLifecycle(containerMem: Int, containerCpu: Int, state: SamzaAppMasterState, amClient: AMRMClient[_], conf: YarnConfiguration) extends YarnAppMasterListener with Logging {
   var validResourceRequest = true
   var shutdownMessage: String = null
 
@@ -43,15 +43,12 @@ class SamzaAppMasterLifecycle(containerMem: Int, containerCpu: Int, state: Samza
 
     // validate that the YARN cluster can handle our container resource requirements
     val maxCapability = response.getMaximumResourceCapability
-    val minCapability = response.getMinimumResourceCapability
     val maxMem = maxCapability.getMemory
-    val minMem = minCapability.getMemory
     val maxCpu = maxCapability.getVirtualCores
-    val minCpu = minCapability.getVirtualCores
 
-    info("Got AM register response. The YARN RM supports container requests with max-mem: %s, min-mem: %s, max-cpu: %s, min-cpu: %s" format (maxMem, minMem, maxCpu, minCpu))
+    info("Got AM register response. The YARN RM supports container requests with max-mem: %s, max-cpu: %s" format (maxMem, maxCpu))
 
-    if (containerMem < minMem || containerMem > maxMem || containerCpu < minCpu || containerCpu > maxCpu) {
+    if (containerMem > maxMem || containerCpu > maxCpu) {
       shutdownMessage = "The YARN cluster is unable to run your job due to unsatisfiable resource requirements. You asked for mem: %s, and cpu: %s." format (containerMem, containerCpu)
       error(shutdownMessage)
       validResourceRequest = false

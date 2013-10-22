@@ -32,9 +32,10 @@ import org.apache.hadoop.security.UserGroupInformation
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse
-import org.apache.hadoop.yarn.client.AMRMClient
-import org.apache.hadoop.yarn.client.AMRMClient.ContainerRequest
-import org.apache.hadoop.yarn.service._
+import org.apache.hadoop.yarn.client.api.AMRMClient
+import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
+import org.apache.hadoop.yarn.client.api.impl.AMRMClientImpl
+import org.apache.hadoop.service._
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.yarn.api.records.NodeReport
 import TestSamzaAppMasterTaskManager._
@@ -45,90 +46,89 @@ import org.apache.samza.SamzaException
 
 object TestSamzaAppMasterTaskManager {
   def getContainer(containerId: ContainerId) = new Container {
-    def getId(): ContainerId = containerId
-    def setId(id: ContainerId) {}
-    def getNodeId(): NodeId = new NodeId {
+    override def getId(): ContainerId = containerId
+    override def setId(id: ContainerId) {}
+    override def getNodeId(): NodeId = new NodeId {
       var host = ""
       var port = 12345
-      def getHost() = host
-      def setHost(host: String) = {
+      override def getHost() = host
+      override def setHost(host: String) = {
         this.host = host
       }
-      def getPort() = port
-      def setPort(port: Int) = {
+      override def getPort() = port
+      override def setPort(port: Int) = {
         this.port = port
       }
+      override def build() = null
     }
-    def setNodeId(nodeId: NodeId) {}
-    def getNodeHttpAddress(): String = ""
-    def setNodeHttpAddress(nodeHttpAddress: String) {}
-    def getResource(): Resource = null
-    def setResource(resource: Resource) {}
-    def getPriority(): Priority = null
-    def setPriority(priority: Priority) {}
-    def getState(): ContainerState = null
-    def setState(state: ContainerState) {}
-    def getContainerToken(): ContainerToken = null
-    def setContainerToken(containerToken: ContainerToken) {}
-    def getContainerStatus(): ContainerStatus = null
-    def setContainerStatus(containerStatus: ContainerStatus) {}
-    def compareTo(c: Container): Int = containerId.compareTo(c.getId)
+    override def setNodeId(nodeId: NodeId) {}
+    override def getNodeHttpAddress(): String = ""
+    override def setNodeHttpAddress(nodeHttpAddress: String) {}
+    override def getResource(): Resource = null
+    override def setResource(resource: Resource) {}
+    override def getPriority(): Priority = null
+    override def setPriority(priority: Priority) {}
+    override def getContainerToken(): Token = null
+    override def setContainerToken(containerToken: Token) {}
+    override def compareTo(c: Container): Int = containerId.compareTo(c.getId)
   }
 
   def getContainerStatus(containerId: ContainerId, exitCode: Int, diagnostic: String) = new ContainerStatus {
-    def getContainerId(): ContainerId = containerId
-    def setContainerId(containerId: ContainerId) {}
-    def getState(): ContainerState = null
-    def setState(state: ContainerState) {}
-    def getExitStatus(): Int = exitCode
-    def setExitStatus(exitStatus: Int) {}
-    def getDiagnostics() = diagnostic
-    def setDiagnostics(diagnostics: String) = {}
+    override def getContainerId(): ContainerId = containerId
+    override def setContainerId(containerId: ContainerId) {}
+    override def getState(): ContainerState = null
+    override def setState(state: ContainerState) {}
+    override def getExitStatus(): Int = exitCode
+    override def setExitStatus(exitStatus: Int) {}
+    override def getDiagnostics() = diagnostic
+    override def setDiagnostics(diagnostics: String) = {}
   }
 
-  def getAmClient = (response: AllocateResponse) => new AMRMClient {
+  def getAmClient = (response: AllocateResponse) => new AMRMClientImpl[ContainerRequest] {
     var requests: List[ContainerRequest] = List[ContainerRequest]()
-    var release: List[ContainerId] = List[ContainerId]()
 
-    def registerApplicationMaster(appHostName: String, appHostPort: Int, appTrackingUrl: String): RegisterApplicationMasterResponse = null
-    def allocate(progressIndicator: Float): AllocateResponse = response
-    def unregisterApplicationMaster(appStatus: FinalApplicationStatus, appMessage: String, appTrackingUrl: String) = null
-    def addContainerRequest(req: ContainerRequest) { requests ::= req }
-    def removeContainerRequest(req: ContainerRequest) {}
-    def releaseAssignedContainer(containerId: ContainerId) { release ::= containerId }
-    def getClusterAvailableResources(): Resource = null
-    def getClusterNodeCount() = 1
+    def getRelease = release
+    def resetRelease = release.clear
+    override def registerApplicationMaster(appHostName: String, appHostPort: Int, appTrackingUrl: String): RegisterApplicationMasterResponse = null
+    override def allocate(progressIndicator: Float): AllocateResponse = response
+    override def unregisterApplicationMaster(appStatus: FinalApplicationStatus, appMessage: String, appTrackingUrl: String) = null
+    override def addContainerRequest(req: ContainerRequest) { requests ::= req }
+    override def removeContainerRequest(req: ContainerRequest) {}
+    override def getClusterNodeCount() = 1
 
-    def init(config: Configuration) {}
-    def start() {}
-    def stop() {}
-    def register(listener: ServiceStateChangeListener) {}
-    def unregister(listener: ServiceStateChangeListener) {}
-    def getName(): String = ""
-    def getConfig() = null
-    def getServiceState() = null
-    def getStartTime() = 0L
+    override def init(config: Configuration) {}
+    override def start() {}
+    override def stop() {}
+    override def getName(): String = ""
+    override def getConfig() = null
+    override def getStartTime() = 0L
   }
 
   def getAppMasterResponse(reboot: Boolean, containers: List[Container], completed: List[ContainerStatus]) =
     new AllocateResponse {
-      def getAMResponse = new AMResponse {
-        def getReboot(): Boolean = reboot
-        def setReboot(reboot: Boolean) {}
-        def getResponseId() = 0
-        def setResponseId(responseId: Int) {}
-        def getAllocatedContainers() = containers
-        def setAllocatedContainers(containers: java.util.List[Container]) {}
-        def getAvailableResources(): Resource = null
-        def setAvailableResources(limit: Resource) {}
-        def getCompletedContainersStatuses() = completed
-        def setCompletedContainersStatuses(containers: java.util.List[ContainerStatus]) {}
-        def setUpdatedNodes(nodes: java.util.List[NodeReport]) {}
-        def getUpdatedNodes = null
+      override def getResponseId() = 0
+      override def setResponseId(responseId: Int) {}
+      override def getAllocatedContainers() = containers
+      override def setAllocatedContainers(containers: java.util.List[Container]) {}
+      override def getAvailableResources(): Resource = null
+      override def setAvailableResources(limit: Resource) {}
+      override def getCompletedContainersStatuses() = completed
+      override def setCompletedContainersStatuses(containers: java.util.List[ContainerStatus]) {}
+      override def setUpdatedNodes(nodes: java.util.List[NodeReport]) {}
+      override def getUpdatedNodes = null
+      override def getNumClusterNodes = 1
+      override def setNumClusterNodes(num: Int) {}
+      override def getNMTokens = null
+      override def setNMTokens(nmTokens: java.util.List[NMToken]) {}
+      override def setAMCommand(command: AMCommand) {}
+      override def getPreemptionMessage = null
+      override def setPreemptionMessage(request: PreemptionMessage) {}
+
+      override def getAMCommand = if (reboot) {
+        AMCommand.AM_RESYNC
+      } else {
+        null
       }
-      def getNumClusterNodes = 1
-      def setNumClusterNodes(num: Int) {}
-      def setAMResponse(response: AMResponse) {}
     }
 }
 
@@ -169,7 +169,7 @@ class TestSamzaAppMasterTaskManager {
     val amClient = getAmClient(getAppMasterResponse(false, List(), List()))
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
     val taskManager = new SamzaAppMasterTaskManager(clock, config, state, amClient, new YarnConfiguration) {
-      override def startContainer(packagePath: Path, container: Container, ugi: UserGroupInformation, env: Map[String, String], cmds: String*) {
+      override def startContainer(packagePath: Path, container: Container, env: Map[String, String], cmds: String*) {
         // Do nothing.
       }
     }
@@ -182,13 +182,13 @@ class TestSamzaAppMasterTaskManager {
     assert(taskManager.shouldShutdown == false)
     // 2. First is from onInit, second is from onContainerCompleted, since it failed.
     assertEquals(2, amClient.requests.size)
-    assertEquals(0, amClient.release.size)
+    assertEquals(0, amClient.getRelease.size)
     assertFalse(taskManager.shouldShutdown)
     // Now trigger an AM shutdown since our retry count is 1, and we're failing twice
     taskManager.onContainerAllocated(getContainer(container2))
     taskManager.onContainerCompleted(getContainerStatus(container2, 1, "expecting a failure here"))
     assertEquals(2, amClient.requests.size)
-    assertEquals(0, amClient.release.size)
+    assertEquals(0, amClient.getRelease.size)
     assertTrue(taskManager.shouldShutdown)
   }
 
@@ -200,7 +200,7 @@ class TestSamzaAppMasterTaskManager {
     var containersRequested = 0
     var containersStarted = 0
     val taskManager = new SamzaAppMasterTaskManager(clock, config, state, amClient, new YarnConfiguration) {
-      override def startContainer(packagePath: Path, container: Container, ugi: UserGroupInformation, env: Map[String, String], cmds: String*) {
+      override def startContainer(packagePath: Path, container: Container, env: Map[String, String], cmds: String*) {
         containersStarted += 1
       }
 
@@ -216,7 +216,7 @@ class TestSamzaAppMasterTaskManager {
     taskManager.onInit
     assert(taskManager.shouldShutdown == false)
     assert(amClient.requests.size == 1)
-    assert(amClient.release.size == 0)
+    assert(amClient.getRelease.size == 0)
 
     // allocate container 2
     taskManager.onContainerAllocated(getContainer(container2))
@@ -234,12 +234,12 @@ class TestSamzaAppMasterTaskManager {
     assert(state.taskPartitions.size == 1)
     assert(state.unclaimedTasks.size == 0)
     assert(amClient.requests.size == 1)
-    assert(amClient.release.size == 1)
-    assert(amClient.release(0).equals(container3))
+    assert(amClient.getRelease.size == 1)
+    assert(amClient.getRelease.head.equals(container3))
 
     // reset the helper state, so we can make sure that releasing the container (next step) doesn't request more resources
     amClient.requests = List()
-    amClient.release = List()
+    amClient.resetRelease
 
     // now release the container, and make sure the AM doesn't ask for more
     assert(taskManager.shouldShutdown == false)
@@ -250,14 +250,14 @@ class TestSamzaAppMasterTaskManager {
     assert(state.taskPartitions.size == 1)
     assert(state.unclaimedTasks.size == 0)
     assert(amClient.requests.size == 0)
-    assert(amClient.release.size == 0)
+    assert(amClient.getRelease.size == 0)
 
     // pretend container 2 is released due to an NM failure, and make sure that the AM requests a new container
     assert(taskManager.shouldShutdown == false)
     taskManager.onContainerCompleted(getContainerStatus(container2, -100, "pretend the container was 'lost' due to an NM failure"))
     assert(taskManager.shouldShutdown == false)
     assert(amClient.requests.size == 1)
-    assert(amClient.release.size == 0)
+    assert(amClient.getRelease.size == 0)
   }
 
   @Test
@@ -270,7 +270,7 @@ class TestSamzaAppMasterTaskManager {
     state.taskCount = 2
     var containersStarted = 0
     val taskManager = new SamzaAppMasterTaskManager(clock, newConfig, state, amClient, new YarnConfiguration) {
-      override def startContainer(packagePath: Path, container: Container, ugi: UserGroupInformation, env: Map[String, String], cmds: String*) {
+      override def startContainer(packagePath: Path, container: Container, env: Map[String, String], cmds: String*) {
         containersStarted += 1
       }
     }
@@ -280,8 +280,8 @@ class TestSamzaAppMasterTaskManager {
     assert(taskManager.shouldShutdown == false)
     taskManager.onInit
     assert(taskManager.shouldShutdown == false)
-    assert(amClient.requests.size == 1)
-    assert(amClient.release.size == 0)
+    assert(amClient.requests.size == 2)
+    assert(amClient.getRelease.size == 0)
     taskManager.onContainerAllocated(getContainer(container2))
     assert(state.neededContainers == 1)
     assert(state.runningTasks.size == 1)
@@ -337,7 +337,7 @@ class TestSamzaAppMasterTaskManager {
     var containersRequested = 0
     var containersStarted = 0
     val taskManager = new SamzaAppMasterTaskManager(clock, config, state, amClient, new YarnConfiguration) {
-      override def startContainer(packagePath: Path, container: Container, ugi: UserGroupInformation, env: Map[String, String], cmds: String*) {
+      override def startContainer(packagePath: Path, container: Container, env: Map[String, String], cmds: String*) {
         containersStarted += 1
       }
 
@@ -353,7 +353,7 @@ class TestSamzaAppMasterTaskManager {
     taskManager.onInit
     assert(taskManager.shouldShutdown == false)
     assert(amClient.requests.size == 1)
-    assert(amClient.release.size == 0)
+    assert(amClient.getRelease.size == 0)
     assert(state.neededContainers == 1)
     assert(state.runningTasks.size == 0)
     assert(state.taskPartitions.size == 0)
@@ -373,8 +373,8 @@ class TestSamzaAppMasterTaskManager {
     assert(containersRequested == 1)
     assert(containersStarted == 1)
     assert(amClient.requests.size == 1)
-    assert(amClient.release.size == 1)
-    assert(amClient.release(0).equals(container3))
+    assert(amClient.getRelease.size == 1)
+    assert(amClient.getRelease.head.equals(container3))
   }
 
   @Test
@@ -429,6 +429,6 @@ class MockSystemFactory extends SystemFactory {
 
 class MockSinglePartitionManager extends SystemAdmin {
   def getPartitions(streamName: String) = Set(new Partition(0))
-  
+
   def getLastOffsets(streams: java.util.Set[String]) = throw new SamzaException("Need to implement this")
 }

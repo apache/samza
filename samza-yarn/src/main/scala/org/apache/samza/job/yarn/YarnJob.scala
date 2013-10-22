@@ -49,7 +49,6 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
       new Path(config.getPackagePath.getOrElse(throw new SamzaException("No YARN package path defined in config."))),
       config.getAMContainerMaxMemoryMb.getOrElse(512),
       1,
-      UserGroupInformation.getCurrentUser,
       List(
         "export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec ./__package/bin/run-am.sh 1>logs/%s 2>logs/%s"
           format (ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.STDOUT, ApplicationConstants.STDERR)),

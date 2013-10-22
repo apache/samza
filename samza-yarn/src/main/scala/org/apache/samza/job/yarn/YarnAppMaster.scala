@@ -21,7 +21,9 @@ package org.apache.samza.job.yarn
 
 import scala.collection.JavaConversions._
 import grizzled.slf4j.Logging
-import org.apache.hadoop.yarn.client.AMRMClient
+import org.apache.hadoop.yarn.client.api.AMRMClient
+import org.apache.hadoop.yarn.api.records.AMCommand._
+import org.apache.samza.SamzaException
 
 /**
  * YARN's API is somewhat clunky. Most implementations just sit in a loop, and
@@ -36,20 +38,27 @@ import org.apache.hadoop.yarn.client.AMRMClient
  * SamzaAppMaster uses this class to wire up all of Samza's application master
  * listeners.
  */
-class YarnAppMaster(pollIntervalMs: Long, listeners: List[YarnAppMasterListener], amClient: AMRMClient) extends Logging {
+class YarnAppMaster(pollIntervalMs: Long, listeners: List[YarnAppMasterListener], amClient: AMRMClient[_]) extends Logging {
   var isShutdown = false
 
-  def this(listeners: List[YarnAppMasterListener], amClient: AMRMClient) = this(1000, listeners, amClient)
+  def this(listeners: List[YarnAppMasterListener], amClient: AMRMClient[_]) = this(1000, listeners, amClient)
 
   def run {
     try {
       listeners.foreach(_.onInit)
 
       while (!isShutdown && !listeners.map(_.shouldShutdown).reduceLeft(_ || _)) {
-        val response = amClient.allocate(0).getAMResponse
+        val response = amClient.allocate(0)
 
-        if (response.getReboot) {
-          listeners.foreach(_.onReboot)
+        if (response.getAMCommand != null) {
+          response.getAMCommand match {
+            case AM_RESYNC | AM_SHUTDOWN =>
+              listeners.foreach(_.onReboot)
+            case _ =>
+              val msg = "Unhandled value of AMCommand: " + response.getAMCommand
+              error(msg);
+              throw new SamzaException(msg);
+          }
         }
 
         listeners.foreach(_.onEventLoop)

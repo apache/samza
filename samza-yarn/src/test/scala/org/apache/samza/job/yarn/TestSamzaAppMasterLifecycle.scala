@@ -29,64 +29,53 @@ import org.apache.hadoop.yarn.api.records.ContainerId
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
 import org.apache.hadoop.yarn.api.records.Priority
 import org.apache.hadoop.yarn.api.records.Resource
-import org.apache.hadoop.yarn.client.AMRMClient
-import org.apache.hadoop.yarn.client.AMRMClient.ContainerRequest
+import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
+import org.apache.hadoop.yarn.client.api.impl.AMRMClientImpl
 import org.apache.hadoop.yarn.api.records.Resource
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse
-import org.apache.hadoop.yarn.service._
+import org.apache.hadoop.service._
 import org.apache.samza.SamzaException
 import org.apache.hadoop.yarn.api.records.ApplicationAccessType
+import java.nio.ByteBuffer
 
 class TestSamzaAppMasterLifecycle {
-  val amClient = new AMRMClient {
+  val amClient = new AMRMClientImpl() {
     var host = ""
     var port = 0
     var status: FinalApplicationStatus = null
-    def registerApplicationMaster(appHostName: String, appHostPort: Int, appTrackingUrl: String): RegisterApplicationMasterResponse = {
+    override def registerApplicationMaster(appHostName: String, appHostPort: Int, appTrackingUrl: String): RegisterApplicationMasterResponse = {
       this.host = appHostName
       this.port = appHostPort
       new RegisterApplicationMasterResponse {
-        def setApplicationACLs(map: java.util.Map[ApplicationAccessType, String]) = null
-        def getApplicationACLs = null
-        def setMaximumResourceCapability(r: Resource) = null
-        def getMaximumResourceCapability = new Resource {
+        override def setApplicationACLs(map: java.util.Map[ApplicationAccessType, String]) = null
+        override def getApplicationACLs = null
+        override def setMaximumResourceCapability(r: Resource) = null
+        override def getMaximumResourceCapability = new Resource {
           def getMemory = 512
           def getVirtualCores = 2
           def setMemory(memory: Int) {}
           def setVirtualCores(vCores: Int) {}
           def compareTo(o: Resource) = 0
         }
-        def setMinimumResourceCapability(r: Resource) = null
-        def getMinimumResourceCapability = new Resource {
-          def getMemory = 128
-          def getVirtualCores = 1
-          def setMemory(memory: Int) {}
-          def setVirtualCores(vCores: Int) {}
-          def compareTo(o: Resource) = 0
-        }
+        override def getClientToAMTokenMasterKey = null
+        override def setClientToAMTokenMasterKey(buffer: ByteBuffer) {}
       }
     }
-    def allocate(progressIndicator: Float): AllocateResponse = null
-    def unregisterApplicationMaster(appStatus: FinalApplicationStatus,
+    override def allocate(progressIndicator: Float): AllocateResponse = null
+    override def unregisterApplicationMaster(appStatus: FinalApplicationStatus,
       appMessage: String,
       appTrackingUrl: String) {
       this.status = appStatus
     }
-    def addContainerRequest(req: ContainerRequest) {}
-    def removeContainerRequest(req: ContainerRequest) {}
-    def releaseAssignedContainer(containerId: ContainerId) {}
-    def getClusterAvailableResources(): Resource = null
-    def getClusterNodeCount() = 1
+    override def releaseAssignedContainer(containerId: ContainerId) {}
+    override def getClusterNodeCount() = 1
 
-    def init(config: Configuration) {}
-    def start() {}
-    def stop() {}
-    def register(listener: ServiceStateChangeListener) {}
-    def unregister(listener: ServiceStateChangeListener) {}
-    def getName(): String = ""
-    def getConfig() = null
-    def getServiceState() = null
-    def getStartTime() = 0L
+    override def init(config: Configuration) {}
+    override def start() {}
+    override def stop() {}
+    override def getName(): String = ""
+    override def getConfig() = null
+    override def getStartTime() = 0L
   }
 
   @Test
@@ -125,9 +114,7 @@ class TestSamzaAppMasterLifecycle {
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "test", 1, 2)
     state.rpcPort = 1
     List(new SamzaAppMasterLifecycle(768, 1, state, amClient, new YarnConfiguration),
-      new SamzaAppMasterLifecycle(0, 1, state, amClient, new YarnConfiguration),
-      new SamzaAppMasterLifecycle(368, 3, state, amClient, new YarnConfiguration),
-      new SamzaAppMasterLifecycle(768, 0, state, amClient, new YarnConfiguration)).map(saml => {
+      new SamzaAppMasterLifecycle(368, 3, state, amClient, new YarnConfiguration)).map(saml => {
         saml.onInit
         assertTrue(saml.shouldShutdown)
       })

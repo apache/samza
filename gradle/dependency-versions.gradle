@@ -9,4 +9,5 @@ ext {
   kafkaVersion = "0.8.1-SNAPSHOT"
   commonsHttpClientVersion = "3.1"
   leveldbVersion = "1.7"
+  yarnVersion = "2.2.0"
 }

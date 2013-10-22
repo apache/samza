@@ -27,9 +27,10 @@ import org.apache.hadoop.yarn.util.ConverterUtils
 import scala.collection.JavaConversions._
 import org.apache.samza.metrics.{ JmxServer, MetricsRegistryMap }
 import grizzled.slf4j.Logging
-import org.apache.hadoop.yarn.client.AMRMClientImpl
+import org.apache.hadoop.yarn.client.api.impl.AMRMClientImpl
 import org.apache.samza.config.YarnConfig._
 import org.apache.samza.job.yarn.SamzaAppMasterTaskManager._
+import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
 
 /**
  * When YARN executes an application master, it needs a bash command to
@@ -44,22 +45,22 @@ import org.apache.samza.job.yarn.SamzaAppMasterTaskManager._
  */
 object SamzaAppMaster extends Logging {
   def main(args: Array[String]) {
-    val containerIdStr = System.getenv(ApplicationConstants.AM_CONTAINER_ID_ENV)
+    val containerIdStr = System.getenv(ApplicationConstants.Environment.CONTAINER_ID.toString)
     info("got container id: %s" format containerIdStr)
     val containerId = ConverterUtils.toContainerId(containerIdStr)
     val applicationAttemptId = containerId.getApplicationAttemptId
     info("got app attempt id: %s" format applicationAttemptId)
-    val nodeHostString = System.getenv(ApplicationConstants.NM_HOST_ENV)
+    val nodeHostString = System.getenv(ApplicationConstants.Environment.NM_HOST.toString)
     info("got node manager host: %s" format nodeHostString)
-    val nodePortString = System.getenv(ApplicationConstants.NM_PORT_ENV)
+    val nodePortString = System.getenv(ApplicationConstants.Environment.NM_PORT.toString)
     info("got node manager port: %s" format nodePortString)
-    val nodeHttpPortString = System.getenv(ApplicationConstants.NM_HTTP_PORT_ENV)
+    val nodeHttpPortString = System.getenv(ApplicationConstants.Environment.NM_HTTP_PORT.toString)
     info("got node manager http port: %s" format nodeHttpPortString)
     val config = new MapConfig(JsonConfigSerializer.fromJson(System.getenv(YarnConfig.ENV_CONFIG)))
     info("got config: %s" format config)
     val hConfig = new YarnConfiguration
     hConfig.set("fs.http.impl", "samza.util.hadoop.HttpFileSystem")
-    val amClient = new AMRMClientImpl(applicationAttemptId)
+    val amClient = new AMRMClientImpl[ContainerRequest]
     val clientHelper = new ClientHelper(hConfig)
     val registry = new MetricsRegistryMap
     val containerMem = config.getContainerMaxMemoryMb.getOrElse(DEFAULT_CONTAINER_MEM)
