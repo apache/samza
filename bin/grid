@@ -10,7 +10,7 @@ COMMAND=$1
 SYSTEM=$2
 
 DOWNLOAD_KAFKA=https://dist.apache.org/repos/dist/release/kafka/kafka_2.8.0-0.8.0-beta1.tgz
-DOWNLOAD_YARN=http://mirrors.sonic.net/apache/hadoop/common/hadoop-2.0.5-alpha/hadoop-2.0.5-alpha.tar.gz
+DOWNLOAD_YARN=http://mirrors.sonic.net/apache/hadoop/common/hadoop-2.2.0/hadoop-2.2.0.tar.gz
 DOWNLOAD_ZOOKEEPER=http://apache.mirrors.pair.com/zookeeper/zookeeper-3.4.3/zookeeper-3.4.3.tar.gz
 
 install_zookeeper() {
@@ -19,7 +19,7 @@ install_zookeeper() {
 }
 
 install_yarn() {
-  install "hadoop-2.0.5-alpha"
+  install "hadoop-2.2.0"
   cp $BASE_DIR/conf/yarn-site.xml $DEPLOY_ROOT_DIR/$SYSTEM/etc/hadoop/yarn-site.xml
 }
 

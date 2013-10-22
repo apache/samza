@@ -19,10 +19,9 @@ under the License.
 -->
 <configuration>
   <property>
-    <name>yarn.scheduler.minimum-allocation-mb</name>
-    <value>128</value>
+    <name>yarn.resourcemanager.scheduler.class</name>
+    <value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.fifo.FifoScheduler</value>
   </property>
-
   <property>
     <name>yarn.nodemanager.vmem-pmem-ratio</name>
     <value>10</value>
