@@ -95,9 +95,9 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val serdeName = streamSerdeName.getOrElse(systemSerdeName.getOrElse(null))
     val serde = if (serdeName != null) {
       config.getSerdeClass(serdeName) match {
-        case Some(serdeName) =>
+        case Some(serdeClassName) =>
           Util
-            .getObj[SerdeFactory[MetricsSnapshot]](serdeName)
+            .getObj[SerdeFactory[MetricsSnapshot]](serdeClassName)
             .getSerde(serdeName, config)
         case _ => null
       }
