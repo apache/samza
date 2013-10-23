@@ -20,11 +20,9 @@ To build Samza, run:
 
 #### Scala and YARN
 
-Samza builds with [Scala](http://www.scala-lang.org/) 2.9.2 and [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) 2.0.5-alpha, by default. Use the -PscalaVersion and -PyarnVersion switches to change versions. Samza supports building Scala with 2.8.1 or 2.9.2, and building YARN with 2.0.3-alpha, 2.0.4-alpha, and 2.0.5-alpha.
+Samza builds with [Scala](http://www.scala-lang.org/) 2.9.2 and [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) 2.2.0, by default. Use the -PscalaVersion switches to change Scala versions. Samza supports building Scala with 2.8.1 or 2.9.2.
 
-    ./gradlew -PscalaVersion=2.8.1 -PyarnVersion=2.0.3-alpha clean build
-
-YARN protocols are backwards incompatible, so you must pick the version that matches your YARN grid.
+    ./gradlew -PscalaVersion=2.8.1 clean build
 
 ### Testing Samza
 
