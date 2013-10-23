@@ -130,10 +130,15 @@ class KafkaCheckpointManager(
           bufferSize,
           clientId)
         val topicAndPartition = new TopicAndPartition(stateTopic, partitionId)
-        val offset = consumer.getOffsetsBefore(new OffsetRequest(Map(topicAndPartition -> PartitionOffsetRequestInfo(OffsetRequest.LatestTime, 1))))
+        val offsetResponse = consumer.getOffsetsBefore(new OffsetRequest(Map(topicAndPartition -> PartitionOffsetRequestInfo(OffsetRequest.LatestTime, 1))))
           .partitionErrorAndOffsets
           .get(topicAndPartition)
           .getOrElse(throw new KafkaCheckpointException("Unable to find offset information for %s:%d" format (stateTopic, partitionId)))
+
+        // Fail or retry if there was an an issue with the offset request.
+        ErrorMapping.maybeThrowException(offsetResponse.error)
+
+        val offset = offsetResponse
           .offsets
           .headOption
           .getOrElse(throw new KafkaCheckpointException("Got response, but no offsets defined for %s:%d" format (stateTopic, partitionId)))
@@ -147,7 +152,7 @@ class KafkaCheckpointManager(
 
         val request = new FetchRequestBuilder()
           // Kafka returns 1 greater than the offset of the last message in 
-          //the topic, so subtract one to fetch the last message.
+          // the topic, so subtract one to fetch the last message.
           .addFetch(stateTopic, partitionId, offset - 1, fetchSize)
           .maxWait(500)
           .minBytes(1)
