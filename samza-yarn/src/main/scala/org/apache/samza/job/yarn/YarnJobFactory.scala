@@ -21,12 +21,13 @@ package org.apache.samza.job.yarn
 import org.apache.samza.job.StreamJobFactory
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.samza.config.Config
+import org.apache.samza.util.hadoop.HttpFileSystem
 
 class YarnJobFactory extends StreamJobFactory {
   def getJob(config: Config) = {
     // TODO fix this. needed to support http package locations.
     val hConfig = new YarnConfiguration
-    hConfig.set("fs.http.impl", "samza.util.hadoop.HttpFileSystem")
+    hConfig.set("fs.http.impl", classOf[HttpFileSystem].getName)
 
     new YarnJob(config, hConfig)
   }

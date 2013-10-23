@@ -30,6 +30,7 @@ import grizzled.slf4j.Logging
 import org.apache.hadoop.yarn.client.api.impl.AMRMClientImpl
 import org.apache.samza.config.YarnConfig._
 import org.apache.samza.job.yarn.SamzaAppMasterTaskManager._
+import org.apache.samza.util.hadoop.HttpFileSystem
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
 
 /**
@@ -59,7 +60,7 @@ object SamzaAppMaster extends Logging {
     val config = new MapConfig(JsonConfigSerializer.fromJson(System.getenv(YarnConfig.ENV_CONFIG)))
     info("got config: %s" format config)
     val hConfig = new YarnConfiguration
-    hConfig.set("fs.http.impl", "samza.util.hadoop.HttpFileSystem")
+    hConfig.set("fs.http.impl", classOf[HttpFileSystem].getName)
     val amClient = new AMRMClientImpl[ContainerRequest]
     val clientHelper = new ClientHelper(hConfig)
     val registry = new MetricsRegistryMap
