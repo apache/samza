@@ -1,6 +1,12 @@
 #!/bin/bash
 
-# This script will download, setup, start, and stop servers for Kafka, YARN, and ZooKeeper.
+# This script will download, setup, start, and stop servers for Kafka, YARN, and ZooKeeper,
+# as well as downloading, building and locally publishing Samza
+
+if [ -z "$JAVA_HOME" ]; then
+  echo "JAVA_HOME not set. Exiting."
+  exit 1
+fi
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BASE_DIR=$(dirname $DIR)
@@ -25,6 +31,15 @@ install_yarn() {
 
 install_kafka() {
   install "kafka_2.8.0-0.8.0-beta1"
+}
+
+install_samza() {
+  mkdir -p $DEPLOY_DOWNLOAD_DIR
+  cd $DEPLOY_DOWNLOAD_DIR 
+  git clone git://git.apache.org/incubator-samza.git
+  cd incubator-samza
+  ./gradlew -PscalaVersion=2.8.1 publishToMavenLocal
+  cd ../..
 }
 
 install() {
@@ -91,6 +106,7 @@ if test -z "$COMMAND" && test -z "$SYSTEM"; then
   $DIR/grid stop yarn
   $DIR/grid stop zookeeper
   rm -rf $DEPLOY_ROOT_DIR
+  $DIR/grid install samza
   $DIR/grid install zookeeper
   $DIR/grid install yarn
   $DIR/grid install kafka
