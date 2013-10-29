@@ -29,6 +29,12 @@ A Samza grid usually comprises three different systems: [YARN](http://hadoop.apa
 
 This command will download, install, and start ZooKeeper, Kafka, and YARN. All package files will be put in a sub-directory called "deploy" inside hello-samza's root folder.
 
+If you get a complaint that JAVA_HOME is not set, then you'll need to set it. This can be done on Mac OSX by running:
+
+```
+export JAVA_HOME=$(/usr/libexec/java_home)
+```
+
 Once the grid command completes, you can verify that YARN is up and running by going to [http://localhost:8088](http://localhost:8088). This is the YARN UI.
 
 ### Build a Samza Job Package

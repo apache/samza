@@ -3,7 +3,7 @@ layout: page
 title: Tutorials
 ---
 
-No tutorials are available right now.
+[Remote Debugging with Samza](remote-debugging-samza.html)
 
 <!-- TODO a bunch of tutorials
 [Log Walkthrough](log-walkthrough.html)
