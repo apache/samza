@@ -23,17 +23,17 @@ object ShellCommandConfig {
   /**
    * This environment variable is used to store a JSON serialized map of all configuration.
    */
-  val ENV_CONFIG = "STREAMING_CONFIG"
+  val ENV_CONFIG = "SAMZA_CONFIG"
 
   /**
    * A CSV list of partition IDs that a TaskRunner is responsible for (e.g. 0,2,4,6).
    */
-  val ENV_PARTITION_IDS = "PARTITION_IDS"
+  val ENV_PARTITION_IDS = "SAMZA_PARTITION_IDS"
 
   /**
-   * A name for a TaskRunner.
+   * The name for a container (either a YARN AM or SamzaContainer)
    */
-  val ENV_TASK_NAME = "TASK_NAME"
+  val ENV_CONTAINER_NAME = "SAMZA_CONTAINER_NAME"
 
   /**
    * Arguments to be passed to the processing running the TaskRunner (or equivalent, for non JVM languages).

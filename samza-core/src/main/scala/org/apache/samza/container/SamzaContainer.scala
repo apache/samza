@@ -65,7 +65,7 @@ import org.apache.samza.system.chooser.RoundRobinChooserFactory
 object SamzaContainer extends Logging {
   def main(args: Array[String]) {
     val jmxServer = new JmxServer
-    val containerName = System.getenv(ShellCommandConfig.ENV_TASK_NAME)
+    val containerName = System.getenv(ShellCommandConfig.ENV_CONTAINER_NAME)
     val configStr = System.getenv(ShellCommandConfig.ENV_CONFIG)
     val config = JsonConfigSerializer.fromJson(configStr)
     val partitionIdsCsv = System.getenv(ShellCommandConfig.ENV_PARTITION_IDS)

@@ -3,7 +3,7 @@ layout: page
 title: Logging
 ---
 
-Samza uses [SLF4J](http://www.slf4j.org/) for all of its logging. By default, only slf4j-api is used, so you must add an SLF4J runtime dependency to your Samza packages for whichever underlying logging platform you wish to use.
+Samza uses [SLF4J](http://www.slf4j.org/) for all of its logging. By default, Samza only depends on slf4j-api, so you must add an SLF4J runtime dependency to your Samza packages for whichever underlying logging platform you wish to use.
 
 ### Log4j
 
@@ -24,13 +24,31 @@ Samza's [run-class.sh](packaging.html) script will automatically set the followi
 
     -Dlog4j.configuration=file:$base_dir/lib/log4j.xml
 
+The [run-class.sh](packaging.html) script will also set the following Java system properties:
+
+    -Dsamza.log.dir=$SAMZA_LOG_DIR -Dsamza.container.name=$SAMZA_CONTAINER_NAME
+
+These settings are very useful if you're using a file-based appender. For example, you can use a daily rolling appender by configuring log4j.xml like this:
+
+```
+<appender name="RollingAppender" class="org.apache.log4j.DailyRollingFileAppender">
+   <param name="File" value="${samza.log.dir}/${samza.container.name}.log" />
+   <param name="DatePattern" value="'.'yyyy-MM-dd" />
+   <layout class="org.apache.log4j.PatternLayout">
+    <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss} %c{1} [%p] %m%n" />
+   </layout>
+</appender>
+```
+
+Setting up a file-based appender is recommended as a better alternative to using standard out. Standard out log files (see below) don't roll, and can get quite large if used for logging.
+
 <!-- TODO add notes showing how to use task.opts for gc logging
 #### task.opts
 -->
 
 ### Log Directory
 
-Samza will look for the _SAMZA_\__LOG_\__DIR_ environment variable when it executes. If this variable is defined, all logs will be written to this directory. If the environment variable is empty, or not defined, then Samza will use /tmp. This environment variable can also be referenced inside log4j.xml files.
+Samza will look for the _SAMZA_\__LOG_\__DIR_ environment variable when it executes. If this variable is defined, all logs will be written to this directory. If the environment variable is empty, or not defined, then Samza will use /tmp. This environment variable can also be referenced inside log4j.xml files (see above).
 
 ### Garbage Collection Logging
 
@@ -48,6 +66,6 @@ When a Samza job executes on a YARN grid, the _$SAMZA_\__LOG_\__DIR_ environment
 
 #### STDOUT
 
-YARN pipes all STDOUT and STDERR output to logs/stdout and logs/stderr, respectively. These files are never rotated.
+Samza's [ApplicationMaster](../yarn/application-master.html) pipes all STDOUT and STDERR output to logs/stdout and logs/stderr, respectively. These files are never rotated.
 
 ## [Application Master &raquo;](../yarn/application-master.html)

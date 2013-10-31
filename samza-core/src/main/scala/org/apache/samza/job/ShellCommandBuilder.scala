@@ -31,7 +31,7 @@ class ShellCommandBuilder extends CommandBuilder {
     val parts = if (partitions.size() > 0) partitions.map(_.getPartitionId.toString).reduceLeft(_ + "," + _) else ""
 
     Map(
-      ShellCommandConfig.ENV_TASK_NAME -> name,
+      ShellCommandConfig.ENV_CONTAINER_NAME -> name,
       ShellCommandConfig.ENV_PARTITION_IDS -> parts,
       ShellCommandConfig.ENV_CONFIG -> JsonConfigSerializer.toJson(config),
       ShellCommandConfig.ENV_SAMZA_OPTS -> config.getTaskOpts.getOrElse(""))

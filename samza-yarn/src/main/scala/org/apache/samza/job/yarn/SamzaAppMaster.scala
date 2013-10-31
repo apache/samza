@@ -32,6 +32,7 @@ import org.apache.samza.config.YarnConfig._
 import org.apache.samza.job.yarn.SamzaAppMasterTaskManager._
 import org.apache.samza.util.hadoop.HttpFileSystem
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
+import org.apache.samza.config.ShellCommandConfig
 
 /**
  * When YARN executes an application master, it needs a bash command to
@@ -57,7 +58,7 @@ object SamzaAppMaster extends Logging {
     info("got node manager port: %s" format nodePortString)
     val nodeHttpPortString = System.getenv(ApplicationConstants.Environment.NM_HTTP_PORT.toString)
     info("got node manager http port: %s" format nodeHttpPortString)
-    val config = new MapConfig(JsonConfigSerializer.fromJson(System.getenv(YarnConfig.ENV_CONFIG)))
+    val config = new MapConfig(JsonConfigSerializer.fromJson(System.getenv(ShellCommandConfig.ENV_CONFIG)))
     info("got config: %s" format config)
     val hConfig = new YarnConfiguration
     hConfig.set("fs.http.impl", classOf[HttpFileSystem].getName)

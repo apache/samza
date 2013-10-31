@@ -20,11 +20,6 @@
 package org.apache.samza.config
 
 object YarnConfig {
-  // environment variables
-  val ENV_CONFIG = "STREAMING_CONFIG"
-  val ENV_PARTITION_ID = "PARTITION_ID"
-  val ENV_CONTAINER_NAME = "CONTAINER_NAME"
-
   // yarn job config
   val PACKAGE_PATH = "yarn.package.path"
   val CONTAINER_MAX_MEMORY_MB = "yarn.container.memory.mb"

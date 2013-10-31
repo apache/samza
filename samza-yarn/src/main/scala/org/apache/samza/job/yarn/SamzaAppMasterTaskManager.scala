@@ -131,7 +131,7 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
         val cmdBuilderClassName = config.getCommandClass.getOrElse(classOf[ShellCommandBuilder].getName)
         val cmdBuilder = Class.forName(cmdBuilderClassName).newInstance.asInstanceOf[CommandBuilder]
           .setConfig(config)
-          .setName("SamzaContainer-%s" format taskId)
+          .setName("samza-container-%s" format taskId)
           .setPartitions(partitionsForTask)
           .setTotalPartitions(partitions.size)
         val command = cmdBuilder.buildCommand
