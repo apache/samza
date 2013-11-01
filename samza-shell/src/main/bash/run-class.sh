@@ -47,7 +47,11 @@ else
 fi
 
 if [ -z "$SAMZA_LOG_DIR" ]; then
-  SAMZA_LOG_DIR="/tmp"
+  SAMZA_LOG_DIR="$base_dir"
+fi
+
+if [ -z "$SAMZA_CONTAINER_NAME" ]; then
+  SAMZA_CONTAINER_NAME="undefined-samza-container-name"
 fi
 
 if [ -z "$SAMZA_OPTS" ]; then
