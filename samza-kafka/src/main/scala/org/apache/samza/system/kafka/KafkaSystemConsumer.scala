@@ -38,6 +38,7 @@ import org.apache.samza.util.BlockingEnvelopeMap
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.IncomingMessageEnvelope
 import java.nio.charset.Charset
+import kafka.api.PartitionMetadata
 
 object KafkaSystemConsumer {
   def toTopicAndPartition(systemStreamPartition: SystemStreamPartition) = {
@@ -117,8 +118,7 @@ private[kafka] class KafkaSystemConsumer(
             val brokerOption = partitionMetadata(topicAndPartition.topic)
               .partitionsMetadata
               .find(_.partitionId == topicAndPartition.partition)
-              .getOrElse(toss("Can't find leader for %s" format topicAndPartition))
-              .leader
+              .flatMap(_.leader)
 
             brokerOption match {
               case Some(broker) =>
@@ -127,7 +127,7 @@ private[kafka] class KafkaSystemConsumer(
                 })
 
                 brokerProxy.addTopicPartition(topicAndPartition, lastOffset)
-              case _ => warn("Broker for %s not defined! " format topicAndPartition)
+              case _ => warn("No such topic-partition: %s, dropping." format topicAndPartition)
             }
         }
 
