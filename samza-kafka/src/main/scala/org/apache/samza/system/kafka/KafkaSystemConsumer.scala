@@ -56,7 +56,7 @@ private[kafka] class KafkaSystemConsumer(
   systemName: String,
   brokerListString: String,
   metrics: KafkaSystemConsumerMetrics,
-  clientId: String = "undefined-client-id-" + UUID.randomUUID.toString,
+  clientId: String = "undefined-client-id-%s" format UUID.randomUUID.toString,
   timeout: Int = Int.MaxValue,
   bufferSize: Int = 1024000,
   brokerMetadataFailureRefreshMs: Long = 10000,

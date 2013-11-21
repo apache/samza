@@ -78,8 +78,8 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   // kafka config
   def getKafkaSystemConsumerConfig(
     systemName: String,
-    clientId: String = "undefined-samza-consumer-" format UUID.randomUUID.toString,
-    groupId: String = "undefined-samza-consumer-group-" format UUID.randomUUID.toString,
+    clientId: String = "undefined-samza-consumer-%s" format UUID.randomUUID.toString,
+    groupId: String = "undefined-samza-consumer-group-%s" format UUID.randomUUID.toString,
     injectedProps: Map[String, String] = Map()) = {
 
     val subConf = config.subset("systems.%s.consumer." format systemName, true)
@@ -93,7 +93,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
 
   def getKafkaSystemProducerConfig(
     systemName: String,
-    clientId: String = "undefined-samza-producer-" format UUID.randomUUID.toString,
+    clientId: String = "undefined-samza-producer-%s" format UUID.randomUUID.toString,
     injectedProps: Map[String, String] = Map()) = {
 
     val subConf = config.subset("systems.%s.producer." format systemName, true)
