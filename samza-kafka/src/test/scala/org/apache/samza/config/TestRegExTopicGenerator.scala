@@ -46,7 +46,7 @@ class TestRegExTopicGenerator {
     val config = new MapConfig(map)
 
     // Don't actually talk to ZooKeeper
-    val rewriter = new RegexTopicGenerator() {
+    val rewriter = new RegExTopicGenerator() {
       override def getTopicsFromZK(rewriterName: String, config: Config): Seq[String] = List("catdog", "dogtired", "cow", "scaredycat", "Homer", "crazycat")
     }
 
@@ -77,7 +77,7 @@ class TestRegExTopicGenerator {
       getRegexConfigSystem -> "test",
       getRegexConfigInherited + ".config.zorp" -> "morp")
 
-    val rewriter = new RegexTopicGenerator() {
+    val rewriter = new RegExTopicGenerator() {
       override def getTopicsFromZK(rewriterName: String, config: Config): Seq[String] = List("yoyoyo")
     }
 

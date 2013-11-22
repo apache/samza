@@ -47,7 +47,7 @@ import org.apache.samza.util.Util
  * @see samza.config.KafkaConfig.getRegexResolvedStreams
  *
  */
-class RegexTopicGenerator extends ConfigRewriter with Logging {
+class RegExTopicGenerator extends ConfigRewriter with Logging {
 
   def rewrite(rewriterName: String, config: Config): Config = {
     val regex = config
