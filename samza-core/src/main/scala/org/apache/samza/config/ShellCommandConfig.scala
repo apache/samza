@@ -38,7 +38,7 @@ object ShellCommandConfig {
   /**
    * Arguments to be passed to the processing running the TaskRunner (or equivalent, for non JVM languages).
    */
-  val ENV_SAMZA_OPTS = "SAMZA_OPTS"
+  val ENV_JAVA_OPTS = "JAVA_OPTS"
 
   val COMMAND_SHELL_EXECUTE = "task.execute"
   val TASK_JVM_OPTS = "task.opts"

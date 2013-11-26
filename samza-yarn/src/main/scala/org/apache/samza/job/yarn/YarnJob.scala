@@ -37,17 +37,24 @@ import org.apache.samza.config.YarnConfig
 import org.apache.samza.config.ShellCommandConfig
 import org.apache.samza.SamzaException
 
+
+object YarnJob {
+  val DEFAULT_AM_CONTAINER_MEM = 1024
+}
+
 /**
  * Starts the application manager
  */
 class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
+  import YarnJob._
+  
   val client = new ClientHelper(hadoopConfig)
   var appId: Option[ApplicationId] = None
-
+  
   def submit: YarnJob = {
     appId = client.submitApplication(
       new Path(config.getPackagePath.getOrElse(throw new SamzaException("No YARN package path defined in config."))),
-      config.getAMContainerMaxMemoryMb.getOrElse(512),
+      config.getAMContainerMaxMemoryMb.getOrElse(DEFAULT_AM_CONTAINER_MEM),
       1,
       List(
         "export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec ./__package/bin/run-am.sh 1>logs/%s 2>logs/%s"
@@ -55,7 +62,7 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
       Some(Map(
         ShellCommandConfig.ENV_CONFIG -> Util.envVarEscape(JsonConfigSerializer.toJson(config)),
         ShellCommandConfig.ENV_CONTAINER_NAME -> Util.envVarEscape("application-master"),
-        ShellCommandConfig.ENV_SAMZA_OPTS -> Util.envVarEscape(config.getAmOpts.getOrElse("")))),
+        ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(config.getAmOpts.getOrElse("")))),
       Some("%s_%s" format (config.getName.get, config.getJobId.getOrElse(1))))
 
     this

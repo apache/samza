@@ -34,6 +34,6 @@ class ShellCommandBuilder extends CommandBuilder {
       ShellCommandConfig.ENV_CONTAINER_NAME -> name,
       ShellCommandConfig.ENV_PARTITION_IDS -> parts,
       ShellCommandConfig.ENV_CONFIG -> JsonConfigSerializer.toJson(config),
-      ShellCommandConfig.ENV_SAMZA_OPTS -> config.getTaskOpts.getOrElse(""))
+      ShellCommandConfig.ENV_JAVA_OPTS -> config.getTaskOpts.getOrElse(""))
   }
 }

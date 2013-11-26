@@ -65,7 +65,7 @@ import org.apache.hadoop.yarn.client.api.NMClient
 import org.apache.hadoop.yarn.client.api.impl.NMClientImpl
 
 object SamzaAppMasterTaskManager {
-  val DEFAULT_CONTAINER_MEM = 256
+  val DEFAULT_CONTAINER_MEM = 1024
   val DEFAULT_CPU_CORES = 1
   val DEFAULT_CONTAINER_RETRY_COUNT = 8
   val DEFAULT_CONTAINER_RETRY_WINDOW_MS = 300000
