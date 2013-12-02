@@ -21,20 +21,15 @@
 
 package org.apache.samza.system.kafka
 
-import kafka.consumer.SimpleConsumer
 import kafka.api._
-import kafka.common.ErrorMapping
-import java.util.concurrent.{ CountDownLatch, ConcurrentHashMap }
+import kafka.common.{NotLeaderForPartitionException, UnknownTopicOrPartitionException, ErrorMapping, TopicAndPartition}
+import java.util.concurrent.{ConcurrentHashMap, CountDownLatch}
 import scala.collection.JavaConversions._
-import org.apache.samza.config.Config
-import org.apache.samza.util.KafkaUtil
-import org.apache.samza.config.KafkaConfig.Config2Kafka
-import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.metrics.MetricsRegistry
-import kafka.common.TopicAndPartition
 import kafka.message.MessageSet
 import grizzled.slf4j.Logging
 import java.nio.channels.ClosedByInterruptException
+import java.util.Map.Entry
+import scala.collection.mutable
 
 /**
  * A BrokerProxy consolidates Kafka fetches meant for a particular broker and retrieves them all at once, providing
@@ -58,7 +53,7 @@ abstract class BrokerProxy(
   val sleepMSWhileNoTopicPartitions = 1000
 
   /** What's the next offset for a particular partition? **/
-  val nextOffsets: ConcurrentHashMap[TopicAndPartition, Long] = new ConcurrentHashMap[TopicAndPartition, Long]()
+  val nextOffsets:mutable.ConcurrentMap[TopicAndPartition, Long] = new ConcurrentHashMap[TopicAndPartition, Long]()
 
   /** Block on the first call to get message if the fetcher has not yet returned its initial results **/
   // TODO: It should be sufficient to just use the count down latch and await on it for each of the calls, but
@@ -75,7 +70,7 @@ abstract class BrokerProxy(
     val hostString = "%s:%d" format (host, port)
     info("Creating new SimpleConsumer for host %s for system %s" format (hostString, system))
 
-    val sc = new SimpleConsumer(host, port, timeout, bufferSize, clientID) with DefaultFetch {
+    val sc = new DefaultFetchSimpleConsumer(host, port, timeout, bufferSize, clientID) {
       val fetchSize: Int = 256 * 1024
     }
 
@@ -98,7 +93,7 @@ abstract class BrokerProxy(
       metrics.topicPartitions(host, port).set(nextOffsets.size)
       debug("Removed %s" format tp)
     } else {
-      warn("Asked to remove topic and partition %s, but not in map (keys = %s)" format (tp, nextOffsets.keys().mkString(",")))
+      warn("Asked to remove topic and partition %s, but not in map (keys = %s)" format (tp, nextOffsets.keys.mkString(",")))
     }
   }
 
@@ -116,14 +111,14 @@ abstract class BrokerProxy(
           } catch {
             // If we're interrupted, don't try and reconnect. We should shut down.
             case e: InterruptedException =>
-              debug("Shutting down due to interrupt exception.")
+              warn("Shutting down due to interrupt exception.")
               Thread.currentThread.interrupt
             case e: ClosedByInterruptException =>
-              debug("Shutting down due to closed by interrupt exception.")
+              warn("Shutting down due to closed by interrupt exception.")
               Thread.currentThread.interrupt
             case e: Throwable => {
               warn("Recreating simple consumer and retrying connection")
-              debug("Stack trace for fetchMessages exception.", e)
+              warn("Stack trace for fetchMessages exception.", e)
               simpleConsumer.close()
               simpleConsumer = createSimpleConsumer()
               metrics.reconnects(host, port).inc
@@ -131,7 +126,6 @@ abstract class BrokerProxy(
           }
         }
       }
-
     }
   }, "BrokerProxy thread pointed at %s:%d for client %s" format (host, port, clientID))
 
@@ -140,78 +134,104 @@ abstract class BrokerProxy(
     val response: FetchResponse = simpleConsumer.defaultFetch(nextOffsets.filterKeys(messageSink.needsMoreMessages(_)).toList: _*)
     firstCall = false
     firstCallBarrier.countDown()
-    if (response.hasError) {
-      // FetchResponse should really return Option and a list of the errors so we don't have to find them ourselves
-      case class Error(tp: TopicAndPartition, code: Short, exception: Throwable)
 
-      val errors = for (
-        error <- response.data.entrySet.filter(_.getValue.error != ErrorMapping.NoError);
-        errorCode <- Option(response.errorCode(error.getKey.topic, error.getKey.partition)); // Scala's being cranky about referring to error.getKey values...
-        exception <- Option(ErrorMapping.exceptionFor(errorCode))
-      ) yield new Error(error.getKey, errorCode, exception)
+    // Split response into errors and non errors, processing the errors first
+    val (nonErrorResponses, errorResponses) = response.data.entrySet().partition(_.getValue.error == ErrorMapping.NoError)
 
-      val (notLeaders, otherErrors) = errors.partition(_.code == ErrorMapping.NotLeaderForPartitionCode)
+    handleErrors(errorResponses, response)
 
-      if (!notLeaders.isEmpty) {
-        info("Abdicating. Got not leader exception for: " + notLeaders.mkString(","))
-
-        notLeaders.foreach(e => {
-          // Go back one message, since the fetch for nextOffset failed, and 
-          // abdicate requires lastOffset, not nextOffset.
-          messageSink.abdicate(e.tp, nextOffsets.remove(e.tp) - 1)
-        })
-      }
-
-      if (!otherErrors.isEmpty) {
-        warn("Got error codes during multifetch. Throwing an exception to trigger reconnect. Errors: %s" format errors.mkString(","))
-        otherErrors.foreach(e => ErrorMapping.maybeThrowException(e.code)) // One will get thrown
-      }
-    }
-
-    def moveMessagesToTheirQueue(tp: TopicAndPartition, data: FetchResponsePartitionData) = {
-      val messageSet: MessageSet = data.messages
-      var nextOffset = nextOffsets(tp)
-
-      messageSink.setIsAtHighWatermark(tp, data.hw == 0 || data.hw == nextOffset)
-
-      for (message <- messageSet.iterator) {
-        messageSink.addMessage(tp, message, data.hw) // TODO: Verify this is correct
-
-        nextOffset = message.nextOffset
-
-        val bytesSize = message.message.payloadSize + message.message.keySize
-        metrics.reads(tp).inc
-        metrics.bytesRead(tp).inc(bytesSize)
-        metrics.brokerBytesRead(host, port).inc(bytesSize)
-        metrics.offsets(tp).set(nextOffset)
-      }
-
-      nextOffsets.replace(tp, nextOffset) // use replace rather than put in case this tp was removed while we were fetching.
-
-      // Update high water mark
-      val hw = data.hw
-      if (hw >= 0) {
-        metrics.lag(tp).set(hw - nextOffset)
-      } else {
-        debug("Got a high water mark less than 0 (%d) for %s, so skipping." format (hw, tp))
-      }
-    }
-
-    response.data.foreach { case (tp, data) => moveMessagesToTheirQueue(tp, data) }
-
+    nonErrorResponses.foreach { nonError => moveMessagesToTheirQueue(nonError.getKey, nonError.getValue) }
   }
 
+  def handleErrors(errorResponses: mutable.Set[Entry[TopicAndPartition, FetchResponsePartitionData]], response:FetchResponse) = {
+    // Need to be mindful of a tp that was removed by another thread
+    def abdicate(tp:TopicAndPartition) = nextOffsets.remove(tp) match {
+        case Some(offset) => messageSink.abdicate(tp, offset -1)
+        case None         => warn("Tried to abdicate for topic partition not in map. Removed in interim?")
+      }
+
+    // FetchResponse should really return Option and a list of the errors so we don't have to find them ourselves
+    case class Error(tp: TopicAndPartition, code: Short, exception: Throwable)
+
+    // Now subdivide the errors into three types: non-recoverable, not leader (== abdicate) and offset out of range (== get new offset)
+
+    // Convert FetchResponse into easier-to-work-with Errors
+    val errors = for (
+      error <- errorResponses;
+      errorCode <- Option(response.errorCode(error.getKey.topic, error.getKey.partition)); // Scala's being cranky about referring to error.getKey values...
+      exception <- Option(ErrorMapping.exceptionFor(errorCode))
+    ) yield new Error(error.getKey, errorCode, exception)
+
+    val (notLeaders, otherErrors) = errors.partition(_.code == ErrorMapping.NotLeaderForPartitionCode)
+    val (offsetOutOfRangeErrors, remainingErrors) = otherErrors.partition(_.code == ErrorMapping.OffsetOutOfRangeCode)
+
+    // Can recover from two types of errors: not leader (go find the new leader) and offset out of range (go get the new offset)
+    // However, we want to bail as quickly as possible if there are non recoverable errors so that the state of the other
+    // topic-partitions remains the same.  That way, when we've rebuilt the simple consumer, we can come around and
+    // handle the recoverable errors.
+    remainingErrors.foreach(e => {
+      warn("Got non-recoverable error codes during multifetch. Throwing an exception to trigger reconnect. Errors: %s" format remainingErrors.mkString(","))
+      ErrorMapping.maybeThrowException(e.code) })
+
+    // Go back one message, since the fetch for nextOffset failed, and
+    // abdicate requires lastOffset, not nextOffset.
+    notLeaders.foreach(e => abdicate(e.tp))
+
+    offsetOutOfRangeErrors.foreach(e => {
+      warn("Received OffsetOutOfRange exception for %s. Current offset = %s" format (e.tp, nextOffsets.getOrElse(e.tp, "not found in map, likely removed in the interim")))
+
+      try {
+        val newOffset = offsetGetter.getNextOffset(simpleConsumer, e.tp, null)
+        // Put the new offset into the map (if the tp still exists).  Will catch it on the next go-around
+        nextOffsets.replace(e.tp, newOffset)
+      } catch {
+        // UnknownTopic or NotLeader are routine events and handled via abdication.  All others, bail.
+        case _ @ (_:UnknownTopicOrPartitionException | _: NotLeaderForPartitionException) => warn("Received (UnknownTopicOr|NotLeaderFor)Partition exception. Abdicating")
+                                                                                             abdicate(e.tp)
+        case other => throw other
+      }
+    })
+  }
+
+  def moveMessagesToTheirQueue(tp: TopicAndPartition, data: FetchResponsePartitionData) = {
+    val messageSet: MessageSet = data.messages
+    var nextOffset = nextOffsets(tp)
+
+    messageSink.setIsAtHighWatermark(tp, data.hw == 0 || data.hw == nextOffset)
+    require(messageSet != null)
+    for (message <- messageSet.iterator) {
+      messageSink.addMessage(tp, message, data.hw) // TODO: Verify this is correct
+
+      nextOffset = message.nextOffset
+
+      val bytesSize = message.message.payloadSize + message.message.keySize
+      metrics.reads(tp).inc
+      metrics.bytesRead(tp).inc(bytesSize)
+      metrics.brokerBytesRead(host, port).inc(bytesSize)
+      metrics.offsets(tp).set(nextOffset)
+    }
+
+    nextOffsets.replace(tp, nextOffset) // use replace rather than put in case this tp was removed while we were fetching.
+
+    // Update high water mark
+    val hw = data.hw
+    if (hw >= 0) {
+      metrics.lag(tp).set(hw - nextOffset)
+    } else {
+      debug("Got a high water mark less than 0 (%d) for %s, so skipping." format (hw, tp))
+    }
+  }
   override def toString() = "BrokerProxy for %s:%d" format (host, port)
 
   def start {
-    debug("Starting broker proxy for %s:%s." format (host, port))
+    info("Starting " + toString)
 
     thread.setDaemon(true)
     thread.start
   }
 
   def stop {
-    debug("Shutting down broker proxy for %s:%s." format (host, port))
+    info("Shutting down " + toString)
 
     thread.interrupt
     thread.join

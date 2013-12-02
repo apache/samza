@@ -21,15 +21,18 @@
 
 package org.apache.samza.system.kafka
 
-import kafka.consumer.SimpleConsumer
 import kafka.common.{ OffsetOutOfRangeException, ErrorMapping }
 import kafka.api._
-import org.apache.samza.config.KafkaConfig
-import org.apache.samza.config.KafkaConfig.Config2Kafka
 import kafka.common.TopicAndPartition
 import kafka.api.PartitionOffsetRequestInfo
 import grizzled.slf4j.Logging
+import kafka.message.MessageAndOffset
 
+/**
+ * Obtain the correct offsets for topics, be it earliest or largest
+ * @param default Value to return if no offset has been specified for topic
+ * @param autoOffsetResetTopics Topics that have been specified as auto offset
+ */
 class GetOffset(default: String, autoOffsetResetTopics: Map[String, String] = Map()) extends Logging with Toss {
 
   private def getAutoOffset(topic: String): Long = {
@@ -48,11 +51,11 @@ class GetOffset(default: String, autoOffsetResetTopics: Map[String, String] = Ma
   /**
    *  An offset was provided but may not be valid.  Verify its validity.
    */
-  private def useLastCheckpointedOffset(sc: DefaultFetch, last: String, tp: TopicAndPartition): Option[Long] = {
+  private def useLastCheckpointedOffset(sc: DefaultFetchSimpleConsumer, last: String, tp: TopicAndPartition): Option[Long] = {
     try {
       info("Validating offset %s for topic and partition %s" format (last, tp))
 
-      val messages = sc.defaultFetch((tp, last.toLong))
+      val messages: FetchResponse = sc.defaultFetch((tp, last.toLong))
 
       if (messages.hasError) {
         ErrorMapping.maybeThrowException(messages.errorCode(tp.topic, tp.partition))
@@ -60,28 +63,38 @@ class GetOffset(default: String, autoOffsetResetTopics: Map[String, String] = Ma
 
       info("Able to successfully read from offset %s for topic and partition %s. Using it to instantiate consumer." format (last, tp))
 
-      val nextOffset = messages
-        .messageSet(tp.topic, tp.partition)
-        .head
-        .nextOffset
+      val messageSet = messages.messageSet(tp.topic, tp.partition)
 
-      info("Got next offset %s for %s." format (nextOffset, tp))
-
-      Some(nextOffset)
+      if(messageSet.isEmpty) { // No messages have been written since our checkpoint
+        info("Got empty response for checkpointed offset, using checkpointed")
+        Some(last.toLong)
+      } else {
+        val nextOffset = messageSet.head.nextOffset
+        info("Got next offset %s for %s." format (nextOffset, tp))
+        Some(nextOffset)
+      }
     } catch {
       case e: OffsetOutOfRangeException =>
-        info("An out of range Kafka offset (%s) was supplied for topic and partition %s, so falling back to autooffset.reset." format (last, tp))
+        info("An out-of-range Kafka offset (%s) was supplied for topic and partition %s, so falling back to autooffset.reset." format (last, tp))
         None
     }
   }
 
-  def getNextOffset(sc: SimpleConsumer with DefaultFetch, tp: TopicAndPartition, lastCheckpointedOffset: String): Long = {
+  /**
+   * Using the provided SimpleConsumer, obtain the next offset to read for the specified topic
+   * @param sc SimpleConsumer used to query the Kafka Broker
+   * @param tp TopicAndPartition we offset for
+   * @param lastCheckpointedOffset Null is acceptable. If not null, return the last checkpointed offset, after checking it is valid
+   * @return Next offset to read or throw an exception if one has been received via the simple consumer
+   */
+  def getNextOffset(sc: DefaultFetchSimpleConsumer, tp: TopicAndPartition, lastCheckpointedOffset: String): Long = {
     val offsetRequest = new OffsetRequest(Map(tp -> new PartitionOffsetRequestInfo(getAutoOffset(tp.topic), 1)))
     val offsetResponse = sc.getOffsetsBefore(offsetRequest)
     val partitionOffsetResponse = offsetResponse.partitionErrorAndOffsets.get(tp).getOrElse(toss("Unable to find offset information for %s" format tp))
-    val autoOffset = partitionOffsetResponse.offsets.headOption.getOrElse(toss("Got response, but no offsets defined for %s" format tp))
 
-    info("Got offset %d for topic and partition %s" format (autoOffset, tp))
+    ErrorMapping.maybeThrowException(partitionOffsetResponse.error)
+
+    val autoOffset = partitionOffsetResponse.offsets.headOption.getOrElse(toss("Got response, but no offsets defined for %s" format tp))
 
     val actualOffset = Option(lastCheckpointedOffset) match {
       case Some(last) => useLastCheckpointedOffset(sc, last, tp).getOrElse(autoOffset)

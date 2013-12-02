@@ -80,6 +80,9 @@ project(":samza-kafka_$scalaVersion") {
     // these can all go away when kafka is in maven
     testCompile files("lib/kafka_$scalaVersion-$kafkaVersion-test.jar")
     // end these can all go away when kafka is in maven
+
+    // Logging in tests is good.
+    testRuntime "org.slf4j:slf4j-simple:1.6.2"
   }
 
   test {
@@ -192,4 +195,3 @@ project(":samza-test_$scalaVersion") {
     maxHeapSize = "1024m"
   }
 }
-

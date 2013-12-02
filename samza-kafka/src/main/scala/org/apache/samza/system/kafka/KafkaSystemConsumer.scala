@@ -19,14 +19,9 @@
 
 package org.apache.samza.system.kafka
 
-import org.apache.samza.util.{ KafkaUtil, ClientUtilTopicMetadataStore }
+import org.apache.samza.util.ClientUtilTopicMetadataStore
 import kafka.common.TopicAndPartition
-import org.apache.samza.config.{ KafkaConfig, Config }
-import org.apache.samza.SamzaException
-import org.apache.samza.config.KafkaConfig.Config2Kafka
-import org.apache.samza.metrics.MetricsRegistry
 import grizzled.slf4j.Logging
-import scala.collection.JavaConversions._
 import kafka.message.MessageAndOffset
 import org.apache.samza.Partition
 import kafka.utils.Utils
@@ -37,8 +32,6 @@ import kafka.serializer.Decoder
 import org.apache.samza.util.BlockingEnvelopeMap
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.IncomingMessageEnvelope
-import java.nio.charset.Charset
-import kafka.api.PartitionMetadata
 
 object KafkaSystemConsumer {
   def toTopicAndPartition(systemStreamPartition: SystemStreamPartition) = {
@@ -97,45 +90,48 @@ private[kafka] class KafkaSystemConsumer(
   }
 
   def refreshBrokers(topicPartitionsAndOffsets: Map[TopicAndPartition, String]) {
-    var done = false
-
-    while (!done) {
+    var tpToRefresh = topicPartitionsAndOffsets.keySet.toList
+    while (!tpToRefresh.isEmpty) {
       try {
         val getTopicMetadata = (topics: Set[String]) => {
           new ClientUtilTopicMetadataStore(brokerListString, clientId).getTopicInfo(topics)
         }
+        val topics = tpToRefresh.map(_.topic).toSet
+        val partitionMetadata = TopicMetadataCache.getTopicMetadata(topics, systemName, getTopicMetadata)
 
-        val partitionMetadata = TopicMetadataCache.getTopicMetadata(
-          topicPartitionsAndOffsets.keys.map(_.topic).toSet,
-          systemName,
-          getTopicMetadata)
+        // addTopicPartition one at a time, leaving the to-be-done list intact in case of exceptions.
+        // This avoids trying to re-add the same topic partition repeatedly
+        def refresh(tp:List[TopicAndPartition]) = {
+          val head :: rest = tpToRefresh
+          val lastOffset = topicPartitionsAndOffsets.get(head).get
+          // Whatever we do, we can't say Broker, even though we're
+          // manipulating it here. Broker is a private type and Scala doesn't seem
+          // to care about that as long as you don't explicitly declare its type.
+          val brokerOption = partitionMetadata(head.topic)
+                             .partitionsMetadata
+                             .find(_.partitionId == head.partition)
+                             .flatMap(_.leader)
 
-        topicPartitionsAndOffsets.map {
-          case (topicAndPartition, lastOffset) =>
-            // TODO whatever we do, we can't say Broker, even though we're 
-            // manipulating it here. Broker is a private type and Scala doesn't seem 
-            // to care about that as long as you don't explicitly declare its type.
-            val brokerOption = partitionMetadata(topicAndPartition.topic)
-              .partitionsMetadata
-              .find(_.partitionId == topicAndPartition.partition)
-              .flatMap(_.leader)
+          brokerOption match {
+            case Some(broker) =>
+              val brokerProxy = brokerProxies.getOrElseUpdate((broker.host, broker.port), new BrokerProxy(broker.host, broker.port, systemName, clientId, metrics, timeout, bufferSize, offsetGetter) {
+                val messageSink: MessageSink = sink
+              })
 
-            brokerOption match {
-              case Some(broker) =>
-                val brokerProxy = brokerProxies.getOrElseUpdate((broker.host, broker.port), new BrokerProxy(broker.host, broker.port, systemName, clientId, metrics, timeout, bufferSize, offsetGetter) {
-                  val messageSink: MessageSink = sink
-                })
-
-                brokerProxy.addTopicPartition(topicAndPartition, lastOffset)
-              case _ => warn("No such topic-partition: %s, dropping." format topicAndPartition)
-            }
+              brokerProxy.addTopicPartition(head, lastOffset)
+            case None => warn("No such topic-partition: %s, dropping." format head)
+          }
+          rest
         }
 
-        done = true
+
+        while(!tpToRefresh.isEmpty) {
+          tpToRefresh = refresh(tpToRefresh)
+        }
       } catch {
         case e: Throwable =>
-          warn("An exception was thrown while refreshing brokers for %s. Waiting a bit and retrying, since we can't continue without broker metadata." format topicPartitionsAndOffsets.keySet)
-          debug(e)
+          warn("An exception was thrown while refreshing brokers for %s. Waiting a bit and retrying, since we can't continue without broker metadata." format tpToRefresh.head)
+          debug("Exception while refreshing brokers", e)
 
           try {
             Thread.sleep(brokerMetadataFailureRefreshMs)
@@ -181,6 +177,7 @@ private[kafka] class KafkaSystemConsumer(
     }
 
     def abdicate(tp: TopicAndPartition, lastOffset: Long) {
+      info("Abdicating for %s" format (tp))
       refreshBrokers(Map(tp -> lastOffset.toString))
     }
 

@@ -22,22 +22,25 @@ package org.apache.samza.system.kafka
 
 import org.junit._
 import org.junit.Assert._
-import org.apache.samza.config.MapConfig
-import org.mockito.Mockito
-import org.apache.samza.metrics._
+import org.mockito.{Matchers, Mockito}
 import scala.collection.JavaConversions._
 import kafka.consumer.SimpleConsumer
 import org.mockito.Mockito._
 import org.mockito.Matchers._
 import kafka.api._
-import kafka.message.{ Message, MessageSet, MessageAndOffset }
+import kafka.message.{MessageSet, Message, MessageAndOffset, ByteBufferMessageSet}
 import kafka.common.TopicAndPartition
 import kafka.api.PartitionOffsetsResponse
 import java.nio.ByteBuffer
 import org.apache.samza.SamzaException
-import kafka.message.ByteBufferMessageSet
+import grizzled.slf4j.Logging
+import kafka.common.ErrorMapping
+import org.mockito.stubbing.Answer
+import org.mockito.invocation.InvocationOnMock
+import java.util.concurrent.CountDownLatch
 
-class TestBrokerProxy {
+
+class TestBrokerProxy extends Logging {
   val tp2 = new TopicAndPartition("Redbird", 2013)
 
   def getMockBrokerProxy() = {
@@ -55,8 +58,6 @@ class TestBrokerProxy {
     }
 
     val system = "daSystem"
-    val config = new MapConfig(Map[String, String]("job.name" -> "Jobby McJob",
-      "systems.%s.Redbird.consumer.auto.offset.reset".format(system) -> "largest"))
     val host = "host"
     val port = 2222
     val tp = new TopicAndPartition("Redbird", 2012)
@@ -86,7 +87,7 @@ class TestBrokerProxy {
         }
         alreadyCreatedConsumer = true
 
-        new SimpleConsumer("a", 1, 2, 3, "b") with DefaultFetch {
+        new DefaultFetchSimpleConsumer("a", 1, 2, 3, "b") {
           val fetchSize: Int = 42
 
           val sc = Mockito.mock(classOf[SimpleConsumer])
@@ -114,6 +115,8 @@ class TestBrokerProxy {
               def getMessage() = new Message(Mockito.mock(classOf[ByteBuffer]))
               val messages = List(new MessageAndOffset(getMessage, 42), new MessageAndOffset(getMessage, 84))
 
+              when(messageSet.sizeInBytes).thenReturn(43)
+              when(messageSet.size).thenReturn(44)
               when(messageSet.iterator).thenReturn(messages.iterator)
               when(messageSet.head).thenReturn(messages.head)
               messageSet
@@ -178,7 +181,87 @@ class TestBrokerProxy {
       fail("Should have thrown an exception")
     } catch {
       case se: SamzaException => assertEquals(se.getMessage, "Already consuming TopicPartition [Redbird,2012]")
+      case other: Throwable => fail("Got some other exception than what we were expecting: " + other)
     }
   }
 
+  @Test def brokerProxyCorrectlyHandlesOffsetOutOfRange():Unit = {
+    // Need to wait for the thread to do some work before ending the test
+    val countdownLatch = new CountDownLatch(1)
+    var failString:String = null
+
+    val mockMessageSink = mock(classOf[MessageSink])
+    when(mockMessageSink.needsMoreMessages(any())).thenReturn(true)
+
+    val doNothingMetrics = new KafkaSystemConsumerMetrics()
+
+    val tp = new TopicAndPartition("topic", 42)
+
+    val mockOffsetGetter = mock(classOf[GetOffset])
+    // This will be used by the simple consumer below, and this is the response that simple consumer needs
+    when(mockOffsetGetter.getNextOffset(any(classOf[DefaultFetchSimpleConsumer]), Matchers.eq(tp), Matchers.eq(null))).thenReturn(1492l)
+
+    var callsToCreateSimpleConsumer = 0
+    val mockSimpleConsumer = mock(classOf[DefaultFetchSimpleConsumer])
+
+    // Create an answer that first indicates offset out of range on first invocation and on second
+    // verifies that the parameters have been updated to what we expect them to be
+    val answer = new Answer[FetchResponse](){
+      var invocationCount = 0
+      def answer(invocation: InvocationOnMock): FetchResponse = {
+        val arguments = invocation.getArguments()(0).asInstanceOf[List[Object]](0).asInstanceOf[(String, Long)]
+
+        if(invocationCount == 0) {
+          if(arguments != (tp, 0)) {
+            failString = "First invocation did not have the right arguments: " + arguments
+            countdownLatch.countDown()
+          }
+          val mfr = mock(classOf[FetchResponse])
+          when(mfr.hasError).thenReturn(true)
+          when(mfr.errorCode("topic", 42)).thenReturn(ErrorMapping.OffsetOutOfRangeCode)
+
+          val messageSet = mock(classOf[MessageSet])
+          when(messageSet.iterator).thenReturn(Iterator.empty)
+          val response = mock(classOf[FetchResponsePartitionData])
+          when(response.error).thenReturn(ErrorMapping.OffsetOutOfRangeCode)
+          val responseMap = Map(tp -> response)
+          when(mfr.data).thenReturn(responseMap)
+          invocationCount += 1
+          mfr
+        } else {
+          if(arguments != (tp, 1492)) {
+            failString = "On second invocation, arguments were not correct: " + arguments
+          }
+          countdownLatch.countDown()
+          Thread.currentThread().interrupt()
+          null
+        }
+      }
+    }
+    
+    when(mockSimpleConsumer.defaultFetch(any())).thenAnswer(answer)
+
+    // So now we have a fetch response that will fail.  Prime the mockGetOffset to send us to a new offset
+
+    val bp = new BrokerProxy("host", 423, "system", "clientID", doNothingMetrics, Int.MaxValue, 1024000, mockOffsetGetter) {
+      val messageSink: MessageSink = mockMessageSink
+
+      override def createSimpleConsumer() = {
+        if(callsToCreateSimpleConsumer > 1) {
+          failString = "Tried to create more than one simple consumer"
+          countdownLatch.countDown()
+        }
+        callsToCreateSimpleConsumer += 1
+        mockSimpleConsumer
+      }
+    }
+
+    bp.addTopicPartition(tp, "earliest")
+    bp.start
+    countdownLatch.await()
+    bp.stop
+    if(failString != null) {
+      fail(failString)
+    }
+  }
 }
