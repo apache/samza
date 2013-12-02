@@ -70,14 +70,14 @@ public abstract class Config implements Map<String, String> {
       throw new ConfigException("Missing key " + k + ".");
   }
 
-  public long getShort(String k, short defaultValue) {
+  public short getShort(String k, short defaultValue) {
     if (containsKey(k))
       return Short.parseShort(get(k));
     else
       return defaultValue;
   }
 
-  public long getShort(String k) {
+  public short getShort(String k) {
     if (containsKey(k))
       return Short.parseShort(get(k));
     else
