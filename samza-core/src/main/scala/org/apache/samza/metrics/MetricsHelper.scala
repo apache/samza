@@ -37,6 +37,11 @@ trait MetricsHelper {
     registry.newGauge(group, new Gauge((getPrefix + name).toLowerCase, value))
   }
 
+  /**
+   * Specify a dynamic gauge that always returns the latest value when polled. 
+   * The value closure must be thread safe, since metrics reporters may access 
+   * it from another thread.
+   */
   def newGauge[T](name: String, value: () => T) = {
     registry.newGauge(group, new Gauge((getPrefix + name).toLowerCase, value()) {
       override def getValue = value()

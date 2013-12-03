@@ -49,7 +49,10 @@ class CachedStore[K, V](
   val metrics: CachedStoreMetrics = new CachedStoreMetrics) extends KeyValueStore[K, V] with Logging {
 
   /** the number of items in the dirty list */
-  private var dirtyCount = 0
+  @volatile private var dirtyCount = 0
+
+  /** the number of items currently in the cache */
+  @volatile private var cacheCount = 0
 
   /** the list of items to be written out on flush from newest to oldest */
   private var dirty = new mutable.DoubleLinkedList[K]()
@@ -68,8 +71,12 @@ class CachedStore[K, V](
     }
   }
 
+  // Use counters here, rather than directly accessing variables using .size 
+  // since metrics can be accessed in other threads, and cache.size is not 
+  // thread safe since we're using a LinkedHashMap, and dirty.size is slow
+  // since it requires a full traversal of the linked list.
   metrics.setDirtyCount(() => dirtyCount)
-  metrics.setCacheSize(() => cache.size)
+  metrics.setCacheSize(() => cacheCount)
 
   def get(key: K) = {
     metrics.gets.inc
@@ -81,6 +88,7 @@ class CachedStore[K, V](
     } else {
       val v = store.get(key)
       cache.put(key, new CacheEntry(v, null))
+      cacheCount = cache.size
       v
     }
   }
@@ -114,11 +122,17 @@ class CachedStore[K, V](
         found.dirty.remove
       }
     }
-    this.dirty = new mutable.DoubleLinkedList(key, this.dirty)
+
+    // We have to manually manage the prev value because Scala 2.8 is totally 
+    // broken. See SAMZA-80 for details.
+    val oldDirtyList = this.dirty
+    this.dirty = new mutable.DoubleLinkedList(key, oldDirtyList)
+    oldDirtyList.prev = this.dirty
 
     // add the key to the cache (but don't allocate a new cache entry if we already have one)
     if (found == null) {
       cache.put(key, new CacheEntry(value, this.dirty))
+      cacheCount = cache.size
     } else {
       found.value = value
       found.dirty = this.dirty
