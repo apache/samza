@@ -98,7 +98,7 @@ class BootstrappingChooser(
   def stop = wrapped.stop
 
   override def register(systemStreamPartition: SystemStreamPartition, lastReadOffset: String) {
-    debug("Registering stream partition with last read offset: %, %s" format (systemStreamPartition, lastReadOffset))
+    debug("Registering stream partition with last read offset: %s, %s" format (systemStreamPartition, lastReadOffset))
 
     // If the last offset read is the same as the latest offset in the SSP, 
     // then we're already at head for this SSP, so remove it from the lag list.
