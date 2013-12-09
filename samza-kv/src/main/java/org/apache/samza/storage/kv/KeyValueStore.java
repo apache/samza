@@ -22,8 +22,8 @@ package org.apache.samza.storage.kv;
 import java.util.List;
 
 /**
- * A key-value store that supports put/get/delete and range queries
- *
+ * A key-value store that supports put/get/delete and range queries.
+ * 
  * @param <K> The key type
  * @param <V> The value type
  */
@@ -33,6 +33,7 @@ public interface KeyValueStore<K, V> {
    * Get the value corresponding to this key
    * @param key The key to fetch
    * @return The value or null if no value is found.
+   * @throws NullPointerException If null is used for key.
    */
   public V get(K key);
   
@@ -40,17 +41,20 @@ public interface KeyValueStore<K, V> {
    * Update the value associated with this key
    * @param key They key to associate the value to
    * @param value The value
+   * @throws NullPointerException If null is used for key or value.
    */
   public void put(K key, V value);
   
   /**
    * Update all the given key/value pairs
+   * @throws NullPointerException If null is used for any key or value.
    */
   public void putAll(List<Entry<K,V>> entries);
   
   /**
    * Delete the value from the store (if there is one)
    * @param key The key
+   * @throws NullPointerException If null is used for key.
    */
   public void delete(K key);
   
@@ -59,6 +63,7 @@ public interface KeyValueStore<K, V> {
    * @param from The first key that could be in the range
    * @param to The last key that could be in the range
    * @return The iterator for this range.
+   * @throws NullPointerException If null is used for from or to.
    */
   public KeyValueIterator<K,V> range(K from, K to);
   

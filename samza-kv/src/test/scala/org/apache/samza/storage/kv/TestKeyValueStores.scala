@@ -22,9 +22,7 @@ package org.apache.samza.storage.kv
 import java.io.File
 import java.util.Arrays
 import java.util.Random
-
 import scala.collection.JavaConversions._
-
 import org.apache.samza.serializers.IntegerSerde
 import org.iq80.leveldb.Options
 import org.junit.After
@@ -34,6 +32,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
+import org.apache.samza.serializers.StringSerde
+import org.apache.samza.util.TestUtil._
 
 @RunWith(value = classOf[Parameterized])
 class TestKeyValueStores(cache: Boolean) {
@@ -79,6 +79,22 @@ class TestKeyValueStores(cache: Boolean) {
     store.put(k, b("v2"))
     store.put(k, b("v3"))
     assertTrue(Arrays.equals(b("v3"), store.get(k)))
+  }
+
+  @Test
+  def testNulls() {
+    val stringSerde = new StringSerde("UTF-8")
+    val serializedStore = new SerializedKeyValueStore(store, stringSerde, stringSerde)
+    val expectedNPEMessage = Some("Null is not a valid key or value.")
+
+    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.get(null) }
+    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.delete(null) }
+    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.put(null, "") }
+    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.put("", null) }
+    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.putAll(List(new Entry("", ""), new Entry[String, String]("", null))) }
+    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.putAll(List(new Entry[String, String](null, ""))) }
+    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.range("", null) }
+    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.range(null, "") }
   }
 
   @Test
@@ -137,16 +153,6 @@ class TestKeyValueStores(cache: Boolean) {
     vals.foreach(v => assertTrue(Arrays.equals(v, store.get(v))))
     vals.foreach(v => store.delete(v))
     vals.foreach(v => assertNull(store.get(v)))
-  }
-
-  @Test
-  def testSerializedValueIsNull {
-    val serializedStore = new SerializedKeyValueStore(
-      store,
-      new IntegerSerde,
-      new IntegerSerde)
-
-    serializedStore.putAll(List(new Entry[java.lang.Integer, java.lang.Integer](0, null)))
   }
 
   /**

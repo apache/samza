@@ -33,7 +33,7 @@ class SerializedKeyValueStore[K, V](
   metrics: SerializedKeyValueStoreMetrics = new SerializedKeyValueStoreMetrics) extends KeyValueStore[K, V] with Logging {
 
   def get(key: K): V = {
-    val keyBytes = keySerde.toBytes(key)
+    val keyBytes = bytesNotNull(key, keySerde)
     val found = store.get(keyBytes)
     metrics.gets.inc
     metrics.bytesSerialized.inc(keyBytes.size)
@@ -47,8 +47,8 @@ class SerializedKeyValueStore[K, V](
 
   def put(key: K, value: V) {
     metrics.puts.inc
-    val keyBytes = keySerde.toBytes(key)
-    val valBytes = msgSerde.toBytes(value)
+    val keyBytes = bytesNotNull(key, keySerde)
+    val valBytes = bytesNotNull(value, msgSerde)
     metrics.bytesSerialized.inc(keyBytes.size + valBytes.size)
     store.put(keyBytes, valBytes)
   }
@@ -59,8 +59,8 @@ class SerializedKeyValueStore[K, V](
     var bytesSerialized = 0L
     while (iter.hasNext) {
       val curr = iter.next
-      val keyBytes = keySerde.toBytes(curr.getKey)
-      val valBytes = msgSerde.toBytes(curr.getValue)
+      val keyBytes = bytesNotNull(curr.getKey, keySerde)
+      val valBytes = bytesNotNull(curr.getValue, msgSerde)
       bytesSerialized += keyBytes.size
       if (valBytes != null) {
         bytesSerialized += valBytes.size
@@ -74,15 +74,15 @@ class SerializedKeyValueStore[K, V](
 
   def delete(key: K) {
     metrics.deletes.inc
-    val keyBytes = keySerde.toBytes(key)
+    val keyBytes = bytesNotNull(key, keySerde)
     metrics.bytesSerialized.inc(keyBytes.size)
     store.delete(keyBytes)
   }
 
   def range(from: K, to: K): KeyValueIterator[K, V] = {
     metrics.ranges.inc
-    val fromBytes = keySerde.toBytes(from)
-    val toBytes = keySerde.toBytes(to)
+    val fromBytes = bytesNotNull(from, keySerde)
+    val toBytes = bytesNotNull(to, keySerde)
     metrics.bytesSerialized.inc(fromBytes.size + toBytes.size)
     new DeserializingIterator(store.range(fromBytes, toBytes))
   }
@@ -100,11 +100,20 @@ class SerializedKeyValueStore[K, V](
       val nxt = iter.next()
       val keyBytes = nxt.getKey
       val valBytes = nxt.getValue
-      metrics.bytesDeserialized.inc(keyBytes.size)
-      if (valBytes != null) {
-        metrics.bytesDeserialized.inc(valBytes.size)
+      val key = if (keyBytes != null) {
+        metrics.bytesDeserialized.inc(keyBytes.size)
+        keySerde.fromBytes(keyBytes).asInstanceOf[K]
+      } else {
+        warn("Got a null key while iterating over a store. This is highly unexpected, since null in key and value is disallowed for key value stores.")
+        null.asInstanceOf[K]
       }
-      new Entry(keySerde.fromBytes(keyBytes).asInstanceOf[K], msgSerde.fromBytes(valBytes).asInstanceOf[V])
+      val value = if (valBytes != null) {
+        metrics.bytesDeserialized.inc(valBytes.size)
+        msgSerde.fromBytes(valBytes)
+      } else {
+        null.asInstanceOf[V]
+      }
+      new Entry(key, value)
     }
   }
 
@@ -120,5 +129,15 @@ class SerializedKeyValueStore[K, V](
     trace("Closing.")
 
     store.close
+  }
+
+  /**
+   * Null is not allowed for keys and values because some change log systems
+   * (Kafka) model deletes as null.
+   */
+  private def bytesNotNull[T](t: T, serde: Serde[T]): Array[Byte] = if (t != null) {
+    serde.toBytes(t)
+  } else {
+    throw new NullPointerException("Null is not a valid key or value.")
   }
 }
