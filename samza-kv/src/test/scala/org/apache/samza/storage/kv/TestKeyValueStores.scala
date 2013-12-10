@@ -34,24 +34,42 @@ import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
 import org.apache.samza.serializers.StringSerde
 import org.apache.samza.util.TestUtil._
+import org.apache.samza.serializers.Serde
 
 @RunWith(value = classOf[Parameterized])
-class TestKeyValueStores(cache: Boolean) {
-
+class TestKeyValueStores(typeOfStore: String) {
   import TestKeyValueStores._
 
   val letters = "abcdefghijklmnopqrstuvwxyz".map(_.toString)
   val dir = new File(System.getProperty("java.io.tmpdir"), "leveldb-test-" + new Random().nextInt(Int.MaxValue))
   var store: KeyValueStore[Array[Byte], Array[Byte]] = null
+  var cache = false
+  var serde = false
 
   @Before
   def setup() {
     dir.mkdirs()
     val leveldb = new LevelDbKeyValueStore(dir, new Options)
-    if (cache)
-      store = new CachedStore(leveldb, CacheSize, BatchSize)
-    else
-      store = leveldb
+    val passThroughSerde = new Serde[Array[Byte]] {
+      def toBytes(obj: Array[Byte]) = obj
+      def fromBytes(bytes: Array[Byte]) = bytes
+    }
+    store = if ("cache".equals(typeOfStore)) {
+      cache = true
+      new CachedStore(leveldb, CacheSize, BatchSize)
+    } else if ("serde".equals(typeOfStore)) {
+      serde = true
+      new SerializedKeyValueStore(leveldb, passThroughSerde, passThroughSerde)
+    } else if ("cache-and-serde".equals(typeOfStore)) {
+      val serializedStore = new SerializedKeyValueStore(leveldb, passThroughSerde, passThroughSerde)
+      serde = true
+      cache = true
+      new CachedStore(serializedStore, CacheSize, BatchSize)
+    } else {
+      leveldb
+    }
+
+    store = new NullSafeKeyValueStore(store)
   }
 
   @After
@@ -82,19 +100,21 @@ class TestKeyValueStores(cache: Boolean) {
   }
 
   @Test
-  def testNulls() {
-    val stringSerde = new StringSerde("UTF-8")
-    val serializedStore = new SerializedKeyValueStore(store, stringSerde, stringSerde)
-    val expectedNPEMessage = Some("Null is not a valid key or value.")
+  def testNullsWithSerde() {
+    if (serde) {
+      val a = b("a")
+      val keyMsg = Some(NullSafeKeyValueStore.KEY_ERROR_MSG)
+      val valMsg = Some(NullSafeKeyValueStore.VAL_ERROR_MSG)
 
-    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.get(null) }
-    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.delete(null) }
-    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.put(null, "") }
-    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.put("", null) }
-    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.putAll(List(new Entry("", ""), new Entry[String, String]("", null))) }
-    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.putAll(List(new Entry[String, String](null, ""))) }
-    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.range("", null) }
-    expect(classOf[NullPointerException], expectedNPEMessage) { serializedStore.range(null, "") }
+      expect(classOf[NullPointerException], keyMsg) { store.get(null) }
+      expect(classOf[NullPointerException], keyMsg) { store.delete(null) }
+      expect(classOf[NullPointerException], keyMsg) { store.put(null, a) }
+      expect(classOf[NullPointerException], valMsg) { store.put(a, null) }
+      expect(classOf[NullPointerException], valMsg) { store.putAll(List(new Entry(a, a), new Entry[Array[Byte], Array[Byte]](a, null))) }
+      expect(classOf[NullPointerException], keyMsg) { store.putAll(List(new Entry[Array[Byte], Array[Byte]](null, a))) }
+      expect(classOf[NullPointerException], keyMsg) { store.range(a, null) }
+      expect(classOf[NullPointerException], keyMsg) { store.range(null, a) }
+    }
   }
 
   @Test
@@ -137,7 +157,9 @@ class TestKeyValueStores(cache: Boolean) {
   @Test
   def testDelete() {
     val a = b("a")
+    assertNull(store.get(a))
     store.put(a, a)
+    assertTrue(Arrays.equals(a, store.get(a)))
     store.delete(a)
     assertNull(store.get(a))
   }
@@ -291,5 +313,5 @@ object TestKeyValueStores {
   val CacheSize = 10
   val BatchSize = 5
   @Parameters
-  def parameters: java.util.Collection[Array[java.lang.Boolean]] = Arrays.asList(Array(java.lang.Boolean.TRUE), Array(java.lang.Boolean.FALSE))
+  def parameters: java.util.Collection[Array[String]] = Arrays.asList(Array("cache"), Array("serde"), Array("cache-and-serde"), Array("levledb"))
 }

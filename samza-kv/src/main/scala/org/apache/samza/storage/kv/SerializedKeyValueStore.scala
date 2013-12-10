@@ -33,57 +33,42 @@ class SerializedKeyValueStore[K, V](
   metrics: SerializedKeyValueStoreMetrics = new SerializedKeyValueStoreMetrics) extends KeyValueStore[K, V] with Logging {
 
   def get(key: K): V = {
-    val keyBytes = bytesNotNull(key, keySerde)
+    val keyBytes = toBytesOrNull(key, keySerde)
     val found = store.get(keyBytes)
     metrics.gets.inc
-    metrics.bytesSerialized.inc(keyBytes.size)
-    if (found == null) {
-      null.asInstanceOf[V]
-    } else {
-      metrics.bytesDeserialized.inc(found.size)
-      msgSerde.fromBytes(found).asInstanceOf[V]
-    }
+    fromBytesOrNull(found, msgSerde)
   }
 
   def put(key: K, value: V) {
     metrics.puts.inc
-    val keyBytes = bytesNotNull(key, keySerde)
-    val valBytes = bytesNotNull(value, msgSerde)
-    metrics.bytesSerialized.inc(keyBytes.size + valBytes.size)
+    val keyBytes = toBytesOrNull(key, keySerde)
+    val valBytes = toBytesOrNull(value, msgSerde)
     store.put(keyBytes, valBytes)
   }
 
   def putAll(entries: java.util.List[Entry[K, V]]) {
     val list = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](entries.size())
     val iter = entries.iterator
-    var bytesSerialized = 0L
     while (iter.hasNext) {
       val curr = iter.next
-      val keyBytes = bytesNotNull(curr.getKey, keySerde)
-      val valBytes = bytesNotNull(curr.getValue, msgSerde)
-      bytesSerialized += keyBytes.size
-      if (valBytes != null) {
-        bytesSerialized += valBytes.size
-      }
+      val keyBytes = toBytesOrNull(curr.getKey, keySerde)
+      val valBytes = toBytesOrNull(curr.getValue, msgSerde)
       list.add(new Entry(keyBytes, valBytes))
     }
     store.putAll(list)
     metrics.puts.inc(list.size)
-    metrics.bytesSerialized.inc(bytesSerialized)
   }
 
   def delete(key: K) {
     metrics.deletes.inc
-    val keyBytes = bytesNotNull(key, keySerde)
-    metrics.bytesSerialized.inc(keyBytes.size)
+    val keyBytes = toBytesOrNull(key, keySerde)
     store.delete(keyBytes)
   }
 
   def range(from: K, to: K): KeyValueIterator[K, V] = {
     metrics.ranges.inc
-    val fromBytes = bytesNotNull(from, keySerde)
-    val toBytes = bytesNotNull(to, keySerde)
-    metrics.bytesSerialized.inc(fromBytes.size + toBytes.size)
+    val fromBytes = toBytesOrNull(from, keySerde)
+    val toBytes = toBytesOrNull(to, keySerde)
     new DeserializingIterator(store.range(fromBytes, toBytes))
   }
 
@@ -98,21 +83,8 @@ class SerializedKeyValueStore[K, V](
     def close() = iter.close()
     def next(): Entry[K, V] = {
       val nxt = iter.next()
-      val keyBytes = nxt.getKey
-      val valBytes = nxt.getValue
-      val key = if (keyBytes != null) {
-        metrics.bytesDeserialized.inc(keyBytes.size)
-        keySerde.fromBytes(keyBytes).asInstanceOf[K]
-      } else {
-        warn("Got a null key while iterating over a store. This is highly unexpected, since null in key and value is disallowed for key value stores.")
-        null.asInstanceOf[K]
-      }
-      val value = if (valBytes != null) {
-        metrics.bytesDeserialized.inc(valBytes.size)
-        msgSerde.fromBytes(valBytes)
-      } else {
-        null.asInstanceOf[V]
-      }
+      val key = fromBytesOrNull(nxt.getKey, keySerde)
+      val value = fromBytesOrNull(nxt.getValue, msgSerde)
       new Entry(key, value)
     }
   }
@@ -131,13 +103,19 @@ class SerializedKeyValueStore[K, V](
     store.close
   }
 
-  /**
-   * Null is not allowed for keys and values because some change log systems
-   * (Kafka) model deletes as null.
-   */
-  private def bytesNotNull[T](t: T, serde: Serde[T]): Array[Byte] = if (t != null) {
-    serde.toBytes(t)
+  def toBytesOrNull[T](t: T, serde: Serde[T]): Array[Byte] = if (t == null) {
+    null
   } else {
-    throw new NullPointerException("Null is not a valid key or value.")
+    val bytes = serde.toBytes(t)
+    metrics.bytesSerialized.inc(bytes.size)
+    bytes
+  }
+
+  def fromBytesOrNull[T](bytes: Array[Byte], serde: Serde[T]): T = if (bytes == null) {
+    null.asInstanceOf[T]
+  } else {
+    val obj = serde.fromBytes(bytes)
+    metrics.bytesDeserialized.inc(bytes.size)
+    obj
   }
 }

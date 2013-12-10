@@ -102,21 +102,29 @@ object Util extends Logging {
   }
 
   /**
-   * Returns a SystemStream object based on the system stream name given. For 
+   * Returns a SystemStream object based on the system stream name given. For
    * example, kafka.topic would return new SystemStream("kafka", "topic").
    */
   def getSystemStreamFromNames(systemStreamNames: String): SystemStream = {
     val idx = systemStreamNames.indexOf('.')
-    if(idx < 0)
+    if (idx < 0)
       throw new IllegalArgumentException("No '.' in stream name '" + systemStreamNames + "'. Stream names should be in the form 'system.stream'")
     new SystemStream(systemStreamNames.substring(0, idx), systemStreamNames.substring(idx + 1, systemStreamNames.length))
   }
-  
+
   /**
-   * Returns a SystemStream object based on the system stream name given. For 
+   * Returns a SystemStream object based on the system stream name given. For
    * example, kafka.topic would return new SystemStream("kafka", "topic").
    */
   def getNameFromSystemStream(systemStream: SystemStream) = {
     systemStream.getSystem + "." + systemStream.getStream
+  }
+
+  /**
+   * Makes sure that an object is not null, and throws a NullPointerException
+   * if it is.
+   */
+  def notNull[T](obj: T, msg: String) = if (obj == null) {
+    throw new NullPointerException(msg)
   }
 }

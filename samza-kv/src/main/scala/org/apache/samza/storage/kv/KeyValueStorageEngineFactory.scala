@@ -73,7 +73,7 @@ class KeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] {
     } else {
       serialized
     }
-    val db = maybeCachedStore
+    val db = new NullSafeKeyValueStore(maybeCachedStore)
     val keyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics(storeName, registry)
 
     // Decide if we should use raw bytes when restoring
