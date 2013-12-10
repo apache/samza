@@ -259,4 +259,9 @@ class TaskInstance(
       debug("Skipping storage manager shutdown for partition: %s" format partition)
     }
   }
+  
+  override def toString() = "TaskInstance for class %s and partition %s." format (task.getClass.getName, partition)
+ 
+  def toDetailedString() = "TaskInstance [windowable=%s, window_time=%s, commit_time=%s, closable=%s, collector_size=%s]" format (isWindowableTask, lastWindowMs, lastCommitMs, isClosableTask, collector.envelopes.size) 
+  
 }
