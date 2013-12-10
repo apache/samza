@@ -77,7 +77,7 @@ abstract class BrokerProxy(
     sc
   }
 
-  def addTopicPartition(tp: TopicAndPartition, lastCheckpointedOffset: String) = {
+  def addTopicPartition(tp: TopicAndPartition, lastCheckpointedOffset: Option[String]) = {
     debug("Adding new topic and partition %s to queue for %s" format (tp, host))
     if (nextOffsets.containsKey(tp)) toss("Already consuming TopicPartition %s" format tp)
 
