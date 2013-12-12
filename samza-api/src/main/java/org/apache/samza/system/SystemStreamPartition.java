@@ -23,10 +23,12 @@ import org.apache.samza.Partition;
 
 public class SystemStreamPartition extends SystemStream {
   protected final Partition partition;
-
+  protected final int hash;
+  
   public SystemStreamPartition(String system, String stream, Partition partition) {
     super(system, stream);
     this.partition = partition;
+    this.hash = computeHashCode();
   }
 
   public SystemStreamPartition(SystemStreamPartition other) {
@@ -47,6 +49,10 @@ public class SystemStreamPartition extends SystemStream {
 
   @Override
   public int hashCode() {
+    return hash;
+  }
+  
+  private int computeHashCode() {
     final int prime = 31;
     int result = super.hashCode();
     result = prime * result + ((partition == null) ? 0 : partition.hashCode());
