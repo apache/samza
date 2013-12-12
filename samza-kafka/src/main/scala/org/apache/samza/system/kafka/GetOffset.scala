@@ -87,7 +87,7 @@ class GetOffset(default: String, autoOffsetResetTopics: Map[String, String] = Ma
    * @param lastCheckpointedOffset Null is acceptable. If not null, return the last checkpointed offset, after checking it is valid
    * @return Next offset to read or throw an exception if one has been received via the simple consumer
    */
-  def getNextOffset(sc: DefaultFetchSimpleConsumer, tp: TopicAndPartition, lastCheckpointedOffset: Option[String]): Long = {
+  def getNextOffset(sc: DefaultFetchSimpleConsumer, tp: TopicAndPartition, lastCheckpointedOffset: String): Long = {
     val offsetRequest = new OffsetRequest(Map(tp -> new PartitionOffsetRequestInfo(getAutoOffset(tp.topic), 1)))
     val offsetResponse = sc.getOffsetsBefore(offsetRequest)
     val partitionOffsetResponse = offsetResponse.partitionErrorAndOffsets.get(tp).getOrElse(toss("Unable to find offset information for %s" format tp))
@@ -96,7 +96,7 @@ class GetOffset(default: String, autoOffsetResetTopics: Map[String, String] = Ma
 
     val autoOffset = partitionOffsetResponse.offsets.headOption.getOrElse(toss("Got response, but no offsets defined for %s" format tp))
 
-    val actualOffset = lastCheckpointedOffset match {
+    val actualOffset = Option(lastCheckpointedOffset) match {
       case Some(last) => useLastCheckpointedOffset(sc, last, tp).getOrElse(autoOffset)
       case None => autoOffset
     }

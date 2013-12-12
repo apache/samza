@@ -162,9 +162,9 @@ class TestBrokerProxy extends Logging {
     val (bp, tp, sink) = getMockBrokerProxy()
 
     bp.start
-    bp.addTopicPartition(tp, Option("0"))
+    bp.addTopicPartition(tp, "0")
     // Add tp2, which should never receive messages since sink disables it.
-    bp.addTopicPartition(tp2, Option("0"))
+    bp.addTopicPartition(tp2, "0")
     Thread.sleep(1000)
     assertEquals(2, sink.receivedMessages.size)
     assertEquals(42, sink.receivedMessages.get(0)._2.offset)
@@ -174,10 +174,10 @@ class TestBrokerProxy extends Logging {
   @Test def brokerProxyThrowsExceptionOnDuplicateTopicPartitions() = {
     val (bp, tp, _) = getMockBrokerProxy()
     bp.start
-    bp.addTopicPartition(tp, Option("0"))
+    bp.addTopicPartition(tp, "0")
 
     try {
-      bp.addTopicPartition(tp, Option("1"))
+      bp.addTopicPartition(tp, "1")
       fail("Should have thrown an exception")
     } catch {
       case se: SamzaException => assertEquals(se.getMessage, "Already consuming TopicPartition [Redbird,2012]")
@@ -256,7 +256,7 @@ class TestBrokerProxy extends Logging {
       }
     }
 
-    bp.addTopicPartition(tp, Option("earliest"))
+    bp.addTopicPartition(tp, "earliest")
     bp.start
     countdownLatch.await()
     bp.stop
