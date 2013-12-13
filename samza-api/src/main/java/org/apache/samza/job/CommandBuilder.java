@@ -19,23 +19,22 @@
 
 package org.apache.samza.job;
 
+import org.apache.samza.config.Config;
+import org.apache.samza.system.SystemStreamPartition;
+
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.samza.Partition;
-import org.apache.samza.config.Config;
-
 public abstract class CommandBuilder {
-  protected Set<Partition> partitions;
-  protected int totalPartitions;
+  protected Set<SystemStreamPartition> systemStreamPartitions;
   protected String name;
   protected Config config;
 
-  public CommandBuilder setPartitions(Set<Partition> partitions) {
-    this.partitions = partitions;
+  public CommandBuilder setStreamPartitions(Set<SystemStreamPartition> ssp) {
+    this.systemStreamPartitions = ssp;
     return this;
   }
-
+  
   /**
    * @param name
    *          associated with a specific instantiation of a TaskRunner.
@@ -48,11 +47,6 @@ public abstract class CommandBuilder {
 
   public CommandBuilder setConfig(Config config) {
     this.config = config;
-    return this;
-  }
-
-  public CommandBuilder setTotalPartitions(int totalPartitions) {
-    this.totalPartitions = totalPartitions;
     return this;
   }
 

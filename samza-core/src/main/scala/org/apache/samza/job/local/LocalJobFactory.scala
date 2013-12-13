@@ -20,14 +20,11 @@
 package org.apache.samza.job.local
 import org.apache.samza.config.TaskConfig._
 import org.apache.samza.config.Config
-import org.apache.samza.config.SystemConfig._
-import org.apache.samza.config.StreamConfig._
 import org.apache.samza.config.ShellCommandConfig._
 import org.apache.samza.job.CommandBuilder
 import org.apache.samza.job.StreamJob
 import org.apache.samza.job.StreamJobFactory
 import scala.collection.JavaConversions._
-import org.apache.samza.Partition
 import grizzled.slf4j.Logging
 import org.apache.samza.SamzaException
 import org.apache.samza.container.SamzaContainer
@@ -37,7 +34,7 @@ import org.apache.samza.job.ShellCommandBuilder
 class LocalJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config): StreamJob = {
     val taskName = "local-task"
-    val partitions = Util.getMaxInputStreamPartitions(config)
+    val partitions = Util.getInputStreamPartitions(config)
 
     info("got partitions for job %s" format partitions)
 
@@ -50,11 +47,11 @@ class LocalJobFactory extends StreamJobFactory with Logging {
         // A command class was specified, so we need to use a process job to
         // execute the command in its own process.
         val cmdBuilder = Class.forName(cmdBuilderClassName).newInstance.asInstanceOf[CommandBuilder]
-
+        
         cmdBuilder
           .setConfig(config)
           .setName(taskName)
-          .setPartitions(partitions)
+          .setStreamPartitions(partitions)
 
         val processBuilder = new ProcessBuilder(cmdBuilder.buildCommand.split(" ").toList)
 

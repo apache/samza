@@ -20,29 +20,25 @@
 package org.apache.samza.job.yarn
 import org.junit.Assert._
 import org.junit.Test
-import scala.collection.JavaConversions._
 import org.apache.samza.config.Config
 import org.apache.samza.config.MapConfig
-import org.apache.samza.Partition
+import org.apache.samza.{Partition, SamzaException}
 import org.apache.hadoop.yarn.api.records._
 import org.apache.hadoop.yarn.util.ConverterUtils
 import scala.collection.JavaConversions._
 import org.apache.hadoop.yarn.conf.YarnConfiguration
-import org.apache.hadoop.security.UserGroupInformation
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse
-import org.apache.hadoop.yarn.client.api.AMRMClient
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
 import org.apache.hadoop.yarn.client.api.impl.AMRMClientImpl
-import org.apache.hadoop.service._
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.yarn.api.records.NodeReport
 import TestSamzaAppMasterTaskManager._
-import org.apache.samza.system.SystemAdmin
-import org.apache.samza.system.SystemFactory
+import org.apache.samza.system.{SystemStreamPartition, SystemAdmin, SystemFactory}
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.SamzaException
+import org.apache.samza.util.Util._
+import org.apache.samza.util.Util
 
 object TestSamzaAppMasterTaskManager {
   def getContainer(containerId: ContainerId) = new Container {
@@ -133,6 +129,7 @@ object TestSamzaAppMasterTaskManager {
 }
 
 class TestSamzaAppMasterTaskManager {
+  
   val config = new MapConfig(Map[String, String](
     "yarn.container.count" -> "1",
     "systems.test-system.samza.factory" -> "org.apache.samza.job.yarn.MockSystemFactory",
@@ -379,34 +376,34 @@ class TestSamzaAppMasterTaskManager {
 
   @Test
   def testPartitionsShouldWorkWithMoreTasksThanPartitions {
-    val onePartition = Set(new Partition(0))
-    assert(SamzaAppMasterTaskManager.getPartitionsForTask(0, 2, onePartition).equals(Set(new Partition(0))))
-    assert(SamzaAppMasterTaskManager.getPartitionsForTask(1, 2, onePartition).equals(Set()))
+    val onePartition = Set(new SystemStreamPartition("system", "stream", new Partition(0)))
+    assert(Util.getStreamsAndPartitionsForContainer(0, 2, onePartition).equals(Set(new SystemStreamPartition("system", "stream", new Partition(0)))))
+    assert(Util.getStreamsAndPartitionsForContainer(1, 2, onePartition).equals(Set()))
   }
 
   @Test
   def testPartitionsShouldWorkWithMorePartitionsThanTasks {
-    val fivePartitions = (0 until 5).map(new Partition(_)).toSet
-    assert(SamzaAppMasterTaskManager.getPartitionsForTask(0, 2, fivePartitions).equals(Set(new Partition(0), new Partition(2), new Partition(4))))
-    assert(SamzaAppMasterTaskManager.getPartitionsForTask(1, 2, fivePartitions).equals(Set(new Partition(1), new Partition(3))))
+    val fivePartitions = (0 until 5).map(p => new SystemStreamPartition("system", "stream", new Partition(p))).toSet
+    assert(Util.getStreamsAndPartitionsForContainer(0, 2, fivePartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(0)), new SystemStreamPartition("system", "stream", new Partition(2)), new SystemStreamPartition("system", "stream", new Partition(4)))))
+    assert(Util.getStreamsAndPartitionsForContainer(1, 2, fivePartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(1)), new SystemStreamPartition("system", "stream", new Partition(3)))))
   }
 
   @Test
   def testPartitionsShouldWorkWithTwelvePartitionsAndFiveContainers {
-    val fivePartitions = (0 until 12).map(new Partition(_)).toSet
-    assert(SamzaAppMasterTaskManager.getPartitionsForTask(0, 5, fivePartitions).equals(Set(new Partition(0), new Partition(5), new Partition(10))))
-    assert(SamzaAppMasterTaskManager.getPartitionsForTask(1, 5, fivePartitions).equals(Set(new Partition(1), new Partition(6), new Partition(11))))
-    assert(SamzaAppMasterTaskManager.getPartitionsForTask(2, 5, fivePartitions).equals(Set(new Partition(2), new Partition(7))))
-    assert(SamzaAppMasterTaskManager.getPartitionsForTask(3, 5, fivePartitions).equals(Set(new Partition(3), new Partition(8))))
-    assert(SamzaAppMasterTaskManager.getPartitionsForTask(4, 5, fivePartitions).equals(Set(new Partition(4), new Partition(9))))
+    val fivePartitions = (0 until 12).map(p => new SystemStreamPartition("system", "stream", new Partition(p))).toSet
+    assert(Util.getStreamsAndPartitionsForContainer(0, 5, fivePartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(0)), new SystemStreamPartition("system", "stream", new Partition(5)), new SystemStreamPartition("system", "stream", new Partition(10)))))
+    assert(Util.getStreamsAndPartitionsForContainer(1, 5, fivePartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(1)), new SystemStreamPartition("system", "stream", new Partition(6)), new SystemStreamPartition("system", "stream", new Partition(11)))))
+    assert(Util.getStreamsAndPartitionsForContainer(2, 5, fivePartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(2)), new SystemStreamPartition("system", "stream", new Partition(7)))))
+    assert(Util.getStreamsAndPartitionsForContainer(3, 5, fivePartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(3)), new SystemStreamPartition("system", "stream", new Partition(8)))))
+    assert(Util.getStreamsAndPartitionsForContainer(4, 5, fivePartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(4)), new SystemStreamPartition("system", "stream", new Partition(9)))))
   }
 
   @Test
   def testPartitionsShouldWorkWithEqualPartitionsAndTasks {
-    val twoPartitions = (0 until 2).map(new Partition(_)).toSet
-    assert(SamzaAppMasterTaskManager.getPartitionsForTask(0, 2, twoPartitions).equals(Set(new Partition(0))))
-    assert(SamzaAppMasterTaskManager.getPartitionsForTask(1, 2, twoPartitions).equals(Set(new Partition(1))))
-    assert(SamzaAppMasterTaskManager.getPartitionsForTask(0, 1, Set(new Partition(0))).equals(Set(new Partition(0))))
+    val twoPartitions = (0 until 2).map(p => new SystemStreamPartition("system", "stream", new Partition(p))).toSet
+    assert(Util.getStreamsAndPartitionsForContainer(0, 2, twoPartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(0)))))
+    assert(Util.getStreamsAndPartitionsForContainer(1, 2, twoPartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(1)))))
+    assert(Util.getStreamsAndPartitionsForContainer(0, 1, Set(new SystemStreamPartition("system", "stream", new Partition(0)))).equals(Set(new SystemStreamPartition("system", "stream", new Partition(0)))))
   }
 
   val clock = () => System.currentTimeMillis

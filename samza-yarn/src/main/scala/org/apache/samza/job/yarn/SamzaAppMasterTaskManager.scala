@@ -21,7 +21,6 @@ package org.apache.samza.job.yarn
 import org.apache.hadoop.yarn.api.records.ContainerStatus
 import org.apache.hadoop.yarn.api.records.Container
 import org.apache.samza.config.Config
-import org.apache.samza.Partition
 import grizzled.slf4j.Logging
 import org.apache.samza.config.YarnConfig.Config2Yarn
 import org.apache.samza.config.YarnConfig
@@ -29,21 +28,15 @@ import org.apache.samza.job.CommandBuilder
 import org.apache.hadoop.yarn.api.ApplicationConstants
 import org.apache.hadoop.security.UserGroupInformation
 import org.apache.hadoop.fs.Path
-import org.apache.samza.task.TaskContext
-import org.apache.samza.config.SystemConfig.Config2System
-import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.TaskConfig.Config2Task
-import scala.collection.JavaConversions._
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
 import org.apache.samza.util.Util
 import scala.collection.JavaConversions._
-import org.apache.samza.SamzaException
 import org.apache.hadoop.yarn.client.api.AMRMClient
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
 import org.apache.hadoop.yarn.api.records.Priority
 import org.apache.hadoop.yarn.api.records.Resource
 import org.apache.hadoop.yarn.util.Records
-import org.apache.hadoop.security.token.Token
 import org.apache.hadoop.yarn.api.records.LocalResource
 import org.apache.hadoop.yarn.util.ConverterUtils
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext
@@ -51,17 +44,11 @@ import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.api.records.LocalResourceType
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility
-import org.apache.hadoop.yarn.ipc.YarnRPC
-import org.apache.hadoop.yarn.security.ContainerTokenIdentifier
-import org.apache.hadoop.io.Text
-import org.apache.hadoop.net.NetUtils
 import java.util.Collections
-import java.security.PrivilegedAction
 import org.apache.samza.job.ShellCommandBuilder
 import org.apache.hadoop.io.DataOutputBuffer
 import org.apache.hadoop.yarn.security.AMRMTokenIdentifier
 import java.nio.ByteBuffer
-import org.apache.hadoop.yarn.client.api.NMClient
 import org.apache.hadoop.yarn.client.api.impl.NMClientImpl
 
 object SamzaAppMasterTaskManager {
@@ -69,10 +56,6 @@ object SamzaAppMasterTaskManager {
   val DEFAULT_CPU_CORES = 1
   val DEFAULT_CONTAINER_RETRY_COUNT = 8
   val DEFAULT_CONTAINER_RETRY_WINDOW_MS = 300000
-
-  def getPartitionsForTask(taskId: Int, taskCount: Int, partitions: Set[Partition]) = {
-    partitions.filter(_.getPartitionId % taskCount == taskId).toSet
-  }
 }
 
 case class TaskFailure(val count: Int, val lastFailure: Long)
@@ -93,7 +76,7 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
       1
   }
 
-  val partitions = Util.getMaxInputStreamPartitions(config)
+  val allSystemStreamPartitions = Util.getInputStreamPartitions(config)
   var taskFailures = Map[Int, TaskFailure]()
   var tooManyFailedContainers = false
   var containerManager: NMClientImpl = null
@@ -126,14 +109,13 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
     state.unclaimedTasks.headOption match {
       case Some(taskId) => {
         info("Got available task id (%d) for container: %s" format (taskId, container))
-        val partitionsForTask = getPartitionsForTask(taskId, state.taskCount, partitions)
-        info("Claimed partitions %s for task ID %s" format (partitionsForTask, taskId))
+        val streamsAndPartitionsForTask = Util.getStreamsAndPartitionsForContainer(taskId, state.taskCount, allSystemStreamPartitions)
+        info("Claimed partitions %s for container ID %s" format (allSystemStreamPartitions, taskId))
         val cmdBuilderClassName = config.getCommandClass.getOrElse(classOf[ShellCommandBuilder].getName)
         val cmdBuilder = Class.forName(cmdBuilderClassName).newInstance.asInstanceOf[CommandBuilder]
           .setConfig(config)
           .setName("samza-container-%s" format taskId)
-          .setPartitions(partitionsForTask)
-          .setTotalPartitions(partitions.size)
+          .setStreamPartitions(streamsAndPartitionsForTask)
         val command = cmdBuilder.buildCommand
         info("Task ID %s using command %s" format (taskId, command))
         val env = cmdBuilder.buildEnvironment.map { case (k, v) => (k, Util.envVarEscape(v)) }
@@ -150,7 +132,7 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
         state.neededContainers -= 1
         state.runningTasks += taskId -> container
         state.unclaimedTasks -= taskId
-        state.taskPartitions += taskId -> partitionsForTask
+        state.taskPartitions += taskId -> streamsAndPartitionsForTask.map(_.getPartition).toSet
 
         info("Claimed task ID %s for container %s on node %s (http://%s/node/containerlogs/%s)." format (taskId, containerIdStr, container.getNodeId.getHost, container.getNodeHttpAddress, containerIdStr))
 
@@ -200,7 +182,7 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
 
         state.releasedContainers += 1
 
-        // If this container was assigned some partitions (a taskId), then 
+        // If this container was assigned some partitions (a containerId), then 
         // clean up, and request a new container for the tasks. This only 
         // should happen if the container was 'lost' due to node failure, not 
         // if the AM released the container.

@@ -19,8 +19,6 @@
 
 package org.apache.samza.config
 
-import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.SamzaException
 import org.apache.samza.util.Util
 import org.apache.samza.system.SystemStream
 

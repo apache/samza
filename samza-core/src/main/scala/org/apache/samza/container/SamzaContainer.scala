@@ -38,7 +38,6 @@ import org.apache.samza.metrics.JmxServer
 import org.apache.samza.metrics.JvmMetrics
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
-import org.apache.samza.serializers.Serde
 import org.apache.samza.serializers.SerdeFactory
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.storage.StorageEngineFactory
@@ -54,7 +53,6 @@ import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.system.SystemProducers
 import org.apache.samza.task.ReadableCollector
 import org.apache.samza.system.SystemConsumers
-import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.system.chooser.MessageChooserFactory
 import org.apache.samza.system.SystemProducersMetrics
 import org.apache.samza.system.SystemConsumersMetrics
@@ -68,12 +66,11 @@ object SamzaContainer extends Logging {
     val containerName = System.getenv(ShellCommandConfig.ENV_CONTAINER_NAME)
     val configStr = System.getenv(ShellCommandConfig.ENV_CONFIG)
     val config = JsonConfigSerializer.fromJson(configStr)
-    val partitionIdsCsv = System.getenv(ShellCommandConfig.ENV_PARTITION_IDS)
-    val partitions = if (partitionIdsCsv.length > 0) {
-      partitionIdsCsv.split(",")
-        .map(partitionIdStr => new Partition(partitionIdStr.toInt))
-        .toSet
-    } else {
+    val encodedStreamsAndPartitions = System.getenv(ShellCommandConfig.ENV_SYSTEM_STREAMS)
+    
+    val partitions = Util.createStreamPartitionsFromString(encodedStreamsAndPartitions)
+    
+    if(partitions.isEmpty) {
       throw new SamzaException("No partitions for this task. Can't run a task without partition assignments. It's likely that the partition manager for this system doesn't know about the stream you're trying to read.")
     }
 
@@ -84,9 +81,9 @@ object SamzaContainer extends Logging {
     }
   }
 
-  def apply(containerName: String, partitions: Set[Partition], config: Config) = {
+  def apply(containerName: String, inputStreams: Set[SystemStreamPartition], config: Config) = {
     info("Setting up Samza container: %s" format containerName)
-    info("Using partitions: %s" format partitions)
+    info("Using streams and partitions: %s" format inputStreams)
     info("Using configuration: %s" format config)
 
     val registry = new MetricsRegistryMap(containerName)
@@ -94,10 +91,7 @@ object SamzaContainer extends Logging {
     val systemProducersMetrics = new SystemProducersMetrics(registry)
     val systemConsumersMetrics = new SystemConsumersMetrics(registry)
 
-    val inputStreams = config.getInputStreams
     val inputSystems = inputStreams.map(_.getSystem)
-
-    info("Got input streams: %s" format inputStreams)
 
     val systemNames = config.getSystemNames
 
@@ -336,6 +330,9 @@ object SamzaContainer extends Logging {
     info("Got commit milliseconds: %s" format taskCommitMs)
 
     // Wire up all task-level (unshared) objects.
+
+    val partitions = inputStreams.map(_.getPartition).toSet
+    
     val taskInstances = partitions.map(partition => {
       debug("Setting up task instance: %s" format partition)
 
@@ -394,6 +391,9 @@ object SamzaContainer extends Logging {
         changeLogSystemStreams = changeLogSystemStreams,
         storeBaseDir = storeBaseDir)
 
+      val inputStreamsForThisPartition = inputStreams.filter(_.getPartition.equals(partition)).map(_.getSystemStream)
+      info("Assigning SystemStreams " + inputStreamsForThisPartition + " to " + partition)
+      
       val taskInstance = new TaskInstance(
         task = task,
         partition = partition,
@@ -405,7 +405,7 @@ object SamzaContainer extends Logging {
         checkpointManager = checkpointManager,
         reporters = reporters,
         listeners = listeners,
-        inputStreams = inputStreams,
+        inputStreams = inputStreamsForThisPartition,
         resetInputStreams = resetInputStreams,
         windowMs = taskWindowMs,
         commitMs = taskCommitMs,

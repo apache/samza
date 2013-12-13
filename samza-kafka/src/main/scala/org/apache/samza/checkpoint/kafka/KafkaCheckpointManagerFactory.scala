@@ -73,7 +73,9 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
       .getOrElse(throw new SamzaException("No broker list defined in config for %s." format systemName))
     val metadataStore = new ClientUtilTopicMetadataStore(brokersListString, clientId)
     val stateTopic = getTopic(jobName, jobId)
-    val totalPartitions = Util.getMaxInputStreamPartitions(config).size
+    
+    // This is a reasonably expensive operation and the TaskInstance already knows the answer. Should use that info.
+    val totalPartitions = Util.getInputStreamPartitions(config).map(_.getPartition).toSet.size
 
     new KafkaCheckpointManager(
       clientId,

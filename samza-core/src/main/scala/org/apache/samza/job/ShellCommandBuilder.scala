@@ -23,16 +23,17 @@ import scala.collection.JavaConversions._
 import org.apache.samza.config.ShellCommandConfig
 import org.apache.samza.config.ShellCommandConfig.Config2ShellCommand
 import org.apache.samza.config.serializers.JsonConfigSerializer
+import org.apache.samza.util.Util
 
 class ShellCommandBuilder extends CommandBuilder {
   def buildCommand() = config.getCommand
 
   def buildEnvironment(): java.util.Map[String, String] = {
-    val parts = if (partitions.size() > 0) partitions.map(_.getPartitionId.toString).reduceLeft(_ + "," + _) else ""
-
+    val streamsAndPartsString = Util.createStreamPartitionString(systemStreamPartitions.toSet) // Java to Scala set conversion
+    
     Map(
       ShellCommandConfig.ENV_CONTAINER_NAME -> name,
-      ShellCommandConfig.ENV_PARTITION_IDS -> parts,
+      ShellCommandConfig.ENV_SYSTEM_STREAMS -> streamsAndPartsString,
       ShellCommandConfig.ENV_CONFIG -> JsonConfigSerializer.toJson(config),
       ShellCommandConfig.ENV_JAVA_OPTS -> config.getTaskOpts.getOrElse(""))
   }

@@ -26,9 +26,10 @@ object ShellCommandConfig {
   val ENV_CONFIG = "SAMZA_CONFIG"
 
   /**
-   * A CSV list of partition IDs that a TaskRunner is responsible for (e.g. 0,2,4,6).
+   * An encoded list of the streams and partitions this container is responsible for. Encoded by 
+   * {@link org.apache.samza.util.Util#createStreamPartitionString}
    */
-  val ENV_PARTITION_IDS = "SAMZA_PARTITION_IDS"
+  val ENV_SYSTEM_STREAMS = "SAMZA_SYSTEM_STREAMS"
 
   /**
    * The name for a container (either a YARN AM or SamzaContainer)
