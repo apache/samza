@@ -55,6 +55,35 @@ public interface TaskLifecycleListener {
 }
 ```
 
-The TaskRunner will notify any lifecycle listeners whenever one of these events occurs. Usually, you don't really need to worry about lifecycle, but it's there if you need it.
+To use a TaskLifecycleListener, you must also create a factory for the listener.
+
+```
+public interface TaskLifecycleListenerFactory {
+  TaskLifecycleListener getLifecyleListener(String name, Config config);
+}
+```
+
+#### Configuring Lifecycle Listeners
+
+Once you have written a TaskLifecycleListener, and its factory, you can use the listener by configuring your Samza job with the following keys:
+
+* task.lifecycle.listeners: A CSV list of all defined listeners that should be used for the Samza job.
+* task.lifecycle.listener.&lt;listener name&gt;.class: A Java package and class name for a single listener factory.
+
+For example, you might define a listener called "my-listener":
+
+```
+task.lifecycle.listener.my-listener.class=com.foo.bar.MyListenerFactory
+```
+
+And then enable it for your Samza job:
+
+```
+task.lifecycle.listeners=my-listener
+```
+
+Samza's container will create one instance of TaskLifecycleListener, and notify it whenever any of the events (shown in the API above) occur.
+
+Borrowing from the example above, if we have a single Samza container processing partitions 0 and 2, and have defined a lifecycle listener called my-listener, then the Samza container will have a single instance of MyListener. MyListener's beforeInit, afterInit, beforeClose, and afterClose methods will all be called twice: one for each of the two partitions (e.g. beforeInit partition 0, before init partition 1, etc). The beforeProcess and afterProcess methods will simply be called once for each incoming message. The TaskContext is how the TaskLifecycleListener is able to tell which partition the event is for.
 
 ## [JMX &raquo;](jmx.html)
