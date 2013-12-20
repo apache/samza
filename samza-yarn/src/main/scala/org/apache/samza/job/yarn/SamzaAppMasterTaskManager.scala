@@ -110,7 +110,7 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
       case Some(taskId) => {
         info("Got available task id (%d) for container: %s" format (taskId, container))
         val streamsAndPartitionsForTask = Util.getStreamsAndPartitionsForContainer(taskId, state.taskCount, allSystemStreamPartitions)
-        info("Claimed partitions %s for container ID %s" format (allSystemStreamPartitions, taskId))
+        info("Claimed partitions %s for container ID %s" format (streamsAndPartitionsForTask, taskId))
         val cmdBuilderClassName = config.getCommandClass.getOrElse(classOf[ShellCommandBuilder].getName)
         val cmdBuilder = Class.forName(cmdBuilderClassName).newInstance.asInstanceOf[CommandBuilder]
           .setConfig(config)
