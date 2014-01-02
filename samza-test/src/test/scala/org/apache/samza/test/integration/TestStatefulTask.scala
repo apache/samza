@@ -228,7 +228,6 @@ class TestStatefulTask {
     "stores.mystore.msg.serde" -> "string",
     "stores.mystore.changelog" -> "kafka.mystore",
     "systems.kafka.samza.factory" -> "org.apache.samza.system.kafka.KafkaSystemFactory",
-    "systems.kafka.samza.partition.manager" -> "org.apache.samza.stream.kafka.KafkaPartitionManager",
     "systems.kafka.consumer.zookeeper.connect" -> zkConnect,
     "systems.kafka.consumer.auto.offset.reset" -> "smallest",
     "systems.kafka.producer.metadata.broker.list" -> ("localhost:%s" format port1),

@@ -179,6 +179,7 @@ project(":samza-test_$scalaVersion") {
   dependencies {
     compile project(':samza-api')
     compile project(":samza-kv_$scalaVersion")
+    compile project(":samza-core_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaVersion"
     compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
@@ -187,12 +188,18 @@ project(":samza-test_$scalaVersion") {
     compile files("../samza-kafka/lib/kafka_$scalaVersion-" + kafkaVersion + ".jar")
     testCompile files("../samza-kafka/lib/kafka_$scalaVersion-" + kafkaVersion + "-test.jar")
     testCompile "com.101tec:zkclient:$zkClientVersion"
-    testCompile project(":samza-core_$scalaVersion")
     testCompile project(":samza-kafka_$scalaVersion")
+    testRuntime "org.slf4j:slf4j-simple:1.6.2"
   }
 
   test {
-    // Bump up the heap so we can start ZooKeeper and Kafka brokers.
-    maxHeapSize = "1024m"
+    // Bump up the heap so we can start ZooKeeper and Kafka brokers. Also 
+    // required for TestSamzaContainerPerformance when a high thread count 
+    // with a lot of inputs is used.
+    maxHeapSize = "4096m"
+
+    // Forward all samza.* system properties to test subprocesses. This is 
+    // useful for configuring TestSamzaContainerPerformance from the CLI.
+    systemProperties = System.properties.findAll { it.key.startsWith("samza") }
   }
 }
