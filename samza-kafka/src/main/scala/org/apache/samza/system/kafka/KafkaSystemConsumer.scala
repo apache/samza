@@ -118,7 +118,7 @@ private[kafka] class KafkaSystemConsumer(
                 val messageSink: MessageSink = sink
               })
 
-              brokerProxy.addTopicPartition(head, lastOffset)
+              brokerProxy.addTopicPartition(head, Option(lastOffset))
             case None => warn("No such topic-partition: %s, dropping." format head)
           }
           rest

@@ -77,7 +77,7 @@ abstract class BrokerProxy(
     sc
   }
 
-  def addTopicPartition(tp: TopicAndPartition, lastCheckpointedOffset: String) = {
+  def addTopicPartition(tp: TopicAndPartition, lastCheckpointedOffset: Option[String]) = {
     debug("Adding new topic and partition %s to queue for %s" format (tp, host))
     if (nextOffsets.containsKey(tp)) toss("Already consuming TopicPartition %s" format tp)
 
@@ -181,7 +181,7 @@ abstract class BrokerProxy(
       warn("Received OffsetOutOfRange exception for %s. Current offset = %s" format (e.tp, nextOffsets.getOrElse(e.tp, "not found in map, likely removed in the interim")))
 
       try {
-        val newOffset = offsetGetter.getNextOffset(simpleConsumer, e.tp, null)
+        val newOffset = offsetGetter.getNextOffset(simpleConsumer, e.tp, Option(null))
         // Put the new offset into the map (if the tp still exists).  Will catch it on the next go-around
         nextOffsets.replace(e.tp, newOffset)
       } catch {
