@@ -15,9 +15,9 @@ DEPLOY_DOWNLOAD_DIR=$BASE_DIR/deploy/download
 COMMAND=$1
 SYSTEM=$2
 
-DOWNLOAD_KAFKA=https://dist.apache.org/repos/dist/release/kafka/kafka_2.8.0-0.8.0-beta1.tgz
+DOWNLOAD_KAFKA=http://mirrors.sonic.net/apache/kafka/0.8.0/kafka_2.8.0-0.8.0.tar.gz
 DOWNLOAD_YARN=http://mirrors.sonic.net/apache/hadoop/common/hadoop-2.2.0/hadoop-2.2.0.tar.gz
-DOWNLOAD_ZOOKEEPER=http://apache.mirrors.pair.com/zookeeper/zookeeper-3.4.3/zookeeper-3.4.3.tar.gz
+DOWNLOAD_ZOOKEEPER=http://archive.apache.org/dist/zookeeper/zookeeper-3.4.3/zookeeper-3.4.3.tar.gz
 
 install_zookeeper() {
   install "zookeeper-3.4.3"
@@ -30,7 +30,10 @@ install_yarn() {
 }
 
 install_kafka() {
-  install "kafka_2.8.0-0.8.0-beta1"
+  install "kafka_2.8.0-0.8.0"
+  # have to use SIGTERM since nohup on appears to ignore SIGINT
+  # and Kafka switched to SIGINT in KAFKA-1031.
+  sed -i.bak 's/SIGINT/SIGTERM/g' deploy/kafka/bin/kafka-server-stop.sh 
 }
 
 install_samza() {
