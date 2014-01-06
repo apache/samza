@@ -37,7 +37,7 @@ public interface StreamJob {
 }
 ```
 
-Once the JobRunner gets a job, it calls submit() on the job. This method is what tells the StreamJob implementation to start the TaskRunner. In the case of LocalJobRunner, it uses a run-task.sh script to execute the TaskRunner in a separate process, which will start one TaskRunner locally on the machine that you ran run-job.sh on.
+Once the JobRunner gets a job, it calls submit() on the job. This method is what tells the StreamJob implementation to start the TaskRunner. In the case of LocalJobRunner, it uses a run-container.sh script to execute the TaskRunner in a separate process, which will start one TaskRunner locally on the machine that you ran run-job.sh on.
 
 ![diagram](/img/0.7.0/learn/documentation/container/job-flow.png)
 

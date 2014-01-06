@@ -11,6 +11,6 @@ If you want to use YARN to run your Samza job, you'll also need to define the lo
 yarn.package.path=http://my.http.server/jobs/ingraphs-package-0.0.55.tgz
 ```
 
-This .tgz file follows the conventions outlined on the [Packaging](packaging.html) page (it has bin/run-am.sh and bin/run-task.sh). YARN NodeManagers will take responsibility for downloading this .tgz file on the appropriate machines, and untar'ing them. From there, YARN will execute run-am.sh or run-task.sh for the Samza Application Master, and TaskRunner, respectively.
+This .tgz file follows the conventions outlined on the [Packaging](packaging.html) page (it has bin/run-am.sh and bin/run-container.sh). YARN NodeManagers will take responsibility for downloading this .tgz file on the appropriate machines, and untar'ing them. From there, YARN will execute run-am.sh or run-container.sh for the Samza Application Master, and TaskRunner, respectively.
 
 ## [Logging &raquo;](logging.html)

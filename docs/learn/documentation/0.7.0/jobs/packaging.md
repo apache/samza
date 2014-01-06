@@ -3,14 +3,14 @@ layout: page
 title: Packaging
 ---
 
-The [JobRunner](job-runner.html) page talks about run-job.sh, and how it's used to start a job either locally (LocalJobFactory) or with YARN (YarnJobFactory). In the diagram that shows the execution flow, it also shows a run-task.sh script. This script, along with a run-am.sh script, are what Samza actually calls to execute its code.
+The [JobRunner](job-runner.html) page talks about run-job.sh, and how it's used to start a job either locally (LocalJobFactory) or with YARN (YarnJobFactory). In the diagram that shows the execution flow, it also shows a run-container.sh script. This script, along with a run-am.sh script, are what Samza actually calls to execute its code.
 
 ```
 bin/run-am.sh
-bin/run-task.sh
+bin/run-container.sh
 ```
 
-The run-task.sh script is responsible for starting the TaskRunner. The run-am.sh script is responsible for starting Samza's application master for YARN. Thus, the run-am.sh script is only used by the YarnJob, but both YarnJob and ProcessJob use run-task.sh.
+The run-container.sh script is responsible for starting the TaskRunner. The run-am.sh script is responsible for starting Samza's application master for YARN. Thus, the run-am.sh script is only used by the YarnJob, but both YarnJob and ProcessJob use run-container.sh.
 
 Typically, these two scripts are bundled into a tar.gz file that has a structure like this:
 
@@ -18,7 +18,7 @@ Typically, these two scripts are bundled into a tar.gz file that has a structure
 bin/run-am.sh
 bin/run-class.sh
 bin/run-job.sh
-bin/run-task.sh
+bin/run-container.sh
 lib/*.jar
 ```
 

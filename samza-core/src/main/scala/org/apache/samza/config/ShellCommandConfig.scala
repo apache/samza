@@ -48,7 +48,7 @@ object ShellCommandConfig {
 }
 
 class ShellCommandConfig(config: Config) extends ScalaMapConfig(config) {
-  def getCommand = getOption(ShellCommandConfig.COMMAND_SHELL_EXECUTE).getOrElse("bin/run-task.sh")
+  def getCommand = getOption(ShellCommandConfig.COMMAND_SHELL_EXECUTE).getOrElse("bin/run-container.sh")
 
   def getTaskOpts = getOption(ShellCommandConfig.TASK_JVM_OPTS)
 }
