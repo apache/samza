@@ -59,7 +59,7 @@ private[kafka] class KafkaSystemConsumer(
   keyDeserializer: Decoder[Object] = new DefaultDecoder().asInstanceOf[Decoder[Object]],
   clock: () => Long = { System.currentTimeMillis }) extends BlockingEnvelopeMap(metrics.registry, new Clock {
   def currentTimeMillis = clock()
-}) with Toss with Logging {
+}, classOf[KafkaSystemConsumerMetrics].getName) with Toss with Logging {
 
   type HostPort = (String, Int)
   val brokerProxies = scala.collection.mutable.Map[HostPort, BrokerProxy]()

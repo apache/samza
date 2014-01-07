@@ -76,7 +76,12 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
   }
 
   public BlockingEnvelopeMap(MetricsRegistry metricsRegistry, Clock clock) {
-    this.metrics = new BlockingEnvelopeMapMetrics(this.getClass().getName(), metricsRegistry);
+    this(metricsRegistry, clock, null);
+  }
+
+  public BlockingEnvelopeMap(MetricsRegistry metricsRegistry, Clock clock, String metricsGroupName) {
+    metricsGroupName = (metricsGroupName == null) ? this.getClass().getName() : metricsGroupName;
+    this.metrics = new BlockingEnvelopeMapMetrics(metricsGroupName, metricsRegistry);
     this.bufferedMessages = new ConcurrentHashMap<SystemStreamPartition, BlockingQueue<IncomingMessageEnvelope>>();
     this.noMoreMessage = new ConcurrentHashMap<SystemStreamPartition, Boolean>();
     this.clock = clock;
