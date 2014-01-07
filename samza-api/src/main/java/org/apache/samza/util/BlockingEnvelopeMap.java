@@ -27,7 +27,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -152,15 +151,15 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
     return messagesToReturn;
   }
 
-  protected void add(SystemStreamPartition systemStreamPartition, IncomingMessageEnvelope envelope) {
-    bufferedMessages.get(systemStreamPartition).add(envelope);
+  protected void put(SystemStreamPartition systemStreamPartition, IncomingMessageEnvelope envelope) throws InterruptedException {
+    bufferedMessages.get(systemStreamPartition).put(envelope);
   }
 
-  protected void addAll(SystemStreamPartition systemStreamPartition, List<IncomingMessageEnvelope> envelopes) {
+  protected void putAll(SystemStreamPartition systemStreamPartition, List<IncomingMessageEnvelope> envelopes) throws InterruptedException {
     BlockingQueue<IncomingMessageEnvelope> queue = bufferedMessages.get(systemStreamPartition);
 
     for (IncomingMessageEnvelope envelope : envelopes) {
-      queue.add(envelope);
+      queue.put(envelope);
     }
   }
 

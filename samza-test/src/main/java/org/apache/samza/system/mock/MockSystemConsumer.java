@@ -160,7 +160,7 @@ public class MockSystemConsumer extends BlockingEnvelopeMap {
           // Add messages to the BlockingEnvelopeMap.
           for (SystemStreamPartition ssp : sspsToFetch) {
             for (int i = 0; i < messagesPerBatch; ++i) {
-              add(ssp, new IncomingMessageEnvelope(ssp, "0", "key", "value"));
+              put(ssp, new IncomingMessageEnvelope(ssp, "0", "key", "value"));
             }
           }
         }

@@ -171,7 +171,7 @@ private[kafka] class KafkaSystemConsumer(
         null
       }
 
-      add(systemStreamPartition, new IncomingMessageEnvelope(systemStreamPartition, offset, key, message))
+      put(systemStreamPartition, new IncomingMessageEnvelope(systemStreamPartition, offset, key, message))
 
       setIsAtHead(systemStreamPartition, isAtHead)
     }

@@ -64,11 +64,11 @@ public class TestBlockingEnvelopeMap {
   public void testShouldGetSomeMessages() throws InterruptedException {
     BlockingEnvelopeMap map = new MockBlockingEnvelopeMap();
     map.register(SSP, "0");
-    map.add(SSP, envelope);
+    map.put(SSP, envelope);
     List<IncomingMessageEnvelope> envelopes = map.poll(FETCH, 0);
     assertEquals(1, envelopes.size());
-    map.add(SSP, envelope);
-    map.add(SSP, envelope);
+    map.put(SSP, envelope);
+    map.put(SSP, envelope);
     envelopes = map.poll(FETCH, 0);
     assertEquals(2, envelopes.size());
   }
@@ -81,7 +81,7 @@ public class TestBlockingEnvelopeMap {
     map.register(SSP, "0");
 
     for (int i = 0; i < 3 * maxMessages; ++i) {
-      map.add(SSP, envelope);
+      map.put(SSP, envelope);
     }
 
     assertEquals(3 * maxMessages, map.getNumMessagesInQueue(SSP));
