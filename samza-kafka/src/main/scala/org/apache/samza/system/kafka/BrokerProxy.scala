@@ -30,6 +30,7 @@ import grizzled.slf4j.Logging
 import java.nio.channels.ClosedByInterruptException
 import java.util.Map.Entry
 import scala.collection.mutable
+import kafka.consumer.ConsumerConfig
 
 /**
  * A BrokerProxy consolidates Kafka fetches meant for a particular broker and retrieves them all at once, providing
@@ -41,8 +42,11 @@ abstract class BrokerProxy(
   val system: String,
   val clientID: String,
   val metrics: KafkaSystemConsumerMetrics,
-  val timeout: Int = Int.MaxValue,
-  val bufferSize: Int = 1024000,
+  val timeout: Int = ConsumerConfig.SocketTimeout,
+  val bufferSize: Int = ConsumerConfig.SocketBufferSize,
+  val fetchSize:Int = ConsumerConfig.FetchSize,
+  val consumerMinSize:Int = ConsumerConfig.MinFetchBytes,
+  val consumerMaxWait:Int = ConsumerConfig.MaxFetchWaitMs,
   offsetGetter: GetOffset = new GetOffset("fail")) extends Toss with Logging {
 
   val messageSink: MessageSink
@@ -70,10 +74,7 @@ abstract class BrokerProxy(
     val hostString = "%s:%d" format (host, port)
     info("Creating new SimpleConsumer for host %s for system %s" format (hostString, system))
 
-    val sc = new DefaultFetchSimpleConsumer(host, port, timeout, bufferSize, clientID) {
-      val fetchSize: Int = 256 * 1024
-    }
-
+    val sc = new DefaultFetchSimpleConsumer(host, port, timeout, bufferSize, clientID, fetchSize, consumerMinSize, consumerMaxWait) 
     sc
   }
 

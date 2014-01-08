@@ -22,20 +22,9 @@ package org.apache.samza.system.kafka
 import org.apache.samza.util.KafkaUtil
 import org.apache.samza.config.Config
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.config.KafkaConfig
 import org.apache.samza.config.KafkaConfig.Config2Kafka
-import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.config.SystemConfig.Config2System
-import org.apache.samza.util.ClientUtilTopicMetadataStore
 import org.apache.samza.SamzaException
-import scala.collection.JavaConversions._
-import java.util.Properties
 import kafka.producer.Producer
-import kafka.producer.async.DefaultEventHandler
-import kafka.utils.Utils
-import org.apache.samza.util.Util
-import kafka.serializer.Decoder
-import kafka.serializer.DefaultDecoder
 import org.apache.samza.system.SystemFactory
 
 class KafkaSystemFactory extends SystemFactory {
@@ -52,19 +41,14 @@ class KafkaSystemFactory extends SystemFactory {
     // TODO could add stream-level overrides for timeout and buffer size
     val timeout = consumerConfig.socketTimeoutMs
     val bufferSize = consumerConfig.socketReceiveBufferBytes
+    val fetchSize = consumerConfig.fetchMessageMaxBytes
+    val consumerMinSize = consumerConfig.fetchMinBytes
+    val consumerMaxWait = consumerConfig.fetchWaitMaxMs
     val autoOffsetResetDefault = consumerConfig.autoOffsetReset
     val autoOffsetResetTopics = config.getAutoOffsetResetTopics(systemName)
     val fetchThreshold = config.getConsumerFetchThreshold(systemName).getOrElse("0").toInt
     val offsetGetter = new GetOffset(autoOffsetResetDefault, autoOffsetResetTopics)
-    val deserializer = config.getConsumerMsgDeserializerClass(systemName) match {
-      case Some(deserializerClass) => Util.getObj[Decoder[Object]](deserializerClass)
-      case _ => new DefaultDecoder().asInstanceOf[Decoder[Object]]
-    }
-    val keyDeserializer = config.getConsumerKeyDeserializerClass(systemName) match {
-      case Some(deserializerClass) => Util.getObj[Decoder[Object]](deserializerClass)
-      case _ => new DefaultDecoder().asInstanceOf[Decoder[Object]]
-    }
-
+   
     new KafkaSystemConsumer(
       systemName = systemName,
       brokerListString = brokerListString,
@@ -72,6 +56,9 @@ class KafkaSystemFactory extends SystemFactory {
       clientId = clientId,
       timeout = timeout,
       bufferSize = bufferSize,
+      fetchSize = fetchSize,
+      consumerMinSize = consumerMinSize,
+      consumerMaxWait = consumerMaxWait,
       fetchThreshold = fetchThreshold,
       offsetGetter = offsetGetter)
   }

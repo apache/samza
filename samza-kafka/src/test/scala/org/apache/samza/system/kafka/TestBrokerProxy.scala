@@ -87,9 +87,7 @@ class TestBrokerProxy extends Logging {
         }
         alreadyCreatedConsumer = true
 
-        new DefaultFetchSimpleConsumer("a", 1, 2, 3, "b") {
-          val fetchSize: Int = 42
-
+        new DefaultFetchSimpleConsumer("a", 1, 2, 3, "b", 42) {
           val sc = Mockito.mock(classOf[SimpleConsumer])
           val mockOffsetResponse = {
             val offsetResponse = Mockito.mock(classOf[OffsetResponse])
@@ -243,7 +241,7 @@ class TestBrokerProxy extends Logging {
 
     // So now we have a fetch response that will fail.  Prime the mockGetOffset to send us to a new offset
 
-    val bp = new BrokerProxy("host", 423, "system", "clientID", doNothingMetrics, Int.MaxValue, 1024000, mockOffsetGetter) {
+    val bp = new BrokerProxy("host", 423, "system", "clientID", doNothingMetrics, Int.MaxValue, 1024000, 256 * 1024, 524288, 1000, mockOffsetGetter) {
       val messageSink: MessageSink = mockMessageSink
 
       override def createSimpleConsumer() = {

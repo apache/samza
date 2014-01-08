@@ -24,17 +24,15 @@ package org.apache.samza.system.kafka
 import kafka.consumer.SimpleConsumer
 import kafka.api._
 import kafka.common.TopicAndPartition
-import kafka.common.TopicAndPartition
+import kafka.consumer.ConsumerConfig
 
-abstract class DefaultFetchSimpleConsumer(host: scala.Predef.String, port: scala.Int, soTimeout: scala.Int, bufferSize: scala.Int, clientId: scala.Predef.String)
+class DefaultFetchSimpleConsumer(host: scala.Predef.String, port: scala.Int, soTimeout: scala.Int, bufferSize: scala.Int,
+                                 clientId: scala.Predef.String, fetchSize: Int = ConsumerConfig.FetchSize,
+                                 minBytes:Int = ConsumerConfig.MinFetchBytes, maxWait:Int = ConsumerConfig.MaxFetchWaitMs)
   extends SimpleConsumer(host, port, soTimeout, bufferSize, clientId) {
 
-  val maxWait:Int = Int.MaxValue
-  val minBytes:Int = 1
-  val fetchSize:Int
-
   def defaultFetch(fetches:(TopicAndPartition, Long)*) = {
-    val fbr = new FetchRequestBuilder().maxWait(1000)
+    val fbr = new FetchRequestBuilder().maxWait(maxWait)
       .minBytes(minBytes)
       .clientId(clientId)
 

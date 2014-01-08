@@ -32,6 +32,7 @@ import kafka.serializer.Decoder
 import org.apache.samza.util.BlockingEnvelopeMap
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.IncomingMessageEnvelope
+import kafka.consumer.ConsumerConfig
 
 object KafkaSystemConsumer {
   def toTopicAndPartition(systemStreamPartition: SystemStreamPartition) = {
@@ -50,8 +51,11 @@ private[kafka] class KafkaSystemConsumer(
   brokerListString: String,
   metrics: KafkaSystemConsumerMetrics,
   clientId: String = "undefined-client-id-%s" format UUID.randomUUID.toString,
-  timeout: Int = Int.MaxValue,
-  bufferSize: Int = 1024000,
+  timeout: Int = ConsumerConfig.ConsumerTimeoutMs,
+  bufferSize: Int = ConsumerConfig.SocketBufferSize,
+  fetchSize:Int = ConsumerConfig.MaxFetchSize,
+  consumerMinSize:Int = ConsumerConfig.MinFetchBytes,
+  consumerMaxWait:Int = ConsumerConfig.MaxFetchWaitMs,
   brokerMetadataFailureRefreshMs: Long = 10000,
   fetchThreshold: Int = 0,
   offsetGetter: GetOffset = new GetOffset("fail"),
@@ -114,9 +118,10 @@ private[kafka] class KafkaSystemConsumer(
 
           brokerOption match {
             case Some(broker) =>
-              val brokerProxy = brokerProxies.getOrElseUpdate((broker.host, broker.port), new BrokerProxy(broker.host, broker.port, systemName, clientId, metrics, timeout, bufferSize, offsetGetter) {
+              val brokerProxy = new BrokerProxy(broker.host, broker.port, systemName, clientId, metrics, timeout, bufferSize, fetchSize, consumerMinSize, consumerMaxWait, offsetGetter) {
                 val messageSink: MessageSink = sink
-              })
+              }
+              brokerProxies.getOrElseUpdate((broker.host, broker.port), brokerProxy)
 
               brokerProxy.addTopicPartition(head, Option(lastOffset))
             case None => warn("No such topic-partition: %s, dropping." format head)
