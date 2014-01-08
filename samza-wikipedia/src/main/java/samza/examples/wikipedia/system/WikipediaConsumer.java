@@ -44,7 +44,7 @@ public class WikipediaConsumer extends BlockingEnvelopeMap implements WikipediaF
     SystemStreamPartition systemStreamPartition = new SystemStreamPartition(systemName, event.getChannel(), new Partition(0));
 
     try {
-      add(systemStreamPartition, new IncomingMessageEnvelope(systemStreamPartition, null, null, event));
+      put(systemStreamPartition, new IncomingMessageEnvelope(systemStreamPartition, null, null, event));
     } catch (Exception e) {
       System.err.println(e);
     }
