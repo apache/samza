@@ -169,6 +169,18 @@ class TestBrokerProxy extends Logging {
     assertEquals(84, sink.receivedMessages.get(1)._2.offset)
   }
 
+  @Test def brokerProxySkipsFetchForEmptyRequests() = {
+    val (bp, tp, sink) = getMockBrokerProxy()
+
+    bp.start
+    // Only add tp2, which should never receive messages since sink disables it.
+    bp.addTopicPartition(tp2, Option("0"))
+    Thread.sleep(1000)
+    assertEquals(0, sink.receivedMessages.size)
+    assertTrue(bp.metrics.brokerSkippedReads(bp.host, bp.port).getCount > 0)
+    assertTrue(bp.metrics.brokerReads(bp.host, bp.port).getCount == 0)
+  }
+
   @Test def brokerProxyThrowsExceptionOnDuplicateTopicPartitions() = {
     val (bp, tp, _) = getMockBrokerProxy()
     bp.start

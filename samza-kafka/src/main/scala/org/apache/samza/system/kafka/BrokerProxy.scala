@@ -131,17 +131,27 @@ abstract class BrokerProxy(
   }, "BrokerProxy thread pointed at %s:%d for client %s" format (host, port, clientID))
 
   private def fetchMessages(): Unit = {
-    metrics.brokerReads(host, port).inc
-    val response: FetchResponse = simpleConsumer.defaultFetch(nextOffsets.filterKeys(messageSink.needsMoreMessages(_)).toList: _*)
-    firstCall = false
-    firstCallBarrier.countDown()
+    val topicAndPartitionsToFetch = nextOffsets.filterKeys(messageSink.needsMoreMessages(_)).toList
 
-    // Split response into errors and non errors, processing the errors first
-    val (nonErrorResponses, errorResponses) = response.data.entrySet().partition(_.getValue.error == ErrorMapping.NoError)
+    if (topicAndPartitionsToFetch.size > 0) {
+      metrics.brokerReads(host, port).inc
+      val response: FetchResponse = simpleConsumer.defaultFetch(topicAndPartitionsToFetch: _*)
+      firstCall = false
+      firstCallBarrier.countDown()
 
-    handleErrors(errorResponses, response)
+      // Split response into errors and non errors, processing the errors first
+      val (nonErrorResponses, errorResponses) = response.data.entrySet().partition(_.getValue.error == ErrorMapping.NoError)
 
-    nonErrorResponses.foreach { nonError => moveMessagesToTheirQueue(nonError.getKey, nonError.getValue) }
+      handleErrors(errorResponses, response)
+
+      nonErrorResponses.foreach { nonError => moveMessagesToTheirQueue(nonError.getKey, nonError.getValue) }
+    } else {
+      debug("No topic/partitions need to be fetched for %s:%s right now. Sleeping %sms." format (host, port, sleepMSWhileNoTopicPartitions))
+
+      metrics.brokerSkippedReads(host, port).inc
+
+      Thread.sleep(sleepMSWhileNoTopicPartitions)
+    }
   }
 
   def handleErrors(errorResponses: mutable.Set[Entry[TopicAndPartition, FetchResponsePartitionData]], response:FetchResponse) = {
