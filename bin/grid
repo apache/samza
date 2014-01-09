@@ -19,6 +19,22 @@ DOWNLOAD_KAFKA=http://mirrors.sonic.net/apache/kafka/0.8.0/kafka_2.8.0-0.8.0.tar
 DOWNLOAD_YARN=http://mirrors.sonic.net/apache/hadoop/common/hadoop-2.2.0/hadoop-2.2.0.tar.gz
 DOWNLOAD_ZOOKEEPER=http://archive.apache.org/dist/zookeeper/zookeeper-3.4.3/zookeeper-3.4.3.tar.gz
 
+bootstrap() {
+  echo "Bootstrapping the system..."
+  stop_all
+  rm -rf $DEPLOY_ROOT_DIR
+  install_all
+  start_all
+  exit 0
+}
+
+install_all() {
+  $DIR/grid install samza
+  $DIR/grid install zookeeper
+  $DIR/grid install yarn
+  $DIR/grid install kafka
+}
+
 install_zookeeper() {
   install "zookeeper-3.4.3"
   cp $DEPLOY_ROOT_DIR/$SYSTEM/conf/zoo_sample.cfg $DEPLOY_ROOT_DIR/$SYSTEM/conf/zoo.cfg
@@ -55,6 +71,12 @@ install() {
   mv $DEPLOY_DOWNLOAD_DIR/$PACKAGE_DIR $DEPLOY_ROOT_DIR/$SYSTEM
 }
 
+start_all() {
+  $DIR/grid start zookeeper
+  $DIR/grid start yarn
+  $DIR/grid start kafka
+}
+
 start_zookeeper() {
   cd $DEPLOY_ROOT_DIR/$SYSTEM
   bin/zkServer.sh start
@@ -80,6 +102,12 @@ start_kafka() {
   cd - > /dev/null
 }
 
+stop_all() {
+  $DIR/grid stop kafka
+  $DIR/grid stop yarn
+  $DIR/grid stop zookeeper
+}
+
 stop_zookeeper() {
   cd $DEPLOY_ROOT_DIR/$SYSTEM
   bin/zkServer.sh stop
@@ -103,28 +131,20 @@ stop_kafka() {
   cd - > /dev/null
 }
 
-# If no command and system is specified, then bootstrap from scratch
-if test -z "$COMMAND" && test -z "$SYSTEM"; then
-  $DIR/grid stop kafka
-  $DIR/grid stop yarn
-  $DIR/grid stop zookeeper
-  rm -rf $DEPLOY_ROOT_DIR
-  $DIR/grid install samza
-  $DIR/grid install zookeeper
-  $DIR/grid install yarn
-  $DIR/grid install kafka
-  $DIR/grid start zookeeper
-  $DIR/grid start yarn
-  $DIR/grid start kafka
+# Check arguments
+if [ "$COMMAND" == "bootstrap" ] && test -z "$SYSTEM"; then
+  bootstrap
   exit 0
-elif [ "$COMMAND" == "help" ] || test -z "$COMMAND" || test -z "$SYSTEM"; then
+elif (test -z "$COMMAND" && test -z "$SYSTEM") \
+  || ( [ "$COMMAND" == "help" ] || test -z "$COMMAND" || test -z "$SYSTEM"); then
   echo
   echo "  Usage.."
   echo
   echo "  $ grid"
-  echo "  $ grid install [yarn|kafka|zookeeper]"
-  echo "  $ grid start [yarn|kafka|zookeeper]"
-  echo "  $ grid stop [yarn|kafka|zookeeper]"
+  echo "  $ grid bootstrap"
+  echo "  $ grid install [yarn|kafka|zookeeper|all]"
+  echo "  $ grid start [yarn|kafka|zookeeper|all]"
+  echo "  $ grid stop [yarn|kafka|zookeeper|all]"
   echo
   exit 1
 else
