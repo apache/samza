@@ -25,7 +25,7 @@ This project contains everything you'll need to run your first Samza jobs.
 
 A Samza grid usually comprises three different systems: [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html), [Kafka](http://kafka.apache.org/), and [ZooKeeper](http://zookeeper.apache.org/). The hello-samza project comes with a script called "grid" to help you setup these systems. Start by running:
 
-    bin/grid
+    bin/grid bootstrap
 
 This command will download, install, and start ZooKeeper, Kafka, and YARN. All package files will be put in a sub-directory called "deploy" inside hello-samza's root folder.
 
@@ -85,8 +85,6 @@ If you check the YARN UI, again, you'll see that all three jobs are now listed.
 
 After you're done, you can clean everything up using the same grid script.
 
-    bin/grid stop yarn
-    bin/grid stop kafka
-    bin/grid stop zookeeper
+    bin/grid stop all
 
 Congratulations! You've now setup a local grid that includes YARN, Kafka, and ZooKeeper, and run a Samza job on it. Next up, check out the [Background](/learn/documentation/0.7.0/introduction/background.html) and [API Overview](/learn/documentation/0.7.0/api/overview.html) pages.
