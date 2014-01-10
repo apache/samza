@@ -118,12 +118,13 @@ private[kafka] class KafkaSystemConsumer(
 
           brokerOption match {
             case Some(broker) =>
-              val brokerProxy = new BrokerProxy(broker.host, broker.port, systemName, clientId, metrics, timeout, bufferSize, fetchSize, consumerMinSize, consumerMaxWait, offsetGetter) {
+              def createBrokerProxy = new BrokerProxy(broker.host, broker.port, systemName, clientId, metrics, timeout, bufferSize, fetchSize, consumerMinSize, consumerMaxWait, offsetGetter) {
                 val messageSink: MessageSink = sink
               }
-              brokerProxies.getOrElseUpdate((broker.host, broker.port), brokerProxy)
 
-              brokerProxy.addTopicPartition(head, Option(lastOffset))
+              brokerProxies
+                .getOrElseUpdate((broker.host, broker.port), createBrokerProxy)
+                .addTopicPartition(head, Option(lastOffset))
             case None => warn("No such topic-partition: %s, dropping." format head)
           }
           rest
