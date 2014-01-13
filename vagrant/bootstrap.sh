@@ -43,8 +43,8 @@ su vagrant -c "mvn clean package"
 su vagrant -c "mkdir -p deploy/samza"
 su vagrant -c "tar -xvf ./samza-job-package/target/samza-job-package-0.7.0-dist.tar.gz -C deploy/samza"
 su vagrant -c "deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties"
-sleep 10
+sleep 60
 su vagrant -c "deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-parser.properties"
-sleep 10
+sleep 60
 su vagrant -c "deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-stats.properties"
-sleep 10
+sleep 60
