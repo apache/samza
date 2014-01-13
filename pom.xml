@@ -155,6 +155,7 @@
           <version>0.9</version>
           <configuration>
             <excludes>
+              <exclude>.vagrant/**</exclude>
               <exclude>.git/**</exclude>
               <exclude>*.md</exclude>
               <exclude>docs/**</exclude>
