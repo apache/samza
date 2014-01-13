@@ -3,7 +3,11 @@ hello-samza
 
 Hello Samza is a starter project for Samza jobs.
 
-Use Vagrant to get up and running.
+Please see [Hello Samza](http://samza.incubator.apache.org/) to get started.
+
+### Using Vagrant
+
+If you'd like to use Vagrant to get up and running, follow these instructions.
 
 1) Install Vagrant [http://www.vagrantup.com/](http://www.vagrantup.com/)  
 2) Install Virtual Box [https://www.virtualbox.org/](https://www.virtualbox.org/)  
