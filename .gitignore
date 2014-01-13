@@ -4,6 +4,7 @@
 target/
 .classpath
 .project
+.vagrant
 .settings/
 .idea/
 .idea_modules/

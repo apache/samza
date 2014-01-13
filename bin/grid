@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 # This script will download, setup, start, and stop servers for Kafka, YARN, and ZooKeeper,
 # as well as downloading, building and locally publishing Samza
