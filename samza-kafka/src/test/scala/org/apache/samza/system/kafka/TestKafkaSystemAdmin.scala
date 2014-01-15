@@ -61,30 +61,15 @@ object TestKafkaSystemAdmin {
   val (port1, port2, port3) = (ports(0), ports(1), ports(2))
 
   val props1 = TestUtils.createBrokerConfig(brokerId1, port1)
-  val config1 = new KafkaConfig(props1) {
-    override val hostName = "localhost"
-    override val numPartitions = 1
-    override val zkConnect = TestKafkaSystemAdmin.zkConnect + "/"
-  }
   val props2 = TestUtils.createBrokerConfig(brokerId2, port2)
-  val config2 = new KafkaConfig(props2) {
-    override val hostName = "localhost"
-    override val numPartitions = 1
-    override val zkConnect = TestKafkaSystemAdmin.zkConnect + "/"
-  }
   val props3 = TestUtils.createBrokerConfig(brokerId3, port3)
-  val config3 = new KafkaConfig(props3) {
-    override val hostName = "localhost"
-    override val numPartitions = 1
-    override val zkConnect = TestKafkaSystemAdmin.zkConnect + "/"
-  }
 
   val config = new java.util.Properties()
   val brokers = "localhost:%d,localhost:%d,localhost:%d" format (port1, port2, port3)
   config.put("metadata.broker.list", brokers)
   config.put("producer.type", "sync")
   config.put("request.required.acks", "-1")
-  config.put("serializer.class", "kafka.serializer.StringEncoder");
+  config.put("serializer.class", "kafka.serializer.StringEncoder")
   val producerConfig = new ProducerConfig(config)
   var producer: Producer[String, String] = null
   var zookeeper: EmbeddedZookeeper = null
@@ -96,9 +81,9 @@ object TestKafkaSystemAdmin {
   @BeforeClass
   def beforeSetupServers {
     zookeeper = new EmbeddedZookeeper(zkConnect)
-    server1 = TestUtils.createServer(config1)
-    server2 = TestUtils.createServer(config2)
-    server3 = TestUtils.createServer(config3)
+    server1 = TestUtils.createServer(new KafkaConfig(props1))
+    server2 = TestUtils.createServer(new KafkaConfig(props2))
+    server3 = TestUtils.createServer(new KafkaConfig(props3))
     zkClient = new ZkClient(zkConnect + "/", 6000, 6000, ZKStringSerializer)
     producer = new Producer(producerConfig)
     metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")

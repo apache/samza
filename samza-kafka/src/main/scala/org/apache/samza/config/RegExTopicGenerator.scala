@@ -29,6 +29,7 @@ import scala.collection._
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.system.SystemStream
 import org.apache.samza.util.Util
+import scala.util.Sorting
 
 /**
  * Dynamically determine the Kafka topics to use as input streams to the task via a regular expression.
@@ -86,7 +87,9 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
     info("Generated config values for %d new topics" format newInputStreams.size)
 
     val inputStreams = TaskConfig.INPUT_STREAMS -> (existingInputStreams ++ newInputStreams)
-      .map(Util.getNameFromSystemStream(_))
+      .map(Util.getNameFromSystemStream)
+      .toArray
+      .sortWith(_ < _)
       .mkString(",")
 
     new MapConfig((keysAndValsToAdd ++ config) += inputStreams)

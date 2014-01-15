@@ -53,7 +53,7 @@ class TestRegExTopicGenerator {
     val rewritten = rewriter.rewrite(REWRITER_NAME, config)
 
     val expected = Map(
-      "task.inputs" -> "test.scaredycat,test.crazycat",
+      "task.inputs" -> "test.crazycat,test.scaredycat",
       "systems.test.streams.scaredycat.ford" -> "mustang",
       "systems.test.streams.scaredycat.alfa.romeo" -> "spider",
       "systems.test.streams.scaredycat.b.triumph" -> "spitfire",

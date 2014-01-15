@@ -86,7 +86,7 @@ class TieredPriorityChooser(
   val prioritizedChoosers = choosers
     .keys
     .toList
-    .sort(_ > _)
+    .sortWith(_ > _)
     .map(choosers(_))
 
   /**
