@@ -19,12 +19,24 @@
 
 package org.apache.samza.system;
 
+/**
+ * This class represents a message envelope that is received by a StreamTask for each message that is received from a
+ * partition of a specific input stream.
+ */
 public class IncomingMessageEnvelope {
   private final SystemStreamPartition systemStreamPartition;
   private final String offset;
   private final Object key;
   private final Object message;
 
+  /**
+   * Constructs a new IncomingMessageEnvelope from specified components.
+   * @param systemStreamPartition The aggregate object representing the incoming stream name, the name of the cluster
+   * from which the stream came, and the partition of the stream from which the message was received.
+   * @param offset The offset in the partition that the message was received from.
+   * @param key A deserialized key received from the partition offset.
+   * @param message A deserialized message received from the partition offset.
+   */
   public IncomingMessageEnvelope(SystemStreamPartition systemStreamPartition, String offset, Object key, Object message) {
     this.systemStreamPartition = systemStreamPartition;
     this.offset = offset;

@@ -19,6 +19,15 @@
 
 package org.apache.samza.task;
 
+/**
+ * Used as a standard interface to allow user processing tasks to operate on specified time intervals, or "windows".
+ */
 public interface WindowableTask {
+  /**
+   * Called by TaskRunner for each implementing task at the end of every specified window.
+   * @param collector Contains the means of sending message envelopes to the output stream.
+   * @param coordinator Manages execution of tasks.
+   * @throws Exception Any exception types encountered during the execution of the processing task.
+   */
   void window(MessageCollector collector, TaskCoordinator coordinator) throws Exception;
 }

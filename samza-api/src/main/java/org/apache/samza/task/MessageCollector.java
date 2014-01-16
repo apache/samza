@@ -21,6 +21,13 @@ package org.apache.samza.task;
 
 import org.apache.samza.system.OutgoingMessageEnvelope;
 
+/**
+ * Used as an interface for the means of sending message envelopes.
+ */
 public interface MessageCollector {
+  /**
+   * Sends message envelope out onto specified stream.
+   * @param envelope Self contained envelope containing message, key and specified stream to be sent to.
+   */
   void send(OutgoingMessageEnvelope envelope);
 }

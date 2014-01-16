@@ -21,20 +21,38 @@ package org.apache.samza.system;
 
 import org.apache.samza.Partition;
 
+/**
+ * Aggregate object representing a partition of a Samza stream.
+ */
 public class SystemStreamPartition extends SystemStream {
   protected final Partition partition;
   protected final int hash;
-  
+
+  /**
+   * Constructs a Samza stream partition object from specified components.
+   * @param system The name of the system of which this stream is associated with.
+   * @param stream The name of the stream as specified in the stream configuration file.
+   * @param partition The partition in the stream of which this object is associated with.
+   */
   public SystemStreamPartition(String system, String stream, Partition partition) {
     super(system, stream);
     this.partition = partition;
     this.hash = computeHashCode();
   }
 
+  /**
+   * Constructs a Samza stream partition object based upon another Samza stream partition.
+   * @param other Reference to an already existing Samza stream partition.
+   */
   public SystemStreamPartition(SystemStreamPartition other) {
     this(other.getSystem(), other.getStream(), other.getPartition());
   }
 
+  /**
+   * Constructs a Samza stream partition object based upon another Samza stream and a specified partition.
+   * @param other Reference to an already existing Samza stream.
+   * @param partition Reference to an already existing Samza partition.
+   */
   public SystemStreamPartition(SystemStream other, Partition partition) {
     this(other.getSystem(), other.getStream(), partition);
   }
