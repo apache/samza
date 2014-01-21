@@ -24,13 +24,24 @@ import java.util.Map;
 
 import org.apache.samza.system.SystemStream;
 
+/**
+ * Used to represent a checkpoint in the running of a Samza system.
+ */
 public class Checkpoint {
   private final Map<SystemStream, String> offsets;
 
+  /**
+   * Constructs a new checkpoint based off a map of Samza stream offsets.
+   * @param offsets Map of Samza streams to their current offset.
+   */
   public Checkpoint(Map<SystemStream, String> offsets) {
     this.offsets = offsets;
   }
 
+  /**
+   * Gets a unmodifiable view of the current Samza stream offsets.
+   * @return A unmodifiable view of a Map of Samza streams to their recorded offsets.
+   */
   public Map<SystemStream, String> getOffsets() {
     return Collections.unmodifiableMap(offsets);
   }

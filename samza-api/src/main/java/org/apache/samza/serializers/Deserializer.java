@@ -19,6 +19,16 @@
 
 package org.apache.samza.serializers;
 
+/**
+ * A standard interface for Samza compatible deserializers, used for deserializing serialized objects back to their
+ * original form.
+ * @param <T> The type of serialized object this deserializer should be implemented to deserialize.
+ */
 public interface Deserializer<T> {
+  /**
+   * Deserializes given serialized object from an array of bytes to its original form.
+   * @param bytes Array of bytes representing serialized object.
+   * @return Original deserialized object.
+   */
   T fromBytes(byte[] bytes);
 }

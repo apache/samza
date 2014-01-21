@@ -19,9 +19,16 @@
 
 package org.apache.samza;
 
+/**
+ * Used to represent a Samza stream partition.
+ */
 public class Partition {
   private final int partition;
 
+  /**
+   * Constructs a new Samza stream partition from a specified partition number.
+   * @param partition An integer identifying the partition in a Samza stream.
+   */
   public Partition(int partition) {
     this.partition = partition;
   }

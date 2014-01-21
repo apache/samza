@@ -41,7 +41,7 @@ public class SystemStreamPartition extends SystemStream {
   }
 
   /**
-   * Constructs a Samza stream partition object based upon another Samza stream partition.
+   * Constructs a Samza stream partition object based upon an existing Samza stream partition.
    * @param other Reference to an already existing Samza stream partition.
    */
   public SystemStreamPartition(SystemStreamPartition other) {

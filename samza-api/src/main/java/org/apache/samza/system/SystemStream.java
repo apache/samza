@@ -19,15 +19,27 @@
 
 package org.apache.samza.system;
 
+/**
+ * Used to represent a Samza stream.
+ */
 public class SystemStream {
   protected final String system;
   protected final String stream;
 
+  /**
+   * Constructs a Samza stream object from specified components.
+   * @param system The name of the system of which this stream is associated with.
+   * @param stream The name of the stream as specified in the stream configuration file.
+   */
   public SystemStream(String system, String stream) {
     this.system = system;
     this.stream = stream;
   }
 
+  /**
+   * Constructs a Samza stream object based upon an existing Samza stream.
+   * @param other Reference to an already existing Samza stream.
+   */
   public SystemStream(SystemStream other) {
     this(other.getSystem(), other.getStream());
   }

@@ -19,6 +19,15 @@
 
 package org.apache.samza.serializers;
 
+/**
+ * A standard interface for Samza compatible serializers, used for serializing objects to bytes.
+ * @param <T> The type of object this serializer should be implemented to serialize.
+ */
 public interface Serializer<T> {
+  /**
+   * Serializes given object to an array of bytes.
+   * @param object Object of specific type to serialize.
+   * @return An array of bytes representing the object in serialized form.
+   */
   byte[] toBytes(T object);
 }

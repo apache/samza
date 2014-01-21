@@ -22,12 +22,14 @@ package org.apache.samza.task;
 import org.apache.samza.system.IncomingMessageEnvelope;
 
 /**
- * Used as a standard interface for all user processing tasks. Receives messages from a partition of a specified input stream.
+ * Used as a standard interface for all user processing tasks. Receives messages from a partition of a specified input
+ * stream.
  */
 public interface StreamTask {
   /**
    * Called once for each message that this StreamTask receives.
-   * @param envelope Contains the received deserialized message and key, and also information regarding the stream and partition of which the message was received from.
+   * @param envelope Contains the received deserialized message and key, and also information regarding the stream and
+   * partition of which the message was received from.
    * @param collector Contains the means of sending message envelopes to the output stream.
    * @param coordinator Manages execution of tasks.
    * @throws Exception Any exception types encountered during the execution of the processing task.

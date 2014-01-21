@@ -19,6 +19,10 @@
 
 package org.apache.samza.system;
 
+/**
+ * This class represents a message envelope that is sent by a StreamTask. It can be thought of as a complement to the
+ * IncomingMessageEnvelope class.
+ */
 public class OutgoingMessageEnvelope {
   private final SystemStream systemStream;
   private final String keySerializerName;
@@ -27,6 +31,15 @@ public class OutgoingMessageEnvelope {
   private final Object key;
   private final Object message;
 
+  /**
+   * Constructs a new OutgoingMessageEnvelope from specified components.
+   * @param systemStream Object representing the appropriate stream of which this envelope will be sent on.
+   * @param keySerializerName String representing the serializer used for serializing this envelope's key.
+   * @param messageSerializerName String representing the serializer used for serializing this envelope's message.
+   * @param partitionKey A key representing which partition of the systemStream to send this envelope on.
+   * @param key A deserialized key to be used for the message.
+   * @param message A deserialized message to be sent in this envelope.
+   */
   public OutgoingMessageEnvelope(SystemStream systemStream, String keySerializerName, String messageSerializerName, Object partitionKey, Object key, Object message) {
     this.systemStream = systemStream;
     this.keySerializerName = keySerializerName;
@@ -36,14 +49,32 @@ public class OutgoingMessageEnvelope {
     this.message = message;
   }
 
+  /**
+   * Constructs a new OutgoingMessageEnvelope from specified components.
+   * @param systemStream Object representing the appropriate stream of which this envelope will be sent on.
+   * @param partitionKey A key representing which partition of the systemStream to send this envelope on.
+   * @param key A deserialized key to be used for the message.
+   * @param message A deserialized message to be sent in this envelope.
+   */
   public OutgoingMessageEnvelope(SystemStream systemStream, Object partitionKey, Object key, Object message) {
     this(systemStream, null, null, partitionKey, key, message);
   }
 
+  /**
+   * Constructs a new OutgoingMessageEnvelope from specified components.
+   * @param systemStream Object representing the appropriate stream of which this envelope will be sent on.
+   * @param key A deserialized key to be used for the message.
+   * @param message A deserialized message to be sent in this envelope.
+   */
   public OutgoingMessageEnvelope(SystemStream systemStream, Object key, Object message) {
     this(systemStream, null, null, key, key, message);
   }
 
+  /**
+   * Constructs a new OutgoingMessageEnvelope from specified components.
+   * @param systemStream Object representing the appropriate stream of which this envelope will be sent on.
+   * @param message A deserialized message to be sent in this envelope.
+   */
   public OutgoingMessageEnvelope(SystemStream systemStream, Object message) {
     this(systemStream, null, null, null, null, message);
   }

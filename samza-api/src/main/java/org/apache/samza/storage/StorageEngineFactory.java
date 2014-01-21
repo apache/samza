@@ -33,21 +33,17 @@ import org.apache.samza.task.MessageCollector;
  */
 public interface StorageEngineFactory<K, V> {
 
-  // TODO update javadocs for storage engine factory
+  // TODO add Javadocs for MetricsRegistry and MessageCollector args
 
   /**
-   * Create an instance of the given storage engine
-   * 
-   * @param dir
-   *          The directory
-   * @param config
-   *          The configuration for the task
-   * @param stream
-   *          The stream used to back this storage engine
-   * @param serde
-   *          The serializer to use for serializing keys and values when reading
-   *          or writing to the store store
-   * @return The storage engine instance
+   * Create an instance of the given storage engine.
+   * @param storeName The name of the storage engine.
+   * @param storeDir The directory of the storage engine.
+   * @param keySerde The serializer to use for serializing keys when reading or writing to the store.
+   * @param msgSerde The serializer to use for serializing messages when reading or writing to the store.
+   * @param config The configuration for the task.
+   * @param changeLogSystemStreamPartition Samza stream partition from which to receive the changelog from.
+   * @return The storage engine instance.
    */
   public StorageEngine getStorageEngine(
     String storeName,

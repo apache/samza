@@ -21,13 +21,30 @@ package org.apache.samza.checkpoint;
 
 import org.apache.samza.Partition;
 
+/**
+ * Used as a standard interface for writing out checkpoints for a specified partition.
+ */
 public interface CheckpointManager {
   public void start();
 
+  /**
+   * Registers this manager to write checkpoints of a specific Samza stream partition.
+   * @param partition Specific Samza stream partition of which to write checkpoints for.
+   */
   public void register(Partition partition);
 
+  /**
+   * Writes a checkpoint based on the current state of a Samza stream partition.
+   * @param partition Specific Samza stream partition of which to write a checkpoint of.
+   * @param checkpoint Reference to a Checkpoint object to store offset data in.
+   */
   public void writeCheckpoint(Partition partition, Checkpoint checkpoint);
 
+  /**
+   * Returns the last recorded checkpoint for a specified Samza stream partition.
+   * @param partition Specific Samza stream partition for which to get the last checkpoint of.
+   * @return A Checkpoint object with the recorded offset data of the specified partition.
+   */
   public Checkpoint readLastCheckpoint(Partition partition);
 
   public void stop();

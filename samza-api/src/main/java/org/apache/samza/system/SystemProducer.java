@@ -19,13 +19,25 @@
 
 package org.apache.samza.system;
 
+/**
+ * Used as a standard interface for all producers of messages from a specified Samza source.
+ */
 public interface SystemProducer {
   void start();
 
   void stop();
 
+  /**
+   * Registers this producer to send messages from a specified Samza source, such as a StreamTask.
+   * @param source String representing the source of the message.
+   */
   void register(String source);
 
+  /**
+   * Sends a specified message envelope from a specified Samza source.
+   * @param source String representing the source of the message.
+   * @param envelope Aggregate object representing the serialized message to send from the source.
+   */
   void send(String source, OutgoingMessageEnvelope envelope);
 
   void flush(String source);

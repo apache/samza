@@ -22,6 +22,9 @@ package org.apache.samza.system;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Used as a standard interface for all consumers of messages from specific Samza stream partitions.
+ */
 public interface SystemConsumer {
   public static int BLOCK_ON_OUTSTANDING_MESSAGES = -1;
 
@@ -29,6 +32,13 @@ public interface SystemConsumer {
 
   void stop();
 
+  /**
+   * Registers this consumer to receive messages from a specific offset in a Samza stream partition.
+   * @param systemStreamPartition The SystemStreamPartition object representing the Samza stream partition to receive
+   * messages from.
+   * @param lastReadOffset String representing the offset from which to start receiving messages from in the specified
+   * partition.
+   */
   void register(SystemStreamPartition systemStreamPartition, String lastReadOffset);
 
   List<IncomingMessageEnvelope> poll(Map<SystemStreamPartition, Integer> systemStreamPartitions, long timeout) throws InterruptedException;
