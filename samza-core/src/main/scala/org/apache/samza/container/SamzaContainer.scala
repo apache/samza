@@ -67,10 +67,10 @@ object SamzaContainer extends Logging {
     val configStr = System.getenv(ShellCommandConfig.ENV_CONFIG)
     val config = JsonConfigSerializer.fromJson(configStr)
     val encodedStreamsAndPartitions = System.getenv(ShellCommandConfig.ENV_SYSTEM_STREAMS)
-    
+
     val partitions = Util.createStreamPartitionsFromString(encodedStreamsAndPartitions)
-    
-    if(partitions.isEmpty) {
+
+    if (partitions.isEmpty) {
       throw new SamzaException("No partitions for this task. Can't run a task without partition assignments. It's likely that the partition manager for this system doesn't know about the stream you're trying to read.")
     }
 
@@ -332,7 +332,7 @@ object SamzaContainer extends Logging {
     // Wire up all task-level (unshared) objects.
 
     val partitions = inputStreams.map(_.getPartition).toSet
-    
+
     val taskInstances = partitions.map(partition => {
       debug("Setting up task instance: %s" format partition)
 
@@ -393,7 +393,7 @@ object SamzaContainer extends Logging {
 
       val inputStreamsForThisPartition = inputStreams.filter(_.getPartition.equals(partition)).map(_.getSystemStream)
       info("Assigning SystemStreams " + inputStreamsForThisPartition + " to " + partition)
-      
+
       val taskInstance = new TaskInstance(
         task = task,
         partition = partition,
@@ -439,16 +439,18 @@ class SamzaContainer(
   jvm: JvmMetrics = null) extends Runnable with Logging {
 
   def run {
-    info("Entering run loop.")
-
-    startMetrics
-    startCheckpoints
-    startStores
-    startTask
-    startProducers
-    startConsumers
-
     try {
+      info("Starting container.")
+
+      startMetrics
+      startCheckpoints
+      startStores
+      startTask
+      startProducers
+      startConsumers
+
+      info("Entering run loop.")
+
       while (true) {
         val coordinator = new ReadableCoordinator
 
