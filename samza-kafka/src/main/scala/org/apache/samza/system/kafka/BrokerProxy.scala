@@ -148,7 +148,7 @@ abstract class BrokerProxy(
     } else {
       debug("No topic/partitions need to be fetched for %s:%s right now. Sleeping %sms." format (host, port, sleepMSWhileNoTopicPartitions))
 
-      metrics.brokerSkippedReads(host, port).inc
+      metrics.brokerSkippedFetchRequests(host, port).inc
 
       Thread.sleep(sleepMSWhileNoTopicPartitions)
     }

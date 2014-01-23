@@ -168,6 +168,7 @@ class SystemConsumers(
   def register(systemStreamPartition: SystemStreamPartition, lastReadOffset: String) {
     debug("Registering stream: %s, %s" format (systemStreamPartition, lastReadOffset))
 
+    metrics.registerSystemStream(systemStreamPartition.getSystemStream)
     neededByChooser += systemStreamPartition
     updateFetchMap(systemStreamPartition, maxMsgsPerStreamPartition)
     unprocessedMessages += systemStreamPartition -> Queue[IncomingMessageEnvelope]()
@@ -195,6 +196,8 @@ class SystemConsumers(
 
       // Ok to give the chooser a new message from this stream.
       neededByChooser += envelopeFromChooser.getSystemStreamPartition
+
+      metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition.getSystemStream).inc
     }
 
     refresh

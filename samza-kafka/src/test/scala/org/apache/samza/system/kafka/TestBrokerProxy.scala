@@ -177,7 +177,7 @@ class TestBrokerProxy extends Logging {
     bp.addTopicPartition(tp2, Option("0"))
     Thread.sleep(1000)
     assertEquals(0, sink.receivedMessages.size)
-    assertTrue(bp.metrics.brokerSkippedReads(bp.host, bp.port).getCount > 0)
+    assertTrue(bp.metrics.brokerSkippedFetchRequests(bp.host, bp.port).getCount > 0)
     assertTrue(bp.metrics.brokerReads(bp.host, bp.port).getCount == 0)
   }
 

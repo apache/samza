@@ -40,14 +40,14 @@ class KafkaSystemConsumerMetrics(val systemName: String = "unknown", val registr
   val reconnects = new ConcurrentHashMap[(String, Int), Counter]
   val brokerBytesRead = new ConcurrentHashMap[(String, Int), Counter]
   val brokerReads = new ConcurrentHashMap[(String, Int), Counter]
-  val brokerSkippedReads = new ConcurrentHashMap[(String, Int), Counter]
+  val brokerSkippedFetchRequests = new ConcurrentHashMap[(String, Int), Counter]
   val topicPartitions = new ConcurrentHashMap[(String, Int), Gauge[Int]]
 
   def registerTopicAndPartition(tp: TopicAndPartition) = {
     if (!offsets.contains(tp)) {
       offsets.put(tp, newCounter("%s-%s-offset-change" format (tp.topic, tp.partition)))
       bytesRead.put(tp, newCounter("%s-%s-bytes-read" format (tp.topic, tp.partition)))
-      reads.put(tp, newCounter("%s-%s-reads" format (tp.topic, tp.partition)))
+      reads.put(tp, newCounter("%s-%s-messages-read" format (tp.topic, tp.partition)))
       lag.put(tp, newGauge("%s-%s-messages-behind-high-watermark" format (tp.topic, tp.partition), 0L))
     }
   }
@@ -55,8 +55,8 @@ class KafkaSystemConsumerMetrics(val systemName: String = "unknown", val registr
   def registerBrokerProxy(host: String, port: Int) {
     reconnects.put((host, port), newCounter("%s-%s-reconnects" format (host, port)))
     brokerBytesRead.put((host, port), newCounter("%s-%s-bytes-read" format (host, port)))
-    brokerReads.put((host, port), newCounter("%s-%s-reads" format (host, port)))
-    brokerSkippedReads.put((host, port), newCounter("%s-%s-skipped-reads" format (host, port)))
+    brokerReads.put((host, port), newCounter("%s-%s-messages-read" format (host, port)))
+    brokerSkippedFetchRequests.put((host, port), newCounter("%s-%s-skipped-fetch-requests" format (host, port)))
     topicPartitions.put((host, port), newGauge("%s-%s-topic-partitions" format (host, port), 0))
   }
 

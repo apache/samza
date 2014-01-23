@@ -30,6 +30,7 @@ class SystemConsumersMetrics(val registry: MetricsRegistry = new MetricsRegistry
   val systemPolls = scala.collection.mutable.Map[String, Counter]()
   val systemStreamPartitionFetchesPerPoll = scala.collection.mutable.Map[String, Counter]()
   val systemMessagesPerPoll = scala.collection.mutable.Map[String, Counter]()
+  val systemStreamMessagesChosen = scala.collection.mutable.Map[SystemStream, Counter]()
 
   def setUnprocessedMessages(getValue: () => Int) {
     newGauge("unprocessed-messages", getValue)
@@ -57,5 +58,9 @@ class SystemConsumersMetrics(val registry: MetricsRegistry = new MetricsRegistry
       systemStreamPartitionFetchesPerPoll += systemName -> newCounter("%s-ssp-fetches-per-poll" format systemName)
       systemMessagesPerPoll += systemName -> newCounter("%s-messages-per-poll" format systemName)
     }
+  }
+
+  def registerSystemStream(systemStream: SystemStream) {
+    systemStreamMessagesChosen += systemStream -> newCounter("%s-%s-messages-chosen" format (systemStream.getSystem, systemStream.getStream))
   }
 }
