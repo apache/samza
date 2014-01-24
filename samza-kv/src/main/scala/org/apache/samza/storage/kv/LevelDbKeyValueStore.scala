@@ -90,6 +90,7 @@ class LevelDbKeyValueStore(
       }
     }
     db.write(batch)
+    batch.close
     metrics.puts.inc(wrote)
     metrics.deletes.inc(deletes)
   }
