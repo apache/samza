@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#!/bin/bash -x
+#!/bin/bash -x -e
 apt-get -y update
 apt-get install -y software-properties-common python-software-properties
 add-apt-repository -y ppa:webupd8team/java
@@ -23,28 +23,24 @@ apt-get -y install oracle-java7-installer oracle-java7-set-default
 
 apt-get -y install git vim wget screen curl
 
-export JAVA_HOME=/usr
-
-su vagrant -c "touch ~/.bashrc"
-su vagrant -c "export JAVA_HOME=/usr' >> ~/.bashrc"
+echo $'export JAVA_HOME=/usr\nexport PATH=/opt/apache/apache-maven-3.1.1/bin:$PATH' > /etc/profile.d/vagrant_samza.sh
+. /etc/profile.d/vagrant_samza.sh
 
 cd /tmp
 wget http://apache.spinellicreations.com/maven/maven-3/3.1.1/binaries/apache-maven-3.1.1-bin.tar.gz
 mkdir -p /opt/apache
 cd /opt/apache/
-tar -xvf /tmp/apache-maven-3.1.1-bin.tar.gz
-export PATH=/opt/apache/apache-maven-3.1.1/bin:$PATH
-su vagrant -c "echo 'export PATH=/opt/apache/apache-maven-3.1.1/bin:$PATH' >> ~/.bashrc"
+tar -xf /tmp/apache-maven-3.1.1-bin.tar.gz
 
 cd /vagrant
 su vagrant -c "bin/grid bootstrap"
 
-su vagrant -c "mvn clean package"
+su vagrant -c "/opt/apache/apache-maven-3.1.1/bin/mvn clean package"
 su vagrant -c "mkdir -p deploy/samza"
-su vagrant -c "tar -xvf ./samza-job-package/target/samza-job-package-0.7.0-dist.tar.gz -C deploy/samza"
-su vagrant -c "deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties"
+su vagrant -c "tar -xf ./samza-job-package/target/samza-job-package-0.7.0-dist.tar.gz -C deploy/samza"
+su vagrant -c "deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://\$PWD/deploy/samza/config/wikipedia-feed.properties"
 sleep 60
-su vagrant -c "deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-parser.properties"
+su vagrant -c "deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://\$PWD/deploy/samza/config/wikipedia-parser.properties"
 sleep 60
-su vagrant -c "deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-stats.properties"
+su vagrant -c "deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://\$PWD/deploy/samza/config/wikipedia-stats.properties"
 sleep 60

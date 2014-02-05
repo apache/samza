@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 # This script will download, setup, start, and stop servers for Kafka, YARN, and ZooKeeper,
 # as well as downloading, building and locally publishing Samza
@@ -67,7 +67,7 @@ install() {
   rm -rf $DEPLOY_ROOT_DIR/$SYSTEM
   DOWNLOAD_COMMAND="curl \$DOWNLOAD_""`echo $SYSTEM|tr '[a-z]' '[A-Z]'`"
   eval $DOWNLOAD_COMMAND > $DEPLOY_DOWNLOAD_DIR/$SYSTEM.tar.gz
-  tar -xvf $DEPLOY_DOWNLOAD_DIR/$SYSTEM.tar.gz -C $DEPLOY_DOWNLOAD_DIR
+  tar -xf $DEPLOY_DOWNLOAD_DIR/$SYSTEM.tar.gz -C $DEPLOY_DOWNLOAD_DIR
   mv $DEPLOY_DOWNLOAD_DIR/$PACKAGE_DIR $DEPLOY_ROOT_DIR/$SYSTEM
 }
 
@@ -78,28 +78,40 @@ start_all() {
 }
 
 start_zookeeper() {
-  cd $DEPLOY_ROOT_DIR/$SYSTEM
-  bin/zkServer.sh start
-  cd - > /dev/null
+  if [ -f $DEPLOY_ROOT_DIR/$SYSTEM/bin/zkServer.sh ]; then
+    cd $DEPLOY_ROOT_DIR/$SYSTEM
+    bin/zkServer.sh start
+    cd - > /dev/null
+  else
+    echo 'Zookeeper is not installed. Run: bin/grid install zookeeper'
+  fi
 }
 
 start_yarn() {
-  cd $DEPLOY_ROOT_DIR/$SYSTEM
-  mkdir -p pids logs
-  nohup bin/yarn resourcemanager > logs/rm.log 2>&1 &
-  RM_PID=$!
-  echo $RM_PID > pids/rm.pid
-  nohup bin/yarn nodemanager > logs/nm.log 2>&1 &
-  NM_PID=$!
-  echo $NM_PID > pids/nm.pid
-  cd - > /dev/null
+  if [ -f $DEPLOY_ROOT_DIR/$SYSTEM/bin/yarn ]; then
+    cd $DEPLOY_ROOT_DIR/$SYSTEM
+    mkdir -p pids logs
+    nohup bin/yarn resourcemanager > logs/rm.log 2>&1 &
+    RM_PID=$!
+    echo $RM_PID > pids/rm.pid
+    nohup bin/yarn nodemanager > logs/nm.log 2>&1 &
+    NM_PID=$!
+    echo $NM_PID > pids/nm.pid
+    cd - > /dev/null
+  else
+    echo 'YARN is not installed. Run: bin/grid install yarn'
+  fi
 }
 
 start_kafka() {
-  mkdir -p $DEPLOY_ROOT_DIR/$SYSTEM/logs
-  cd $DEPLOY_ROOT_DIR/$SYSTEM
-  nohup bin/kafka-server-start.sh config/server.properties > logs/kafka.log 2>&1 &
-  cd - > /dev/null
+  if [ -f $DEPLOY_ROOT_DIR/$SYSTEM/bin/kafka-server-start.sh ]; then
+    mkdir -p $DEPLOY_ROOT_DIR/$SYSTEM/logs
+    cd $DEPLOY_ROOT_DIR/$SYSTEM
+    nohup bin/kafka-server-start.sh config/server.properties > logs/kafka.log 2>&1 &
+    cd - > /dev/null
+  else
+    echo 'Kafka is not installed. Run: bin/grid install kafka'
+  fi
 }
 
 stop_all() {
@@ -109,26 +121,38 @@ stop_all() {
 }
 
 stop_zookeeper() {
-  cd $DEPLOY_ROOT_DIR/$SYSTEM
-  bin/zkServer.sh stop
-  cd - > /dev/null
+  if [ -f $DEPLOY_ROOT_DIR/$SYSTEM/bin/zkServer.sh ]; then
+    cd $DEPLOY_ROOT_DIR/$SYSTEM
+    bin/zkServer.sh stop
+    cd - > /dev/null
+  else
+    echo 'Zookeeper is not installed. Run: bin/grid install zookeeper'
+  fi
 }
 
 stop_yarn() {
-  cd $DEPLOY_ROOT_DIR/$SYSTEM
-  RM_PID=`cat pids/rm.pid`
-  NM_PID=`cat pids/nm.pid`
-  kill $RM_PID
-  kill $NM_PID
-  rm -rf pids/rm.pid
-  rm -rf pids/nm.pid
-  cd - > /dev/null
+  if [ -f $DEPLOY_ROOT_DIR/$SYSTEM/bin/yarn ]; then
+    cd $DEPLOY_ROOT_DIR/$SYSTEM
+    RM_PID=`cat pids/rm.pid`
+    NM_PID=`cat pids/nm.pid`
+    kill $RM_PID
+    kill $NM_PID
+    rm -rf pids/rm.pid
+    rm -rf pids/nm.pid
+    cd - > /dev/null
+  else
+    echo 'YARN is not installed. Run: bin/grid install yarn'
+  fi
 }
 
 stop_kafka() {
-  cd $DEPLOY_ROOT_DIR/$SYSTEM
-  bin/kafka-server-stop.sh
-  cd - > /dev/null
+  if [ -f $DEPLOY_ROOT_DIR/$SYSTEM/bin/kafka-server-stop.sh ]; then
+    cd $DEPLOY_ROOT_DIR/$SYSTEM
+    bin/kafka-server-stop.sh
+    cd - > /dev/null
+  else
+    echo 'Kafka is not installed. Run: bin/grid install kafka'
+  fi
 }
 
 # Check arguments
