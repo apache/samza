@@ -44,20 +44,19 @@ object BrokerProxy {
  * A BrokerProxy consolidates Kafka fetches meant for a particular broker and retrieves them all at once, providing
  * a way for consumers to retrieve those messages by topic and partition.
  */
-abstract class BrokerProxy(
+class BrokerProxy(
   val host: String,
   val port: Int,
   val system: String,
   val clientID: String,
   val metrics: KafkaSystemConsumerMetrics,
+  val messageSink: MessageSink,
   val timeout: Int = ConsumerConfig.SocketTimeout,
   val bufferSize: Int = ConsumerConfig.SocketBufferSize,
   val fetchSize:Int = ConsumerConfig.FetchSize,
   val consumerMinSize:Int = ConsumerConfig.MinFetchBytes,
   val consumerMaxWait:Int = ConsumerConfig.MaxFetchWaitMs,
   offsetGetter: GetOffset = new GetOffset("fail")) extends Toss with Logging {
-
-  val messageSink: MessageSink
 
   /**
    * How long should the fetcher thread sleep before checking if any TopicPartitions has been added to its purview

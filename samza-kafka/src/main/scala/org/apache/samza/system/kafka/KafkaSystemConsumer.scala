@@ -118,9 +118,7 @@ private[kafka] class KafkaSystemConsumer(
 
           brokerOption match {
             case Some(broker) =>
-              def createBrokerProxy = new BrokerProxy(broker.host, broker.port, systemName, clientId, metrics, timeout, bufferSize, fetchSize, consumerMinSize, consumerMaxWait, offsetGetter) {
-                val messageSink: MessageSink = sink
-              }
+              def createBrokerProxy = new BrokerProxy(broker.host, broker.port, systemName, clientId, metrics, sink, timeout, bufferSize, fetchSize, consumerMinSize, consumerMaxWait, offsetGetter)
 
               brokerProxies
                 .getOrElseUpdate((broker.host, broker.port), createBrokerProxy)

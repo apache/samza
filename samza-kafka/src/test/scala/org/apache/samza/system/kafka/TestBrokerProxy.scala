@@ -73,9 +73,8 @@ class TestBrokerProxy extends Logging {
       system,
       "daClientId",
       metrics,
+      sink,
       offsetGetter = new GetOffset("fail", Map("Redbird" -> "largest"))) {
-
-      val messageSink: MessageSink = sink
 
       override val sleepMSWhileNoTopicPartitions = 100 // Speed up for test
       var alreadyCreatedConsumer = false
@@ -253,8 +252,7 @@ class TestBrokerProxy extends Logging {
 
     // So now we have a fetch response that will fail.  Prime the mockGetOffset to send us to a new offset
 
-    val bp = new BrokerProxy("host", 423, "system", "clientID", doNothingMetrics, Int.MaxValue, 1024000, 256 * 1024, 524288, 1000, mockOffsetGetter) {
-      val messageSink: MessageSink = mockMessageSink
+    val bp = new BrokerProxy("host", 423, "system", "clientID", doNothingMetrics, mockMessageSink, Int.MaxValue, 1024000, 256 * 1024, 524288, 1000, mockOffsetGetter) {
 
       override def createSimpleConsumer() = {
         if(callsToCreateSimpleConsumer > 1) {
