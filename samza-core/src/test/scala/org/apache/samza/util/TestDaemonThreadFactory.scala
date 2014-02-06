@@ -16,24 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.util
 
-import java.util.concurrent.ThreadFactory
+import org.junit.Assert._
+import org.junit.Test
 
-
-object ThreadNamePrefix {
-  val SAMZA_THREAD_NAME_PREFIX = "SAMZA-"
-}
-
-class DaemonThreadFactory(name: String) extends ThreadFactory {
-
-  def newThread(r: Runnable) = {
-    val thread = new Thread(r)
-    thread.setDaemon(true)
-    if (name.nonEmpty) {
-      thread.setName(ThreadNamePrefix.SAMZA_THREAD_NAME_PREFIX+name)
-    }
-    thread
+class TestDaemonThreadFactory {
+  @Test
+  def testDaemonThreadFactoryCanCreatThreadGivenName() {
+    val testThreadName = "JvmMetrics"
+    val dtf = new DaemonThreadFactory(testThreadName)
+    val threadWithName = dtf.newThread(new Runnable {
+      def run() {
+        //Not testing this particular method
+      }
+    })
+    assertEquals(threadWithName.getName, ThreadNamePrefix.SAMZA_THREAD_NAME_PREFIX+testThreadName)
   }
 }

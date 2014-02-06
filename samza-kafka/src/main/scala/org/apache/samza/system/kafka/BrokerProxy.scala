@@ -31,6 +31,14 @@ import java.nio.channels.ClosedByInterruptException
 import java.util.Map.Entry
 import scala.collection.mutable
 import kafka.consumer.ConsumerConfig
+import org.apache.samza.util.ThreadNamePrefix.SAMZA_THREAD_NAME_PREFIX
+
+/**
+ *  Companion object for class JvmMetrics encapsulating various constants
+ */
+object BrokerProxy {
+  val BROKER_PROXY_THREAD_NAME_PREFIX = "BROKER-PROXY"
+}
 
 /**
  * A BrokerProxy consolidates Kafka fetches meant for a particular broker and retrieves them all at once, providing
@@ -238,6 +246,7 @@ abstract class BrokerProxy(
     info("Starting " + toString)
 
     thread.setDaemon(true)
+    thread.setName(SAMZA_THREAD_NAME_PREFIX+BrokerProxy.BROKER_PROXY_THREAD_NAME_PREFIX)
     thread.start
   }
 

@@ -26,8 +26,14 @@ import java.lang.Thread.State._
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import grizzled.slf4j.Logging
-import org.apache.samza.util.Util
 import org.apache.samza.util.DaemonThreadFactory
+
+/**
+ *  Companion object for class JvmMetrics encapsulating various constants
+ */
+object JvmMetrics {
+  val JVM_METRICS_THREAD_NAME_PREFIX = "JVM-METRICS"
+}
 
 /**
  * Straight up ripoff of Hadoop's metrics2 JvmMetrics class.
@@ -39,7 +45,7 @@ class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runna
   val gcBeans = ManagementFactory.getGarbageCollectorMXBeans()
   val threadMXBean = ManagementFactory.getThreadMXBean()
   var gcBeanCounters = Map[String, (Counter, Counter)]()
-  val executor = Executors.newScheduledThreadPool(1, new DaemonThreadFactory)
+  val executor = Executors.newScheduledThreadPool(1, new DaemonThreadFactory(JvmMetrics.JVM_METRICS_THREAD_NAME_PREFIX))
 
   // jvm metrics
   val gMemNonHeapUsedM = newGauge("mem-non-heap-used-mb", 0.0F)

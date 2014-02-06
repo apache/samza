@@ -37,6 +37,13 @@ import org.apache.samza.system.SystemStream
 import org.apache.samza.system.OutgoingMessageEnvelope
 
 /**
+ *  Companion object for class MetricsSnapshotReporter encapsulating various constants
+ */
+object MetricsSnapshotReporter {
+  val METRIC_SNAPSHOT_REPORTER_THREAD_NAME_PREFIX = "METRIC-SNAPSHOT-REPORTER"
+}
+
+/**
  * MetricsSnapshotReporter is a generic metrics reporter that sends metrics to a stream.
  *
  * jobName // my-samza-job
@@ -57,7 +64,7 @@ class MetricsSnapshotReporter(
   serializer: Serializer[MetricsSnapshot] = null,
   clock: () => Long = () => { System.currentTimeMillis }) extends MetricsReporter with Runnable with Logging {
 
-  val executor = Executors.newScheduledThreadPool(1, new DaemonThreadFactory)
+  val executor = Executors.newScheduledThreadPool(1, new DaemonThreadFactory(MetricsSnapshotReporter.METRIC_SNAPSHOT_REPORTER_THREAD_NAME_PREFIX))
   val resetTime = clock()
   var registries = List[(String, ReadableMetricsRegistry)]()
 
