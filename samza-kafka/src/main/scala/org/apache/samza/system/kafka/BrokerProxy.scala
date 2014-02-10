@@ -97,11 +97,13 @@ class BrokerProxy(
 
   def removeTopicPartition(tp: TopicAndPartition) = {
     if (nextOffsets.containsKey(tp)) {
-      nextOffsets.remove(tp)
+      val offset = nextOffsets.remove(tp)
       metrics.topicPartitions(host, port).set(nextOffsets.size)
       debug("Removed %s" format tp)
+      offset
     } else {
       warn("Asked to remove topic and partition %s, but not in map (keys = %s)" format (tp, nextOffsets.keys.mkString(",")))
+      None
     }
   }
 
@@ -163,7 +165,7 @@ class BrokerProxy(
 
   def handleErrors(errorResponses: mutable.Set[Entry[TopicAndPartition, FetchResponsePartitionData]], response:FetchResponse) = {
     // Need to be mindful of a tp that was removed by another thread
-    def abdicate(tp:TopicAndPartition) = nextOffsets.remove(tp) match {
+    def abdicate(tp:TopicAndPartition) = removeTopicPartition(tp) match {
         case Some(offset) => messageSink.abdicate(tp, offset -1)
         case None         => warn("Tried to abdicate for topic partition not in map. Removed in interim?")
       }
