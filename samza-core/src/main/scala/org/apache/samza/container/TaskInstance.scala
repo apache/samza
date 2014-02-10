@@ -171,7 +171,7 @@ class TaskInstance(
 
     trace("Updating offset map for partition: %s, %s, %s" format (partition, envelope.getSystemStreamPartition, envelope.getOffset))
 
-    offsets += envelope.getSystemStreamPartition -> envelope.getOffset
+    offsets += envelope.getSystemStreamPartition.getSystemStream -> envelope.getOffset
   }
 
   def window(coordinator: ReadableCoordinator) {

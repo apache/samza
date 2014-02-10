@@ -23,6 +23,7 @@ import scala.collection.JavaConversions._
 import org.codehaus.jackson.map.ObjectMapper
 import org.apache.samza.system.SystemStream
 import org.apache.samza.checkpoint.Checkpoint
+import org.apache.samza.SamzaException
 
 class CheckpointSerde extends Serde[Checkpoint] {
   val jsonMapper = new ObjectMapper()
@@ -56,7 +57,15 @@ class CheckpointSerde extends Serde[Checkpoint] {
             .groupBy(_._2)
             // There should only ever be one SystemStream to offset mapping, so just 
             // grab the first element from the tuple list for each stream.
-            .map { case (streamName, tuples) => (streamName, tuples.head._3) }
+            .map {
+              case (streamName, tuples) => {
+                // If there's more than one offset, something is seriously wrong.
+                if (tuples.size != 1) {
+                  throw new SamzaException("Got %s offsets for %s. Expected only one offset, so failing." format (tuples.size, streamName))
+                }
+                (streamName, tuples.head._3)
+              }
+            }
             .toMap)
           (systemName, streamToOffestMap)
       }.toMap)
