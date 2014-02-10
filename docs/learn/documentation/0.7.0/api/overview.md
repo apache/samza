@@ -90,11 +90,11 @@ And, putting it all together:
 class MyStreamerTask extends StreamTask {
   def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
     val msg = envelope.getMessage.asInstanceOf[GenericRecord]
-    collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", "SomeTopicPartitionedByMemberId"), msg.get("member_id"), msg))
+    collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", "SomeTopicPartitionedByUserId"), msg.get("user_id"), msg))
   }
 }
 ```
 
-This is a simplistic example that just reads from a stream, and sends the messages to SomeTopicPartitionedByMemberId, partitioned by the message's member ID.
+This is a simplistic example that just reads from a stream, and sends the messages to SomeTopicPartitionedByUserId, partitioned by the message's user ID.
 
 ## [TaskRunner &raquo;](../container/task-runner.html)

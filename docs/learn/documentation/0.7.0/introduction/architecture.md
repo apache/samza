@@ -15,55 +15,49 @@ Samza provides out of the box support for all three layers.
 2. **Execution:** [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html)
 3. **Processing:** [Samza API](../api/overview.html)
 
-These three pieces fit together to form Samza.
+These three pieces fit together to form Samza:
 
 ![diagram-medium](/img/0.7.0/learn/documentation/introduction/samza-ecosystem.png)
 
-This architecture should be familiar to anyone that's used Hadoop.
+This architecture follows a similar pattern to Hadoop (which also uses YARN as execution layer, HDFS for storage, and MapReduce as processing API):
 
 ![diagram-medium](/img/0.7.0/learn/documentation/introduction/samza-hadoop.png)
 
-Before going in-depth on each of these three layers, it should be noted that Samza's support is not limited to these systems. Both Samza's execution and streaming layer are pluggable, and allow developers to implement alternatives if they prefer.
+Before going in-depth on each of these three layers, it should be noted that Samza's support is not limited to Kafka and YARN. Both Samza's execution and streaming layer are pluggable, and allow developers to implement alternatives if they prefer.
 
 ### Kafka
 
-[Kafka](http://kafka.apache.org/) is a distributed pub/sub and message queueing system that provides at-least once messaging guarantees, and highly available partitions (i.e. a stream's partitions will be available, even if a machine goes down).
+[Kafka](http://kafka.apache.org/) is a distributed pub/sub and message queueing system that provides at-least once messaging guarantees (i.e. the system guarantees that no messages are lost, but in certain fault scenarios, a consumer might receive the same message more than once), and highly available partitions (i.e. a stream's partitions continue to be available even if a machine goes down).
 
-In Kafka, each stream is called a "topic". Each topic is partitioned, to make things scalable. When a "producer" sends a message to a topic, the producer provides a key, which is used to determine which partition the message should be sent to. Kafka "brokers", each of which are in charge of some partitions, receive and store the messages that the producer sends. Kafka "consumers" can then read from a topic by getting messages from all of a topic's partitions.
+In Kafka, each stream is called a *topic*. Each topic is partitioned and replicated across multiple machines called *brokers*. When a *producer* sends a message to a topic, it provides a key, which is used to determine which partition the message should be sent to. The Kafka brokers receive and store the messages that the producer sends. Kafka *consumers* can then read from a topic by subscribing to messages on all partitions of a topic.
 
-This has some interesting properties. First, all messages partitioned by the same key are guaranteed to be in the same Kafka topic partition. This means, if you wish to read all messages for a specific member ID, you only have to read the messages from the partition that the member ID is on, not the whole topic (assuming the topic is partitioned by member ID). Second, since a Kafka broker's log is a file, you can reference any point in the log file using an "offset". This offset determines where a consumer is in a topic/partition pair. After every message a consumer reads from a topic/partition pair, the offset is incremented.
+Kafka has some interesting properties: 
+
+* All messages with the same key are guaranteed to be in the same topic partition. This means that if you wish to read all messages for a specific user ID, you only have to read the messages from the partition that contains the user ID, not the whole topic (assuming the user ID is used as key).
+* A topic partition is a sequence of messages in order of arrival, so you can reference any message in the partition using a monotonically increasing *offset* (like an index into an array). This means that the broker doesn't need to keep track of which messages have been seen by a particular consumer &mdash; the consumer can keep track itself by storing the offset of the last message it has processed. It then knows that every message with a lower offset than the current offset has already been processed; every message with a higher offset has not yet been processed.
 
 For more details on Kafka, see Kafka's [documentation](http://kafka.apache.org/documentation.html) pages.
 
 ### YARN
 
-[YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) (Yet Another Resource Negotiator) is Hadoop's next-generation cluster scheduler. It allows you to allocate a number of "containers" (processes) in a cluster of machines, and execute arbitrary commands on them.
+[YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) (Yet Another Resource Negotiator) is Hadoop's next-generation cluster scheduler. It allows you to allocate a number of *containers* (processes) in a cluster of machines, and execute arbitrary commands on them.
 
 When an application interacts with YARN, it looks something like this:
 
-1. **Application**: I want to run command X on two machines with 512M memory
+1. **Application**: I want to run command X on two machines with 512MB memory.
 2. **YARN**: Cool, where's your code?
 3. **Application**: http://path.to.host/jobs/download/my.tgz
-4. **YARN**: I'm running your job on node-1.grid and node-2.grid
+4. **YARN**: I'm running your job on node-1.grid and node-2.grid.
 
-Samza uses YARN to manage:
-
-* Deployment
-* Fault tolerance
-* Logging
-* Isolation
-* Security
-* Locality
-
-This page covers a brief overview of YARN, but [this page](http://hortonworks.com/blog/apache-hadoop-yarn-background-and-an-overview/) from Hortonworks contains a much better overview.
+Samza uses YARN to manage deployment, fault tolerance, logging, resource isolation, security, and locality. A brief overview of YARN is below; see [this page from Hortonworks](http://hortonworks.com/blog/apache-hadoop-yarn-background-and-an-overview/) for a much better overview.
 
 #### YARN Architecture
 
-YARN has three important pieces: a ResourceManager, a NodeManager, and an ApplicationMaster. In a YARN grid, every computer runs a NodeManager, which is responsible for running processes on the local machine. A ResourceManager talks to all of the NodeManagers to tell them what to run. Applications, in turn, talk to the ResourceManager when they wish to run something on the cluster. The flow, when starting a new application, goes from user application to YARN RM, to YARN NM. The third piece, the ApplicationMaster, is actually application-specific code that runs in the YARN cluster. It's responsible for managing the application's workload, asking for containers (usually UNIX processes), and handling notifications when one of its containers fails.
+YARN has three important pieces: a *ResourceManager*, a *NodeManager*, and an *ApplicationMaster*. In a YARN grid, every machine runs a NodeManager, which is responsible for launching processes on that machine. A ResourceManager talks to all of the NodeManagers to tell them what to run. Applications, in turn, talk to the ResourceManager when they wish to run something on the cluster. The third piece, the ApplicationMaster, is actually application-specific code that runs in the YARN cluster. It's responsible for managing the application's workload, asking for containers (usually UNIX processes), and handling notifications when one of its containers fails.
 
 #### Samza and YARN
 
-Samza provides a YARN ApplicationMaster, and YARN job runner out of the box. The integration between Samza and YARN is outlined in the following diagram (different colors indicate different host machines).
+Samza provides a YARN ApplicationMaster and a YARN job runner out of the box. The integration between Samza and YARN is outlined in the following diagram (different colors indicate different host machines):
 
 ![diagram-small](/img/0.7.0/learn/documentation/introduction/samza-yarn-integration.png)
 
@@ -79,12 +73,20 @@ The Samza client uses YARN to run a Samza job. The Samza [TaskRunners](../contai
 
 ### Example
 
-Let's take a look at a real example. Suppose that we wanted to count page views grouped by member ID. In SQL, it would look something like: SELECT COUNT(\*) FROM PageViewEvent GROUP BY member_id. Although Samza doesn't support SQL right now, the idea is the same. Two jobs are required to calculate this query: one to group messages by member ID, and the other to do the counting. The counting and grouping can't be done in the same Samza job because the input topic might not be partitioned by the member ID. Anyone familiar with Hadoop will recognize this as a Map/Reduce operation, where you first map data by a particular key, and then count in the reduce step.
+Let's take a look at a real example: suppose we want to count the number of page views. In SQL, you would write something like:
+
+    SELECT user_id, COUNT(*) FROM PageViewEvent GROUP BY user_id
+
+Although Samza doesn't support SQL right now, the idea is the same. Two jobs are required to calculate this query: one to group messages by user ID, and the other to do the counting.
+
+In the first job, the grouping is done by sending all messages with the same user ID to the same partition of an intermediate topic. You can do this by using the user ID as key of the messages that are emitted by the first job, and this key is mapped to one of the intermediate topic's partitions (usually by taking a hash of the key mod the number of partitions). The second job consumes the intermediate topic. Each task in the second job consumes one partition of the intermediate topic, i.e. all the messages for a subset of user IDs. The task has a counter for each user ID in its partition, and the appropriate counter is incremented every time the task receives a message with a particular user ID.
 
 ![diagram-large](/img/0.7.0/learn/documentation/introduction/group-by-example.png)
 
-The input topic is partitioned using Kafka. Each Samza process reads messages from one or more of the input topic's partitions, and emits them back out to a different Kafka topic. Each output message is keyed by the message's member ID attribute, and this key is mapped to one of the topic's partitions (usually by hashing the key, and modding by the number of partitions in the topic). The Kafka brokers receive these messages, and buffer them on disk until the second job (the counting job on the bottom of the diagram) reads the messages, and increments its counters.
+If you are familiar with Hadoop, you may recognize this as a Map/Reduce operation, where each record is associated with a particular key in the mappers, records with the same key are grouped together by the framework, and then counted in the reduce step. The difference between Hadoop and Samza is that Hadoop operates on a fixed input, whereas Samza works with unbounded streams of data.
 
-There are some neat things to consider about this example. First, we're leveraging the fact that Kafka topics are inherently partitioned. This lets us run one or more Samza processes, and assign them each some partitions to read from. Second, since we're guaranteed that for a given key all messages will be on the same partition, we can actually split up the aggregation (counting). For example, if the first job's output had four partitions, we could assign two partitions to the first count process, and the other two partitions to the second count process. We'd be guaranteed that for any give member ID, all of their messages will be consumed by either the first process or the second, but not both. This means we'll get accurate counts, even when partitioning. Third, the fact that we're using Kafka, which buffers messages on its brokers, also means that we don't have to worry as much about failures. If a process or machine fails, we can use YARN to start the process on another machine. When the process starts up again, it can get its last offset and resume reading messages where it left off.
+Kafka takes the messages emitted by the first job and buffers them on disk, distributed across multiple machines. This helps make the system fault-tolerant: if one machine fails, no messages are lost, because they have been replicated to other machines. And if the second job goes slow or stops consuming messages for any reason, the first job is unaffected: the disk buffer can absorb the backlog of messages from the first job until the second job catches up again.
+
+By partitioning topics, and by breaking a stream process down into jobs and parallel tasks that run on multiple machines, Samza scales to streams with very high message throughput. By using YARN and Kafka, Samza achieves fault-tolerance: if a process or machine fails, it is automatically restarted on another machine and continues processing messages from the point where it left off.
 
 ## [Comparison Introduction &raquo;](../comparisons/introduction.html)
