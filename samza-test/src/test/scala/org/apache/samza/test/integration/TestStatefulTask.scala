@@ -433,7 +433,7 @@ class TestTask extends StreamTask with InitableTask {
   }
 
   def awaitMessage {
-    gotMessage.await(60, TimeUnit.SECONDS)
+    assertTrue("Timed out of waiting for message rather than received one.", gotMessage.await(60, TimeUnit.SECONDS))
     assertEquals(0, gotMessage.getCount)
     gotMessage = new CountDownLatch(1)
   }

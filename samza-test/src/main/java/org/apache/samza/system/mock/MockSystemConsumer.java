@@ -98,7 +98,7 @@ public class MockSystemConsumer extends BlockingEnvelopeMap {
       }
 
       // Start thread.
-      Thread thread = new Thread(new MockSystemConsumerRunnable(threadSsps));
+      Thread thread = new Thread(new MockSystemConsumerRunnable(threadSsps), "MockSystemConsumer-" + i);
       thread.setDaemon(true);
       threads.add(thread);
       thread.start();

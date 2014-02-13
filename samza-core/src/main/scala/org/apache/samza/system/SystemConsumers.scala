@@ -24,6 +24,7 @@ import scala.collection.mutable.Queue
 import org.apache.samza.serializers.SerdeManager
 import grizzled.slf4j.Logging
 import org.apache.samza.system.chooser.MessageChooser
+import org.apache.samza.util.DoublingBackOff
 
 /**
  * The SystemConsumers class coordinates between all SystemConsumers, the
@@ -135,6 +136,13 @@ class SystemConsumers(
    */
   val depletedQueueSizeThreshold = (maxMsgsPerStreamPartition * (1 - fetchThresholdPct)).toInt
 
+  /** 
+   * Make the maximum backoff proportional to the number of streams we're consuming.
+   * For a few streams, make the max back off 1, but for hundreds make it up to 1k,
+   * which experimentally has shown to be the most performant.
+   */
+  var maxBackOff = 0
+  
   debug("Got stream consumers: %s" format consumers)
   debug("Got max messages per stream: %s" format maxMsgsPerStreamPartition)
   debug("Got no new message timeout: %s" format noNewMessagesTimeout)
@@ -148,6 +156,10 @@ class SystemConsumers(
   def start {
     debug("Starting consumers.")
 
+    maxBackOff = scala.math.pow(10, scala.math.log10(fetchMap.size).toInt).toInt
+
+    debug("Got maxBackOff: " + maxBackOff)
+    
     consumers
       .keySet
       .foreach(metrics.registerSystem)
@@ -176,7 +188,31 @@ class SystemConsumers(
     chooser.register(systemStreamPartition, lastReadOffset)
   }
 
-  def choose = {
+  /**
+   * Needs to be be lazy so that we are sure to get the value of maxBackOff assigned
+   * in start(), rather than its initial value.
+   */
+  lazy val refresh = new DoublingBackOff(maxBackOff) {
+    def call(): Boolean = {
+      debug("Refreshing chooser with new messages.")
+
+      // Poll every system for new messages.
+      val receivedNewMessages = consumers.keys.map(poll(_)).contains(true)
+
+      // Update the chooser.
+      neededByChooser.foreach(systemStreamPartition =>
+        // If we have messages for a stream that the chooser needs, then update.
+        if (fetchMap(systemStreamPartition).intValue < maxMsgsPerStreamPartition) {
+          chooser.update(unprocessedMessages(systemStreamPartition).dequeue)
+          updateFetchMap(systemStreamPartition)
+          neededByChooser -= systemStreamPartition
+        })
+        
+      receivedNewMessages
+    }
+  }
+
+  def choose: IncomingMessageEnvelope = {
     val envelopeFromChooser = chooser.choose
 
     if (envelopeFromChooser == null) {
@@ -200,31 +236,16 @@ class SystemConsumers(
       metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition.getSystemStream).inc
     }
 
-    refresh
+    refresh.maybeCall()
     envelopeFromChooser
   }
-
-  private def refresh {
-    debug("Refreshing chooser with new messages.")
-
-    // Poll every system for new messages.
-    consumers.keys.foreach(poll(_))
-
-    // Update the chooser.
-    neededByChooser.foreach(systemStreamPartition =>
-      // If we have messages for a stream that the chooser needs, then update.
-      if (fetchMap(systemStreamPartition).intValue < maxMsgsPerStreamPartition) {
-        chooser.update(unprocessedMessages(systemStreamPartition).dequeue)
-        updateFetchMap(systemStreamPartition)
-        neededByChooser -= systemStreamPartition
-      })
-  }
-
+  
   /**
    * Poll a system for new messages from SystemStreamPartitions that have
-   * dipped below the depletedQueueSizeThreshold threshold.
+   * dipped below the depletedQueueSizeThreshold threshold.  Return true if
+   * any envelopes were found, false if none.
    */
-  private def poll(systemName: String) = {
+  private def poll(systemName: String): Boolean = {
     debug("Polling system consumer: %s" format systemName)
 
     metrics.systemPolls(systemName).inc
@@ -259,6 +280,8 @@ class SystemConsumers(
 
       debug("Updated unprocessed messages for: %s, %s" format (systemStreamPartition, unprocessedMessages))
     })
+
+    !incomingEnvelopes.isEmpty
   }
 
   /**

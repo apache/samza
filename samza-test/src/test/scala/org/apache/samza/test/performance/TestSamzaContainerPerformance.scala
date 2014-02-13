@@ -84,7 +84,7 @@ class TestSamzaContainerPerformance extends Logging{
     "task.inputs" -> (0 until streamCount).map(i => "mock.stream" + i).mkString(","),
     "task.log.interval" -> logInterval.toString,
     "task.max.messages" -> maxMessages.toString,
-    "systems.mock.samza.factory" -> "org.apache.samza.system.mock.MockSystemFactory",
+    "systems.mock.samza.factory" -> classOf[org.apache.samza.system.mock.MockSystemFactory].getCanonicalName,
     "systems.mock.partitions.per.stream" -> partitionsPerStreamCount.toString,
     "systems.mock.messages.per.batch" -> messagesPerBatch.toString,
     "systems.mock.consumer.thread.count" -> consumerThreadCount.toString,
