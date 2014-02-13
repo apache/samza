@@ -25,6 +25,10 @@ import org.apache.samza.util.BlockingEnvelopeMap
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.Partition
+import org.apache.samza.config.MapConfig
+import scala.collection.JavaConversions._
+import org.apache.samza.config.DefaultChooserConfig
+import org.apache.samza.system.SystemStream
 
 class TestDefaultChooser {
   val envelope1 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream", new Partition(0)), null, null, 1);
@@ -115,6 +119,30 @@ class TestDefaultChooser {
     // Now we should finally get the lowest priority non-bootstrap stream, envelope3.
     assertEquals(envelope3, chooser.choose)
     assertEquals(null, chooser.choose)
+  }
+
+  @Test
+  def testBootstrapConfig {
+    import DefaultChooserConfig.Config2DefaultChooser
+    val configMap = Map(
+      "task.inputs" -> "kafka.foo,kafka.bar-baz",
+      "systems.kafka.streams.bar-baz.samza.bootstrap" -> "true")
+    val config = new MapConfig(configMap)
+    val bootstrapStreams = config.getBootstrapStreams
+    assertEquals(1, bootstrapStreams.size)
+    assertTrue(bootstrapStreams.contains(new SystemStream("kafka", "bar-baz")))
+  }
+
+  @Test
+  def testPriorityConfig {
+    import DefaultChooserConfig.Config2DefaultChooser
+    val configMap = Map(
+      "task.inputs" -> "kafka.foo,kafka.bar-baz",
+      "systems.kafka.streams.bar-baz.samza.priority" -> "3")
+    val config = new MapConfig(configMap)
+    val priorityStreams = config.getPriorityStreams
+    assertEquals(1, priorityStreams.size)
+    assertEquals(3, priorityStreams(new SystemStream("kafka", "bar-baz")))
   }
 }
 

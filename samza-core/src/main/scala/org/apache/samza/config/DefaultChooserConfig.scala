@@ -38,7 +38,7 @@ class DefaultChooserConfig(config: Config) extends ScalaMapConfig(config) {
   def getBootstrapStreams = config
     .getInputStreams
     .map(systemStream => (systemStream, getOrElse(BOOTSTRAP format (systemStream.getSystem, systemStream.getStream), "false").equals("true")))
-    .filter(_._2.equals("true"))
+    .filter(_._2.equals(true))
     .map(_._1)
 
   def getPriorityStreams = config
