@@ -11,7 +11,7 @@ fi
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BASE_DIR=$(dirname $DIR)
 DEPLOY_ROOT_DIR=$BASE_DIR/deploy
-DEPLOY_DOWNLOAD_DIR=$BASE_DIR/deploy/download
+DOWNLOAD_CACHE_DIR=$HOME/.samza/download
 COMMAND=$1
 SYSTEM=$2
 
@@ -22,53 +22,68 @@ DOWNLOAD_ZOOKEEPER=http://archive.apache.org/dist/zookeeper/zookeeper-3.4.3/zook
 bootstrap() {
   echo "Bootstrapping the system..."
   stop_all
-  rm -rf $DEPLOY_ROOT_DIR
+  rm -rf "$DEPLOY_ROOT_DIR"
+  mkdir "$DEPLOY_ROOT_DIR"
   install_all
   start_all
   exit 0
 }
 
 install_all() {
-  $DIR/grid install samza
-  $DIR/grid install zookeeper
-  $DIR/grid install yarn
-  $DIR/grid install kafka
+  install_samza
+  install_zookeeper
+  install_yarn
+  install_kafka
 }
 
 install_zookeeper() {
-  install "zookeeper-3.4.3"
-  cp $DEPLOY_ROOT_DIR/$SYSTEM/conf/zoo_sample.cfg $DEPLOY_ROOT_DIR/$SYSTEM/conf/zoo.cfg
+  install $DOWNLOAD_ZOOKEEPER zookeeper
+  cp "$DEPLOY_ROOT_DIR/zookeeper/conf/zoo_sample.cfg" "$DEPLOY_ROOT_DIR/zookeeper/conf/zoo.cfg"
 }
 
 install_yarn() {
-  install "hadoop-2.2.0"
-  cp $BASE_DIR/conf/yarn-site.xml $DEPLOY_ROOT_DIR/$SYSTEM/etc/hadoop/yarn-site.xml
+  install $DOWNLOAD_YARN yarn
+  cp "$BASE_DIR/conf/yarn-site.xml" "$DEPLOY_ROOT_DIR/yarn/etc/hadoop/yarn-site.xml"
 }
 
 install_kafka() {
-  install "kafka_2.8.0-0.8.0"
+  install $DOWNLOAD_KAFKA kafka
   # have to use SIGTERM since nohup on appears to ignore SIGINT
   # and Kafka switched to SIGINT in KAFKA-1031.
   sed -i.bak 's/SIGINT/SIGTERM/g' $DEPLOY_ROOT_DIR/kafka/bin/kafka-server-stop.sh
 }
 
 install_samza() {
-  mkdir -p $DEPLOY_DOWNLOAD_DIR
-  cd $DEPLOY_DOWNLOAD_DIR 
-  git clone git://git.apache.org/incubator-samza.git
-  cd incubator-samza
-  ./gradlew -PscalaVersion=2.8.1 publishToMavenLocal
-  cd ../..
+  if [ -d "$DOWNLOAD_CACHE_DIR/incubator-samza/.git" ]; then
+    pushd "$DOWNLOAD_CACHE_DIR/incubator-samza"
+    git fetch origin
+    git reset --hard origin/master
+  else
+    mkdir -p $DOWNLOAD_CACHE_DIR
+    pushd $DOWNLOAD_CACHE_DIR
+    git clone git://git.apache.org/incubator-samza.git
+    cd incubator-samza
+  fi
+  ./gradlew -PscalaVersion=2.8.1 clean publishToMavenLocal
+  popd
 }
 
 install() {
-  PACKAGE_DIR=$1
-  mkdir -p $DEPLOY_DOWNLOAD_DIR
-  rm -rf $DEPLOY_ROOT_DIR/$SYSTEM
-  DOWNLOAD_COMMAND="curl \$DOWNLOAD_""`echo $SYSTEM|tr '[a-z]' '[A-Z]'`"
-  eval $DOWNLOAD_COMMAND > $DEPLOY_DOWNLOAD_DIR/$SYSTEM.tar.gz
-  tar -xf $DEPLOY_DOWNLOAD_DIR/$SYSTEM.tar.gz -C $DEPLOY_DOWNLOAD_DIR
-  mv $DEPLOY_DOWNLOAD_DIR/$PACKAGE_DIR $DEPLOY_ROOT_DIR/$SYSTEM
+  DOWNLOAD_URL=$1
+  PACKAGE_FILE="$DOWNLOAD_CACHE_DIR/$(basename $DOWNLOAD_URL)"
+  PACKAGE_DIR="$DOWNLOAD_CACHE_DIR/$(basename -s .tar.gz $DOWNLOAD_URL)" # assume foo-1.2.3.tar.gz unpacks to a directory called foo-1.2.3
+  DESTINATION_DIR="$DEPLOY_ROOT_DIR/$2"
+  if [ -f "$PACKAGE_FILE" ]; then
+    echo "Using previously downloaded file $PACKAGE_FILE"
+  else
+    echo "Downloading $(basename -s .tar.gz $DOWNLOAD_URL)..."
+    mkdir -p $DOWNLOAD_CACHE_DIR
+    curl "$DOWNLOAD_URL" > "${PACKAGE_FILE}.tmp"
+    mv "${PACKAGE_FILE}.tmp" "$PACKAGE_FILE"
+  fi
+  rm -rf "$DESTINATION_DIR" "$PACKAGE_DIR"
+  tar -xf "$PACKAGE_FILE" -C $DOWNLOAD_CACHE_DIR
+  mv "$PACKAGE_DIR" "$DESTINATION_DIR"
 }
 
 start_all() {
@@ -131,17 +146,20 @@ stop_zookeeper() {
 }
 
 stop_yarn() {
-  if [ -f $DEPLOY_ROOT_DIR/$SYSTEM/bin/yarn ]; then
-    cd $DEPLOY_ROOT_DIR/$SYSTEM
-    RM_PID=`cat pids/rm.pid`
-    NM_PID=`cat pids/nm.pid`
-    kill $RM_PID
-    kill $NM_PID
-    rm -rf pids/rm.pid
-    rm -rf pids/nm.pid
-    cd - > /dev/null
+  RM_PIDFILE="$DEPLOY_ROOT_DIR/$SYSTEM/pids/rm.pid"
+  if [ -f "$RM_PIDFILE" ]; then
+    kill $(cat "$RM_PIDFILE")
+    rm -f "$RM_PIDFILE"
   else
-    echo 'YARN is not installed. Run: bin/grid install yarn'
+    echo 'YARN ResourceManager not running, nothing to stop.'
+  fi
+
+  NM_PIDFILE="$DEPLOY_ROOT_DIR/$SYSTEM/pids/nm.pid"
+  if [ -f "$NM_PIDFILE" ]; then
+    kill $(cat "$NM_PIDFILE")
+    rm -f "$NM_PIDFILE"
+  else
+    echo 'YARN NodeManager not running, nothing to stop.'
   fi
 }
 
