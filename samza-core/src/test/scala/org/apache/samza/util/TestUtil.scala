@@ -23,11 +23,6 @@ import org.apache.samza.Partition
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.Util._
 import org.junit.Assert._
-import org.apache.samza.config.MapConfig
-import scala.collection.JavaConversions._
-import org.apache.samza.system.SystemFactory
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.config.Config
 
 object TestUtil {
   def expect[T](exception: Class[T], msg: Option[String] = None)(block: => Unit) = try {
@@ -41,26 +36,6 @@ object TestUtil {
 }
 
 class TestUtil {
-  @Test
-  def testGetInputStreamPartitions {
-    val expectedPartitionsPerStream = 1
-    val inputSystemStreamNames = List("test.foo", "test.bar")
-    val config = new MapConfig(Map(
-      "task.inputs" -> inputSystemStreamNames.mkString(","),
-      "systems.test.samza.factory" -> classOf[MockSystemFactory].getName,
-      "systems.test.partitions.per.stream" -> expectedPartitionsPerStream.toString))
-    val systemStreamPartitions = Util.getInputStreamPartitions(config)
-    assertNotNull(systemStreamPartitions)
-    assertEquals(expectedPartitionsPerStream * inputSystemStreamNames.size, systemStreamPartitions.size)
-    inputSystemStreamNames.foreach(systemStreamName => {
-      (0 until expectedPartitionsPerStream).foreach(partitionNumber => {
-        val partition = new Partition(partitionNumber)
-        val systemStreamNameSplit = systemStreamName.split("\\.")
-        systemStreamPartitions.contains(new SystemStreamPartition(systemStreamNameSplit(0), systemStreamNameSplit(1), partition))
-      })
-    })
-  }
-
   @Test
   def testGetTopicPartitionsForTask() {
     def partitionSet(max:Int) = (0 until max).map(new Partition(_)).toSet
@@ -125,13 +100,4 @@ class TestUtil {
     assertEquals(streamsAndParts, backToStreamsAndParts)
 
   }
-}
-
-/**
- * Little mock for testing the input stream partition method.
- */
-class MockSystemFactory extends SystemFactory {
-  def getConsumer(systemName: String, config: Config, registry: MetricsRegistry) = null
-  def getProducer(systemName: String, config: Config, registry: MetricsRegistry) = null
-  def getAdmin(systemName: String, config: Config) = new SinglePartitionWithoutOffsetsSystemAdmin
 }

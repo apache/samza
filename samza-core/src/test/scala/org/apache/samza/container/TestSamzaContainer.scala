@@ -39,30 +39,8 @@ import org.apache.samza.task.TaskCoordinator
 import org.apache.samza.task.InitableTask
 import org.apache.samza.task.TaskContext
 import org.apache.samza.task.ClosableTask
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
-import org.apache.samza.system.SystemStream
 
 class TestSamzaContainer {
-  @Test
-  def testGetInputStreamMetadata {
-    val inputStreams = Set(
-      new SystemStreamPartition("test", "stream1", new Partition(0)),
-      new SystemStreamPartition("test", "stream1", new Partition(1)),
-      new SystemStreamPartition("test", "stream2", new Partition(0)),
-      new SystemStreamPartition("test", "stream2", new Partition(1)))
-    val systemAdmins = Map("test" -> new SinglePartitionWithoutOffsetsSystemAdmin)
-    val metadata = SamzaContainer.getInputStreamMetadata(inputStreams, systemAdmins)
-    assertNotNull(metadata)
-    assertEquals(2, metadata.size)
-    val stream1Metadata = metadata(new SystemStream("test", "stream1"))
-    val stream2Metadata = metadata(new SystemStream("test", "stream2"))
-    assertNotNull(stream1Metadata)
-    assertNotNull(stream2Metadata)
-    assertEquals("stream1", stream1Metadata.getStreamName)
-    assertEquals("stream2", stream2Metadata.getStreamName)
-  }
-
   @Test
   def testExceptionInTaskInitShutsDownTask {
     val task = new StreamTask with InitableTask with ClosableTask {

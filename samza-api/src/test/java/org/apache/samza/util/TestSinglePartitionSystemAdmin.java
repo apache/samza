@@ -17,14 +17,21 @@
  * under the License.
  */
 
-package org.apache.samza.system;
+package org.apache.samza.util;
 
-import java.util.Map;
 import java.util.Set;
+import org.junit.Test;
+import static org.junit.Assert.*;
 import org.apache.samza.Partition;
 
-public interface SystemAdmin {
-  Set<Partition> getPartitions(String streamName);
-
-  Map<SystemStreamPartition, String> getLastOffsets(Set<String> streams);
+public class TestSinglePartitionSystemAdmin {
+  @Test
+  public void testShouldGetASinglePartition() {
+    SinglePartitionSystemAdmin admin = new SinglePartitionSystemAdmin();
+    Set<Partition> partitions1 = admin.getPartitions("a");
+    Set<Partition> partitions2 = admin.getPartitions("b");
+    assertEquals(partitions1, partitions2);
+    assertEquals(partitions1.size(), 1);
+    assertEquals(partitions1.iterator().next(), new Partition(0));
+  }
 }

@@ -33,11 +33,10 @@ import org.apache.samza.util.Util
 import org.apache.samza.system.SystemAdmin
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.system.SystemStreamMetadata
 import grizzled.slf4j.Logging
 
 object DefaultChooser extends Logging {
-  def apply(inputStreamMetadata: Map[SystemStream, SystemStreamMetadata], chooserFactory: MessageChooserFactory, config: Config, registry: MetricsRegistry) = {
+  def apply(systemAdmins: Map[String, SystemAdmin], chooserFactory: MessageChooserFactory, config: Config, registry: MetricsRegistry) = {
     val batchSize = config.getChooserBatchSize match {
       case Some(batchSize) => Some(batchSize.toInt)
       case _ => None
@@ -69,10 +68,22 @@ object DefaultChooser extends Logging {
     // Only wire in what we need.
     val useBootstrapping = prioritizedBootstrapStreams.size > 0
     val usePriority = useBootstrapping || prioritizedStreams.size > 0
-    val bootstrapStreamMetadata = inputStreamMetadata
-      .filterKeys(prioritizedBootstrapStreams.contains(_))
 
-    debug("Got bootstrap stream metadata: %s" format bootstrapStreamMetadata)
+    // Build a map from SSP -> lastReadOffset for each bootstrap stream.
+    val latestMessageOffsets = prioritizedBootstrapStreams
+      .keySet
+      // Group streams by system (system -> [streams])
+      .groupBy(_.getSystem())
+      // Get the SystemAdmin for each system, and get all lastReadOffsets for 
+      // each stream. Flatten into a simple SSP -> lastReadOffset map.
+      .flatMap {
+        case (systemName, streams) =>
+          systemAdmins
+            .getOrElse(systemName, throw new SamzaException("Trying to fetch system factory for system %s, which isn't defined in config." format systemName))
+            .getLastOffsets(streams.map(_.getStream))
+      }
+
+    debug("Got bootstrap offsets: %s" format latestMessageOffsets)
 
     val priorities = if (usePriority) {
       // Ordering is important here. Overrides Int.MaxValue default for 
@@ -96,7 +107,7 @@ object DefaultChooser extends Logging {
       batchSize,
       priorities,
       prioritizedChoosers,
-      bootstrapStreamMetadata,
+      latestMessageOffsets,
       registry)
   }
 }
@@ -236,10 +247,8 @@ class DefaultChooser(
   prioritizedChoosers: Map[Int, MessageChooser] = Map(),
 
   /**
-   * Defines a mapping from SystemStreamPartition to the metadata associated
-   * with it. This is useful for checking whether we've caught up with a
-   * bootstrap stream, since the metadata contains offset information about
-   * the stream partition. Bootstrap streams are marked as "behind" until all
+   * Defines a mapping from SystemStreamPartition to the offset of the last
+   * message in each SSP. Bootstrap streams are marked as "behind" until all
    * SSPs for the SystemStream have been read. Once the bootstrap stream has
    * been "caught up" it is removed from the bootstrap set, and treated as a
    * normal stream.
@@ -249,7 +258,7 @@ class DefaultChooser(
    * Using bootstrap streams automatically enables stream prioritization.
    * Bootstrap streams default to a priority of Int.MaxValue.
    */
-  bootstrapStreamMetadata: Map[SystemStream, SystemStreamMetadata] = Map(),
+  bootstrapStreamOffsets: Map[SystemStreamPartition, String] = Map(),
 
   /**
    * Metrics registry to be used when wiring up wrapped choosers.
@@ -258,7 +267,7 @@ class DefaultChooser(
 
   val chooser = {
     val useBatching = batchSize.isDefined
-    val useBootstrapping = bootstrapStreamMetadata.size > 0
+    val useBootstrapping = bootstrapStreamOffsets.size > 0
     val usePriority = useBootstrapping || prioritizedStreams.size > 0
 
     info("Building default chooser with: useBatching=%s, useBootstrapping=%s, usePriority=%s" format (useBatching, useBootstrapping, usePriority))
@@ -280,7 +289,7 @@ class DefaultChooser(
     }
 
     if (useBootstrapping) {
-      new BootstrappingChooser(maybeBatching, bootstrapStreamMetadata, new BootstrappingChooserMetrics(registry))
+      new BootstrappingChooser(maybeBatching, bootstrapStreamOffsets, new BootstrappingChooserMetrics(registry))
     } else {
       maybeBatching
     }

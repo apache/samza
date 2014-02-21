@@ -22,12 +22,12 @@ package org.apache.samza.util
 import java.io.File
 import java.util.Random
 import grizzled.slf4j.Logging
-import org.apache.samza.{ Partition, SamzaException }
+import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.config.Config
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import scala.collection.JavaConversions._
-import org.apache.samza.system.{ SystemStreamPartition, SystemAdmin, SystemFactory, SystemStream }
+import org.apache.samza.system.{SystemStreamPartition, SystemAdmin, SystemFactory, SystemStream}
 
 object Util extends Logging {
   val random = new Random
@@ -75,39 +75,28 @@ object Util extends Logging {
   /**
    * For each input stream specified in config, exactly determine its partitions, returning a set of SystemStreamPartitions
    * corresponding to them all
-   *
+   * 
    * @param config Source of truth for systems and inputStreams
    * @return Set of SystemStreamPartitions, one for each unique system, stream and partition
    */
   def getInputStreamPartitions(config: Config): Set[SystemStreamPartition] = {
-    val inputSystemStreams = config.getInputStreams
-    val systemNames = config.getSystemNames.toSet
-
-    systemNames.flatMap(systemName => {
-      // Get SystemAdmin for system.
+    val systemStreams = config.getInputStreams
+    val systemNames = config.getSystemNames
+    
+    val systemAdmins: Map[String, SystemAdmin] = systemNames.map(systemName => {
       val systemFactoryClassName = config
         .getSystemFactory(systemName)
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
       val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
       val systemAdmin = systemFactory.getAdmin(systemName, config)
-
-      // Get metadata for every stream that belongs to this system.
-      val streamNames = inputSystemStreams
-        .filter(_.getSystem.equals(systemName))
-        .map(_.getStream)
-      val systemStreamMetadata = systemAdmin.getSystemStreamMetadata(streamNames)
-
-      // Get a set of all SSPs for every stream that belongs to this system.
-      systemStreamMetadata
-        .values
-        .flatMap(systemStreamMetadata => {
-          val streamName = systemStreamMetadata.getStreamName
-          val systemStreamPartitionSet = systemStreamMetadata.getSystemStreamPartitionMetadata.keys
-          systemStreamPartitionSet.map(new SystemStreamPartition(systemName, streamName, _)).toSet
-        })
-    })
+      (systemName, systemAdmin)
+    }).toMap
+    
+    def getPartitions(is:SystemStream) = systemAdmins.getOrElse(is.getSystem, throw new IllegalArgumentException("Could not find a stream admin for system '" + is.getSystem + "'"))
+                                                     .getPartitions(is.getStream).map(p => new SystemStreamPartition(is, p))
+    systemStreams.map(getPartitions).flatten
   }
-
+  
   /**
    * Returns a SystemStream object based on the system stream name given. For
    * example, kafka.topic would return new SystemStream("kafka", "topic").
@@ -136,10 +125,10 @@ object Util extends Logging {
    * @param ssp All SystemStreamPartitions
    * @return Collection of streams and partitions for this particular containerId
    */
-  def getStreamsAndPartitionsForContainer(containerId: Int, containerCount: Int, ssp: Set[SystemStreamPartition]): Set[SystemStreamPartition] = {
+  def getStreamsAndPartitionsForContainer(containerId:Int, containerCount:Int, ssp:Set[SystemStreamPartition]): Set[SystemStreamPartition] = {
     ssp.filter(_.getPartition.getPartitionId % containerCount == containerId)
   }
-
+  
   /**
    * Serialize a collection of stream-partitions to a string suitable for passing between processes.
    * The streams will be grouped by partition. The partition will be separated from the topics by
@@ -152,14 +141,12 @@ object Util extends Logging {
    * @return Serialized string of the topics and streams grouped and delimited
    */
   def createStreamPartitionString(sp: Set[SystemStreamPartition]): String = {
-    for (
-      ch <- List(':', ',', '/');
-      s <- sp
-    ) {
-      if (s.getStream.contains(ch)) throw new IllegalArgumentException(s + " contains illegal character " + ch)
+    for(ch <- List(':', ',', '/');
+        s  <- sp) {
+      if(s.getStream.contains(ch)) throw new IllegalArgumentException(s + " contains illegal character " + ch)
     }
 
-    sp.groupBy(_.getPartition).map(z => z._1.getPartitionId + ":" + z._2.map(y => y.getSystem + "." + y.getStream).mkString(",")).mkString("/")
+    sp.groupBy(_.getPartition).map(z => z._1.getPartitionId + ":" + z._2.map(y => y.getSystem + "." +y.getStream).mkString(",")).mkString("/")
 
   }
 
@@ -170,10 +157,10 @@ object Util extends Logging {
    * @param sp Strings and partitions encoded as a stream by the above function
    * @return List of string and partition tuples extracted from string. Order is not necessarily preserved.
    */
-  def createStreamPartitionsFromString(sp: String): Set[SystemStreamPartition] = {
-    if (sp == null || sp.isEmpty) return Set.empty
-
-    def splitPartitionGroup(pg: String) = {
+  def createStreamPartitionsFromString(sp:String): Set[SystemStreamPartition] = {
+    if(sp == null || sp.isEmpty) return Set.empty
+    
+    def splitPartitionGroup(pg:String) = {
       val split = pg.split(":") // Seems like there should be a more scalar way of doing this
       val part = split(0).toInt
       val streams = split(1).split(",").toList
@@ -182,7 +169,7 @@ object Util extends Logging {
     }
 
     sp.split("/").map(splitPartitionGroup(_)).toSet.flatten
-  }
+  } 
 
   /**
    * Makes sure that an object is not null, and throws a NullPointerException

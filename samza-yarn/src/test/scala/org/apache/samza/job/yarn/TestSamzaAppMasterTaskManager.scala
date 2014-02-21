@@ -39,7 +39,6 @@ import org.apache.samza.system.{SystemStreamPartition, SystemAdmin, SystemFactor
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.util.Util._
 import org.apache.samza.util.Util
-import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
 
 object TestSamzaAppMasterTaskManager {
   def getContainer(containerId: ContainerId) = new Container {
@@ -420,6 +419,13 @@ class MockSystemFactory extends SystemFactory {
   }
 
   def getAdmin(systemName: String, config: Config) = {
-    new SinglePartitionWithoutOffsetsSystemAdmin
+    new MockSinglePartitionManager
   }
+
+}
+
+class MockSinglePartitionManager extends SystemAdmin {
+  def getPartitions(streamName: String) = Set(new Partition(0))
+
+  def getLastOffsets(streams: java.util.Set[String]) = throw new SamzaException("Need to implement this")
 }

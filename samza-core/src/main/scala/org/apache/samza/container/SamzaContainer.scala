@@ -60,8 +60,6 @@ import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.chooser.DefaultChooser
 import org.apache.samza.system.chooser.RoundRobinChooserFactory
 import scala.collection.JavaConversions._
-import org.apache.samza.system.SystemAdmin
-import org.apache.samza.system.SystemStreamMetadata
 
 object SamzaContainer extends Logging {
   def main(args: Array[String]) {
@@ -126,10 +124,6 @@ object SamzaContainer extends Logging {
       .toMap
 
     info("Got system factories: %s" format systemFactories.keys)
-
-    val inputStreamMetadata = getInputStreamMetadata(inputStreams, systemAdmins)
-
-    info("Got input stream metadata: %s" format inputStreamMetadata)
 
     val consumers = inputSystems
       .map(systemName => {
@@ -247,7 +241,7 @@ object SamzaContainer extends Logging {
 
     val chooserFactory = Util.getObj[MessageChooserFactory](chooserFactoryClassName)
 
-    val chooser = DefaultChooser(inputStreamMetadata, chooserFactory, config, samzaContainerMetrics.registry)
+    val chooser = DefaultChooser(systemAdmins, chooserFactory, config, samzaContainerMetrics.registry)
 
     info("Setting up metrics reporters.")
 
@@ -401,7 +395,6 @@ object SamzaContainer extends Logging {
         storeBaseDir = storeBaseDir)
 
       val inputStreamsForThisPartition = inputStreams.filter(_.getPartition.equals(partition)).map(_.getSystemStream)
-
       info("Assigning SystemStreams " + inputStreamsForThisPartition + " to " + partition)
 
       val taskInstance = new TaskInstance(
@@ -435,27 +428,6 @@ object SamzaContainer extends Logging {
       checkpointManager = checkpointManager,
       reporters = reporters,
       jvm = jvm)
-  }
-
-  /**
-   * Builds a map from SystemStream to SystemStreamMetadata for all input
-   * streams using SystemAdmins to fetch metadata.
-   */
-  def getInputStreamMetadata(inputStreams: Set[SystemStreamPartition], systemAdmins: Map[String, SystemAdmin]): Map[SystemStream, SystemStreamMetadata] = {
-    inputStreams
-      .map(_.getSystemStream)
-      .toSet
-      .groupBy[String](_.getSystem)
-      .flatMap {
-        case (systemName, systemStreams) =>
-          systemAdmins
-            .getOrElse(systemName, throw new SamzaException("Unable to find system admin definition for system %s." format systemName))
-            .getSystemStreamMetadata(systemStreams.map(_.getStream))
-            .map {
-              case (streamName, metadata) => (new SystemStream(systemName, streamName), metadata)
-            }
-      }
-      .toMap
   }
 }
 

@@ -25,30 +25,17 @@ import org.apache.samza.system.IncomingMessageEnvelope
 import scala.collection.immutable.Queue
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.Partition
-import org.apache.samza.system.SystemStreamMetadata
-import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
 import java.util.Arrays
-import scala.collection.JavaConversions._
-import org.apache.samza.system.SystemStream
 
 @RunWith(value = classOf[Parameterized])
-class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStream, SystemStreamMetadata]) => MessageChooser) {
+class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStreamPartition, String]) => MessageChooser) {
   val envelope1 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream", new Partition(0)), null, null, 1);
   val envelope2 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream1", new Partition(1)), null, null, 2);
   val envelope3 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream1", new Partition(0)), null, null, 3);
   val envelope4 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream", new Partition(0)), "123", null, 4);
-
-  /**
-   * Helper function to create metadata for a single envelope with a single offset.
-   */
-  private def getMetadata(envelope: IncomingMessageEnvelope, newestOffset: String) = {
-    new SystemStreamMetadata(
-      envelope.getSystemStreamPartition.getStream,
-      Map(envelope.getSystemStreamPartition.getPartition -> new SystemStreamPartitionMetadata(null, newestOffset, null)))
-  }
 
   @Test
   def testChooserShouldIgnoreStreamsThatArentInOffsetMap {
@@ -69,8 +56,7 @@ class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStream, Sy
   @Test
   def testChooserShouldEliminateCaughtUpStreamsOnRegister {
     val mock = new MockMessageChooser
-    val metadata = getMetadata(envelope1, "123")
-    val chooser = getChooser(mock, Map(envelope1.getSystemStreamPartition.getSystemStream -> metadata))
+    val chooser = getChooser(mock, Map(envelope1.getSystemStreamPartition -> "123"))
 
     // Even though envelope1's SSP is registered as a bootstrap stream, since 
     // 123=123, it should be marked as "caught up" and treated like a normal 
@@ -87,8 +73,7 @@ class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStream, Sy
   @Test
   def testChooserShouldEliminateCaughtUpStreamsAfterRegister {
     val mock = new MockMessageChooser
-    val metadata = getMetadata(envelope1, "123")
-    val chooser = getChooser(mock, Map(envelope1.getSystemStreamPartition.getSystemStream -> metadata))
+    val chooser = getChooser(mock, Map(envelope1.getSystemStreamPartition -> "123"))
 
     // Even though envelope1's SSP is registered as a bootstrap stream, since 
     // 123=123, it should be marked as "caught up" and treated like a normal 
@@ -129,9 +114,9 @@ class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStream, Sy
   @Test
   def testChooserShouldWorkWithTwoBootstrapStreams {
     val mock = new MockMessageChooser
-    val metadata1 = getMetadata(envelope1, "123")
-    val metadata2 = getMetadata(envelope2, "321")
-    val chooser = getChooser(mock, Map(envelope1.getSystemStreamPartition.getSystemStream -> metadata1, envelope2.getSystemStreamPartition.getSystemStream -> metadata2))
+    val chooser = getChooser(mock, Map(
+      envelope1.getSystemStreamPartition -> "123",
+      envelope2.getSystemStreamPartition -> "321"))
 
     chooser.register(envelope1.getSystemStreamPartition, "1")
     chooser.register(envelope2.getSystemStreamPartition, "1")
@@ -185,7 +170,7 @@ object TestBootstrappingChooser {
   // just batch size defined should behave just like plain vanilla batching 
   // chooser.
   @Parameters
-  def parameters: java.util.Collection[Array[(MessageChooser, Map[SystemStream, SystemStreamMetadata]) => MessageChooser]] = Arrays.asList(
-    Array((wrapped: MessageChooser, bootstrapStreamMetadata: Map[SystemStream, SystemStreamMetadata]) => new BootstrappingChooser(wrapped, bootstrapStreamMetadata)),
-    Array((wrapped: MessageChooser, bootstrapStreamMetadata: Map[SystemStream, SystemStreamMetadata]) => new DefaultChooser(wrapped, bootstrapStreamMetadata = bootstrapStreamMetadata)))
+  def parameters: java.util.Collection[Array[(MessageChooser, Map[SystemStreamPartition, String]) => MessageChooser]] = Arrays.asList(
+    Array((wrapped: MessageChooser, latestMessageOffsets: Map[SystemStreamPartition, String]) => new BootstrappingChooser(wrapped, latestMessageOffsets)),
+    Array((wrapped: MessageChooser, latestMessageOffsets: Map[SystemStreamPartition, String]) => new DefaultChooser(wrapped, bootstrapStreamOffsets = latestMessageOffsets)))
 }
