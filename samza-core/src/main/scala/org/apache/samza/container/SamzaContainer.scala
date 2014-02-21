@@ -59,6 +59,7 @@ import org.apache.samza.system.SystemConsumersMetrics
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.chooser.DefaultChooser
 import org.apache.samza.system.chooser.RoundRobinChooserFactory
+import scala.collection.JavaConversions._
 
 object SamzaContainer extends Logging {
   def main(args: Array[String]) {
@@ -333,6 +334,8 @@ object SamzaContainer extends Logging {
 
     val partitions = inputStreams.map(_.getPartition).toSet
 
+    val containerContext = new SamzaContainerContext(containerName, config, partitions)
+
     val taskInstances = partitions.map(partition => {
       debug("Setting up task instance: %s" format partition)
 
@@ -376,9 +379,9 @@ object SamzaContainer extends Logging {
               keySerde,
               msgSerde,
               collector,
-              config,
               taskInstanceMetrics.registry,
-              changeLogSystemStreamPartition)
+              changeLogSystemStreamPartition,
+              containerContext)
             (storeName, storageEngine)
         }
 

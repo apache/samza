@@ -172,17 +172,15 @@ In this section we will give a quick tutorial on configuring and using the key-v
 To declare a new store for usage you add the following to your job config:
 
     # Use the key-value store implementation for a store called "my-store"
-    stores.my-store.factory=samza.storage.kv.KeyValueStorageEngineFactory
+    stores.my-store.factory=org.apache.samza.storage.kv.KeyValueStorageEngineFactory
 
     # Log changes to the store to an output stream for restore
     # If no changelog is specified the store will not be logged (but you can still rebuild off your input streams)
-    stores.my-store.changelog=my-stream-name
-
-    # The system to use for the changelog stream
-    stores.my-store.system=kafka
+    stores.my-store.changelog=kafka.my-stream-name
 
     # The serialization format to use
-    stores.my-store.serde=string
+    stores.my-store.key.serde=string
+    stores.my-store.msg.serde=string
 
 Here is some simple example code that only writes to the store:
 
@@ -213,25 +211,27 @@ Here is the complete key-value store API:
 Here is a list of additional configurations accepted by the key-value store along with their default values:
 
     # The number of writes to batch together
-    stores.my-store.batch.size=500
+    stores.my-store.write.batch.size=500
 
     # The total number of objects to cache in the "L1" object cache. This must be at least as large as the batch.size.
     # A cache size of 0 disables all caching and batching.
     stores.my-store.object.cache.size=1000
 
-    # The size of the off-heap leveldb block cache in bytes
-    stores.my-store.leveldb.block.cache.size=16777216
+    # The size of the off-heap leveldb block cache in bytes, per container. If you have multiple tasks within
+    # one container, each task is given a proportional share of this cache.
+    stores.my-store.container.cache.size.bytes=104857600
 
-    # Enable block compression using snappy?
-    stores.my-store.leveldb.compress=true
+    # The amount of memory leveldb uses for buffering writes before they are written to disk, per container.
+    # If you have multiple tasks within one container, each task is given a proportional share of this buffer.
+    # This setting also determines the size of leveldb's segment files.
+    stores.my-store.container.write.buffer.size.bytes=33554432
 
-    # The remaining options are a bit low-level and likely you don't need to change them unless you are a compulsive fiddler
+    # Enable block compression? (set compression=none to disable)
+    stores.my-store.leveldb.compression=snappy
 
-    # The leveldb block size (see leveldb docs).
-    stores.my-store.leveldb.block.size=4096
-
-    # The amount of memory leveldb uses for buffering the latest segment, also the size of leveldb's segment files. 
-    stores.my-store.leveldb.write.buffer.size=16777216
+    # If compression is enabled, leveldb groups approximately this many uncompressed bytes into one compressed block.
+    # You probably don't need to change this unless you are a compulsive fiddler.
+    stores.my-store.leveldb.block.size.bytes=4096
 
 ### Implementing common use cases with the key-value store
 

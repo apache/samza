@@ -27,17 +27,32 @@ import java.io._
 import java.util.Iterator
 import java.lang.Iterable
 import org.apache.samza.config.Config
-import grizzled.slf4j.Logging
+import org.apache.samza.container.SamzaContainerContext
+import grizzled.slf4j.{Logger, Logging}
 
 object LevelDbKeyValueStore {
-  def options(config: Config) = {
+  private lazy val logger = Logger(classOf[LevelDbKeyValueStore])
+
+  def options(storeConfig: Config, containerContext: SamzaContainerContext) = {
+    val cacheSize = storeConfig.getLong("container.cache.size.bytes", 100 * 1024 * 1024L)
+    val writeBufSize = storeConfig.getLong("container.write.buffer.size.bytes", 32 * 1024 * 1024)
     val options = new Options
-    options.blockSize(config.getInt("block.size", 4086))
-    options.cacheSize(config.getLong("cache.size", 64 * 1024 * 1024L))
-    options.compressionType(if (config.getBoolean("compress", true)) CompressionType.SNAPPY else CompressionType.NONE)
+
+    // Cache size and write buffer size are specified on a per-container basis.
+    options.cacheSize(cacheSize / containerContext.partitions.size)
+    options.writeBufferSize((writeBufSize / containerContext.partitions.size).toInt)
+    options.blockSize(storeConfig.getInt("leveldb.block.size.bytes", 4096))
+    options.compressionType(
+      storeConfig.get("leveldb.compression", "snappy") match {
+        case "snappy" => CompressionType.SNAPPY
+        case "none"   => CompressionType.NONE
+        case _ =>
+          logger.warn("Unknown leveldb.compression codec %s, defaulting to Snappy" format storeConfig.get("leveldb.compression", "snappy"))
+          CompressionType.SNAPPY
+      }
+    )
     options.createIfMissing(true)
     options.errorIfExists(true)
-    options.writeBufferSize(config.getInt("write.buffer.size", 16 * 1024 * 1024))
     options
   }
 }

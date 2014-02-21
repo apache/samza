@@ -21,7 +21,7 @@ package org.apache.samza.storage;
 
 import java.io.File;
 
-import org.apache.samza.config.Config;
+import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SystemStreamPartition;
@@ -41,8 +41,8 @@ public interface StorageEngineFactory<K, V> {
    * @param storeDir The directory of the storage engine.
    * @param keySerde The serializer to use for serializing keys when reading or writing to the store.
    * @param msgSerde The serializer to use for serializing messages when reading or writing to the store.
-   * @param config The configuration for the task.
    * @param changeLogSystemStreamPartition Samza stream partition from which to receive the changelog from.
+   * @param containerContext Information about the container in which the task is executing.
    * @return The storage engine instance.
    */
   public StorageEngine getStorageEngine(
@@ -51,7 +51,7 @@ public interface StorageEngineFactory<K, V> {
     Serde<K> keySerde,
     Serde<V> msgSerde,
     MessageCollector collector,
-    Config config,
     MetricsRegistry registry,
-    SystemStreamPartition changeLogSystemStreamPartition);
+    SystemStreamPartition changeLogSystemStreamPartition,
+    SamzaContainerContext containerContext);
 }

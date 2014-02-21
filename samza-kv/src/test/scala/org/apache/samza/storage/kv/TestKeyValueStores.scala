@@ -313,5 +313,5 @@ object TestKeyValueStores {
   val CacheSize = 10
   val BatchSize = 5
   @Parameters
-  def parameters: java.util.Collection[Array[String]] = Arrays.asList(Array("cache"), Array("serde"), Array("cache-and-serde"), Array("levledb"))
+  def parameters: java.util.Collection[Array[String]] = Arrays.asList(Array("cache"), Array("serde"), Array("cache-and-serde"), Array("leveldb"))
 }
