@@ -43,11 +43,6 @@
     </dependency>
     <dependency>
       <groupId>org.apache.samza</groupId>
-      <artifactId>samza-kv_2.8.1</artifactId>
-      <scope>runtime</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.samza</groupId>
       <artifactId>samza-kafka_2.8.1</artifactId>
       <scope>runtime</scope>
     </dependency>

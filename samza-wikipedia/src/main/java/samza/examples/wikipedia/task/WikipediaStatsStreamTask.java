@@ -23,38 +23,25 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import org.apache.samza.config.Config;
-import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.task.WindowableTask;
 
-public class WikipediaStatsStreamTask implements StreamTask, InitableTask, WindowableTask {
+public class WikipediaStatsStreamTask implements StreamTask, WindowableTask {
   private int edits = 0;
   private int byteDiff = 0;
   private Set<String> titles = new HashSet<String>();
   private Map<String, Integer> counts = new HashMap<String, Integer>();
-  private KeyValueStore<String, Integer> store;
-
-  public void init(Config config, TaskContext context) {
-    this.store = (KeyValueStore<String, Integer>) context.getStore("wikipedia-stats");
-  }
 
   @SuppressWarnings("unchecked")
   @Override
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
     Map<String, Object> edit = (Map<String, Object>) envelope.getMessage();
     Map<String, Boolean> flags = (Map<String, Boolean>) edit.get("flags");
-
-    Integer editsAllTime = store.get("count-edits-all-time");
-    if (editsAllTime == null) editsAllTime = 0;
-    store.put("count-edits-all-time", editsAllTime + 1);
 
     edits += 1;
     titles.add((String) edit.get("title"));
@@ -79,7 +66,6 @@ public class WikipediaStatsStreamTask implements StreamTask, InitableTask, Windo
     counts.put("edits", edits);
     counts.put("bytes-added", byteDiff);
     counts.put("unique-titles", titles.size());
-    counts.put("edits-all-time", store.get("count-edits-all-time"));
 
     collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", "wikipedia-stats"), counts));
 
