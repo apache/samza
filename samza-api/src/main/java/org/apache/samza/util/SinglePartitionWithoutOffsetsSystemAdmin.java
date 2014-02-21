@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.system.mock;
+package org.apache.samza.util;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,17 +28,17 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 
 /**
- * A SystemAdmin that returns a constant set of partitions for all streams.
+ * A simple helper admin class that defines a single partition (partition 0) for
+ * a given system. The metadata uses null for all offsets, which means that the
+ * stream doesn't support offsets, and will be treated as empty. This class
+ * should be used when a system has no concept of partitioning or offsets, since
+ * Samza needs at least one partition for an input stream, in order to read it.
  */
-public class MockSystemAdmin implements SystemAdmin {
-  private final Map<Partition, SystemStreamPartitionMetadata> systemStreamPartitionMetadata;
+public class SinglePartitionWithoutOffsetsSystemAdmin implements SystemAdmin {
+  private static final Map<Partition, SystemStreamPartitionMetadata> fakePartitionMetadata = new HashMap<Partition, SystemStreamPartitionMetadata>();
 
-  public MockSystemAdmin(int partitionCount) {
-    this.systemStreamPartitionMetadata = new HashMap<Partition, SystemStreamPartitionMetadata>();
-
-    for (int i = 0; i < partitionCount; ++i) {
-      systemStreamPartitionMetadata.put(new Partition(i), new SystemStreamPartitionMetadata(null, null, null));
-    }
+  static {
+    fakePartitionMetadata.put(new Partition(0), new SystemStreamPartitionMetadata(null, null, null));
   }
 
   @Override
@@ -46,7 +46,7 @@ public class MockSystemAdmin implements SystemAdmin {
     Map<String, SystemStreamMetadata> metadata = new HashMap<String, SystemStreamMetadata>();
 
     for (String streamName : streamNames) {
-      metadata.put(streamName, new SystemStreamMetadata(streamName, systemStreamPartitionMetadata));
+      metadata.put(streamName, new SystemStreamMetadata(streamName, fakePartitionMetadata));
     }
 
     return metadata;

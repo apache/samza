@@ -21,10 +21,21 @@ package org.apache.samza.system;
 
 import java.util.Map;
 import java.util.Set;
-import org.apache.samza.Partition;
 
+/**
+ * An interface that's use to interact with the underlying system to fetch
+ * information about streams, partitions, offsets, etc. This interface is useful
+ * for providing utility methods that Samza needs in order to interact with a
+ * system.
+ */
 public interface SystemAdmin {
-  Set<Partition> getPartitions(String streamName);
-
-  Map<SystemStreamPartition, String> getLastOffsets(Set<String> streams);
+  /**
+   * Fetch metadata from a system for a set of streams.
+   *
+   * @param streamNames
+   *          The streams to to fetch metadata for.
+   * @return A map from stream name to SystemStreamMetadata for each stream
+   *         requested in the parameter set.
+   */
+  Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames);
 }
