@@ -3,21 +3,14 @@ layout: page
 title: Hello Samza
 ---
 
-<!-- TODO Make github project public when code is up. -->
-
 The [hello-samza](http://github.com/linkedin/hello-samza) project is a stand-alone project designed to help you run your first Samza job.
 
 ### Get the Code
 
-You'll need to check out and publish Samza, since it's not available in a Maven repository right now.
-
-    git clone http://git-wip-us.apache.org/repos/asf/incubator-samza.git
-    cd incubator-samza
-    ./gradlew -PscalaVersion=2.8.1 clean publishToMavenLocal
-
-Next, check out the hello-samza project.
+Check out the hello-samza project:
 
     git clone git://github.com/linkedin/hello-samza.git
+    cd hello-samza
 
 This project contains everything you'll need to run your first Samza jobs.
 
@@ -27,13 +20,9 @@ A Samza grid usually comprises three different systems: [YARN](http://hadoop.apa
 
     bin/grid bootstrap
 
-This command will download, install, and start ZooKeeper, Kafka, and YARN. All package files will be put in a sub-directory called "deploy" inside hello-samza's root folder.
+This command will download, install, and start ZooKeeper, Kafka, and YARN. It will also check out the latest version of Samza and build it. All package files will be put in a sub-directory called "deploy" inside hello-samza's root folder.
 
-If you get a complaint that JAVA_HOME is not set, then you'll need to set it. This can be done on Mac OSX by running:
-
-```
-export JAVA_HOME=$(/usr/libexec/java_home)
-```
+If you get a complaint that JAVA_HOME is not set, then you'll need to set it to the path where Java is installed on your system.
 
 Once the grid command completes, you can verify that YARN is up and running by going to [http://localhost:8088](http://localhost:8088). This is the YARN UI.
 
