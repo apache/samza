@@ -4,8 +4,12 @@
 # as well as downloading, building and locally publishing Samza
 
 if [ -z "$JAVA_HOME" ]; then
-  echo "JAVA_HOME not set. Exiting."
-  exit 1
+  if [ -x /usr/libexec/java_home ]; then
+    export JAVA_HOME="$(/usr/libexec/java_home)"
+  else
+    echo "JAVA_HOME not set. Exiting."
+    exit 1
+  fi
 fi
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
