@@ -57,7 +57,6 @@ class TaskInstance(
   listeners: Seq[TaskLifecycleListener] = Seq(),
   inputStreams: Set[SystemStream] = Set(),
   resetInputStreams: Map[SystemStream, Boolean] = Map(),
-  queueSize: Int = 1000,
   windowMs: Long = -1,
   commitMs: Long = 60000,
   clock: () => Long = { System.currentTimeMillis },
