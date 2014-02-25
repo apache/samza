@@ -160,11 +160,11 @@ class TieredPriorityChooser(
     choosers.values.foreach(_.stop)
   }
 
-  def register(systemStreamPartition: SystemStreamPartition, lastReadOffset: String) = {
+  def register(systemStreamPartition: SystemStreamPartition, offset: String) = {
     if (default != null) {
-      default.register(systemStreamPartition, lastReadOffset)
+      default.register(systemStreamPartition, offset)
     }
 
-    choosers.values.foreach(_.register(systemStreamPartition, lastReadOffset))
+    choosers.values.foreach(_.register(systemStreamPartition, offset))
   }
 }

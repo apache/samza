@@ -32,6 +32,6 @@ abstract public class BaseMessageChooser implements MessageChooser {
   public void stop() {
   }
 
-  public void register(SystemStreamPartition systemStreamPartition, String lastReadOffset) {
+  public void register(SystemStreamPartition systemStreamPartition, String offset) {
   }
 }

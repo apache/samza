@@ -177,15 +177,15 @@ class SystemConsumers(
     chooser.stop
   }
 
-  def register(systemStreamPartition: SystemStreamPartition, lastReadOffset: String) {
-    debug("Registering stream: %s, %s" format (systemStreamPartition, lastReadOffset))
+  def register(systemStreamPartition: SystemStreamPartition, offset: String) {
+    debug("Registering stream: %s, %s" format (systemStreamPartition, offset))
 
     metrics.registerSystemStream(systemStreamPartition.getSystemStream)
     neededByChooser += systemStreamPartition
     updateFetchMap(systemStreamPartition, maxMsgsPerStreamPartition)
     unprocessedMessages += systemStreamPartition -> Queue[IncomingMessageEnvelope]()
-    consumers(systemStreamPartition.getSystem).register(systemStreamPartition, lastReadOffset)
-    chooser.register(systemStreamPartition, lastReadOffset)
+    consumers(systemStreamPartition.getSystem).register(systemStreamPartition, offset)
+    chooser.register(systemStreamPartition, offset)
   }
 
   /**

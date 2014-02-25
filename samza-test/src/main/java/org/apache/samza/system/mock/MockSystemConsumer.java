@@ -123,8 +123,8 @@ public class MockSystemConsumer extends BlockingEnvelopeMap {
   }
 
   @Override
-  public void register(SystemStreamPartition systemStreamPartition, String lastReadOffset) {
-    super.register(systemStreamPartition, lastReadOffset);
+  public void register(SystemStreamPartition systemStreamPartition, String offset) {
+    super.register(systemStreamPartition, offset);
     ssps.add(systemStreamPartition);
     setIsAtHead(systemStreamPartition, true);
   }

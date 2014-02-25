@@ -85,11 +85,25 @@ class BrokerProxy(
     sc
   }
 
-  def addTopicPartition(tp: TopicAndPartition, lastCheckpointedOffset: Option[String]) = {
+  def addTopicPartition(tp: TopicAndPartition, nextOffset: Option[String]) = {
     debug("Adding new topic and partition %s to queue for %s" format (tp, host))
-    if (nextOffsets.containsKey(tp)) toss("Already consuming TopicPartition %s" format tp)
 
-    val offset = offsetGetter.getNextOffset(simpleConsumer, tp, lastCheckpointedOffset)
+    if (nextOffsets.containsKey(tp)) {
+      toss("Already consuming TopicPartition %s" format tp)
+    }
+
+    val offset = if (nextOffset.isDefined && offsetGetter.isValidOffset(simpleConsumer, tp, nextOffset.get)) {
+      nextOffset
+        .get
+        .toLong
+    } else {
+      warn("It appears that we received an invalid offset for %s. Attempting to use Kafka's auto.offset.reset setting. This will result in data loss if processing continues." format tp)
+
+      offsetGetter.getResetOffset(simpleConsumer, tp)
+    }
+
+    debug("Got offset %s for new topic and partition %s." format (offset, tp))
+
     nextOffsets += tp -> offset
 
     metrics.topicPartitions(host, port).set(nextOffsets.size)
@@ -166,7 +180,7 @@ class BrokerProxy(
   def handleErrors(errorResponses: mutable.Set[Entry[TopicAndPartition, FetchResponsePartitionData]], response:FetchResponse) = {
     // Need to be mindful of a tp that was removed by another thread
     def abdicate(tp:TopicAndPartition) = removeTopicPartition(tp) match {
-        case Some(offset) => messageSink.abdicate(tp, offset -1)
+        case Some(offset) => messageSink.abdicate(tp, offset)
         case None         => warn("Tried to abdicate for topic partition not in map. Removed in interim?")
       }
 
@@ -193,15 +207,13 @@ class BrokerProxy(
       warn("Got non-recoverable error codes during multifetch. Throwing an exception to trigger reconnect. Errors: %s" format remainingErrors.mkString(","))
       ErrorMapping.maybeThrowException(e.code) })
 
-    // Go back one message, since the fetch for nextOffset failed, and
-    // abdicate requires lastOffset, not nextOffset.
     notLeaders.foreach(e => abdicate(e.tp))
 
     offsetOutOfRangeErrors.foreach(e => {
       warn("Received OffsetOutOfRange exception for %s. Current offset = %s" format (e.tp, nextOffsets.getOrElse(e.tp, "not found in map, likely removed in the interim")))
 
       try {
-        val newOffset = offsetGetter.getNextOffset(simpleConsumer, e.tp, Option(null))
+        val newOffset = offsetGetter.getResetOffset(simpleConsumer, e.tp)
         // Put the new offset into the map (if the tp still exists).  Will catch it on the next go-around
         nextOffsets.replace(e.tp, newOffset)
       } catch {

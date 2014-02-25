@@ -137,7 +137,7 @@ class BatchingChooser(
 
   def stop = wrapped.stop
 
-  def register(systemStreamPartition: SystemStreamPartition, lastReadOffset: String) = wrapped.register(systemStreamPartition, lastReadOffset)
+  def register(systemStreamPartition: SystemStreamPartition, offset: String) = wrapped.register(systemStreamPartition, offset)
 }
 
 class BatchingChooserMetrics(val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {

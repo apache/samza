@@ -67,10 +67,10 @@ private[kafka] class KafkaSystemConsumer(
 
   type HostPort = (String, Int)
   val brokerProxies = scala.collection.mutable.Map[HostPort, BrokerProxy]()
-  var lastReadOffsets = Map[SystemStreamPartition, String]()
+  var nextOffsets = Map[SystemStreamPartition, String]()
 
   def start() {
-    val topicPartitionsAndOffsets = lastReadOffsets.map {
+    val topicPartitionsAndOffsets = nextOffsets.map {
       case (systemStreamPartition, offset) =>
         val topicAndPartition = KafkaSystemConsumer.toTopicAndPartition(systemStreamPartition)
         (topicAndPartition, offset)
@@ -81,10 +81,10 @@ private[kafka] class KafkaSystemConsumer(
     brokerProxies.values.foreach(_.start)
   }
 
-  override def register(systemStreamPartition: SystemStreamPartition, lastReadOffset: String) {
-    super.register(systemStreamPartition, lastReadOffset)
+  override def register(systemStreamPartition: SystemStreamPartition, offset: String) {
+    super.register(systemStreamPartition, offset)
 
-    lastReadOffsets += systemStreamPartition -> lastReadOffset
+    nextOffsets += systemStreamPartition -> offset
 
     metrics.registerTopicAndPartition(KafkaSystemConsumer.toTopicAndPartition(systemStreamPartition))
   }
@@ -107,7 +107,7 @@ private[kafka] class KafkaSystemConsumer(
         // This avoids trying to re-add the same topic partition repeatedly
         def refresh(tp:List[TopicAndPartition]) = {
           val head :: rest = tpToRefresh
-          val lastOffset = topicPartitionsAndOffsets.get(head).get
+          val nextOffset = topicPartitionsAndOffsets.get(head).get
           // Whatever we do, we can't say Broker, even though we're
           // manipulating it here. Broker is a private type and Scala doesn't seem
           // to care about that as long as you don't explicitly declare its type.
@@ -122,7 +122,7 @@ private[kafka] class KafkaSystemConsumer(
 
               brokerProxies
                 .getOrElseUpdate((broker.host, broker.port), createBrokerProxy)
-                .addTopicPartition(head, Option(lastOffset))
+                .addTopicPartition(head, Option(nextOffset))
             case None => warn("No such topic-partition: %s, dropping." format head)
           }
           rest
@@ -180,9 +180,9 @@ private[kafka] class KafkaSystemConsumer(
       setIsAtHead(systemStreamPartition, isAtHead)
     }
 
-    def abdicate(tp: TopicAndPartition, lastOffset: Long) {
+    def abdicate(tp: TopicAndPartition, nextOffset: Long) {
       info("Abdicating for %s" format (tp))
-      refreshBrokers(Map(tp -> lastOffset.toString))
+      refreshBrokers(Map(tp -> nextOffset.toString))
     }
 
     private def toSystemStreamPartition(tp: TopicAndPartition) = {

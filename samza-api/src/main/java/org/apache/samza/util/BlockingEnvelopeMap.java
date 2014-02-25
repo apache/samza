@@ -86,7 +86,7 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
     this.clock = clock;
   }
 
-  public void register(SystemStreamPartition systemStreamPartition, String lastReadOffset) {
+  public void register(SystemStreamPartition systemStreamPartition, String offset) {
     metrics.initMetrics(systemStreamPartition);
     bufferedMessages.putIfAbsent(systemStreamPartition, newBlockingQueue());
   }

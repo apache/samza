@@ -29,12 +29,84 @@ import grizzled.slf4j.Logging
 import kafka.message.MessageAndOffset
 
 /**
- * Obtain the correct offsets for topics, be it earliest or largest
- * @param default Value to return if no offset has been specified for topic
- * @param autoOffsetResetTopics Topics that have been specified as auto offset
+ * GetOffset validates offsets for topic partitions, and manages fetching new
+ * offsets for topics using Kafka's auto.offset.reset configuration.
  */
-class GetOffset(default: String, autoOffsetResetTopics: Map[String, String] = Map()) extends Logging with Toss {
+class GetOffset(
+  /**
+   * The default auto.offset.reset to use if a topic is not overridden in
+   * autoOffsetResetTopics. Any value other than "earliest" or "latest" will
+   * result in an exception when getRestOffset is called.
+   */
+  default: String,
 
+  /**
+   * Topic-level overrides for auto.offset.reset. Any value other than
+   * "earliest" or "latest" will result in an exception when getRestOffset is
+   * called.
+   */
+  autoOffsetResetTopics: Map[String, String] = Map()) extends Logging with Toss {
+
+  /**
+   * Checks if an offset is valid for a given topic/partition. Validity is
+   * defined as an offset that returns a readable non-empty message set with
+   * no exceptions.
+   */
+  def isValidOffset(consumer: DefaultFetchSimpleConsumer, topicAndPartition: TopicAndPartition, offset: String) = {
+    info("Validating offset %s for topic and partition %s" format (offset, topicAndPartition))
+
+    try {
+      val messages = consumer.defaultFetch((topicAndPartition, offset.toLong))
+
+      if (messages.hasError) {
+        ErrorMapping.maybeThrowException(messages.errorCode(topicAndPartition.topic, topicAndPartition.partition))
+      }
+
+      info("Able to successfully read from offset %s for topic and partition %s. Using it to instantiate consumer." format (offset, topicAndPartition))
+
+      val messageSet = messages.messageSet(topicAndPartition.topic, topicAndPartition.partition)
+
+      if (messageSet.isEmpty) {
+        toss("Got empty message set for a valid offset. This is unexpected.")
+      }
+
+      true
+    } catch {
+      case e: OffsetOutOfRangeException => false
+    }
+  }
+
+  /**
+   * Uses a topic's auto.offset.reset setting (defined via the
+   * autoOffsetResetTopics map in the constructor) to fetch either the
+   * earliest or latest offset. If neither earliest or latest is defined for
+   * the topic in question, the default supplied in the constructor will be
+   * used.
+   */
+  def getResetOffset(consumer: DefaultFetchSimpleConsumer, topicAndPartition: TopicAndPartition) = {
+    val offsetRequest = new OffsetRequest(Map(topicAndPartition -> new PartitionOffsetRequestInfo(getAutoOffset(topicAndPartition.topic), 1)))
+    val offsetResponse = consumer.getOffsetsBefore(offsetRequest)
+    val partitionOffsetResponse = offsetResponse
+      .partitionErrorAndOffsets
+      .get(topicAndPartition)
+      .getOrElse(toss("Unable to find offset information for %s" format topicAndPartition))
+
+    ErrorMapping.maybeThrowException(partitionOffsetResponse.error)
+
+    partitionOffsetResponse
+      .offsets
+      .headOption
+      .getOrElse(toss("Got response, but no offsets defined for %s" format topicAndPartition))
+  }
+
+  /**
+   * Returns either the earliest or latest setting (a Kafka constant) for a
+   * given topic using the autoOffsetResetTopics map defined in the
+   * constructor. If the topic is not defined in autoOffsetResetTopics, the
+   * default value supplied in the constructor will be used. This is used in
+   * conjunction with getResetOffset to fetch either the earliest or latest
+   * offset for a topic.
+   */
   private def getAutoOffset(topic: String): Long = {
     info("Checking if auto.offset.reset is defined for topic %s" format (topic))
     autoOffsetResetTopics.getOrElse(topic, default) match {
@@ -46,62 +118,5 @@ class GetOffset(default: String, autoOffsetResetTopics: Map[String, String] = Ma
         OffsetRequest.EarliestTime
       case other => toss("Can't get offset value for topic %s due to invalid value: %s" format (topic, other))
     }
-  }
-
-  /**
-   *  An offset was provided but may not be valid.  Verify its validity.
-   */
-  private def useLastCheckpointedOffset(sc: DefaultFetchSimpleConsumer, last: String, tp: TopicAndPartition): Option[Long] = {
-    try {
-      info("Validating offset %s for topic and partition %s" format (last, tp))
-
-      val messages: FetchResponse = sc.defaultFetch((tp, last.toLong))
-
-      if (messages.hasError) {
-        ErrorMapping.maybeThrowException(messages.errorCode(tp.topic, tp.partition))
-      }
-
-      info("Able to successfully read from offset %s for topic and partition %s. Using it to instantiate consumer." format (last, tp))
-
-      val messageSet = messages.messageSet(tp.topic, tp.partition)
-
-      if(messageSet.isEmpty) { // No messages have been written since our checkpoint
-        info("Got empty response for checkpointed offset, using checkpointed")
-        Some(last.toLong)
-      } else {
-        val nextOffset = messageSet.head.nextOffset
-        info("Got next offset %s for %s." format (nextOffset, tp))
-        Some(nextOffset)
-      }
-    } catch {
-      case e: OffsetOutOfRangeException =>
-        info("An out-of-range Kafka offset (%s) was supplied for topic and partition %s, so falling back to autooffset.reset." format (last, tp))
-        None
-    }
-  }
-
-  /**
-   * Using the provided SimpleConsumer, obtain the next offset to read for the specified topic
-   * @param sc SimpleConsumer used to query the Kafka Broker
-   * @param tp TopicAndPartition we offset for
-   * @param lastCheckpointedOffset Null is acceptable. If not null, return the last checkpointed offset, after checking it is valid
-   * @return Next offset to read or throw an exception if one has been received via the simple consumer
-   */
- def getNextOffset(sc: DefaultFetchSimpleConsumer, tp: TopicAndPartition, lastCheckpointedOffset: Option[String]): Long = {
-    val offsetRequest = new OffsetRequest(Map(tp -> new PartitionOffsetRequestInfo(getAutoOffset(tp.topic), 1)))
-    val offsetResponse = sc.getOffsetsBefore(offsetRequest)
-    val partitionOffsetResponse = offsetResponse.partitionErrorAndOffsets.get(tp).getOrElse(toss("Unable to find offset information for %s" format tp))
-
-    ErrorMapping.maybeThrowException(partitionOffsetResponse.error)
-
-    val autoOffset = partitionOffsetResponse.offsets.headOption.getOrElse(toss("Got response, but no offsets defined for %s" format tp))
-
-    val actualOffset = lastCheckpointedOffset match {
-      case Some(last) => useLastCheckpointedOffset(sc, last, tp).getOrElse(autoOffset)
-      case _ => autoOffset
-    }
-
-    info("Final offset to be returned for Topic and Partition %s = %d" format (tp, actualOffset))
-    actualOffset
   }
 }

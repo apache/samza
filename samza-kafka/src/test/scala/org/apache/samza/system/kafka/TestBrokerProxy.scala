@@ -46,7 +46,7 @@ class TestBrokerProxy extends Logging {
   def getMockBrokerProxy() = {
     val sink = new MessageSink {
       val receivedMessages = new scala.collection.mutable.ListBuffer[(TopicAndPartition, MessageAndOffset, Boolean)]()
-      def abdicate(tp: TopicAndPartition, lastOffset: Long) {}
+      def abdicate(tp: TopicAndPartition, nextOffset: Long) {}
 
       def addMessage(tp: TopicAndPartition, msg: MessageAndOffset, highWatermark: Long) { receivedMessages.add((tp, msg, msg.offset.equals(highWatermark))) }
 
@@ -208,7 +208,8 @@ class TestBrokerProxy extends Logging {
 
     val mockOffsetGetter = mock(classOf[GetOffset])
     // This will be used by the simple consumer below, and this is the response that simple consumer needs
-    when(mockOffsetGetter.getNextOffset(any(classOf[DefaultFetchSimpleConsumer]), Matchers.eq(tp), Matchers.eq(Option(null)))).thenReturn(1492l)
+    when(mockOffsetGetter.isValidOffset(any(classOf[DefaultFetchSimpleConsumer]), Matchers.eq(tp), Matchers.eq("0"))).thenReturn(true)
+    when(mockOffsetGetter.getResetOffset(any(classOf[DefaultFetchSimpleConsumer]), Matchers.eq(tp))).thenReturn(1492l)
 
     var callsToCreateSimpleConsumer = 0
     val mockSimpleConsumer = mock(classOf[DefaultFetchSimpleConsumer])
@@ -264,7 +265,7 @@ class TestBrokerProxy extends Logging {
       }
     }
 
-    bp.addTopicPartition(tp, Option("earliest"))
+    bp.addTopicPartition(tp, Option("0"))
     bp.start
     countdownLatch.await()
     bp.stop

@@ -125,16 +125,13 @@ public interface SystemConsumer {
    * @param systemStreamPartition
    *          The SystemStreamPartition object representing the Samza
    *          SystemStreamPartition to receive messages from.
-   * @param lastReadOffset
-   *          String representing the offset of the last message that was
-   *          successfully processed by the SamzaContainer before the
-   *          SamzaContainer was shut down. This allows the SystemConsumer to
-   *          pick up where it left off in cases where the SamzaContainer fails,
-   *          or is shut down and restarted. The lastReadOffset is saved and
-   *          restored by the CheckpointManager whenever SamzaContainer shuts
-   *          down and starts up.
+   * @param offset
+   *          String representing the offset of the point in the stream to start
+   *          reading messages from. This is an inclusive parameter; if "7" were
+   *          specified, the first message for the system/stream/partition to be
+   *          consumed and returned would be a message whose offset is "7".
    */
-  void register(SystemStreamPartition systemStreamPartition, String lastReadOffset);
+  void register(SystemStreamPartition systemStreamPartition, String offset);
 
   /**
    * Poll the SystemConsumer to get any available messages from the underlying

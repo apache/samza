@@ -44,10 +44,10 @@ class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStream, Sy
   /**
    * Helper function to create metadata for a single envelope with a single offset.
    */
-  private def getMetadata(envelope: IncomingMessageEnvelope, newestOffset: String) = {
+  private def getMetadata(envelope: IncomingMessageEnvelope, newestOffset: String, futureOffset: Option[String] = None) = {
     new SystemStreamMetadata(
       envelope.getSystemStreamPartition.getStream,
-      Map(envelope.getSystemStreamPartition.getPartition -> new SystemStreamPartitionMetadata(null, newestOffset, null)))
+      Map(envelope.getSystemStreamPartition.getPartition -> new SystemStreamPartitionMetadata(null, newestOffset, futureOffset.getOrElse(null))))
   }
 
   @Test
@@ -69,7 +69,7 @@ class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStream, Sy
   @Test
   def testChooserShouldEliminateCaughtUpStreamsOnRegister {
     val mock = new MockMessageChooser
-    val metadata = getMetadata(envelope1, "123")
+    val metadata = getMetadata(envelope1, "100", Some("123"))
     val chooser = getChooser(mock, Map(envelope1.getSystemStreamPartition.getSystemStream -> metadata))
 
     // Even though envelope1's SSP is registered as a bootstrap stream, since 

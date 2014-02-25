@@ -37,7 +37,7 @@ class TestSystemConsumers {
     val consumer = Map(system -> new SystemConsumer {
       def start {}
       def stop {}
-      def register(systemStreamPartition: SystemStreamPartition, lastReadOffset: String) {}
+      def register(systemStreamPartition: SystemStreamPartition, offset: String) {}
       def poll(systemStreamPartitions: java.util.Map[SystemStreamPartition, java.lang.Integer], timeout: Long) = List()
     })
 
@@ -46,7 +46,7 @@ class TestSystemConsumers {
       def choose = null
       def start = started += 1
       def stop = stopped += 1
-      def register(systemStreamPartition: SystemStreamPartition, lastReadOffset: String) = registered += systemStreamPartition -> lastReadOffset
+      def register(systemStreamPartition: SystemStreamPartition, offset: String) = registered += systemStreamPartition -> offset
     }, consumer, null)
 
     consumers.register(systemStreamPartition, "0")

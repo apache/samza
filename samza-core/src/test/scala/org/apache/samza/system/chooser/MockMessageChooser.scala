@@ -32,7 +32,7 @@ class MockMessageChooser extends MessageChooser {
 
   def stop = stops += 1
 
-  def register(systemStreamPartition: SystemStreamPartition, lastReadOffset: String) = registers += systemStreamPartition -> lastReadOffset
+  def register(systemStreamPartition: SystemStreamPartition, offset: String) = registers += systemStreamPartition -> offset
 
   def update(envelope: IncomingMessageEnvelope) {
     envelopes += envelope

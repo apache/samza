@@ -296,5 +296,5 @@ class DefaultChooser(
 
   def stop = chooser.stop
 
-  def register(systemStreamPartition: SystemStreamPartition, lastReadOffset: String) = chooser.register(systemStreamPartition, lastReadOffset)
+  def register(systemStreamPartition: SystemStreamPartition, offset: String) = chooser.register(systemStreamPartition, offset)
 }
