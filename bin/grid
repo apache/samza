@@ -75,12 +75,12 @@ install_samza() {
 install() {
   DOWNLOAD_URL=$1
   PACKAGE_FILE="$DOWNLOAD_CACHE_DIR/$(basename $DOWNLOAD_URL)"
-  PACKAGE_DIR="$DOWNLOAD_CACHE_DIR/$(basename -s .tar.gz $DOWNLOAD_URL)" # assume foo-1.2.3.tar.gz unpacks to a directory called foo-1.2.3
+  PACKAGE_DIR="$DOWNLOAD_CACHE_DIR/$(basename  $DOWNLOAD_URL .tar.gz )" # assume foo-1.2.3.tar.gz unpacks to a directory called foo-1.2.3
   DESTINATION_DIR="$DEPLOY_ROOT_DIR/$2"
   if [ -f "$PACKAGE_FILE" ]; then
     echo "Using previously downloaded file $PACKAGE_FILE"
   else
-    echo "Downloading $(basename -s .tar.gz $DOWNLOAD_URL)..."
+    echo "Downloading $(basename  $DOWNLOAD_URL .tar.gz )..."
     mkdir -p $DOWNLOAD_CACHE_DIR
     curl "$DOWNLOAD_URL" > "${PACKAGE_FILE}.tmp"
     mv "${PACKAGE_FILE}.tmp" "$PACKAGE_FILE"
