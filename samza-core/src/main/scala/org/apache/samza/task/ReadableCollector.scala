@@ -25,7 +25,7 @@ import org.apache.samza.system.OutgoingMessageEnvelope
 
 /** An in-memory implementation of MessageCollector that stores all outgoing messages in a list */
 class ReadableCollector extends MessageCollector {
-  var envelopes = new mutable.ArrayBuffer[OutgoingMessageEnvelope]()
+  val envelopes = new mutable.ArrayBuffer[OutgoingMessageEnvelope]()
 
   def send(envelope: OutgoingMessageEnvelope) {
     envelopes += envelope
