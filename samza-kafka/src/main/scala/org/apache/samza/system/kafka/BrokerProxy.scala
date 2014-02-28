@@ -32,6 +32,7 @@ import java.util.Map.Entry
 import scala.collection.mutable
 import kafka.consumer.ConsumerConfig
 import org.apache.samza.util.ThreadNamePrefix.SAMZA_THREAD_NAME_PREFIX
+import org.apache.samza.util.ExponentialThreadSleepStrategy
 
 /**
  *  Companion object for class JvmMetrics encapsulating various constants
@@ -123,6 +124,8 @@ class BrokerProxy(
 
   val thread: Thread = new Thread(new Runnable() {
     def run() {
+      info("Initialising sleep strategy");
+      val sleepStrategy = new ExponentialThreadSleepStrategy
       info("Starting thread for BrokerProxy")
 
       while (!Thread.currentThread.isInterrupted) {
@@ -144,6 +147,7 @@ class BrokerProxy(
               warn("Recreating simple consumer and retrying connection")
               warn("Stack trace for fetchMessages exception.", e)
               simpleConsumer.close()
+              sleepStrategy.sleep()
               simpleConsumer = createSimpleConsumer()
               metrics.reconnects(host, port).inc
             }
