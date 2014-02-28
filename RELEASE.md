@@ -9,7 +9,7 @@ Auto-generate all missing headers in files:
 To release to a local Maven repository:
 
     ./gradlew clean publishToMavenLocal
-    ./gradlew -PscalaVersion=2.8.1 clean publishToMavenLocal
+    ./gradlew -PscalaVersion=2.9.2 clean publishToMavenLocal
 
 To generate test coverage reports:
 
