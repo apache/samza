@@ -139,7 +139,7 @@ class TaskInstance(
 
             metrics.addOffsetGauge(systemStream, () => offsets(systemStream))
           } else {
-            info("Got offset %s for %s, but ignoring, since stream was configured to reset offsets." format (offset, systemStream))
+            info("Got offset %s for %s and partition %s, but ignoring, since stream was configured to reset offsets." format (offset, systemStream, partition))
           }
         }
 

@@ -98,7 +98,7 @@ class BrokerProxy(
         .get
         .toLong
     } else {
-      warn("It appears that we received an invalid offset for %s. Attempting to use Kafka's auto.offset.reset setting. This will result in data loss if processing continues." format tp)
+      warn("It appears that we received an invalid or empty offset %s for %s. Attempting to use Kafka's auto.offset.reset setting. This can result in data loss if processing continues." format (nextOffset, tp))
 
       offsetGetter.getResetOffset(simpleConsumer, tp)
     }
