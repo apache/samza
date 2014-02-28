@@ -52,7 +52,7 @@ class TestSamzaContainer {
       new SystemStreamPartition("test", "stream2", new Partition(0)),
       new SystemStreamPartition("test", "stream2", new Partition(1)))
     val systemAdmins = Map("test" -> new SinglePartitionWithoutOffsetsSystemAdmin)
-    val metadata = SamzaContainer.getInputStreamMetadata(inputStreams, systemAdmins)
+    val metadata = SamzaContainer.getStreamMetadata(inputStreams.map(_.getSystemStream).toSet, systemAdmins)
     assertNotNull(metadata)
     assertEquals(2, metadata.size)
     val stream1Metadata = metadata(new SystemStream("test", "stream1"))

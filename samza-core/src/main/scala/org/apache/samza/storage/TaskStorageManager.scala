@@ -27,8 +27,8 @@ import org.apache.samza.system.SystemConsumer
 import org.apache.samza.system.SystemStream
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.SystemStreamPartitionIterator
-import org.apache.samza.task.MessageCollector
 import org.apache.samza.util.Util
+import org.apache.samza.SamzaException
 
 object TaskStorageManager {
   def getStoreDir(storeBaseDir: File, storeName: String) = {
@@ -48,14 +48,17 @@ class TaskStorageManager(
   taskStores: Map[String, StorageEngine] = Map(),
   storeConsumers: Map[String, SystemConsumer] = Map(),
   changeLogSystemStreams: Map[String, SystemStream] = Map(),
+  changeLogOldestOffsets: Map[SystemStream, String] = Map(),
   storeBaseDir: File = new File(System.getProperty("user.dir"), "state")) extends Logging {
+
+  var taskStoresToRestore = taskStores
 
   def apply(storageEngineName: String) = taskStores(storageEngineName)
 
-  def init(collector: MessageCollector) {
+  def init {
     cleanBaseDirs
     startConsumers
-    restoreStores(collector)
+    restoreStores
     stopConsumers
   }
 
@@ -78,19 +81,26 @@ class TaskStorageManager(
     for ((storeName, systemStream) <- changeLogSystemStreams) {
       val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
       val consumer = storeConsumers(storeName)
+      val offset = changeLogOldestOffsets.getOrElse(systemStream, throw new SamzaException("Missing a change log offset for %s." format systemStreamPartition))
 
-      debug("Registering consumer for system stream partition %s." format systemStreamPartition)
+      if (offset != null) {
+        info("Registering change log consumer with offset %s for %s." format (offset, systemStreamPartition))
 
-      consumer.register(systemStreamPartition, null)
+        consumer.register(systemStreamPartition, offset)
+      } else {
+        info("Skipping change log restoration for %s because stream appears to be empty (offset was null)." format systemStreamPartition)
+
+        taskStoresToRestore -= storeName
+      }
     }
 
     storeConsumers.values.foreach(_.start)
   }
 
-  private def restoreStores(collector: MessageCollector) {
+  private def restoreStores {
     debug("Restoring stores.")
 
-    for ((storeName, store) <- taskStores) {
+    for ((storeName, store) <- taskStoresToRestore) {
       if (changeLogSystemStreams.contains(storeName)) {
         val systemStream = changeLogSystemStreams(storeName)
         val systemStreamPartition = new SystemStreamPartition(systemStream, partition)

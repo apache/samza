@@ -127,7 +127,7 @@ object SamzaContainer extends Logging {
 
     info("Got system factories: %s" format systemFactories.keys)
 
-    val inputStreamMetadata = getInputStreamMetadata(inputStreams, systemAdmins)
+    val inputStreamMetadata = getStreamMetadata(inputStreams.map(_.getSystemStream), systemAdmins)
 
     info("Got input stream metadata: %s" format inputStreamMetadata)
 
@@ -228,6 +228,10 @@ object SamzaContainer extends Logging {
       .mapValues(Util.getSystemStreamFromNames(_))
 
     info("Got change log system streams: %s" format changeLogSystemStreams)
+
+    val changeLogMetadata = getStreamMetadata(changeLogSystemStreams.values.toSet, systemAdmins)
+
+    info("Got change log stream metadata: %s" format changeLogMetadata)
 
     val serdeManager = new SerdeManager(
       serdes = serdes,
@@ -393,11 +397,16 @@ object SamzaContainer extends Logging {
 
       info("Got task stores: %s" format taskStores)
 
+      val changeLogOldestOffsets = getChangeLogOldestOffsetsForPartition(partition, changeLogMetadata)
+
+      info("Assigning oldest change log offsets for partition %s: %s" format (partition, changeLogOldestOffsets))
+
       val storageManager = new TaskStorageManager(
         partition = partition,
         taskStores = taskStores,
         storeConsumers = storeConsumers,
         changeLogSystemStreams = changeLogSystemStreams,
+        changeLogOldestOffsets = changeLogOldestOffsets,
         storeBaseDir = storeBaseDir)
 
       val inputStreamsForThisPartition = inputStreams.filter(_.getPartition.equals(partition)).map(_.getSystemStream)
@@ -438,13 +447,11 @@ object SamzaContainer extends Logging {
   }
 
   /**
-   * Builds a map from SystemStream to SystemStreamMetadata for all input
-   * streams using SystemAdmins to fetch metadata.
+   * Builds a map from SystemStream to SystemStreamMetadata for all streams
+   * using SystemAdmins to fetch metadata.
    */
-  def getInputStreamMetadata(inputStreams: Set[SystemStreamPartition], systemAdmins: Map[String, SystemAdmin]): Map[SystemStream, SystemStreamMetadata] = {
-    inputStreams
-      .map(_.getSystemStream)
-      .toSet
+  def getStreamMetadata(streams: Set[SystemStream], systemAdmins: Map[String, SystemAdmin]): Map[SystemStream, SystemStreamMetadata] = {
+    streams
       .groupBy[String](_.getSystem)
       .flatMap {
         case (systemName, systemStreams) =>
@@ -456,6 +463,16 @@ object SamzaContainer extends Logging {
             }
       }
       .toMap
+  }
+
+  /**
+   * Builds a map from SystemStreamPartition to oldest offset for changelogs.
+   */
+  def getChangeLogOldestOffsetsForPartition(partition: Partition, inputStreamMetadata: Map[SystemStream, SystemStreamMetadata]): Map[SystemStream, String] = {
+    inputStreamMetadata
+      .mapValues(_.getSystemStreamPartitionMetadata.get(partition))
+      .filter(_._2 != null)
+      .mapValues(_.getOldestOffset)
   }
 }
 

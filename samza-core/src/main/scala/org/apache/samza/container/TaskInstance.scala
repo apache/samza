@@ -100,7 +100,7 @@ class TaskInstance(
     if (storageManager != null) {
       debug("Starting storage manager for partition: %s." format partition)
 
-      storageManager.init(collector)
+      storageManager.init
     } else {
       debug("Skipping storage manager initialization for partition: %s." format partition)
     }

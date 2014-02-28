@@ -108,7 +108,8 @@ public class SystemStreamMetadata {
      *         partition given. If a partition has two messages with offsets 0
      *         and 1, respectively, then this method would return 0 for the
      *         oldest offset. This offset is useful when one wishes to read all
-     *         messages in a stream from the very beginning.
+     *         messages in a stream from the very beginning. A null value means
+     *         the stream is empty.
      */
     public String getOldestOffset() {
       return oldestOffset;
@@ -120,7 +121,7 @@ public class SystemStreamMetadata {
      *         respectively, then this method would return 1 for the newest
      *         offset. This offset is useful when one wishes to see if all
      *         messages have been read from a stream (offset of last message
-     *         read == newest offset).
+     *         read == newest offset). A null value means the stream is empty.
      */
     public String getNewestOffset() {
       return newestOffset;
@@ -131,7 +132,8 @@ public class SystemStreamMetadata {
      *         stream for the partition given. If a partition has two messages
      *         with offsets 0 and 1, respectively, then this method would return
      *         2 for the upcoming offset. This offset is useful when one wishes
-     *         to pick up reading at the very end of a stream.
+     *         to pick up reading at the very end of a stream. A null value
+     *         means the stream is empty.
      */
     public String getUpcomingOffset() {
       return upcomingOffset;

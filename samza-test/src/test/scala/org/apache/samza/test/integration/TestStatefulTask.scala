@@ -214,7 +214,7 @@ class TestStatefulTask {
     "stores.mystore.changelog" -> "kafka.mystore",
     "systems.kafka.samza.factory" -> "org.apache.samza.system.kafka.KafkaSystemFactory",
     "systems.kafka.consumer.zookeeper.connect" -> zkConnect,
-    "systems.kafka.consumer.auto.offset.reset" -> "smallest",
+    "systems.kafka.consumer.auto.offset.reset" -> "largest",
     "systems.kafka.producer.metadata.broker.list" -> ("localhost:%s" format port1),
     "systems.kafka.samza.msg.serde" -> "string")
 
@@ -254,25 +254,11 @@ class TestStatefulTask {
   def testShouldRestoreStore {
     val (job, task) = startJob
 
-    // Validate that restored is empty.
+    // Validate that restored has expected data.
     assertEquals(3, task.restored.size)
     assertTrue(task.restored.contains("1"))
     assertTrue(task.restored.contains("2"))
     assertTrue(task.restored.contains("3"))
-
-    var count = 0
-
-    // We should get the original four messages in the stream (1,2,3,2).
-    // Note that this will trigger four new outgoing messages to the STATE_TOPIC.
-    while (task.received.size < 4 && count < 100) {
-      Thread.sleep(600)
-      count += 1
-    }
-
-    assertTrue(count < 100)
-
-    // Reset the count down latch after the 4 messages come in.
-    task.awaitMessage
 
     // Send some messages to input stream.
     send(task, "4")
@@ -280,24 +266,18 @@ class TestStatefulTask {
     send(task, "5")
 
     // Validate that messages appear in store stream.
-    val messages = readAll(STATE_TOPIC, 10, "testShouldRestoreStore")
+    val messages = readAll(STATE_TOPIC, 6, "testShouldRestoreStore")
 
-    assertEquals(11, messages.length)
+    assertEquals(7, messages.length)
     // From initial start.
     assertEquals("1", messages(0))
     assertEquals("2", messages(1))
     assertEquals("3", messages(2))
     assertEquals("2", messages(3))
-    // From second start, since we're we have no checkpoint manager defined, 
-    // and are starting back at offset 0 for input stream, again.
-    assertEquals("1", messages(4))
-    assertEquals("2", messages(5))
-    assertEquals("3", messages(6))
-    assertEquals("2", messages(7))
     // From sending in this method.
-    assertEquals("4", messages(8))
-    assertEquals("5", messages(9))
-    assertEquals("5", messages(10))
+    assertEquals("4", messages(4))
+    assertEquals("5", messages(5))
+    assertEquals("5", messages(6))
 
     stopJob(job)
   }
