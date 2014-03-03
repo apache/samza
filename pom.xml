@@ -53,6 +53,11 @@
       </dependency>
       <dependency>
         <groupId>org.apache.samza</groupId>
+        <artifactId>samza-kv_2.10</artifactId>
+        <version>0.7.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.samza</groupId>
         <artifactId>samza-kafka_2.10</artifactId>
         <version>0.7.0</version>
       </dependency>
