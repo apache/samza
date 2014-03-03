@@ -68,7 +68,7 @@ install_samza() {
     git clone git://git.apache.org/incubator-samza.git
     cd incubator-samza
   fi
-  ./gradlew -PscalaVersion=2.8.1 clean publishToMavenLocal
+  ./gradlew -PscalaVersion=2.10 clean publishToMavenLocal
   popd
 }
 
