@@ -31,12 +31,12 @@
       </dependency>
       <dependency>
         <groupId>org.apache.samza</groupId>
-        <artifactId>samza-core_2.8.1</artifactId>
+        <artifactId>samza-core_2.10</artifactId>
         <version>0.7.0</version>
       </dependency>
       <dependency>
         <groupId>org.apache.samza</groupId>
-        <artifactId>samza-serializers_2.8.1</artifactId>
+        <artifactId>samza-serializers_2.10</artifactId>
         <version>0.7.0</version>
       </dependency>
       <dependency>
@@ -48,17 +48,17 @@
       </dependency>
       <dependency>
         <groupId>org.apache.samza</groupId>
-        <artifactId>samza-yarn_2.8.1</artifactId>
+        <artifactId>samza-yarn_2.10</artifactId>
         <version>0.7.0</version>
       </dependency>
       <dependency>
         <groupId>org.apache.samza</groupId>
-        <artifactId>samza-kafka_2.8.1</artifactId>
+        <artifactId>samza-kafka_2.10</artifactId>
         <version>0.7.0</version>
       </dependency>
       <dependency>
         <groupId>org.apache.kafka</groupId>
-        <artifactId>kafka_2.8.1</artifactId>
+        <artifactId>kafka_2.10</artifactId>
         <version>0.8.1-SNAPSHOT</version>
       </dependency>
       <dependency>
@@ -205,10 +205,10 @@
             </goals>
             <configuration>
               <groupId>org.apache.kafka</groupId>
-              <artifactId>kafka_2.8.1</artifactId>
+              <artifactId>kafka_2.10</artifactId>
               <version>0.8.1-SNAPSHOT</version>
               <packaging>jar</packaging>
-              <file>${basedir}/lib/kafka_2.8.1-0.8.1-SNAPSHOT.jar</file>
+              <file>${basedir}/lib/kafka_2.10-0.8.1-SNAPSHOT.jar</file>
             </configuration>
           </execution>
         </executions>

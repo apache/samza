@@ -28,27 +28,27 @@
     </dependency>
     <dependency>
       <groupId>org.apache.samza</groupId>
-      <artifactId>samza-core_2.8.1</artifactId>
+      <artifactId>samza-core_2.10</artifactId>
       <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.samza</groupId>
-      <artifactId>samza-serializers_2.8.1</artifactId>
+      <artifactId>samza-serializers_2.10</artifactId>
       <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.samza</groupId>
-      <artifactId>samza-yarn_2.8.1</artifactId>
+      <artifactId>samza-yarn_2.10</artifactId>
       <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.samza</groupId>
-      <artifactId>samza-kafka_2.8.1</artifactId>
+      <artifactId>samza-kafka_2.10</artifactId>
       <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.kafka</groupId>
-      <artifactId>kafka_2.8.1</artifactId>
+      <artifactId>kafka_2.10</artifactId>
       <scope>runtime</scope>
     </dependency>
     <dependency>
