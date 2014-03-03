@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 # This script will download, setup, start, and stop servers for Kafka, YARN, and ZooKeeper,
 # as well as downloading, building and locally publishing Samza
@@ -170,7 +170,7 @@ stop_yarn() {
 stop_kafka() {
   if [ -f $DEPLOY_ROOT_DIR/$SYSTEM/bin/kafka-server-stop.sh ]; then
     cd $DEPLOY_ROOT_DIR/$SYSTEM
-    bin/kafka-server-stop.sh
+    bin/kafka-server-stop.sh || true # tolerate nonzero exit status if Kafka isn't running
     cd - > /dev/null
   else
     echo 'Kafka is not installed. Run: bin/grid install kafka'
