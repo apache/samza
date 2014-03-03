@@ -23,6 +23,11 @@ Committer, and PMC member<br/>
 <a href="http://www.linkedin.com/pub/sriram-subramanian/3/52a/162" target="_blank"><i class="icon-linkedin committer-icon"></i></a>
 <a href="http://twitter.com/sriramsub1" target="_blank"><i class="icon-twitter committer-icon"></i></a>
 
+**Garry Turkington**<br/>
+Committer, and PMC member<br/>
+<a href="http://uk.linkedin.com/in/garryturkington" target="_blank"><i class="icon-linkedin committer-icon"></i></a>
+<a href="http://twitter.com/garryturk" target="_blank"><i class="icon-twitter committer-icon"></i></a>
+
 ### Mentors
 
 **Chris Douglas**<br/>
