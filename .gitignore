@@ -22,3 +22,4 @@ build
 **/bin
 samza-test/state
 docs/learn/documentation/0.7.0/api/javadocs
+.DS_Store
