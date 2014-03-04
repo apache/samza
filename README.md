@@ -24,7 +24,7 @@ Once the VM is launched and you are back at a command prompt go into the virtual
     vagrant ssh
     cd /vagrant
 
-The wikipedia-feed Samza job that is running is consuming a feed of real-time edits from Wikipedia, and producing them to a Kafka topic called "wikipedia-raw".  You can view this in real-time by by using the Kafka console consumer to view the topic.
+The wikipedia-feed Samza job that is running is consuming a feed of real-time edits from Wikipedia, and producing them to a Kafka topic called "wikipedia-raw".  You can view this in real-time by using the Kafka console consumer to view the topic.
 
     deploy/kafka/bin/kafka-console-consumer.sh --zookeeper localhost:2181 --topic wikipedia-raw
 
