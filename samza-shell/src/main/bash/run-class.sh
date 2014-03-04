@@ -33,6 +33,7 @@ if [ ! -d "$base_dir/lib" ]; then
   exit 1
 fi
 
+YARN_HOME="${YARN_HOME:-$HOME/.samza}"
 CLASSPATH=$YARN_HOME/conf
 
 for file in $base_dir/lib/*.[jw]ar;
