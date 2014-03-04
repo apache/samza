@@ -27,7 +27,7 @@ echo $'export JAVA_HOME=/usr\nexport PATH=/opt/apache/apache-maven-3.1.1/bin:$PA
 . /etc/profile.d/vagrant_samza.sh
 
 cd /tmp
-wget http://apache.spinellicreations.com/maven/maven-3/3.1.1/binaries/apache-maven-3.1.1-bin.tar.gz
+wget http://www.apache.org/dist/maven/binaries/apache-maven-3.1.1-bin.tar.gz
 mkdir -p /opt/apache
 cd /opt/apache/
 tar -xf /tmp/apache-maven-3.1.1-bin.tar.gz
