@@ -91,7 +91,11 @@ class KeyValueStorageEngine[K, V](
         batch.clear()
       }
 
-      metrics.restoredBytes.inc(keyBytes.size + valBytes.size)
+      if (valBytes != null) {
+        metrics.restoredBytes.inc(valBytes.size)
+      }
+
+      metrics.restoredBytes.inc(keyBytes.size)
       metrics.restoredMessages.inc
       count += 1
 

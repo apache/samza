@@ -169,7 +169,7 @@ private[kafka] class KafkaSystemConsumer(
       } else {
         null
       }
-      val message = if (msg.message.buffer != null) {
+      val message = if (!msg.message.isNull) {
         deserializer.fromBytes(Utils.readBytes(msg.message.payload))
       } else {
         null

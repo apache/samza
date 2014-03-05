@@ -250,15 +250,19 @@ class TestStatefulTask {
     send(task, "2")
     send(task, "3")
     send(task, "2")
+    send(task, "99")
+    send(task, "-99")
 
     // Validate that messages appear in store stream.
-    val messages = readAll(STATE_TOPIC, 3, "testShouldStartTaskForFirstTime")
+    val messages = readAll(STATE_TOPIC, 5, "testShouldStartTaskForFirstTime")
 
-    assertEquals(4, messages.length)
+    assertEquals(6, messages.length)
     assertEquals("1", messages(0))
     assertEquals("2", messages(1))
     assertEquals("3", messages(2))
     assertEquals("2", messages(3))
+    assertEquals("99", messages(4))
+    assertEquals(null, messages(5))
 
     stopJob(job)
   }
@@ -292,23 +296,27 @@ class TestStatefulTask {
     send(task, "5")
 
     // Validate that messages appear in store stream.
-    val messages = readAll(STATE_TOPIC, 10, "testShouldRestoreStore")
+    val messages = readAll(STATE_TOPIC, 14, "testShouldRestoreStore")
 
-    assertEquals(11, messages.length)
+    assertEquals(15, messages.length)
     // From initial start.
     assertEquals("1", messages(0))
     assertEquals("2", messages(1))
     assertEquals("3", messages(2))
     assertEquals("2", messages(3))
+    assertEquals("99", messages(4))
+    assertEquals(null, messages(5))
     // From second startup.
-    assertEquals("1", messages(4))
-    assertEquals("2", messages(5))
-    assertEquals("3", messages(6))
+    assertEquals("1", messages(6))
     assertEquals("2", messages(7))
+    assertEquals("3", messages(8))
+    assertEquals("2", messages(9))
+    assertEquals("99", messages(10))
+    assertEquals(null, messages(11))
     // From sending in this method.
-    assertEquals("4", messages(8))
-    assertEquals("5", messages(9))
-    assertEquals("5", messages(10))
+    assertEquals("4", messages(12))
+    assertEquals("5", messages(13))
+    assertEquals("5", messages(14))
 
     stopJob(job)
   }
@@ -376,7 +384,11 @@ class TestStatefulTask {
 
     while (message == null || message.offset < maxOffsetInclusive) {
       message = stream.next
-      messages += new String(message.message, "UTF-8")
+      if (message.message == null) {
+        messages += null
+      } else {
+        messages += new String(message.message, "UTF-8")
+      }
       System.err.println("TestStatefulTask.readAll(): offset=%s, message=%s" format (message.offset, messages.last))
     }
 
@@ -436,7 +448,14 @@ class TestTask extends StreamTask with InitableTask {
     System.err.println("TestTask.process(): %s" format msg)
 
     received += msg
-    store.put(msg, msg)
+
+    // A negative string means delete
+    if (msg.startsWith("-")) {
+      store.delete(msg.substring(1))
+    } else {
+      store.put(msg, msg)
+    }
+
     coordinator.commit
 
     // Notify sender that we got a message.
