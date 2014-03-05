@@ -35,7 +35,8 @@ class TestJmxServer extends Logging {
     try {
       jmxServer = new JmxServer
 
-      println("Got jmxServer on port " + jmxServer.getPort)
+      println("JmxServer = %s" format jmxServer)
+      println("Got jmxServer on port " + jmxServer.getRegistryPort)
 
       val jmxURL = new JMXServiceURL(jmxServer.getJmxUrl)
       var jmxConnector:JMXConnector = null

@@ -39,10 +39,12 @@ import org.apache.samza.config.Config
  * @param requestedPort Port on which to start JMX server, 0 for ephemeral
  */
 class JmxServer(requestedPort: Int) extends Logging {
+  val hostname = InetAddress.getLocalHost.getHostName
+
   def this() = this(0)
 
   // Instance construction
-  val (jmxServer, url, actualPort) = {
+  val (jmxServer, url, registryPort, serverPort) = {
     // An RMIServerSocketFactory that will tell what port it opened up.  Imagine that.
     class UpfrontRMIServerSocketFactory extends RMIServerSocketFactory {
       var lastSS: ServerSocket = null
@@ -68,7 +70,6 @@ class JmxServer(requestedPort: Int) extends Logging {
         "This behavior is not well defined and our values will collide with any set on command line.")
     }
 
-    val hostname = InetAddress.getLocalHost.getHostName
     info("According to InetAddress.getLocalHost.getHostName we are " + hostname)
     updateSystemProperty("com.sun.management.jmxremote.authenticate", "false")
     updateSystemProperty("com.sun.management.jmxremote.ssl", "false")
@@ -76,23 +77,31 @@ class JmxServer(requestedPort: Int) extends Logging {
 
     val ssFactory = new UpfrontRMIServerSocketFactory
     LocateRegistry.createRegistry(requestedPort, null, ssFactory)
-    val actualPort = ssFactory.lastSS.getLocalPort
+    val registryPort = ssFactory.lastSS.getLocalPort
+    val serverPort = registryPort + 1 // In comparison to the registry port. Tiny chance of collision.  Sigh.
     val mbs = ManagementFactory.getPlatformMBeanServer
     val env = new util.HashMap[String, Object]()
-    val url = new JMXServiceURL("service:jmx:rmi:///jndi/rmi://" + hostname + ":" + actualPort + "/jmxrmi")
+    val url = new JMXServiceURL("service:jmx:rmi://localhost:" + serverPort + "/jndi/rmi://localhost:" + registryPort + "/jmxrmi")
     val jmxServer = JMXConnectorServerFactory.newJMXConnectorServer(url, env, mbs)
 
-    (jmxServer, url.toString, actualPort)
+    (jmxServer, url.toString, registryPort, serverPort)
   }
 
   jmxServer.start
   info("Started " + toString)
+  info("If you are tunneling, you might want to try " + toString.replaceAll("localhost", hostname))
 
   /**
-   * Get RMI port the JMX server is listening on.
+   * Get RMI registry port
    * @return RMI port
    */
-  def getPort = actualPort
+  def getRegistryPort = registryPort
+
+  /**
+   * Get JMX server port
+   */
+  def getServerPort = serverPort
+
 
   /**
    * Get Jmx URL for this server
@@ -105,6 +114,5 @@ class JmxServer(requestedPort: Int) extends Logging {
    */
   def stop = jmxServer.stop
 
-  override def toString = "JmxServer port=%d url=%s" format (getPort, getJmxUrl)
+  override def toString = "JmxServer registry port=%d server port=%d url=%s" format (getRegistryPort, getServerPort, getJmxUrl)
 }
-
