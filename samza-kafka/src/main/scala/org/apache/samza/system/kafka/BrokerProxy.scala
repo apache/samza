@@ -32,7 +32,7 @@ import java.util.Map.Entry
 import scala.collection.mutable
 import kafka.consumer.ConsumerConfig
 import org.apache.samza.util.ThreadNamePrefix.SAMZA_THREAD_NAME_PREFIX
-import org.apache.samza.util.ExponentialThreadSleepStrategy
+import org.apache.samza.util.ExponentialSleepStrategy
 
 /**
  *  Companion object for class JvmMetrics encapsulating various constants
@@ -125,7 +125,7 @@ class BrokerProxy(
   val thread: Thread = new Thread(new Runnable() {
     def run() {
       info("Initialising sleep strategy");
-      val sleepStrategy = new ExponentialThreadSleepStrategy
+      val sleepStrategy = new ExponentialSleepStrategy
       info("Starting thread for BrokerProxy")
 
       while (!Thread.currentThread.isInterrupted) {

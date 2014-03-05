@@ -25,6 +25,7 @@ import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemStreamMetadata
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.ClientUtilTopicMetadataStore
+import org.apache.samza.util.ExponentialSleepStrategy
 import kafka.api._
 import kafka.consumer.SimpleConsumer
 import kafka.utils.Utils
@@ -122,6 +123,7 @@ class KafkaSystemAdmin(
     var upcomingOffsets = Map[SystemStreamPartition, String]()
     var done = false
     var consumer: SimpleConsumer = null
+    val retryBackoff = new ExponentialSleepStrategy(initialDelayMs = 500)
 
     debug("Fetching offsets for: %s" format streams)
 
@@ -176,6 +178,7 @@ class KafkaSystemAdmin(
           // Retry.
           warn("Unable to fetch last offsets for streams due to: %s, %s. Retrying. Turn on debugging to get a full stack trace." format (e.getMessage, streams))
           debug(e)
+          retryBackoff.sleep
       }
     }
 
