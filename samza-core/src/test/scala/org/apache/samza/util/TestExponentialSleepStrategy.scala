@@ -23,7 +23,6 @@ package org.apache.samza.util
 
 import org.junit.Assert._
 import org.junit.Test
-import org.apache.samza.util.ExponentialSleepStrategy
 
 class TestExponentialSleepStrategy {
 

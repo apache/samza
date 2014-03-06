@@ -109,6 +109,9 @@ class KafkaSystemAdmin(
 
   import KafkaSystemAdmin._
 
+  def getSystemStreamMetadata(streams: java.util.Set[String]) =
+    getSystemStreamMetadata(streams, new ExponentialSleepStrategy(initialDelayMs = 500))
+
   /**
    * Given a set of stream names (topics), fetch metadata from Kafka for each
    * stream, and return a map from stream name to SystemStreamMetadata for
@@ -116,14 +119,13 @@ class KafkaSystemAdmin(
    * if a given SystemStreamPartition is empty. This method will block and
    * retry indefinitely until it gets a successful response from Kafka.
    */
-  def getSystemStreamMetadata(streams: java.util.Set[String]) = {
+  def getSystemStreamMetadata(streams: java.util.Set[String], retryBackoff: ExponentialSleepStrategy) = {
     var partitions = Map[String, Set[Partition]]()
     var oldestOffsets = Map[SystemStreamPartition, String]()
     var newestOffsets = Map[SystemStreamPartition, String]()
     var upcomingOffsets = Map[SystemStreamPartition, String]()
     var done = false
     var consumer: SimpleConsumer = null
-    val retryBackoff = new ExponentialSleepStrategy(initialDelayMs = 500)
 
     debug("Fetching offsets for: %s" format streams)
 
@@ -189,7 +191,7 @@ class KafkaSystemAdmin(
    * Helper method to use topic metadata cache when fetching metadata, so we
    * don't hammer Kafka more than we need to.
    */
-  private def getTopicMetadata(topics: Set[String]) = {
+  protected def getTopicMetadata(topics: Set[String]) = {
     new ClientUtilTopicMetadataStore(brokerListString, clientId)
       .getTopicInfo(topics)
   }
@@ -202,17 +204,21 @@ class KafkaSystemAdmin(
     val brokersToTopicPartitions = metadata
       .values
       // Convert the topic metadata to a Seq[(Broker, TopicAndPartition)] 
-      .flatMap(topicMetadata => topicMetadata
-        .partitionsMetadata
-        // Convert Seq[PartitionMetadata] to Seq[(Broker, TopicAndPartition)]
-        .map(partitionMetadata => {
-          ErrorMapping.maybeThrowException(partitionMetadata.errorCode)
-          val topicAndPartition = new TopicAndPartition(topicMetadata.topic, partitionMetadata.partitionId)
-          val leader = partitionMetadata
-            .leader
-            .getOrElse(throw new SamzaException("Need leaders for all partitions when fetching offsets. No leader available for TopicAndPartition: %s" format topicAndPartition))
-          (leader, topicAndPartition)
-        }))
+      .flatMap(topicMetadata => {
+        ErrorMapping.maybeThrowException(topicMetadata.errorCode)
+        topicMetadata
+          .partitionsMetadata
+          // Convert Seq[PartitionMetadata] to Seq[(Broker, TopicAndPartition)]
+          .map(partitionMetadata => {
+            ErrorMapping.maybeThrowException(partitionMetadata.errorCode)
+            val topicAndPartition = new TopicAndPartition(topicMetadata.topic, partitionMetadata.partitionId)
+            val leader = partitionMetadata
+              .leader
+              .getOrElse(throw new SamzaException("Need leaders for all partitions when fetching offsets. No leader available for TopicAndPartition: %s" format topicAndPartition))
+            (leader, topicAndPartition)
+          })
+      })
+
       // Convert to a Map[Broker, Seq[(Broker, TopicAndPartition)]]
       .groupBy(_._1)
       // Convert to a Map[Broker, Set[TopicAndPartition]]

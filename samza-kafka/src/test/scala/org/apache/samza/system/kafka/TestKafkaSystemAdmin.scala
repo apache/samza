@@ -46,7 +46,9 @@ import kafka.consumer.Consumer
 import kafka.consumer.ConsumerConfig
 import java.util.Properties
 import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.system.SystemStreamMetadata
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.apache.samza.util.ExponentialSleepStrategy
 
 object TestKafkaSystemAdmin {
   val TOPIC = "input"
@@ -205,10 +207,6 @@ class TestKafkaSystemAdmin {
     val systemName = "test"
     val systemAdmin = new KafkaSystemAdmin(systemName, brokers)
 
-    // Get a non-existent topic.
-    val initialInputOffsets = systemAdmin.getSystemStreamMetadata(Set("foo"))
-    assertEquals(0, initialInputOffsets.size)
-
     // Create an empty topic with 50 partitions, but with no offsets.
     createTopic
     validateTopic(50)
@@ -268,5 +266,49 @@ class TestKafkaSystemAdmin {
     text = new String(message.message, "UTF-8")
     assertEquals(sspMetadata.get(new Partition(48)).getNewestOffset, message.offset.toString)
     assertEquals("val2", text)
+  }
+
+  @Test
+  def testNonExistentTopic {
+    val systemAdmin = new KafkaSystemAdmin("test", brokers)
+    val initialOffsets = systemAdmin.getSystemStreamMetadata(Set("non-existent-topic"))
+    val metadata = initialOffsets.getOrElse("non-existent-topic", fail("missing metadata"))
+    assertEquals(metadata, new SystemStreamMetadata("non-existent-topic", Map(
+      new Partition(0) -> new SystemStreamPartitionMetadata(null, null, "0")
+    )))
+  }
+
+  class KafkaSystemAdminWithTopicMetadataError extends KafkaSystemAdmin("test", brokers) {
+    import kafka.api.{TopicMetadata, TopicMetadataResponse}
+
+    // Simulate Kafka telling us that the leader for the topic is not available
+    override def getTopicMetadata(topics: Set[String]) = {
+      val topicMetadata = TopicMetadata(topic = "quux", partitionsMetadata = Seq(), errorCode = ErrorMapping.LeaderNotAvailableCode)
+      Map("quux" -> topicMetadata)
+    }
+  }
+
+  class CallLimitReached extends Exception
+
+  class MockSleepStrategy(maxCalls: Int) extends ExponentialSleepStrategy {
+    var countCalls = 0
+  
+    override def sleep() = {
+      if (countCalls >= maxCalls) throw new CallLimitReached
+      countCalls += 1
+    }
+  }
+
+  @Test
+  def testShouldRetryOnTopicMetadataError {
+    val systemAdmin = new KafkaSystemAdminWithTopicMetadataError
+    val retryBackoff = new MockSleepStrategy(maxCalls = 3)
+    try {
+      systemAdmin.getSystemStreamMetadata(Set("quux"), retryBackoff)
+    } catch {
+      case e: CallLimitReached => () // this would be less ugly if we were using scalatest
+      case e: Throwable => throw e
+    }
+    assertEquals(retryBackoff.countCalls, 3)
   }
 }
