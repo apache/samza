@@ -26,6 +26,7 @@ import org.apache.samza.config.KafkaConfig.Config2Kafka
 import org.apache.samza.SamzaException
 import kafka.producer.Producer
 import org.apache.samza.system.SystemFactory
+import org.apache.samza.util.ExponentialSleepStrategy
 
 class KafkaSystemFactory extends SystemFactory {
   def getConsumer(systemName: String, config: Config, registry: MetricsRegistry) = {
@@ -69,7 +70,7 @@ class KafkaSystemFactory extends SystemFactory {
     val batchSize = Option(producerConfig.batchNumMessages)
       .getOrElse(1000)
     val reconnectIntervalMs = Option(producerConfig.retryBackoffMs)
-      .getOrElse(10000)
+      .getOrElse(1000)
     val getProducer = () => { new Producer[Object, Object](producerConfig) }
     val metrics = new KafkaSystemProducerMetrics(systemName, registry)
 
@@ -80,7 +81,7 @@ class KafkaSystemFactory extends SystemFactory {
     new KafkaSystemProducer(
       systemName,
       batchSize,
-      reconnectIntervalMs,
+      new ExponentialSleepStrategy(initialDelayMs = reconnectIntervalMs),
       getProducer,
       metrics)
   }

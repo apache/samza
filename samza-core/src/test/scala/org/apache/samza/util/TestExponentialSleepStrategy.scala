@@ -23,34 +23,143 @@ package org.apache.samza.util
 
 import org.junit.Assert._
 import org.junit.Test
+import org.apache.samza.util.ExponentialSleepStrategy.RetryLoop
 
 class TestExponentialSleepStrategy {
 
-  @Test def testGetNextDelayReturnsIncrementalDelay() = {
-    val st = new ExponentialSleepStrategy
-    var nextDelay = st.getNextDelay(0L)
-    assertEquals(nextDelay, 100L)
-    nextDelay = st.getNextDelay(nextDelay)
-    assertEquals(nextDelay, 200L)
-    nextDelay = st.getNextDelay(nextDelay)
-    assertEquals(nextDelay, 400L)
+  @Test def testGetNextDelayReturnsIncrementalDelay {
+    val strategy = new ExponentialSleepStrategy
+    assertEquals(100, strategy.getNextDelay(0))
+    assertEquals(200, strategy.getNextDelay(100))
+    assertEquals(400, strategy.getNextDelay(200))
+    assertEquals(800, strategy.getNextDelay(400))
   }
 
-  @Test def testGetNextDelayReturnsMaximumDelayWhenDelayCapReached() = {
-    val st = new ExponentialSleepStrategy
-    var nextDelay = st.getNextDelay(6400L)
-    assertEquals(nextDelay, 10000L)
-    nextDelay = st.getNextDelay(nextDelay)
-    assertEquals(nextDelay, 10000L)
+  @Test def testGetNextDelayReturnsMaximumDelayWhenDelayCapReached {
+    val strategy = new ExponentialSleepStrategy
+    assertEquals(10000, strategy.getNextDelay(6400))
+    assertEquals(10000, strategy.getNextDelay(10000))
   }
 
-  @Test def testSleepStrategyIsConfigurable() = {
-    val st = new ExponentialSleepStrategy(backOffMultiplier = 3.0, initialDelayMs = 10)
-    var nextDelay = st.getNextDelay(0L)
-    assertEquals(nextDelay, 10L)
-    nextDelay = st.getNextDelay(nextDelay)
-    assertEquals(nextDelay, 30L)
-    nextDelay = st.getNextDelay(nextDelay)
-    assertEquals(nextDelay, 90L)
+  @Test def testSleepStrategyIsConfigurable {
+    val strategy = new ExponentialSleepStrategy(backOffMultiplier = 3.0, initialDelayMs = 10)
+    assertEquals(10, strategy.getNextDelay(0))
+    assertEquals(30, strategy.getNextDelay(10))
+    assertEquals(90, strategy.getNextDelay(30))
+    assertEquals(270, strategy.getNextDelay(90))
+  }
+
+  @Test def testResetToInitialDelay {
+    val strategy = new ExponentialSleepStrategy
+    val loop = strategy.startLoop.asInstanceOf[ExponentialSleepStrategy#RetryLoopState]
+    loop.previousDelay = strategy.getNextDelay(loop.previousDelay)
+    assertEquals(100, loop.previousDelay)
+    loop.previousDelay = strategy.getNextDelay(loop.previousDelay)
+    loop.previousDelay = strategy.getNextDelay(loop.previousDelay)
+    assertEquals(400, loop.previousDelay)
+    loop.reset
+    loop.previousDelay = strategy.getNextDelay(loop.previousDelay)
+    assertEquals(100, loop.previousDelay)
+  }
+
+  @Test def testRetryWithoutException {
+    val strategy = new ExponentialSleepStrategy(initialDelayMs = 1)
+    var iterations = 0
+    var loopObject: RetryLoop = null
+    val result = strategy.run(
+      loop => {
+        loopObject = loop
+        iterations += 1
+        if (iterations == 3) loop.done
+        iterations
+      },
+      (exception, loop) => throw exception
+    )
+    assertEquals(Some(3), result)
+    assertEquals(3, iterations)
+    assertEquals(2, loopObject.sleepCount)
+  }
+
+  @Test def testRetryWithException {
+    val strategy = new ExponentialSleepStrategy(initialDelayMs = 1)
+    var iterations = 0
+    var loopObject: RetryLoop = null
+    strategy.run(
+      loop => { throw new IllegalArgumentException("boom") },
+      (exception, loop) => {
+        assertEquals("boom", exception.getMessage)
+        loopObject = loop
+        iterations += 1
+        if (iterations == 3) loop.done
+      }
+    )
+    assertEquals(3, iterations)
+    assertEquals(2, loopObject.sleepCount)
+  }
+
+  @Test def testReThrowingException {
+    val strategy = new ExponentialSleepStrategy(initialDelayMs = 1)
+    var iterations = 0
+    var loopObject: RetryLoop = null
+    try {
+      strategy.run(
+        loop => {
+          loopObject = loop
+          iterations += 1
+          throw new IllegalArgumentException("boom")
+        },
+        (exception, loop) => throw exception
+      )
+      fail("expected exception to be thrown")
+    } catch {
+      case e: IllegalArgumentException => assertEquals("boom", e.getMessage)
+      case e: Throwable => throw e
+    }
+    assertEquals(1, iterations)
+    assertEquals(0, loopObject.sleepCount)
+  }
+
+  def interruptedThread(operation: => Unit) = {
+    var exception: Option[Throwable] = None
+    val interruptee = new Thread(new Runnable {
+      def run {
+        try { operation } catch { case e: Throwable => exception = Some(e) }
+      }
+    })
+    interruptee.start
+    Thread.sleep(10) // give the thread a chance to make some progress before we interrupt it
+    interruptee.interrupt
+    interruptee.join
+    exception
+  }
+
+  @Test def testThreadInterruptInRetryLoop {
+    val strategy = new ExponentialSleepStrategy
+    var iterations = 0
+    var loopObject: RetryLoop = null
+    val exception = interruptedThread {
+      strategy.run(
+        loop => { iterations += 1; loopObject = loop },
+        (exception, loop) => throw exception
+      )
+    }
+    assertEquals(1, iterations)
+    assertEquals(1, loopObject.sleepCount)
+    assertEquals(classOf[InterruptedException], exception.get.getClass)
+  }
+
+  @Test def testThreadInterruptInOperationSleep {
+    val strategy = new ExponentialSleepStrategy
+    var iterations = 0
+    var loopObject: RetryLoop = null
+    val exception = interruptedThread {
+      strategy.run(
+        loop => { iterations += 1; loopObject = loop; Thread.sleep(1000) },
+        (exception, loop) => throw exception
+      )
+    }
+    assertEquals(1, iterations)
+    assertEquals(0, loopObject.sleepCount)
+    assertEquals(classOf[InterruptedException], exception.get.getClass)
   }
 }

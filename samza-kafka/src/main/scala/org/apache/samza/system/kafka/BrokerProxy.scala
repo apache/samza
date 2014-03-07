@@ -122,38 +122,39 @@ class BrokerProxy(
     }
   }
 
-  val thread: Thread = new Thread(new Runnable() {
-    def run() {
-      info("Initialising sleep strategy");
-      val sleepStrategy = new ExponentialSleepStrategy
-      info("Starting thread for BrokerProxy")
+  val thread = new Thread(new Runnable {
+    def run {
+      var reconnect = false
+      (new ExponentialSleepStrategy).run(
+        loop => {
+          if (reconnect) {
+            metrics.reconnects(host, port).inc
+            simpleConsumer.close()
+            simpleConsumer = createSimpleConsumer()
+          }
 
-      while (!Thread.currentThread.isInterrupted) {
-        if (nextOffsets.size == 0) {
-          debug("No TopicPartitions to fetch. Sleeping.")
-          Thread.sleep(sleepMSWhileNoTopicPartitions)
-        } else {
-          try {
-            fetchMessages()
-          } catch {
-            // If we're interrupted, don't try and reconnect. We should shut down.
-            case e: InterruptedException =>
-              warn("Shutting down due to interrupt exception.")
-              Thread.currentThread.interrupt
-            case e: ClosedByInterruptException =>
-              warn("Shutting down due to closed by interrupt exception.")
-              Thread.currentThread.interrupt
-            case e: Throwable => {
-              warn("Recreating simple consumer and retrying connection")
-              warn("Stack trace for fetchMessages exception.", e)
-              simpleConsumer.close()
-              sleepStrategy.sleep()
-              simpleConsumer = createSimpleConsumer()
-              metrics.reconnects(host, port).inc
+          while (!Thread.currentThread.isInterrupted) {
+            if (nextOffsets.size == 0) {
+              debug("No TopicPartitions to fetch. Sleeping.")
+              Thread.sleep(sleepMSWhileNoTopicPartitions)
+            } else {
+              fetchMessages
+
+              // If we got here, fetchMessages didn't throw an exception, i.e. it was successful.
+              // In that case, reset the loop delay, so that the next time an error occurs,
+              // we start with a short retry delay.
+              loop.reset
             }
           }
+        },
+
+        (exception, loop) => {
+          warn("Restarting consumer due to %s. Turn on debugging to get a full stack trace." format exception)
+          debug(exception)
+          reconnect = true
         }
-      }
+      )
+      if (Thread.currentThread.isInterrupted) info("Shutting down due to interrupt")
     }
   }, "BrokerProxy thread pointed at %s:%d for client %s" format (host, port, clientID))
 

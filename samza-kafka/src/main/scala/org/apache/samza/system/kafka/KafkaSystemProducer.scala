@@ -30,11 +30,12 @@ import org.apache.samza.config.Config
 import org.apache.samza.util.KafkaUtil
 import org.apache.samza.system.SystemProducer
 import org.apache.samza.system.OutgoingMessageEnvelope
+import org.apache.samza.util.ExponentialSleepStrategy
 
 class KafkaSystemProducer(
   systemName: String,
   batchSize: Int,
-  reconnectIntervalMs: Long,
+  retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
   getProducer: () => Producer[Object, Object],
   metrics: KafkaSystemProducerMetrics) extends SystemProducer with Logging {
 
@@ -74,14 +75,11 @@ class KafkaSystemProducer(
 
   def flush(source: String) {
     val buffer = sourceBuffers(source)
-    var done = false
-
     debug("Flushing buffer with size: %s." format buffer.size)
-
     metrics.flushes.inc
 
-    while (!done) {
-      try {
+    retryBackoff.run(
+      loop => {
         if (producer == null) {
           info("Creating a new producer for system %s." format systemName)
           producer = getProducer()
@@ -89,27 +87,21 @@ class KafkaSystemProducer(
         }
 
         producer.send(buffer: _*)
-        done = true
+        loop.done
         metrics.flushSizes.inc(buffer.size)
-      } catch {
-        case e: Throwable =>
-          warn("Triggering a reconnect for %s because connection failed: %s" format (systemName, e.getMessage))
-          debug("Exception while producing to %s." format systemName, e)
+      },
 
-          metrics.reconnects.inc
+      (exception, loop) => {
+        warn("Triggering a reconnect for %s because connection failed: %s" format (systemName, exception))
+        debug(exception)
+        metrics.reconnects.inc
 
-          if (producer != null) {
-            producer.close
-            producer = null
-          }
-
-          try {
-            Thread.sleep(reconnectIntervalMs)
-          } catch {
-            case e: InterruptedException => None
-          }
+        if (producer != null) {
+          producer.close
+          producer = null
+        }
       }
-    }
+    )
 
     buffer.clear
     debug("Flushed buffer.")

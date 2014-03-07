@@ -132,17 +132,9 @@ class KafkaSystemAdmin(
    * retry indefinitely until it gets a successful response from Kafka.
    */
   def getSystemStreamMetadata(streams: java.util.Set[String], retryBackoff: ExponentialSleepStrategy) = {
-    var partitions = Map[String, Set[Partition]]()
-    var oldestOffsets = Map[SystemStreamPartition, String]()
-    var newestOffsets = Map[SystemStreamPartition, String]()
-    var upcomingOffsets = Map[SystemStreamPartition, String]()
-    var done = false
-    var consumer: SimpleConsumer = null
-
     debug("Fetching system stream metadata for: %s" format streams)
-
-    while (!done) {
-      try {
+    retryBackoff.run(
+      loop => {
         val metadata = TopicMetadataCache.getTopicMetadata(
           streams.toSet,
           systemName,
@@ -151,52 +143,49 @@ class KafkaSystemAdmin(
         debug("Got metadata for streams: %s" format metadata)
 
         val brokersToTopicPartitions = getTopicsAndPartitionsByBroker(metadata)
+        var partitions = Map[String, Set[Partition]]()
+        var oldestOffsets = Map[SystemStreamPartition, String]()
+        var newestOffsets = Map[SystemStreamPartition, String]()
+        var upcomingOffsets = Map[SystemStreamPartition, String]()
 
         // Get oldest, newest, and upcoming offsets for each topic and partition.
         for ((broker, topicsAndPartitions) <- brokersToTopicPartitions) {
           debug("Fetching offsets for %s:%s: %s" format (broker.host, broker.port, topicsAndPartitions))
 
-          consumer = new SimpleConsumer(broker.host, broker.port, timeout, bufferSize, clientId)
-          oldestOffsets ++= getOffsets(consumer, topicsAndPartitions, OffsetRequest.EarliestTime)
-          upcomingOffsets ++= getOffsets(consumer, topicsAndPartitions, OffsetRequest.LatestTime)
-          // Kafka's "latest" offset is always last message in stream's offset + 
-          // 1, so get newest message in stream by subtracting one. this is safe 
-          // even for key-deduplicated streams, since the last message will 
-          // never be deduplicated.
-          newestOffsets = upcomingOffsets.mapValues(offset => (offset.toLong - 1).toString)
-          // Keep only oldest/newest offsets where there is a message. Should 
-          // return null offsets for empty streams.
-          upcomingOffsets.foreach {
-            case (topicAndPartition, offset) =>
-              if (offset.toLong <= 0) {
-                debug("Stripping oldest/newest offsets for %s because the topic appears empty." format topicAndPartition)
-                oldestOffsets -= topicAndPartition
-                newestOffsets -= topicAndPartition
-              }
-          }
-
-          debug("Shutting down consumer for %s:%s." format (broker.host, broker.port))
-
-          consumer.close
-        }
-
-        done = true
-      } catch {
-        case e: InterruptedException =>
-          info("Interrupted while fetching last offsets, so forwarding.")
-          if (consumer != null) {
+          val consumer = new SimpleConsumer(broker.host, broker.port, timeout, bufferSize, clientId)
+          try {
+            oldestOffsets ++= getOffsets(consumer, topicsAndPartitions, OffsetRequest.EarliestTime)
+            upcomingOffsets ++= getOffsets(consumer, topicsAndPartitions, OffsetRequest.LatestTime)
+            // Kafka's "latest" offset is always last message in stream's offset +
+            // 1, so get newest message in stream by subtracting one. this is safe
+            // even for key-deduplicated streams, since the last message will
+            // never be deduplicated.
+            newestOffsets = upcomingOffsets.mapValues(offset => (offset.toLong - 1).toString)
+            // Keep only oldest/newest offsets where there is a message. Should
+            // return null offsets for empty streams.
+            upcomingOffsets.foreach {
+              case (topicAndPartition, offset) =>
+                if (offset.toLong <= 0) {
+                  debug("Stripping oldest/newest offsets for %s because the topic appears empty." format topicAndPartition)
+                  oldestOffsets -= topicAndPartition
+                  newestOffsets -= topicAndPartition
+                }
+            }
+          } finally {
             consumer.close
           }
-          throw e
-        case e: Exception =>
-          // Retry.
-          warn("Unable to fetch last offsets for streams due to: %s, %s. Retrying. Turn on debugging to get a full stack trace." format (e.getMessage, streams))
-          debug(e)
-          retryBackoff.sleep
-      }
-    }
+        }
 
-    assembleMetadata(oldestOffsets, newestOffsets, upcomingOffsets)
+        val result = assembleMetadata(oldestOffsets, newestOffsets, upcomingOffsets)
+        loop.done
+        result
+      },
+
+      (exception, loop) => {
+        warn("Unable to fetch last offsets for streams %s due to %s. Retrying." format (streams, exception))
+        debug(exception)
+      }
+    ).getOrElse(throw new SamzaException("Failed to get system stream metadata"))
   }
 
   /**

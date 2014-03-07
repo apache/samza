@@ -33,6 +33,7 @@ import org.apache.samza.util.BlockingEnvelopeMap
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.IncomingMessageEnvelope
 import kafka.consumer.ConsumerConfig
+import org.apache.samza.util.ExponentialSleepStrategy
 
 object KafkaSystemConsumer {
   def toTopicAndPartition(systemStreamPartition: SystemStreamPartition) = {
@@ -56,11 +57,11 @@ private[kafka] class KafkaSystemConsumer(
   fetchSize:Int = ConsumerConfig.MaxFetchSize,
   consumerMinSize:Int = ConsumerConfig.MinFetchBytes,
   consumerMaxWait:Int = ConsumerConfig.MaxFetchWaitMs,
-  brokerMetadataFailureRefreshMs: Long = 10000,
   fetchThreshold: Int = 0,
   offsetGetter: GetOffset = new GetOffset("fail"),
   deserializer: Decoder[Object] = new DefaultDecoder().asInstanceOf[Decoder[Object]],
   keyDeserializer: Decoder[Object] = new DefaultDecoder().asInstanceOf[Decoder[Object]],
+  retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
   clock: () => Long = { System.currentTimeMillis }) extends BlockingEnvelopeMap(metrics.registry, new Clock {
   def currentTimeMillis = clock()
 }, classOf[KafkaSystemConsumerMetrics].getName) with Toss with Logging {
@@ -95,8 +96,8 @@ private[kafka] class KafkaSystemConsumer(
 
   def refreshBrokers(topicPartitionsAndOffsets: Map[TopicAndPartition, String]) {
     var tpToRefresh = topicPartitionsAndOffsets.keySet.toList
-    while (!tpToRefresh.isEmpty) {
-      try {
+    retryBackoff.run(
+      loop => {
         val getTopicMetadata = (topics: Set[String]) => {
           new ClientUtilTopicMetadataStore(brokerListString, clientId).getTopicInfo(topics)
         }
@@ -128,25 +129,17 @@ private[kafka] class KafkaSystemConsumer(
           rest
         }
 
-
-        while(!tpToRefresh.isEmpty) {
+        while (!tpToRefresh.isEmpty) {
           tpToRefresh = refresh(tpToRefresh)
         }
-      } catch {
-        case e: Throwable =>
-          warn("An exception was thrown while refreshing brokers for %s. Waiting a bit and retrying, since we can't continue without broker metadata." format tpToRefresh.head)
-          debug("Exception while refreshing brokers", e)
+        loop.done
+      },
 
-          try {
-            Thread.sleep(brokerMetadataFailureRefreshMs)
-          } catch {
-            case e: InterruptedException =>
-              info("Interrupted while waiting to retry metadata refresh, so shutting down.")
-
-              stop
-          }
+      (loop, exception) => {
+        warn("While refreshing brokers for %s: %s. Retrying." format (tpToRefresh.head, exception))
+        debug(exception)
       }
-    }
+    )
   }
 
   val sink = new MessageSink {

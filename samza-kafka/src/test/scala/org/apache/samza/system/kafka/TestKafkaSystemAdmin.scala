@@ -299,27 +299,16 @@ class TestKafkaSystemAdmin {
     }
   }
 
-  class CallLimitReached extends Exception
-
-  class MockSleepStrategy(maxCalls: Int) extends ExponentialSleepStrategy {
-    var countCalls = 0
-
-    override def sleep() = {
-      if (countCalls >= maxCalls) throw new CallLimitReached
-      countCalls += 1
-    }
-  }
-
   @Test
   def testShouldRetryOnTopicMetadataError {
     val systemAdmin = new KafkaSystemAdminWithTopicMetadataError
-    val retryBackoff = new MockSleepStrategy(maxCalls = 3)
+    val retryBackoff = new ExponentialSleepStrategy.Mock(maxCalls = 3)
     try {
       systemAdmin.getSystemStreamMetadata(Set("quux"), retryBackoff)
+      fail("expected CallLimitReached to be thrown")
     } catch {
-      case e: CallLimitReached => () // this would be less ugly if we were using scalatest
+      case e: ExponentialSleepStrategy.CallLimitReached => ()
       case e: Throwable => throw e
     }
-    assertEquals(retryBackoff.countCalls, 3)
   }
 }
