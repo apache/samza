@@ -65,4 +65,8 @@ object TopicMetadataCache extends Logging {
         }.toMap
     }
   }
+
+  def clear {
+    topicMetadataMap.clear
+  }
 }
