@@ -33,8 +33,9 @@ if [ ! -d "$base_dir/lib" ]; then
   exit 1
 fi
 
-YARN_HOME="${YARN_HOME:-$HOME/.samza}"
-CLASSPATH=$YARN_HOME/conf
+HADOOP_YARN_HOME="${HADOOP_YARN_HOME:-$HOME/.samza}"
+HADOOP_CONF_DIR="${HADOOP_CONF_DIR:-$HADOOP_YARN_HOME/conf}"
+CLASSPATH=$HADOOP_CONF_DIR
 
 for file in $base_dir/lib/*.[jw]ar;
 do
