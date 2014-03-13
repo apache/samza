@@ -36,6 +36,10 @@ import org.apache.samza.system.SystemConsumer
 import org.apache.samza.system.SystemStream
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.ReadableCoordinator
+import org.apache.samza.checkpoint.OffsetManager
+import org.apache.samza.system.SystemStreamMetadata
+import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import scala.collection.JavaConversions._
 
 class TestTaskInstance {
   @Test
@@ -53,20 +57,24 @@ class TestTaskInstance {
     val producerMultiplexer = new SystemProducers(
       Map[String, SystemProducer](),
       new SerdeManager)
+    val systemStream = new SystemStream("test-system", "test-stream")
+    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+    // Pretend our last checkpointed (next) offset was 2.
+    val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
+    val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
       partition,
       config,
       new TaskInstanceMetrics,
-      consumerMultiplexer: SystemConsumers,
-      producerMultiplexer: SystemProducers)
-    val systemStream = new SystemStream("test-system", "test-stream")
-    // Pretend our last checkpointed offset was 1.
-    taskInstance.offsets += systemStream -> "1"
-    // Pretend we got a message with offset 2.
-    taskInstance.process(new IncomingMessageEnvelope(new SystemStreamPartition("test-system", "test-stream", new Partition(0)), "2", null, null), new ReadableCoordinator)
-    // Check to see if the offset map has been properly updated with offset 2.
-    assertEquals(1, taskInstance.offsets.size)
-    assertEquals("2", taskInstance.offsets(systemStream))
+      consumerMultiplexer,
+      producerMultiplexer,
+      offsetManager)
+    // Pretend we got a message with offset 2 and next offset 3.
+    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "2", null, null), new ReadableCoordinator)
+    // Check to see if the offset manager has been properly updated with offset 3.
+    val lastProcessedOffset = offsetManager.getLastProcessedOffset(systemStreamPartition)
+    assertTrue(lastProcessedOffset.isDefined)
+    assertEquals("2", lastProcessedOffset.get)
   }
 }

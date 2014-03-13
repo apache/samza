@@ -25,6 +25,7 @@ import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 
 /**
@@ -50,5 +51,16 @@ public class MockSystemAdmin implements SystemAdmin {
     }
 
     return metadata;
+  }
+
+  @Override
+  public Map<SystemStreamPartition, String> getOffsetsAfter(Map<SystemStreamPartition, String> offsets) {
+    Map<SystemStreamPartition, String> offsetsAfter = new HashMap<SystemStreamPartition, String>();
+
+    for (SystemStreamPartition systemStreamPartition : offsets.keySet()) {
+      offsetsAfter.put(systemStreamPartition, null);
+    }
+
+    return offsetsAfter;
   }
 }

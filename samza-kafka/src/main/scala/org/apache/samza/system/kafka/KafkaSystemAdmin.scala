@@ -37,6 +37,7 @@ import grizzled.slf4j.Logging
 import java.util.UUID
 import scala.collection.JavaConversions._
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import kafka.consumer.ConsumerConfig
 
 object KafkaSystemAdmin extends Logging {
   /**
@@ -99,7 +100,7 @@ class KafkaSystemAdmin(
    * from Kafka. Equivalent to Kafka's socket.receive.buffer.bytes
    * configuration.
    */
-  bufferSize: Int = 1024000,
+  bufferSize: Int = ConsumerConfig.SocketBufferSize,
 
   /**
    * The client ID to use for the simple consumer when fetching metadata from
@@ -108,6 +109,17 @@ class KafkaSystemAdmin(
   clientId: String = UUID.randomUUID.toString) extends SystemAdmin with Logging {
 
   import KafkaSystemAdmin._
+
+  /**
+   * Returns the offset for the message after the specified offset for each
+   * SystemStreamPartition that was passed in.
+   */
+  def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = {
+    // This is safe to do with Kafka, even if a topic is key-deduped. If the 
+    // offset doesn't exist on a compacted topic, Kafka will return the first 
+    // message AFTER the offset that was specified in the fetch request.
+    offsets.mapValues(offset => (offset.toLong + 1).toString)
+  }
 
   def getSystemStreamMetadata(streams: java.util.Set[String]) =
     getSystemStreamMetadata(streams, new ExponentialSleepStrategy(initialDelayMs = 500))
@@ -127,7 +139,7 @@ class KafkaSystemAdmin(
     var done = false
     var consumer: SimpleConsumer = null
 
-    debug("Fetching offsets for: %s" format streams)
+    debug("Fetching system stream metadata for: %s" format streams)
 
     while (!done) {
       try {

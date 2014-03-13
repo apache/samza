@@ -26,6 +26,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
+import org.apache.samza.system.SystemStreamPartition;
 
 /**
  * A simple helper admin class that defines a single partition (partition 0) for
@@ -50,5 +51,16 @@ public class SinglePartitionWithoutOffsetsSystemAdmin implements SystemAdmin {
     }
 
     return metadata;
+  }
+
+  @Override
+  public Map<SystemStreamPartition, String> getOffsetsAfter(Map<SystemStreamPartition, String> offsets) {
+    Map<SystemStreamPartition, String> offsetsAfter = new HashMap<SystemStreamPartition, String>();
+
+    for (SystemStreamPartition systemStreamPartition : offsets.keySet()) {
+      offsetsAfter.put(systemStreamPartition, null);
+    }
+
+    return offsetsAfter;
   }
 }
