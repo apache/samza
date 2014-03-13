@@ -5,6 +5,8 @@ title: Tutorials
 
 [Remote Debugging with Samza](remote-debugging-samza.html)
 
+[Deploying a Samza Job from HDFS](deploy-samza-job-from-hdfs.html)
+
 <!-- TODO a bunch of tutorials
 [Log Walkthrough](log-walkthrough.html)
 <a href="configuring-kafka-system.html">Configuring a Kafka System</a><br/>
