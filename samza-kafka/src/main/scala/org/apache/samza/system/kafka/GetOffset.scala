@@ -64,12 +64,6 @@ class GetOffset(
 
       info("Able to successfully read from offset %s for topic and partition %s. Using it to instantiate consumer." format (offset, topicAndPartition))
 
-      val messageSet = messages.messageSet(topicAndPartition.topic, topicAndPartition.partition)
-
-      if (messageSet.isEmpty) {
-        toss("Got empty message set for a valid offset. This is unexpected.")
-      }
-
       true
     } catch {
       case e: OffsetOutOfRangeException => false

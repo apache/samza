@@ -30,6 +30,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemStreamMetadata
 import scala.collection.JavaConversions._
 import org.apache.samza.SamzaException
+import org.apache.samza.system.SystemStreamMetadata.OffsetType
 
 /**
  * BootstrappingChooser is a composable MessageChooser that only chooses
@@ -114,7 +115,7 @@ class BootstrappingChooser(
     // offset for this system stream partition, then we've already read all
     // messages in the stream, and we're at head for this system stream 
     // partition.
-    checkOffset(systemStreamPartition, offset, Upcoming)
+    checkOffset(systemStreamPartition, offset, OffsetType.UPCOMING)
 
     wrapped.register(systemStreamPartition, offset)
   }
@@ -165,7 +166,7 @@ class BootstrappingChooser(
         // If the offset we just read is the same as the offset for the last 
         // message (newest) in this system stream partition, then we have read 
         // all messages, and can mark this SSP as bootstrapped.
-        checkOffset(systemStreamPartition, offset, Newest)
+        checkOffset(systemStreamPartition, offset, OffsetType.NEWEST)
       }
 
       envelope
@@ -207,7 +208,7 @@ class BootstrappingChooser(
    *                         Upcoming is useful during the registration phase,
    *                         and newest is useful during the choosing phase.
    */
-  private def checkOffset(systemStreamPartition: SystemStreamPartition, offset: String, newestOrUpcoming: OffsetType) {
+  private def checkOffset(systemStreamPartition: SystemStreamPartition, offset: String, offsetType: OffsetType) {
     val systemStream = systemStreamPartition.getSystemStream
     val systemStreamMetadata = bootstrapStreamMetadata.getOrElse(systemStreamPartition.getSystemStream, null)
     // Metadata for system/stream, and system/stream/partition are allowed to 
@@ -224,15 +225,11 @@ class BootstrappingChooser(
       // null. A null partition metadata implies that the stream is not a 
       // bootstrap stream, and therefore, there is no need to check its offset.
       null
-    } else if (Newest.equals(newestOrUpcoming)) {
-      systemStreamPartitionMetadata.getNewestOffset
-    } else if (Upcoming.equals(newestOrUpcoming)) {
-      systemStreamPartitionMetadata.getUpcomingOffset
     } else {
-      throw new SamzaException("Got unknown offset type %s" format newestOrUpcoming)
+      systemStreamPartitionMetadata.getOffset(offsetType)
     }
 
-    trace("Check %s offset %s against %s for %s." format (newestOrUpcoming.getClass.getSimpleName, offset, offsetToCheck, systemStreamPartition))
+    trace("Check %s offset %s against %s for %s." format (offsetType, offset, offsetToCheck, systemStreamPartition))
 
     // The SSP is no longer lagging if the envelope's offset equals the 
     // latest offset. 
@@ -272,7 +269,3 @@ class BootstrappingChooserMetrics(val registry: MetricsRegistry = new MetricsReg
     newGauge("%s-%s-lagging-partitions" format (systemStream.getSystem, systemStream.getStream), getValue)
   }
 }
-
-private sealed abstract class OffsetType
-private object Upcoming extends OffsetType
-private object Newest extends OffsetType
