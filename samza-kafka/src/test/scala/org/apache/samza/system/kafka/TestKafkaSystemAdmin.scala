@@ -274,23 +274,12 @@ class TestKafkaSystemAdmin {
     val initialOffsets = systemAdmin.getSystemStreamMetadata(Set("non-existent-topic"))
     val metadata = initialOffsets.getOrElse("non-existent-topic", fail("missing metadata"))
     assertEquals(metadata, new SystemStreamMetadata("non-existent-topic", Map(
-      new Partition(0) -> new SystemStreamPartitionMetadata(null, null, "0"))))
-  }
-
-  @Test
-  def testOffsetsAfter {
-    val systemAdmin = new KafkaSystemAdmin("test", brokers)
-    val ssp1 = new SystemStreamPartition("test-system", "test-stream", new Partition(0))
-    val ssp2 = new SystemStreamPartition("test-system", "test-stream", new Partition(1))
-    val offsetsAfter = systemAdmin.getOffsetsAfter(Map(
-      ssp1 -> "1",
-      ssp2 -> "2"))
-    assertEquals("2", offsetsAfter(ssp1))
-    assertEquals("3", offsetsAfter(ssp2))
+      new Partition(0) -> new SystemStreamPartitionMetadata(null, null, "0")
+    )))
   }
 
   class KafkaSystemAdminWithTopicMetadataError extends KafkaSystemAdmin("test", brokers) {
-    import kafka.api.{ TopicMetadata, TopicMetadataResponse }
+    import kafka.api.{TopicMetadata, TopicMetadataResponse}
 
     // Simulate Kafka telling us that the leader for the topic is not available
     override def getTopicMetadata(topics: Set[String]) = {
@@ -303,7 +292,7 @@ class TestKafkaSystemAdmin {
 
   class MockSleepStrategy(maxCalls: Int) extends ExponentialSleepStrategy {
     var countCalls = 0
-
+  
     override def sleep() = {
       if (countCalls >= maxCalls) throw new CallLimitReached
       countCalls += 1

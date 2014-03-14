@@ -62,7 +62,6 @@ import org.apache.samza.system.chooser.RoundRobinChooserFactory
 import scala.collection.JavaConversions._
 import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemStreamMetadata
-import org.apache.samza.checkpoint.OffsetManager
 
 object SamzaContainer extends Logging {
   def main(args: Array[String]) {
@@ -100,6 +99,12 @@ object SamzaContainer extends Logging {
     val systemNames = config.getSystemNames
 
     info("Got system names: %s" format systemNames)
+
+    val resetInputStreams = systemNames.flatMap(systemName => {
+      config.getResetOffsetMap(systemName)
+    }).toMap
+
+    info("Got input stream resets: %s" format resetInputStreams)
 
     val serdeStreams = systemNames.foldLeft(Set[SystemStream]())(_ ++ config.getSerdeStreams(_))
 
@@ -274,10 +279,6 @@ object SamzaContainer extends Logging {
 
     info("Got checkpoint manager: %s" format checkpointManager)
 
-    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, systemAdmins)
-
-    info("Got offset manager: %s" format offsetManager)
-
     val consumerMultiplexer = new SystemConsumers(
       // TODO add config values for no new message timeout and max msgs per stream partition
       chooser = chooser,
@@ -419,11 +420,12 @@ object SamzaContainer extends Logging {
         metrics = taskInstanceMetrics,
         consumerMultiplexer = consumerMultiplexer,
         producerMultiplexer = producerMultiplexer,
-        offsetManager = offsetManager,
         storageManager = storageManager,
+        checkpointManager = checkpointManager,
         reporters = reporters,
         listeners = listeners,
         inputStreams = inputStreamsForThisPartition,
+        resetInputStreams = resetInputStreams,
         windowMs = taskWindowMs,
         commitMs = taskCommitMs,
         collector = collector)
@@ -438,8 +440,8 @@ object SamzaContainer extends Logging {
       config = config,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
-      offsetManager = offsetManager,
       metrics = samzaContainerMetrics,
+      checkpointManager = checkpointManager,
       reporters = reporters,
       jvm = jvm)
   }
@@ -480,7 +482,7 @@ class SamzaContainer(
   consumerMultiplexer: SystemConsumers,
   producerMultiplexer: SystemProducers,
   metrics: SamzaContainerMetrics,
-  offsetManager: OffsetManager = new OffsetManager,
+  checkpointManager: CheckpointManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   jvm: JvmMetrics = null) extends Runnable with Logging {
 
@@ -489,7 +491,7 @@ class SamzaContainer(
       info("Starting container.")
 
       startMetrics
-      startOffsetManager
+      startCheckpoints
       startStores
       startTask
       startProducers
@@ -522,7 +524,7 @@ class SamzaContainer(
       shutdownProducers
       shutdownTask
       shutdownStores
-      shutdownOffsetManager
+      shutdownCheckpoints
       shutdownMetrics
 
       info("Shutdown complete.")
@@ -548,14 +550,18 @@ class SamzaContainer(
     })
   }
 
-  def startOffsetManager {
-    info("Registering task instances with offsets.")
+  def startCheckpoints {
+    info("Registering task instances with checkpoints.")
 
-    taskInstances.values.foreach(_.registerOffsets)
+    taskInstances.values.foreach(_.registerCheckpoints)
 
-    info("Starting offset manager.")
+    if (checkpointManager != null) {
+      info("Registering checkpoint manager.")
 
-    offsetManager.start
+      checkpointManager.start
+    } else {
+      warn("No checkpoint manager defined. No consumer offsets will be maintained for this job.")
+    }
   }
 
   def startStores {
@@ -660,10 +666,13 @@ class SamzaContainer(
     taskInstances.values.foreach(_.shutdownStores)
   }
 
-  def shutdownOffsetManager {
-    info("Shutting down offset manager.")
-
-    offsetManager.stop
+  def shutdownCheckpoints {
+    if (checkpointManager != null) {
+      info("Shutting down checkpoint manager.")
+      checkpointManager.stop
+    } else {
+      info("No checkpoint manager defined, so skipping checkpoint manager stop.")
+    }
   }
 
   def shutdownMetrics {

@@ -211,16 +211,24 @@ class TestStatefulTask {
     "stores.mystore.factory" -> "org.apache.samza.storage.kv.KeyValueStorageEngineFactory",
     "stores.mystore.key.serde" -> "string",
     "stores.mystore.msg.serde" -> "string",
-    "stores.mystore.changelog" -> "kafka.mystore",
+    "stores.mystore.changelog" -> "kafka-state.mystore",
+
+    // TODO we don't need two different systems once SAMZA-157 is committed. 
+    // We will be able to do per-stream offset defaults.
 
     // Use smallest reset for input streams, so we can fix SAMZA-166.
     "systems.kafka.samza.factory" -> "org.apache.samza.system.kafka.KafkaSystemFactory",
-    "systems.kafka.samza.offset.default" -> "oldest",
-    "systems.kafka.samza.msg.serde" -> "string",
     "systems.kafka.consumer.zookeeper.connect" -> zkConnect,
-    // Use largest offset for reset, so we can test SAMZA-142.
-    "systems.kafka.consumer.auto.offset.reset" -> "largest",
-    "systems.kafka.producer.metadata.broker.list" -> ("localhost:%s" format port1))
+    "systems.kafka.consumer.auto.offset.reset" -> "smallest",
+    "systems.kafka.producer.metadata.broker.list" -> ("localhost:%s" format port1),
+    "systems.kafka.samza.msg.serde" -> "string",
+
+    // Use largest offset for changelog stream, so we can test SAMZA-142.
+    "systems.kafka-state.samza.factory" -> "org.apache.samza.system.kafka.KafkaSystemFactory",
+    "systems.kafka-state.consumer.zookeeper.connect" -> zkConnect,
+    "systems.kafka-state.consumer.auto.offset.reset" -> "smallest",
+    "systems.kafka-state.producer.metadata.broker.list" -> ("localhost:%s" format port1),
+    "systems.kafka-state.samza.msg.serde" -> "string")
 
   @Test
   def testShouldStartAndRestore {

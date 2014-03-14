@@ -21,9 +21,7 @@ package org.apache.samza.system;
 
 import java.util.Collections;
 import java.util.Map;
-
 import org.apache.samza.Partition;
-import org.apache.samza.SamzaException;
 
 /**
  * SystemAdmins use this class to return useful metadata about a stream's offset
@@ -141,23 +139,6 @@ public class SystemStreamMetadata {
       return upcomingOffset;
     }
 
-    /**
-     * @param offsetType
-     *          The type of offset to get. Either oldest, newest, or upcoming.
-     * @return The corresponding offset for the offset type requested.
-     */
-    public String getOffset(OffsetType offsetType) {
-      if (offsetType.equals(OffsetType.OLDEST)) {
-        return getOldestOffset();
-      } else if (offsetType.equals(OffsetType.NEWEST)) {
-        return getNewestOffset();
-      } else if (offsetType.equals(OffsetType.UPCOMING)) {
-        return getUpcomingOffset();
-      } else {
-        throw new SamzaException("Invalid offset type defined " + offsetType + ".");
-      }
-    }
-
     @Override
     public int hashCode() {
       final int prime = 31;
@@ -198,37 +179,6 @@ public class SystemStreamMetadata {
     @Override
     public String toString() {
       return "SystemStreamPartitionMetadata [oldestOffset=" + oldestOffset + ", newestOffset=" + newestOffset + ", upcomingOffset=" + upcomingOffset + "]";
-    }
-  }
-
-  /**
-   * OffsetType is an enum used to define which offset should be used when
-   * reading from a SystemStreamPartition for the first time.
-   */
-  public enum OffsetType {
-
-    /**
-     * Signals the offset of the oldest message in a SystemStreamPartition.
-     */
-    OLDEST("oldest"),
-
-    /**
-     * Signals the offset of the newest message in a SystemStreamPartition.
-     */
-    NEWEST("newest"),
-
-    /**
-     * Signals the offset of the next message to be written into a
-     * SystemStreamPartition. If the offset of the most recent message written
-     * to a SystemStreamPartition is 7, then upcoming would signal offset 8
-     * (assuming the offsets were incremental).
-     */
-    UPCOMING("upcoming");
-
-    private final String offsetType;
-
-    private OffsetType(String offsetType) {
-      this.offsetType = offsetType;
     }
   }
 }

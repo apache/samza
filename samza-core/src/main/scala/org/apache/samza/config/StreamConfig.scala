@@ -31,7 +31,6 @@ object StreamConfig {
   val MSG_SERDE = STREAM_PREFIX + "samza.msg.serde"
   val KEY_SERDE = STREAM_PREFIX + "samza.key.serde"
   val CONSUMER_RESET_OFFSET = STREAM_PREFIX + "samza.reset.offset"
-  val CONSUMER_OFFSET_DEFAULT = STREAM_PREFIX + "samza.offset.default"
 
   implicit def Config2Stream(config: Config) = new StreamConfig(config)
 }
@@ -64,9 +63,6 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
         false
       case _ => false
     }
-
-  def getDefaultStreamOffset(systemStream: SystemStream) =
-    getOption(StreamConfig.CONSUMER_OFFSET_DEFAULT format (systemStream.getSystem, systemStream.getStream))
 
   /**
    * Returns a list of all SystemStreams that have a serde defined from the config file.
