@@ -8,8 +8,7 @@ buildscript {
 
 allprojects {
   repositories {
-    // Required for Kafka. Kafka's 0.8.0-beta1 Maven Central
-    // POM is broken. Should go away in future releases.
+    // Required for Kafka.
     maven {
       url 'https://repository.apache.org/content/groups/public'
     }
@@ -62,6 +61,13 @@ project(":samza-core_$scalaVersion") {
 project(":samza-kafka_$scalaVersion") {
   apply plugin: 'scala'
 
+  configurations {
+    // Remove transitive dependencies from Zookeeper that we don't want.
+    compile.exclude group: 'javax.jms', module: 'jms'
+    compile.exclude group: 'com.sun.jdmk', module: 'jmxtools'
+    compile.exclude group: 'com.sun.jmx', module: 'jmxri'
+  }
+
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
@@ -69,17 +75,13 @@ project(":samza-kafka_$scalaVersion") {
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
     compile "com.101tec:zkclient:$zkClientVersion"
+    compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
     compile "org.codehaus.jackson:jackson-jaxrs:$jacksonVersion"
-    // these can all go away when kafka is in maven
-    compile files("lib/kafka_$scalaVersion-" + kafkaVersion + ".jar")
-    compile "com.yammer.metrics:metrics-core:$metricsVersion"
-    compile "com.yammer.metrics:metrics-annotation:$metricsVersion"
-    // end these can all go away when kafka is in maven
+    compile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
-    // these can all go away when kafka is in maven
-    testCompile files("lib/kafka_$scalaVersion-$kafkaVersion-test.jar")
-    // end these can all go away when kafka is in maven
+    // TODO replace this with an official release, if possible
+    testCompile files("lib/kafka_$scalaVersion-0.8.1-SNAPSHOT-test.jar")
 
     // Logging in tests is good.
     testRuntime "org.slf4j:slf4j-simple:1.6.2"
@@ -177,6 +179,13 @@ project(":samza-kv_$scalaVersion") {
 project(":samza-test_$scalaVersion") {
   apply plugin: 'scala'
 
+  configurations {
+    // Remove transitive dependencies from Zookeeper that we don't want.
+    compile.exclude group: 'javax.jms', module: 'jms'
+    compile.exclude group: 'com.sun.jdmk', module: 'jmxtools'
+    compile.exclude group: 'com.sun.jmx', module: 'jmxri'
+  }
+
   dependencies {
     compile project(':samza-api')
     compile project(":samza-kv_$scalaVersion")
@@ -186,8 +195,9 @@ project(":samza-test_$scalaVersion") {
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
     compile "javax.mail:mail:1.4"
     compile "junit:junit:$junitVersion"
-    compile files("../samza-kafka/lib/kafka_$scalaVersion-" + kafkaVersion + ".jar")
-    testCompile files("../samza-kafka/lib/kafka_$scalaVersion-" + kafkaVersion + "-test.jar")
+    compile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion"
+    // TODO replace this with an official release, if possible
+    testCompile files("../samza-kafka/lib/kafka_$scalaVersion-0.8.1-SNAPSHOT-test.jar")
     testCompile "com.101tec:zkclient:$zkClientVersion"
     testCompile project(":samza-kafka_$scalaVersion")
     testRuntime "org.slf4j:slf4j-simple:1.6.2"

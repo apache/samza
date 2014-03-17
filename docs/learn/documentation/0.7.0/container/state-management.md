@@ -133,7 +133,7 @@ However often the state that is stored is much smaller than the input stream (be
 
 The changelogs are just normal streams&mdash;other downstream tasks can subscribe to this state and use it. And it turns out that very often the most natural way to represent the output of a job is as the changelog of its task (we'll show some examples in a bit).
 
-Of course a log of changes only grows over time so this would soon become impractical. Kafka has [log-compaction](https://cwiki.apache.org/confluence/display/KAFKA/Log+Compaction) which provides special support for this kind of use case, though. This feature allows Kafka to compact duplicate entries (i.e. multiple updates with the same key) in the log rather than just deleting old log segments. This feature is new, it is in trunk and will be released soon as part of the 0.8.1 release.
+Of course a log of changes only grows over time so this would soon become impractical. Kafka has [log compaction](http://kafka.apache.org/documentation#compaction) which provides special support for this kind of use case, though. This feature allows Kafka to compact duplicate entries (i.e. multiple updates with the same key) in the log rather than just deleting old log segments. This feature is available since Kafka 0.8.1.
 
 The Kafka brokers scale well up to terabytes of data per machine for changelogs as for other topics. Log compaction proceeds at about 50MB/sec/core or whatever the I/O limits of the broker are.
 
