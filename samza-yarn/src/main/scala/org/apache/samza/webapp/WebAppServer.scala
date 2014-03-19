@@ -20,13 +20,15 @@
 package org.apache.samza.webapp
 
 import javax.servlet.Servlet
-import org.eclipse.jetty.server.Server
+import org.eclipse.jetty.server.{ Connector, Server }
 import org.eclipse.jetty.servlet.{ DefaultServlet, ServletHolder }
 import org.eclipse.jetty.webapp.WebAppContext
+import org.apache.samza.SamzaException
 
-class WebAppServer(rootPath: String, port: Int) {
-  val server = new Server(port)
+class WebAppServer(rootPath: String) {
+  val server = new Server(0)
   val context = new WebAppContext
+  var port: Int = 0
 
   // add a default holder to deal with static files
   val defaultHolder = new ServletHolder(classOf[DefaultServlet])
@@ -43,9 +45,18 @@ class WebAppServer(rootPath: String, port: Int) {
   }
 
   def start {
-    context.setContextPath("/");
+    context.setContextPath("/")
     context.setResourceBase(getClass.getClassLoader.getResource("scalate").toExternalForm)
     server.setHandler(context)
     server.start
+    // retrieve the real port
+    try {
+      val connector : Connector = server.getConnectors()(0).asInstanceOf[Connector]
+      port = connector.getLocalPort
+    } catch {
+      case e: Throwable => {
+        throw new SamzaException("Error when getting the port", e)
+      }
+    }
   }
 }

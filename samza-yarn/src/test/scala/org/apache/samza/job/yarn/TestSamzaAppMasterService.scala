@@ -33,6 +33,8 @@ class TestSamzaAppMasterService {
 
     // start the dashboard
     service.onInit
+    assert(state.rpcPort > 0)
+    assert(state.trackingPort > 0)
 
     // check to see if it's running
     val url = new URL("http://127.0.0.1:%d/am" format state.rpcPort)

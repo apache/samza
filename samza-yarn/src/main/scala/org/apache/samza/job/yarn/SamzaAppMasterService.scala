@@ -19,7 +19,6 @@
 
 package org.apache.samza.job.yarn
 
-import org.apache.samza.util.Util
 import grizzled.slf4j.Logging
 import org.apache.samza.webapp._
 import org.apache.samza.config.Config
@@ -36,34 +35,23 @@ class SamzaAppMasterService(config: Config, state: SamzaAppMasterState, registry
   var webApp: WebAppServer = null
 
   override def onInit() {
-    // try starting the samza AM dashboard. try ten times, just in case we 
-    // pick a port that's already in use.
-    for (i <- 0 until 10) {
-      val rpcPort = Util.randomBetween(10000, 50000)
-      val trackingPort = Util.randomBetween(10000, 50000)
-      info("Starting webapp at rpc %d, tracking port %d" format (rpcPort, trackingPort))
+    // try starting the samza AM dashboard at a random rpc and tracking port
+    info("Starting webapp at a random rpc and tracking port")
 
-      try {
-        rpcApp = new WebAppServer("/", rpcPort)
-        rpcApp.addServlet("/*", new ApplicationMasterRestServlet(config, state, registry))
-        rpcApp.start
+    rpcApp = new WebAppServer("/")
+    rpcApp.addServlet("/*", new ApplicationMasterRestServlet(config, state, registry))
+    rpcApp.start
 
-        webApp = new WebAppServer("/", trackingPort)
-        webApp.addServlet("/*", new ApplicationMasterWebServlet(config, state))
-        webApp.start
+    webApp = new WebAppServer("/")
+    webApp.addServlet("/*", new ApplicationMasterWebServlet(config, state))
+    webApp.start
 
-        state.rpcPort = rpcPort
-        state.trackingPort = trackingPort
-        return
-      } catch {
-        case e: Exception => {
-          warn("Unable to start webapp on rpc port %d, tracking port %d .. retrying" format (rpcPort, trackingPort))
-        }
-      }
-    }
-
-    if (state.rpcPort == 0 || state.trackingPort == 0) {
-      throw new SamzaException("Giving up trying to start the webapp, since we keep getting ports that are already in use")
+    state.rpcPort = rpcApp.port
+    state.trackingPort = webApp.port
+    if (state.rpcPort > 0 && state.trackingPort > 0) {
+      info("Webapp is started at rpc %d, tracking port %d" format (state.rpcPort, state.trackingPort))
+    } else {
+      throw new SamzaException("Unable to start webapp, since the host is out of ports")
     }
   }
 
