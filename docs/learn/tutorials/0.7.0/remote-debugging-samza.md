@@ -16,7 +16,7 @@ git clone http://git-wip-us.apache.org/repos/asf/incubator-samza.git
 Next, grab hello-samza.
 
 ```
-git clone http://github.com/linkedin/hello-samza.git
+git clone git://git.apache.org/incubator-samza-hello-samza.git
 ```
 
 ### Setup the Environment
