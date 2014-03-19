@@ -140,6 +140,9 @@ object Util extends Logging {
     ssp.filter(_.getPartition.getPartitionId % containerCount == containerId)
   }
 
+  val partitionSeparator = ";"
+  val topicSeparator = ","
+  val topicStreamGrouper = "#"
   /**
    * Serialize a collection of stream-partitions to a string suitable for passing between processes.
    * The streams will be grouped by partition. The partition will be separated from the topics by
@@ -153,13 +156,13 @@ object Util extends Logging {
    */
   def createStreamPartitionString(sp: Set[SystemStreamPartition]): String = {
     for (
-      ch <- List(':', ',', '/');
+      ch <- List(partitionSeparator, topicSeparator, topicStreamGrouper);
       s <- sp
     ) {
       if (s.getStream.contains(ch)) throw new IllegalArgumentException(s + " contains illegal character " + ch)
     }
 
-    sp.groupBy(_.getPartition).map(z => z._1.getPartitionId + ":" + z._2.map(y => y.getSystem + "." + y.getStream).mkString(",")).mkString("/")
+    sp.groupBy(_.getPartition).map(z => z._1.getPartitionId + partitionSeparator + z._2.map(y => y.getSystem + "." + y.getStream).mkString(topicSeparator)).mkString(topicStreamGrouper)
 
   }
 
@@ -174,14 +177,14 @@ object Util extends Logging {
     if (sp == null || sp.isEmpty) return Set.empty
 
     def splitPartitionGroup(pg: String) = {
-      val split = pg.split(":") // Seems like there should be a more scalar way of doing this
+      val split = pg.split(partitionSeparator) // Seems like there should be a more scalar way of doing this
       val part = split(0).toInt
-      val streams = split(1).split(",").toList
+      val streams = split(1).split(topicSeparator).toList
 
       streams.map(s => new SystemStreamPartition(getSystemStreamFromNames(s), new Partition(part))).toSet
     }
 
-    sp.split("/").map(splitPartitionGroup(_)).toSet.flatten
+    sp.split(topicStreamGrouper).map(splitPartitionGroup(_)).toSet.flatten
   }
 
   /**

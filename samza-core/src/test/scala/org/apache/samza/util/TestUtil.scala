@@ -87,7 +87,7 @@ class TestUtil {
   @Test
   def testCreateStreamPartitionStringBlocksDelimeters() {
     val partOne = new Partition(1)
-    val toTry = List(':', ',', '/')
+    val toTry = List(Util.topicSeparator, Util.topicStreamGrouper, Util.partitionSeparator)
       .map(ch => (ch, Set(new SystemStreamPartition("kafka", "good1", partOne),
       new SystemStreamPartition("kafka", "bad" + ch, partOne),
       new SystemStreamPartition("notkafka", "alsogood", partOne))))
