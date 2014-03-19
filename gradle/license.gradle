@@ -5,5 +5,10 @@ subprojects {
     header rootProject.file('HEADER')
     // Skip Twitter bootstrap JS and CSS.
     skipExistingHeaders = true
+    mapping {
+      // Treat integration scripts (with .samsa extension) as 
+      // regular scripts, as they use the same comment style
+      samsa='SCRIPT_STYLE'
+    }
   }
 }

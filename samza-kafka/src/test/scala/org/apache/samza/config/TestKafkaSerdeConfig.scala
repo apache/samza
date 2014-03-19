@@ -29,7 +29,7 @@ class TestKafkaSerdeConfig {
   val paramsToTest = List(
     "serializers.registry.test.encoder", "serializers.registry.test.decoder")
 
-  val config = new MapConfig(asJavaMap(paramsToTest.map { m => (m, MAGIC_VAL) } toMap))
+  val config = new MapConfig(mapAsJavaMap(paramsToTest.map { m => (m, MAGIC_VAL) }.toMap))
 
   @Test
   def testKafkaConfigurationIsBackwardsCompatible {

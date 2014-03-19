@@ -24,7 +24,14 @@ apply from: file("gradle/dependency-versions-scala-" + scalaVersion + ".gradle")
 
 allprojects {
   apply plugin: 'idea'
+
+  // For all scala compilation, add extra compiler options, taken from version-specific
+  // dependency-versions-scala file applied above.
+  tasks.withType(ScalaCompile) {
+    scalaCompileOptions.additionalParameters = [ scalaOptions ]
+  }
 }
+
 
 subprojects {
   apply plugin: 'jacoco'

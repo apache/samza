@@ -290,7 +290,7 @@ class SystemConsumers(
    * systemFetchMapCache stays in sync with fetchMap.
    */
   private def updateFetchMap(systemStreamPartition: SystemStreamPartition, amount: Int = 1) {
-    val fetchSize = fetchMap.getOrElse(systemStreamPartition, new Integer(0)).intValue + amount
+    val fetchSize = fetchMap.getOrElse(systemStreamPartition, java.lang.Integer.valueOf(0)).intValue + amount
     val systemName = systemStreamPartition.getSystem
     var systemFetchMap = systemFetchMapCache.getOrElse(systemName, Map())
 

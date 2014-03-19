@@ -47,9 +47,9 @@ class TestSamzaAppMasterLifecycle {
       this.host = appHostName
       this.port = appHostPort
       new RegisterApplicationMasterResponse {
-        override def setApplicationACLs(map: java.util.Map[ApplicationAccessType, String]) = null
+        override def setApplicationACLs(map: java.util.Map[ApplicationAccessType, String]):Unit = ()
         override def getApplicationACLs = null
-        override def setMaximumResourceCapability(r: Resource) = null
+        override def setMaximumResourceCapability(r: Resource):Unit = ()
         override def getMaximumResourceCapability = new Resource {
           def getMemory = 512
           def getVirtualCores = 2

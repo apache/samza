@@ -47,3 +47,4 @@ class DefaultChooserConfig(config: Config) extends ScalaMapConfig(config) {
     .filter(_._2 >= 0)
     .toMap
 }
+

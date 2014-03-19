@@ -56,7 +56,7 @@ object TestSamzaAppMasterTaskManager {
       override def setPort(port: Int) = {
         this.port = port
       }
-      override def build() = null
+      override def build() = ()
     }
     override def setNodeId(nodeId: NodeId) {}
     override def getNodeHttpAddress(): String = ""
@@ -88,7 +88,7 @@ object TestSamzaAppMasterTaskManager {
     def resetRelease = release.clear
     override def registerApplicationMaster(appHostName: String, appHostPort: Int, appTrackingUrl: String): RegisterApplicationMasterResponse = null
     override def allocate(progressIndicator: Float): AllocateResponse = response
-    override def unregisterApplicationMaster(appStatus: FinalApplicationStatus, appMessage: String, appTrackingUrl: String) = null
+    override def unregisterApplicationMaster(appStatus: FinalApplicationStatus, appMessage: String, appTrackingUrl: String) = ()
     override def addContainerRequest(req: ContainerRequest) { requests ::= req }
     override def removeContainerRequest(req: ContainerRequest) {}
     override def getClusterNodeCount() = 1

@@ -224,7 +224,7 @@ class BrokerProxy(
         // UnknownTopic or NotLeader are routine events and handled via abdication.  All others, bail.
         case _ @ (_:UnknownTopicOrPartitionException | _: NotLeaderForPartitionException) => warn("Received (UnknownTopicOr|NotLeaderFor)Partition exception. Abdicating")
                                                                                              abdicate(e.tp)
-        case other => throw other
+        case other : Throwable => throw other
       }
     })
   }

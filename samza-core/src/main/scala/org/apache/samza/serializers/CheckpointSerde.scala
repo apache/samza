@@ -38,12 +38,12 @@ class CheckpointSerde extends Serde[Checkpoint] {
         }
       return new Checkpoint(checkpointMap)
     } catch {
-      case _ => return null
+      case _ : Throwable => return null
     }
   }
 
   def toBytes(checkpoint: Checkpoint) = {
-    val offsetMap = asJavaMap(checkpoint
+    val offsetMap = mapAsJavaMap(checkpoint
       .getOffsets
       // Convert Map[SystemStream, String] offset map to a iterable of tuples (system, stream, offset)
       .map { case (systemStream, offset) => (systemStream.getSystem, systemStream.getStream, offset) }
@@ -52,7 +52,7 @@ class CheckpointSerde extends Serde[Checkpoint] {
       // Group the tuples for each system into a Map[String, String] for stream to offsets
       .map {
         case (systemName, tuples) =>
-          val streamToOffestMap = asJavaMap(tuples
+          val streamToOffestMap = mapAsJavaMap(tuples
             // Group the tuples by stream name
             .groupBy(_._2)
             // There should only ever be one SystemStream to offset mapping, so just 
