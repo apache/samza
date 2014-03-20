@@ -62,6 +62,8 @@ project(":samza-core_$scalaVersion") {
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
     compile "org.codehaus.jackson:jackson-jaxrs:$jacksonVersion"
     testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
   }
 }
 
@@ -91,7 +93,7 @@ project(":samza-kafka_$scalaVersion") {
     testCompile files("lib/kafka_$scalaVersion-0.8.1-SNAPSHOT-test.jar")
 
     // Logging in tests is good.
-    testRuntime "org.slf4j:slf4j-simple:1.6.2"
+    testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
   }
 
   test {
@@ -161,10 +163,38 @@ project(":samza-yarn_$scalaVersion") {
 project(":samza-shell") {
   apply plugin: 'java'
 
+  configurations {
+    gradleShell
+  }
+
+  dependencies {
+    gradleShell project(":samza-core_$scalaVersion")
+    gradleShell project(":samza-kafka_$scalaVersion")
+    gradleShell project(":samza-yarn_$scalaVersion")
+    gradleShell "org.slf4j:slf4j-simple:$slf4jVersion"
+  }
+
   task shellTarGz(type: Tar) { 
     compression = Compression.GZIP 
     classifier = 'dist'
     from 'src/main/bash'
+  }
+
+  // Usage: ./gradlew samza-shell:runJob \
+  //    -PconfigPath=file:///path/to/job/config.properties
+  task runJob(type:JavaExec) {
+    main = 'org.apache.samza.job.JobRunner'
+    classpath = configurations.gradleShell
+    if (project.hasProperty('configPath')) args += ['--config-path', configPath]
+  }
+
+  // Usage: ./gradlew samza-shell:checkpointTool \
+  //    -PconfigPath=file:///path/to/job/config.properties -PnewOffsets=file:///path/to/new/offsets.properties
+  task checkpointTool(type:JavaExec) {
+    main = 'org.apache.samza.checkpoint.CheckpointTool'
+    classpath = configurations.gradleShell
+    if (project.hasProperty('configPath')) args += ['--config-path', configPath]
+    if (project.hasProperty('newOffsets')) args += ['--new-offsets', newOffsets]
   }
 }
 
@@ -207,7 +237,7 @@ project(":samza-test_$scalaVersion") {
     testCompile files("../samza-kafka/lib/kafka_$scalaVersion-0.8.1-SNAPSHOT-test.jar")
     testCompile "com.101tec:zkclient:$zkClientVersion"
     testCompile project(":samza-kafka_$scalaVersion")
-    testRuntime "org.slf4j:slf4j-simple:1.6.2"
+    testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
   }
 
   test {

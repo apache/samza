@@ -34,6 +34,21 @@ To run a single test:
 
     ./gradlew clean :samza-test:test -Dtest.single=TestStatefulTask
 
+### Job Management
+
+To run a job (defined in a properties file):
+
+    ./gradlew samza-shell:runJob -PconfigPath=file:///path/to/job/config.properties
+
+To inspect a job's latest checkpoint:
+
+    ./gradlew samza-shell:checkpointTool -PconfigPath=file:///path/to/job/config.properties
+
+To modify a job's checkpoint (assumes that the job is not currently running), give it a file with the new offset for each partition, in the format `systems.<system>.streams.<topic>.partitions.<partition>=<offset>`:
+
+    ./gradlew samza-shell:checkpointTool -PconfigPath=file:///path/to/job/config.properties \
+        -PnewOffsets=file:///path/to/new/offsets.properties
+
 #### Maven
 
 Samza uses Kafka, which is not managed by Maven. To use Kafka as though it were a Maven artifact, Samza installs Kafka into a local repository using the `mvn install` command. You must have Maven installed to build Samza.

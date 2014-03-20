@@ -270,6 +270,8 @@ class KafkaCheckpointManager(
       }
     )
   }
+
+  override def toString = "KafkaCheckpointManager [systemName=%s, checkpointTopic=%s]" format (systemName, checkpointTopic)
 }
 
 /**

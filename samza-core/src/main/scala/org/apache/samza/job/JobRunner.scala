@@ -19,60 +19,22 @@
 
 package org.apache.samza.job
 
-import java.lang.String
-import java.net.URI
-import org.apache.samza.job.ApplicationStatus.Running
-import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config._
-import grizzled.slf4j.Logging
-import joptsimple.OptionParser
-import joptsimple.util.KeyValuePair
 import org.apache.samza.SamzaException
+import org.apache.samza.config.{Config, ConfigRewriter}
+import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.factories.PropertiesConfigFactory
-import scala.Some
+import org.apache.samza.job.ApplicationStatus.Running
 import org.apache.samza.util.Util
-import scala.collection.mutable.Buffer
+import org.apache.samza.util.CommandLine
+import grizzled.slf4j.Logging
 import scala.collection.JavaConversions._
 
 object JobRunner extends Logging {
   def main(args: Array[String]) {
-    // Define parameters.
-    var parser = new OptionParser()
-    val configFactoryOpt = 
-      parser.accepts("config-factory", "The config factory to use to read your config file.")
-            .withRequiredArg
-            .ofType(classOf[java.lang.String])
-            .describedAs("com.foo.bar.ClassName")
-            .defaultsTo(classOf[PropertiesConfigFactory].getName)
-    val configPathOpt =
-      parser.accepts("config-path", "URI location to a config file (e.g. file:///some/local/path.properties). " + 
-                                    "If multiple files are given they are all used with later files overriding any values that appear in earlier files.")
-            .withRequiredArg
-            .ofType(classOf[URI])
-            .describedAs("path")
-    val configOverrideOpt = 
-      parser.accepts("config", "A configuration value in the form key=value. Command line properties override any configuration values given.")
-            .withRequiredArg
-            .ofType(classOf[KeyValuePair])
-            .describedAs("key=value")
-    var options = parser.parse(args: _*)
-
-    // Verify legitimate parameters.
-    if (!options.has(configPathOpt)) {
-      parser.printHelpOn(System.err)
-      System.exit(-1)
-    }
-
-    // Set up the job parameters.
-    val configFactoryClass = options.valueOf(configFactoryOpt)
-    val configPaths = options.valuesOf(configPathOpt)
-    val configFactory = Class.forName(configFactoryClass).newInstance.asInstanceOf[ConfigFactory]
-    val configOverrides = options.valuesOf(configOverrideOpt).map(kv => (kv.key, kv.value)).toMap
-    
-    val configs: Buffer[java.util.Map[String, String]] = configPaths.map(configFactory.getConfig)
-    configs += configOverrides
-
-    new JobRunner(new MapConfig(configs)).run
+    val cmdline = new CommandLine
+    val options = cmdline.parser.parse(args: _*)
+    val config = cmdline.loadConfig(options)
+    new JobRunner(config).run
   }
 }
 
