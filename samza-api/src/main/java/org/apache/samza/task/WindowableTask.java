@@ -25,7 +25,9 @@ package org.apache.samza.task;
 public interface WindowableTask {
   /**
    * Called by TaskRunner for each implementing task at the end of every specified window.
-   * @param collector Contains the means of sending message envelopes to the output stream.
+   * @param collector Contains the means of sending message envelopes to the output stream. The collector must only
+   * be used during the current call to the window method; you should not reuse the collector between invocations
+   * of this method.
    * @param coordinator Manages execution of tasks.
    * @throws Exception Any exception types encountered during the execution of the processing task.
    */

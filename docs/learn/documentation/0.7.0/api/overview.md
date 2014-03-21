@@ -74,6 +74,8 @@ public interface MessageCollector {
 
 The collector takes OutgoingMessageEnvelope, which allows tasks to supply a partition key when sending the message. The partition key, if supplied, is used to determine which partition of a stream a message is destined for.
 
+Please only use the MessageCollector object within the process() method. If you hold onto a MessageCollector instance and use it again later, your messages may not be sent correctly.
+
 ```
 /** A message envelope that has a key. */
 public class OutgoingMessageEnvelope {

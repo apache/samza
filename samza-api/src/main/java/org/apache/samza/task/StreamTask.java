@@ -30,7 +30,9 @@ public interface StreamTask {
    * Called once for each message that this StreamTask receives.
    * @param envelope Contains the received deserialized message and key, and also information regarding the stream and
    * partition of which the message was received from.
-   * @param collector Contains the means of sending message envelopes to the output stream.
+   * @param collector Contains the means of sending message envelopes to the output stream. The collector must only
+   * be used during the current call to the process method; you should not reuse the collector between invocations
+   * of this method.
    * @param coordinator Manages execution of tasks.
    * @throws Exception Any exception types encountered during the execution of the processing task.
    */

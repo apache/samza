@@ -15,4 +15,6 @@ public interface WindowableTask {
 
 If you choose to implement the WindowableTask interface, you can use the Samza job's configuration to define how often the TaskRunner should call your window() method. In the PageViewEvent example (above), you would define it to flush every 60000 milliseconds (60 seconds).
 
+If you need to send messages to output streams, you can use the MessageCollector object passed to the window() method. Please only use that MessageCollector object for sending messages, and don't use it outside of the call to window().
+
 ## [Event Loop &raquo;](event-loop.html)

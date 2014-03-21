@@ -22,7 +22,11 @@ package org.apache.samza.task;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 
 /**
- * Used as an interface for the means of sending message envelopes.
+ * Used as an interface for the means of sending message envelopes to an output stream.
+ *
+ * <p>A MessageCollector is provided on every call to {@link StreamTask#process} and
+ * {@link WindowableTask#window}. You must use those MessageCollector objects only within
+ * those method calls, and not hold on to a reference for use at any other time.
  */
 public interface MessageCollector {
   /**
