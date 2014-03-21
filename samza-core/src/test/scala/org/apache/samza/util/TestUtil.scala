@@ -33,10 +33,11 @@ object TestUtil {
   def expect[T](exception: Class[T], msg: Option[String] = None)(block: => Unit) = try {
     block
   } catch {
-    case e => if (msg.isDefined) {
-      assertEquals(msg.get, e.getMessage)
-    }
-    case _ => fail("Expected an NPE.")
+    case e: Exception =>
+      assertEquals(e.getClass, exception)
+      if (msg.isDefined) {
+        assertEquals(msg.get, e.getMessage)
+      }
   }
 }
 

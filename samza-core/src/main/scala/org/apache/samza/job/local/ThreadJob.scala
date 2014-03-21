@@ -42,7 +42,7 @@ class ThreadJob(runnable: Runnable) extends StreamJob with Logging {
           runnable.run
           jobStatus = Some(SuccessfulFinish)
         } catch {
-          case e: Throwable => {
+          case e: Exception => {
             error("Failing job with exception.", e)
             jobStatus = Some(UnsuccessfulFinish)
             throw e

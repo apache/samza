@@ -54,9 +54,7 @@ class WebAppServer(rootPath: String) {
       val connector : Connector = server.getConnectors()(0).asInstanceOf[Connector]
       port = connector.getLocalPort
     } catch {
-      case e: Throwable => {
-        throw new SamzaException("Error when getting the port", e)
-      }
+      case e: Exception => throw new SamzaException("Error when getting the port", e)
     }
   }
 }

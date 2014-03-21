@@ -24,8 +24,9 @@ import org.codehaus.jackson.map.ObjectMapper
 import org.apache.samza.system.SystemStream
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.SamzaException
+import grizzled.slf4j.Logging
 
-class CheckpointSerde extends Serde[Checkpoint] {
+class CheckpointSerde extends Serde[Checkpoint] with Logging {
   val jsonMapper = new ObjectMapper()
 
   def fromBytes(bytes: Array[Byte]): Checkpoint = {
@@ -38,7 +39,10 @@ class CheckpointSerde extends Serde[Checkpoint] {
         }
       return new Checkpoint(checkpointMap)
     } catch {
-      case _ : Throwable => return null
+      case e : Exception =>
+        warn("Exception while deserializing checkpoint: " + e)
+        debug(e)
+        null
     }
   }
 

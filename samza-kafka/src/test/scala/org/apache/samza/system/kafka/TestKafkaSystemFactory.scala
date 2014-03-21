@@ -39,7 +39,7 @@ class TestKafkaSystemFactory {
       fail("Expected to get a Samza exception.")
     } catch {
       case e: SamzaException => None // expected
-      case _ : Throwable => fail("Expected to get a Samza exception.")
+      case e: Exception => fail("Expected SamzaException, but got " + e)
     }
   }
 
@@ -56,7 +56,7 @@ class TestKafkaSystemFactory {
       fail("Expected to get a Samza exception.")
     } catch {
       case e: SamzaException => None // expected
-      case _ : Throwable => fail("Expected to get a Samza exception.")
+      case e: Exception => fail("Expected SamzaException, but got " + e)
     }
   }
 

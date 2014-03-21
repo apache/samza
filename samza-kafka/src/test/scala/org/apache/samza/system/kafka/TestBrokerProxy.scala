@@ -190,7 +190,7 @@ class TestBrokerProxy extends Logging {
       fail("Should have thrown an exception")
     } catch {
       case se: SamzaException => assertEquals(se.getMessage, "Already consuming TopicPartition [Redbird,2012]")
-      case other: Throwable => fail("Got some other exception than what we were expecting: " + other)
+      case other: Exception => fail("Got some other exception than what we were expecting: " + other)
     }
   }
 

@@ -113,7 +113,6 @@ class TestExponentialSleepStrategy {
       fail("expected exception to be thrown")
     } catch {
       case e: IllegalArgumentException => assertEquals("boom", e.getMessage)
-      case e: Throwable => throw e
     }
     assertEquals(1, iterations)
     assertEquals(0, loopObject.sleepCount)
@@ -123,7 +122,7 @@ class TestExponentialSleepStrategy {
     var exception: Option[Throwable] = None
     val interruptee = new Thread(new Runnable {
       def run {
-        try { operation } catch { case e: Throwable => exception = Some(e) }
+        try { operation } catch { case e: Exception => exception = Some(e) }
       }
     })
     interruptee.start

@@ -78,7 +78,7 @@ class YarnAppMaster(pollIntervalMs: Long, listeners: List[YarnAppMasterListener]
       listeners.foreach(listener => try {
         listener.onShutdown
       } catch {
-        case e: Throwable => warn("Listener %s failed to shutdown." format listener, e)
+        case e: Exception => warn("Listener %s failed to shutdown." format listener, e)
       })
     }
   }

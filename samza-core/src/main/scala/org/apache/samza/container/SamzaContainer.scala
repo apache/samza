@@ -133,7 +133,7 @@ object SamzaContainer extends Logging {
         try {
           (systemName, systemFactory.getConsumer(systemName, config, samzaContainerMetrics.registry))
         } catch {
-          case e: Throwable =>
+          case e: Exception =>
             info("Failed to create a consumer for %s, so skipping." format systemName)
             debug(e)
             (systemName, null)
@@ -150,7 +150,7 @@ object SamzaContainer extends Logging {
           try {
             (systemName, systemFactory.getProducer(systemName, config, samzaContainerMetrics.registry))
           } catch {
-            case e: Throwable =>
+            case e: Exception =>
               info("Failed to create a producer for %s, so skipping." format systemName)
               debug(e)
               (systemName, null)
@@ -512,7 +512,7 @@ class SamzaContainer(
         }
       }
     } catch {
-      case e: Throwable =>
+      case e: Exception =>
         error("Caught exception in process loop.", e)
         throw e
     } finally {

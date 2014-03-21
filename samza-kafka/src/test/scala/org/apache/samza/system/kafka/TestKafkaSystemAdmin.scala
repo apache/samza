@@ -117,7 +117,7 @@ object TestKafkaSystemAdmin {
 
         done = expectedPartitionCount == topicMetadata.partitionsMetadata.size
       } catch {
-        case e: Throwable =>
+        case e: Exception =>
           System.err.println("Got exception while validating test topics. Waiting and retrying.", e)
           retries += 1
           Thread.sleep(500)
@@ -308,7 +308,6 @@ class TestKafkaSystemAdmin {
       fail("expected CallLimitReached to be thrown")
     } catch {
       case e: ExponentialSleepStrategy.CallLimitReached => ()
-      case e: Throwable => throw e
     }
   }
 }
