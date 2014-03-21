@@ -205,7 +205,11 @@ class KafkaCheckpointManager(
     partitions += partition
   }
 
-  def stop = producer.close
+  def stop = {
+    if(producer != null) {
+      producer.close
+    }
+  }
 
   private def createTopic {
     info("Attempting to create state topic %s with %s partitions." format (stateTopic, totalPartitions))
