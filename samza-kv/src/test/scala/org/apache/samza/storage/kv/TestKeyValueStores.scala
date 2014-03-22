@@ -74,6 +74,7 @@ class TestKeyValueStores(typeOfStore: String) {
 
   @After
   def teardown() {
+    store.close
     for (file <- dir.listFiles)
       file.delete()
     dir.delete()
