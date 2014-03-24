@@ -22,7 +22,7 @@ import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.config.Config
 import org.apache.samza.config.MapConfig
-import org.apache.samza.{Partition, SamzaException}
+import org.apache.samza.Partition
 import org.apache.hadoop.yarn.api.records._
 import org.apache.hadoop.yarn.util.ConverterUtils
 import scala.collection.JavaConversions._
@@ -35,9 +35,8 @@ import org.apache.hadoop.yarn.client.api.impl.AMRMClientImpl
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.yarn.api.records.NodeReport
 import TestSamzaAppMasterTaskManager._
-import org.apache.samza.system.{SystemStreamPartition, SystemAdmin, SystemFactory}
+import org.apache.samza.system.{SystemStreamPartition, SystemFactory}
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.util.Util._
 import org.apache.samza.util.Util
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
 
@@ -130,7 +129,8 @@ object TestSamzaAppMasterTaskManager {
 }
 
 class TestSamzaAppMasterTaskManager {
-  
+  import org.junit.Assert._
+
   val config = new MapConfig(Map[String, String](
     "yarn.container.count" -> "1",
     "systems.test-system.samza.factory" -> "org.apache.samza.job.yarn.MockSystemFactory",
@@ -378,33 +378,33 @@ class TestSamzaAppMasterTaskManager {
   @Test
   def testPartitionsShouldWorkWithMoreTasksThanPartitions {
     val onePartition = Set(new SystemStreamPartition("system", "stream", new Partition(0)))
-    assert(Util.getStreamsAndPartitionsForContainer(0, 2, onePartition).equals(Set(new SystemStreamPartition("system", "stream", new Partition(0)))))
-    assert(Util.getStreamsAndPartitionsForContainer(1, 2, onePartition).equals(Set()))
+    assertEquals(Util.getStreamsAndPartitionsForContainer(0, 2, onePartition), Set(new SystemStreamPartition("system", "stream", new Partition(0))))
+    assertEquals(Util.getStreamsAndPartitionsForContainer(1, 2, onePartition), Set())
   }
 
   @Test
   def testPartitionsShouldWorkWithMorePartitionsThanTasks {
     val fivePartitions = (0 until 5).map(p => new SystemStreamPartition("system", "stream", new Partition(p))).toSet
-    assert(Util.getStreamsAndPartitionsForContainer(0, 2, fivePartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(0)), new SystemStreamPartition("system", "stream", new Partition(2)), new SystemStreamPartition("system", "stream", new Partition(4)))))
-    assert(Util.getStreamsAndPartitionsForContainer(1, 2, fivePartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(1)), new SystemStreamPartition("system", "stream", new Partition(3)))))
+    assertEquals(Util.getStreamsAndPartitionsForContainer(0, 2, fivePartitions), Set(new SystemStreamPartition("system", "stream", new Partition(0)), new SystemStreamPartition("system", "stream", new Partition(2)), new SystemStreamPartition("system", "stream", new Partition(4))))
+    assertEquals(Util.getStreamsAndPartitionsForContainer(1, 2, fivePartitions), Set(new SystemStreamPartition("system", "stream", new Partition(1)), new SystemStreamPartition("system", "stream", new Partition(3))))
   }
 
   @Test
   def testPartitionsShouldWorkWithTwelvePartitionsAndFiveContainers {
     val fivePartitions = (0 until 12).map(p => new SystemStreamPartition("system", "stream", new Partition(p))).toSet
-    assert(Util.getStreamsAndPartitionsForContainer(0, 5, fivePartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(0)), new SystemStreamPartition("system", "stream", new Partition(5)), new SystemStreamPartition("system", "stream", new Partition(10)))))
-    assert(Util.getStreamsAndPartitionsForContainer(1, 5, fivePartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(1)), new SystemStreamPartition("system", "stream", new Partition(6)), new SystemStreamPartition("system", "stream", new Partition(11)))))
-    assert(Util.getStreamsAndPartitionsForContainer(2, 5, fivePartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(2)), new SystemStreamPartition("system", "stream", new Partition(7)))))
-    assert(Util.getStreamsAndPartitionsForContainer(3, 5, fivePartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(3)), new SystemStreamPartition("system", "stream", new Partition(8)))))
-    assert(Util.getStreamsAndPartitionsForContainer(4, 5, fivePartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(4)), new SystemStreamPartition("system", "stream", new Partition(9)))))
+    assertEquals(Util.getStreamsAndPartitionsForContainer(0, 5, fivePartitions), Set(new SystemStreamPartition("system", "stream", new Partition(0)), new SystemStreamPartition("system", "stream", new Partition(5)), new SystemStreamPartition("system", "stream", new Partition(10))))
+    assertEquals(Util.getStreamsAndPartitionsForContainer(1, 5, fivePartitions), Set(new SystemStreamPartition("system", "stream", new Partition(1)), new SystemStreamPartition("system", "stream", new Partition(6)), new SystemStreamPartition("system", "stream", new Partition(11))))
+    assertEquals(Util.getStreamsAndPartitionsForContainer(2, 5, fivePartitions), Set(new SystemStreamPartition("system", "stream", new Partition(2)), new SystemStreamPartition("system", "stream", new Partition(7))))
+    assertEquals(Util.getStreamsAndPartitionsForContainer(3, 5, fivePartitions), Set(new SystemStreamPartition("system", "stream", new Partition(3)), new SystemStreamPartition("system", "stream", new Partition(8))))
+    assertEquals(Util.getStreamsAndPartitionsForContainer(4, 5, fivePartitions), Set(new SystemStreamPartition("system", "stream", new Partition(4)), new SystemStreamPartition("system", "stream", new Partition(9))))
   }
 
   @Test
   def testPartitionsShouldWorkWithEqualPartitionsAndTasks {
     val twoPartitions = (0 until 2).map(p => new SystemStreamPartition("system", "stream", new Partition(p))).toSet
-    assert(Util.getStreamsAndPartitionsForContainer(0, 2, twoPartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(0)))))
-    assert(Util.getStreamsAndPartitionsForContainer(1, 2, twoPartitions).equals(Set(new SystemStreamPartition("system", "stream", new Partition(1)))))
-    assert(Util.getStreamsAndPartitionsForContainer(0, 1, Set(new SystemStreamPartition("system", "stream", new Partition(0)))).equals(Set(new SystemStreamPartition("system", "stream", new Partition(0)))))
+    assertEquals(Util.getStreamsAndPartitionsForContainer(0, 2, twoPartitions), Set(new SystemStreamPartition("system", "stream", new Partition(0))))
+    assertEquals(Util.getStreamsAndPartitionsForContainer(1, 2, twoPartitions), Set(new SystemStreamPartition("system", "stream", new Partition(1))))
+    assertEquals(Util.getStreamsAndPartitionsForContainer(0, 1, Set(new SystemStreamPartition("system", "stream", new Partition(0)))), Set(new SystemStreamPartition("system", "stream", new Partition(0))))
   }
 
   val clock = () => System.currentTimeMillis

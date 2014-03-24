@@ -86,26 +86,8 @@ class TestUtil {
   }
   
   @Test
-  def testCreateStreamPartitionStringBlocksDelimeters() {
-    val partOne = new Partition(1)
-    val toTry = List(Util.topicSeparator, Util.topicStreamGrouper, Util.partitionSeparator)
-      .map(ch => (ch, Set(new SystemStreamPartition("kafka", "good1", partOne),
-      new SystemStreamPartition("kafka", "bad" + ch, partOne),
-      new SystemStreamPartition("notkafka", "alsogood", partOne))))
-    toTry.foreach(t => try {
-      createStreamPartitionString(t._2)
-      fail("Should have thrown an exception")
-    } catch {
-      case iae:IllegalArgumentException =>
-        val expected = "SystemStreamPartition [partition=Partition [partition=1], system" +
-          "=kafka, stream=bad" + t._1 + "] contains illegal character " + t._1
-        assertEquals(expected, iae.getMessage)
-    } )
-  }
-
-  @Test
-  def testCreateStreamPartitionStringRoundTrip() {
-    val getPartitions = {
+  def testJsonCreateStreamPartitionStringRoundTrip() {
+    val getPartitions: Set[SystemStreamPartition] = {
       // Build a heavily skewed set of partitions.
       def partitionSet(max:Int) = (0 until max).map(new Partition(_)).toSet
       val system = "all-same-system."
@@ -117,14 +99,12 @@ class TestUtil {
            part <- streamsMap.getOrElse(s, Set.empty)) yield new SystemStreamPartition(getSystemStreamFromNames(s), part)).toSet
     }
 
-    val streamsAndParts = getStreamsAndPartitionsForContainer(0, 4, getPartitions)
+    val streamsAndParts: Set[SystemStreamPartition] = getStreamsAndPartitionsForContainer(0, 4, getPartitions).toSet
     println(streamsAndParts)
-    val asString = createStreamPartitionString(streamsAndParts)
-    println(asString)
-    val backToStreamsAndParts = createStreamPartitionsFromString(asString)
+    val asString = serializeSSPSetToJSON(streamsAndParts)
 
+    val backToStreamsAndParts = deserializeSSPSetFromJSON(asString)
     assertEquals(streamsAndParts, backToStreamsAndParts)
-
   }
 }
 

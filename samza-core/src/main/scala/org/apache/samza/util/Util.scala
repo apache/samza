@@ -27,7 +27,11 @@ import org.apache.samza.config.Config
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import scala.collection.JavaConversions._
-import org.apache.samza.system.{ SystemStreamPartition, SystemAdmin, SystemFactory, SystemStream }
+import org.apache.samza.system.{ SystemStreamPartition, SystemFactory, SystemStream }
+import org.codehaus.jackson.map.ObjectMapper
+import org.codehaus.jackson.`type`.TypeReference
+import java.util
+
 
 object Util extends Logging {
   val random = new Random
@@ -140,51 +144,28 @@ object Util extends Logging {
     ssp.filter(_.getPartition.getPartitionId % containerCount == containerId)
   }
 
-  val partitionSeparator = ";"
-  val topicSeparator = ","
-  val topicStreamGrouper = "#"
   /**
-   * Serialize a collection of stream-partitions to a string suitable for passing between processes.
-   * The streams will be grouped by partition. The partition will be separated from the topics by
-   * a colon (":"), the topics separated by commas (",") and the topic-stream groups by a slash ("/").
-   * Ordering of the grouping is not specified.
-   *
-   * For example: (A,0),(A,4)(B,0)(B,4)(C,0) could be transformed to: 4:a,b/0:a,b,c
-   *
-   * @param sp Stream topics to group into a string
-   * @return Serialized string of the topics and streams grouped and delimited
+   * Jackson really hates Scala's classes, so we need to wrap up the SSP in a form Jackson will take
    */
-  def createStreamPartitionString(sp: Set[SystemStreamPartition]): String = {
-    for (
-      ch <- List(partitionSeparator, topicSeparator, topicStreamGrouper);
-      s <- sp
-    ) {
-      if (s.getStream.contains(ch)) throw new IllegalArgumentException(s + " contains illegal character " + ch)
-    }
-
-    sp.groupBy(_.getPartition).map(z => z._1.getPartitionId + partitionSeparator + z._2.map(y => y.getSystem + "." + y.getStream).mkString(topicSeparator)).mkString(topicStreamGrouper)
-
+  private class SSPWrapper(@scala.beans.BeanProperty var partition:java.lang.Integer = null,
+                           @scala.beans.BeanProperty var Stream:java.lang.String = null,
+                           @scala.beans.BeanProperty var System:java.lang.String = null) {
+    def this() { this(null, null, null) }
+    def this(ssp:SystemStreamPartition) { this(ssp.getPartition.getPartitionId, ssp.getSystemStream.getStream, ssp.getSystemStream.getSystem)}
   }
 
-  /**
-   * Invert @{list createStreamPartitionString}, building a list of streams and their partitions,
-   * from the string that function produced.
-   *
-   * @param sp Strings and partitions encoded as a stream by the above function
-   * @return List of string and partition tuples extracted from string. Order is not necessarily preserved.
-   */
-  def createStreamPartitionsFromString(sp: String): Set[SystemStreamPartition] = {
-    if (sp == null || sp.isEmpty) return Set.empty
+  def serializeSSPSetToJSON(ssps: Set[SystemStreamPartition]): String = {
+    val al = new util.ArrayList[SSPWrapper](ssps.size)
+    for(ssp <- ssps) { al.add(new SSPWrapper(ssp)) }
 
-    def splitPartitionGroup(pg: String) = {
-      val split = pg.split(partitionSeparator) // Seems like there should be a more scalar way of doing this
-      val part = split(0).toInt
-      val streams = split(1).split(topicSeparator).toList
+    new ObjectMapper().writeValueAsString(al)
+  }
 
-      streams.map(s => new SystemStreamPartition(getSystemStreamFromNames(s), new Partition(part))).toSet
-    }
+  def deserializeSSPSetFromJSON(ssp: String) = {
+    val om = new ObjectMapper()
 
-    sp.split(topicStreamGrouper).map(splitPartitionGroup(_)).toSet.flatten
+    val asWrapper = om.readValue(ssp, new TypeReference[util.ArrayList[SSPWrapper]]() { }).asInstanceOf[util.ArrayList[SSPWrapper]]
+    asWrapper.map(w => new SystemStreamPartition(w.getSystem, w.getStream(), new Partition(w.getPartition()))).toSet
   }
 
   /**

@@ -72,7 +72,7 @@ object SamzaContainer extends Logging {
     val config = JsonConfigSerializer.fromJson(configStr)
     val encodedStreamsAndPartitions = System.getenv(ShellCommandConfig.ENV_SYSTEM_STREAMS)
 
-    val partitions = Util.createStreamPartitionsFromString(encodedStreamsAndPartitions)
+    val partitions = Util.deserializeSSPSetFromJSON(encodedStreamsAndPartitions)
 
     if (partitions.isEmpty) {
       throw new SamzaException("No partitions for this task. Can't run a task without partition assignments. It's likely that the partition manager for this system doesn't know about the stream you're trying to read.")
