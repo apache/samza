@@ -104,7 +104,7 @@ class TestKafkaCheckpointManager {
   import TestKafkaCheckpointManager._
 
   @Test
-  def testCheckpointShouldBeNullIfStateTopicDoesNotExistShouldBeCreatedOnWriteAndShouldBeReadableAfterWrite {
+  def testCheckpointShouldBeNullIfcheckpointTopicDoesNotExistShouldBeCreatedOnWriteAndShouldBeReadableAfterWrite {
     val kcm = getKafkaCheckpointManager
     kcm.register(partition)
     kcm.start
@@ -131,7 +131,7 @@ class TestKafkaCheckpointManager {
 
   private def getKafkaCheckpointManager = new KafkaCheckpointManager(
     clientId = "some-client-id",
-    stateTopic = "state-topic",
+    checkpointTopic = "checkpoint-topic",
     systemName = "kafka",
     totalPartitions = 1,
     replicationFactor = 3,
