@@ -1,9 +1,14 @@
 hello-samza
 ===========
 
-Hello Samza is a starter project for Samza jobs.
+Hello Samza is a starter project for Apache Samza (Incubating) jobs.
 
 Please see [Hello Samza](http://samza.incubator.apache.org/) to get started.
+
+### Pull requests and questions
+Hello Samza is developed as part of the Apache Samza project. Please direct questions, improvements and
+bug fixes there.  Questions about Hello Samza are welcome on the dev list (details on the main
+site above) and the Samza JIRA has a hello-samza component for filing tickets.
 
 ### Using Vagrant
 
