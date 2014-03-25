@@ -34,7 +34,6 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.IncomingMessageEnvelope
 import kafka.consumer.ConsumerConfig
 import org.apache.samza.util.ExponentialSleepStrategy
-import org.apache.samza.SamzaException
 
 object KafkaSystemConsumer {
   def toTopicAndPartition(systemStreamPartition: SystemStreamPartition) = {
@@ -55,24 +54,10 @@ private[kafka] class KafkaSystemConsumer(
   clientId: String = "undefined-client-id-%s" format UUID.randomUUID.toString,
   timeout: Int = ConsumerConfig.ConsumerTimeoutMs,
   bufferSize: Int = ConsumerConfig.SocketBufferSize,
-  fetchSize: Int = ConsumerConfig.MaxFetchSize,
-  consumerMinSize: Int = ConsumerConfig.MinFetchBytes,
-  consumerMaxWait: Int = ConsumerConfig.MaxFetchWaitMs,
-
-  /**
-   * Defines a low water mark for how many messages we buffer before we start
-   * executing fetch requests against brokers to get more messages. This value
-   * is divided equally among all registered SystemStreamPartitions. For
-   * example, if fetchThreshold is set to 50000, and there are 50
-   * SystemStreamPartitions registered, then the per-partition threshold is
-   * 1000. As soon as a SystemStreamPartition's buffered message count drops
-   * below 1000, a fetch request will be executed to get more data for it.
-   *
-   * Increasing this parameter will decrease the latency between when a queue
-   * is drained of messages and when new messages are enqueued, but also leads
-   * to an increase in memory usage since more messages will be held in memory.
-   */
-  fetchThreshold: Int = 50000,
+  fetchSize:Int = ConsumerConfig.MaxFetchSize,
+  consumerMinSize:Int = ConsumerConfig.MinFetchBytes,
+  consumerMaxWait:Int = ConsumerConfig.MaxFetchWaitMs,
+  fetchThreshold: Int = 0,
   offsetGetter: GetOffset = new GetOffset("fail"),
   deserializer: Decoder[Object] = new DefaultDecoder().asInstanceOf[Decoder[Object]],
   keyDeserializer: Decoder[Object] = new DefaultDecoder().asInstanceOf[Decoder[Object]],
@@ -84,15 +69,8 @@ private[kafka] class KafkaSystemConsumer(
   type HostPort = (String, Int)
   val brokerProxies = scala.collection.mutable.Map[HostPort, BrokerProxy]()
   var nextOffsets = Map[SystemStreamPartition, String]()
-  var perPartitionFetchThreshold = fetchThreshold
 
   def start() {
-    if (nextOffsets.size <= 0) {
-      throw new SamzaException("No SystemStreamPartitions registered. Must register at least one SystemStreamPartition before starting the consumer.")
-    }
-
-    perPartitionFetchThreshold = fetchThreshold / nextOffsets.size
-
     val topicPartitionsAndOffsets = nextOffsets.map {
       case (systemStreamPartition, offset) =>
         val topicAndPartition = KafkaSystemConsumer.toTopicAndPartition(systemStreamPartition)
@@ -128,16 +106,16 @@ private[kafka] class KafkaSystemConsumer(
 
         // addTopicPartition one at a time, leaving the to-be-done list intact in case of exceptions.
         // This avoids trying to re-add the same topic partition repeatedly
-        def refresh(tp: List[TopicAndPartition]) = {
+        def refresh(tp:List[TopicAndPartition]) = {
           val head :: rest = tpToRefresh
           val nextOffset = topicPartitionsAndOffsets.get(head).get
           // Whatever we do, we can't say Broker, even though we're
           // manipulating it here. Broker is a private type and Scala doesn't seem
           // to care about that as long as you don't explicitly declare its type.
           val brokerOption = partitionMetadata(head.topic)
-            .partitionsMetadata
-            .find(_.partitionId == head.partition)
-            .flatMap(_.leader)
+                             .partitionsMetadata
+                             .find(_.partitionId == head.partition)
+                             .flatMap(_.leader)
 
           brokerOption match {
             case Some(broker) =>
@@ -160,7 +138,8 @@ private[kafka] class KafkaSystemConsumer(
       (loop, exception) => {
         warn("While refreshing brokers for %s: %s. Retrying." format (tpToRefresh.head, exception))
         debug(exception)
-      })
+      }
+    )
   }
 
   val sink = new MessageSink {
@@ -169,7 +148,7 @@ private[kafka] class KafkaSystemConsumer(
     }
 
     def needsMoreMessages(tp: TopicAndPartition) = {
-      getNumMessagesInQueue(toSystemStreamPartition(tp)) <= perPartitionFetchThreshold
+      getNumMessagesInQueue(toSystemStreamPartition(tp)) <= fetchThreshold
     }
 
     def addMessage(tp: TopicAndPartition, msg: MessageAndOffset, highWatermark: Long) = {

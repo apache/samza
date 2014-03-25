@@ -38,7 +38,7 @@ import org.apache.samza.util.ExponentialSleepStrategy
  *  Companion object for class JvmMetrics encapsulating various constants
  */
 object BrokerProxy {
-  val BROKER_PROXY_THREAD_NAME_PREFIX = "BROKER-PROXY-"
+  val BROKER_PROXY_THREAD_NAME_PREFIX = "BROKER-PROXY"
 }
 
 /**
@@ -62,7 +62,7 @@ class BrokerProxy(
   /**
    * How long should the fetcher thread sleep before checking if any TopicPartitions has been added to its purview
    */
-  val sleepMSWhileNoTopicPartitions = 100
+  val sleepMSWhileNoTopicPartitions = 1000
 
   /** What's the next offset for a particular partition? **/
   val nextOffsets:mutable.ConcurrentMap[TopicAndPartition, Long] = new ConcurrentHashMap[TopicAndPartition, Long]()
@@ -125,42 +125,36 @@ class BrokerProxy(
   val thread = new Thread(new Runnable {
     def run {
       var reconnect = false
+      (new ExponentialSleepStrategy).run(
+        loop => {
+          if (reconnect) {
+            metrics.reconnects(host, port).inc
+            simpleConsumer.close()
+            simpleConsumer = createSimpleConsumer()
+          }
 
-      try {
-        (new ExponentialSleepStrategy).run(
-          loop => {
-            if (reconnect) {
-              metrics.reconnects(host, port).inc
-              simpleConsumer.close()
-              simpleConsumer = createSimpleConsumer()
+          while (!Thread.currentThread.isInterrupted) {
+            if (nextOffsets.size == 0) {
+              debug("No TopicPartitions to fetch. Sleeping.")
+              Thread.sleep(sleepMSWhileNoTopicPartitions)
+            } else {
+              fetchMessages
+
+              // If we got here, fetchMessages didn't throw an exception, i.e. it was successful.
+              // In that case, reset the loop delay, so that the next time an error occurs,
+              // we start with a short retry delay.
+              loop.reset
             }
+          }
+        },
 
-            while (!Thread.currentThread.isInterrupted) {
-              if (nextOffsets.size == 0) {
-                debug("No TopicPartitions to fetch. Sleeping.")
-                Thread.sleep(sleepMSWhileNoTopicPartitions)
-              } else {
-                fetchMessages
-
-                // If we got here, fetchMessages didn't throw an exception, i.e. it was successful.
-                // In that case, reset the loop delay, so that the next time an error occurs,
-                // we start with a short retry delay.
-                loop.reset
-              }
-            }
-          },
-
-          (exception, loop) => {
-            warn("Restarting consumer due to %s. Turn on debugging to get a full stack trace." format exception)
-            debug(exception)
-            reconnect = true
-          })
-      } catch {
-        case e: InterruptedException => info("Got interrupt exception in broker proxy thread.")
-        case e: ClosedByInterruptException => info("Got closed by interrupt exception in broker proxy thread.")
-      }
-
-      if (Thread.currentThread.isInterrupted) info("Shutting down due to interrupt.")
+        (exception, loop) => {
+          warn("Restarting consumer due to %s. Turn on debugging to get a full stack trace." format exception)
+          debug(exception)
+          reconnect = true
+        }
+      )
+      if (Thread.currentThread.isInterrupted) info("Shutting down due to interrupt")
     }
   }, "BrokerProxy thread pointed at %s:%d for client %s" format (host, port, clientID))
 
@@ -269,7 +263,7 @@ class BrokerProxy(
     info("Starting " + toString)
 
     thread.setDaemon(true)
-    thread.setName(SAMZA_THREAD_NAME_PREFIX + BrokerProxy.BROKER_PROXY_THREAD_NAME_PREFIX + thread.getName)
+    thread.setName(SAMZA_THREAD_NAME_PREFIX+BrokerProxy.BROKER_PROXY_THREAD_NAME_PREFIX)
     thread.start
   }
 
