@@ -40,7 +40,7 @@ object KafkaConfig {
    * Defines how low a queue can get for a single system/stream/partition
    * combination before trying to fetch more messages for it.
    */
-  val CONSUMER_FETCH_THRESHOLD = SystemConfig.SYSTEM_PREFIX + ".samza.fetch.threshold"
+  val CONSUMER_FETCH_THRESHOLD = SystemConfig.SYSTEM_PREFIX + "samza.fetch.threshold"
 
   implicit def Config2Kafka(config: Config) = new KafkaConfig(config)
 }
