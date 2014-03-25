@@ -31,6 +31,7 @@ import org.apache.samza.system.{ SystemStreamPartition, SystemFactory, SystemStr
 import org.codehaus.jackson.map.ObjectMapper
 import org.codehaus.jackson.`type`.TypeReference
 import java.util
+import scala.reflect.BeanProperty
 
 
 object Util extends Logging {
@@ -147,9 +148,9 @@ object Util extends Logging {
   /**
    * Jackson really hates Scala's classes, so we need to wrap up the SSP in a form Jackson will take
    */
-  private class SSPWrapper(@scala.beans.BeanProperty var partition:java.lang.Integer = null,
-                           @scala.beans.BeanProperty var Stream:java.lang.String = null,
-                           @scala.beans.BeanProperty var System:java.lang.String = null) {
+  private class SSPWrapper(@BeanProperty var partition:java.lang.Integer = null,
+                           @BeanProperty var Stream:java.lang.String = null,
+                           @BeanProperty var System:java.lang.String = null) {
     def this() { this(null, null, null) }
     def this(ssp:SystemStreamPartition) { this(ssp.getPartition.getPartitionId, ssp.getSystemStream.getStream, ssp.getSystemStream.getSystem)}
   }
