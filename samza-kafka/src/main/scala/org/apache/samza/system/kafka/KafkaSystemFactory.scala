@@ -47,9 +47,9 @@ class KafkaSystemFactory extends SystemFactory {
     val consumerMaxWait = consumerConfig.fetchWaitMaxMs
     val autoOffsetResetDefault = consumerConfig.autoOffsetReset
     val autoOffsetResetTopics = config.getAutoOffsetResetTopics(systemName)
-    val fetchThreshold = config.getConsumerFetchThreshold(systemName).getOrElse("0").toInt
+    val fetchThreshold = config.getConsumerFetchThreshold(systemName).getOrElse("50000").toInt
     val offsetGetter = new GetOffset(autoOffsetResetDefault, autoOffsetResetTopics)
-   
+
     new KafkaSystemConsumer(
       systemName = systemName,
       brokerListString = brokerListString,
