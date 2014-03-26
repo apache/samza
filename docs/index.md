@@ -20,7 +20,6 @@ Check out [Hello Samza](/startup/hello-samza/0.7.0) to try Samza. Read the [Back
 
 We are just moving our code to open source. This newly open sourced version has a few limitations:
 
- * This branch represents our trunk, not the production version at LinkedIn. This rollout is pending.
  * We have not yet fully implemented our plans around fault-tolerance semantics.
 
 ### Pardon our Dust
