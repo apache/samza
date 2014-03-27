@@ -9,7 +9,7 @@ The [hello-samza](https://github.com/apache/incubator-samza-hello-samza) project
 
 Check out the hello-samza project:
 
-    git clone git://git.apache.org/incubator-samza-hello-samza.git
+    git clone git://git.apache.org/incubator-samza-hello-samza.git hello-samza
     cd hello-samza
 
 This project contains everything you'll need to run your first Samza jobs.
