@@ -119,7 +119,7 @@ private[kafka] class KafkaSystemConsumer(
     retryBackoff.run(
       loop => {
         val getTopicMetadata = (topics: Set[String]) => {
-          new ClientUtilTopicMetadataStore(brokerListString, clientId).getTopicInfo(topics)
+          new ClientUtilTopicMetadataStore(brokerListString, clientId, timeout).getTopicInfo(topics)
         }
         val topics = tpToRefresh.map(_.topic).toSet
         val partitionMetadata = TopicMetadataCache.getTopicMetadata(topics, systemName, getTopicMetadata)

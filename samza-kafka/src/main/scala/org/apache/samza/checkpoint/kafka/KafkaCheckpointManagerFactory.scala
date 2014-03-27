@@ -71,7 +71,7 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     val jobId = config.getJobId.getOrElse("1")
     val brokersListString = Option(producerConfig.brokerList)
       .getOrElse(throw new SamzaException("No broker list defined in config for %s." format systemName))
-    val metadataStore = new ClientUtilTopicMetadataStore(brokersListString, clientId)
+    val metadataStore = new ClientUtilTopicMetadataStore(brokersListString, clientId, socketTimeout)
     val checkpointTopic = getTopic(jobName, jobId)
     
     // This is a reasonably expensive operation and the TaskInstance already knows the answer. Should use that info.

@@ -193,7 +193,7 @@ class KafkaSystemAdmin(
    * don't hammer Kafka more than we need to.
    */
   protected def getTopicMetadata(topics: Set[String]) = {
-    new ClientUtilTopicMetadataStore(brokerListString, clientId)
+    new ClientUtilTopicMetadataStore(brokerListString, clientId, timeout)
       .getTopicInfo(topics)
   }
 
