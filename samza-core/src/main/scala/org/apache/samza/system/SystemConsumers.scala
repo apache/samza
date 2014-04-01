@@ -197,18 +197,7 @@ class SystemConsumers(
       debug("Refreshing chooser with new messages.")
 
       // Poll every system for new messages.
-      val receivedNewMessages = consumers.keys.map(poll(_)).contains(true)
-
-      // Update the chooser.
-      neededByChooser.foreach(systemStreamPartition =>
-        // If we have messages for a stream that the chooser needs, then update.
-        if (fetchMap(systemStreamPartition).intValue < maxMsgsPerStreamPartition) {
-          chooser.update(unprocessedMessages(systemStreamPartition).dequeue)
-          updateFetchMap(systemStreamPartition)
-          neededByChooser -= systemStreamPartition
-        })
-        
-      receivedNewMessages
+      consumers.keys.map(poll(_)).contains(true)
     }
   }
 
@@ -237,6 +226,7 @@ class SystemConsumers(
     }
 
     refresh.maybeCall()
+    updateMessageChooser
     envelopeFromChooser
   }
   
@@ -302,5 +292,19 @@ class SystemConsumers(
 
     fetchMap += systemStreamPartition -> fetchSize
     systemFetchMapCache += systemName -> systemFetchMap
+  }
+  
+  /**
+   * A helper method that updates MessageChooser. This should be called in 
+   * "choose" method after we try to consume a message from MessageChooser.
+   */
+  private def updateMessageChooser {
+    neededByChooser.foreach(systemStreamPartition =>
+      // If we have messages for a stream that the chooser needs, then update.
+      if (fetchMap(systemStreamPartition).intValue < maxMsgsPerStreamPartition) {
+        chooser.update(unprocessedMessages(systemStreamPartition).dequeue)
+        updateFetchMap(systemStreamPartition)
+        neededByChooser -= systemStreamPartition
+      })
   }
 }

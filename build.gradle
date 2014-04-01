@@ -96,7 +96,7 @@ project(":samza-kafka_$scalaVersion") {
 
   test {
     // Bump up the heap so we can start ZooKeeper and Kafka brokers.
-    maxHeapSize = "1024m"
+    maxHeapSize = "2048m"
   }
 }
 
