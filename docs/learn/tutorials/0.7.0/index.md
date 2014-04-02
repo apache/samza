@@ -7,6 +7,8 @@ title: Tutorials
 
 [Deploying a Samza Job from HDFS](deploy-samza-job-from-hdfs.html)
 
+[Run Hello-samza in Multi-node YARN](run-in-multi-node-yarn.html)
+
 <!-- TODO a bunch of tutorials
 [Log Walkthrough](log-walkthrough.html)
 <a href="configuring-kafka-system.html">Configuring a Kafka System</a><br/>
