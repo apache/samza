@@ -28,6 +28,11 @@ Committer, and PMC member<br/>
 <a href="http://uk.linkedin.com/in/garryturkington" target="_blank"><i class="icon-linkedin committer-icon"></i></a>
 <a href="http://twitter.com/garryturk" target="_blank"><i class="icon-twitter committer-icon"></i></a>
 
+**Martin Kleppmann**<br/>
+Committer, and PMC member<br/>
+<a href="https://www.linkedin.com/in/martinkleppmann" target="_blank"><i class="icon-linkedin committer-icon"></i></a>
+<a href="https://twitter.com/martinkl" target="_blank"><i class="icon-twitter committer-icon"></i></a>
+
 ### Mentors
 
 **Chris Douglas**<br/>
