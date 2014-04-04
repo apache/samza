@@ -63,6 +63,7 @@ import scala.collection.JavaConversions._
 import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemStreamMetadata
 import org.apache.samza.checkpoint.OffsetManager
+import org.apache.samza.system.StreamMetadataCache
 
 object SamzaContainer extends Logging {
   def main(args: Array[String]) {
@@ -122,7 +123,8 @@ object SamzaContainer extends Logging {
 
     info("Got system factories: %s" format systemFactories.keys)
 
-    val inputStreamMetadata = getStreamMetadata(inputStreams.map(_.getSystemStream), systemAdmins)
+    val streamMetadataCache = new StreamMetadataCache(systemAdmins)
+    val inputStreamMetadata = streamMetadataCache.getStreamMetadata(inputStreams.map(_.getSystemStream))
 
     info("Got input stream metadata: %s" format inputStreamMetadata)
 
@@ -224,7 +226,7 @@ object SamzaContainer extends Logging {
 
     info("Got change log system streams: %s" format changeLogSystemStreams)
 
-    val changeLogMetadata = getStreamMetadata(changeLogSystemStreams.values.toSet, systemAdmins)
+    val changeLogMetadata = streamMetadataCache.getStreamMetadata(changeLogSystemStreams.values.toSet)
 
     info("Got change log stream metadata: %s" format changeLogMetadata)
 
@@ -442,25 +444,6 @@ object SamzaContainer extends Logging {
       metrics = samzaContainerMetrics,
       reporters = reporters,
       jvm = jvm)
-  }
-
-  /**
-   * Builds a map from SystemStream to SystemStreamMetadata for all streams
-   * using SystemAdmins to fetch metadata.
-   */
-  def getStreamMetadata(streams: Set[SystemStream], systemAdmins: Map[String, SystemAdmin]): Map[SystemStream, SystemStreamMetadata] = {
-    streams
-      .groupBy[String](_.getSystem)
-      .flatMap {
-        case (systemName, systemStreams) =>
-          systemAdmins
-            .getOrElse(systemName, throw new SamzaException("Unable to find system admin definition for system %s." format systemName))
-            .getSystemStreamMetadata(systemStreams.map(_.getStream))
-            .map {
-              case (streamName, metadata) => (new SystemStream(systemName, streamName), metadata)
-            }
-      }
-      .toMap
   }
 
   /**

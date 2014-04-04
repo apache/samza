@@ -27,7 +27,7 @@ import org.apache.samza.config.Config
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import scala.collection.JavaConversions._
-import org.apache.samza.system.{ SystemStreamPartition, SystemFactory, SystemStream }
+import org.apache.samza.system.{SystemStreamPartition, SystemFactory, StreamMetadataCache, SystemStream}
 import org.codehaus.jackson.map.ObjectMapper
 import org.codehaus.jackson.`type`.TypeReference
 import java.util
@@ -88,29 +88,24 @@ object Util extends Logging {
     val inputSystemStreams = config.getInputStreams
     val systemNames = config.getSystemNames.toSet
 
-    systemNames.flatMap(systemName => {
-      // Get SystemAdmin for system.
+    // Map the name of each system to the corresponding SystemAdmin
+    val systemAdmins = systemNames.map(systemName => {
       val systemFactoryClassName = config
         .getSystemFactory(systemName)
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
       val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
-      val systemAdmin = systemFactory.getAdmin(systemName, config)
+      systemName -> systemFactory.getAdmin(systemName, config)
+    }).toMap
 
-      // Get metadata for every stream that belongs to this system.
-      val streamNames = inputSystemStreams
-        .filter(_.getSystem.equals(systemName))
-        .map(_.getStream)
-      val systemStreamMetadata = systemAdmin.getSystemStreamMetadata(streamNames)
-
-      // Get a set of all SSPs for every stream that belongs to this system.
-      systemStreamMetadata
-        .values
-        .flatMap(systemStreamMetadata => {
-          val streamName = systemStreamMetadata.getStreamName
-          val systemStreamPartitionSet = systemStreamMetadata.getSystemStreamPartitionMetadata.keys
-          systemStreamPartitionSet.map(new SystemStreamPartition(systemName, streamName, _)).toSet
-        })
-    })
+    // Get the set of partitions for each SystemStream from the stream metadata
+    new StreamMetadataCache(systemAdmins)
+      .getStreamMetadata(inputSystemStreams)
+      .flatMap { case (systemStream, metadata) =>
+        metadata
+          .getSystemStreamPartitionMetadata
+          .keys
+          .map(new SystemStreamPartition(systemStream, _))
+      }.toSet
   }
 
   /**

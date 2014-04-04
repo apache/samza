@@ -42,6 +42,7 @@ import org.apache.samza.task.ClosableTask
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
 import org.apache.samza.system.SystemStream
+import org.apache.samza.system.StreamMetadataCache
 
 class TestSamzaContainer {
   @Test
@@ -52,7 +53,7 @@ class TestSamzaContainer {
       new SystemStreamPartition("test", "stream2", new Partition(0)),
       new SystemStreamPartition("test", "stream2", new Partition(1)))
     val systemAdmins = Map("test" -> new SinglePartitionWithoutOffsetsSystemAdmin)
-    val metadata = SamzaContainer.getStreamMetadata(inputStreams.map(_.getSystemStream).toSet, systemAdmins)
+    val metadata = new StreamMetadataCache(systemAdmins).getStreamMetadata(inputStreams.map(_.getSystemStream).toSet)
     assertNotNull(metadata)
     assertEquals(2, metadata.size)
     val stream1Metadata = metadata(new SystemStream("test", "stream1"))
