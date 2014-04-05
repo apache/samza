@@ -3,7 +3,7 @@ ext {
   jacksonVersion = "1.8.5"
   junitVersion = "4.8.1"
   mockitoVersion = "1.8.4"
-  scalaTestVersion = "2.1.0"
+  scalaTestVersion = "1.9.2"
   zkClientVersion = "0.3"
   zookeeperVersion = "3.3.4"
   metricsVersion = "2.2.0"
