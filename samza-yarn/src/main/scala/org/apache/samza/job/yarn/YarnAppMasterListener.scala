@@ -65,9 +65,4 @@ trait YarnAppMasterListener {
    */
   def onContainerCompleted(containerStatus: ContainerStatus) {}
 
-  /**
-   * Invoked by YarnAppMaster once per listener, every time it loops around to
-   * poll the RM again.
-   */
-  def onEventLoop() {}
 }

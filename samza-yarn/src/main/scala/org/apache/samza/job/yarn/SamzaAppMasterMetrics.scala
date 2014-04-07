@@ -51,7 +51,6 @@ class SamzaAppMasterMetrics(
   val registry: ReadableMetricsRegistry) extends MetricsHelper with YarnAppMasterListener with Logging {
 
   val jvm = new JvmMetrics(registry)
-  val mEventLoops = newCounter("event-loops")
   val reporters = config.getMetricReporterNames.map(reporterName => {
     val metricsFactoryClassName = config
       .getMetricsFactoryClass(reporterName)
@@ -80,10 +79,6 @@ class SamzaAppMasterMetrics(
 
     jvm.start
     reporters.values.foreach(_.start)
-  }
-
-  override def onEventLoop() {
-    mEventLoops.inc
   }
 
   override def onShutdown() {

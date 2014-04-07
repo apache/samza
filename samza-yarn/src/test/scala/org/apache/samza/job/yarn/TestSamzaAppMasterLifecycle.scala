@@ -18,28 +18,26 @@
  */
 
 package org.apache.samza.job.yarn
-import org.junit.Assert._
-import org.junit.Test
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.yarn.conf.YarnConfiguration
-import org.apache.hadoop.yarn.util.ConverterUtils
-import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse
-import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse
-import org.apache.hadoop.yarn.api.records.ContainerId
-import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
-import org.apache.hadoop.yarn.api.records.Priority
-import org.apache.hadoop.yarn.api.records.Resource
-import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
-import org.apache.hadoop.yarn.client.api.impl.AMRMClientImpl
-import org.apache.hadoop.yarn.api.records.Resource
-import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse
-import org.apache.hadoop.service._
-import org.apache.samza.SamzaException
-import org.apache.hadoop.yarn.api.records.ApplicationAccessType
+
 import java.nio.ByteBuffer
 
+import scala.annotation.elidable
+import scala.annotation.elidable.ASSERTION
+
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse
+import org.apache.hadoop.yarn.api.records._
+import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
+import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync.CallbackHandler
+import org.apache.hadoop.yarn.client.api.async.impl.AMRMClientAsyncImpl
+import org.apache.hadoop.yarn.util.ConverterUtils
+import org.apache.samza.SamzaException
+import org.junit.Assert._
+import org.junit.Test
+import org.mockito.Mockito
+
 class TestSamzaAppMasterLifecycle {
-  val amClient = new AMRMClientImpl() {
+  val amClient = new AMRMClientAsyncImpl[ContainerRequest](1, Mockito.mock(classOf[CallbackHandler])) {
     var host = ""
     var port = 0
     var status: FinalApplicationStatus = null
@@ -61,7 +59,6 @@ class TestSamzaAppMasterLifecycle {
         override def setClientToAMTokenMasterKey(buffer: ByteBuffer) {}
       }
     }
-    override def allocate(progressIndicator: Float): AllocateResponse = null
     override def unregisterApplicationMaster(appStatus: FinalApplicationStatus,
       appMessage: String,
       appTrackingUrl: String) {
@@ -70,19 +67,16 @@ class TestSamzaAppMasterLifecycle {
     override def releaseAssignedContainer(containerId: ContainerId) {}
     override def getClusterNodeCount() = 1
 
-    override def init(config: Configuration) {}
-    override def start() {}
-    override def stop() {}
-    override def getName(): String = ""
-    override def getConfig() = null
-    override def getStartTime() = 0L
+    override def serviceInit(config: Configuration) {}
+    override def serviceStart() {}
+    override def serviceStop() {}
   }
 
   @Test
   def testLifecycleShouldRegisterOnInit {
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "test", 1, 2)
     state.rpcPort = 1
-    val saml = new SamzaAppMasterLifecycle(512, 2, state, amClient, new YarnConfiguration)
+    val saml = new SamzaAppMasterLifecycle(512, 2, state, amClient)
     saml.onInit
     assert(amClient.host == "test")
     assert(amClient.port == 1)
@@ -93,7 +87,7 @@ class TestSamzaAppMasterLifecycle {
   def testLifecycleShouldUnregisterOnShutdown {
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
     state.status = FinalApplicationStatus.SUCCEEDED
-    new SamzaAppMasterLifecycle(128, 1, state, amClient, new YarnConfiguration).onShutdown
+    new SamzaAppMasterLifecycle(128, 1, state, amClient).onShutdown
     assert(amClient.status == FinalApplicationStatus.SUCCEEDED)
   }
 
@@ -101,7 +95,7 @@ class TestSamzaAppMasterLifecycle {
   def testLifecycleShouldThrowAnExceptionOnReboot {
     var gotException = false
     try {
-      new SamzaAppMasterLifecycle(368, 1, null, amClient, new YarnConfiguration).onReboot
+      new SamzaAppMasterLifecycle(368, 1, null, amClient).onReboot
     } catch {
       // expected
       case e: SamzaException => gotException = true
@@ -113,8 +107,8 @@ class TestSamzaAppMasterLifecycle {
   def testLifecycleShouldShutdownOnInvalidContainerSettings {
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "test", 1, 2)
     state.rpcPort = 1
-    List(new SamzaAppMasterLifecycle(768, 1, state, amClient, new YarnConfiguration),
-      new SamzaAppMasterLifecycle(368, 3, state, amClient, new YarnConfiguration)).map(saml => {
+    List(new SamzaAppMasterLifecycle(768, 1, state, amClient),
+      new SamzaAppMasterLifecycle(368, 3, state, amClient)).map(saml => {
         saml.onInit
         assertTrue(saml.shouldShutdown)
       })

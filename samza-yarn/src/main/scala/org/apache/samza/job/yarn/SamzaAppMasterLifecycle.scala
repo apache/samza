@@ -18,26 +18,25 @@
  */
 
 package org.apache.samza.job.yarn
-import grizzled.slf4j.Logging
-import org.apache.samza.SamzaException
-import org.apache.hadoop.yarn.client.api.AMRMClient
-import org.apache.hadoop.yarn.conf.YarnConfiguration
+
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
+import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
+import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync
+import org.apache.samza.SamzaException
+
+import grizzled.slf4j.Logging
 
 /**
  * Responsible for managing the lifecycle of the application master. Mostly,
  * this means registering and unregistering with the RM, and shutting down
  * when the RM tells us to Reboot.
  */
-class SamzaAppMasterLifecycle(containerMem: Int, containerCpu: Int, state: SamzaAppMasterState, amClient: AMRMClient[_], conf: YarnConfiguration) extends YarnAppMasterListener with Logging {
+class SamzaAppMasterLifecycle(containerMem: Int, containerCpu: Int, state: SamzaAppMasterState, amClient: AMRMClientAsync[ContainerRequest]) extends YarnAppMasterListener with Logging {
   var validResourceRequest = true
   var shutdownMessage: String = null
 
   override def onInit() {
     val host = state.nodeHost
-
-    amClient.init(conf);
-    amClient.start
 
     val response = amClient.registerApplicationMaster(host, state.rpcPort, "%s:%d" format (host, state.trackingPort))
 
@@ -63,7 +62,6 @@ class SamzaAppMasterLifecycle(containerMem: Int, containerCpu: Int, state: Samza
   override def onShutdown() {
     info("Shutting down.")
     amClient.unregisterApplicationMaster(state.status, shutdownMessage, null)
-    amClient.stop
   }
 
   override def shouldShutdown = !validResourceRequest

@@ -18,38 +18,34 @@
  */
 
 package org.apache.samza.job.yarn
-import org.apache.hadoop.yarn.api.records.ContainerStatus
-import org.apache.hadoop.yarn.api.records.Container
-import org.apache.samza.config.Config
-import grizzled.slf4j.Logging
-import org.apache.samza.config.YarnConfig.Config2Yarn
-import org.apache.samza.config.YarnConfig
-import org.apache.samza.job.CommandBuilder
-import org.apache.hadoop.yarn.api.ApplicationConstants
-import org.apache.hadoop.security.UserGroupInformation
-import org.apache.hadoop.fs.Path
-import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
-import org.apache.samza.util.Util
-import scala.collection.JavaConversions._
-import org.apache.hadoop.yarn.client.api.AMRMClient
-import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
-import org.apache.hadoop.yarn.api.records.Priority
-import org.apache.hadoop.yarn.api.records.Resource
-import org.apache.hadoop.yarn.util.Records
-import org.apache.hadoop.yarn.api.records.LocalResource
-import org.apache.hadoop.yarn.util.ConverterUtils
-import org.apache.hadoop.yarn.api.records.ContainerLaunchContext
-import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest
-import org.apache.hadoop.yarn.conf.YarnConfiguration
-import org.apache.hadoop.yarn.api.records.LocalResourceType
-import org.apache.hadoop.yarn.api.records.LocalResourceVisibility
-import java.util.Collections
-import org.apache.samza.job.ShellCommandBuilder
-import org.apache.hadoop.io.DataOutputBuffer
-import org.apache.hadoop.yarn.security.AMRMTokenIdentifier
+
 import java.nio.ByteBuffer
-import org.apache.hadoop.yarn.client.api.impl.NMClientImpl
+import java.util.Collections
+
+import scala.collection.JavaConversions._
+
+import org.apache.hadoop.fs.Path
+import org.apache.hadoop.io.DataOutputBuffer
+import org.apache.hadoop.security.UserGroupInformation
+import org.apache.hadoop.yarn.api.ApplicationConstants
+import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest
+import org.apache.hadoop.yarn.api.records._
+import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
+import org.apache.hadoop.yarn.client.api.NMClient
+import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync
+import org.apache.hadoop.yarn.conf.YarnConfiguration
+import org.apache.hadoop.yarn.security.AMRMTokenIdentifier
+import org.apache.hadoop.yarn.util.ConverterUtils
+import org.apache.hadoop.yarn.util.Records
+import org.apache.samza.config.Config
+import org.apache.samza.config.TaskConfig.Config2Task
+import org.apache.samza.config.YarnConfig
+import org.apache.samza.config.YarnConfig.Config2Yarn
+import org.apache.samza.job.CommandBuilder
+import org.apache.samza.job.ShellCommandBuilder
+import org.apache.samza.util.Util
+
+import grizzled.slf4j.Logging
 
 object SamzaAppMasterTaskManager {
   val DEFAULT_CONTAINER_MEM = 1024
@@ -66,7 +62,7 @@ case class TaskFailure(val count: Int, val lastFailure: Long)
  * containers, handling failures, and notifying the application master that the
  * job is done.
  */
-class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaAppMasterState, amClient: AMRMClient[ContainerRequest], conf: YarnConfiguration) extends YarnAppMasterListener with Logging {
+class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaAppMasterState, amClient: AMRMClientAsync[ContainerRequest], conf: YarnConfiguration) extends YarnAppMasterListener with Logging {
   import SamzaAppMasterTaskManager._
 
   state.taskCount = config.getTaskCount match {
@@ -79,14 +75,15 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
   val allSystemStreamPartitions = Util.getInputStreamPartitions(config)
   var taskFailures = Map[Int, TaskFailure]()
   var tooManyFailedContainers = false
-  var containerManager: NMClientImpl = null
+  // TODO we might want to use NMClientAsync as well
+  var containerManager: NMClient = null
 
   override def shouldShutdown = state.completedTasks == state.taskCount || tooManyFailedContainers
 
   override def onInit() {
     state.neededContainers = state.taskCount
     state.unclaimedTasks = (0 until state.taskCount).toSet
-    containerManager = new NMClientImpl()
+    containerManager = NMClient.createNMClient()
     containerManager.init(conf)
     containerManager.start
 

@@ -30,6 +30,7 @@ object YarnConfig {
   val AM_JVM_OPTIONS = "yarn.am.opts"
   val AM_JMX_ENABLED = "yarn.am.jmx.enabled"
   val AM_CONTAINER_MAX_MEMORY_MB = "yarn.am.container.memory.mb"
+  val AM_POLL_INTERVAL_MS = "yarn.am.poll.interval.ms"
 
   implicit def Config2Yarn(config: Config) = new YarnConfig(config)
 }
@@ -66,6 +67,11 @@ class YarnConfig(config: Config) extends ScalaMapConfig(config) {
   
   def getAMContainerMaxMemoryMb: Option[Int] = getOption(YarnConfig.AM_CONTAINER_MAX_MEMORY_MB) match {
     case Some(mem) => Some(mem.toInt)
+    case _ => None
+  }
+
+  def getAMPollIntervalMs: Option[Int] = getOption(YarnConfig.AM_POLL_INTERVAL_MS) match {
+    case Some(interval) => Some(interval.toInt)
     case _ => None
   }
 

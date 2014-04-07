@@ -18,20 +18,20 @@
  */
 
 package org.apache.samza.job.yarn
-import org.junit.Assert._
-import org.junit.Test
-import TestSamzaAppMasterTaskManager._
-import org.apache.hadoop.yarn.api.records.Container
-import org.apache.hadoop.yarn.api.records.ContainerStatus
-import org.apache.hadoop.yarn.api.records.ResourceRequest
-import org.apache.hadoop.yarn.conf.YarnConfiguration
-import org.apache.hadoop.yarn.api.records.ContainerId
-import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse
 
-class TestYarnAppMaster {
+import scala.annotation.elidable
+import scala.annotation.elidable.ASSERTION
+
+import org.apache.hadoop.yarn.api.records.{ Container, ContainerStatus }
+import org.apache.hadoop.yarn.conf.YarnConfiguration
+import org.junit.Test
+
+import TestSamzaAppMasterTaskManager._
+
+class TestSamzaAppMaster {
   @Test
   def testAppMasterShouldShutdown {
-    val amClient = getAmClient(getAppMasterResponse(false, List(), List()))
+    val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(false, List(), List())))
     val listener = new YarnAppMasterListener {
       var init = 0
       var shutdown = 0
@@ -51,14 +51,15 @@ class TestYarnAppMaster {
         complete += 1
       }
     }
-    new YarnAppMaster(List(listener), amClient).run
+    SamzaAppMaster.listeners = List(listener)
+    SamzaAppMaster.run(amClient, SamzaAppMaster.listeners, new YarnConfiguration, 1)
     assert(listener.init == 1)
     assert(listener.shutdown == 1)
   }
 
   @Test
   def testAppMasterShouldShutdownWithFailingListener {
-    val amClient = getAmClient(getAppMasterResponse(false, List(), List()))
+    val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(false, List(), List())))
     val listener1 = new YarnAppMasterListener {
       var shutdown = 0
       override def shouldShutdown = true
@@ -74,15 +75,16 @@ class TestYarnAppMaster {
         shutdown += 1
       }
     }
-    // listener1 will throw an exception in shutdown, and listener2 should still get called 
-    new YarnAppMaster(List(listener1, listener2), amClient).run
+    // listener1 will throw an exception in shutdown, and listener2 should still get called
+    SamzaAppMaster.listeners = List(listener1, listener2)
+    SamzaAppMaster.run(amClient, SamzaAppMaster.listeners, new YarnConfiguration, 1)
     assert(listener1.shutdown == 1)
     assert(listener2.shutdown == 1)
   }
 
   @Test
   def testAppMasterShouldShutdownWithInterrupt {
-    val amClient = getAmClient(getAppMasterResponse(false, List(), List()))
+    val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(false, List(), List())))
     val listener = new YarnAppMasterListener {
       var init = 0
       var shutdown = 0
@@ -94,10 +96,10 @@ class TestYarnAppMaster {
         shutdown += 1
       }
     }
-    val am = new YarnAppMaster(List(listener), amClient)
     val thread = new Thread {
       override def run {
-        am.run
+        SamzaAppMaster.listeners = List(listener)
+        SamzaAppMaster.run(amClient, SamzaAppMaster.listeners, new YarnConfiguration, 1)
       }
     }
     thread.start
@@ -109,11 +111,12 @@ class TestYarnAppMaster {
 
   @Test
   def testAppMasterShouldForwardAllocatedAndCompleteContainers {
-    val amClient = getAmClient(getAppMasterResponse(false, List(getContainer(null)), List(getContainerStatus(null, 1, null))))
+    val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(false, List(getContainer(null)), List(getContainerStatus(null, 1, null)))))
     val listener = new YarnAppMasterListener {
       var allocated = 0
       var complete = 0
-      override def shouldShutdown = (allocated == 1 && complete == 1)
+      override def onInit(): Unit = amClient.registerApplicationMaster("", -1, "")
+      override def shouldShutdown = (allocated >= 1 && complete >= 1)
       override def onContainerAllocated(container: Container) {
         allocated += 1
       }
@@ -121,22 +124,27 @@ class TestYarnAppMaster {
         complete += 1
       }
     }
-    new YarnAppMaster(List(listener), amClient).run
-    assert(listener.allocated == 1)
-    assert(listener.complete == 1)
+    SamzaAppMaster.listeners = List(listener)
+    SamzaAppMaster.run(amClient, SamzaAppMaster.listeners, new YarnConfiguration, 1)
+    // heartbeat may be triggered for more than once
+    assert(listener.allocated >= 1)
+    assert(listener.complete >= 1)
   }
 
   @Test
   def testAppMasterShouldReboot {
-    val amClient = getAmClient(getAppMasterResponse(true, List(), List()))
+    val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(true, List(), List())))
     val listener = new YarnAppMasterListener {
       var reboot = 0
-      override def shouldShutdown = reboot == 1
+      override def onInit(): Unit = amClient.registerApplicationMaster("", -1, "")
+      override def shouldShutdown = reboot >= 1
       override def onReboot() {
         reboot += 1
       }
     }
-    new YarnAppMaster(List(listener), amClient).run
-    assert(listener.reboot == 1)
+    SamzaAppMaster.listeners = List(listener)
+    SamzaAppMaster.run(amClient, SamzaAppMaster.listeners, new YarnConfiguration, 1)
+    // heartbeat may be triggered for more than once
+    assert(listener.reboot >= 1)
   }
 }

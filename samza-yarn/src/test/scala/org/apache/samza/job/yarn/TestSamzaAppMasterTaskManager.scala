@@ -18,27 +18,33 @@
  */
 
 package org.apache.samza.job.yarn
-import org.junit.Assert._
-import org.junit.Test
+
+import scala.annotation.elidable
+import scala.annotation.elidable.ASSERTION
+import scala.collection.JavaConversions._
+
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
+import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse
+import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse
+import org.apache.hadoop.yarn.api.records._
+import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
+import org.apache.hadoop.yarn.client.api.async.impl.AMRMClientAsyncImpl
+import org.apache.hadoop.yarn.client.api.impl.AMRMClientImpl
+import org.apache.hadoop.yarn.conf.YarnConfiguration
+import org.apache.hadoop.yarn.util.ConverterUtils
+import org.apache.samza.Partition
 import org.apache.samza.config.Config
 import org.apache.samza.config.MapConfig
-import org.apache.samza.Partition
-import org.apache.hadoop.yarn.api.records._
-import org.apache.hadoop.yarn.util.ConverterUtils
-import scala.collection.JavaConversions._
-import org.apache.hadoop.yarn.conf.YarnConfiguration
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse
-import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse
-import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
-import org.apache.hadoop.yarn.client.api.impl.AMRMClientImpl
-import org.apache.hadoop.fs.Path
-import org.apache.hadoop.yarn.api.records.NodeReport
-import TestSamzaAppMasterTaskManager._
-import org.apache.samza.system.{SystemStreamPartition, SystemFactory}
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.util.Util
+import org.apache.samza.system.SystemFactory
+import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
+import org.apache.samza.util.Util
+import org.junit.Assert._
+import org.junit.Test
+
+import TestSamzaAppMasterTaskManager._
 
 object TestSamzaAppMasterTaskManager {
   def getContainer(containerId: ContainerId) = new Container {
@@ -80,7 +86,11 @@ object TestSamzaAppMasterTaskManager {
     override def setDiagnostics(diagnostics: String) = {}
   }
 
-  def getAmClient = (response: AllocateResponse) => new AMRMClientImpl[ContainerRequest] {
+  def getAmClient = (amClient: TestAMRMClientImpl) => new AMRMClientAsyncImpl(amClient, 1, SamzaAppMaster) {
+    def getClient: TestAMRMClientImpl = amClient
+  }
+
+  class TestAMRMClientImpl(response: AllocateResponse) extends AMRMClientImpl[ContainerRequest] {
     var requests: List[ContainerRequest] = List[ContainerRequest]()
 
     def getRelease = release
@@ -91,13 +101,9 @@ object TestSamzaAppMasterTaskManager {
     override def addContainerRequest(req: ContainerRequest) { requests ::= req }
     override def removeContainerRequest(req: ContainerRequest) {}
     override def getClusterNodeCount() = 1
-
-    override def init(config: Configuration) {}
-    override def start() {}
-    override def stop() {}
-    override def getName(): String = ""
-    override def getConfig() = null
-    override def getStartTime() = 0L
+    override def serviceInit(config: Configuration) {}
+    override def serviceStart() {}
+    override def serviceStop() {}
   }
 
   def getAppMasterResponse(reboot: Boolean, containers: List[Container], completed: List[ContainerStatus]) =
@@ -111,10 +117,10 @@ object TestSamzaAppMasterTaskManager {
       override def getCompletedContainersStatuses() = completed
       override def setCompletedContainersStatuses(containers: java.util.List[ContainerStatus]) {}
       override def setUpdatedNodes(nodes: java.util.List[NodeReport]) {}
-      override def getUpdatedNodes = null
+      override def getUpdatedNodes = List[NodeReport]()
       override def getNumClusterNodes = 1
       override def setNumClusterNodes(num: Int) {}
-      override def getNMTokens = null
+      override def getNMTokens = List[NMToken]()
       override def setNMTokens(nmTokens: java.util.List[NMToken]) {}
       override def setAMCommand(command: AMCommand) {}
       override def getPreemptionMessage = null
@@ -164,7 +170,7 @@ class TestSamzaAppMasterTaskManager {
 
   @Test
   def testAppMasterShouldRequestANewContainerWhenATaskFails {
-    val amClient = getAmClient(getAppMasterResponse(false, List(), List()))
+    val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(false, List(), List())))
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
     val taskManager = new SamzaAppMasterTaskManager(clock, config, state, amClient, new YarnConfiguration) {
       override def startContainer(packagePath: Path, container: Container, env: Map[String, String], cmds: String*) {
@@ -179,20 +185,20 @@ class TestSamzaAppMasterTaskManager {
     taskManager.onContainerCompleted(getContainerStatus(container2, 1, "expecting a failure here"))
     assert(taskManager.shouldShutdown == false)
     // 2. First is from onInit, second is from onContainerCompleted, since it failed.
-    assertEquals(2, amClient.requests.size)
-    assertEquals(0, amClient.getRelease.size)
+    assertEquals(2, amClient.getClient.requests.size)
+    assertEquals(0, amClient.getClient.getRelease.size)
     assertFalse(taskManager.shouldShutdown)
     // Now trigger an AM shutdown since our retry count is 1, and we're failing twice
     taskManager.onContainerAllocated(getContainer(container2))
     taskManager.onContainerCompleted(getContainerStatus(container2, 1, "expecting a failure here"))
-    assertEquals(2, amClient.requests.size)
-    assertEquals(0, amClient.getRelease.size)
+    assertEquals(2, amClient.getClient.requests.size)
+    assertEquals(0, amClient.getClient.getRelease.size)
     assertTrue(taskManager.shouldShutdown)
   }
 
   @Test
   def testAppMasterShouldRequestANewContainerWhenATaskIsReleased {
-    val amClient = getAmClient(getAppMasterResponse(false, List(), List()))
+    val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(false, List(), List())))
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
     state.taskCount = 2
     var containersRequested = 0
@@ -213,8 +219,8 @@ class TestSamzaAppMasterTaskManager {
     assert(taskManager.shouldShutdown == false)
     taskManager.onInit
     assert(taskManager.shouldShutdown == false)
-    assert(amClient.requests.size == 1)
-    assert(amClient.getRelease.size == 0)
+    assert(amClient.getClient.requests.size == 1)
+    assert(amClient.getClient.getRelease.size == 0)
 
     // allocate container 2
     taskManager.onContainerAllocated(getContainer(container2))
@@ -231,13 +237,13 @@ class TestSamzaAppMasterTaskManager {
     assert(state.runningTasks.size == 1)
     assert(state.taskPartitions.size == 1)
     assert(state.unclaimedTasks.size == 0)
-    assert(amClient.requests.size == 1)
-    assert(amClient.getRelease.size == 1)
-    assert(amClient.getRelease.head.equals(container3))
+    assert(amClient.getClient.requests.size == 1)
+    assert(amClient.getClient.getRelease.size == 1)
+    assert(amClient.getClient.getRelease.head.equals(container3))
 
     // reset the helper state, so we can make sure that releasing the container (next step) doesn't request more resources
-    amClient.requests = List()
-    amClient.resetRelease
+    amClient.getClient.requests = List()
+    amClient.getClient.resetRelease
 
     // now release the container, and make sure the AM doesn't ask for more
     assert(taskManager.shouldShutdown == false)
@@ -247,15 +253,15 @@ class TestSamzaAppMasterTaskManager {
     assert(state.runningTasks.size == 1)
     assert(state.taskPartitions.size == 1)
     assert(state.unclaimedTasks.size == 0)
-    assert(amClient.requests.size == 0)
-    assert(amClient.getRelease.size == 0)
+    assert(amClient.getClient.requests.size == 0)
+    assert(amClient.getClient.getRelease.size == 0)
 
     // pretend container 2 is released due to an NM failure, and make sure that the AM requests a new container
     assert(taskManager.shouldShutdown == false)
     taskManager.onContainerCompleted(getContainerStatus(container2, -100, "pretend the container was 'lost' due to an NM failure"))
     assert(taskManager.shouldShutdown == false)
-    assert(amClient.requests.size == 1)
-    assert(amClient.getRelease.size == 0)
+    assert(amClient.getClient.requests.size == 1)
+    assert(amClient.getClient.getRelease.size == 0)
   }
 
   @Test
@@ -263,7 +269,7 @@ class TestSamzaAppMasterTaskManager {
     val map = new java.util.HashMap[String, String](config)
     map.put("yarn.container.count", "2")
     val newConfig = new MapConfig(map)
-    val amClient = getAmClient(getAppMasterResponse(false, List(), List()))
+    val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(false, List(), List())))
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
     state.taskCount = 2
     var containersStarted = 0
@@ -278,8 +284,8 @@ class TestSamzaAppMasterTaskManager {
     assert(taskManager.shouldShutdown == false)
     taskManager.onInit
     assert(taskManager.shouldShutdown == false)
-    assert(amClient.requests.size == 2)
-    assert(amClient.getRelease.size == 0)
+    assert(amClient.getClient.requests.size == 2)
+    assert(amClient.getClient.getRelease.size == 0)
     taskManager.onContainerAllocated(getContainer(container2))
     assert(state.neededContainers == 1)
     assert(state.runningTasks.size == 1)
@@ -330,7 +336,7 @@ class TestSamzaAppMasterTaskManager {
 
   @Test
   def testAppMasterShouldReleaseExtraContainers {
-    val amClient = getAmClient(getAppMasterResponse(false, List(), List()))
+    val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(false, List(), List())))
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
     var containersRequested = 0
     var containersStarted = 0
@@ -350,8 +356,8 @@ class TestSamzaAppMasterTaskManager {
     assert(taskManager.shouldShutdown == false)
     taskManager.onInit
     assert(taskManager.shouldShutdown == false)
-    assert(amClient.requests.size == 1)
-    assert(amClient.getRelease.size == 0)
+    assert(amClient.getClient.requests.size == 1)
+    assert(amClient.getClient.getRelease.size == 0)
     assert(state.neededContainers == 1)
     assert(state.runningTasks.size == 0)
     assert(state.taskPartitions.size == 0)
@@ -370,9 +376,9 @@ class TestSamzaAppMasterTaskManager {
     assert(state.unclaimedTasks.size == 0)
     assert(containersRequested == 1)
     assert(containersStarted == 1)
-    assert(amClient.requests.size == 1)
-    assert(amClient.getRelease.size == 1)
-    assert(amClient.getRelease.head.equals(container3))
+    assert(amClient.getClient.requests.size == 1)
+    assert(amClient.getClient.getRelease.size == 1)
+    assert(amClient.getClient.getRelease.head.equals(container3))
   }
 
   @Test
