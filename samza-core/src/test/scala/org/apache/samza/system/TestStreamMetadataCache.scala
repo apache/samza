@@ -24,12 +24,12 @@ import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadat
 import org.apache.samza.util.Clock
 import org.junit.{Before, Test}
 import org.mockito.Mockito._
-import org.scalatest.Matchers._
+import org.scalatest.matchers.ShouldMatchers
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mock.MockitoSugar
 import scala.collection.JavaConversions._
 
-class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar {
+class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar with ShouldMatchers {
   def makeMetadata(streamNames: Set[String] = Set("stream"), numPartitions: Int = 4) = {
     val partitions = (0 until numPartitions).map(partition => {
       new Partition(partition) -> new SystemStreamPartitionMetadata("oldest", "newest", "upcoming")
@@ -46,7 +46,7 @@ class TestStreamMetadataCache extends AssertionsForJUnit with MockitoSugar {
 
     val result = cache.getStreamMetadata(streams)
     streams shouldEqual result.keySet
-    result(new SystemStream("foo", "bar")).getSystemStreamPartitionMetadata.size shouldBe 4
+    result(new SystemStream("foo", "bar")).getSystemStreamPartitionMetadata.size should equal(4)
     verify(systemAdmins("foo"), times(1)).getSystemStreamMetadata(Set("bar"))
   }
 
