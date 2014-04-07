@@ -22,8 +22,15 @@ package org.apache.samza.config
 object JobConfig {
   // job config constants
   val STREAM_JOB_FACTORY_CLASS = "job.factory.class" // streaming.job_factory_class
-  val CONFIG_REWRITERS = "job.config.rewriters" // CSV list of config rewriter classes to apply
-  val CONFIG_REWRITER_CLASS = "job.config.rewriter.%s.class"
+
+  /**
+   * job.config.rewriters is a CSV list of config rewriter names. Each name is determined
+   * by the %s value in job.config.rewriter.%s.class. For example, if you define
+   * job.config.rewriter.some-regex.class=org.apache.samza.config.RegExTopicGenerator,
+   * then the rewriter config would be set to job.config.rewriters = some-regex.
+   */
+  val CONFIG_REWRITERS = "job.config.rewriters" // streaming.job_config_rewriters
+  val CONFIG_REWRITER_CLASS = "job.config.rewriter.%s.class" // streaming.job_config_rewriter_class - regex, system, config
   val JOB_NAME = "job.name" // streaming.job_name
   val JOB_ID = "job.id" // streaming.job_id
 
