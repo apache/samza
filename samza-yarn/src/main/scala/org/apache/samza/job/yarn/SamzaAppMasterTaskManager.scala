@@ -265,9 +265,6 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
 
   protected def startContainer(packagePath: Path, container: Container, env: Map[String, String], cmds: String*) {
     info("starting container %s %s %s %s" format (packagePath, container, env, cmds))
-    // connect to container manager (based on similar code in the ContainerLauncher in Hadoop MapReduce)
-    val contToken = container.getContainerToken
-    val address = container.getNodeId.getHost + ":" + container.getNodeId.getPort
 
     // set the local package so that the containers and app master are provisioned with it
     val packageResource = Records.newRecord(classOf[LocalResource])
