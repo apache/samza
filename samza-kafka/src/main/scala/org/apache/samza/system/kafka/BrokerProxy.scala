@@ -268,9 +268,13 @@ class BrokerProxy(
   def start {
     info("Starting " + toString)
 
-    thread.setDaemon(true)
-    thread.setName(SAMZA_THREAD_NAME_PREFIX + BrokerProxy.BROKER_PROXY_THREAD_NAME_PREFIX + thread.getName)
-    thread.start
+    if (!thread.isAlive) {
+      thread.setDaemon(true)
+      thread.setName(SAMZA_THREAD_NAME_PREFIX + BrokerProxy.BROKER_PROXY_THREAD_NAME_PREFIX + thread.getName)
+      thread.start
+    } else {
+      debug("Tried to start an already started broker proxy (%s). Ignoring." format toString)
+    }
   }
 
   def stop {
