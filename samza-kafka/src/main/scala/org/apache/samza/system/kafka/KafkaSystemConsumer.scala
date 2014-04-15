@@ -19,7 +19,6 @@
 
 package org.apache.samza.system.kafka
 
-import org.apache.samza.util.ClientUtilTopicMetadataStore
 import kafka.common.TopicAndPartition
 import grizzled.slf4j.Logging
 import kafka.message.MessageAndOffset
@@ -35,6 +34,10 @@ import org.apache.samza.system.IncomingMessageEnvelope
 import kafka.consumer.ConsumerConfig
 import org.apache.samza.util.ExponentialSleepStrategy
 import org.apache.samza.SamzaException
+import org.apache.samza.util.TopicMetadataStore
+import org.apache.samza.util.ExponentialSleepStrategy
+import kafka.api.TopicMetadata
+import org.apache.samza.util.ExponentialSleepStrategy
 
 object KafkaSystemConsumer {
   def toTopicAndPartition(systemStreamPartition: SystemStreamPartition) = {
@@ -52,6 +55,7 @@ private[kafka] class KafkaSystemConsumer(
   systemName: String,
   brokerListString: String,
   metrics: KafkaSystemConsumerMetrics,
+  metadataStore: TopicMetadataStore,
   clientId: String = "undefined-client-id-%s" format UUID.randomUUID.toString,
   timeout: Int = ConsumerConfig.ConsumerTimeoutMs,
   bufferSize: Int = ConsumerConfig.SocketBufferSize,
@@ -98,8 +102,6 @@ private[kafka] class KafkaSystemConsumer(
     }
 
     refreshBrokers(topicPartitionsAndOffsets)
-
-    brokerProxies.values.foreach(_.start)
   }
 
   override def register(systemStreamPartition: SystemStreamPartition, offset: String) {
@@ -114,36 +116,42 @@ private[kafka] class KafkaSystemConsumer(
     brokerProxies.values.foreach(_.stop)
   }
 
+  protected def createBrokerProxy(host: String, port: Int): BrokerProxy = {
+    new BrokerProxy(host, port, systemName, clientId, metrics, sink, timeout, bufferSize, fetchSize, consumerMinSize, consumerMaxWait, offsetGetter)
+  }
+
+  protected def getHostPort(topicMetadata: TopicMetadata, partition: Int): Option[(String, Int)] = {
+    // Whatever we do, we can't say Broker, even though we're
+    // manipulating it here. Broker is a private type and Scala doesn't seem
+    // to care about that as long as you don't explicitly declare its type.
+    val brokerOption = topicMetadata
+      .partitionsMetadata
+      .find(_.partitionId == partition)
+      .flatMap(_.leader)
+
+    brokerOption match {
+      case Some(broker) => Some(broker.host, broker.port)
+      case _ => None
+    }
+  }
+
   def refreshBrokers(topicPartitionsAndOffsets: Map[TopicAndPartition, String]) {
     var tpToRefresh = topicPartitionsAndOffsets.keySet.toList
     retryBackoff.run(
       loop => {
-        val getTopicMetadata = (topics: Set[String]) => {
-          new ClientUtilTopicMetadataStore(brokerListString, clientId, timeout).getTopicInfo(topics)
-        }
         val topics = tpToRefresh.map(_.topic).toSet
-        val partitionMetadata = TopicMetadataCache.getTopicMetadata(topics, systemName, getTopicMetadata)
+        val topicMetadata = TopicMetadataCache.getTopicMetadata(topics, systemName, (topics: Set[String]) => metadataStore.getTopicInfo(topics))
 
         // addTopicPartition one at a time, leaving the to-be-done list intact in case of exceptions.
         // This avoids trying to re-add the same topic partition repeatedly
         def refresh(tp: List[TopicAndPartition]) = {
           val head :: rest = tpToRefresh
           val nextOffset = topicPartitionsAndOffsets.get(head).get
-          // Whatever we do, we can't say Broker, even though we're
-          // manipulating it here. Broker is a private type and Scala doesn't seem
-          // to care about that as long as you don't explicitly declare its type.
-          val brokerOption = partitionMetadata(head.topic)
-            .partitionsMetadata
-            .find(_.partitionId == head.partition)
-            .flatMap(_.leader)
-
-          brokerOption match {
-            case Some(broker) =>
-              def createBrokerProxy = new BrokerProxy(broker.host, broker.port, systemName, clientId, metrics, sink, timeout, bufferSize, fetchSize, consumerMinSize, consumerMaxWait, offsetGetter)
-
-              brokerProxies
-                .getOrElseUpdate((broker.host, broker.port), createBrokerProxy)
-                .addTopicPartition(head, Option(nextOffset))
+          getHostPort(topicMetadata(head.topic), head.partition) match {
+            case Some((host, port)) =>
+              val brokerProxy = brokerProxies.getOrElseUpdate((host, port), createBrokerProxy(host, port))
+              brokerProxy.addTopicPartition(head, Option(nextOffset))
+              brokerProxy.start
             case None => warn("No such topic-partition: %s, dropping." format head)
           }
           rest
@@ -152,6 +160,7 @@ private[kafka] class KafkaSystemConsumer(
         while (!tpToRefresh.isEmpty) {
           tpToRefresh = refresh(tpToRefresh)
         }
+
         loop.done
       },
 

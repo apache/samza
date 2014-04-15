@@ -24,11 +24,16 @@ import org.junit.Assert._
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.Partition
 import kafka.common.TopicAndPartition
+import org.apache.samza.util.TopicMetadataStore
+import kafka.api.TopicMetadata
+import kafka.api.PartitionMetadata
+import kafka.cluster.Broker
 
 class TestKafkaSystemConsumer {
   @Test
   def testFetchThresholdShouldDivideEvenlyAmongPartitions {
-    val consumer = new KafkaSystemConsumer("", "", new KafkaSystemConsumerMetrics, fetchThreshold = 50000) {
+    val metadataStore = new MockMetadataStore
+    val consumer = new KafkaSystemConsumer("", "", new KafkaSystemConsumerMetrics, metadataStore, fetchThreshold = 50000) {
       override def refreshBrokers(topicPartitionsAndOffsets: Map[TopicAndPartition, String]) {
       }
     }
@@ -41,4 +46,50 @@ class TestKafkaSystemConsumer {
 
     assertEquals(1000, consumer.perPartitionFetchThreshold)
   }
+
+  @Test
+  def testBrokerCreationShouldTriggerStart {
+    val systemName = "test-system"
+    val streamName = "test-stream"
+    val metrics = new KafkaSystemConsumerMetrics
+    // Lie and tell the store that the partition metadata is empty. We can't 
+    // use partition metadata because it has Broker in its constructor, which 
+    // is package private to Kafka. 
+    val metadataStore = new MockMetadataStore(Map(streamName -> TopicMetadata(streamName, Seq.empty, 0)))
+    var hosts = List[String]()
+    var getHostPortCount = 0
+    val consumer = new KafkaSystemConsumer(systemName, streamName, metrics, metadataStore) {
+      override def getHostPort(topicMetadata: TopicMetadata, partition: Int): Option[(String, Int)] = {
+        // Generate a unique host every time getHostPort is called.
+        getHostPortCount += 1
+        Some("localhost-%s" format getHostPortCount, 0)
+      }
+
+      override def createBrokerProxy(host: String, port: Int): BrokerProxy = {
+        new BrokerProxy(host, port, systemName, "", metrics, sink) {
+          override def addTopicPartition(tp: TopicAndPartition, nextOffset: Option[String]) = {
+            // Skip this since we normally do verification of offsets, which 
+            // tries to connect to Kafka. Rather than mock that, just forget it.
+            nextOffsets.size
+          }
+
+          override def start {
+            hosts :+= host
+          }
+        }
+      }
+    }
+
+    consumer.register(new SystemStreamPartition(systemName, streamName, new Partition(0)), "1")
+    assertEquals(0, hosts.size)
+    consumer.start
+    assertEquals(List("localhost-1"), hosts)
+    // Should trigger a refresh with a new host.
+    consumer.sink.abdicate(new TopicAndPartition(streamName, 0), 2)
+    assertEquals(List("localhost-1", "localhost-2"), hosts)
+  }
+}
+
+class MockMetadataStore(var metadata: Map[String, TopicMetadata] = Map()) extends TopicMetadataStore {
+  def getTopicInfo(topics: Set[String]): Map[String, TopicMetadata] = metadata
 }
