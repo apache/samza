@@ -129,16 +129,9 @@ start_zookeeper() {
 }
 
 start_yarn() {
-  if [ -f $DEPLOY_ROOT_DIR/$SYSTEM/bin/yarn ]; then
-    cd $DEPLOY_ROOT_DIR/$SYSTEM
-    mkdir -p pids logs
-    nohup bin/yarn resourcemanager > logs/rm.log 2>&1 &
-    RM_PID=$!
-    echo $RM_PID > pids/rm.pid
-    nohup bin/yarn nodemanager > logs/nm.log 2>&1 &
-    NM_PID=$!
-    echo $NM_PID > pids/nm.pid
-    cd - > /dev/null
+  if [ -f $DEPLOY_ROOT_DIR/$SYSTEM/sbin/yarn-daemon.sh ]; then
+    $DEPLOY_ROOT_DIR/$SYSTEM/sbin/yarn-daemon.sh start resourcemanager
+    $DEPLOY_ROOT_DIR/$SYSTEM/sbin/yarn-daemon.sh start nodemanager
   else
     echo 'YARN is not installed. Run: bin/grid install yarn'
   fi
@@ -172,21 +165,8 @@ stop_zookeeper() {
 }
 
 stop_yarn() {
-  RM_PIDFILE="$DEPLOY_ROOT_DIR/$SYSTEM/pids/rm.pid"
-  if [ -f "$RM_PIDFILE" ]; then
-    kill $(cat "$RM_PIDFILE")
-    rm -f "$RM_PIDFILE"
-  else
-    echo 'YARN ResourceManager not running, nothing to stop.'
-  fi
-
-  NM_PIDFILE="$DEPLOY_ROOT_DIR/$SYSTEM/pids/nm.pid"
-  if [ -f "$NM_PIDFILE" ]; then
-    kill $(cat "$NM_PIDFILE")
-    rm -f "$NM_PIDFILE"
-  else
-    echo 'YARN NodeManager not running, nothing to stop.'
-  fi
+  $DEPLOY_ROOT_DIR/$SYSTEM/sbin/yarn-daemon.sh stop resourcemanager
+  $DEPLOY_ROOT_DIR/$SYSTEM/sbin/yarn-daemon.sh stop nodemanager
 }
 
 stop_kafka() {
