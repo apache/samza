@@ -33,6 +33,11 @@ Committer, and PMC member<br/>
 <a href="https://www.linkedin.com/in/martinkleppmann" target="_blank"><i class="icon-linkedin committer-icon"></i></a>
 <a href="https://twitter.com/martinkl" target="_blank"><i class="icon-twitter committer-icon"></i></a>
 
+**Zhijie Shen**<br/>
+Committer, and PMC member<br/>
+<a href="https://www.linkedin.com/in/zjshen" target="_blank"><i class="icon-linkedin committer-icon"></i></a>
+<a href="https://twitter.com/zhijieshen" target="_blank"><i class="icon-twitter committer-icon"></i></a>
+
 ### Mentors
 
 **Chris Douglas**<br/>
