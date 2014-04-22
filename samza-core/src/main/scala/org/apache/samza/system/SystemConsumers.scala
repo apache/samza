@@ -25,6 +25,7 @@ import org.apache.samza.serializers.SerdeManager
 import grizzled.slf4j.Logging
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.util.DoublingBackOff
+import org.apache.samza.system.chooser.BufferingMessageChooser
 
 /**
  * The SystemConsumers class coordinates between all SystemConsumers, the
@@ -59,16 +60,7 @@ class SystemConsumers(
   /**
    * The maximum number of messages to poll from a single SystemStreamPartition.
    */
-  maxMsgsPerStreamPartition: Int = 1000,
-
-  /**
-   * A percentage threshold that determines when a SystemStreamPartition
-   * should be polled again. 0.0 means poll for more messages only when
-   * SystemConsumer's buffer is totally empty. 0.2 means poll for more messages
-   * when SystemConsumers' buffer is 80% empty. SystemConsumers' buffer size
-   * is determined by maxMsgsPerStreamPartition.
-   */
-  fetchThresholdPct: Float = 0f,
+  maxMsgsPerStreamPartition: Int = 10000,
 
   /**
    * If MessageChooser returns null when it's polled, SystemConsumers will
@@ -80,18 +72,9 @@ class SystemConsumers(
   noNewMessagesTimeout: Long = 10) extends Logging {
 
   /**
-   * A buffer of incoming messages grouped by SystemStreamPartition.
+   * The buffer where SystemConsumers stores all incoming message envelopes.
    */
-  var unprocessedMessages = Map[SystemStreamPartition, Queue[IncomingMessageEnvelope]]()
-
-  /**
-   * The MessageChooser only gets updated with one message-per-SystemStreamPartition
-   * at a time. The MessageChooser will not receive a second message from the
-   * same SystemStreamPartition until the first message that it received has
-   * been returned to SystemConsumers. This set keeps track of which
-   * SystemStreamPartitions are valid to give to the MessageChooser.
-   */
-  var neededByChooser = Set[SystemStreamPartition]()
+  val buffer = new BufferingMessageChooser(chooser)
 
   /**
    * A map of every SystemStreamPartition that SystemConsumers is responsible
@@ -122,33 +105,26 @@ class SystemConsumers(
   var timeout = noNewMessagesTimeout
 
   /**
-   * Used to determine when the next poll should take place for a given
-   * SystemStreamPartition. SystemConsumers inspects the value of fetchMap for each
-   * SystemStreamPartition, and decides to poll for the SystemStreamPartition
-   * if the fetchMap value is greater than or equal to the
-   * depletedQueueSizeThreshold. For example, suppose the fetchThresholdPct is
-   * 0.2, and the maxMsgsPerStreamPartition is 1000. This would result in
-   * depletedQueueSizeThreshold being 800. This a SystemStreamPartition with a
-   * fetchMap value of 936 (164 messages in the buffer is less than 20% of
-   * 1000) would be polled for more messages, while a SystemStream partition
-   * with a fetchMap value of 548 would not be polled for more messages (452
-   * messages in the buffer is greater than 20% of 1000).
-   */
-  val depletedQueueSizeThreshold = (maxMsgsPerStreamPartition * (1 - fetchThresholdPct)).toInt
-
-  /** 
    * Make the maximum backoff proportional to the number of streams we're consuming.
    * For a few streams, make the max back off 1, but for hundreds make it up to 1k,
    * which experimentally has shown to be the most performant.
    */
   var maxBackOff = 0
-  
+
+  /**
+   * How low totalUnprocessedMessages has to get before the consumers are
+   * polled for more data. This is defined to be 10% of
+   * maxMsgsPerStreamPartition. Since maxMsgsPerStreamPartition defaults to
+   * 10000, the default refreshThreshold is 1000.
+   */
+  val refreshThreshold = maxMsgsPerStreamPartition * .1
+
   debug("Got stream consumers: %s" format consumers)
   debug("Got max messages per stream: %s" format maxMsgsPerStreamPartition)
   debug("Got no new message timeout: %s" format noNewMessagesTimeout)
 
-  metrics.setUnprocessedMessages(() => fetchMap.values.map(maxMsgsPerStreamPartition - _.intValue).sum)
-  metrics.setNeededByChooser(() => neededByChooser.size)
+  metrics.setUnprocessedMessages(() => buffer.unprocessedMessages.size)
+  metrics.setNeededByChooser(() => buffer.neededByChooser.size)
   metrics.setTimeout(() => timeout)
   metrics.setMaxMessagesPerStreamPartition(() => maxMsgsPerStreamPartition)
   metrics.setNoNewMessagesTimeout(() => noNewMessagesTimeout)
@@ -159,14 +135,14 @@ class SystemConsumers(
     maxBackOff = scala.math.pow(10, scala.math.log10(fetchMap.size).toInt).toInt
 
     debug("Got maxBackOff: " + maxBackOff)
-    
+
     consumers
       .keySet
       .foreach(metrics.registerSystem)
 
     consumers.values.foreach(_.start)
 
-    chooser.start
+    buffer.start
   }
 
   def stop {
@@ -174,18 +150,16 @@ class SystemConsumers(
 
     consumers.values.foreach(_.stop)
 
-    chooser.stop
+    buffer.stop
   }
 
   def register(systemStreamPartition: SystemStreamPartition, offset: String) {
     debug("Registering stream: %s, %s" format (systemStreamPartition, offset))
 
     metrics.registerSystemStream(systemStreamPartition.getSystemStream)
-    neededByChooser += systemStreamPartition
+    buffer.register(systemStreamPartition, offset)
     updateFetchMap(systemStreamPartition, maxMsgsPerStreamPartition)
-    unprocessedMessages += systemStreamPartition -> Queue[IncomingMessageEnvelope]()
     consumers(systemStreamPartition.getSystem).register(systemStreamPartition, offset)
-    chooser.register(systemStreamPartition, offset)
   }
 
   /**
@@ -202,7 +176,7 @@ class SystemConsumers(
   }
 
   def choose: IncomingMessageEnvelope = {
-    val envelopeFromChooser = chooser.choose
+    val envelopeFromChooser = buffer.choose
 
     if (envelopeFromChooser == null) {
       debug("Chooser returned null.")
@@ -219,17 +193,19 @@ class SystemConsumers(
       // Don't block if we have a message to process.
       timeout = 0
 
-      // Ok to give the chooser a new message from this stream.
-      neededByChooser += envelopeFromChooser.getSystemStreamPartition
-
       metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition.getSystemStream).inc
     }
 
-    refresh.maybeCall()
+    // Always refresh if we got nothing from the chooser. Otherwise, just 
+    // refresh when the buffer is low. 
+    if (envelopeFromChooser == null || buffer.totalUnprocessedMessages <= refreshThreshold) {
+      refresh.maybeCall()
+    }
+
     updateMessageChooser
     envelopeFromChooser
   }
-  
+
   /**
    * Poll a system for new messages from SystemStreamPartitions that have
    * dipped below the depletedQueueSizeThreshold threshold.  Return true if
@@ -260,15 +236,13 @@ class SystemConsumers(
     incomingEnvelopes.foreach(envelope => {
       val systemStreamPartition = envelope.getSystemStreamPartition
 
+      buffer.update(serdeManager.fromBytes(envelope))
+
       debug("Got message for: %s, %s" format (systemStreamPartition, envelope))
 
       updateFetchMap(systemStreamPartition, -1)
 
       debug("Updated fetch map for: %s, %s" format (systemStreamPartition, fetchMap))
-
-      unprocessedMessages(envelope.getSystemStreamPartition).enqueue(serdeManager.fromBytes(envelope))
-
-      debug("Updated unprocessed messages for: %s, %s" format (systemStreamPartition, unprocessedMessages))
     })
 
     !incomingEnvelopes.isEmpty
@@ -284,7 +258,7 @@ class SystemConsumers(
     val systemName = systemStreamPartition.getSystem
     var systemFetchMap = systemFetchMapCache.getOrElse(systemName, Map())
 
-    if (fetchSize >= depletedQueueSizeThreshold) {
+    if (fetchSize >= refreshThreshold) {
       systemFetchMap += systemStreamPartition -> fetchSize
     } else {
       systemFetchMap -= systemStreamPartition
@@ -293,18 +267,16 @@ class SystemConsumers(
     fetchMap += systemStreamPartition -> fetchSize
     systemFetchMapCache += systemName -> systemFetchMap
   }
-  
+
   /**
-   * A helper method that updates MessageChooser. This should be called in 
+   * A helper method that updates MessageChooser. This should be called in
    * "choose" method after we try to consume a message from MessageChooser.
    */
   private def updateMessageChooser {
-    neededByChooser.foreach(systemStreamPartition =>
-      // If we have messages for a stream that the chooser needs, then update.
-      if (fetchMap(systemStreamPartition).intValue < maxMsgsPerStreamPartition) {
-        chooser.update(unprocessedMessages(systemStreamPartition).dequeue)
-        updateFetchMap(systemStreamPartition)
-        neededByChooser -= systemStreamPartition
-      })
+    buffer
+      .flush
+      // Let the fetchMap know of any SSPs that were given to the chooser, so 
+      // a new fetch can be triggered if the buffer is low.
+      .foreach(updateFetchMap(_))
   }
 }
