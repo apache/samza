@@ -59,7 +59,7 @@ If a job is consuming messages from more than one system/stream/partition combin
 
 #### MessageChooser
 
-The default round robin behavior can be overridden by implementing a custom MessageChooser. A MessageChooser's job is to answer the question, "Given a set of incoming messages, which one should a Samza container process next?".  To write a custom MessageChooser, take a look at the [Javadocs](http://localhost:4000/learn/documentation/0.7.0/api/javadocs/org/apache/samza/system/MessageChooser.html), and then configure your task with the "task.chooser.class" configuration, which should point to your MessageChooserFactory.
+The default round robin behavior can be overridden by implementing a custom MessageChooser. A MessageChooser's job is to answer the question, "Given a set of incoming messages, which one should a Samza container process next?".  To write a custom MessageChooser, take a look at the [Javadocs](../api/javadocs/org/apache/samza/system/MessageChooser.html), and then configure your task with the "task.chooser.class" configuration, which should point to your MessageChooserFactory.
 
 Out of the box, Samza ships with a RoundRobinChooser, which is the default. You can use the StreamChooser by adding the following configuration to your job.
 
