@@ -10,7 +10,3 @@ To release to a local Maven repository:
 
     ./gradlew clean publishToMavenLocal
     ./gradlew -PscalaVersion=2.9.2 clean publishToMavenLocal
-
-To generate test coverage reports:
-
-    ./gradlew clean jacocoTestReport
