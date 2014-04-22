@@ -34,14 +34,8 @@ allprojects {
 
 
 subprojects {
-  apply plugin: 'jacoco'
   apply plugin: 'eclipse'
   apply plugin: 'project-report'
-
-  // Required for now, becaues of GRADLE-2917.
-  dependencies {
-    jacocoAgent "org.jacoco:org.jacoco.agent:${jacoco.toolVersion}"
-  }
 }
 
 project(':samza-api') {
