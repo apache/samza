@@ -39,8 +39,12 @@ import scala.collection.JavaConversions._
 import org.apache.samza.util.{ ClientUtilTopicMetadataStore, TopicMetadataStore }
 import org.apache.samza.config.MapConfig
 import org.apache.samza.checkpoint.Checkpoint
+import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system.SystemStream
 import kafka.utils.ZKStringSerializer
+import kafka.message.InvalidMessageException
+import kafka.common.InvalidMessageSizeException
+import kafka.common.UnknownTopicOrPartitionException
 
 object TestKafkaCheckpointManager {
   val zkConnect: String = TestZKUtils.zookeeperConnect
@@ -129,6 +133,25 @@ class TestKafkaCheckpointManager {
     kcm.stop
   }
 
+  @Test
+  def testUnrecovableKafkaErrorShouldThrowKafkaCheckpointManagerException {
+    val exceptions = List("InvalidMessageException", "InvalidMessageSizeException", "UnknownTopicOrPartitionException")
+    exceptions.foreach { exceptionName =>
+      val kcm = getKafkaCheckpointManagerWithInvalidSerde(exceptionName)
+      kcm.register(partition)
+      kcm.start
+      kcm.writeCheckpoint(partition, cp1)
+      // because serde will throw unrecoverable errors, it should result a KafkaCheckpointException
+      try {
+        val readCpInvalide = kcm.readLastCheckpoint(partition)
+        fail("Expected a KafkaCheckpointException.")
+      } catch {
+        case e: KafkaCheckpointException => None
+      }
+      kcm.stop
+    }
+  }
+
   private def getKafkaCheckpointManager = new KafkaCheckpointManager(
     clientId = "some-client-id",
     checkpointTopic = "checkpoint-topic",
@@ -141,4 +164,29 @@ class TestKafkaCheckpointManager {
     metadataStore = metadataStore,
     connectProducer = () => new Producer[Partition, Array[Byte]](producerConfig),
     connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer))
+
+  // inject serde. Kafka exceptions will be thrown when serde.fromBytes is called
+  private def getKafkaCheckpointManagerWithInvalidSerde(exception: String) = new KafkaCheckpointManager(
+    clientId = "some-client-id-invalid-serde",
+    checkpointTopic = "checkpoint-topic-invalid-serde",
+    systemName = "kafka",
+    totalPartitions = 1,
+    replicationFactor = 3,
+    socketTimeout = 30000,
+    bufferSize = 64 * 1024,
+    fetchSize = 300 * 1024,
+    metadataStore = metadataStore,
+    connectProducer = () => new Producer[Partition, Array[Byte]](producerConfig),
+    connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer),
+    serde = new InvalideSerde(exception))
+
+  class InvalideSerde(exception: String) extends CheckpointSerde {
+    override def fromBytes(bytes: Array[Byte]): Checkpoint = {
+      exception match {
+        case "InvalidMessageException" => throw new InvalidMessageException
+        case "InvalidMessageSizeException" => throw new InvalidMessageSizeException
+        case "UnknownTopicOrPartitionException" => throw new UnknownTopicOrPartitionException
+      }
+    }
+  }
 }

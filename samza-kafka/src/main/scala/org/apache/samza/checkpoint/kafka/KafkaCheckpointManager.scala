@@ -28,6 +28,8 @@ import kafka.api.PartitionOffsetRequestInfo
 import kafka.common.ErrorMapping
 import kafka.common.TopicAndPartition
 import kafka.common.TopicExistsException
+import kafka.common.InvalidMessageSizeException
+import kafka.common.UnknownTopicOrPartitionException
 import kafka.consumer.SimpleConsumer
 import kafka.producer.KeyedMessage
 import kafka.producer.Partitioner
@@ -36,6 +38,7 @@ import kafka.serializer.Decoder
 import kafka.serializer.Encoder
 import kafka.utils.Utils
 import kafka.utils.VerifiableProperties
+import kafka.message.InvalidMessageException
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.Checkpoint
@@ -181,6 +184,9 @@ class KafkaCheckpointManager(
 
       (exception, loop) => {
         exception match {
+          case e: InvalidMessageException => throw new KafkaCheckpointException ("Got InvalidMessageException from Kafka, which is unrecoverable, so fail the samza job", e)
+          case e: InvalidMessageSizeException => throw new KafkaCheckpointException ("Got InvalidMessageSizeException from Kafka, which is unrecoverable, so fail the samza job", e)
+          case e: UnknownTopicOrPartitionException => throw new KafkaCheckpointException ("Got UnknownTopicOrPartitionException from Kafka, which is unrecoverable, so fail the samza job", e)
           case e: KafkaCheckpointException => throw e
           case e: Exception =>
             warn("While trying to read last checkpoint for topic %s and partition %s: %s. Retrying." format (checkpointTopic, partition, e))
