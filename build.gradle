@@ -92,7 +92,9 @@ project(":samza-kafka_$scalaVersion") {
 
   test {
     // Bump up the heap so we can start ZooKeeper and Kafka brokers.
-    maxHeapSize = "2048m"
+    minHeapSize = "4096m"
+    maxHeapSize = "4096m"
+    jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server", "-d64"]
   }
 }
 
@@ -238,7 +240,9 @@ project(":samza-test_$scalaVersion") {
     // Bump up the heap so we can start ZooKeeper and Kafka brokers. Also 
     // required for TestSamzaContainerPerformance when a high thread count 
     // with a lot of inputs is used.
+    minHeapSize = "4096m"
     maxHeapSize = "4096m"
+    jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server", "-d64"]
 
     // Forward all samza.* system properties to test subprocesses. This is 
     // useful for configuring TestSamzaContainerPerformance from the CLI.
