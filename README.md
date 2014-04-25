@@ -10,7 +10,7 @@ Apache Incubator Samza is a distributed stream processing framework. It uses <a 
 * **Pluggable:** Though Samza works out of the box with Kafka and YARN, Samza provides a pluggable API that lets you run Samza with other messaging systems and execution environments.
 * **Processor isolation:** Samza works with Apache YARN, which supports processor security through Hadoop's security model, and resource isolation through Linux CGroups.
 
-Check out [Hello Samza](/startup/hello-samza/0.7.0) to try Samza. Read the [Background](/learn/documentation/0.7.0/introduction/background.html) page to learn more about Samza.
+Check out [Hello Samza](https://samza.incubator.apache.org/startup/hello-samza/0.7.0/) to try Samza. Read the [Background](https://samza.incubator.apache.org/learn/documentation/0.7.0/introduction/background.html) page to learn more about Samza.
 
 ### Building Samza
 
