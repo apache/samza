@@ -307,7 +307,6 @@ class TestKeyValueStores(typeOfStore: String) {
    */
   def s(b: Array[Byte]) =
     new String(b)
-
 }
 
 object TestKeyValueStores {

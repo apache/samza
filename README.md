@@ -34,6 +34,10 @@ To run a single test:
 
     ./gradlew clean :samza-test:test -Dtest.single=TestStatefulTask
 
+To run key-value performance tests:
+
+    ./gradlew samza-shell:kvPerformanceTest -PconfigPath=file://$PWD/samza-test/src/main/resources/perf/kv-perf.properties
+
 ### Job Management
 
 To run a job (defined in a properties file):

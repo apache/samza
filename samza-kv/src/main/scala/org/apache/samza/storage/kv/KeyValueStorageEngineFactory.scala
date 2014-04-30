@@ -44,6 +44,7 @@ class KeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] {
     val storageConfig = containerContext.config.subset("stores." + storeName + ".", true)
     val batchSize = storageConfig.getInt("write.batch.size", 500)
     val cacheSize = storageConfig.getInt("object.cache.size", math.max(batchSize, 1000))
+    val deleteCompactionThreshold = storageConfig.getInt("compaction.delete.threshold", -1)
     val enableCache = cacheSize > 0
 
     if (cacheSize > 0 && cacheSize < batchSize) {
@@ -60,7 +61,7 @@ class KeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] {
 
     val levelDbMetrics = new LevelDbKeyValueStoreMetrics(storeName, registry)
     val levelDbOptions = LevelDbKeyValueStore.options(storageConfig, containerContext)
-    val levelDb = new LevelDbKeyValueStore(storeDir, levelDbOptions, levelDbMetrics)
+    val levelDb = new LevelDbKeyValueStore(storeDir, levelDbOptions, deleteCompactionThreshold, levelDbMetrics)
     val maybeLoggedStore = if (changeLogSystemStreamPartition == null) {
       levelDb
     } else {
