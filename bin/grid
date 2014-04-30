@@ -35,7 +35,7 @@ DOWNLOAD_CACHE_DIR=$HOME/.samza/download
 COMMAND=$1
 SYSTEM=$2
 
-DOWNLOAD_KAFKA=http://www.us.apache.org/dist/kafka/0.8.1/kafka_2.9.2-0.8.1.tgz
+DOWNLOAD_KAFKA=http://www.us.apache.org/dist/kafka/0.8.1.1/kafka_2.9.2-0.8.1.1.tgz
 DOWNLOAD_YARN=https://archive.apache.org/dist/hadoop/common/hadoop-2.2.0/hadoop-2.2.0.tar.gz
 DOWNLOAD_ZOOKEEPER=http://archive.apache.org/dist/zookeeper/zookeeper-3.4.3/zookeeper-3.4.3.tar.gz
 
@@ -50,10 +50,10 @@ bootstrap() {
 }
 
 install_all() {
-  install_samza
-  install_zookeeper
-  install_yarn
-  install_kafka
+  $DIR/grid install samza
+  $DIR/grid install zookeeper
+  $DIR/grid install yarn
+  $DIR/grid install kafka
 }
 
 install_zookeeper() {
@@ -71,7 +71,7 @@ install_yarn() {
 }
 
 install_kafka() {
-  install kafka $DOWNLOAD_KAFKA kafka_2.9.2-0.8.1
+  install kafka $DOWNLOAD_KAFKA kafka_2.9.2-0.8.1.1
   # have to use SIGTERM since nohup on appears to ignore SIGINT
   # and Kafka switched to SIGINT in KAFKA-1031.
   sed -i.bak 's/SIGINT/SIGTERM/g' $DEPLOY_ROOT_DIR/kafka/bin/kafka-server-stop.sh
@@ -165,8 +165,12 @@ stop_zookeeper() {
 }
 
 stop_yarn() {
-  $DEPLOY_ROOT_DIR/$SYSTEM/sbin/yarn-daemon.sh stop resourcemanager
-  $DEPLOY_ROOT_DIR/$SYSTEM/sbin/yarn-daemon.sh stop nodemanager
+  if [ -f $DEPLOY_ROOT_DIR/$SYSTEM/sbin/yarn-daemon.sh ]; then
+    $DEPLOY_ROOT_DIR/$SYSTEM/sbin/yarn-daemon.sh stop resourcemanager
+    $DEPLOY_ROOT_DIR/$SYSTEM/sbin/yarn-daemon.sh stop nodemanager
+  else
+    echo 'YARN is not installed. Run: bin/grid install yarn'
+  fi
 }
 
 stop_kafka() {
@@ -197,6 +201,6 @@ elif (test -z "$COMMAND" && test -z "$SYSTEM") \
   exit 1
 else
   echo "EXECUTING: $COMMAND $SYSTEM"
-  
+
   "$COMMAND"_"$SYSTEM"
 fi
