@@ -166,6 +166,7 @@ project(":samza-shell") {
   dependencies {
     gradleShell project(":samza-core_$scalaVersion")
     gradleShell project(":samza-kafka_$scalaVersion")
+    gradleShell project(":samza-test_$scalaVersion")
     gradleShell project(":samza-yarn_$scalaVersion")
     gradleShell "org.slf4j:slf4j-simple:$slf4jVersion"
   }
@@ -191,6 +192,14 @@ project(":samza-shell") {
     classpath = configurations.gradleShell
     if (project.hasProperty('configPath')) args += ['--config-path', configPath]
     if (project.hasProperty('newOffsets')) args += ['--new-offsets', newOffsets]
+  }
+
+  // Usage: ./gradlew samza-shell:kvPerformanceTest
+  //    -PconfigPath=file:///path/to/job/config.properties
+  task kvPerformanceTest(type:JavaExec) {
+    main = 'org.apache.samza.test.performance.TestKeyValuePerformance'
+    classpath = configurations.gradleShell
+    if (project.hasProperty('configPath')) args += ['--config-path', configPath]
   }
 }
 

@@ -28,7 +28,7 @@ import java.util.Iterator
 import java.lang.Iterable
 import org.apache.samza.config.Config
 import org.apache.samza.container.SamzaContainerContext
-import grizzled.slf4j.{Logger, Logging}
+import grizzled.slf4j.{ Logger, Logging }
 
 object LevelDbKeyValueStore {
   private lazy val logger = Logger(classOf[LevelDbKeyValueStore])
@@ -45,12 +45,11 @@ object LevelDbKeyValueStore {
     options.compressionType(
       storeConfig.get("leveldb.compression", "snappy") match {
         case "snappy" => CompressionType.SNAPPY
-        case "none"   => CompressionType.NONE
+        case "none" => CompressionType.NONE
         case _ =>
           logger.warn("Unknown leveldb.compression codec %s, defaulting to Snappy" format storeConfig.get("leveldb.compression", "snappy"))
           CompressionType.SNAPPY
-      }
-    )
+      })
     options.createIfMissing(true)
     options.errorIfExists(true)
     options
@@ -60,12 +59,21 @@ object LevelDbKeyValueStore {
 class LevelDbKeyValueStore(
   val dir: File,
   val options: Options,
+
+  /**
+   * How many deletes must occur before we will force a compaction. This is to
+   * get around performance issues discovered in SAMZA-254. A value of -1 
+   * disables this feature.
+   */
+  val deleteCompactionThreshold: Int = -1,
   val metrics: LevelDbKeyValueStoreMetrics = new LevelDbKeyValueStoreMetrics) extends KeyValueStore[Array[Byte], Array[Byte]] with Logging {
 
   private lazy val db = factory.open(dir, options)
   private val lexicographic = new LexicographicComparator()
+  private var deletesSinceLastCompaction = 0
 
   def get(key: Array[Byte]): Array[Byte] = {
+    maybeCompact
     metrics.gets.inc
     require(key != null, "Null key not allowed.")
     val found = db.get(key)
@@ -80,6 +88,7 @@ class LevelDbKeyValueStore(
     require(key != null, "Null key not allowed.")
     if (value == null) {
       db.delete(key)
+      deletesSinceLastCompaction += 1
     } else {
       metrics.bytesWritten.inc(key.size + value.size)
       db.put(key, value)
@@ -108,6 +117,7 @@ class LevelDbKeyValueStore(
     batch.close
     metrics.puts.inc(wrote)
     metrics.deletes.inc(deletes)
+    deletesSinceLastCompaction += deletes
   }
 
   def delete(key: Array[Byte]) {
@@ -116,16 +126,39 @@ class LevelDbKeyValueStore(
   }
 
   def range(from: Array[Byte], to: Array[Byte]): KeyValueIterator[Array[Byte], Array[Byte]] = {
+    maybeCompact
     metrics.ranges.inc
     require(from != null && to != null, "Null bound not allowed.")
     new LevelDbRangeIterator(db.iterator, from, to)
   }
 
   def all(): KeyValueIterator[Array[Byte], Array[Byte]] = {
+    maybeCompact
     metrics.alls.inc
     val iter = db.iterator()
     iter.seekToFirst()
     new LevelDbIterator(iter)
+  }
+
+  /**
+   * Trigger a complete compaction on the LevelDB store if there have been at
+   * least deleteCompactionThreshold deletes since the last compaction.
+   */
+  def maybeCompact = {
+    if (deleteCompactionThreshold >= 0 && deletesSinceLastCompaction >= deleteCompactionThreshold) {
+      compact
+    }
+  }
+
+  /**
+   * Trigger a complete compaction of the LevelDB store.
+   */
+  def compact {
+    // According to LevelDB's docs:
+    // begin==NULL is treated as a key before all keys in the database.
+    // end==NULL is treated as a key after all keys in the database.
+    db.compactRange(null, null)
+    deletesSinceLastCompaction = 0
   }
 
   def flush {
