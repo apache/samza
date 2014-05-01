@@ -26,6 +26,7 @@ import grizzled.slf4j.Logging
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.util.DoublingBackOff
 import org.apache.samza.system.chooser.BufferingMessageChooser
+import org.apache.samza.SamzaException
 
 /**
  * The SystemConsumers class coordinates between all SystemConsumers, the
@@ -159,7 +160,12 @@ class SystemConsumers(
     metrics.registerSystemStream(systemStreamPartition.getSystemStream)
     buffer.register(systemStreamPartition, offset)
     updateFetchMap(systemStreamPartition, maxMsgsPerStreamPartition)
-    consumers(systemStreamPartition.getSystem).register(systemStreamPartition, offset)
+
+    try {
+      consumers(systemStreamPartition.getSystem).register(systemStreamPartition, offset)
+    } catch {
+      case e: NoSuchElementException => throw new SystemConsumersException("can't register " + systemStreamPartition.getSystem + "'s consumer.", e)
+    }
   }
 
   /**
@@ -279,4 +285,13 @@ class SystemConsumers(
       // a new fetch can be triggered if the buffer is low.
       .foreach(updateFetchMap(_))
   }
+}
+
+/**
+ * When SystemConsumer registers consumers, there are situations where system can not recover
+ * from. Such as a failed consumer is used in task.input and changelogs.
+ * SystemConsumersException is thrown to indicate a hard failure when the system can not recover from.
+ */
+class SystemConsumersException(s: String, t: Throwable) extends SamzaException(s, t) {
+  def this(s: String) = this(s, null)
 }

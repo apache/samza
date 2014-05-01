@@ -58,4 +58,39 @@ class TestSystemConsumers {
     assertEquals(1, registered.size)
     assertEquals("0", registered(systemStreamPartition))
   }
+
+  @Test
+  def testThrowSystemConsumersExceptionWhenTheSystemDoesNotHaveConsumer() {
+    val system = "test-system"
+    val system2 = "test-system2"
+    val systemStreamPartition = new SystemStreamPartition(system, "some-stream", new Partition(1))
+    val systemStreamPartition2 = new SystemStreamPartition(system2, "some-stream", new Partition(1))
+    var started = 0
+    var stopped = 0
+    var registered = Map[SystemStreamPartition, String]()
+    
+    val consumer = Map(system -> new SystemConsumer {
+      def start {}
+      def stop {}
+      def register(systemStreamPartition: SystemStreamPartition, offset: String) {}
+      def poll(systemStreamPartitions: java.util.Map[SystemStreamPartition, java.lang.Integer], timeout: Long) = List()
+    })
+    val consumers = new SystemConsumers(new MessageChooser {
+      def update(envelope: IncomingMessageEnvelope) = Unit
+      def choose = null
+      def start = started += 1
+      def stop = stopped += 1
+      def register(systemStreamPartition: SystemStreamPartition, offset: String) = registered += systemStreamPartition -> offset
+    }, consumer, null)
+     
+    // it should throw a SystemConsumersException because system2 does not have a consumer
+    var caughtRightException = false
+    try {
+    	consumers.register(systemStreamPartition2, "0")
+    } catch {
+    	case e: SystemConsumersException => caughtRightException = true
+    	case _: Throwable => caughtRightException = false
+    }
+    assertTrue("suppose to throw SystemConsumersException, but apparently it did not", caughtRightException)
+  }
 }
