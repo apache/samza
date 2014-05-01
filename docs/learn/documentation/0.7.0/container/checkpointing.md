@@ -92,6 +92,21 @@ The following table explains the meaning of these configuration parameters:
 
 Note that the example configuration above causes your tasks to start consuming from the oldest offset *every time a container starts up*. This is useful in case you have some in-memory state in your tasks that you need to rebuild from source data in an input stream. If you are using streams in this way, you may also find [bootstrap streams](streams.html) useful.
 
-If you want to make a one-off change to a job's consumer offsets, for example to force old messages to be processed again with a new version of your code, you can use CheckpointTool to manipulate the job's checkpoint. The tool is included in Samza's [source repository](/contribute/code.html) and documented in the README.
+### Manipulating Checkpoints Manually
+
+If you want to make a one-off change to a job's consumer offsets, for example to force old messages to be [processed again](../jobs/reprocessing.html) with a new version of your code, you can use CheckpointTool to inspect and manipulate the job's checkpoint. The tool is included in Samza's [source repository](/contribute/code.html).
+
+To inspect a job's latest checkpoint, you need to specify your job's config file, so that the tool knows which job it is dealing with:
+
+    samza-example/target/bin/checkpoint-tool.sh \
+      --config-path=file:///path/to/job/config.properties
+
+This command prints out the latest checkpoint in a properties file format. You can save the output to a file, and edit it as you wish. For example, to jump back to the oldest possible point in time, you can set all the offsets to 0. Then you can feed that properties file back into checkpoint-tool.sh and save the modified checkpoint:
+
+    samza-example/target/bin/checkpoint-tool.sh \
+      --config-path=file:///path/to/job/config.properties \
+      --new-offsets=file:///path/to/new/offsets.properties
+
+Note that Samza only reads checkpoints on container startup. In order for your checkpoint change to take effect, you need to first stop the job, then save the modified offsets, and then start the job again. If you write a checkpoint while the job is running, it will most likely have no effect.
 
 ## [State Management &raquo;](state-management.html)
