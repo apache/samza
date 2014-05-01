@@ -82,4 +82,4 @@ When a Samza job executes on a YARN grid, the _$SAMZA_\__LOG_\__DIR_ environment
 
 Samza's [ApplicationMaster](../yarn/application-master.html) pipes all STDOUT and STDERR output to logs/stdout and logs/stderr, respectively. These files are never rotated.
 
-## [Application Master &raquo;](../yarn/application-master.html)
+## [Reprocessing &raquo;](reprocessing.html)
