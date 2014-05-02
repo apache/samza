@@ -1,4 +1,5 @@
 ext {
+  jodaTimeVersion = "2.2"
   joptSimpleVersion = "3.2"
   jacksonVersion = "1.8.5"
   junitVersion = "4.8.1"

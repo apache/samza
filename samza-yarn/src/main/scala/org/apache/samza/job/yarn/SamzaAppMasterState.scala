@@ -18,8 +18,6 @@
  */
 
 package org.apache.samza.job.yarn
-import org.apache.hadoop.yarn.api.records.ContainerStatus
-import org.apache.hadoop.yarn.api.records.Container
 import org.apache.samza.config.Config
 import grizzled.slf4j.Logging
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
@@ -41,7 +39,7 @@ class SamzaAppMasterState(val taskId: Int, val containerId: ContainerId, val nod
   var taskCount = 0
   var unclaimedTasks = Set[Int]()
   var finishedTasks = Set[Int]()
-  var runningTasks = Map[Int, Container]()
+  var runningTasks = Map[Int, YarnContainer]()
   var taskPartitions = Map[Int, Set[Partition]]()
   var status = FinalApplicationStatus.UNDEFINED
 

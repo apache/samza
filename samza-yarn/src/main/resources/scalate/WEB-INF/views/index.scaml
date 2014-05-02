@@ -63,9 +63,13 @@
               Task group #{taskId.toString}
               %ul
                 %li
-                  %a(target="_blank" href="http://#{container.getNodeHttpAddress}/node/containerlogs/#{container.getId.toString}/#{username}")= container.getId.toString
+                  %a(target="_blank" href="http://#{container.nodeHttpAddress}/node/containerlogs/#{container.id.toString}/#{username}")= container.id.toString
                 %li
-                  %a(target="_blank" href="http://#{container.getNodeHttpAddress}")= container.getNodeHttpAddress
+                  %a(target="_blank" href="http://#{container.nodeHttpAddress}")= container.nodeHttpAddress
+                %li
+                  Start time: #{container.startTimeStr()}
+                %li
+                  Up time: #{container.upTimeStr()}
     %tr
       %td Completed
       %td= state.completedTasks.toString

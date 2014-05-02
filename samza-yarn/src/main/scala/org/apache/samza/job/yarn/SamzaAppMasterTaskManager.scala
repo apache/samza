@@ -127,7 +127,7 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
           "export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec ./__package/%s 1>logs/%s 2>logs/%s" format (ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR, command, ApplicationConstants.STDOUT, ApplicationConstants.STDERR))
 
         state.neededContainers -= 1
-        state.runningTasks += taskId -> container
+        state.runningTasks += taskId -> new YarnContainer(container)
         state.unclaimedTasks -= taskId
         state.taskPartitions += taskId -> streamsAndPartitionsForTask.map(_.getPartition).toSet
 
@@ -146,7 +146,7 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
 
   override def onContainerCompleted(containerStatus: ContainerStatus) {
     val containerIdStr = ConverterUtils.toString(containerStatus.getContainerId)
-    val taskId = state.runningTasks.filter { case (_, container) => container.getId().equals(containerStatus.getContainerId()) }.keys.headOption
+    val taskId = state.runningTasks.filter { case (_, container) => container.id.equals(containerStatus.getContainerId()) }.keys.headOption
 
     taskId match {
       case Some(taskId) => {

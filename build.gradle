@@ -146,6 +146,7 @@ project(":samza-yarn_$scalaVersion") {
       exclude module: 'scala-compiler'
       exclude module: 'slf4j-api'
     }
+    compile "joda-time:joda-time:$jodaTimeVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
   }
