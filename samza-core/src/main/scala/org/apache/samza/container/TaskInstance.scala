@@ -57,13 +57,8 @@ class TaskInstance(
   reporters: Map[String, MetricsReporter] = Map(),
   listeners: Seq[TaskLifecycleListener] = Seq(),
   inputStreams: Set[SystemStream] = Set(),
-  windowMs: Long = -1,
-  commitMs: Long = 60000,
-  clock: () => Long = { System.currentTimeMillis },
   collector: ReadableCollector = new ReadableCollector) extends Logging {
 
-  var lastWindowMs = 0L
-  var lastCommitMs = 0L
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
@@ -156,19 +151,12 @@ class TaskInstance(
   }
 
   def window(coordinator: ReadableCoordinator) {
-    if (isWindowableTask && windowMs >= 0 && lastWindowMs + windowMs < clock()) {
+    if (isWindowableTask) {
       trace("Windowing for partition: %s" format partition)
 
       metrics.windows.inc
 
-      lastWindowMs = clock()
       task.asInstanceOf[WindowableTask].window(collector, coordinator)
-
-      trace("Assigned last window time for partition: %s, %s" format (partition, lastWindowMs))
-    } else {
-      trace("Skipping window for partition: %s" format partition)
-
-      metrics.windowsSkipped.inc
     }
   }
 
@@ -191,28 +179,20 @@ class TaskInstance(
     }
   }
 
-  def commit(coordinator: ReadableCoordinator) {
-    if (lastCommitMs + commitMs < clock() || coordinator.isCommitRequested || coordinator.isShutdownRequested) {
-      trace("Flushing state stores for partition: %s" format partition)
+  def commit {
+    trace("Flushing state stores for partition: %s" format partition)
 
-      metrics.commits.inc
+    metrics.commits.inc
 
-      lastCommitMs = clock()
+    storageManager.flush
 
-      storageManager.flush
+    trace("Flushing producers for partition: %s" format partition)
 
-      trace("Flushing producers for partition: %s" format partition)
+    producerMultiplexer.flush(metrics.source)
 
-      producerMultiplexer.flush(metrics.source)
+    trace("Committing offset manager for partition: %s" format partition)
 
-      trace("Committing offset manager for partition: %s" format partition)
-
-      offsetManager.checkpoint(partition)
-    } else {
-      trace("Skipping commit for partition: %s" format partition)
-
-      metrics.commitsSkipped.inc
-    }
+    offsetManager.checkpoint(partition)
   }
 
   def shutdownTask {
@@ -241,6 +221,6 @@ class TaskInstance(
 
   override def toString() = "TaskInstance for class %s and partition %s." format (task.getClass.getName, partition)
 
-  def toDetailedString() = "TaskInstance [windowable=%s, window_time=%s, commit_time=%s, closable=%s, collector_size=%s]" format (isWindowableTask, lastWindowMs, lastCommitMs, isClosableTask, collector.envelopes.size)
+  def toDetailedString() = "TaskInstance [windowable=%s, closable=%s, collector_size=%s]" format (isWindowableTask, isClosableTask, collector.envelopes.size)
 
 }

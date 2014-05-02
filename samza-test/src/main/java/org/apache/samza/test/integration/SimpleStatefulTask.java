@@ -29,6 +29,7 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.task.TaskCoordinator.RequestScope;
 
 public class SimpleStatefulTask implements StreamTask, InitableTask {
   
@@ -48,7 +49,7 @@ public class SimpleStatefulTask implements StreamTask, InitableTask {
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
     System.out.println("Adding " + envelope.getMessage() + " => " + envelope.getMessage() + " to the store.");
     store.put((String) envelope.getMessage(), (String) envelope.getMessage());
-    coordinator.commit();
+    coordinator.commit(RequestScope.ALL_TASKS_IN_CONTAINER);
   }
 
 }

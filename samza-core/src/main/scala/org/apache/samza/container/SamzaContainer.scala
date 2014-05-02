@@ -49,7 +49,6 @@ import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskLifecycleListener
 import org.apache.samza.task.TaskLifecycleListenerFactory
 import org.apache.samza.util.Util
-import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.system.SystemProducers
 import org.apache.samza.task.ReadableCollector
 import org.apache.samza.system.SystemConsumers
@@ -426,18 +425,24 @@ object SamzaContainer extends Logging {
         reporters = reporters,
         listeners = listeners,
         inputStreams = inputStreamsForThisPartition,
-        windowMs = taskWindowMs,
-        commitMs = taskCommitMs,
         collector = collector)
 
       (partition, taskInstance)
     }).toMap
 
+    val runLoop = new RunLoop(
+      taskInstances = taskInstances,
+      consumerMultiplexer = consumerMultiplexer,
+      metrics = samzaContainerMetrics,
+      windowMs = taskWindowMs,
+      commitMs = taskCommitMs
+    )
+
     info("Samza container setup complete.")
 
     new SamzaContainer(
       taskInstances = taskInstances,
-      config = config,
+      runLoop = runLoop,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       offsetManager = offsetManager,
@@ -459,7 +464,7 @@ object SamzaContainer extends Logging {
 
 class SamzaContainer(
   taskInstances: Map[Partition, TaskInstance],
-  config: Config,
+  runLoop: RunLoop,
   consumerMultiplexer: SystemConsumers,
   producerMultiplexer: SystemProducers,
   metrics: SamzaContainerMetrics,
@@ -479,21 +484,7 @@ class SamzaContainer(
       startConsumers
 
       info("Entering run loop.")
-
-      while (true) {
-        val coordinator = new ReadableCoordinator
-
-        process(coordinator)
-        window(coordinator)
-        send
-        commit(coordinator)
-
-        if (coordinator.shutdownRequested) {
-          info("Shutdown requested.")
-
-          return
-        }
-      }
+      runLoop.run
     } catch {
       case e: Exception =>
         error("Caught exception in process loop.", e)
@@ -571,52 +562,6 @@ class SamzaContainer(
     info("Starting consumer multiplexer.")
 
     consumerMultiplexer.start
-  }
-
-  def process(coordinator: ReadableCoordinator) {
-    trace("Attempting to choose a message to process.")
-
-    metrics.processes.inc
-
-    val envelope = consumerMultiplexer.choose
-
-    if (envelope != null) {
-      val partition = envelope.getSystemStreamPartition.getPartition
-
-      trace("Processing incoming message envelope for partition %s." format partition)
-
-      metrics.envelopes.inc
-
-      taskInstances(partition).process(envelope, coordinator)
-    } else {
-      trace("No incoming message envelope was available.")
-
-      metrics.nullEnvelopes.inc
-    }
-  }
-
-  def window(coordinator: ReadableCoordinator) {
-    trace("Windowing stream tasks.")
-
-    metrics.windows.inc
-
-    taskInstances.values.foreach(_.window(coordinator))
-  }
-
-  def send {
-    trace("Triggering send in task instances.")
-
-    metrics.sends.inc
-
-    taskInstances.values.foreach(_.send)
-  }
-
-  def commit(coordinator: ReadableCoordinator) {
-    trace("Committing task instances.")
-
-    metrics.commits.inc
-
-    taskInstances.values.foreach(_.commit(coordinator))
   }
 
   def shutdownConsumers {
