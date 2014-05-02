@@ -31,9 +31,7 @@ class TaskInstanceMetrics(
   val registry: ReadableMetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
 
   val commits = newCounter("commit-calls")
-  val commitsSkipped = newCounter("commit-skipped")
   val windows = newCounter("window-calls")
-  val windowsSkipped = newCounter("window-skipped")
   val processes = newCounter("process-calls")
   val sends = newCounter("send-calls")
   val sendsSkipped = newCounter("send-skipped")

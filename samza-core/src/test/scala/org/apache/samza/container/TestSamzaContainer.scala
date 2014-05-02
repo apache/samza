@@ -95,9 +95,14 @@ class TestSamzaContainer {
       new TaskInstanceMetrics,
       consumerMultiplexer: SystemConsumers,
       producerMultiplexer: SystemProducers)
+    val runLoop = new RunLoop(
+      taskInstances = Map(partition -> taskInstance),
+      consumerMultiplexer = consumerMultiplexer,
+      metrics = new SamzaContainerMetrics
+    )
     val container = new SamzaContainer(
       Map(partition -> taskInstance),
-      config,
+      runLoop,
       consumerMultiplexer,
       producerMultiplexer,
       new SamzaContainerMetrics)

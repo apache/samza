@@ -25,6 +25,7 @@ import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.task.MessageCollector
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskCoordinator
+import org.apache.samza.task.TaskCoordinator.RequestScope
 import org.apache.samza.config.Config
 import grizzled.slf4j.Logging
 import org.apache.samza.system.SystemStream
@@ -104,7 +105,7 @@ class TestPerformanceTask extends StreamTask with InitableTask with Logging {
     }
 
     if (messagesProcessed >= maxMessages) {
-      coordinator.shutdown
+      coordinator.shutdown(RequestScope.ALL_TASKS_IN_CONTAINER)
     }
   }
 }

@@ -71,6 +71,7 @@ import java.util.concurrent.Executors
 import kafka.message.MessageAndOffset
 import kafka.message.MessageAndMetadata
 import org.apache.samza.job.StreamJob
+import org.apache.samza.task.TaskCoordinator.RequestScope
 
 object TestStatefulTask {
   val INPUT_TOPIC = "input"
@@ -448,7 +449,7 @@ class TestTask extends StreamTask with InitableTask {
       store.put(msg, msg)
     }
 
-    coordinator.commit
+    coordinator.commit(RequestScope.ALL_TASKS_IN_CONTAINER)
 
     // Notify sender that we got a message.
     gotMessage.countDown

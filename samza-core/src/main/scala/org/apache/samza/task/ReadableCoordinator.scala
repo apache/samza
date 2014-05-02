@@ -19,16 +19,22 @@
 
 package org.apache.samza.task
 
-/** An in-memory implementation of TaskCoordinator that stores all coordination messages */
-class ReadableCoordinator extends TaskCoordinator {
-  var commitRequested = false
-  var shutdownRequested = false
+import org.apache.samza.task.TaskCoordinator.RequestScope
+import org.apache.samza.Partition
 
-  def commit { commitRequested = true }
+/**
+ * An in-memory implementation of TaskCoordinator that is specific to a single TaskInstance.
+ */
+class ReadableCoordinator(val partition: Partition) extends TaskCoordinator {
+  var commitRequest: Option[RequestScope] = None
+  var shutdownRequest: Option[RequestScope] = None
 
-  def isCommitRequested = commitRequested
+  override def commit(scope: RequestScope) { commitRequest = Some(scope) }
+  override def shutdown(scope: RequestScope) { shutdownRequest = Some(scope) }
 
-  def shutdown { shutdownRequested = true }
+  def requestedCommitTask = commitRequest.isDefined && commitRequest.get == RequestScope.CURRENT_TASK
+  def requestedCommitAll  = commitRequest.isDefined && commitRequest.get == RequestScope.ALL_TASKS_IN_CONTAINER
 
-  def isShutdownRequested = shutdownRequested
+  def requestedShutdownOnConsensus = shutdownRequest.isDefined && shutdownRequest.get == RequestScope.CURRENT_TASK
+  def requestedShutdownNow         = shutdownRequest.isDefined && shutdownRequest.get == RequestScope.ALL_TASKS_IN_CONTAINER
 }

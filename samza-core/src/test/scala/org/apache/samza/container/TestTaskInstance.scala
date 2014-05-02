@@ -71,7 +71,8 @@ class TestTaskInstance {
       producerMultiplexer,
       offsetManager)
     // Pretend we got a message with offset 2 and next offset 3.
-    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "2", null, null), new ReadableCoordinator)
+    val coordinator = new ReadableCoordinator(partition)
+    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "2", null, null), coordinator)
     // Check to see if the offset manager has been properly updated with offset 3.
     val lastProcessedOffset = offsetManager.getLastProcessedOffset(systemStreamPartition)
     assertTrue(lastProcessedOffset.isDefined)

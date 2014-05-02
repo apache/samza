@@ -29,6 +29,7 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.task.TaskCoordinator.RequestScope;
 import org.apache.samza.task.WindowableTask;
 
 /**
@@ -66,7 +67,7 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
       // it's a new era, reset current epoch and count
       this.state.put(EPOCH, Integer.toString(epoch));
       this.state.put(COUNT, "0");
-      coordinator.commit();
+      coordinator.commit(RequestScope.ALL_TASKS_IN_CONTAINER);
     }
   }
   

@@ -27,6 +27,7 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.task.TaskCoordinator.RequestScope;
 
 public class StatePerfTestTask implements StreamTask, InitableTask {
   
@@ -47,7 +48,7 @@ public class StatePerfTestTask implements StreamTask, InitableTask {
       System.out.println(String.format("Throughput = %.2f messages/sec.", count/ellapsedSecs));
       start = System.currentTimeMillis();
       count = 0;
-      coordinator.commit();
+      coordinator.commit(RequestScope.ALL_TASKS_IN_CONTAINER);
     }
   }
 
