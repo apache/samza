@@ -161,8 +161,8 @@ class TaskInstance(
 
       metrics.windows.inc
 
-      task.asInstanceOf[WindowableTask].window(collector, coordinator)
       lastWindowMs = clock()
+      task.asInstanceOf[WindowableTask].window(collector, coordinator)
 
       trace("Assigned last window time for partition: %s, %s" format (partition, lastWindowMs))
     } else {
@@ -197,6 +197,8 @@ class TaskInstance(
 
       metrics.commits.inc
 
+      lastCommitMs = clock()
+
       storageManager.flush
 
       trace("Flushing producers for partition: %s" format partition)
@@ -206,8 +208,6 @@ class TaskInstance(
       trace("Committing offset manager for partition: %s" format partition)
 
       offsetManager.checkpoint(partition)
-
-      lastCommitMs = clock()
     } else {
       trace("Skipping commit for partition: %s" format partition)
 
