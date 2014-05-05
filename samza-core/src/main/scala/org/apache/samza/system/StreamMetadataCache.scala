@@ -35,7 +35,7 @@ class StreamMetadataCache (
     systemAdmins: Map[String, SystemAdmin],
 
     /** Maximum age (in milliseconds) of a cache entry */
-    val cacheTTLms: Integer = 5000,
+    val cacheTTLms: Int = 5000,
 
     /** Clock used for determining expiry (for mocking in tests) */
     clock: Clock = SystemClock.instance) extends Logging {
