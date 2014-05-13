@@ -9,6 +9,8 @@ title: Tutorials
 
 [Run Hello-samza in Multi-node YARN](run-in-multi-node-yarn.html)
 
+[Run Hello-samza without Internet](run-hello-samza-without-internet.html)
+
 <!-- TODO a bunch of tutorials
 [Log Walkthrough](log-walkthrough.html)
 <a href="configuring-kafka-system.html">Configuring a Kafka System</a><br/>
