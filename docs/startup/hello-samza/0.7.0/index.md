@@ -46,6 +46,8 @@ The job will consume a feed of real-time edits from Wikipedia, and produce them 
 
 Pretty neat, right? Now, check out the YARN UI again ([http://localhost:8088](http://localhost:8088)). This time around, you'll see your Samza job is running!
 
+If you can not see any output from Kafka consumer, you may have connection problem. Check [here](../../../learn/tutorials/0.7.0/run-hello-samza-without-internet.html).
+
 ### Generate Wikipedia Statistics
 
 Let's calculate some statistics based on the messages in the wikipedia-raw topic. Start two more jobs:
