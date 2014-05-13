@@ -178,6 +178,7 @@ under the License.
           <version>0.9</version>
           <configuration>
             <excludes>
+              <exclude>*.json</exclude>
               <exclude>.vagrant/**</exclude>
               <exclude>.git/**</exclude>
               <exclude>*.md</exclude>
