@@ -6,9 +6,9 @@
   to you under the Apache License, Version 2.0 (the
   "License"); you may not use this file except in compliance
   with the License.  You may obtain a copy of the License at
-  
+
     http://www.apache.org/licenses/LICENSE-2.0
-  
+
   Unless required by applicable law or agreed to in writing,
   software distributed under the License is distributed on an
   "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -22,90 +22,135 @@
 -@ val username: String = org.apache.hadoop.security.UserGroupInformation.getCurrentUser.getShortUserName
 - attributes("title") = jobName
 
-%div.container
-  %h1= jobName
-  %table(class="table table-bordered" style="margin-top: 10px;")
-    %tr
-      %td(colspan="2")
-        %h4 Application Master
-    %tr
-      %td Hostname
-      %td
-        %a(target="_blank" href="http://#{state.nodeHost}:#{state.nodeHttpPort.toString}")= state.nodeHost
-    %tr
-      %td User
-      %td= username
-    %tr
-      %td Tracking port
-      %td= state.trackingPort.toString
-    %tr
-      %td RPC port
-      %td= state.rpcPort.toString
-    %tr
-      %td Attempt ID
-      %td= state.appAttemptId
-    %tr
-      %td Application master task ID
-      %td= state.taskId
-    %tr
-      %td Application master container
-      %td 
-        %a(target="_blank" href="http://#{state.nodeHost}:#{state.nodeHttpPort.toString}/node/containerlogs/#{state.containerId.toString}/#{username}")= state.containerId.toString
-    %tr
-      %td(colspan="2")
-        %h4 Containers
-    %tr
-      %td Running containers
-      %td
-        %ul
+%div.col-xs-2.menu
+  %ul.nav.nav-pills.nav-stacked
+    %li.active
+      %a(href="#application-master" data-toggle="tab") Application Master
+    %li
+      %a(href="#containers" data-toggle="tab") Containers
+    %li
+      %a(href="#task-groups" data-toggle="tab") Task Groups
+    %li
+      %a(href="#config" data-toggle="tab") Config
+
+%div.col-xs-10
+  %div.page-header
+    %h1= jobName
+
+  %div.tab-content
+    %div.tab-pane.active#application-master
+      %h2 Application Master
+      %table.table.table-striped.table-bordered
+        %tbody
+          %tr
+            %td.key Hostname
+            %td
+              %a(target="_blank" href="http://#{state.nodeHost}:#{state.nodeHttpPort.toString}")= state.nodeHost
+          %tr
+            %td.key User
+            %td= username
+          %tr
+            %td.key Tracking port
+            %td= state.trackingPort.toString
+          %tr
+            %td.key RPC port
+            %td= state.rpcPort.toString
+          %tr
+            %td.key Attempt ID
+            %td= state.appAttemptId
+          %tr
+            %td.key Application master task ID
+            %td= state.taskId
+          %tr
+            %td.key Application master container
+            %td
+              %a(target="_blank" href="http://#{state.nodeHost}:#{state.nodeHttpPort.toString}/node/containerlogs/#{state.containerId.toString}/#{username}")= state.containerId.toString
+
+    %div.tab-pane#containers
+      %h2 Containers
+      %table.table.table-bordered.table-striped
+        %tr
+          %tr
+            %td.key Completed
+            %td= state.completedTasks.toString
+          %tr
+            %td.key Needed
+            %td= state.neededContainers.toString
+          %tr
+            %td.key Failed
+            %td= state.failedContainers.toString
+          %tr
+            %td.key Released
+            %td= state.releasedContainers.toString
+
+      %h2 Running Containers
+      %table.table.table-striped.table-bordered.tablesorter#containers-table
+        %thead
+          %tr
+            %th Task Group
+            %th Container
+            %th Node
+            %th Start Time
+            %th Up Time
+        %tbody
           - for((taskId, container) <- state.runningTasks)
-            %li
-              Task group #{taskId.toString}
-              %ul
-                %li
-                  %a(target="_blank" href="http://#{container.nodeHttpAddress}/node/containerlogs/#{container.id.toString}/#{username}")= container.id.toString
-                %li
-                  %a(target="_blank" href="http://#{container.nodeHttpAddress}")= container.nodeHttpAddress
-                %li
-                  Start time: #{container.startTimeStr()}
-                %li
-                  Up time: #{container.upTimeStr()}
-    %tr
-      %td Completed
-      %td= state.completedTasks.toString
-    %tr
-      %td Needed
-      %td= state.neededContainers.toString
-    %tr
-      %td Failed
-      %td= state.failedContainers.toString
-    %tr
-      %td Released
-      %td= state.releasedContainers.toString
-    %tr
-      %td(colspan="2")
-        %h4 Task Groups
-    %tr
-      %td Partition Assignment
-      %td
-        - for((taskId, partitions) <- state.taskPartitions)
-          = taskId
-          = "(Partitions: %s)" format partitions.map(_.getPartitionId).toList.sorted.mkString(", ")
-          %br
-    %tr
-      %td Total
-      %td= state.taskCount.toString
-    %tr
-      %td Unclaimed
-      %td= state.unclaimedTasks.size.toString
-    %tr
-      %td Finished
-      %td= state.finishedTasks.size.toString
-    %tr
-      %td(colspan="2")
-        %h4 Config
-    - for(entrySet <- new java.util.TreeMap[String, String](config.asInstanceOf[Map[String, String]]).entrySet)
-      %tr
-        %td= entrySet.getKey
-        %td= entrySet.getValue
-  %script(src="js/bootstrap.min.js")
+            %tr
+              %td #{taskId.toString}
+              %td
+                %a(target="_blank" href="http://#{container.nodeHttpAddress}/node/containerlogs/#{container.id.toString}/#{username}")= container.id.toString
+              %td
+                %a(target="_blank" href="http://#{container.nodeHttpAddress}")= container.nodeHttpAddress
+              %td
+                Start time: #{container.startTimeStr()}
+              %td
+                Up time: #{container.upTimeStr()}
+
+    %div.tab-pane#task-groups
+      %h2 Task Groups
+      %table.table.table-striped.table-bordered
+        %tbody
+          %tr
+            %td.key Total
+            %td= state.taskCount.toString
+          %tr
+            %td.key Unclaimed
+            %td= state.unclaimedTasks.size.toString
+          %tr
+            %td.key Finished
+            %td= state.finishedTasks.size.toString
+
+      %h3 Partition Assignment
+      %table.table.table-striped.table-bordered.tablesorter#partitions-table
+        %thead
+          %tr
+            %th Task ID
+            %th Partitions
+            %th Container
+        %tbody
+          - for((taskId, partitions) <- state.taskPartitions)
+            %tr
+              %td= taskId
+              %td= partitions.map(_.getPartitionId).toList.sorted.mkString(", ")
+              %td
+                - val container = state.runningTasks(taskId)
+                %a(target="_blank" href="http://#{container.nodeHttpAddress}/node/containerlogs/#{container.id.toString}/#{username}")= container.id.toString
+
+    %div.tab-pane#config
+      %h2 Config
+      %table.table.table-striped.table-bordered.tablesorter#config-table
+        %thead
+          %tr
+            %th Key
+            %th Value
+        %tbody
+          - for(entrySet <- new java.util.TreeMap[String, String](config.asInstanceOf[Map[String, String]]).entrySet)
+            %tr
+              %td.key= entrySet.getKey
+              %td= entrySet.getValue
+
+    :javascript
+      $(document).ready(function() {
+        $("#containers-table").tablesorter();
+        $("#partitions-table").tablesorter();
+        $("#config-table").tablesorter();
+      });

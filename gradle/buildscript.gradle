@@ -9,4 +9,5 @@ repositories {
 
 dependencies {
   classpath 'nl.javadude.gradle.plugins:license-gradle-plugin:0.6.1'
+  classpath 'de.obqo.gradle:gradle-lesscss-plugin:1.0-1.3.3'
 }

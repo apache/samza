@@ -3,7 +3,7 @@ buildscript {
     mavenCentral()
   }
 
-  apply from: file('gradle/buildscript.gradle'), to: buildscript 
+  apply from: file('gradle/buildscript.gradle'), to: buildscript
 }
 
 allprojects {
@@ -113,6 +113,7 @@ project(":samza-serializers_$scalaVersion") {
 
 project(":samza-yarn_$scalaVersion") {
   apply plugin: 'scala'
+  apply plugin: 'lesscss'
 
   dependencies {
     compile project(':samza-api')
@@ -156,6 +157,15 @@ project(":samza-yarn_$scalaVersion") {
       url "http://repo.typesafe.com/typesafe/releases"
     }
   }
+
+  lesscss {
+    source = fileTree('src/main/less') {
+      include 'main.less'
+    }
+    dest = 'build/resources/main/scalate/css'
+  }
+
+  jar.dependsOn("lesscss")
 }
 
 project(":samza-shell") {

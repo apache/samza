@@ -12,6 +12,7 @@ deployable.tgz
 *.iml
 *.ipr
 *.iws
+*.swp
 */.cache
 dashboard-deployable.tgz
 deployable.tar
