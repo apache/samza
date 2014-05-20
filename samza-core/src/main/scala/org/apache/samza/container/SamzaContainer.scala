@@ -267,7 +267,7 @@ object SamzaContainer extends Logging {
     info("Got metrics reporters: %s" format reporters.keys)
 
     val checkpointManager = config.getCheckpointManagerFactory match {
-      case Some(checkpointFactoryClassName) =>
+      case Some(checkpointFactoryClassName) if (!checkpointFactoryClassName.isEmpty) =>
         Util
           .getObj[CheckpointManagerFactory](checkpointFactoryClassName)
           .getCheckpointManager(config, samzaContainerMetrics.registry)
