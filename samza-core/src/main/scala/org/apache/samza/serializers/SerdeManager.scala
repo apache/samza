@@ -72,13 +72,17 @@ class SerdeManager(
       envelope.getMessage
     }
 
-    new OutgoingMessageEnvelope(
-      envelope.getSystemStream,
-      null,
-      null,
-      envelope.getPartitionKey,
-      key,
-      message)
+    if ((key eq envelope.getKey) && (message eq envelope.getMessage)) {
+      envelope
+    } else {
+      new OutgoingMessageEnvelope(
+        envelope.getSystemStream,
+        null,
+        null,
+        envelope.getPartitionKey,
+        key,
+        message)
+    }
   }
 
   def fromBytes(bytes: Array[Byte], deserializerName: String) = serdes
@@ -114,10 +118,14 @@ class SerdeManager(
       envelope.getMessage
     }
 
-    new IncomingMessageEnvelope(
-      envelope.getSystemStreamPartition,
-      envelope.getOffset,
-      key,
-      message)
+    if ((key eq envelope.getKey) && (message eq envelope.getMessage)) {
+      envelope
+    } else {
+      new IncomingMessageEnvelope(
+        envelope.getSystemStreamPartition,
+        envelope.getOffset,
+        key,
+        message)
+    }
   }
 }
