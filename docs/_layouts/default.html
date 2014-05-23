@@ -1,79 +1,88 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
   <head>
+    <meta charset="utf-8">
     <title>Samza {% if page.title %}- {{page.title}}{% endif %}</title>
+    <link href='/css/ropa-sans.css' rel='stylesheet' type='text/css'/>
+    <link href="/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="/css/font-awesome.min.css" rel="stylesheet"/>
     <link href="/css/main.css" rel="stylesheet"/>
-    <link href='http://fonts.googleapis.com/css?family=Ropa+Sans' rel='stylesheet' type='text/css'/>
-    <link href="http://netdna.bootstrapcdn.com/font-awesome/3.1.1/css/font-awesome.css" rel="stylesheet"/>
     <link rel="icon" type="image/png" href="/img/samza-icon.png">
   </head>
   <body>
-    <div class="container">
-      <div class="container-inner">
-      <div class="header">
-        <div class="page">
-          <div class="logo">
-            <a href="/" class="logo">samza</a>
+    <div class="wrapper">
+      <div class="wrapper-content">
+
+        <div class="masthead">
+          <div class="container">
+            <div class="masthead-logo">
+              <a href="/" class="logo">samza</a>
+            </div>
+            <div class="masthead-icons">
+              <div class="pull-right">
+                <a href="/startup/download"><i class="fa fa-arrow-circle-o-down masthead-icon"></i></a>
+                <a href="https://git-wip-us.apache.org/repos/asf?p=incubator-samza.git;a=tree" target="_blank"><i class="fa fa-code masthead-icon" style="font-weight: bold;"></i></a>
+                <a href="https://twitter.com/samzastream" target="_blank"><i class="fa fa-twitter masthead-icon"></i></a>
+              </div>
+            </div>
+          </div><!-- /.container -->
+        </div>
+
+        <div class="container">
+          <div class="menu">
+            <h1><i class="fa fa-rocket"></i> Getting Started</h1>
+            <ul>
+              <li><a href="/startup/hello-samza/0.7.0">Hello Samza</a></li>
+              <li><a href="/startup/download">Download</a></li>
+            </ul>
+
+            <h1><i class="fa fa-book"></i> Learn</h1>
+            <ul>
+              <li><a href="/learn/documentation/0.7.0">Documentation</a></li>
+              <li><a href="/learn/tutorials/0.7.0">Tutorials</a></li>
+              <li><a href="http://wiki.apache.org/samza/FAQ">FAQ</a></li>
+              <li><a href="http://wiki.apache.org/samza">Wiki</a></li>
+              <li><a href="http://wiki.apache.org/samza/PapersAndTalks">Papers &amp; Talks</a></li>
+              <li><a href="http://blogs.apache.org/samza">Blog</a></li>
+            </ul>
+
+            <h1><i class="fa fa-comments"></i> Community</h1>
+            <ul>
+              <li><a href="/community/mailing-lists.html">Mailing Lists</a></li>
+              <li><a href="/community/irc.html">IRC</a></li>
+              <li><a href="https://issues.apache.org/jira/browse/SAMZA">Bugs</a></li>
+              <li><a href="http://wiki.apache.org/samza/PoweredBy">Powered by</a></li>
+              <li><a href="http://wiki.apache.org/samza/Ecosystem">Ecosystem</a></li>
+              <li><a href="/community/committers.html">Committers</a></li>
+            </ul>
+
+            <h1><i class="fa fa-code"></i> Contribute</h1>
+            <ul>
+              <li><a href="/contribute/rules.html">Rules</a></li>
+              <li><a href="/contribute/coding-guide.html">Coding Guide</a></li>
+              <li><a href="/contribute/projects.html">Projects</a></li>
+              <li><a href="/contribute/seps.html">SEPs</a></li>
+              <li><a href="/contribute/code.html">Code</a></li>
+              <li><a href="https://reviews.apache.org/groups/samza">Review Board</a></li>
+              <li><a href="https://builds.apache.org/">Unit Tests</a></li>
+              <li><a href="/contribute/disclaimer.html">Disclaimer</a></li>
+            </ul>
           </div>
-          <div class="top-icons">
-            <a href="/startup/download"><i class="icon-download top-icon"></i></a>
-            <a href="https://git-wip-us.apache.org/repos/asf?p=incubator-samza.git;a=tree" target="_blank"><i class="icon-code top-icon" style="font-weight: bold;"></i></a>
-            <a href="https://twitter.com/samzastream" target="_blank"><i class="icon-twitter top-icon"></i></a>
+
+          <div class="content">
+            {{content}}
           </div>
         </div>
-      </div>
-    
-      <div class="page">
-        <!-- menu -->
-        <div class="menu">
-          <div class="menu-inner">
-            <div class="menu-title"><i class="icon-rocket"></i> Getting Started</div>
-            <div class="menu-category">
-              <a href="/startup/hello-samza/0.7.0">Hello Samza</a><br/>
-              <a href="/startup/download">Download</a><br/>
-            </div>
-            <div class="menu-title"><i class="icon-book"></i> Learn</div>
-            <div class="menu-category">
-              <a href="/learn/documentation/0.7.0">Documentation</a><br/>
-              <a href="/learn/tutorials/0.7.0">Tutorials</a><br/>
-              <a href="http://wiki.apache.org/samza/FAQ">FAQ</a><br/>
-              <a href="http://wiki.apache.org/samza">Wiki</a><br/>
-              <a href="http://wiki.apache.org/samza/PapersAndTalks">Papers &amp; Talks</a><br/>
-              <a href="http://blogs.apache.org/samza">Blog</a><br/>
-            </div>
-            <div class="menu-title"><i class="icon-comments"></i> Community</div>
-            <div class="menu-category">
-              <a href="/community/mailing-lists.html">Mailing Lists</a><br/>
-              <a href="/community/irc.html">IRC</a><br/>
-              <a href="https://issues.apache.org/jira/browse/SAMZA">Bugs</a><br/>
-              <a href="http://wiki.apache.org/samza/PoweredBy">Powered by</a><br/>
-              <a href="http://wiki.apache.org/samza/Ecosystem">Ecosystem</a><br/>
-              <a href="/community/committers.html">Committers</a>
-            </div>
-            <div class="menu-title"><i class="icon-code"></i> Contribute</div>
-            <div class="menu-category">
-              <a href="/contribute/rules.html">Rules</a><br/>
-              <a href="/contribute/coding-guide.html">Coding Guide</a><br/>
-              <a href="/contribute/projects.html">Projects</a><br/>
-              <a href="/contribute/seps.html">SEPs</a><br/>
-              <a href="/contribute/code.html">Code</a><br/>
-              <a href="https://reviews.apache.org/groups/samza">Review Board</a><br/>
-              <a href="https://builds.apache.org/">Unit Tests</a><br/>
-              <a href="/contribute/disclaimer.html">Disclaimer</a>
-            </div>
-          </div>
-        </div>
-        <!-- body -->
-        <div class="body">
-          {{content}}
-        </div>
-        </div>
-      </div>
-    </div>
+
+      </div><!-- /.wrapper-content -->
+    </div><!-- /.wrapper -->
+
     <div class="footer">
-      <div class="page footer-content">
+      <div class="container">
         <!-- nothing for now. -->
       </div>
     </div>
+
     <!-- Google Analytics -->
     <script>
       (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
