@@ -253,7 +253,16 @@ class OffsetManager(
 
       checkpointManager.start
 
-      lastProcessedOffsets ++= getPartitions.flatMap(restoreOffsetsFromCheckpoint(_))
+      lastProcessedOffsets ++= getPartitions
+        .flatMap(restoreOffsetsFromCheckpoint(_))
+        .filter {
+          case (systemStreamPartition, offset) =>
+            val shouldKeep = offsetSettings.contains(systemStreamPartition.getSystemStream)
+            if (!shouldKeep) {
+              info("Ignoring previously checkpointed offset %s for %s since the offset is for a stream that is not currently an input stream." format (offset, systemStreamPartition))
+            }
+            shouldKeep
+        }
     } else {
       debug("Skipping offset load from checkpoint manager because no manager was defined.")
     }

@@ -187,6 +187,25 @@ class TestOffsetManager {
     }
   }
 
+  @Test
+  def testOutdatedStreamInCheckpoint {
+    val systemStream0 = new SystemStream("test-system-0", "test-stream")
+    val systemStream1 = new SystemStream("test-system-1", "test-stream")
+    val partition0 = new Partition(0)
+    val systemStreamPartition0 = new SystemStreamPartition(systemStream0, partition0)
+    val systemStreamPartition1 = new SystemStreamPartition(systemStream1, partition0)
+    val testStreamMetadata = new SystemStreamMetadata(systemStream0.getStream, Map(partition0 -> new SystemStreamPartitionMetadata("0", "1", "2")))
+    val systemStreamMetadata = Map(systemStream0 -> testStreamMetadata)
+    val offsetSettings = Map(systemStream0 -> OffsetSetting(testStreamMetadata, OffsetType.UPCOMING, false))
+    val checkpointManager = getCheckpointManager(systemStreamPartition1)
+    val offsetManager = new OffsetManager(offsetSettings, checkpointManager)
+    offsetManager.register(systemStreamPartition0)
+    offsetManager.start
+    assertTrue(checkpointManager.isStarted)
+    assertEquals(1, checkpointManager.registered.size)
+    assertNull(offsetManager.getLastProcessedOffset(systemStreamPartition1).getOrElse(null))
+  }
+
   private def getCheckpointManager(systemStreamPartition: SystemStreamPartition) = {
     val checkpoint = new Checkpoint(Map(systemStreamPartition.getSystemStream -> "45"))
 
