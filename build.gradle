@@ -136,8 +136,6 @@ project(":samza-yarn_$scalaVersion") {
     compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
       exclude module: 'servlet-api'
-      exclude module: 'jetty'
-      exclude module: 'jetty-util'
     }
     compile("org.scalatra:scalatra_$scalaVersion:$scalatraVersion") {
       exclude module: 'scala-compiler'

@@ -11,6 +11,6 @@ ext {
   kafkaVersion = "0.8.1"
   commonsHttpClientVersion = "3.1"
   leveldbVersion = "1.8"
-  yarnVersion = "2.2.0"
+  yarnVersion = "2.4.0"
   slf4jVersion = "1.6.2"
 }

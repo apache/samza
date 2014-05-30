@@ -57,6 +57,12 @@ class TestSamzaAppMasterLifecycle {
         }
         override def getClientToAMTokenMasterKey = null
         override def setClientToAMTokenMasterKey(buffer: ByteBuffer) {}
+        override def getContainersFromPreviousAttempts(): java.util.List[Container] = java.util.Collections.emptyList[Container]
+        override def getNMTokensFromPreviousAttempts(): java.util.List[NMToken] = java.util.Collections.emptyList[NMToken]
+        override def getQueue(): String = null
+        override def setContainersFromPreviousAttempts(containers: java.util.List[Container]): Unit = Unit
+        override def setNMTokensFromPreviousAttempts(nmTokens: java.util.List[NMToken]): Unit = Unit
+        override def setQueue(queue: String): Unit = Unit
       }
     }
     override def unregisterApplicationMaster(appStatus: FinalApplicationStatus,

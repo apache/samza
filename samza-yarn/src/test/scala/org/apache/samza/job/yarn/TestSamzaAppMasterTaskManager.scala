@@ -125,6 +125,10 @@ object TestSamzaAppMasterTaskManager {
       override def setAMCommand(command: AMCommand) {}
       override def getPreemptionMessage = null
       override def setPreemptionMessage(request: PreemptionMessage) {}
+      override def getDecreasedContainers(): java.util.List[ContainerResourceDecrease] = java.util.Collections.emptyList[ContainerResourceDecrease]
+      override def getIncreasedContainers(): java.util.List[ContainerResourceIncrease] = java.util.Collections.emptyList[ContainerResourceIncrease]
+      override def setDecreasedContainers(decrease: java.util.List[ContainerResourceDecrease]): Unit = Unit
+      override def setIncreasedContainers(increase: java.util.List[ContainerResourceIncrease]): Unit = Unit
 
       override def getAMCommand = if (reboot) {
         AMCommand.AM_RESYNC
