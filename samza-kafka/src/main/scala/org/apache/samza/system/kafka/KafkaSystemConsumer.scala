@@ -53,7 +53,6 @@ object KafkaSystemConsumer {
  */
 private[kafka] class KafkaSystemConsumer(
   systemName: String,
-  brokerListString: String,
   metrics: KafkaSystemConsumerMetrics,
   metadataStore: TopicMetadataStore,
   clientId: String = "undefined-client-id-%s" format UUID.randomUUID.toString,

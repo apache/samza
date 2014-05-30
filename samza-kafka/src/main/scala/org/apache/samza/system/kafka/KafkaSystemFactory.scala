@@ -54,7 +54,6 @@ class KafkaSystemFactory extends SystemFactory {
 
     new KafkaSystemConsumer(
       systemName = systemName,
-      brokerListString = brokerListString,
       metrics = metrics,
       metadataStore = metadataStore,
       clientId = clientId,

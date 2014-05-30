@@ -33,7 +33,7 @@ class TestKafkaSystemConsumer {
   @Test
   def testFetchThresholdShouldDivideEvenlyAmongPartitions {
     val metadataStore = new MockMetadataStore
-    val consumer = new KafkaSystemConsumer("", "", new KafkaSystemConsumerMetrics, metadataStore, fetchThreshold = 50000) {
+    val consumer = new KafkaSystemConsumer("", new KafkaSystemConsumerMetrics, metadataStore, fetchThreshold = 50000) {
       override def refreshBrokers(topicPartitionsAndOffsets: Map[TopicAndPartition, String]) {
       }
     }
@@ -58,7 +58,7 @@ class TestKafkaSystemConsumer {
     val metadataStore = new MockMetadataStore(Map(streamName -> TopicMetadata(streamName, Seq.empty, 0)))
     var hosts = List[String]()
     var getHostPortCount = 0
-    val consumer = new KafkaSystemConsumer(systemName, streamName, metrics, metadataStore) {
+    val consumer = new KafkaSystemConsumer(systemName, metrics, metadataStore) {
       override def getHostPort(topicMetadata: TopicMetadata, partition: Int): Option[(String, Int)] = {
         // Generate a unique host every time getHostPort is called.
         getHostPortCount += 1
