@@ -113,7 +113,7 @@ object TestKeyValuePerformance extends Logging {
         null,
         new SamzaContainerContext("test", config, partitions))
 
-      val db = if (!engine.isInstanceOf[KeyValueStorageEngine[Array[Byte], Array[Byte]]]) {
+      val db = if (!engine.isInstanceOf[KeyValueStorageEngine[_, _]]) {
         throw new SamzaException("This test can only run with KeyValueStorageEngine configured as store factory.")
       } else {
         engine.asInstanceOf[KeyValueStorageEngine[Array[Byte], Array[Byte]]]
