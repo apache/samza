@@ -176,34 +176,7 @@ Here is the complete key-value store API:
       KeyValueIterator<K,V> all();
     }
 
-Here is a list of additional configurations accepted by the key-value store, along with their default values:
-
-    # The number of writes to batch together
-    stores.my-store.write.batch.size=500
-
-    # The number of objects to keep in Samza's cache (in front of LevelDB).
-    # This must be at least as large as write.batch.size.
-    # A cache size of 0 disables all caching and batching.
-    stores.my-store.object.cache.size=1000
-
-    # The size of the off-heap leveldb block cache in bytes, per container.
-    # If you have multiple tasks within one container, each task is given a
-    # proportional share of this cache.
-    stores.my-store.container.cache.size.bytes=104857600
-
-    # The amount of memory leveldb uses for buffering writes before they are
-    # written to disk, per container. If you have multiple tasks within one
-    # container, each task is given a proportional share of this buffer.
-    # This setting also determines the size of leveldb's segment files.
-    stores.my-store.container.write.buffer.size.bytes=33554432
-
-    # Enable block compression? (set compression=none to disable)
-    stores.my-store.leveldb.compression=snappy
-
-    # If compression is enabled, leveldb groups approximately this many
-    # uncompressed bytes into one compressed block. You probably don't need
-    # to change this unless you are a compulsive fiddler.
-    stores.my-store.leveldb.block.size.bytes=4096
+Additional configuration properties for the key-value store are documented in the [configuration reference](../jobs/configuration-table.html#keyvalue).
 
 ### Implementing common use cases with the key-value store
 
