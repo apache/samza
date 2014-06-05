@@ -214,13 +214,13 @@ class TestStatefulTask {
     "stores.mystore.msg.serde" -> "string",
     "stores.mystore.changelog" -> "kafka.mystore",
 
-    // Use smallest reset for input streams, so we can fix SAMZA-166.
     "systems.kafka.samza.factory" -> "org.apache.samza.system.kafka.KafkaSystemFactory",
-    "systems.kafka.samza.offset.default" -> "oldest",
+    // Always start consuming at offset 0. This avoids a race condition between
+    // the producer and the consumer in this test (SAMZA-166, SAMZA-224).
+    "systems.kafka.samza.offset.default" -> "oldest", // applies to a nonempty topic
+    "systems.kafka.consumer.auto.offset.reset" -> "smallest", // applies to an empty topic
     "systems.kafka.samza.msg.serde" -> "string",
     "systems.kafka.consumer.zookeeper.connect" -> zkConnect,
-    // Use largest offset for reset, so we can test SAMZA-142.
-    "systems.kafka.consumer.auto.offset.reset" -> "largest",
     "systems.kafka.producer.metadata.broker.list" -> ("localhost:%s" format port1))
 
   @Test
