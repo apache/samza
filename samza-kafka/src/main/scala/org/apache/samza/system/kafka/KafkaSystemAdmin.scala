@@ -183,7 +183,7 @@ class KafkaSystemAdmin(
 
       (exception, loop) => {
         warn("Unable to fetch last offsets for streams %s due to %s. Retrying." format (streams, exception))
-        debug(exception)
+        debug("Exception detail:", exception)
       }
     ).getOrElse(throw new SamzaException("Failed to get system stream metadata"))
   }

@@ -93,7 +93,7 @@ class KafkaSystemProducer(
 
       (exception, loop) => {
         warn("Triggering a reconnect for %s because connection failed: %s" format (systemName, exception))
-        debug(exception)
+        debug("Exception detail: ", exception)
         metrics.reconnects.inc
 
         if (producer != null) {

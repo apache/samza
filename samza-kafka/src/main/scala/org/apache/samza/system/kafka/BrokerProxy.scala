@@ -152,7 +152,7 @@ class BrokerProxy(
 
           (exception, loop) => {
             warn("Restarting consumer due to %s. Turn on debugging to get a full stack trace." format exception)
-            debug(exception)
+            debug("Exception detail:", exception)
             reconnect = true
           })
       } catch {

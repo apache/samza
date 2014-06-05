@@ -86,7 +86,7 @@ class KafkaCheckpointManager(
 
       (exception, loop) => {
         warn("Failed to send checkpoint %s for partition %s: %s. Retrying." format (checkpoint, partition, exception))
-        debug(exception)
+        debug("Exception detail:", exception)
         if (producer != null) {
           producer.close
         }
@@ -184,7 +184,7 @@ class KafkaCheckpointManager(
           case e: KafkaCheckpointException => throw e
           case e: Exception =>
             warn("While trying to read last checkpoint for topic %s and partition %s: %s. Retrying." format (checkpointTopic, partition, e))
-            debug(e)
+            debug("Exception detail:", e)
         }
       }
     ).getOrElse(throw new SamzaException("Failed to get checkpoint for partition %s" format partition.getPartitionId))
@@ -237,7 +237,7 @@ class KafkaCheckpointManager(
             loop.done
           case e: Exception =>
             warn("Failed to create topic %s: %s. Retrying." format (checkpointTopic, e))
-            debug(e)
+            debug("Exception detail:", e)
         }
       }
     )
@@ -265,7 +265,7 @@ class KafkaCheckpointManager(
           case e: KafkaCheckpointException => throw e
           case e: Exception =>
             warn("While trying to validate topic %s: %s. Retrying." format (checkpointTopic, e))
-            debug(e)
+            debug("Exception detail:", e)
         }
       }
     )
