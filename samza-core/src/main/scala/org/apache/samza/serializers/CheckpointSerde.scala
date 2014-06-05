@@ -41,7 +41,7 @@ class CheckpointSerde extends Serde[Checkpoint] with Logging {
     } catch {
       case e : Exception =>
         warn("Exception while deserializing checkpoint: " + e)
-        debug(e)
+        debug("Exception detail:", e)
         null
     }
   }

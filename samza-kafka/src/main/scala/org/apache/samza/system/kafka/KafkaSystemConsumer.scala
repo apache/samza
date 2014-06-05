@@ -163,9 +163,9 @@ private[kafka] class KafkaSystemConsumer(
         loop.done
       },
 
-      (loop, exception) => {
+      (exception, loop) => {
         warn("While refreshing brokers for %s: %s. Retrying." format (tpToRefresh.head, exception))
-        debug(exception)
+        debug("Exception detail:", exception)
       })
   }
 

@@ -136,7 +136,7 @@ object SamzaContainer extends Logging {
         } catch {
           case e: Exception =>
             info("Failed to create a consumer for %s, so skipping." format systemName)
-            debug(e)
+            debug("Exception detail:", e)
             (systemName, null)
         }
       })
@@ -153,7 +153,7 @@ object SamzaContainer extends Logging {
           } catch {
             case e: Exception =>
               info("Failed to create a producer for %s, so skipping." format systemName)
-              debug(e)
+              debug("Exception detail:", e)
               (systemName, null)
           }
       }
