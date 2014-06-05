@@ -19,5 +19,4 @@ cd $BASE_DIR
 rm -rf $JAVADOC_DIR
 mkdir -p $JAVADOC_DIR
 cp -r $BASE_DIR/samza-api/build/docs/javadoc/* $JAVADOC_DIR
-git add $JAVADOC_DIR
 cd -
