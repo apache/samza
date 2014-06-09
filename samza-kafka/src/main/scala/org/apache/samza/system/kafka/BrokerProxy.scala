@@ -54,7 +54,7 @@ class BrokerProxy(
   val messageSink: MessageSink,
   val timeout: Int = ConsumerConfig.SocketTimeout,
   val bufferSize: Int = ConsumerConfig.SocketBufferSize,
-  val fetchSize:Int = ConsumerConfig.FetchSize,
+  val fetchSize: StreamFetchSizes = new StreamFetchSizes,
   val consumerMinSize:Int = ConsumerConfig.MinFetchBytes,
   val consumerMaxWait:Int = ConsumerConfig.MaxFetchWaitMs,
   offsetGetter: GetOffset = new GetOffset("fail")) extends Toss with Logging {

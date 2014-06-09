@@ -26,6 +26,7 @@ import java.io.File
 import java.util.Properties
 import scala.collection.JavaConversions._
 import org.apache.samza.config.factories.PropertiesConfigFactory
+import kafka.consumer.ConsumerConfig
 
 class TestKafkaConfig {
 
@@ -34,19 +35,19 @@ class TestKafkaConfig {
     val factory = new PropertiesConfigFactory()
     val props = new Properties
     props.setProperty(" systems.kafka.samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory")
-    props.setProperty( "systems.kafka.consumer.zookeeper.connect", "localhost:2181/")
-    props.setProperty( "systems.kafka.producer.metadata.broker.list", "localhost:9092")
+    props.setProperty("systems.kafka.consumer.zookeeper.connect", "localhost:2181/")
+    props.setProperty("systems.kafka.producer.metadata.broker.list", "localhost:9092")
 
     val mapConfig = new MapConfig(props.toMap[String, String])
     val kafkaConfig = new KafkaConfig(mapConfig)
-  
+
     val consumerConfig1 = kafkaConfig.getKafkaSystemConsumerConfig("kafka")
     val consumerClientId1 = consumerConfig1.clientId
     val groupId1 = consumerConfig1.groupId
     val consumerConfig2 = kafkaConfig.getKafkaSystemConsumerConfig("kafka")
     val consumerClientId2 = consumerConfig2.clientId
     val groupId2 = consumerConfig2.groupId
-    assert( consumerClientId1.startsWith("undefined-samza-consumer-"))
+    assert(consumerClientId1.startsWith("undefined-samza-consumer-"))
     assert(consumerClientId2.startsWith("undefined-samza-consumer-"))
     assert(groupId1.startsWith("undefined-samza-consumer-group-"))
     assert(groupId2.startsWith("undefined-samza-consumer-group-"))
@@ -64,7 +65,7 @@ class TestKafkaConfig {
     val producerConfig2 = kafkaConfig.getKafkaSystemProducerConfig("kafka")
     val producerClientId2 = producerConfig2.clientId
 
-    assert( producerClientId1.startsWith("undefined-samza-producer-"))
+    assert(producerClientId1.startsWith("undefined-samza-producer-"))
     assert(producerClientId2.startsWith("undefined-samza-producer-"))
     assert(producerClientId1 != producerClientId2)
 
@@ -72,5 +73,32 @@ class TestKafkaConfig {
     val producerClientId3 = producerConfig3.clientId
     assert(producerClientId3 == "TestClientId")
 
+  }
+
+  @Test
+  def testStreamLevelFetchSizeOverride() {
+    val props = new Properties
+    props.setProperty("systems.kafka.consumer.zookeeper.connect", "localhost:2181/")
+    props.setProperty("systems.kafka.producer.metadata.broker.list", "localhost:9092")
+
+    val mapConfig = new MapConfig(props.toMap[String, String])
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    val consumerConfig = kafkaConfig.getKafkaSystemConsumerConfig("kafka")
+    // default fetch size
+    assertEquals(1024*1024, consumerConfig.fetchMessageMaxBytes)
+
+    props.setProperty("systems.kafka.consumer.fetch.message.max.bytes", "262144")
+    val mapConfig1 = new MapConfig(props.toMap[String, String])
+    val kafkaConfig1 = new KafkaConfig(mapConfig1)
+    val consumerConfig1 = kafkaConfig1.getKafkaSystemConsumerConfig("kafka")
+    // shared fetch size
+    assertEquals(512*512, consumerConfig1.fetchMessageMaxBytes)
+    
+    props.setProperty("systems.kafka.streams.topic1.consumer.fetch.message.max.bytes", "65536")
+    val mapConfig2 = new MapConfig(props.toMap[String, String])
+    val kafkaConfig2 = new KafkaConfig(mapConfig2)
+    val consumerConfig2 = kafkaConfig2.getFetchMessageMaxBytesTopics("kafka")
+    // topic fetch size
+    assertEquals(256*256, consumerConfig2 getOrElse ("topic1", 1024*1024))
   }
 }

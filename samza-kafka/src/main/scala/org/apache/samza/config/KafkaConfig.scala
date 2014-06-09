@@ -56,6 +56,20 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getConsumerFetchThreshold(name: String) = getOption(KafkaConfig.CONSUMER_FETCH_THRESHOLD format name)
 
   /**
+   * Returns a map of topic -> fetch.message.max.bytes value for all streams that
+   * are defined with this proeprty in thec onfig.
+   */
+  def getFetchMessageMaxBytesTopics(systemName: String) = {
+    val subConf = config.subset("systems.%s.streams." format systemName, true)
+    subConf
+      .filterKeys(k => k.endsWith(".consumer.fetch.message.max.bytes"))
+      .map {
+        case (fetchMessageMaxBytes, fetchSizeValue) =>
+          (fetchMessageMaxBytes.replace(".consumer.fetch.message.max.bytes", ""), fetchSizeValue.toInt)
+      }.toMap
+  }
+
+  /**
    * Returns a map of topic -> auto.offset.reset value for all streams that
    * are defined with this property in the config.
    */

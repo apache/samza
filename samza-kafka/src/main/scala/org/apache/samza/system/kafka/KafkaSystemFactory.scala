@@ -40,10 +40,9 @@ class KafkaSystemFactory extends SystemFactory {
       .getOrElse(throw new SamzaException("No broker list defined in config for %s." format systemName))
     val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
 
-    // TODO could add stream-level overrides for timeout and buffer size
     val timeout = consumerConfig.socketTimeoutMs
     val bufferSize = consumerConfig.socketReceiveBufferBytes
-    val fetchSize = consumerConfig.fetchMessageMaxBytes
+    val fetchSize = new StreamFetchSizes(consumerConfig.fetchMessageMaxBytes, config.getFetchMessageMaxBytesTopics(systemName))
     val consumerMinSize = consumerConfig.fetchMinBytes
     val consumerMaxWait = consumerConfig.fetchWaitMaxMs
     val autoOffsetResetDefault = consumerConfig.autoOffsetReset
