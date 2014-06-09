@@ -61,7 +61,7 @@ Samza provides a YARN ApplicationMaster and a YARN job runner out of the box. Th
 
 ![diagram-small](/img/0.7.0/learn/documentation/introduction/samza-yarn-integration.png)
 
-The Samza client talks to the YARN RM when it wants to start a new Samza job. The YARN RM talks to a YARN NM to allocate space on the cluster for Samza's ApplicationMaster. Once the NM allocates space, it starts the Samza AM. After the Samza AM starts, it asks the YARN RM for one or more YARN containers to run Samza [TaskRunners](../container/task-runner.html). Again, the RM works with NMs to allocate space for the containers. Once the space has been allocated, the NMs start the Samza containers.
+The Samza client talks to the YARN RM when it wants to start a new Samza job. The YARN RM talks to a YARN NM to allocate space on the cluster for Samza's ApplicationMaster. Once the NM allocates space, it starts the Samza AM. After the Samza AM starts, it asks the YARN RM for one or more YARN containers to run [SamzaContainers](../container/samza-container.html). Again, the RM works with NMs to allocate space for the containers. Once the space has been allocated, the NMs start the Samza containers.
 
 ### Samza
 
@@ -69,7 +69,7 @@ Samza uses YARN and Kafka to provide a framework for stage-wise stream processin
 
 ![diagram-small](/img/0.7.0/learn/documentation/introduction/samza-yarn-kafka-integration.png)
 
-The Samza client uses YARN to run a Samza job. The Samza [TaskRunners](../container/task-runner.html) run in one or more YARN containers, and execute user-written Samza [StreamTasks](../api/overview.html). The input and output for the Samza StreamTasks come from Kafka brokers that are (usually) co-located on the same machines as the YARN NMs.
+The Samza client uses YARN to run a Samza job: YARN starts and supervises one or more [SamzaContainers](../container/samza-container.html), and your processing code (using the [StreamTask](../api/overview.html) API) runs inside those containers. The input and output for the Samza StreamTasks come from Kafka brokers that are (usually) co-located on the same machines as the YARN NMs.
 
 ### Example
 
@@ -81,7 +81,7 @@ Although Samza doesn't support SQL right now, the idea is the same. Two jobs are
 
 In the first job, the grouping is done by sending all messages with the same user ID to the same partition of an intermediate topic. You can do this by using the user ID as key of the messages that are emitted by the first job, and this key is mapped to one of the intermediate topic's partitions (usually by taking a hash of the key mod the number of partitions). The second job consumes the intermediate topic. Each task in the second job consumes one partition of the intermediate topic, i.e. all the messages for a subset of user IDs. The task has a counter for each user ID in its partition, and the appropriate counter is incremented every time the task receives a message with a particular user ID.
 
-![diagram-large](/img/0.7.0/learn/documentation/introduction/group-by-example.png)
+<img src="/img/0.7.0/learn/documentation/introduction/group-by-example.png" alt="Repartitioning for a GROUP BY" class="diagram-large">
 
 If you are familiar with Hadoop, you may recognize this as a Map/Reduce operation, where each record is associated with a particular key in the mappers, records with the same key are grouped together by the framework, and then counted in the reduce step. The difference between Hadoop and Samza is that Hadoop operates on a fixed input, whereas Samza works with unbounded streams of data.
 

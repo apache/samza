@@ -136,11 +136,14 @@ h4 {
 pre {
   border: 0px !important;
   border-radius: 0px !important;
-  overflow-x: auto;
+  overflow: scroll !important;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-wrap: normal !important;
 }
 pre code {
-  overflow-wrap: normal;
   white-space: pre;
+  font-size: 12px;
 }
 th.header {
   cursor: pointer;
@@ -193,6 +196,26 @@ td.key {
 ul.documentation-list {
   list-style: none;
   padding-left: 20px;
+}
+img.diagram-large {
+  width: 100%;
+}
+table.documentation {
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 1em 0;
+}
+table.documentation th, table.documentation td {
+  text-align: left;
+  vertical-align: top;
+  border: 1px solid #888;
+  padding: 5px;
+}
+table.documentation th.nowrap, table.documentation td.nowrap {
+  white-space: nowrap;
+}
+table.documentation th {
+  background-color: #eee;
 }
 .footer {
   clear: both;

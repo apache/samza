@@ -10,7 +10,7 @@ bin/run-am.sh
 bin/run-container.sh
 ```
 
-The run-container.sh script is responsible for starting the TaskRunner. The run-am.sh script is responsible for starting Samza's application master for YARN. Thus, the run-am.sh script is only used by the YarnJob, but both YarnJob and ProcessJob use run-container.sh.
+The run-container.sh script is responsible for starting the [SamzaContainer](../container/samza-container.html). The run-am.sh script is responsible for starting Samza's application master for YARN. Thus, the run-am.sh script is only used by the YarnJob, but both YarnJob and ProcessJob use run-container.sh.
 
 Typically, these two scripts are bundled into a tar.gz file that has a structure like this:
 

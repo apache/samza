@@ -3,18 +3,39 @@ layout: page
 title: Windowing
 ---
 
-Referring back to the "count PageViewEvent by user ID" example in the [Architecture](../introduction/architecture.html) section, one thing that we left out was what we do with the counts. Let's say that the Samza job wants to update the user ID counts in a database once every minute. Here's how it would work. The Samza job that does the counting would keep a Map&lt;Integer, Integer&gt; in memory, which maps user IDs to page view counts. Every time a message arrives, the job would take the user ID in the PageViewEvent, and use it to increment the user ID's count in the in-memory map. Then, once a minute, the StreamTask would update the database (total_count += current_count) for every user ID in the map, and then reset the count map.
+Sometimes a stream processing job needs to do something in regular time intervals, regardless of how many incoming messages the job is processing. For example, say you want to report the number of page views per minute. To do this, you increment a counter every time you see a page view event. Once per minute, you send the current counter value to an output stream and reset the counter to zero.
 
-Windowing is how we achieve this. If a StreamTask implements the WindowableTask interface, the TaskRunner will call the window() method on the task over a configured interval.
+Samza's *windowing* feature provides a way for tasks to do something in regular time intervals, for example once per minute. To enable windowing, you just need to set one property in your job configuration:
 
-```
-public interface WindowableTask {
-  void window(MessageCollector collector, TaskCoordinator coordinator);
-}
-```
+    # Call the window() method every 60 seconds
+    task.window.ms=60000
 
-If you choose to implement the WindowableTask interface, you can use the Samza job's configuration to define how often the TaskRunner should call your window() method. In the PageViewEvent example (above), you would define it to flush every 60000 milliseconds (60 seconds).
+Next, your stream task needs to implement the [WindowableTask](../api/javadocs/org/apache/samza/task/WindowableTask.html) interface. This interface defines a window() method which is called by Samza in the regular interval that you configured.
 
-If you need to send messages to output streams, you can use the MessageCollector object passed to the window() method. Please only use that MessageCollector object for sending messages, and don't use it outside of the call to window().
+For example, this is how you would implement a basic per-minute event counter:
+
+    public class EventCounterTask implements StreamTask, WindowableTask {
+
+      public static final SystemStream OUTPUT_STREAM =
+        new SystemStream("kafka", "events-per-minute");
+
+      private int eventsSeen = 0;
+
+      public void process(IncomingMessageEnvelope envelope,
+                          MessageCollector collector,
+                          TaskCoordinator coordinator) {
+        eventsSeen++;
+      }
+
+      public void window(MessageCollector collector,
+                         TaskCoordinator coordinator) {
+        collector.send(new OutgoingMessageEnvelope(OUTPUT_STREAM, eventsSeen));
+        eventsSeen = 0;
+      }
+    }
+
+If you need to send messages to output streams, you can use the [MessageCollector](../api/javadocs/org/apache/samza/task/MessageCollector.html) object passed to the window() method. Please only use that MessageCollector object for sending messages, and don't use it outside of the call to window().
+
+Note that Samza uses [single-threaded execution](event-loop.html), so the window() call can never happen concurrently with a process() call. This has the advantage that you don't need to worry about thread safety in your code (no need to synchronize anything), but the downside that the window() call may be delayed if your process() method takes a long time to return.
 
 ## [Event Loop &raquo;](event-loop.html)

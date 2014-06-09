@@ -3,196 +3,148 @@ layout: page
 title: State Management
 ---
 
-One of the more interesting aspects of Samza is the ability for tasks to store data locally and execute rich queries on this data.
+One of the more interesting features of Samza is stateful stream processing. Tasks can store and query data through APIs provided by Samza. That data is stored on the same machine as the stream task; compared to connecting over the network to a remote database, Samza's local state allows you to read and write large amounts of data with better performance. Samza replicates this state across multiple machines for fault-tolerance (described in detail below).
 
-Of course simple filtering or single-row transformations can be done without any need for collecting state. A simple analogy to SQL may make this more obvious. The select- and where-clauses of a SQL query don't usually require state: these can be executed a row at a time on input data and maintain state between rows. The rest of SQL, multi-row aggregations and joins, require accumulating state between rows. Samza doesn't provide a high-level language like SQL but it does provide lower-level primitives that make streaming aggregation and joins and other stateful processing easy to implement.
+Some stream processing jobs don't require state: if you only need to transform one message at a time, or filter out messages based on some condition, your job can be simple. Every call to your task's [process method](../api/overview.html) handles one incoming message, and each message is independent of all the other messages.
 
-Let's dive into how this works and why it is useful.
+However, being able to maintain state opens up many possibilities for sophisticated stream processing jobs: joining input streams, grouping messages and aggregating groups of messages. By analogy to SQL, the *select* and *where* clauses of a query are usually stateless, but *join*, *group by* and aggregation functions like *sum* and *count* require state. Samza doesn't yet provide a higher-level SQL-like language, but it does provide lower-level primitives that you can use to implement streaming aggregation and joins.
 
 ### Common use cases for stateful processing
 
-First, let's look at some simplistic examples of stateful stream processing that might be seen on a consumer website. Later in this document we'll go through specific details of using Samza's built-in key-value storage capabilities to implement each of these applications, but for now it is enough just to see some examples of the kind of applications that tend to need to manage state.
+First, let's look at some simple examples of stateful stream processing that might be seen in the backend of a consumer website. Later in this page we'll discuss how to implement these applications using Samza's built-in key-value storage capabilities.
 
-##### Windowed aggregation
+#### Windowed aggregation
 
-Example: Counting the number of page views for each user per hour
+*Example: Counting the number of page views for each user per hour*
 
-This kind of windowed processing is common for ranking and relevance, detecting "trending topics", as well as simple real-time reporting and monitoring. For small windows one can just maintain the aggregate in memory and manually commit the task position only at window boundaries. However this means we have to recover up to a full window on fail-over, which will be very slow for large windows due to the amount of reprocessing. For large (or infinite!) windows it is better to make the in-process aggregation fault-tolerant rather than try to recompute it.
+In this case, your state typically consists of a number of counters which are incremented when a message is processed. The aggregation is typically limited to a time window (e.g. 1 minute, 1 hour, 1 day) so that you can observe changes of activity over time. This kind of windowed processing is common for ranking and relevance, detecting "trending topics", as well as real-time reporting and monitoring.
 
-##### Table-table join
+The simplest implementation keeps this state in memory (e.g. a hash map in the task instances), and writes it to a database or output stream at the end of every time window. However, you need to consider what happens when a container fails and your in-memory state is lost. You might be able to restore it by processing all the messages in the current window again, but that might take a long time if the window covers a long period of time. Samza can speed up this recovery by making the state fault-tolerant rather than trying to recompute it.
 
-Example: Join a table of user profiles to a table of user\_settings by user\_id and emit a "materialized view" of the joined stream
+#### Table-table join
 
-This example is somewhat simplistic: one might wonder why you would want to join two tables in a stream processing system. However real-life examples are often far more complex then what would normally be considered the domain of materialized views over tables. Consider a few examples of real-time data normalization:
+*Example: Join a table of user profiles to a table of user settings by user\_id and emit the joined stream*
+
+You might wonder: does it make sense to join two tables in a stream processing system? It does if your database can supply a log of all the changes in the database. There is a [duality between a database and a changelog stream](http://engineering.linkedin.com/distributed-systems/log-what-every-software-engineer-should-know-about-real-time-datas-unifying): you can publish every data change to a stream, and if you consume the entire stream from beginning to end, you can reconstruct the entire contents of the database. Samza is designed for data processing jobs that follow this philosophy.
+
+If you have changelog streams for several database tables, you can write a stream processing job which keeps the latest state of each table in a local key-value store, where you can access it much faster than by making queries to the original database. Now, whenever data in one table changes, you can join it with the latest data for the same key in the other table, and output the joined result.
+
+There are several real-life examples of data normalization which essentially work in this way:
 
 * E-commerce companies like Amazon and EBay need to import feeds of merchandise from merchants, normalize them by product, and present products with all the associated merchants and pricing information.
-* Web search requires building a crawler which creates essentially a [table of web page contents](http://labs.yahoo.com/files/YahooWebmap.pdf) and joins on all the relevance attributes such as page CTR or pagerank.
+* Web search requires building a crawler which creates essentially a [table of web page contents](http://labs.yahoo.com/files/YahooWebmap.pdf) and joins on all the relevance attributes such as click-through ratio or pagerank.
 * Social networks take feeds of user-entered text and need to normalize out entities such as companies, schools, and skills.
 
-Each of these use cases is a massively complex data normalization problem that can be thought of as constructing a very complex materialized view over many input tables.
+Each of these use cases is a massively complex data normalization problem that can be thought of as constructing a materialized view over many input tables. Samza can help implement such data processing pipelines robustly.
 
-##### Stream-table join
+#### Stream-table join
 
-Example: Join user region information on to a stream of page views to create an augmented stream of page view with region.
+*Example: Augment a stream of page view events with the user's ZIP code (perhaps to allow aggregation by zip code in a later stage)*
 
-Joining side-information to a real-time feed is a classic use for stream processing. It's particularly common in advertising, relevance ranking, fraud detection and other domains. Activity data such as page views are generally captured with only a few primary keys, the additional attributes about the viewer and viewed items that are needed for processing need to joined on after-the-fact.
+Joining side-information to a real-time feed is a classic use for stream processing. It's particularly common in advertising, relevance ranking, fraud detection and other domains. Activity events such as page views generally only include a small number of attributes, such as the ID of the viewer and the viewed items, but not detailed attributes of the viewer and the viewed items, such as the ZIP code of the user. If you want to aggregate the stream by attributes of the viewer or the viewed items, you need to join with the users table or the items table respectively.
 
-##### Stream-stream join
+In data warehouse terminology, you can think of the raw event stream as rows in the central fact table, which needs to be joined with dimension tables so that you can use attributes of the dimensions in your analysis.
 
-Example: Join a stream of ad clicks to a stream of ad views to link the ad view that lead to the click
+#### Stream-stream join
 
-This is the classic stream join for "nearly aligned" streams. If the events that need to be joined arrive in a limited window it may be possible to buffer unjoined events in memory. Obviously this will be only approximate: any in-flight items will be lost if a machine crashes. However for more exact results, or to handle a very large window of misalignment, stateful processing is needed.
+*Example: Join a stream of ad clicks to a stream of ad impressions (to link the information on when the ad was shown to the information on when it was clicked)*
 
-##### More
+A stream join is useful for "nearly aligned" streams, where you expect to receive related events on several input streams, and you want to combine them into a single output event. You cannot rely on the events arriving at the stream processor at the same time, but you can set a maximum period of time over which you allow the events to be spread out.
 
-Of course there are infinite variations on joins and aggregations, but most amount to essentially variations and combinations of the above patterns.
+In order to perform a join between streams, your job needs to buffer events for the time window over which you want to join. For short time windows, you can do this in memory (at the risk of losing events if the machine fails). You can also use Samza's state store to buffer events, which supports buffering more messages than you can fit in memory.
+
+#### More
+
+There are many variations of joins and aggregations, but most are essentially variations and combinations of the above patterns.
 
 ### Approaches to managing task state
 
-So how do systems support this kind of stateful processing? We'll lead in by describing what we have seen in other systems and then describe what Samza does.
+So how do systems support this kind of stateful processing? We'll lead in by describing what we have seen in other stream processing systems, and then describe what Samza does.
 
 #### In-memory state with checkpointing
 
-A simple approach, common in academic stream processing systems, is to periodically save out the state of the task's in-memory data. S4's [state management](http://incubator.apache.org/s4/doc/0.6.0/fault_tolerance) implements this approach&mdash;tasks implement Java's serializable interface and are periodically serialized using java serialization to save out copies of the processor state.
+A simple approach, common in academic stream processing systems, is to periodically save the task's entire in-memory data to durable storage. This approach works well if the in-memory state consists of only a few values. However, you have to store the complete task state on each checkpoint, which becomes increasingly expensive as task state grows. Unfortunately, many non-trivial use cases for joins and aggregation have large amounts of state &mdash; often many gigabytes. This makes full dumps of the state impractical.
 
-This approach works well enough if the in-memory state consists of only a few values. However since you have to save out the complete task state on each save this will become increasingly expensive as task state grows. Unfortunately most use cases we have seen revolve around joins and aggregation and so have large amounts of state&mdash;often many gigabytes. This makes periodic full dumps extremely impractical. Some academic systems handle this case by having the tasks produce "diffs" in addition to full checkpoints. However this requires a great deal of complexity in the task to track what has changed and efficiently produce a compact diff of changes.
+Some academic systems produce *diffs* in addition to full checkpoints, which are smaller if only some of the state has changed since the last checkpoint. [Storm's Trident abstraction](../comparisons/storm.html) similarly keeps an in-memory cache of state, and periodically writes any changes to a remote store such as Cassandra. However, this optimization only helps if most of the state remains unchanged. In some use cases, such as stream joins, it is normal to have a lot of churn in the state, so this technique essentially degrades to making a remote database request for every message (see below).
 
 #### Using an external store
 
-In the absence of built-in support a common pattern for stateful processing is to push any state that would be accumulated between rows into an external database or key-value store. The database holds aggregates or the dataset being queried to enrich the incoming stream. You get something that looks like this:
+Another common pattern for stateful processing is to store the state in an external database or key-value store. Conventional database replication can be used to make that database fault-tolerant. The architecture looks something like this:
 
 ![state-kv-store](/img/0.7.0/learn/documentation/container/stream_job_and_db.png)
 
-Samza allows this style of processing (nothing will stop you from querying a remote database or service from your job) but also supports stateful processing natively in a way we think is often superior.
+Samza allows this style of processing &mdash; there is nothing to stop you querying a remote database or service within your job. However, there are a few reasons why a remote database can be problematic for stateful stream processing:
 
-#### The problems of remote stores
-
-To understand why this is useful let's first understand some of the drawbacks of making remote queries in a stream processing job:
-
-1. **Performance**: The first major drawback of making remote queries is that they are slow and expensive. For example, a Kafka stream can deliver hundreds of thousands or even millions of messages per second per CPU core because it transfers large chunks of data at a time. But a remote database query is a more expensive proposition. Though the database may be partitioned and scalable this partitioning doesn't match the partitioning of the job into tasks so batching becomes much less effective. As a result you would expect to get a few thousand queries per second per core for remote requests. This means that adding a processing stage that uses an external database will often reduce the throughput by several orders of magnitude.
-1. **Isolation**: If your database or service is also running live processing, mixing in asynchronous processing can be quite dangerous. A scalable stream processing system can run with very high parallelism. If such a job comes down (say for a code push) it queues up data for processing, when it restarts it will potentially have a large backlog of data to process. Since the job may actually have very high parallelism this can result in huge load spikes, many orders of magnitude higher than steady state load. If this load is mixed with live queries (i.e. the queries used to build web pages or render mobile UI or anything else that has a user waiting on the other end) then you may end up causing a denial-of-service attack on your live service.
-1. **Query Capabilities**: Many scalable databases expose very limited query interfaces--only supporting simple key-value lookups. Doing the equivalent of a "full table scan" or rich traversal may not be practical in this model.
-1. **Correctness**: If your task keeps counts or otherwise modifies state in a remote store how is this rolled back if the task fails? 
-
-Where these issues become particularly problematic is when you need to reprocess data. Your output, after all, is a combination of your code and your input&mdash;when you change your code you often want to reprocess input to recreate the output state with the new improved code. This is generally quite reasonable for pure stream processing jobs, but generally impractical for performance and isolation reasons for jobs that make external queries.
+1. **Performance**: Making database queries over a network is slow and expensive. A Kafka stream can deliver hundreds of thousands or even millions of messages per second per CPU core to a stream processor, but if you need to make a remote request for every message you process, your throughput is likely to drop by 2-3 orders of magnitude. You can somewhat mitigate this with careful caching of reads and batching of writes, but then you're back to the problems of checkpointing, discussed above.
+2. **Isolation**: If your database or service also serves requests to users, it can be dangerous to use the same database with a stream processor. A scalable stream processing system can run with very high throughput, and easily generates a huge amount of load (for example when catching up on a queue backlog). If you're not very careful, you may cause a denial-of-service attack on your own database, and cause problems for interactive requests from users.
+3. **Query Capabilities**: Many scalable databases expose very limited query interfaces (e.g. only supporting simple key-value lookups), because the equivalent of a "full table scan" or rich traversal would be too expensive. Stream processes are often less latency-sensitive, so richer query capabilities would be more feasible.
+4. **Correctness**: When a stream processor fails and needs to be restarted, how is the database state made consistent with the processing task? For this purpose, some frameworks such as [Storm](../comparisons/storm.html) attach metadata to database entries, but it needs to be handled carefully, otherwise the stream process generates incorrect output.
+5. **Reprocessing**: Sometimes it can be useful to re-run a stream process on a large amount of historical data, e.g. after updating your processing task's code. However, the issues above make this impractical for jobs that make external queries.
 
 ### Local state in Samza
 
-Samza allows tasks to maintain persistent, mutable, queryable state that is physically co-located with each task. The state is highly available: in the event of a task failure it will be restored when the task fails over to another machine.
+Samza allows tasks to maintain state in a way that is different from the approaches described above:
 
-You can think of this as taking the remote table out of the remote database and physically partitioning it up and co-locating these partitions with the tasks. This looks something like this:
+* The state is stored on disk, so the job can maintain more state than would fit in memory.
+* It is stored on the same machine as the processing task, to avoid the performance problems of making database queries over the network.
+* Each job has its own datastore, to avoid the isolation problems of a shared database (if you make an expensive query, it affects only the current task, nobody else).
+* Different storage engines can be plugged in, enabling rich query capabilities.
+* The state is continuously replicated, enabling fault tolerance without the problems of checkpointing large amounts of state.
+
+Imagine you take a remote database, partition it to match the number of tasks in the stream processing job, and co-locate each partition with its task. The result looks like this:
 
 ![state-local](/img/0.7.0/learn/documentation/container/stateful_job.png)
 
-Note that now the state is physically on the same machine as the tasks, and each task has access only to its local partition. However the combination of stateful tasks with the normal partitioning capabilities Samza offers makes this a very general feature: you just repartition on the key by which you want to split your processing and then you have full local access to the data within storage in that partition.
+If a machine fails, all the tasks running on that machine and their database partitions are lost. In order to make them highly available, all writes to the database partition are replicated to a durable changelog (typically Kafka). Now, when a machine fails, we can restart the tasks on another machine, and consume this changelog in order to restore the contents of the database partition.
 
-Let's look at how this addresses the problems of the remote store:
+Note that each task only has access to its own database partition, not to any other task's partition. This is important: when you scale out your job by giving it more computing resources, Samza needs to move tasks from one machine to another. By giving each task its own state, tasks can be relocated without affecting the job's operation. If necessary, you can repartition your streams so that all messages for a particular database partition are routed to the same task instance.
 
-1. This fixes the performance issues of remote queries because the data is now local, what would otherwise be a remote query may now just be a lookup against local memory or disk (we ship a [LevelDB](https://code.google.com/p/leveldb)-based store which is described in detail below).
-1. The isolation issue goes away as well as the queries are executed against the same servers the job runs against and this computation is not intermixed with live service calls.
-1. Data is now local so any kind of data-intensive processing, scans, and filtering is now possible.
-1. Since the state changes are themselves modeled as a stream the store can abide by the same delivery and fault-tolerance guarantees that Samza gives tasks.
+[Log compaction](http://kafka.apache.org/documentation.html#compaction) runs in the background on the changelog topic, and ensures that the changelog does not grow indefinitely. If you overwrite the same value in the store many times, log compaction keeps only the most recent value, and throws away any old values in the log. If you delete an item from the store, log compaction also removes it from the log. With the right tuning, the changelog is not much bigger than the database itself.
 
-This isn't always the right pattern to follow, it has a few drawbacks too.
-1. If the data is very large then storing it with each task that uses the data may use more space.
-1. As the per-container data size grows so too will the restore time for a failed task (50Mb/sec is a reasonable restore time to expect).
+With this architecture, Samza allows tasks to maintain large amounts of fault-tolerant state, at a performance that is almost as good as a pure in-memory implementation. There are just a few limitations:
 
-However we find that the local state approach is the best more often than not, and, of course, nothing prevents the use of external storage when needed.
+* If you have some data that you want to share between tasks (across partition boundaries), you need to go to some additional effort to repartition and distribute the data. Each task will need its own copy of the data, so this may use more space overall.
+* When a container is restarted, it can take some time to restore the data in all of its state partitions. The time depends on the amount of data, the storage engine, your access patterns, and other factors. As a rule of thumb, 50&nbsp;MB/sec is a reasonable restore time to expect.
 
-### Databases as input streams
-
-In cases where we were querying the external database on each input message we can transform this to local processing by instead transforming the database into a stream of row changes. These changes can be taken as input by a task, stored, and queried against just as the remote database would be.
-
-But how can you get such a stream? Many databases such Oracle, HBase, MySQL, and MongoDB offer built-in support for directly capturing changes. If not this can be done by publishing a stream of changes to Kafka or by implementing our [pluggable stream interface](streams.html) to directly poll the database for changes (say by some last_modified timestamp). You want this to be done in a way that you can reset the offset or timestamp back to zero to replay the current state of the database as changes if you need to reprocess. If this stream capture is efficient enough you can often avoid having changelogs for your tasks and simply replay them from the source when they fail.
-
-A wonderful contribution would be a generic jdbc-based stream implementation for extracting changes from relational databases by modified date.
+Nothing prevents you from using an external database if you want to, but for many use cases, Samza's local state is a powerful tool for enabling stateful stream processing.
 
 ### Key-value storage
 
-Though the storage format is pluggable, we provide a key-value store implementation to tasks out-of-the-box that gives the usual put/get/delete/range queries. This is backed by a highly available "changelog" stream that provides fault-tolerance by acting as a kind of [redo log](http://en.wikipedia.org/wiki/Redo_log) for the task's state (we describe this more in the next section).
+Any storage engine can be plugged into Samza, as described below. Out of the box, Samza ships with a key-value store implementation that is built on [LevelDB](https://code.google.com/p/leveldb) using a [JNI API](https://github.com/fusesource/leveldbjni).
 
-This key-value storage engine is built on top of [LevelDB](https://code.google.com/p/leveldb) using a [LevelDB JNI API](https://github.com/fusesource/leveldbjni). LevelDB has several nice properties. First it maintains data outside the java heap which means it is immediately preferable to any simple approach using a hash table both because of memory-efficiency and to avoid GC. It will use an off-heap memory cache and when that is exhausted go to disk for lookups&mdash;so small data sets can be [very fast](https://code.google.com/p/leveldb) and non-memory-resident datasets, though slower, are still possible. It is [log-structured](http://www.igvita.com/2012/02/06/sstable-and-log-structured-storage-leveldb/) and writes can be performed at close to disk speeds. It also does built-in block compression which helps to reduce both I/O and memory usage.
+LevelDB has several nice properties. Its memory allocation is outside of the Java heap, which makes it more memory-efficient and less prone to garbage collection pauses than a Java-based storage engine. It is very fast for small datasets that fit in memory; datasets larger than memory are slower but still possible. It is [log-structured](http://www.igvita.com/2012/02/06/sstable-and-log-structured-storage-leveldb/), allowing very fast writes. It also includes support for block compression, which helps to reduce I/O and memory usage.
 
-The nature of Samza's usage allows us to optimize this further. We add an optional "L1" LRU cache which is in-heap and holds deserialized rows. This cache is meant to be very small and lets us introduce several optimizations for both reads and writes.
+Samza includes an additional in-memory caching layer in front of LevelDB, which avoids the cost of deserialization for frequently-accessed objects and batches writes. If the same key is updated multiple times in quick succession, the batching coalesces those updates into a single write. The writes are flushed to the changelog when a task [commits](checkpointing.html).
 
-The cache is an "object" or "row" cache&mdash;that is it maintains the java objects stored with no transformation or serialization. This complements LevelDB's own block level caching well. Reads and writes both populate the cache, and reads on keys in the cache avoid the cost of deserialization for these very common objects.
-
-For writes the cache provides two benefits. Since LevelDB is itself really only a persistent "cache" in our architecture we do not immediately need to apply every write to the filesystem. We can batch together a few hundred writes and apply them all at once. LevelDB heavily optimizes this kind of batch write. This does not impact consistency&mdash;a task always reads what it wrote (since it checks the cache first and is the only writer to its store). Secondly the cache effectively deduplicates updates so that if multiple updates to the same key occur close together we can optimize away all but the final write to leveldb and the changelog. For example, an important use case is maintaining a small number of counters that are incremented on every input. A naive implementation would need to write out each new value to LevelDB as well as perhaps logging the change out to the changelog for the task. In the extreme case where you had only a single variable, x, incremented on each input, an uncached implementation would produce writes in the form "x=1", "x=2", "x=3", etc which is quite inefficient. This is overkill, we only need to flush to the changelog at [commit points](checkpointing.html) not on every write. This allows us to "deduplicate" the writes that go to leveldb and the changelog to just the final value before the commit point ("x=3" or whatever it happened to be).
-
-The combination of these features makes it possible to provide highly available processing that performs very close to memory speeds for small datasets yet still scales up to TBs of data (partitioned up across all the tasks).
-
-### Fault-tolerance
-
-As mentioned the actual local storage (i.e. LevelDB for key-value storage) is really just a cache. How can we ensure that this data is not lost when a machine fails and the tasks running on that machine have to be brought up on another machine (which, of course, doesn't yet have the local persistent state)?
-
-The answer is that Samza handles state as just another stream. There are two mechanisms for accomplishing this.
-
-The first approach is just to allow the task to replay one or more of its input streams to populate its store when it restarts. This works well if the input stream maintains the complete data (as a stream fed by a database table might) and if the input stream is fast enough to make this practical. This requires no framework support.
-
-However often the state that is stored is much smaller than the input stream (because it is an aggregation or projection of the original input streams). Or the input stream may not maintain a complete, replayable set of inputs (say for event logs). To support these cases we provide the ability to back the state of the store with a changelog stream. A changelog is just a stream to which the task logs each change to its state&mdash;i.e. the sequence of key-value pairs applied to the local store. Changelogs are co-partitioned with their tasks (so each task has its own stream partition for which it is the only writer).
-
-The changelogs are just normal streams&mdash;other downstream tasks can subscribe to this state and use it. And it turns out that very often the most natural way to represent the output of a job is as the changelog of its task (we'll show some examples in a bit).
-
-Of course a log of changes only grows over time so this would soon become impractical. Kafka has [log compaction](http://kafka.apache.org/documentation#compaction) which provides special support for this kind of use case, though. This feature allows Kafka to compact duplicate entries (i.e. multiple updates with the same key) in the log rather than just deleting old log segments. This feature is available since Kafka 0.8.1.
-
-The Kafka brokers scale well up to terabytes of data per machine for changelogs as for other topics. Log compaction proceeds at about 50MB/sec/core or whatever the I/O limits of the broker are.
-
-### Other storage engines
-
-One interesting aspect of this design is that the fault-tolerance mechanism is completely decoupled from the query apis the storage engine provides to the task or the way it stores data on disk or in memory. We have provided a key-value index with Samza, but you can easily implement and plug-in storage engines that are optimized for other types of queries and plug them in to our fault tolerance mechanism to provide different query capabilities to your tasks.
-
-Here are a few examples of storage engine types we think would be interesting to pursue in the future (patches accepted!):
-
-##### Persistent heap
-
-A common operation in stream processing is to maintain a running top-N. There are two primary applications of this. The first is ranking items over some window. The second is performing a "bounded sort" operation to transform a nearly sorted input stream into a totally sorted output stream. This occurs when dealing with a data stream where the order is by arrival and doesn't exactly match the source timestamp (for example log events collected across many machines).
-
-##### Sketches
-
-Many applications don't require exact results and for these [approximate algorithms](http://infolab.stanford.edu/~ullman/mmds/ch4.pdf) such as [bloom filters](http://en.wikipedia.org/wiki/Bloom_filter) for set membership, [hyperloglog](http://research.google.com/pubs/pub40671.html) for counting distinct keys, and a multitude of algorithms for quantile and histogram approximation.
-
-These algorithms are inherently approximate but good algorithms give a strong bound on the accuracy of the approximation. This obviously doesn't carry over well to the case where the task can crash and lose all state. By logging out the changes to the structure we can ensure it is restored on fail-over. The nature of sketch algorithms allows significant opportunity for optimization in the form of logging. 
-
-##### Inverted index
-
-Inverted indexes such as is provided by [Lucene](http://lucene.apache.org) are common for text matching and other applications that do matching and ranking with selective queries and large result sets. 
-
-##### More
-
-There are a variety of other storage engines that could be useful:
-
-* For small datasets logged, in-memory collections may be ideal.
-* Specialized data structures for graph traversal are common.
-* Many applications are doing OLAP-like aggregations on their input. It might be possible to optimize these kinds of dimensional summary queries.
-
-### Using the key-value store
-
-In this section we will give a quick tutorial on configuring and using the key-value store.
-
-To declare a new store for usage you add the following to your job config:
+To use a key-value store in your job, add the following to your job config:
 
     # Use the key-value store implementation for a store called "my-store"
     stores.my-store.factory=org.apache.samza.storage.kv.KeyValueStorageEngineFactory
 
-    # Log changes to the store to an output stream for restore
-    # If no changelog is specified the store will not be logged (but you can still rebuild off your input streams)
-    stores.my-store.changelog=kafka.my-stream-name
+    # Use the Kafka topic "my-store-changelog" as the changelog stream for this store.
+    # This enables automatic recovery of the store after a failure. If you don't
+    # configure this, no changelog stream will be generated.
+    stores.my-store.changelog=kafka.my-store-changelog
 
-    # The serialization format to use
+    # Encode keys and values in the store as UTF-8 strings.
+    serializers.registry.string.class=org.apache.samza.serializers.StringSerdeFactory
     stores.my-store.key.serde=string
     stores.my-store.msg.serde=string
 
-Here is some simple example code that only writes to the store:
+See the [serialization section](serialization.html) for more information on the *serde* options.
+
+Here is a simple example that writes every incoming message to the store:
 
     public class MyStatefulTask implements StreamTask, InitableTask {
       private KeyValueStore<String, String> store;
       
       public void init(Config config, TaskContext context) {
-        this.store = (KeyValueStore<String, String>) context.getStore("store");
+        this.store = (KeyValueStore<String, String>) context.getStore("my-store");
       }
 
-      public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
-        System.out.println("Adding " + envelope.getKey() + " => " + envelope.getMessage() + " to the store.");
+      public void process(IncomingMessageEnvelope envelope,
+                          MessageCollector collector,
+                          TaskCoordinator coordinator) {
         store.put((String) envelope.getKey(), (String) envelope.getMessage());
       }
     }
@@ -208,79 +160,84 @@ Here is the complete key-value store API:
       KeyValueIterator<K,V> all();
     }
 
-Here is a list of additional configurations accepted by the key-value store along with their default values:
+Here is a list of additional configurations accepted by the key-value store, along with their default values:
 
     # The number of writes to batch together
     stores.my-store.write.batch.size=500
 
-    # The total number of objects to cache in the "L1" object cache. This must be at least as large as the batch.size.
+    # The number of objects to keep in Samza's cache (in front of LevelDB).
+    # This must be at least as large as write.batch.size.
     # A cache size of 0 disables all caching and batching.
     stores.my-store.object.cache.size=1000
 
-    # The size of the off-heap leveldb block cache in bytes, per container. If you have multiple tasks within
-    # one container, each task is given a proportional share of this cache.
+    # The size of the off-heap leveldb block cache in bytes, per container.
+    # If you have multiple tasks within one container, each task is given a
+    # proportional share of this cache.
     stores.my-store.container.cache.size.bytes=104857600
 
-    # The amount of memory leveldb uses for buffering writes before they are written to disk, per container.
-    # If you have multiple tasks within one container, each task is given a proportional share of this buffer.
+    # The amount of memory leveldb uses for buffering writes before they are
+    # written to disk, per container. If you have multiple tasks within one
+    # container, each task is given a proportional share of this buffer.
     # This setting also determines the size of leveldb's segment files.
     stores.my-store.container.write.buffer.size.bytes=33554432
 
     # Enable block compression? (set compression=none to disable)
     stores.my-store.leveldb.compression=snappy
 
-    # If compression is enabled, leveldb groups approximately this many uncompressed bytes into one compressed block.
-    # You probably don't need to change this unless you are a compulsive fiddler.
+    # If compression is enabled, leveldb groups approximately this many
+    # uncompressed bytes into one compressed block. You probably don't need
+    # to change this unless you are a compulsive fiddler.
     stores.my-store.leveldb.block.size.bytes=4096
 
 ### Implementing common use cases with the key-value store
 
-Let's look at how you can address some of the common use-cases we discussed before using the key-value storage engine.
+Earlier in this section we discussed some example use cases for stateful stream processing. Let's look at how each of these could be implemented using a key-value storage engine such as Samza's LevelDB.
 
-##### Windowed aggregation
+#### Windowed aggregation
 
-Example: Counting the number of page views for each user per hour
+*Example: Counting the number of page views for each user per hour*
 
-Implementation: We have two processing stages. The first partitions the input data by user id (if it's already partitioned by user id, which would be reasonable, you can skip this), and the second stage does the counting. The job has a single store containing the mapping of user_id to the running count. Each new input record would cause the job to retrieve the current running count, increment it and write back the count. When the window is complete (i.e. the hour is over), we iterate over the contents of our store and emit the aggregates.
+Implementation: You need two processing stages.
 
-One thing to note is that this job effectively pauses at the hour mark to output its results. This is unusual for stream processing, but totally fine for Samza&mdash;and we have specifically designed for this case. Scans over the contents of the key-value store will be quite fast and input data will buffer while the job is doing this scanning and emitting aggregates.
+1. The first one re-partitions the input data by user ID, so that all the events for a particular user are routed to the same stream task. If the input stream is already partitioned by user ID, you can skip this.
+2. The second stage does the counting, using a key-value store that maps a user ID to the running count. For each new event, the job reads the current count for the appropriate user from the store, increments it, and writes it back. When the window is complete (e.g. at the end of an hour), the job iterates over the contents of the store and emits the aggregates to an output stream.
 
-##### Table-table join
+Note that this job effectively pauses at the hour mark to output its results. This is totally fine for Samza, as scanning over the contents of the key-value store is quite fast. The input stream is buffered while the job is doing this hourly work.
 
-Example: Join a table of user profiles to a table of user settings by user\_id and emit the joined stream
+#### Table-table join
 
-Implementation: The job subscribes to the change stream for user profiles and for user settings databases, both partitioned by user\_id. The job keeps a single key-value store keyed by user\_id containing the joined contents of profiles and settings. When a new record comes in from either stream it looks up the current value in its store and writes back the record with the appropriate fields updated (i.e. new profile fields if it was a profile update, and new settings fields if it was a settings update). The changelog of the store doubles as the output stream of the task.
+*Example: Join a table of user profiles to a table of user settings by user\_id and emit the joined stream*
 
-##### Table-stream join
+Implementation: The job subscribes to the change streams for the user profiles database and the user settings database, both partitioned by user\_id. The job keeps a key-value store keyed by user\_id, which contains the latest profile record and the latest settings record for each user\_id. When a new event comes in from either stream, the job looks up the current value in its store, updates the appropriate fields (depending on whether it was a profile update or a settings update), and writes back the new joined record to the store. The changelog of the store doubles as the output stream of the task.
 
-Example: Join user zip code to page view data (perhaps to allow aggregation by zip code in a later stage)
+#### Table-stream join
 
-Implementation: The job subscribes to the user profile stream and page view stream. Each time it gets a profile update it stores the zipcode keyed by user\_id. Each time a page view arrives it looks up the zip code for the user and emits the enriched page view + zipcode event.
+*Example: Augment a stream of page view events with the user's ZIP code (perhaps to allow aggregation by zip code in a later stage)*
 
-##### Stream-stream join
+Implementation: The job subscribes to the stream of user profile updates and the stream of page view events. Both streams must be partitioned by user\_id. The job maintains a key-value store where the key is the user\_id and the value is the user's ZIP code. Every time the job receives a profile update, it extracts the user's new ZIP code from the profile update and writes it to the store. Every time it receives a page view event, it reads the zip code for that user from the store, and emits the page view event with an added ZIP code field.
 
-Example: Join ad clicks to ad impressions by impression id (an impression is advertising terminology for the event that records the display of an ad)
+If the next stage needs to aggregate by ZIP code, the ZIP code can be used as the partitioning key of the job's output stream. That ensures that all the events for the same ZIP code are sent to the same stream partition.
 
-Note: In this example we are assuming that impressions are assigned a unique guid and this is present in both the original impression event and any subsequent click. In the absence of this the business logic for choosing the join could be substituted for the simple lookup.
+#### Stream-stream join
 
-Implementation: Partition the ad click and ad impression streams by the impression id or user id. The task keeps a store of unmatched clicks and unmatched impressions. When a click comes in we try to find its matching impression in the impression store, and vice versa. If a match is found emit the joined pair and delete the entry. If no match is found store the event to wait for a match. Since this is presumably a left outer join (i.e. every click has a corresponding impression but not vice versa) we will periodically scan the impression table and delete old impressions for which no click arrived.
+*Example: Join a stream of ad clicks to a stream of ad impressions (to link the information on when the ad was shown to the information on when it was clicked)*
 
-### Implementing storage engines
+In this example we assume that each impression of an ad has a unique identifier, e.g. a UUID, and that the same identifier is included in both the impression and the click events. This identifier is used as the join key.
 
-We mentioned that the storage engine interface was pluggable. Of course you can use any data structure you like in your task provided you can repopulate it off your inputs on failure. However to plug into our changelog infrastructure you need to implement a generic StorageEngine interface that handles restoring your state on failure and ensures that data is flushed prior to commiting the task position.
+Implementation: Partition the ad click and ad impression streams by the impression ID or user ID (assuming that two events with the same impression ID always have the same user ID). The task keeps two stores, one containing click events and one containing impression events, using the impression ID as key for both stores. When the job receives a click event, it looks for the corresponding impression in the impression store, and vice versa. If a match is found, the joined pair is emitted and the entry is deleted. If no match is found, the event is written to the appropriate store. Periodically the job scans over both stores and deletes any old events that were not matched within the time window of the join.
 
-The above code shows usage of the key-value storage engine, but it is not too hard to implement an alternate storage engine. To do so, you implement methods to restore the contents of the store from a stream, flush any cached content on commit, and close the store:
+### Other storage engines
 
-    public interface StorageEngine {
-      void restore(Iterator<IncomingMessageEnvelope> envelopes);
-      void flush();
-      void stop();
-    }
+Samza's fault-tolerance mechanism (sending a local store's writes to a replicated changelog) is completely decoupled from the storage engine's data structures and query APIs. While a key-value storage engine is good for general-purpose processing, you can easily add your own storage engines for other types of queries by implementing the [StorageEngine](../api/javadocs/org/apache/samza/storage/StorageEngine.html) interface. Samza's model is especially amenable to embedded storage engines, which run as a library in the same process as the stream task. 
 
-The user specifies the type of storage engine they want by passing in a factory for that store in their configuration.
+Some ideas for other storage engines that could be useful: a persistent heap (for running top-N queries), [approximate algorithms](http://infolab.stanford.edu/~ullman/mmds/ch4.pdf) such as [bloom filters](http://en.wikipedia.org/wiki/Bloom_filter) and [hyperloglog](http://research.google.com/pubs/pub40671.html), or full-text indexes such as [Lucene](http://lucene.apache.org). (Patches accepted!)
 
 ### Fault tolerance semantics with state
 
-Samza currently only supports at-least-once delivery guarantees in the presence of failure (this is sometimes referred to as "guaranteed delivery"). This means messages are not lost but if a task fails some messages may be redelivered. The guarantee holds from the commit point of the task which records the position from which the task will restart on failure (the user can either force a commit at convenient points or the framework will by default do this at regular intervals). This is true for both input, output, and changelog streams. This is a fairly weak guarantee&mdash;duplicates can give incorrect results in counts, for example. We have a plan to extend this to exact semantics in the presence of failure which we will include in a future release.
+As discussed in the section on [checkpointing](checkpointing.html), Samza currently only supports at-least-once delivery guarantees in the presence of failure (this is sometimes referred to as "guaranteed delivery"). This means that if a task fails, no messages are lost, but some messages may be redelivered.
+
+For many of the stateful processing use cases discussed above, this is not a problem: if the effect of a message on state is idempotent, it is safe for the same message to be processed more than once. For example, if the store contains the ZIP code for each user, then processing the same profile update twice has no effect, because the duplicate update does not change the ZIP code.
+
+However, for non-idempotent operations such as counting, at-least-once delivery guarantees can give incorrect results. If a Samza task fails and is restarted, it may double-count some messages that were processed shortly before the failure. We are planning to address this limitation in a future release of Samza.
 
 ## [Metrics &raquo;](metrics.html)
