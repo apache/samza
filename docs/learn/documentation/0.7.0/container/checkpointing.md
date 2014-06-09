@@ -3,47 +3,79 @@ layout: page
 title: Checkpointing
 ---
 
-On the [Streams](streams.html) page, on important detail was glossed over. When a TaskRunner instantiates a SystemConsumer for an input stream/partition pair, how does the TaskRunner know where in the stream to start reading messages. If you recall, Kafka has the concept of an offset, which defines a specific location in a topic/partition pair. The idea is that an offset can be used to reference a specific point in a stream/partition pair. When you read messages from Kafka, you can supply an offset to specify at which point you'd like to read from. After you read, you increment your offset, and get the next message.
+Samza provides fault-tolerant processing of streams: Samza guarantees that messages won't be lost, even if your job crashes, if a machine dies, if there is a network fault, or something else goes wrong. In order to provide this guarantee, Samza expects the [input system](streams.html) to meet the following requirements:
 
-![diagram](/img/0.7.0/learn/documentation/container/checkpointing.png)
+* The stream may be sharded into one or more *partitions*. Each partition is independent from the others, and is replicated across multiple machines (the stream continues to be available, even if a machine fails).
+* Each partition consists of a sequence of messages in a fixed order. Each message has an *offset*, which indicates its position in that sequence. Messages are always consumed sequentially within each partition.
+* A Samza job can start consuming the sequence of messages from any starting offset.
 
-This diagram looks the same as on the [Streams](streams.html) page, except that there are black lines at different points in each input stream/partition pair. These lines represent the current offset for each stream consumer. As the stream consumer reads, the offset increases, and moves closer to the "head" of the stream. The diagram also illustrates that the offsets might be staggered, such that some offsets are farther along in their stream/partition than others.
+Kafka meets these requirements, but they can also be implemented with other message broker systems.
 
-If a SystemConsumer is reading messages for a TaskRunner, and the TaskRunner stops for some reason (due to hardware failure, re-deployment, or whatever), the SystemConsumer should start where it left off when the TaskRunner starts back up again. We're able to do this because the Kafka broker is buffering messages on a remote server (the broker). Since the messages are available when we come back, we can just start from our last offset, and continue moving forward, without losing data.
+As described in the [section on SamzaContainer](samza-container.html), each task instance of your job consumes one partition of an input stream. Each task has a *current offset* for each input stream: the offset of the next message to be read from that stream partition. Every time a message is read from the stream, the current offset moves forwards.
 
-The TaskRunner supports this ability using something called a CheckpointManager.
+If a Samza container fails, it needs to be restarted (potentially on another machine) and resume processing where the failed container left off. In order to enable this, a container periodically checkpoints the current offset for each task instance.
 
-```
-public interface CheckpointManager {
-  void start();
+<img src="/img/0.7.0/learn/documentation/container/checkpointing.svg" alt="Illustration of checkpointing" class="diagram-large">
 
-  void register(Partition partition);
+When a Samza container starts up, it looks for the most recent checkpoint and starts consuming messages from the checkpointed offsets. If the previous container failed unexpectedly, the most recent checkpoint may be slightly behind the current offsets (i.e. the job may have consumed some more messages since the last checkpoint was written), but we can't know for sure. In that case, the job may process a few messages again.
 
-  void writeCheckpoint(Partition partition, Checkpoint checkpoint);
+This guarantee is called *at-least-once processing*: Samza ensures that your job doesn't miss any messages, even if containers need to be restarted. However, it is possible for your job to see the same message more than once when a container is restarted. We are planning to address this in a future version of Samza, but for now it is just something to be aware of: for example, if you are counting page views, a forcefully killed container could cause events to be slightly over-counted. You can reduce duplication by checkpointing more frequently, at a slight performance cost.
 
-  Checkpoint readLastCheckpoint(Partition partition);
+For checkpoints to be effective, they need to be written somewhere where they will survive faults. Samza allows you to write checkpoints to the file system (using FileSystemCheckpointManager), but that doesn't help if the machine fails and the container needs to be restarted on another machine. The most common configuration is to use Kafka for checkpointing. You can enable this with the following job configuration:
 
-  void stop();
-}
+    # The name of your job determines the name under which checkpoints will be stored
+    job.name=example-job
 
-public class Checkpoint {
-  private final Map<SystemStream, String> offsets;
-  ...
-}
-```
+    # Define a system called "kafka" for consuming and producing to a Kafka cluster
+    systems.kafka.samza.factory=org.apache.samza.system.kafka.KafkaSystemFactory
 
-As you can see, the checkpoint manager provides a way to write out checkpoints for a given partition. Right now, the checkpoint contains a map. The map's keys are input stream names, and the map's values are each input stream's offset. Each checkpoint is managed per-partition. For example, if you have page-view-event and service-metric-event defined as streams in your Samza job's configuration file, the TaskRunner would supply a checkpoint with two keys in each checkpoint offset map (one for page-view-event and the other for service-metric-event).
+    # Declare that we want our job's checkpoints to be written to Kafka
+    task.checkpoint.factory=org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory
+    task.checkpoint.system=kafka
 
-Samza provides two checkpoint managers: FileSystemCheckpointManager and KafkaCheckpointManager. The KafkaCheckpointManager is what you generally want to use. The way that KafkaCheckpointManager works is as follows: it writes checkpoint messages for your Samza job to a special Kafka topic. This topic's name is \_\_samza\_checkpoint\_your-job-name. For example, if you had a Samza job called "my-first-job", the Kafka topic would be called \_\_samza\_checkpoint\_my-first-job. This Kafka topic is partitioned identically to your Samza job's partition count. If your Samza job has 10 partitions, the checkpoint topic for your Samza job will also have 10 partitions. Every time that the TaskRunner calls writeCheckpoint, a checkpoint message will be sent to the partition that corresponds with the partition for the checkpoint that the TaskRunner wishes to write.
+    # By default, a checkpoint is written every 60 seconds. You can change this if you like.
+    task.commit.ms=60000
 
-![diagram](/img/0.7.0/learn/documentation/container/checkpointing-2.png)
+In this configuration, Samza writes checkpoints to a separate Kafka topic called \_\_samza\_checkpoint\_&lt;job-name&gt;\_&lt;job-id&gt; (in the example configuration above, the topic would be called \_\_samza\_checkpoint\_example-job\_1). Once per minute, Samza automatically sends a message to this topic, in which the current offsets of the input streams are encoded. When a Samza container starts up, it looks for the most recent offset message in this topic, and loads that checkpoint.
 
-When the TaskRunner starts for the first time, the offset behavior of the SystemConsumers is undefined. If the system for the SystemConsumer is Kafka, we fall back to the auto.offset.reset setting. If the auto.offset.reset is set to "largest", we start reading messages from the head of the stream; if it's set to "smallest", we read from the tail. If it's undefined, the TaskRunner will fail.
+Sometimes it can be useful to use checkpoints only for some input streams, but not for others. In this case, you can tell Samza to ignore any checkpointed offsets for a particular stream name:
 
-The TaskRunner calls writeCheckpoint at a windowed interval (e.g. every 10 seconds). If the TaskRunner fails, and restarts, it simply calls readLastCheckpoint for each partition. In the case of the KafkaCheckpointManager, this readLastCheckpoint method will read the last message that was written to the checkpoint topic for each partition in the job. One edge case to consider is that SystemConsumers might have read messages from an offset that hasn't yet been checkpointed. In such a case, when the TaskRunner reads the last checkpoint for each partition, the offsets might be farther back in the stream. When this happens, your StreamTask could get duplicate messages (i.e. it saw message X, failed, restarted at an offset prior to message X, and then reads message X again). Thus, Samza currently provides at least once messaging. You might get duplicates. Caveat emptor.
+    # Ignore any checkpoints for the topic "my-special-topic"
+    systems.kafka.streams.my-special-topic.samza.reset.offset=true
 
-<!-- TODO Add a link to the fault tolerance SEP when one exists -->
+    # Always start consuming "my-special-topic" at the oldest available offset
+    systems.kafka.streams.my-special-topic.samza.offset.default=oldest
 
-*Note that there are design proposals in the works to give exactly once messaging.*
+The following table explains the meaning of these configuration parameters:
+
+<table class="documentation">
+  <tr>
+    <th>Parameter name</th>
+    <th>Value</th>
+    <th>Meaning</th>
+  </tr>
+  <tr>
+    <td rowspan="2" class="nowrap">systems.&lt;system&gt;.<br>streams.&lt;stream&gt;.<br>samza.reset.offset</td>
+    <td>false (default)</td>
+    <td>When container starts up, resume processing from last checkpoint</td>
+  </tr>
+  <tr>
+    <td>true</td>
+    <td>Ignore checkpoint (pretend that no checkpoint is present)</td>
+  </tr>
+  <tr>
+    <td rowspan="2" class="nowrap">systems.&lt;system&gt;.<br>streams.&lt;stream&gt;.<br>samza.offset.default</td>
+    <td>upcoming (default)</td>
+    <td>When container starts and there is no checkpoint (or the checkpoint is ignored), only process messages that are published after the job is started, but no old messages</td>
+  </tr>
+  <tr>
+    <td>oldest</td>
+    <td>When container starts and there is no checkpoint (or the checkpoint is ignored), jump back to the oldest available message in the system, and consume all messages from that point onwards (most likely this means repeated processing of messages already seen previously)</td>
+  </tr>
+</table>
+
+Note that the example configuration above causes your tasks to start consuming from the oldest offset *every time a container starts up*. This is useful in case you have some in-memory state in your tasks that you need to rebuild from source data in an input stream. If you are using streams in this way, you may also find [bootstrap streams](streams.html) useful.
+
+If you want to make a one-off change to a job's consumer offsets, for example to force old messages to be processed again with a new version of your code, you can use CheckpointTool to manipulate the job's checkpoint. The tool is included in Samza's [source repository](/contribute/code.html) and documented in the README.
 
 ## [State Management &raquo;](state-management.html)

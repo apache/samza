@@ -57,7 +57,7 @@ This was motivated by our experience with Hadoop, where the data flow between jo
 
 MUPD8 executes all of its map/update processors inside a single JVM, using threads. This is memory-efficient, as the JVM memory overhead is shared across the threads.
 
-Samza uses a separate JVM for each stream processor container ([TaskRunner](../container/task-runner.html)). This has the disadvantage of using more memory compared to running multiple stream processing threads within a single JVM. However, the advantage is improved isolation between tasks, which can make them more reliable.
+Samza uses a separate JVM for each [stream processor container](../container/samza-container.html). This has the disadvantage of using more memory compared to running multiple stream processing threads within a single JVM. However, the advantage is improved isolation between tasks, which can make them more reliable.
 
 ### Isolation
 

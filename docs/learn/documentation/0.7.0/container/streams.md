@@ -3,152 +3,111 @@ layout: page
 title: Streams
 ---
 
-The [TaskRunner](task-runner.html) reads and writes messages using the SystemConsumer and SystemProducer interfaces.
+The [samza container](samza-container.html) reads and writes messages using the [SystemConsumer](../api/javadocs/org/apache/samza/system/SystemConsumer.html) and [SystemProducer](../api/javadocs/org/apache/samza/system/SystemProducer.html) interfaces. You can integrate any message broker with Samza by implementing these two interfaces.
 
-```
-public interface SystemConsumer {
+    public interface SystemConsumer {
+      void start();
 
-  void start();
+      void stop();
 
-  void stop();
+      void register(
+          SystemStreamPartition systemStreamPartition,
+          String lastReadOffset);
 
-  void register(SystemStreamPartition systemStreamPartition, String lastReadOffset);
+      List<IncomingMessageEnvelope> poll(
+          Map<SystemStreamPartition, Integer> systemStreamPartitions,
+          long timeout)
+        throws InterruptedException;
+    }
 
-  List<IncomingMessageEnvelope> poll(Map<SystemStreamPartition, Integer> systemStreamPartitions, long timeout) throws InterruptedException;
-}
+    public class IncomingMessageEnvelope {
+      public Object getMessage() { ... }
 
-public class IncomingMessageEnvelope {
-  public Object getMessage() { ... }
+      public Object getKey() { ... }
 
-  public Object getKey() { ... }
+      public SystemStreamPartition getSystemStreamPartition() { ... }
+    }
 
-  public SystemStreamPartition getSystemStreamPartition() { ... }
-}
+    public interface SystemProducer {
+      void start();
 
-public interface SystemProducer {
-  void start();
+      void stop();
 
-  void stop();
+      void register(String source);
 
-  void register(String source);
+      void send(String source, OutgoingMessageEnvelope envelope);
 
-  void send(String source, OutgoingMessageEnvelope envelope);
+      void flush(String source);
+    }
 
-  void flush(String source);
-}
+    public class OutgoingMessageEnvelope {
+      ...
+      public Object getKey() { ... }
 
-public class OutgoingMessageEnvelope {
-  ...
-  public Object getKey() { ... }
+      public Object getMessage() { ... }
+    }
 
-  public Object getMessage() { ... }
-}
-```
+Out of the box, Samza supports Kafka (KafkaSystemConsumer and KafkaSystemProducer). However, any message bus system can be plugged in, as long as it can provide the semantics required by Samza, as described in the [javadoc](../api/javadocs/org/apache/samza/system/SystemConsumer.html).
 
-Out of the box, Samza supports reads and writes to Kafka (i.e. it has a KafkaSystemConsumer/KafkaSystemProducer), but the interfaces are pluggable, and most message bus systems can be plugged in, with some degree of support.
+SystemConsumers and SystemProducers may read and write messages of any data type. It's ok if they only support byte arrays &mdash; Samza has a separate [serialization layer](serialization.html) which converts to and from objects that application code can use. Samza does not prescribe any particular data model or serialization format.
 
-A number of stream-related properties should be defined in your Samza job's configuration file. These properties define systems that Samza can read from, the streams on these systems, and how to serialize and deserialize the messages from the streams. For example, you might wish to read PageViewEvent from a specific Kafka cluster. The system properties in the configuration file would define how to connect to the Kafka cluster. The stream section would define PageViewEvent as an input stream. The serializer in the configuration would define the serde to use to decode PageViewEvent messages.
+The job configuration file can include properties that are specific to a particular consumer and producer implementation. For example, the configuration would typically indicate the hostname and port of the message broker to use, and perhaps connection options.
 
-When the TaskRunner starts up, it will use the stream-related properties in your configuration to instantiate consumers for each stream partition. For example, if your input stream is PageViewEvent, which has 12 partitions, then the TaskRunner would create 12 KafkaSystemConsumers. Each consumer will read ByteBuffers from one partition, deserialize the ByteBuffer to an object, and put them into a queue. This queue is what the [event loop](event-loop.html) will use to feed messages to your StreamTask instances.
+### How streams are processed
 
-In the process method in StreamTask, there is a MessageCollector parameter given to use. When the TaskRunner calls process() on one of your StreamTask instances, it provides the collector. After the process() method completes, the TaskRunner takes any output messages that your StreamTask wrote to the collector, serializes the messages, and calls the send() method on the appropriate SystemProducer.
+If a job is consuming messages from more than one input stream, and all input streams have messages available, messages are processed in a round robin fashion by default. For example, if a job is consuming AdImpressionEvent and AdClickEvent, the task instance's process() method is called with a message from AdImpressionEvent, then a message from AdClickEvent, then another message from AdImpressionEvent, ... and continues to alternate between the two.
 
-### Message Ordering
-
-If a job is consuming messages from more than one system/stream/partition combination, by default, messages will be processed in a round robin fashion. For example, if a job is reading partitions 1 and 2 of page-view-events from a Kafka system, and there are messages available to be processed from both partitions, your StreamTask will get messages in round robin order (partition 1, partition 2, partition 1, partition 2, etc). If a message is not available for a given partition, it will be skipped, until a message becomes available.
+If one of the input streams has no new messages available (the most recent message has already been consumed), that stream is skipped, and the job continues to consume from the other inputs. It continues to check for new messages becoming available.
 
 #### MessageChooser
 
-The default round robin behavior can be overridden by implementing a custom MessageChooser. A MessageChooser's job is to answer the question, "Given a set of incoming messages, which one should a Samza container process next?".  To write a custom MessageChooser, take a look at the [Javadocs](../api/javadocs/org/apache/samza/system/MessageChooser.html), and then configure your task with the "task.chooser.class" configuration, which should point to your MessageChooserFactory.
+When a Samza container has several incoming messages on different stream partitions, how does it decide which to process first? The behavior is determined by a [MessageChooser](../api/javadocs/org/apache/samza/system/chooser/MessageChooser.html). The default chooser is RoundRobinChooser, but you can override it by implementing a custom chooser.
 
-Out of the box, Samza ships with a RoundRobinChooser, which is the default. You can use the StreamChooser by adding the following configuration to your job.
+To plug in your own message chooser, you need to implement the [MessageChooserFactory](../api/javadocs/org/apache/samza/system/chooser/MessageChooserFactory.html) interface, and set the "task.chooser.class" configuration to the fully-qualified class name of your implementation:
 
-```
-task.chooser.class=org.apache.samza.system.YourStreamChooserFactory
-```
+    task.chooser.class=com.example.samza.YourMessageChooserFactory
 
-#### Prioritizing
+#### Prioritizing input streams
 
-There are certain times when messages from a stream should be favored over messages from any other stream. For example, some Samza jobs consume two streams: one stream is fed by a real-time system and the other stream is fed by a batch system. A typical pattern is to have a Samza processor with a statistical model that is ranking a real-time feed of data. Periodically, this model needs to be retrained and updated. The Samza processor can be re-deployed with the new model, but how do you re-process all of the old data that the processor has already seen? This can be accomplished by having a batch system send messages to the Samza processor for any data that needs to be re-processed. In this example, you'd like to favor the real-time system over the batch system, when messages are available for the real-time system. This prevents latency from being introduced into the real-time feed even when the batch system is sending messages by always processing the real-time messages first.
+There are certain times when messages from one stream should be processed with higher priority than messages from another stream. For example, some Samza jobs consume two streams: one stream is fed by a real-time system and the other stream is fed by a batch system. In this case, it's useful to prioritize the real-time stream over the batch stream, so that the real-time processing doesn't slow down if there is a sudden burst of data on the batch stream.
 
-Samza provides a mechanism to prioritize one stream over another by setting this value: systems.&lt;system&gt;.streams.&lt;stream&gt;.samza.priority=2. A config snippet illustrates the settings:
+Samza provides a mechanism to prioritize one stream over another by setting this configuration parameter: systems.&lt;system&gt;.streams.&lt;stream&gt;.samza.priority=&lt;number&gt;. For example:
 
-```
-systems.kafka.streams.my-stream.samza.priority=2
-systems.kafka.streams.my-other-stream.samza.priority=1
-```
+    systems.kafka.streams.my-real-time-stream.samza.priority=2
+    systems.kafka.streams.my-batch-stream.samza.priority=1
 
-This declares that my-stream's messages will be processed before my-other-stream's. If my-stream has no messages available at the moment (because more are still being read in, for instance), then my-other-stream's messages will get processed.
+This declares that my-real-time-stream's messages should be processed with higher priority than my-batch-stream's messages. If my-real-time-stream has any messages available, they are processed first. Only if there are no messages currently waiting on my-real-time-stream, the Samza job continues processing my-batch-stream.
 
-Each priority level gets its own MessageChooser. In the example above, one MessageChooser is used for my-stream, and another is used for my-other-stream. The MessageChooser for my-other-stream will only be used when my-stream's MessageChooser doesn't return a message to process. 
+Each priority level gets its own MessageChooser. It is valid to define two streams with the same priority. If messages are available from two streams at the same priority level, it's up to the MessageChooser for that priority level to decide which message should be processed first.
 
-It is also valid to define two streams with the same priority. If messages are available from two streams at the same priority level, it's up to the MessageChooser for that priority level to decide which message should be processed first.
-
-It's also valid to only define priorities for some streams. All non-prioritized streams will be treated as the lowest priority, and will share a single MessageChooser. If you had my-third-stream, as a third input stream in the example above, it would be prioritized as the lowest stream, and also get its own MessageChooser.
+It's also valid to only define priorities for some streams. All non-prioritized streams are treated as the lowest priority, and share a MessageChooser.
 
 #### Bootstrapping
 
-Some Samza jobs wish to fully consume a stream from offset 0 all the way through to the last message in the stream before they process messages from any other stream. This is useful for streams that have some key-value data that a Samza job wishes to use when processing messages from another stream. This is 
+Sometimes, a Samza job needs to fully consume a stream (from offset 0 up to the most recent message) before it processes messages from any other stream. This is useful in situations where the stream contains some prerequisite data that the job needs, and it doesn't make sense to process messages from other streams until the job has loaded that prerequisite data. Samza supports this use case with *bootstrap streams*.
 
-Consider a case where you want to read a currency-code stream, which has mappings of country code (e.g. USD) to symbols (e.g. $), and is partitioned by country code. You might want to join these symbols to a stream called transactions which is also partitioned by currency, and has a schema like {"country": "USD", "amount": 1234}. You could then have your StreamTask join the currency symbol to each transaction message, and emit messages like {"amount": "$1234"}.
+A bootstrap stream seems similar to a stream with a high priority, but is subtly different. Before allowing any other stream to be processed, a bootstrap stream waits for the consumer to explicitly confirm that the stream has been fully consumed. Until then, the bootstrap stream is the exclusive input to the job: even if a network issue or some other factor causes the bootstrap stream consumer to slow down, other inputs can't sneak their messages in.
 
-To bootstrap the currency-code stream, you need to read it from offset 0 all the way to the last message in the stream (what I'm calling head). It is not desirable to read any message from the transactions stream until the currency-code stream has been fully read, or else you might try to join a transaction message to a country code that hasn't yet been read.
+Another difference between a bootstrap stream and a high-priority stream is that the bootstrap stream's special treatment is temporary: when it has been fully consumed (we say it has "caught up"), its priority drops to be the same as all the other input streams.
 
-Samza supports this style of processing with the systems.&lt;system&gt;.streams.&lt;stream&gt;.samza.bootstrap property.
+To configure a stream called "my-bootstrap-stream" to be a fully-consumed bootstrap stream, use the following settings:
 
-```
-systems.kafka.streams.currency-code.samza.bootstrap=true
-```
+    systems.kafka.streams.my-bootstrap-stream.samza.bootstrap=true
+    systems.kafka.streams.my-bootstrap-stream.samza.reset.offset=true
+    systems.kafka.streams.my-bootstrap-stream.samza.offset.default=oldest
 
-This configuration tells Samza that currency-code's messages should be read from the last checkpointed offset all the way until the stream is caught up to "head", before any other message is processed. If you wish to process all messages in currency-code from offset 0 to head, you can define:
+The bootstrap=true parameter enables the bootstrap behavior (prioritization over other streams). The combination of reset.offset=true and offset.default=oldest tells Samza to always start reading the stream from the oldest offset, every time a container starts up (rather than starting to read from the most recent checkpoint).
 
-```
-systems.kafka.streams.currency-code.samza.bootstrap=true
-systems.kafka.streams.currency-code.samza.reset.offset=true
-```
-
-This tells Samza to start from beginning of the currency-code stream, and read all the way to head.
-
-The difference between prioritizing a stream and bootstrapping a stream, is a high priority stream will still allow lower priority stream messages to be processed when no messages are available for the high priority stream. In the case of bootstrapping, no streams will be allowed to be processed until all messages in the bootstrap stream have been read up to the last message.
-
-Once a bootstrap stream has been fully consumed ("caught up"), it is treated like a normal stream, and no bootstrapping logic happens.
-
-It is valid to define multiple bootstrap streams.
-
-```
-systems.kafka.streams.currency-code.samza.bootstrap=true
-systems.kafka.streams.other-bootstrap-stream.samza.bootstrap=true
-```
-
-In this case, currency-code and other-bootstrap-stream will both be processed before any other stream is processed. The order of message processing (the bootstrap order) between currency-code and other-bootstrap-stream is up to the MessageChooser. If you want to fully process one bootstrap stream before another, you can use priorities:
-
-```
-systems.kafka.streams.currency-code.samza.bootstrap=true
-systems.kafka.streams.currency-code.samza.priority=2
-systems.kafka.streams.other-bootstrap-stream.samza.bootstrap=true
-systems.kafka.streams.other-bootstrap-stream.samza.priority=1
-```
-
-This defines a specific bootstrap ordering: fully bootstrap currency-code before bootstrapping other-bootstrap-stream.
-
-Lastly, bootstrap and non-bootstrap prioritized streams can be mixed:
-
-```
-systems.kafka.streams.currency-code.samza.bootstrap=true
-systems.kafka.streams.non-bootstrap-stream.samza.priority=2
-systems.kafka.streams.other-non-bootstrap-stream.samza.priority=1
-```
-
-Bootstrap streams are assigned a priority of Int.MaxInt by default, so they will always be prioritized over any other prioritized stream. In this case, currency-code will be fully bootstrapped, and then treated as the highest priority stream (Int.IntMax). The next highest priority stream will be non-bootstrap-stream (priority 2), followed by other-non-bootstrap-stream (priority 1), and then any non-bootstrap/non-prioritized streams.
+It is valid to define multiple bootstrap streams. In this case, the order in which they are bootstrapped is determined by the priority.
 
 #### Batching
 
-There are cases where consuming from the same SystemStreamPartition repeatedly leads to better performance. Samza allows for consumer batching to satisfy this use case. For example, if you had two SystemStreamPartitions, SSP1 and SSP2, you might wish to read 100 messages from SSP1 and then one from SSP2, regardless of the MessageChooser that's used. This can be accomplished with:
+In some cases, you can improve performance by consuming several messages from the same stream partition in sequence. Samza supports this mode of operation, called *batching*.
 
-```
-task.consumer.batch.size=100
-```
+For example, if you want to read 100 messages in a row from each stream partition (regardless of the MessageChooser), you can use this configuration parameter:
 
-With this setting, Samza will always try and read a message from the last SystemStreamPartition that was read. This behavior will continue until no message is available for the SystemStreamPartition, or the batch size has been reached. In either of these cases, Samza will defer to the MessageChooser to determine the next message to process. It will then try and stick to the new message's SystemStreamPartition again.
+    task.consumer.batch.size=100
 
-## [Checkpointing &raquo;](checkpointing.html)
+With this setting, Samza tries to read a message from the most recently used [SystemStreamPartition](../api/javadocs/org/apache/samza/system/SystemStreamPartition.html). This behavior continues either until no more messages are available for that SystemStreamPartition, or until the batch size has been reached. When that happens, Samza defers to the MessageChooser to determine the next message to process. It then again tries to continue consume from the chosen message's SystemStreamPartition until the batch size is reached.
+
+## [Serialization &raquo;](serialization.html)

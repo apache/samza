@@ -13,7 +13,7 @@ YARN currently supports resource management for memory and CPU.
 
 YARN will automatically enforce memory limits for all containers that it executes. All containers must have a max-memory size defined when they're created. If the sum of all memory usage for processes associated with a single YARN container exceeds this maximum, YARN will kill the container.
 
-Samza supports memory limits using the yarn.container.memory.mb and yarn.am.container.memory.mb configuration parameters. Keep in mind that this is simply the amount of memory YARN will allow a Samza [TaskRunner](../container/task-runner.html) or [ApplicationMaster](application-master.html) to have. You'll still need to configure your heap settings appropriately using task.opts, when using Java (the default is -Xmx160M). See the [Configuration](../jobs/configuration.html) and [Packaging](../jobs/packaging.html) pages for details.
+Samza supports memory limits using the yarn.container.memory.mb and yarn.am.container.memory.mb configuration parameters. Keep in mind that this is simply the amount of memory YARN will allow a [SamzaContainer](../container/samza-container.html) or [ApplicationMaster](application-master.html) to have. You'll still need to configure your heap settings appropriately using task.opts, when using Java (the default is -Xmx160M). See the [Configuration](../jobs/configuration.html) and [Packaging](../jobs/packaging.html) pages for details.
 
 ### CPU
 

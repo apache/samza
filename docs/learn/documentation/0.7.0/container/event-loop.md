@@ -3,87 +3,40 @@ layout: page
 title: Event Loop
 ---
 
-The event loop is the [TaskRunner](task-runner.html)'s single thread that is in charge of [reading](streams.html), [writing](streams.html), [metrics flushing](metrics.html), [checkpointing](checkpointing.html), and [windowing](windowing.html). It's the code that puts all of this stuff together. Each SystemConsumer reads messages on its own thread, but writes messages into a centralized message queue. The TaskRunner uses this queue to funnel all of the messages into the event loop. Here's how the event loop works:
+The event loop is the [container](samza-container.html)'s single thread that is in charge of [reading and writing messages](streams.html), [flushing metrics](metrics.html), [checkpointing](checkpointing.html), and [windowing](windowing.html).
 
-1. Take a message from the incoming message queue (the queue that the SystemConsumers are putting their messages)
-2. Give the message to the appropriate StreamTask by calling process() on it
-3. Call window() on the StreamTask if it implements WindowableTask, and the window time has expired
-4. Send any StreamTask output from the process() and window() call to the appropriate SystemProducers
-5. Write checkpoints for any partitions that are past the defined checkpoint commit interval
+Samza uses a single thread because every container is designed to use a single CPU core; to get more parallelism, simply run more containers. This uses a bit more memory than multithreaded parallelism, because each JVM has some overhead, but it simplifies resource management and improves isolation between jobs. This helps Samza jobs run reliably on a multitenant cluster, where many different jobs written by different people are running at the same time.
 
-The TaskRunner does this, in a loop, until it is shutdown.
+You are strongly discouraged from using threads in your job's code. Samza uses multiple threads internally for communicating with input and output streams, but all message processing and user code runs on a single-threaded event loop. In general, Samza is not thread-safe.
+
+### Event Loop Internals
+
+A container may have multiple [SystemConsumers](../api/javadocs/org/apache/samza/system/SystemConsumer.html) for consuming messages from different input systems. Each SystemConsumer reads messages on its own thread, but writes messages into a shared in-process message queue. The container uses this queue to funnel all of the messages into the event loop.
+
+The event loop works as follows:
+
+1. Take a message from the incoming message queue;
+2. Give the message to the appropriate [task instance](samza-container.html) by calling process() on it;
+3. Call window() on the task instance if it implements [WindowableTask](../api/javadocs/org/apache/samza/task/WindowableTask.html), and the window time has expired;
+4. Send any output from the process() and window() calls to the appropriate [SystemProducers](../api/javadocs/org/apache/samza/system/SystemProducer.html);
+5. Write checkpoints for any tasks whose [commit interval](checkpointing.html) has elapsed.
+
+The container does this, in a loop, until it is shut down. Note that although there can be multiple task instances within a container (depending on the number of input stream partitions), their process() and window() methods are all called on the same thread, never concurrently on different threads.
 
 ### Lifecycle Listeners
 
-Sometimes, it's useful to receive notifications when a specific event happens in the TaskRunner. For example, you might want to reset some context in the container whenever a new message arrives. To accomplish this, Samza provides a TaskLifecycleListener interface, that can be wired into the TaskRunner through configuration.
+Sometimes, you need to run your own code at specific points in a task's lifecycle. For example, you might want to set up some context in the container whenever a new message arrives, or perform some operations on startup or shutdown.
 
-```
-/**
- * Used to get before/after notifications before initializing/closing all tasks
- * in a given container (JVM/process).
- */
-public interface TaskLifecycleListener {
-  /**
-   * Called before all tasks in TaskRunner are initialized.
-   */
-  void beforeInit(Config config, TaskContext context);
+To receive notifications when such events happen, you can implement the [TaskLifecycleListenerFactory](../api/javadocs/org/apache/samza/task/TaskLifecycleListenerFactory.html) interface. It returns a [TaskLifecycleListener](../api/javadocs/org/apache/samza/task/TaskLifecycleListener.html), whose methods are called by Samza at the appropriate times.
 
-  /**
-   * Called after all tasks in TaskRunner are initialized.
-   */
-  void afterInit(Config config, TaskContext context);
+You can then tell Samza to use your lifecycle listener with the following properties in your job configuration:
 
-  /**
-   * Called before a message is processed by a task.
-   */
-  void beforeProcess(IncomingMessageEnvelope envelope, Config config, TaskContext context);
+    # Define a listener called "my-listener" by giving the factory class name
+    task.lifecycle.listener.my-listener.class=com.example.foo.MyListenerFactory
 
-  /**
-   * Called after a message is processed by a task.
-   */
-  void afterProcess(IncomingMessageEnvelope envelope, Config config, TaskContext context);
+    # Enable it in this job (multiple listeners can be separated by commas)
+    task.lifecycle.listeners=my-listener
 
-  /**
-   * Called before all tasks in TaskRunner are closed.
-   */
-  void beforeClose(Config config, TaskContext context);
-
-  /**
-   * Called after all tasks in TaskRunner are closed.
-   */
-  void afterClose(Config config, TaskContext context);
-}
-```
-
-To use a TaskLifecycleListener, you must also create a factory for the listener.
-
-```
-public interface TaskLifecycleListenerFactory {
-  TaskLifecycleListener getLifecyleListener(String name, Config config);
-}
-```
-
-#### Configuring Lifecycle Listeners
-
-Once you have written a TaskLifecycleListener, and its factory, you can use the listener by configuring your Samza job with the following keys:
-
-* task.lifecycle.listeners: A CSV list of all defined listeners that should be used for the Samza job.
-* task.lifecycle.listener.&lt;listener name&gt;.class: A Java package and class name for a single listener factory.
-
-For example, you might define a listener called "my-listener":
-
-```
-task.lifecycle.listener.my-listener.class=com.foo.bar.MyListenerFactory
-```
-
-And then enable it for your Samza job:
-
-```
-task.lifecycle.listeners=my-listener
-```
-
-Samza's container will create one instance of TaskLifecycleListener, and notify it whenever any of the events (shown in the API above) occur.
-
-Borrowing from the example above, if we have a single Samza container processing partitions 0 and 2, and have defined a lifecycle listener called my-listener, then the Samza container will have a single instance of MyListener. MyListener's beforeInit, afterInit, beforeClose, and afterClose methods will all be called twice: one for each of the two partitions (e.g. beforeInit partition 0, before init partition 1, etc). The beforeProcess and afterProcess methods will simply be called once for each incoming message. The TaskContext is how the TaskLifecycleListener is able to tell which partition the event is for.
+The Samza container creates one instance of your [TaskLifecycleListener](../api/javadocs/org/apache/samza/task/TaskLifecycleListener.html). If the container has multiple task instances (processing different input stream partitions), the beforeInit, afterInit, beforeClose and afterClose methods are called for each task instance. The [TaskContext](../api/javadocs/org/apache/samza/task/TaskContext.html) argument of those methods gives you more information about the partitions.
 
 ## [JMX &raquo;](jmx.html)

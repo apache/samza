@@ -43,7 +43,7 @@ example above, where you have a stream of page-view events including the ID of t
 
 Now you can write a Samza job that takes both the page-view event and the changelog as inputs. You make sure that they are partitioned on the same key (e.g. user ID). Every time a changelog event comes in, you write the updated user information to the task's local storage. Every time a page-view event comes in, you read the current information about that user from local storage. That way, you can keep all the state local to a task, and never need to query a remote database.
 
-![Stateful Processing](/img/0.7.0/learn/documentation/introduction/samza_state.png)
+<img src="/img/0.7.0/learn/documentation/introduction/samza_state.png" alt="Stateful Processing" class="diagram-large">
 
 In effect, you now have a replica of the main database, broken into small partitions that are on the same machines as the Samza tasks. Database writes still need to go to the main database, but when you need to read from the database in order to process a message from the input stream, you can just consult the task's local state.
 

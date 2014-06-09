@@ -7,7 +7,7 @@ Samza uses [SLF4J](http://www.slf4j.org/) for all of its logging. By default, Sa
 
 ### Log4j
 
-The [hello-samza](/startup/hello-samza/0.7.0) project shows how to use [log4j](http://logging.apache.org/log4j/1.2/) with Samza. To turn on log4j logging, you just need to make sure slf4j-log4j12 is in your Samza TaskRunner's classpath. In Maven, this can be done by adding the following dependency to your Samza package project.
+The [hello-samza](/startup/hello-samza/0.7.0) project shows how to use [log4j](http://logging.apache.org/log4j/1.2/) with Samza. To turn on log4j logging, you just need to make sure slf4j-log4j12 is in your SamzaContainer's classpath. In Maven, this can be done by adding the following dependency to your Samza package project.
 
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -18,7 +18,7 @@ The [hello-samza](/startup/hello-samza/0.7.0) project shows how to use [log4j](h
 
 If you're not using Maven, just make sure that slf4j-log4j12 ends up in your Samza package's lib directory.
 
-#### log4j.xml
+#### Log4j configuration
 
 Samza's [run-class.sh](packaging.html) script will automatically set the following setting if log4j.xml exists in your [Samza package's](packaging.html) lib directory.
 
@@ -42,9 +42,7 @@ These settings are very useful if you're using a file-based appender. For exampl
 
 Setting up a file-based appender is recommended as a better alternative to using standard out. Standard out log files (see below) don't roll, and can get quite large if used for logging.
 
-<!-- TODO add notes showing how to use task.opts for gc logging
-#### task.opts
--->
+**NOTE:** If you use the task.opts configuration property, the log configuration is disrupted. This is a known bug; please see [SAMZA-109](https://issues.apache.org/jira/browse/SAMZA-109) for a workaround.
 
 ### Log Directory
 
