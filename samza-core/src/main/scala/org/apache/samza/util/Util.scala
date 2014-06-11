@@ -20,6 +20,7 @@
 package org.apache.samza.util
 
 import java.io.File
+import java.lang.management.ManagementFactory
 import java.util.Random
 import grizzled.slf4j.Logging
 import org.apache.samza.{ Partition, SamzaException }
@@ -170,5 +171,13 @@ object Util extends Logging {
    */
   def notNull[T](obj: T, msg: String) = if (obj == null) {
     throw new NullPointerException(msg)
+  }
+  
+  /**
+   * Returns the name representing the JVM. It usually contains the PID of the process plus some additional information
+   * @return String that contains the name representing this JVM
+   */
+  def getContainerPID(): String = {
+    ManagementFactory.getRuntimeMXBean().getName()
   }
 }

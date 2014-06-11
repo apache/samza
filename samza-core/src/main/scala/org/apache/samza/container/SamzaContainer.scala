@@ -86,7 +86,10 @@ object SamzaContainer extends Logging {
   }
 
   def apply(containerName: String, inputStreams: Set[SystemStreamPartition], config: Config) = {
+    val containerPID = Util.getContainerPID
+    
     info("Setting up Samza container: %s" format containerName)
+    info("Samza container PID: %s" format containerPID)
     info("Using streams and partitions: %s" format inputStreams)
     info("Using configuration: %s" format config)
 
