@@ -57,7 +57,14 @@ if [ -z "$SAMZA_CONTAINER_NAME" ]; then
 fi
 
 if [ -z "$JAVA_OPTS" ]; then
-  JAVA_OPTS="-Xmx768M -XX:+PrintGCDateStamps -Xloggc:$SAMZA_LOG_DIR/gc.log -Dsamza.log.dir=$SAMZA_LOG_DIR -Dsamza.container.name=$SAMZA_CONTAINER_NAME"
+  COMMON_OPTS="-Xmx768M -XX:+PrintGCDateStamps -Xloggc:$SAMZA_LOG_DIR/gc.log -Dsamza.log.dir=$SAMZA_LOG_DIR -Dsamza.container.name=$SAMZA_CONTAINER_NAME"
+  GC_LOG_ROTATION_OPTS="-XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10241024"
+  JAVA_OPTS="$COMMON_OPTS"
+  # Check whether the JVM supports GC Log rotation, and enable it if so.
+  `java -Xloggc:/dev/null $GC_LOG_ROTATION_OPTS -version 2> /dev/null`
+  if [ $? -eq 0 ] ; then
+    JAVA_OPTS="$JAVA_OPTS $GC_LOG_ROTATION_OPTS"
+  fi
   if [ -f $base_dir/lib/log4j.xml ]; then
     JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=file:$base_dir/lib/log4j.xml"
   fi
