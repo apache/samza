@@ -26,7 +26,6 @@ import org.apache.samza.job.yarn.SamzaAppMasterState
 import org.apache.samza.job.yarn.ClientHelper
 import org.apache.samza.metrics._
 import scala.collection.JavaConversions._
-import scala.collection.immutable.TreeMap
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.codehaus.jackson.map.ObjectMapper
 import java.util.HashMap
@@ -98,7 +97,4 @@ class ApplicationMasterRestServlet(config: Config, state: SamzaAppMasterState, r
     jsonMapper.writeValueAsString(new HashMap[String, Object](status))
   }
 
-  get("/am/kill") {
-    client.kill(state.appAttemptId.getApplicationId)
-  }
 }
