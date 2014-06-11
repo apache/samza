@@ -2,6 +2,22 @@
 layout: page
 title: YARN Jobs
 ---
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
 
 When you define job.factory.class=org.apache.samza.job.yarn.YarnJobFactory in your job's configuration, Samza will use YARN to execute your job. The YarnJobFactory will use the YARN_HOME environment variable on the machine that run-job.sh is executed on to get the appropriate YARN configuration, which will define where the YARN resource manager is. The YarnJob will work with the resource manager to get your job started on the YARN cluster.
 
