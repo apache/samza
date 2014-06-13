@@ -56,8 +56,12 @@ if [ -z "$SAMZA_CONTAINER_NAME" ]; then
   SAMZA_CONTAINER_NAME="undefined-samza-container-name"
 fi
 
+# add usercache directory
+mkdir -p $base_dir/tmp
+JAVA_TEMP_DIR=$base_dir/tmp
+
 if [ -z "$JAVA_OPTS" ]; then
-  COMMON_OPTS="-Xmx768M -XX:+PrintGCDateStamps -Xloggc:$SAMZA_LOG_DIR/gc.log -Dsamza.log.dir=$SAMZA_LOG_DIR -Dsamza.container.name=$SAMZA_CONTAINER_NAME"
+  COMMON_OPTS="-Xmx768M -XX:+PrintGCDateStamps -Xloggc:$SAMZA_LOG_DIR/gc.log -Dsamza.log.dir=$SAMZA_LOG_DIR -Dsamza.container.name=$SAMZA_CONTAINER_NAME -Djava.io.tmpdir=$JAVA_TEMP_DIR"
   GC_LOG_ROTATION_OPTS="-XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10241024"
   JAVA_OPTS="$COMMON_OPTS"
   # Check whether the JVM supports GC Log rotation, and enable it if so.
