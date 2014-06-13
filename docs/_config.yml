@@ -19,3 +19,5 @@ name: Samza
 pygments: true
 markdown: redcarpet
 exclude: ['_notes']
+redcarpet:
+  extensions: ['with_toc_data', 'smart']
