@@ -39,6 +39,7 @@ apply from: file('gradle/license.gradle')
 apply from: file('gradle/environment.gradle')
 apply from: file("gradle/dependency-versions.gradle")
 apply from: file("gradle/dependency-versions-scala-" + scalaVersion + ".gradle")
+apply from: file("gradle/release.gradle")
 
 allprojects {
   apply plugin: 'idea'
@@ -276,3 +277,4 @@ project(":samza-test_$scalaVersion") {
     systemProperties = System.properties.findAll { it.key.startsWith("samza") }
   }
 }
+
