@@ -14,9 +14,15 @@ Check out [Hello Samza](https://samza.incubator.apache.org/startup/hello-samza/0
 
 ### Building Samza
 
-To build Samza, run:
+To build Samza from a git checkout or binary release, run:
 
     ./gradlew clean build
+
+To build Samza from a source release, it is first necessary to download the gradle wrapper script above. This bootstrapping process requires Gradle to be installed on the source machine.  Gradle is available through most package managers or directly from [its website](http://www.gradle.org/).  To bootstrap the wrapper, run:
+
+    gradle -b bootstrap.gradle
+
+After the bootstrap script has completed, the regular gradlew instructions below are available.
 
 #### Scala and YARN
 
