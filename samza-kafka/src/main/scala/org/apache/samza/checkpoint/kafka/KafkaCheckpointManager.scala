@@ -194,10 +194,7 @@ class KafkaCheckpointManager(
   }
 
   def start {
-    if (partitions.contains(new Partition(0))) {
-      createTopic
-    }
-
+    createTopic
     validateTopic
   }
 
