@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl"?>
+<rdf:RDF xml:lang="en"
+         xmlns="http://usefulinc.com/ns/doap#" 
+         xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" 
+         xmlns:asfext="http://projects.apache.org/ns/asfext#"
+         xmlns:foaf="http://xmlns.com/foaf/0.1/">
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+   
+         http://www.apache.org/licenses/LICENSE-2.0
+   
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+  <Project rdf:about="http://samza.incubator.apache.org/">
+    <created>2014-06-13</created>
+    <license rdf:resource="http://spdx.org/licenses/Apache-2.0" />
+    <name>Apache Samza</name>
+    <homepage rdf:resource="http://samza.incubator.apache.org/" />
+    <asfext:pmc rdf:resource="http://incubator.apache.org" />
+    <shortdesc>Apache Samza is a distributed stream processing framework.</shortdesc>
+    <description>Apache Samza provides a system for processing stream data from publish-subscribe systems such as Apache Kafka. The developer writes a stream processing task, and executes it as a Samza job. Samza then routes messages between stream processing tasks and the publish-subscribe systems that the messages are addressed to.</description>
+    <bug-database rdf:resource="http://issues.apache.org/jira/browse/SAMZA/" />
+    <mailing-list rdf:resource="http://samza.incubator.apache.org/community/mailing-lists.html" />
+    <download-page rdf:resource="http://samza.incubator.apache.org/startup/download/" />
+    <programming-language>Scala</programming-language>
+    <category rdf:resource="http://projects.apache.org/category/big-data" />
+    <repository>
+      <SVNRepository>
+        <location rdf:resource="http://git://git.apache.org/incubator-samza.git"/>
+        <browse rdf:resource="http://github.com/apache/incubator-samza"/>
+      </SVNRepository>
+    </repository>
+    <maintainer>
+      <foaf:Person>
+        <foaf:name>Jakob Homan</foaf:name>
+          <foaf:mbox rdf:resource="mailto:jghoman@apache.org"/>
+      </foaf:Person>
+    </maintainer>
+  </Project>
+</rdf:RDF>
