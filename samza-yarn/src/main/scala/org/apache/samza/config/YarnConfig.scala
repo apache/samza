@@ -24,7 +24,7 @@ object YarnConfig {
   val PACKAGE_PATH = "yarn.package.path"
   val CONTAINER_MAX_MEMORY_MB = "yarn.container.memory.mb"
   val CONTAINER_MAX_CPU_CORES = "yarn.container.cpu.cores"
-  val CONTAINER_RETRY_COUNT = "yarn.countainer.retry.count"
+  val CONTAINER_RETRY_COUNT = "yarn.container.retry.count"
   val CONTAINER_RETRY_WINDOW_MS = "yarn.container.retry.window.ms"
   val TASK_COUNT = "yarn.container.count"
   val AM_JVM_OPTIONS = "yarn.am.opts"
@@ -35,39 +35,21 @@ object YarnConfig {
 }
 
 class YarnConfig(config: Config) extends ScalaMapConfig(config) {
-  def getContainerMaxMemoryMb: Option[Int] = getOption(YarnConfig.CONTAINER_MAX_MEMORY_MB) match {
-    case Some(mem) => Some(mem.toInt)
-    case _ => None
-  }
+  def getContainerMaxMemoryMb: Option[Int] = getOption(YarnConfig.CONTAINER_MAX_MEMORY_MB).map(_.toInt)
 
-  def getContainerMaxCpuCores: Option[Int] = getOption(YarnConfig.CONTAINER_MAX_CPU_CORES) match {
-    case Some(cpu) => Some(cpu.toInt)
-    case _ => None
-  }
+  def getContainerMaxCpuCores: Option[Int] = getOption(YarnConfig.CONTAINER_MAX_CPU_CORES).map(_.toInt)
 
-  def getContainerRetryCount: Option[Int] = getOption(YarnConfig.CONTAINER_RETRY_COUNT) match {
-    case Some(count) => Some(count.toInt)
-    case _ => None
-  }
+  def getContainerRetryCount: Option[Int] = getOption(YarnConfig.CONTAINER_RETRY_COUNT).map(_.toInt)
 
-  def getContainerRetryWindowMs: Option[Int] = getOption(YarnConfig.CONTAINER_RETRY_WINDOW_MS) match {
-    case Some(retryWindowMs) => Some(retryWindowMs.toInt)
-    case _ => None
-  }
+  def getContainerRetryWindowMs: Option[Int] = getOption(YarnConfig.CONTAINER_RETRY_WINDOW_MS).map(_.toInt)
 
   def getPackagePath = getOption(YarnConfig.PACKAGE_PATH)
 
-  def getTaskCount: Option[Int] = getOption(YarnConfig.TASK_COUNT) match {
-    case Some(tc) => Some(tc.toInt)
-    case _ => None
-  }
+  def getTaskCount: Option[Int] = getOption(YarnConfig.TASK_COUNT).map(_.toInt)
 
   def getAmOpts = getOption(YarnConfig.AM_JVM_OPTIONS)
-  
-  def getAMContainerMaxMemoryMb: Option[Int] = getOption(YarnConfig.AM_CONTAINER_MAX_MEMORY_MB) match {
-    case Some(mem) => Some(mem.toInt)
-    case _ => None
-  }
+
+  def getAMContainerMaxMemoryMb: Option[Int] = getOption(YarnConfig.AM_CONTAINER_MAX_MEMORY_MB).map(_.toInt)
 
   def getJmxServerEnabled = getBoolean(YarnConfig.AM_JMX_ENABLED, true)
 }

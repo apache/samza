@@ -33,9 +33,6 @@ object KafkaConfig {
   val CHECKPOINT_SYSTEM = "task.checkpoint.system"
   val CHECKPOINT_REPLICATION_FACTOR = "task.checkpoint.replication.factor"
 
-  val CONSUMER_KEY_DESERIALIZER = SystemConfig.SYSTEM_PREFIX + "consumer.key.deserializer.class"
-  val CONSUMER_MSG_DESERIALIZER = SystemConfig.SYSTEM_PREFIX + "consumer.deserializer.class"
-
   /**
    * Defines how low a queue can get for a single system/stream/partition
    * combination before trying to fetch more messages for it.
@@ -51,8 +48,6 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getCheckpointReplicationFactor() = getOption(KafkaConfig.CHECKPOINT_REPLICATION_FACTOR)
 
   // custom consumer config
-  def getConsumerKeyDeserializerClass(name: String) = getOption(KafkaConfig.CONSUMER_KEY_DESERIALIZER format name)
-  def getConsumerMsgDeserializerClass(name: String) = getOption(KafkaConfig.CONSUMER_MSG_DESERIALIZER format name)
   def getConsumerFetchThreshold(name: String) = getOption(KafkaConfig.CONSUMER_FETCH_THRESHOLD format name)
 
   /**
@@ -61,7 +56,6 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
    */
   def getAutoOffsetResetTopics(systemName: String) = {
     val subConf = config.subset("systems.%s.streams." format systemName, true)
-    // find all .samza.partition.manager keys, and strip the suffix
     subConf
       .filterKeys(k => k.endsWith(".consumer.auto.offset.reset"))
       .map {

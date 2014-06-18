@@ -49,7 +49,7 @@ class SystemConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    */
   def getSystemNames() = {
     val subConf = config.subset("systems.", true)
-    // find all .samza.partition.manager keys, and strip the suffix
+    // find all .samza.factory keys, and strip the suffix
     subConf.keys.filter(k => k.endsWith(".samza.factory")).map(_.replace(".samza.factory", ""))
   }
 }
