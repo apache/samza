@@ -40,7 +40,7 @@ $DOCS_DIR/_tools/generate-javadocs.sh $VERSION
 
 echo "Building site."
 cd $DOCS_DIR
-jekyll build
+bundle exec jekyll build
 
 echo "Checking out SVN site."
 SVN_TMP=`mktemp -d /tmp/samza-svn.XXXX`

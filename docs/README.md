@@ -16,17 +16,19 @@
 -->
 ## Setup
 
-Samza's documentation uses Jekyll to build a website out of markdown pages. To install Jekyll, run this command:
+Samza's documentation uses Jekyll to build a website out of markdown pages. Prerequisites:
 
-    sudo gem install jekyll redcarpet
+1. You need [Ruby](https://www.ruby-lang.org/) installed on your machine (run `ruby --version` to check)
+2. Install [Bundler](http://bundler.io/) by running `sudo gem install bundler`
+3. To install Jekyll and its dependencies, change to the `docs` directory and run `bundle install`
 
-To run the website locally, execute:
+To serve the website on [localhost:4000](http://localhost:4000/):
 
-    jekyll serve --watch --host 0.0.0.0
+    bundle exec jekyll serve --watch
 
-To compile the website in the _site directory, execute:
+To compile the website in the \_site directory, execute:
 
-    jekyll build
+    bundle exec jekyll build
 
 ## Versioning
 
