@@ -149,7 +149,7 @@ class TestSamzaAppMasterTaskManager {
     "task.inputs" -> "test-system.test-stream",
     "systems.test-system.samza.key.serde" -> "org.apache.samza.serializers.JsonSerde",
     "systems.test-system.samza.msg.serde" -> "org.apache.samza.serializers.JsonSerde",
-    "yarn.countainer.retry.count" -> "1",
+    "yarn.container.retry.count" -> "1",
     "yarn.container.retry.window.ms" -> "1999999999"))
 
   @Test
