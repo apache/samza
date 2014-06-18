@@ -99,4 +99,7 @@ class ApplicationMasterRestServlet(config: Config, state: SamzaAppMasterState, r
     jsonMapper.writeValueAsString(new HashMap[String, Object](status))
   }
 
+  get("/config") {
+    jsonMapper.writeValueAsString(new HashMap[String, Object](config.toMap))
+  }
 }
