@@ -47,11 +47,13 @@ To receive notifications when such events happen, you can implement the [TaskLif
 
 You can then tell Samza to use your lifecycle listener with the following properties in your job configuration:
 
-    # Define a listener called "my-listener" by giving the factory class name
-    task.lifecycle.listener.my-listener.class=com.example.foo.MyListenerFactory
+{% highlight jproperties %}
+# Define a listener called "my-listener" by giving the factory class name
+task.lifecycle.listener.my-listener.class=com.example.foo.MyListenerFactory
 
-    # Enable it in this job (multiple listeners can be separated by commas)
-    task.lifecycle.listeners=my-listener
+# Enable it in this job (multiple listeners can be separated by commas)
+task.lifecycle.listeners=my-listener
+{% endhighlight %}
 
 The Samza container creates one instance of your [TaskLifecycleListener](../api/javadocs/org/apache/samza/task/TaskLifecycleListener.html). If the container has multiple task instances (processing different input stream partitions), the beforeInit, afterInit, beforeClose and afterClose methods are called for each task instance. The [TaskContext](../api/javadocs/org/apache/samza/task/TaskContext.html) argument of those methods gives you more information about the partitions.
 

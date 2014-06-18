@@ -39,55 +39,63 @@ This guarantee is called *at-least-once processing*: Samza ensures that your job
 
 For checkpoints to be effective, they need to be written somewhere where they will survive faults. Samza allows you to write checkpoints to the file system (using FileSystemCheckpointManager), but that doesn't help if the machine fails and the container needs to be restarted on another machine. The most common configuration is to use Kafka for checkpointing. You can enable this with the following job configuration:
 
-    # The name of your job determines the name under which checkpoints will be stored
-    job.name=example-job
+{% highlight jproperties %}
+# The name of your job determines the name under which checkpoints will be stored
+job.name=example-job
 
-    # Define a system called "kafka" for consuming and producing to a Kafka cluster
-    systems.kafka.samza.factory=org.apache.samza.system.kafka.KafkaSystemFactory
+# Define a system called "kafka" for consuming and producing to a Kafka cluster
+systems.kafka.samza.factory=org.apache.samza.system.kafka.KafkaSystemFactory
 
-    # Declare that we want our job's checkpoints to be written to Kafka
-    task.checkpoint.factory=org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory
-    task.checkpoint.system=kafka
+# Declare that we want our job's checkpoints to be written to Kafka
+task.checkpoint.factory=org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory
+task.checkpoint.system=kafka
 
-    # By default, a checkpoint is written every 60 seconds. You can change this if you like.
-    task.commit.ms=60000
+# By default, a checkpoint is written every 60 seconds. You can change this if you like.
+task.commit.ms=60000
+{% endhighlight %}
 
 In this configuration, Samza writes checkpoints to a separate Kafka topic called \_\_samza\_checkpoint\_&lt;job-name&gt;\_&lt;job-id&gt; (in the example configuration above, the topic would be called \_\_samza\_checkpoint\_example-job\_1). Once per minute, Samza automatically sends a message to this topic, in which the current offsets of the input streams are encoded. When a Samza container starts up, it looks for the most recent offset message in this topic, and loads that checkpoint.
 
 Sometimes it can be useful to use checkpoints only for some input streams, but not for others. In this case, you can tell Samza to ignore any checkpointed offsets for a particular stream name:
 
-    # Ignore any checkpoints for the topic "my-special-topic"
-    systems.kafka.streams.my-special-topic.samza.reset.offset=true
+{% highlight jproperties %}
+# Ignore any checkpoints for the topic "my-special-topic"
+systems.kafka.streams.my-special-topic.samza.reset.offset=true
 
-    # Always start consuming "my-special-topic" at the oldest available offset
-    systems.kafka.streams.my-special-topic.samza.offset.default=oldest
+# Always start consuming "my-special-topic" at the oldest available offset
+systems.kafka.streams.my-special-topic.samza.offset.default=oldest
+{% endhighlight %}
 
 The following table explains the meaning of these configuration parameters:
 
-<table class="documentation">
-  <tr>
-    <th>Parameter name</th>
-    <th>Value</th>
-    <th>Meaning</th>
-  </tr>
-  <tr>
-    <td rowspan="2" class="nowrap">systems.&lt;system&gt;.<br>streams.&lt;stream&gt;.<br>samza.reset.offset</td>
-    <td>false (default)</td>
-    <td>When container starts up, resume processing from last checkpoint</td>
-  </tr>
-  <tr>
-    <td>true</td>
-    <td>Ignore checkpoint (pretend that no checkpoint is present)</td>
-  </tr>
-  <tr>
-    <td rowspan="2" class="nowrap">systems.&lt;system&gt;.<br>streams.&lt;stream&gt;.<br>samza.offset.default</td>
-    <td>upcoming (default)</td>
-    <td>When container starts and there is no checkpoint (or the checkpoint is ignored), only process messages that are published after the job is started, but no old messages</td>
-  </tr>
-  <tr>
-    <td>oldest</td>
-    <td>When container starts and there is no checkpoint (or the checkpoint is ignored), jump back to the oldest available message in the system, and consume all messages from that point onwards (most likely this means repeated processing of messages already seen previously)</td>
-  </tr>
+<table class="table table-condensed table-bordered table-striped">
+  <thead>
+    <tr>
+      <th>Parameter name</th>
+      <th>Value</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan="2" class="nowrap">systems.&lt;system&gt;.<br>streams.&lt;stream&gt;.<br>samza.reset.offset</td>
+      <td>false (default)</td>
+      <td>When container starts up, resume processing from last checkpoint</td>
+    </tr>
+    <tr>
+      <td>true</td>
+      <td>Ignore checkpoint (pretend that no checkpoint is present)</td>
+    </tr>
+    <tr>
+      <td rowspan="2" class="nowrap">systems.&lt;system&gt;.<br>streams.&lt;stream&gt;.<br>samza.offset.default</td>
+      <td>upcoming (default)</td>
+      <td>When container starts and there is no checkpoint (or the checkpoint is ignored), only process messages that are published after the job is started, but no old messages</td>
+    </tr>
+    <tr>
+      <td>oldest</td>
+      <td>When container starts and there is no checkpoint (or the checkpoint is ignored), jump back to the oldest available message in the system, and consume all messages from that point onwards (most likely this means repeated processing of messages already seen previously)</td>
+    </tr>
+  </tbody>
 </table>
 
 Note that the example configuration above causes your tasks to start consuming from the oldest offset *every time a container starts up*. This is useful in case you have some in-memory state in your tasks that you need to rebuild from source data in an input stream. If you are using streams in this way, you may also find [bootstrap streams](streams.html) useful.
@@ -98,14 +106,18 @@ If you want to make a one-off change to a job's consumer offsets, for example to
 
 To inspect a job's latest checkpoint, you need to specify your job's config file, so that the tool knows which job it is dealing with:
 
-    samza-example/target/bin/checkpoint-tool.sh \
-      --config-path=file:///path/to/job/config.properties
+{% highlight bash %}
+samza-example/target/bin/checkpoint-tool.sh \
+  --config-path=file:///path/to/job/config.properties
+{% endhighlight %}
 
 This command prints out the latest checkpoint in a properties file format. You can save the output to a file, and edit it as you wish. For example, to jump back to the oldest possible point in time, you can set all the offsets to 0. Then you can feed that properties file back into checkpoint-tool.sh and save the modified checkpoint:
 
-    samza-example/target/bin/checkpoint-tool.sh \
-      --config-path=file:///path/to/job/config.properties \
-      --new-offsets=file:///path/to/new/offsets.properties
+{% highlight bash %}
+samza-example/target/bin/checkpoint-tool.sh \
+  --config-path=file:///path/to/job/config.properties \
+  --new-offsets=file:///path/to/new/offsets.properties
+{% endhighlight %}
 
 Note that Samza only reads checkpoints on container startup. In order for your checkpoint change to take effect, you need to first stop the job, then save the modified offsets, and then start the job again. If you write a checkpoint while the job is running, it will most likely have no effect.
 

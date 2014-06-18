@@ -21,7 +21,7 @@ title: Configuration
 
 All Samza jobs have a configuration file that defines the job. A very basic configuration file looks like this:
 
-```
+{% highlight jproperties %}
 # Job
 job.factory.class=samza.job.local.LocalJobFactory
 job.name=hello-world
@@ -38,7 +38,7 @@ serializers.registry.string.class=org.apache.samza.serializers.StringSerdeFactor
 systems.example-system.samza.factory=samza.stream.example.ExampleConsumerFactory
 systems.example-system.samza.key.serde=string
 systems.example-system.samza.msg.serde=json
-```
+{% endhighlight %}
 
 There are four major sections to a configuration file:
 
@@ -51,10 +51,10 @@ There are four major sections to a configuration file:
 
 Configuration keys that absolutely must be defined for a Samza job are:
 
-* job.factory.class
-* job.name
-* task.class
-* task.inputs
+* `job.factory.class`
+* `job.name`
+* `task.class`
+* `task.inputs`
 
 ### Configuration Keys
 

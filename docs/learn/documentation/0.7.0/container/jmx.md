@@ -23,11 +23,13 @@ Samza's containers and YARN ApplicationMaster enable [JMX](http://docs.oracle.co
 
 You can tell Samza to publish its internal [metrics](metrics.html), and any custom metrics you define, as JMX MBeans. To enable this, set the following properties in your job configuration:
 
-    # Define a Samza metrics reporter called "jmx", which publishes to JMX
-    metrics.reporter.jmx.class=org.apache.samza.metrics.reporter.JmxReporterFactory
+{% highlight jproperties %}
+# Define a Samza metrics reporter called "jmx", which publishes to JMX
+metrics.reporter.jmx.class=org.apache.samza.metrics.reporter.JmxReporterFactory
 
-    # Use it (if you have multiple reporters defined, separate them with commas)
-    metrics.reporters=jmx
+# Use it (if you have multiple reporters defined, separate them with commas)
+metrics.reporters=jmx
+{% endhighlight %}
 
 JMX needs to be configured to use a specific port, but in a distributed environment, there is no way of knowing in advance which ports are available on the machines running your containers. Therefore Samza chooses the JMX port randomly. If you need to connect to it, you can find the port by looking in the container's logs, which report the JMX server details as follows:
 

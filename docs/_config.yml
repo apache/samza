@@ -16,7 +16,7 @@
 # under the License.
 permalink: /:categories/:title
 name: Samza
-pygments: true
+highlighter: pygments
 markdown: redcarpet
 exclude: ['_notes']
 redcarpet:

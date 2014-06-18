@@ -134,47 +134,53 @@ Samza includes an additional in-memory caching layer in front of LevelDB, which 
 
 To use a key-value store in your job, add the following to your job config:
 
-    # Use the key-value store implementation for a store called "my-store"
-    stores.my-store.factory=org.apache.samza.storage.kv.KeyValueStorageEngineFactory
+{% highlight jproperties %}
+# Use the key-value store implementation for a store called "my-store"
+stores.my-store.factory=org.apache.samza.storage.kv.KeyValueStorageEngineFactory
 
-    # Use the Kafka topic "my-store-changelog" as the changelog stream for this store.
-    # This enables automatic recovery of the store after a failure. If you don't
-    # configure this, no changelog stream will be generated.
-    stores.my-store.changelog=kafka.my-store-changelog
+# Use the Kafka topic "my-store-changelog" as the changelog stream for this store.
+# This enables automatic recovery of the store after a failure. If you don't
+# configure this, no changelog stream will be generated.
+stores.my-store.changelog=kafka.my-store-changelog
 
-    # Encode keys and values in the store as UTF-8 strings.
-    serializers.registry.string.class=org.apache.samza.serializers.StringSerdeFactory
-    stores.my-store.key.serde=string
-    stores.my-store.msg.serde=string
+# Encode keys and values in the store as UTF-8 strings.
+serializers.registry.string.class=org.apache.samza.serializers.StringSerdeFactory
+stores.my-store.key.serde=string
+stores.my-store.msg.serde=string
+{% endhighlight %}
 
 See the [serialization section](serialization.html) for more information on the *serde* options.
 
 Here is a simple example that writes every incoming message to the store:
 
-    public class MyStatefulTask implements StreamTask, InitableTask {
-      private KeyValueStore<String, String> store;
-      
-      public void init(Config config, TaskContext context) {
-        this.store = (KeyValueStore<String, String>) context.getStore("my-store");
-      }
+{% highlight java %}
+public class MyStatefulTask implements StreamTask, InitableTask {
+  private KeyValueStore<String, String> store;
 
-      public void process(IncomingMessageEnvelope envelope,
-                          MessageCollector collector,
-                          TaskCoordinator coordinator) {
-        store.put((String) envelope.getKey(), (String) envelope.getMessage());
-      }
-    }
+  public void init(Config config, TaskContext context) {
+    this.store = (KeyValueStore<String, String>) context.getStore("my-store");
+  }
+
+  public void process(IncomingMessageEnvelope envelope,
+                      MessageCollector collector,
+                      TaskCoordinator coordinator) {
+    store.put((String) envelope.getKey(), (String) envelope.getMessage());
+  }
+}
+{% endhighlight %}
 
 Here is the complete key-value store API:
 
-    public interface KeyValueStore<K, V> {
-      V get(K key);
-      void put(K key, V value);
-      void putAll(List<Entry<K,V>> entries);
-      void delete(K key);
-      KeyValueIterator<K,V> range(K from, K to);
-      KeyValueIterator<K,V> all();
-    }
+{% highlight java %}
+public interface KeyValueStore<K, V> {
+  V get(K key);
+  void put(K key, V value);
+  void putAll(List<Entry<K,V>> entries);
+  void delete(K key);
+  KeyValueIterator<K,V> range(K from, K to);
+  KeyValueIterator<K,V> all();
+}
+{% endhighlight %}
 
 Additional configuration properties for the key-value store are documented in the [configuration reference](../jobs/configuration-table.html#keyvalue).
 

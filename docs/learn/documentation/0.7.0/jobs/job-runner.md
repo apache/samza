@@ -21,25 +21,25 @@ title: JobRunner
 
 Samza jobs are started using a script called run-job.sh.
 
-```
+{% highlight bash %}
 samza-example/target/bin/run-job.sh \
   --config-factory=samza.config.factories.PropertiesConfigFactory \
   --config-path=file://$PWD/config/hello-world.properties
-```
+{% endhighlight %}
 
 You provide two parameters to the run-job.sh script. One is the config location, and the other is a factory class that is used to read your configuration file. The run-job.sh script is actually executing a Samza class called JobRunner. The JobRunner uses your ConfigFactory to get a Config object from the config path.
 
-```
+{% highlight java %}
 public interface ConfigFactory {
   Config getConfig(URI configUri);
 }
-```
+{% endhighlight %}
 
 The Config object is just a wrapper around Map<String, String>, with some nice helper methods. Out of the box, Samza ships with the PropertiesConfigFactory, but developers can implement any kind of ConfigFactory they wish.
 
 Once the JobRunner gets your configuration, it gives your configuration to the StreamJobFactory class defined by the "job.factory" property. Samza ships with two job factory implementations: LocalJobFactory and YarnJobFactory. The StreamJobFactory's responsibility is to give the JobRunner a job that it can run.
 
-```
+{% highlight java %}
 public interface StreamJob {
   StreamJob submit();
 
@@ -51,7 +51,7 @@ public interface StreamJob {
 
   ApplicationStatus getStatus();
 }
-```
+{% endhighlight %}
 
 Once the JobRunner gets a job, it calls submit() on the job. This method is what tells the StreamJob implementation to start the SamzaContainer. In the case of LocalJobRunner, it uses a run-container.sh script to execute the SamzaContainer in a separate process, which will start one SamzaContainer locally on the machine that you ran run-job.sh on.
 

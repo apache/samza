@@ -39,4 +39,4 @@ gem install jekyll
 
 Depending on your system you may also need install some additional dependencies when you try and run it. Note that some Linux distributions may have older versions of Jekyll packaged that treat arguments differently and may result in changes not being incorporated into the generated site.
 
-The script to commit the updated webpage files is docs/_tools/publish-site.sh
+The script to commit the updated webpage files is `docs/_tools/publish-site.sh`

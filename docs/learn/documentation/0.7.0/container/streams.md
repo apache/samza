@@ -21,47 +21,49 @@ title: Streams
 
 The [samza container](samza-container.html) reads and writes messages using the [SystemConsumer](../api/javadocs/org/apache/samza/system/SystemConsumer.html) and [SystemProducer](../api/javadocs/org/apache/samza/system/SystemProducer.html) interfaces. You can integrate any message broker with Samza by implementing these two interfaces.
 
-    public interface SystemConsumer {
-      void start();
+{% highlight java %}
+public interface SystemConsumer {
+  void start();
 
-      void stop();
+  void stop();
 
-      void register(
-          SystemStreamPartition systemStreamPartition,
-          String lastReadOffset);
+  void register(
+      SystemStreamPartition systemStreamPartition,
+      String lastReadOffset);
 
-      List<IncomingMessageEnvelope> poll(
-          Map<SystemStreamPartition, Integer> systemStreamPartitions,
-          long timeout)
-        throws InterruptedException;
-    }
+  List<IncomingMessageEnvelope> poll(
+      Map<SystemStreamPartition, Integer> systemStreamPartitions,
+      long timeout)
+    throws InterruptedException;
+}
 
-    public class IncomingMessageEnvelope {
-      public Object getMessage() { ... }
+public class IncomingMessageEnvelope {
+  public Object getMessage() { ... }
 
-      public Object getKey() { ... }
+  public Object getKey() { ... }
 
-      public SystemStreamPartition getSystemStreamPartition() { ... }
-    }
+  public SystemStreamPartition getSystemStreamPartition() { ... }
+}
 
-    public interface SystemProducer {
-      void start();
+public interface SystemProducer {
+  void start();
 
-      void stop();
+  void stop();
 
-      void register(String source);
+  void register(String source);
 
-      void send(String source, OutgoingMessageEnvelope envelope);
+  void send(String source, OutgoingMessageEnvelope envelope);
 
-      void flush(String source);
-    }
+  void flush(String source);
+}
 
-    public class OutgoingMessageEnvelope {
-      ...
-      public Object getKey() { ... }
+public class OutgoingMessageEnvelope {
+  ...
+  public Object getKey() { ... }
 
-      public Object getMessage() { ... }
-    }
+  public Object getMessage() { ... }
+}
+{% endhighlight %}
 
 Out of the box, Samza supports Kafka (KafkaSystemConsumer and KafkaSystemProducer). However, any message bus system can be plugged in, as long as it can provide the semantics required by Samza, as described in the [javadoc](../api/javadocs/org/apache/samza/system/SystemConsumer.html).
 
@@ -81,7 +83,9 @@ When a Samza container has several incoming messages on different stream partiti
 
 To plug in your own message chooser, you need to implement the [MessageChooserFactory](../api/javadocs/org/apache/samza/system/chooser/MessageChooserFactory.html) interface, and set the "task.chooser.class" configuration to the fully-qualified class name of your implementation:
 
-    task.chooser.class=com.example.samza.YourMessageChooserFactory
+{% highlight jproperties %}
+task.chooser.class=com.example.samza.YourMessageChooserFactory
+{% endhighlight %}
 
 #### Prioritizing input streams
 
@@ -89,8 +93,10 @@ There are certain times when messages from one stream should be processed with h
 
 Samza provides a mechanism to prioritize one stream over another by setting this configuration parameter: systems.&lt;system&gt;.streams.&lt;stream&gt;.samza.priority=&lt;number&gt;. For example:
 
-    systems.kafka.streams.my-real-time-stream.samza.priority=2
-    systems.kafka.streams.my-batch-stream.samza.priority=1
+{% highlight jproperties %}
+systems.kafka.streams.my-real-time-stream.samza.priority=2
+systems.kafka.streams.my-batch-stream.samza.priority=1
+{% endhighlight %}
 
 This declares that my-real-time-stream's messages should be processed with higher priority than my-batch-stream's messages. If my-real-time-stream has any messages available, they are processed first. Only if there are no messages currently waiting on my-real-time-stream, the Samza job continues processing my-batch-stream.
 
@@ -108,9 +114,11 @@ Another difference between a bootstrap stream and a high-priority stream is that
 
 To configure a stream called "my-bootstrap-stream" to be a fully-consumed bootstrap stream, use the following settings:
 
-    systems.kafka.streams.my-bootstrap-stream.samza.bootstrap=true
-    systems.kafka.streams.my-bootstrap-stream.samza.reset.offset=true
-    systems.kafka.streams.my-bootstrap-stream.samza.offset.default=oldest
+{% highlight jproperties %}
+systems.kafka.streams.my-bootstrap-stream.samza.bootstrap=true
+systems.kafka.streams.my-bootstrap-stream.samza.reset.offset=true
+systems.kafka.streams.my-bootstrap-stream.samza.offset.default=oldest
+{% endhighlight %}
 
 The bootstrap=true parameter enables the bootstrap behavior (prioritization over other streams). The combination of reset.offset=true and offset.default=oldest tells Samza to always start reading the stream from the oldest offset, every time a container starts up (rather than starting to read from the most recent checkpoint).
 
@@ -122,7 +130,9 @@ In some cases, you can improve performance by consuming several messages from th
 
 For example, if you want to read 100 messages in a row from each stream partition (regardless of the MessageChooser), you can use this configuration parameter:
 
-    task.consumer.batch.size=100
+{% highlight jproperties %}
+task.consumer.batch.size=100
+{% endhighlight %}
 
 With this setting, Samza tries to read a message from the most recently used [SystemStreamPartition](../api/javadocs/org/apache/samza/system/SystemStreamPartition.html). This behavior continues either until no more messages are available for that SystemStreamPartition, or until the batch size has been reached. When that happens, Samza defers to the MessageChooser to determine the next message to process. It then again tries to continue consume from the chosen message's SystemStreamPartition until the batch size is reached.
 

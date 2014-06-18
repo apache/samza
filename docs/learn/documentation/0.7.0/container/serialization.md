@@ -27,29 +27,31 @@ Every message that is read from or written to a [stream](streams.html) or a [per
 
 You can use whatever makes sense for your job; Samza doesn't impose any particular data model or serialization scheme on you. However, the cleanest solution is usually to use Samza's serde layer. The following configuration example shows how to use it.
 
-    # Define a system called "kafka"
-    systems.kafka.samza.factory=org.apache.samza.system.kafka.KafkaSystemFactory
+{% highlight jproperties %}
+# Define a system called "kafka"
+systems.kafka.samza.factory=org.apache.samza.system.kafka.KafkaSystemFactory
 
-    # The job is going to consume a topic called "PageViewEvent" from the "kafka" system
-    task.inputs=kafka.PageViewEvent
+# The job is going to consume a topic called "PageViewEvent" from the "kafka" system
+task.inputs=kafka.PageViewEvent
 
-    # Define a serde called "json" which parses/serializes JSON objects
-    serializers.registry.json.class=org.apache.samza.serializers.JsonSerdeFactory
+# Define a serde called "json" which parses/serializes JSON objects
+serializers.registry.json.class=org.apache.samza.serializers.JsonSerdeFactory
 
-    # Define a serde called "integer" which encodes an integer as 4 binary bytes (big-endian)
-    serializers.registry.integer.class=org.apache.samza.serializers.IntegerSerdeFactory
+# Define a serde called "integer" which encodes an integer as 4 binary bytes (big-endian)
+serializers.registry.integer.class=org.apache.samza.serializers.IntegerSerdeFactory
 
-    # For messages in the "PageViewEvent" topic, the key (the ID of the user viewing the page)
-    # is encoded as a binary integer, and the message is encoded as JSON.
-    systems.kafka.streams.PageViewEvent.samza.key.serde=integer
-    systems.kafka.streams.PageViewEvent.samza.msg.serde=json
+# For messages in the "PageViewEvent" topic, the key (the ID of the user viewing the page)
+# is encoded as a binary integer, and the message is encoded as JSON.
+systems.kafka.streams.PageViewEvent.samza.key.serde=integer
+systems.kafka.streams.PageViewEvent.samza.msg.serde=json
 
-    # Define a key-value store which stores the most recent page view for each user ID.
-    # Again, the key is an integer user ID, and the value is JSON.
-    stores.LastPageViewPerUser.factory=org.apache.samza.storage.kv.KeyValueStorageEngineFactory
-    stores.LastPageViewPerUser.changelog=kafka.last-page-view-per-user
-    stores.LastPageViewPerUser.key.serde=integer
-    stores.LastPageViewPerUser.msg.serde=json
+# Define a key-value store which stores the most recent page view for each user ID.
+# Again, the key is an integer user ID, and the value is JSON.
+stores.LastPageViewPerUser.factory=org.apache.samza.storage.kv.KeyValueStorageEngineFactory
+stores.LastPageViewPerUser.changelog=kafka.last-page-view-per-user
+stores.LastPageViewPerUser.key.serde=integer
+stores.LastPageViewPerUser.msg.serde=json
+{% endhighlight %}
 
 Each serde is defined with a factory class. Samza comes with several builtin serdes for UTF-8 strings, binary-encoded integers, JSON (requires the samza-serializers dependency) and more. You can also create your own serializer by implementing the [SerdeFactory](../api/javadocs/org/apache/samza/serializers/SerdeFactory.html) interface.
 

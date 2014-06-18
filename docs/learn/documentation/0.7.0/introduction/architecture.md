@@ -91,7 +91,9 @@ The Samza client uses YARN to run a Samza job: YARN starts and supervises one or
 
 Let's take a look at a real example: suppose we want to count the number of page views. In SQL, you would write something like:
 
-    SELECT user_id, COUNT(*) FROM PageViewEvent GROUP BY user_id
+{% highlight sql %}
+SELECT user_id, COUNT(*) FROM PageViewEvent GROUP BY user_id
+{% endhighlight %}
 
 Although Samza doesn't support SQL right now, the idea is the same. Two jobs are required to calculate this query: one to group messages by user ID, and the other to do the counting.
 

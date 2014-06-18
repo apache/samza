@@ -25,30 +25,30 @@ Let's use Eclipse to attach a remote debugger to a Samza container. If you're an
 
 Start by checking out Samza, so we have access to the source.
 
-```
+{% highlight bash %}
 git clone http://git-wip-us.apache.org/repos/asf/incubator-samza.git
-```
+{% endhighlight %}
 
 Next, grab hello-samza.
 
-```
+{% highlight bash %}
 git clone git://git.apache.org/incubator-samza-hello-samza.git
-```
+{% endhighlight %}
 
 ### Setup the Environment
 
 Now, let's setup the Eclipse project files.
 
-```
+{% highlight bash %}
 cd incubator-samza
 ./gradlew eclipse
-```
+{% endhighlight %}
 
 Let's also release Samza to Maven's local repository, so hello-samza has access to the JARs that it needs.
 
-```
+{% highlight bash %}
 ./gradlew -PscalaVersion=2.9.2 clean publishToMavenLocal
-```
+{% endhighlight %}
 
 Next, open Eclipse, and import the Samza source code into your workspace: "File" &gt; "Import" &gt; "Existing Projects into Workspace" &gt; "Browse". Select 'incubator-samza' folder, and hit 'finish'.
 
@@ -56,9 +56,9 @@ Next, open Eclipse, and import the Samza source code into your workspace: "File"
 
 Now, go back to the hello-samza project, and edit ./samza-job-package/src/main/config/wikipedia-feed.properties to add the following line:
 
-```
+{% highlight jproperties %}
 task.opts=-agentlib:jdwp=transport=dt_socket,address=localhost:9009,server=y,suspend=y
-```
+{% endhighlight %}
 
 The [task.opts](../../documentation/0.7.0/jobs/configuration-table.html) configuration parameter is a way to override Java parameters at runtime for your Samza containers. In this example, we're setting the agentlib parameter to enable remote debugging on localhost, port 9009. In a more realistic environment, you might also set Java heap settings (-Xmx, -Xms, etc), as well as garbage collection and logging settings.
 
@@ -68,24 +68,24 @@ The [task.opts](../../documentation/0.7.0/jobs/configuration-table.html) configu
 
 Now that the Samza job has been setup to enable remote debugging when a Samza container starts, let's start the ZooKeeper, Kafka, and YARN.
 
-```
+{% highlight bash %}
 bin/grid
-```
+{% endhighlight %}
 
 If you get a complaint that JAVA_HOME is not set, then you'll need to set it. This can be done on OSX by running:
 
-```
+{% highlight bash %}
 export JAVA_HOME=$(/usr/libexec/java_home)
-```
+{% endhighlight %}
 
 Once the grid starts, you can start the wikipedia-feed Samza job.
 
-```
+{% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
 tar -xvf ./samza-job-package/target/samza-job-package-0.7.0-dist.tar.gz -C deploy/samza
 deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties
-```
+{% endhighlight %}
 
 When the wikipedia-feed job starts up, a single Samza container will be created to process all incoming messages. This is the container that we'll want to connect to from the remote debugger.
 

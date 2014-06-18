@@ -27,33 +27,33 @@ Build a new Samza job package to include the hadoop-hdfs-version.jar.
 
 * Add dependency statement in pom.xml of samza-job-package
 
-```
+{% highlight xml %}
 <dependency>
   <groupId>org.apache.hadoop</groupId>
   <artifactId>hadoop-hdfs</artifactId>
   <version>2.2.0</version>
 </dependency>
-```
+{% endhighlight %}
 
 * Add the following code to src/main/assembly/src.xml in samza-job-package.
 
-```
+{% highlight xml %}
 <include>org.apache.hadoop:hadoop-hdfs</include>
-```
+{% endhighlight %}
 
 * Create .tar.gz package
 
-```
+{% highlight bash %}
 mvn clean pacakge
-```
+{% endhighlight %}
 
 * Make sure hadoop-common-version.jar has the same version as your hadoop-hdfs-version.jar. Otherwise, you may still have errors.
 
 ### Upload the package
 
-```
+{% highlight bash %}
 hadoop fs -put ./samza-job-package/target/samza-job-package-0.7.0-dist.tar.gz /path/for/tgz
-```
+{% endhighlight %}
 
 ### Add HDFS configuration
 
@@ -63,9 +63,9 @@ Put the hdfs-site.xml file of your cluster into ~/.samza/conf directory. (The sa
 
 Change the yarn.package.path in the properties file to your HDFS location.
 
-```
+{% highlight jproperties %}
 yarn.package.path=hdfs://<hdfs name node ip>:<hdfs name node port>/path/to/tgz
-```
+{% endhighlight %}
 
 Then you should be able to run the Samza job as described in [hello-samza](../../../startup/hello-samza/0.7.0/).
-   
+

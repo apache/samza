@@ -25,47 +25,51 @@ Metrics can be reported in various ways. You can expose them via [JMX](jmx.html)
 
 To set up your job to publish metrics to Kafka, you can use the following configuration:
 
-    # Define a metrics reporter called "snapshot", which publishes metrics
-    # every 60 seconds.
-    metrics.reporters=snapshot
-    metrics.reporter.snapshot.class=org.apache.samza.metrics.reporter.MetricsSnapshotReporterFactory
+{% highlight jproperties %}
+# Define a metrics reporter called "snapshot", which publishes metrics
+# every 60 seconds.
+metrics.reporters=snapshot
+metrics.reporter.snapshot.class=org.apache.samza.metrics.reporter.MetricsSnapshotReporterFactory
 
-    # Tell the snapshot reporter to publish to a topic called "metrics"
-    # in the "kafka" system.
-    metrics.reporter.snapshot.stream=kafka.metrics
+# Tell the snapshot reporter to publish to a topic called "metrics"
+# in the "kafka" system.
+metrics.reporter.snapshot.stream=kafka.metrics
 
-    # Encode metrics data as JSON.
-    serializers.registry.metrics.class=org.apache.samza.serializers.MetricsSnapshotSerdeFactory
-    systems.kafka.streams.metrics.samza.msg.serde=metrics
+# Encode metrics data as JSON.
+serializers.registry.metrics.class=org.apache.samza.serializers.MetricsSnapshotSerdeFactory
+systems.kafka.streams.metrics.samza.msg.serde=metrics
+{% endhighlight %}
 
 With this configuration, the job automatically sends several JSON-encoded messages to the "metrics" topic in Kafka every 60 seconds. The messages look something like this:
 
-    {
-      "header": {
-        "container-name": "samza-container-0",
-        "host": "samza-grid-1234.example.com",
-        "job-id": "1",
-        "job-name": "my-samza-job",
-        "reset-time": 1401729000347,
-        "samza-version": "0.0.1",
-        "source": "Partition-2",
-        "time": 1401729420566,
-        "version": "0.0.1"
-      },
-      "metrics": {
-        "org.apache.samza.container.TaskInstanceMetrics": {
-          "commit-calls": 7,
-          "commit-skipped": 77948,
-          "kafka-input-topic-offset": "1606",
-          "messages-sent": 985,
-          "process-calls": 1093,
-          "send-calls": 985,
-          "send-skipped": 76970,
-          "window-calls": 0,
-          "window-skipped": 77955
-        }
-      }
+{% highlight json %}
+{
+  "header": {
+    "container-name": "samza-container-0",
+    "host": "samza-grid-1234.example.com",
+    "job-id": "1",
+    "job-name": "my-samza-job",
+    "reset-time": 1401729000347,
+    "samza-version": "0.0.1",
+    "source": "Partition-2",
+    "time": 1401729420566,
+    "version": "0.0.1"
+  },
+  "metrics": {
+    "org.apache.samza.container.TaskInstanceMetrics": {
+      "commit-calls": 7,
+      "commit-skipped": 77948,
+      "kafka-input-topic-offset": "1606",
+      "messages-sent": 985,
+      "process-calls": 1093,
+      "send-calls": 985,
+      "send-skipped": 76970,
+      "window-calls": 0,
+      "window-skipped": 77955
     }
+  }
+}
+{% endhighlight %}
 
 There is a separate message for each task instance, and the header tells you the job name, job ID and partition of the task. The metrics allow you to see how many messages have been processed and sent, the current offset in the input stream partition, and other details. There are additional messages which give you metrics about the JVM (heap size, garbage collection information, threads etc.), internal metrics of the Kafka producers and consumers, and more.
 
@@ -73,21 +77,23 @@ It's easy to generate custom metrics in your job, if there's some value you want
 
 You can register your custom metrics through a [MetricsRegistry](../api/javadocs/org/apache/samza/metrics/MetricsRegistry.html). Your stream task needs to implement [InitableTask](../api/javadocs/org/apache/samza/task/InitableTask.html), so that you can get the metrics registry from the [TaskContext](../api/javadocs/org/apache/samza/task/TaskContext.html). This simple example shows how to count the number of messages processed by your task:
 
-    public class MyJavaStreamTask implements StreamTask, InitableTask {
-      private Counter messageCount;
+{% highlight java %}
+public class MyJavaStreamTask implements StreamTask, InitableTask {
+  private Counter messageCount;
 
-      public void init(Config config, TaskContext context) {
-        this.messageCount = context
-          .getMetricsRegistry()
-          .newCounter(getClass().getName(), "message-count");
-      }
+  public void init(Config config, TaskContext context) {
+    this.messageCount = context
+      .getMetricsRegistry()
+      .newCounter(getClass().getName(), "message-count");
+  }
 
-      public void process(IncomingMessageEnvelope envelope,
-                          MessageCollector collector,
-                          TaskCoordinator coordinator) {
-        messageCount.inc();
-      }
-    }
+  public void process(IncomingMessageEnvelope envelope,
+                      MessageCollector collector,
+                      TaskCoordinator coordinator) {
+    messageCount.inc();
+  }
+}
+{% endhighlight %}
 
 Samza currently supports two kind of metrics: [counters](../api/javadocs/org/apache/samza/metrics/Counter.html) and [gauges](../api/javadocs/org/apache/samza/metrics/Gauge.html). Use a counter when you want to track how often something occurs, and a gauge when you want to report the level of something, such as the size of a buffer. Each task instance (for each input stream partition) gets its own set of metrics.
 

@@ -38,10 +38,12 @@ Let's start in the middle, with the instantiation of a StreamTask. The following
 
 When the container starts, it creates instances of the [task class](../api/overview.html) that you've written. If the task class implements the [InitableTask](../api/javadocs/org/apache/samza/task/InitableTask.html) interface, the SamzaContainer will also call the init() method.
 
-    /** Implement this if you want a callback when your task starts up. */
-    public interface InitableTask {
-      void init(Config config, TaskContext context);
-    }
+{% highlight java %}
+/** Implement this if you want a callback when your task starts up. */
+public interface InitableTask {
+  void init(Config config, TaskContext context);
+}
+{% endhighlight %}
 
 How many instances of your task class are created depends on the number of partitions in the job's input streams. If your Samza job has ten partitions, there will be ten instantiations of your task class: one for each partition. The first task instance will receive all messages for partition one, the second instance will receive all messages for partition two, and so on.
 
@@ -67,12 +69,27 @@ Any [state](state-management.html) in your job belongs to a task instance, not t
 
 If your job has multiple input streams, Samza provides a simple but powerful mechanism for joining data from different streams: each task instance receives messages from one partition of *each* of the input streams. For example, say you have two input streams, A and B, each with four partitions. Samza creates four task instances to process them, and assigns the partitions as follows:
 
-<table class="documentation">
-<tr><th>Task instance</th><th>Consumes stream partitions</th></tr>
-<tr><td>0</td><td>stream A partition 0, stream B partition 0</td></tr>
-<tr><td>1</td><td>stream A partition 1, stream B partition 1</td></tr>
-<tr><td>2</td><td>stream A partition 2, stream B partition 2</td></tr>
-<tr><td>3</td><td>stream A partition 3, stream B partition 3</td></tr>
+<table class="table table-condensed table-bordered table-striped">
+  <thead>
+    <tr>
+      <th>Task instance</th>
+      <th>Consumes stream partitions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td><td>stream A partition 0, stream B partition 0</td>
+    </tr>
+    <tr>
+      <td>1</td><td>stream A partition 1, stream B partition 1</td>
+    </tr>
+    <tr>
+      <td>2</td><td>stream A partition 2, stream B partition 2</td>
+    </tr>
+    <tr>
+      <td>3</td><td>stream A partition 3, stream B partition 3</td>
+    </tr>
+  </tbody>
 </table>
 
 Thus, if you want two events in different streams to be processed by the same task instance, you need to ensure they are sent to the same partition number. You can achieve this by using the same partitioning key when [sending the messages](../api/overview.html). Joining streams is discussed in detail in the [state management](state-management.html) section.
