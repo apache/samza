@@ -19,15 +19,10 @@
 
 package org.apache.samza.system.kafka
 
-import java.nio.ByteBuffer
-import java.util.Properties
 import scala.collection.mutable.ArrayBuffer
 import grizzled.slf4j.Logging
 import kafka.producer.KeyedMessage
 import kafka.producer.Producer
-import kafka.producer.ProducerConfig
-import org.apache.samza.config.Config
-import org.apache.samza.util.KafkaUtil
 import org.apache.samza.system.SystemProducer
 import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.util.ExponentialSleepStrategy

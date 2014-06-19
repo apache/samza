@@ -23,6 +23,10 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 
+/**
+ * {@link org.apache.samza.metrics.MetricsRegistry} implementation for when no actual metrics need to be
+ * recorded but a registry is still required.
+ */
 public class NoOpMetricsRegistry implements MetricsRegistry {
   @Override
   public Counter newCounter(String group, String name) {

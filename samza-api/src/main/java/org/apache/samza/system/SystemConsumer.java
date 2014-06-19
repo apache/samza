@@ -137,7 +137,7 @@ public interface SystemConsumer {
    * Poll the SystemConsumer to get any available messages from the underlying
    * system.
    * 
-   * If the underlying implementation does not take care to adhere to the
+   * <p>If the underlying implementation does not take care to adhere to the
    * timeout parameter, the SamzaContainer's performance will suffer
    * drastically. Specifically, if poll blocks when it's not supposed to, it
    * will block the entire main thread in SamzaContainer, and no messages will

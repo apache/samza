@@ -19,6 +19,9 @@
 
 package org.apache.samza.util;
 
+/**
+ * Mockable interface for tracking time.
+ */
 public interface Clock {
   long currentTimeMillis();
 }

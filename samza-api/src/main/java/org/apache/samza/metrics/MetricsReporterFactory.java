@@ -21,6 +21,9 @@ package org.apache.samza.metrics;
 
 import org.apache.samza.config.Config;
 
+/**
+ * Build a {@link org.apache.samza.metrics.MetricsReporter}
+ */
 public interface MetricsReporterFactory {
   MetricsReporter getMetricsReporter(String name, String containerName, Config config);
 }

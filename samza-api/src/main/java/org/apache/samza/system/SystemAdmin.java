@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * An interface that's use to interact with the underlying system to fetch
+ * Helper interface attached to an underlying system to fetch
  * information about streams, partitions, offsets, etc. This interface is useful
  * for providing utility methods that Samza needs in order to interact with a
  * system.

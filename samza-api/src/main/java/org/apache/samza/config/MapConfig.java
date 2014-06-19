@@ -26,6 +26,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * A {@link org.apache.samza.config.Config} backed by a Java {@link java.util.Map}
+ */
 public class MapConfig extends Config {
   private final Map<String, String> map;
   

@@ -25,6 +25,10 @@ import org.apache.samza.system.SystemStreamPartition;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * CommandBuilders are used to customize the command necessary to launch a Samza Job for a particular framework,
+ * such as YARN or the LocalJobRunner.
+ */
 public abstract class CommandBuilder {
   protected Set<SystemStreamPartition> systemStreamPartitions;
   protected String name;

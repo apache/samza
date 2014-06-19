@@ -25,46 +25,46 @@ import org.apache.samza.system.SystemStreamPartition;
 /**
  * MessageChooser is an interface for programmatic fine-grain control over
  * stream consumption.
- * 
- * Consider the case of a Samza task is consuming multiple streams where some
+ *
+ * <p>Consider the case of a Samza task consuming multiple streams, where some
  * streams may be from live systems that have stricter SLA requirements and must
  * always be prioritized over other streams that may be from batch systems.
  * MessageChooser allows developers to inject message prioritization logic into
  * the SamzaContainer.
- * 
- * In general, the MessageChooser can be used to prioritize certain systems,
+ *
+ * <p>In general, the MessageChooser can be used to prioritize certain systems,
  * streams or partitions over others. It can also be used to throttle certain
- * partitions if it chooses not to return messages even though they are
- * available when choose is invoked. The MessageChooser can also throttle the
- * entire SamzaContainer by performing a blocking operation, such as
- * Thread.sleep.
- * 
- * The manner in which MessageChooser is used is:
- * 
+ * partitions, by choosing not to return messages even though they are
+ * available. The MessageChooser can also throttle the entire SamzaContainer by
+ * performing a blocking operation, such as Thread.sleep.
+ *
+ * <p>The manner in which MessageChooser is used is:
+ *
  * <ul>
- * <li>SystemConsumers buffers messages from all SystemStreamPartitions as they
+ * <li>SystemConsumers buffer messages from all SystemStreamPartitions as they
  * become available.</li>
  * <li>If MessageChooser has no messages for a given SystemStreamPartition, and
- * SystemConsumers has a message in its buffer for the SystemStreamPartition,
+ * a SystemConsumer has a message in its buffer for the SystemStreamPartition,
  * the MessageChooser will be updated once with the next message in the buffer.</li>
  * <li>When SamzaContainer is ready to process another message, it calls
- * SystemConsumers.choose, which in-turn calls MessageChooser.choose.</li>
+ * SystemConsumers.choose, which in turn calls {@link MessageChooser#choose}.</li>
  * </ul>
- * 
- * Since the MessageChooser only receives one message at a time per
- * SystemStreamPartition, it can be used to order messages between different
+ *
+ * <p>Since the MessageChooser only receives one message at a time per
+ * {@link SystemStreamPartition}, it can be used to order messages between different
  * SystemStreamPartitions, but it can't be used to re-order messages within a
  * single SystemStreamPartition (a buffered sort). This must be done within a
  * StreamTask.
- * 
- * The contract between the MessageChooser and the SystemConsumers is:
- * 
+ *
+ * <p>The contract between the MessageChooser and the SystemConsumers is:
+ *
  * <ul>
- * <li>Update can be called multiple times before choose is called.</li>
- * <li>A null return from MessageChooser.choose means no envelopes should be
+ * <li>{@link #update(IncomingMessageEnvelope)} can be called multiple times
+ * before {@link #choose()} is called.</li>
+ * <li>If {@link #choose()} returns null, that means no envelopes should be
  * processed at the moment.</li>
- * <li>A MessageChooser may elect to return null when choose is called, even if
- * unprocessed messages have been given by the update method.</li>
+ * <li>A MessageChooser may elect to return null when {@link #choose()} is
+ * called, even if unprocessed messages have been given by the update method.</li>
  * <li>A MessageChooser will not have any of its in-memory state restored in the
  * event of a failure.</li>
  * <li>Blocking operations (such as Thread.sleep) will block all processing in
@@ -104,7 +104,7 @@ public interface MessageChooser {
   void register(SystemStreamPartition systemStreamPartition, String offset);
 
   /**
-   * Notify the chooser that a new envelope is available for a processing.A
+   * Notify the chooser that a new envelope is available for a processing. A
    * MessageChooser will receive, at most, one outstanding envelope per
    * system/stream/partition combination. For example, if update is called for
    * partition 7 of kafka.mystream, then update will not be called with an

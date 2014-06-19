@@ -19,6 +19,12 @@
 
 package org.apache.samza.task;
 
+/**
+ * A ClosableTask augments {@link org.apache.samza.task.StreamTask}, allowing the method implementer to specify
+ * code that will be called when the StreamTask is being shut down by the framework, providing to emit final metrics,
+ * clean or close resources, etc.  The close method is not guaranteed to be called in event of crash or hard kill
+ * of the process.
+ */
 public interface ClosableTask {
   void close() throws Exception;
 }

@@ -21,6 +21,10 @@ package org.apache.samza.serializers;
 
 import org.apache.samza.config.Config;
 
+/**
+ * Build an instance of {@link org.apache.samza.serializers.Serde}
+ * @param <T> The type of serialized object this factory's output can both read and write
+ */
 public interface SerdeFactory<T> {
   Serde<T> getSerde(String name, Config config);
 }

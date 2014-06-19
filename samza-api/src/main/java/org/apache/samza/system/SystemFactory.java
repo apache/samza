@@ -22,6 +22,10 @@ package org.apache.samza.system;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistry;
 
+/**
+ * Build the {@link org.apache.samza.system.SystemConsumer} and {@link org.apache.samza.system.SystemProducer} for
+ * a particular system, as well as the accompanying {@link org.apache.samza.system.SystemAdmin}.
+ */
 public interface SystemFactory {
   SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry);
 

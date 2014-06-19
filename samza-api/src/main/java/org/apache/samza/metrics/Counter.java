@@ -22,7 +22,8 @@ package org.apache.samza.metrics;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * A counter is a metric that represents a cumulative value.
+ * A counter is a {@link org.apache.samza.metrics.Metric} that represents a cumulative value.
+ * For example, the number of messages processed since the container was started.
  */
 public class Counter implements Metric {
   private final String name;

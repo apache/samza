@@ -19,6 +19,9 @@
 
 package org.apache.samza.job;
 
+/**
+ * Status of a {@link org.apache.samza.job.StreamJob} during and after its run.
+ */
 public enum ApplicationStatus {
   Running("Running"), SuccessfulFinish("SuccessfulFinish"), UnsuccessfulFinish("UnsuccessfulFinish"), New("New");
 

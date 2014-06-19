@@ -21,6 +21,9 @@ package org.apache.samza.job;
 
 import org.apache.samza.config.Config;
 
+/**
+ * Build a {@link org.apache.samza.job.StreamJob}
+ */
 public interface StreamJobFactory {
   StreamJob getJob(Config config);
 }

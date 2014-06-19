@@ -29,6 +29,10 @@ import java.util.Queue;
 
 import org.apache.samza.SamzaException;
 
+/**
+ * {@link java.util.Iterator} that wraps a {@link org.apache.samza.system.SystemConsumer} to iterate over
+ * the messages the consumer provides for the specified {@link org.apache.samza.system.SystemStreamPartition}.
+ */
 public class SystemStreamPartitionIterator implements Iterator<IncomingMessageEnvelope> {
   private final SystemConsumer systemConsumer;
   private final Map<SystemStreamPartition, Integer> fetchMap;

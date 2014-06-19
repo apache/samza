@@ -22,7 +22,9 @@ package org.apache.samza.serializers;
 /**
  * A standard interface for Samza compatible deserializers, used for deserializing serialized objects back to their
  * original form.
- * @param <T> The type of serialized object this deserializer should be implemented to deserialize.
+ *
+ * @param <T> The type of serialized object implementations can read
+
  */
 public interface Deserializer<T> {
   /**

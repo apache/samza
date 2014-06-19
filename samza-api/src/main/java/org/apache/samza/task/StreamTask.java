@@ -22,8 +22,18 @@ package org.apache.samza.task;
 import org.apache.samza.system.IncomingMessageEnvelope;
 
 /**
- * Used as a standard interface for all user processing tasks. Receives messages from a partition of a specified input
- * stream.
+ * A StreamTask is the basic class on which Samza jobs are implemented.  Developers writing Samza jobs begin by
+ * implementing this class, which processes messages from the job's input streams and writes messages out to
+ * streams via the provided {@link org.apache.samza.task.MessageCollector}.  A StreamTask may be augmented by
+ * implementing other interfaces, such as {@link org.apache.samza.task.InitableTask}, {@link org.apache.samza.task.WindowableTask},
+ * or {@link org.apache.samza.task.ClosableTask}.
+ * <p>
+ * The methods of StreamTasks and associated other tasks are guaranteed to be called in a single-threaded fashion;
+ * no extra synchronization is necessary on the part of the class implementer.  References to instances of
+ * {@link org.apache.samza.system.IncomingMessageEnvelope}s,{@link org.apache.samza.task.MessageCollector}s, and
+ * {@link org.apache.samza.task.TaskCoordinator} should not be held onto between calls; there is no guarantee that
+ * these will not be invalidated or otherwise used by the framework.
+ *
  */
 public interface StreamTask {
   /**

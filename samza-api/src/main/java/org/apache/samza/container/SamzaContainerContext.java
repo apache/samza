@@ -24,6 +24,9 @@ import java.util.Collection;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 
+/**
+ * A SamzaContainerContext maintains per-container information for the tasks it executes.
+ */
 public class SamzaContainerContext {
   public final String name;
   public final Config config;

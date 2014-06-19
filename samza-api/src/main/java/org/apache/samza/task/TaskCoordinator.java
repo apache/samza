@@ -19,6 +19,15 @@
 
 package org.apache.samza.task;
 
+/**
+ * TaskCoordinators are provided to the process methods of {@link org.apache.samza.task.StreamTask} implementations
+ * to allow the user code to request actions from the Samza framework, including committing the current checkpoints
+ * to configured {@link org.apache.samza.checkpoint.CheckpointManager}s or shutting down the task or all tasks within
+ * a container.
+ * <p>
+ *   This interface may evolve over time.
+ * </p>
+ */
 public interface TaskCoordinator {
   /**
    * Requests that Samza should write out a checkpoint, from which a task can restart
