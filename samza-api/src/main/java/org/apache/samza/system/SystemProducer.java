@@ -20,11 +20,21 @@
 package org.apache.samza.system;
 
 /**
- * Used as a standard interface for all producers of messages from a specified Samza source.
+ * SystemProducers are how Samza writes messages from {@link org.apache.samza.task.StreamTask}s to outside systems,
+ * such as messaging systems like Kafka, or file systems.  Implementations are responsible for accepting messages
+ * and writing them to their backing systems.
  */
 public interface SystemProducer {
+
+  /**
+   * Start the SystemProducer. After this method finishes it should be ready to accept messages received from the send method.
+   */
   void start();
 
+  /**
+   * Stop the SystemProducer. After this method finished, the system should have completed all necessary work, sent
+   * any remaining messages and will not receive any new calls to the send method.
+   */
   void stop();
 
   /**
@@ -40,5 +50,11 @@ public interface SystemProducer {
    */
   void send(String source, OutgoingMessageEnvelope envelope);
 
+  /**
+   * If the SystemProducer buffers messages before sending them to its underlying system, it should flush those
+   * messages and leave no messages remaining to be sent.
+   *
+   * @param source String representing the source of the message.
+   */
   void flush(String source);
 }

@@ -20,7 +20,8 @@
 package org.apache.samza.config;
 
 /**
- * Re-write the job's config before the job is submitted.
+ * A ConfigRewriter receives the job's config during job startup and may re-write it to provide new configs,
+ * remove existing configs or audit and verify the config is correct or permitted.
  */
 public interface ConfigRewriter {
   Config rewrite(String name, Config config);

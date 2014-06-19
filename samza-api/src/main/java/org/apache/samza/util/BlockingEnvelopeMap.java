@@ -39,7 +39,9 @@ import org.apache.samza.system.SystemStreamPartition;
  * BlockingEnvelopeMap is a helper class for SystemConsumer implementations.
  * Samza's poll() requirements make implementing SystemConsumers somewhat
  * tricky. BlockingEnvelopeMap is provided to help other developers write
- * SystemConsumers.
+ * SystemConsumers. The intended audience is not those writing Samza jobs,
+ * but rather those extending Samza to consume from new types of stream providers
+ * and other systems.
  * </p>
  * 
  * <p>

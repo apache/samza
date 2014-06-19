@@ -20,7 +20,9 @@
 package org.apache.samza.metrics;
 
 /**
- * A metric visitor visits a metric, before metrics are flushed to a metrics stream.
+ * A MetricsVisitor can be used to process each metric in a {@link org.apache.samza.metrics.ReadableMetricsRegistry},
+ * encapsulating the logic of what to be done with each metric in the counter and gauge methods.  This makes it easy
+ * to quickly process all of the metrics in a registry.
  */
 public abstract class MetricsVisitor {
   public abstract void counter(Counter counter);

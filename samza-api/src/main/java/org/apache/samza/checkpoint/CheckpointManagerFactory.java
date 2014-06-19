@@ -22,6 +22,9 @@ package org.apache.samza.checkpoint;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistry;
 
+/**
+ * Build a {@link org.apache.samza.checkpoint.CheckpointManager}.
+ */
 public interface CheckpointManagerFactory {
   public CheckpointManager getCheckpointManager(Config config, MetricsRegistry registry);
 }

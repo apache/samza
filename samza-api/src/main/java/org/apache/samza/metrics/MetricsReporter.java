@@ -19,6 +19,10 @@
 
 package org.apache.samza.metrics;
 
+/**
+ * A MetricsReporter is the interface that different metrics sinks, such as JMX, implement to receive
+ * metrics from the Samza framework and Samza jobs.
+ */
 public interface MetricsReporter {
   void start();
 

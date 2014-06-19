@@ -20,8 +20,9 @@
 package org.apache.samza.system;
 
 /**
- * This class represents a message envelope that is sent by a StreamTask. It can be thought of as a complement to the
- * IncomingMessageEnvelope class.
+ * An OutgoingMessageEnvelope is sent to a specified {@link SystemStream} via the appropriate {@link org.apache.samza.system.SystemProducer}
+ * from the user's {@link org.apache.samza.task.StreamTask}.  StreamTasks consume from their input streams via their
+ * process method and write to their output streams by sending OutgoingMessageEnvelopes via the provided {@link org.apache.samza.task.MessageCollector}
  */
 public class OutgoingMessageEnvelope {
   private final SystemStream systemStream;

@@ -25,7 +25,9 @@ import java.util.Map;
 import org.apache.samza.system.SystemStream;
 
 /**
- * Used to represent a checkpoint in the running of a Samza system.
+ * A checkpoint is a mapping of all the streams a job is consuming and the most recent current offset for each.
+ * It is used to restore a {@link org.apache.samza.task.StreamTask}, either as part of a job restart or as part
+ * of restarting a failed container within a running job.
  */
 public class Checkpoint {
   private final Map<SystemStream, String> offsets;

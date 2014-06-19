@@ -20,7 +20,7 @@
 package org.apache.samza;
 
 /**
- * Used to represent a Samza stream partition.
+ * A numbered, ordered partition of a stream.
  */
 public class Partition {
   private final int partition;

@@ -202,11 +202,11 @@ class BootstrappingChooser(
    * offset 8 is chosen, not when the message with offset 10 is chosen.
    *
    * @param systemStreamPartition The SystemStreamPartition to check.
-   * @param offset The offset to check.
-   * @param newestOrUpcoming Whether to check the offset against the newest or
-   *                         upcoming offset for the SystemStreamPartition.
-   *                         Upcoming is useful during the registration phase,
-   *                         and newest is useful during the choosing phase.
+   * @param offset The offset of the most recently chosen message.
+   * @param offsetType Whether to check the offset against the newest or
+   *                   upcoming offset for the SystemStreamPartition.
+   *                   Upcoming is useful during the registration phase,
+   *                   and newest is useful during the choosing phase.
    */
   private def checkOffset(systemStreamPartition: SystemStreamPartition, offset: String, offsetType: OffsetType) {
     val systemStream = systemStreamPartition.getSystemStream

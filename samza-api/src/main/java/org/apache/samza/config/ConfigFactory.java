@@ -21,6 +21,15 @@ package org.apache.samza.config;
 
 import java.net.URI;
 
+/**
+ * Build a {@link org.apache.samza.config.Config}
+ */
 public interface ConfigFactory {
+
+  /**
+   * Build a specific Config.
+   * @param configUri Resource containing information necessary for this Config.
+   * @return Newly constructed Config.
+   */
   Config getConfig(URI configUri);
 }

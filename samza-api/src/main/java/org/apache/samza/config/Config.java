@@ -27,6 +27,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Store and retrieve named, typed values as configuration for classes implementing this interface.
+ */
 public abstract class Config implements Map<String, String> {
   public Config subset(String prefix) {
     return subset(prefix, true);

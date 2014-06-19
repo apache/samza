@@ -20,7 +20,11 @@
 package org.apache.samza.system;
 
 /**
- * Used to represent a Samza stream.
+ * Streams in Samza consist of both the stream name and the system to which the stream belongs.
+ * Systems are defined through the job config and have corresponding serdes, producers and
+ * consumers in order to deserialize, send to and retrieve from them.  A stream name is dependent
+ * on its system, and may be the topic, queue name, file name, etc. as makes sense for a
+ * particular system.
  */
 public class SystemStream {
   protected final String system;

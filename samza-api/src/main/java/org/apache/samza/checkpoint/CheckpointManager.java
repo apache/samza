@@ -22,7 +22,8 @@ package org.apache.samza.checkpoint;
 import org.apache.samza.Partition;
 
 /**
- * Used as a standard interface for writing out checkpoints for a specified partition.
+ * CheckpointManagers read and write {@link org.apache.samza.checkpoint.Checkpoint} to some
+ * implementation-specific location.
  */
 public interface CheckpointManager {
   public void start();

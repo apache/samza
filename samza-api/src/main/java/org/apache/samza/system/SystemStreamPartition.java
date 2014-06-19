@@ -22,7 +22,7 @@ package org.apache.samza.system;
 import org.apache.samza.Partition;
 
 /**
- * Aggregate object representing a partition of a Samza stream.
+ * Aggregate object representing a both the {@link org.apache.samza.system.SystemStream} and {@link org.apache.samza.Partition}.
  */
 public class SystemStreamPartition extends SystemStream {
   protected final Partition partition;

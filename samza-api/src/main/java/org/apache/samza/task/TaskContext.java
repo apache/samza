@@ -22,6 +22,10 @@ package org.apache.samza.task;
 import org.apache.samza.Partition;
 import org.apache.samza.metrics.MetricsRegistry;
 
+/**
+ * A TaskContext provides resources about the {@link org.apache.samza.task.StreamTask}, particularly during
+ * initialization in an {@link org.apache.samza.task.InitableTask} and during calls to {@link org.apache.samza.task.TaskLifecycleListener}s.
+ */
 public interface TaskContext {
   MetricsRegistry getMetricsRegistry();
 

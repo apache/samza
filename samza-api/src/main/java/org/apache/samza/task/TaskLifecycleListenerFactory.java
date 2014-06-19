@@ -21,6 +21,9 @@ package org.apache.samza.task;
 
 import org.apache.samza.config.Config;
 
+/**
+ * Build a {@link org.apache.samza.task.TaskLifecycleListener}
+ */
 public interface TaskLifecycleListenerFactory {
   TaskLifecycleListener getLifecyleListener(String name, Config config);
 }

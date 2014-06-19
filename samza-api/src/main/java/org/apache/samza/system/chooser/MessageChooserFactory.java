@@ -22,6 +22,9 @@ package org.apache.samza.system.chooser;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistry;
 
+/**
+ * Build an instance of a {@link org.apache.samza.system.chooser.MessageChooser}
+ */
 public interface MessageChooserFactory {
   MessageChooser getChooser(Config config, MetricsRegistry registry);
 }

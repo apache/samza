@@ -19,5 +19,12 @@
 
 package org.apache.samza.serializers;
 
+/**
+ * A Serde is a convenience type that implements both the {@link org.apache.samza.serializers.Serializer} and
+ * {@link org.apache.samza.serializers.Deserializer} interfaces, allowing it to both read and write data
+ * in its value type, T.
+ *
+ * @param <T> The type of serialized object implementations can both read and write
+ */
 public interface Serde<T> extends Serializer<T>, Deserializer<T> {
 }

@@ -21,6 +21,9 @@ package org.apache.samza.config;
 
 import org.apache.samza.SamzaException;
 
+/**
+ * Specific {@link org.apache.samza.SamzaException}s thrown from {@link org.apache.samza.config.Config}
+ */
 public class ConfigException extends SamzaException {
   private static final long serialVersionUID = 1L;
 

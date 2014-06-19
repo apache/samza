@@ -20,7 +20,10 @@
 package org.apache.samza.task;
 
 /**
- * Used as a standard interface to allow user processing tasks to operate on specified time intervals, or "windows".
+ * Add-on interface to {@link org.apache.samza.task.StreamTask} implementations to add code which will be run on
+ * a specified time interval (via configuration).  This can be used to implement direct time-based windowing or,
+ * with a frequent window interval, windowing based on some other condition which is checked during the call to
+ * window.  The window method will be called even if no messages are received for a particular StreamTask.
  */
 public interface WindowableTask {
   /**
@@ -28,6 +31,7 @@ public interface WindowableTask {
    * @param collector Contains the means of sending message envelopes to the output stream. The collector must only
    * be used during the current call to the window method; you should not reuse the collector between invocations
    * of this method.
+   *
    * @param coordinator Manages execution of tasks.
    * @throws Exception Any exception types encountered during the execution of the processing task.
    */

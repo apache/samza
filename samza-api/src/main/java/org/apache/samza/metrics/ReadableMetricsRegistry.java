@@ -22,6 +22,10 @@ package org.apache.samza.metrics;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * A ReadableMetricsRegistry is a {@link org.apache.samza.metrics.MetricsRegistry} that also
+ * allows read access to the metrics for which it is responsible.
+ */
 public interface ReadableMetricsRegistry extends MetricsRegistry {
   Set<String> getGroups();
 
