@@ -54,6 +54,11 @@ Committer, and PMC member<br/>
 <a href="https://www.linkedin.com/in/zjshen" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
 <a href="https://twitter.com/zhijieshen" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
 
+**Yan Fang**<br/>
+Committer, and PMC member<br/>
+<a href="https://www.linkedin.com/in/yanfangus" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="https://twitter.com/yanfang724" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
+
 ### Mentors
 
 **Chris Douglas**<br/>
