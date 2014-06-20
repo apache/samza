@@ -16,4 +16,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-exec $(dirname $0)/run-class.sh org.apache.hadoop.yarn.client.cli.ApplicationCLI application -kill $@
+exec $(dirname $0)/run-class.sh org.apache.hadoop.yarn.client.cli.ApplicationCLI -kill $@
