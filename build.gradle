@@ -100,10 +100,9 @@ project(":samza-kafka_$scalaVersion") {
     compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
     compile "org.codehaus.jackson:jackson-jaxrs:$jacksonVersion"
     compile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion"
+    testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
-    // TODO replace this with an official release, if possible
-    testCompile files("lib/kafka_$scalaVersion-0.8.1-SNAPSHOT-test.jar")
 
     // Logging in tests is good.
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
@@ -257,8 +256,7 @@ project(":samza-test_$scalaVersion") {
     compile "javax.mail:mail:1.4"
     compile "junit:junit:$junitVersion"
     compile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion"
-    // TODO replace this with an official release, if possible
-    testCompile files("../samza-kafka/lib/kafka_$scalaVersion-0.8.1-SNAPSHOT-test.jar")
+    testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
     testCompile "com.101tec:zkclient:$zkClientVersion"
     testCompile project(":samza-kafka_$scalaVersion")
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
