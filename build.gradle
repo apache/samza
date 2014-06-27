@@ -195,6 +195,13 @@ project(":samza-shell") {
     from 'src/main/bash'
   }
 
+  artifacts {
+    archives(shellTarGz) {
+      name 'samza-shell'
+      classifier 'dist'
+    }
+  }
+
   // Usage: ./gradlew samza-shell:runJob \
   //    -PconfigPath=file:///path/to/job/config.properties
   task runJob(type:JavaExec) {

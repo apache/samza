@@ -49,3 +49,39 @@ task sourceRelease(type: Tar) {
     ant.checksum file:"$destinationDir/$archiveName"
   }
 }
+
+// Publishing to Apache's Maven repository (Nexus). To test this locally, set
+// repositoryUrl and snapshotRepositoryUrl below to 'file://localhost/tmp/myRepo'
+subprojects {
+  apply plugin: 'nexus'
+
+  nexus {
+    attachSources = true
+    attachTests = false
+    attachJavadoc = true
+    sign = true
+    repositoryUrl = 'https://repository.apache.org/service/local/staging/deploy/maven2'
+    snapshotRepositoryUrl = 'https://repository.apache.org/content/repositories/snapshots'
+  }
+
+  modifyPom {
+    project {
+      name 'Apache Samza (incubating)'
+      description 'A distributed stream processing framework built upon Apache Kafka and Apache Hadoop YARN.'
+      url 'http://samza.incubator.apache.org/'
+
+      scm {
+        url 'https://git-wip-us.apache.org/repos/asf?p=incubator-samza.git;a=tree'
+        connection 'scm:http://git-wip-us.apache.org/repos/asf/incubator-samza.git'
+        developerConnection 'scm:https://git-wip-us.apache.org/repos/asf/incubator-samza.git'
+      }
+
+      licenses {
+        license {
+          name 'The Apache Software License, Version 2.0'
+          url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+        }
+      }
+    }
+  }
+}
