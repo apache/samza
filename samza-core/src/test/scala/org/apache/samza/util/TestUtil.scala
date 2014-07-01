@@ -29,18 +29,6 @@ import org.apache.samza.system.SystemFactory
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.config.Config
 
-object TestUtil {
-  def expect[T](exception: Class[T], msg: Option[String] = None)(block: => Unit) = try {
-    block
-  } catch {
-    case e: Exception =>
-      assertEquals(e.getClass, exception)
-      if (msg.isDefined) {
-        assertEquals(msg.get, e.getMessage)
-      }
-  }
-}
-
 class TestUtil {
   @Test
   def testGetInputStreamPartitions {

@@ -253,8 +253,7 @@ project(":samza-kv_$scalaVersion") {
     compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
     compile "org.fusesource.leveldbjni:leveldbjni-all:$leveldbVersion"
     testCompile "junit:junit:$junitVersion"
-    // Depend on samza-core's test classes so TestUtils can be used.
-    testCompile project(":samza-core_$scalaVersion").sourceSets.test.output
+    testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
   }
 }
 

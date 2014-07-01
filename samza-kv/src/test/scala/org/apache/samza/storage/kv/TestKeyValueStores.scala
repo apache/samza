@@ -23,7 +23,6 @@ import java.io.File
 import java.util.Arrays
 import java.util.Random
 import scala.collection.JavaConversions._
-import org.apache.samza.serializers.IntegerSerde
 import org.iq80.leveldb.Options
 import org.junit.After
 import org.junit.Assert._
@@ -32,9 +31,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import org.apache.samza.serializers.StringSerde
-import org.apache.samza.util.TestUtil._
 import org.apache.samza.serializers.Serde
+import org.scalatest.Assertions.intercept
 
 @RunWith(value = classOf[Parameterized])
 class TestKeyValueStores(typeOfStore: String) {
@@ -107,14 +105,14 @@ class TestKeyValueStores(typeOfStore: String) {
       val keyMsg = Some(NullSafeKeyValueStore.KEY_ERROR_MSG)
       val valMsg = Some(NullSafeKeyValueStore.VAL_ERROR_MSG)
 
-      expect(classOf[NullPointerException], keyMsg) { store.get(null) }
-      expect(classOf[NullPointerException], keyMsg) { store.delete(null) }
-      expect(classOf[NullPointerException], keyMsg) { store.put(null, a) }
-      expect(classOf[NullPointerException], valMsg) { store.put(a, null) }
-      expect(classOf[NullPointerException], valMsg) { store.putAll(List(new Entry(a, a), new Entry[Array[Byte], Array[Byte]](a, null))) }
-      expect(classOf[NullPointerException], keyMsg) { store.putAll(List(new Entry[Array[Byte], Array[Byte]](null, a))) }
-      expect(classOf[NullPointerException], keyMsg) { store.range(a, null) }
-      expect(classOf[NullPointerException], keyMsg) { store.range(null, a) }
+      intercept[NullPointerException] { store.get(null) }
+      intercept[NullPointerException] { store.delete(null) }
+      intercept[NullPointerException] { store.put(null, a) }
+      intercept[NullPointerException] { store.put(a, null) }
+      intercept[NullPointerException] { store.putAll(List(new Entry(a, a), new Entry[Array[Byte], Array[Byte]](a, null))) }
+      intercept[NullPointerException] { store.putAll(List(new Entry[Array[Byte], Array[Byte]](null, a))) }
+      intercept[NullPointerException] { store.range(a, null) }
+      intercept[NullPointerException] { store.range(null, a) }
     }
   }
 
