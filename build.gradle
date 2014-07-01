@@ -196,13 +196,15 @@ project(":samza-shell") {
     gradleShell project(":samza-kafka_$scalaVersion")
     gradleShell project(":samza-test_$scalaVersion")
     gradleShell project(":samza-yarn_$scalaVersion")
-    gradleShell "org.slf4j:slf4j-simple:$slf4jVersion"
+    gradleShell "org.slf4j:slf4j-log4j12:$slf4jVersion"
+    gradleShell "log4j:log4j:1.2.16"
   }
 
   task shellTarGz(type: Tar) { 
     compression = Compression.GZIP 
     classifier = 'dist'
     from 'src/main/bash'
+    from 'src/main/resources'
   }
 
   artifacts {
@@ -218,6 +220,7 @@ project(":samza-shell") {
     main = 'org.apache.samza.job.JobRunner'
     classpath = configurations.gradleShell
     if (project.hasProperty('configPath')) args += ['--config-path', configPath]
+    jvmArgs = ["-Dlog4j.configuration=file:src/main/resources/log4j-console.xml"]
   }
 
   // Usage: ./gradlew samza-shell:checkpointTool \
@@ -227,6 +230,7 @@ project(":samza-shell") {
     classpath = configurations.gradleShell
     if (project.hasProperty('configPath')) args += ['--config-path', configPath]
     if (project.hasProperty('newOffsets')) args += ['--new-offsets', newOffsets]
+    jvmArgs = ["-Dlog4j.configuration=file:src/main/resources/log4j-console.xml"]
   }
 
   // Usage: ./gradlew samza-shell:kvPerformanceTest
@@ -235,6 +239,7 @@ project(":samza-shell") {
     main = 'org.apache.samza.test.performance.TestKeyValuePerformance'
     classpath = configurations.gradleShell
     if (project.hasProperty('configPath')) args += ['--config-path', configPath]
+    jvmArgs = ["-Dlog4j.configuration=file:src/main/resources/log4j-console.xml"]
   }
 }
 

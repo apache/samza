@@ -16,4 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if [ -z "$SAMZA_LOG4J_CONFIG" ]; then
+  export SAMZA_LOG4J_CONFIG=file:$(dirname $0)/../lib/log4j.xml
+fi
+
 exec $(dirname $0)/run-class.sh org.apache.samza.job.yarn.SamzaAppMaster $@

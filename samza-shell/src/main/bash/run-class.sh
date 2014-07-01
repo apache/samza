@@ -69,9 +69,7 @@ if [ -z "$JAVA_OPTS" ]; then
   if [ $? -eq 0 ] ; then
     JAVA_OPTS="$JAVA_OPTS $GC_LOG_ROTATION_OPTS"
   fi
-  if [ -f $base_dir/lib/log4j.xml ]; then
-    JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=file:$base_dir/lib/log4j.xml"
-  fi
+  JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=$SAMZA_LOG4J_CONFIG"
 fi
 
 echo $JAVA $JAVA_OPTS -cp $CLASSPATH $@
