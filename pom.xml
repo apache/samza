@@ -27,7 +27,7 @@ under the License.
 
   <groupId>samza</groupId>
   <artifactId>samza-example-parent</artifactId>
-  <version>0.8.0</version>
+  <version>0.7.0</version>
   <packaging>pom</packaging>
   <name>Samza Parent</name>
   <description>
@@ -40,44 +40,44 @@ under the License.
       <dependency>
         <groupId>samza</groupId>
         <artifactId>samza-wikipedia</artifactId>
-        <version>0.8.0</version>
+        <version>0.7.0</version>
       </dependency>
       <dependency>
         <groupId>org.apache.samza</groupId>
         <artifactId>samza-api</artifactId>
-        <version>0.8.0-SNAPSHOT</version>
+        <version>${samza.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.samza</groupId>
         <artifactId>samza-core_2.10</artifactId>
-        <version>0.8.0-SNAPSHOT</version>
+        <version>${samza.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.samza</groupId>
         <artifactId>samza-serializers_2.10</artifactId>
-        <version>0.8.0-SNAPSHOT</version>
+        <version>${samza.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.samza</groupId>
         <artifactId>samza-shell</artifactId>
         <classifier>dist</classifier>
         <type>tgz</type>
-        <version>0.8.0-SNAPSHOT</version>
+        <version>${samza.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.samza</groupId>
         <artifactId>samza-yarn_2.10</artifactId>
-        <version>0.8.0-SNAPSHOT</version>
+        <version>${samza.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.samza</groupId>
         <artifactId>samza-kv_2.10</artifactId>
-        <version>0.8.0-SNAPSHOT</version>
+        <version>${samza.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.samza</groupId>
         <artifactId>samza-kafka_2.10</artifactId>
-        <version>0.8.0-SNAPSHOT</version>
+        <version>${samza.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.kafka</groupId>
@@ -110,6 +110,7 @@ under the License.
   <properties>
     <!-- maven specific properties -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <samza.version>0.7.0</samza.version>
   </properties>
 
   <modules>

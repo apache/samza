@@ -50,7 +50,6 @@ bootstrap() {
 }
 
 install_all() {
-  $DIR/grid install samza
   $DIR/grid install zookeeper
   $DIR/grid install yarn
   $DIR/grid install kafka
@@ -80,22 +79,6 @@ install_kafka() {
   sed -i.bak 's/SIGINT/SIGTERM/g' $DEPLOY_ROOT_DIR/kafka/bin/kafka-server-stop.sh
   # in order to simplify the wikipedia-stats example job, set topic to have just 1 partition by default
   sed -i.bak 's/^num\.partitions *=.*/num.partitions=1/' $DEPLOY_ROOT_DIR/kafka/config/server.properties
-}
-
-install_samza() {
-  mkdir -p "$DEPLOY_ROOT_DIR"
-  if [ -d "$DOWNLOAD_CACHE_DIR/incubator-samza/.git" ]; then
-    pushd "$DOWNLOAD_CACHE_DIR/incubator-samza"
-    git fetch origin
-    git reset --hard origin/master
-  else
-    mkdir -p $DOWNLOAD_CACHE_DIR
-    pushd $DOWNLOAD_CACHE_DIR
-    git clone git://git.apache.org/incubator-samza.git
-    cd incubator-samza
-  fi
-  ./gradlew -PscalaVersion=2.10 clean publishToMavenLocal
-  popd
 }
 
 install() {

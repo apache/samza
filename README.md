@@ -5,6 +5,17 @@ Hello Samza is a starter project for [Apache Samza](http://samza.incubator.apach
 
 Please see [Hello Samza](http://samza.incubator.apache.org/startup/hello-samza/0.7.0/) to get started.
 
+By default, Hello Samza uses a recent release of Samza from a Maven repository. If you want to use a custom
+version of Samza, you can publish it to your local Maven repository in `$HOME/.m2` by running the following
+in the Samza repository:
+
+    ./gradlew publishToMavenLocal
+
+You can then use that version in Hello Samza by specifying the `samza.version` property when building
+Hello Samza, for example:
+
+    mvn package -Dsamza.version=0.8.0-SNAPSHOT
+
 ### Pull requests and questions
 Hello Samza is developed as part of the Apache Samza project. Please direct questions, improvements and
 bug fixes there.  Questions about Hello Samza are welcome on the dev list (details on the main
