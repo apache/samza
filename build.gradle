@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 buildscript {
   repositories {
     mavenCentral()
@@ -35,11 +36,50 @@ allprojects {
   }
 }
 
-apply from: file('gradle/license.gradle')
 apply from: file('gradle/environment.gradle')
 apply from: file("gradle/dependency-versions.gradle")
 apply from: file("gradle/dependency-versions-scala-" + scalaVersion + ".gradle")
 apply from: file("gradle/release.gradle")
+apply from: file("gradle/rat.gradle")
+
+rat {
+  excludes = [
+    '**/.git/**',
+    '**/.gradle/**',
+    '**/.project',
+    '**/.settings',
+    '**/*.iml',
+    '**/*.iws',
+    '**/*.ipr',
+    'gradle/wrapper/**',
+    '.reviewboardrc',
+    'gradlew',
+    'README.md',
+    'RELEASE.md',
+    '**/.DS_Store/**',
+    '**/.gitignore',
+    '**/build/**',
+    'docs/Gemfile.lock',
+    'docs/sitemap.xml',
+    'docs/_site/**',
+    'samza-test/state/mystore/**',
+    '**/bootstrap.min.js',
+    '**/jquery-1.11.1.min.js',
+    '**/jquery.tablesorter.min.js',
+    '**/bootstrap.css.map',
+    '**/bootstrap.min.css',
+    '**/ropa-sans.css',
+    '**/font-awesome.min.css',
+    '**/syntax.css',
+    '**/non-responsive.less',
+    '**/*.graffle',
+    '**/*.otf',
+    '**/*.woff',
+    '**/*.eot',
+    '**/*.svg',
+    '**/*.ttf'
+  ]
+}
 
 allprojects {
   apply plugin: 'idea'
@@ -200,8 +240,8 @@ project(":samza-shell") {
     gradleShell "log4j:log4j:1.2.16"
   }
 
-  task shellTarGz(type: Tar) { 
-    compression = Compression.GZIP 
+  task shellTarGz(type: Tar) {
+    compression = Compression.GZIP
     classifier = 'dist'
     from 'src/main/bash'
     from 'src/main/resources'
@@ -284,16 +324,15 @@ project(":samza-test_$scalaVersion") {
   }
 
   test {
-    // Bump up the heap so we can start ZooKeeper and Kafka brokers. Also 
-    // required for TestSamzaContainerPerformance when a high thread count 
+    // Bump up the heap so we can start ZooKeeper and Kafka brokers. Also
+    // required for TestSamzaContainerPerformance when a high thread count
     // with a lot of inputs is used.
     minHeapSize = "4096m"
     maxHeapSize = "4096m"
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server", "-d64"]
 
-    // Forward all samza.* system properties to test subprocesses. This is 
+    // Forward all samza.* system properties to test subprocesses. This is
     // useful for configuring TestSamzaContainerPerformance from the CLI.
     systemProperties = System.properties.findAll { it.key.startsWith("samza") }
   }
 }
-
