@@ -35,6 +35,7 @@ import org.junit.runners.Parameterized.Parameters
 import org.apache.samza.serializers.StringSerde
 import org.apache.samza.util.TestUtil._
 import org.apache.samza.serializers.Serde
+import org.scalatest.Assertions.intercept
 
 @RunWith(value = classOf[Parameterized])
 class TestKeyValueStores(typeOfStore: String) {
@@ -151,7 +152,7 @@ class TestKeyValueStores(typeOfStore: String) {
     for (letter <- letters)
       store.put(b(letter.toString), b(letter.toString))
     val iter = store.range(b(letters(from)), b(letters(to)))
-    checkRange(letters.slice(from, to + 1), iter)
+    checkRange(letters.slice(from, to), iter)
     iter.close()
   }
 

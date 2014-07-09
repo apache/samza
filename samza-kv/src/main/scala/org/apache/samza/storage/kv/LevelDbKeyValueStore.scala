@@ -207,7 +207,7 @@ class LevelDbKeyValueStore(
     val comparator = if (options.comparator == null) lexicographic else options.comparator
     iter.seek(from)
     override def hasNext() = {
-      iter.hasNext() && comparator.compare(iter.peekNext.getKey, to) <= 0
+      iter.hasNext() && comparator.compare(iter.peekNext.getKey, to) < 0
     }
   }
 

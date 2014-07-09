@@ -245,6 +245,7 @@ project(":samza-kv_$scalaVersion") {
     testCompile "junit:junit:$junitVersion"
     // Depend on samza-core's test classes so TestUtils can be used.
     testCompile project(":samza-core_$scalaVersion").sourceSets.test.output
+    testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
   }
 }
 
