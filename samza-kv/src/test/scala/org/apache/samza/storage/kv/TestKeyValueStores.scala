@@ -294,6 +294,7 @@ class TestKeyValueStores(typeOfStore: String) {
       assertEquals(v, s(entry.getValue))
     }
     assertFalse(iter.hasNext)
+    intercept[NoSuchElementException] { iter.next() }
   }
 
   /**

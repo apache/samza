@@ -182,6 +182,10 @@ class LevelDbKeyValueStore(
     def remove() = iter.remove()
     def hasNext() = iter.hasNext()
     def next() = {
+      if (!hasNext()) {
+        throw new NoSuchElementException
+      }
+
       val curr = iter.next
       val key = curr.getKey
       val value = curr.getValue
