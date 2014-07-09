@@ -18,51 +18,69 @@ title: Download
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-<!-- TODO update maven dependency versions appropriately -->
 
-If you want to play around with Samza for the first time, go to [Hello Samza](/startup/hello-samza/0.7.0).
+Samza is released as a source artifact, and also through Maven.
 
-<!--
+If you just want to play around with Samza for the first time, go to [Hello Samza](/startup/hello-samza/0.7.0).
+
+### Source Releases
+
+ * [samza-sources-0.7.0-incubating.tgz](http://www.apache.org/dyn/closer.cgi/incubator/samza/0.7.0-incubating)
+
 ### Maven
 
-All Samza JARs are published through Maven.
+All Samza JARs are published through [Apache's Maven repository](https://repository.apache.org/content/groups/public/org/apache/samza/).
 
 #### Artifacts
 
-A Samza project that runs with Kafka and YARN should depend on the following artifacts.
+A Maven-based Samza project can pull in all required dependencies Samza dependencies this XML block:
 
 {% highlight xml %}
 <dependency>
-  <groupId>samza</groupId>
+  <groupId>org.apache.samza</groupId>
   <artifactId>samza-api</artifactId>
   <version>0.7.0</version>
 </dependency>
 <dependency>
-  <groupId>samza</groupId>
-  <artifactId>samza-core_2.9.2</artifactId>
+  <groupId>org.apache.samza</groupId>
+  <artifactId>samza-core_2.10</artifactId>
   <version>0.7.0</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
-  <groupId>samza</groupId>
-  <artifactId>samza-serializers_2.9.2</artifactId>
+  <groupId>org.apache.samza</groupId>
+  <artifactId>samza-serializers_2.10</artifactId>
+  <version>0.7.0</version>
+</dependency>
+<dependency>
+  <groupId>org.apache.samza</groupId>
+  <artifactId>samza-shell</artifactId>
+  <classifier>dist</classifier>
+  <type>tgz</type>
   <version>0.7.0</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
-  <groupId>samza</groupId>
-  <artifactId>samza-yarn_2.9.2</artifactId>
+  <groupId>org.apache.samza</groupId>
+  <artifactId>samza-yarn_2.10</artifactId>
   <version>0.7.0</version>
-  <classifier>yarn-2.0.5-alpha</classifier>
   <scope>runtime</scope>
 </dependency>
 <dependency>
-  <groupId>samza</groupId>
-  <artifactId>samza-kafka_2.9.2</artifactId>
+  <groupId>org.apache.samza</groupId>
+  <artifactId>samza-kv_2.10</artifactId>
+  <version>0.7.0</version>
+  <scope>runtime</scope>
+</dependency>
+<dependency>
+  <groupId>org.apache.samza</groupId>
+  <artifactId>samza-kafka_2.10</artifactId>
   <version>0.7.0</version>
   <scope>runtime</scope>
 </dependency>
 {% endhighlight %}
+
+[Hello Samza](/startup/hello-samza/0.7.0) is a working Maven project that illustrates how to build projects that have Samza jobs in them.
 
 #### Repositories
 
@@ -83,7 +101,6 @@ Snapshot builds are available in the Apache Maven snapshot repository.
   <url>https://repository.apache.org/content/groups/snapshots</url>
 </repository>
 {% endhighlight %}
--->
 
 ### Checking out and Building
 
