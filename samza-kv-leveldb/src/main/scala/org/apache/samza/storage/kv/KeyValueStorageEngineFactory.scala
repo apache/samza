@@ -19,23 +19,24 @@
 
 package org.apache.samza.storage.kv
 
+import java.io.File
+
+import org.apache.samza.container.SamzaContainerContext
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.metrics.Counter
-import org.apache.samza.metrics.MetricsHelper
+import org.apache.samza.system.SystemStreamPartition
 
-class LevelDbKeyValueStoreMetrics(
-  val storeName: String = "unknown",
-  val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+/**
+ * A backwards compatible factory that points to LevelDb. This exists for all the old Samza jobs
+ * that still refer to KeyValueStorageEngineFactory.
+ */
+class KeyValueStorageEngineFactory[K, V] extends BaseKeyValueStorageEngineFactory[K, V] {
 
-  val gets = newCounter("gets")
-  val ranges = newCounter("ranges")
-  val alls = newCounter("alls")
-  val puts = newCounter("puts")
-  val deletes = newCounter("deletes")
-  val flushes = newCounter("flushes")
-  val bytesWritten = newCounter("bytes-written")
-  val bytesRead = newCounter("bytes-read")
+  override def getKVStore(storeName: String,
+                          storeDir: File,
+                          registry: MetricsRegistry,
+                          changeLogSystemStreamPartition: SystemStreamPartition,
+                          containerContext: SamzaContainerContext): KeyValueStore[Array[Byte], Array[Byte]] = {
+    LevelDbKeyValueStorageEngineFactory.getKeyValueStore(storeName, storeDir, registry, changeLogSystemStreamPartition, containerContext)
+  }
 
-  override def getPrefix = storeName + "-"
 }

@@ -19,10 +19,9 @@
 
 package org.apache.samza.storage.kv
 
+import org.apache.samza.metrics.MetricsHelper
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.metrics.Counter
-import org.apache.samza.metrics.MetricsHelper
 
 class CachedStoreMetrics(
   val storeName: String = "unknown",

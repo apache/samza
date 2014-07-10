@@ -19,8 +19,9 @@
 
 package org.apache.samza.storage.kv
 
-import scala.collection._
 import grizzled.slf4j.Logging
+
+import scala.collection._
 
 /**
  * A write-behind caching layer around the leveldb store. The purpose of this cache is three-fold:

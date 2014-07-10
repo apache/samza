@@ -19,12 +19,9 @@
 
 package org.apache.samza.storage.kv
 
-import java.nio.ByteBuffer
-import org.apache.samza.system.SystemStream
-import org.apache.samza.task.MessageCollector
-import org.apache.samza.system.OutgoingMessageEnvelope
-import org.apache.samza.system.SystemStreamPartition
 import grizzled.slf4j.Logging
+import org.apache.samza.system.{OutgoingMessageEnvelope, SystemStreamPartition}
+import org.apache.samza.task.MessageCollector
 
 /**
  * A key/value store decorator that adds a changelog for any changes made to the underlying store

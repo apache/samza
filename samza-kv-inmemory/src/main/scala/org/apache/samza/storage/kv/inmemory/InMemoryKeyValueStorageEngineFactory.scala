@@ -17,25 +17,25 @@
  * under the License.
  */
 
-package org.apache.samza.storage.kv
+package org.apache.samza.storage.kv.inmemory
 
-import org.apache.samza.metrics.MetricsHelper
+import java.io.File
+
+import org.apache.samza.container.SamzaContainerContext
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.storage.kv.{KeyValueStoreMetrics, BaseKeyValueStorageEngineFactory, KeyValueStore}
+import org.apache.samza.system.SystemStreamPartition
 
-class KeyValueStorageEngineMetrics(
-  val storeName: String = "unknown",
-  val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+class InMemoryKeyValueStorageEngineFactory[K, V] extends BaseKeyValueStorageEngineFactory[K, V] {
 
-  val gets = newCounter("gets")
-  val ranges = newCounter("ranges")
-  val alls = newCounter("alls")
-  val puts = newCounter("puts")
-  val deletes = newCounter("deletes")
-  val flushes = newCounter("flushes")
+  override def getKVStore(storeName: String,
+                          storeDir: File,
+                          registry: MetricsRegistry,
+                          changeLogSystemStreamPartition: SystemStreamPartition,
+                          containerContext: SamzaContainerContext): KeyValueStore[Array[Byte], Array[Byte]] = {
+    val metrics = new KeyValueStoreMetrics(storeName, registry)
+    val inMemoryDb = new InMemoryKeyValueStore (metrics)
+    inMemoryDb
+  }
 
-  val restoredMessages = newCounter("messages-restored")
-  val restoredBytes = newCounter("messages-bytes")
-
-  override def getPrefix = storeName + "-"
 }

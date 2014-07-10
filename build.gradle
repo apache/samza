@@ -291,6 +291,34 @@ project(":samza-kv_$scalaVersion") {
     compile project(":samza-core_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
+    testCompile "junit:junit:$junitVersion"
+  }
+}
+
+project(":samza-kv-inmemory_$scalaVersion") {
+  apply plugin: 'scala'
+
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaVersion")
+    compile project(":samza-kv_$scalaVersion")
+    compile "org.scala-lang:scala-library:$scalaLibVersion"
+    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
+    compile "com.google.guava:guava:$guavaVersion"
+    testCompile "junit:junit:$junitVersion"
+  }
+}
+
+project(":samza-kv-leveldb_$scalaVersion") {
+  apply plugin: 'scala'
+
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaVersion")
+    compile project(":samza-kv_$scalaVersion")
+    compile project(":samza-kv-inmemory_$scalaVersion")
+    compile "org.scala-lang:scala-library:$scalaLibVersion"
+    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
     compile "org.fusesource.leveldbjni:leveldbjni-all:$leveldbVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
@@ -309,7 +337,7 @@ project(":samza-test_$scalaVersion") {
 
   dependencies {
     compile project(':samza-api')
-    compile project(":samza-kv_$scalaVersion")
+    compile project(":samza-kv-leveldb_$scalaVersion")
     compile project(":samza-core_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"

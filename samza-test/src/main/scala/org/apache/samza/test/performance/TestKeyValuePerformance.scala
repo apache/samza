@@ -26,12 +26,10 @@ import org.apache.samza.container.SamzaContainerContext
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.storage.kv.KeyValueStorageEngine
-import org.apache.samza.storage.kv.KeyValueStorageEngineFactory
 import org.apache.samza.storage.StorageEngineFactory
 import org.apache.samza.task.ReadableCollector
 import org.apache.samza.util.CommandLine
 import org.apache.samza.util.Util
-import org.apache.samza.serializers.Serde
 import org.apache.samza.serializers.ByteSerde
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException

@@ -19,15 +19,11 @@
 
 package org.apache.samza.storage.kv
 
-import java.io.File
-import java.nio.ByteBuffer
-import org.apache.samza._
-import org.apache.samza.config.Config
-import org.apache.samza.serializers._
-import scala.collection.JavaConversions._
 import grizzled.slf4j.Logging
-import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.storage.StorageEngine
+import org.apache.samza.system.IncomingMessageEnvelope
+
+import scala.collection.JavaConversions._
 
 /**
  * A key value store.

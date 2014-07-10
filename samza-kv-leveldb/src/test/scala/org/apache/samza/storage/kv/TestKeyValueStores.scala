@@ -22,6 +22,8 @@ package org.apache.samza.storage.kv
 import java.io.File
 import java.util.Arrays
 import java.util.Random
+import org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStore
+
 import scala.collection.JavaConversions._
 import org.iq80.leveldb.Options
 import org.junit.After
@@ -34,8 +36,15 @@ import org.junit.runners.Parameterized.Parameters
 import org.apache.samza.serializers.Serde
 import org.scalatest.Assertions.intercept
 
+import scala.collection.mutable.ArrayBuffer
+
+/**
+ * Test suite to check different key value store operations
+ * @param typeOfStore Defines type of key-value store (Eg: "leveldb" / "inmemory")
+ * @param storeConfig Defines whether we're using caching / serde / both / or none in front of the store
+ */
 @RunWith(value = classOf[Parameterized])
-class TestKeyValueStores(typeOfStore: String) {
+class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
   import TestKeyValueStores._
 
   val letters = "abcdefghijklmnopqrstuvwxyz".map(_.toString)
@@ -46,25 +55,34 @@ class TestKeyValueStores(typeOfStore: String) {
 
   @Before
   def setup() {
-    dir.mkdirs()
-    val leveldb = new LevelDbKeyValueStore(dir, new Options)
+    val kvStore : KeyValueStore[Array[Byte], Array[Byte]] = if ("leveldb".equals(typeOfStore)) {
+      dir.mkdirs()
+      val leveldb = new LevelDbKeyValueStore(dir, new Options)
+      leveldb
+    } else if ("inmemory".equals(typeOfStore)) {
+      val inmemoryDb = new InMemoryKeyValueStore
+      inmemoryDb
+    } else {
+      throw new IllegalArgumentException("Type of store undefined: " + typeOfStore)
+    }
+
     val passThroughSerde = new Serde[Array[Byte]] {
       def toBytes(obj: Array[Byte]) = obj
       def fromBytes(bytes: Array[Byte]) = bytes
     }
-    store = if ("cache".equals(typeOfStore)) {
+    store = if ("cache".equals(storeConfig)) {
       cache = true
-      new CachedStore(leveldb, CacheSize, BatchSize)
-    } else if ("serde".equals(typeOfStore)) {
+      new CachedStore(kvStore, CacheSize, BatchSize)
+    } else if ("serde".equals(storeConfig)) {
       serde = true
-      new SerializedKeyValueStore(leveldb, passThroughSerde, passThroughSerde)
-    } else if ("cache-and-serde".equals(typeOfStore)) {
-      val serializedStore = new SerializedKeyValueStore(leveldb, passThroughSerde, passThroughSerde)
+      new SerializedKeyValueStore(kvStore, passThroughSerde, passThroughSerde)
+    } else if ("cache-and-serde".equals(storeConfig)) {
+      val serializedStore = new SerializedKeyValueStore(kvStore, passThroughSerde, passThroughSerde)
       serde = true
       cache = true
       new CachedStore(serializedStore, CacheSize, BatchSize)
     } else {
-      leveldb
+      kvStore
     }
 
     store = new NullSafeKeyValueStore(store)
@@ -73,9 +91,11 @@ class TestKeyValueStores(typeOfStore: String) {
   @After
   def teardown() {
     store.close
-    for (file <- dir.listFiles)
-      file.delete()
-    dir.delete()
+    if (dir != null && dir.listFiles() != null) {
+      for (file <- dir.listFiles)
+        file.delete()
+      dir.delete()
+    }
   }
 
   @Test
@@ -148,8 +168,9 @@ class TestKeyValueStores(typeOfStore: String) {
     val to = 20
     for (letter <- letters)
       store.put(b(letter.toString), b(letter.toString))
+
     val iter = store.range(b(letters(from)), b(letters(to)))
-    checkRange(letters.slice(from, to + 1), iter)
+    checkRange(letters.slice(from, to), iter)
     iter.close()
   }
 
@@ -270,15 +291,22 @@ class TestKeyValueStores(typeOfStore: String) {
         assertEquals(v._2, new String(bytes, "UTF-8"))
       }
 
+      // Iterating and making structural modifications (deletion) does not look right.
+      // Separating these two steps
       val iterator = store.all
+      val allKeys = new ArrayBuffer[Array[Byte]]()
 
+      // First iterate
       while (iterator.hasNext) {
-        val key = iterator.next.getKey
+        allKeys += iterator.next.getKey
+      }
+      iterator.close
+
+      // And now delete
+      for (key <- allKeys) {
         store.delete(key)
         expected -= new String(key, "UTF-8")
       }
-
-      iterator.close
 
       assertEquals(0, expected.size)
     })
@@ -312,5 +340,5 @@ object TestKeyValueStores {
   val CacheSize = 10
   val BatchSize = 5
   @Parameters
-  def parameters: java.util.Collection[Array[String]] = Arrays.asList(Array("cache"), Array("serde"), Array("cache-and-serde"), Array("leveldb"))
+  def parameters: java.util.Collection[Array[String]] = Arrays.asList(Array("leveldb", "cache"), Array("leveldb", "serde"), Array("leveldb", "cache-and-serde"), Array("leveldb", "none"), Array("inmemory", "cache"), Array("inmemory", "serde"), Array("inmemory", "cache-and-serde"), Array("inmemory", "none"))
 }

@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include 'samza-api', 'samza-core', 'samza-kafka', 'samza-kv', 'samza-serializers', 'samza-shell', 'samza-yarn', 'samza-test'
+include 'samza-api', 'samza-core', 'samza-kafka', 'samza-kv', 'samza-kv-inmemory', 'samza-kv-leveldb', 'samza-serializers', 'samza-shell', 'samza-yarn', 'samza-test'
 
 rootProject.children.each {
   if (it.name != 'samza-api' && it.name != 'samza-shell') {

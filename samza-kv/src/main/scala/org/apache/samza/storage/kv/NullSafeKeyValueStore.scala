@@ -20,6 +20,7 @@
 package org.apache.samza.storage.kv
 
 import org.apache.samza.util.Util.notNull
+
 import scala.collection.JavaConversions._
 
 object NullSafeKeyValueStore {

@@ -66,7 +66,7 @@ class LevelDbKeyValueStore(
    * disables this feature.
    */
   val deleteCompactionThreshold: Int = -1,
-  val metrics: LevelDbKeyValueStoreMetrics = new LevelDbKeyValueStoreMetrics) extends KeyValueStore[Array[Byte], Array[Byte]] with Logging {
+  val metrics: KeyValueStoreMetrics = new KeyValueStoreMetrics) extends KeyValueStore[Array[Byte], Array[Byte]] with Logging {
 
   private lazy val db = factory.open(dir, options)
   private val lexicographic = new LexicographicComparator()
@@ -207,7 +207,7 @@ class LevelDbKeyValueStore(
     val comparator = if (options.comparator == null) lexicographic else options.comparator
     iter.seek(from)
     override def hasNext() = {
-      iter.hasNext() && comparator.compare(iter.peekNext.getKey, to) <= 0
+      iter.hasNext() && comparator.compare(iter.peekNext.getKey, to) < 0
     }
   }
 

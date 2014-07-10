@@ -19,9 +19,8 @@
 
 package org.apache.samza.storage.kv
 
-import java.util.Iterator
-import org.apache.samza.serializers._
 import grizzled.slf4j.Logging
+import org.apache.samza.serializers._
 
 /**
  * A key-value store wrapper that handles serialization

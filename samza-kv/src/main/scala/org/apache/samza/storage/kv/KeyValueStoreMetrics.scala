@@ -19,11 +19,9 @@
 
 package org.apache.samza.storage.kv
 
-import org.apache.samza.metrics.MetricsHelper
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.metrics.{MetricsHelper, MetricsRegistry, MetricsRegistryMap}
 
-class KeyValueStorageEngineMetrics(
+class KeyValueStoreMetrics(
   val storeName: String = "unknown",
   val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
 
@@ -33,9 +31,8 @@ class KeyValueStorageEngineMetrics(
   val puts = newCounter("puts")
   val deletes = newCounter("deletes")
   val flushes = newCounter("flushes")
-
-  val restoredMessages = newCounter("messages-restored")
-  val restoredBytes = newCounter("messages-bytes")
+  val bytesWritten = newCounter("bytes-written")
+  val bytesRead = newCounter("bytes-read")
 
   override def getPrefix = storeName + "-"
 }

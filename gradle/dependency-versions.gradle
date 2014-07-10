@@ -31,4 +31,5 @@
   leveldbVersion = "1.8"
   yarnVersion = "2.4.0"
   slf4jVersion = "1.6.2"
+  guavaVersion = "17.0"
 }
