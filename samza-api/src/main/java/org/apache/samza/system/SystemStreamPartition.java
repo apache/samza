@@ -96,6 +96,6 @@ public class SystemStreamPartition extends SystemStream {
 
   @Override
   public String toString() {
-    return "SystemStreamPartition [partition=" + partition + ", system=" + system + ", stream=" + stream + "]";
+    return "SystemStreamPartition ["+ system + ", " + stream + ", " + partition.getPartitionId() + "]";
   }
 }
