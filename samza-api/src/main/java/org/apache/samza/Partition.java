@@ -22,7 +22,7 @@ package org.apache.samza;
 /**
  * A numbered, ordered partition of a stream.
  */
-public class Partition {
+public class Partition implements Comparable<Partition> {
   private final int partition;
 
   /**
@@ -59,5 +59,15 @@ public class Partition {
   @Override
   public String toString() {
     return "Partition [partition=" + partition + "]";
+  }
+
+  @Override
+  public int compareTo(Partition that) {
+    if (partition < that.partition) {
+      return -1;
+    } else if (partition > that.partition) {
+      return 1;
+    }
+    return 0;
   }
 }

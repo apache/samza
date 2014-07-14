@@ -24,9 +24,9 @@ import org.apache.samza.Partition;
 /**
  * Aggregate object representing a both the {@link org.apache.samza.system.SystemStream} and {@link org.apache.samza.Partition}.
  */
-public class SystemStreamPartition extends SystemStream {
+public class SystemStreamPartition extends SystemStream implements Comparable<SystemStreamPartition> {
   protected final Partition partition;
-  protected final int hash;
+  protected final int hash;  // precomputed as instances are immutable and often stored in hash-addressed data structures
 
   /**
    * Constructs a Samza stream partition object from specified components.
@@ -97,5 +97,27 @@ public class SystemStreamPartition extends SystemStream {
   @Override
   public String toString() {
     return "SystemStreamPartition ["+ system + ", " + stream + ", " + partition.getPartitionId() + "]";
+  }
+
+  @Override
+  public int compareTo(SystemStreamPartition that) {
+    if (this.system.compareTo(that.system) < 0) {
+      return -1;
+    } else if (this.system.compareTo(that.system) > 0) {
+      return 1;
+    }
+
+    if (this.stream.compareTo(that.stream) < 0) {
+      return -1;
+    } else if (this.stream.compareTo(that.stream) > 0) {
+      return 1;
+    }
+
+    if (this.partition.compareTo(that.partition) < 0) {
+      return -1;
+    } else if (this.partition.compareTo(that.partition) > 0) {
+      return 1;
+    }
+    return 0;
   }
 }
