@@ -137,20 +137,30 @@
 
     %div.tab-pane#config
       %h2 Config
-      %table.table.table-striped.table-bordered.tablesorter#config-table
-        %thead
-          %tr
-            %th Key
-            %th Value
-        %tbody
-          - for(entrySet <- new java.util.TreeMap[String, String](config.asInstanceOf[Map[String, String]]).entrySet)
+      %div.panel.panel-default
+        %div.panel-heading
+          %input.form-control#config-table-filter(type="text" placeholder="Filter")
+        %table.table.table-striped.table-bordered.tablesorter#config-table
+          %thead
             %tr
-              %td.key= entrySet.getKey
-              %td= entrySet.getValue
+              %th Key
+              %th Value
+          %tbody.searchable
+            - for(entrySet <- new java.util.TreeMap[String, String](config.asInstanceOf[Map[String, String]]).entrySet)
+              %tr
+                %td.key= entrySet.getKey
+                %td= entrySet.getValue
 
     :javascript
       $(document).ready(function() {
         $("#containers-table").tablesorter();
         $("#partitions-table").tablesorter();
         $("#config-table").tablesorter();
+        $("#config-table-filter").keyup(function() {
+          var regex = new RegExp($(this).val(), 'i');
+          $('.searchable tr').hide();
+          $('.searchable tr').filter(function() {
+            return regex.test($(this).text());
+          }).show();
+        });
       });
