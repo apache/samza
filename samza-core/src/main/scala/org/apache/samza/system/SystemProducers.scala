@@ -21,11 +21,19 @@ package org.apache.samza.system
 
 import org.apache.samza.serializers.SerdeManager
 import grizzled.slf4j.Logging
+import org.apache.samza.SamzaException
 
 class SystemProducers(
   producers: Map[String, SystemProducer],
   serdeManager: SerdeManager,
-  metrics: SystemProducersMetrics = new SystemProducersMetrics) extends Logging {
+  metrics: SystemProducersMetrics = new SystemProducersMetrics,
+
+  /**
+   * If set to true, Samza will drop the messages that have serialization errors
+   * and keep running. If set to false, Samza will throw the SamzaException
+   * to fail the container. Default is false.
+   */
+  dropSerializationError: Boolean = false) extends Logging {
 
   def start {
     debug("Starting producers.")
@@ -62,6 +70,19 @@ class SystemProducers(
     metrics.sends.inc
     metrics.sourceSends(source).inc
 
-    producers(envelope.getSystemStream.getSystem).send(source, serdeManager.toBytes(envelope))
+    val bytesEnvelope = try {
+      Some(serdeManager.toBytes(envelope))
+    } catch {
+      case e: Exception if !dropSerializationError => throw new SamzaException("can not serialize the message", e)
+      case ex: Throwable => {
+        debug("Serialization fails: %s . Drop the error message" format ex)
+        metrics.serializationError.inc
+        None
+      }
+    }
+
+    if (!bytesEnvelope.isEmpty) {
+      producers(envelope.getSystemStream.getSystem).send(source, bytesEnvelope.get)
+    }
   }
 }

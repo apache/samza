@@ -87,7 +87,7 @@ object SamzaContainer extends Logging {
 
   def apply(containerName: String, inputStreams: Set[SystemStreamPartition], config: Config) = {
     val containerPID = Util.getContainerPID
-    
+
     info("Setting up Samza container: %s" format containerName)
     info("Samza container PID: %s" format containerPID)
     info("Using streams and partitions: %s" format inputStreams)
@@ -282,17 +282,29 @@ object SamzaContainer extends Logging {
 
     info("Got offset manager: %s" format offsetManager)
 
+    val dropDeserializationError: Boolean = config.getDropDeserialization match {
+      case Some(dropError) => dropError.toBoolean
+      case _ => false
+    }
+
+    val dropSerializationError: Boolean = config.getDropSerialization match {
+      case Some(dropError) => dropError.toBoolean
+      case _ => false
+    }
+
     val consumerMultiplexer = new SystemConsumers(
       // TODO add config values for no new message timeout and max msgs per stream partition
       chooser = chooser,
       consumers = consumers,
       serdeManager = serdeManager,
-      metrics = systemConsumersMetrics)
+      metrics = systemConsumersMetrics,
+      dropDeserializationError = dropDeserializationError)
 
     val producerMultiplexer = new SystemProducers(
       producers = producers,
       serdeManager = serdeManager,
-      metrics = systemProducersMetrics)
+      metrics = systemProducersMetrics,
+      dropSerializationError = dropSerializationError)
 
     val listeners = config.getLifecycleListeners match {
       case Some(listeners) => {
@@ -438,8 +450,7 @@ object SamzaContainer extends Logging {
       consumerMultiplexer = consumerMultiplexer,
       metrics = samzaContainerMetrics,
       windowMs = taskWindowMs,
-      commitMs = taskCommitMs
-    )
+      commitMs = taskCommitMs)
 
     info("Samza container setup complete.")
 

@@ -27,6 +27,7 @@ import org.apache.samza.metrics.MetricsHelper
 class SystemConsumersMetrics(val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
   val choseNull = newCounter("chose-null")
   val choseObject = newCounter("chose-object")
+  val deserializationError = newCounter("deserialization error")
   val systemPolls = scala.collection.mutable.Map[String, Counter]()
   val systemStreamPartitionFetchesPerPoll = scala.collection.mutable.Map[String, Counter]()
   val systemMessagesPerPoll = scala.collection.mutable.Map[String, Counter]()

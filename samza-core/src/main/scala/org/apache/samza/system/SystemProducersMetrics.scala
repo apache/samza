@@ -29,6 +29,7 @@ class SystemProducersMetrics(val registry: MetricsRegistry = new MetricsRegistry
   val sends = newCounter("sends")
   val sourceFlushes = scala.collection.mutable.Map[String, Counter]()
   val sourceSends = scala.collection.mutable.Map[String, Counter]()
+  val serializationError = newCounter("serialization error")
 
   def registerSource(source: String) {
     sourceFlushes += source -> newCounter("%s-flushes" format source)

@@ -70,7 +70,14 @@ class SystemConsumers(
    * thread will sit in a tight loop polling every SystemConsumer over and
    * over again if no new messages are available.
    */
-  noNewMessagesTimeout: Long = 10) extends Logging {
+  noNewMessagesTimeout: Long = 10,
+
+  /**
+   * This parameter is to define how to deal with deserialization failure. If set to true,
+   * the task will skip the messages when deserialization fails. If set to false, the task
+   * will throw SamzaException and fail the container.
+   */
+  dropDeserializationError: Boolean = false) extends Logging {
 
   /**
    * The buffer where SystemConsumers stores all incoming message envelopes.
@@ -242,7 +249,20 @@ class SystemConsumers(
     incomingEnvelopes.foreach(envelope => {
       val systemStreamPartition = envelope.getSystemStreamPartition
 
-      buffer.update(serdeManager.fromBytes(envelope))
+      val messageEnvelope = try {
+        Some(serdeManager.fromBytes(envelope))
+      } catch {
+        case e: Exception if !dropDeserializationError => throw new SystemConsumersException("can not deserialize the message", e)
+        case ex: Throwable => {
+          debug("Deserialization fails: %s . Drop the error message" format ex)
+          metrics.deserializationError.inc
+          None
+        }
+      }
+
+      if (!messageEnvelope.isEmpty) {
+        buffer.update(messageEnvelope.get)
+      }
 
       debug("Got message for: %s, %s" format (systemStreamPartition, envelope))
 

@@ -24,6 +24,9 @@ import org.apache.samza.Partition
 import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.system.chooser.MessageChooser
+import org.apache.samza.system.chooser.DefaultChooser
+import org.apache.samza.util.BlockingEnvelopeMap
+import org.apache.samza.serializers._
 
 class TestSystemConsumers {
   @Test
@@ -68,7 +71,7 @@ class TestSystemConsumers {
     var started = 0
     var stopped = 0
     var registered = Map[SystemStreamPartition, String]()
-    
+
     val consumer = Map(system -> new SystemConsumer {
       def start {}
       def stop {}
@@ -82,15 +85,76 @@ class TestSystemConsumers {
       def stop = stopped += 1
       def register(systemStreamPartition: SystemStreamPartition, offset: String) = registered += systemStreamPartition -> offset
     }, consumer, null)
-     
+
     // it should throw a SystemConsumersException because system2 does not have a consumer
     var caughtRightException = false
     try {
-    	consumers.register(systemStreamPartition2, "0")
+      consumers.register(systemStreamPartition2, "0")
     } catch {
-    	case e: SystemConsumersException => caughtRightException = true
-    	case _: Throwable => caughtRightException = false
+      case e: SystemConsumersException => caughtRightException = true
+      case _: Throwable => caughtRightException = false
     }
     assertTrue("suppose to throw SystemConsumersException, but apparently it did not", caughtRightException)
+  }
+
+  @Test
+  def testDroppingMsgOrThrowExceptionWhenSerdeFails() {
+    val system = "test-system"
+    val systemStreamPartition = new SystemStreamPartition(system, "some-stream", new Partition(1))
+    val msgChooser = new DefaultChooser
+    val consumer = Map(system -> new SimpleConsumer)
+    val systemMessageSerdes = Map(system -> (new StringSerde("UTF-8")).asInstanceOf[Serde[Object]]);
+    val serdeManager = new SerdeManager(systemMessageSerdes = systemMessageSerdes)
+
+    // it should throw exceptions when the deserialization has error
+    val consumers = new SystemConsumers(msgChooser, consumer, serdeManager, dropDeserializationError = false)
+    consumers.register(systemStreamPartition, "0")
+    consumers.start
+    consumer(system).putBytesMessage
+    consumer(system).putStringMessage
+
+    var caughtRightException = false
+    try {
+      consumers.choose
+    } catch {
+      case e: SystemConsumersException => caughtRightException = true
+      case _: Throwable => caughtRightException = false
+    }
+    assertTrue("suppose to throw SystemConsumersException", caughtRightException);
+    consumers.stop
+
+    // it should not throw exceptions when deserializaion fails if dropDeserializationError is set to true
+    val consumers2 = new SystemConsumers(msgChooser, consumer, serdeManager, dropDeserializationError = true)
+    consumers2.register(systemStreamPartition, "0")
+    consumers2.start
+    consumer(system).putBytesMessage
+    consumer(system).putStringMessage
+
+    var notThrowException = true;
+    try {
+      consumers2.choose
+    } catch {
+      case e: Throwable => notThrowException = false
+    }
+
+    assertTrue("it should not throw any exception", notThrowException)
+    consumers2.stop
+  }
+
+  /**
+   * a simple consumer that provides two extra methods, one is to put bytes format message
+   * and the other to put string format message
+   */
+  private class SimpleConsumer extends BlockingEnvelopeMap {
+    val systemStreamPartition = new SystemStreamPartition("test-system", "some-stream", new Partition(1))
+    def putBytesMessage {
+      put(systemStreamPartition, new IncomingMessageEnvelope(systemStreamPartition, "0", "0", "test".getBytes()))
+    }
+    def putStringMessage {
+      put(systemStreamPartition, new IncomingMessageEnvelope(systemStreamPartition, "0", "1", "test"))
+    }
+    def start {}
+    def stop {}
+    def register { super.register(systemStreamPartition, "0") }
   }
 }

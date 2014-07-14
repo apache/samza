@@ -33,6 +33,8 @@ object TaskConfig {
   val LIFECYCLE_LISTENER = "task.lifecycle.listener.%s.class" // task.lifecycle.listener.li-generator.class
   val CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory" // class name to use when sending offset checkpoints
   val MESSAGE_CHOOSER_CLASS_NAME = "task.chooser.class"
+  val DROP_DESERIALIZATION_ERROR = "task.drop.deserialization.errors" // define whether drop the messages or not when deserialization fails
+  val DROP_SERIALIZATION_ERROR = "task.drop.serialization.errors" // define whether drop the messages or not when serialization fails
 
   implicit def Config2Task(config: Config) = new TaskConfig(config)
 }
@@ -70,4 +72,8 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) {
   def getCheckpointManagerFactory() = getOption(TaskConfig.CHECKPOINT_MANAGER_FACTORY)
 
   def getMessageChooserClass = getOption(TaskConfig.MESSAGE_CHOOSER_CLASS_NAME)
+
+  def getDropDeserialization = getOption(TaskConfig.DROP_DESERIALIZATION_ERROR)
+
+  def getDropSerialization = getOption(TaskConfig.DROP_SERIALIZATION_ERROR)
 }

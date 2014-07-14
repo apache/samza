@@ -357,6 +357,26 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="task-drop-deserialization-errors">task.drop.deserialization.errors</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This property is to define how the system deals with deserialization failure situation. If set to true, the system will
+                        skip the error messages and keep running. If set to false, the system with throw exceptions and fail the container. Default 
+                        is false.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="task-drop-serialization-errors">task.drop.serialization.errors</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This property is to define how the system deals with serialization failure situation. If set to true, the system will
+                        drop the error messages and keep running. If set to false, the system with throw exceptions and fail the container. Default 
+                        is false.
+                    </td>
+                </tr>
+
+                <tr>
                     <th colspan="3" class="section" id="streams"><a href="../container/streams.html">Systems (input and output streams)</a></th>
                 </tr>
 
