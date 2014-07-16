@@ -72,6 +72,7 @@
         <include>org.slf4j:slf4j-log4j12</include>
         <include>samza:samza-wikipedia</include>
         <include>org.apache.kafka:kafka_2.10</include>
+        <include>org.apache.hadoop:hadoop-hdfs</include>
       </includes>
       <useTransitiveFiltering>true</useTransitiveFiltering>
     </dependencySet>
