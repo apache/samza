@@ -65,13 +65,37 @@ import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.system.StreamMetadataCache
 
 object SamzaContainer extends Logging {
+
+  /**
+   * Get the decompressed parameter value for the given parameter (if necessary)
+   * @param param The parameter which is to be decompressed (if necessary)
+   * @return A valid parameter value
+   */
+  def getParameter(param: String, isCompressed: Boolean) : String = {
+    if (isCompressed) {
+      info("Compression is ON !")
+      val decomressedParam = Util.decompress(param)
+      info("Got param = " + decomressedParam)
+      decomressedParam
+    } else {
+      info("Parameter is uncompressed. Using it as-is")
+      param
+    }
+  }
+
   def main(args: Array[String]) {
     val jmxServer = new JmxServer
     val containerName = System.getenv(ShellCommandConfig.ENV_CONTAINER_NAME)
-    val configStr = System.getenv(ShellCommandConfig.ENV_CONFIG)
-    val config = JsonConfigSerializer.fromJson(configStr)
-    val encodedStreamsAndPartitions = System.getenv(ShellCommandConfig.ENV_SYSTEM_STREAMS)
 
+    /**
+     * If the compressed option is enabled in config, de-compress the 'ENV_CONFIG' and 'ENV_SYSTEM_STREAMS'
+     * properties. Note: This is a temporary workaround to reduce the size of the config and hence size
+     * of the environment variable(s) exported while starting a Samza container (SAMZA-337)
+     */
+    val isCompressed = if (System.getenv(ShellCommandConfig.ENV_COMPRESS_CONFIG).equals("TRUE")) true else false
+    val configStr = getParameter(System.getenv(ShellCommandConfig.ENV_CONFIG), isCompressed)
+    val config = JsonConfigSerializer.fromJson(configStr)
+    val encodedStreamsAndPartitions = getParameter(System.getenv(ShellCommandConfig.ENV_SYSTEM_STREAMS), isCompressed)
     val partitions = Util.deserializeSSPSetFromJSON(encodedStreamsAndPartitions)
 
     if (partitions.isEmpty) {

@@ -29,7 +29,11 @@ import org.apache.samza.system.SystemFactory
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.config.Config
 
+import scala.util.Random
+
 class TestUtil {
+  val random = new Random(System.currentTimeMillis())
+
   @Test
   def testGetInputStreamPartitions {
     val expectedPartitionsPerStream = 1
@@ -93,6 +97,26 @@ class TestUtil {
 
     val backToStreamsAndParts = deserializeSSPSetFromJSON(asString)
     assertEquals(streamsAndParts, backToStreamsAndParts)
+  }
+
+  /**
+   * Generate a random alphanumeric string of the specified length
+   * @param length Specifies length of the string to generate
+   * @return An alphanumeric string
+   */
+  def generateString (length : Int) : String = {
+    random.alphanumeric.take(length).mkString
+  }
+
+  @Test
+  def testCompressAndDecompressUtility() {
+    var len : Integer = 0
+    (10 until 1000).foreach(len => {
+      val sample = generateString(len)
+      val compressedStr = Util.compress(sample)
+      val deCompressedStr = Util.decompress(compressedStr)
+      assertEquals(sample, deCompressedStr)
+    })
   }
 }
 

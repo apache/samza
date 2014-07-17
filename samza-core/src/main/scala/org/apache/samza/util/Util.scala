@@ -19,10 +19,12 @@
 
 package org.apache.samza.util
 
-import java.io.File
+import java.io._
 import java.lang.management.ManagementFactory
 import java.util.Random
+import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 import grizzled.slf4j.Logging
+import org.apache.commons.codec.binary.Base64
 import org.apache.samza.{ Partition, SamzaException }
 import org.apache.samza.config.Config
 import org.apache.samza.config.SystemConfig.Config2System
@@ -179,5 +181,40 @@ object Util extends Logging {
    */
   def getContainerPID(): String = {
     ManagementFactory.getRuntimeMXBean().getName()
+  }
+
+  /**
+   * Returns a compressed + base64 encoded representation of the given string
+   * @param origStr Original string to be processed
+   * @return A processed string after compression (gzip) and encoding (base64)
+   */
+  def compress(origStr: String): String = {
+    val bos = new ByteArrayOutputStream()
+    val gzos = new GZIPOutputStream(bos)
+    gzos.write(origStr.getBytes())
+    gzos.close()
+    val compressedStr = Base64.encodeBase64String(bos.toByteArray)
+    bos.close()
+    compressedStr
+  }
+
+  /**
+   * Returns the original string from the given compressed string. This function assumes
+   * that the given string is compressed + base64 encode (using the above compress function).
+   * 
+   * @param compresedStr Specified string to decompress
+   * @return Original string after decoding (base64) and uncompressing (gzip)
+   */
+  def decompress(compresedStr: String) : String = {
+    val rawBytes = Base64.decodeBase64(compresedStr)
+    val gzis = new GZIPInputStream(new ByteArrayInputStream(rawBytes))
+    val br = new BufferedReader(new InputStreamReader(gzis))
+    val builder = new StringBuilder
+    var line = br.readLine()
+    while (line != null) {
+      builder.append(line)
+      line = br.readLine()
+    }
+    builder.toString()
   }
 }
