@@ -74,7 +74,7 @@ class TestPerformanceTask extends StreamTask with InitableTask with Logging {
   /**
    * How many messages to process before shutting down.
    */
-  var maxMessages = 100000
+  var maxMessages = 10000000
 
   /**
    * If defined, incoming messages will be forwarded to this SystemStream. If
@@ -84,7 +84,7 @@ class TestPerformanceTask extends StreamTask with InitableTask with Logging {
 
   def init(config: Config, context: TaskContext) {
     logInterval = config.getInt("task.log.interval", 10000)
-    maxMessages = config.getInt("task.max.messages", 100000)
+    maxMessages = config.getInt("task.max.messages", 10000000)
     outputSystemStream = Option(config.get("task.outputs", null)).map(Util.getSystemStreamFromNames(_))
   }
 

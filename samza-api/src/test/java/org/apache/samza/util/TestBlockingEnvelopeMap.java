@@ -19,26 +19,29 @@
 
 package org.apache.samza.util;
 
-import static org.junit.Assert.*;
-import java.util.HashMap;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import org.junit.Test;
 import org.apache.samza.Partition;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
+import org.junit.Test;
 
 public class TestBlockingEnvelopeMap {
   private static final SystemStreamPartition SSP = new SystemStreamPartition("test", "test", new Partition(0));
   private static final IncomingMessageEnvelope envelope = new IncomingMessageEnvelope(SSP, null, null, null);
-  private static final Map<SystemStreamPartition, Integer> FETCH = new HashMap<SystemStreamPartition, Integer>();
+  private static final Set<SystemStreamPartition> FETCH = new HashSet<SystemStreamPartition>();
 
   static {
-    FETCH.put(SSP, 10);
+    FETCH.add(SSP);
   }
 
   @Test
@@ -65,33 +68,14 @@ public class TestBlockingEnvelopeMap {
     BlockingEnvelopeMap map = new MockBlockingEnvelopeMap();
     map.register(SSP, "0");
     map.put(SSP, envelope);
-    List<IncomingMessageEnvelope> envelopes = map.poll(FETCH, 0);
+    Map<SystemStreamPartition, List<IncomingMessageEnvelope>> envelopes = map.poll(FETCH, 0);
     assertEquals(1, envelopes.size());
+    assertEquals(1, envelopes.get(SSP).size());
     map.put(SSP, envelope);
     map.put(SSP, envelope);
     envelopes = map.poll(FETCH, 0);
-    assertEquals(2, envelopes.size());
-  }
-
-  @Test
-  public void testShouldNotReturnMoreEnvelopesThanAllowed() throws InterruptedException {
-    BlockingEnvelopeMap map = new MockBlockingEnvelopeMap();
-    int maxMessages = FETCH.get(SSP);
-
-    map.register(SSP, "0");
-
-    for (int i = 0; i < 3 * maxMessages; ++i) {
-      map.put(SSP, envelope);
-    }
-
-    assertEquals(3 * maxMessages, map.getNumMessagesInQueue(SSP));
-    assertEquals(maxMessages, map.poll(FETCH, 0).size());
-    assertEquals(2 * maxMessages, map.getNumMessagesInQueue(SSP));
-    assertEquals(maxMessages, map.poll(FETCH, 30).size());
-    assertEquals(maxMessages, map.getNumMessagesInQueue(SSP));
-    assertEquals(maxMessages, map.poll(FETCH, 0).size());
-    assertEquals(0, map.getNumMessagesInQueue(SSP));
-    assertEquals(0, map.poll(FETCH, 0).size());
+    assertEquals(1, envelopes.size());
+    assertEquals(2, envelopes.get(SSP).size());
   }
 
   @Test

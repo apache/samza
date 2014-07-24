@@ -20,13 +20,21 @@
 package org.apache.samza.system
 
 import scala.collection.JavaConversions._
-import scala.collection.mutable.Queue
 import org.apache.samza.serializers.SerdeManager
 import grizzled.slf4j.Logging
 import org.apache.samza.system.chooser.MessageChooser
-import org.apache.samza.util.DoublingBackOff
-import org.apache.samza.system.chooser.BufferingMessageChooser
 import org.apache.samza.SamzaException
+import java.util.HashMap
+import java.util.ArrayDeque
+import java.util.Queue
+import java.util.Set
+import java.util.HashSet
+
+object SystemConsumers {
+  val DEFAULT_POLL_INTERVAL_MS = 50
+  val DEFAULT_NO_NEW_MESSAGES_TIMEOUT = 10
+  val DEFAULT_DROP_SERIALIZATION_ERROR = false
+}
 
 /**
  * The SystemConsumers class coordinates between all SystemConsumers, the
@@ -59,98 +67,100 @@ class SystemConsumers(
   metrics: SystemConsumersMetrics = new SystemConsumersMetrics,
 
   /**
-   * The maximum number of messages to poll from a single SystemStreamPartition.
-   */
-  maxMsgsPerStreamPartition: Int = 10000,
-
-  /**
    * If MessageChooser returns null when it's polled, SystemConsumers will
    * poll each SystemConsumer with a timeout next time it tries to poll for
    * messages. Setting the timeout to 0 means that SamzaContainer's main
    * thread will sit in a tight loop polling every SystemConsumer over and
    * over again if no new messages are available.
    */
-  noNewMessagesTimeout: Long = 10,
+  noNewMessagesTimeout: Int = SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
 
   /**
-   * This parameter is to define how to deal with deserialization failure. If set to true,
-   * the task will skip the messages when deserialization fails. If set to false, the task
-   * will throw SamzaException and fail the container.
+   * This parameter is to define how to deal with deserialization failure. If
+   * set to true, the task will skip the messages when deserialization fails.
+   * If set to false, the task will throw SamzaException and fail the container.
    */
-  dropDeserializationError: Boolean = false) extends Logging {
+  dropDeserializationError: Boolean = SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
 
   /**
-   * The buffer where SystemConsumers stores all incoming message envelopes.
-   */
-  val buffer = new BufferingMessageChooser(chooser)
-
-  /**
-   * A map of every SystemStreamPartition that SystemConsumers is responsible
-   * for polling. The values are how many messages to poll for during the next
-   * SystemConsumers.poll call.
+   * <p>Defines an upper bound for how long the SystemConsumers will wait
+   * before polling systems for more data. The default setting is 50ms, which
+   * means that SystemConsumers will poll for new messages for all
+   * SystemStreamPartitions with empty buffers every 50ms. SystemConsumers
+   * will also poll for new messages any time that there are no available
+   * messages to process, or any time the MessageChooser returns a null
+   * IncomingMessageEnvelope.</p>
    *
-   * If the value for a SystemStreamPartition is maxMsgsPerStreamPartition,
-   * then the implication is that SystemConsumers has no incoming messages in
-   * its buffer for the SystemStreamPartition. If the value is 0 then the
-   * SystemConsumers' buffer is full for the SystemStreamPartition.
+   * <p>This parameter also implicitly defines how much latency is introduced
+   * by SystemConsumers. If a message is available for a SystemStreamPartition
+   * with no remaining unprocessed messages, the SystemConsumers will poll for
+   * it within 50ms of its availability in the stream system.</p>
    */
-  var fetchMap = Map[SystemStreamPartition, java.lang.Integer]()
+  pollIntervalMs: Int = SystemConsumers.DEFAULT_POLL_INTERVAL_MS,
 
   /**
-   * A cache of fetchMap values, grouped according to the system. This is
-   * purely a trick to get better performance out of the SystemConsumsers
-   * class, since the map from systemName to its fetchMap is used for every
-   * poll call.
+   * Clock can be used to inject a custom clock when mocking this class in
+   * tests. The default implementation returns the current system clock time.
    */
-  var systemFetchMapCache = Map[String, Map[SystemStreamPartition, java.lang.Integer]]()
+  clock: () => Long = () => System.currentTimeMillis) extends Logging {
+
+  /**
+   * A buffer of incoming messages grouped by SystemStreamPartition. These
+   * messages are handed out to the MessageChooser as it needs them.
+   */
+  private val unprocessedMessagesBySSP = new HashMap[SystemStreamPartition, Queue[IncomingMessageEnvelope]]()
+
+  /**
+   * A set of SystemStreamPartitions grouped by systemName. This is used as a
+   * cache to figure out which SystemStreamPartitions we need to poll from the
+   * underlying system consumer.
+   */
+  private val emptySystemStreamPartitionsBySystem = new HashMap[String, Set[SystemStreamPartition]]()
 
   /**
    * Default timeout to noNewMessagesTimeout. Every time SystemConsumers
-   * receives incoming messages, it sets timout to 0. Every time
+   * receives incoming messages, it sets timeout to 0. Every time
    * SystemConsumers receives no new incoming messages from the MessageChooser,
    * it sets timeout to noNewMessagesTimeout again.
    */
   var timeout = noNewMessagesTimeout
 
   /**
-   * Make the maximum backoff proportional to the number of streams we're consuming.
-   * For a few streams, make the max back off 1, but for hundreds make it up to 1k,
-   * which experimentally has shown to be the most performant.
+   * The last time that systems were polled for new messages.
    */
-  var maxBackOff = 0
+  var lastPollMs = 0L
 
   /**
-   * How low totalUnprocessedMessages has to get before the consumers are
-   * polled for more data. This is defined to be 10% of
-   * maxMsgsPerStreamPartition. Since maxMsgsPerStreamPartition defaults to
-   * 10000, the default refreshThreshold is 1000.
+   * Total number of unprocessed messages in unprocessedMessagesBySSP.
    */
-  val refreshThreshold = maxMsgsPerStreamPartition * .1
+  var totalUnprocessedMessages = 0
 
   debug("Got stream consumers: %s" format consumers)
-  debug("Got max messages per stream: %s" format maxMsgsPerStreamPartition)
   debug("Got no new message timeout: %s" format noNewMessagesTimeout)
 
-  metrics.setUnprocessedMessages(() => buffer.unprocessedMessages.size)
-  metrics.setNeededByChooser(() => buffer.neededByChooser.size)
   metrics.setTimeout(() => timeout)
-  metrics.setMaxMessagesPerStreamPartition(() => maxMsgsPerStreamPartition)
-  metrics.setNoNewMessagesTimeout(() => noNewMessagesTimeout)
+  metrics.setNeededByChooser(() => emptySystemStreamPartitionsBySystem.size)
+  metrics.setUnprocessedMessages(() => totalUnprocessedMessages)
 
   def start {
     debug("Starting consumers.")
 
-    maxBackOff = scala.math.pow(10, scala.math.log10(fetchMap.size).toInt).toInt
-
-    debug("Got maxBackOff: " + maxBackOff)
+    emptySystemStreamPartitionsBySystem ++= unprocessedMessagesBySSP
+      .keySet
+      .groupBy(_.getSystem)
+      .mapValues(systemStreamPartitions => new HashSet(systemStreamPartitions.toSeq))
 
     consumers
       .keySet
       .foreach(metrics.registerSystem)
 
-    consumers.values.foreach(_.start)
+    consumers
+      .values
+      .foreach(_.start)
 
-    buffer.start
+    chooser.start
+
+    refresh
   }
 
   def stop {
@@ -158,15 +168,14 @@ class SystemConsumers(
 
     consumers.values.foreach(_.stop)
 
-    buffer.stop
+    chooser.stop
   }
 
   def register(systemStreamPartition: SystemStreamPartition, offset: String) {
     debug("Registering stream: %s, %s" format (systemStreamPartition, offset))
-
     metrics.registerSystemStream(systemStreamPartition.getSystemStream)
-    buffer.register(systemStreamPartition, offset)
-    updateFetchMap(systemStreamPartition, maxMsgsPerStreamPartition)
+    unprocessedMessagesBySSP.put(systemStreamPartition, new ArrayDeque[IncomingMessageEnvelope]())
+    chooser.register(systemStreamPartition, offset)
 
     try {
       consumers(systemStreamPartition.getSystem).register(systemStreamPartition, offset)
@@ -175,135 +184,128 @@ class SystemConsumers(
     }
   }
 
-  /**
-   * Needs to be be lazy so that we are sure to get the value of maxBackOff assigned
-   * in start(), rather than its initial value.
-   */
-  lazy val refresh = new DoublingBackOff(maxBackOff) {
-    def call(): Boolean = {
-      debug("Refreshing chooser with new messages.")
-
-      // Poll every system for new messages.
-      consumers.keys.map(poll(_)).contains(true)
-    }
-  }
-
   def choose: IncomingMessageEnvelope = {
-    val envelopeFromChooser = buffer.choose
+    val envelopeFromChooser = chooser.choose
 
     if (envelopeFromChooser == null) {
       debug("Chooser returned null.")
 
       metrics.choseNull.inc
 
-      // Allow blocking if the chooser didn't choose a message.
+      // Sleep for a while so we don't poll in a tight loop.
       timeout = noNewMessagesTimeout
     } else {
+      val systemStreamPartition = envelopeFromChooser.getSystemStreamPartition
+
       debug("Chooser returned an incoming message envelope: %s" format envelopeFromChooser)
 
-      metrics.choseObject.inc
-
-      // Don't block if we have a message to process.
+      // Ok to give the chooser a new message from this stream.
       timeout = 0
-
+      metrics.choseObject.inc
       metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition.getSystemStream).inc
+
+      if (!update(systemStreamPartition)) {
+        emptySystemStreamPartitionsBySystem.get(systemStreamPartition.getSystem).add(systemStreamPartition)
+      }
     }
 
-    // Always refresh if we got nothing from the chooser. Otherwise, just 
-    // refresh when the buffer is low. 
-    if (envelopeFromChooser == null || buffer.totalUnprocessedMessages <= refreshThreshold) {
-      refresh.maybeCall()
+    if (envelopeFromChooser == null || lastPollMs < clock() - pollIntervalMs) {
+      refresh
     }
 
-    updateMessageChooser
     envelopeFromChooser
   }
 
   /**
-   * Poll a system for new messages from SystemStreamPartitions that have
-   * dipped below the depletedQueueSizeThreshold threshold.  Return true if
-   * any envelopes were found, false if none.
+   * Poll all SystemStreamPartitions for which there are currently no new
+   * messages to process.
    */
-  private def poll(systemName: String): Boolean = {
+  private def poll(systemName: String) {
     debug("Polling system consumer: %s" format systemName)
 
     metrics.systemPolls(systemName).inc
 
-    val consumer = consumers(systemName)
-
     debug("Getting fetch map for system: %s" format systemName)
 
-    val systemFetchMap = systemFetchMapCache(systemName)
+    val systemFetchSet = emptySystemStreamPartitionsBySystem.get(systemName)
 
-    debug("Fetching: %s" format systemFetchMap)
+    // Poll when at least one SSP in this system needs more messages.
+    if (systemFetchSet.size > 0) {
+      val consumer = consumers(systemName)
 
-    metrics.systemStreamPartitionFetchesPerPoll(systemName).inc(systemFetchMap.size)
+      debug("Fetching: %s" format systemFetchSet)
 
-    val incomingEnvelopes = consumer.poll(systemFetchMap, timeout)
+      metrics.systemStreamPartitionFetchesPerPoll(systemName).inc(systemFetchSet.size)
 
-    debug("Got incoming message envelopes: %s" format incomingEnvelopes)
+      val systemStreamPartitionEnvelopes = consumer.poll(systemFetchSet, timeout)
 
-    metrics.systemMessagesPerPoll(systemName).inc
+      debug("Got incoming message envelopes: %s" format systemStreamPartitionEnvelopes)
 
-    // We have new un-processed envelopes, so update maps accordingly.
-    incomingEnvelopes.foreach(envelope => {
-      val systemStreamPartition = envelope.getSystemStreamPartition
+      metrics.systemMessagesPerPoll(systemName).inc
 
-      val messageEnvelope = try {
-        Some(serdeManager.fromBytes(envelope))
-      } catch {
-        case e: Exception if !dropDeserializationError => throw new SystemConsumersException("can not deserialize the message", e)
-        case ex: Throwable => {
-          debug("Deserialization fails: %s . Drop the error message" format ex)
-          metrics.deserializationError.inc
-          None
+      val sspAndEnvelopeIterator = systemStreamPartitionEnvelopes.entrySet.iterator
+
+      while (sspAndEnvelopeIterator.hasNext) {
+        val sspAndEnvelope = sspAndEnvelopeIterator.next
+        val systemStreamPartition = sspAndEnvelope.getKey
+        val envelopes = new ArrayDeque(sspAndEnvelope.getValue)
+        val numEnvelopes = envelopes.size
+        totalUnprocessedMessages += numEnvelopes
+
+        if (numEnvelopes > 0) {
+          unprocessedMessagesBySSP.put(systemStreamPartition, envelopes)
+
+          // Update the chooser if it needs a message for this SSP.
+          if (emptySystemStreamPartitionsBySystem.get(systemStreamPartition.getSystem).remove(systemStreamPartition)) {
+            update(systemStreamPartition)
+          }
         }
       }
+    } else {
+      debug("Skipping polling for %s. Already have messages available for all registered SystemStreamPartitions." format (systemName))
+    }
+  }
 
-      if (!messageEnvelope.isEmpty) {
-        buffer.update(messageEnvelope.get)
+  private def refresh {
+    debug("Refreshing chooser with new messages.")
+
+    // Update last poll time so we don't poll too frequently.
+    lastPollMs = clock()
+
+    // Poll every system for new messages.
+    consumers.keys.map(poll(_))
+  }
+
+  /**
+   * Tries to update the message chooser with an envelope from the supplied
+   * SystemStreamPartition if an envelope is available.
+   */
+  private def update(systemStreamPartition: SystemStreamPartition) = {
+    var updated = false
+    val q = unprocessedMessagesBySSP.get(systemStreamPartition)
+
+    while (q.size > 0 && !updated) {
+      val rawEnvelope = q.remove
+      val deserializedEnvelope = try {
+        Some(serdeManager.fromBytes(rawEnvelope))
+      } catch {
+        case e: Exception if !dropDeserializationError =>
+          throw new SystemConsumersException("Cannot deserialize an incoming message.", e)
+        case ex: Exception =>
+          debug("Cannot deserialize an incoming message. Dropping the error message.", ex)
+          metrics.deserializationError.inc
+          None
       }
 
-      debug("Got message for: %s, %s" format (systemStreamPartition, envelope))
+      if (deserializedEnvelope.isDefined) {
+        chooser.update(deserializedEnvelope.get)
+        updated = true
+      }
 
-      updateFetchMap(systemStreamPartition, -1)
-
-      debug("Updated fetch map for: %s, %s" format (systemStreamPartition, fetchMap))
-    })
-
-    !incomingEnvelopes.isEmpty
-  }
-
-  /**
-   * A helper method that updates both fetchMap and systemFetchMapCache
-   * simultaneously. This is a convenience method to make sure that the
-   * systemFetchMapCache stays in sync with fetchMap.
-   */
-  private def updateFetchMap(systemStreamPartition: SystemStreamPartition, amount: Int = 1) {
-    val fetchSize = fetchMap.getOrElse(systemStreamPartition, java.lang.Integer.valueOf(0)).intValue + amount
-    val systemName = systemStreamPartition.getSystem
-    var systemFetchMap = systemFetchMapCache.getOrElse(systemName, Map())
-
-    if (fetchSize >= refreshThreshold) {
-      systemFetchMap += systemStreamPartition -> fetchSize
-    } else {
-      systemFetchMap -= systemStreamPartition
+      totalUnprocessedMessages -= 1
     }
 
-    fetchMap += systemStreamPartition -> fetchSize
-    systemFetchMapCache += systemName -> systemFetchMap
-  }
-
-  /**
-   * A helper method that updates MessageChooser. This should be called in
-   * "choose" method after we try to consume a message from MessageChooser.
-   */
-  private def updateMessageChooser {
-    buffer
-      .flush
-      // Let the fetchMap know of any SSPs that were given to the chooser, so 
-      // a new fetch can be triggered if the buffer is low.
-      .foreach(updateFetchMap(_))
+    updated
   }
 }
 

@@ -75,7 +75,7 @@ class TestSamzaContainerPerformance extends Logging{
   val partitionsPerStreamCount = System.getProperty("samza.mock.partitions.per.stream", "4").toInt
   val brokerSleepMs = System.getProperty("samza.mock.broker.sleep.ms", "1").toInt
   var logInterval = System.getProperty("samza.task.log.interval", "10000").toInt
-  var maxMessages = System.getProperty("samza.task.max.messages", "100000").toInt
+  var maxMessages = System.getProperty("samza.task.max.messages", "10000000").toInt
 
   val jobConfig = Map(
     "job.factory.class" -> "org.apache.samza.job.local.LocalJobFactory",

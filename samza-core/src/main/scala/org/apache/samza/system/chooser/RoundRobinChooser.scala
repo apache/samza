@@ -26,7 +26,6 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.ReadableMetricsRegistry
-
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsHelper
 
@@ -42,13 +41,6 @@ import org.apache.samza.metrics.MetricsHelper
 class RoundRobinChooser(metrics: RoundRobinChooserMetrics = new RoundRobinChooserMetrics) extends BaseMessageChooser {
 
   /**
-   * SystemStreamPartitions that the chooser has received a message for, but
-   * have not yet returned. Envelopes for these SystemStreamPartitions should
-   * be in the queue.
-   */
-  var inflightSystemStreamPartitions = Set[SystemStreamPartition]()
-
-  /**
    * Queue of potential messages to process. Round robin will always choose
    * the message at the head of the queue. A queue can be used to implement
    * round robin here because we only get one envelope per
@@ -61,28 +53,11 @@ class RoundRobinChooser(metrics: RoundRobinChooserMetrics = new RoundRobinChoose
   }
 
   def update(envelope: IncomingMessageEnvelope) = {
-    if (inflightSystemStreamPartitions.contains(envelope.getSystemStreamPartition)) {
-      throw new SamzaException("Received more than one envelope from the same "
-        + "SystemStreamPartition without returning the last. This is a "
-        + "violation of the contract with SystemConsumers, and breaks this "
-        + "RoundRobin implementation.")
-    }
-
     q.add(envelope)
-    inflightSystemStreamPartitions += envelope.getSystemStreamPartition
   }
 
-  def choose = {
-    val envelope = q.poll
-
-    if (envelope != null) {
-      inflightSystemStreamPartitions -= envelope.getSystemStreamPartition
-    }
-
-    envelope
-  }
+  def choose = q.poll
 }
-
 
 class RoundRobinChooserMetrics(val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
   def setBufferedMessages(getValue: () => Int) {

@@ -33,10 +33,6 @@ class SystemConsumersMetrics(val registry: MetricsRegistry = new MetricsRegistry
   val systemMessagesPerPoll = scala.collection.mutable.Map[String, Counter]()
   val systemStreamMessagesChosen = scala.collection.mutable.Map[SystemStream, Counter]()
 
-  def setUnprocessedMessages(getValue: () => Int) {
-    newGauge("unprocessed-messages", getValue)
-  }
-
   def setNeededByChooser(getValue: () => Int) {
     newGauge("ssps-needed-by-chooser", getValue)
   }
@@ -45,12 +41,8 @@ class SystemConsumersMetrics(val registry: MetricsRegistry = new MetricsRegistry
     newGauge("poll-timeout", getValue)
   }
 
-  def setMaxMessagesPerStreamPartition(getValue: () => Int) {
-    newGauge("max-buffered-messages-per-stream-partition", getValue)
-  }
-
-  def setNoNewMessagesTimeout(getValue: () => Long) {
-    newGauge("blocking-poll-timeout", getValue)
+  def setUnprocessedMessages(getValue: () => Int) {
+    newGauge("unprocessed-messages", getValue)
   }
 
   def registerSystem(systemName: String) {

@@ -36,6 +36,23 @@ object TaskConfig {
   val DROP_DESERIALIZATION_ERROR = "task.drop.deserialization.errors" // define whether drop the messages or not when deserialization fails
   val DROP_SERIALIZATION_ERROR = "task.drop.serialization.errors" // define whether drop the messages or not when serialization fails
 
+  /**
+   * Samza's container polls for more messages under two conditions. The first
+   * condition arises when there are simply no remaining buffered messages to
+   * process for any input SystemStreamPartition. The second condition arises
+   * when some input SystemStreamPartitions have empty buffers, but some do
+   * not. In the latter case, a polling interval is defined to determine how
+   * often to refresh the empty SystemStreamPartition buffers. By default,
+   * this interval is 50ms, which means that any empty SystemStreamPartition
+   * buffer will be refreshed at least every 50ms. A higher value here means
+   * that empty SystemStreamPartitions will be refreshed less often, which
+   * means more latency is introduced, but less CPU and network will be used.
+   * Decreasing this value means that empty SystemStreamPartitions are
+   * refreshed more frequently, thereby introducing less latency, but
+   * increasing CPU and network utilization.
+   */
+  val POLL_INTERVAL_MS = "task.poll.interval.ms"
+
   implicit def Config2Task(config: Config) = new TaskConfig(config)
 }
 
@@ -76,4 +93,6 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) {
   def getDropDeserialization = getOption(TaskConfig.DROP_DESERIALIZATION_ERROR)
 
   def getDropSerialization = getOption(TaskConfig.DROP_SERIALIZATION_ERROR)
+
+  def getPollIntervalMs = getOption(TaskConfig.POLL_INTERVAL_MS)
 }

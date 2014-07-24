@@ -24,13 +24,15 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-
-import org.junit.Test;
+import java.util.Queue;
+import java.util.Set;
 
 import org.apache.samza.Partition;
+import org.junit.Test;
 
 public class TestSystemStreamPartitionIterator {
   private static final SystemStreamPartition SSP = new SystemStreamPartition("test", "test", new Partition(0));
@@ -105,14 +107,20 @@ public class TestSystemStreamPartitionIterator {
     }
 
     @Override
-    public List<IncomingMessageEnvelope> poll(Map<SystemStreamPartition, Integer> systemStreamPartitions, long timeout) {
-      List<IncomingMessageEnvelope> list = new ArrayList<IncomingMessageEnvelope>();
+    public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Set<SystemStreamPartition> systemStreamPartitions, long timeout) {
+      Map<SystemStreamPartition, List<IncomingMessageEnvelope>> systemStreamPartitionEnvelopes = new HashMap<SystemStreamPartition, List<IncomingMessageEnvelope>>();
 
-      if (numPollReturnsWithMessages-- > 0) {
-        list.add(new IncomingMessageEnvelope(SSP, "", null, numPollReturnsWithMessages));
+      for (SystemStreamPartition systemStreamPartition : systemStreamPartitions) {
+        List<IncomingMessageEnvelope> q = new ArrayList<IncomingMessageEnvelope>();
+
+        if (numPollReturnsWithMessages-- > 0) {
+          q.add(new IncomingMessageEnvelope(SSP, "", null, numPollReturnsWithMessages));
+        }
+
+        systemStreamPartitionEnvelopes.put(systemStreamPartition, q);
       }
 
-      return list;
+      return systemStreamPartitionEnvelopes;
     }
   }
 }

@@ -21,6 +21,7 @@ package org.apache.samza.system;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * <p>
@@ -137,35 +138,39 @@ public interface SystemConsumer {
    * Poll the SystemConsumer to get any available messages from the underlying
    * system.
    * 
-   * <p>If the underlying implementation does not take care to adhere to the
+   * <p>
+   * If the underlying implementation does not take care to adhere to the
    * timeout parameter, the SamzaContainer's performance will suffer
    * drastically. Specifically, if poll blocks when it's not supposed to, it
    * will block the entire main thread in SamzaContainer, and no messages will
    * be processed while blocking is occurring.
+   * </p>
    * 
    * @param systemStreamPartitions
-   *          A map from SystemStreamPartition to maximum number of messages to
-   *          return for the SystemStreamPartition. Polling with {stream1: 100,
-   *          stream2: 1000} tells the SystemConsumer that it can return between
-   *          0 and 100 messages (inclusive) for stream1, and between 0 and 1000
-   *          messages for stream2. If SystemConsumer has messages available for
-   *          other registered SystemStreamPartitions, but they are not in the
-   *          systemStreamPartitions map in a given poll invocation, they can't
+   *          A set of SystemStreamPartition to poll for new messages. If
+   *          SystemConsumer has messages available for other registered
+   *          SystemStreamPartitions, but they are not in the
+   *          systemStreamPartitions set in a given poll invocation, they can't
    *          be returned. It is illegal to pass in SystemStreamPartitions that
    *          have not been registered with the SystemConsumer first.
    * @param timeout
    *          If timeout < 0, poll will block unless all SystemStreamPartition
    *          are at "head" (the underlying system has been checked, and
-   *          returned an empty set). If at head, an empty list is returned. If
+   *          returned an empty set). If at head, an empty map is returned. If
    *          timeout >= 0, poll will return any messages that are currently
    *          available for any of the SystemStreamPartitions specified. If no
    *          new messages are available, it will wait up to timeout
    *          milliseconds for messages from any SystemStreamPartition to become
-   *          available. It will return an empty list if the timeout is hit, and
+   *          available. It will return an empty map if the timeout is hit, and
    *          no new messages are available.
-   * @return A list of zero or more IncomingMessageEnvelopes for the
-   *         SystemStreamPartitions that were supplied during the invocation.
+   * @return A map from SystemStreamPartitions to any available
+   *         IncomingMessageEnvelopes for the SystemStreamPartitions. If no
+   *         messages are available for a SystemStreamPartition that was
+   *         supplied in the polling set, the map will not contain a key for the
+   *         SystemStreamPartition. Will return an empty map, not null, if no
+   *         new messages are available for any SystemStreamPartitions in the
+   *         input set.
    * @throws InterruptedException
    */
-  List<IncomingMessageEnvelope> poll(Map<SystemStreamPartition, Integer> systemStreamPartitions, long timeout) throws InterruptedException;
+  Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Set<SystemStreamPartition> systemStreamPartitions, long timeout) throws InterruptedException;
 }

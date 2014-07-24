@@ -306,23 +306,28 @@ object SamzaContainer extends Logging {
 
     info("Got offset manager: %s" format offsetManager)
 
-    val dropDeserializationError: Boolean = config.getDropDeserialization match {
+    val dropDeserializationError = config.getDropDeserialization match {
       case Some(dropError) => dropError.toBoolean
       case _ => false
     }
 
-    val dropSerializationError: Boolean = config.getDropSerialization match {
+    val dropSerializationError = config.getDropSerialization match {
       case Some(dropError) => dropError.toBoolean
       case _ => false
     }
+
+    val pollIntervalMs = config
+      .getPollIntervalMs
+      .getOrElse(SystemConsumers.DEFAULT_POLL_INTERVAL_MS.toString)
+      .toInt
 
     val consumerMultiplexer = new SystemConsumers(
-      // TODO add config values for no new message timeout and max msgs per stream partition
       chooser = chooser,
       consumers = consumers,
       serdeManager = serdeManager,
       metrics = systemConsumersMetrics,
-      dropDeserializationError = dropDeserializationError)
+      dropDeserializationError = dropDeserializationError,
+      pollIntervalMs = pollIntervalMs)
 
     val producerMultiplexer = new SystemProducers(
       producers = producers,

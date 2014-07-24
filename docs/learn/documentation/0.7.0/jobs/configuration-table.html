@@ -377,6 +377,21 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="task-poll-interval-ms">task.poll.interval.ms</td>
+                    <td class="default"></td>
+                    <td class="description">
+                      Samza's container polls for more messages under two conditions. The first condition arises when there are simply no remaining 
+                      buffered messages to process for any input SystemStreamPartition. The second condition arises when some input 
+                      SystemStreamPartitions have empty buffers, but some do not. In the latter case, a polling interval is defined to determine how
+                      often to refresh the empty SystemStreamPartition buffers. By default, this interval is 50ms, which means that any empty 
+                      SystemStreamPartition buffer will be refreshed at least every 50ms. A higher value here means that empty SystemStreamPartitions 
+                      will be refreshed less often, which means more latency is introduced, but less CPU and network will be used. Decreasing this 
+                      value means that empty SystemStreamPartitions are refreshed more frequently, thereby introducing less latency, but increasing 
+                      CPU and network utilization.
+                    </td>
+                </tr>
+
+                <tr>
                     <th colspan="3" class="section" id="streams"><a href="../container/streams.html">Systems (input and output streams)</a></th>
                 </tr>
 

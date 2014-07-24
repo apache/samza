@@ -88,39 +88,42 @@ class TestFileReaderSystemConsumer {
     consumer.start
     Thread.sleep(500)
 
-    val number: Integer = 1000
-    val ssp1Number: java.util.Map[SystemStreamPartition, Integer] = HashMap(ssp1 -> number)
-    val ssp2Number: java.util.Map[SystemStreamPartition, Integer] = HashMap(ssp2 -> number)
-    val ssp3Number: java.util.Map[SystemStreamPartition, Integer] = HashMap(ssp3 -> number)
-    val ssp4Number: java.util.Map[SystemStreamPartition, Integer] = HashMap(ssp4 -> number)
-    val ssp5Number: java.util.Map[SystemStreamPartition, Integer] = HashMap(ssp5 -> number)
-
-    val ssp1Result = consumer.poll(ssp1Number, 1000)
-    val ssp2Result = consumer.poll(ssp2Number, 1000)
-    val ssp3Result = consumer.poll(ssp3Number, 1000)
-    val ssp4Result = consumer.poll(ssp4Number, 1000)
+    val ssp1Result = consumer.poll(Set(ssp1), 1000)
+    val ssp2Result = consumer.poll(Set(ssp2), 1000)
+    val ssp3Result = consumer.poll(Set(ssp3), 1000)
+    val ssp4Result = consumer.poll(Set(ssp4), 1000)
 
     assertEquals(0, ssp1Result.size)
     assertEquals(0, ssp2Result.size)
 
     assertEquals(1, ssp3Result.size)
-    assertEquals("first line ", ssp3Result(0).getMessage)
-    assertEquals("0", ssp3Result(0).getOffset)
+    assertEquals(1, ssp3Result.get(ssp3).size)
+    var envelope = ssp3Result.get(ssp3).remove(0)
+    assertEquals("first line ", envelope.getMessage)
+    assertEquals("0", envelope.getOffset)
 
     assertEquals(1, ssp4Result.size)
-    assertEquals("second line ", ssp4Result(0).getMessage)
-    assertEquals("12", ssp4Result(0).getOffset)
+    assertEquals(1, ssp4Result.get(ssp4).size)
+    envelope = ssp4Result.get(ssp4).remove(0)
+    assertEquals("second line ", envelope.getMessage)
+    assertEquals("12", envelope.getOffset)
 
     appendFile
     Thread.sleep(1000)
 
     // ssp5 should read the new lines
-    val ssp5Result = consumer.poll(ssp5Number, 1000)
-    assertEquals(3, ssp5Result.size)
-    assertEquals("This is a new line", ssp5Result(2).getMessage)
-    assertEquals("50", ssp5Result(2).getOffset)
-    assertEquals("other lines ", ssp5Result(1).getMessage)
-    assertEquals("37", ssp5Result(1).getOffset)
+    val ssp5Result = consumer.poll(Set(ssp5), 1000)
+    assertEquals(1, ssp5Result.size)
+    assertEquals(3, ssp5Result.get(ssp5).size)
+    envelope = ssp5Result.get(ssp5).remove(0)
+    assertEquals("third line ", envelope.getMessage)
+    assertEquals("25", envelope.getOffset)
+    envelope = ssp5Result.get(ssp5).remove(0)
+    assertEquals("other lines ", envelope.getMessage)
+    assertEquals("37", envelope.getOffset)
+    envelope = ssp5Result.get(ssp5).remove(0)
+    assertEquals("This is a new line", envelope.getMessage)
+    assertEquals("50", envelope.getOffset)
 
     consumer.stop
   }

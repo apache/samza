@@ -20,13 +20,16 @@
 package org.apache.samza.util;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -39,8 +42,8 @@ import org.apache.samza.system.SystemStreamPartition;
  * BlockingEnvelopeMap is a helper class for SystemConsumer implementations.
  * Samza's poll() requirements make implementing SystemConsumers somewhat
  * tricky. BlockingEnvelopeMap is provided to help other developers write
- * SystemConsumers. The intended audience is not those writing Samza jobs,
- * but rather those extending Samza to consume from new types of stream providers
+ * SystemConsumers. The intended audience is not those writing Samza jobs, but
+ * rather those extending Samza to consume from new types of stream providers
  * and other systems.
  * </p>
  * 
@@ -97,55 +100,48 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
     return new LinkedBlockingQueue<IncomingMessageEnvelope>();
   }
 
-  public List<IncomingMessageEnvelope> poll(Map<SystemStreamPartition, Integer> systemStreamPartitionAndMaxPerStream, long timeout) throws InterruptedException {
+  public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Set<SystemStreamPartition> systemStreamPartitions, long timeout) throws InterruptedException {
     long stopTime = clock.currentTimeMillis() + timeout;
-    List<IncomingMessageEnvelope> messagesToReturn = new ArrayList<IncomingMessageEnvelope>();
+    Map<SystemStreamPartition, List<IncomingMessageEnvelope>> messagesToReturn = new HashMap<SystemStreamPartition, List<IncomingMessageEnvelope>>();
 
     metrics.incPoll();
 
-    for (Map.Entry<SystemStreamPartition, Integer> systemStreamPartitionAndMaxCount : systemStreamPartitionAndMaxPerStream.entrySet()) {
-      SystemStreamPartition systemStreamPartition = systemStreamPartitionAndMaxCount.getKey();
-      Integer numMessages = systemStreamPartitionAndMaxCount.getValue();
+    for (SystemStreamPartition systemStreamPartition : systemStreamPartitions) {
       BlockingQueue<IncomingMessageEnvelope> queue = bufferedMessages.get(systemStreamPartition);
-      IncomingMessageEnvelope envelope = null;
-      List<IncomingMessageEnvelope> systemStreamPartitionMessages = new ArrayList<IncomingMessageEnvelope>();
+      List<IncomingMessageEnvelope> outgoingList = new ArrayList<IncomingMessageEnvelope>(queue.size());
 
-      // First, drain all messages up to numMessages without blocking.
-      // Stop when we've filled the request (max numMessages), or when
-      // we get a null envelope back.
-      for (int i = 0; i < numMessages && (i == 0 || envelope != null); ++i) {
-        envelope = queue.poll();
+      if (queue.size() > 0) {
+        queue.drainTo(outgoingList);
+      } else if (timeout != 0) {
+        IncomingMessageEnvelope envelope = null;
 
-        if (envelope != null) {
-          systemStreamPartitionMessages.add(envelope);
-        }
-      }
-
-      // Now block if blocking is allowed and we have no messages.
-      if (systemStreamPartitionMessages.size() == 0) {
         // How long we can legally block (if timeout > 0)
         long timeRemaining = stopTime - clock.currentTimeMillis();
 
         if (timeout == SystemConsumer.BLOCK_ON_OUTSTANDING_MESSAGES) {
-          while (systemStreamPartitionMessages.size() < numMessages && !isAtHead(systemStreamPartition)) {
+          // Block until we get at least one message, or until we catch up to
+          // the head of the stream.
+          while (envelope == null && !isAtHead(systemStreamPartition)) {
             metrics.incBlockingPoll(systemStreamPartition);
             envelope = queue.poll(1000, TimeUnit.MILLISECONDS);
-
-            if (envelope != null) {
-              systemStreamPartitionMessages.add(envelope);
-            }
           }
         } else if (timeout > 0 && timeRemaining > 0) {
+          // Block until we get at least one message.
           metrics.incBlockingTimeoutPoll(systemStreamPartition);
           envelope = queue.poll(timeRemaining, TimeUnit.MILLISECONDS);
+        }
 
-          if (envelope != null) {
-            systemStreamPartitionMessages.add(envelope);
-          }
+        // If we got a message, add it.
+        if (envelope != null) {
+          outgoingList.add(envelope);
+          // Drain any remaining messages without blocking.
+          queue.drainTo(outgoingList);
         }
       }
 
-      messagesToReturn.addAll(systemStreamPartitionMessages);
+      if (outgoingList.size() > 0) {
+        messagesToReturn.put(systemStreamPartition, outgoingList);
+      }
     }
 
     return messagesToReturn;
