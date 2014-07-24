@@ -36,11 +36,11 @@ allprojects {
   }
 }
 
-apply from: file('gradle/environment.gradle')
 apply from: file("gradle/dependency-versions.gradle")
 apply from: file("gradle/dependency-versions-scala-" + scalaVersion + ".gradle")
 apply from: file("gradle/release.gradle")
 apply from: file("gradle/rat.gradle")
+apply from: file('gradle/customize.gradle')
 
 rat {
   excludes = [
