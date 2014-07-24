@@ -121,4 +121,4 @@ Storm models all messages as *tuples* with a defined data model but pluggable se
 
 Samza's serialization and data model are both pluggable. We are not terribly opinionated about which approach is best.
 
-## [API Overview &raquo;](../api/overview.html)
+## [Spark Streaming &raquo;](spark-streaming.html)
