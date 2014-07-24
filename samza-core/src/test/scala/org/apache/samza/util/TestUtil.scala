@@ -18,17 +18,16 @@
  */
 package org.apache.samza.util
 
-import org.junit.Test
 import org.apache.samza.Partition
+import org.apache.samza.config.Config
+import org.apache.samza.config.MapConfig
+import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.system.SystemFactory
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.Util._
 import org.junit.Assert._
-import org.apache.samza.config.MapConfig
+import org.junit.Test
 import scala.collection.JavaConversions._
-import org.apache.samza.system.SystemFactory
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.config.Config
-
 import scala.util.Random
 
 class TestUtil {
@@ -105,7 +104,7 @@ class TestUtil {
    * @return An alphanumeric string
    */
   def generateString (length : Int) : String = {
-    random.alphanumeric.take(length).mkString
+    Random.alphanumeric.take(length).mkString
   }
 
   @Test
