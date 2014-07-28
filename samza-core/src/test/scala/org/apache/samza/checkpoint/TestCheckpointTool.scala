@@ -19,18 +19,19 @@
 
 package org.apache.samza.checkpoint
 
+import org.apache.samza.Partition
+import org.apache.samza.checkpoint.TestCheckpointTool.{MockCheckpointManagerFactory, MockSystemFactory}
+import org.apache.samza.config.{Config, MapConfig, SystemConfig, TaskConfig}
+import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.apache.samza.system.{SystemAdmin, SystemConsumer, SystemFactory, SystemProducer, SystemStream, SystemStreamMetadata, SystemStreamPartition}
 import org.junit.{Before, Test}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mock.MockitoSugar
 import scala.collection.JavaConversions._
-import org.apache.samza.Partition
-import org.apache.samza.checkpoint.TestCheckpointTool.{MockCheckpointManagerFactory, MockSystemFactory}
-import org.apache.samza.config.{Config, MapConfig, SystemConfig, TaskConfig}
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.system.{SystemAdmin, SystemConsumer, SystemFactory, SystemProducer, SystemStream, SystemStreamMetadata, SystemStreamPartition}
-import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.apache.samza.container.TaskName
 
 object TestCheckpointTool {
   var checkpointManager: CheckpointManager = null
@@ -52,6 +53,11 @@ object TestCheckpointTool {
 class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
   var config: MapConfig = null
 
+  val tn0 = new TaskName("Partition 0")
+  val tn1 = new TaskName("Partition 1")
+  val p0 = new Partition(0)
+  val p1 = new Partition(1)
+
   @Before
   def setup {
     config = new MapConfig(Map(
@@ -68,29 +74,30 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
     TestCheckpointTool.systemAdmin = mock[SystemAdmin]
     when(TestCheckpointTool.systemAdmin.getSystemStreamMetadata(Set("foo")))
       .thenReturn(Map("foo" -> metadata))
-    when(TestCheckpointTool.checkpointManager.readLastCheckpoint(new Partition(0)))
-      .thenReturn(new Checkpoint(Map(new SystemStream("test", "foo") -> "1234")))
-    when(TestCheckpointTool.checkpointManager.readLastCheckpoint(new Partition(1)))
-      .thenReturn(new Checkpoint(Map(new SystemStream("test", "foo") -> "4321")))
+    when(TestCheckpointTool.checkpointManager.readLastCheckpoint(tn0))
+      .thenReturn(new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "1234")))
+    when(TestCheckpointTool.checkpointManager.readLastCheckpoint(tn1))
+      .thenReturn(new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "4321")))
+
   }
 
   @Test
   def testReadLatestCheckpoint {
     new CheckpointTool(config, null).run
-    verify(TestCheckpointTool.checkpointManager).readLastCheckpoint(new Partition(0))
-    verify(TestCheckpointTool.checkpointManager).readLastCheckpoint(new Partition(1))
+    verify(TestCheckpointTool.checkpointManager).readLastCheckpoint(tn0)
+    verify(TestCheckpointTool.checkpointManager).readLastCheckpoint(tn1)
     verify(TestCheckpointTool.checkpointManager, never()).writeCheckpoint(any(), any())
   }
 
   @Test
   def testOverwriteCheckpoint {
-    new CheckpointTool(config, Map(
-      new SystemStreamPartition("test", "foo", new Partition(0)) -> "42",
-      new SystemStreamPartition("test", "foo", new Partition(1)) -> "43"
-    )).run
+    val toOverwrite = Map(tn0 -> Map(new SystemStreamPartition("test", "foo", p0) -> "42"),
+      tn1 -> Map(new SystemStreamPartition("test", "foo", p1) -> "43"))
+
+    new CheckpointTool(config, toOverwrite).run
     verify(TestCheckpointTool.checkpointManager)
-      .writeCheckpoint(new Partition(0), new Checkpoint(Map(new SystemStream("test", "foo") -> "42")))
+      .writeCheckpoint(tn0, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "42")))
     verify(TestCheckpointTool.checkpointManager)
-      .writeCheckpoint(new Partition(1), new Checkpoint(Map(new SystemStream("test", "foo") -> "43")))
+      .writeCheckpoint(tn1, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "43")))
   }
 }

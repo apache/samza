@@ -19,13 +19,9 @@
 
 package org.apache.samza.storage.kv
 
-import java.nio.ByteBuffer
 import org.iq80.leveldb._
-import org.fusesource.leveldbjni.internal.NativeComparator
 import org.fusesource.leveldbjni.JniDBFactory._
 import java.io._
-import java.util.Iterator
-import java.lang.Iterable
 import org.apache.samza.config.Config
 import org.apache.samza.container.SamzaContainerContext
 import grizzled.slf4j.{ Logger, Logging }
@@ -39,8 +35,8 @@ object LevelDbKeyValueStore {
     val options = new Options
 
     // Cache size and write buffer size are specified on a per-container basis.
-    options.cacheSize(cacheSize / containerContext.partitions.size)
-    options.writeBufferSize((writeBufSize / containerContext.partitions.size).toInt)
+    options.cacheSize(cacheSize / containerContext.taskNames.size)
+    options.writeBufferSize((writeBufSize / containerContext.taskNames.size).toInt)
     options.blockSize(storeConfig.getInt("leveldb.block.size.bytes", 4096))
     options.compressionType(
       storeConfig.get("leveldb.compression", "snappy") match {

@@ -20,7 +20,6 @@
 package org.apache.samza.job
 import java.io.File
 import org.apache.samza.config.Config
-import org.junit.Assert._
 import org.junit.Test
 
 object TestJobRunner {

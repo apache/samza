@@ -20,40 +20,41 @@
 package org.apache.samza.checkpoint.file
 
 import java.io.File
-import java.io.FileOutputStream
-import scala.collection.JavaConversions._
-import scala.io.Source
-import org.apache.samza.SamzaException
-import org.apache.samza.serializers.CheckpointSerde
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.config.Config
-import org.apache.samza.Partition
-import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.FileSystemCheckpointManagerConfig.Config2FSCP
-import org.apache.samza.checkpoint.CheckpointManagerFactory
-import org.apache.samza.checkpoint.CheckpointManager
-import org.apache.samza.checkpoint.Checkpoint
 import java.io.FileNotFoundException
+import java.io.FileOutputStream
+import java.util
+import org.apache.samza.SamzaException
+import org.apache.samza.checkpoint.Checkpoint
+import org.apache.samza.checkpoint.CheckpointManager
+import org.apache.samza.checkpoint.CheckpointManagerFactory
+import org.apache.samza.config.Config
+import org.apache.samza.config.FileSystemCheckpointManagerConfig.Config2FSCP
+import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.container.TaskName
+import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.serializers.CheckpointSerde
+import scala.io.Source
 
 class FileSystemCheckpointManager(
   jobName: String,
   root: File,
   serde: CheckpointSerde = new CheckpointSerde) extends CheckpointManager {
 
-  def register(partition: Partition) {
-  }
+  override def register(taskName: TaskName):Unit = Unit
 
-  def writeCheckpoint(partition: Partition, checkpoint: Checkpoint) {
+  def getCheckpointFile(taskName: TaskName) = getFile(jobName, taskName, "checkpoints")
+
+  def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) {
     val bytes = serde.toBytes(checkpoint)
-    val fos = new FileOutputStream(getFile(jobName, partition))
+    val fos = new FileOutputStream(getCheckpointFile(taskName))
 
     fos.write(bytes)
     fos.close
   }
 
-  def readLastCheckpoint(partition: Partition): Checkpoint = {
+  def readLastCheckpoint(taskName: TaskName): Checkpoint = {
     try {
-      val bytes = Source.fromFile(getFile(jobName, partition)).map(_.toByte).toArray
+      val bytes = Source.fromFile(getCheckpointFile(taskName)).map(_.toByte).toArray
 
       serde.fromBytes(bytes)
     } catch {
@@ -69,8 +70,28 @@ class FileSystemCheckpointManager(
 
   def stop {}
 
-  private def getFile(jobName: String, partition: Partition) =
-    new File(root, "%s-%d" format (jobName, partition.getPartitionId))
+  private def getFile(jobName: String, taskName: TaskName, fileType:String) =
+    new File(root, "%s-%s-%s" format (jobName, taskName, fileType))
+
+  private def getChangeLogPartitionMappingFile() = getFile(jobName, new TaskName("partition-mapping"), "changelog-partition-mapping")
+
+  override def readChangeLogPartitionMapping(): util.Map[TaskName, java.lang.Integer] = {
+    try {
+      val bytes = Source.fromFile(getChangeLogPartitionMappingFile()).map(_.toByte).toArray
+      serde.changelogPartitionMappingFromBytes(bytes)
+    } catch {
+      case e: FileNotFoundException => new util.HashMap[TaskName, java.lang.Integer]()
+    }
+  }
+
+  def writeChangeLogPartitionMapping(mapping: util.Map[TaskName, java.lang.Integer]): Unit = {
+    val hashmap = new util.HashMap[TaskName, java.lang.Integer](mapping)
+    val bytes = serde.changelogPartitionMappingToBytes(hashmap)
+    val fos = new FileOutputStream(getChangeLogPartitionMappingFile())
+
+    fos.write(bytes)
+    fos.close
+  }
 }
 
 class FileSystemCheckpointManagerFactory extends CheckpointManagerFactory {

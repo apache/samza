@@ -20,8 +20,7 @@
 package org.apache.samza.container
 
 import grizzled.slf4j.Logging
-import org.apache.samza.Partition
-import org.apache.samza.system.SystemConsumers
+import org.apache.samza.system.{SystemStreamPartition, SystemConsumers}
 import org.apache.samza.task.ReadableCoordinator
 
 /**
@@ -34,7 +33,7 @@ import org.apache.samza.task.ReadableCoordinator
  * be done when.
  */
 class RunLoop(
-  val taskInstances: Map[Partition, TaskInstance],
+  val taskInstances: Map[TaskName, TaskInstance],
   val consumerMultiplexer: SystemConsumers,
   val metrics: SamzaContainerMetrics,
   val windowMs: Long = -1,
@@ -43,10 +42,18 @@ class RunLoop(
 
   private var lastWindowMs = 0L
   private var lastCommitMs = 0L
-  private var taskShutdownRequests: Set[Partition] = Set()
-  private var taskCommitRequests: Set[Partition] = Set()
+  private var taskShutdownRequests: Set[TaskName] = Set()
+  private var taskCommitRequests: Set[TaskName] = Set()
   private var shutdownNow = false
 
+  // Messages come from the chooser with no connection to the TaskInstance they're bound for.
+  // Keep a mapping of SystemStreamPartition to TaskInstance to efficiently route them.
+  val systemStreamPartitionToTaskInstance: Map[SystemStreamPartition, TaskInstance] = {
+    // We could just pass in the SystemStreamPartitionMap during construction, but it's safer and cleaner to derive the information directly
+    def getSystemStreamPartitionToTaskInstance(taskInstance: TaskInstance) = taskInstance.systemStreamPartitions.map(_ -> taskInstance).toMap
+
+    taskInstances.values.map{ getSystemStreamPartitionToTaskInstance }.flatten.toMap
+  }
 
   /**
    * Starts the run loop. Blocks until either the tasks request shutdown, or an
@@ -61,7 +68,6 @@ class RunLoop(
     }
   }
 
-
   /**
    * Chooses a message from an input stream to process, and calls the
    * process() method on the appropriate StreamTask to handle it.
@@ -73,20 +79,21 @@ class RunLoop(
     val envelope = consumerMultiplexer.choose
 
     if (envelope != null) {
-      val partition = envelope.getSystemStreamPartition.getPartition
+      val ssp = envelope.getSystemStreamPartition
 
-      trace("Processing incoming message envelope for partition %s." format partition)
+      trace("Processing incoming message envelope for SSP %s." format ssp)
       metrics.envelopes.inc
 
-      val coordinator = new ReadableCoordinator(partition)
-      taskInstances(partition).process(envelope, coordinator)
+      val taskInstance = systemStreamPartitionToTaskInstance(ssp)
+
+      val coordinator = new ReadableCoordinator(taskInstance.taskName)
+      taskInstance.process(envelope, coordinator)
       checkCoordinator(coordinator)
     } else {
       trace("No incoming message envelope was available.")
       metrics.nullEnvelopes.inc
     }
   }
-
 
   /**
    * Invokes WindowableTask.window on all tasks if it's time to do so.
@@ -97,8 +104,8 @@ class RunLoop(
       lastWindowMs = clock()
       metrics.windows.inc
 
-      taskInstances.foreach { case (partition, task) =>
-        val coordinator = new ReadableCoordinator(partition)
+      taskInstances.foreach { case (taskName, task) =>
+        val coordinator = new ReadableCoordinator(taskName)
         task.window(coordinator)
         checkCoordinator(coordinator)
       }
@@ -129,8 +136,8 @@ class RunLoop(
     } else if (!taskCommitRequests.isEmpty) {
       trace("Committing due to explicit commit request.")
       metrics.commits.inc
-      taskCommitRequests.foreach(partition => {
-        taskInstances(partition).commit
+      taskCommitRequests.foreach(taskName => {
+        taskInstances(taskName).commit
       })
     }
 
@@ -146,17 +153,17 @@ class RunLoop(
    */
   private def checkCoordinator(coordinator: ReadableCoordinator) {
     if (coordinator.requestedCommitTask) {
-      debug("Task %s requested commit for current task only" format coordinator.partition)
-      taskCommitRequests += coordinator.partition
+      debug("Task %s requested commit for current task only" format coordinator.taskName)
+      taskCommitRequests += coordinator.taskName
     }
 
     if (coordinator.requestedCommitAll) {
-      debug("Task %s requested commit for all tasks in the container" format coordinator.partition)
+      debug("Task %s requested commit for all tasks in the container" format coordinator.taskName)
       taskCommitRequests ++= taskInstances.keys
     }
 
     if (coordinator.requestedShutdownOnConsensus) {
-      taskShutdownRequests += coordinator.partition
+      taskShutdownRequests += coordinator.taskName
       info("Shutdown has now been requested by tasks: %s" format taskShutdownRequests)
     }
 

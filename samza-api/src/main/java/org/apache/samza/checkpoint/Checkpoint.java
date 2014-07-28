@@ -19,10 +19,10 @@
 
 package org.apache.samza.checkpoint;
 
+import org.apache.samza.system.SystemStreamPartition;
+
 import java.util.Collections;
 import java.util.Map;
-
-import org.apache.samza.system.SystemStream;
 
 /**
  * A checkpoint is a mapping of all the streams a job is consuming and the most recent current offset for each.
@@ -30,13 +30,13 @@ import org.apache.samza.system.SystemStream;
  * of restarting a failed container within a running job.
  */
 public class Checkpoint {
-  private final Map<SystemStream, String> offsets;
+  private final Map<SystemStreamPartition, String> offsets;
 
   /**
    * Constructs a new checkpoint based off a map of Samza stream offsets.
    * @param offsets Map of Samza streams to their current offset.
    */
-  public Checkpoint(Map<SystemStream, String> offsets) {
+  public Checkpoint(Map<SystemStreamPartition, String> offsets) {
     this.offsets = offsets;
   }
 
@@ -44,33 +44,25 @@ public class Checkpoint {
    * Gets a unmodifiable view of the current Samza stream offsets.
    * @return A unmodifiable view of a Map of Samza streams to their recorded offsets.
    */
-  public Map<SystemStream, String> getOffsets() {
+  public Map<SystemStreamPartition, String> getOffsets() {
     return Collections.unmodifiableMap(offsets);
   }
 
   @Override
-  public int hashCode() {
-    final int prime = 31;
-    int result = 1;
-    result = prime * result + ((offsets == null) ? 0 : offsets.hashCode());
-    return result;
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof Checkpoint)) return false;
+
+    Checkpoint that = (Checkpoint) o;
+
+    if (offsets != null ? !offsets.equals(that.offsets) : that.offsets != null) return false;
+
+    return true;
   }
 
   @Override
-  public boolean equals(Object obj) {
-    if (this == obj)
-      return true;
-    if (obj == null)
-      return false;
-    if (getClass() != obj.getClass())
-      return false;
-    Checkpoint other = (Checkpoint) obj;
-    if (offsets == null) {
-      if (other.offsets != null)
-        return false;
-    } else if (!offsets.equals(other.offsets))
-      return false;
-    return true;
+  public int hashCode() {
+    return offsets != null ? offsets.hashCode() : 0;
   }
 
   @Override

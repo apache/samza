@@ -19,8 +19,6 @@
 
 package org.apache.samza.system.kafka
 
-import scala.annotation.implicitNotFound
-
 import grizzled.slf4j.Logging
 import kafka.api.TopicMetadata
 import kafka.common.ErrorMapping

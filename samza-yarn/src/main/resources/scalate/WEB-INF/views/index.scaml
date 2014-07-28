@@ -119,21 +119,24 @@
             %td.key Finished
             %td= state.finishedTasks.size.toString
 
-      %h3 Partition Assignment
-      %table.table.table-striped.table-bordered.tablesorter#partitions-table
+      %h3 TaskName Assignment
+      %table.table.table-striped.table-bordered.tablesorter#taskids-table
         %thead
           %tr
             %th Task ID
-            %th Partitions
+            %th TaskName
+            %th SystemStreamPartitions
             %th Container
         %tbody
-          - for((taskId, partitions) <- state.taskPartitions)
-            %tr
-              %td= taskId
-              %td= partitions.map(_.getPartitionId).toList.sorted.mkString(", ")
-              %td
-                - val container = state.runningTasks(taskId)
-                %a(target="_blank" href="http://#{container.nodeHttpAddress}/node/containerlogs/#{container.id.toString}/#{username}")= container.id.toString
+          - for((taskId, taskNames) <- state.taskToTaskNames)
+            - for((taskName, ssps) <- taskNames)
+              %tr
+                %td= taskId
+                %td= taskName
+                %td= ssps.map(_.toString).toList.sorted.mkString(", ")
+                %td
+                  - val container = state.runningTasks(taskId)
+                  %a(target="_blank" href="http://#{container.nodeHttpAddress}/node/containerlogs/#{container.id.toString}/#{username}")= container.id.toString
 
     %div.tab-pane#config
       %h2 Config
@@ -154,7 +157,7 @@
     :javascript
       $(document).ready(function() {
         $("#containers-table").tablesorter();
-        $("#partitions-table").tablesorter();
+        $("#taskids-table").tablesorter();
         $("#config-table").tablesorter();
         $("#config-table-filter").keyup(function() {
           var regex = new RegExp($(this).val(), 'i');

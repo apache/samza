@@ -20,6 +20,7 @@
 package org.apache.samza.test.integration.join;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -45,12 +46,12 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
   
   private KeyValueStore<String, String> state;
   private int max;
-  private String partition;
+  private TaskName taskName;
 
   @Override
   public void init(Config config, TaskContext context) {
     this.state = (KeyValueStore<String, String>) context.getStore("emitter-state");
-    this.partition = Integer.toString(context.getPartition().getPartitionId());
+    this.taskName = context.getTaskName();
     this.max = config.getInt("count");
   }
 
@@ -79,7 +80,7 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
     }
     int counter = getInt(COUNT);
     if(counter < max) {
-      OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(new SystemStream("kafka", "emitted"), Integer.toString(counter), epoch + "-" + partition);
+      OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(new SystemStream("kafka", "emitted"), Integer.toString(counter), epoch + "-" + taskName);
       collector.send(envelope);
       this.state.put(COUNT, Integer.toString(getInt(COUNT) + 1));
     } else {

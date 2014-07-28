@@ -23,19 +23,21 @@ import scala.collection.JavaConversions._
 import org.apache.samza.Partition
 import org.apache.samza.system.SystemStream
 import org.apache.samza.system.SystemStreamMetadata
-import org.apache.samza.system.SystemStreamMetadata.OffsetType
-import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.apache.samza.system.SystemStreamMetadata.{OffsetType, SystemStreamPartitionMetadata}
 import org.apache.samza.system.SystemStreamPartition
 import org.junit.Assert._
 import org.junit.{Ignore, Test}
 import org.apache.samza.SamzaException
 import org.apache.samza.config.MapConfig
 import org.apache.samza.system.SystemAdmin
+import java.util
+import org.apache.samza.container.TaskName
 import org.scalatest.Assertions.intercept
 
 class TestOffsetManager {
   @Test
   def testSystemShouldUseDefaults {
+    val taskName = new TaskName("c")
     val systemStream = new SystemStream("test-system", "test-stream")
     val partition = new Partition(0)
     val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
@@ -43,7 +45,7 @@ class TestOffsetManager {
     val systemStreamMetadata = Map(systemStream -> testStreamMetadata)
     val config = new MapConfig(Map("systems.test-system.samza.offset.default" -> "oldest"))
     val offsetManager = OffsetManager(systemStreamMetadata, config)
-    offsetManager.register(systemStreamPartition)
+    offsetManager.register(taskName, Set(systemStreamPartition))
     offsetManager.start
     assertTrue(!offsetManager.getLastProcessedOffset(systemStreamPartition).isDefined)
     assertTrue(offsetManager.getStartingOffset(systemStreamPartition).isDefined)
@@ -52,21 +54,22 @@ class TestOffsetManager {
 
   @Test
   def testShouldLoadFromAndSaveWithCheckpointManager {
+    val taskName = new TaskName("c")
     val systemStream = new SystemStream("test-system", "test-stream")
     val partition = new Partition(0)
     val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
     val testStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
     val systemStreamMetadata = Map(systemStream -> testStreamMetadata)
     val config = new MapConfig
-    val checkpointManager = getCheckpointManager(systemStreamPartition)
+    val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
     val systemAdmins = Map("test-system" -> getSystemAdmin)
     val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins)
-    offsetManager.register(systemStreamPartition)
+    offsetManager.register(taskName, Set(systemStreamPartition))
     offsetManager.start
     assertTrue(checkpointManager.isStarted)
     assertEquals(1, checkpointManager.registered.size)
-    assertEquals(partition, checkpointManager.registered.head)
-    assertEquals(checkpointManager.checkpoints.head._2, checkpointManager.readLastCheckpoint(partition))
+    assertEquals(taskName, checkpointManager.registered.head)
+    assertEquals(checkpointManager.checkpoints.head._2, checkpointManager.readLastCheckpoint(taskName))
     // Should get offset 45 back from the checkpoint manager, which is last processed, and system admin should return 46 as starting offset.
     assertEquals("46", offsetManager.getStartingOffset(systemStreamPartition).get)
     assertEquals("45", offsetManager.getLastProcessedOffset(systemStreamPartition).get)
@@ -76,31 +79,31 @@ class TestOffsetManager {
     assertEquals("47", offsetManager.getLastProcessedOffset(systemStreamPartition).get)
     // Should never update starting offset.
     assertEquals("46", offsetManager.getStartingOffset(systemStreamPartition).get)
-    offsetManager.checkpoint(partition)
-    val expectedCheckpoint = new Checkpoint(Map(systemStream -> "47"))
-    assertEquals(expectedCheckpoint, checkpointManager.readLastCheckpoint(partition))
+    offsetManager.checkpoint(taskName)
+    val expectedCheckpoint = new Checkpoint(Map(systemStreamPartition -> "47"))
+    assertEquals(expectedCheckpoint, checkpointManager.readLastCheckpoint(taskName))
   }
 
   @Test
   def testShouldResetStreams {
+    val taskName = new TaskName("c")
     val systemStream = new SystemStream("test-system", "test-stream")
     val partition = new Partition(0)
     val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
     val testStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
     val systemStreamMetadata = Map(systemStream -> testStreamMetadata)
-    val defaultOffsets = Map(systemStream -> OffsetType.OLDEST)
-    val checkpoint = new Checkpoint(Map(systemStream -> "45"))
-    val checkpointManager = getCheckpointManager(systemStreamPartition)
+    val checkpoint = new Checkpoint(Map(systemStreamPartition -> "45"))
+    val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
     val config = new MapConfig(Map(
       "systems.test-system.samza.offset.default" -> "oldest",
       "systems.test-system.streams.test-stream.samza.reset.offset" -> "true"))
     val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager)
-    offsetManager.register(systemStreamPartition)
+    offsetManager.register(taskName, Set(systemStreamPartition))
     offsetManager.start
     assertTrue(checkpointManager.isStarted)
     assertEquals(1, checkpointManager.registered.size)
-    assertEquals(partition, checkpointManager.registered.head)
-    assertEquals(checkpoint, checkpointManager.readLastCheckpoint(partition))
+    assertEquals(taskName, checkpointManager.registered.head)
+    assertEquals(checkpoint, checkpointManager.readLastCheckpoint(taskName))
     // Should be zero even though the checkpoint has an offset of 45, since we're forcing a reset.
     assertEquals("0", offsetManager.getStartingOffset(systemStreamPartition).get)
   }
@@ -110,36 +113,38 @@ class TestOffsetManager {
     val systemStream = new SystemStream("test-system", "test-stream")
     val partition1 = new Partition(0)
     val partition2 = new Partition(1)
+    val taskName1 = new TaskName("P0")
+    val taskName2 = new TaskName("P1")
     val systemStreamPartition1 = new SystemStreamPartition(systemStream, partition1)
     val systemStreamPartition2 = new SystemStreamPartition(systemStream, partition2)
     val testStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(
       partition1 -> new SystemStreamPartitionMetadata("0", "1", "2"),
       partition2 -> new SystemStreamPartitionMetadata("3", "4", "5")))
     val systemStreamMetadata = Map(systemStream -> testStreamMetadata)
-    val defaultOffsets = Map(systemStream -> OffsetType.OLDEST)
-    val checkpoint = new Checkpoint(Map(systemStream -> "45"))
+    val checkpoint = new Checkpoint(Map(systemStreamPartition1 -> "45"))
     // Checkpoint manager only has partition 1.
-    val checkpointManager = getCheckpointManager(systemStreamPartition1)
+    val checkpointManager = getCheckpointManager(systemStreamPartition1, taskName1)
     val systemAdmins = Map("test-system" -> getSystemAdmin)
     val config = new MapConfig
     val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins)
     // Register both partitions. Partition 2 shouldn't have a checkpoint.
-    offsetManager.register(systemStreamPartition1)
-    offsetManager.register(systemStreamPartition2)
+    offsetManager.register(taskName1, Set(systemStreamPartition1))
+    offsetManager.register(taskName2, Set(systemStreamPartition2))
     offsetManager.start
     assertTrue(checkpointManager.isStarted)
     assertEquals(2, checkpointManager.registered.size)
-    assertEquals(checkpoint, checkpointManager.readLastCheckpoint(partition1))
-    assertNull(checkpointManager.readLastCheckpoint(partition2))
+    assertEquals(checkpoint, checkpointManager.readLastCheckpoint(taskName1))
+    assertNull(checkpointManager.readLastCheckpoint(taskName2))
   }
 
   @Test
   def testShouldFailWhenMissingMetadata {
+    val taskName = new TaskName("c")
     val systemStream = new SystemStream("test-system", "test-stream")
     val partition = new Partition(0)
     val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
     val offsetManager = new OffsetManager
-    offsetManager.register(systemStreamPartition)
+    offsetManager.register(taskName, Set(systemStreamPartition))
 
     intercept[SamzaException] {
       offsetManager.start
@@ -148,13 +153,14 @@ class TestOffsetManager {
 
   @Ignore("OffsetManager.start is supposed to throw an exception - but it doesn't") @Test
   def testShouldFailWhenMissingDefault {
+    val taskName = new TaskName("c")
     val systemStream = new SystemStream("test-system", "test-stream")
     val partition = new Partition(0)
     val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
     val testStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
     val systemStreamMetadata = Map(systemStream -> testStreamMetadata)
     val offsetManager = OffsetManager(systemStreamMetadata, new MapConfig(Map[String, String]()))
-    offsetManager.register(systemStreamPartition)
+    offsetManager.register(taskName, Set(systemStreamPartition))
 
     intercept[SamzaException] {
       offsetManager.start
@@ -190,6 +196,7 @@ class TestOffsetManager {
 
   @Test
   def testOutdatedStreamInCheckpoint {
+    val taskName = new TaskName("c")
     val systemStream0 = new SystemStream("test-system-0", "test-stream")
     val systemStream1 = new SystemStream("test-system-1", "test-stream")
     val partition0 = new Partition(0)
@@ -200,26 +207,32 @@ class TestOffsetManager {
     val offsetSettings = Map(systemStream0 -> OffsetSetting(testStreamMetadata, OffsetType.UPCOMING, false))
     val checkpointManager = getCheckpointManager(systemStreamPartition1)
     val offsetManager = new OffsetManager(offsetSettings, checkpointManager)
-    offsetManager.register(systemStreamPartition0)
+    offsetManager.register(taskName, Set(systemStreamPartition0))
     offsetManager.start
     assertTrue(checkpointManager.isStarted)
     assertEquals(1, checkpointManager.registered.size)
     assertNull(offsetManager.getLastProcessedOffset(systemStreamPartition1).getOrElse(null))
   }
 
-  private def getCheckpointManager(systemStreamPartition: SystemStreamPartition) = {
-    val checkpoint = new Checkpoint(Map(systemStreamPartition.getSystemStream -> "45"))
+  private def getCheckpointManager(systemStreamPartition: SystemStreamPartition, taskName:TaskName = new TaskName("taskName")) = {
+    val checkpoint = new Checkpoint(Map(systemStreamPartition -> "45"))
 
     new CheckpointManager {
       var isStarted = false
       var isStopped = false
-      var registered = Set[Partition]()
-      var checkpoints = Map(systemStreamPartition.getPartition -> checkpoint)
+      var registered = Set[TaskName]()
+      var checkpoints: Map[TaskName, Checkpoint] = Map(taskName -> checkpoint)
+      var taskNameToPartitionMapping: util.Map[TaskName, java.lang.Integer] = new util.HashMap[TaskName, java.lang.Integer]()
       def start { isStarted = true }
-      def register(partition: Partition) { registered += partition }
-      def writeCheckpoint(partition: Partition, checkpoint: Checkpoint) { checkpoints += partition -> checkpoint }
-      def readLastCheckpoint(partition: Partition) = checkpoints.getOrElse(partition, null)
+      def register(taskName: TaskName) { registered += taskName }
+      def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) { checkpoints += taskName -> checkpoint }
+      def readLastCheckpoint(taskName: TaskName) = checkpoints.getOrElse(taskName, null)
       def stop { isStopped = true }
+
+      override def writeChangeLogPartitionMapping(mapping: util.Map[TaskName, java.lang.Integer]): Unit = taskNameToPartitionMapping = mapping
+
+      override def readChangeLogPartitionMapping(): util.Map[TaskName, java.lang.Integer] = taskNameToPartitionMapping
+
     }
   }
 

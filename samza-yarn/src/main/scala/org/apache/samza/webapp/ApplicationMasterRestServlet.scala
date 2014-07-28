@@ -79,13 +79,14 @@ class ApplicationMasterRestServlet(config: Config, state: SamzaAppMasterState, r
     state.runningTasks.values.foreach(c => {
       val containerIdStr = c.id.toString
       val containerMap = new HashMap[String, Object]
+
       val taskId = state.runningTasks.filter { case (_, container) => container.id.toString.equals(containerIdStr) }.keys.head
-      var partitions = new java.util.ArrayList(state.taskPartitions.get(taskId).get)
+      val taskNames = new java.util.ArrayList(state.taskToTaskNames.get(taskId).get.toList)
 
       containerMap.put("yarn-address", c.nodeHttpAddress)
       containerMap.put("start-time", c.startTime.toString)
       containerMap.put("up-time", c.upTime.toString)
-      containerMap.put("partitions", partitions)
+      containerMap.put("task-names", taskNames)
       containerMap.put("task-id", taskId.toString)
       containers.put(containerIdStr, containerMap)
     })

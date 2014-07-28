@@ -22,7 +22,7 @@ package org.apache.samza.test.performance
 import grizzled.slf4j.Logging
 import org.apache.samza.config.Config
 import org.apache.samza.config.StorageConfig._
-import org.apache.samza.container.SamzaContainerContext
+import org.apache.samza.container.{TaskName, SamzaContainerContext}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.storage.kv.KeyValueStorageEngine
@@ -34,7 +34,6 @@ import org.apache.samza.serializers.ByteSerde
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 import java.io.File
-import scala.collection.JavaConversions._
 import java.util.UUID
 
 /**
@@ -79,7 +78,9 @@ object TestKeyValuePerformance extends Logging {
     val numLoops = config.getInt("test.num.loops", 100)
     val messagesPerBatch = config.getInt("test.messages.per.batch", 10000)
     val messageSizeBytes = config.getInt("test.message.size.bytes", 200)
-    val partitions = (0 until partitionCount).map(new Partition(_))
+    val taskNames = new java.util.ArrayList[TaskName]()
+
+    (0 until partitionCount).map(p => taskNames.add(new TaskName(new Partition(p).toString)))
 
     info("Using partition count: %s" format partitionCount)
     info("Using num loops: %s" format numLoops)
@@ -109,7 +110,7 @@ object TestKeyValuePerformance extends Logging {
         new ReadableCollector,
         new MetricsRegistryMap,
         null,
-        new SamzaContainerContext("test", config, partitions))
+        new SamzaContainerContext("test", config, taskNames))
 
       val db = if (!engine.isInstanceOf[KeyValueStorageEngine[_, _]]) {
         throw new SamzaException("This test can only run with KeyValueStorageEngine configured as store factory.")

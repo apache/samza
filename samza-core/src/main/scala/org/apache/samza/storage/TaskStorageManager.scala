@@ -29,14 +29,16 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.SystemStreamPartitionIterator
 import org.apache.samza.util.Util
 import org.apache.samza.SamzaException
+import org.apache.samza.container.TaskName
 
 object TaskStorageManager {
   def getStoreDir(storeBaseDir: File, storeName: String) = {
     new File(storeBaseDir, storeName)
   }
 
-  def getStorePartitionDir(storeBaseDir: File, storeName: String, partition: Partition) = {
-    new File(storeBaseDir, storeName + File.separator + partition.getPartitionId)
+  def getStorePartitionDir(storeBaseDir: File, storeName: String, taskName: TaskName) = {
+    // TODO: Sanitize, check and clean taskName string as a valid value for a file
+    new File(storeBaseDir, storeName + File.separator + taskName)
   }
 }
 
@@ -44,12 +46,13 @@ object TaskStorageManager {
  * Manage all the storage engines for a given task
  */
 class TaskStorageManager(
-  partition: Partition,
+  taskName: TaskName,
   taskStores: Map[String, StorageEngine] = Map(),
   storeConsumers: Map[String, SystemConsumer] = Map(),
   changeLogSystemStreams: Map[String, SystemStream] = Map(),
   changeLogOldestOffsets: Map[SystemStream, String] = Map(),
-  storeBaseDir: File = new File(System.getProperty("user.dir"), "state")) extends Logging {
+  storeBaseDir: File = new File(System.getProperty("user.dir"), "state"),
+  partition: Partition) extends Logging {
 
   var taskStoresToRestore = taskStores
 
@@ -66,7 +69,7 @@ class TaskStorageManager(
     debug("Cleaning base directories for stores.")
 
     taskStores.keys.foreach(storeName => {
-      val storagePartitionDir = TaskStorageManager.getStorePartitionDir(storeBaseDir, storeName, partition)
+      val storagePartitionDir = TaskStorageManager.getStorePartitionDir(storeBaseDir, storeName, taskName)
 
       debug("Cleaning %s for store %s." format (storagePartitionDir, storeName))
 

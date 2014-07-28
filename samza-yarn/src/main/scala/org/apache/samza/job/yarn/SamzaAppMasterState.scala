@@ -18,12 +18,12 @@
  */
 
 package org.apache.samza.job.yarn
-import org.apache.samza.config.Config
 import grizzled.slf4j.Logging
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
-import org.apache.samza.Partition
-import org.apache.hadoop.yarn.util.ConverterUtils
 import org.apache.hadoop.yarn.api.records.ContainerId
+import java.util
+import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.container.TaskName
 
 /**
  * Samza's application master has state that is usually manipulated based on
@@ -40,7 +40,7 @@ class SamzaAppMasterState(val taskId: Int, val containerId: ContainerId, val nod
   var unclaimedTasks = Set[Int]()
   var finishedTasks = Set[Int]()
   var runningTasks = Map[Int, YarnContainer]()
-  var taskPartitions = Map[Int, Set[Partition]]()
+  var taskToTaskNames = Map[Int, util.Map[TaskName, util.Set[SystemStreamPartition]]]()
   var status = FinalApplicationStatus.UNDEFINED
 
   // controlled by the service

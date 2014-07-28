@@ -50,7 +50,6 @@ class TestTaskInstance {
     }
     val config = new MapConfig
     val partition = new Partition(0)
-    val containerName = "test-container"
     val consumerMultiplexer = new SystemConsumers(
       new RoundRobinChooser,
       Map[String, SystemConsumer]())
@@ -62,16 +61,17 @@ class TestTaskInstance {
     // Pretend our last checkpointed (next) offset was 2.
     val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
     val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
+    val taskName = new TaskName("taskName")
     val taskInstance: TaskInstance = new TaskInstance(
       task,
-      partition,
+      taskName,
       config,
       new TaskInstanceMetrics,
       consumerMultiplexer,
       producerMultiplexer,
       offsetManager)
     // Pretend we got a message with offset 2 and next offset 3.
-    val coordinator = new ReadableCoordinator(partition)
+    val coordinator = new ReadableCoordinator(taskName)
     taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "2", null, null), coordinator)
     // Check to see if the offset manager has been properly updated with offset 3.
     val lastProcessedOffset = offsetManager.getLastProcessedOffset(systemStreamPartition)

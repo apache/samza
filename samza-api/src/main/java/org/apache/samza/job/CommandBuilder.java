@@ -20,6 +20,7 @@
 package org.apache.samza.job;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.util.Map;
@@ -30,12 +31,13 @@ import java.util.Set;
  * such as YARN or the LocalJobRunner.
  */
 public abstract class CommandBuilder {
-  protected Set<SystemStreamPartition> systemStreamPartitions;
+  protected Map<TaskName, Set<SystemStreamPartition>> taskNameToSystemStreamPartitionsMapping;
+  protected Map<TaskName, Integer> taskNameToChangeLogPartitionMapping;
   protected String name;
   protected Config config;
 
-  public CommandBuilder setStreamPartitions(Set<SystemStreamPartition> ssp) {
-    this.systemStreamPartitions = ssp;
+  public CommandBuilder setTaskNameToSystemStreamPartitionsMapping(Map<TaskName, Set<SystemStreamPartition>> systemStreamPartitionTaskNames) {
+    this.taskNameToSystemStreamPartitionsMapping = systemStreamPartitionTaskNames;
     return this;
   }
   
@@ -51,6 +53,11 @@ public abstract class CommandBuilder {
 
   public CommandBuilder setConfig(Config config) {
     this.config = config;
+    return this;
+  }
+
+  public CommandBuilder setTaskNameToChangeLogPartitionMapping(Map<TaskName, Integer> mapping) {
+    this.taskNameToChangeLogPartitionMapping = mapping;
     return this;
   }
 

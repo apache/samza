@@ -20,12 +20,12 @@
 package org.apache.samza.task
 
 import org.apache.samza.task.TaskCoordinator.RequestScope
-import org.apache.samza.Partition
+import org.apache.samza.container.TaskName
 
 /**
  * An in-memory implementation of TaskCoordinator that is specific to a single TaskInstance.
  */
-class ReadableCoordinator(val partition: Partition) extends TaskCoordinator {
+class ReadableCoordinator(val taskName: TaskName) extends TaskCoordinator {
   var commitRequest: Option[RequestScope] = None
   var shutdownRequest: Option[RequestScope] = None
 

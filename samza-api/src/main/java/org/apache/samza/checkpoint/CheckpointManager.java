@@ -19,7 +19,10 @@
 
 package org.apache.samza.checkpoint;
 
-import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
+import org.apache.samza.container.TaskName;
+
+import java.util.Map;
 
 /**
  * CheckpointManagers read and write {@link org.apache.samza.checkpoint.Checkpoint} to some
@@ -30,23 +33,38 @@ public interface CheckpointManager {
 
   /**
    * Registers this manager to write checkpoints of a specific Samza stream partition.
-   * @param partition Specific Samza stream partition of which to write checkpoints for.
+   * @param taskName Specific Samza taskName of which to write checkpoints for.
    */
-  public void register(Partition partition);
+  public void register(TaskName taskName);
 
   /**
    * Writes a checkpoint based on the current state of a Samza stream partition.
-   * @param partition Specific Samza stream partition of which to write a checkpoint of.
+   * @param taskName Specific Samza taskName of which to write a checkpoint of.
    * @param checkpoint Reference to a Checkpoint object to store offset data in.
    */
-  public void writeCheckpoint(Partition partition, Checkpoint checkpoint);
+  public void writeCheckpoint(TaskName taskName, Checkpoint checkpoint);
 
   /**
-   * Returns the last recorded checkpoint for a specified Samza stream partition.
-   * @param partition Specific Samza stream partition for which to get the last checkpoint of.
+   * Returns the last recorded checkpoint for a specified taskName.
+   * @param taskName Specific Samza taskName for which to get the last checkpoint of.
    * @return A Checkpoint object with the recorded offset data of the specified partition.
    */
-  public Checkpoint readLastCheckpoint(Partition partition);
+  public Checkpoint readLastCheckpoint(TaskName taskName);
+
+  /**
+   * Read the taskName to partition mapping that is being maintained by this CheckpointManager
+   *
+   * @return TaskName to task log partition mapping, or an empty map if there were no messages.
+   */
+  public Map<TaskName, Integer> readChangeLogPartitionMapping();
+
+  /**
+   * Write the taskName to partition mapping that is being maintained by this CheckpointManager
+   *
+   * @param mapping Each TaskName's partition within the changelog
+   */
+  public void writeChangeLogPartitionMapping(Map<TaskName, Integer> mapping);
 
   public void stop();
+
 }

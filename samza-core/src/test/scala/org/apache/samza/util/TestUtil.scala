@@ -20,8 +20,12 @@ package org.apache.samza.util
 
 import org.apache.samza.Partition
 import org.apache.samza.config.Config
+import org.apache.samza.config.Config
 import org.apache.samza.config.MapConfig
+import org.apache.samza.container.{TaskName, TaskNamesToSystemStreamPartitions}
 import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.system.SystemFactory
 import org.apache.samza.system.SystemFactory
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.Util._
@@ -54,48 +58,32 @@ class TestUtil {
   }
 
   @Test
-  def testGetTopicPartitionsForTask() {
-    def partitionSet(max:Int) = (0 until max).map(new Partition(_)).toSet
-
-    val taskCount = 4
-    val streamsMap = Map("kafka.a" -> partitionSet(4), "kafka.b" -> partitionSet(18), "timestream.c" -> partitionSet(24))
-    val streamsAndParts = (for(s <- streamsMap.keys;
-                               part <- streamsMap.getOrElse(s, Set.empty))
-    yield new SystemStreamPartition(getSystemStreamFromNames(s), part)).toSet
-
-    for(i <- 0 until taskCount) {
-      val result: Set[SystemStreamPartition] = Util.getStreamsAndPartitionsForContainer(i, taskCount, streamsAndParts)
-      // b -> 18 % 4 = 2 therefore first two results should have an extra element
-      if(i < 2) {
-        assertEquals(12, result.size)
-      } else {
-        assertEquals(11, result.size)
-      }
-
-      result.foreach(r => assertEquals(i, r.getPartition.getPartitionId % taskCount))
-    }
-  }
-  
-  @Test
-  def testJsonCreateStreamPartitionStringRoundTrip() {
-    val getPartitions: Set[SystemStreamPartition] = {
-      // Build a heavily skewed set of partitions.
-      def partitionSet(max:Int) = (0 until max).map(new Partition(_)).toSet
-      val system = "all-same-system."
-      val lotsOfParts = Map(system + "topic-with-many-parts-a" -> partitionSet(128),
-        system + "topic-with-many-parts-b" -> partitionSet(128), system + "topic-with-many-parts-c" -> partitionSet(64))
-      val fewParts = ('c' to 'z').map(l => system + l.toString -> partitionSet(4)).toMap
-      val streamsMap = (lotsOfParts ++ fewParts)
-      (for(s <- streamsMap.keys;
-           part <- streamsMap.getOrElse(s, Set.empty)) yield new SystemStreamPartition(getSystemStreamFromNames(s), part)).toSet
+  def testResolveTaskNameToChangelogPartitionMapping {
+    def testRunner(description:String, currentTaskNames:Set[TaskName], previousTaskNameMapping:Map[TaskName, Int],
+                   result:Map[TaskName, Int]) {
+      assertEquals("Failed: " + description, result,
+        Util.resolveTaskNameToChangelogPartitionMapping(currentTaskNames, previousTaskNameMapping))
     }
 
-    val streamsAndParts: Set[SystemStreamPartition] = getStreamsAndPartitionsForContainer(0, 4, getPartitions).toSet
-    println(streamsAndParts)
-    val asString = serializeSSPSetToJSON(streamsAndParts)
+    testRunner("No change between runs",
+      Set(new TaskName("Partition 0")),
+      Map(new TaskName("Partition 0") -> 0),
+      Map(new TaskName("Partition 0") -> 0))
 
-    val backToStreamsAndParts = deserializeSSPSetFromJSON(asString)
-    assertEquals(streamsAndParts, backToStreamsAndParts)
+    testRunner("New TaskName added, none missing this run",
+      Set(new TaskName("Partition 0"), new TaskName("Partition 1")),
+      Map(new TaskName("Partition 0") -> 0),
+      Map(new TaskName("Partition 0") -> 0, new TaskName("Partition 1") -> 1))
+
+    testRunner("New TaskName added, one missing this run",
+      Set(new TaskName("Partition 0"), new TaskName("Partition 2")),
+      Map(new TaskName("Partition 0") -> 0, new TaskName("Partition 1") -> 1),
+      Map(new TaskName("Partition 0") -> 0, new TaskName("Partition 1") -> 1, new TaskName("Partition 2") -> 2))
+
+    testRunner("New TaskName added, all previous missing this run",
+      Set(new TaskName("Partition 3"), new TaskName("Partition 4")),
+      Map(new TaskName("Partition 0") -> 0, new TaskName("Partition 1") -> 1, new TaskName("Partition 2") -> 2),
+      Map(new TaskName("Partition 0") -> 0, new TaskName("Partition 1") -> 1, new TaskName("Partition 2") -> 2, new TaskName("Partition 3") -> 3, new TaskName("Partition 4") -> 4))
   }
 
   /**

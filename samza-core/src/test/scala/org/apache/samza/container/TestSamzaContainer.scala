@@ -19,13 +19,11 @@
 
 package org.apache.samza.container
 
-import java.io.File
 import org.apache.samza.config.Config
 import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.Partition
 import org.apache.samza.config.MapConfig
-import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemConsumers
 import org.apache.samza.system.chooser.RoundRobinChooser
 import org.apache.samza.system.SystemConsumer
@@ -81,8 +79,7 @@ class TestSamzaContainer {
       }
     }
     val config = new MapConfig
-    val partition = new Partition(0)
-    val containerName = "test-container"
+    val taskName = new TaskName("taskName")
     val consumerMultiplexer = new SystemConsumers(
       new RoundRobinChooser,
       Map[String, SystemConsumer]())
@@ -91,18 +88,18 @@ class TestSamzaContainer {
       new SerdeManager)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
-      partition,
+      taskName,
       config,
       new TaskInstanceMetrics,
       consumerMultiplexer: SystemConsumers,
       producerMultiplexer: SystemProducers)
     val runLoop = new RunLoop(
-      taskInstances = Map(partition -> taskInstance),
+      taskInstances = Map(taskName -> taskInstance),
       consumerMultiplexer = consumerMultiplexer,
       metrics = new SamzaContainerMetrics
     )
     val container = new SamzaContainer(
-      Map(partition -> taskInstance),
+      Map(taskName -> taskInstance),
       runLoop,
       consumerMultiplexer,
       producerMultiplexer,

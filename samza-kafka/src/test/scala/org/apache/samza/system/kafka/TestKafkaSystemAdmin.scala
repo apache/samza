@@ -22,10 +22,8 @@
 package org.apache.samza.system.kafka
 
 import org.junit.Assert._
-import org.junit.Test
+import org.junit.{Test, BeforeClass, AfterClass}
 import kafka.zk.EmbeddedZookeeper
-import org.junit.BeforeClass
-import org.junit.AfterClass
 import org.apache.samza.util.ClientUtilTopicMetadataStore
 import org.I0Itec.zkclient.ZkClient
 import kafka.admin.AdminUtils

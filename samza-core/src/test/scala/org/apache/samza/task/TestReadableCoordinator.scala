@@ -21,13 +21,15 @@ package org.apache.samza.task
 
 import org.junit.Assert._
 import org.junit.Test
-import org.apache.samza.Partition
 import org.apache.samza.task.TaskCoordinator.RequestScope
+import org.apache.samza.container.TaskName
 
 class TestReadableCoordinator {
+  val taskName = new TaskName("P0")
+
   @Test
   def testCommitTask {
-    val coord = new ReadableCoordinator(new Partition(0))
+    val coord = new ReadableCoordinator(taskName)
     assertFalse(coord.requestedCommitTask)
     assertFalse(coord.requestedCommitAll)
     coord.commit(RequestScope.CURRENT_TASK)
@@ -37,7 +39,7 @@ class TestReadableCoordinator {
 
   @Test
   def testCommitAll {
-    val coord = new ReadableCoordinator(new Partition(0))
+    val coord = new ReadableCoordinator(taskName)
     assertFalse(coord.requestedCommitTask)
     assertFalse(coord.requestedCommitAll)
     coord.commit(RequestScope.ALL_TASKS_IN_CONTAINER)
@@ -47,7 +49,7 @@ class TestReadableCoordinator {
 
   @Test
   def testShutdownNow {
-    val coord = new ReadableCoordinator(new Partition(0))
+    val coord = new ReadableCoordinator(taskName)
     assertFalse(coord.requestedShutdownOnConsensus)
     assertFalse(coord.requestedShutdownNow)
     coord.shutdown(RequestScope.ALL_TASKS_IN_CONTAINER)
@@ -57,7 +59,7 @@ class TestReadableCoordinator {
 
   @Test
   def testShutdownRequest {
-    val coord = new ReadableCoordinator(new Partition(0))
+    val coord = new ReadableCoordinator(taskName)
     assertFalse(coord.requestedShutdownOnConsensus)
     assertFalse(coord.requestedShutdownNow)
     coord.shutdown(RequestScope.CURRENT_TASK)

@@ -21,33 +21,27 @@ package org.apache.samza.container
 
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.config.Config
-import org.apache.samza.Partition
 import grizzled.slf4j.Logging
-import scala.collection.JavaConversions._
 import org.apache.samza.storage.TaskStorageManager
-import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.TaskContext
 import org.apache.samza.task.ClosableTask
 import org.apache.samza.task.InitableTask
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.task.WindowableTask
-import org.apache.samza.checkpoint.CheckpointManager
 import org.apache.samza.task.TaskLifecycleListener
 import org.apache.samza.task.StreamTask
-import org.apache.samza.system.SystemStream
-import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.task.ReadableCollector
 import org.apache.samza.system.SystemConsumers
 import org.apache.samza.system.SystemProducers
 import org.apache.samza.task.ReadableCoordinator
-import org.apache.samza.metrics.Gauge
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.SamzaException
+import scala.collection.JavaConversions._
 
 class TaskInstance(
   task: StreamTask,
-  partition: Partition,
+  val taskName: TaskName,
   config: Config,
   metrics: TaskInstanceMetrics,
   consumerMultiplexer: SystemConsumers,
@@ -56,15 +50,14 @@ class TaskInstance(
   storageManager: TaskStorageManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   listeners: Seq[TaskLifecycleListener] = Seq(),
-  inputStreams: Set[SystemStream] = Set(),
+  val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
   collector: ReadableCollector = new ReadableCollector) extends Logging {
-
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
   val context = new TaskContext {
     def getMetricsRegistry = metrics.registry
-    def getPartition = partition
+    def getSystemStreamPartitions = systemStreamPartitions
     def getStore(storeName: String) = if (storageManager != null) {
       storageManager(storeName)
     } else {
@@ -72,29 +65,28 @@ class TaskInstance(
 
       null
     }
+    def getTaskName = taskName
   }
 
   def registerMetrics {
-    debug("Registering metrics for partition: %s." format partition)
+    debug("Registering metrics for taskName: %s" format taskName)
 
     reporters.values.foreach(_.register(metrics.source, metrics.registry))
   }
 
   def registerOffsets {
-    debug("Registering offsets for partition: %s." format partition)
+    debug("Registering offsets for taskName: %s" format taskName)
 
-    inputStreams.foreach(systemStream => {
-      offsetManager.register(new SystemStreamPartition(systemStream, partition))
-    })
+    offsetManager.register(taskName, systemStreamPartitions)
   }
 
   def startStores {
     if (storageManager != null) {
-      debug("Starting storage manager for partition: %s." format partition)
+      debug("Starting storage manager for taskName: %s" format taskName)
 
       storageManager.init
     } else {
-      debug("Skipping storage manager initialization for partition: %s." format partition)
+      debug("Skipping storage manager initialization for taskName: %s" format taskName)
     }
   }
 
@@ -102,31 +94,30 @@ class TaskInstance(
     listeners.foreach(_.beforeInit(config, context))
 
     if (isInitableTask) {
-      debug("Initializing task for partition: %s." format partition)
+      debug("Initializing task for taskName: %s" format taskName)
 
       task.asInstanceOf[InitableTask].init(config, context)
     } else {
-      debug("Skipping task initialization for partition: %s." format partition)
+      debug("Skipping task initialization for taskName: %s" format taskName)
     }
 
     listeners.foreach(_.afterInit(config, context))
   }
 
   def registerProducers {
-    debug("Registering producers for partition: %s." format partition)
+    debug("Registering producers for taskName: %s" format taskName)
 
     producerMultiplexer.register(metrics.source)
   }
 
   def registerConsumers {
-    debug("Registering consumers for partition: %s." format partition)
+    debug("Registering consumers for taskName: %s" format taskName)
 
-    inputStreams.foreach(systemStream => {
-      val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+    systemStreamPartitions.foreach(systemStreamPartition => {
       val offset = offsetManager.getStartingOffset(systemStreamPartition)
-        .getOrElse(throw new SamzaException("No offset defined for partition %s: %s" format (partition, systemStream)))
+        .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format systemStreamPartition))
       consumerMultiplexer.register(systemStreamPartition, offset)
-      metrics.addOffsetGauge(systemStream, () => {
+      metrics.addOffsetGauge(systemStreamPartition, () => {
         offsetManager
           .getLastProcessedOffset(systemStreamPartition)
           .getOrElse(null)
@@ -139,20 +130,20 @@ class TaskInstance(
 
     listeners.foreach(_.beforeProcess(envelope, config, context))
 
-    trace("Processing incoming message envelope for partition: %s, %s" format (partition, envelope.getSystemStreamPartition))
+    trace("Processing incoming message envelope for taskName and SSP: %s, %s" format (taskName, envelope.getSystemStreamPartition))
 
     task.process(envelope, collector, coordinator)
 
     listeners.foreach(_.afterProcess(envelope, config, context))
 
-    trace("Updating offset map for partition: %s, %s, %s" format (partition, envelope.getSystemStreamPartition, envelope.getOffset))
+    trace("Updating offset map for taskName, SSP and offset: %s, %s, %s" format (taskName, envelope.getSystemStreamPartition, envelope.getOffset))
 
     offsetManager.update(envelope.getSystemStreamPartition, envelope.getOffset)
   }
 
   def window(coordinator: ReadableCoordinator) {
     if (isWindowableTask) {
-      trace("Windowing for partition: %s" format partition)
+      trace("Windowing for taskName: %s" format taskName)
 
       metrics.windows.inc
 
@@ -162,48 +153,48 @@ class TaskInstance(
 
   def send {
     if (collector.envelopes.size > 0) {
-      trace("Sending messages for partition: %s, %s" format (partition, collector.envelopes.size))
+      trace("Sending messages for taskName: %s, %s" format (taskName, collector.envelopes.size))
 
       metrics.sends.inc
       metrics.messagesSent.inc(collector.envelopes.size)
 
       collector.envelopes.foreach(envelope => producerMultiplexer.send(metrics.source, envelope))
 
-      trace("Resetting collector for partition: %s" format partition)
+      trace("Resetting collector for taskName: %s" format taskName)
 
       collector.reset
     } else {
-      trace("Skipping send for partition %s because no messages were collected." format partition)
+      trace("Skipping send for taskName %s because no messages were collected." format taskName)
 
       metrics.sendsSkipped.inc
     }
   }
 
   def commit {
-    trace("Flushing state stores for partition: %s" format partition)
+    trace("Flushing state stores for taskName: %s" format taskName)
 
     metrics.commits.inc
 
     storageManager.flush
 
-    trace("Flushing producers for partition: %s" format partition)
+    trace("Flushing producers for taskName: %s" format taskName)
 
     producerMultiplexer.flush(metrics.source)
 
-    trace("Committing offset manager for partition: %s" format partition)
+    trace("Committing offset manager for taskName: %s" format taskName)
 
-    offsetManager.checkpoint(partition)
+    offsetManager.checkpoint(taskName)
   }
 
   def shutdownTask {
     listeners.foreach(_.beforeClose(config, context))
 
     if (task.isInstanceOf[ClosableTask]) {
-      debug("Shutting down stream task for partition: %s" format partition)
+      debug("Shutting down stream task for taskName: %s" format taskName)
 
       task.asInstanceOf[ClosableTask].close
     } else {
-      debug("Skipping stream task shutdown for partition: %s" format partition)
+      debug("Skipping stream task shutdown for taskName: %s" format taskName)
     }
 
     listeners.foreach(_.afterClose(config, context))
@@ -211,16 +202,16 @@ class TaskInstance(
 
   def shutdownStores {
     if (storageManager != null) {
-      debug("Shutting down storage manager for partition: %s" format partition)
+      debug("Shutting down storage manager for taskName: %s" format taskName)
 
       storageManager.stop
     } else {
-      debug("Skipping storage manager shutdown for partition: %s" format partition)
+      debug("Skipping storage manager shutdown for taskName: %s" format taskName)
     }
   }
 
-  override def toString() = "TaskInstance for class %s and partition %s." format (task.getClass.getName, partition)
+  override def toString() = "TaskInstance for class %s and taskName %s." format (task.getClass.getName, taskName)
 
-  def toDetailedString() = "TaskInstance [windowable=%s, closable=%s, collector_size=%s]" format (isWindowableTask, isClosableTask, collector.envelopes.size)
+  def toDetailedString() = "TaskInstance [taskName = %s, windowable=%s, closable=%s, collector_size=%s]" format (taskName, isWindowableTask, isClosableTask, collector.envelopes.size)
 
 }

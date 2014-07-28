@@ -21,10 +21,8 @@ package org.apache.samza.container
 
 import org.apache.samza.metrics.ReadableMetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.Partition
 import org.apache.samza.metrics.MetricsHelper
-import org.apache.samza.system.SystemStream
-import org.apache.samza.metrics.Gauge
+import org.apache.samza.system.SystemStreamPartition
 
 class TaskInstanceMetrics(
   val source: String = "unknown",
@@ -37,7 +35,7 @@ class TaskInstanceMetrics(
   val sendsSkipped = newCounter("send-skipped")
   val messagesSent = newCounter("messages-sent")
 
-  def addOffsetGauge(systemStream: SystemStream, getValue: () => String) {
-    newGauge("%s-%s-offset" format (systemStream.getSystem, systemStream.getStream), getValue)
+  def addOffsetGauge(systemStreamPartition: SystemStreamPartition, getValue: () => String) {
+    newGauge("%s-%s-%d-offset" format (systemStreamPartition.getSystem, systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId), getValue)
   }
 }

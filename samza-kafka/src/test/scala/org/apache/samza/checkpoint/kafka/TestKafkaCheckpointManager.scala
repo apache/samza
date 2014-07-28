@@ -19,11 +19,9 @@
 
 package org.apache.samza.checkpoint.kafka
 
-import org.I0Itec.zkclient.ZkClient
-import org.junit.Assert._
-import org.junit.AfterClass
-import org.junit.BeforeClass
-import org.junit.Test
+import kafka.common.InvalidMessageSizeException
+import kafka.common.UnknownTopicOrPartitionException
+import kafka.message.InvalidMessageException
 import kafka.producer.Producer
 import kafka.producer.ProducerConfig
 import kafka.server.KafkaConfig
@@ -31,20 +29,20 @@ import kafka.server.KafkaServer
 import kafka.utils.TestUtils
 import kafka.utils.TestZKUtils
 import kafka.utils.Utils
-import kafka.zk.EmbeddedZookeeper
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.Partition
-import scala.collection._
-import scala.collection.JavaConversions._
-import org.apache.samza.util.{ ClientUtilTopicMetadataStore, TopicMetadataStore }
-import org.apache.samza.config.MapConfig
-import org.apache.samza.checkpoint.Checkpoint
-import org.apache.samza.serializers.CheckpointSerde
-import org.apache.samza.system.SystemStream
 import kafka.utils.ZKStringSerializer
-import kafka.message.InvalidMessageException
-import kafka.common.InvalidMessageSizeException
-import kafka.common.UnknownTopicOrPartitionException
+import kafka.zk.EmbeddedZookeeper
+import org.I0Itec.zkclient.ZkClient
+import org.apache.samza.checkpoint.Checkpoint
+import org.apache.samza.container.TaskName
+import org.apache.samza.serializers.CheckpointSerde
+import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.util.{ ClientUtilTopicMetadataStore, TopicMetadataStore }
+import org.apache.samza.{SamzaException, Partition}
+import org.junit.Assert._
+import org.junit.{AfterClass, BeforeClass, Test}
+import scala.collection.JavaConversions._
+import scala.collection._
+import org.apache.samza.container.systemstreampartition.groupers.GroupByPartitionFactory
 
 object TestKafkaCheckpointManager {
   val zkConnect: String = TestZKUtils.zookeeperConnect
@@ -72,13 +70,15 @@ object TestKafkaCheckpointManager {
   config.put("request.required.acks", "-1")
   val producerConfig = new ProducerConfig(config)
   val partition = new Partition(0)
-  val cp1 = new Checkpoint(Map(new SystemStream("kafka", "topic") -> "123"))
-  val cp2 = new Checkpoint(Map(new SystemStream("kafka", "topic") -> "12345"))
+  val cp1 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", partition) -> "123"))
+  val cp2 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", partition) -> "12345"))
   var zookeeper: EmbeddedZookeeper = null
   var server1: KafkaServer = null
   var server2: KafkaServer = null
   var server3: KafkaServer = null
   var metadataStore: TopicMetadataStore = null
+
+  val systemStreamPartitionGrouperFactoryString = classOf[GroupByPartitionFactory].getCanonicalName
 
   @BeforeClass
   def beforeSetupServers {
@@ -108,42 +108,45 @@ class TestKafkaCheckpointManager {
   import TestKafkaCheckpointManager._
 
   @Test
-  def testCheckpointShouldBeNullIfcheckpointTopicDoesNotExistShouldBeCreatedOnWriteAndShouldBeReadableAfterWrite {
+  def testCheckpointShouldBeNullIfCheckpointTopicDoesNotExistShouldBeCreatedOnWriteAndShouldBeReadableAfterWrite {
     val kcm = getKafkaCheckpointManager
-    kcm.register(partition)
+    val taskName = new TaskName(partition.toString)
+    kcm.register(taskName)
     kcm.start
-    var readCp = kcm.readLastCheckpoint(partition)
+    var readCp = kcm.readLastCheckpoint(taskName)
     // read before topic exists should result in a null checkpoint
-    assert(readCp == null)
+    assertNull(readCp)
     // create topic the first time around
-    kcm.writeCheckpoint(partition, cp1)
-    readCp = kcm.readLastCheckpoint(partition)
-    assert(cp1.equals(readCp))
+    kcm.writeCheckpoint(taskName, cp1)
+    readCp = kcm.readLastCheckpoint(taskName)
+    assertEquals(cp1, readCp)
     // should get an exception if partition doesn't exist
     try {
-      readCp = kcm.readLastCheckpoint(new Partition(1))
+      readCp = kcm.readLastCheckpoint(new TaskName(new Partition(1).toString))
       fail("Expected a SamzaException, since only one partition (partition 0) should exist.")
     } catch {
-      case e: Exception => None // expected
+      case e: SamzaException => None // expected
+      case _: Exception => fail("Expected a SamzaException, since only one partition (partition 0) should exist.")
     }
     // writing a second message should work, too
-    kcm.writeCheckpoint(partition, cp2)
-    readCp = kcm.readLastCheckpoint(partition)
-    assert(cp2.equals(readCp))
+    kcm.writeCheckpoint(taskName, cp2)
+    readCp = kcm.readLastCheckpoint(taskName)
+    assertEquals(cp2, readCp)
     kcm.stop
   }
 
   @Test
-  def testUnrecovableKafkaErrorShouldThrowKafkaCheckpointManagerException {
+  def testUnrecoverableKafkaErrorShouldThrowKafkaCheckpointManagerException {
     val exceptions = List("InvalidMessageException", "InvalidMessageSizeException", "UnknownTopicOrPartitionException")
     exceptions.foreach { exceptionName =>
       val kcm = getKafkaCheckpointManagerWithInvalidSerde(exceptionName)
-      kcm.register(partition)
+      val taskName = new TaskName(partition.toString)
+      kcm.register(taskName)
       kcm.start
-      kcm.writeCheckpoint(partition, cp1)
+      kcm.writeCheckpoint(taskName, cp1)
       // because serde will throw unrecoverable errors, it should result a KafkaCheckpointException
       try {
-        val readCpInvalide = kcm.readLastCheckpoint(partition)
+        kcm.readLastCheckpoint(taskName)
         fail("Expected a KafkaCheckpointException.")
       } catch {
         case e: KafkaCheckpointException => None
@@ -156,28 +159,28 @@ class TestKafkaCheckpointManager {
     clientId = "some-client-id",
     checkpointTopic = "checkpoint-topic",
     systemName = "kafka",
-    totalPartitions = 1,
     replicationFactor = 3,
     socketTimeout = 30000,
     bufferSize = 64 * 1024,
     fetchSize = 300 * 1024,
     metadataStore = metadataStore,
-    connectProducer = () => new Producer[Partition, Array[Byte]](producerConfig),
-    connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer))
+    connectProducer = () => new Producer[Array[Byte], Array[Byte]](producerConfig),
+    connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer),
+    systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString)
 
   // inject serde. Kafka exceptions will be thrown when serde.fromBytes is called
   private def getKafkaCheckpointManagerWithInvalidSerde(exception: String) = new KafkaCheckpointManager(
     clientId = "some-client-id-invalid-serde",
     checkpointTopic = "checkpoint-topic-invalid-serde",
     systemName = "kafka",
-    totalPartitions = 1,
     replicationFactor = 3,
     socketTimeout = 30000,
     bufferSize = 64 * 1024,
     fetchSize = 300 * 1024,
     metadataStore = metadataStore,
-    connectProducer = () => new Producer[Partition, Array[Byte]](producerConfig),
+    connectProducer = () => new Producer[Array[Byte], Array[Byte]](producerConfig),
     connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer),
+    systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
     serde = new InvalideSerde(exception))
 
   class InvalideSerde(exception: String) extends CheckpointSerde {

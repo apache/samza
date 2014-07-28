@@ -19,6 +19,8 @@
 
 package org.apache.samza.config
 
+import org.apache.samza.container.systemstreampartition.groupers.GroupByPartitionFactory
+
 object JobConfig {
   // job config constants
   val STREAM_JOB_FACTORY_CLASS = "job.factory.class" // streaming.job_factory_class
@@ -34,6 +36,8 @@ object JobConfig {
   val JOB_NAME = "job.name" // streaming.job_name
   val JOB_ID = "job.id" // streaming.job_id
 
+  val SSP_GROUPER_FACTORY = "job.systemstreampartition.grouper.factory"
+
   implicit def Config2Job(config: Config) = new JobConfig(config)
 }
 
@@ -47,4 +51,6 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) {
   def getConfigRewriters = getOption(JobConfig.CONFIG_REWRITERS)
 
   def getConfigRewriterClass(name: String) = getOption(JobConfig.CONFIG_REWRITER_CLASS format name)
+
+  def getSystemStreamPartitionGrouperFactory = getOption(JobConfig.SSP_GROUPER_FACTORY).getOrElse(classOf[GroupByPartitionFactory].getCanonicalName)
 }

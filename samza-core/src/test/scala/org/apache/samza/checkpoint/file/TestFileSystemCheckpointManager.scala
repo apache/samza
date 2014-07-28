@@ -23,34 +23,53 @@ import java.io.File
 import scala.collection.JavaConversions._
 import java.util.Random
 import org.junit.Assert._
-import org.junit.Test
+import org.junit.{After, Before, Test}
 import org.apache.samza.SamzaException
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.Checkpoint
-import org.apache.samza.system.SystemStream
+import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.container.TaskName
+import org.junit.rules.TemporaryFolder
 
-class TestFileSystemCheckpointManager {
-  val checkpointRoot = System.getProperty("java.io.tmpdir")
+class TestFileSystemCheckpointManager  {
+  val checkpointRoot = System.getProperty("java.io.tmpdir") // TODO: Move this out of tmp, into our build dir
+  val taskName = new TaskName("Warwickshire")
+  val baseFileLocation = new File(checkpointRoot)
+
+  val tempFolder = new TemporaryFolder
+
+  @Before
+  def createTempFolder = tempFolder.create()
+
+  @After
+  def deleteTempFolder = tempFolder.delete()
 
   @Test
   def testReadForCheckpointFileThatDoesNotExistShouldReturnNull {
-    val cpm = new FileSystemCheckpointManager("some-job-name", new File(checkpointRoot))
-    assert(cpm.readLastCheckpoint(new Partition(1)) == null)
+    val cpm = new FileSystemCheckpointManager("some-job-name", tempFolder.getRoot)
+    assertNull(cpm.readLastCheckpoint(taskName))
   }
 
   @Test
   def testReadForCheckpointFileThatDoesExistShouldReturnProperCheckpoint {
-    val cpm = new FileSystemCheckpointManager("some-job-name", new File(checkpointRoot))
-    val partition = new Partition(2)
     val cp = new Checkpoint(Map(
-      new SystemStream("a", "b") -> "c",
-      new SystemStream("a", "c") -> "d",
-      new SystemStream("b", "d") -> "e"))
+          new SystemStreamPartition("a", "b", new Partition(0)) -> "c",
+          new SystemStreamPartition("a", "c", new Partition(1)) -> "d",
+          new SystemStreamPartition("b", "d", new Partition(2)) -> "e"))
+
+    var readCp:Checkpoint = null
+    val cpm =  new FileSystemCheckpointManager("some-job-name", tempFolder.getRoot)
+
     cpm.start
-    cpm.writeCheckpoint(partition, cp)
-    val readCp = cpm.readLastCheckpoint(partition)
+    cpm.writeCheckpoint(taskName, cp)
+    readCp = cpm.readLastCheckpoint(taskName)
     cpm.stop
-    assert(readCp.equals(cp))
+
+    assertNotNull(readCp)
+    cp.equals(readCp)
+    assertEquals(cp.getOffsets.keySet(), readCp.getOffsets.keySet())
+    assertEquals(cp.getOffsets, readCp.getOffsets)
+    assertEquals(cp, readCp)
   }
 
   @Test

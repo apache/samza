@@ -19,26 +19,28 @@
 
 package org.apache.samza.checkpoint.kafka
 
-import org.apache.samza.config.{ KafkaConfig, Config }
-import org.apache.samza.SamzaException
-import java.util.Properties
-import kafka.producer.Producer
-import org.apache.samza.config.SystemConfig.Config2System
-import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.config.KafkaConfig.Config2Kafka
-import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.Partition
 import grizzled.slf4j.Logging
+import kafka.producer.Producer
+import kafka.utils.ZKStringSerializer
+import org.I0Itec.zkclient.ZkClient
+import org.apache.samza.SamzaException
+import org.apache.samza.checkpoint.CheckpointManager
+import org.apache.samza.checkpoint.CheckpointManagerFactory
+import org.apache.samza.config.Config
+import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.config.KafkaConfig.Config2Kafka
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.util.{ KafkaUtil, ClientUtilTopicMetadataStore }
-import org.apache.samza.util.Util
-import org.I0Itec.zkclient.ZkClient
-import kafka.utils.ZKStringSerializer
-import org.apache.samza.checkpoint.CheckpointManagerFactory
-import org.apache.samza.checkpoint.CheckpointManager
 
+object KafkaCheckpointManagerFactory {
+  /**
+   * Version number to track the format of the checkpoint log
+   */
+  val CHECKPOINT_LOG_VERSION_NUMBER = 1
+}
 class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Logging {
+  import KafkaCheckpointManagerFactory._
+
   def getCheckpointManager(config: Config, registry: MetricsRegistry): CheckpointManager = {
     val clientId = KafkaUtil.getClientId("samza-checkpoint-manager", config)
     val systemName = config
@@ -60,7 +62,7 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     val fetchSize = consumerConfig.fetchMessageMaxBytes // must be > buffer size
 
     val connectProducer = () => {
-      new Producer[Partition, Array[Byte]](producerConfig)
+      new Producer[Array[Byte], Array[Byte]](producerConfig)
     }
     val zkConnect = Option(consumerConfig.zkConnect)
       .getOrElse(throw new SamzaException("no zookeeper.connect defined in config"))
@@ -73,24 +75,24 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
       .getOrElse(throw new SamzaException("No broker list defined in config for %s." format systemName))
     val metadataStore = new ClientUtilTopicMetadataStore(brokersListString, clientId, socketTimeout)
     val checkpointTopic = getTopic(jobName, jobId)
-    
-    // This is a reasonably expensive operation and the TaskInstance already knows the answer. Should use that info.
-    val totalPartitions = Util.getInputStreamPartitions(config).map(_.getPartition).toSet.size
+
+    // Find out the SSPGrouperFactory class so it can be included/verified in the key
+    val systemStreamPartitionGrouperFactoryString = config.getSystemStreamPartitionGrouperFactory
 
     new KafkaCheckpointManager(
       clientId,
       checkpointTopic,
       systemName,
-      totalPartitions,
       replicationFactor,
       socketTimeout,
       bufferSize,
       fetchSize,
       metadataStore,
       connectProducer,
-      connectZk)
+      connectZk,
+      systemStreamPartitionGrouperFactoryString)
   }
 
   private def getTopic(jobName: String, jobId: String) =
-    "__samza_checkpoint_%s_%s" format (jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
+    "__samza_checkpoint_ver_%d_for_%s_%s" format (CHECKPOINT_LOG_VERSION_NUMBER, jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
 }

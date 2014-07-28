@@ -19,17 +19,19 @@
 
 package org.apache.samza.checkpoint
 
+import grizzled.slf4j.Logging
 import java.net.URI
 import java.util.regex.Pattern
 import joptsimple.OptionSet
-import org.apache.samza.{Partition, SamzaException}
-import org.apache.samza.config.{Config, StreamConfig}
+import org.apache.samza.checkpoint.CheckpointTool.TaskNameToCheckpointMap
 import org.apache.samza.config.TaskConfig.Config2Task
+import org.apache.samza.config.{Config, StreamConfig}
+import org.apache.samza.container.TaskName
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.{CommandLine, Util}
+import org.apache.samza.{Partition, SamzaException}
 import scala.collection.JavaConversions._
-import grizzled.slf4j.Logging
 
 /**
  * Command-line tool for inspecting and manipulating the checkpoints for a job.
@@ -44,7 +46,10 @@ import grizzled.slf4j.Logging
  * containing the offsets you want. It needs to be in the same format as the tool
  * prints out the latest checkpoint:
  *
- *   systems.<system>.streams.<topic>.partitions.<partition>=<offset>
+ *   tasknames.<taskname>.systems.<system>.streams.<topic>.partitions.<partition>=<offset>
+ *
+ * The provided offset definitions will be grouped by <taskname> and written to
+ * individual checkpoint entries for each <taskname>
  *
  * NOTE: A job only reads its checkpoint when it starts up. Therefore, if you want
  * your checkpoint change to take effect, you have to first stop the job, then
@@ -56,8 +61,10 @@ import grizzled.slf4j.Logging
  */
 object CheckpointTool {
   /** Format in which SystemStreamPartition is represented in a properties file */
-  val SSP_PATTERN = StreamConfig.STREAM_PREFIX + "partitions.%d"
-  val SSP_REGEX = Pattern.compile("systems\\.(.+)\\.streams\\.(.+)\\.partitions\\.([0-9]+)")
+  val SSP_PATTERN = "tasknames.%s." + StreamConfig.STREAM_PREFIX + "partitions.%d"
+  val SSP_REGEX = Pattern.compile("tasknames\\.(.+)\\.systems\\.(.+)\\.streams\\.(.+)\\.partitions\\.([0-9]+)")
+
+  type TaskNameToCheckpointMap = Map[TaskName, Map[SystemStreamPartition, String]]
 
   class CheckpointToolCommandLine extends CommandLine with Logging {
     val newOffsetsOpt =
@@ -68,20 +75,31 @@ object CheckpointTool {
             .ofType(classOf[URI])
             .describedAs("path")
 
-    var newOffsets: Map[SystemStreamPartition, String] = null
+    var newOffsets: TaskNameToCheckpointMap = null
 
-    def parseOffsets(propertiesFile: Config): Map[SystemStreamPartition, String] = {
-      propertiesFile.entrySet.flatMap(entry => {
+    def parseOffsets(propertiesFile: Config): TaskNameToCheckpointMap = {
+      val taskNameSSPPairs = propertiesFile.entrySet.flatMap(entry => {
         val matcher = SSP_REGEX.matcher(entry.getKey)
         if (matcher.matches) {
-          val partition = new Partition(Integer.parseInt(matcher.group(3)))
-          val ssp = new SystemStreamPartition(matcher.group(1), matcher.group(2), partition)
-          Some(ssp -> entry.getValue)
+          val taskname = new TaskName(matcher.group(1))
+          val partition = new Partition(Integer.parseInt(matcher.group(4)))
+          val ssp = new SystemStreamPartition(matcher.group(2), matcher.group(3), partition)
+          Some(taskname -> Map(ssp -> entry.getValue))
         } else {
           warn("Warning: ignoring unrecognised property: %s = %s" format (entry.getKey, entry.getValue))
           None
         }
-      }).toMap
+      }).toList
+
+      if(taskNameSSPPairs.isEmpty) {
+        return null
+      }
+
+      // Need to turn taskNameSSPPairs List[(taskname, Map[SystemStreamPartition, Offset])] to Map[TaskName, Map[SSP, Offset]]
+      taskNameSSPPairs                      // List[(taskname, Map[SystemStreamPartition, Offset])]
+        .groupBy(_._1)                      // Group by taskname
+        .mapValues(m => m.map(_._2))        // Drop the extra taskname that we grouped on
+        .mapValues(m => m.reduce( _ ++ _))  // Merge all the maps of SSPs->Offset into one for the whole taskname
     }
 
     override def loadConfig(options: OptionSet) = {
@@ -103,7 +121,7 @@ object CheckpointTool {
   }
 }
 
-class CheckpointTool(config: Config, newOffsets: Map[SystemStreamPartition, String]) extends Logging {
+class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap) extends Logging {
   val manager = config.getCheckpointManagerFactory match {
     case Some(className) =>
       Util.getObj[CheckpointManagerFactory](className).getCheckpointManager(config, new MetricsRegistryMap)
@@ -113,52 +131,48 @@ class CheckpointTool(config: Config, newOffsets: Map[SystemStreamPartition, Stri
 
   // The CheckpointManagerFactory needs to perform this same operation when initializing
   // the manager. TODO figure out some way of avoiding duplicated work.
-  val partitions = Util.getInputStreamPartitions(config).map(_.getPartition).toSet
 
   def run {
     info("Using %s" format manager)
-    partitions.foreach(manager.register)
-    manager.start
-    val lastCheckpoint = readLastCheckpoint
 
-    logCheckpoint(lastCheckpoint, "Current checkpoint")
+    // Find all the TaskNames that would be generated for this job config
+    val taskNames = Util.assignContainerToSSPTaskNames(config, 1).get(0).get.keys.toSet
+
+    taskNames.foreach(manager.register)
+    manager.start
+
+    val lastCheckpoints = taskNames.map(tn => tn -> readLastCheckpoint(tn)).toMap
+
+    lastCheckpoints.foreach(lcp => logCheckpoint(lcp._1, lcp._2, "Current checkpoint for taskname "+ lcp._1))
 
     if (newOffsets != null) {
-      logCheckpoint(newOffsets, "New offset to be written")
-      writeNewCheckpoint(newOffsets)
-      manager.stop
-      info("Ok, new checkpoint has been written.")
+      newOffsets.foreach(no => {
+        logCheckpoint(no._1, no._2, "New offset to be written for taskname " + no._1)
+        writeNewCheckpoint(no._1, no._2)
+        info("Ok, new checkpoint has been written for taskname " + no._1)
+      })
     }
+
+    manager.stop
   }
 
-  /** Load the most recent checkpoint state for all partitions. */
-  def readLastCheckpoint: Map[SystemStreamPartition, String] = {
-    partitions.flatMap(partition => {
-      manager.readLastCheckpoint(partition)
-        .getOffsets
-        .map { case (systemStream, offset) =>
-          new SystemStreamPartition(systemStream, partition) -> offset
-        }
-    }).toMap
+  /** Load the most recent checkpoint state for all a specified TaskName. */
+  def readLastCheckpoint(taskName:TaskName): Map[SystemStreamPartition, String] = {
+    manager.readLastCheckpoint(taskName).getOffsets.toMap
   }
 
   /**
-   * Store a new checkpoint state for all given partitions, overwriting the
-   * current state. Any partitions that are not mentioned will not
-   * be changed.
+   * Store a new checkpoint state for specified TaskName, overwriting any previous
+   * checkpoint for that TaskName
    */
-  def writeNewCheckpoint(newOffsets: Map[SystemStreamPartition, String]) {
-    newOffsets.groupBy(_._1.getPartition).foreach {
-      case (partition, offsets) =>
-        val streamOffsets = offsets.map { case (ssp, offset) => ssp.getSystemStream -> offset }.toMap
-        val checkpoint = new Checkpoint(streamOffsets)
-        manager.writeCheckpoint(partition, checkpoint)
-    }
+  def writeNewCheckpoint(tn: TaskName, newOffsets: Map[SystemStreamPartition, String]) {
+    val checkpoint = new Checkpoint(newOffsets)
+    manager.writeCheckpoint(tn, checkpoint)
   }
 
-  def logCheckpoint(checkpoint: Map[SystemStreamPartition, String], prefix: String) {
-    checkpoint.map { case (ssp, offset) =>
-      (CheckpointTool.SSP_PATTERN + " = %s") format (ssp.getSystem, ssp.getStream, ssp.getPartition.getPartitionId, offset)
-    }.toList.sorted.foreach(line => info(prefix + ": " + line))
+  def logCheckpoint(tn: TaskName, checkpoint: Map[SystemStreamPartition, String], prefix: String) {
+    def logLine(tn:TaskName, ssp:SystemStreamPartition, offset:String) = (prefix + ": " + CheckpointTool.SSP_PATTERN + " = %s") format (tn.toString, ssp.getSystem, ssp.getStream, ssp.getPartition.getPartitionId, offset)
+
+    checkpoint.keys.toList.sorted.foreach(ssp => info(logLine(tn, ssp, checkpoint.get(ssp).get)))
   }
 }

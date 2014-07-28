@@ -26,7 +26,12 @@ object ShellCommandConfig {
   val ENV_CONFIG = "SAMZA_CONFIG"
 
   /**
-   * An encoded list of the streams and partitions this container is responsible for. Encoded by 
+   * All taskNames across the job; used to calculate state store partition mapping
+   */
+  val ENV_TASK_NAME_TO_CHANGELOG_PARTITION_MAPPING = "TASK_NAME_TO_CHANGELOG_PARTITION_MAPPING"
+
+  /**
+   * A serialized list of the streams and partitions this container is responsible for. Encoded by
    * {@link org.apache.samza.util.Util#createStreamPartitionString}
    */
   val ENV_SYSTEM_STREAMS = "SAMZA_SYSTEM_STREAMS"

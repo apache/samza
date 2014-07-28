@@ -37,29 +37,45 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ShouldMatche
 
   val p0 = new Partition(0)
   val p1 = new Partition(1)
+  val taskName0 = new TaskName(p0.toString)
+  val taskName1 = new TaskName(p1.toString)
   val ssp0 = new SystemStreamPartition("testSystem", "testStream", p0)
   val ssp1 = new SystemStreamPartition("testSystem", "testStream", p1)
   val envelope0 = new IncomingMessageEnvelope(ssp0, "0", "key0", "value0")
   val envelope1 = new IncomingMessageEnvelope(ssp1, "1", "key1", "value1")
 
+  def getMockTaskInstances: Map[TaskName, TaskInstance] = {
+    val ti0 = mock[TaskInstance]
+    when(ti0.systemStreamPartitions).thenReturn(Set(ssp0))
+    when(ti0.taskName).thenReturn(taskName0)
+
+    val ti1 = mock[TaskInstance]
+    when(ti1.systemStreamPartitions).thenReturn(Set(ssp1))
+    when(ti1.taskName).thenReturn(taskName1)
+
+    Map(taskName0 -> ti0, taskName1 -> ti1)
+  }
+
   @Test
   def testProcessMessageFromChooser {
-    val taskInstances = Map(p0 -> mock[TaskInstance], p1 -> mock[TaskInstance])
+    val taskInstances = getMockTaskInstances
     val consumers = mock[SystemConsumers]
     val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics)
 
     when(consumers.choose).thenReturn(envelope0).thenReturn(envelope1).thenThrow(new StopRunLoop)
     intercept[StopRunLoop] { runLoop.run }
-    verify(taskInstances(p0)).process(Matchers.eq(envelope0), anyObject)
-    verify(taskInstances(p1)).process(Matchers.eq(envelope1), anyObject)
+    verify(taskInstances(taskName0)).process(Matchers.eq(envelope0), anyObject)
+    verify(taskInstances(taskName1)).process(Matchers.eq(envelope1), anyObject)
     runLoop.metrics.envelopes.getCount should equal(2L)
     runLoop.metrics.nullEnvelopes.getCount should equal(0L)
   }
 
+
   @Test
   def testNullMessageFromChooser {
     val consumers = mock[SystemConsumers]
-    val runLoop = new RunLoop(Map(p0 -> mock[TaskInstance]), consumers, new SamzaContainerMetrics)
+    val map = getMockTaskInstances - taskName1 // This test only needs p0
+    val runLoop = new RunLoop(map, consumers, new SamzaContainerMetrics)
     when(consumers.choose).thenReturn(null).thenReturn(null).thenThrow(new StopRunLoop)
     intercept[StopRunLoop] { runLoop.run }
     runLoop.metrics.envelopes.getCount should equal(0L)
@@ -73,7 +89,7 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ShouldMatche
     when(consumers.choose).thenReturn(envelope0)
 
     val runLoop = new RunLoop(
-      taskInstances = Map(p0 -> mock[TaskInstance], p1 -> mock[TaskInstance]),
+      taskInstances = getMockTaskInstances,
       consumerMultiplexer = consumers,
       metrics = new SamzaContainerMetrics,
       windowMs = 60000, // call window once per minute
@@ -86,67 +102,67 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ShouldMatche
 
     intercept[StopRunLoop] { runLoop.run }
 
-    verify(runLoop.taskInstances(p0), times(5)).window(anyObject)
-    verify(runLoop.taskInstances(p1), times(5)).window(anyObject)
-    verify(runLoop.taskInstances(p0), times(10)).commit
-    verify(runLoop.taskInstances(p1), times(10)).commit
+    verify(runLoop.taskInstances(taskName0), times(5)).window(anyObject)
+    verify(runLoop.taskInstances(taskName1), times(5)).window(anyObject)
+    verify(runLoop.taskInstances(taskName0), times(10)).commit
+    verify(runLoop.taskInstances(taskName1), times(10)).commit
   }
 
   @Test
   def testCommitCurrentTaskManually {
-    val taskInstances = Map(p0 -> mock[TaskInstance], p1 -> mock[TaskInstance])
+    val taskInstances = getMockTaskInstances
     val consumers = mock[SystemConsumers]
     val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics, windowMs = -1, commitMs = -1)
 
     when(consumers.choose).thenReturn(envelope0).thenReturn(envelope1).thenThrow(new StopRunLoop)
-    stubProcess(taskInstances(p0), (envelope, coordinator) => coordinator.commit(RequestScope.CURRENT_TASK))
+    stubProcess(taskInstances(taskName0), (envelope, coordinator) => coordinator.commit(RequestScope.CURRENT_TASK))
 
     intercept[StopRunLoop] { runLoop.run }
-    verify(taskInstances(p0), times(1)).commit
-    verify(taskInstances(p1), times(0)).commit
+    verify(taskInstances(taskName0), times(1)).commit
+    verify(taskInstances(taskName1), times(0)).commit
   }
 
   @Test
   def testCommitAllTasksManually {
-    val taskInstances = Map(p0 -> mock[TaskInstance], p1 -> mock[TaskInstance])
+    val taskInstances = getMockTaskInstances
     val consumers = mock[SystemConsumers]
     val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics, windowMs = -1, commitMs = -1)
 
     when(consumers.choose).thenReturn(envelope0).thenThrow(new StopRunLoop)
-    stubProcess(taskInstances(p0), (envelope, coordinator) => coordinator.commit(RequestScope.ALL_TASKS_IN_CONTAINER))
+    stubProcess(taskInstances(taskName0), (envelope, coordinator) => coordinator.commit(RequestScope.ALL_TASKS_IN_CONTAINER))
 
     intercept[StopRunLoop] { runLoop.run }
-    verify(taskInstances(p0), times(1)).commit
-    verify(taskInstances(p1), times(1)).commit
+    verify(taskInstances(taskName0), times(1)).commit
+    verify(taskInstances(taskName1), times(1)).commit
   }
 
   @Test
   def testShutdownOnConsensus {
-    val taskInstances = Map(p0 -> mock[TaskInstance], p1 -> mock[TaskInstance])
+    val taskInstances = getMockTaskInstances
     val consumers = mock[SystemConsumers]
     val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics, windowMs = -1, commitMs = -1)
 
     when(consumers.choose).thenReturn(envelope0).thenReturn(envelope0).thenReturn(envelope1)
-    stubProcess(taskInstances(p0), (envelope, coordinator) => coordinator.shutdown(RequestScope.CURRENT_TASK))
-    stubProcess(taskInstances(p1), (envelope, coordinator) => coordinator.shutdown(RequestScope.CURRENT_TASK))
+    stubProcess(taskInstances(taskName0), (envelope, coordinator) => coordinator.shutdown(RequestScope.CURRENT_TASK))
+    stubProcess(taskInstances(taskName1), (envelope, coordinator) => coordinator.shutdown(RequestScope.CURRENT_TASK))
 
     runLoop.run
-    verify(taskInstances(p0), times(2)).process(Matchers.eq(envelope0), anyObject)
-    verify(taskInstances(p1), times(1)).process(Matchers.eq(envelope1), anyObject)
+    verify(taskInstances(taskName0), times(2)).process(Matchers.eq(envelope0), anyObject)
+    verify(taskInstances(taskName1), times(1)).process(Matchers.eq(envelope1), anyObject)
   }
 
   @Test
   def testShutdownNow {
-    val taskInstances = Map(p0 -> mock[TaskInstance], p1 -> mock[TaskInstance])
+    val taskInstances = getMockTaskInstances
     val consumers = mock[SystemConsumers]
     val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics, windowMs = -1, commitMs = -1)
 
     when(consumers.choose).thenReturn(envelope0).thenReturn(envelope1)
-    stubProcess(taskInstances(p0), (envelope, coordinator) => coordinator.shutdown(RequestScope.ALL_TASKS_IN_CONTAINER))
+    stubProcess(taskInstances(taskName0), (envelope, coordinator) => coordinator.shutdown(RequestScope.ALL_TASKS_IN_CONTAINER))
 
     runLoop.run
-    verify(taskInstances(p0), times(1)).process(anyObject, anyObject)
-    verify(taskInstances(p1), times(0)).process(anyObject, anyObject)
+    verify(taskInstances(taskName0), times(1)).process(anyObject, anyObject)
+    verify(taskInstances(taskName1), times(0)).process(anyObject, anyObject)
   }
 
   def anyObject[T] = Matchers.anyObject.asInstanceOf[T]

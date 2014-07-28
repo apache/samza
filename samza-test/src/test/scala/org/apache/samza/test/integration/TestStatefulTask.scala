@@ -19,64 +19,55 @@
 
 package org.apache.samza.test.integration
 
-import org.apache.samza.task.StreamTask
-import org.apache.samza.task.TaskContext
-import org.apache.samza.task.InitableTask
-import org.apache.samza.config.Config
-import scala.collection.JavaConversions._
-import org.apache.samza.task.TaskCoordinator
-import org.apache.samza.task.MessageCollector
-import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.checkpoint.Checkpoint
-import org.junit.BeforeClass
-import org.junit.AfterClass
-import kafka.zk.EmbeddedZookeeper
-import kafka.utils.TestUtils
-import org.apache.samza.system.SystemStream
-import kafka.utils.TestZKUtils
-import kafka.server.KafkaConfig
-import org.I0Itec.zkclient.ZkClient
-import kafka.producer.ProducerConfig
-import kafka.server.KafkaServer
-import kafka.utils.Utils
-import org.apache.samza.storage.kv.KeyValueStore
-import org.apache.samza.util._
-import org.junit.Test
+import java.util.Properties
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kafka.admin.AdminUtils
 import kafka.common.ErrorMapping
-import org.junit.Assert._
-import kafka.utils.ZKStringSerializer
-import scala.collection.mutable.ArrayBuffer
-import org.apache.samza.job.local.LocalJobFactory
-import org.apache.samza.job.ApplicationStatus
-import java.util.concurrent.CountDownLatch
-import org.apache.samza.job.local.ThreadJob
-import org.apache.samza.util.TopicMetadataStore
-import org.apache.samza.util.ClientUtilTopicMetadataStore
-import org.apache.samza.config.MapConfig
-import org.apache.samza.system.kafka.TopicMetadataCache
-import org.apache.samza.container.SamzaContainer
-import scala.collection.mutable.HashMap
-import scala.collection.mutable.SynchronizedMap
-import org.apache.samza.Partition
-import java.util.concurrent.TimeUnit
-import kafka.producer.Producer
-import kafka.producer.KeyedMessage
-import java.util.concurrent.Semaphore
-import java.util.concurrent.CyclicBarrier
 import kafka.consumer.Consumer
 import kafka.consumer.ConsumerConfig
-import java.util.Properties
-import java.util.concurrent.Executors
-import kafka.message.MessageAndOffset
 import kafka.message.MessageAndMetadata
+import kafka.producer.KeyedMessage
+import kafka.producer.Producer
+import kafka.producer.ProducerConfig
+import kafka.server.KafkaConfig
+import kafka.server.KafkaServer
+import kafka.utils.TestUtils
+import kafka.utils.TestZKUtils
+import kafka.utils.Utils
+import kafka.utils.ZKStringSerializer
+import kafka.zk.EmbeddedZookeeper
+import org.I0Itec.zkclient.ZkClient
+import org.apache.samza.Partition
+import org.apache.samza.checkpoint.Checkpoint
+import org.apache.samza.config.Config
+import org.apache.samza.config.MapConfig
+import org.apache.samza.container.TaskName
+import org.apache.samza.job.ApplicationStatus
 import org.apache.samza.job.StreamJob
+import org.apache.samza.job.local.LocalJobFactory
+import org.apache.samza.storage.kv.KeyValueStore
+import org.apache.samza.system.kafka.TopicMetadataCache
+import org.apache.samza.system.{SystemStreamPartition, IncomingMessageEnvelope}
+import org.apache.samza.task.InitableTask
+import org.apache.samza.task.MessageCollector
+import org.apache.samza.task.StreamTask
+import org.apache.samza.task.TaskContext
+import org.apache.samza.task.TaskCoordinator
 import org.apache.samza.task.TaskCoordinator.RequestScope
+import org.apache.samza.util.ClientUtilTopicMetadataStore
+import org.apache.samza.util.TopicMetadataStore
+import org.junit.Assert._
+import org.junit.{BeforeClass, AfterClass, Test}
+import scala.collection.JavaConversions._
+import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.HashMap
+import scala.collection.mutable.SynchronizedMap
 
 object TestStatefulTask {
   val INPUT_TOPIC = "input"
   val STATE_TOPIC = "mystore"
-  val TOTAL_PARTITIONS = 1
+  val TOTAL_TASK_NAMES = 1
   val REPLICATION_FACTOR = 3
 
   val zkConnect: String = TestZKUtils.zookeeperConnect
@@ -102,8 +93,8 @@ object TestStatefulTask {
   config.put("serializer.class", "kafka.serializer.StringEncoder");
   val producerConfig = new ProducerConfig(config)
   var producer: Producer[String, String] = null
-  val cp1 = new Checkpoint(Map(new SystemStream("kafka", "topic") -> "123"))
-  val cp2 = new Checkpoint(Map(new SystemStream("kafka", "topic") -> "12345"))
+  val cp1 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "123"))
+  val cp2 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "12345"))
   var zookeeper: EmbeddedZookeeper = null
   var server1: KafkaServer = null
   var server2: KafkaServer = null
@@ -128,13 +119,13 @@ object TestStatefulTask {
     AdminUtils.createTopic(
       zkClient,
       INPUT_TOPIC,
-      TOTAL_PARTITIONS,
+      TOTAL_TASK_NAMES,
       REPLICATION_FACTOR)
 
     AdminUtils.createTopic(
       zkClient,
       STATE_TOPIC,
-      TOTAL_PARTITIONS,
+      TOTAL_TASK_NAMES,
       REPLICATION_FACTOR)
   }
 
@@ -221,7 +212,14 @@ class TestStatefulTask {
     "systems.kafka.consumer.auto.offset.reset" -> "smallest", // applies to an empty topic
     "systems.kafka.samza.msg.serde" -> "string",
     "systems.kafka.consumer.zookeeper.connect" -> zkConnect,
-    "systems.kafka.producer.metadata.broker.list" -> ("localhost:%s" format port1))
+    "systems.kafka.producer.metadata.broker.list" -> ("localhost:%s" format port1),
+    // Since using state, need a checkpoint manager
+    "task.checkpoint.factory" -> "org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory",
+    "task.checkpoint.system" -> "kafka",
+    "task.checkpoint.replication.factor" -> "1",
+    // However, don't have the inputs use the checkpoint manager
+    // since the second part of the test expects to replay the input streams.
+    "systems.kafka.streams.input.samza.reset.offset" -> "true")
 
   @Test
   def testShouldStartAndRestore {
@@ -278,7 +276,7 @@ class TestStatefulTask {
       count += 1
     }
 
-    assertTrue(count < 100)
+    assertTrue("Timed out waiting to received messages. Received thus far: " + task.received.size, count < 100)
 
     // Reset the count down latch after the 4 messages come in.
     task.awaitMessage
@@ -328,8 +326,7 @@ class TestStatefulTask {
     TestTask.awaitTaskRegistered
     val tasks = TestTask.tasks
 
-    // Should only have one partition.
-    assertEquals(1, tasks.size)
+    assertEquals("Should only have a single partition in this task", 1, tasks.size)
 
     val task = tasks.values.toList.head
 
@@ -392,25 +389,25 @@ class TestStatefulTask {
 }
 
 object TestTask {
-  val tasks = new HashMap[Partition, TestTask] with SynchronizedMap[Partition, TestTask]
-  @volatile var allTasksRegistered = new CountDownLatch(TestStatefulTask.TOTAL_PARTITIONS)
+  val tasks = new HashMap[TaskName, TestTask] with SynchronizedMap[TaskName, TestTask]
+  @volatile var allTasksRegistered = new CountDownLatch(TestStatefulTask.TOTAL_TASK_NAMES)
 
   /**
    * Static method that tasks can use to register themselves with. Useful so
    * we don't have to sneak into the ThreadJob/SamzaContainer to get our test
    * tasks.
    */
-  def register(partition: Partition, task: TestTask) {
-    tasks += partition -> task
+  def register(taskName: TaskName, task: TestTask) {
+    tasks += taskName -> task
     allTasksRegistered.countDown
   }
 
   def awaitTaskRegistered {
     allTasksRegistered.await(60, TimeUnit.SECONDS)
     assertEquals(0, allTasksRegistered.getCount)
-    assertEquals(TestStatefulTask.TOTAL_PARTITIONS, tasks.size)
+    assertEquals(TestStatefulTask.TOTAL_TASK_NAMES, tasks.size)
     // Reset the registered latch, so we can use it again every time we start a new job.
-    TestTask.allTasksRegistered = new CountDownLatch(TestStatefulTask.TOTAL_PARTITIONS)
+    TestTask.allTasksRegistered = new CountDownLatch(TestStatefulTask.TOTAL_TASK_NAMES)
   }
 }
 
@@ -422,7 +419,7 @@ class TestTask extends StreamTask with InitableTask {
   var gotMessage = new CountDownLatch(1)
 
   def init(config: Config, context: TaskContext) {
-    TestTask.register(context.getPartition, this)
+    TestTask.register(context.getTaskName, this)
     store = context
       .getStore(TestStatefulTask.STATE_TOPIC)
       .asInstanceOf[KeyValueStore[String, String]]

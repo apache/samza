@@ -19,17 +19,17 @@
 
 package org.apache.samza.system.filereader
 
-import org.junit.Test
-import org.junit.Assert._
+import java.io.File
+import java.io.FileWriter
+import java.io.PrintWriter
+import org.apache.samza.Partition
 import org.apache.samza.system.SystemStreamPartition
 import org.junit.AfterClass
-import java.io.PrintWriter
-import java.io.File
-import org.apache.samza.Partition
+import org.junit.Assert._
+import org.junit.BeforeClass
+import org.junit.Test
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
-import org.junit.BeforeClass
-import java.io.FileWriter
 
 object TestFileReaderSystemConsumer {
   val consumer = new FileReaderSystemConsumer("file-reader", null)

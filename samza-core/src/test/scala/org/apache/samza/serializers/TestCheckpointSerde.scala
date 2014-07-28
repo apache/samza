@@ -19,40 +19,40 @@
 
 package org.apache.samza.serializers
 
+import java.util
+import org.apache.samza.Partition
+import org.apache.samza.checkpoint.Checkpoint
+import org.apache.samza.container.TaskName
+import org.apache.samza.system.SystemStreamPartition
 import org.junit.Assert._
 import org.junit.Test
-import org.apache.samza.system.SystemStream
-import org.apache.samza.checkpoint.Checkpoint
 import scala.collection.JavaConversions._
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.SamzaException
-import org.apache.samza.Partition
 
 class TestCheckpointSerde {
   @Test
   def testExactlyOneOffset {
     val serde = new CheckpointSerde
-    var offsets = Map[SystemStream, String]()
-    val systemStream = new SystemStream("test-system", "test-stream")
-    offsets += systemStream -> "1"
+    var offsets = Map[SystemStreamPartition, String]()
+    val systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(777))
+    offsets += systemStreamPartition -> "1"
     val deserializedOffsets = serde.fromBytes(serde.toBytes(new Checkpoint(offsets)))
-    assertEquals("1", deserializedOffsets.getOffsets.get(systemStream))
+    assertEquals("1", deserializedOffsets.getOffsets.get(systemStreamPartition))
     assertEquals(1, deserializedOffsets.getOffsets.size)
   }
 
   @Test
-  def testMoreThanOneOffsetShouldFail {
-    val serde = new CheckpointSerde
-    var offsets = Map[SystemStream, String]()
-    // Since SS != SSP with same system and stream name, this should result in 
-    // two offsets for one system stream in the serde.
-    offsets += new SystemStream("test-system", "test-stream") -> "1"
-    offsets += new SystemStreamPartition("test-system", "test-stream", new Partition(0)) -> "2"
-    try {
-      serde.toBytes(new Checkpoint(offsets))
-      fail("Expected to fail with more than one offset for a single SystemStream.")
-    } catch {
-      case e: SamzaException => // expected this
-    }
+  def testChangelogPartitionMappingRoundTrip {
+    val mapping = new util.HashMap[TaskName, java.lang.Integer]()
+    mapping.put(new TaskName("Ted"), 0)
+    mapping.put(new TaskName("Dougal"), 1)
+    mapping.put(new TaskName("Jack"), 2)
+
+    val checkpointSerde = new CheckpointSerde
+    val asBytes = checkpointSerde.changelogPartitionMappingToBytes(mapping)
+    val backToMap = checkpointSerde.changelogPartitionMappingFromBytes(asBytes)
+
+    assertEquals(mapping, backToMap)
+    assertNotSame(mapping, backToMap)
   }
+
 }

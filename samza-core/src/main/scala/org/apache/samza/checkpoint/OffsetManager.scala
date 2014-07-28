@@ -20,7 +20,6 @@
 package org.apache.samza.checkpoint
 
 import org.apache.samza.system.SystemStream
-import org.apache.samza.Partition
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.SystemStreamMetadata
 import org.apache.samza.system.SystemStreamMetadata.OffsetType
@@ -31,6 +30,8 @@ import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.system.SystemAdmin
+import org.apache.samza.container.TaskName
+import scala.collection._
 
 /**
  * OffsetSetting encapsulates a SystemStream's metadata, default offset, and
@@ -150,13 +151,13 @@ class OffsetManager(
 
   /**
    * The set of system stream partitions that have been registered with the
-   * OffsetManager. These are the SSPs that will be tracked within the offset
-   * manager.
+   * OffsetManager, grouped by the taskName they belong to. These are the SSPs
+   * that will be tracked within the offset manager.
    */
-  var systemStreamPartitions = Set[SystemStreamPartition]()
+  val systemStreamPartitions = mutable.Map[TaskName, mutable.Set[SystemStreamPartition]]()
 
-  def register(systemStreamPartition: SystemStreamPartition) {
-    systemStreamPartitions += systemStreamPartition
+  def register(taskName: TaskName, systemStreamPartitionsToRegister: Set[SystemStreamPartition]) {
+    systemStreamPartitions.getOrElseUpdate(taskName, mutable.Set[SystemStreamPartition]()).addAll(systemStreamPartitionsToRegister)
   }
 
   def start {
@@ -193,20 +194,18 @@ class OffsetManager(
   }
 
   /**
-   * Checkpoint all offsets for a given partition using the CheckpointManager.
+   * Checkpoint all offsets for a given TaskName using the CheckpointManager.
    */
-  def checkpoint(partition: Partition) {
+  def checkpoint(taskName: TaskName) {
     if (checkpointManager != null) {
-      debug("Checkpointing offsets for partition %s." format partition)
+      debug("Checkpointing offsets for taskName %s." format taskName)
 
-      val partitionOffsets = lastProcessedOffsets
-        .filterKeys(_.getPartition.equals(partition))
-        .map { case (systemStreamPartition, offset) => (systemStreamPartition.getSystemStream, offset) }
-        .toMap
+      val sspsForTaskName = systemStreamPartitions.getOrElse(taskName, throw new SamzaException("No such SystemStreamPartition set " + taskName + " registered for this checkpointmanager")).toSet
+      val partitionOffsets = lastProcessedOffsets.filterKeys(sspsForTaskName.contains(_))
 
-      checkpointManager.writeCheckpoint(partition, new Checkpoint(partitionOffsets))
+      checkpointManager.writeCheckpoint(taskName, new Checkpoint(partitionOffsets))
     } else {
-      debug("Skipping checkpointing for partition %s because no checkpoint manager is defined." format partition)
+      debug("Skipping checkpointing for taskName %s because no checkpoint manager is defined." format taskName)
     }
   }
 
@@ -221,23 +220,13 @@ class OffsetManager(
   }
 
   /**
-   * Returns a set of partitions that have been registered with this offset
-   * manager.
-   */
-  private def getPartitions = {
-    systemStreamPartitions
-      .map(_.getPartition)
-      .toSet
-  }
-
-  /**
    * Register all partitions with the CheckpointManager.
    */
   private def registerCheckpointManager {
     if (checkpointManager != null) {
       debug("Registering checkpoint manager.")
 
-      getPartitions.foreach(checkpointManager.register)
+      systemStreamPartitions.keys.foreach(checkpointManager.register)
     } else {
       debug("Skipping checkpoint manager registration because no manager was defined.")
     }
@@ -253,9 +242,8 @@ class OffsetManager(
 
       checkpointManager.start
 
-      lastProcessedOffsets ++= getPartitions
-        .flatMap(restoreOffsetsFromCheckpoint(_))
-        .filter {
+      lastProcessedOffsets ++= systemStreamPartitions.keys
+        .flatMap(restoreOffsetsFromCheckpoint(_)).filter {
           case (systemStreamPartition, offset) =>
             val shouldKeep = offsetSettings.contains(systemStreamPartition.getSystemStream)
             if (!shouldKeep) {
@@ -269,20 +257,17 @@ class OffsetManager(
   }
 
   /**
-   * Loads last processed offsets for a single partition.
+   * Loads last processed offsets for a single taskName.
    */
-  private def restoreOffsetsFromCheckpoint(partition: Partition): Map[SystemStreamPartition, String] = {
-    debug("Loading checkpoints for partition: %s." format partition)
+  private def restoreOffsetsFromCheckpoint(taskName: TaskName): Map[SystemStreamPartition, String] = {
+    debug("Loading checkpoints for taskName: %s." format taskName)
 
-    val checkpoint = checkpointManager.readLastCheckpoint(partition)
+    val checkpoint = checkpointManager.readLastCheckpoint(taskName)
 
     if (checkpoint != null) {
-      checkpoint
-        .getOffsets
-        .map { case (systemStream, offset) => (new SystemStreamPartition(systemStream, partition), offset) }
-        .toMap
+      checkpoint.getOffsets.toMap
     } else {
-      info("Did not receive a checkpoint for partition %s. Proceeding without a checkpoint." format partition)
+      info("Did not receive a checkpoint for taskName %s. Proceeding without a checkpoint." format taskName)
 
       Map()
     }
@@ -338,7 +323,12 @@ class OffsetManager(
    * that was registered, but has no offset.
    */
   private def loadDefaults {
-    systemStreamPartitions.foreach(systemStreamPartition => {
+    val allSSPs: Set[SystemStreamPartition] = systemStreamPartitions
+      .values
+      .flatten
+      .toSet
+
+    allSSPs.foreach(systemStreamPartition => {
       if (!startingOffsets.contains(systemStreamPartition)) {
         val systemStream = systemStreamPartition.getSystemStream
         val partition = systemStreamPartition.getPartition

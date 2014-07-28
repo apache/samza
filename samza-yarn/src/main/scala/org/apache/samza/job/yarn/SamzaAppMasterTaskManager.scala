@@ -23,6 +23,7 @@ import java.nio.ByteBuffer
 import java.util.Collections
 
 import scala.collection.JavaConversions._
+import scala.collection.JavaConverters.mapAsJavaMapConverter
 
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.io.DataOutputBuffer
@@ -46,6 +47,7 @@ import org.apache.samza.job.ShellCommandBuilder
 import org.apache.samza.util.Util
 
 import grizzled.slf4j.Logging
+import org.apache.samza.container.TaskNamesToSystemStreamPartitions
 
 object SamzaAppMasterTaskManager {
   val DEFAULT_CONTAINER_MEM = 1024
@@ -72,7 +74,10 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
       1
   }
 
-  val allSystemStreamPartitions = Util.getInputStreamPartitions(config)
+  val tasksToSSPTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] = Util.assignContainerToSSPTaskNames(config, state.taskCount)
+
+  val taskNameToChangeLogPartitionMapping = Util.getTaskNameToChangeLogPartitionMapping(config, tasksToSSPTaskNames)
+
   var taskFailures = Map[Int, TaskFailure]()
   var tooManyFailedContainers = false
   // TODO we might want to use NMClientAsync as well
@@ -106,13 +111,14 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
     state.unclaimedTasks.headOption match {
       case Some(taskId) => {
         info("Got available task id (%d) for container: %s" format (taskId, container))
-        val streamsAndPartitionsForTask = Util.getStreamsAndPartitionsForContainer(taskId, state.taskCount, allSystemStreamPartitions)
-        info("Claimed partitions %s for container ID %s" format (streamsAndPartitionsForTask, taskId))
+        val sspTaskNames: TaskNamesToSystemStreamPartitions = tasksToSSPTaskNames.getOrElse(taskId, TaskNamesToSystemStreamPartitions())
+        info("Claimed SSP taskNames %s for container ID %s" format (sspTaskNames, taskId))
         val cmdBuilderClassName = config.getCommandClass.getOrElse(classOf[ShellCommandBuilder].getName)
         val cmdBuilder = Class.forName(cmdBuilderClassName).newInstance.asInstanceOf[CommandBuilder]
           .setConfig(config)
           .setName("samza-container-%s" format taskId)
-          .setStreamPartitions(streamsAndPartitionsForTask)
+          .setTaskNameToSystemStreamPartitionsMapping(sspTaskNames.getJavaFriendlyType)
+          .setTaskNameToChangeLogPartitionMapping(taskNameToChangeLogPartitionMapping.map(kv => kv._1 -> Integer.valueOf(kv._2)).asJava)
         val command = cmdBuilder.buildCommand
         info("Task ID %s using command %s" format (taskId, command))
         val env = cmdBuilder.buildEnvironment.map { case (k, v) => (k, Util.envVarEscape(v)) }
@@ -129,7 +135,7 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
         state.neededContainers -= 1
         state.runningTasks += taskId -> new YarnContainer(container)
         state.unclaimedTasks -= taskId
-        state.taskPartitions += taskId -> streamsAndPartitionsForTask.map(_.getPartition).toSet
+        state.taskToTaskNames += taskId -> sspTaskNames.getJavaFriendlyType
 
         info("Claimed task ID %s for container %s on node %s (http://%s/node/containerlogs/%s)." format (taskId, containerIdStr, container.getNodeId.getHost, container.getNodeHttpAddress, containerIdStr))
 
@@ -151,7 +157,7 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
     taskId match {
       case Some(taskId) => {
         state.runningTasks -= taskId
-        state.taskPartitions -= taskId
+        state.taskToTaskNames -= taskId
       }
       case _ => None
     }
@@ -315,4 +321,5 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
     capability.setVirtualCores(cpuCores)
     (0 until containers).foreach(idx => amClient.addContainerRequest(new ContainerRequest(capability, null, null, priority)))
   }
+
 }
