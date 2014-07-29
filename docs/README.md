@@ -40,7 +40,7 @@ All links between pages inside a versioned folder should be relative links, not 
 
 To auto-generate the latest Javadocs, run:
 
-    _tools/generate-javadocs.sh <version>
+    bin/generate-javadocs.sh <version>
 
 The version number is the number that will be used in the /docs/learn/documentation/<version>/api/javadocs path.
 
@@ -48,6 +48,6 @@ The version number is the number that will be used in the /docs/learn/documentat
 
 To build and publish the website to Samza's Apache SVN repository, run:
 
-    _tools/publish-site.sh 0.7.0 "updating welcome page" criccomini
+    bin/publish-site.sh 0.7.0 "updating welcome page" criccomini
 
 This command will re-build the Javadocs and website, checkout https://svn.apache.org/repos/asf/incubator/samza/site/ locally, copy the site into the directory, and commit the changes.

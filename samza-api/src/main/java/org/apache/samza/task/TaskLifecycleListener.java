@@ -29,31 +29,65 @@ import org.apache.samza.system.IncomingMessageEnvelope;
 public interface TaskLifecycleListener {
   /**
    * Called before all tasks in TaskRunner are initialized.
+   * 
+   * @param config
+   *          Config for the Samza job.
+   * @param context
+   *          TaskContext for the StreamTask that's being initialized.
    */
   void beforeInit(Config config, TaskContext context);
 
   /**
    * Called after all tasks in TaskRunner are initialized.
+   * 
+   * @param config
+   *          Config for the Samza job.
+   * @param context
+   *          TaskContext for the StreamTask that's being initialized.
    */
   void afterInit(Config config, TaskContext context);
 
   /**
    * Called before a message is processed by a task.
+   * 
+   * @param envelope
+   *          The envelope to be processed by the StreamTask.
+   * @param config
+   *          Config for the Samza job.
+   * @param context
+   *          TaskContext for the StreamTask that's about to process a message.
    */
   void beforeProcess(IncomingMessageEnvelope envelope, Config config, TaskContext context);
 
   /**
    * Called after a message is processed by a task.
+   * 
+   * @param envelope
+   *          The envelope that was processed by the StreamTask.
+   * @param config
+   *          Config for the Samza job.
+   * @param context
+   *          TaskContext for the StreamTask that just processed a message.
    */
   void afterProcess(IncomingMessageEnvelope envelope, Config config, TaskContext context);
 
   /**
    * Called before all tasks in TaskRunner are closed.
+   * 
+   * @param config
+   *          Config for the Samza job.
+   * @param context
+   *          TaskContext for the StreamTask that's about to be shutdown.
    */
   void beforeClose(Config config, TaskContext context);
 
   /**
    * Called after all tasks in TaskRunner are closed.
+   * 
+   * @param config
+   *          Config for the Samza job.
+   * @param context
+   *          TaskContext for the StreamTask that was just shutdown.
    */
   void afterClose(Config config, TaskContext context);
 }

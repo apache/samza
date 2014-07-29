@@ -47,10 +47,10 @@ import java.util.Set;
  * <li>Start will be called before stop.</li>
  * <li>Register will be called one or more times before start.</li>
  * <li>Register won't be called twice for the same SystemStreamPartition.</li>
- * <li>If timeout < 0, poll will block unless all SystemStreamPartition are at
+ * <li>If timeout &lt; 0, poll will block unless all SystemStreamPartition are at
  * "head" (the underlying system has been checked, and returned an empty set).
  * If at head, an empty list is returned.</li>
- * <li>If timeout >= 0, poll will return any messages that are currently
+ * <li>If timeout &gt;= 0, poll will return any messages that are currently
  * available for any of the SystemStreamPartitions specified. If no new messages
  * are available, it will wait up to timeout milliseconds for messages from any
  * SystemStreamPartition to become available. It will return an empty list if
@@ -154,10 +154,10 @@ public interface SystemConsumer {
    *          be returned. It is illegal to pass in SystemStreamPartitions that
    *          have not been registered with the SystemConsumer first.
    * @param timeout
-   *          If timeout < 0, poll will block unless all SystemStreamPartition
+   *          If timeout &lt; 0, poll will block unless all SystemStreamPartition
    *          are at "head" (the underlying system has been checked, and
    *          returned an empty set). If at head, an empty map is returned. If
-   *          timeout >= 0, poll will return any messages that are currently
+   *          timeout &gt;= 0, poll will return any messages that are currently
    *          available for any of the SystemStreamPartitions specified. If no
    *          new messages are available, it will wait up to timeout
    *          milliseconds for messages from any SystemStreamPartition to become
@@ -171,6 +171,8 @@ public interface SystemConsumer {
    *         new messages are available for any SystemStreamPartitions in the
    *         input set.
    * @throws InterruptedException
+   *          Thrown when a blocking poll has been interrupted by another
+   *          thread.
    */
   Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Set<SystemStreamPartition> systemStreamPartitions, long timeout) throws InterruptedException;
 }

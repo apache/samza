@@ -192,9 +192,11 @@ project(":samza-yarn_$scalaVersion") {
     }
     compile("org.apache.hadoop:hadoop-yarn-common:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
+      exclude module: 'servlet-api'
     }
     compile("org.apache.hadoop:hadoop-yarn-client:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
+      exclude module: 'servlet-api'
     }
     compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
       exclude module: 'slf4j-log4j12'

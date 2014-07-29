@@ -47,6 +47,7 @@ public interface KeyValueStore<K, V> {
   
   /**
    * Update all the given key/value pairs
+   * @param entries A list of entries to put into the store.
    * @throws NullPointerException If null is used for any key or value.
    */
   public void putAll(List<Entry<K,V>> entries);
@@ -68,7 +69,8 @@ public interface KeyValueStore<K, V> {
   public KeyValueIterator<K,V> range(K from, K to);
   
   /**
-   * Return an iterator over all keys in the database. This iterator MUST be closed after use.
+   * Return an iterator over all keys in the database. This iterator MUST be closed after use. 
+   * @return An iterator of all key/value pairs in the store.
    */
   public KeyValueIterator<K,V> all();
   

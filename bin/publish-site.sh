@@ -17,7 +17,7 @@
 # under the License.
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-BASE_DIR=$DIR/../..
+BASE_DIR=$DIR/..
 DOCS_DIR=$BASE_DIR/docs
 VERSION=$1
 COMMENT=$2
@@ -36,7 +36,7 @@ echo "Using uer: $USER"
 echo "Using version: $VERSION"
 echo "Using comment: $COMMENT"
 echo "Generating javadocs."
-$DOCS_DIR/_tools/generate-javadocs.sh $VERSION
+$BASE_DIR/bin/generate-javadocs.sh $VERSION
 
 echo "Building site."
 cd $DOCS_DIR

@@ -17,7 +17,7 @@
 # under the License.
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-BASE_DIR=$DIR/../..
+BASE_DIR=$DIR/..
 VERSION=$1
 JAVADOC_DIR=$BASE_DIR/docs/learn/documentation/$VERSION/api/javadocs
 
