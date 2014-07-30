@@ -16,18 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.container
+package org.apache.samza.container.grouper.task
+
+import org.apache.samza.container.TaskNamesToSystemStreamPartitions
 
 /**
  * After the input SystemStreamPartitions have been mapped to their TaskNames by an implementation of
- * {@link org.apache.samza.container.SystemStreamPartitionGrouper}, we can then map those groupings onto
+ * {@link org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper}, we can then map those groupings onto
  * the {@link org.apache.samza.container.SamzaContainer}s on which they will run.  This class takes
  * those groupings-of-SSPs and groups them together on which container each should run on.  A simple
  * implementation could assign each TaskNamesToSystemStreamPartition to a separate container.  More
  * advanced implementations could examine the TaskNamesToSystemStreamPartition to group by them
  * by data locality, anti-affinity, even distribution of expected bandwidth consumption, etc.
  */
-trait SystemStreamPartitionTaskNameGrouper {
+trait TaskNameGrouper {
   /**
    * Group TaskNamesToSystemStreamPartitions onto the containers they will share
    *

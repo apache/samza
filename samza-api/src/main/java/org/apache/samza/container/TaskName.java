@@ -20,7 +20,7 @@ package org.apache.samza.container;
 
 /**
  * A unique identifier of a set of a SystemStreamPartitions that have been grouped by
- * a {@link org.apache.samza.container.SystemStreamPartitionGrouper}.  The
+ * a {@link org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper}.  The
  * SystemStreamPartitionGrouper determines the TaskName for each set it creates.
  */
 public class TaskName implements Comparable<TaskName> {

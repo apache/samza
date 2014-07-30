@@ -16,14 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.container.systemstreampartition.taskname.groupers
+package org.apache.samza.container.grouper.task
 
 import org.apache.samza.container.{TaskName, TaskNamesToSystemStreamPartitions}
 import org.apache.samza.system.SystemStreamPartition
 import org.junit.Assert._
 import org.junit.Test
 
-class TestSimpleSystemStreamPartitionTaskNameGrouper {
+class TestGroupByContainerCount {
   val emptySSPSet = Set[SystemStreamPartition]()
 
   @Test
@@ -40,7 +40,7 @@ class TestSimpleSystemStreamPartitionTaskNameGrouper {
     val maxTNTSSPSize = 1000
     val maxNumGroups = 140
     for(numGroups <- 1 to maxNumGroups) {
-      val grouper = new SimpleSystemStreamPartitionTaskNameGrouper(numGroups)
+      val grouper = new GroupByContainerCount(numGroups)
 
       for (tntsspSize <- numGroups to maxTNTSSPSize) {
         val map = tntsspOfSize(tntsspSize)

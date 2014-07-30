@@ -32,13 +32,14 @@ import org.apache.samza.config.Config
 import org.apache.samza.config.StorageConfig.Config2Storage
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.container.systemstreampartition.groupers.GroupByPartitionFactory
-import org.apache.samza.container.systemstreampartition.taskname.groupers.SimpleSystemStreamPartitionTaskNameGrouper
-import org.apache.samza.container.{TaskName, SystemStreamPartitionTaskNameGrouper, TaskNamesToSystemStreamPartitions, SystemStreamPartitionGrouperFactory}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.{SystemStreamPartition, SystemFactory, StreamMetadataCache, SystemStream}
 import scala.collection.JavaConversions._
 import scala.collection
+import org.apache.samza.container.TaskName
+import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
+import org.apache.samza.container.TaskNamesToSystemStreamPartitions
+import org.apache.samza.container.grouper.task.GroupByContainerCount
 
 object Util extends Logging {
   val random = new Random
@@ -148,7 +149,7 @@ object Util extends Logging {
     info("Assigning " + sspTaskNames.keySet.size + " SystemStreamPartitions taskNames to " + containerCount + " containers.")
 
     // Here is where we should put in a pluggable option for the SSPTaskNameGrouper for locality, load-balancing, etc.
-    val sspTaskNameGrouper = new SimpleSystemStreamPartitionTaskNameGrouper(containerCount)
+    val sspTaskNameGrouper = new GroupByContainerCount(containerCount)
 
     val containersToTaskNames = sspTaskNameGrouper.groupTaskNames(sspTaskNames).toMap
 

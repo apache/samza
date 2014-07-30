@@ -19,7 +19,7 @@
 
 package org.apache.samza.config
 
-import org.apache.samza.container.systemstreampartition.groupers.GroupByPartitionFactory
+import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 
 object JobConfig {
   // job config constants

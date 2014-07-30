@@ -16,22 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.container.systemstreampartition.groupers
+package org.apache.samza.container.grouper.stream
 
-import org.apache.samza.container.{TaskName, SystemStreamPartitionGrouperTestBase, SystemStreamPartitionGrouper}
+import org.apache.samza.container.TaskName
+import java.util
+import org.apache.samza.system.SystemStreamPartition
 import scala.collection.JavaConverters._
-import org.junit.Test
+import scala.collection.JavaConversions._
+import org.apache.samza.config.Config
 
-class TestGroupByPartition extends SystemStreamPartitionGrouperTestBase {
-  import SystemStreamPartitionGrouperTestBase._
-
-  val expected /* from base class provided set */ =  Map(new TaskName("Partition 0") -> Set(aa0, ac0).asJava,
-                                                         new TaskName("Partition 1") -> Set(aa1, ab1).asJava,
-                                                         new TaskName("Partition 2") -> Set(aa2, ab2).asJava).asJava
-
-  override def getGrouper: SystemStreamPartitionGrouper = new GroupByPartition
-
-  @Test def groupingWorks() {
-    verifyGroupGroupsCorrectly(allSSPs, expected)
+/**
+ * Group the {@link org.apache.samza.system.SystemStreamPartition}s by their Partition, with the key being
+ * the string representation of the Partition.
+ */
+class GroupByPartition extends SystemStreamPartitionGrouper {
+  override def group(ssps: util.Set[SystemStreamPartition]) = {
+    ssps.groupBy( s => new TaskName("Partition " + s.getPartition.getPartitionId) )
+      .map(r => r._1 -> r._2.asJava)
   }
+}
+
+class GroupByPartitionFactory extends SystemStreamPartitionGrouperFactory {
+  override def getSystemStreamPartitionGrouper(config: Config): SystemStreamPartitionGrouper = new GroupByPartition
 }

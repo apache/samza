@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.container
+package org.apache.samza.container.grouper.stream
 
 import org.apache.samza.Partition
 import org.apache.samza.system.SystemStreamPartition
@@ -24,11 +24,11 @@ import org.junit.Test
 import java.util.HashSet
 import java.util.Map
 import java.util.Set
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert._
 import java.util.Collections
+import org.apache.samza.container.TaskName
 
-object SystemStreamPartitionGrouperTestBase {
+object GroupByTestBase {
   val aa0 = new SystemStreamPartition("SystemA", "StreamA", new Partition(0))
   val aa1 = new SystemStreamPartition("SystemA", "StreamA", new Partition(1))
   val aa2 = new SystemStreamPartition("SystemA", "StreamA", new Partition(2))
@@ -39,7 +39,7 @@ object SystemStreamPartitionGrouperTestBase {
   Collections.addAll(allSSPs, aa0, aa1, aa2, ab1, ab2, ac0)
 }
 
-abstract class SystemStreamPartitionGrouperTestBase {
+abstract class GroupByTestBase {
   def getGrouper: SystemStreamPartitionGrouper
 
   @Test

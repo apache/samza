@@ -16,9 +16,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.container.systemstreampartition.taskname.groupers
+package org.apache.samza.container.grouper.task
 
-import org.apache.samza.container.{TaskName, SystemStreamPartitionTaskNameGrouper, TaskNamesToSystemStreamPartitions}
+import org.apache.samza.container.{TaskName, TaskNamesToSystemStreamPartitions}
 import org.apache.samza.system.SystemStreamPartition
 
 /**
@@ -27,7 +27,7 @@ import org.apache.samza.system.SystemStreamPartition
  * No consideration is given towards locality, even distribution of aggregate SSPs within a container, even distribution
  * of the number of taskNames between containers, etc.
  */
-class SimpleSystemStreamPartitionTaskNameGrouper(numContainers:Int) extends SystemStreamPartitionTaskNameGrouper {
+class GroupByContainerCount(numContainers:Int) extends TaskNameGrouper {
   require(numContainers > 0, "Must have at least one container")
 
   override def groupTaskNames(taskNames: TaskNamesToSystemStreamPartitions): Map[Int, TaskNamesToSystemStreamPartitions] = {

@@ -16,14 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.container.systemstreampartition.groupers
+package org.apache.samza.container.grouper.stream
 
-import org.apache.samza.container.{TaskName, SystemStreamPartitionGrouperTestBase, SystemStreamPartitionGrouper}
+import org.apache.samza.container.TaskName
 import scala.collection.JavaConverters._
 import org.junit.Test
 
-class TestGroupBySystemStreamPartition extends SystemStreamPartitionGrouperTestBase {
-  import SystemStreamPartitionGrouperTestBase._
+class TestGroupBySystemStreamPartition extends GroupByTestBase {
+  import GroupByTestBase._
 
   // Building manually to avoid just duplicating a logic potential logic error here and there
   val expected /* from base class provided set */ =  Map(new TaskName(aa0.toString) -> Set(aa0).asJava,

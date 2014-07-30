@@ -42,7 +42,7 @@ import org.junit.Assert._
 import org.junit.{AfterClass, BeforeClass, Test}
 import scala.collection.JavaConversions._
 import scala.collection._
-import org.apache.samza.container.systemstreampartition.groupers.GroupByPartitionFactory
+import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 
 object TestKafkaCheckpointManager {
   val zkConnect: String = TestZKUtils.zookeeperConnect

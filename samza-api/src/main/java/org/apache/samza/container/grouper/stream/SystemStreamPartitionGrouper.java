@@ -16,8 +16,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.container;
+package org.apache.samza.container.grouper.stream;
 
+import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.util.Map;
