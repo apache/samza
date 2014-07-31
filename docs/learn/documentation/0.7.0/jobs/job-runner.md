@@ -37,7 +37,7 @@ public interface ConfigFactory {
 
 The Config object is just a wrapper around Map<String, String>, with some nice helper methods. Out of the box, Samza ships with the PropertiesConfigFactory, but developers can implement any kind of ConfigFactory they wish.
 
-Once the JobRunner gets your configuration, it gives your configuration to the StreamJobFactory class defined by the "job.factory" property. Samza ships with two job factory implementations: LocalJobFactory and YarnJobFactory. The StreamJobFactory's responsibility is to give the JobRunner a job that it can run.
+Once the JobRunner gets your configuration, it gives your configuration to the StreamJobFactory class defined by the "job.factory" property. Samza ships with three job factory implementations: ThreadJobFactory, ProcessJobFactory and YarnJobFactory. The StreamJobFactory's responsibility is to give the JobRunner a job that it can run.
 
 {% highlight java %}
 public interface StreamJob {

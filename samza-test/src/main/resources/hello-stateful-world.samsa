@@ -17,7 +17,7 @@
 # under the License.
 
 # Job
-job.factory.class=samza.job.local.LocalJobFactory
+job.factory.class=samza.job.local.ThreadJobFactory
 job.name=hello-stateful-world
 
 # Task

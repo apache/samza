@@ -19,7 +19,7 @@ title: Packaging
    limitations under the License.
 -->
 
-The [JobRunner](job-runner.html) page talks about run-job.sh, and how it's used to start a job either locally (LocalJobFactory) or with YARN (YarnJobFactory). In the diagram that shows the execution flow, it also shows a run-container.sh script. This script, along with a run-am.sh script, are what Samza actually calls to execute its code.
+The [JobRunner](job-runner.html) page talks about run-job.sh, and how it's used to start a job either locally (ProcessJobFactory/ThreadJobFactory) or with YARN (YarnJobFactory). In the diagram that shows the execution flow, it also shows a run-container.sh script. This script, along with a run-am.sh script, are what Samza actually calls to execute its code.
 
 ```
 bin/run-am.sh

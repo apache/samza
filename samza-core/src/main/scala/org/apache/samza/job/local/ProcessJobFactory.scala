@@ -18,22 +18,24 @@
  */
 
 package org.apache.samza.job.local
-import org.apache.samza.config.TaskConfig._
-import org.apache.samza.config.Config
-import org.apache.samza.config.ShellCommandConfig._
-import org.apache.samza.job.CommandBuilder
-import org.apache.samza.job.StreamJob
-import org.apache.samza.job.StreamJobFactory
+
+import org.apache.samza.container.{TaskNamesToSystemStreamPartitions, SamzaContainer}
 import grizzled.slf4j.Logging
 import org.apache.samza.SamzaException
-import org.apache.samza.container.{TaskNamesToSystemStreamPartitions, SamzaContainer}
+import org.apache.samza.config.Config
+import org.apache.samza.config.TaskConfig._
+import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory}
 import org.apache.samza.util.Util
-import org.apache.samza.job.ShellCommandBuilder
+import scala.collection.JavaConverters.mapAsJavaMapConverter
+
 import scala.collection.JavaConversions._
 
-class LocalJobFactory extends StreamJobFactory with Logging {
+/**
+ * Creates a stand alone ProcessJob with the specified config
+ */
+class ProcessJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config): StreamJob = {
-    val jobName = "local-container"
+    val jobName = "local-process-container"
 
     // Since we're local, there will only be a single task into which all the SSPs will be processed
     val taskToTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] = Util.assignContainerToSSPTaskNames(config, 1)
@@ -50,38 +52,32 @@ class LocalJobFactory extends StreamJobFactory with Logging {
     val taskNameToChangeLogPartitionMapping = Util.getTaskNameToChangeLogPartitionMapping(config, taskToTaskNames).map(kv => kv._1 -> Integer.valueOf(kv._2))
     info("got taskName for job %s" format sspTaskName)
 
-    config.getCommandClass match {
-      case Some(cmdBuilderClassName) => {
-        // A command class was specified, so we need to use a process job to
-        // execute the command in its own process.
-        val cmdBuilder = Class.forName(cmdBuilderClassName).newInstance.asInstanceOf[CommandBuilder]
-        
-        cmdBuilder
-          .setConfig(config)
-          .setName(jobName)
-          .setTaskNameToSystemStreamPartitionsMapping(sspTaskName.getJavaFriendlyType)
-
-        val processBuilder = new ProcessBuilder(cmdBuilder.buildCommand.split(" ").toList)
-
-        processBuilder
-          .environment
-          .putAll(cmdBuilder.buildEnvironment)
-
-        new ProcessJob(processBuilder)
-      }
-      case _ => {
-        info("No config specified for %s. Defaulting to ThreadJob, which is only meant for debugging." format COMMAND_BUILDER)
-
-        // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
-        config.getTaskOpts match {
-          case Some(taskOpts) => warn("%s was specified in config, but is not being used because job is being executed with ThreadJob. You probably want to run %s=%s." format (TASK_JVM_OPTS, COMMAND_BUILDER, classOf[ShellCommandBuilder].getName))
-          case _ => None
+    val commandBuilder : CommandBuilder = {
+      config.getCommandClass match {
+        case Some(cmdBuilderClassName) => {
+          // A command class was specified, so we need to use a process job to
+          // execute the command in its own process.
+          Class.forName(cmdBuilderClassName).newInstance.asInstanceOf[CommandBuilder]
         }
-
-        // No command class was specified, so execute the job in this process
-        // using a threaded job.
-        new ThreadJob(SamzaContainer(jobName, sspTaskName, taskNameToChangeLogPartitionMapping, config))
+        case _ => {
+          info("Defaulting to ShellCommandBuilder")
+          new ShellCommandBuilder
+        }
       }
     }
+
+    commandBuilder
+      .setConfig(config)
+      .setName(jobName)
+      .setTaskNameToSystemStreamPartitionsMapping(sspTaskName.getJavaFriendlyType)
+      .setTaskNameToChangeLogPartitionMapping(taskNameToChangeLogPartitionMapping.map(kv => kv._1 -> Integer.valueOf(kv._2)).asJava)
+
+    val processBuilder = new ProcessBuilder(commandBuilder.buildCommand.split(" ").toList)
+
+    processBuilder
+      .environment
+      .putAll(commandBuilder.buildEnvironment)
+
+    new ProcessJob(processBuilder)
   }
 }

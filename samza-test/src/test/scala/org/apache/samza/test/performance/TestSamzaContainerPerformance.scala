@@ -19,12 +19,12 @@
 
 package org.apache.samza.test.performance
 
+import org.apache.samza.job.local.ThreadJobFactory
 import org.junit.Test
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskCoordinator
 import org.apache.samza.task.MessageCollector
 import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.job.local.LocalJobFactory
 import org.apache.samza.config.MapConfig
 import scala.collection.JavaConversions._
 import org.apache.samza.job.ShellCommandBuilder
@@ -77,8 +77,10 @@ class TestSamzaContainerPerformance extends Logging{
   var logInterval = System.getProperty("samza.task.log.interval", "10000").toInt
   var maxMessages = System.getProperty("samza.task.max.messages", "10000000").toInt
 
+  val jobFactory = new ThreadJobFactory
+
   val jobConfig = Map(
-    "job.factory.class" -> "org.apache.samza.job.local.LocalJobFactory",
+    "job.factory.class" -> jobFactory.getClass.getCanonicalName,
     "job.name" -> "test-container-performance",
     "task.class" -> classOf[TestPerformanceTask].getName,
     "task.inputs" -> (0 until streamCount).map(i => "mock.stream" + i).mkString(","),
@@ -94,7 +96,6 @@ class TestSamzaContainerPerformance extends Logging{
   def testContainerPerformance {
     info("Testing performance with configuration: %s" format jobConfig)
 
-    val jobFactory = new LocalJobFactory
     val job = jobFactory
       .getJob(new MapConfig(jobConfig))
       .submit

@@ -20,7 +20,6 @@
 package org.apache.samza.test.integration
 
 import java.util.Properties
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kafka.admin.AdminUtils
 import kafka.common.ErrorMapping
@@ -41,11 +40,12 @@ import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.config.Config
+import org.apache.samza.job.local.ThreadJobFactory
+import java.util.concurrent.CountDownLatch
 import org.apache.samza.config.MapConfig
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.ApplicationStatus
 import org.apache.samza.job.StreamJob
-import org.apache.samza.job.local.LocalJobFactory
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.system.kafka.TopicMetadataCache
 import org.apache.samza.system.{SystemStreamPartition, IncomingMessageEnvelope}
@@ -181,7 +181,7 @@ object TestStatefulTask {
  * 1. Starts ZK, and 3 kafka brokers.
  * 2. Create two topics: input and mystore.
  * 3. Validate that the topics were created successfully and have leaders.
- * 4. Start a single partition of TestTask using LocalJobFactory/ThreadJob.
+ * 4. Start a single partition of TestTask using ThreadJobFactory.
  * 5. Send four messages to input (1,2,3,2), which contain one dupe (2).
  * 6. Validate that all messages were received by TestTask.
  * 7. Validate that TestTask called store.put() for all four messages, and that the messages ended up in the mystore topic.
@@ -193,9 +193,10 @@ object TestStatefulTask {
  */
 class TestStatefulTask {
   import TestStatefulTask._
+  val jobFactory = new ThreadJobFactory
 
   val jobConfig = Map(
-    "job.factory.class" -> "org.apache.samza.job.local.LocalJobFactory",
+    "job.factory.class" -> jobFactory.getClass.getCanonicalName,
     "job.name" -> "hello-stateful-world",
     "task.class" -> "org.apache.samza.test.integration.TestTask",
     "task.inputs" -> "kafka.input",
@@ -317,7 +318,6 @@ class TestStatefulTask {
    * time, number of partitions, etc.
    */
   def startJob = {
-    val jobFactory = new LocalJobFactory
     val job = jobFactory.getJob(new MapConfig(jobConfig))
 
     // Start task.

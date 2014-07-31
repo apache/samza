@@ -124,10 +124,14 @@
                         <a href="../api/javadocs/org/apache/samza/job/StreamJobFactory.html">StreamJobFactory</a>.
                         Samza ships with two implementations:
                         <dl>
-                            <dt><code>org.apache.samza.job.local.LocalJobFactory</code></dt>
-                            <dd>Runs your job on your local machine, either using threads or as a subprocess (see the
-                                <a href="#task-command-class" class="property">task.command.class</a> property for
-                                details). This is intended only for development, not for production deployments.</dd>
+                            <dt><code>org.apache.samza.job.local.ThreadJobFactory</code></dt>
+                            <dd>Runs your job on your local machine using threads. This is intended only for
+                                development, not for production deployments.</dd>
+                            <dt><code>org.apache.samza.job.local.ProcessJobFactory</code></dt>
+                            <dd>Runs your job on your local machine as a subprocess. An optional command builder
+                                property can also be specified (see <a href="#task-command-class" class="property">
+                                    task.command.class</a> for details). This is intended only for development,
+                                not for production deployments.</dd>
                             <dt><code>org.apache.samza.job.yarn.YarnJobFactory</code></dt>
                             <dd>Runs your job on a YARN grid. See <a href="#yarn">below</a> for YARN-specific configuration.</dd>
                         </dl>
@@ -282,13 +286,7 @@
                         The fully-qualified name of the Java class which determines the command line and environment
                         variables for a <a href="../container/samza-container.html">container</a>. It must be a subclass of
                         <a href="../api/javadocs/org/apache/samza/job/CommandBuilder.html">CommandBuilder</a>.
-                        Normally there is no need to change the default, with one exception: if you are using
-                        <code>LocalJobFactory</code> for <a href="#job-factory-class" class="property">job.factory.class</a>,
-                        and <code>task.command.class</code> is not set, the job is run using threads in the current JVM
-                        by default. Thus, any <a href="#task-opts" class="property">task.opts</a> you have configured
-                        will have no effect. If you want <code>LocalJobFactory</code> to use a subprocess rather than
-                        a thread-based executor, you must specify
-                        <code>task.command.class=org.apache.samza.job.ShellCommandBuilder</code> explicitly.
+                        This defaults to <code>task.command.class=org.apache.samza.job.ShellCommandBuilder</code>.
                     </td>
                 </tr>
 
@@ -303,9 +301,7 @@
                         <ul>
                             <li>If you set this property, the log configuration is disrupted. Please see
                             <a href="https://issues.apache.org/jira/browse/SAMZA-109">SAMZA-109</a> for a workaround.</li>
-                            <li>When running with <code>LocalJobFactory</code>, you need to also set
-                            <a href="#task-command-class" class="property">task.command.class</a>, otherwise the
-                            <code>task.opts</code> setting won't take effect.</li>
+                            <li>This cannot be used when running with <code>ThreadJobFactory</code></li>
                         </ul>
                     </td>
                 </tr>
