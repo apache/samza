@@ -61,9 +61,11 @@ do
   for scala_version in "${SCALAs[@]}"
   do
     jdk_number=${i:4:1}
-    echo "------------- Running check task against JDK${jdk_number}/Scala ${scala_version}"
-    JAVA_HOME=${!i}
-    $base_dir/gradlew -PscalaVersion=${scala_version} clean check
-    echo "------------- Finished running check task against JDK${jdk_number}/Scala ${scala_version}"
+    # skip because Scala 2.9.2 doesn't work with JDK8
+    if [[ "$jdk_number" != "8" ]] || [[ "$scala_version" != "2.9.2" ]]; then
+      echo "------------- Running check task against JDK${jdk_number}/Scala ${scala_version}"
+      $base_dir/gradlew -PscalaVersion=${scala_version} -Dorg.gradle.java.home=${!i} clean check $@
+      echo "------------- Finished running check task against JDK${jdk_number}/Scala ${scala_version}"
+    fi
   done
 done
