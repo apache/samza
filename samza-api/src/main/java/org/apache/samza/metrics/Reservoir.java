@@ -19,10 +19,28 @@
 
 package org.apache.samza.metrics;
 
-public interface ReadableMetricsRegistryListener {
-  void onCounter(String group, Counter counter);
+/**
+ * A reservoir interface to store, update and display values
+ */
+public interface Reservoir {
+  /**
+   * Return the number of values in this reservoir
+   *
+   * @return the number of values;
+   */
+  int size();
 
-  void onGauge(String group, Gauge<?> gauge);
+  /**
+   * Update the reservoir with the new value
+   *
+   * @param new value
+   */
+  void update(long value);
 
-  void onTimer(String group, Timer timer);
+  /**
+   * Return a {@link Snapshot} of this reservoir
+   *
+   * @return a statistical snapshot of this reservoir
+   */
+  Snapshot getSnapshot();
 }

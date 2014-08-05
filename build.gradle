@@ -102,6 +102,7 @@ project(':samza-api') {
 
   dependencies {
     testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-all:$mockitoVersion"
   }
 }
 

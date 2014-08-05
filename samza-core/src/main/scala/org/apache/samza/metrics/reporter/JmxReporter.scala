@@ -26,6 +26,7 @@ import javax.management.ObjectName
 import org.apache.samza.config.Config
 import org.apache.samza.metrics.Counter
 import org.apache.samza.metrics.Gauge
+import org.apache.samza.metrics.Timer
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
 import org.apache.samza.metrics.ReadableMetricsRegistry
@@ -47,8 +48,9 @@ class JmxReporter(server: MBeanServer) extends MetricsReporter with Logging {
         registry.getGroup(group).foreach {
           case (name, metric) =>
             metric.visit(new MetricsVisitor {
-              def counter(counter: Counter) = registerBean(new JmxCounter(counter, getObjectName(group, name, sources(registry))));
+              def counter(counter: Counter) = registerBean(new JmxCounter(counter, getObjectName(group, name, sources(registry))))
               def gauge[T](gauge: Gauge[T]) = registerBean(new JmxGauge(gauge.asInstanceOf[Gauge[Object]], getObjectName(group, name, sources(registry))))
+              def timer(timer: Timer) = registerBean(new JmxTimer(timer, getObjectName(group, name, sources(registry))))
             })
         }
       })
@@ -65,6 +67,10 @@ class JmxReporter(server: MBeanServer) extends MetricsReporter with Logging {
 
         def onGauge(group: String, gauge: Gauge[_]) {
           registerBean(new JmxGauge(gauge.asInstanceOf[Gauge[Object]], getObjectName(group, gauge.getName, source)))
+        }
+
+        def onTimer(group: String, timer: Timer) {
+          registerBean(new JmxTimer(timer, getObjectName(group, timer.getName, source)))
         }
       }
     } else {
@@ -134,6 +140,15 @@ trait JmxCounterMBean extends MetricMBean {
 
 class JmxCounter(c: org.apache.samza.metrics.Counter, on: ObjectName) extends JmxCounterMBean {
   def getCount() = c.getCount()
+  def objectName = on
+}
+
+trait JmxTimerMBean extends MetricMBean {
+  def getAverageTime(): Double
+}
+
+class JmxTimer(t: org.apache.samza.metrics.Timer, on: ObjectName) extends JmxTimerMBean {
+  def getAverageTime() = t.getSnapshot().getAverage()
   def objectName = on
 }
 

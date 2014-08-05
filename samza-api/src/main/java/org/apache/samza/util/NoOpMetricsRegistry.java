@@ -22,6 +22,7 @@ package org.apache.samza.util;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.Timer;
 
 /**
  * {@link org.apache.samza.metrics.MetricsRegistry} implementation for when no actual metrics need to be
@@ -46,5 +47,15 @@ public class NoOpMetricsRegistry implements MetricsRegistry {
   @Override
   public <T> Gauge<T> newGauge(String group, Gauge<T> gauge) {
     return gauge;
+  }
+
+  @Override
+  public Timer newTimer(String group, String name) {
+    return new Timer(name);
+  }
+
+  @Override
+  public Timer newTimer(String group, Timer timer) {
+    return timer;
   }
 }

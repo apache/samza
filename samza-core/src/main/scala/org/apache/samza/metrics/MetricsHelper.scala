@@ -23,7 +23,7 @@ import org.apache.samza.container.SamzaContainerMetrics
 
 /**
  * MetricsHelper is a little helper class to make it easy to register and
- * manage counters and gauges.
+ * manage counters, gauges and timers.
  */
 trait MetricsHelper {
   val group = this.getClass.getName
@@ -46,6 +46,10 @@ trait MetricsHelper {
     registry.newGauge(group, new Gauge((getPrefix + name).toLowerCase, value()) {
       override def getValue = value()
     })
+  }
+
+  def newTimer(name: String) = {
+    registry.newTimer(group, (getPrefix + name).toLowerCase)
   }
 
   /**

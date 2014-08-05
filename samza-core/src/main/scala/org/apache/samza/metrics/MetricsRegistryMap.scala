@@ -62,6 +62,19 @@ class MetricsRegistryMap(val name: String) extends ReadableMetricsRegistry with 
     newGauge(group, new Gauge[T](name, value))
   }
 
+  def newTimer(group: String, timer: Timer) = {
+    debug("Add new timer %s %s %s." format (group, timer.getName, timer))
+    putAndGetGroup(group).putIfAbsent(timer.getName, timer)
+    val realTimer = metrics.get(group).get(timer.getName).asInstanceOf[Timer]
+    listeners.foreach(_.onTimer(group, realTimer))
+    realTimer
+  }
+
+  def newTimer(group: String, name: String) = {
+    debug("Creating new timer %s %s." format (group, name))
+    newTimer(group, new Timer(name))
+  }
+
   private def putAndGetGroup(group: String) = {
     metrics.putIfAbsent(group, new ConcurrentHashMap[String, Metric])
     metrics.get(group)

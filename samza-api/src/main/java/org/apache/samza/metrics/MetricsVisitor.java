@@ -29,11 +29,15 @@ public abstract class MetricsVisitor {
 
   public abstract <T> void gauge(Gauge<T> gauge);
 
+  public abstract void timer(Timer timer);
+
   public void visit(Metric metric) {
     if (metric instanceof Counter) {
       counter((Counter) metric);
     } else if (metric instanceof Gauge<?>) {
       gauge((Gauge<?>) metric);
+    } else if (metric instanceof Timer) {
+      timer((Timer) metric);
     }
   }
 }

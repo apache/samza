@@ -54,6 +54,9 @@ class ApplicationMasterRestServlet(config: Config, state: SamzaAppMasterState, r
 
             def gauge[T](gauge: Gauge[T]) =
               groupMap.put(gauge.getName, gauge.getValue.asInstanceOf[java.lang.Object])
+
+            def timer(timer: Timer) =
+              groupMap.put(timer.getName, timer.getSnapshot().getAverage: java.lang.Double)
           })
       }
 

@@ -22,9 +22,9 @@ package org.apache.samza.util;
 import static org.junit.Assert.*;
 
 import org.junit.Test;
-
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
+import org.apache.samza.metrics.Timer;
 
 public class TestNoOpMetricsRegistry {
   @Test
@@ -37,6 +37,9 @@ public class TestNoOpMetricsRegistry {
     Gauge<String> gauge2 = registry.newGauge("testg", "b", "2");
     Gauge<String> gauge3 = registry.newGauge("testg", "c", "3");
     Gauge<String> gauge4 = registry.newGauge("testg2", "d", "4");
+    Timer timer1 = registry.newTimer("testt", "a");
+    Timer timer2 = registry.newTimer("testt", "b");
+    Timer timer3 = registry.newTimer("testt2", "c");
     counter1.inc();
     counter2.inc(2);
     counter3.inc(4);
@@ -44,6 +47,9 @@ public class TestNoOpMetricsRegistry {
     gauge2.set("6");
     gauge3.set("7");
     gauge4.set("8");
+    timer1.update(1L);
+    timer2.update(2L);
+    timer3.update(3L);
     assertEquals(counter1.getCount(), 1);
     assertEquals(counter2.getCount(), 2);
     assertEquals(counter3.getCount(), 4);
@@ -51,5 +57,8 @@ public class TestNoOpMetricsRegistry {
     assertEquals(gauge2.getValue(), "6");
     assertEquals(gauge3.getValue(), "7");
     assertEquals(gauge4.getValue(), "8");
+    assertEquals(timer1.getSnapshot().getAverage(), 1, 0);
+    assertEquals(timer2.getSnapshot().getAverage(), 2, 0);
+    assertEquals(timer3.getSnapshot().getAverage(), 3, 0);
   }
 }

@@ -25,6 +25,7 @@ import scala.collection.JavaConversions._
 import grizzled.slf4j.Logging
 import org.apache.samza.metrics.Counter
 import org.apache.samza.metrics.Gauge
+import org.apache.samza.metrics.Timer
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsVisitor
 import org.apache.samza.metrics.ReadableMetricsRegistry
@@ -122,6 +123,7 @@ class MetricsSnapshotReporter(
             metric.visit(new MetricsVisitor {
               def counter(counter: Counter) = groupMsg.put(name, counter.getCount: java.lang.Long)
               def gauge[T](gauge: Gauge[T]) = groupMsg.put(name, gauge.getValue.asInstanceOf[Object])
+              def timer(timer: Timer) = groupMsg.put(name, timer.getSnapshot().getAverage(): java.lang.Double)
             })
         }
 
