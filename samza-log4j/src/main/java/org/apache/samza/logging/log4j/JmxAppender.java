@@ -38,7 +38,7 @@ import org.apache.log4j.spi.LoggingEvent;
  * </p>
  *
  * <code>
- * <appender name="jmx" class="org.apache.samza.logging.log4j.JmxAppender"/>
+ * &lt;appender name="jmx" class="org.apache.samza.logging.log4j.JmxAppender"/&gt;
  * </code>
  *
  * <p>
@@ -46,10 +46,10 @@ import org.apache.log4j.spi.LoggingEvent;
  * </p>
  *
  * <code>
- *   <root>
- *     <!-- ...other stuff... -->
- *     <appender-ref ref="jmx" />
- *   </root>
+ *   &lt;root&gt;
+ *     &lt;!-- ...other stuff... --&gt;
+ *     &lt;appender-ref ref="jmx" /&gt;
+ *   &lt;/root&gt;
  * </code>
  */
 public class JmxAppender extends AppenderSkeleton {
@@ -66,6 +66,8 @@ public class JmxAppender extends AppenderSkeleton {
   /**
    * Calling the default constructor causes this appender to register JmxLog4J
    * as a JMX MBean.
+   * 
+   * @param MBeanServer to be injected for unit testing.
    */
   public JmxAppender(MBeanServer mbeanServer) {
     super();
