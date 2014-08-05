@@ -33,7 +33,7 @@ public interface Reservoir {
   /**
    * Update the reservoir with the new value
    *
-   * @param new value
+   * @param value a value to update
    */
   void update(long value);
 
