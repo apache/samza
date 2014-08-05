@@ -162,6 +162,15 @@ project(":samza-kafka_$scalaVersion") {
   }
 }
 
+project(':samza-log4j') {
+  apply plugin: 'java'
+
+  dependencies {
+    compile "log4j:log4j:$log4jVersion"
+    testCompile "junit:junit:$junitVersion"
+  }
+}
+
 project(":samza-serializers_$scalaVersion") {
   apply plugin: 'scala'
 

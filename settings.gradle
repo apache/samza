@@ -16,10 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include 'samza-api', 'samza-core', 'samza-kafka', 'samza-kv', 'samza-kv-inmemory', 'samza-kv-leveldb', 'samza-serializers', 'samza-shell', 'samza-yarn', 'samza-test'
+include \
+  'samza-api',
+  'samza-core',
+  'samza-kafka',
+  'samza-kv',
+  'samza-kv-inmemory',
+  'samza-kv-leveldb',
+  'samza-log4j',
+  'samza-serializers',
+  'samza-shell',
+  'samza-yarn',
+  'samza-test'
 
 rootProject.children.each {
-  if (it.name != 'samza-api' && it.name != 'samza-shell') {
+  if (it.name != 'samza-api' && it.name != 'samza-shell' && it.name != 'samza-log4j') {
     it.name = it.name + "_" + scalaVersion
   }
 }

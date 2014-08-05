@@ -44,7 +44,7 @@ object TestJmxReporter {
 
   @BeforeClass
   def beforeSetupServers {
-    LocateRegistry.createRegistry(4500)
+    LocateRegistry.createRegistry(port)
     val mbs = ManagementFactory.getPlatformMBeanServer()
     cs = JMXConnectorServerFactory.newJMXConnectorServer(url, null, mbs)
     cs.start
