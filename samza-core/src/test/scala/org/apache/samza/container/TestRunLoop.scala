@@ -28,7 +28,7 @@ import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.matchers.ShouldMatchers
 import org.scalatest.mock.MockitoSugar
 import org.apache.samza.Partition
-import org.apache.samza.system.{IncomingMessageEnvelope, SystemConsumers, SystemStreamPartition}
+import org.apache.samza.system.{ IncomingMessageEnvelope, SystemConsumers, SystemStreamPartition }
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.task.TaskCoordinator.RequestScope
 
@@ -69,7 +69,6 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ShouldMatche
     runLoop.metrics.envelopes.getCount should equal(2L)
     runLoop.metrics.nullEnvelopes.getCount should equal(0L)
   }
-
 
   @Test
   def testNullMessageFromChooser {
@@ -171,10 +170,47 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ShouldMatche
   def stubProcess(taskInstance: TaskInstance, process: (IncomingMessageEnvelope, ReadableCoordinator) => Unit) {
     when(taskInstance.process(anyObject, anyObject)).thenAnswer(new Answer[Unit]() {
       override def answer(invocation: InvocationOnMock) {
-        val envelope    = invocation.getArguments()(0).asInstanceOf[IncomingMessageEnvelope]
+        val envelope = invocation.getArguments()(0).asInstanceOf[IncomingMessageEnvelope]
         val coordinator = invocation.getArguments()(1).asInstanceOf[ReadableCoordinator]
         process(envelope, coordinator)
       }
     })
+  }
+
+  @Test
+  def testUpdateTimerCorrectly {
+    var now = 0L
+    val consumers = mock[SystemConsumers]
+    when(consumers.choose).thenReturn(envelope0)
+    val testMetrics = new SamzaContainerMetrics
+    val runLoop = new RunLoop(
+      taskInstances = getMockTaskInstances,
+      consumerMultiplexer = consumers,
+      metrics = testMetrics,
+      windowMs = 1L,
+      commitMs = 1L,
+      clock = () => {
+        now += 1L
+        // clock() is called 15 times totally in RunLoop
+        // stop the runLoop after one run
+        if (now == 15L) throw new StopRunLoop
+        now
+      })
+    intercept[StopRunLoop] { runLoop.run }
+
+    testMetrics.chooseMs.getSnapshot.getAverage should equal(1L)
+    testMetrics.windowMs.getSnapshot.getAverage should equal(3L)
+    testMetrics.processMs.getSnapshot.getAverage should equal(3L)
+    testMetrics.commitMs.getSnapshot.getAverage should equal(3L)
+    testMetrics.sendMs.getSnapshot.getAverage should equal(1L)
+
+    now = 0L
+    intercept[StopRunLoop] { runLoop.run }
+    // after two loops
+    testMetrics.chooseMs.getSnapshot.getSize should equal(2)
+    testMetrics.windowMs.getSnapshot.getSize should equal(2)
+    testMetrics.processMs.getSnapshot.getSize should equal(2)
+    testMetrics.commitMs.getSnapshot.getSize should equal(2)
+    testMetrics.sendMs.getSnapshot.getSize should equal(2)
   }
 }

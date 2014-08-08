@@ -20,8 +20,9 @@
 package org.apache.samza.container
 
 import grizzled.slf4j.Logging
-import org.apache.samza.system.{SystemStreamPartition, SystemConsumers}
+import org.apache.samza.system.{ SystemStreamPartition, SystemConsumers }
 import org.apache.samza.task.ReadableCoordinator
+import org.apache.samza.util.TimerUtils
 
 /**
  * Each {@link SamzaContainer} uses a single-threaded execution model: activities for
@@ -38,7 +39,7 @@ class RunLoop(
   val metrics: SamzaContainerMetrics,
   val windowMs: Long = -1,
   val commitMs: Long = 60000,
-  val clock: () => Long = { System.currentTimeMillis }) extends Runnable with Logging {
+  val clock: () => Long = { System.currentTimeMillis }) extends Runnable with TimerUtils with Logging {
 
   private var lastWindowMs = 0L
   private var lastCommitMs = 0L
@@ -52,7 +53,7 @@ class RunLoop(
     // We could just pass in the SystemStreamPartitionMap during construction, but it's safer and cleaner to derive the information directly
     def getSystemStreamPartitionToTaskInstance(taskInstance: TaskInstance) = taskInstance.systemStreamPartitions.map(_ -> taskInstance).toMap
 
-    taskInstances.values.map{ getSystemStreamPartitionToTaskInstance }.flatten.toMap
+    taskInstances.values.map { getSystemStreamPartitionToTaskInstance }.flatten.toMap
   }
 
   /**
@@ -76,22 +77,27 @@ class RunLoop(
     trace("Attempting to choose a message to process.")
     metrics.processes.inc
 
-    val envelope = consumerMultiplexer.choose
+    updateTimer(metrics.processMs) {
 
-    if (envelope != null) {
-      val ssp = envelope.getSystemStreamPartition
+      val envelope = updateTimer(metrics.chooseMs) {
+        consumerMultiplexer.choose
+      }
 
-      trace("Processing incoming message envelope for SSP %s." format ssp)
-      metrics.envelopes.inc
+      if (envelope != null) {
+        val ssp = envelope.getSystemStreamPartition
 
-      val taskInstance = systemStreamPartitionToTaskInstance(ssp)
+        trace("Processing incoming message envelope for SSP %s." format ssp)
+        metrics.envelopes.inc
 
-      val coordinator = new ReadableCoordinator(taskInstance.taskName)
-      taskInstance.process(envelope, coordinator)
-      checkCoordinator(coordinator)
-    } else {
-      trace("No incoming message envelope was available.")
-      metrics.nullEnvelopes.inc
+        val taskInstance = systemStreamPartitionToTaskInstance(ssp)
+
+        val coordinator = new ReadableCoordinator(taskInstance.taskName)
+        taskInstance.process(envelope, coordinator)
+        checkCoordinator(coordinator)
+      } else {
+        trace("No incoming message envelope was available.")
+        metrics.nullEnvelopes.inc
+      }
     }
   }
 
@@ -99,51 +105,55 @@ class RunLoop(
    * Invokes WindowableTask.window on all tasks if it's time to do so.
    */
   private def window {
-    if (windowMs >= 0 && lastWindowMs + windowMs < clock()) {
-      trace("Windowing stream tasks.")
-      lastWindowMs = clock()
-      metrics.windows.inc
+    updateTimer(metrics.windowMs) {
+      if (windowMs >= 0 && lastWindowMs + windowMs < clock()) {
+        trace("Windowing stream tasks.")
+        lastWindowMs = clock()
+        metrics.windows.inc
 
-      taskInstances.foreach { case (taskName, task) =>
-        val coordinator = new ReadableCoordinator(taskName)
-        task.window(coordinator)
-        checkCoordinator(coordinator)
+        taskInstances.foreach {
+          case (taskName, task) =>
+            val coordinator = new ReadableCoordinator(taskName)
+            task.window(coordinator)
+            checkCoordinator(coordinator)
+        }
       }
     }
   }
-
 
   /**
    * If task instances published any messages to output streams, this flushes
    * them to the underlying systems.
    */
   private def send {
-    trace("Triggering send in task instances.")
-    metrics.sends.inc
-    taskInstances.values.foreach(_.send)
+    updateTimer(metrics.sendMs) {
+      trace("Triggering send in task instances.")
+      metrics.sends.inc
+      taskInstances.values.foreach(_.send)
+    }
   }
-
 
   /**
    * Commits task state as a a checkpoint, if necessary.
    */
   private def commit {
-    if (commitMs >= 0 && lastCommitMs + commitMs < clock()) {
-      trace("Committing task instances because the commit interval has elapsed.")
-      lastCommitMs = clock()
-      metrics.commits.inc
-      taskInstances.values.foreach(_.commit)
-    } else if (!taskCommitRequests.isEmpty) {
-      trace("Committing due to explicit commit request.")
-      metrics.commits.inc
-      taskCommitRequests.foreach(taskName => {
-        taskInstances(taskName).commit
-      })
+    updateTimer(metrics.commitMs) {
+      if (commitMs >= 0 && lastCommitMs + commitMs < clock()) {
+        trace("Committing task instances because the commit interval has elapsed.")
+        lastCommitMs = clock()
+        metrics.commits.inc
+        taskInstances.values.foreach(_.commit)
+      } else if (!taskCommitRequests.isEmpty) {
+        trace("Committing due to explicit commit request.")
+        metrics.commits.inc
+        taskCommitRequests.foreach(taskName => {
+          taskInstances(taskName).commit
+        })
+      }
+
+      taskCommitRequests = Set()
     }
-
-    taskCommitRequests = Set()
   }
-
 
   /**
    * A new TaskCoordinator object is passed to a task on every call to StreamTask.process
@@ -172,5 +182,4 @@ class RunLoop(
       shutdownNow = true
     }
   }
-
 }

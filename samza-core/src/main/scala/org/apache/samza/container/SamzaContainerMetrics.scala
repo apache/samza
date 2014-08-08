@@ -33,4 +33,9 @@ class SamzaContainerMetrics(
   val sends = newCounter("send-calls")
   val envelopes = newCounter("process-envelopes")
   val nullEnvelopes = newCounter("process-null-envelopes")
+  val chooseMs = newTimer("choose-ms")
+  val windowMs = newTimer("window-ms")
+  val processMs = newTimer("process-ms")
+  val commitMs = newTimer("commit-ms")
+  val sendMs = newTimer("send-ms")
 }
