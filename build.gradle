@@ -235,7 +235,7 @@ project(":samza-yarn_$scalaVersion") {
     source = fileTree('src/main/less') {
       include 'main.less'
     }
-    dest = '$buildDir/resources/main/scalate/css'
+    dest = "$buildDir/resources/main/scalate/css"
   }
 
   jar.dependsOn("lesscss")
