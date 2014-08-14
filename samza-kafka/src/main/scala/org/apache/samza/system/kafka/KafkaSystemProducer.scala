@@ -53,7 +53,7 @@ class KafkaSystemProducer(
   }
 
   def send(source: String, envelope: OutgoingMessageEnvelope) {
-    debug("Enqueueing message: %s, %s." format (source, envelope))
+    trace("Enqueueing message: %s, %s." format (source, envelope))
 
     metrics.sends.inc
 
@@ -70,7 +70,7 @@ class KafkaSystemProducer(
 
   def flush(source: String) {
     val buffer = sourceBuffers(source)
-    debug("Flushing buffer with size: %s." format buffer.size)
+    trace("Flushing buffer with size: %s." format buffer.size)
     metrics.flushes.inc
 
     retryBackoff.run(
@@ -99,6 +99,6 @@ class KafkaSystemProducer(
     )
 
     buffer.clear
-    debug("Flushed buffer.")
+    trace("Flushed buffer.")
   }
 }

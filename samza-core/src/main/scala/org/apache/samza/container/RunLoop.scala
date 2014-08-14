@@ -78,7 +78,6 @@ class RunLoop(
     metrics.processes.inc
 
     updateTimer(metrics.processMs) {
-
       val envelope = updateTimer(metrics.chooseMs) {
         consumerMultiplexer.choose
       }
@@ -90,8 +89,8 @@ class RunLoop(
         metrics.envelopes.inc
 
         val taskInstance = systemStreamPartitionToTaskInstance(ssp)
-
         val coordinator = new ReadableCoordinator(taskInstance.taskName)
+
         taskInstance.process(envelope, coordinator)
         checkCoordinator(coordinator)
       } else {

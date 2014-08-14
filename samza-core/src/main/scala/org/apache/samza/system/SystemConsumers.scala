@@ -188,7 +188,7 @@ class SystemConsumers(
     val envelopeFromChooser = chooser.choose
 
     if (envelopeFromChooser == null) {
-      debug("Chooser returned null.")
+      trace("Chooser returned null.")
 
       metrics.choseNull.inc
 
@@ -197,7 +197,7 @@ class SystemConsumers(
     } else {
       val systemStreamPartition = envelopeFromChooser.getSystemStreamPartition
 
-      debug("Chooser returned an incoming message envelope: %s" format envelopeFromChooser)
+      trace("Chooser returned an incoming message envelope: %s" format envelopeFromChooser)
 
       // Ok to give the chooser a new message from this stream.
       timeout = 0
@@ -221,11 +221,11 @@ class SystemConsumers(
    * messages to process.
    */
   private def poll(systemName: String) {
-    debug("Polling system consumer: %s" format systemName)
+    trace("Polling system consumer: %s" format systemName)
 
     metrics.systemPolls(systemName).inc
 
-    debug("Getting fetch map for system: %s" format systemName)
+    trace("Getting fetch map for system: %s" format systemName)
 
     val systemFetchSet = emptySystemStreamPartitionsBySystem.get(systemName)
 
@@ -233,13 +233,13 @@ class SystemConsumers(
     if (systemFetchSet.size > 0) {
       val consumer = consumers(systemName)
 
-      debug("Fetching: %s" format systemFetchSet)
+      trace("Fetching: %s" format systemFetchSet)
 
       metrics.systemStreamPartitionFetchesPerPoll(systemName).inc(systemFetchSet.size)
 
       val systemStreamPartitionEnvelopes = consumer.poll(systemFetchSet, timeout)
 
-      debug("Got incoming message envelopes: %s" format systemStreamPartitionEnvelopes)
+      trace("Got incoming message envelopes: %s" format systemStreamPartitionEnvelopes)
 
       metrics.systemMessagesPerPoll(systemName).inc
 
@@ -262,12 +262,12 @@ class SystemConsumers(
         }
       }
     } else {
-      debug("Skipping polling for %s. Already have messages available for all registered SystemStreamPartitions." format (systemName))
+      trace("Skipping polling for %s. Already have messages available for all registered SystemStreamPartitions." format (systemName))
     }
   }
 
   private def refresh {
-    debug("Refreshing chooser with new messages.")
+    trace("Refreshing chooser with new messages.")
 
     // Update last poll time so we don't poll too frequently.
     lastPollMs = clock()
