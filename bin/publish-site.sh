@@ -19,28 +19,29 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BASE_DIR=$DIR/..
 DOCS_DIR=$BASE_DIR/docs
-VERSION=$1
-COMMENT=$2
-USER=$3
+COMMENT=$1
+USER=$2
 
-if test -z "$VERSION" || test -z "$COMMENT" || test -z "$USER"; then
+if test -z "$COMMENT" || test -z "$USER"; then
   echo
   echo "  USAGE:"
   echo
-  echo "    ${BASH_SOURCE[0]##*/} 0.7.0 \"updating welcome page\" criccomini"
+  echo "    ${BASH_SOURCE[0]##*/} \"updating welcome page\" criccomini"
   echo
   exit 0
 fi
 
 echo "Using uer: $USER"
-echo "Using version: $VERSION"
 echo "Using comment: $COMMENT"
 echo "Generating javadocs."
-$BASE_DIR/bin/generate-javadocs.sh $VERSION
+$BASE_DIR/bin/generate-javadocs.sh
 
 echo "Building site."
 cd $DOCS_DIR
 bundle exec jekyll build
+
+echo "Replacing version"
+./_docs/replace-versioned.sh
 
 echo "Checking out SVN site."
 SVN_TMP=`mktemp -d /tmp/samza-svn.XXXX`

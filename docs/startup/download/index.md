@@ -21,7 +21,7 @@ title: Download
 
 Samza is released as a source artifact, and also through Maven.
 
-If you just want to play around with Samza for the first time, go to [Hello Samza](/startup/hello-samza/0.7.0).
+If you just want to play around with Samza for the first time, go to [Hello Samza](/startup/hello-samza/{{site.version}}).
 
 ### Source Releases
 
@@ -80,7 +80,7 @@ A Maven-based Samza project can pull in all required dependencies Samza dependen
 </dependency>
 {% endhighlight %}
 
-[Hello Samza](/startup/hello-samza/0.7.0) is a working Maven project that illustrates how to build projects that have Samza jobs in them.
+[Hello Samza](/startup/hello-samza/{{site.version}}) is a working Maven project that illustrates how to build projects that have Samza jobs in them.
 
 #### Repositories
 

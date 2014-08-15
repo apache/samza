@@ -18,17 +18,7 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BASE_DIR=$DIR/..
-VERSION=$1
-JAVADOC_DIR=$BASE_DIR/docs/learn/documentation/$VERSION/api/javadocs
-
-if test -z "$VERSION"; then
-  echo
-  echo "  USAGE:"
-  echo
-  echo "    ${BASH_SOURCE[0]##*/} 0.7.0"
-  echo
-  exit 0
-fi
+JAVADOC_DIR=$BASE_DIR/docs/learn/documentation/versioned/api/javadocs
 
 cd $BASE_DIR
 ./gradlew javadoc

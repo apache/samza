@@ -1,0 +1,13 @@
+org.apache.samza
+org.apache.samza.checkpoint
+org.apache.samza.config
+org.apache.samza.container
+org.apache.samza.container.grouper.stream
+org.apache.samza.job
+org.apache.samza.metrics
+org.apache.samza.serializers
+org.apache.samza.storage
+org.apache.samza.system
+org.apache.samza.system.chooser
+org.apache.samza.task
+org.apache.samza.util

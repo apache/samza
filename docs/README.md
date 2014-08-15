@@ -30,19 +30,27 @@ To compile the website in the \_site directory, execute:
 
     bundle exec jekyll build
 
+To test the site,
+
+    * run:
+
+      bundle exec jekyll serve --watch --baseurl
+
+    * then open another command line window and run:
+
+      _docs/local-site-test.sh
+
 ## Versioning
 
-The "Learn" section of this website is versioned. To add a new version, copy the folder at the version number-level (0.7.0 to 0.8.0, for example).
+The "learn" and "img" sections are versioned. To add a new version, change the version number in _config.yml. All links in pages should use
 
-All links between pages inside a versioned folder should be relative links, not absolute.
+{{site.version}}, not hard-coded version number.
 
 ## Javadocs
 
 To auto-generate the latest Javadocs, run:
 
-    bin/generate-javadocs.sh <version>
-
-The version number is the number that will be used in the /docs/learn/documentation/<version>/api/javadocs path.
+    bin/generate-javadocs.sh
 
 ## Release
 
