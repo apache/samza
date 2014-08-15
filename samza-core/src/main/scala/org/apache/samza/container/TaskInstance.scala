@@ -164,8 +164,6 @@ class TaskInstance(
 
       collector.reset
     } else {
-      trace("Skipping send for taskName %s because no messages were collected." format taskName)
-
       metrics.sendsSkipped.inc
     }
   }
