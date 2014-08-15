@@ -21,3 +21,8 @@ markdown: redcarpet
 exclude: ['_notes']
 redcarpet:
   extensions: ['with_toc_data', 'smart']
+exclude: [_docs]
+baseurl: http://samza.incubator.apache.org
+version: 0.7.0
+# this is the version you will go if you click 'switch version' in "latest" pages.
+latest-release: 0.7.0
