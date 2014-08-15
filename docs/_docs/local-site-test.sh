@@ -22,13 +22,13 @@
 DIR=$(dirname $0)/..
 cd $DIR
 
+# replace version number
+echo "replacing version number..."
+_docs/replace-versioned.sh
+
 echo "downloading SVN..."
 SVN_TMP=`mktemp -d /tmp/samza-svn.XXXX`
 svn co https://svn.apache.org/repos/asf/incubator/samza/ $SVN_TMP
 cp -r _site/* $SVN_TMP/site/
 cp -r $SVN_TMP/site/* _site
 rm -rf $SVN_TMP
-
-# replace version number
-echo "replacing version number..."
-_docs/replace-versioned.sh

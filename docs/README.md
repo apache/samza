@@ -40,6 +40,9 @@ To test the site,
 
       _docs/local-site-test.sh
 
+    * keep in mind that the switch-version buttons in other versions link to samza.incubator.apache.org/,
+      not the localhost:4000. That is because they are not updated by your branch and are using the value in SVN.
+
 ## Versioning
 
 The "learn" and "img" sections are versioned. To add a new version, change the version number in _config.yml. All links in pages should use
