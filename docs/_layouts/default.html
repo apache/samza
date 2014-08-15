@@ -25,6 +25,7 @@
     <link href="/css/main.css" rel="stylesheet"/>
     <link href="/css/syntax.css" rel="stylesheet"/>
     <link rel="icon" type="image/png" href="/img/samza-icon.png">
+    <script src="/js/jquery-1.11.1.min.js"></script>
   </head>
   <body>
     <div class="wrapper">
@@ -40,8 +41,14 @@
                 <a href="/startup/download"><i class="fa fa-arrow-circle-o-down masthead-icon"></i></a>
                 <a href="https://git-wip-us.apache.org/repos/asf?p=incubator-samza.git;a=tree" target="_blank"><i class="fa fa-code masthead-icon" style="font-weight: bold;"></i></a>
                 <a href="https://twitter.com/samzastream" target="_blank"><i class="fa fa-twitter masthead-icon"></i></a>
+                <!-- this icon only shows in versioned pages -->
                 {% if page.url contains "versioned" %}
-                  <a href="{{site.baseurl}}/{% if site.version == "latest" %}{{page.url | replace:'versioned', site.latest-release | replace_first: '/', ''}}{% else %}{{page.url | replace:'versioned', 'latest' | replace_first: '/', ''}}{% endif %}"><i class="fa fa-history masthead-icon"></i></a>
+                  {% if site.version == "latest" %}
+                    {% capture linkUrl %}{{page.url | replace:'versioned', site.latest-release | replace_first: '/', ''}}{% endcapture %}
+                  {% else %}
+                    {% capture linkUrl %}{{page.url | replace:'versioned', 'latest' | replace_first: '/', ''}}{% endcapture %}
+                  {% endif %}
+                  <a href="{{ site.baseurl }}/{{ linkUrl }}"><i id="switch-version-button"></i></a>
                 {% endif %}
               </div>
             </div>
@@ -107,6 +114,26 @@
         <!-- nothing for now. -->
       </div>
     </div>
+
+  {% if page.url contains "versioned" %}
+    <script>
+      $( document ).ready(function() {
+        if ( $.fn.urlExists( "{{ site.baseurl }}/{{ linkUrl }}" ) ) {
+          $("#switch-version-button").addClass("fa fa-history masthead-icon");
+        }
+      });
+
+      /* a function to test whether the url exists or not */
+      (function( $ ) {
+        $.fn.urlExists = function(url) {
+          var http = new XMLHttpRequest();
+          http.open('HEAD', url, false);
+          http.send();
+          return http.status != 404;
+        };
+      }( jQuery ));
+    </script>
+  {% endif %}
 
     <!-- Google Analytics -->
     <script>
