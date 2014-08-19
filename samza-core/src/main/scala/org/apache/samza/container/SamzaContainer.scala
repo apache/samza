@@ -82,21 +82,27 @@ object SamzaContainer extends Logging {
   }
 
   def main(args: Array[String]) {
-    val jmxServer = new JmxServer
-    val containerName = System.getenv(ShellCommandConfig.ENV_CONTAINER_NAME)
+    safeMain()
+  }
 
-    /**
-     * If the compressed option is enabled in config, de-compress the 'ENV_CONFIG' and 'ENV_SYSTEM_STREAMS'
-     * properties. Note: This is a temporary workaround to reduce the size of the config and hence size
-     * of the environment variable(s) exported while starting a Samza container (SAMZA-337)
-     */
-    val isCompressed = System.getenv(ShellCommandConfig.ENV_COMPRESS_CONFIG).equals("TRUE")
-    val configStr = getParameter(System.getenv(ShellCommandConfig.ENV_CONFIG), isCompressed)
-    val config = JsonConfigSerializer.fromJson(configStr)
-    val sspTaskNames = getTaskNameToSystemStreamPartition(getParameter(System.getenv(ShellCommandConfig.ENV_SYSTEM_STREAMS), isCompressed))
-    val taskNameToChangeLogPartitionMapping = getTaskNameToChangeLogPartitionMapping(getParameter(System.getenv(ShellCommandConfig.ENV_TASK_NAME_TO_CHANGELOG_PARTITION_MAPPING), isCompressed))
-
+  def safeMain(jmxServer: JmxServer = new JmxServer) {
+    // Break out the main method to make the JmxServer injectable so we can 
+    // validate that we don't leak JMX non-daemon threads if we have an 
+    // exception in the main method.
     try {
+      val containerName = System.getenv(ShellCommandConfig.ENV_CONTAINER_NAME)
+
+      /**
+       * If the compressed option is enabled in config, de-compress the 'ENV_CONFIG' and 'ENV_SYSTEM_STREAMS'
+       * properties. Note: This is a temporary workaround to reduce the size of the config and hence size
+       * of the environment variable(s) exported while starting a Samza container (SAMZA-337)
+       */
+      val isCompressed = System.getenv(ShellCommandConfig.ENV_COMPRESS_CONFIG).equals("TRUE")
+      val configStr = getParameter(System.getenv(ShellCommandConfig.ENV_CONFIG), isCompressed)
+      val config = JsonConfigSerializer.fromJson(configStr)
+      val sspTaskNames = getTaskNameToSystemStreamPartition(getParameter(System.getenv(ShellCommandConfig.ENV_SYSTEM_STREAMS), isCompressed))
+      val taskNameToChangeLogPartitionMapping = getTaskNameToChangeLogPartitionMapping(getParameter(System.getenv(ShellCommandConfig.ENV_TASK_NAME_TO_CHANGELOG_PARTITION_MAPPING), isCompressed))
+
       SamzaContainer(containerName, sspTaskNames, taskNameToChangeLogPartitionMapping, config).run
     } finally {
       jmxServer.stop
@@ -104,7 +110,7 @@ object SamzaContainer extends Logging {
   }
 
   def getTaskNameToSystemStreamPartition(SSPTaskNamesJSON: String) = {
-    // Covert into a standard Java map
+    // Convert into a standard Java map
     val sspTaskNamesAsJava: Map[TaskName, Set[SystemStreamPartition]] = ShellCommandBuilder.deserializeSystemStreamPartitionSetFromJSON(SSPTaskNamesJSON)
 
     // From that map build the TaskNamesToSystemStreamPartitions
