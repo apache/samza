@@ -31,13 +31,12 @@ import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.task.WindowableTask
 import org.apache.samza.task.TaskLifecycleListener
 import org.apache.samza.task.StreamTask
-import org.apache.samza.task.ReadableCollector
 import org.apache.samza.system.SystemConsumers
-import org.apache.samza.system.SystemProducers
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.SamzaException
 import scala.collection.JavaConversions._
+import org.apache.samza.task.TaskInstanceCollector
 
 class TaskInstance(
   task: StreamTask,
@@ -45,13 +44,12 @@ class TaskInstance(
   config: Config,
   metrics: TaskInstanceMetrics,
   consumerMultiplexer: SystemConsumers,
-  producerMultiplexer: SystemProducers,
+  collector: TaskInstanceCollector,
   offsetManager: OffsetManager = new OffsetManager,
   storageManager: TaskStorageManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   listeners: Seq[TaskLifecycleListener] = Seq(),
-  val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
-  collector: ReadableCollector = new ReadableCollector) extends Logging {
+  val systemStreamPartitions: Set[SystemStreamPartition] = Set()) extends Logging {
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
@@ -107,7 +105,7 @@ class TaskInstance(
   def registerProducers {
     debug("Registering producers for taskName: %s" format taskName)
 
-    producerMultiplexer.register(metrics.source)
+    collector.register
   }
 
   def registerConsumers {
@@ -151,25 +149,6 @@ class TaskInstance(
     }
   }
 
-  def send {
-    if (collector.envelopes.size > 0) {
-      trace("Sending messages for taskName: %s, %s" format (taskName, collector.envelopes.size))
-
-      metrics.sends.inc
-      metrics.messagesSent.inc(collector.envelopes.size)
-
-      collector.envelopes.foreach(envelope => producerMultiplexer.send(metrics.source, envelope))
-
-      trace("Resetting collector for taskName: %s" format taskName)
-
-      collector.reset
-    } else {
-      trace("Skipping send for taskName %s because no messages were collected." format taskName)
-
-      metrics.sendsSkipped.inc
-    }
-  }
-
   def commit {
     trace("Flushing state stores for taskName: %s" format taskName)
 
@@ -179,7 +158,7 @@ class TaskInstance(
 
     trace("Flushing producers for taskName: %s" format taskName)
 
-    producerMultiplexer.flush(metrics.source)
+    collector.flush
 
     trace("Committing offset manager for taskName: %s" format taskName)
 
@@ -212,6 +191,5 @@ class TaskInstance(
 
   override def toString() = "TaskInstance for class %s and taskName %s." format (task.getClass.getName, taskName)
 
-  def toDetailedString() = "TaskInstance [taskName = %s, windowable=%s, closable=%s, collector_size=%s]" format (taskName, isWindowableTask, isClosableTask, collector.envelopes.size)
-
+  def toDetailedString() = "TaskInstance [taskName = %s, windowable=%s, closable=%s]" format (taskName, isWindowableTask, isClosableTask)
 }

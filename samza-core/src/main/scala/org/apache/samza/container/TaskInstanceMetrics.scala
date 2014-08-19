@@ -32,7 +32,7 @@ class TaskInstanceMetrics(
   val windows = newCounter("window-calls")
   val processes = newCounter("process-calls")
   val sends = newCounter("send-calls")
-  val sendsSkipped = newCounter("send-skipped")
+  val flushes = newCounter("flush-calls")
   val messagesSent = newCounter("messages-sent")
 
   def addOffsetGauge(systemStreamPartition: SystemStreamPartition, getValue: () => String) {

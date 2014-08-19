@@ -41,6 +41,7 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
 import org.apache.samza.system.SystemStream
 import org.apache.samza.system.StreamMetadataCache
+import org.apache.samza.task.TaskInstanceCollector
 
 class TestSamzaContainer {
   @Test
@@ -86,13 +87,14 @@ class TestSamzaContainer {
     val producerMultiplexer = new SystemProducers(
       Map[String, SystemProducer](),
       new SerdeManager)
+    val collector = new TaskInstanceCollector(producerMultiplexer)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
       taskName,
       config,
       new TaskInstanceMetrics,
-      consumerMultiplexer: SystemConsumers,
-      producerMultiplexer: SystemProducers)
+      consumerMultiplexer,
+      collector)
     val runLoop = new RunLoop(
       taskInstances = Map(taskName -> taskInstance),
       consumerMultiplexer = consumerMultiplexer,

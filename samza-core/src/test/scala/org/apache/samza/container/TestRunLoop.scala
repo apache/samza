@@ -191,9 +191,9 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ShouldMatche
       commitMs = 1L,
       clock = () => {
         now += 1L
-        // clock() is called 15 times totally in RunLoop
+        // clock() is called 13 times totally in RunLoop
         // stop the runLoop after one run
-        if (now == 15L) throw new StopRunLoop
+        if (now == 13L) throw new StopRunLoop
         now
       })
     intercept[StopRunLoop] { runLoop.run }
@@ -202,7 +202,6 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ShouldMatche
     testMetrics.windowMs.getSnapshot.getAverage should equal(3L)
     testMetrics.processMs.getSnapshot.getAverage should equal(3L)
     testMetrics.commitMs.getSnapshot.getAverage should equal(3L)
-    testMetrics.sendMs.getSnapshot.getAverage should equal(1L)
 
     now = 0L
     intercept[StopRunLoop] { runLoop.run }
@@ -211,6 +210,5 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ShouldMatche
     testMetrics.windowMs.getSnapshot.getSize should equal(2)
     testMetrics.processMs.getSnapshot.getSize should equal(2)
     testMetrics.commitMs.getSnapshot.getSize should equal(2)
-    testMetrics.sendMs.getSnapshot.getSize should equal(2)
   }
 }

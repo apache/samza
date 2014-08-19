@@ -26,13 +26,15 @@ import kafka.producer.Producer
 import org.apache.samza.system.SystemProducer
 import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.util.ExponentialSleepStrategy
+import org.apache.samza.util.TimerUtils
 
 class KafkaSystemProducer(
   systemName: String,
   batchSize: Int,
   retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
   getProducer: () => Producer[Object, Object],
-  metrics: KafkaSystemProducerMetrics) extends SystemProducer with Logging {
+  metrics: KafkaSystemProducerMetrics,
+  val clock: () => Long = () => System.currentTimeMillis) extends SystemProducer with Logging with TimerUtils {
 
   var sourceBuffers = Map[String, ArrayBuffer[KeyedMessage[Object, Object]]]()
   var producer: Producer[Object, Object] = null
@@ -69,36 +71,37 @@ class KafkaSystemProducer(
   }
 
   def flush(source: String) {
-    val buffer = sourceBuffers(source)
-    trace("Flushing buffer with size: %s." format buffer.size)
-    metrics.flushes.inc
+    updateTimer(metrics.flushMs) {
+      val buffer = sourceBuffers(source)
+      trace("Flushing buffer with size: %s." format buffer.size)
+      metrics.flushes.inc
 
-    retryBackoff.run(
-      loop => {
-        if (producer == null) {
-          info("Creating a new producer for system %s." format systemName)
-          producer = getProducer()
-          debug("Created a new producer for system %s." format systemName)
-        }
+      retryBackoff.run(
+        loop => {
+          if (producer == null) {
+            info("Creating a new producer for system %s." format systemName)
+            producer = getProducer()
+            debug("Created a new producer for system %s." format systemName)
+          }
 
-        producer.send(buffer: _*)
-        loop.done
-        metrics.flushSizes.inc(buffer.size)
-      },
+          producer.send(buffer: _*)
+          loop.done
+          metrics.flushSizes.inc(buffer.size)
+        },
 
-      (exception, loop) => {
-        warn("Triggering a reconnect for %s because connection failed: %s" format (systemName, exception))
-        debug("Exception detail: ", exception)
-        metrics.reconnects.inc
+        (exception, loop) => {
+          warn("Triggering a reconnect for %s because connection failed: %s" format (systemName, exception))
+          debug("Exception detail: ", exception)
+          metrics.reconnects.inc
 
-        if (producer != null) {
-          producer.close
-          producer = null
-        }
-      }
-    )
+          if (producer != null) {
+            producer.close
+            producer = null
+          }
+        })
 
-    buffer.clear
-    trace("Flushed buffer.")
+      buffer.clear
+      trace("Flushed buffer.")
+    }
   }
 }

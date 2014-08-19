@@ -55,12 +55,12 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.chooser.DefaultChooser
 import org.apache.samza.system.chooser.MessageChooserFactory
 import org.apache.samza.system.chooser.RoundRobinChooserFactory
-import org.apache.samza.task.ReadableCollector
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskLifecycleListener
 import org.apache.samza.task.TaskLifecycleListenerFactory
 import org.apache.samza.util.Util
 import scala.collection.JavaConversions._
+import org.apache.samza.task.TaskInstanceCollector
 
 object SamzaContainer extends Logging {
 
@@ -410,9 +410,9 @@ object SamzaContainer extends Logging {
 
       val task = Util.getObj[StreamTask](taskClassName)
 
-      val collector = new ReadableCollector
-
       val taskInstanceMetrics = new TaskInstanceMetrics("TaskName-%s" format taskName)
+
+      val collector = new TaskInstanceCollector(producerMultiplexer, taskInstanceMetrics)
 
       val storeConsumers = changeLogSystemStreams
         .map {
@@ -481,13 +481,12 @@ object SamzaContainer extends Logging {
         config = config,
         metrics = taskInstanceMetrics,
         consumerMultiplexer = consumerMultiplexer,
-        producerMultiplexer = producerMultiplexer,
+        collector = collector,
         offsetManager = offsetManager,
         storageManager = storageManager,
         reporters = reporters,
         listeners = listeners,
-        systemStreamPartitions = systemStreamPartitions,
-        collector = collector)
+        systemStreamPartitions = systemStreamPartitions)
 
       (taskName, taskInstance)
     }).toMap

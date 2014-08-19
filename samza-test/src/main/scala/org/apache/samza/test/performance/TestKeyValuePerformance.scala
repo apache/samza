@@ -22,17 +22,20 @@ package org.apache.samza.test.performance
 import grizzled.slf4j.Logging
 import org.apache.samza.config.Config
 import org.apache.samza.config.StorageConfig._
-import org.apache.samza.container.{TaskName, SamzaContainerContext}
+import org.apache.samza.container.{ TaskName, SamzaContainerContext }
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.storage.kv.KeyValueStorageEngine
 import org.apache.samza.storage.StorageEngineFactory
-import org.apache.samza.task.ReadableCollector
 import org.apache.samza.util.CommandLine
 import org.apache.samza.util.Util
 import org.apache.samza.serializers.ByteSerde
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
+import org.apache.samza.task.TaskInstanceCollector
+import org.apache.samza.system.SystemProducers
+import org.apache.samza.system.SystemProducer
+import org.apache.samza.serializers.SerdeManager
 import java.io.File
 import java.util.UUID
 
@@ -97,6 +100,10 @@ object TestKeyValuePerformance extends Logging {
         (storeName, Util.getObj[StorageEngineFactory[Array[Byte], Array[Byte]]](storageFactoryClassName))
       }).toMap
 
+    val producerMultiplexer = new SystemProducers(
+      Map[String, SystemProducer](),
+      new SerdeManager)
+
     for ((storeName, storageEngine) <- storageEngineFactories) {
       val output = new File("/tmp/" + UUID.randomUUID)
 
@@ -107,7 +114,7 @@ object TestKeyValuePerformance extends Logging {
         output,
         serde,
         serde,
-        new ReadableCollector,
+        new TaskInstanceCollector(producerMultiplexer),
         new MetricsRegistryMap,
         null,
         new SamzaContainerContext("test", config, taskNames))

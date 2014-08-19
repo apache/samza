@@ -40,6 +40,7 @@ import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.system.SystemStreamMetadata
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import scala.collection.JavaConversions._
+import org.apache.samza.task.TaskInstanceCollector
 
 class TestTaskInstance {
   @Test
@@ -62,13 +63,14 @@ class TestTaskInstance {
     val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
     val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
     val taskName = new TaskName("taskName")
+    val collector = new TaskInstanceCollector(producerMultiplexer)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
       taskName,
       config,
       new TaskInstanceMetrics,
       consumerMultiplexer,
-      producerMultiplexer,
+      collector,
       offsetManager)
     // Pretend we got a message with offset 2 and next offset 3.
     val coordinator = new ReadableCoordinator(taskName)

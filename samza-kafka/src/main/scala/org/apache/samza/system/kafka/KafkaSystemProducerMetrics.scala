@@ -32,6 +32,7 @@ class KafkaSystemProducerMetrics(val systemName: String = "unknown", val registr
   val sends = newCounter("producer-sends")
   val flushes = newCounter("flushes")
   val flushSizes = newCounter("flush-sizes")
+  val flushMs = newTimer("flush-ms")
 
   def setBufferSize(source: String, getValue: () => Int) {
     newGauge("%s-producer-buffer-size" format source, getValue)

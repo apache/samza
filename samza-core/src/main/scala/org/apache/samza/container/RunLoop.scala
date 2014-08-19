@@ -64,7 +64,6 @@ class RunLoop(
     while (!shutdownNow) {
       process
       window
-      send
       commit
     }
   }
@@ -117,18 +116,6 @@ class RunLoop(
             checkCoordinator(coordinator)
         }
       }
-    }
-  }
-
-  /**
-   * If task instances published any messages to output streams, this flushes
-   * them to the underlying systems.
-   */
-  private def send {
-    updateTimer(metrics.sendMs) {
-      trace("Triggering send in task instances.")
-      metrics.sends.inc
-      taskInstances.values.foreach(_.send)
     }
   }
 
