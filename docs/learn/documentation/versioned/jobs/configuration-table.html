@@ -188,6 +188,21 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="job-systemstreampartition-grouper-factory">job.systemstreampartition.grouper.factory</td>
+                    <td class="default">org.apache.samza.container.grouper.stream.GroupByPartitionFactory</td>
+                    <td class="description">
+                        A factory class that is used to determine how input SystemStreamPartitions are grouped together for processing in individual StreamTask instances. The factory must implement the SystemStreamPartitionGrouperFactory interface. Once this configuration is set, it can't be changed, since doing so could violate state semantics, and lead to a loss of data.
+
+                        <dl>
+                          <dt><code>org.apache.samza.container.grouper.stream.GroupByPartitionFactory</code></dt>
+                          <dd>Groups input stream partitions according to their partition number. This grouping leads to a single StreamTask processing all messages for a single partition (e.g. partition 0) across all input streams that have a partition 0. Therefore, the default is that you get one StreamTask for all input partitions with the same partition number. Using this strategy, if two input streams have a partition 0, then messages from both partitions will be routed to a single StreamTask. This partitioning strategy is useful for joining and aggregating streams.</dt>
+                          <dt><code>org.apache.samza.container.grouper.stream.GroupBySystemStreamPartitionFactory</code></dt>
+                          <dd>Assigns each SystemStreamPartition to its own unique StreamTask. The  GroupBySystemStreamPartitionFactory is useful in cases where you want increased parallelism (more containers), and don't care about co-locating partitions for grouping or joins, since it allows for a greater number of StreamTasks to be divided up amongst Samza containers.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
                     <th colspan="3" class="section" id="task"><a href="../api/overview.html">Task configuration</a></th>
                 </tr>
 
