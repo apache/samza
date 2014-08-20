@@ -24,30 +24,27 @@ Samza's documentation uses Jekyll to build a website out of markdown pages. Prer
 
 To serve the website on [localhost:4000](http://localhost:4000/):
 
-    bundle exec jekyll serve --watch
+    bundle exec jekyll serve --watch --baseurl
 
 To compile the website in the \_site directory, execute:
 
     bundle exec jekyll build
 
-To test the site,
+To test the site, run:
 
-    * run:
-
-      bundle exec jekyll serve --watch --baseurl
-
-    * then open another command line window and run:
-
-      _docs/local-site-test.sh
-
-    * keep in mind that the switch-version buttons in other versions link to samza.incubator.apache.org/,
-      not the localhost:4000. That is because they are not updated by your branch and are using the value in SVN.
+    bundle exec jekyll serve --watch --baseurl
 
 ## Versioning
 
-The "learn" and "img" sections are versioned. To add a new version, change the version number in _config.yml. All links in pages should use
+If you're working with versioned content (anything in the learn or img directories), you'll also need to run a script that generates the appropriate directories:
 
-{{site.version}}, not hard-coded version number.
+      _docs/local-site-test.sh
+
+The local-site-test.sh script must be run every time a change is made to versioned content locally in order to trigger a refresh with Jekyll.
+
+Keep in mind that versioned content in older versions links to samza.incubator.apache.org, not the localhost:4000. This is because they are not updated by your branch and are using the values in SVN instead.
+
+To add a new version, change the version number in _config.yml. All links in pages should use {{site.version}}, not hard-coded version number.
 
 ## Javadocs
 
@@ -59,6 +56,6 @@ To auto-generate the latest Javadocs, run:
 
 To build and publish the website to Samza's Apache SVN repository, run:
 
-    bin/publish-site.sh 0.7.0 "updating welcome page" criccomini
+    bin/publish-site.sh "updating welcome page" criccomini
 
 This command will re-build the Javadocs and website, checkout https://svn.apache.org/repos/asf/incubator/samza/site/ locally, copy the site into the directory, and commit the changes.

@@ -47,7 +47,7 @@ Samza's [run-class.sh](packaging.html) script will automatically set the followi
 The [run-class.sh](packaging.html) script will also set the following Java system properties:
 
 {% highlight bash %}
--Dsamza.log.dir=$SAMZA_LOG_DIR -Dsamza.container.name=$SAMZA_CONTAINER_NAME=
+-Dsamza.log.dir=$SAMZA_LOG_DIR -Dsamza.container.name=$SAMZA_CONTAINER_NAME
 {% endhighlight %}
 
 These settings are very useful if you're using a file-based appender. For example, you can use a daily rolling appender by configuring log4j.xml like this:
@@ -64,15 +64,32 @@ These settings are very useful if you're using a file-based appender. For exampl
 
 Setting up a file-based appender is recommended as a better alternative to using standard out. Standard out log files (see below) don't roll, and can get quite large if used for logging.
 
-**NOTE:** If you use the `task.opts` configuration property, the log configuration is disrupted. This is a known bug; please see [SAMZA-109](https://issues.apache.org/jira/browse/SAMZA-109) for a workaround.
+#### Changing log levels
+
+Sometimes it's desirable to change the Log4J log level from `INFO` to `DEBUG` at runtime so that a developer can enable more logging for a Samza container that's exhibiting undesirable behavior. Samza provides a Log4j class called JmxAppender, which will allow you to dynamically modify log levels at runtime. The JmxAppender class is located in the samza-log4j package, and can be turned on by first adding a runtime dependency to the samza-log4j package:
+
+{% highlight xml %}
+<dependency>
+  <groupId>org.apache.samza</groupId>
+  <artifactId>samza-log4j</artifactId>
+  <scope>runtime</scope>
+  <version>${samza.version}</version>
+</dependency>
+{% endhighlight %}
+
+And then updating your log4j.xml to include the appender:
+
+{% highlight xml %}
+<appender name="jmx" class="org.apache.samza.logging.log4j.JmxAppender" />
+{% endhighlight %}
 
 ### Log Directory
 
-Samza will look for the `SAMZA_LOG_DIR` environment variable when it executes. If this variable is defined, all logs will be written to this directory. If the environment variable is empty, or not defined, then Samza will use /tmp. This environment variable can also be referenced inside log4j.xml files (see above).
+Samza will look for the `SAMZA_LOG_DIR` environment variable when it executes. If this variable is defined, all logs will be written to this directory. If the environment variable is empty, or not defined, then Samza will use `$base_dir`, which is the directory one level up from Samza's [run-class.sh](packaging.html) script. This environment variable can also be referenced inside log4j.xml files (see above).
 
 ### Garbage Collection Logging
 
-Samza's will automatically set the following garbage collection logging setting, and will output it to `$SAMZA_LOG_DIR/gc.log`.
+Samza will automatically set the following garbage collection logging setting, and will output it to `$SAMZA_LOG_DIR/gc.log`.
 
 {% highlight bash %}
 -XX:+PrintGCDateStamps -Xloggc:$SAMZA_LOG_DIR/gc.log
@@ -80,7 +97,11 @@ Samza's will automatically set the following garbage collection logging setting,
 
 #### Rotation
 
-In older versions of Java, it is impossible to have GC logs roll over based on time or size without the use of a secondary tool. This means that your GC logs will never be deleted until a Samza job ceases to run. As of [Java 6 Update 34](http://www.oracle.com/technetwork/java/javase/2col/6u34-bugfixes-1733379.html), and [Java 7 Update 2](http://www.oracle.com/technetwork/java/javase/7u2-relnotes-1394228.html), [new GC command line switches](http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6941923) have been added to support this functionality. If you are using a version of Java that supports GC log rotation, it's highly recommended that you turn it on.
+In older versions of Java, it is impossible to have GC logs roll over based on time or size without the use of a secondary tool. This means that your GC logs will never be deleted until a Samza job ceases to run. As of [Java 6 Update 34](http://www.oracle.com/technetwork/java/javase/2col/6u34-bugfixes-1733379.html), and [Java 7 Update 2](http://www.oracle.com/technetwork/java/javase/7u2-relnotes-1394228.html), [new GC command line switches](http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6941923) have been added to support this functionality. If GC log file rotation is supported by the JVM, Samza will also set:
+
+{% highlight bash %}
+-XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10241024
+{% endhighlight %}
 
 ### YARN
 
