@@ -63,7 +63,7 @@ JAVA_TEMP_DIR=$base_dir/tmp
 
 # Check whether the JVM supports GC Log rotation, and enable it if so.
 function enable_gc_log_rotation {
-  `java -Xloggc:/dev/null $GC_LOG_ROTATION_OPTS -version 2> /dev/null`
+  `$JAVA -Xloggc:/dev/null $GC_LOG_ROTATION_OPTS -version 2> /dev/null`
   if [ $? -eq 0 ] ; then
     JAVA_OPTS="$JAVA_OPTS $GC_LOG_ROTATION_OPTS"
   fi
@@ -71,7 +71,7 @@ function enable_gc_log_rotation {
 
 # Try and use 64-bit mode if available in JVM_OPTS
 function check_and_enable_64_bit_mode {
-  `java -d64 -version`
+  `$JAVA -d64 -version`
   if [ $? -eq 0 ] ; then
     JAVA_OPTS="$JAVA_OPTS -d64"
   fi
