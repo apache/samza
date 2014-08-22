@@ -33,7 +33,7 @@ import kafka.client.ClientUtils
 import kafka.common.TopicAndPartition
 import kafka.common.ErrorMapping
 import kafka.cluster.Broker
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import java.util.UUID
 import scala.collection.JavaConversions._
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata

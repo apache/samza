@@ -38,7 +38,7 @@ import org.apache.samza.metrics.JmxServer
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.util.hadoop.HttpFileSystem
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 
 /**
  * When YARN executes an application master, it needs a bash command to

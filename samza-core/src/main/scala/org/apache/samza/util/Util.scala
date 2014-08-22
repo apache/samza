@@ -19,7 +19,6 @@
 
 package org.apache.samza.util
 
-import grizzled.slf4j.Logging
 import java.io._
 import java.lang.management.ManagementFactory
 import java.util

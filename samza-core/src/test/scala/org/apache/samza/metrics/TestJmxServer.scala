@@ -21,7 +21,7 @@ package org.apache.samza.metrics
 
 import org.junit.Assert._
 import org.junit.Test
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import javax.management.remote.{JMXConnector, JMXConnectorFactory, JMXServiceURL}
 import java.io.IOException
 

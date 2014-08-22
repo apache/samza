@@ -20,7 +20,7 @@
 package org.apache.samza.system.kafka
 
 import kafka.common.TopicAndPartition
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import kafka.message.MessageAndOffset
 import org.apache.samza.Partition
 import kafka.utils.Utils

@@ -18,7 +18,7 @@
  */
 
 package org.apache.samza.job.yarn
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
 import org.apache.hadoop.yarn.api.records.ContainerId
 import java.util

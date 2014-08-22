@@ -24,10 +24,9 @@ import org.fusesource.leveldbjni.JniDBFactory._
 import java.io._
 import org.apache.samza.config.Config
 import org.apache.samza.container.SamzaContainerContext
-import grizzled.slf4j.{ Logger, Logging }
+import org.apache.samza.util.Logging
 
-object LevelDbKeyValueStore {
-  private lazy val logger = Logger(classOf[LevelDbKeyValueStore])
+object LevelDbKeyValueStore extends Logging {
 
   def options(storeConfig: Config, containerContext: SamzaContainerContext) = {
     val cacheSize = storeConfig.getLong("container.cache.size.bytes", 100 * 1024 * 1024L)
@@ -43,7 +42,7 @@ object LevelDbKeyValueStore {
         case "snappy" => CompressionType.SNAPPY
         case "none" => CompressionType.NONE
         case _ =>
-          logger.warn("Unknown leveldb.compression codec %s, defaulting to Snappy" format storeConfig.get("leveldb.compression", "snappy"))
+          warn("Unknown leveldb.compression codec %s, defaulting to Snappy" format storeConfig.get("leveldb.compression", "snappy"))
           CompressionType.SNAPPY
       })
     options.createIfMissing(true)

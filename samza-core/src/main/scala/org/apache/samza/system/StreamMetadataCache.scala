@@ -19,7 +19,7 @@
 
 package org.apache.samza.system
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.SamzaException
 import org.apache.samza.util.{Clock, SystemClock}
 import scala.collection.JavaConversions._

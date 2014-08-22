@@ -25,7 +25,7 @@ import scala.collection.JavaConversions._
 import java.lang.Thread.State._
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.util.DaemonThreadFactory
 
 /**

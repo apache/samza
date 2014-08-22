@@ -24,7 +24,7 @@ import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.metrics.MetricsHelper
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsRegistry
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 
 /**
  * BatchingChooser provides a batching functionality on top of an existing

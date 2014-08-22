@@ -22,7 +22,7 @@ package org.apache.samza.util
 import kafka.api.{ TopicMetadataResponse, TopicMetadata }
 import org.apache.samza.SamzaException
 import kafka.client.ClientUtils
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import kafka.common.ErrorMapping
 import kafka.cluster.Broker
 import java.util.concurrent.atomic.AtomicInteger

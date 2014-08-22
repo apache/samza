@@ -19,7 +19,7 @@
 
 package org.apache.samza.serializers
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import java.util
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.container.TaskName

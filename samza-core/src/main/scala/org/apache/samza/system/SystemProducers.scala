@@ -20,7 +20,7 @@
 package org.apache.samza.system
 
 import org.apache.samza.serializers.SerdeManager
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.SamzaException
 
 class SystemProducers(

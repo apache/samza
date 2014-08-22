@@ -19,7 +19,7 @@
 
 package org.apache.samza.storage.kv
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.serializers._
 
 /**

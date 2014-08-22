@@ -46,7 +46,7 @@ import org.apache.samza.job.CommandBuilder
 import org.apache.samza.job.ShellCommandBuilder
 import org.apache.samza.util.Util
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.container.TaskNamesToSystemStreamPartitions
 
 object SamzaAppMasterTaskManager {

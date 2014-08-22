@@ -26,7 +26,7 @@ import kafka.common.{NotLeaderForPartitionException, UnknownTopicOrPartitionExce
 import java.util.concurrent.{ConcurrentHashMap, CountDownLatch}
 import scala.collection.JavaConversions._
 import kafka.message.MessageSet
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import java.nio.channels.ClosedByInterruptException
 import java.util.Map.Entry
 import scala.collection.mutable

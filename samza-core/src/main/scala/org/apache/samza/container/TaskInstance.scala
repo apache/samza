@@ -21,7 +21,7 @@ package org.apache.samza.container
 
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.config.Config
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.TaskContext

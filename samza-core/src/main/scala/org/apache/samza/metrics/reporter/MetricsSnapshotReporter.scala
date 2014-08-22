@@ -22,7 +22,7 @@ package org.apache.samza.metrics.reporter
 import java.util.HashMap
 import java.util.Map
 import scala.collection.JavaConversions._
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.metrics.Counter
 import org.apache.samza.metrics.Gauge
 import org.apache.samza.metrics.Timer

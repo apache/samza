@@ -34,7 +34,7 @@ import org.apache.samza.system.SystemAdmin
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamMetadata
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 
 object DefaultChooser extends Logging {
   def apply(inputStreamMetadata: Map[SystemStream, SystemStreamMetadata], chooserFactory: MessageChooserFactory, config: Config, registry: MetricsRegistry) = {

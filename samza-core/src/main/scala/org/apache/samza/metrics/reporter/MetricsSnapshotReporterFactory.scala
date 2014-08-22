@@ -20,7 +20,7 @@
 package org.apache.samza.metrics.reporter
 
 import java.net.InetAddress
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig.Config2Job

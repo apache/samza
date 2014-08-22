@@ -25,7 +25,7 @@ import kafka.common.{ OffsetOutOfRangeException, ErrorMapping }
 import kafka.api._
 import kafka.common.TopicAndPartition
 import kafka.api.PartitionOffsetRequestInfo
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import kafka.message.MessageAndOffset
 
 /**

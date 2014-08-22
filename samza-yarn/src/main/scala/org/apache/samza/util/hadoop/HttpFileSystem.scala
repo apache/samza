@@ -34,7 +34,7 @@ import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.util.Progressable
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 
 class HttpFileSystem extends FileSystem with Logging {
   val DEFAULT_BLOCK_SIZE = 4 * 1024;

@@ -27,7 +27,7 @@ import scala.collection.JavaConversions._
 import java.io.RandomAccessFile
 import scala.util.control.Breaks
 import org.apache.samza.Partition
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.SamzaException
 
 class FileReaderSystemAdmin extends SystemAdmin with Logging {

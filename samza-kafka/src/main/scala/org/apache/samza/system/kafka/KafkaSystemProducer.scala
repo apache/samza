@@ -20,7 +20,7 @@
 package org.apache.samza.system.kafka
 
 import scala.collection.mutable.ArrayBuffer
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import kafka.producer.KeyedMessage
 import kafka.producer.Producer
 import org.apache.samza.system.SystemProducer

@@ -21,7 +21,7 @@ package org.apache.samza.system
 
 import scala.collection.JavaConversions._
 import org.apache.samza.serializers.SerdeManager
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.SamzaException
 import java.util.HashMap

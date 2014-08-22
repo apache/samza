@@ -31,7 +31,7 @@ import org.apache.samza.job.ShellCommandBuilder
 import org.apache.samza.task.InitableTask
 import org.apache.samza.task.TaskContext
 import org.apache.samza.config.Config
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 
 /**
  * A simple unit test that drives the TestPerformanceTask. This unit test can

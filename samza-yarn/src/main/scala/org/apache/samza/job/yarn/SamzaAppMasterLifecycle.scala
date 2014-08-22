@@ -24,7 +24,7 @@ import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync
 import org.apache.samza.SamzaException
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 
 /**
  * Responsible for managing the lifecycle of the application master. Mostly,

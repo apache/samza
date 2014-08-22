@@ -33,7 +33,7 @@ import kafka.common.TopicAndPartition
 import kafka.api.PartitionOffsetsResponse
 import java.nio.ByteBuffer
 import org.apache.samza.SamzaException
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import kafka.common.ErrorMapping
 import org.mockito.stubbing.Answer
 import org.mockito.invocation.InvocationOnMock

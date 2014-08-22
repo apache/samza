@@ -19,7 +19,6 @@
 
 package org.apache.samza.checkpoint
 
-import grizzled.slf4j.Logging
 import java.net.URI
 import java.util.regex.Pattern
 import joptsimple.OptionSet
@@ -32,6 +31,7 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.{CommandLine, Util}
 import org.apache.samza.{Partition, SamzaException}
 import scala.collection.JavaConversions._
+import org.apache.samza.util.Logging
 
 /**
  * Command-line tool for inspecting and manipulating the checkpoints for a job.

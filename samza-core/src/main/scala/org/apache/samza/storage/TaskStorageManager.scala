@@ -21,7 +21,7 @@ package org.apache.samza.storage
 
 import java.io.File
 import scala.collection.Map
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.Partition
 import org.apache.samza.system.SystemConsumer
 import org.apache.samza.system.SystemStream

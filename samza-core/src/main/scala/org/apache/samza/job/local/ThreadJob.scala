@@ -19,7 +19,7 @@
 
 package org.apache.samza.job.local
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.job.StreamJob
 import org.apache.samza.job.ApplicationStatus
 import org.apache.samza.job.ApplicationStatus.New

@@ -20,7 +20,7 @@
 package org.apache.samza.job.local
 
 import org.apache.samza.container.{TaskNamesToSystemStreamPartitions, SamzaContainer}
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
 import org.apache.samza.config.TaskConfig._

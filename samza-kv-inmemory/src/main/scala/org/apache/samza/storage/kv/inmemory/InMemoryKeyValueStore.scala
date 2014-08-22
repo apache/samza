@@ -19,7 +19,7 @@
 package org.apache.samza.storage.kv.inmemory
 
 import com.google.common.primitives.UnsignedBytes
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.storage.kv.{KeyValueStoreMetrics, KeyValueIterator, Entry, KeyValueStore}
 import java.util
 

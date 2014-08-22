@@ -18,7 +18,7 @@
  */
 package org.apache.samza.container
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.SamzaException
 import org.apache.samza.system.{SystemStream, SystemStreamPartition}
 import scala.collection.{immutable, Map, MapLike}

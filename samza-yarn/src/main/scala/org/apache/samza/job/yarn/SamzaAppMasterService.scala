@@ -19,7 +19,7 @@
 
 package org.apache.samza.job.yarn
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.webapp._
 import org.apache.samza.config.Config
 import org.apache.samza.metrics.ReadableMetricsRegistry

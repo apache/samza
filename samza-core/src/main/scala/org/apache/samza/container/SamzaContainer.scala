@@ -19,7 +19,7 @@
 
 package org.apache.samza.container
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import java.io.File
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException

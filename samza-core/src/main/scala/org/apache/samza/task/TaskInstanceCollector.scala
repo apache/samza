@@ -22,7 +22,7 @@ package org.apache.samza.task
 import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.system.SystemProducers
 import org.apache.samza.container.TaskInstanceMetrics
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 
 /**
  * TaskInstanceCollector is an implementation of MessageCollector that sends

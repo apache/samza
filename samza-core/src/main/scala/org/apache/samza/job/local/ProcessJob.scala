@@ -25,7 +25,7 @@ import org.apache.samza.job.ApplicationStatus.SuccessfulFinish
 import org.apache.samza.job.ApplicationStatus.UnsuccessfulFinish
 import org.apache.samza.job.ApplicationStatus
 import org.apache.samza.job.StreamJob
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import java.util.concurrent.CountDownLatch
 import java.io.BufferedReader
 import java.io.InputStreamReader

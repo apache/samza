@@ -19,7 +19,7 @@
 
 package org.apache.samza.checkpoint.kafka
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import java.nio.ByteBuffer
 import java.util
 import kafka.admin.AdminUtils

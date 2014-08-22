@@ -19,7 +19,7 @@
 
 package org.apache.samza.test.performance
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.config.Config
 import org.apache.samza.config.StorageConfig._
 import org.apache.samza.container.{ TaskName, SamzaContainerContext }

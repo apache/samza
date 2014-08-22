@@ -44,7 +44,7 @@ import org.apache.samza.job.ApplicationStatus.New
 import org.apache.samza.job.ApplicationStatus.Running
 import org.apache.samza.job.ApplicationStatus.SuccessfulFinish
 import org.apache.samza.job.ApplicationStatus.UnsuccessfulFinish
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import java.util.Collections
 
 object ClientHelper {

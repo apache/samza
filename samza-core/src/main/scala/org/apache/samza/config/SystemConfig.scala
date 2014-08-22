@@ -20,8 +20,7 @@
 package org.apache.samza.config
 
 import scala.collection.JavaConversions._
-
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 
 object SystemConfig {
   // system config constants

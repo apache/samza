@@ -26,7 +26,7 @@ import org.apache.samza.config.factories.PropertiesConfigFactory
 import org.apache.samza.job.ApplicationStatus.Running
 import org.apache.samza.util.Util
 import org.apache.samza.util.CommandLine
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import scala.collection.JavaConversions._
 
 object JobRunner extends Logging {

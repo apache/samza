@@ -25,7 +25,7 @@ import org.apache.samza.system.SystemStreamMetadata
 import org.apache.samza.system.SystemStreamMetadata.OffsetType
 import org.apache.samza.SamzaException
 import scala.collection.JavaConversions._
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System

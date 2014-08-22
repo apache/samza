@@ -25,7 +25,7 @@ import scala.collection.JavaConversions._
 import org.apache.samza.config.Config
 import org.apache.samza.config.ConfigFactory
 import org.apache.samza.config.MapConfig
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.SamzaException
 
 class PropertiesConfigFactory extends ConfigFactory with Logging {

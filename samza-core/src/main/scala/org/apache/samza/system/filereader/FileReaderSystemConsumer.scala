@@ -34,7 +34,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ExecutorService
 import org.apache.samza.util.DaemonThreadFactory
 import org.apache.samza.SamzaException
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 
 object FileReaderSystemConsumer {
   /**

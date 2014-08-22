@@ -112,7 +112,7 @@ project(":samza-core_$scalaVersion") {
   dependencies {
     compile project(':samza-api')
     compile "org.scala-lang:scala-library:$scalaLibVersion"
-    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
+    compile "org.slf4j:slf4j-api:$slf4jVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
     compile "org.codehaus.jackson:jackson-jaxrs:$jacksonVersion"
 
@@ -140,7 +140,6 @@ project(":samza-kafka_$scalaVersion") {
     compile project(":samza-core_$scalaVersion")
     compile project(":samza-serializers_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
-    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
     compile "com.101tec:zkclient:$zkClientVersion"
     compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
     compile "org.codehaus.jackson:jackson-jaxrs:$jacksonVersion"
@@ -178,7 +177,6 @@ project(":samza-serializers_$scalaVersion") {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
-    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
     compile "org.codehaus.jackson:jackson-jaxrs:$jacksonVersion"
     testCompile "junit:junit:$junitVersion"
   }
@@ -193,7 +191,6 @@ project(":samza-yarn_$scalaVersion") {
     compile project(":samza-core_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "org.scala-lang:scala-compiler:$scalaLibVersion"
-    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
     compile "org.codehaus.jackson:jackson-jaxrs:$jacksonVersion"
     compile "commons-httpclient:commons-httpclient:$commonsHttpClientVersion"
     compile "org.eclipse.jetty:jetty-webapp:$jettyVersion"
@@ -307,7 +304,6 @@ project(":samza-kv_$scalaVersion") {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
-    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
     testCompile "junit:junit:$junitVersion"
   }
 }
@@ -320,7 +316,6 @@ project(":samza-kv-inmemory_$scalaVersion") {
     compile project(":samza-core_$scalaVersion")
     compile project(":samza-kv_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
-    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
     compile "com.google.guava:guava:$guavaVersion"
     testCompile "junit:junit:$junitVersion"
   }
@@ -335,7 +330,6 @@ project(":samza-kv-leveldb_$scalaVersion") {
     compile project(":samza-kv_$scalaVersion")
     compile project(":samza-kv-inmemory_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
-    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
     compile "org.fusesource.leveldbjni:leveldbjni-all:$leveldbVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
@@ -357,7 +351,6 @@ project(":samza-test_$scalaVersion") {
     compile project(":samza-kv-leveldb_$scalaVersion")
     compile project(":samza-core_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
-    compile "org.clapper:grizzled-slf4j_$scalaVersion:$grizzledVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
     compile "javax.mail:mail:1.4"
     compile "junit:junit:$junitVersion"

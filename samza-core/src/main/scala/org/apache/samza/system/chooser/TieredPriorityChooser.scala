@@ -24,7 +24,7 @@ import org.apache.samza.SamzaException
 import org.apache.samza.system.SystemStream
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemStreamPartition
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 
 /**
  * TieredPriorityChooser groups messages into priority tiers. Each priority

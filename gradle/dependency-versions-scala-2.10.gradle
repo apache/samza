@@ -24,7 +24,6 @@ ext {
   // -language:implicitConversions: Allow the use of implicit conversions without warning or library import
   // -language:reflectiveCalls: Allow the automatic use of reflection to access fields without warning or library import
   scalaOptions = "-feature -language:implicitConversions -language:reflectiveCalls"
-  grizzledVersion = "1.0.1"
   scalatraVersion = "2.2.1"
   jettyVersion = "8.1.8.v20121106"
 }

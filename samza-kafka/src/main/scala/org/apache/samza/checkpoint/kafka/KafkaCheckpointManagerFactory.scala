@@ -19,7 +19,7 @@
 
 package org.apache.samza.checkpoint.kafka
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import kafka.producer.Producer
 import kafka.utils.ZKStringSerializer
 import org.I0Itec.zkclient.ZkClient

@@ -20,7 +20,7 @@
 package org.apache.samza.metrics.reporter
 
 import java.lang.management.ManagementFactory
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import javax.management.MBeanServer
 import javax.management.ObjectName
 import org.apache.samza.config.Config

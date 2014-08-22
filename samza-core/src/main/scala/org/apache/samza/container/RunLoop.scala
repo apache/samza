@@ -19,7 +19,7 @@
 
 package org.apache.samza.container
 
-import grizzled.slf4j.Logging
+import org.apache.samza.util.Logging
 import org.apache.samza.system.{ SystemStreamPartition, SystemConsumers }
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.util.TimerUtils
