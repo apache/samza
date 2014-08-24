@@ -34,6 +34,8 @@ Samza builds with [Scala](http://www.scala-lang.org/) 2.10 and [YARN](http://had
 
 ### Testing Samza
 
+[![Build Status](https://travis-ci.org/apache/incubator-samza.svg?branch=master)](https://travis-ci.org/apache/incubator-samza)
+
 To run all tests:
 
     ./gradlew clean test
