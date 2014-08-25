@@ -118,7 +118,7 @@
   {% if page.url contains "versioned" %}
     <script>
       $( document ).ready(function() {
-        if ( $.fn.urlExists( "{{ site.baseurl }}/{{ linkUrl }}" ) ) {
+        if ( $.fn.urlExists( "/{{ linkUrl }}" ) ) {
           $("#switch-version-button").addClass("fa fa-history masthead-icon");
         }
       });
