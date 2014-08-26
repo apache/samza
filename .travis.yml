@@ -31,7 +31,9 @@ env:
 
 matrix:
   exclude:
-    - env: SCALA_VERSION='-PscalaVersion=2.9.2'
+    - env: SCALA_VERSION='-PscalaVersion=2.9.2' YARN_VERSION='-PyarnVersion=2.4.0'
+      jdk: oraclejdk8
+    - env: SCALA_VERSION='-PscalaVersion=2.9.2' YARN_VERSION='-PyarnVersion=2.5.0'
       jdk: oraclejdk8
 
 script: ./gradlew $SCALA_VERSION $YARN_VERSION --stacktrace check
