@@ -37,14 +37,17 @@ import org.apache.samza.container.TaskName
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.{ ClientUtilTopicMetadataStore, TopicMetadataStore }
-import org.apache.samza.{SamzaException, Partition}
+import org.apache.samza.{ SamzaException, Partition }
 import org.junit.Assert._
-import org.junit.{AfterClass, BeforeClass, Test}
+import org.junit.{ AfterClass, BeforeClass, Test }
 import scala.collection.JavaConversions._
 import scala.collection._
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
+import kafka.admin.AdminUtils
 
 object TestKafkaCheckpointManager {
+  val checkpointTopic = "checkpoint-topic"
+  val serdeCheckpointTopic = "checkpoint-topic-invalid-serde"
   val zkConnect: String = TestZKUtils.zookeeperConnect
   var zkClient: ZkClient = null
   val zkConnectionTimeout = 6000
@@ -68,6 +71,7 @@ object TestKafkaCheckpointManager {
   config.put("metadata.broker.list", brokers)
   config.put("producer.type", "sync")
   config.put("request.required.acks", "-1")
+  config.putAll(KafkaCheckpointManagerFactory.INJECTED_PRODUCER_PROPERTIES)
   val producerConfig = new ProducerConfig(config)
   val partition = new Partition(0)
   val cp1 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", partition) -> "123"))
@@ -113,8 +117,14 @@ class TestKafkaCheckpointManager {
     val taskName = new TaskName(partition.toString)
     kcm.register(taskName)
     kcm.start
-    var readCp = kcm.readLastCheckpoint(taskName)
+    // check that log compaction is enabled.
+    val zkClient = new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer)
+    val topicConfig = AdminUtils.fetchTopicConfig(zkClient, checkpointTopic)
+    zkClient.close
+    assertEquals("compact", topicConfig.get("cleanup.policy"))
+    assertEquals("26214400", topicConfig.get("segment.bytes"))
     // read before topic exists should result in a null checkpoint
+    var readCp = kcm.readLastCheckpoint(taskName)
     assertNull(readCp)
     // create topic the first time around
     kcm.writeCheckpoint(taskName, cp1)
@@ -157,21 +167,7 @@ class TestKafkaCheckpointManager {
 
   private def getKafkaCheckpointManager = new KafkaCheckpointManager(
     clientId = "some-client-id",
-    checkpointTopic = "checkpoint-topic",
-    systemName = "kafka",
-    replicationFactor = 3,
-    socketTimeout = 30000,
-    bufferSize = 64 * 1024,
-    fetchSize = 300 * 1024,
-    metadataStore = metadataStore,
-    connectProducer = () => new Producer[Array[Byte], Array[Byte]](producerConfig),
-    connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer),
-    systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString)
-
-  // inject serde. Kafka exceptions will be thrown when serde.fromBytes is called
-  private def getKafkaCheckpointManagerWithInvalidSerde(exception: String) = new KafkaCheckpointManager(
-    clientId = "some-client-id-invalid-serde",
-    checkpointTopic = "checkpoint-topic-invalid-serde",
+    checkpointTopic = checkpointTopic,
     systemName = "kafka",
     replicationFactor = 3,
     socketTimeout = 30000,
@@ -181,7 +177,23 @@ class TestKafkaCheckpointManager {
     connectProducer = () => new Producer[Array[Byte], Array[Byte]](producerConfig),
     connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer),
     systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
-    serde = new InvalideSerde(exception))
+    checkpointTopicProperties = KafkaCheckpointManagerFactory.CHECKPOINT_TOPIC_PROPERTIES)
+
+  // inject serde. Kafka exceptions will be thrown when serde.fromBytes is called
+  private def getKafkaCheckpointManagerWithInvalidSerde(exception: String) = new KafkaCheckpointManager(
+    clientId = "some-client-id-invalid-serde",
+    checkpointTopic = serdeCheckpointTopic,
+    systemName = "kafka",
+    replicationFactor = 3,
+    socketTimeout = 30000,
+    bufferSize = 64 * 1024,
+    fetchSize = 300 * 1024,
+    metadataStore = metadataStore,
+    connectProducer = () => new Producer[Array[Byte], Array[Byte]](producerConfig),
+    connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer),
+    systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
+    serde = new InvalideSerde(exception),
+    checkpointTopicProperties = KafkaCheckpointManagerFactory.CHECKPOINT_TOPIC_PROPERTIES)
 
   class InvalideSerde(exception: String) extends CheckpointSerde {
     override def fromBytes(bytes: Array[Byte]): Checkpoint = {

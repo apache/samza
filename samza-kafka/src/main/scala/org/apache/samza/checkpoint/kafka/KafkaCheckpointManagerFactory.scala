@@ -31,13 +31,33 @@ import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.KafkaConfig.Config2Kafka
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.util.{ KafkaUtil, ClientUtilTopicMetadataStore }
+import java.util.Properties
+import scala.collection.JavaConversions._
 
 object KafkaCheckpointManagerFactory {
   /**
    * Version number to track the format of the checkpoint log
    */
   val CHECKPOINT_LOG_VERSION_NUMBER = 1
+
+  val INJECTED_PRODUCER_PROPERTIES = Map(
+    "request.required.acks" -> "-1",
+    // Forcibly disable compression because Kafka doesn't support compression
+    // on log compacted topics. Details in SAMZA-393.
+    "compression.codec" -> "none",
+    "producer.type" -> "sync",
+    // Subtract one here, because DefaultEventHandler calls messageSendMaxRetries + 1.
+    "message.send.max.retries" -> (Integer.MAX_VALUE - 1).toString)
+
+  // Set the checkpoint topic configs to have a very small segment size and
+  // enable log compaction. This keeps job startup time small since there 
+  // are fewer useless (overwritten) messages to read from the checkpoint 
+  // topic.
+  val CHECKPOINT_TOPIC_PROPERTIES = (new Properties /: Map(
+    "cleanup.policy" -> "compact",
+    "segment.bytes" -> "26214400")) { case (props, (k, v)) => props.put(k, v); props }
 }
+
 class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Logging {
   import KafkaCheckpointManagerFactory._
 
@@ -46,15 +66,10 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     val systemName = config
       .getCheckpointSystem
       .getOrElse(throw new SamzaException("no system defined for Kafka's checkpoint manager."))
-    val injectedProducerProps = Map(
-      "request.required.acks" -> "-1",
-      "producer.type" -> "sync",
-      // Subtract one here, because DefaultEventHandler calls messageSendMaxRetries + 1.
-      "message.send.max.retries" -> (Integer.MAX_VALUE - 1).toString)
     val producerConfig = config.getKafkaSystemProducerConfig(
       systemName,
       clientId,
-      injectedProducerProps)
+      INJECTED_PRODUCER_PROPERTIES)
     val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
     val replicationFactor = config.getCheckpointReplicationFactor.getOrElse("3").toInt
     val socketTimeout = consumerConfig.socketTimeoutMs
@@ -90,7 +105,8 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
       metadataStore,
       connectProducer,
       connectZk,
-      systemStreamPartitionGrouperFactoryString)
+      systemStreamPartitionGrouperFactoryString,
+      checkpointTopicProperties = CHECKPOINT_TOPIC_PROPERTIES)
   }
 
   private def getTopic(jobName: String, jobId: String) =

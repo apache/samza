@@ -44,6 +44,7 @@ import org.apache.samza.system.kafka.TopicMetadataCache
 import org.apache.samza.util.ExponentialSleepStrategy
 import org.apache.samza.util.TopicMetadataStore
 import scala.collection.mutable
+import java.util.Properties
 
 /**
  * Kafka checkpoint manager is used to store checkpoints in a Kafka topic.
@@ -65,7 +66,8 @@ class KafkaCheckpointManager(
   connectZk: () => ZkClient,
   systemStreamPartitionGrouperFactoryString: String,
   retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
-  serde: CheckpointSerde = new CheckpointSerde) extends CheckpointManager with Logging {
+  serde: CheckpointSerde = new CheckpointSerde,
+  checkpointTopicProperties: Properties = new Properties) extends CheckpointManager with Logging {
   import KafkaCheckpointManager._
 
   var taskNames = Set[TaskName]()
@@ -355,7 +357,8 @@ class KafkaCheckpointManager(
             zkClient,
             checkpointTopic,
             1,
-            replicationFactor)
+            replicationFactor,
+            checkpointTopicProperties)
         } finally {
           zkClient.close
         }
