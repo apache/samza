@@ -59,6 +59,11 @@ Committer, and PMC member<br/>
 <a href="https://www.linkedin.com/in/yanfangus" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
 <a href="https://twitter.com/yanfang724" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
 
+**Chinmay Soman**<br/>
+Committer, and PMC member<br/>
+<a href="https://www.linkedin.com/pub/chinmay-soman/5/610/35" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="https://twitter.com/ChinmaySoman" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
+
 ### Mentors
 
 **Chris Douglas**<br/>
