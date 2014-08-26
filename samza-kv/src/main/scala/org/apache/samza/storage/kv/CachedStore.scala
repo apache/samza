@@ -72,8 +72,8 @@ class CachedStore[K, V](
     }
   }
 
-  // Use counters here, rather than directly accessing variables using .size 
-  // since metrics can be accessed in other threads, and cache.size is not 
+  // Use counters here, rather than directly accessing variables using .size
+  // since metrics can be accessed in other threads, and cache.size is not
   // thread safe since we're using a LinkedHashMap, and dirty.size is slow
   // since it requires a full traversal of the linked list.
   metrics.setDirtyCount(() => dirtyCount)
@@ -109,12 +109,13 @@ class CachedStore[K, V](
   def put(key: K, value: V) {
     metrics.puts.inc
 
-    // add the key to the front of the dirty list (and remove any prior occurrences to dedupe)
+    // Add the key to the front of the dirty list (and remove any prior
+    // occurrences to dedupe).
     val found = cache.get(key)
     if (found == null || found.dirty == null) {
       this.dirtyCount += 1
     } else {
-      // If we are removing the head of the list, move the head to the next 
+      // If we are removing the head of the list, move the head to the next
       // element. See SAMZA-45 for details.
       if (found.dirty.prev == null) {
         this.dirty = found.dirty.next
@@ -123,14 +124,10 @@ class CachedStore[K, V](
         found.dirty.remove
       }
     }
+    this.dirty = new mutable.DoubleLinkedList(key, this.dirty)
 
-    // We have to manually manage the prev value because Scala 2.8 is totally 
-    // broken. See SAMZA-80 for details.
-    val oldDirtyList = this.dirty
-    this.dirty = new mutable.DoubleLinkedList(key, oldDirtyList)
-    oldDirtyList.prev = this.dirty
-
-    // add the key to the cache (but don't allocate a new cache entry if we already have one)
+    // Add the key to the cache (but don't allocate a new cache entry if we
+    // already have one).
     if (found == null) {
       cache.put(key, new CacheEntry(value, this.dirty))
       cacheCount = cache.size
@@ -139,7 +136,7 @@ class CachedStore[K, V](
       found.dirty = this.dirty
     }
 
-    // flush the dirty values if the write list is full
+    // Flush the dirty values if the write list is full.
     if (dirtyCount >= writeBatchSize) {
       debug("Dirty count %s >= write batch size %s. Flushing." format (dirtyCount, writeBatchSize))
 
