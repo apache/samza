@@ -24,15 +24,17 @@ jdk:
 
 env:
   matrix:
-    - SCALA_VERSION='-PscalaVersion=2.9.2'
-    - SCALA_VERSION='-PscalaVersion=2.10'
+    - SCALA_VERSION='-PscalaVersion=2.9.2' YARN_VERSION='-PyarnVersion=2.4.0'
+    - SCALA_VERSION='-PscalaVersion=2.10' YARN_VERSION='-PyarnVersion=2.4.0'
+    - SCALA_VERSION='-PscalaVersion=2.9.2' YARN_VERSION='-PyarnVersion=2.5.0'
+    - SCALA_VERSION='-PscalaVersion=2.10' YARN_VERSION='-PyarnVersion=2.5.0'
 
 matrix:
   exclude:
     - env: SCALA_VERSION='-PscalaVersion=2.9.2'
       jdk: oraclejdk8
 
-script: ./gradlew $SCALA_VERSION --stacktrace check
+script: ./gradlew $SCALA_VERSION $YARN_VERSION --stacktrace check
 
 # no install since gradlew check does all the dependency downloads as part of the check command
 install: true
