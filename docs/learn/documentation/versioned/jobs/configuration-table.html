@@ -752,6 +752,16 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="task-checkpoint-segment-bytes">task.checkpoint.<br>segment.bytes</td>
+                    <td class="default">26214400</td>
+                    <td class="description">
+                        If you are using Kafka for checkpoints, this is the segment size to be used for the checkpoint
+                        topic's log segments. Keeping this number small is useful because it increases the frequency
+                        that Kafka will garbage collect old checkpoints.
+                    </td>
+                </tr>
+
+                <tr>
                     <th colspan="3" class="section" id="regex-rewriter">
                         Consuming all Kafka topics matching a regular expression<br>
                         <span class="subtitle">

@@ -53,9 +53,15 @@ object KafkaCheckpointManagerFactory {
   // enable log compaction. This keeps job startup time small since there 
   // are fewer useless (overwritten) messages to read from the checkpoint 
   // topic.
-  val CHECKPOINT_TOPIC_PROPERTIES = (new Properties /: Map(
-    "cleanup.policy" -> "compact",
-    "segment.bytes" -> "26214400")) { case (props, (k, v)) => props.put(k, v); props }
+  def getCheckpointTopicProperties(config: Config) = {
+    val segmentBytes = config
+      .getCheckpointSegmentBytes
+      .getOrElse("26214400")
+
+    (new Properties /: Map(
+      "cleanup.policy" -> "compact",
+      "segment.bytes" -> segmentBytes)) { case (props, (k, v)) => props.put(k, v); props }
+  }
 }
 
 class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Logging {
@@ -106,7 +112,7 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
       connectProducer,
       connectZk,
       systemStreamPartitionGrouperFactoryString,
-      checkpointTopicProperties = CHECKPOINT_TOPIC_PROPERTIES)
+      checkpointTopicProperties = getCheckpointTopicProperties(config))
   }
 
   private def getTopic(jobName: String, jobId: String) =
