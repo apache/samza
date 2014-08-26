@@ -142,7 +142,7 @@
       %h2 Config
       %div.panel.panel-default
         %div.panel-heading
-          %input.form-control#config-table-filter(type="text" placeholder="Filter")
+          %input.form-control#config-table-filter(type="text" placeholder="Type '/' to search")
         %table.table.table-striped.table-bordered.tablesorter#config-table
           %thead
             %tr
@@ -156,10 +156,22 @@
 
     :javascript
       $(document).ready(function() {
-        $("#containers-table").tablesorter();
-        $("#taskids-table").tablesorter();
-        $("#config-table").tablesorter();
-        $("#config-table-filter").keyup(function() {
+        $('#containers-table').tablesorter();
+        $('#taskids-table').tablesorter();
+        $('#config-table').tablesorter();
+
+        // Type '/' to search.
+        $(document).keyup(function(e) {
+          if (e.keyCode == 191 && $('#config').is(':visible')) {
+            $('#config-table-filter').focus();
+          }
+        });
+
+        $('#config-table-filter').keyup(function(e) {
+          // Press ESC to exit search box.
+          if (e.keyCode == 27) {
+            $('#config-table-filter').blur();
+          }
           var regex = new RegExp($(this).val(), 'i');
           $('.searchable tr').hide();
           $('.searchable tr').filter(function() {
