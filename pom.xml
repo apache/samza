@@ -75,6 +75,11 @@ under the License.
     </dependency>
     <dependency>
       <groupId>org.apache.samza</groupId>
+      <artifactId>samza-kv-leveldb_2.10</artifactId>
+      <version>${samza.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.samza</groupId>
       <artifactId>samza-kafka_2.10</artifactId>
       <version>${samza.version}</version>
     </dependency>
