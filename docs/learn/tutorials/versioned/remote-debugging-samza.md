@@ -54,7 +54,7 @@ Next, open Eclipse, and import the Samza source code into your workspace: "File"
 
 ### Enable Remote Debugging
 
-Now, go back to the hello-samza project, and edit ./samza-job-package/src/main/config/wikipedia-feed.properties to add the following line:
+Now, go back to the hello-samza project, and edit ./src/main/config/wikipedia-feed.properties to add the following line:
 
 {% highlight jproperties %}
 task.opts=-agentlib:jdwp=transport=dt_socket,address=localhost:9009,server=y,suspend=y
@@ -83,7 +83,7 @@ Once the grid starts, you can start the wikipedia-feed Samza job.
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./samza-job-package/target/samza-job-package-0.7.0-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-0.8.0-dist.tar.gz -C deploy/samza
 deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties
 {% endhighlight %}
 

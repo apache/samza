@@ -137,13 +137,13 @@ cd ..
 {% highlight bash %}
 git clone git://github.com/linkedin/hello-samza.git
 cd hello-samza
-vi samza-job-package/src/main/config/wikipedia-feed.properties
+vi src/main/config/wikipedia-feed.properties
 {% endhighlight %}
 
 Change the yarn.package.path property to be:
 
 {% highlight jproperties %}
-yarn.package.path=http://yourHostname:8000/samza-job-package/target/samza-job-package-0.7.0-dist.tar.gz
+yarn.package.path=http://yourHostname:8000/target/hello-samza-0.8.0-dist.tar.gz
 {% endhighlight %}
 
 3\. Complie hello-samza.
@@ -151,7 +151,7 @@ yarn.package.path=http://yourHostname:8000/samza-job-package/target/samza-job-pa
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./samza-job-package/target/samza-job-package-0.7.0-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-0.8.0-dist.tar.gz -C deploy/samza
 {% endhighlight %}
 
 4\. Deploy Samza job package to Http server..
