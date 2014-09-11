@@ -28,7 +28,7 @@ We tag bugs in [JIRA](https://issues.apache.org/jira/browse/SAMZA) with "newbie"
 More meaty projects are [here](https://issues.apache.org/jira/issues/?jql=project%20%3D%20SAMZA%20AND%20labels%20%3D%20project%20AND%20status%20%3D%20Open). The process for working on a large project is:
 
 1. Instigate discussion on the [JIRA](https://issues.apache.org/jira/browse/SAMZA).
-2. Write a [SEP](seps.html) (Samza Enhancement Proposal).
-3. Request feedback for the [SEP](seps.html) on the Jira and the samza-dev mailing list.
+2. Write a [design document](design-documents.html).
+3. Request feedback for the [design document](design-documents.html) on the Jira and the samza-dev mailing list.
 4. Come to an agreement on design.
 5. Implement design.

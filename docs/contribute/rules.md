@@ -31,7 +31,7 @@ We are always very happy to have code contributions whether for trivial cleanups
 
 To submit a patch for inclusion please do the following:
 
-* If you are working on a big new feature ([project](projects.html)), follow the steps outlined on the [SEPs](/contribute/seps.html) page.
+* If you are working on a big new feature ([project](projects.html)), follow the steps outlined on the [design documents](/contribute/design-documents.html) page.
 * Create a patch that applies cleanly against trunk.
 * Make sure you have observed the recommendations in the style guide.
 * Open a [JIRA](https://issues.apache.org/jira/browse/SAMZA) ticket describing the patch and attach your patch to the JIRA.
