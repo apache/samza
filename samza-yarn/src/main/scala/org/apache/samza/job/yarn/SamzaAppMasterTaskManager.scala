@@ -133,6 +133,9 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
           "export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec ./__package/%s 1>logs/%s 2>logs/%s" format (ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR, command, ApplicationConstants.STDOUT, ApplicationConstants.STDERR))
 
         state.neededContainers -= 1
+        if (state.neededContainers == 0) {
+          state.jobHealthy = true
+        }
         state.runningTasks += taskId -> new YarnContainer(container)
         state.unclaimedTasks -= taskId
         state.taskToTaskNames += taskId -> sspTaskNames.getJavaFriendlyType
@@ -193,6 +196,7 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
           info("Released container %s was assigned task ID %s. Requesting a new container for the task." format (containerIdStr, taskId.get))
 
           state.neededContainers += 1
+          state.jobHealthy = false
           state.unclaimedTasks += taskId.get
 
           // request a new container
@@ -203,6 +207,7 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
         info("Container %s failed with exit code %d - %s." format (containerIdStr, containerStatus.getExitStatus, containerStatus.getDiagnostics))
 
         state.failedContainers += 1
+        state.jobHealthy = false
 
         taskId match {
           case Some(taskId) =>

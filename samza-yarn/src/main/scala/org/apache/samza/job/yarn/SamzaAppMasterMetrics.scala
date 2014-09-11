@@ -75,6 +75,7 @@ class SamzaAppMasterMetrics(
     val mTrackingPort = newGauge("http-port", () => state.trackingPort)
     val mRpcPort = newGauge("rpc-port", () => state.rpcPort)
     val mAppAttemptId = newGauge("app-attempt-id", () => state.appAttemptId.toString)
+    val mJobHealthy = newGauge("job-healthy", () => if (state.jobHealthy) 1 else 0)
 
     jvm.start
     reporters.values.foreach(_.start)

@@ -42,6 +42,7 @@ class SamzaAppMasterState(val taskId: Int, val containerId: ContainerId, val nod
   var runningTasks = Map[Int, YarnContainer]()
   var taskToTaskNames = Map[Int, util.Map[TaskName, util.Set[SystemStreamPartition]]]()
   var status = FinalApplicationStatus.UNDEFINED
+  var jobHealthy = true
 
   // controlled by the service
   var trackingPort = 0

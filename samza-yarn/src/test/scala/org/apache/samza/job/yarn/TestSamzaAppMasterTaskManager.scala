@@ -166,6 +166,7 @@ class TestSamzaAppMasterTaskManager {
     assert(taskManager.shouldShutdown == true)
     assert(state.completedTasks == 1)
     assert(state.taskCount == 1)
+    assert(state.jobHealthy)
     assert(state.status.equals(FinalApplicationStatus.SUCCEEDED))
   }
 
@@ -185,16 +186,22 @@ class TestSamzaAppMasterTaskManager {
     taskManager.onContainerAllocated(getContainer(container2))
     taskManager.onContainerCompleted(getContainerStatus(container2, 1, "expecting a failure here"))
     assert(taskManager.shouldShutdown == false)
+    assertFalse(state.jobHealthy)
+
     // 2. First is from onInit, second is from onContainerCompleted, since it failed.
     assertEquals(2, amClient.getClient.requests.size)
     assertEquals(0, amClient.getClient.getRelease.size)
     assertFalse(taskManager.shouldShutdown)
-    // Now trigger an AM shutdown since our retry count is 1, and we're failing twice
+
+    // 3. Now trigger an AM shutdown since our retry count is 1, and we're failing twice
     taskManager.onContainerAllocated(getContainer(container2))
+    assert(state.jobHealthy)
     taskManager.onContainerCompleted(getContainerStatus(container2, 1, "expecting a failure here"))
     assertEquals(2, amClient.getClient.requests.size)
     assertEquals(0, amClient.getClient.getRelease.size)
+    assertFalse(state.jobHealthy)
     assertTrue(taskManager.shouldShutdown)
+    assert(state.status.equals(FinalApplicationStatus.FAILED))
   }
 
   @Test
@@ -261,8 +268,16 @@ class TestSamzaAppMasterTaskManager {
     assert(taskManager.shouldShutdown == false)
     taskManager.onContainerCompleted(getContainerStatus(container2, -100, "pretend the container was 'lost' due to an NM failure"))
     assert(taskManager.shouldShutdown == false)
+    assert(state.jobHealthy == false)
     assert(amClient.getClient.requests.size == 1)
     assert(amClient.getClient.getRelease.size == 0)
+
+    taskManager.onContainerAllocated(getContainer(container2))
+    assert(state.neededContainers == 0)
+    assert(state.jobHealthy)
+    assert(state.runningTasks.size == 1)
+    assert(state.taskToTaskNames.size == 1)
+    assert(state.unclaimedTasks.size == 0)
   }
 
   @Test

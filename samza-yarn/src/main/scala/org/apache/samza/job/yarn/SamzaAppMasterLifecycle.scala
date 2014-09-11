@@ -52,6 +52,7 @@ class SamzaAppMasterLifecycle(containerMem: Int, containerCpu: Int, state: Samza
       error(shutdownMessage)
       validResourceRequest = false
       state.status = FinalApplicationStatus.FAILED
+      state.jobHealthy = false
     }
   }
 
