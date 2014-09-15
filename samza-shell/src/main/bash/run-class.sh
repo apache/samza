@@ -62,7 +62,7 @@ mkdir -p $base_dir/tmp
 JAVA_TEMP_DIR=$base_dir/tmp
 
 # Check whether the JVM supports GC Log rotation, and enable it if so.
-function enable_gc_log_rotation {
+function check_and_enable_gc_log_rotation {
   `$JAVA -Xloggc:/dev/null $GC_LOG_ROTATION_OPTS -version 2> /dev/null`
   if [ $? -eq 0 ] ; then
     JAVA_OPTS="$JAVA_OPTS $GC_LOG_ROTATION_OPTS"
@@ -82,24 +82,20 @@ if [ -z "$SAMZA_LOG4J_CONFIG" ]; then
   export SAMZA_LOG4J_CONFIG=file:$base_dir/lib/log4j.xml
 fi
 
-### Initialize JVM OPTS ###
+### Inherit JVM_OPTS from task.opts configuration, and initialize defaults ###
 
-# If JAVA_OPTS is not specified in job properties (task.opts), initialize to default
-if [ -z "$JAVA_OPTS" ]; then
-  # Enable GC related flags
-  JAVA_OPTS="-Xmx768M -XX:+PrintGCDateStamps -Xloggc:$SAMZA_LOG_DIR/gc.log"
+# Check if a max-heap size is specified. If not - set a 768M heap
+[[ $JAVA_OPTS != *-Xmx* ]] && JAVA_OPTS="$JAVA_OPTS -Xmx768M"
 
-  # Enable GC log rotation by default
-  enable_gc_log_rotation
-else
-  # Otherwise, check if the GC related flags are specified. If not - add the respective flags to JVM_OPTS.
-  [[ $JAVA_OPTS != *PrintGCDateStamps* && $JAVA_OPTS != *loggc* ]] && JAVA_OPTS="$JAVA_OPTS -XX:+PrintGCDateStamps -Xloggc:$SAMZA_LOG_DIR/gc.log"
+# Check if the GC related flags are specified. If not - add the respective flags to JVM_OPTS.
+[[ $JAVA_OPTS != *PrintGCDateStamps* && $JAVA_OPTS != *-Xloggc* ]] && JAVA_OPTS="$JAVA_OPTS -XX:+PrintGCDateStamps -Xloggc:$SAMZA_LOG_DIR/gc.log"
 
-  # Also check if GC log rotation is already enabled. If not - add the respective flags to JVM_OPTS
-  [[ $JAVA_OPTS != *UseGCLogFileRotation* ]] && enable_gc_log_rotation
-fi
+# Check if GC log rotation is already enabled. If not - add the respective flags to JVM_OPTS
+[[ $JAVA_OPTS != *UseGCLogFileRotation* ]] && check_and_enable_gc_log_rotation
 
-check_and_enable_64_bit_mode
+# Check if 64 bit is set. If not - try and set it if it's supported
+[[ $JAVA_OPTS != *-d64* ]] && check_and_enable_64_bit_mode
+
 JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=$SAMZA_LOG4J_CONFIG -Dsamza.log.dir=$SAMZA_LOG_DIR -Dsamza.container.name=$SAMZA_CONTAINER_NAME -Djava.io.tmpdir=$JAVA_TEMP_DIR"
 
 echo $JAVA $JAVA_OPTS -cp $CLASSPATH $@
