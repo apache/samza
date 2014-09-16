@@ -21,9 +21,6 @@ package org.apache.samza.job.yarn
 
 import java.nio.ByteBuffer
 
-import scala.annotation.elidable
-import scala.annotation.elidable.ASSERTION
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse
 import org.apache.hadoop.yarn.api.records._
@@ -32,9 +29,12 @@ import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync.CallbackHandler
 import org.apache.hadoop.yarn.client.api.async.impl.AMRMClientAsyncImpl
 import org.apache.hadoop.yarn.util.ConverterUtils
 import org.apache.samza.SamzaException
+import org.mockito.Mockito
 import org.junit.Assert._
 import org.junit.Test
-import org.mockito.Mockito
+
+import scala.annotation.elidable
+import scala.annotation.elidable.ASSERTION
 
 class TestSamzaAppMasterLifecycle {
   val amClient = new AMRMClientAsyncImpl[ContainerRequest](1, Mockito.mock(classOf[CallbackHandler])) {
@@ -84,8 +84,8 @@ class TestSamzaAppMasterLifecycle {
     state.rpcPort = 1
     val saml = new SamzaAppMasterLifecycle(512, 2, state, amClient)
     saml.onInit
-    assert(amClient.host == "test")
-    assert(amClient.port == 1)
+    assertEquals("test", amClient.host)
+    assertEquals(1, amClient.port)
     assertFalse(saml.shouldShutdown)
   }
 
@@ -94,7 +94,7 @@ class TestSamzaAppMasterLifecycle {
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
     state.status = FinalApplicationStatus.SUCCEEDED
     new SamzaAppMasterLifecycle(128, 1, state, amClient).onShutdown
-    assert(amClient.status == FinalApplicationStatus.SUCCEEDED)
+    assertEquals(FinalApplicationStatus.SUCCEEDED, amClient.status)
   }
 
   @Test
@@ -106,7 +106,7 @@ class TestSamzaAppMasterLifecycle {
       // expected
       case e: SamzaException => gotException = true
     }
-    assert(gotException)
+    assertTrue(gotException)
   }
 
   @Test

@@ -20,6 +20,7 @@
 package org.apache.samza.checkpoint
 
 import org.apache.samza.Partition
+import org.apache.samza.container.TaskName
 import org.apache.samza.checkpoint.TestCheckpointTool.{MockCheckpointManagerFactory, MockSystemFactory}
 import org.apache.samza.config.{Config, MapConfig, SystemConfig, TaskConfig}
 import org.apache.samza.metrics.MetricsRegistry
@@ -30,8 +31,8 @@ import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mock.MockitoSugar
+
 import scala.collection.JavaConversions._
-import org.apache.samza.container.TaskName
 
 object TestCheckpointTool {
   var checkpointManager: CheckpointManager = null

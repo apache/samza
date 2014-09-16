@@ -18,15 +18,17 @@
  */
 
 package org.apache.samza.serializers
-import org.junit.Assert._
-import org.junit.Test
+
 import kafka.serializer.StringEncoder
 import kafka.serializer.StringDecoder
+
+import org.junit.Assert._
+import org.junit.Test
 
 class TestKafkaSerde {
   @Test
   def testKafkaSerdeShouldWrapEncoderAndDecoders {
     val serde = new KafkaSerde(new StringEncoder, new StringDecoder)
-    serde.fromBytes(serde.toBytes("test")).equals("test")
+    assertEquals("test", serde.fromBytes(serde.toBytes("test")))
   }
 }

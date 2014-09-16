@@ -18,22 +18,26 @@
  */
 
 package org.apache.samza.system.kafka
-import org.junit.Assert._
-import org.junit.Test
-import kafka.producer.Producer
-import kafka.producer.async.DefaultEventHandler
-import kafka.producer.ProducerPool
-import kafka.serializer.Encoder
+
 import java.nio.ByteBuffer
-import kafka.producer.ProducerConfig
 import java.util.Properties
-import scala.collection.JavaConversions._
-import kafka.producer.KeyedMessage
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+
+import kafka.producer.KeyedMessage
+import kafka.producer.Producer
+import kafka.producer.ProducerConfig
+import kafka.producer.ProducerPool
+import kafka.producer.async.DefaultEventHandler
+import kafka.serializer.Encoder
+
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.system.SystemStream
+import org.junit.Assert._
+import org.junit.Test
+
+import scala.collection.JavaConversions._
 
 class TestKafkaSystemProducer {
 
@@ -137,7 +141,7 @@ class TestKafkaSystemProducer {
         override def send(messages: KeyedMessage[Object, Object]*) {
           assertNotNull(messages)
           assertEquals(1, messages.length)
-          assertEquals(messages(0).message, "a")
+          assertEquals("a", messages(0).message)
           msgsSent += 1
           if (msgsSent <= 5) {
             throw new RuntimeException("Pretend to fail in send")

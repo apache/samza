@@ -19,14 +19,15 @@
 
 package org.apache.samza.job.yarn
 
-import scala.annotation.elidable
-import scala.annotation.elidable.ASSERTION
+import TestSamzaAppMasterTaskManager._
 
 import org.apache.hadoop.yarn.api.records.{ Container, ContainerStatus }
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.junit.Test
+import org.junit.Assert._
 
-import TestSamzaAppMasterTaskManager._
+import scala.annotation.elidable
+import scala.annotation.elidable.ASSERTION
 
 class TestSamzaAppMaster {
   @Test
@@ -53,8 +54,8 @@ class TestSamzaAppMaster {
     }
     SamzaAppMaster.listeners = List(listener)
     SamzaAppMaster.run(amClient, SamzaAppMaster.listeners, new YarnConfiguration, 1)
-    assert(listener.init == 1)
-    assert(listener.shutdown == 1)
+    assertEquals(1, listener.init)
+    assertEquals(1, listener.shutdown)
   }
 
   @Test
@@ -78,8 +79,8 @@ class TestSamzaAppMaster {
     // listener1 will throw an exception in shutdown, and listener2 should still get called
     SamzaAppMaster.listeners = List(listener1, listener2)
     SamzaAppMaster.run(amClient, SamzaAppMaster.listeners, new YarnConfiguration, 1)
-    assert(listener1.shutdown == 1)
-    assert(listener2.shutdown == 1)
+    assertEquals(1, listener1.shutdown)
+    assertEquals(1, listener2.shutdown)
   }
 
   @Test
@@ -105,8 +106,8 @@ class TestSamzaAppMaster {
     thread.start
     thread.interrupt
     thread.join
-    assert(listener.init == 1)
-    assert(listener.shutdown == 1)
+    assertEquals(1, listener.init)
+    assertEquals(1, listener.shutdown)
   }
 
   @Test
@@ -127,8 +128,8 @@ class TestSamzaAppMaster {
     SamzaAppMaster.listeners = List(listener)
     SamzaAppMaster.run(amClient, SamzaAppMaster.listeners, new YarnConfiguration, 1)
     // heartbeat may be triggered for more than once
-    assert(listener.allocated >= 1)
-    assert(listener.complete >= 1)
+    assertTrue(listener.allocated >= 1)
+    assertTrue(listener.complete >= 1)
   }
 
   @Test
@@ -145,6 +146,6 @@ class TestSamzaAppMaster {
     SamzaAppMaster.listeners = List(listener)
     SamzaAppMaster.run(amClient, SamzaAppMaster.listeners, new YarnConfiguration, 1)
     // heartbeat may be triggered for more than once
-    assert(listener.reboot >= 1)
+    assertTrue(listener.reboot >= 1)
   }
 }

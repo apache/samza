@@ -19,6 +19,7 @@
 
 package org.apache.samza.metrics;
 
+import static org.mockito.Mockito.*;
 import static org.junit.Assert.*;
 
 import java.util.Arrays;
@@ -26,15 +27,14 @@ import java.util.Arrays;
 import org.apache.samza.util.Clock;
 import org.junit.Test;
 
-import static org.mockito.Mockito.*;
-
 public class TestSlidingTimeWindowReservoir {
 
   private final Clock clock = mock(Clock.class);
 
   @Test
   public void testUpdateSizeSnapshot() {
-    SlidingTimeWindowReservoir slidingTimeWindowReservoir = new SlidingTimeWindowReservoir(300, clock);
+    SlidingTimeWindowReservoir slidingTimeWindowReservoir =
+        new SlidingTimeWindowReservoir(300, clock);
 
     when(clock.currentTimeMillis()).thenReturn(0L);
     slidingTimeWindowReservoir.update(1L);
@@ -49,24 +49,26 @@ public class TestSlidingTimeWindowReservoir {
 
     Snapshot snapshot = slidingTimeWindowReservoir.getSnapshot();
     assertTrue(snapshot.getValues().containsAll(Arrays.asList(1L, 2L, 3L)));
-    assertTrue(snapshot.getSize() == 3);
+    assertEquals(3, snapshot.getSize());
   }
 
   @Test
   public void testDuplicateTime() {
-    SlidingTimeWindowReservoir slidingTimeWindowReservoir = new SlidingTimeWindowReservoir(300, clock);
+    SlidingTimeWindowReservoir slidingTimeWindowReservoir =
+        new SlidingTimeWindowReservoir(300, clock);
     when(clock.currentTimeMillis()).thenReturn(0L);
     slidingTimeWindowReservoir.update(1L);
     slidingTimeWindowReservoir.update(2L);
 
     Snapshot snapshot = slidingTimeWindowReservoir.getSnapshot();
     assertTrue(snapshot.getValues().containsAll(Arrays.asList(1L, 2L)));
-    assertTrue(snapshot.getSize() == 2);
+    assertEquals(2, snapshot.getSize());
   }
 
   @Test
   public void testRemoveExpiredValues() {
-    SlidingTimeWindowReservoir slidingTimeWindowReservoir = new SlidingTimeWindowReservoir(300, clock);
+    SlidingTimeWindowReservoir slidingTimeWindowReservoir =
+        new SlidingTimeWindowReservoir(300, clock);
     when(clock.currentTimeMillis()).thenReturn(0L);
     slidingTimeWindowReservoir.update(1L);
 
@@ -81,6 +83,6 @@ public class TestSlidingTimeWindowReservoir {
 
     Snapshot snapshot = slidingTimeWindowReservoir.getSnapshot();
     assertTrue(snapshot.getValues().containsAll(Arrays.asList(3L, 4L)));
-    assertTrue(snapshot.getSize() == 2);
+    assertEquals(2, snapshot.getSize());
   }
 }

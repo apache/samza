@@ -18,10 +18,10 @@
  */
 package org.apache.samza.checkpoint.kafka
 
+import org.apache.samza.SamzaException
 import org.apache.samza.container.TaskName
 import org.junit.Assert._
 import org.junit.{Before, Test}
-import org.apache.samza.SamzaException
 
 class TestKafkaCheckpointLogKey {
   @Before

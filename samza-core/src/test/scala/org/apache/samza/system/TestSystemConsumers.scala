@@ -19,15 +19,16 @@
 
 package org.apache.samza.system
 
-import scala.collection.JavaConversions._
-import org.apache.samza.Partition
 import org.junit.Assert._
 import org.junit.Test
+import org.apache.samza.Partition
+import org.apache.samza.serializers._
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.system.chooser.DefaultChooser
-import org.apache.samza.util.BlockingEnvelopeMap
-import org.apache.samza.serializers._
 import org.apache.samza.system.chooser.MockMessageChooser
+import org.apache.samza.util.BlockingEnvelopeMap
+
+import scala.collection.JavaConversions._
 
 class TestSystemConsumers {
   def testPollIntervalMs {
@@ -44,7 +45,7 @@ class TestSystemConsumers {
     consumers.register(systemStreamPartition1, "1234")
     consumers.start
 
-    // Tell the consumer to respond with 1000 messages for SSP0, and no 
+    // Tell the consumer to respond with 1000 messages for SSP0, and no
     // messages for SSP1.
     consumer.setResponseSizes(numEnvelopes)
 
@@ -60,13 +61,13 @@ class TestSystemConsumers {
     // We aren't polling because we're getting non-null envelopes.
     assertEquals(2, consumer.polls)
 
-    // Advance the clock to trigger a new poll even though there are still 
+    // Advance the clock to trigger a new poll even though there are still
     // messages.
     now = SystemConsumers.DEFAULT_POLL_INTERVAL_MS
 
     assertEquals(envelope, consumers.choose)
 
-    // We polled even though there are still 997 messages in the unprocessed 
+    // We polled even though there are still 997 messages in the unprocessed
     // message buffer.
     assertEquals(3, consumer.polls)
     assertEquals(1, consumer.lastPoll.size)
@@ -74,7 +75,7 @@ class TestSystemConsumers {
     // Only SSP1 was polled because we still have messages for SSP2.
     assertTrue(consumer.lastPoll.contains(systemStreamPartition1))
 
-    // Now drain all messages for SSP0. There should be exactly 997 messages, 
+    // Now drain all messages for SSP0. There should be exactly 997 messages,
     // since we have chosen 3 already, and we started with 1000.
     (0 until (numEnvelopes - 3)).foreach { i =>
       assertEquals(envelope, consumers.choose)

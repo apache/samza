@@ -19,8 +19,6 @@
 
 package org.apache.samza.job.yarn
 
-import scala.collection.JavaConversions._
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse
@@ -40,6 +38,8 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
 import org.apache.samza.util.Util
 import org.junit.Test
+
+import scala.collection.JavaConversions._
 
 import TestSamzaAppMasterTaskManager._
 
@@ -153,7 +153,7 @@ class TestSamzaAppMasterTaskManager {
   def testAppMasterShouldDefaultToOneContainerIfTaskCountIsNotSpecified {
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
     val taskManager = new SamzaAppMasterTaskManager(clock, config, state, null, new YarnConfiguration)
-    assert(state.taskCount == 1)
+    assertEquals(1, state.taskCount)
   }
 
   @Test
@@ -161,13 +161,13 @@ class TestSamzaAppMasterTaskManager {
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
     val taskManager = new SamzaAppMasterTaskManager(clock, config, state, null, new YarnConfiguration)
 
-    assert(taskManager.shouldShutdown == false)
+    assertFalse(taskManager.shouldShutdown)
     taskManager.onContainerCompleted(getContainerStatus(state.containerId, 0, ""))
-    assert(taskManager.shouldShutdown == true)
-    assert(state.completedTasks == 1)
-    assert(state.taskCount == 1)
-    assert(state.jobHealthy)
-    assert(state.status.equals(FinalApplicationStatus.SUCCEEDED))
+    assertTrue(taskManager.shouldShutdown)
+    assertEquals(1, state.completedTasks)
+    assertEquals(1, state.taskCount)
+    assertTrue(state.jobHealthy)
+    assertEquals(FinalApplicationStatus.SUCCEEDED, state.status)
   }
 
   @Test
@@ -180,12 +180,12 @@ class TestSamzaAppMasterTaskManager {
       }
     }
 
-    assert(taskManager.shouldShutdown == false)
+    assertFalse(taskManager.shouldShutdown)
     val container2 = ConverterUtils.toContainerId("container_1350670447861_0003_01_000002")
     taskManager.onInit
     taskManager.onContainerAllocated(getContainer(container2))
     taskManager.onContainerCompleted(getContainerStatus(container2, 1, "expecting a failure here"))
-    assert(taskManager.shouldShutdown == false)
+    assertFalse(taskManager.shouldShutdown)
     assertFalse(state.jobHealthy)
 
     // 2. First is from onInit, second is from onContainerCompleted, since it failed.
@@ -195,13 +195,13 @@ class TestSamzaAppMasterTaskManager {
 
     // 3. Now trigger an AM shutdown since our retry count is 1, and we're failing twice
     taskManager.onContainerAllocated(getContainer(container2))
-    assert(state.jobHealthy)
+    assertTrue(state.jobHealthy)
     taskManager.onContainerCompleted(getContainerStatus(container2, 1, "expecting a failure here"))
     assertEquals(2, amClient.getClient.requests.size)
     assertEquals(0, amClient.getClient.getRelease.size)
     assertFalse(state.jobHealthy)
     assertTrue(taskManager.shouldShutdown)
-    assert(state.status.equals(FinalApplicationStatus.FAILED))
+    assertEquals(FinalApplicationStatus.FAILED, state.status)
   }
 
   @Test
@@ -224,60 +224,60 @@ class TestSamzaAppMasterTaskManager {
     val container2 = ConverterUtils.toContainerId("container_1350670447861_0003_01_000002")
     val container3 = ConverterUtils.toContainerId("container_1350670447861_0003_01_000003")
 
-    assert(taskManager.shouldShutdown == false)
+    assertFalse(taskManager.shouldShutdown)
     taskManager.onInit
-    assert(taskManager.shouldShutdown == false)
-    assert(amClient.getClient.requests.size == 1)
-    assert(amClient.getClient.getRelease.size == 0)
+    assertFalse(taskManager.shouldShutdown)
+    assertEquals(1, amClient.getClient.requests.size)
+    assertEquals(0, amClient.getClient.getRelease.size)
 
     // allocate container 2
     taskManager.onContainerAllocated(getContainer(container2))
-    assert(state.neededContainers == 0)
-    assert(state.runningTasks.size == 1)
-    assert(state.taskToTaskNames.size == 1)
-    assert(state.unclaimedTasks.size == 0)
-    assert(containersRequested == 1)
-    assert(containersStarted == 1)
+    assertEquals(0, state.neededContainers)
+    assertEquals(1, state.runningTasks.size)
+    assertEquals(1, state.taskToTaskNames.size)
+    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(1, containersRequested)
+    assertEquals(1, containersStarted)
 
     // allocate an extra container, which the AM doesn't need, and should be released
     taskManager.onContainerAllocated(getContainer(container3))
-    assert(state.neededContainers == 0)
-    assert(state.runningTasks.size == 1)
-    assert(state.taskToTaskNames.size == 1)
-    assert(state.unclaimedTasks.size == 0)
-    assert(amClient.getClient.requests.size == 1)
-    assert(amClient.getClient.getRelease.size == 1)
-    assert(amClient.getClient.getRelease.head.equals(container3))
+    assertEquals(0, state.neededContainers)
+    assertEquals(1, state.runningTasks.size)
+    assertEquals(1, state.taskToTaskNames.size)
+    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(1, amClient.getClient.requests.size)
+    assertEquals(1, amClient.getClient.getRelease.size)
+    assertEquals(container3, amClient.getClient.getRelease.head)
 
     // reset the helper state, so we can make sure that releasing the container (next step) doesn't request more resources
     amClient.getClient.requests = List()
     amClient.getClient.resetRelease
 
     // now release the container, and make sure the AM doesn't ask for more
-    assert(taskManager.shouldShutdown == false)
+    assertFalse(taskManager.shouldShutdown)
     taskManager.onContainerCompleted(getContainerStatus(container3, -100, "pretend the container was released"))
-    assert(taskManager.shouldShutdown == false)
-    assert(state.neededContainers == 0)
-    assert(state.runningTasks.size == 1)
-    assert(state.taskToTaskNames.size == 1)
-    assert(state.unclaimedTasks.size == 0)
-    assert(amClient.getClient.requests.size == 0)
-    assert(amClient.getClient.getRelease.size == 0)
+    assertFalse(taskManager.shouldShutdown)
+    assertEquals(0, state.neededContainers)
+    assertEquals(1, state.runningTasks.size)
+    assertEquals(1, state.taskToTaskNames.size)
+    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(0, amClient.getClient.requests.size)
+    assertEquals(0, amClient.getClient.getRelease.size)
 
     // pretend container 2 is released due to an NM failure, and make sure that the AM requests a new container
-    assert(taskManager.shouldShutdown == false)
+    assertFalse(taskManager.shouldShutdown)
     taskManager.onContainerCompleted(getContainerStatus(container2, -100, "pretend the container was 'lost' due to an NM failure"))
-    assert(taskManager.shouldShutdown == false)
-    assert(state.jobHealthy == false)
-    assert(amClient.getClient.requests.size == 1)
-    assert(amClient.getClient.getRelease.size == 0)
+    assertFalse(taskManager.shouldShutdown)
+    assertFalse(state.jobHealthy)
+    assertEquals(1, amClient.getClient.requests.size)
+    assertEquals(0, amClient.getClient.getRelease.size)
 
     taskManager.onContainerAllocated(getContainer(container2))
-    assert(state.neededContainers == 0)
-    assert(state.jobHealthy)
-    assert(state.runningTasks.size == 1)
-    assert(state.taskToTaskNames.size == 1)
-    assert(state.unclaimedTasks.size == 0)
+    assertEquals(0, state.neededContainers)
+    assertTrue(state.jobHealthy)
+    assertEquals(1, state.runningTasks.size)
+    assertEquals(1, state.taskToTaskNames.size)
+    assertEquals(0, state.unclaimedTasks.size)
   }
 
   @Test
@@ -297,57 +297,57 @@ class TestSamzaAppMasterTaskManager {
     val container2 = ConverterUtils.toContainerId("container_1350670447861_0003_01_000002")
     val container3 = ConverterUtils.toContainerId("container_1350670447861_0003_01_000003")
 
-    assert(taskManager.shouldShutdown == false)
+    assertFalse(taskManager.shouldShutdown)
     taskManager.onInit
-    assert(taskManager.shouldShutdown == false)
-    assert(amClient.getClient.requests.size == 2)
-    assert(amClient.getClient.getRelease.size == 0)
+    assertFalse(taskManager.shouldShutdown)
+    assertEquals(2, amClient.getClient.requests.size)
+    assertEquals(0, amClient.getClient.getRelease.size)
     taskManager.onContainerAllocated(getContainer(container2))
-    assert(state.neededContainers == 1)
-    assert(state.runningTasks.size == 1)
-    assert(state.taskToTaskNames.size == 1)
-    assert(state.unclaimedTasks.size == 1)
-    assert(containersStarted == 1)
+    assertEquals(1, state.neededContainers)
+    assertEquals(1, state.runningTasks.size)
+    assertEquals(1, state.taskToTaskNames.size)
+    assertEquals(1, state.unclaimedTasks.size)
+    assertEquals(1, containersStarted)
     taskManager.onContainerAllocated(getContainer(container3))
-    assert(state.neededContainers == 0)
-    assert(state.runningTasks.size == 2)
-    assert(state.taskToTaskNames.size == 2)
-    assert(state.unclaimedTasks.size == 0)
-    assert(containersStarted == 2)
+    assertEquals(0, state.neededContainers)
+    assertEquals(2, state.runningTasks.size)
+    assertEquals(2, state.taskToTaskNames.size)
+    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(2, containersStarted)
 
     // container2 finishes successfully
     taskManager.onContainerCompleted(getContainerStatus(container2, 0, ""))
-    assert(state.neededContainers == 0)
-    assert(state.runningTasks.size == 1)
-    assert(state.taskToTaskNames.size == 1)
-    assert(state.unclaimedTasks.size == 0)
-    assert(state.completedTasks == 1)
+    assertEquals(0, state.neededContainers)
+    assertEquals(1, state.runningTasks.size)
+    assertEquals(1, state.taskToTaskNames.size)
+    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(1, state.completedTasks)
 
     // container3 fails
     taskManager.onContainerCompleted(getContainerStatus(container3, 1, "expected failure here"))
-    assert(state.neededContainers == 1)
-    assert(state.runningTasks.size == 0)
-    assert(state.taskToTaskNames.size == 0)
-    assert(state.unclaimedTasks.size == 1)
-    assert(state.completedTasks == 1)
-    assert(taskManager.shouldShutdown == false)
+    assertEquals(1, state.neededContainers)
+    assertEquals(0, state.runningTasks.size)
+    assertEquals(0, state.taskToTaskNames.size)
+    assertEquals(1, state.unclaimedTasks.size)
+    assertEquals(1, state.completedTasks)
+    assertFalse(taskManager.shouldShutdown)
 
     // container3 is re-allocated
     taskManager.onContainerAllocated(getContainer(container3))
-    assert(state.neededContainers == 0)
-    assert(state.runningTasks.size == 1)
-    assert(state.taskToTaskNames.size == 1)
-    assert(state.unclaimedTasks.size == 0)
-    assert(containersStarted == 3)
+    assertEquals(0, state.neededContainers)
+    assertEquals(1, state.runningTasks.size)
+    assertEquals(1, state.taskToTaskNames.size)
+    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(3, containersStarted)
 
     // container3 finishes sucecssfully
     taskManager.onContainerCompleted(getContainerStatus(container3, 0, ""))
-    assert(state.neededContainers == 0)
-    assert(state.runningTasks.size == 0)
-    assert(state.taskToTaskNames.size == 0)
-    assert(state.unclaimedTasks.size == 0)
-    assert(state.completedTasks == 2)
-    assert(taskManager.shouldShutdown == true)
+    assertEquals(0, state.neededContainers)
+    assertEquals(0, state.runningTasks.size)
+    assertEquals(0, state.taskToTaskNames.size)
+    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(2, state.completedTasks)
+    assertTrue(taskManager.shouldShutdown)
   }
 
   @Test
@@ -369,32 +369,32 @@ class TestSamzaAppMasterTaskManager {
     val container2 = ConverterUtils.toContainerId("container_1350670447861_0003_01_000002")
     val container3 = ConverterUtils.toContainerId("container_1350670447861_0003_01_000003")
 
-    assert(taskManager.shouldShutdown == false)
+    assertFalse(taskManager.shouldShutdown)
     taskManager.onInit
-    assert(taskManager.shouldShutdown == false)
-    assert(amClient.getClient.requests.size == 1)
-    assert(amClient.getClient.getRelease.size == 0)
-    assert(state.neededContainers == 1)
-    assert(state.runningTasks.size == 0)
-    assert(state.taskToTaskNames.size == 0)
-    assert(state.unclaimedTasks.size == 1)
+    assertFalse(taskManager.shouldShutdown)
+    assertEquals(1, amClient.getClient.requests.size)
+    assertEquals(0, amClient.getClient.getRelease.size)
+    assertEquals(1, state.neededContainers)
+    assertEquals(0, state.runningTasks.size)
+    assertEquals(0, state.taskToTaskNames.size)
+    assertEquals(1, state.unclaimedTasks.size)
     taskManager.onContainerAllocated(getContainer(container2))
-    assert(state.neededContainers == 0)
-    assert(state.runningTasks.size == 1)
-    assert(state.taskToTaskNames.size == 1)
-    assert(state.unclaimedTasks.size == 0)
-    assert(containersRequested == 1)
-    assert(containersStarted == 1)
+    assertEquals(0, state.neededContainers)
+    assertEquals(1, state.runningTasks.size)
+    assertEquals(1, state.taskToTaskNames.size)
+    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(1, containersRequested)
+    assertEquals(1, containersStarted)
     taskManager.onContainerAllocated(getContainer(container3))
-    assert(state.neededContainers == 0)
-    assert(state.runningTasks.size == 1)
-    assert(state.taskToTaskNames.size == 1)
-    assert(state.unclaimedTasks.size == 0)
-    assert(containersRequested == 1)
-    assert(containersStarted == 1)
-    assert(amClient.getClient.requests.size == 1)
-    assert(amClient.getClient.getRelease.size == 1)
-    assert(amClient.getClient.getRelease.head.equals(container3))
+    assertEquals(0, state.neededContainers)
+    assertEquals(1, state.runningTasks.size)
+    assertEquals(1, state.taskToTaskNames.size)
+    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(1, containersRequested)
+    assertEquals(1, containersStarted)
+    assertEquals(1, amClient.getClient.requests.size)
+    assertEquals(1, amClient.getClient.getRelease.size)
+    assertTrue(amClient.getClient.getRelease.head.equals(container3))
   }
 
   val clock = () => System.currentTimeMillis

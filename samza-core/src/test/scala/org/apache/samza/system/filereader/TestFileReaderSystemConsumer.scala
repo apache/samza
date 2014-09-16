@@ -22,12 +22,14 @@ package org.apache.samza.system.filereader
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
+
 import org.apache.samza.Partition
 import org.apache.samza.system.SystemStreamPartition
 import org.junit.AfterClass
 import org.junit.Assert._
 import org.junit.BeforeClass
 import org.junit.Test
+
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
 

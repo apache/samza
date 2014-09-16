@@ -20,7 +20,9 @@
 package org.apache.samza.test.integration
 
 import java.util.Properties
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+
 import kafka.admin.AdminUtils
 import kafka.common.ErrorMapping
 import kafka.consumer.Consumer
@@ -36,12 +38,12 @@ import kafka.utils.TestZKUtils
 import kafka.utils.Utils
 import kafka.utils.ZKStringSerializer
 import kafka.zk.EmbeddedZookeeper
+
 import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.config.Config
 import org.apache.samza.job.local.ThreadJobFactory
-import java.util.concurrent.CountDownLatch
 import org.apache.samza.config.MapConfig
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.ApplicationStatus
@@ -59,6 +61,7 @@ import org.apache.samza.util.ClientUtilTopicMetadataStore
 import org.apache.samza.util.TopicMetadataStore
 import org.junit.Assert._
 import org.junit.{BeforeClass, AfterClass, Test}
+
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.HashMap
@@ -254,7 +257,7 @@ class TestStatefulTask {
     assertEquals("3", messages(2))
     assertEquals("2", messages(3))
     assertEquals("99", messages(4))
-    assertEquals(null, messages(5))
+    assertNull(messages(5))
 
     stopJob(job)
   }
@@ -297,14 +300,14 @@ class TestStatefulTask {
     assertEquals("3", messages(2))
     assertEquals("2", messages(3))
     assertEquals("99", messages(4))
-    assertEquals(null, messages(5))
+    assertNull(messages(5))
     // From second startup.
     assertEquals("1", messages(6))
     assertEquals("2", messages(7))
     assertEquals("3", messages(8))
     assertEquals("2", messages(9))
     assertEquals("99", messages(10))
-    assertEquals(null, messages(11))
+    assertNull(messages(11))
     // From sending in this method.
     assertEquals("4", messages(12))
     assertEquals("5", messages(13))

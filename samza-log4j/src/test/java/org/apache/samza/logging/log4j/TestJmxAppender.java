@@ -19,11 +19,14 @@
 
 package org.apache.samza.logging.log4j;
 
+import static org.junit.Assert.assertEquals;
+
 import java.lang.management.ManagementFactory;
 import java.rmi.registry.LocateRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Iterator;
+
 import javax.management.Attribute;
 import javax.management.MBeanServer;
 import javax.management.MBeanServerConnection;
@@ -32,13 +35,13 @@ import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
+
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.Logger;
 import org.apache.log4j.spi.LoggingEvent;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import static org.junit.Assert.assertEquals;
 
 /*
  * These tests assume that log4j.xml and log4j are both set on the classpath

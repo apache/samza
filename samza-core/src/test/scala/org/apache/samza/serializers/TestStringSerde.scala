@@ -21,7 +21,6 @@ package org.apache.samza.serializers
 
 import org.junit.Assert._
 import org.junit.Test
-import java.util.Arrays
 
 class TestStringSerde {
   @Test
@@ -32,7 +31,7 @@ class TestStringSerde {
 
     val fooBar = "foo bar"
     val fooBarBytes = serde.toBytes(fooBar)
-    assertTrue(Arrays.equals(fooBar.getBytes("UTF-8"), fooBarBytes))
+    assertArrayEquals(fooBar.getBytes("UTF-8"), fooBarBytes)
     assertEquals(fooBar, serde.fromBytes(fooBarBytes))
   }
 }

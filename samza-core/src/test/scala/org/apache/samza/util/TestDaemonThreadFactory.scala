@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.util
 
 import org.junit.Assert._
@@ -28,9 +29,9 @@ class TestDaemonThreadFactory {
     val dtf = new DaemonThreadFactory(testThreadName)
     val threadWithName = dtf.newThread(new Runnable {
       def run() {
-        //Not testing this particular method
+        // Not testing this particular method
       }
     })
-    assertEquals(threadWithName.getName, ThreadNamePrefix.SAMZA_THREAD_NAME_PREFIX+testThreadName)
+    assertEquals(ThreadNamePrefix.SAMZA_THREAD_NAME_PREFIX + testThreadName, threadWithName.getName)
   }
 }

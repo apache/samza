@@ -28,7 +28,9 @@ import org.junit.Test;
 
 public class TestTimer {
 
-  // mock clock
+  /*
+   * Mock clock
+   */
   private final Clock clock = new Clock() {
     long value = 0;
 
@@ -46,7 +48,7 @@ public class TestTimer {
 
     Snapshot snapshot = timer.getSnapshot();
     assertTrue(snapshot.getValues().containsAll(Arrays.asList(1L, 2L)));
-    assertTrue(snapshot.getValues().size() == 2);
+    assertEquals(2, snapshot.getValues().size());
   }
 
   @Test
@@ -58,13 +60,13 @@ public class TestTimer {
 
     Snapshot snapshot = timer.getSnapshot();
     assertTrue(snapshot.getValues().containsAll(Arrays.asList(1L, 2L, 3L)));
-    assertTrue(snapshot.getValues().size() == 3);
+    assertEquals(3, snapshot.getValues().size());
 
-    // the time is 500 for update(4L) because getSnapshot calls clock once + 3
+    // The time is 500 for update(4L) because getSnapshot calls clock once + 3
     // updates that call clock 3 times
     timer.update(4L);
     Snapshot snapshot2 = timer.getSnapshot();
     assertTrue(snapshot2.getValues().containsAll(Arrays.asList(3L, 4L)));
-    assertTrue(snapshot2.getValues().size() == 2);
+    assertEquals(2, snapshot2.getValues().size());
   }
 }

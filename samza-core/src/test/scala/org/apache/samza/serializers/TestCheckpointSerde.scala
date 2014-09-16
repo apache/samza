@@ -20,12 +20,14 @@
 package org.apache.samza.serializers
 
 import java.util
+
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.container.TaskName
 import org.apache.samza.system.SystemStreamPartition
 import org.junit.Assert._
 import org.junit.Test
+
 import scala.collection.JavaConversions._
 
 class TestCheckpointSerde {

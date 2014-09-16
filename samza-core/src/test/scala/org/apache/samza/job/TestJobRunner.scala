@@ -18,9 +18,12 @@
  */
 
 package org.apache.samza.job
+
 import java.io.File
+
 import org.apache.samza.config.Config
 import org.junit.Test
+import org.junit.Assert._
 
 object TestJobRunner {
   var processCount = 0
@@ -34,7 +37,7 @@ class TestJobRunner {
       "org.apache.samza.config.factories.PropertiesConfigFactory",
       "--config-path",
       "file://%s/src/test/resources/test.properties" format new File(".").getCanonicalPath))
-    assert(TestJobRunner.processCount == 1)
+    assertEquals(1, TestJobRunner.processCount)
   }
 }
 

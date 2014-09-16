@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.util
 
 import org.apache.samza.Partition
@@ -31,6 +32,7 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.Util._
 import org.junit.Assert._
 import org.junit.Test
+
 import scala.collection.JavaConversions._
 import scala.util.Random
 

@@ -19,19 +19,20 @@
 package org.apache.samza.container.grouper.stream
 
 import org.apache.samza.container.TaskName
-import scala.collection.JavaConverters._
 import org.junit.Test
+import scala.collection.JavaConverters._
 
 class TestGroupBySystemStreamPartition extends GroupByTestBase {
   import GroupByTestBase._
 
   // Building manually to avoid just duplicating a logic potential logic error here and there
-  val expected /* from base class provided set */ =  Map(new TaskName(aa0.toString) -> Set(aa0).asJava,
-    new TaskName(aa1.toString) -> Set(aa1).asJava,
-    new TaskName(aa2.toString) -> Set(aa2).asJava,
-    new TaskName(ab1.toString) -> Set(ab1).asJava,
-    new TaskName(ab2.toString) -> Set(ab2).asJava,
-    new TaskName(ac0.toString) -> Set(ac0).asJava).asJava
+  // From base class provided set
+  val expected = Map(new TaskName(aa0.toString) -> Set(aa0).asJava,
+                     new TaskName(aa1.toString) -> Set(aa1).asJava,
+                     new TaskName(aa2.toString) -> Set(aa2).asJava,
+                     new TaskName(ab1.toString) -> Set(ab1).asJava,
+                     new TaskName(ab2.toString) -> Set(ab2).asJava,
+                     new TaskName(ac0.toString) -> Set(ac0).asJava).asJava
 
   override def getGrouper: SystemStreamPartitionGrouper = new GroupBySystemStreamPartition
 

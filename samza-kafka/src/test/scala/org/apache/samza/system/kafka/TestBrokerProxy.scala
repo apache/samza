@@ -20,25 +20,27 @@
  */
 package org.apache.samza.system.kafka
 
+import java.nio.ByteBuffer
+import java.util.concurrent.CountDownLatch
+
+import kafka.api._
+import kafka.api.PartitionOffsetsResponse
+import kafka.common.ErrorMapping
+import kafka.common.TopicAndPartition
+import kafka.consumer.SimpleConsumer
+import kafka.message.{MessageSet, Message, MessageAndOffset, ByteBufferMessageSet}
+
+import org.apache.samza.SamzaException
+import org.apache.samza.util.Logging
 import org.junit._
 import org.junit.Assert._
 import org.mockito.{Matchers, Mockito}
-import scala.collection.JavaConversions._
-import kafka.consumer.SimpleConsumer
 import org.mockito.Mockito._
 import org.mockito.Matchers._
-import kafka.api._
-import kafka.message.{MessageSet, Message, MessageAndOffset, ByteBufferMessageSet}
-import kafka.common.TopicAndPartition
-import kafka.api.PartitionOffsetsResponse
-import java.nio.ByteBuffer
-import org.apache.samza.SamzaException
-import org.apache.samza.util.Logging
-import kafka.common.ErrorMapping
 import org.mockito.stubbing.Answer
 import org.mockito.invocation.InvocationOnMock
-import java.util.concurrent.CountDownLatch
 
+import scala.collection.JavaConversions._
 
 class TestBrokerProxy extends Logging {
   val tp2 = new TopicAndPartition("Redbird", 2013)
@@ -177,7 +179,7 @@ class TestBrokerProxy extends Logging {
     Thread.sleep(1000)
     assertEquals(0, sink.receivedMessages.size)
     assertTrue(bp.metrics.brokerSkippedFetchRequests(bp.host, bp.port).getCount > 0)
-    assertTrue(bp.metrics.brokerReads(bp.host, bp.port).getCount == 0)
+    assertEquals(0, bp.metrics.brokerReads(bp.host, bp.port).getCount)
   }
 
   @Test def brokerProxyThrowsExceptionOnDuplicateTopicPartitions() = {

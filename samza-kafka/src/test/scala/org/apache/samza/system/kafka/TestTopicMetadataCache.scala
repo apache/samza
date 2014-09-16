@@ -19,15 +19,17 @@
 
 package org.apache.samza.system.kafka
 
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.{ AtomicBoolean, AtomicInteger }
+
+import kafka.api.TopicMetadata
+
+import org.I0Itec.zkclient.ZkClient
+import org.apache.samza.util.Clock
+import org.apache.samza.util.TopicMetadataStore
 import org.junit.Assert._
 import org.junit.Before
 import org.junit.Test
-import kafka.api.TopicMetadata
-import org.apache.samza.util.TopicMetadataStore
-import org.I0Itec.zkclient.ZkClient
-import java.util.concurrent.atomic.{ AtomicBoolean, AtomicInteger }
-import java.util.concurrent.CountDownLatch
-import org.apache.samza.util.Clock
 
 class TestTopicMetadataCache {
 

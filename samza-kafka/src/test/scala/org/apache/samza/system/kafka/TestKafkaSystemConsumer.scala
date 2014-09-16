@@ -19,15 +19,16 @@
 
 package org.apache.samza.system.kafka
 
-import org.junit.Test
-import org.junit.Assert._
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.Partition
-import kafka.common.TopicAndPartition
-import org.apache.samza.util.TopicMetadataStore
 import kafka.api.TopicMetadata
 import kafka.api.PartitionMetadata
 import kafka.cluster.Broker
+import kafka.common.TopicAndPartition
+
+import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.Partition
+import org.apache.samza.util.TopicMetadataStore
+import org.junit.Test
+import org.junit.Assert._
 
 class TestKafkaSystemConsumer {
   @Test

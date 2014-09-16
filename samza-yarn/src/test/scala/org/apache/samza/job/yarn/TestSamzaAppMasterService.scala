@@ -19,14 +19,16 @@
 
 package org.apache.samza.job.yarn
 
-import scala.collection.JavaConversions._
-import org.apache.samza.config.MapConfig
-import org.junit.Assert._
-import org.junit.Test
 import java.io.BufferedReader
 import java.net.URL
 import java.io.InputStreamReader
+
 import org.apache.hadoop.yarn.util.ConverterUtils
+import org.apache.samza.config.MapConfig
+import org.junit.Assert._
+import org.junit.Test
+
+import scala.collection.JavaConversions._
 
 class TestSamzaAppMasterService {
   @Test
@@ -36,8 +38,8 @@ class TestSamzaAppMasterService {
 
     // start the dashboard
     service.onInit
-    assert(state.rpcPort > 0)
-    assert(state.trackingPort > 0)
+    assertTrue(state.rpcPort > 0)
+    assertTrue(state.trackingPort > 0)
 
     // check to see if it's running
     val url = new URL("http://127.0.0.1:%d/am" format state.rpcPort)
@@ -77,8 +79,8 @@ class TestSamzaAppMasterService {
 
     // start the dashboard
     service.onInit
-    assert(state.rpcPort > 0)
-    assert(state.trackingPort > 0)
+    assertTrue(state.rpcPort > 0)
+    assertTrue(state.trackingPort > 0)
 
     // Do a GET Request on the tracking port: This in turn will render index.scaml
     val url = new URL("http://127.0.0.1:%d/" format state.trackingPort)

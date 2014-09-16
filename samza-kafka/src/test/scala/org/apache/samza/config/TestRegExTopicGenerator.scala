@@ -19,11 +19,13 @@
 
 package org.apache.samza.config
 
-import org.junit.Test
 import collection.JavaConversions._
-import org.junit.Assert._
-import KafkaConfig._
+
 import org.apache.samza.SamzaException
+import org.junit.Assert._
+import org.junit.Test
+
+import KafkaConfig._
 
 class TestRegExTopicGenerator {
 

@@ -18,10 +18,10 @@
  */
 package org.apache.samza.container
 
-import org.junit.Test
-import org.junit.Assert._
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.{SamzaException, Partition}
+import org.junit.Test
+import org.junit.Assert._
 
 class TestTaskNamesToSystemStreamPartitions {
   var sspCounter = 0
@@ -36,7 +36,7 @@ class TestTaskNamesToSystemStreamPartitions {
     val asSet = tntssp.toSet
     val expected = Set(new TaskName("tn1") -> Set(makeSSP("tn1-1"), makeSSP("tn1-2")),
                       (new TaskName("tn2") -> Set(makeSSP("tn2-1"), makeSSP("tn2-2"))))
-    assertEquals(expected , asSet)
+    assertEquals(expected, asSet)
   }
 
   @Test

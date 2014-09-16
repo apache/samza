@@ -19,19 +19,20 @@
 
 package org.apache.samza.test.performance
 
+import org.apache.samza.config.Config
+import org.apache.samza.config.MapConfig
+import org.apache.samza.job.ShellCommandBuilder
 import org.apache.samza.job.local.ThreadJobFactory
-import org.junit.Test
+import org.apache.samza.task.InitableTask
+import org.apache.samza.task.MessageCollector
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskCoordinator
-import org.apache.samza.task.MessageCollector
-import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.config.MapConfig
-import scala.collection.JavaConversions._
-import org.apache.samza.job.ShellCommandBuilder
-import org.apache.samza.task.InitableTask
 import org.apache.samza.task.TaskContext
-import org.apache.samza.config.Config
+import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.util.Logging
+import org.junit.Test
+
+import scala.collection.JavaConversions._
 
 /**
  * A simple unit test that drives the TestPerformanceTask. This unit test can

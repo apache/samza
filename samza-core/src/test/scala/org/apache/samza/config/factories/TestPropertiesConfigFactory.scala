@@ -18,8 +18,10 @@
  */
 
 package org.apache.samza.config.factories
+
 import java.net.URI
 import java.io.File
+
 import org.apache.samza.SamzaException
 import org.junit.Assert._
 import org.junit.Test
@@ -30,7 +32,7 @@ class TestPropertiesConfigFactory {
   @Test
   def testCanReadPropertiesConfigFiles {
     val config = factory.getConfig(URI.create("file://%s/src/test/resources/test.properties" format new File(".").getCanonicalPath))
-    assert("bar".equals(config.get("foo")))
+    assertEquals("bar", config.get("foo"))
   }
 
   @Test

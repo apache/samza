@@ -19,18 +19,20 @@
 
 package org.apache.samza.system.chooser
 
+import java.util.Arrays
+
 import org.junit.Assert._
 import org.junit.Test
-import org.apache.samza.system.IncomingMessageEnvelope
-import scala.collection.immutable.Queue
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.Partition
-import org.apache.samza.SamzaException
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import java.util.Arrays
+import org.apache.samza.Partition
+import org.apache.samza.SamzaException
+import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemStream
+import org.apache.samza.system.SystemStreamPartition
+
+import scala.collection.immutable.Queue
 
 @RunWith(value = classOf[Parameterized])
 class TestTieredPriorityChooser(getChooser: (Map[SystemStream, Int], Map[Int, MessageChooser], MessageChooser) => MessageChooser) {
@@ -68,10 +70,10 @@ class TestTieredPriorityChooser(getChooser: (Map[SystemStream, Int], Map[Int, Me
 
     chooser.register(envelope1.getSystemStreamPartition, null)
     chooser.start
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
     chooser.update(envelope1)
     assertEquals(envelope1, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
   }
 
   @Test
@@ -85,7 +87,7 @@ class TestTieredPriorityChooser(getChooser: (Map[SystemStream, Int], Map[Int, Me
     // The SSP for envelope2 is not defined as a priority stream.
     chooser.register(envelope2.getSystemStreamPartition, null)
     chooser.start
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     try {
       chooser.update(envelope2)
@@ -106,18 +108,18 @@ class TestTieredPriorityChooser(getChooser: (Map[SystemStream, Int], Map[Int, Me
     chooser.register(envelope1.getSystemStreamPartition, null)
     chooser.start
 
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
     chooser.update(envelope1)
     chooser.update(envelope4)
     assertEquals(envelope1, chooser.choose)
     assertEquals(envelope4, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     chooser.update(envelope4)
     chooser.update(envelope1)
     assertEquals(envelope4, chooser.choose)
     assertEquals(envelope1, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
   }
 
   @Test
@@ -132,18 +134,18 @@ class TestTieredPriorityChooser(getChooser: (Map[SystemStream, Int], Map[Int, Me
     chooser.register(envelope3.getSystemStreamPartition, null)
     chooser.start
 
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
     chooser.update(envelope2)
     chooser.update(envelope3)
     assertEquals(envelope2, chooser.choose)
     assertEquals(envelope3, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     chooser.update(envelope3)
     chooser.update(envelope2)
     assertEquals(envelope3, chooser.choose)
     assertEquals(envelope2, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
   }
 
   @Test
@@ -160,30 +162,30 @@ class TestTieredPriorityChooser(getChooser: (Map[SystemStream, Int], Map[Int, Me
     chooser.register(envelope2.getSystemStreamPartition, null)
     chooser.start
 
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
     chooser.update(envelope1)
     chooser.update(envelope4)
     assertEquals(envelope1, chooser.choose)
     assertEquals(envelope4, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     chooser.update(envelope4)
     chooser.update(envelope1)
     assertEquals(envelope4, chooser.choose)
     assertEquals(envelope1, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     chooser.update(envelope2)
     chooser.update(envelope4)
     assertEquals(envelope2, chooser.choose)
     assertEquals(envelope4, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     chooser.update(envelope1)
     chooser.update(envelope2)
     assertEquals(envelope1, chooser.choose)
     assertEquals(envelope2, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
   }
 
   @Test
@@ -203,18 +205,18 @@ class TestTieredPriorityChooser(getChooser: (Map[SystemStream, Int], Map[Int, Me
     chooser.register(envelope2.getSystemStreamPartition, null)
     chooser.start
 
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
     chooser.update(envelope1)
     chooser.update(envelope4)
     assertEquals(envelope1, chooser.choose)
     assertEquals(envelope4, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     chooser.update(envelope4)
     chooser.update(envelope1)
     assertEquals(envelope4, chooser.choose)
     assertEquals(envelope1, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     chooser.update(envelope2)
     chooser.update(envelope4)
@@ -222,18 +224,18 @@ class TestTieredPriorityChooser(getChooser: (Map[SystemStream, Int], Map[Int, Me
     // priority.
     assertEquals(envelope4, chooser.choose)
     assertEquals(envelope2, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     chooser.update(envelope1)
     chooser.update(envelope2)
     assertEquals(envelope1, chooser.choose)
     assertEquals(envelope2, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     // Just the low priority stream.
     chooser.update(envelope2)
     assertEquals(envelope2, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
   }
 }
 

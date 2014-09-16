@@ -19,14 +19,17 @@
 
 package org.apache.samza.config
 
-import org.junit.Assert._
-import org.junit.Test
 import java.net.URI
 import java.io.File
 import java.util.Properties
-import scala.collection.JavaConversions._
-import org.apache.samza.config.factories.PropertiesConfigFactory
+
 import kafka.consumer.ConsumerConfig
+
+import org.apache.samza.config.factories.PropertiesConfigFactory
+import org.junit.Assert._
+import org.junit.Test
+
+import scala.collection.JavaConversions._
 
 class TestKafkaConfig {
 

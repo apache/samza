@@ -23,19 +23,22 @@ import org.junit.Assert._
 import org.junit.AfterClass
 import org.junit.BeforeClass
 import org.junit.Test
-import scala.collection.JavaConversions._
 import org.apache.samza.task.TaskContext
-import javax.management.remote.JMXConnectorFactory
 import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.config.MapConfig
+import org.apache.samza.Partition
+import org.apache.samza.metrics.JvmMetrics
+
+import java.lang.management.ManagementFactory
+import java.rmi.registry.LocateRegistry
+
+import javax.management.ObjectName
+import javax.management.remote.JMXServiceURL
 import javax.management.remote.JMXConnectorServerFactory
 import javax.management.remote.JMXConnectorServer
-import java.rmi.registry.LocateRegistry
-import javax.management.remote.JMXServiceURL
-import org.apache.samza.config.MapConfig
-import java.lang.management.ManagementFactory
-import org.apache.samza.Partition
-import javax.management.ObjectName
-import org.apache.samza.metrics.JvmMetrics
+import javax.management.remote.JMXConnectorFactory
+
+import scala.collection.JavaConversions._
 
 object TestJmxReporter {
   val port = 4500

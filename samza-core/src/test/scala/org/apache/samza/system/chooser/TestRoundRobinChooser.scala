@@ -19,15 +19,16 @@
 
 package org.apache.samza.system.chooser
 
-import org.junit.Assert._
-import org.junit.Test
+import java.util.Arrays
+
 import org.apache.samza.Partition
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemStreamPartition
+import org.junit.Assert._
+import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import java.util.Arrays
 
 @RunWith(value = classOf[Parameterized])
 class TestRoundRobinChooser(getChooser: () => MessageChooser) {
@@ -43,12 +44,12 @@ class TestRoundRobinChooser(getChooser: () => MessageChooser) {
     chooser.register(envelope3.getSystemStreamPartition, "123")
     chooser.start
 
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     // Test one message.
     chooser.update(envelope1)
     assertEquals(envelope1, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     // Verify simple ordering.
     chooser.update(envelope1)
@@ -58,7 +59,7 @@ class TestRoundRobinChooser(getChooser: () => MessageChooser) {
     assertEquals(envelope1, chooser.choose)
     assertEquals(envelope2, chooser.choose)
     assertEquals(envelope3, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     // Verify mixed ordering.
     chooser.update(envelope2)
@@ -72,7 +73,7 @@ class TestRoundRobinChooser(getChooser: () => MessageChooser) {
 
     assertEquals(envelope1, chooser.choose)
     assertEquals(envelope2, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     // Verify simple ordering with different starting envelope.
     chooser.update(envelope2)
@@ -82,7 +83,7 @@ class TestRoundRobinChooser(getChooser: () => MessageChooser) {
     assertEquals(envelope2, chooser.choose)
     assertEquals(envelope1, chooser.choose)
     assertEquals(envelope3, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
   }
 }
 

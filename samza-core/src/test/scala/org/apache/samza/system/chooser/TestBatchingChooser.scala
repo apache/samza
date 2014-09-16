@@ -19,16 +19,18 @@
 
 package org.apache.samza.system.chooser
 
+import java.util.Arrays
+
+import org.apache.samza.Partition
+import org.apache.samza.system.IncomingMessageEnvelope
+import org.apache.samza.system.SystemStreamPartition
 import org.junit.Assert._
 import org.junit.Test
-import org.apache.samza.system.IncomingMessageEnvelope
-import scala.collection.immutable.Queue
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.Partition
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import java.util.Arrays
+
+import scala.collection.immutable.Queue
 
 @RunWith(value = classOf[Parameterized])
 class TestBatchingChooser(getChooser: (MessageChooser, Int) => MessageChooser) {
@@ -45,9 +47,9 @@ class TestBatchingChooser(getChooser: (MessageChooser, Int) => MessageChooser) {
     chooser.start
     // Make sure start and register are working.
     assertEquals(1, mock.starts)
-    assertEquals(null, mock.registers(envelope1.getSystemStreamPartition))
+    assertNull(mock.registers(envelope1.getSystemStreamPartition))
     assertEquals("", mock.registers(envelope2.getSystemStreamPartition))
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
     chooser.update(envelope1)
     assertEquals(envelope1, mock.getEnvelopes.head)
     assertEquals(envelope1, chooser.choose)
@@ -84,8 +86,8 @@ class TestBatchingChooser(getChooser: (MessageChooser, Int) => MessageChooser) {
 }
 
 object TestBatchingChooser {
-  // Test both BatchingChooser and DefaultChooser here. DefaultChooser with 
-  // just batch size defined should behave just like plain vanilla batching 
+  // Test both BatchingChooser and DefaultChooser here. DefaultChooser with
+  // just batch size defined should behave just like plain vanilla batching
   // chooser.
   @Parameters
   def parameters: java.util.Collection[Array[(MessageChooser, Int) => MessageChooser]] = Arrays.asList(

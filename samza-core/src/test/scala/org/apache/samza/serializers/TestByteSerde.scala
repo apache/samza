@@ -19,19 +19,20 @@
 
 package org.apache.samza.serializers
 
+import java.util.Arrays
+
 import org.junit.Assert._
 import org.junit.Test
-import java.util.Arrays
 
 class TestByteSerde {
   @Test
   def testByteSerde {
     val serde = new ByteSerde
-    assertEquals(null, serde.toBytes(null))
-    assertEquals(null, serde.fromBytes(null))
+    assertNull(serde.toBytes(null))
+    assertNull(serde.fromBytes(null))
 
     val testBytes = "A lazy way of creating a byte array".getBytes()
-    assertTrue(Arrays.equals(serde.toBytes(testBytes), testBytes))
-    assertTrue( Arrays.equals(serde.fromBytes(testBytes), testBytes))
+    assertArrayEquals(serde.toBytes(testBytes), testBytes)
+    assertArrayEquals(serde.fromBytes(testBytes), testBytes)
   }
 }

@@ -22,9 +22,9 @@ package org.apache.samza.storage.kv
 import java.io.File
 import java.util.Arrays
 import java.util.Random
-import org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStore
 
-import scala.collection.JavaConversions._
+import org.apache.samza.serializers.Serde
+import org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStore
 import org.iq80.leveldb.Options
 import org.junit.After
 import org.junit.Assert._
@@ -33,9 +33,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import org.apache.samza.serializers.Serde
 import org.scalatest.Assertions.intercept
 
+import scala.collection.JavaConversions._
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -106,7 +106,7 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
   @Test
   def putAndGet() {
     store.put(b("k"), b("v"))
-    assertTrue(Arrays.equals(b("v"), store.get(b("k"))))
+    assertArrayEquals(b("v"), store.get(b("k")))
   }
 
   @Test
@@ -115,7 +115,7 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
     store.put(k, b("v1"))
     store.put(k, b("v2"))
     store.put(k, b("v3"))
-    assertTrue(Arrays.equals(b("v3"), store.get(k)))
+    assertArrayEquals(b("v3"), store.get(k))
   }
 
   @Test
@@ -179,7 +179,7 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
     val a = b("a")
     assertNull(store.get(a))
     store.put(a, a)
-    assertTrue(Arrays.equals(a, store.get(a)))
+    assertArrayEquals(a, store.get(a))
     store.delete(a)
     assertNull(store.get(a))
   }
@@ -190,9 +190,9 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
     for (v <- vals) {
       assertNull(store.get(v))
       store.put(v, v)
-      assertTrue(Arrays.equals(v, store.get(v)))
+      assertArrayEquals(v, store.get(v))
     }
-    vals.foreach(v => assertTrue(Arrays.equals(v, store.get(v))))
+    vals.foreach(v => assertArrayEquals(v, store.get(v)))
     vals.foreach(v => store.delete(v))
     vals.foreach(v => assertNull(store.get(v)))
   }

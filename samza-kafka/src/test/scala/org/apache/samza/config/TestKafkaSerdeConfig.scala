@@ -18,10 +18,12 @@
  */
 
 package org.apache.samza.config
+
+import org.apache.samza.config.KafkaSerdeConfig.Config2KafkaSerde
 import org.junit.Assert._
 import org.junit.Test
+
 import scala.collection.JavaConversions._
-import org.apache.samza.config.KafkaSerdeConfig.Config2KafkaSerde
 
 class TestKafkaSerdeConfig {
   val MAGIC_VAL = "1000"
@@ -33,7 +35,7 @@ class TestKafkaSerdeConfig {
 
   @Test
   def testKafkaConfigurationIsBackwardsCompatible {
-    assert(config.getKafkaEncoder("test").getOrElse("").equals(MAGIC_VAL))
-    assert(config.getKafkaDecoder("test").getOrElse("").equals(MAGIC_VAL))
+    assertEquals(MAGIC_VAL, config.getKafkaEncoder("test").getOrElse(""))
+    assertEquals(MAGIC_VAL, config.getKafkaDecoder("test").getOrElse(""))
   }
 }

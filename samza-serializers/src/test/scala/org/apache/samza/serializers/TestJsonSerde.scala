@@ -18,8 +18,10 @@
  */
 
 package org.apache.samza.serializers
+
 import org.junit.Assert._
 import org.junit.Test
+
 import scala.collection.JavaConversions._
 
 class TestJsonSerde {
@@ -28,6 +30,6 @@ class TestJsonSerde {
     val serde = new JsonSerde
     val obj = new java.util.HashMap[String, Object](Map[String, Object]("hi" -> "bye", "why" -> new java.lang.Integer(2)))
     val bytes = serde.toBytes(obj)
-    serde.fromBytes(bytes).equals(obj)
+    assertEquals(obj, serde.fromBytes(bytes))
   }
 }

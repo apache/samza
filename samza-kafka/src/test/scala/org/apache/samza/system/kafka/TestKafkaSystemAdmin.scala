@@ -21,32 +21,35 @@
 
 package org.apache.samza.system.kafka
 
-import org.junit.Assert._
-import org.junit.{Test, BeforeClass, AfterClass}
-import kafka.zk.EmbeddedZookeeper
-import org.apache.samza.util.ClientUtilTopicMetadataStore
-import org.I0Itec.zkclient.ZkClient
+import java.util.Properties
+
 import kafka.admin.AdminUtils
-import org.apache.samza.util.TopicMetadataStore
-import org.apache.samza.Partition
-import kafka.producer.ProducerConfig
-import kafka.utils.TestUtils
 import kafka.common.ErrorMapping
-import kafka.utils.TestZKUtils
-import kafka.server.KafkaServer
-import kafka.producer.Producer
-import kafka.server.KafkaConfig
-import kafka.utils.Utils
-import kafka.utils.ZKStringSerializer
-import scala.collection.JavaConversions._
-import kafka.producer.KeyedMessage
 import kafka.consumer.Consumer
 import kafka.consumer.ConsumerConfig
-import java.util.Properties
-import org.apache.samza.system.SystemStreamPartition
+import kafka.producer.KeyedMessage
+import kafka.producer.Producer
+import kafka.producer.ProducerConfig
+import kafka.server.KafkaConfig
+import kafka.server.KafkaServer
+import kafka.utils.TestUtils
+import kafka.utils.TestZKUtils
+import kafka.utils.Utils
+import kafka.utils.ZKStringSerializer
+import kafka.zk.EmbeddedZookeeper
+
+import org.I0Itec.zkclient.ZkClient
+import org.apache.samza.Partition
 import org.apache.samza.system.SystemStreamMetadata
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.ExponentialSleepStrategy
+import org.apache.samza.util.ClientUtilTopicMetadataStore
+import org.apache.samza.util.TopicMetadataStore
+import org.junit.Assert._
+import org.junit.{Test, BeforeClass, AfterClass}
+
+import scala.collection.JavaConversions._
 
 object TestKafkaSystemAdmin {
   val TOPIC = "input"

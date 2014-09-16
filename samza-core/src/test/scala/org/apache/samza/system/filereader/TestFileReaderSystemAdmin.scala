@@ -19,20 +19,22 @@
 
 package org.apache.samza.system.filereader
 
-import org.junit.Assert._
-import scala.collection.JavaConversions._
 import java.io.PrintWriter
 import java.io.File
-import org.scalatest.junit.AssertionsForJUnit
-import org.junit.Test
-import org.junit.Before
-import org.junit.After
 import java.io.RandomAccessFile
+
+import org.apache.samza.SamzaException
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.Partition
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.junit.Assert._
+import org.junit.Test
+import org.junit.Before
+import org.junit.After
+import org.scalatest.junit.AssertionsForJUnit
+
 import scala.collection.mutable.HashMap
-import org.apache.samza.SamzaException
+import scala.collection.JavaConversions._
 
 class TestFileReaderSystemAdmin extends AssertionsForJUnit {
 

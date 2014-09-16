@@ -26,11 +26,12 @@ import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.Partition
 import org.apache.samza.config.MapConfig
-import scala.collection.JavaConversions._
 import org.apache.samza.config.DefaultChooserConfig
 import org.apache.samza.system.SystemStream
 import org.apache.samza.system.SystemStreamMetadata
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+
+import scala.collection.JavaConversions._
 
 class TestDefaultChooser {
   val envelope1 = new IncomingMessageEnvelope(new SystemStreamPartition("kafka", "stream", new Partition(0)), null, null, 1);
@@ -47,7 +48,7 @@ class TestDefaultChooser {
     val mock0 = new MockMessageChooser
     val mock1 = new MockMessageChooser
     val mock2 = new MockMessageChooser
-    // Create metadata for two envelopes (1 and 5) that are part of the same 
+    // Create metadata for two envelopes (1 and 5) that are part of the same
     // stream, but have different partitions and offsets.
     val env1Metadata = new SystemStreamPartitionMetadata(null, "123", null)
     val env5Metadata = new SystemStreamPartitionMetadata(null, "321", null)
@@ -75,28 +76,28 @@ class TestDefaultChooser {
     chooser.register(envelope2.getSystemStreamPartition, null)
     chooser.register(envelope3.getSystemStreamPartition, null)
     chooser.register(envelope5.getSystemStreamPartition, null)
-    // Add a bootstrap stream that's already caught up. If everything is 
+    // Add a bootstrap stream that's already caught up. If everything is
     // working properly, it shouldn't interfere with anything.
     chooser.register(envelope8.getSystemStreamPartition, "654")
     chooser.start
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     // Load with a non-bootstrap stream, and should still get null.
     chooser.update(envelope3)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     // Load with a bootstrap stream, should get that envelope.
     chooser.update(envelope1)
     assertEquals(envelope1, chooser.choose)
 
     // Should block envelope3 since we have no message from envelope1's bootstrap stream.
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     // Load envelope2 from non-bootstrap stream with higher priority than envelope3.
     chooser.update(envelope2)
 
     // Should block envelope2 since we have no message from envelope1's bootstrap stream.
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     // Test batching by giving chooser envelope1 and envelope5, both from same stream, but envelope1 should be preferred partition.
     chooser.update(envelope5)
@@ -107,14 +108,14 @@ class TestDefaultChooser {
     chooser.update(envelope1)
     assertEquals(envelope5, chooser.choose)
     assertEquals(envelope1, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     // Now we're back to just envelope3, envelope2. Let's catch up envelope1's SSP using envelope4's offset.
     chooser.update(envelope4)
     assertEquals(envelope4, chooser.choose)
 
     // Should still block envelopes 1 and 2 because the second partition hasn't caught up yet.
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
 
     // Now catch up the second partition.
     chooser.update(envelope6)
@@ -135,7 +136,7 @@ class TestDefaultChooser {
 
     // Now we should finally get the lowest priority non-bootstrap stream, envelope3.
     assertEquals(envelope3, chooser.choose)
-    assertEquals(null, chooser.choose)
+    assertNull(chooser.choose)
   }
 
   @Test

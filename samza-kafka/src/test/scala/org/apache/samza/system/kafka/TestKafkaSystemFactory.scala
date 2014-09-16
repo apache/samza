@@ -19,13 +19,14 @@
 
 package org.apache.samza.system.kafka
 
-import scala.collection.JavaConversions._
-import org.junit.Assert._
-import org.junit.Test
 import org.apache.samza.SamzaException
 import org.apache.samza.config.MapConfig
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStream
+import org.junit.Assert._
+import org.junit.Test
+
+import scala.collection.JavaConversions._
 
 class TestKafkaSystemFactory {
   @Test
@@ -73,13 +74,13 @@ class TestKafkaSystemFactory {
       "test",
       config,
       new MetricsRegistryMap)
-    assertTrue(producer != null)
+    assertNotNull(producer)
     assertTrue(producer.isInstanceOf[KafkaSystemProducer])
     producer = producerFactory.getProducer(
       "test",
       config,
       new MetricsRegistryMap)
-    assertTrue(producer != null)
+    assertNotNull(producer)
     assertTrue(producer.isInstanceOf[KafkaSystemProducer])
   }
 }

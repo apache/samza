@@ -19,10 +19,10 @@
 
 package org.apache.samza.task
 
-import org.junit.Assert._
-import org.junit.Test
 import org.apache.samza.task.TaskCoordinator.RequestScope
 import org.apache.samza.container.TaskName
+import org.junit.Assert._
+import org.junit.Test
 
 class TestReadableCoordinator {
   val taskName = new TaskName("P0")

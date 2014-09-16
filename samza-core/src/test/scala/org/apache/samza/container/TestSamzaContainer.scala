@@ -24,26 +24,26 @@ import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.Partition
 import org.apache.samza.config.MapConfig
+import org.apache.samza.metrics.JmxServer
+import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemConsumers
-import org.apache.samza.system.chooser.RoundRobinChooser
 import org.apache.samza.system.SystemConsumer
 import org.apache.samza.system.SystemProducers
 import org.apache.samza.system.SystemProducer
+import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.system.SystemStream
+import org.apache.samza.system.StreamMetadataCache
+import org.apache.samza.system.chooser.RoundRobinChooser
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.MessageCollector
-import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.task.TaskCoordinator
 import org.apache.samza.task.InitableTask
 import org.apache.samza.task.TaskContext
 import org.apache.samza.task.ClosableTask
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
-import org.apache.samza.system.SystemStream
-import org.apache.samza.system.StreamMetadataCache
 import org.apache.samza.task.TaskInstanceCollector
+import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
 import org.scalatest.junit.AssertionsForJUnit
-import org.apache.samza.metrics.JmxServer
 
 class TestSamzaContainer extends AssertionsForJUnit {
   @Test

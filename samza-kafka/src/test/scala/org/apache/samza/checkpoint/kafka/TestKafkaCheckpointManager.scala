@@ -19,6 +19,7 @@
 
 package org.apache.samza.checkpoint.kafka
 
+import kafka.admin.AdminUtils
 import kafka.common.InvalidMessageSizeException
 import kafka.common.UnknownTopicOrPartitionException
 import kafka.message.InvalidMessageException
@@ -31,20 +32,20 @@ import kafka.utils.TestZKUtils
 import kafka.utils.Utils
 import kafka.utils.ZKStringSerializer
 import kafka.zk.EmbeddedZookeeper
+
 import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.checkpoint.Checkpoint
+import org.apache.samza.config.MapConfig
 import org.apache.samza.container.TaskName
+import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.{ ClientUtilTopicMetadataStore, TopicMetadataStore }
 import org.apache.samza.{ SamzaException, Partition }
 import org.junit.Assert._
 import org.junit.{ AfterClass, BeforeClass, Test }
-import scala.collection.JavaConversions._
+
 import scala.collection._
-import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
-import kafka.admin.AdminUtils
-import org.apache.samza.config.MapConfig
 import scala.collection.JavaConversions._
 
 object TestKafkaCheckpointManager {

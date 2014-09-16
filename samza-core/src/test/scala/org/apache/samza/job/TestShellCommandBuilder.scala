@@ -18,12 +18,12 @@
  */
 package org.apache.samza.job
 
-import org.junit.Test
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.Partition
 import org.apache.samza.util.Util._
 import org.apache.samza.container.{TaskName, TaskNamesToSystemStreamPartitions}
 import org.junit.Assert._
+import org.junit.Test
 
 class TestShellCommandBuilder {
 

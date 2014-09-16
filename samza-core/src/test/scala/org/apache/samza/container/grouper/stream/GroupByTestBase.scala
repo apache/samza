@@ -18,15 +18,16 @@
  */
 package org.apache.samza.container.grouper.stream
 
-import org.apache.samza.Partition
-import org.apache.samza.system.SystemStreamPartition
-import org.junit.Test
+import java.util.Collections
 import java.util.HashSet
 import java.util.Map
 import java.util.Set
-import org.junit.Assert._
-import java.util.Collections
+
+import org.apache.samza.Partition
 import org.apache.samza.container.TaskName
+import org.apache.samza.system.SystemStreamPartition
+import org.junit.Test
+import org.junit.Assert._
 
 object GroupByTestBase {
   val aa0 = new SystemStreamPartition("SystemA", "StreamA", new Partition(0))

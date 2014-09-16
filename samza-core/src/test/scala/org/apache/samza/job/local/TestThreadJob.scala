@@ -18,6 +18,7 @@
  */
 
 package org.apache.samza.job.local
+
 import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.job.ApplicationStatus
@@ -44,6 +45,6 @@ class TestThreadJob {
     job.waitForFinish(500)
     job.kill
     job.waitForFinish(999999)
-    assert(ApplicationStatus.UnsuccessfulFinish.equals(job.waitForFinish(999999999)))
+    assertEquals(ApplicationStatus.UnsuccessfulFinish, job.waitForFinish(999999999))
   }
 }

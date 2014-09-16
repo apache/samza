@@ -19,7 +19,9 @@
 
 package org.apache.samza.checkpoint
 
-import scala.collection.JavaConversions._
+import java.util
+
+import org.apache.samza.container.TaskName
 import org.apache.samza.Partition
 import org.apache.samza.system.SystemStream
 import org.apache.samza.system.SystemStreamMetadata
@@ -30,9 +32,9 @@ import org.junit.{Ignore, Test}
 import org.apache.samza.SamzaException
 import org.apache.samza.config.MapConfig
 import org.apache.samza.system.SystemAdmin
-import java.util
-import org.apache.samza.container.TaskName
 import org.scalatest.Assertions.intercept
+
+import scala.collection.JavaConversions._
 
 class TestOffsetManager {
   @Test
@@ -47,7 +49,7 @@ class TestOffsetManager {
     val offsetManager = OffsetManager(systemStreamMetadata, config)
     offsetManager.register(taskName, Set(systemStreamPartition))
     offsetManager.start
-    assertTrue(!offsetManager.getLastProcessedOffset(systemStreamPartition).isDefined)
+    assertFalse(offsetManager.getLastProcessedOffset(systemStreamPartition).isDefined)
     assertTrue(offsetManager.getStartingOffset(systemStreamPartition).isDefined)
     assertEquals("0", offsetManager.getStartingOffset(systemStreamPartition).get)
   }
@@ -232,7 +234,6 @@ class TestOffsetManager {
       override def writeChangeLogPartitionMapping(mapping: util.Map[TaskName, java.lang.Integer]): Unit = taskNameToPartitionMapping = mapping
 
       override def readChangeLogPartitionMapping(): util.Map[TaskName, java.lang.Integer] = taskNameToPartitionMapping
-
     }
   }
 

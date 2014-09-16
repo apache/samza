@@ -19,13 +19,18 @@
 
 package org.apache.samza.config;
 
-import org.junit.Assert.* ;
-import org.junit.Test ;
-import java.util.Map ;
-import java.util.HashMap ;
+import static org.junit.Assert.assertEquals;
+
+import java.util.Map;
+import java.util.HashMap;
+
+import org.junit.Test;
 
 public class TestConfig {
-  // Utility methods to make it easier to tell the class of a primitive via overloaded args
+  /**
+   * Utility methods to make it easier to tell the class of a primitive via
+   * overloaded args
+   */
   Class getClass(long l) {
     return Long.class ;
   }
@@ -35,25 +40,25 @@ public class TestConfig {
   }
 
   @Test
-  public void testgetShortAndLong(){
-    Map<String, String> m = new HashMap<String, String>() { {
-      put("testkey", "11") ;
-    } } ;
+  public void testgetShortAndLong() {
+    Map<String, String> m = new HashMap<String, String>() {{
+      put("testkey", "11");
+    }};
 
-    MapConfig mc = new MapConfig(m) ;
-    short defaultShort=0 ;
-    long defaultLong=0 ;
+    MapConfig mc = new MapConfig(m);
+    short defaultShort = 0;
+    long defaultLong = 0;
 
-    Class c1 = getClass(mc.getShort("testkey")) ;
-    assert(c1 == Short.class) ;
+    Class c1 = getClass(mc.getShort("testkey"));
+    assertEquals(Short.class, c1);
 
-    Class c2 = getClass(mc.getShort("testkey", defaultShort)) ;
-    assert(c2 == Short.class) ;
+    Class c2 = getClass(mc.getShort("testkey", defaultShort));
+    assertEquals(Short.class, c2);
 
-    Class c3 = getClass(mc.getLong("testkey")) ;
-    assert(c3 == Long.class) ;
+    Class c3 = getClass(mc.getLong("testkey"));
+    assertEquals(Long.class, c3);
 
-    Class c4 = getClass(mc.getLong("testkey", defaultLong)) ;
-    assert(c4 == Long.class) ;
+    Class c4 = getClass(mc.getLong("testkey", defaultLong));
+    assertEquals(Long.class, c4);
   }
 }

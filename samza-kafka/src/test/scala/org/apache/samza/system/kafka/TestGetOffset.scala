@@ -19,17 +19,19 @@
 
 package org.apache.samza.system.kafka
 
-import org.junit._
-import org.junit.Assert._
+import java.nio.ByteBuffer
+
 import kafka.api._
 import kafka.common.TopicAndPartition
-import org.mockito.{ Matchers, Mockito }
-import org.mockito.Mockito._
-import org.mockito.Matchers._
 import kafka.consumer.SimpleConsumer
 import kafka.message.Message
 import kafka.message.ByteBufferMessageSet
-import java.nio.ByteBuffer
+
+import org.junit._
+import org.junit.Assert._
+import org.mockito.{ Matchers, Mockito }
+import org.mockito.Mockito._
+import org.mockito.Matchers._
 
 class TestGetOffset {
 

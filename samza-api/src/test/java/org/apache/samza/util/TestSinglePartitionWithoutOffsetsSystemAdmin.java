@@ -20,10 +20,12 @@
 package org.apache.samza.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
 import org.apache.samza.Partition;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -36,12 +38,14 @@ public class TestSinglePartitionWithoutOffsetsSystemAdmin {
     Set<String> streamNames = new HashSet<String>();
     streamNames.add("a");
     streamNames.add("b");
+
     Map<String, SystemStreamMetadata> metadata = admin.getSystemStreamMetadata(streamNames);
-    assertEquals(metadata.size(), 2);
+    assertEquals(2, metadata.size());
     SystemStreamMetadata metadata1 = metadata.get("a");
     SystemStreamMetadata metadata2 = metadata.get("b");
+
     assertEquals(1, metadata1.getSystemStreamPartitionMetadata().size());
     assertEquals(1, metadata2.getSystemStreamPartitionMetadata().size());
-    assertEquals(null, metadata.get(new SystemStreamPartition("test-system", "c", new Partition(0))));
+    assertNull(metadata.get(new SystemStreamPartition("test-system", "c", new Partition(0))));
   }
 }

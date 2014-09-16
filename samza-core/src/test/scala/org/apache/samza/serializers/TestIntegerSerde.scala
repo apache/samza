@@ -19,9 +19,10 @@
 
 package org.apache.samza.serializers
 
+import java.util.Arrays
+
 import org.junit.Assert._
 import org.junit.Test
-import java.util.Arrays
 
 class TestIntegerSerde {
   @Test
@@ -33,7 +34,7 @@ class TestIntegerSerde {
     val fooBar = 37
     val fooBarBytes = serde.toBytes(fooBar)
     fooBarBytes.foreach(System.err.println)
-    assertTrue(Arrays.equals(Array[Byte](0, 0, 0, 37), fooBarBytes))
+    assertArrayEquals(Array[Byte](0, 0, 0, 37), fooBarBytes)
     assertEquals(fooBar, serde.fromBytes(fooBarBytes))
   }
 }

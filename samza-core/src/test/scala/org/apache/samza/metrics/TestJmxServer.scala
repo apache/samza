@@ -22,14 +22,15 @@ package org.apache.samza.metrics
 import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.util.Logging
-import javax.management.remote.{JMXConnector, JMXConnectorFactory, JMXServiceURL}
+
 import java.io.IOException
 
+import javax.management.remote.{JMXConnector, JMXConnectorFactory, JMXServiceURL}
 
 class TestJmxServer extends Logging {
   @Test
   def serverStartsUp {
-    var jmxServer:JmxServer = null
+    var jmxServer: JmxServer = null
 
     try {
       jmxServer = new JmxServer
@@ -45,14 +46,16 @@ class TestJmxServer extends Logging {
         assertTrue("Connected but mbean count is somehow 0", connection.getMBeanCount.intValue() > 0)
       } catch {
         case ioe:IOException => fail("Couldn't open connection to local JMX server")
-      }finally {
-        if(jmxConnector != null) jmxConnector.close
+      } finally {
+        if (jmxConnector != null) {
+          jmxConnector.close
+        }
       }
 
     } finally {
-      if (jmxServer != null) jmxServer.stop
+      if (jmxServer != null) {
+        jmxServer.stop
+      }
     }
-
   }
-
 }
