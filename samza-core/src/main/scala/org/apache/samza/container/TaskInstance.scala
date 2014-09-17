@@ -19,24 +19,26 @@
 
 package org.apache.samza.container
 
-import org.apache.samza.metrics.MetricsReporter
+import org.apache.samza.SamzaException
+import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
-import org.apache.samza.util.Logging
+import org.apache.samza.config.TaskConfig.Config2Task
+import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.storage.TaskStorageManager
+import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.system.SystemConsumers
 import org.apache.samza.task.TaskContext
 import org.apache.samza.task.ClosableTask
 import org.apache.samza.task.InitableTask
-import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.task.WindowableTask
 import org.apache.samza.task.TaskLifecycleListener
 import org.apache.samza.task.StreamTask
-import org.apache.samza.system.SystemConsumers
 import org.apache.samza.task.ReadableCoordinator
-import org.apache.samza.checkpoint.OffsetManager
-import org.apache.samza.SamzaException
-import scala.collection.JavaConversions._
 import org.apache.samza.task.TaskInstanceCollector
+import org.apache.samza.util.Logging
+
+import scala.collection.JavaConversions._
 
 class TaskInstance(
   task: StreamTask,
@@ -49,7 +51,8 @@ class TaskInstance(
   storageManager: TaskStorageManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   listeners: Seq[TaskLifecycleListener] = Seq(),
-  val systemStreamPartitions: Set[SystemStreamPartition] = Set()) extends Logging {
+  val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
+  val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler) extends Logging {
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
@@ -130,7 +133,9 @@ class TaskInstance(
 
     trace("Processing incoming message envelope for taskName and SSP: %s, %s" format (taskName, envelope.getSystemStreamPartition))
 
-    task.process(envelope, collector, coordinator)
+    exceptionHandler.maybeHandle {
+      task.process(envelope, collector, coordinator)
+    }
 
     listeners.foreach(_.afterProcess(envelope, config, context))
 
@@ -145,7 +150,9 @@ class TaskInstance(
 
       metrics.windows.inc
 
-      task.asInstanceOf[WindowableTask].window(collector, coordinator)
+      exceptionHandler.maybeHandle {
+        task.asInstanceOf[WindowableTask].window(collector, coordinator)
+      }
     }
   }
 

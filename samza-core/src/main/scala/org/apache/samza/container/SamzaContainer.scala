@@ -19,8 +19,8 @@
 
 package org.apache.samza.container
 
-import org.apache.samza.util.Logging
 import java.io.File
+
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointManagerFactory, OffsetManager}
@@ -56,11 +56,13 @@ import org.apache.samza.system.chooser.DefaultChooser
 import org.apache.samza.system.chooser.MessageChooserFactory
 import org.apache.samza.system.chooser.RoundRobinChooserFactory
 import org.apache.samza.task.StreamTask
+import org.apache.samza.task.TaskInstanceCollector
 import org.apache.samza.task.TaskLifecycleListener
 import org.apache.samza.task.TaskLifecycleListenerFactory
+import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
+
 import scala.collection.JavaConversions._
-import org.apache.samza.task.TaskInstanceCollector
 
 object SamzaContainer extends Logging {
 
@@ -86,8 +88,8 @@ object SamzaContainer extends Logging {
   }
 
   def safeMain(jmxServer: JmxServer = new JmxServer) {
-    // Break out the main method to make the JmxServer injectable so we can 
-    // validate that we don't leak JMX non-daemon threads if we have an 
+    // Break out the main method to make the JmxServer injectable so we can
+    // validate that we don't leak JMX non-daemon threads if we have an
     // exception in the main method.
     try {
       val containerName = System.getenv(ShellCommandConfig.ENV_CONTAINER_NAME)
@@ -374,7 +376,7 @@ object SamzaContainer extends Logging {
       }
     }
 
-    // TODO not sure how we should make this config based, or not. Kind of 
+    // TODO not sure how we should make this config based, or not. Kind of
     // strange, since it has some dynamic directories when used with YARN.
     val storeBaseDir = new File(System.getProperty("user.dir"), "state")
 
@@ -492,7 +494,8 @@ object SamzaContainer extends Logging {
         storageManager = storageManager,
         reporters = reporters,
         listeners = listeners,
-        systemStreamPartitions = systemStreamPartitions)
+        systemStreamPartitions = systemStreamPartitions,
+        exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config))
 
       (taskName, taskInstance)
     }).toMap

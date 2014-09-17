@@ -25,7 +25,7 @@ import org.apache.samza.container.SamzaContainerMetrics
 
 class TestMetricsHelper {
   @Test
-  def testMetricsHelperGroupShouldBePAckageName {
+  def testMetricsHelperGroupShouldBePackageName {
     assertEquals(classOf[SamzaContainerMetrics].getName, new SamzaContainerMetrics().group)
   }
 }

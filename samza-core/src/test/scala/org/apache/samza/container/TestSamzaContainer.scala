@@ -56,7 +56,7 @@ class TestSamzaContainer extends AssertionsForJUnit {
       }
     }
     intercept[Exception] {
-      // Calling main will trigger an NPE since the container checks for an 
+      // Calling main will trigger an NPE since the container checks for an
       // isCompressed environment variable, which isn't set.
       SamzaContainer.safeMain(jmxServer)
     }
@@ -128,7 +128,7 @@ class TestSamzaContainer extends AssertionsForJUnit {
       container.run
       fail("Expected exception to be thrown in run method.")
     } catch {
-      case e: Exception => // Expected 
+      case e: Exception => // Expected
     }
     assertTrue(task.wasShutdown)
   }

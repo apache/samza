@@ -19,11 +19,16 @@
 
 package org.apache.samza.container
 
-import org.junit.Assert._
-import org.junit.Test
+import java.util.concurrent.ConcurrentHashMap
+
+import org.apache.samza.SamzaException
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.OffsetManager
+import org.apache.samza.config.Config
 import org.apache.samza.config.MapConfig
+import org.apache.samza.metrics.Counter
+import org.apache.samza.metrics.Metric
+import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemConsumer
@@ -40,6 +45,10 @@ import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskCoordinator
 import org.apache.samza.task.TaskInstanceCollector
+import org.apache.samza.task.WindowableTask
+import org.junit.Assert._
+import org.junit.Test
+import org.scalatest.Assertions.intercept
 
 import scala.collection.JavaConversions._
 
@@ -80,5 +89,155 @@ class TestTaskInstance {
     val lastProcessedOffset = offsetManager.getLastProcessedOffset(systemStreamPartition)
     assertTrue(lastProcessedOffset.isDefined)
     assertEquals("2", lastProcessedOffset.get)
+  }
+
+  /**
+   * Mock exception used to test exception counts metrics.
+   */
+  class TroublesomeException extends RuntimeException {
+  }
+
+  /**
+   * Mock exception used to test exception counts metrics.
+   */
+  class NonFatalException extends RuntimeException {
+  }
+
+  /**
+   * Mock exception used to test exception counts metrics.
+   */
+  class FatalException extends RuntimeException {
+  }
+
+  /**
+   * Task used to test exception counts metrics.
+   */
+  class TroublesomeTask extends StreamTask with WindowableTask {
+    def process(
+      envelope: IncomingMessageEnvelope,
+      collector: MessageCollector,
+      coordinator: TaskCoordinator) {
+
+      envelope.getOffset().toInt match {
+        case offset if offset % 2 == 0 => throw new TroublesomeException
+        case _ => throw new NonFatalException
+      }
+    }
+
+    def window(collector: MessageCollector, coordinator: TaskCoordinator) {
+      throw new FatalException
+    }
+  }
+
+  /*
+   * Helper method used to retrieve the value of a counter from a group.
+   */
+  private def getCount(
+    group: ConcurrentHashMap[String, Metric],
+    name: String): Long = {
+    group.get("exception-ignored-" + name.toLowerCase).asInstanceOf[Counter].getCount
+  }
+
+  /**
+   * Test task instance exception metrics with two ignored exceptions and one
+   * exception not ignored.
+   */
+  @Test
+  def testExceptionCounts {
+    val task = new TroublesomeTask
+    val ignoredExceptions = classOf[TroublesomeException].getName + "," +
+      classOf[NonFatalException].getName
+    val config = new MapConfig(Map[String, String](
+      "task.ignored.exceptions" -> ignoredExceptions))
+
+    val partition = new Partition(0)
+    val consumerMultiplexer = new SystemConsumers(
+      new RoundRobinChooser,
+      Map[String, SystemConsumer]())
+    val producerMultiplexer = new SystemProducers(
+      Map[String, SystemProducer](),
+      new SerdeManager)
+    val systemStream = new SystemStream("test-system", "test-stream")
+    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+    // Pretend our last checkpointed (next) offset was 2.
+    val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
+    val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
+    val taskName = new TaskName("taskName")
+    val collector = new TaskInstanceCollector(producerMultiplexer)
+
+    val registry = new MetricsRegistryMap
+    val taskMetrics = new TaskInstanceMetrics(registry = registry)
+    val taskInstance: TaskInstance = new TaskInstance(
+      task,
+      taskName,
+      config,
+      taskMetrics,
+      consumerMultiplexer,
+      collector,
+      offsetManager,
+      exceptionHandler = TaskInstanceExceptionHandler(taskMetrics, config))
+
+    val coordinator = new ReadableCoordinator(taskName)
+    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "1", null, null), coordinator)
+    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "2", null, null), coordinator)
+    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "3", null, null), coordinator)
+
+    val group = registry.getGroup(taskMetrics.group)
+    assertEquals(1L, getCount(group, classOf[TroublesomeException].getName))
+    assertEquals(2L, getCount(group, classOf[NonFatalException].getName))
+
+    intercept[FatalException] {
+      taskInstance.window(coordinator)
+    }
+    assertFalse(group.contains(classOf[FatalException].getName.toLowerCase))
+  }
+
+  /**
+   * Test task instance exception metrics with all exception ignored using a
+   * wildcard.
+   */
+  @Test
+  def testIgnoreAllExceptions {
+    val task = new TroublesomeTask
+    val config = new MapConfig(Map[String, String](
+      "task.ignored.exceptions" -> "*"))
+
+    val partition = new Partition(0)
+    val consumerMultiplexer = new SystemConsumers(
+      new RoundRobinChooser,
+      Map[String, SystemConsumer]())
+    val producerMultiplexer = new SystemProducers(
+      Map[String, SystemProducer](),
+      new SerdeManager)
+    val systemStream = new SystemStream("test-system", "test-stream")
+    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+    // Pretend our last checkpointed (next) offset was 2.
+    val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
+    val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
+    val taskName = new TaskName("taskName")
+    val collector = new TaskInstanceCollector(producerMultiplexer)
+
+    val registry = new MetricsRegistryMap
+    val taskMetrics = new TaskInstanceMetrics(registry = registry)
+    val taskInstance: TaskInstance = new TaskInstance(
+      task,
+      taskName,
+      config,
+      taskMetrics,
+      consumerMultiplexer,
+      collector,
+      offsetManager,
+      exceptionHandler = TaskInstanceExceptionHandler(taskMetrics, config))
+
+    val coordinator = new ReadableCoordinator(taskName)
+    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "1", null, null), coordinator)
+    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "2", null, null), coordinator)
+    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "3", null, null), coordinator)
+    taskInstance.window(coordinator)
+
+    val group = registry.getGroup(taskMetrics.group)
+    assertEquals(1L, getCount(group, classOf[TroublesomeException].getName))
+    assertEquals(2L, getCount(group, classOf[NonFatalException].getName))
+    assertEquals(1L, getCount(group, classOf[FatalException].getName))
   }
 }

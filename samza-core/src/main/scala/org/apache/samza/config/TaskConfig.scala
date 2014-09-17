@@ -35,6 +35,7 @@ object TaskConfig {
   val MESSAGE_CHOOSER_CLASS_NAME = "task.chooser.class"
   val DROP_DESERIALIZATION_ERROR = "task.drop.deserialization.errors" // define whether drop the messages or not when deserialization fails
   val DROP_SERIALIZATION_ERROR = "task.drop.serialization.errors" // define whether drop the messages or not when serialization fails
+  val IGNORED_EXCEPTIONS = "task.ignored.exceptions" // exceptions to ignore in process and window
 
   /**
    * Samza's container polls for more messages under two conditions. The first
@@ -95,4 +96,6 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) {
   def getDropSerialization = getOption(TaskConfig.DROP_SERIALIZATION_ERROR)
 
   def getPollIntervalMs = getOption(TaskConfig.POLL_INTERVAL_MS)
+
+  def getIgnoredExceptions = getOption(TaskConfig.IGNORED_EXCEPTIONS)
 }
