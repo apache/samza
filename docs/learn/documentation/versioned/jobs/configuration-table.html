@@ -311,13 +311,24 @@
                     <td class="description">
                         Any JVM options to include in the command line when executing Samza containers. For example,
                         this can be used to set the JVM heap size, to tune the garbage collector, or to enable
-                        <a href="/learn/tutorials/{{site.version}}/remote-debugging-samza.html">remote debugging</a>. Note
-                        there are some issues with the current implementation of <code>task.opts</code>:
-                        <ul>
-                            <li>If you set this property, the log configuration is disrupted. Please see
-                            <a href="https://issues.apache.org/jira/browse/SAMZA-109">SAMZA-109</a> for a workaround.</li>
-                            <li>This cannot be used when running with <code>ThreadJobFactory</code></li>
-                        </ul>
+                        <a href="/learn/tutorials/{{site.version}}/remote-debugging-samza.html">remote debugging</a>.
+                        This cannot be used when running with <code>ThreadJobFactory</code>. Anything you put in
+                        <code>task.opts</code> gets forwarded directly to the commandline as part of the JVM invocation.
+                        <dl>
+                            <dt>Example: <code>task.opts=-XX:+HeapDumpOnOutOfMemoryError -XX:+UseConcMarkSweepGC</code></dt>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="task-java-home">task.java.home</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The JAVA_HOME path for Samza containers. By setting this property, you can use a java version that is
+                        different from your cluster's java version. Remember to set the <code>yarn.am.java.home</code> as well.
+                        <dl>
+                            <dt>Example: <code>task.java.home=/usr/java/jdk1.8.0_05</code></dt>
+                        </dl>
                     </td>
                 </tr>
 
@@ -1095,6 +1106,18 @@
                         Any JVM options to include in the command line when executing the Samza
                         <a href="../yarn/application-master.html">ApplicationMaster</a>. For example, this can be
                         used to set the JVM heap size, to tune the garbage collector, or to enable remote debugging.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-am-java-home">yarn.am.java.home</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The JAVA_HOME path for Samza AM. By setting this property, you can use a java version that is
+                        different from your cluster's java version. Remember to set the <code>task.java.home</code> as well.
+                        <dl>
+                            <dt>Example: <code>yarn.am.java.home=/usr/java/jdk1.8.0_05</code></dt>
+                        </dl>
                     </td>
                 </tr>
 

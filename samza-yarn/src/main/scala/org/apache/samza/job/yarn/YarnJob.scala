@@ -47,10 +47,10 @@ object YarnJob {
  */
 class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
   import YarnJob._
-  
+
   val client = new ClientHelper(hadoopConfig)
   var appId: Option[ApplicationId] = None
-  
+
   def submit: YarnJob = {
     appId = client.submitApplication(
       new Path(config.getPackagePath.getOrElse(throw new SamzaException("No YARN package path defined in config."))),
@@ -62,7 +62,8 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
       Some(Map(
         ShellCommandConfig.ENV_CONFIG -> Util.envVarEscape(JsonConfigSerializer.toJson(config)),
         ShellCommandConfig.ENV_CONTAINER_NAME -> Util.envVarEscape("application-master"),
-        ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(config.getAmOpts.getOrElse("")))),
+        ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(config.getAmOpts.getOrElse("")),
+        ShellCommandConfig.ENV_JAVA_HOME -> Util.envVarEscape(config.getAMJavaHome.getOrElse("")))),
       Some("%s_%s" format (config.getName.get, config.getJobId.getOrElse(1))))
 
     this

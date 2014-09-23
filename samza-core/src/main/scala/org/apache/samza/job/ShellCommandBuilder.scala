@@ -109,6 +109,7 @@ class ShellCommandBuilder extends CommandBuilder {
       ShellCommandConfig.ENV_TASK_NAME_TO_CHANGELOG_PARTITION_MAPPING -> taskNameToChangeLogPartitionMappingString,
       ShellCommandConfig.ENV_CONFIG -> envConfig,
       ShellCommandConfig.ENV_JAVA_OPTS -> config.getTaskOpts.getOrElse(""),
+      ShellCommandConfig.ENV_JAVA_HOME -> config.getJavaHome.getOrElse(""),
       ShellCommandConfig.ENV_COMPRESS_CONFIG -> isCompressed)
 
   }

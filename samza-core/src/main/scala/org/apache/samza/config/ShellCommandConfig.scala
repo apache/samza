@@ -47,12 +47,18 @@ object ShellCommandConfig {
   val ENV_JAVA_OPTS = "JAVA_OPTS"
 
   /**
+   * The JAVA_HOME path for running the task
+   */
+  val ENV_JAVA_HOME = "JAVA_HOME"
+
+  /**
    * Specifies whether the config for ENV_CONFIG and ENV_SYSTEM_STREAMS are compressed or not.
    */
   val ENV_COMPRESS_CONFIG = "SAMZA_COMPRESS_CONFIG"
 
   val COMMAND_SHELL_EXECUTE = "task.execute"
   val TASK_JVM_OPTS = "task.opts"
+  val TASK_JAVA_HOME = "task.java.home"
   val COMPRESS_ENV_CONFIG = "task.config.compress"
 
   implicit def Config2ShellCommand(config: Config) = new ShellCommandConfig(config)
@@ -62,6 +68,8 @@ class ShellCommandConfig(config: Config) extends ScalaMapConfig(config) {
   def getCommand = getOption(ShellCommandConfig.COMMAND_SHELL_EXECUTE).getOrElse("bin/run-container.sh")
 
   def getTaskOpts = getOption(ShellCommandConfig.TASK_JVM_OPTS)
+
+  def getJavaHome = getOption(ShellCommandConfig.TASK_JAVA_HOME)
 
   def isEnvConfigCompressed = getBoolean(ShellCommandConfig.COMPRESS_ENV_CONFIG, false)
 }
