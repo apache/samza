@@ -49,7 +49,11 @@
                     {% capture linkUrl %}{{page.url | replace:'versioned', 'latest' | replace_first: '/', ''}}{% endcapture %}
                   {% endif %}
                   <a href="{{ site.baseurl }}/{{ linkUrl }}"><i id="switch-version-button"></i></a>
+                  {% assign navLink = site.version %} <!-- links for the navigation bar -->
+                {% else %}
+                  {% assign navLink = site.latest-release %}
                 {% endif %}
+
               </div>
             </div>
           </div><!-- /.container -->
@@ -59,16 +63,16 @@
           <div class="menu">
             <h1><i class="fa fa-rocket"></i> Getting Started</h1>
             <ul>
-              <li><a href="/startup/hello-samza/latest">Hello Samza</a></li>
+              <li><a href="/startup/hello-samza/{{ navLink }}">Hello Samza</a></li>
               <li><a href="/startup/download">Download</a></li>
             </ul>
 
             <h1><i class="fa fa-book"></i> Learn</h1>
             <ul>
-              <li><a href="/learn/documentation/latest">Documentation</a></li>
-              <li><a href="/learn/documentation/latest/jobs/configuration-table.html">Configuration</a></li>
-              <li><a href="/learn/documentation/latest/api/javadocs/">Javadocs</a></li>
-              <li><a href="/learn/tutorials/latest">Tutorials</a></li>
+              <li><a href="/learn/documentation/{{ navLink }}">Documentation</a></li>
+              <li><a href="/learn/documentation/{{ navLink }}/jobs/configuration-table.html">Configuration</a></li>
+              <li><a href="/learn/documentation/{{ navLink }}/api/javadocs/">Javadocs</a></li>
+              <li><a href="/learn/tutorials/{{ navLink }}">Tutorials</a></li>
               <li><a href="http://wiki.apache.org/samza/FAQ">FAQ</a></li>
               <li><a href="http://wiki.apache.org/samza">Wiki</a></li>
               <li><a href="http://wiki.apache.org/samza/PapersAndTalks">Papers &amp; Talks</a></li>
