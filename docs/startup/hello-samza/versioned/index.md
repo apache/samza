@@ -27,6 +27,7 @@ Check out the hello-samza project:
 {% highlight bash %}
 git clone git://git.apache.org/incubator-samza-hello-samza.git hello-samza
 cd hello-samza
+git checkout latest
 {% endhighlight %}
 
 This project contains everything you'll need to run your first Samza jobs.
