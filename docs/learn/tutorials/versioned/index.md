@@ -23,6 +23,8 @@ title: Tutorials
 
 [Deploying a Samza Job from HDFS](deploy-samza-job-from-hdfs.html)
 
+[Deoloy Samza to CDH](deploy-samza-to-CDH.html)
+
 [Run Hello-samza in Multi-node YARN](run-in-multi-node-yarn.html)
 
 [Run Hello-samza without Internet](run-hello-samza-without-internet.html)
