@@ -82,7 +82,9 @@ class SystemProducers(
     }
 
     if (!bytesEnvelope.isEmpty) {
-      producers(envelope.getSystemStream.getSystem).send(source, bytesEnvelope.get)
+      val system = envelope.getSystemStream.getSystem
+      val producer = producers.getOrElse(system, throw new SamzaException("Attempting to produce to unknown system: %s. Available systems: %s. Please add the system to your configuration, or update outgoing message envelope to send to a defined system." format (system, producers.keySet)))
+      producer.send(source, bytesEnvelope.get)
     }
   }
 }
