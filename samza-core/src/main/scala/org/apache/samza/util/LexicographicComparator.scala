@@ -16,22 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-core',
-  'samza-kafka',
-  'samza-kv',
-  'samza-kv-inmemory',
-  'samza-kv-leveldb',
-  'samza-kv-rocksdb',
-  'samza-log4j',
-  'samza-serializers',
-  'samza-shell',
-  'samza-yarn',
-  'samza-test'
 
-rootProject.children.each {
-  if (it.name != 'samza-api' && it.name != 'samza-shell' && it.name != 'samza-log4j') {
-    it.name = it.name + "_" + scalaVersion
+package org.apache.samza.util;
+
+import java.util.Comparator
+
+/**
+ * A comparator that applies a lexicographical comparison on byte arrays.
+ */
+class LexicographicComparator extends Comparator[Array[Byte]] {
+  def compare(k1: Array[Byte], k2: Array[Byte]): Int = {
+    val l = math.min(k1.length, k2.length)
+    var i = 0
+    while (i < l) {
+      if (k1(i) != k2(i))
+        return (k1(i) & 0xff) - (k2(i) & 0xff)
+      i += 1
+    }
+    // okay prefixes are equal, the shorter array is less
+    k1.length - k2.length
   }
 }

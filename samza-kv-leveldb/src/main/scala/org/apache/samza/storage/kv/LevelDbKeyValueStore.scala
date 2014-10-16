@@ -24,7 +24,7 @@ import org.fusesource.leveldbjni.JniDBFactory._
 import java.io._
 import org.apache.samza.config.Config
 import org.apache.samza.container.SamzaContainerContext
-import org.apache.samza.util.Logging
+import org.apache.samza.util.{LexicographicComparator, Logging}
 
 object LevelDbKeyValueStore extends Logging {
 
@@ -64,7 +64,7 @@ class LevelDbKeyValueStore(
   val metrics: KeyValueStoreMetrics = new KeyValueStoreMetrics) extends KeyValueStore[Array[Byte], Array[Byte]] with Logging {
 
   private lazy val db = factory.open(dir, options)
-  private val lexicographic = new LexicographicComparator()
+  private val lexicographic = new LevelDBLexicographicComparator()
   private var deletesSinceLastCompaction = 0
 
   def get(key: Array[Byte]): Array[Byte] = {
@@ -209,18 +209,7 @@ class LevelDbKeyValueStore(
   /**
    * Compare two array lexicographically using unsigned byte arithmetic
    */
-  class LexicographicComparator extends DBComparator {
-    def compare(k1: Array[Byte], k2: Array[Byte]): Int = {
-      val l = math.min(k1.length, k2.length)
-      var i = 0
-      while (i < l) {
-        if (k1(i) != k2(i))
-          return (k1(i) & 0xff) - (k2(i) & 0xff)
-        i += 1
-      }
-      // okay prefixes are equal, the shorter array is less
-      k1.length - k2.length
-    }
+  class LevelDBLexicographicComparator extends LexicographicComparator with DBComparator {
     def name(): String = "lexicographic"
     def findShortestSeparator(start: Array[Byte], limit: Array[Byte]) = start
     def findShortSuccessor(key: Array[Byte]) = key

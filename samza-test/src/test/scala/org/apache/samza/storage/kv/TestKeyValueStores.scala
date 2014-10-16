@@ -55,36 +55,38 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
 
   @Before
   def setup() {
-    val kvStore : KeyValueStore[Array[Byte], Array[Byte]] = if ("leveldb".equals(typeOfStore)) {
-      dir.mkdirs()
-      val leveldb = new LevelDbKeyValueStore(dir, new Options)
-      leveldb
-    } else if ("inmemory".equals(typeOfStore)) {
-      val inmemoryDb = new InMemoryKeyValueStore
-      inmemoryDb
-    } else {
-      throw new IllegalArgumentException("Type of store undefined: " + typeOfStore)
+    val kvStore : KeyValueStore[Array[Byte], Array[Byte]] = typeOfStore match {
+      case "leveldb" =>
+        dir.mkdirs ()
+        new LevelDbKeyValueStore (dir, new Options)
+      case "inmemory" =>
+        new InMemoryKeyValueStore
+      case "rocksdb" =>
+        new RocksDbKeyValueStore (dir, new org.rocksdb.Options().setCreateIfMissing(true).setCompressionType(org.rocksdb.CompressionType.SNAPPY_COMPRESSION))
+      case _ =>
+        throw new IllegalArgumentException("Type of store undefined: " + typeOfStore)
     }
 
     val passThroughSerde = new Serde[Array[Byte]] {
       def toBytes(obj: Array[Byte]) = obj
       def fromBytes(bytes: Array[Byte]) = bytes
     }
-    store = if ("cache".equals(storeConfig)) {
-      cache = true
-      new CachedStore(kvStore, CacheSize, BatchSize)
-    } else if ("serde".equals(storeConfig)) {
-      serde = true
-      new SerializedKeyValueStore(kvStore, passThroughSerde, passThroughSerde)
-    } else if ("cache-and-serde".equals(storeConfig)) {
-      val serializedStore = new SerializedKeyValueStore(kvStore, passThroughSerde, passThroughSerde)
-      serde = true
-      cache = true
-      new CachedStore(serializedStore, CacheSize, BatchSize)
-    } else {
-      kvStore
-    }
 
+    store = storeConfig match {
+      case "cache" =>
+        cache = true
+        new CachedStore(kvStore, CacheSize, BatchSize)
+      case "serde" =>
+        serde = true
+        new SerializedKeyValueStore(kvStore, passThroughSerde, passThroughSerde)
+      case "cache-and-serde" =>
+        val serializedStore = new SerializedKeyValueStore(kvStore, passThroughSerde, passThroughSerde)
+        serde = true
+        cache = true
+        new CachedStore(serializedStore, CacheSize, BatchSize)
+      case _ =>
+        kvStore
+    }
     store = new NullSafeKeyValueStore(store)
   }
 
@@ -215,14 +217,14 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
   def testBrokenScalaDoubleLinkedList() {
     val something = b("")
     val keys = letters
-      .map(b(_))
-      .toArray
+            .map(b(_))
+            .toArray
 
     // Load the cache to capacity.
     letters
-      .slice(0, TestKeyValueStores.CacheSize)
-      .map(b(_))
-      .foreach(store.put(_, something))
+            .slice(0, TestKeyValueStores.CacheSize)
+            .map(b(_))
+            .foreach(store.put(_, something))
 
     // Now keep everything in the cache, but with an empty dirty list.
     store.flush
@@ -247,9 +249,9 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
     // Get rid of 1 from the cache by reading every other element, and then 
     // putting one new element.
     letters
-      .slice(2, TestKeyValueStores.CacheSize)
-      .map(b(_))
-      .foreach(store.get(_))
+            .slice(2, TestKeyValueStores.CacheSize)
+            .map(b(_))
+            .foreach(store.get(_))
     store.put(keys(TestKeyValueStores.CacheSize), something)
 
     // Now try and trigger an NPE since the dirty list has an element (1) 
@@ -266,8 +268,8 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
     // Make test deterministic by seeding the random number generator.
     val rand = new Random(12345)
     val keys = letters
-      .map(b(_))
-      .toArray
+            .map(b(_))
+            .toArray
 
     // Map from letter to key byte array used for letter, and expected value.
     // We have to go through some acrobatics here since Java's byte array uses 
@@ -340,5 +342,20 @@ object TestKeyValueStores {
   val CacheSize = 10
   val BatchSize = 5
   @Parameters
-  def parameters: java.util.Collection[Array[String]] = Arrays.asList(Array("leveldb", "cache"), Array("leveldb", "serde"), Array("leveldb", "cache-and-serde"), Array("leveldb", "none"), Array("inmemory", "cache"), Array("inmemory", "serde"), Array("inmemory", "cache-and-serde"), Array("inmemory", "none"))
+  def parameters: java.util.Collection[Array[String]] = Arrays.asList(
+      //LevelDB
+      Array("leveldb", "cache"),
+      Array("leveldb", "serde"),
+      Array("leveldb", "cache-and-serde"),
+      Array("leveldb", "none"),
+      //Inmemory
+      Array("inmemory", "cache"),
+      Array("inmemory", "serde"),
+      Array("inmemory", "cache-and-serde"),
+      Array("inmemory", "none"),
+      //RocksDB
+      Array("rocksdb","cache"),
+      Array("rocksdb","serde"),
+      Array("rocksdb","cache-and-serde"),
+      Array("rocksdb","none"))
 }
