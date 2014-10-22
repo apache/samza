@@ -207,7 +207,7 @@ class BrokerProxy(
       exception <- Option(ErrorMapping.exceptionFor(errorCode))
     ) yield new Error(error.getKey, errorCode, exception)
 
-    val (notLeaders, otherErrors) = errors.partition(_.code == ErrorMapping.NotLeaderForPartitionCode)
+    val (notLeaderOrUnknownTopic, otherErrors) = errors.partition { case (e) => e.code == ErrorMapping.NotLeaderForPartitionCode || e.code == ErrorMapping.UnknownTopicOrPartitionCode }
     val (offsetOutOfRangeErrors, remainingErrors) = otherErrors.partition(_.code == ErrorMapping.OffsetOutOfRangeCode)
 
     // Can recover from two types of errors: not leader (go find the new leader) and offset out of range (go get the new offset)
@@ -218,7 +218,7 @@ class BrokerProxy(
       warn("Got non-recoverable error codes during multifetch. Throwing an exception to trigger reconnect. Errors: %s" format remainingErrors.mkString(","))
       ErrorMapping.maybeThrowException(e.code) })
 
-    notLeaders.foreach(e => abdicate(e.tp))
+    notLeaderOrUnknownTopic.foreach(e => abdicate(e.tp))
 
     offsetOutOfRangeErrors.foreach(e => {
       warn("Received OffsetOutOfRange exception for %s. Current offset = %s" format (e.tp, nextOffsets.getOrElse(e.tp, "not found in map, likely removed in the interim")))
