@@ -17,26 +17,27 @@
  * under the License.
  */
 
-package org.apache.samza.job
+package org.apache.samza.coordinator.server;
 
-import org.apache.samza.config.ShellCommandConfig
-import org.apache.samza.config.ShellCommandConfig.Config2ShellCommand
-import scala.collection.JavaConversions._
+import java.io.IOException;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import org.codehaus.jackson.map.ObjectMapper;
 
-class ShellCommandBuilder extends CommandBuilder {
-  def buildCommand() = config.getCommand
+object ServletBase {
+  val JSON_MAPPER = new ObjectMapper()
+}
 
-  def buildEnvironment(): java.util.Map[String, String] = {
-    val envMap = Map(
-      ShellCommandConfig.ENV_CONTAINER_ID -> id.toString,
-      ShellCommandConfig.ENV_COORDINATOR_URL -> url.toString,
-      ShellCommandConfig.ENV_JAVA_OPTS -> config.getTaskOpts.getOrElse(""))
+trait ServletBase extends HttpServlet {
+  import ServletBase._
 
-    val envMapWithJavaHome = config.getJavaHome match {
-      case Some(javaHome) => envMap + (ShellCommandConfig.ENV_JAVA_HOME -> javaHome)
-      case None => envMap
-    }
-
-    envMapWithJavaHome
+  override protected def doGet(request: HttpServletRequest, response: HttpServletResponse) {
+    response.setContentType("application/json")
+    response.setStatus(HttpServletResponse.SC_OK)
+    JSON_MAPPER.writeValue(response.getWriter(), getObjectToWrite())
   }
+
+  protected def getObjectToWrite(): Object
 }

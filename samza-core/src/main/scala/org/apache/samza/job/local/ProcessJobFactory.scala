@@ -19,27 +19,25 @@
 
 package org.apache.samza.job.local
 
-import org.apache.samza.container.{TaskNamesToSystemStreamPartitions, SamzaContainer}
+import org.apache.samza.container.{ TaskNamesToSystemStreamPartitions, SamzaContainer }
 import org.apache.samza.util.Logging
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
 import org.apache.samza.config.TaskConfig._
-import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory}
+import org.apache.samza.job.{ CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory }
 import org.apache.samza.util.Util
-import scala.collection.JavaConverters.mapAsJavaMapConverter
-
 import scala.collection.JavaConversions._
+import org.apache.samza.coordinator.server.HttpServer
+import org.apache.samza.coordinator.server.JobServlet
 
 /**
  * Creates a stand alone ProcessJob with the specified config
  */
 class ProcessJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config): StreamJob = {
-    val jobName = "local-process-container"
-
     // Since we're local, there will only be a single task into which all the SSPs will be processed
     val taskToTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] = Util.assignContainerToSSPTaskNames(config, 1)
-    if(taskToTaskNames.size != 1) {
+    if (taskToTaskNames.size != 1) {
       throw new SamzaException("Should only have a single task count but somehow got more " + taskToTaskNames.size)
     }
 
@@ -49,10 +47,13 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
       throw new SamzaException("No SystemStreamPartitions to process were detected for your input streams. It's likely that the system(s) specified don't know about the input streams: %s" format config.getInputStreams)
     }
 
-    val taskNameToChangeLogPartitionMapping = Util.getTaskNameToChangeLogPartitionMapping(config, taskToTaskNames).map(kv => kv._1 -> Integer.valueOf(kv._2))
+    val taskNameToChangeLogPartitionMapping = Util.getTaskNameToChangeLogPartitionMapping(config, taskToTaskNames)
     info("got taskName for job %s" format sspTaskName)
 
-    val commandBuilder : CommandBuilder = {
+    val server = new HttpServer()
+    server.addServlet("/*", new JobServlet(config, taskToTaskNames, taskNameToChangeLogPartitionMapping))
+
+    val commandBuilder: CommandBuilder = {
       config.getCommandClass match {
         case Some(cmdBuilderClassName) => {
           // A command class was specified, so we need to use a process job to
@@ -68,16 +69,8 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
 
     commandBuilder
       .setConfig(config)
-      .setName(jobName)
-      .setTaskNameToSystemStreamPartitionsMapping(sspTaskName.getJavaFriendlyType)
-      .setTaskNameToChangeLogPartitionMapping(taskNameToChangeLogPartitionMapping.map(kv => kv._1 -> Integer.valueOf(kv._2)).asJava)
+      .setId(0)
 
-    val processBuilder = new ProcessBuilder(commandBuilder.buildCommand.split(" ").toList)
-
-    processBuilder
-      .environment
-      .putAll(commandBuilder.buildEnvironment)
-
-    new ProcessJob(processBuilder)
+    new ProcessJob(commandBuilder, server)
   }
 }

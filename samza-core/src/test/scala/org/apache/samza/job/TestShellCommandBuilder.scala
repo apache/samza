@@ -16,37 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.job
 
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.Partition
-import org.apache.samza.util.Util._
-import org.apache.samza.container.{TaskName, TaskNamesToSystemStreamPartitions}
 import org.junit.Assert._
 import org.junit.Test
+import scala.collection.JavaConversions._
+import org.apache.samza.config.MapConfig
+import org.apache.samza.config.ShellCommandConfig
+import java.net.URL
 
 class TestShellCommandBuilder {
-
   @Test
-  def testJsonCreateStreamPartitionStringRoundTrip() {
-    val getPartitions: Set[SystemStreamPartition] = {
-      // Build a heavily skewed set of partitions.
-      def partitionSet(max:Int) = (0 until max).map(new Partition(_)).toSet
-      val system = "all-same-system."
-      val lotsOfParts = Map(system + "topic-with-many-parts-a" -> partitionSet(128),
-        system + "topic-with-many-parts-b" -> partitionSet(128), system + "topic-with-many-parts-c" -> partitionSet(64))
-      val fewParts = ('c' to 'z').map(l => system + l.toString -> partitionSet(4)).toMap
-      val streamsMap = (lotsOfParts ++ fewParts)
-      (for(s <- streamsMap.keys;
-           part <- streamsMap.getOrElse(s, Set.empty)) yield new SystemStreamPartition(getSystemStreamFromNames(s), part)).toSet
-    }
-
-    // Group by partition...
-    val sspTaskNameMap = TaskNamesToSystemStreamPartitions(getPartitions.groupBy(p => new TaskName(p.getPartition.toString)).toMap)
-
-    val asString = ShellCommandBuilder.serializeSystemStreamPartitionSetToJSON(sspTaskNameMap.getJavaFriendlyType)
-
-    val backFromSSPTaskNameMap = TaskNamesToSystemStreamPartitions(ShellCommandBuilder.deserializeSystemStreamPartitionSetFromJSON(asString))
-    assertEquals(sspTaskNameMap, backFromSSPTaskNameMap)
+  def testEnvironmentVariables {
+    val urlStr = "http://www.google.com"
+    val config = new MapConfig(Map(ShellCommandConfig.COMMAND_SHELL_EXECUTE -> "foo"))
+    val scb = new ShellCommandBuilder
+    scb.setConfig(config)
+    scb.setId(1)
+    scb.setUrl(new URL(urlStr))
+    val command = scb.buildCommand
+    val environment = scb.buildEnvironment
+    assertEquals("foo", command)
+    assertEquals("1", environment(ShellCommandConfig.ENV_CONTAINER_ID))
+    assertEquals(urlStr, environment(ShellCommandConfig.ENV_COORDINATOR_URL))
   }
 }

@@ -22,20 +22,28 @@ package org.apache.samza.job.local;
 import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.job.ApplicationStatus
+import org.apache.samza.job.CommandBuilder
+import scala.collection.JavaConversions._
 
 class TestProcessJob {
   @Test
   def testProcessJobShouldFinishOnItsOwn {
-    val builder = new ProcessBuilder("sleep", "1")
-    val job = new ProcessJob(builder)
+    val commandBuilder = new CommandBuilder {
+      override def buildCommand = "sleep 1"
+      override def buildEnvironment = Map[String, String]()
+    }
+    val job = new ProcessJob(commandBuilder)
     job.submit
     job.waitForFinish(999999)
   }
 
   @Test
   def testProcessJobKillShouldWork {
-    val builder = new ProcessBuilder("sleep", "999999999")
-    val job = new ProcessJob(builder)
+    val commandBuilder = new CommandBuilder {
+      override def buildCommand = "sleep 999999999"
+      override def buildEnvironment = Map[String, String]()
+    }
+    val job = new ProcessJob(commandBuilder)
     job.submit
     job.waitForFinish(500)
     job.kill

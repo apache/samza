@@ -67,16 +67,14 @@ case class TaskFailure(val count: Int, val lastFailure: Long)
 class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaAppMasterState, amClient: AMRMClientAsync[ContainerRequest], conf: YarnConfiguration) extends YarnAppMasterListener with Logging {
   import SamzaAppMasterTaskManager._
 
-  state.taskCount = config.getTaskCount match {
-    case Some(count) => count
-    case None =>
+  state.taskCount = config
+    .getTaskCount
+    .getOrElse({
       info("No %s specified. Defaulting to one container." format YarnConfig.TASK_COUNT)
       1
-  }
-
-  val tasksToSSPTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] = Util.assignContainerToSSPTaskNames(config, state.taskCount)
-
-  val taskNameToChangeLogPartitionMapping = Util.getTaskNameToChangeLogPartitionMapping(config, tasksToSSPTaskNames)
+    })
+  state.tasksToSSPTaskNames = Util.assignContainerToSSPTaskNames(config, state.taskCount)
+  state.taskNameToChangeLogPartitionMapping = Util.getTaskNameToChangeLogPartitionMapping(config, state.tasksToSSPTaskNames)
 
   var taskFailures = Map[Int, TaskFailure]()
   var tooManyFailedContainers = false
@@ -111,14 +109,13 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
     state.unclaimedTasks.headOption match {
       case Some(taskId) => {
         info("Got available task id (%d) for container: %s" format (taskId, container))
-        val sspTaskNames: TaskNamesToSystemStreamPartitions = tasksToSSPTaskNames.getOrElse(taskId, TaskNamesToSystemStreamPartitions())
+        val sspTaskNames: TaskNamesToSystemStreamPartitions = state.tasksToSSPTaskNames.getOrElse(taskId, TaskNamesToSystemStreamPartitions())
         info("Claimed SSP taskNames %s for container ID %s" format (sspTaskNames, taskId))
         val cmdBuilderClassName = config.getCommandClass.getOrElse(classOf[ShellCommandBuilder].getName)
         val cmdBuilder = Class.forName(cmdBuilderClassName).newInstance.asInstanceOf[CommandBuilder]
           .setConfig(config)
-          .setName("samza-container-%s" format taskId)
-          .setTaskNameToSystemStreamPartitionsMapping(sspTaskNames.getJavaFriendlyType)
-          .setTaskNameToChangeLogPartitionMapping(taskNameToChangeLogPartitionMapping.map(kv => kv._1 -> Integer.valueOf(kv._2)).asJava)
+          .setId(taskId)
+          .setUrl(state.coordinatorUrl)
         val command = cmdBuilder.buildCommand
         info("Task ID %s using command %s" format (taskId, command))
         val env = cmdBuilder.buildEnvironment.map { case (k, v) => (k, Util.envVarEscape(v)) }
@@ -138,7 +135,7 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
         }
         state.runningTasks += taskId -> new YarnContainer(container)
         state.unclaimedTasks -= taskId
-        state.taskToTaskNames += taskId -> sspTaskNames.getJavaFriendlyType
+        state.runningTaskToTaskNames += taskId -> sspTaskNames.getJavaFriendlyType
 
         info("Claimed task ID %s for container %s on node %s (http://%s/node/containerlogs/%s)." format (taskId, containerIdStr, container.getNodeId.getHost, container.getNodeHttpAddress, containerIdStr))
 
@@ -160,7 +157,7 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
     taskId match {
       case Some(taskId) => {
         state.runningTasks -= taskId
-        state.taskToTaskNames -= taskId
+        state.runningTaskToTaskNames -= taskId
       }
       case _ => None
     }

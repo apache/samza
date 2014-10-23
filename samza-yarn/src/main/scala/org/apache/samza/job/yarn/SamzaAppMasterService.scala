@@ -20,10 +20,13 @@
 package org.apache.samza.job.yarn
 
 import org.apache.samza.util.Logging
-import org.apache.samza.webapp._
 import org.apache.samza.config.Config
 import org.apache.samza.metrics.ReadableMetricsRegistry
 import org.apache.samza.SamzaException
+import org.apache.samza.coordinator.server.HttpServer
+import org.apache.samza.coordinator.server.JobServlet
+import org.apache.samza.webapp.ApplicationMasterRestServlet
+import org.apache.samza.webapp.ApplicationMasterWebServlet
 
 /**
  * Samza's application master runs a very basic HTTP/JSON service to allow
@@ -31,39 +34,44 @@ import org.apache.samza.SamzaException
  * up the web service when initialized.
  */
 class SamzaAppMasterService(config: Config, state: SamzaAppMasterState, registry: ReadableMetricsRegistry, clientHelper: ClientHelper) extends YarnAppMasterListener with Logging {
-  var rpcApp: WebAppServer = null
-  var webApp: WebAppServer = null
+  var rpcApp: HttpServer = null
+  var webApp: HttpServer = null
+  var coordinatorApp: HttpServer = null
 
   override def onInit() {
     // try starting the samza AM dashboard at a random rpc and tracking port
     info("Starting webapp at a random rpc and tracking port")
 
-    rpcApp = new WebAppServer("/")
+    rpcApp = new HttpServer(resourceBasePath = "scalate")
     rpcApp.addServlet("/*", new ApplicationMasterRestServlet(config, state, registry))
     rpcApp.start
 
-    webApp = new WebAppServer("/")
+    webApp = new HttpServer(resourceBasePath = "scalate")
     webApp.addServlet("/*", new ApplicationMasterWebServlet(config, state))
     webApp.start
 
-    state.rpcPort = rpcApp.port
-    state.trackingPort = webApp.port
-    if (state.rpcPort > 0 && state.trackingPort > 0) {
-      info("Webapp is started at rpc %d, tracking port %d" format (state.rpcPort, state.trackingPort))
-    } else {
-      throw new SamzaException("Unable to start webapp, since the host is out of ports")
-    }
+    coordinatorApp = new HttpServer
+    coordinatorApp.addServlet("/*", new JobServlet(config, state.tasksToSSPTaskNames, state.taskNameToChangeLogPartitionMapping))
+    coordinatorApp.start
+
+    state.rpcUrl = rpcApp.getUrl
+    state.trackingUrl = webApp.getUrl
+    state.coordinatorUrl = coordinatorApp.getUrl
+
+    info("Webapp is started at (rpc %s, tracking %s, coordinator %s)" format (state.rpcUrl, state.trackingUrl, state.coordinatorUrl))
   }
 
   override def onShutdown() {
     if (rpcApp != null) {
-      rpcApp.context.stop
-      rpcApp.server.stop
+      rpcApp.stop
     }
 
     if (webApp != null) {
-      webApp.context.stop
-      webApp.server.stop
+      webApp.stop
+    }
+
+    if (coordinatorApp != null) {
+      coordinatorApp.stop
     }
   }
 }

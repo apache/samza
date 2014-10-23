@@ -96,17 +96,6 @@ class TestUtil {
   def generateString (length : Int) : String = {
     Random.alphanumeric.take(length).mkString
   }
-
-  @Test
-  def testCompressAndDecompressUtility() {
-    var len : Integer = 0
-    (10 until 1000).foreach(len => {
-      val sample = generateString(len)
-      val compressedStr = Util.compress(sample)
-      val deCompressedStr = Util.decompress(compressedStr)
-      assertEquals(sample, deCompressedStr)
-    })
-  }
 }
 
 /**

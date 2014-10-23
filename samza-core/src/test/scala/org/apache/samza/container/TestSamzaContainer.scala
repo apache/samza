@@ -44,8 +44,31 @@ import org.apache.samza.task.ClosableTask
 import org.apache.samza.task.TaskInstanceCollector
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
 import org.scalatest.junit.AssertionsForJUnit
+import org.apache.samza.coordinator.server.HttpServer
+import org.apache.samza.coordinator.server.JobServlet
+import scala.collection.JavaConversions._
 
 class TestSamzaContainer extends AssertionsForJUnit {
+  @Test
+  def testCoordinatorObjects {
+    val server = new HttpServer("/test")
+    try {
+      val taskName = new TaskName("a")
+      val set = Set(new SystemStreamPartition("a", "b", new Partition(0)))
+      val config = new MapConfig(Map("a" -> "b", "c" -> "d"))
+      val containerToTaskMapping = Map(0 -> new TaskNamesToSystemStreamPartitions(Map(taskName -> set)))
+      val taskToChangelogMapping = Map[TaskName, Int](taskName -> 0)
+      server.addServlet("/job", new JobServlet(config, containerToTaskMapping, taskToChangelogMapping))
+      server.start
+      val (returnedConfig, returnedSspTaskNames, returnedTaskNameToChangeLogPartitionMapping) = SamzaContainer.getCoordinatorObjects(server.getUrl.toString + "/job")
+      assertEquals(config, returnedConfig)
+      assertEquals(containerToTaskMapping, returnedSspTaskNames)
+      assertEquals(taskToChangelogMapping, returnedTaskNameToChangeLogPartitionMapping)
+    } finally {
+      server.stop
+    }
+  }
+
   @Test
   def testJmxServerShutdownOnException {
     var stopped = false

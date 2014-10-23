@@ -22,27 +22,36 @@ package org.apache.samza.job.yarn
 import java.io.BufferedReader
 import java.net.URL
 import java.io.InputStreamReader
-
 import org.apache.hadoop.yarn.util.ConverterUtils
 import org.apache.samza.config.MapConfig
 import org.junit.Assert._
 import org.junit.Test
-
 import scala.collection.JavaConversions._
+import org.apache.samza.config.Config
+import org.apache.samza.container.TaskName
+import org.apache.samza.container.TaskNamesToSystemStreamPartitions
+import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.Partition
 
 class TestSamzaAppMasterService {
   @Test
   def testAppMasterDashboardShouldStart {
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "", 1, 2)
-    val service = new SamzaAppMasterService(null, state, null, null)
+    val service = new SamzaAppMasterService(getDummyConfig, state, null, null)
+    val taskName = new TaskName("test")
+
+    state.tasksToSSPTaskNames = Map[Int, TaskNamesToSystemStreamPartitions]()
+    state.taskNameToChangeLogPartitionMapping = Map[TaskName, Int]()
+    state.tasksToSSPTaskNames += 0 -> new TaskNamesToSystemStreamPartitions(Map(taskName -> Set(new SystemStreamPartition("a", "b", new Partition(0)), new SystemStreamPartition("a", "b", new Partition(0)))))
+    state.taskNameToChangeLogPartitionMapping += taskName -> 0
 
     // start the dashboard
     service.onInit
-    assertTrue(state.rpcPort > 0)
-    assertTrue(state.trackingPort > 0)
+    assertTrue(state.rpcUrl.getPort > 0)
+    assertTrue(state.trackingUrl.getPort > 0)
 
     // check to see if it's running
-    val url = new URL("http://127.0.0.1:%d/am" format state.rpcPort)
+    val url = new URL(state.rpcUrl.toString + "am")
     val is = url.openConnection().getInputStream();
     val reader = new BufferedReader(new InputStreamReader(is));
     var line: String = null;
@@ -60,39 +69,36 @@ class TestSamzaAppMasterService {
    */
   @Test
   def testAppMasterDashboardWebServiceShouldStart {
-
     // Create some dummy config
-    val config = new MapConfig(Map[String, String](
-      "yarn.container.count" -> "1",
-      "systems.test-system.samza.factory" -> "org.apache.samza.job.yarn.MockSystemFactory",
-      "yarn.container.memory.mb" -> "512",
-      "yarn.package.path" -> "/foo",
-      "task.inputs" -> "test-system.test-stream",
-      "systems.test-system.samza.key.serde" -> "org.apache.samza.serializers.JsonSerde",
-      "systems.test-system.samza.msg.serde" -> "org.apache.samza.serializers.JsonSerde",
-      "yarn.container.retry.count" -> "1",
-      "yarn.container.retry.window.ms" -> "1999999999"))
-
-
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "", 1, 2)
-    val service = new SamzaAppMasterService(config, state, null, null)
+    val service = new SamzaAppMasterService(getDummyConfig, state, null, null)
 
     // start the dashboard
     service.onInit
-    assertTrue(state.rpcPort > 0)
-    assertTrue(state.trackingPort > 0)
+    assertTrue(state.rpcUrl.getPort > 0)
+    assertTrue(state.trackingUrl.getPort > 0)
 
     // Do a GET Request on the tracking port: This in turn will render index.scaml
-    val url = new URL("http://127.0.0.1:%d/" format state.trackingPort)
-    val is = url.openConnection().getInputStream();
-    val reader = new BufferedReader(new InputStreamReader(is));
-    var line: String = null;
+    val url = state.trackingUrl
+    val is = url.openConnection().getInputStream()
+    val reader = new BufferedReader(new InputStreamReader(is))
+    var line: String = null
 
     do {
       line = reader.readLine()
     } while (line != null)
 
-    reader.close();
+    reader.close
   }
 
+  private def getDummyConfig: Config = new MapConfig(Map[String, String](
+    "yarn.container.count" -> "1",
+    "systems.test-system.samza.factory" -> "org.apache.samza.job.yarn.MockSystemFactory",
+    "yarn.container.memory.mb" -> "512",
+    "yarn.package.path" -> "/foo",
+    "task.inputs" -> "test-system.test-stream",
+    "systems.test-system.samza.key.serde" -> "org.apache.samza.serializers.JsonSerde",
+    "systems.test-system.samza.msg.serde" -> "org.apache.samza.serializers.JsonSerde",
+    "yarn.container.retry.count" -> "1",
+    "yarn.container.retry.window.ms" -> "1999999999"))
 }

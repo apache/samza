@@ -34,8 +34,6 @@ import org.apache.samza.config.JobConfig._
  */
 class ThreadJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config): StreamJob = {
-    val jobName = "local-thread-container"
-
     // Since we're local, there will only be a single task into which all the SSPs will be processed
     val taskToTaskNames: Map[Int, TaskNamesToSystemStreamPartitions] = Util.assignContainerToSSPTaskNames(config, 1)
     if(taskToTaskNames.size != 1) {
@@ -48,7 +46,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       throw new SamzaException("No SystemStreamPartitions to process were detected for your input streams. It's likely that the system(s) specified don't know about the input streams: %s" format config.getInputStreams)
     }
 
-    val taskNameToChangeLogPartitionMapping = Util.getTaskNameToChangeLogPartitionMapping(config, taskToTaskNames).map(kv => kv._1 -> Integer.valueOf(kv._2))
+    val taskNameToChangeLogPartitionMapping = Util.getTaskNameToChangeLogPartitionMapping(config, taskToTaskNames)
     info("got taskName for job %s" format sspTaskName)
     info("Creating a ThreadJob, which is only meant for debugging.")
 
@@ -60,6 +58,6 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     // No command class was specified, so execute the job in this process
     // using a threaded job.
-    new ThreadJob(SamzaContainer(jobName, sspTaskName, taskNameToChangeLogPartitionMapping, config))
+    new ThreadJob(SamzaContainer(0, sspTaskName, taskNameToChangeLogPartitionMapping, config))
   }
 }

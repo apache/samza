@@ -51,10 +51,10 @@
             %td= username
           %tr
             %td.key Tracking port
-            %td= state.trackingPort.toString
+            %td= state.trackingUrl.getPort.toString
           %tr
             %td.key RPC port
-            %td= state.rpcPort.toString
+            %td= state.rpcUrl.getPort.toString
           %tr
             %td.key Attempt ID
             %td= state.appAttemptId
@@ -128,7 +128,7 @@
             %th SystemStreamPartitions
             %th Container
         %tbody
-          - for((taskId, taskNames) <- state.taskToTaskNames)
+          - for((taskId, taskNames) <- state.runningTaskToTaskNames)
             - for((taskName, ssps) <- taskNames)
               %tr
                 %td= taskId

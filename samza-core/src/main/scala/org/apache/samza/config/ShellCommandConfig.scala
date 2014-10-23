@@ -26,20 +26,15 @@ object ShellCommandConfig {
   val ENV_CONFIG = "SAMZA_CONFIG"
 
   /**
-   * All taskNames across the job; used to calculate state store partition mapping
+   * The ID for a container. This is an integer number between 0 and
+   * &lt;number of containers&gt;.
    */
-  val ENV_TASK_NAME_TO_CHANGELOG_PARTITION_MAPPING = "TASK_NAME_TO_CHANGELOG_PARTITION_MAPPING"
+  val ENV_CONTAINER_ID = "SAMZA_CONTAINER_ID"
 
   /**
-   * A serialized list of the streams and partitions this container is responsible for. Encoded by
-   * {@link org.apache.samza.util.Util#createStreamPartitionString}
+   * The URL location of the job coordinator's HTTP server.
    */
-  val ENV_SYSTEM_STREAMS = "SAMZA_SYSTEM_STREAMS"
-
-  /**
-   * The name for a container (either a YARN AM or SamzaContainer)
-   */
-  val ENV_CONTAINER_NAME = "SAMZA_CONTAINER_NAME"
+  val ENV_COORDINATOR_URL = "SAMZA_COORDINATOR_URL"
 
   /**
    * Arguments to be passed to the processing running the TaskRunner (or equivalent, for non JVM languages).
@@ -51,15 +46,9 @@ object ShellCommandConfig {
    */
   val ENV_JAVA_HOME = "JAVA_HOME"
 
-  /**
-   * Specifies whether the config for ENV_CONFIG and ENV_SYSTEM_STREAMS are compressed or not.
-   */
-  val ENV_COMPRESS_CONFIG = "SAMZA_COMPRESS_CONFIG"
-
   val COMMAND_SHELL_EXECUTE = "task.execute"
   val TASK_JVM_OPTS = "task.opts"
   val TASK_JAVA_HOME = "task.java.home"
-  val COMPRESS_ENV_CONFIG = "task.config.compress"
 
   implicit def Config2ShellCommand(config: Config) = new ShellCommandConfig(config)
 }
@@ -70,6 +59,4 @@ class ShellCommandConfig(config: Config) extends ScalaMapConfig(config) {
   def getTaskOpts = getOption(ShellCommandConfig.TASK_JVM_OPTS)
 
   def getJavaHome = getOption(ShellCommandConfig.TASK_JAVA_HOME)
-
-  def isEnvConfigCompressed = getBoolean(ShellCommandConfig.COMPRESS_ENV_CONFIG, false)
 }

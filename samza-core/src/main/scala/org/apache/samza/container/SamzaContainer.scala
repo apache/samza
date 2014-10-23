@@ -20,7 +20,6 @@
 package org.apache.samza.container
 
 import java.io.File
-
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointManagerFactory, OffsetManager}
@@ -33,7 +32,6 @@ import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.serializers.JsonConfigSerializer
-import org.apache.samza.job.ShellCommandBuilder
 import org.apache.samza.metrics.JmxServer
 import org.apache.samza.metrics.JvmMetrics
 import org.apache.samza.metrics.MetricsRegistryMap
@@ -61,28 +59,12 @@ import org.apache.samza.task.TaskLifecycleListener
 import org.apache.samza.task.TaskLifecycleListenerFactory
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
-
 import scala.collection.JavaConversions._
+import org.apache.samza.util.JsonHelpers
+import java.net.URL
+import org.apache.samza.coordinator.server.JobServlet
 
 object SamzaContainer extends Logging {
-
-  /**
-   * Get the decompressed parameter value for the given parameter (if necessary)
-   * @param param The parameter which is to be decompressed (if necessary)
-   * @return A valid parameter value
-   */
-  def getParameter(param: String, isCompressed: Boolean) : String = {
-    if (isCompressed) {
-      info("Compression is ON !")
-      val decomressedParam = Util.decompress(param)
-      info("Got param = " + decomressedParam)
-      decomressedParam
-    } else {
-      info("Parameter is uncompressed. Using it as-is")
-      param
-    }
-  }
-
   def main(args: Array[String]) {
     safeMain()
   }
@@ -92,53 +74,42 @@ object SamzaContainer extends Logging {
     // validate that we don't leak JMX non-daemon threads if we have an
     // exception in the main method.
     try {
-      val containerName = System.getenv(ShellCommandConfig.ENV_CONTAINER_NAME)
+      val containerId = System.getenv(ShellCommandConfig.ENV_CONTAINER_ID).toInt
+      val coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL)
+      val (config, sspTaskNames, taskNameToChangeLogPartitionMapping) = getCoordinatorObjects(coordinatorUrl)
 
-      /**
-       * If the compressed option is enabled in config, de-compress the 'ENV_CONFIG' and 'ENV_SYSTEM_STREAMS'
-       * properties. Note: This is a temporary workaround to reduce the size of the config and hence size
-       * of the environment variable(s) exported while starting a Samza container (SAMZA-337)
-       */
-      val isCompressed = System.getenv(ShellCommandConfig.ENV_COMPRESS_CONFIG).equals("TRUE")
-      val configStr = getParameter(System.getenv(ShellCommandConfig.ENV_CONFIG), isCompressed)
-      val config = JsonConfigSerializer.fromJson(configStr)
-      val sspTaskNames = getTaskNameToSystemStreamPartition(getParameter(System.getenv(ShellCommandConfig.ENV_SYSTEM_STREAMS), isCompressed))
-      val taskNameToChangeLogPartitionMapping = getTaskNameToChangeLogPartitionMapping(getParameter(System.getenv(ShellCommandConfig.ENV_TASK_NAME_TO_CHANGELOG_PARTITION_MAPPING), isCompressed))
-
-      SamzaContainer(containerName, sspTaskNames, taskNameToChangeLogPartitionMapping, config).run
+      SamzaContainer(containerId, sspTaskNames(containerId), taskNameToChangeLogPartitionMapping, config).run
     } finally {
       jmxServer.stop
     }
   }
 
-  def getTaskNameToSystemStreamPartition(SSPTaskNamesJSON: String) = {
-    // Convert into a standard Java map
-    val sspTaskNamesAsJava: Map[TaskName, Set[SystemStreamPartition]] = ShellCommandBuilder.deserializeSystemStreamPartitionSetFromJSON(SSPTaskNamesJSON)
-
-    // From that map build the TaskNamesToSystemStreamPartitions
-    val sspTaskNames = TaskNamesToSystemStreamPartitions(sspTaskNamesAsJava)
-
-    if (sspTaskNames.isEmpty) {
-      throw new SamzaException("No SystemStreamPartitions for this task. Can't run a task without SystemStreamPartition assignments.")
-    }
-
-    sspTaskNames
+  /**
+   * Fetches config, task:SSP assignments, and task:changelog partition
+   * assignments, and returns objects to be used for SamzaContainer's
+   * constructor.
+   */
+  def getCoordinatorObjects(coordinatorUrl: String) = {
+    info("Fetching configuration from: %s" format coordinatorUrl)
+    val rawCoordinatorObjects = JsonHelpers.deserializeCoordinatorBody(Util.read(new URL(coordinatorUrl)))
+    val rawConfig = rawCoordinatorObjects.get(JobServlet.CONFIG).asInstanceOf[java.util.Map[String, String]]
+    val rawContainers = rawCoordinatorObjects.get(JobServlet.CONTAINERS).asInstanceOf[java.util.Map[String, java.util.Map[String, java.util.List[java.util.Map[String, Object]]]]]
+    val rawTaskChangelogMapping = rawCoordinatorObjects.get(JobServlet.TASK_CHANGELOG_MAPPING).asInstanceOf[java.util.Map[String, java.lang.Integer]]
+    val config = JsonHelpers.convertCoordinatorConfig(rawConfig)
+    val sspTaskNames = JsonHelpers.convertCoordinatorSSPTaskNames(rawContainers)
+    val taskNameToChangeLogPartitionMapping = JsonHelpers.convertCoordinatorTaskNameChangelogPartitions(rawTaskChangelogMapping)
+    (config, sspTaskNames, taskNameToChangeLogPartitionMapping)
   }
 
-  def getTaskNameToChangeLogPartitionMapping(taskNameToChangeLogPartitionMappingJSON: String) = {
-    // Convert that mapping into a Map
-    val taskNameToChangeLogPartitionMapping = ShellCommandBuilder.deserializeTaskNameToChangeLogPartitionMapping(taskNameToChangeLogPartitionMappingJSON).map(kv => kv._1 -> Integer.valueOf(kv._2))
-
-    taskNameToChangeLogPartitionMapping
-  }
-
-  def apply(containerName: String, sspTaskNames: TaskNamesToSystemStreamPartitions, taskNameToChangeLogPartitionMapping: Map[TaskName, java.lang.Integer], config: Config) = {
+  def apply(containerId: Int, sspTaskNames: TaskNamesToSystemStreamPartitions, taskNameToChangeLogPartitionMapping: Map[TaskName, Int], config: Config) = {
+    val containerName = "samza-container-%s" format containerId
     val containerPID = Util.getContainerPID
 
     info("Setting up Samza container: %s" format containerName)
-    info("Using SystemStreamPartition taskNames %s" format sspTaskNames)
     info("Samza container PID: %s" format containerPID)
     info("Using configuration: %s" format config)
+    info("Using tasks: %s" format sspTaskNames)
+    info("Using task changelogs: %s" format taskNameToChangeLogPartitionMapping)
 
     val registry = new MetricsRegistryMap(containerName)
     val samzaContainerMetrics = new SamzaContainerMetrics(containerName, registry)
@@ -411,7 +382,7 @@ object SamzaContainer extends Logging {
 
     val taskNames = sspTaskNames.keys.toSet
 
-    val containerContext = new SamzaContainerContext(containerName, config, taskNames)
+    val containerContext = new SamzaContainerContext(containerId, config, taskNames)
 
     val taskInstances: Map[TaskName, TaskInstance] = taskNames.map(taskName => {
       debug("Setting up task instance: %s" format taskName)

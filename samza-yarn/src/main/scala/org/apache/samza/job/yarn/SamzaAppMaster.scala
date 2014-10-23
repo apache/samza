@@ -53,7 +53,6 @@ import org.apache.samza.util.Logging
  */
 object SamzaAppMaster extends Logging with AMRMClientAsync.CallbackHandler {
   val DEFAULT_POLL_INTERVAL_MS: Int = 1000
-  var state: SamzaAppMasterState = null
   var listeners: List[YarnAppMasterListener] = null
   var storedException: Throwable = null
 
@@ -83,7 +82,7 @@ object SamzaAppMaster extends Logging with AMRMClientAsync.CallbackHandler {
 
     try {
       // wire up all of the yarn event listeners
-      state = new SamzaAppMasterState(-1, containerId, nodeHostString, nodePortString.toInt, nodeHttpPortString.toInt)
+      val state = new SamzaAppMasterState(-1, containerId, nodeHostString, nodePortString.toInt, nodeHttpPortString.toInt)
       val service = new SamzaAppMasterService(config, state, registry, clientHelper)
       val lifecycle = new SamzaAppMasterLifecycle(containerMem, containerCpu, state, amClient)
       val metrics = new SamzaAppMasterMetrics(config, state, registry)

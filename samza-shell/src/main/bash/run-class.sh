@@ -53,10 +53,6 @@ if [ -z "$SAMZA_LOG_DIR" ]; then
   SAMZA_LOG_DIR="$base_dir"
 fi
 
-if [ -z "$SAMZA_CONTAINER_NAME" ]; then
-  SAMZA_CONTAINER_NAME="undefined-samza-container-name"
-fi
-
 # add usercache directory
 mkdir -p $base_dir/tmp
 JAVA_TEMP_DIR=$base_dir/tmp
@@ -96,7 +92,7 @@ fi
 # Check if 64 bit is set. If not - try and set it if it's supported
 [[ $JAVA_OPTS != *-d64* ]] && check_and_enable_64_bit_mode
 
-JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=$SAMZA_LOG4J_CONFIG -Dsamza.log.dir=$SAMZA_LOG_DIR -Dsamza.container.name=$SAMZA_CONTAINER_NAME -Djava.io.tmpdir=$JAVA_TEMP_DIR"
+JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=$SAMZA_LOG4J_CONFIG -Dsamza.log.dir=$SAMZA_LOG_DIR -Djava.io.tmpdir=$JAVA_TEMP_DIR"
 
 echo $JAVA $JAVA_OPTS -cp $CLASSPATH $@
 exec $JAVA $JAVA_OPTS -cp $CLASSPATH $@

@@ -20,7 +20,6 @@
 package org.apache.samza.job.yarn
 
 import java.nio.ByteBuffer
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse
 import org.apache.hadoop.yarn.api.records._
@@ -32,9 +31,9 @@ import org.apache.samza.SamzaException
 import org.mockito.Mockito
 import org.junit.Assert._
 import org.junit.Test
-
 import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
+import java.net.URL
 
 class TestSamzaAppMasterLifecycle {
   val amClient = new AMRMClientAsyncImpl[ContainerRequest](1, Mockito.mock(classOf[CallbackHandler])) {
@@ -45,9 +44,9 @@ class TestSamzaAppMasterLifecycle {
       this.host = appHostName
       this.port = appHostPort
       new RegisterApplicationMasterResponse {
-        override def setApplicationACLs(map: java.util.Map[ApplicationAccessType, String]):Unit = ()
+        override def setApplicationACLs(map: java.util.Map[ApplicationAccessType, String]): Unit = ()
         override def getApplicationACLs = null
-        override def setMaximumResourceCapability(r: Resource):Unit = ()
+        override def setMaximumResourceCapability(r: Resource): Unit = ()
         override def getMaximumResourceCapability = new Resource {
           def getMemory = 512
           def getVirtualCores = 2
@@ -81,7 +80,8 @@ class TestSamzaAppMasterLifecycle {
   @Test
   def testLifecycleShouldRegisterOnInit {
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "test", 1, 2)
-    state.rpcPort = 1
+    state.rpcUrl = new URL("http://localhost:1")
+    state.trackingUrl = new URL("http://localhost:2")
     val saml = new SamzaAppMasterLifecycle(512, 2, state, amClient)
     saml.onInit
     assertEquals("test", amClient.host)
@@ -112,7 +112,8 @@ class TestSamzaAppMasterLifecycle {
   @Test
   def testLifecycleShouldShutdownOnInvalidContainerSettings {
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "test", 1, 2)
-    state.rpcPort = 1
+    state.rpcUrl = new URL("http://localhost:1")
+    state.trackingUrl = new URL("http://localhost:2")
     List(new SamzaAppMasterLifecycle(768, 1, state, amClient),
       new SamzaAppMasterLifecycle(368, 3, state, amClient)).map(saml => {
         saml.onInit

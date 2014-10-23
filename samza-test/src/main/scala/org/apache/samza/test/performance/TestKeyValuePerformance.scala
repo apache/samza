@@ -117,7 +117,7 @@ object TestKeyValuePerformance extends Logging {
         new TaskInstanceCollector(producerMultiplexer),
         new MetricsRegistryMap,
         null,
-        new SamzaContainerContext("test", config, taskNames))
+        new SamzaContainerContext(0, config, taskNames))
 
       val db = if (!engine.isInstanceOf[KeyValueStorageEngine[_, _]]) {
         throw new SamzaException("This test can only run with KeyValueStorageEngine configured as store factory.")

@@ -72,8 +72,8 @@ class SamzaAppMasterMetrics(
     val mReleasedContainers = newGauge("released-containers", () => state.releasedContainers)
     val mTasks = newGauge("task-count", () => state.taskCount)
     val mHost = newGauge("http-host", () => state.nodeHost)
-    val mTrackingPort = newGauge("http-port", () => state.trackingPort)
-    val mRpcPort = newGauge("rpc-port", () => state.rpcPort)
+    val mTrackingPort = newGauge("http-port", () => state.trackingUrl.getPort)
+    val mRpcPort = newGauge("rpc-port", () => state.rpcUrl.getPort)
     val mAppAttemptId = newGauge("app-attempt-id", () => state.appAttemptId.toString)
     val mJobHealthy = newGauge("job-healthy", () => if (state.jobHealthy) 1 else 0)
 

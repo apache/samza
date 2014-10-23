@@ -47,7 +47,19 @@ Samza's [run-class.sh](packaging.html) script will automatically set the followi
 The [run-class.sh](packaging.html) script will also set the following Java system properties:
 
 {% highlight bash %}
--Dsamza.log.dir=$SAMZA_LOG_DIR -Dsamza.container.name=$SAMZA_CONTAINER_NAME
+-Dsamza.log.dir=$SAMZA_LOG_DIR
+{% endhighlight %}
+
+The [run-container.sh](packaging.html) will also set:
+
+{% highlight bash %}
+-Dsamza.container.id=$SAMZA_CONTAINER_ID -Dsamza.container.name=samza-container-$SAMZA_CONTAINER_ID"
+{% endhighlight %}
+
+Likewise, [run-am.sh](packaging.html) sets:
+
+{% highlight bash %}
+-Dsamza.container.name=samza-application-master
 {% endhighlight %}
 
 These settings are very useful if you're using a file-based appender. For example, you can use a daily rolling appender by configuring log4j.xml like this:

@@ -61,7 +61,6 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
       Some({
         val envMap = Map(
           ShellCommandConfig.ENV_CONFIG -> Util.envVarEscape(JsonConfigSerializer.toJson(config)),
-          ShellCommandConfig.ENV_CONTAINER_NAME -> Util.envVarEscape("application-master"),
           ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(config.getAmOpts.getOrElse("")))
         val envMapWithJavaHome = config.getAMJavaHome match {
           case Some(javaHome) => envMap + (ShellCommandConfig.ENV_JAVA_HOME -> javaHome)
@@ -69,6 +68,7 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
         }
         envMapWithJavaHome
       }),
+
       Some("%s_%s" format (config.getName.get, config.getJobId.getOrElse(1))))
 
     this

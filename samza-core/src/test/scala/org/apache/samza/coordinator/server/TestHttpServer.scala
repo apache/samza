@@ -17,26 +17,34 @@
  * under the License.
  */
 
-package org.apache.samza.job
+package org.apache.samza.coordinator.server
 
-import org.apache.samza.config.ShellCommandConfig
-import org.apache.samza.config.ShellCommandConfig.Config2ShellCommand
-import scala.collection.JavaConversions._
+import org.junit.Assert._
+import org.junit.Test
+import org.apache.samza.util.Util
+import java.net.URL
 
-class ShellCommandBuilder extends CommandBuilder {
-  def buildCommand() = config.getCommand
-
-  def buildEnvironment(): java.util.Map[String, String] = {
-    val envMap = Map(
-      ShellCommandConfig.ENV_CONTAINER_ID -> id.toString,
-      ShellCommandConfig.ENV_COORDINATOR_URL -> url.toString,
-      ShellCommandConfig.ENV_JAVA_OPTS -> config.getTaskOpts.getOrElse(""))
-
-    val envMapWithJavaHome = config.getJavaHome match {
-      case Some(javaHome) => envMap + (ShellCommandConfig.ENV_JAVA_HOME -> javaHome)
-      case None => envMap
+class TestHttpServer {
+  @Test
+  def testHttpServerDynamicPort {
+    val server = new HttpServer("/test", resourceBasePath = "scalate")
+    try {
+      server.addServlet("/basic", new BasicServlet())
+      server.start
+      val body = Util.read(new URL(server.getUrl + "/basic"))
+      assertEquals("{\"foo\":\"bar\"}", body)
+      val css = Util.read(new URL(server.getUrl + "/css/ropa-sans.css"))
+      assertTrue(css.contains("RopaSans"))
+    } finally {
+      server.stop
     }
+  }
+}
 
-    envMapWithJavaHome
+class BasicServlet extends ServletBase {
+  def getObjectToWrite = {
+    val map = new java.util.HashMap[String, String]()
+    map.put("foo", "bar")
+    map
   }
 }

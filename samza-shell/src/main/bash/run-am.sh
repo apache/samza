@@ -19,4 +19,7 @@
 # Check if server is set. If not - set server optimization
 [[ $JAVA_OPTS != *-server* ]] && JAVA_OPTS="$JAVA_OPTS -server"
 
+# Set container ID and name system properties for use in Log4J
+JAVA_OPTS="$JAVA_OPTS -Dsamza.container.name=samza-application-master"
+
 exec $(dirname $0)/run-class.sh org.apache.samza.job.yarn.SamzaAppMaster $@

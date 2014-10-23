@@ -28,22 +28,22 @@ import java.util.Collections;
  * A SamzaContainerContext maintains per-container information for the tasks it executes.
  */
 public class SamzaContainerContext {
-  public final String name;
+  public final int id;
   public final Config config;
   public final Collection<TaskName> taskNames;
 
   /**
    * An immutable context object that can passed to tasks to give them information
    * about the container in which they are executing.
-   * @param name The name of the container (either a YARN AM or SamzaContainer).
+   * @param id The id of the container.
    * @param config The job configuration.
    * @param taskNames The set of taskName keys for which this container is responsible.
    */
   public SamzaContainerContext(
-      String name,
+      int id,
       Config config,
       Collection<TaskName> taskNames) {
-    this.name = name;
+    this.id = id;
     this.config = config;
     this.taskNames = Collections.unmodifiableCollection(taskNames);
   }

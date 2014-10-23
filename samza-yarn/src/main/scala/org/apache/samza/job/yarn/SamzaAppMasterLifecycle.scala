@@ -23,7 +23,6 @@ import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync
 import org.apache.samza.SamzaException
-
 import org.apache.samza.util.Logging
 
 /**
@@ -37,8 +36,7 @@ class SamzaAppMasterLifecycle(containerMem: Int, containerCpu: Int, state: Samza
 
   override def onInit() {
     val host = state.nodeHost
-
-    val response = amClient.registerApplicationMaster(host, state.rpcPort, "%s:%d" format (host, state.trackingPort))
+    val response = amClient.registerApplicationMaster(host, state.rpcUrl.getPort, "%s:%d" format (host, state.trackingUrl.getPort))
 
     // validate that the YARN cluster can handle our container resource requirements
     val maxCapability = response.getMaximumResourceCapability

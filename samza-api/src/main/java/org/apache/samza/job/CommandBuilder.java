@@ -19,45 +19,48 @@
 
 package org.apache.samza.job;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.container.TaskName;
-import org.apache.samza.system.SystemStreamPartition;
-
+import java.net.URL;
 import java.util.Map;
-import java.util.Set;
+import org.apache.samza.config.Config;
 
 /**
- * CommandBuilders are used to customize the command necessary to launch a Samza Job for a particular framework,
- * such as YARN or the LocalJobRunner.
+ * CommandBuilders are used to customize the command necessary to launch a Samza
+ * Job for a particular framework, such as YARN or the LocalJobRunner.
  */
 public abstract class CommandBuilder {
-  protected Map<TaskName, Set<SystemStreamPartition>> taskNameToSystemStreamPartitionsMapping;
-  protected Map<TaskName, Integer> taskNameToChangeLogPartitionMapping;
-  protected String name;
   protected Config config;
+  protected int id;
+  protected URL url;
 
-  public CommandBuilder setTaskNameToSystemStreamPartitionsMapping(Map<TaskName, Set<SystemStreamPartition>> systemStreamPartitionTaskNames) {
-    this.taskNameToSystemStreamPartitionsMapping = systemStreamPartitionTaskNames;
-    return this;
-  }
-  
   /**
-   * @param name
-   *          associated with a specific instantiation of a TaskRunner.
+   * @param config
+   *          The config object to use when constructing the command and
+   *          environment.
    * @return self to support a builder style of use.
    */
-  public CommandBuilder setName(String name) {
-    this.name = name;
-    return this;
-  }
-
   public CommandBuilder setConfig(Config config) {
     this.config = config;
     return this;
   }
 
-  public CommandBuilder setTaskNameToChangeLogPartitionMapping(Map<TaskName, Integer> mapping) {
-    this.taskNameToChangeLogPartitionMapping = mapping;
+  /**
+   * @param url
+   *          The URL location of the job coordinator's HTTP server, which
+   *          serves all configuration, task/SSP assignments, etc.
+   * @return self to support a builder style of use.
+   */
+  public CommandBuilder setUrl(URL url) {
+    this.url = url;
+    return this;
+  }
+
+  /**
+   * @param id
+   *          associated with a specific instantiation of a SamzaContainer.
+   * @return self to support a builder style of use.
+   */
+  public CommandBuilder setId(int id) {
+    this.id = id;
     return this;
   }
 
