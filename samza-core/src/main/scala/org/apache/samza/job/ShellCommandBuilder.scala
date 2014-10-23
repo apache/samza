@@ -103,14 +103,19 @@ class ShellCommandBuilder extends CommandBuilder {
       envConfig = Util.compress(envConfig)
     }
 
-    Map(
+    val envMap = Map(
       ShellCommandConfig.ENV_CONTAINER_NAME -> name,
       ShellCommandConfig.ENV_SYSTEM_STREAMS -> streamsAndPartsString,
       ShellCommandConfig.ENV_TASK_NAME_TO_CHANGELOG_PARTITION_MAPPING -> taskNameToChangeLogPartitionMappingString,
       ShellCommandConfig.ENV_CONFIG -> envConfig,
       ShellCommandConfig.ENV_JAVA_OPTS -> config.getTaskOpts.getOrElse(""),
-      ShellCommandConfig.ENV_JAVA_HOME -> config.getJavaHome.getOrElse(""),
       ShellCommandConfig.ENV_COMPRESS_CONFIG -> isCompressed)
 
+    val envMapWithJavaHome = config.getJavaHome match {
+      case Some(javaHome) => envMap + (ShellCommandConfig.ENV_JAVA_HOME -> javaHome)
+      case None => envMap
+    }
+
+    envMapWithJavaHome
   }
 }

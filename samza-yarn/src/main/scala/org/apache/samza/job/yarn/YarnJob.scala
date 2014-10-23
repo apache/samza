@@ -37,7 +37,6 @@ import org.apache.samza.config.YarnConfig
 import org.apache.samza.config.ShellCommandConfig
 import org.apache.samza.SamzaException
 
-
 object YarnJob {
   val DEFAULT_AM_CONTAINER_MEM = 1024
 }
@@ -59,11 +58,17 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
       List(
         "export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec ./__package/bin/run-am.sh 1>logs/%s 2>logs/%s"
           format (ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.STDOUT, ApplicationConstants.STDERR)),
-      Some(Map(
-        ShellCommandConfig.ENV_CONFIG -> Util.envVarEscape(JsonConfigSerializer.toJson(config)),
-        ShellCommandConfig.ENV_CONTAINER_NAME -> Util.envVarEscape("application-master"),
-        ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(config.getAmOpts.getOrElse("")),
-        ShellCommandConfig.ENV_JAVA_HOME -> Util.envVarEscape(config.getAMJavaHome.getOrElse("")))),
+      Some({
+        val envMap = Map(
+          ShellCommandConfig.ENV_CONFIG -> Util.envVarEscape(JsonConfigSerializer.toJson(config)),
+          ShellCommandConfig.ENV_CONTAINER_NAME -> Util.envVarEscape("application-master"),
+          ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(config.getAmOpts.getOrElse("")))
+        val envMapWithJavaHome = config.getAMJavaHome match {
+          case Some(javaHome) => envMap + (ShellCommandConfig.ENV_JAVA_HOME -> javaHome)
+          case None => envMap
+        }
+        envMapWithJavaHome
+      }),
       Some("%s_%s" format (config.getName.get, config.getJobId.getOrElse(1))))
 
     this
