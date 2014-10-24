@@ -281,14 +281,14 @@ object Util extends Logging {
         fromCM.map(kv => kv._1 -> kv._2.intValue()).toMap // Java to Scala interop!!!
       }
 
-      checkpointManager.stop
-
       val newMapping = Util.resolveTaskNameToChangelogPartitionMapping(currentTaskNames, previousMapping)
 
       if (newMapping != null) {
         info("Writing new changelog partition mapping to checkpoint manager.")
         checkpointManager.writeChangeLogPartitionMapping(newMapping.map(kv => kv._1 -> new java.lang.Integer(kv._2))) //Java to Scala interop!!!
       }
+
+      checkpointManager.stop
 
       newMapping
     }
