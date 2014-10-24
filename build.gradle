@@ -121,6 +121,12 @@ project(':samza-api') {
 project(":samza-core_$scalaVersion") {
   apply plugin: 'scala'
 
+  jar {
+    manifest {
+      attributes("Implementation-Version": "$version")
+    }
+  }
+
   dependencies {
     compile project(':samza-api')
     compile "org.scala-lang:scala-library:$scalaLibVersion"
