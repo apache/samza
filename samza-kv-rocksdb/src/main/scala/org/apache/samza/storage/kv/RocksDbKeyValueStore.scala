@@ -49,9 +49,6 @@ object RocksDbKeyValueStore extends Logging {
       })
 
     val blockSize = storeConfig.getInt("rocksdb.block.size.bytes", 4096)
-    // We compute the cache size based on the overall container cache size, 
-    // however, if rocksdb.cache.size.bytes is overridden, then we use that.
-    cacheSizePerContainer = storeConfig.getLong("rocksdb.cache.size.bytes", cacheSizePerContainer)
     val bloomBits = storeConfig.getInt("rocksdb.bloomfilter.bits", 10)
     val table_options = new BlockBasedTableConfig()
     table_options.setBlockCacheSize(cacheSizePerContainer)
