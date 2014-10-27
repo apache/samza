@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.storage
+package org.apache.samza.storage.kv
 
 import java.io.File
 import org.apache.samza.container.SamzaContainerContext

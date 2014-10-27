@@ -126,17 +126,17 @@ Nothing prevents you from using an external database if you want to, but for man
 
 ### Key-value storage
 
-Any storage engine can be plugged into Samza, as described below. Out of the box, Samza ships with a key-value store implementation that is built on [LevelDB](https://code.google.com/p/leveldb) using a [JNI API](https://github.com/fusesource/leveldbjni).
+Any storage engine can be plugged into Samza, as described below. Out of the box, Samza ships with a key-value store implementation that is built on [RocksDB](http://rocksdb.org) using a [JNI API](https://github.com/facebook/rocksdb/wiki/RocksJava-Basics).
 
-LevelDB has several nice properties. Its memory allocation is outside of the Java heap, which makes it more memory-efficient and less prone to garbage collection pauses than a Java-based storage engine. It is very fast for small datasets that fit in memory; datasets larger than memory are slower but still possible. It is [log-structured](http://www.igvita.com/2012/02/06/sstable-and-log-structured-storage-leveldb/), allowing very fast writes. It also includes support for block compression, which helps to reduce I/O and memory usage.
+RocksDB has several nice properties. Its memory allocation is outside of the Java heap, which makes it more memory-efficient and less prone to garbage collection pauses than a Java-based storage engine. It is very fast for small datasets that fit in memory; datasets larger than memory are slower but still possible. It is [log-structured](http://www.igvita.com/2012/02/06/sstable-and-log-structured-storage-leveldb/), allowing very fast writes. It also includes support for block compression, which helps to reduce I/O and memory usage.
 
-Samza includes an additional in-memory caching layer in front of LevelDB, which avoids the cost of deserialization for frequently-accessed objects and batches writes. If the same key is updated multiple times in quick succession, the batching coalesces those updates into a single write. The writes are flushed to the changelog when a task [commits](checkpointing.html).
+Samza includes an additional in-memory caching layer in front of RocksDB, which avoids the cost of deserialization for frequently-accessed objects and batches writes. If the same key is updated multiple times in quick succession, the batching coalesces those updates into a single write. The writes are flushed to the changelog when a task [commits](checkpointing.html).
 
 To use a key-value store in your job, add the following to your job config:
 
 {% highlight jproperties %}
 # Use the key-value store implementation for a store called "my-store"
-stores.my-store.factory=org.apache.samza.storage.kv.KeyValueStorageEngineFactory
+stores.my-store.factory=org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory
 
 # Use the Kafka topic "my-store-changelog" as the changelog stream for this store.
 # This enables automatic recovery of the store after a failure. If you don't
@@ -182,11 +182,19 @@ public interface KeyValueStore<K, V> {
 }
 {% endhighlight %}
 
-Additional configuration properties for the key-value store are documented in the [configuration reference](../jobs/configuration-table.html#keyvalue).
+Additional configuration properties for the key-value store are documented in the [configuration reference](../jobs/configuration-table.html#keyvalue-rocksdb).
+
+#### Known Issues
+
+RocksDB has several rough edges. It's recommended that you read the RocksDB [tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide). Some other notes to be aware of are:
+
+1. RocksDB is heavily optimized to run with SSD hard disks. Performance on non-SSDs degrades significantly.
+2. Samza's KeyValueStorageEngine.putAll() method does not currently use RocksDB's batching-put API because it's [non-functional in Java](https://github.com/facebook/rocksdb/issues/262).
+3. Calling iterator.seekToFirst() is very slow [if there are a lot of deletes in the store](https://github.com/facebook/rocksdb/issues/261).
 
 ### Implementing common use cases with the key-value store
 
-Earlier in this section we discussed some example use cases for stateful stream processing. Let's look at how each of these could be implemented using a key-value storage engine such as Samza's LevelDB.
+Earlier in this section we discussed some example use cases for stateful stream processing. Let's look at how each of these could be implemented using a key-value storage engine such as Samza's RocksDB store.
 
 #### Windowed aggregation
 
