@@ -32,6 +32,7 @@ import org.apache.samza.util.{CommandLine, Util}
 import org.apache.samza.{Partition, SamzaException}
 import scala.collection.JavaConversions._
 import org.apache.samza.util.Logging
+import org.apache.samza.coordinator.JobCoordinator
 
 /**
  * Command-line tool for inspecting and manipulating the checkpoints for a job.
@@ -136,7 +137,13 @@ class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap) extend
     info("Using %s" format manager)
 
     // Find all the TaskNames that would be generated for this job config
-    val taskNames = Util.assignContainerToSSPTaskNames(config, 1).get(0).get.keys.toSet
+    val coordinator = JobCoordinator(config, 1)
+    val taskNames = coordinator
+      .jobModel
+      .getContainers
+      .values
+      .flatMap(_.getTasks.keys)
+      .toSet
 
     taskNames.foreach(manager.register)
     manager.start

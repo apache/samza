@@ -32,18 +32,15 @@ import java.io.InputStreamReader
 import java.io.InputStream
 import java.io.OutputStream
 import org.apache.samza.SamzaException
-import org.apache.samza.coordinator.server.HttpServer
 import org.apache.samza.job.CommandBuilder
 import scala.collection.JavaConversions._
 
-class ProcessJob(commandBuilder: CommandBuilder, server: HttpServer = new HttpServer) extends StreamJob with Logging {
+class ProcessJob(commandBuilder: CommandBuilder) extends StreamJob with Logging {
   var jobStatus: Option[ApplicationStatus] = None
   var process: Process = null
 
   def submit: StreamJob = {
     jobStatus = Some(New)
-    server.start
-    commandBuilder.setUrl(server.getUrl)
     val waitForThreadStart = new CountDownLatch(1)
     val processBuilder = new ProcessBuilder(commandBuilder.buildCommand.split(" ").toList)
 
@@ -66,7 +63,6 @@ class ProcessJob(commandBuilder: CommandBuilder, server: HttpServer = new HttpSe
         errThread.start
         waitForThreadStart.countDown
         process.waitFor
-        shutdown
       }
     }
 
@@ -79,7 +75,6 @@ class ProcessJob(commandBuilder: CommandBuilder, server: HttpServer = new HttpSe
   def kill: StreamJob = {
     process.destroy
     jobStatus = Some(UnsuccessfulFinish);
-    shutdown
     ProcessJob.this
   }
 
@@ -90,7 +85,7 @@ class ProcessJob(commandBuilder: CommandBuilder, server: HttpServer = new HttpSe
         try {
           process.waitFor
         } catch {
-          case e: InterruptedException => shutdown
+          case e: InterruptedException => info("Got interrupt.", e)
         }
       }
     }
@@ -112,10 +107,6 @@ class ProcessJob(commandBuilder: CommandBuilder, server: HttpServer = new HttpSe
   }
 
   def getStatus = jobStatus.getOrElse(null)
-
-  private def shutdown {
-    server.stop
-  }
 }
 
 /**

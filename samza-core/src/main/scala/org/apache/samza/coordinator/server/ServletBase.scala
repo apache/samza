@@ -19,25 +19,29 @@
 
 package org.apache.samza.coordinator.server;
 
-import java.io.IOException;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import java.io.IOException
+import javax.servlet.ServletException
+import javax.servlet.http.HttpServlet
+import javax.servlet.http.HttpServletRequest
+import javax.servlet.http.HttpServletResponse
 import org.codehaus.jackson.map.ObjectMapper;
+import org.apache.samza.serializers.model.SamzaObjectMapper
 
-object ServletBase {
-  val JSON_MAPPER = new ObjectMapper()
-}
-
+/**
+ * A simple servlet helper that makes it easy to dump objects to JSON.
+ */
 trait ServletBase extends HttpServlet {
-  import ServletBase._
+  val mapper = SamzaObjectMapper.getObjectMapper()
 
   override protected def doGet(request: HttpServletRequest, response: HttpServletResponse) {
     response.setContentType("application/json")
     response.setStatus(HttpServletResponse.SC_OK)
-    JSON_MAPPER.writeValue(response.getWriter(), getObjectToWrite())
+    mapper.writeValue(response.getWriter(), getObjectToWrite())
   }
 
+  /**
+   * Returns an object that should be fed to Jackson's ObjectMapper, and 
+   * returned as an HTTP response.
+   */
   protected def getObjectToWrite(): Object
 }

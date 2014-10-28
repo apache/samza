@@ -30,12 +30,12 @@ import org.apache.samza.job.ApplicationStatus.Running
 import org.apache.samza.job.StreamJob
 import org.apache.samza.job.ApplicationStatus.SuccessfulFinish
 import org.apache.samza.job.ApplicationStatus.UnsuccessfulFinish
-import org.apache.samza.config.serializers.JsonConfigSerializer
 import org.apache.samza.config.YarnConfig.Config2Yarn
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.YarnConfig
 import org.apache.samza.config.ShellCommandConfig
 import org.apache.samza.SamzaException
+import org.apache.samza.serializers.model.SamzaObjectMapper
 
 object YarnJob {
   val DEFAULT_AM_CONTAINER_MEM = 1024
@@ -60,7 +60,7 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
           format (ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.STDOUT, ApplicationConstants.STDERR)),
       Some({
         val envMap = Map(
-          ShellCommandConfig.ENV_CONFIG -> Util.envVarEscape(JsonConfigSerializer.toJson(config)),
+          ShellCommandConfig.ENV_CONFIG -> Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString(config)),
           ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(config.getAmOpts.getOrElse("")))
         val envMapWithJavaHome = config.getAMJavaHome match {
           case Some(javaHome) => envMap + (ShellCommandConfig.ENV_JAVA_HOME -> javaHome)

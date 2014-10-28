@@ -19,53 +19,59 @@
 
 package org.apache.samza.container
 
-import org.apache.samza.config.Config
-import org.junit.Assert._
-import org.junit.Test
+import scala.collection.JavaConversions._
+
 import org.apache.samza.Partition
+import org.apache.samza.config.Config
 import org.apache.samza.config.MapConfig
-import org.apache.samza.metrics.JmxServer
-import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.system.SystemConsumers
-import org.apache.samza.system.SystemConsumer
-import org.apache.samza.system.SystemProducers
-import org.apache.samza.system.SystemProducer
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.system.SystemStream
-import org.apache.samza.system.StreamMetadataCache
-import org.apache.samza.system.chooser.RoundRobinChooser
-import org.apache.samza.serializers.SerdeManager
-import org.apache.samza.task.StreamTask
-import org.apache.samza.task.MessageCollector
-import org.apache.samza.task.TaskCoordinator
-import org.apache.samza.task.InitableTask
-import org.apache.samza.task.TaskContext
-import org.apache.samza.task.ClosableTask
-import org.apache.samza.task.TaskInstanceCollector
-import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
-import org.scalatest.junit.AssertionsForJUnit
+import org.apache.samza.coordinator.JobCoordinator
 import org.apache.samza.coordinator.server.HttpServer
 import org.apache.samza.coordinator.server.JobServlet
-import scala.collection.JavaConversions._
+import org.apache.samza.job.model.ContainerModel
+import org.apache.samza.job.model.JobModel
+import org.apache.samza.job.model.TaskModel
+import org.apache.samza.metrics.JmxServer
+import org.apache.samza.serializers.SerdeManager
+import org.apache.samza.system.IncomingMessageEnvelope
+import org.apache.samza.system.StreamMetadataCache
+import org.apache.samza.system.SystemConsumer
+import org.apache.samza.system.SystemConsumers
+import org.apache.samza.system.SystemProducer
+import org.apache.samza.system.SystemProducers
+import org.apache.samza.system.SystemStream
+import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.system.chooser.RoundRobinChooser
+import org.apache.samza.task.ClosableTask
+import org.apache.samza.task.InitableTask
+import org.apache.samza.task.MessageCollector
+import org.apache.samza.task.StreamTask
+import org.apache.samza.task.TaskContext
+import org.apache.samza.task.TaskCoordinator
+import org.apache.samza.task.TaskInstanceCollector
+import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
+import org.junit.Assert._
+import org.junit.Test
+import org.scalatest.junit.AssertionsForJUnit
 
 class TestSamzaContainer extends AssertionsForJUnit {
   @Test
-  def testCoordinatorObjects {
-    val server = new HttpServer("/test")
+  def testReadJobModel {
+    val config = new MapConfig(Map("a" -> "b"))
+    val tasks = Map(
+      new TaskName("t1") -> new TaskModel(new TaskName("t1"), Set[SystemStreamPartition](), new Partition(0)),
+      new TaskName("t2") -> new TaskModel(new TaskName("t2"), Set[SystemStreamPartition](), new Partition(0)))
+    val containers = Map(
+      Integer.valueOf(0) -> new ContainerModel(0, tasks),
+      Integer.valueOf(1) -> new ContainerModel(1, tasks))
+    val jobModel = new JobModel(config, containers)
+    val server = new HttpServer
+    val coordinator = new JobCoordinator(jobModel, server)
+    coordinator.server.addServlet("/*", new JobServlet(jobModel))
     try {
-      val taskName = new TaskName("a")
-      val set = Set(new SystemStreamPartition("a", "b", new Partition(0)))
-      val config = new MapConfig(Map("a" -> "b", "c" -> "d"))
-      val containerToTaskMapping = Map(0 -> new TaskNamesToSystemStreamPartitions(Map(taskName -> set)))
-      val taskToChangelogMapping = Map[TaskName, Int](taskName -> 0)
-      server.addServlet("/job", new JobServlet(config, containerToTaskMapping, taskToChangelogMapping))
-      server.start
-      val (returnedConfig, returnedSspTaskNames, returnedTaskNameToChangeLogPartitionMapping) = SamzaContainer.getCoordinatorObjects(server.getUrl.toString + "/job")
-      assertEquals(config, returnedConfig)
-      assertEquals(containerToTaskMapping, returnedSspTaskNames)
-      assertEquals(taskToChangelogMapping, returnedTaskNameToChangeLogPartitionMapping)
+      coordinator.start
+      assertEquals(jobModel, SamzaContainer.readJobModel(server.getUrl.toString))
     } finally {
-      server.stop
+      coordinator.stop
     }
   }
 

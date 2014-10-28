@@ -18,37 +18,56 @@
  */
 package org.apache.samza.container.grouper.task
 
-import org.apache.samza.container.{TaskName, TaskNamesToSystemStreamPartitions}
+import org.apache.samza.container.TaskName
 import org.apache.samza.system.SystemStreamPartition
 import org.junit.Assert._
 import org.junit.Test
+import org.apache.samza.job.model.TaskModel
+import org.apache.samza.Partition
+import scala.collection.JavaConversions
+import org.scalatest.Assertions.intercept
+import scala.collection.JavaConversions._
 
 class TestGroupByContainerCount {
-  val emptySSPSet = Set[SystemStreamPartition]()
+  @Test
+  def testEmptyTasks {
+    intercept[IllegalArgumentException] { new GroupByContainerCount(1).group(Set()) }
+  }
 
   @Test
-  def weGetAsExactlyManyGroupsAsWeAskFor() {
-    // memoize the maps used in the test to avoid an O(n^3) loop
-    val tntsspCache = scala.collection.mutable.Map[Int, TaskNamesToSystemStreamPartitions]()
+  def testFewerTasksThanContainers {
+    intercept[IllegalArgumentException] { new GroupByContainerCount(2).group(Set(null)) }
+  }
 
-    def tntsspOfSize(size:Int) = {
-      def getMap(size:Int) = TaskNamesToSystemStreamPartitions((0 until size).map(z => new TaskName("tn" + z) -> emptySSPSet).toMap)
+  @Test
+  def testHappyPath {
+    val taskModels = Set(
+      getTaskModel("1", 1),
+      getTaskModel("2", 2),
+      getTaskModel("3", 3),
+      getTaskModel("4", 4),
+      getTaskModel("5", 5))
+    val containers = new GroupByContainerCount(2)
+      .group(taskModels)
+      .map(containerModel => containerModel.getContainerId -> containerModel)
+      .toMap
+    assertEquals(2, containers.size)
+    val container0 = containers(0)
+    val container1 = containers(1)
+    assertNotNull(container0)
+    assertNotNull(container1)
+    assertEquals(0, container0.getContainerId)
+    assertEquals(1, container1.getContainerId)
+    assertEquals(3, container0.getTasks.size)
+    assertEquals(2, container1.getTasks.size)
+    assertTrue(container0.getTasks.containsKey(new TaskName("1")))
+    assertTrue(container0.getTasks.containsKey(new TaskName("3")))
+    assertTrue(container0.getTasks.containsKey(new TaskName("5")))
+    assertTrue(container1.getTasks.containsKey(new TaskName("2")))
+    assertTrue(container1.getTasks.containsKey(new TaskName("4")))
+  }
 
-      tntsspCache.getOrElseUpdate(size, getMap(size))
-    }
-
-    val maxTNTSSPSize = 1000
-    val maxNumGroups = 140
-    for(numGroups <- 1 to maxNumGroups) {
-      val grouper = new GroupByContainerCount(numGroups)
-
-      for (tntsspSize <- numGroups to maxTNTSSPSize) {
-        val map = tntsspOfSize(tntsspSize)
-        assertEquals(tntsspSize, map.size)
-
-        val grouped = grouper.groupTaskNames(map)
-        assertEquals("Asked for " + numGroups + " but got " + grouped.size, numGroups, grouped.size)
-      }
-    }
+  private def getTaskModel(name: String, partitionId: Int) = {
+    new TaskModel(new TaskName(name), Set[SystemStreamPartition](), new Partition(partitionId))
   }
 }

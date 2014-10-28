@@ -31,16 +31,19 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.util.ConverterUtils
 import org.apache.samza.Partition
 import org.apache.samza.config.Config
+import org.apache.samza.config.YarnConfig.Config2Yarn
 import org.apache.samza.config.MapConfig
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemFactory
 import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
 import org.apache.samza.util.Util
 import org.junit.Test
 import scala.collection.JavaConversions._
 import TestSamzaAppMasterTaskManager._
 import java.net.URL
+import org.apache.samza.system.SystemAdmin
+import org.apache.samza.system.SystemStreamMetadata
+import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 
 object TestSamzaAppMasterTaskManager {
   def getContainer(containerId: ContainerId) = new Container {
@@ -235,7 +238,6 @@ class TestSamzaAppMasterTaskManager {
     taskManager.onContainerAllocated(getContainer(container2))
     assertEquals(0, state.neededContainers)
     assertEquals(1, state.runningTasks.size)
-    assertEquals(1, state.runningTaskToTaskNames.size)
     assertEquals(0, state.unclaimedTasks.size)
     assertEquals(1, containersRequested)
     assertEquals(1, containersStarted)
@@ -244,7 +246,6 @@ class TestSamzaAppMasterTaskManager {
     taskManager.onContainerAllocated(getContainer(container3))
     assertEquals(0, state.neededContainers)
     assertEquals(1, state.runningTasks.size)
-    assertEquals(1, state.runningTaskToTaskNames.size)
     assertEquals(0, state.unclaimedTasks.size)
     assertEquals(1, amClient.getClient.requests.size)
     assertEquals(1, amClient.getClient.getRelease.size)
@@ -260,7 +261,6 @@ class TestSamzaAppMasterTaskManager {
     assertFalse(taskManager.shouldShutdown)
     assertEquals(0, state.neededContainers)
     assertEquals(1, state.runningTasks.size)
-    assertEquals(1, state.runningTaskToTaskNames.size)
     assertEquals(0, state.unclaimedTasks.size)
     assertEquals(0, amClient.getClient.requests.size)
     assertEquals(0, amClient.getClient.getRelease.size)
@@ -277,7 +277,6 @@ class TestSamzaAppMasterTaskManager {
     assertEquals(0, state.neededContainers)
     assertTrue(state.jobHealthy)
     assertEquals(1, state.runningTasks.size)
-    assertEquals(1, state.runningTaskToTaskNames.size)
     assertEquals(0, state.unclaimedTasks.size)
   }
 
@@ -307,13 +306,11 @@ class TestSamzaAppMasterTaskManager {
     taskManager.onContainerAllocated(getContainer(container2))
     assertEquals(1, state.neededContainers)
     assertEquals(1, state.runningTasks.size)
-    assertEquals(1, state.runningTaskToTaskNames.size)
     assertEquals(1, state.unclaimedTasks.size)
     assertEquals(1, containersStarted)
     taskManager.onContainerAllocated(getContainer(container3))
     assertEquals(0, state.neededContainers)
     assertEquals(2, state.runningTasks.size)
-    assertEquals(2, state.runningTaskToTaskNames.size)
     assertEquals(0, state.unclaimedTasks.size)
     assertEquals(2, containersStarted)
 
@@ -321,7 +318,6 @@ class TestSamzaAppMasterTaskManager {
     taskManager.onContainerCompleted(getContainerStatus(container2, 0, ""))
     assertEquals(0, state.neededContainers)
     assertEquals(1, state.runningTasks.size)
-    assertEquals(1, state.runningTaskToTaskNames.size)
     assertEquals(0, state.unclaimedTasks.size)
     assertEquals(1, state.completedTasks)
 
@@ -329,7 +325,6 @@ class TestSamzaAppMasterTaskManager {
     taskManager.onContainerCompleted(getContainerStatus(container3, 1, "expected failure here"))
     assertEquals(1, state.neededContainers)
     assertEquals(0, state.runningTasks.size)
-    assertEquals(0, state.runningTaskToTaskNames.size)
     assertEquals(1, state.unclaimedTasks.size)
     assertEquals(1, state.completedTasks)
     assertFalse(taskManager.shouldShutdown)
@@ -338,7 +333,6 @@ class TestSamzaAppMasterTaskManager {
     taskManager.onContainerAllocated(getContainer(container3))
     assertEquals(0, state.neededContainers)
     assertEquals(1, state.runningTasks.size)
-    assertEquals(1, state.runningTaskToTaskNames.size)
     assertEquals(0, state.unclaimedTasks.size)
     assertEquals(3, containersStarted)
 
@@ -346,7 +340,6 @@ class TestSamzaAppMasterTaskManager {
     taskManager.onContainerCompleted(getContainerStatus(container3, 0, ""))
     assertEquals(0, state.neededContainers)
     assertEquals(0, state.runningTasks.size)
-    assertEquals(0, state.runningTaskToTaskNames.size)
     assertEquals(0, state.unclaimedTasks.size)
     assertEquals(2, state.completedTasks)
     assertTrue(taskManager.shouldShutdown)
@@ -379,19 +372,16 @@ class TestSamzaAppMasterTaskManager {
     assertEquals(0, amClient.getClient.getRelease.size)
     assertEquals(1, state.neededContainers)
     assertEquals(0, state.runningTasks.size)
-    assertEquals(0, state.runningTaskToTaskNames.size)
     assertEquals(1, state.unclaimedTasks.size)
     taskManager.onContainerAllocated(getContainer(container2))
     assertEquals(0, state.neededContainers)
     assertEquals(1, state.runningTasks.size)
-    assertEquals(1, state.runningTaskToTaskNames.size)
     assertEquals(0, state.unclaimedTasks.size)
     assertEquals(1, containersRequested)
     assertEquals(1, containersStarted)
     taskManager.onContainerAllocated(getContainer(container3))
     assertEquals(0, state.neededContainers)
     assertEquals(1, state.runningTasks.size)
-    assertEquals(1, state.runningTaskToTaskNames.size)
     assertEquals(0, state.unclaimedTasks.size)
     assertEquals(1, containersRequested)
     assertEquals(1, containersStarted)
@@ -413,6 +403,22 @@ class MockSystemFactory extends SystemFactory {
   }
 
   def getAdmin(systemName: String, config: Config) = {
-    new SinglePartitionWithoutOffsetsSystemAdmin
+    val containerCount = config.getTaskCount.getOrElse(1)
+    new MockSystemAdmin(containerCount)
+  }
+}
+
+/**
+ * Helper class that returns metadata for each stream that contains numTasks partitions in it.
+ */
+class MockSystemAdmin(numTasks: Int) extends SystemAdmin {
+  def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = null
+  def getSystemStreamMetadata(streamNames: java.util.Set[String]) = {
+    streamNames.map(streamName => {
+      var partitionMetadata = (0 until numTasks).map(partitionId => {
+        new Partition(partitionId) -> new SystemStreamPartitionMetadata(null, null, null)
+      }).toMap
+      streamName -> new SystemStreamMetadata(streamName, partitionMetadata)
+    }).toMap[String, SystemStreamMetadata]
   }
 }

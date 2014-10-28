@@ -17,14 +17,26 @@
  * under the License.
  */
 
-package org.apache.samza.coordinator.server
+package org.apache.samza.serializers.model;
 
-import org.apache.samza.job.model.JobModel
-import org.apache.samza.util.Logging
+import java.util.Map;
+import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.TaskModel;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 /**
- * A servlet that dumps the job model for a Samza job.
+ * A mix-in Jackson class to convert Samza's ContainerModel to/from JSON.
  */
-class JobServlet(jobModel: JobModel) extends ServletBase with Logging {
-  protected def getObjectToWrite() = jobModel
+public abstract class JsonContainerModelMixIn {
+  @JsonCreator
+  public JsonContainerModelMixIn(@JsonProperty("container-id") int containerId, @JsonProperty("tasks") Map<TaskName, TaskModel> tasks) {
+  }
+
+  @JsonProperty("container-id")
+  abstract int getContainerId();
+
+  @JsonProperty("tasks")
+  abstract Map<TaskName, TaskModel> getTasks();
 }
+

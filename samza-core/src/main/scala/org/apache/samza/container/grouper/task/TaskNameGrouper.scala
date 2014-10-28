@@ -18,23 +18,34 @@
  */
 package org.apache.samza.container.grouper.task
 
-import org.apache.samza.container.TaskNamesToSystemStreamPartitions
+import org.apache.samza.job.model.TaskModel
+import org.apache.samza.job.model.ContainerModel
 
 /**
- * After the input SystemStreamPartitions have been mapped to their TaskNames by an implementation of
- * {@link org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper}, we can then map those groupings onto
- * the {@link org.apache.samza.container.SamzaContainer}s on which they will run.  This class takes
- * those groupings-of-SSPs and groups them together on which container each should run on.  A simple
- * implementation could assign each TaskNamesToSystemStreamPartition to a separate container.  More
- * advanced implementations could examine the TaskNamesToSystemStreamPartition to group by them
- * by data locality, anti-affinity, even distribution of expected bandwidth consumption, etc.
+ * <p>
+ * After the input SystemStreamPartitions have been mapped to their tasks by an
+ * implementation of
+ * {@link org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper}
+ * , we can then map those groupings into the
+ * {@link org.apache.samza.container.SamzaContainer}s on which they will run.
+ * This class takes a set of TaskModels and groups them together into
+ * ContainerModels. All tasks within a single ContainerModel will be executed in
+ * a single SamzaContainer.
+ * </p>
+ *
+ * <p>
+ * A simple implementation could assign each TaskModel to a separate container.
+ * More advanced implementations could examine the TaskModel to group them by
+ * data locality, anti-affinity, even distribution of expected bandwidth
+ * consumption, etc.
+ * </p>
  */
 trait TaskNameGrouper {
   /**
-   * Group TaskNamesToSystemStreamPartitions onto the containers they will share
+   * Group tasks into the containers they will share.
    *
-   * @param taskNames Pre-grouped SSPs
-   * @return Mapping of container ID to set if TaskNames it will run
+   * @param tasks Set of tasks to group into containers.
+   * @return Set of containers, which contain the tasks that were passed in.
    */
-  def groupTaskNames(taskNames: TaskNamesToSystemStreamPartitions): Map[Int, TaskNamesToSystemStreamPartitions]
+  def group(tasks: Set[TaskModel]): Set[ContainerModel]
 }

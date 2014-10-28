@@ -17,23 +17,25 @@
  * under the License.
  */
 
-package org.apache.samza.config.serializers
-import scala.collection.JavaConversions._
+package org.apache.samza.serializers.model;
 
-import org.codehaus.jackson.map.ObjectMapper
+import java.util.Map;
+import org.apache.samza.config.Config;
+import org.apache.samza.job.model.ContainerModel;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
-import org.apache.samza.config.Config
-import org.apache.samza.config.MapConfig
-
-import java.util.HashMap
-
-object JsonConfigSerializer {
-  val jsonMapper = new ObjectMapper()
-
-  def fromJson(string: String): Config = {
-    val map = jsonMapper.readValue(string, classOf[HashMap[String, String]])
-    new MapConfig(map)
+/**
+ * A mix-in Jackson class to convert Samza's JobModel to/from JSON.
+ */
+public abstract class JsonJobModelMixIn {
+  @JsonCreator
+  public JsonJobModelMixIn(@JsonProperty("config") Config config, @JsonProperty("containers") Map<Integer, ContainerModel> containers) {
   }
 
-  def toJson(config: Config) = jsonMapper.writeValueAsString(new HashMap[String, String](config))
+  @JsonProperty("config")
+  abstract Config getConfig();
+
+  @JsonProperty("containers")
+  abstract Map<Integer, ContainerModel> getContainers();
 }

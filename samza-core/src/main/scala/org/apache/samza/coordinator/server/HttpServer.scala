@@ -32,23 +32,64 @@ import org.eclipse.jetty.servlet.ServletHolder
 import java.net.URL
 import org.apache.samza.util.Logging
 
+/**
+ * <p>A Jetty-based HTTP server. The server allows arbitrary servlets to be added
+ * with the addServlet() method. The server is configured to automatically
+ * serve static CSS and JS from the /css and /js directories if a
+ * resourceBasePath is specified.</p>
+ */
 class HttpServer(
+  /**
+   * All servlet paths will be served out of the rootPath. If rootPath is set
+   * to /foo, then all servlet paths will be served underneath /foo.
+   */
   rootPath: String = "/",
+
+  /**
+   * The port that Jetty should bind to. If set to 0, Jetty will bind to a
+   * dynamically allocated free port on the machine it's running on. The port
+   * can be retrieved by calling .getUrl.
+   */
   port: Int = 0,
+
+  /**
+   * If specified, tells Jetty where static resources are located inside
+   * WEB-INF. This allows HttpServer to serve arbitrary static files that are
+   * embedded in a JAR.
+   */
   resourceBasePath: String = null,
+
+  /**
+   * The SevletHolder to use for static file (CSS/JS) serving.
+   */
   defaultHolder: ServletHolder = new ServletHolder(classOf[DefaultServlet])) extends Logging {
 
+  var running = false
   var servlets = Map[String, Servlet]()
   val server = new Server(port)
   val context = new ServletContextHandler(ServletContextHandler.SESSIONS)
 
   defaultHolder.setName("default")
 
+  /**
+   * <p>
+   * Add a servlet to the Jetty container. Path can be wild-carded (e.g. /\*
+   * or /foo/\*), and is relative to the rootPath specified in the constructor.
+   * </p>
+   *
+   * <p>
+   * Servlets with path /bar/\* and rootPath /foo will result in a location of
+   * http://localhost/foo/bar.
+   * </p>
+   */
   def addServlet(path: String, servlet: Servlet) {
     debug("Adding servlet %s to path %s" format (servlet, path))
     servlets += path -> servlet
   }
 
+  /**
+   * Start the Jetty server, and begin serving content.
+   */
   def start {
     debug("Starting server with rootPath=%s port=%s resourceBasePath=%s" format (rootPath, port, resourceBasePath))
     context.setContextPath(rootPath)
@@ -70,18 +111,30 @@ class HttpServer(
 
     debug("Starting HttpServer.")
     server.start()
+    running = true
     info("Started HttpServer on: %s" format getUrl)
   }
 
+  /**
+   * Shutdown the Jetty server.
+   */
   def stop {
+    running = false
     debug("Stopping server")
     context.stop()
     server.stop()
     info("Stopped server")
   }
 
+  /**
+   * Returns the URL for the root of the HTTP server. This method
+   */
   def getUrl = {
-    val runningPort = server.getConnectors()(0).asInstanceOf[Connector].getLocalPort()
-    new URL("http://" + InetAddress.getLocalHost().getHostAddress() + ":" + runningPort + rootPath)
+    if (running) {
+      val runningPort = server.getConnectors()(0).asInstanceOf[Connector].getLocalPort()
+      new URL("http://" + InetAddress.getLocalHost().getHostAddress() + ":" + runningPort + rootPath)
+    } else {
+      throw new SamzaException("HttpServer is not currently running, so URLs are not available for it.")
+    }
   }
 }

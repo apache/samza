@@ -20,7 +20,6 @@
 package org.apache.samza.job.yarn
 
 import scala.collection.JavaConversions.asScalaBuffer
-
 import org.apache.hadoop.yarn.api.ApplicationConstants
 import org.apache.hadoop.yarn.api.records.{ Container, ContainerStatus, NodeReport }
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
@@ -28,17 +27,17 @@ import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.util.ConverterUtils
 import org.apache.samza.config.MapConfig
+import org.apache.samza.config.Config
 import org.apache.samza.config.ShellCommandConfig
 import org.apache.samza.config.YarnConfig
 import org.apache.samza.config.YarnConfig.Config2Yarn
-import org.apache.samza.config.serializers.JsonConfigSerializer
 import org.apache.samza.job.yarn.SamzaAppMasterTaskManager.DEFAULT_CONTAINER_MEM
 import org.apache.samza.job.yarn.SamzaAppMasterTaskManager.DEFAULT_CPU_CORES
 import org.apache.samza.metrics.JmxServer
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.util.hadoop.HttpFileSystem
-
 import org.apache.samza.util.Logging
+import org.apache.samza.serializers.model.SamzaObjectMapper
 
 /**
  * When YARN executes an application master, it needs a bash command to
@@ -68,7 +67,7 @@ object SamzaAppMaster extends Logging with AMRMClientAsync.CallbackHandler {
     info("got node manager port: %s" format nodePortString)
     val nodeHttpPortString = System.getenv(ApplicationConstants.Environment.NM_HTTP_PORT.toString)
     info("got node manager http port: %s" format nodeHttpPortString)
-    val config = new MapConfig(JsonConfigSerializer.fromJson(System.getenv(ShellCommandConfig.ENV_CONFIG)))
+    val config = new MapConfig(SamzaObjectMapper.getObjectMapper.readValue(System.getenv(ShellCommandConfig.ENV_CONFIG), classOf[Config]))
     info("got config: %s" format config)
     val hConfig = new YarnConfiguration
     hConfig.set("fs.http.impl", classOf[HttpFileSystem].getName)

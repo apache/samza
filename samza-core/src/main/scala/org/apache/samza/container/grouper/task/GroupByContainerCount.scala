@@ -16,35 +16,42 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.container.grouper.task
 
-import org.apache.samza.container.{TaskName, TaskNamesToSystemStreamPartitions}
+import org.apache.samza.container.TaskName
+import org.apache.samza.job.model.TaskModel
+import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.system.SystemStreamPartition
+import scala.collection.JavaConversions._
 
 /**
- * Group the SSP taskNames by dividing the number of taskNames into the number of containers (n) and assigning n taskNames
- * to each container as returned by iterating over the keys in the map of taskNames (whatever that ordering happens to be).
- * No consideration is given towards locality, even distribution of aggregate SSPs within a container, even distribution
- * of the number of taskNames between containers, etc.
+ * Group the SSP taskNames by dividing the number of taskNames into the number
+ * of containers (n) and assigning n taskNames to each container as returned by
+ * iterating over the keys in the map of taskNames (whatever that ordering
+ * happens to be). No consideration is given towards locality, even distribution
+ * of aggregate SSPs within a container, even distribution of the number of
+ * taskNames between containers, etc.
  */
-class GroupByContainerCount(numContainers:Int) extends TaskNameGrouper {
+class GroupByContainerCount(numContainers: Int) extends TaskNameGrouper {
   require(numContainers > 0, "Must have at least one container")
 
-  override def groupTaskNames(taskNames: TaskNamesToSystemStreamPartitions): Map[Int, TaskNamesToSystemStreamPartitions] = {
-    val keySize = taskNames.keySet.size
-    require(keySize > 0, "Must have some SSPs to group, but found none")
+  override def group(tasks: Set[TaskModel]): Set[ContainerModel] = {
+    require(tasks.size > 0, "No tasks found. Likely due to no input partitions. Can't run a job with no tasks.")
+    require(tasks.size >= numContainers, "Your container count (%s) is larger than your task count (%s). Can't have containers with nothing to do, so aborting." format (numContainers, tasks.size))
 
-    // Iterate through the taskNames, round-robining them per container
-    val byContainerNum = (0 until numContainers).map(_ -> scala.collection.mutable.Map[TaskName, Set[SystemStreamPartition]]()).toMap
-    var idx = 0
-    for(taskName <- taskNames.iterator) {
-      val currMap = byContainerNum.get(idx).get // safe to use simple get since we populated everybody above
-      idx = (idx + 1) % numContainers
-
-      currMap += taskName
-    }
-
-    byContainerNum.map(kv => kv._1 -> TaskNamesToSystemStreamPartitions(kv._2)).toMap
+    tasks
+      .toList
+      // Sort tasks by taskName.
+      .sortWith { case (task1, task2) => task1.compareTo(task2) < 0 }
+      // Assign every task an ID.
+      .zip(0 until tasks.size)
+      // Map every task to a container using its task ID.
+      .groupBy(_._2 % numContainers)
+      // Take just TaskModel and remove task IDs.
+      .mapValues(_.map { case (task, taskId) => (task.getTaskName, task) }.toMap)
+      .map { case (containerId, tasks) => new ContainerModel(containerId, tasks) }
+      .toSet
   }
 }
 

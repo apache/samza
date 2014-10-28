@@ -36,7 +36,6 @@ import org.apache.samza.webapp.ApplicationMasterWebServlet
 class SamzaAppMasterService(config: Config, state: SamzaAppMasterState, registry: ReadableMetricsRegistry, clientHelper: ClientHelper) extends YarnAppMasterListener with Logging {
   var rpcApp: HttpServer = null
   var webApp: HttpServer = null
-  var coordinatorApp: HttpServer = null
 
   override def onInit() {
     // try starting the samza AM dashboard at a random rpc and tracking port
@@ -50,13 +49,10 @@ class SamzaAppMasterService(config: Config, state: SamzaAppMasterState, registry
     webApp.addServlet("/*", new ApplicationMasterWebServlet(config, state))
     webApp.start
 
-    coordinatorApp = new HttpServer
-    coordinatorApp.addServlet("/*", new JobServlet(config, state.tasksToSSPTaskNames, state.taskNameToChangeLogPartitionMapping))
-    coordinatorApp.start
-
+    state.jobCoordinator.start
     state.rpcUrl = rpcApp.getUrl
     state.trackingUrl = webApp.getUrl
-    state.coordinatorUrl = coordinatorApp.getUrl
+    state.coordinatorUrl = state.jobCoordinator.server.getUrl
 
     info("Webapp is started at (rpc %s, tracking %s, coordinator %s)" format (state.rpcUrl, state.trackingUrl, state.coordinatorUrl))
   }
@@ -70,8 +66,6 @@ class SamzaAppMasterService(config: Config, state: SamzaAppMasterState, registry
       webApp.stop
     }
 
-    if (coordinatorApp != null) {
-      coordinatorApp.stop
-    }
+    state.jobCoordinator.stop
   }
 }

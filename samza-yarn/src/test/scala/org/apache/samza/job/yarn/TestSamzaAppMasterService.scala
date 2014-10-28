@@ -29,26 +29,25 @@ import org.junit.Test
 import scala.collection.JavaConversions._
 import org.apache.samza.config.Config
 import org.apache.samza.container.TaskName
-import org.apache.samza.container.TaskNamesToSystemStreamPartitions
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.Partition
+import org.apache.samza.coordinator.JobCoordinator
 
 class TestSamzaAppMasterService {
   @Test
   def testAppMasterDashboardShouldStart {
+    val config = getDummyConfig
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "", 1, 2)
-    val service = new SamzaAppMasterService(getDummyConfig, state, null, null)
+    val service = new SamzaAppMasterService(config, state, null, null)
     val taskName = new TaskName("test")
 
-    state.tasksToSSPTaskNames = Map[Int, TaskNamesToSystemStreamPartitions]()
-    state.taskNameToChangeLogPartitionMapping = Map[TaskName, Int]()
-    state.tasksToSSPTaskNames += 0 -> new TaskNamesToSystemStreamPartitions(Map(taskName -> Set(new SystemStreamPartition("a", "b", new Partition(0)), new SystemStreamPartition("a", "b", new Partition(0)))))
-    state.taskNameToChangeLogPartitionMapping += taskName -> 0
+    state.jobCoordinator = JobCoordinator(config, 1)
 
     // start the dashboard
     service.onInit
     assertTrue(state.rpcUrl.getPort > 0)
     assertTrue(state.trackingUrl.getPort > 0)
+    assertTrue(state.coordinatorUrl.getPort > 0)
 
     // check to see if it's running
     val url = new URL(state.rpcUrl.toString + "am")
@@ -70,8 +69,11 @@ class TestSamzaAppMasterService {
   @Test
   def testAppMasterDashboardWebServiceShouldStart {
     // Create some dummy config
+    val config = getDummyConfig
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "", 1, 2)
-    val service = new SamzaAppMasterService(getDummyConfig, state, null, null)
+    val service = new SamzaAppMasterService(config, state, null, null)
+
+    state.jobCoordinator = JobCoordinator(config, 1)
 
     // start the dashboard
     service.onInit

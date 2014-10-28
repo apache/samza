@@ -128,14 +128,14 @@
             %th SystemStreamPartitions
             %th Container
         %tbody
-          - for((taskId, taskNames) <- state.runningTaskToTaskNames)
-            - for((taskName, ssps) <- taskNames)
+          - for((containerId, container) <- state.runningTasks)
+            - val containerModel = state.jobCoordinator.jobModel.getContainers.get(containerId)
+            - for((taskName, taskModel) <- containerModel.getTasks)
               %tr
-                %td= taskId
+                %td= containerId
                 %td= taskName
-                %td= ssps.map(_.toString).toList.sorted.mkString(", ")
+                %td= taskModel.getSystemStreamPartitions.map(_.toString).toList.sorted.mkString(", ")
                 %td
-                  - val container = state.runningTasks(taskId)
                   %a(target="_blank" href="http://#{container.nodeHttpAddress}/node/containerlogs/#{container.id.toString}/#{username}")= container.id.toString
 
     %div.tab-pane#config

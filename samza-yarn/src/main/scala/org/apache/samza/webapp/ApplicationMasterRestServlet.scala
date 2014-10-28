@@ -29,11 +29,12 @@ import scala.collection.JavaConversions._
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.codehaus.jackson.map.ObjectMapper
 import java.util.HashMap
+import org.apache.samza.serializers.model.SamzaObjectMapper
 
 class ApplicationMasterRestServlet(config: Config, state: SamzaAppMasterState, registry: ReadableMetricsRegistry) extends ScalatraServlet with ScalateSupport {
   val yarnConfig = new YarnConfiguration
   val client = new ClientHelper(yarnConfig)
-  val jsonMapper = new ObjectMapper()
+  val jsonMapper = SamzaObjectMapper.getObjectMapper
 
   before() {
     contentType = "application/json"
@@ -79,20 +80,18 @@ class ApplicationMasterRestServlet(config: Config, state: SamzaAppMasterState, r
   get("/am") {
     val containers = new HashMap[String, HashMap[String, Object]]
 
-    state.runningTasks.values.foreach(c => {
-      val containerIdStr = c.id.toString
-      val containerMap = new HashMap[String, Object]
-
-      val taskId = state.runningTasks.filter { case (_, container) => container.id.toString.equals(containerIdStr) }.keys.head
-      val taskNames = new java.util.ArrayList(state.runningTaskToTaskNames.get(taskId).get.toList)
-
-      containerMap.put("yarn-address", c.nodeHttpAddress)
-      containerMap.put("start-time", c.startTime.toString)
-      containerMap.put("up-time", c.upTime.toString)
-      containerMap.put("task-names", taskNames)
-      containerMap.put("task-id", taskId.toString)
-      containers.put(containerIdStr, containerMap)
-    })
+    state.runningTasks.foreach {
+      case (containerId, container) =>
+        val yarnContainerId = container.id.toString
+        val containerMap = new HashMap[String, Object]
+        val taskModels = state.jobCoordinator.jobModel.getContainers.get(containerId).getTasks
+        containerMap.put("yarn-address", container.nodeHttpAddress)
+        containerMap.put("start-time", container.startTime.toString)
+        containerMap.put("up-time", container.upTime.toString)
+        containerMap.put("task-models", taskModels)
+        containerMap.put("container-id", containerId.toString)
+        containers.put(yarnContainerId, containerMap)
+    }
 
     val status = Map[String, Object](
       "app-attempt-id" -> state.appAttemptId.toString,
