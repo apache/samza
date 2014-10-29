@@ -62,6 +62,8 @@ object KafkaCheckpointManagerFactory {
       "cleanup.policy" -> "compact",
       "segment.bytes" -> segmentBytes)) { case (props, (k, v)) => props.put(k, v); props }
   }
+  def getTopic(jobName: String, jobId: String) =
+    "__samza_checkpoint_ver_%d_for_%s_%s" format (CHECKPOINT_LOG_VERSION_NUMBER, jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
 }
 
 class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Logging {
@@ -114,7 +116,4 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
       systemStreamPartitionGrouperFactoryString,
       checkpointTopicProperties = getCheckpointTopicProperties(config))
   }
-
-  private def getTopic(jobName: String, jobId: String) =
-    "__samza_checkpoint_ver_%d_for_%s_%s" format (CHECKPOINT_LOG_VERSION_NUMBER, jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
 }

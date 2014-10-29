@@ -313,6 +313,16 @@ project(":samza-shell") {
     if (project.hasProperty('configPath')) args += ['--config-path', configPath]
     jvmArgs = ["-Dlog4j.configuration=file:src/main/resources/log4j-console.xml"]
   }
+
+  // Usage: ./gradlew samza-shell:checkpointMigrationTool \
+  //    -PconfigPath=file:///path/to/job/config.properties
+  task checkpointMigrationTool(type:JavaExec) {
+    main = 'org.apache.samza.util.CheckpointMigrationTool'
+    classpath = configurations.gradleShell
+    if (project.hasProperty('configPath')) args += ['--config-path', configPath]
+    if (project.hasProperty('configFactory')) args += ['--config-factory', configFactory]
+    jvmArgs = ["-Dlog4j.configuration=file:src/main/resources/log4j-console.xml"]
+  }
 }
 
 project(":samza-kv_$scalaVersion") {
