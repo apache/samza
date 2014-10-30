@@ -37,6 +37,7 @@ HADOOP_YARN_HOME="${HADOOP_YARN_HOME:-$HOME/.samza}"
 HADOOP_CONF_DIR="${HADOOP_CONF_DIR:-$HADOOP_YARN_HOME/conf}"
 CLASSPATH=$HADOOP_CONF_DIR
 GC_LOG_ROTATION_OPTS="-XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10241024"
+DEFAULT_LOG4J_FILE=$base_dir/lib/log4j.xml
 
 for file in $base_dir/lib/*.[jw]ar;
 do
@@ -73,12 +74,16 @@ function check_and_enable_64_bit_mode {
   fi
 }
 
-# Initialize SAMZA_LOG4J_CONFIG if currently undefined
-if [ -z "$SAMZA_LOG4J_CONFIG" ]; then
-  export SAMZA_LOG4J_CONFIG=file:$base_dir/lib/log4j.xml
-fi
-
 ### Inherit JVM_OPTS from task.opts configuration, and initialize defaults ###
+
+# Check if log4j configuration is specified. If not - set to lib/log4j.xml
+[[ $JAVA_OPTS != *-Dlog4j.configuration* && -f $DEFAULT_LOG4J_FILE ]] && JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=file:$DEFAULT_LOG4J_FILE"
+
+# Check if samza.log.dir is specified. If not - set to environment variable if it is set
+[[ $JAVA_OPTS != *-Dsamza.log.dir* && ! -z "$SAMZA_LOG_DIR" ]] && JAVA_OPTS="$JAVA_OPTS -Dsamza.log.dir=$SAMZA_LOG_DIR"
+
+# Check if java.io.tmpdir is specified. If not - set to tmp in the base_dir
+[[ $JAVA_OPTS != *-Djava.io.tmpdir* ]] && JAVA_OPTS="$JAVA_OPTS -Djava.io.tmpdir=$JAVA_TEMP_DIR"
 
 # Check if a max-heap size is specified. If not - set a 768M heap
 [[ $JAVA_OPTS != *-Xmx* ]] && JAVA_OPTS="$JAVA_OPTS -Xmx768M"
@@ -91,8 +96,6 @@ fi
 
 # Check if 64 bit is set. If not - try and set it if it's supported
 [[ $JAVA_OPTS != *-d64* ]] && check_and_enable_64_bit_mode
-
-JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=$SAMZA_LOG4J_CONFIG -Dsamza.log.dir=$SAMZA_LOG_DIR -Djava.io.tmpdir=$JAVA_TEMP_DIR"
 
 echo $JAVA $JAVA_OPTS -cp $CLASSPATH $@
 exec $JAVA $JAVA_OPTS -cp $CLASSPATH $@

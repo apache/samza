@@ -17,9 +17,12 @@
 # under the License.
 
 # Check if server is set. If not - set server optimization
-[[ $JAVA_OPTS != *-server* ]] && JAVA_OPTS="$JAVA_OPTS -server"
+[[ $JAVA_OPTS != *-server* ]] && export JAVA_OPTS="$JAVA_OPTS -server"
 
-# Set container ID and name system properties for use in Log4J
-JAVA_OPTS="$JAVA_OPTS -Dsamza.container.id=$SAMZA_CONTAINER_ID -Dsamza.container.name=samza-container-$SAMZA_CONTAINER_ID"
+# Set container ID system property for use in Log4J
+[[ $JAVA_OPTS != *-Dsamza.container.id* && ! -z "$SAMZA_CONTAINER_ID" ]] && export JAVA_OPTS="$JAVA_OPTS -Dsamza.container.id=$SAMZA_CONTAINER_ID"
+
+# Set container name system property for use in Log4J
+[[ $JAVA_OPTS != *-Dsamza.container.name* && ! -z "$SAMZA_CONTAINER_ID" ]] && export JAVA_OPTS="$JAVA_OPTS -Dsamza.container.name=samza-container-$SAMZA_CONTAINER_ID"
 
 exec $(dirname $0)/run-class.sh org.apache.samza.container.SamzaContainer $@
