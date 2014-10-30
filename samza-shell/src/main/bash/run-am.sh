@@ -17,6 +17,6 @@
 # under the License.
 
 # Check if server is set. If not - set server optimization
-[[ $JAVA_OPTS != *-server* ]] && JAVA_OPTS="$JAVA_OPTS -server"
+[[ $JAVA_OPTS != *-server* ]] && export JAVA_OPTS="$JAVA_OPTS -server"
 
 exec $(dirname $0)/run-class.sh org.apache.samza.job.yarn.SamzaAppMaster $@

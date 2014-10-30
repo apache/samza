@@ -16,8 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if [ -z "$SAMZA_LOG4J_CONFIG" ]; then
-  export SAMZA_LOG4J_CONFIG=file:$(dirname $0)/log4j-console.xml
-fi
+# Override log4j.xml to point to log4j-console.xml
+[[ $JAVA_OPTS != *-Dlog4j.configuration* ]] && export JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=file:$(dirname $0)/log4j-console.xml"
 
 exec $(dirname $0)/run-class.sh org.apache.samza.job.JobRunner $@
