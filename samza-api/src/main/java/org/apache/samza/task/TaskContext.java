@@ -27,7 +27,7 @@ import java.util.Set;
 
 /**
  * A TaskContext provides resources about the {@link org.apache.samza.task.StreamTask}, particularly during
- * initialization in an {@link org.apache.samza.task.InitableTask} and during calls to {@link org.apache.samza.task.TaskLifecycleListener}s.
+ * initialization in an {@link org.apache.samza.task.InitableTask}.
  */
 public interface TaskContext {
   MetricsRegistry getMetricsRegistry();

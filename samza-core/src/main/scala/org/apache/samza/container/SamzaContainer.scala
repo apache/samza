@@ -54,8 +54,6 @@ import org.apache.samza.system.chooser.MessageChooserFactory
 import org.apache.samza.system.chooser.RoundRobinChooserFactory
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskInstanceCollector
-import org.apache.samza.task.TaskLifecycleListener
-import org.apache.samza.task.TaskLifecycleListenerFactory
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
 import scala.collection.JavaConversions._
@@ -340,24 +338,6 @@ object SamzaContainer extends Logging {
       metrics = systemProducersMetrics,
       dropSerializationError = dropSerializationError)
 
-    val listeners = config.getLifecycleListeners match {
-      case Some(listeners) => {
-        listeners.split(",").map(listenerName => {
-          info("Loading lifecycle listener: %s" format listenerName)
-
-          val listenerClassName = config.getLifecycleListenerClass(listenerName).getOrElse(throw new SamzaException("Referencing missing listener %s in config" format listenerName))
-
-          Util.getObj[TaskLifecycleListenerFactory](listenerClassName)
-            .getLifecyleListener(listenerName, config)
-        }).toList
-      }
-      case _ => {
-        info("No lifecycle listeners found")
-
-        List[TaskLifecycleListener]()
-      }
-    }
-
     // TODO not sure how we should make this config based, or not. Kind of
     // strange, since it has some dynamic directories when used with YARN.
     val storeBaseDir = new File(System.getProperty("user.dir"), "state")
@@ -481,7 +461,6 @@ object SamzaContainer extends Logging {
         offsetManager = offsetManager,
         storageManager = storageManager,
         reporters = reporters,
-        listeners = listeners,
         systemStreamPartitions = systemStreamPartitions,
         exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config))
 

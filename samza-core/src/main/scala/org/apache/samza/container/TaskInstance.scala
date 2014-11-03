@@ -32,7 +32,6 @@ import org.apache.samza.task.TaskContext
 import org.apache.samza.task.ClosableTask
 import org.apache.samza.task.InitableTask
 import org.apache.samza.task.WindowableTask
-import org.apache.samza.task.TaskLifecycleListener
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.task.TaskInstanceCollector
@@ -50,7 +49,6 @@ class TaskInstance(
   offsetManager: OffsetManager = new OffsetManager,
   storageManager: TaskStorageManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
-  listeners: Seq[TaskLifecycleListener] = Seq(),
   val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
   val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler) extends Logging {
   val isInitableTask = task.isInstanceOf[InitableTask]
@@ -92,8 +90,6 @@ class TaskInstance(
   }
 
   def initTask {
-    listeners.foreach(_.beforeInit(config, context))
-
     if (isInitableTask) {
       debug("Initializing task for taskName: %s" format taskName)
 
@@ -101,8 +97,6 @@ class TaskInstance(
     } else {
       debug("Skipping task initialization for taskName: %s" format taskName)
     }
-
-    listeners.foreach(_.afterInit(config, context))
   }
 
   def registerProducers {
@@ -129,15 +123,11 @@ class TaskInstance(
   def process(envelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator) {
     metrics.processes.inc
 
-    listeners.foreach(_.beforeProcess(envelope, config, context))
-
     trace("Processing incoming message envelope for taskName and SSP: %s, %s" format (taskName, envelope.getSystemStreamPartition))
 
     exceptionHandler.maybeHandle {
       task.process(envelope, collector, coordinator)
     }
-
-    listeners.foreach(_.afterProcess(envelope, config, context))
 
     trace("Updating offset map for taskName, SSP and offset: %s, %s, %s" format (taskName, envelope.getSystemStreamPartition, envelope.getOffset))
 
@@ -173,8 +163,6 @@ class TaskInstance(
   }
 
   def shutdownTask {
-    listeners.foreach(_.beforeClose(config, context))
-
     if (task.isInstanceOf[ClosableTask]) {
       debug("Shutting down stream task for taskName: %s" format taskName)
 
@@ -182,8 +170,6 @@ class TaskInstance(
     } else {
       debug("Skipping stream task shutdown for taskName: %s" format taskName)
     }
-
-    listeners.foreach(_.afterClose(config, context))
   }
 
   def shutdownStores {

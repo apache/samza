@@ -354,31 +354,6 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="task-lifecycle-listener-class">task.lifecycle.listener.<br><span class="listener">listener-name</span>.class</td>
-                    <td class="default"></td>
-                    <td class="description">
-                        Use this property to register a
-                        <a href="../container/event-loop.html#lifecycle-listeners">lifecycle listener</a>, which can receive
-                        a notification when a container starts up or shuts down, or when a message is processed.
-                        The value is the fully-qualified name of a Java class that implements
-                        <a href="../api/javadocs/org/apache/samza/task/TaskLifecycleListenerFactory.html">TaskLifecycleListenerFactory</a>.
-                        You can define multiple lifecycle listeners, each with a different <span class="listener">listener-name</span>,
-                        and reference them in <a href="#task-lifecycle-listeners" class="property">task.lifecycle.listeners</a>.
-                    </td>
-                </tr>
-
-                <tr>
-                    <td class="property" id="task-lifecycle-listeners">task.lifecycle.listeners</td>
-                    <td class="default"></td>
-                    <td class="description">
-                        If you have defined <a href="../container/event-loop.html#lifecycle-listeners">lifecycle listeners</a> with
-                        <a href="#task-lifecycle-listener-class" class="property">task.lifecycle.listener.*.class</a>,
-                        you need to list them here in order to enable them. The value of this property is a
-                        comma-separated list of <span class="listener">listener-name</span> tokens.
-                    </td>
-                </tr>
-
-                <tr>
                     <td class="property" id="task-drop-deserialization-errors">task.drop.deserialization.errors</td>
                     <td class="default"></td>
                     <td class="description">
