@@ -27,7 +27,7 @@ task sourceRelease(type: Tar) {
   description = "Build a source release, specifically excluding the build directories and gradle wrapper files"
   compression = Compression.GZIP
 
-  baseName = "samza-sources-${project.version}-incubating"
+  baseName = "apache-samza-${project.version}-incubating-src"
 
   from(project.rootDir) {
     exclude '**/build'
@@ -37,6 +37,8 @@ task sourceRelease(type: Tar) {
     exclude 'gradlew.bat'
     exclude 'gradle/wrapper/gradle-wrapper.jar'
     exclude 'gradle/wrapper/gradle-wrapper.properties'
+    exclude 'KEYS'
+    exclude '.reviewboardrc'
   }
 
   into(baseName)
