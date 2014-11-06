@@ -188,8 +188,8 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="job-systemstreampartition-grouper-factory">job.systemstreampartition.grouper.factory</td>
-                    <td class="default">org.apache.samza.container.grouper.stream.GroupByPartitionFactory</td>
+                    <td class="property" id="job-systemstreampartition-grouper-factory">job.systemstreampartition.<br>grouper.factory</td>
+                    <td class="default">org.apache.samza.<br>container.grouper.stream.<br>GroupByPartitionFactory</td>
                     <td class="description">
                         A factory class that is used to determine how input SystemStreamPartitions are grouped together for processing in individual StreamTask instances. The factory must implement the SystemStreamPartitionGrouperFactory interface. Once this configuration is set, it can't be changed, since doing so could violate state semantics, and lead to a loss of data.
 
