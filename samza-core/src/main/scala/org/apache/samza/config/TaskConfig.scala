@@ -61,7 +61,7 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) {
   def getInputStreams = getOption(TaskConfig.INPUT_STREAMS) match {
     case Some(streams) => if (streams.length > 0) {
       streams.split(",").map(systemStreamNames => {
-        Util.getSystemStreamFromNames(systemStreamNames)
+        Util.getSystemStreamFromNames(systemStreamNames.trim)
       }).toSet
     } else {
       Set[SystemStream]()
