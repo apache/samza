@@ -27,10 +27,6 @@ buildscript {
 
 allprojects {
   repositories {
-    // Required for Kafka.
-    maven {
-      url 'https://repository.apache.org/content/groups/public'
-    }
     mavenCentral()
     mavenLocal()
    }
