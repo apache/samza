@@ -19,7 +19,6 @@
 
 package org.apache.samza.metrics
 
-import org.apache.samza.container.SamzaContainerMetrics
 
 /**
  * MetricsHelper is a little helper class to make it easy to register and
