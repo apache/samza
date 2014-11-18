@@ -47,7 +47,7 @@ cd incubator-samza
 Let's also release Samza to Maven's local repository, so hello-samza has access to the JARs that it needs.
 
 {% highlight bash %}
-./gradlew -PscalaVersion=2.9.2 clean publishToMavenLocal
+./gradlew -PscalaVersion=2.10 clean publishToMavenLocal
 {% endhighlight %}
 
 Next, open Eclipse, and import the Samza source code into your workspace: "File" &gt; "Import" &gt; "Existing Projects into Workspace" &gt; "Browse". Select 'incubator-samza' folder, and hit 'finish'.

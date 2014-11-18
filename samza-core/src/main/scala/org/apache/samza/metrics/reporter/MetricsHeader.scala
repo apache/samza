@@ -21,7 +21,7 @@ package org.apache.samza.metrics.reporter
 
 import java.util.HashMap
 import java.util.Map
-import scala.reflect.BeanProperty
+import scala.beans.BeanProperty
 
 object MetricsHeader {
   def fromMap(map: Map[String, Object]): MetricsHeader = {

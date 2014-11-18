@@ -21,7 +21,7 @@
 
 set -e
 
-SCALAs=( "2.9.2" "2.10" )
+SCALAs=( "2.10" )
 JDKs=( "JAVA6_HOME" "JAVA7_HOME" "JAVA8_HOME" )
 YARNs=( "2.4.0" "2.5.0" )
 
@@ -62,8 +62,9 @@ do
   for scala_version in "${SCALAs[@]}"
   do
     jdk_number=${i:4:1}
+
     # skip because Scala 2.9.2 doesn't work with JDK8
-    if [[ "$jdk_number" != "8" ]] || [[ "$scala_version" != "2.9.2" ]]; then
+    if [[ "$jdk_number" != "8" ]]; then
       for yarn_version in "${YARNs[@]}"
       do
         echo "------------- Running check task against JDK${jdk_number}/Scala ${scala_version}/YARN ${yarn_version}"

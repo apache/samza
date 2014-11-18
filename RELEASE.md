@@ -9,7 +9,7 @@ Auto-generate all missing headers in files:
 To release to a local Maven repository:
 
     ./gradlew clean publishToMavenLocal
-    ./gradlew -PscalaVersion=2.9.2 clean publishToMavenLocal
+    ./gradlew -PscalaVersion=2.10 clean publishToMavenLocal
 
 To build a tarball suitable for an ASF source release (and its accompanying MD5 file):
 
@@ -54,7 +54,7 @@ Build binary artifacts and upload them to the staging repository:
     # If it's built with Java 8, the classes won't be readable by Java 7.
     export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.7.0_51.jdk/Contents/Home
     ./gradlew clean uploadArchives
-    ./gradlew -PscalaVersion=2.9.2 clean uploadArchives
+    ./gradlew -PscalaVersion=2.10 clean uploadArchives
 
 Go to [repository web interface](https://repository.apache.org/), log in with
 Apache LDAP credentials, go to "Staging Repositories", select the org.apache.samza
