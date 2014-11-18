@@ -63,14 +63,11 @@ do
   do
     jdk_number=${i:4:1}
 
-    # skip because Scala 2.9.2 doesn't work with JDK8
-    if [[ "$jdk_number" != "8" ]]; then
-      for yarn_version in "${YARNs[@]}"
-      do
-        echo "------------- Running check task against JDK${jdk_number}/Scala ${scala_version}/YARN ${yarn_version}"
-        $base_dir/gradlew -PscalaVersion=${scala_version} -PyarnVersion=${yarn_version} -Dorg.gradle.java.home=${!i} clean check $@
-        echo "------------- Finished running check task against JDK${jdk_number}/Scala ${scala_version}/YARN ${yarn_version}"
-      done
-    fi
+    for yarn_version in "${YARNs[@]}"
+    do
+      echo "------------- Running check task against JDK${jdk_number}/Scala ${scala_version}/YARN ${yarn_version}"
+      $base_dir/gradlew -PscalaVersion=${scala_version} -PyarnVersion=${yarn_version} -Dorg.gradle.java.home=${!i} clean check $@
+      echo "------------- Finished running check task against JDK${jdk_number}/Scala ${scala_version}/YARN ${yarn_version}"
+    done
   done
 done
