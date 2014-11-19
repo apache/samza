@@ -28,7 +28,7 @@ Then build the tarball:
 
 Then sign it:
 
-    gpg --sign --armor --detach-sig build/distribution/source/samza-sources-*.tgz
+    gpg --sign --armor --detach-sig build/distribution/source/apache-samza-*.tgz
 
 Make a signed git tag for the release candidate:
 
