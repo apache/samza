@@ -2,4 +2,4 @@ REVIEWBOARD_URL = 'https://reviews.apache.org'
 REPOSITORY = 'samza'
 GUESS_DESCRIPTION = True
 TARGET_GROUPS = 'samza'
-TRACKING_BRANCH = 'origin/master'
+TRACKING_BRANCH = 'origin/0.8.0'

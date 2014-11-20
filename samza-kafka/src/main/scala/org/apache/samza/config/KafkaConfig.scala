@@ -19,11 +19,18 @@
 
 package org.apache.samza.config
 
+
+import org.apache.samza.SamzaException
+
 import scala.collection.JavaConversions._
 import kafka.consumer.ConsumerConfig
 import java.util.Properties
 import kafka.producer.ProducerConfig
 import java.util.UUID
+import scala.collection.JavaConverters._
+import org.apache.samza.system.kafka.KafkaSystemFactory
+import scala.collection.mutable.ArrayBuffer
+
 
 object KafkaConfig {
   val REGEX_RESOLVED_STREAMS = "job.config.rewriter.%s.regex"
@@ -33,6 +40,10 @@ object KafkaConfig {
   val CHECKPOINT_SYSTEM = "task.checkpoint.system"
   val CHECKPOINT_REPLICATION_FACTOR = "task.checkpoint.replication.factor"
   val CHECKPOINT_SEGMENT_BYTES = "task.checkpoint.segment.bytes"
+
+  val CHANGELOG_STREAM_REPLICATION_FACTOR = "stores.%s.changelog.replication.factor"
+  val CHANGELOG_STREAM_KAFKA_SETTINGS  = "stores.%s.changelog.kafka"
+  val CHANGELOG_STREAM_NAMES_REGEX = "stores\\..*\\.changelog$"
 
   /**
    * Defines how low a queue can get for a single system/stream/partition
@@ -84,6 +95,30 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getRegexResolvedStreams(rewriterName: String) = getOption(KafkaConfig.REGEX_RESOLVED_STREAMS format rewriterName)
   def getRegexResolvedSystem(rewriterName: String) = getOption(KafkaConfig.REGEX_RESOLVED_SYSTEM format rewriterName)
   def getRegexResolvedInheritedConfig(rewriterName: String) = config.subset((KafkaConfig.REGEX_INHERITED_CONFIG format rewriterName) + ".", true)
+  def getChangelogStreamReplicationFactor(name: String) = getOption(KafkaConfig.CHANGELOG_STREAM_REPLICATION_FACTOR format name)
+  def getChangelogTopicNames() = {
+    val changelogConfigs = config.regexSubset(KafkaConfig.CHANGELOG_STREAM_NAMES_REGEX).asScala
+    val topicNamesList = ArrayBuffer[String]()
+    for((changelogConfig, changelogName) <- changelogConfigs){
+      // Lookup the factory for this particular stream and verify if it's a kafka system
+      val changelogNameSplit = changelogName.split("\\.")
+      if(changelogNameSplit.length < 2) throw new SamzaException("Changelog name not in expected format")
+      val factoryName = config.get(String.format(SystemConfig.SYSTEM_FACTORY, changelogNameSplit(0)))
+      if(classOf[KafkaSystemFactory].getCanonicalName == factoryName){
+        topicNamesList += changelogNameSplit(1)
+      }
+    }
+    topicNamesList.toList
+  }
+
+  // Get all kafka properties for changelog stream topic creation
+  def getChangelogKafkaProperties(name: String) = {
+    val filteredConfigs = config.subset(KafkaConfig.CHANGELOG_STREAM_KAFKA_SETTINGS format name, true)
+
+    val kafkaChangeLogProperties = new Properties
+    filteredConfigs.foreach{kv => kafkaChangeLogProperties.setProperty(kv._1, kv._2)}
+    kafkaChangeLogProperties
+  }
 
   // kafka config
   def getKafkaSystemConsumerConfig(

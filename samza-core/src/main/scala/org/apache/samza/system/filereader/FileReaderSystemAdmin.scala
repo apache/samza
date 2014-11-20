@@ -130,4 +130,8 @@ class FileReaderSystemAdmin extends SystemAdmin with Logging {
       })
     enterPosition
   }
+
+  override def createChangelogStream(topicName: String, numOfChangeLogPartitions: Int) = {
+    throw new SamzaException("Method not implemented")
+  }
 }
