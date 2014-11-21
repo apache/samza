@@ -343,7 +343,14 @@ class OffsetManager(
           .get(partition)
 
         if (systemStreamPartitionMetadata != null) {
-          val nextOffset = systemStreamPartitionMetadata.getOffset(offsetType)
+          val nextOffset = {
+            val requested = systemStreamPartitionMetadata.getOffset(offsetType)
+
+            if (requested == null) {
+              warn("Requested offset type %s in %s, but the stream is empty. Defaulting to the upcoming offset." format (offsetType, systemStreamPartition))
+              systemStreamPartitionMetadata.getOffset(OffsetType.UPCOMING)
+            } else requested
+          }
 
           debug("Got next default offset %s for %s" format (nextOffset, systemStreamPartition))
 

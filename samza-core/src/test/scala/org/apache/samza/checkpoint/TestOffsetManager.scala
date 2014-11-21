@@ -216,6 +216,19 @@ class TestOffsetManager {
     assertNull(offsetManager.getLastProcessedOffset(systemStreamPartition1).getOrElse(null))
   }
 
+  @Test
+  def testDefaultToUpcomingOnMissingDefault {
+    val taskName = new TaskName("task-name")
+    val ssp = new SystemStreamPartition(new SystemStream("test-system", "test-stream"), new Partition(0))
+    val sspm = new SystemStreamPartitionMetadata(null, null, "13")
+    val offsetMeta = new SystemStreamMetadata("test-stream", Map(new Partition(0) -> sspm))
+    val settings = new OffsetSetting(offsetMeta, OffsetType.OLDEST, resetOffset = false)
+    val offsetManager = new OffsetManager(offsetSettings = Map(ssp.getSystemStream -> settings))
+    offsetManager.register(taskName, Set(ssp))
+    offsetManager.start
+    assertEquals(Some("13"), offsetManager.getStartingOffset(ssp))
+  }
+
   private def getCheckpointManager(systemStreamPartition: SystemStreamPartition, taskName:TaskName = new TaskName("taskName")) = {
     val checkpoint = new Checkpoint(Map(systemStreamPartition -> "45"))
 
