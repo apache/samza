@@ -149,7 +149,6 @@ project(":samza-kafka_$scalaVersion") {
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
-    compile project(":samza-serializers_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "com.101tec:zkclient:$zkClientVersion"
     compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
@@ -176,18 +175,6 @@ project(':samza-log4j') {
 
   dependencies {
     compile "log4j:log4j:$log4jVersion"
-    testCompile "junit:junit:$junitVersion"
-  }
-}
-
-project(":samza-serializers_$scalaVersion") {
-  apply plugin: 'scala'
-
-  dependencies {
-    compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
-    compile "org.scala-lang:scala-library:$scalaLibVersion"
-    compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     testCompile "junit:junit:$junitVersion"
   }
 }
