@@ -26,8 +26,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Store and retrieve named, typed values as configuration for classes implementing this interface.
@@ -52,21 +50,6 @@ public abstract class Config implements Map<String, String> {
     }
 
     return new MapConfig(out);
-  }
-
-  public Config regexSubset(String regex) {
-      Map<String, String> out = new HashMap<String, String>();
-      Pattern pattern = Pattern.compile(regex);
-
-      for (Entry<String, String> entry : entrySet()) {
-        String k = entry.getKey();
-        Matcher matcher = pattern.matcher(k);
-        if(matcher.find()){
-            out.put(k, entry.getValue());
-        }
-      }
-
-      return new MapConfig(out);
   }
 
   public String get(String k, String defaultString) {

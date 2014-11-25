@@ -50,11 +50,4 @@ public interface SystemAdmin {
    *         requested in the parameter set.
    */
   Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames);
-
-    /**
-     * An API to create a change log stream
-     * @param streamName The name of the stream to be created in the underlying stream
-     * @param numOfPartitions The number of partitions in the changelog stream
-     */
-  void createChangelogStream(String streamName, int numOfPartitions);
 }

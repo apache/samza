@@ -22,7 +22,6 @@ package org.apache.samza.test.integration
 import java.util.Properties
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import java.util.logging.{Level, LogManager, Handler, Logger}
 
 import kafka.admin.AdminUtils
 import kafka.common.ErrorMapping
@@ -88,9 +87,6 @@ object TestStatefulTask {
   val props1 = TestUtils.createBrokerConfig(brokerId1, port1)
   val props2 = TestUtils.createBrokerConfig(brokerId2, port2)
   val props3 = TestUtils.createBrokerConfig(brokerId3, port3)
-  props1.setProperty("auto.create.topics.enable","false")
-  props2.setProperty("auto.create.topics.enable","false")
-  props3.setProperty("auto.create.topics.enable","false")
 
   val config = new java.util.Properties()
   val brokers = "localhost:%d,localhost:%d,localhost:%d" format (port1, port2, port3)
@@ -110,7 +106,6 @@ object TestStatefulTask {
 
   @BeforeClass
   def beforeSetupServers {
-
     zookeeper = new EmbeddedZookeeper(zkConnect)
     server1 = TestUtils.createServer(new KafkaConfig(props1))
     server2 = TestUtils.createServer(new KafkaConfig(props2))
@@ -129,10 +124,16 @@ object TestStatefulTask {
       INPUT_TOPIC,
       TOTAL_TASK_NAMES,
       REPLICATION_FACTOR)
+
+    AdminUtils.createTopic(
+      zkClient,
+      STATE_TOPIC,
+      TOTAL_TASK_NAMES,
+      REPLICATION_FACTOR)
   }
 
   def validateTopics {
-    val topics = Set(INPUT_TOPIC)
+    val topics = Set(STATE_TOPIC, INPUT_TOPIC)
     var done = false
     var retries = 0
 
@@ -207,7 +208,6 @@ class TestStatefulTask {
     "stores.mystore.key.serde" -> "string",
     "stores.mystore.msg.serde" -> "string",
     "stores.mystore.changelog" -> "kafka.mystore",
-    "stores.mystore.changelog.replication.factor" -> "1",
 
     "systems.kafka.samza.factory" -> "org.apache.samza.system.kafka.KafkaSystemFactory",
     // Always start consuming at offset 0. This avoids a race condition between

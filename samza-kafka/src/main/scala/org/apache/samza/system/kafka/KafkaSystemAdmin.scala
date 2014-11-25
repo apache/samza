@@ -19,21 +19,25 @@
 
 package org.apache.samza.system.kafka
 
-import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemStreamMetadata
 import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, Logging}
+import org.apache.samza.util.ClientUtilTopicMetadataStore
+import org.apache.samza.util.ExponentialSleepStrategy
 import kafka.api._
 import kafka.consumer.SimpleConsumer
-import kafka.common.{TopicExistsException, TopicAndPartition, ErrorMapping}
-import java.util.{Properties, UUID}
+import kafka.utils.Utils
+import kafka.client.ClientUtils
+import kafka.common.TopicAndPartition
+import kafka.common.ErrorMapping
+import kafka.cluster.Broker
+import org.apache.samza.util.Logging
+import java.util.UUID
 import scala.collection.JavaConversions._
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import kafka.consumer.ConsumerConfig
-import kafka.admin.AdminUtils
 
 object KafkaSystemAdmin extends Logging {
   /**
@@ -69,59 +73,40 @@ object KafkaSystemAdmin extends Logging {
 }
 
 /**
- * A helper class that is used to construct the changelog stream specific information
- * @param replicationFactor The number of replicas for the changelog stream
- * @param kafkaProps The kafka specific properties that need to be used for changelog stream creation
- */
-case class ChangeLogInfo(var replicationFactor: Int, var kafkaProps: Properties)
-
-/**
  * A Kafka-based implementation of SystemAdmin.
  */
 class KafkaSystemAdmin(
   /**
-  * The system name to use when creating SystemStreamPartitions to return in
-  * the getSystemStreamMetadata responser.
-  */
+   * The system name to use when creating SystemStreamPartitions to return in
+   * the getSystemStreamMetadata responser.
+   */
   systemName: String,
+
   // TODO whenever Kafka decides to make the Set[Broker] class public, let's switch to Set[Broker] here.
   /**
-  * List of brokers that are part of the Kafka system that we wish to
-  * interact with. The format is host1:port1,host2:port2.
-  */
+   * List of brokers that are part of the Kafka system that we wish to
+   * interact with. The format is host1:port1,host2:port2.
+   */
   brokerListString: String,
 
   /**
-  * The timeout to use for the simple consumer when fetching metadata from
-  * Kafka. Equivalent to Kafka's socket.timeout.ms configuration.
-  */
+   * The timeout to use for the simple consumer when fetching metadata from
+   * Kafka. Equivalent to Kafka's socket.timeout.ms configuration.
+   */
   timeout: Int = Int.MaxValue,
 
   /**
-  * The buffer size to use for the simple consumer when fetching metadata
-  * from Kafka. Equivalent to Kafka's socket.receive.buffer.bytes
-  * configuration.
-  */
+   * The buffer size to use for the simple consumer when fetching metadata
+   * from Kafka. Equivalent to Kafka's socket.receive.buffer.bytes
+   * configuration.
+   */
   bufferSize: Int = ConsumerConfig.SocketBufferSize,
 
   /**
-  * The client ID to use for the simple consumer when fetching metadata from
-  * Kafka. Equivalent to Kafka's client.id configuration.
-  */
-  clientId: String = UUID.randomUUID.toString,
-
-  /**
-  * A function that returns a Zookeeper client to connect to fetch the meta
-  * data information
-  */
-  connectZk: () => ZkClient,
-
-  /**
-   * Replication factor for the Changelog topic in kafka
-   * Kafka properties to be used during the Changelog topic creation
+   * The client ID to use for the simple consumer when fetching metadata from
+   * Kafka. Equivalent to Kafka's client.id configuration.
    */
-  topicMetaInformation: Map[String, ChangeLogInfo] =  Map[String, ChangeLogInfo]()
-  ) extends SystemAdmin with Logging {
+  clientId: String = UUID.randomUUID.toString) extends SystemAdmin with Logging {
 
   import KafkaSystemAdmin._
 
@@ -273,83 +258,5 @@ class KafkaSystemAdmin(
     debug("Got offsets for %s using earliest/latest value of %s: %s" format (topicsAndPartitions, earliestOrLatest, offsets))
 
     offsets
-  }
-
-  private def createTopicInKafka(topicName: String, numKafkaChangeLogPartitions: Int) {
-    val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy
-    info("Attempting to create change log topic %s." format topicName)
-    info("Using partition count "+ numKafkaChangeLogPartitions + " for creating change log topic")
-    val topicMetaInfo = topicMetaInformation.getOrElse(topicName, throw new KafkaChangeLogException("Unable to find topic information for topic " + topicName))
-    retryBackoff.run(
-      loop => {
-        val zkClient = connectZk()
-        try {
-          AdminUtils.createTopic(
-            zkClient,
-            topicName,
-            numKafkaChangeLogPartitions,
-            topicMetaInfo.replicationFactor,
-            topicMetaInfo.kafkaProps)
-        } finally {
-          zkClient.close
-        }
-
-        info("Created changelog topic %s." format topicName)
-        loop.done
-      },
-
-      (exception, loop) => {
-        exception match {
-          case e: TopicExistsException =>
-            info("Changelog topic %s already exists." format topicName)
-            loop.done
-          case e: Exception =>
-            warn("Failed to create topic %s: %s. Retrying." format(topicName, e))
-            debug("Exception detail:", e)
-        }
-      }
-    )
-  }
-
-  private def validateTopicInKafka(topicName: String, numKafkaChangeLogPartitions: Int) {
-    val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy
-    info("Validating changelog topic %s." format topicName)
-    retryBackoff.run(
-      loop => {
-        val metadataStore = new ClientUtilTopicMetadataStore(brokerListString, clientId, timeout)
-        val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topicName), systemName, metadataStore.getTopicInfo)
-        val topicMetadata = topicMetadataMap(topicName)
-        ErrorMapping.maybeThrowException(topicMetadata.errorCode)
-
-        val partitionCount = topicMetadata.partitionsMetadata.length
-        if (partitionCount < numKafkaChangeLogPartitions) {
-          throw new KafkaChangeLogException("Changelog topic validation failed for topic %s because partition count %s did not match expected partition count of %d" format(topicName, topicMetadata.partitionsMetadata.length, numKafkaChangeLogPartitions))
-        }
-
-        info("Successfully validated changelog topic %s." format topicName)
-        loop.done
-      },
-
-      (exception, loop) => {
-        exception match {
-          case e: KafkaChangeLogException => throw e
-          case e: Exception =>
-            warn("While trying to validate topic %s: %s. Retrying." format(topicName, e))
-            debug("Exception detail:", e)
-        }
-      }
-    )
-  }
-
-  /**
-   * Exception to be thrown when the change log stream creation or validation has failed
-   */
-  class KafkaChangeLogException(s: String, t: Throwable) extends SamzaException(s, t) {
-    def this(s: String) = this(s, null)
-  }
-
-  override def createChangelogStream(topicName: String, numKafkaChangeLogPartitions: Int) = {
-    createTopicInKafka(topicName, numKafkaChangeLogPartitions)
-    validateTopicInKafka(topicName, numKafkaChangeLogPartitions)
   }
 }

@@ -275,6 +275,10 @@ object SamzaContainer extends Logging {
 
     info("Got change log system streams: %s" format changeLogSystemStreams)
 
+    val changeLogMetadata = streamMetadataCache.getStreamMetadata(changeLogSystemStreams.values.toSet)
+
+    info("Got change log stream metadata: %s" format changeLogMetadata)
+
     val serdeManager = new SerdeManager(
       serdes = serdes,
       systemKeySerdes = systemKeySerdes,
@@ -409,12 +413,6 @@ object SamzaContainer extends Logging {
 
     val containerContext = new SamzaContainerContext(containerName, config, taskNames)
 
-    // compute the number of partitions necessary for the change log stream creation
-    var maxChangeLogStreamPartitions = -1
-    taskNameToChangeLogPartitionMapping.map(x => if(maxChangeLogStreamPartitions < x._2) maxChangeLogStreamPartitions = x._2)
-    // Increment by 1 because partition starts from 0, but we need the absolute count, this value is used for change log topic creation.
-    maxChangeLogStreamPartitions = maxChangeLogStreamPartitions + 1
-
     val taskInstances: Map[TaskName, TaskInstance] = taskNames.map(taskName => {
       debug("Setting up task instance: %s" format taskName)
 
@@ -468,16 +466,18 @@ object SamzaContainer extends Logging {
 
       info("Got task stores: %s" format taskStores)
 
+      val changeLogOldestOffsets = getChangeLogOldestOffsetsForPartition(partitionForThisTaskName, changeLogMetadata)
+
+      info("Assigning oldest change log offsets for taskName %s: %s" format (taskName, changeLogOldestOffsets))
+
       val storageManager = new TaskStorageManager(
         taskName = taskName,
         taskStores = taskStores,
         storeConsumers = storeConsumers,
         changeLogSystemStreams = changeLogSystemStreams,
-        maxChangeLogStreamPartitions,
-        streamMetadataCache = streamMetadataCache,
+        changeLogOldestOffsets = changeLogOldestOffsets,
         storeBaseDir = storeBaseDir,
-        partitionForThisTaskName,
-        systemAdmins = systemAdmins)
+        partitionForThisTaskName)
 
       val systemStreamPartitions: Set[SystemStreamPartition] = sspTaskNames.getOrElse(taskName, throw new SamzaException("Can't find taskName " + taskName + " in map of SystemStreamPartitions: " + sspTaskNames))
 
@@ -518,6 +518,16 @@ object SamzaContainer extends Logging {
       metrics = samzaContainerMetrics,
       reporters = reporters,
       jvm = jvm)
+  }
+
+  /**
+   * Builds a map from SystemStreamPartition to oldest offset for changelogs.
+   */
+  def getChangeLogOldestOffsetsForPartition(partition: Partition, inputStreamMetadata: Map[SystemStream, SystemStreamMetadata]): Map[SystemStream, String] = {
+    inputStreamMetadata
+      .mapValues(_.getSystemStreamPartitionMetadata.get(partition))
+      .filter(_._2 != null)
+      .mapValues(_.getOldestOffset)
   }
 }
 

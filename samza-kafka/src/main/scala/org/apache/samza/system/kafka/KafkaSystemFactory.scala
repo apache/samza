@@ -19,9 +19,6 @@
 
 package org.apache.samza.system.kafka
 
-
-import kafka.utils.ZKStringSerializer
-import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.util.KafkaUtil
 import org.apache.samza.config.Config
 import org.apache.samza.metrics.MetricsRegistry
@@ -98,23 +95,12 @@ class KafkaSystemFactory extends SystemFactory {
     val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
     val timeout = consumerConfig.socketTimeoutMs
     val bufferSize = consumerConfig.socketReceiveBufferBytes
-    val topicNames = config.getChangelogTopicNames()
-    var topicMetaInformation = Map[String, ChangeLogInfo]()
-
-    // Construct the meta information for each topic, if the replication factor is not defined, we use 2 as the number of replicas for the change log stream.
-    for(topicName <- topicNames) {
-      val replicationFactor = config.getChangelogStreamReplicationFactor(topicName).getOrElse("2").toInt
-      val changelogInfo = ChangeLogInfo(replicationFactor, config.getChangelogKafkaProperties(topicName))
-      topicMetaInformation += topicName -> changelogInfo
-    }
 
     new KafkaSystemAdmin(
       systemName,
       brokerListString,
       timeout,
       bufferSize,
-      clientId,
-      () => new ZkClient(consumerConfig.zkConnect, 6000, 6000, ZKStringSerializer),
-      topicMetaInformation)
+      clientId)
   }
 }
