@@ -22,7 +22,7 @@ package org.apache.samza.container
 import java.io.File
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.{CheckpointManagerFactory, OffsetManager}
+import org.apache.samza.checkpoint.{ CheckpointManagerFactory, OffsetManager }
 import org.apache.samza.config.Config
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.SerializerConfig.Config2Serializer
@@ -63,26 +63,34 @@ import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.coordinator.JobCoordinator
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.job.model.JobModel
+import org.apache.samza.config.JobConfig.Config2Job
 
 object SamzaContainer extends Logging {
   def main(args: Array[String]) {
-    safeMain()
+    safeMain(() => new JmxServer)
   }
 
-  def safeMain(jmxServer: JmxServer = new JmxServer) {
+  def safeMain(newJmxServer: () => JmxServer) {
+    putMDC("containerName", "samza-container-" + System.getenv(ShellCommandConfig.ENV_CONTAINER_ID))
     // Break out the main method to make the JmxServer injectable so we can
     // validate that we don't leak JMX non-daemon threads if we have an
     // exception in the main method.
-    try {
-      val containerId = System.getenv(ShellCommandConfig.ENV_CONTAINER_ID).toInt
-      val coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL)
-      val jobModel = readJobModel(coordinatorUrl)
-      val containerModel = jobModel.getContainers()(containerId.toInt)
-      val config = jobModel.getConfig
+    val containerId = System.getenv(ShellCommandConfig.ENV_CONTAINER_ID).toInt
+    val coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL)
+    val jobModel = readJobModel(coordinatorUrl)
+    val containerModel = jobModel.getContainers()(containerId.toInt)
+    val config = jobModel.getConfig
+    putMDC("jobName", config.getName.getOrElse(throw new SamzaException("can not find the job name")))
+    putMDC("jobId", config.getJobId.getOrElse("1"))
+    var jmxServer: JmxServer = null
 
+    try {
+      jmxServer = newJmxServer()
       SamzaContainer(containerModel, config).run
     } finally {
-      jmxServer.stop
+      if (jmxServer != null) {
+        jmxServer.stop
+      }
     }
   }
 

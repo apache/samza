@@ -76,23 +76,6 @@ class TestSamzaContainer extends AssertionsForJUnit {
   }
 
   @Test
-  def testJmxServerShutdownOnException {
-    var stopped = false
-    val jmxServer = new JmxServer {
-      override def stop {
-        super.stop
-        stopped = true
-      }
-    }
-    intercept[Exception] {
-      // Calling main will trigger an NPE since the container checks for an
-      // isCompressed environment variable, which isn't set.
-      SamzaContainer.safeMain(jmxServer)
-    }
-    assertTrue(stopped)
-  }
-
-  @Test
   def testGetInputStreamMetadata {
     val inputStreams = Set(
       new SystemStreamPartition("test", "stream1", new Partition(0)),

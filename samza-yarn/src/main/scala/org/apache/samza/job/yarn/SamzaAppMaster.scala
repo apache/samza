@@ -29,6 +29,7 @@ import org.apache.hadoop.yarn.util.ConverterUtils
 import org.apache.samza.config.MapConfig
 import org.apache.samza.config.Config
 import org.apache.samza.config.ShellCommandConfig
+import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.YarnConfig
 import org.apache.samza.config.YarnConfig.Config2Yarn
 import org.apache.samza.job.yarn.SamzaAppMasterTaskManager.DEFAULT_CONTAINER_MEM
@@ -38,6 +39,7 @@ import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.util.hadoop.HttpFileSystem
 import org.apache.samza.util.Logging
 import org.apache.samza.serializers.model.SamzaObjectMapper
+import org.apache.samza.SamzaException
 
 /**
  * When YARN executes an application master, it needs a bash command to
@@ -56,6 +58,7 @@ object SamzaAppMaster extends Logging with AMRMClientAsync.CallbackHandler {
   var storedException: Throwable = null
 
   def main(args: Array[String]) {
+    putMDC("containerName", "samza-application-master")
     val containerIdStr = System.getenv(ApplicationConstants.Environment.CONTAINER_ID.toString)
     info("got container id: %s" format containerIdStr)
     val containerId = ConverterUtils.toContainerId(containerIdStr)
@@ -69,6 +72,8 @@ object SamzaAppMaster extends Logging with AMRMClientAsync.CallbackHandler {
     info("got node manager http port: %s" format nodeHttpPortString)
     val config = new MapConfig(SamzaObjectMapper.getObjectMapper.readValue(System.getenv(ShellCommandConfig.ENV_CONFIG), classOf[Config]))
     info("got config: %s" format config)
+    putMDC("jobName", config.getName.getOrElse(throw new SamzaException("can not find the job name")))
+    putMDC("jobId", config.getJobId.getOrElse("1"))
     val hConfig = new YarnConfiguration
     hConfig.set("fs.http.impl", classOf[HttpFileSystem].getName)
     val interval = config.getAMPollIntervalMs.getOrElse(DEFAULT_POLL_INTERVAL_MS)

@@ -95,6 +95,24 @@ And then updating your log4j.xml to include the appender:
 <appender name="jmx" class="org.apache.samza.logging.log4j.JmxAppender" />
 {% endhighlight %}
 
+#### Stream Log4j Appender
+
+Samza provides a StreamAppender to publish the logs into a specific system. You can specify the system name using "task.log4j.system". If there is only one system in the config, Samza will use that system for the log publishing. Also we have the [MDC|http://logback.qos.ch/manual/mdc.html] keys "containerName", "jobName" and "jobId", which help identify the source of the log. In order to use this appender, simply add:
+
+{% highlight xml %}
+<appender name="StreamAppender" class="org.apache.samza.logging.log4j.StreamAppender">
+   <layout class="org.apache.log4j.PatternLayout">
+     <param name="ConversionPattern" value="%X{containerName} %X{jobName} %X{jobId} %d{yyyy-MM-dd HH:mm:ss} %c{1} [%p] %m%n" />
+   </layout>
+</appender>
+{% endhighlight %}
+
+and add:
+
+{% highlight xml %}
+<appender-ref ref="StreamAppender"/>
+{% endhighlight %}.
+
 ### Log Directory
 
 Samza will look for the `SAMZA_LOG_DIR` environment variable when it executes. If this variable is defined, all logs will be written to this directory. If the environment variable is empty, or not defined, then Samza will use `$base_dir`, which is the directory one level up from Samza's [run-class.sh](packaging.html) script. This environment variable can also be referenced inside log4j.xml files (see above).
