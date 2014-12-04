@@ -29,6 +29,8 @@ title: Tutorials
 
 [Run Hello-samza without Internet](run-hello-samza-without-internet.html)
 
+[Upgrading from 0.7.0 to 0.8.0](upgrading-from-0.7.0-to-0.8.0.html)
+
 <!-- TODO a bunch of tutorials
 [Log Walkthrough](log-walkthrough.html)
 <a href="configuring-kafka-system.html">Configuring a Kafka System</a><br/>
