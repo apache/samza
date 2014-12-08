@@ -25,7 +25,8 @@ If you just want to play around with Samza for the first time, go to [Hello Samz
 
 ### Source Releases
 
- * [samza-sources-0.7.0-incubating.tgz](http://www.apache.org/dyn/closer.cgi/incubator/samza/0.7.0-incubating)
+ * [samza-sources-0.8.0-incubating.tgz](http://www.apache.org/dyn/closer.cgi/incubator/samza/0.8.0-incubating)
+ * [samza-sources-0.7.0-incubating.tgz](https://archive.apache.org/dist/incubator/samza/0.7.0-incubating)
 
 ### Maven
 
@@ -39,43 +40,61 @@ A Maven-based Samza project can pull in all required dependencies Samza dependen
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-api</artifactId>
-  <version>0.7.0</version>
+  <version>0.8.0</version>
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-core_2.10</artifactId>
-  <version>0.7.0</version>
+  <version>0.8.0</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-serializers_2.10</artifactId>
-  <version>0.7.0</version>
+  <version>0.8.0</version>
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-shell</artifactId>
   <classifier>dist</classifier>
   <type>tgz</type>
-  <version>0.7.0</version>
+  <version>0.8.0</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-yarn_2.10</artifactId>
-  <version>0.7.0</version>
+  <version>0.8.0</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-kv_2.10</artifactId>
-  <version>0.7.0</version>
+  <version>0.8.0</version>
+  <scope>runtime</scope>
+</dependency>
+<dependency>
+  <groupId>org.apache.samza</groupId>
+  <artifactId>samza-kv-leveldb_2.10</artifactId>
+  <version>0.8.0</version>
+  <scope>runtime</scope>
+</dependency>
+<dependency>
+  <groupId>org.apache.samza</groupId>
+  <artifactId>samza-kv-rocksdb_2.10</artifactId>
+  <version>0.8.0</version>
+  <scope>runtime</scope>
+</dependency>
+<dependency>
+  <groupId>org.apache.samza</groupId>
+  <artifactId>samza-kv-inmemory_2.10</artifactId>
+  <version>0.8.0</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-kafka_2.10</artifactId>
-  <version>0.7.0</version>
+  <version>0.8.0</version>
   <scope>runtime</scope>
 </dependency>
 {% endhighlight %}
