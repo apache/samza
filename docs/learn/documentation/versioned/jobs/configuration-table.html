@@ -1244,7 +1244,7 @@
                     <td class="property" id="yarn-am-poll-interval-ms">yarn.am.poll.interval.ms</td>
                     <td class="default">1000</td>
                     <td class="description">
-                        THe Samza ApplicationMaster sends regular heartbeats to the YARN ResourceManager
+                        The Samza ApplicationMaster sends regular heartbeats to the YARN ResourceManager
                         to confirm that it is alive. This property determines the time (in milliseconds)
                         between heartbeats.
                     </td>
@@ -1256,6 +1256,14 @@
                     <td class="description">
                         Determines whether a JMX server should be started on this job's YARN ApplicationMaster
                         (<code>true</code> or <code>false</code>).
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-queue">yarn.queue</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        Determines which YARN queue will be used for Samza job.
                     </td>
                 </tr>
 
