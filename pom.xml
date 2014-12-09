@@ -27,7 +27,7 @@ under the License.
 
   <groupId>org.apache.samza</groupId>
   <artifactId>hello-samza</artifactId>
-  <version>0.8.0</version>
+  <version>0.9.0</version>
   <packaging>jar</packaging>
   <name>Samza Example</name>
   <description>
@@ -70,7 +70,7 @@ under the License.
     </dependency>
     <dependency>
       <groupId>org.apache.samza</groupId>
-      <artifactId>samza-kv-leveldb_2.10</artifactId>
+      <artifactId>samza-kv-rocksdb_2.10</artifactId>
       <version>${samza.version}</version>
     </dependency>
     <dependency>
@@ -113,7 +113,7 @@ under the License.
   <properties>
     <!-- maven specific properties -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <samza.version>0.8.0-SNAPSHOT</samza.version>
+    <samza.version>0.9.0-SNAPSHOT</samza.version>
   </properties>
 
   <developers>
