@@ -27,3 +27,4 @@ target/
 *.iws
 */.cache
 deploy
+*.swp

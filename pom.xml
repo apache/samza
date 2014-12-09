@@ -25,98 +25,101 @@ under the License.
     <maven>3.0.0</maven>
   </prerequisites>
 
-  <groupId>samza</groupId>
-  <artifactId>samza-example-parent</artifactId>
-  <version>0.7.0</version>
-  <packaging>pom</packaging>
-  <name>Samza Parent</name>
+  <groupId>org.apache.samza</groupId>
+  <artifactId>hello-samza</artifactId>
+  <version>0.8.0</version>
+  <packaging>jar</packaging>
+  <name>Samza Example</name>
   <description>
     Samza is a stream processing system. Think of it as Map-Reduce for streams.
   </description>
-  <url>https://github.com/linkedin/hello-samza</url>
+  <url>https://samza.incubator.apache.org/</url>
 
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>samza</groupId>
-        <artifactId>samza-wikipedia</artifactId>
-        <version>0.7.0</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.samza</groupId>
-        <artifactId>samza-api</artifactId>
-        <version>${samza.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.samza</groupId>
-        <artifactId>samza-core_2.10</artifactId>
-        <version>${samza.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.samza</groupId>
-        <artifactId>samza-serializers_2.10</artifactId>
-        <version>${samza.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.samza</groupId>
-        <artifactId>samza-shell</artifactId>
-        <classifier>dist</classifier>
-        <type>tgz</type>
-        <version>${samza.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.samza</groupId>
-        <artifactId>samza-yarn_2.10</artifactId>
-        <version>${samza.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.samza</groupId>
-        <artifactId>samza-kv_2.10</artifactId>
-        <version>${samza.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.samza</groupId>
-        <artifactId>samza-kafka_2.10</artifactId>
-        <version>${samza.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.kafka</groupId>
-        <artifactId>kafka_2.10</artifactId>
-        <version>0.8.1</version>
-      </dependency>
-      <dependency>
-        <groupId>org.schwering</groupId>
-        <artifactId>irclib</artifactId>
-        <version>1.10</version>
-      </dependency>
-      <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>slf4j-api</artifactId>
-        <version>1.6.2</version>
-      </dependency>
-      <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>slf4j-log4j12</artifactId>
-        <version>1.6.2</version>
-      </dependency>
-      <dependency>
-        <groupId>org.codehaus.jackson</groupId>
-        <artifactId>jackson-jaxrs</artifactId>
-        <version>1.8.5</version>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.samza</groupId>
+      <artifactId>samza-api</artifactId>
+      <version>${samza.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.samza</groupId>
+      <artifactId>samza-core_2.10</artifactId>
+      <version>${samza.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.samza</groupId>
+      <artifactId>samza-log4j</artifactId>
+      <version>${samza.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.samza</groupId>
+      <artifactId>samza-serializers_2.10</artifactId>
+      <version>${samza.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.samza</groupId>
+      <artifactId>samza-shell</artifactId>
+      <classifier>dist</classifier>
+      <type>tgz</type>
+      <version>${samza.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.samza</groupId>
+      <artifactId>samza-yarn_2.10</artifactId>
+      <version>${samza.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.samza</groupId>
+      <artifactId>samza-kv_2.10</artifactId>
+      <version>${samza.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.samza</groupId>
+      <artifactId>samza-kv-rocksdb_2.10</artifactId>
+      <version>${samza.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.samza</groupId>
+      <artifactId>samza-kafka_2.10</artifactId>
+      <version>${samza.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.kafka</groupId>
+      <artifactId>kafka_2.10</artifactId>
+      <version>0.8.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.schwering</groupId>
+      <artifactId>irclib</artifactId>
+      <version>1.10</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.6.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+      <version>1.6.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-jaxrs</artifactId>
+      <version>1.8.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-hdfs</artifactId>
+      <version>2.4.0</version>
+    </dependency>
+  </dependencies>
 
   <properties>
     <!-- maven specific properties -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <samza.version>0.7.0</samza.version>
+    <samza.version>0.8.0</samza.version>
   </properties>
-
-  <modules>
-    <module>samza-job-package</module>
-    <module>samza-wikipedia</module>
-  </modules>
 
   <developers>
     <developer>
@@ -159,11 +162,6 @@ under the License.
       <name>Scala-tools Maven2 Repository</name>
       <url>https://oss.sonatype.org/content/groups/scala-tools</url>
     </repository>
-    <!-- for zkclient -->
-    <repository>
-      <id>sonatype</id>
-      <url>http://oss.sonatype.org/content/groups/public</url>
-    </repository>
   </repositories>
 
   <pluginRepositories>
@@ -183,6 +181,7 @@ under the License.
           <version>0.9</version>
           <configuration>
             <excludes>
+              <exclude>**/target/**</exclude>
               <exclude>*.json</exclude>
               <exclude>.vagrant/**</exclude>
               <exclude>.git/**</exclude>
@@ -193,6 +192,7 @@ under the License.
               <exclude>.gitignore</exclude>
               <exclude>**/.cache/**</exclude>
               <exclude>deploy/**</exclude>
+              <exclude>**/.project</exclude>
             </excludes>
           </configuration>
         </plugin>
@@ -217,6 +217,25 @@ under the License.
             <phase>test</phase>
             <goals>
               <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- plugin to build the tar.gz file filled with examples -->
+      <plugin>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>2.3</version>
+        <configuration>
+          <descriptors>
+            <descriptor>src/main/assembly/src.xml</descriptor>
+          </descriptors>
+        </configuration>
+        <executions>
+          <execution>
+            <id>make-assembly</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
             </goals>
           </execution>
         </executions>

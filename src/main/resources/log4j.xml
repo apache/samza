@@ -22,6 +22,8 @@
 
 <!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
 <log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
+  <appender name="jmx" class="org.apache.samza.logging.log4j.JmxAppender" />
+
   <appender name="RollingAppender" class="org.apache.log4j.DailyRollingFileAppender">
      <param name="File" value="${samza.log.dir}/${samza.container.name}.log" />
      <param name="DatePattern" value="'.'yyyy-MM-dd" />
@@ -32,5 +34,6 @@
   <root>
     <priority value="info" />
     <appender-ref ref="RollingAppender"/>
+    <appender-ref ref="jmx" />
   </root>
 </log4j:configuration>
