@@ -90,6 +90,7 @@ public class Snapshot {
    *
    * @return the list of values
    */
+  @SuppressWarnings("unchecked")
   public ArrayList<Long> getValues() {
     return (ArrayList<Long>) values.clone();
   }

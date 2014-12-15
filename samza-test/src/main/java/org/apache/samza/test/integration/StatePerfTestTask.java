@@ -35,7 +35,8 @@ public class StatePerfTestTask implements StreamTask, InitableTask {
   private int count = 0;
   private int LOG_INTERVAL = 100000;
   private long start = System.currentTimeMillis();
-  
+
+  @SuppressWarnings("unchecked")
   public void init(Config config, TaskContext context) {
     this.store = (KeyValueStore<String, String>) context.getStore("mystore");
   }

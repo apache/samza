@@ -21,18 +21,19 @@
 
 package org.apache.samza.system.kafka
 
-import kafka.api._
-import kafka.common.{NotLeaderForPartitionException, UnknownTopicOrPartitionException, ErrorMapping, TopicAndPartition}
-import java.util.concurrent.{ConcurrentHashMap, CountDownLatch}
-import scala.collection.JavaConversions._
-import kafka.message.MessageSet
-import org.apache.samza.util.Logging
 import java.nio.channels.ClosedByInterruptException
 import java.util.Map.Entry
-import scala.collection.mutable
+import java.util.concurrent.{ConcurrentHashMap, CountDownLatch}
+import kafka.api._
+import kafka.common.{NotLeaderForPartitionException, UnknownTopicOrPartitionException, ErrorMapping, TopicAndPartition}
 import kafka.consumer.ConsumerConfig
-import org.apache.samza.util.ThreadNamePrefix.SAMZA_THREAD_NAME_PREFIX
+import kafka.message.MessageSet
 import org.apache.samza.util.ExponentialSleepStrategy
+import org.apache.samza.util.Logging
+import org.apache.samza.util.ThreadNamePrefix.SAMZA_THREAD_NAME_PREFIX
+import scala.collection.JavaConversions._
+import scala.collection.concurrent
+import scala.collection.mutable
 
 /**
  *  Companion object for class JvmMetrics encapsulating various constants
@@ -65,7 +66,7 @@ class BrokerProxy(
   val sleepMSWhileNoTopicPartitions = 100
 
   /** What's the next offset for a particular partition? **/
-  val nextOffsets:mutable.ConcurrentMap[TopicAndPartition, Long] = new ConcurrentHashMap[TopicAndPartition, Long]()
+  val nextOffsets:concurrent.Map[TopicAndPartition, Long] = new ConcurrentHashMap[TopicAndPartition, Long]()
 
   /** Block on the first call to get message if the fetcher has not yet returned its initial results **/
   // TODO: It should be sufficient to just use the count down latch and await on it for each of the calls, but

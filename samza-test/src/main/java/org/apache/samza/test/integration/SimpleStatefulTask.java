@@ -34,7 +34,8 @@ import org.apache.samza.task.TaskCoordinator.RequestScope;
 public class SimpleStatefulTask implements StreamTask, InitableTask {
   
   private KeyValueStore<String, String> store;
-  
+
+  @SuppressWarnings("unchecked")
   public void init(Config config, TaskContext context) {
     this.store = (KeyValueStore<String, String>) context.getStore("mystore");
     System.out.println("Contents of store: ");

@@ -41,6 +41,7 @@ public class Checker implements StreamTask, WindowableTask, InitableTask {
   private int numPartitions;
   
   @Override
+  @SuppressWarnings("unchecked")
   public void init(Config config, TaskContext context) {
     this.store = (KeyValueStore<String, String>) context.getStore("checker-state");
     this.expectedKeys = config.getInt("expected.keys");
