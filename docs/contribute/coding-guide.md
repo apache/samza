@@ -30,7 +30,7 @@ These guidelines are meant to encourage consistency and best practices amongst p
 * Logging, configuration, and public APIs are our "UI". Make them pretty, consistent, and usable.
 * There is not a maximum line length (certainly not 80 characters, we don't work on punch cards any more), but be reasonable.
 * Don't be sloppy. Don't check in commented out code: we use version control, it is still there in the history. Don't leave TODOs in the code or FIXMEs if you can help it. Don't leave println statements in the code. Hopefully this is all obvious.
-* We want people to use our stuff, which means we need clear, correct documentation. User documentation should be considered a part of any user-facing the feature, just like unit tests or performance results.
+* We want people to use our stuff, which means we need clear, correct documentation. User documentation should be considered a part of any user-facing feature, just like unit tests or performance results.
 * Don't duplicate code (duh).
 * Any API that's user-facing (something that a Samza job could use) should be defined in samza-api as a Java interface. Scala is for implementation only.
 
