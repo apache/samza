@@ -116,4 +116,6 @@ class MockSystemAdmin extends SystemAdmin {
       new Partition(2) -> new SystemStreamPartitionMetadata(null, null, null))
     Map(streamNames.toList.head -> new SystemStreamMetadata("foo", partitionMetadata))
   }
+
+  override def createChangelogStream(streamName: String, numOfPartitions: Int) = ???
 }

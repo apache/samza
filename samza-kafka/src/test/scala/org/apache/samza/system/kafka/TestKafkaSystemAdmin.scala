@@ -164,6 +164,10 @@ object TestKafkaSystemAdmin {
 class TestKafkaSystemAdmin {
   import TestKafkaSystemAdmin._
 
+  val systemName = "test"
+  // Provide a random zkAddress, the system admin tries to connect only when a topic is created/validated
+  val systemAdmin = new KafkaSystemAdmin(systemName, brokers, connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer))
+
   def testShouldAssembleMetadata {
     val oldestOffsets = Map(
       new SystemStreamPartition("test", "stream1", new Partition(0)) -> "o1",
@@ -205,8 +209,6 @@ class TestKafkaSystemAdmin {
 
   @Test
   def testShouldGetOldestNewestAndNextOffsets {
-    val systemName = "test"
-    val systemAdmin = new KafkaSystemAdmin(systemName, brokers)
 
     // Create an empty topic with 50 partitions, but with no offsets.
     createTopic
@@ -271,7 +273,7 @@ class TestKafkaSystemAdmin {
 
   @Test
   def testNonExistentTopic {
-    val systemAdmin = new KafkaSystemAdmin("test", brokers)
+
     val initialOffsets = systemAdmin.getSystemStreamMetadata(Set("non-existent-topic"))
     val metadata = initialOffsets.getOrElse("non-existent-topic", fail("missing metadata"))
     assertEquals(metadata, new SystemStreamMetadata("non-existent-topic", Map(
@@ -280,7 +282,6 @@ class TestKafkaSystemAdmin {
 
   @Test
   def testOffsetsAfter {
-    val systemAdmin = new KafkaSystemAdmin("test", brokers)
     val ssp1 = new SystemStreamPartition("test-system", "test-stream", new Partition(0))
     val ssp2 = new SystemStreamPartition("test-system", "test-stream", new Partition(1))
     val offsetsAfter = systemAdmin.getOffsetsAfter(Map(
@@ -290,7 +291,7 @@ class TestKafkaSystemAdmin {
     assertEquals("3", offsetsAfter(ssp2))
   }
 
-  class KafkaSystemAdminWithTopicMetadataError extends KafkaSystemAdmin("test", brokers) {
+  class KafkaSystemAdminWithTopicMetadataError extends KafkaSystemAdmin("test", brokers, connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer)) {
     import kafka.api.{ TopicMetadata, TopicMetadataResponse }
 
     // Simulate Kafka telling us that the leader for the topic is not available

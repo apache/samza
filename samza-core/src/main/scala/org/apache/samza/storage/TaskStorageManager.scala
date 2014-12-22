@@ -23,10 +23,7 @@ import java.io.File
 import scala.collection.Map
 import org.apache.samza.util.Logging
 import org.apache.samza.Partition
-import org.apache.samza.system.SystemConsumer
-import org.apache.samza.system.SystemStream
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.system.SystemStreamPartitionIterator
+import org.apache.samza.system._
 import org.apache.samza.util.Util
 import org.apache.samza.SamzaException
 import org.apache.samza.container.TaskName
@@ -50,16 +47,20 @@ class TaskStorageManager(
   taskStores: Map[String, StorageEngine] = Map(),
   storeConsumers: Map[String, SystemConsumer] = Map(),
   changeLogSystemStreams: Map[String, SystemStream] = Map(),
-  changeLogOldestOffsets: Map[SystemStream, String] = Map(),
+  changeLogStreamPartitions: Int,
+  streamMetadataCache: StreamMetadataCache,
   storeBaseDir: File = new File(System.getProperty("user.dir"), "state"),
-  partition: Partition) extends Logging {
+  partition: Partition,
+  systemAdmins: Map[String, SystemAdmin]) extends Logging {
 
   var taskStoresToRestore = taskStores
+  var changeLogOldestOffsets: Map[SystemStream, String] = Map()
 
   def apply(storageEngineName: String) = taskStores(storageEngineName)
 
   def init {
     cleanBaseDirs
+    createStreams
     startConsumers
     restoreStores
     stopConsumers
@@ -67,7 +68,6 @@ class TaskStorageManager(
 
   private def cleanBaseDirs {
     debug("Cleaning base directories for stores.")
-
     taskStores.keys.foreach(storeName => {
       val storagePartitionDir = TaskStorageManager.getStorePartitionDir(storeBaseDir, storeName, taskName)
 
@@ -76,6 +76,21 @@ class TaskStorageManager(
       Util.rm(storagePartitionDir)
       storagePartitionDir.mkdirs
     })
+  }
+
+  private def createStreams = {
+    info("Creating streams that are not present for changelog")
+
+    for ((storeName, systemStream) <- changeLogSystemStreams) {
+      var systemAdmin = systemAdmins.getOrElse(systemStream.getSystem, throw new SamzaException("Unable to get systemAdmin for store " + storeName + " and systemStream" + systemStream))
+      systemAdmin.createChangelogStream(systemStream.getStream, changeLogStreamPartitions)
+    }
+
+    val changeLogMetadata = streamMetadataCache.getStreamMetadata(changeLogSystemStreams.values.toSet)
+    info("Got change log stream metadata: %s" format changeLogMetadata)
+
+    changeLogOldestOffsets = getChangeLogOldestOffsetsForPartition(partition, changeLogMetadata)
+    info("Assigning oldest change log offsets for taskName %s: %s" format (taskName, changeLogOldestOffsets))
   }
 
   private def startConsumers {
@@ -130,5 +145,16 @@ class TaskStorageManager(
     debug("Stopping stores.")
 
     taskStores.values.foreach(_.stop)
+  }
+
+
+  /**
+   * Builds a map from SystemStreamPartition to oldest offset for changelogs.
+   */
+  private def getChangeLogOldestOffsetsForPartition(partition: Partition, inputStreamMetadata: Map[SystemStream, SystemStreamMetadata]): Map[SystemStream, String] = {
+    inputStreamMetadata
+      .mapValues(_.getSystemStreamPartitionMetadata.get(partition))
+      .filter(_._2 != null)
+      .mapValues(_.getOldestOffset)
   }
 }

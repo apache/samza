@@ -772,6 +772,24 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="store-changelog-partitions">stores.<span class="store">store-name</span>.changelog.<br>replication.factor</td>
+                    <td class="default">2</td>
+                    <td class="description">
+                        The property defines the number of replicas to use for the change log stream.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="store-changelog-partitions">stores.<span class="store">store-name</span>.changelog.<br>topic-level-property</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The property allows you to specify topic level settings for the changelog topic to be created.
+                        For e.g., you can specify the clean up policy as "stores.mystore.changelog.cleanup.policy=delete".
+                        Please refer to http://kafka.apache.org/documentation.html#configuration for more topic level configurations.
+                    </td>
+                </tr>
+
+                <tr>
                     <th colspan="3" class="section" id="regex-rewriter">
                         Consuming all Kafka topics matching a regular expression<br>
                         <span class="subtitle">

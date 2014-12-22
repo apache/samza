@@ -50,8 +50,8 @@ object KafkaCheckpointManagerFactory {
     "message.send.max.retries" -> (Integer.MAX_VALUE - 1).toString)
 
   // Set the checkpoint topic configs to have a very small segment size and
-  // enable log compaction. This keeps job startup time small since there 
-  // are fewer useless (overwritten) messages to read from the checkpoint 
+  // enable log compaction. This keeps job startup time small since there
+  // are fewer useless (overwritten) messages to read from the checkpoint
   // topic.
   def getCheckpointTopicProperties(config: Config) = {
     val segmentBytes = config

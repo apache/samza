@@ -22,6 +22,7 @@ package org.apache.samza.test.integration
 import java.util.Properties
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.logging.{Level, LogManager, Handler, Logger}
 
 import kafka.admin.AdminUtils
 import kafka.common.ErrorMapping
@@ -69,7 +70,8 @@ import scala.collection.mutable.SynchronizedMap
 
 object TestStatefulTask {
   val INPUT_TOPIC = "input"
-  val STATE_TOPIC = "mystore"
+  val STORE_NAME = "mystore"
+  val STATE_TOPIC_STREAM = "mystoreChangelog"
   val TOTAL_TASK_NAMES = 1
   val REPLICATION_FACTOR = 3
 
@@ -87,6 +89,9 @@ object TestStatefulTask {
   val props1 = TestUtils.createBrokerConfig(brokerId1, port1)
   val props2 = TestUtils.createBrokerConfig(brokerId2, port2)
   val props3 = TestUtils.createBrokerConfig(brokerId3, port3)
+  props1.setProperty("auto.create.topics.enable","false")
+  props2.setProperty("auto.create.topics.enable","false")
+  props3.setProperty("auto.create.topics.enable","false")
 
   val config = new java.util.Properties()
   val brokers = "localhost:%d,localhost:%d,localhost:%d" format (port1, port2, port3)
@@ -124,16 +129,10 @@ object TestStatefulTask {
       INPUT_TOPIC,
       TOTAL_TASK_NAMES,
       REPLICATION_FACTOR)
-
-    AdminUtils.createTopic(
-      zkClient,
-      STATE_TOPIC,
-      TOTAL_TASK_NAMES,
-      REPLICATION_FACTOR)
   }
 
   def validateTopics {
-    val topics = Set(STATE_TOPIC, INPUT_TOPIC)
+    val topics = Set(INPUT_TOPIC)
     var done = false
     var retries = 0
 
@@ -207,7 +206,8 @@ class TestStatefulTask {
     "stores.mystore.factory" -> "org.apache.samza.storage.kv.KeyValueStorageEngineFactory",
     "stores.mystore.key.serde" -> "string",
     "stores.mystore.msg.serde" -> "string",
-    "stores.mystore.changelog" -> "kafka.mystore",
+    "stores.mystore.changelog" -> "kafka.mystoreChangelog",
+    "stores.mystore.changelog.replication.factor" -> "1",
 
     "systems.kafka.samza.factory" -> "org.apache.samza.system.kafka.KafkaSystemFactory",
     // Always start consuming at offset 0. This avoids a race condition between
@@ -249,7 +249,7 @@ class TestStatefulTask {
     send(task, "-99")
 
     // Validate that messages appear in store stream.
-    val messages = readAll(STATE_TOPIC, 5, "testShouldStartTaskForFirstTime")
+    val messages = readAll(STATE_TOPIC_STREAM, 5, "testShouldStartTaskForFirstTime")
 
     assertEquals(6, messages.length)
     assertEquals("1", messages(0))
@@ -291,7 +291,7 @@ class TestStatefulTask {
     send(task, "5")
 
     // Validate that messages appear in store stream.
-    val messages = readAll(STATE_TOPIC, 14, "testShouldRestoreStore")
+    val messages = readAll(STATE_TOPIC_STREAM, 14, "testShouldRestoreStore")
 
     assertEquals(15, messages.length)
     // From initial start.
@@ -424,7 +424,7 @@ class TestTask extends StreamTask with InitableTask {
   def init(config: Config, context: TaskContext) {
     TestTask.register(context.getTaskName, this)
     store = context
-      .getStore(TestStatefulTask.STATE_TOPIC)
+      .getStore(TestStatefulTask.STORE_NAME)
       .asInstanceOf[KeyValueStore[String, String]]
     val iter = store.all
     restored ++= iter

@@ -20,7 +20,6 @@
 package org.apache.samza.container
 
 import java.io.File
-import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{ CheckpointManagerFactory, OffsetManager }
 import org.apache.samza.config.Config
@@ -47,7 +46,6 @@ import org.apache.samza.system.SystemFactory
 import org.apache.samza.system.SystemProducers
 import org.apache.samza.system.SystemProducersMetrics
 import org.apache.samza.system.SystemStream
-import org.apache.samza.system.SystemStreamMetadata
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.chooser.DefaultChooser
 import org.apache.samza.system.chooser.MessageChooserFactory
@@ -58,11 +56,8 @@ import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
 import scala.collection.JavaConversions._
 import java.net.URL
-import org.apache.samza.coordinator.server.JobServlet
-import org.apache.samza.job.model.ContainerModel
-import org.apache.samza.coordinator.JobCoordinator
+import org.apache.samza.job.model.{TaskModel, ContainerModel, JobModel}
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.job.model.JobModel
 import org.apache.samza.config.JobConfig.Config2Job
 
 object SamzaContainer extends Logging {
@@ -263,10 +258,6 @@ object SamzaContainer extends Logging {
 
     info("Got change log system streams: %s" format changeLogSystemStreams)
 
-    val changeLogMetadata = streamMetadataCache.getStreamMetadata(changeLogSystemStreams.values.toSet)
-
-    info("Got change log stream metadata: %s" format changeLogMetadata)
-
     val serdeManager = new SerdeManager(
       serdes = serdes,
       systemKeySerdes = systemKeySerdes,
@@ -387,6 +378,13 @@ object SamzaContainer extends Logging {
 
     val containerContext = new SamzaContainerContext(containerId, config, taskNames)
 
+    // compute the number of partitions necessary for the change log stream creation.
+    // Increment by 1 because partition starts from 0, but we need the absolute count,
+    // this value is used for change log topic creation.
+    val maxChangeLogStreamPartitions = containerModel.getTasks.values
+            .max(Ordering.by{task:TaskModel => task.getChangelogPartition.getPartitionId})
+            .getChangelogPartition.getPartitionId + 1
+
     val taskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.map(taskModel => {
       debug("Setting up task instance: %s" format taskModel)
 
@@ -440,18 +438,16 @@ object SamzaContainer extends Logging {
 
       info("Got task stores: %s" format taskStores)
 
-      val changeLogOldestOffsets = getChangeLogOldestOffsetsForPartition(taskModel.getChangelogPartition, changeLogMetadata)
-
-      info("Assigning oldest change log offsets for taskName %s: %s" format (taskName, changeLogOldestOffsets))
-
       val storageManager = new TaskStorageManager(
         taskName = taskName,
         taskStores = taskStores,
         storeConsumers = storeConsumers,
         changeLogSystemStreams = changeLogSystemStreams,
-        changeLogOldestOffsets = changeLogOldestOffsets,
+        maxChangeLogStreamPartitions,
+        streamMetadataCache = streamMetadataCache,
         storeBaseDir = storeBaseDir,
-        partition = taskModel.getChangelogPartition)
+        partition = taskModel.getChangelogPartition,
+        systemAdmins = systemAdmins)
 
       val systemStreamPartitions = taskModel
         .getSystemStreamPartitions
@@ -493,16 +489,6 @@ object SamzaContainer extends Logging {
       metrics = samzaContainerMetrics,
       reporters = reporters,
       jvm = jvm)
-  }
-
-  /**
-   * Builds a map from SystemStreamPartition to oldest offset for changelogs.
-   */
-  def getChangeLogOldestOffsetsForPartition(partition: Partition, inputStreamMetadata: Map[SystemStream, SystemStreamMetadata]): Map[SystemStream, String] = {
-    inputStreamMetadata
-      .mapValues(_.getSystemStreamPartitionMetadata.get(partition))
-      .filter(_._2 != null)
-      .mapValues(_.getOldestOffset)
   }
 }
 

@@ -19,11 +19,9 @@
 
 package org.apache.samza.util
 
-import org.apache.samza.config.{KafkaConfig, Config, ConfigException}
+import org.apache.samza.config.{Config, ConfigException}
 import org.apache.samza.config.JobConfig.Config2Job
 import java.util.concurrent.atomic.AtomicLong
-import kafka.client.ClientUtils
-import org.apache.samza.SamzaException
 
 object KafkaUtil {
   val counter = new AtomicLong(0)

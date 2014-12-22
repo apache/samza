@@ -19,11 +19,20 @@
 
 package org.apache.samza.config
 
+
+import java.util.regex.Pattern
+
+import org.apache.samza.SamzaException
+import org.apache.samza.util.Util
+
 import scala.collection.JavaConversions._
 import kafka.consumer.ConsumerConfig
 import java.util.Properties
 import kafka.producer.ProducerConfig
 import java.util.UUID
+import scala.collection.JavaConverters._
+import org.apache.samza.system.kafka.KafkaSystemFactory
+import org.apache.samza.config.SystemConfig.Config2System
 
 object KafkaConfig {
   val REGEX_RESOLVED_STREAMS = "job.config.rewriter.%s.regex"
@@ -33,6 +42,14 @@ object KafkaConfig {
   val CHECKPOINT_SYSTEM = "task.checkpoint.system"
   val CHECKPOINT_REPLICATION_FACTOR = "task.checkpoint.replication.factor"
   val CHECKPOINT_SEGMENT_BYTES = "task.checkpoint.segment.bytes"
+
+  val CHANGELOG_STREAM_REPLICATION_FACTOR = "stores.%s.changelog.replication.factor"
+  val CHANGELOG_STREAM_KAFKA_SETTINGS = "stores.%s.changelog.kafka."
+  // The default segment size to use for changelog topics
+  val CHANGELOG_DEFAULT_SEGMENT_SIZE = "536870912"
+
+  // Helper regular expression definitions to extract/match configurations
+  val CHANGELOG_STREAM_NAMES_REGEX = "stores\\.(.*)\\.changelog$"
 
   /**
    * Defines how low a queue can get for a single system/stream/partition
@@ -84,6 +101,35 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getRegexResolvedStreams(rewriterName: String) = getOption(KafkaConfig.REGEX_RESOLVED_STREAMS format rewriterName)
   def getRegexResolvedSystem(rewriterName: String) = getOption(KafkaConfig.REGEX_RESOLVED_SYSTEM format rewriterName)
   def getRegexResolvedInheritedConfig(rewriterName: String) = config.subset((KafkaConfig.REGEX_INHERITED_CONFIG format rewriterName) + ".", true)
+  def getChangelogStreamReplicationFactor(name: String) = getOption(KafkaConfig.CHANGELOG_STREAM_REPLICATION_FACTOR format name)
+
+  // The method returns a map of storenames to changelog topic names, which are configured to use kafka as the changelog stream
+  def getKafkaChangelogEnabledStores() = {
+    val changelogConfigs = config.regexSubset(KafkaConfig.CHANGELOG_STREAM_NAMES_REGEX).asScala
+    var storeToChangelog = Map[String, String]()
+    for((changelogConfig, changelogName) <- changelogConfigs){
+      // Lookup the factory for this particular stream and verify if it's a kafka system
+      val systemStream = Util.getSystemStreamFromNames(changelogName)
+      val factoryName = config.getSystemFactory(systemStream.getSystem).getOrElse(new SamzaException("Unable to determine factory for system: " + systemStream.getSystem))
+      if(classOf[KafkaSystemFactory].getCanonicalName == factoryName){
+        val pattern = Pattern.compile(KafkaConfig.CHANGELOG_STREAM_NAMES_REGEX)
+        val matcher = pattern.matcher(changelogConfig)
+        val storeName = if(matcher.find()) matcher.group(1) else throw new SamzaException("Unable to find store name in the changelog configuration: " + changelogConfig + " with SystemStream: " + systemStream)
+        storeToChangelog += storeName -> systemStream.getStream
+      }
+    }
+    storeToChangelog
+  }
+
+  // Get all kafka properties for changelog stream topic creation
+  def getChangelogKafkaProperties(name: String) = {
+    val filteredConfigs = config.subset(KafkaConfig.CHANGELOG_STREAM_KAFKA_SETTINGS format name, true)
+    val kafkaChangeLogProperties = new Properties
+    kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
+    kafkaChangeLogProperties.setProperty("segment.bytes", KafkaConfig.CHANGELOG_DEFAULT_SEGMENT_SIZE)
+    filteredConfigs.foreach{kv => kafkaChangeLogProperties.setProperty(kv._1, kv._2)}
+    kafkaChangeLogProperties
+  }
 
   // kafka config
   def getKafkaSystemConsumerConfig(

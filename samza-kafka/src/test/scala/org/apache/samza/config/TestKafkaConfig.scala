@@ -104,4 +104,22 @@ class TestKafkaConfig {
     // topic fetch size
     assertEquals(256*256, consumerConfig2 getOrElse ("topic1", 1024*1024))
   }
+
+  @Test
+  def testChangeLogProperties() {
+    val props = (new Properties /: Map(
+      "systems.kafka.samza.factory" -> "org.apache.samza.system.kafka.KafkaSystemFactory",
+      "stores.test1.changelog" -> "kafka.mychangelog1",
+      "stores.test2.changelog" -> "kafka.mychangelog2",
+      "stores.test1.changelog.kafka.cleanup.policy" -> "delete"
+      )) { case (props, (k, v)) => props.put(k, v); props }
+
+    val mapConfig = new MapConfig(props.toMap[String, String])
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    assertEquals(kafkaConfig.getChangelogKafkaProperties("test1").getProperty("cleanup.policy"), "delete")
+    assertEquals(kafkaConfig.getChangelogKafkaProperties("test2").getProperty("cleanup.policy"), "compact")
+    val storeToChangelog = kafkaConfig.getKafkaChangelogEnabledStores()
+    assertEquals(storeToChangelog.get("test1").getOrElse(""), "mychangelog1")
+    assertEquals(storeToChangelog.get("test2").getOrElse(""), "mychangelog2")
+  }
 }

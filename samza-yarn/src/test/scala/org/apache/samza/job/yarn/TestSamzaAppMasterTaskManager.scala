@@ -421,4 +421,6 @@ class MockSystemAdmin(numTasks: Int) extends SystemAdmin {
       streamName -> new SystemStreamMetadata(streamName, partitionMetadata)
     }).toMap[String, SystemStreamMetadata]
   }
+
+  override def createChangelogStream(streamName: String, numOfPartitions: Int) = ???
 }

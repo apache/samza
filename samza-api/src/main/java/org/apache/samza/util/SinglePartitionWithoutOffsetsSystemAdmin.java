@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
@@ -51,6 +52,11 @@ public class SinglePartitionWithoutOffsetsSystemAdmin implements SystemAdmin {
     }
 
     return metadata;
+  }
+
+  @Override
+  public void createChangelogStream(String streamName, int numOfPartitions){
+    throw new SamzaException("Method not implemented");
   }
 
   @Override
