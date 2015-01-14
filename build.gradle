@@ -206,6 +206,8 @@ project(":samza-yarn_$scalaVersion") {
     compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
       exclude module: 'servlet-api'
+      // Exclude because YARN's 3.4.5 ZK version is incompatbile with Kafka's 3.3.4.
+      exclude module: 'zookeeper'
     }
     compile("org.scalatra:scalatra_$scalaVersion:$scalatraVersion") {
       exclude module: 'scala-compiler'
@@ -216,6 +218,7 @@ project(":samza-yarn_$scalaVersion") {
       exclude module: 'slf4j-api'
     }
     compile "joda-time:joda-time:$jodaTimeVersion"
+    compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
   }
@@ -362,6 +365,9 @@ project(":samza-test_$scalaVersion") {
     compile project(":samza-kv-leveldb_$scalaVersion")
     compile project(":samza-kv-rocksdb_$scalaVersion")
     compile project(":samza-core_$scalaVersion")
+    runtime project(":samza-log4j")
+    runtime project(":samza-yarn_$scalaVersion")
+    runtime project(":samza-kafka_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
     compile "javax.mail:mail:1.4"
@@ -385,5 +391,18 @@ project(":samza-test_$scalaVersion") {
     // Forward all samza.* system properties to test subprocesses. This is
     // useful for configuring TestSamzaContainerPerformance from the CLI.
     systemProperties = System.properties.findAll { it.key.startsWith("samza") }
+  }
+
+  tasks.create(name: "releaseTestJobs", dependsOn: configurations.archives.artifacts, type: Tar) {
+    compression = Compression.GZIP
+    from(file("$projectDir/src/main/config")) { into "config/" }
+    from(file("$projectDir/src/main/resources")) { into "lib/" }
+    from(project(':samza-shell').file("src/main/bash")) { into "bin/" }
+    from(project(':samza-shell').file("src/main/resources")) { into "lib/" }
+    from(project(':samza-shell').file("src/main/resources/log4j-console.xml")) { into "bin/" }
+    from '../LICENSE'
+    from '../NOTICE'
+    from(configurations.runtime) { into("lib/") }
+    from(configurations.archives.artifacts.files) { into("lib/") }
   }
 }

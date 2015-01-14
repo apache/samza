@@ -1,0 +1,16 @@
+{
+  "zookeeper_hosts": {
+    "zookeeper_instance_0": "localhost"
+  },
+  "zookeeper_start_cmd": "zookeeper-3.4.3/bin/zkServer.sh start",
+  "zookeeper_stop_cmd": "zookeeper-3.4.3/bin/zkServer.sh stop",
+  "zookeeper_install_path": "deploy/zookeeper",
+  "zookeeper_executable": "zookeeper-3.4.3.tar.gz",
+  "zookeeper_post_install_cmds": [
+    "cp zookeeper-3.4.3/conf/zoo_sample.cfg zookeeper-3.4.3/conf/zoo.cfg",
+    "sed -i.bak 's/.*dataDir=.*/dataDir=data/g' zookeeper-3.4.3/conf/zoo.cfg"
+  ],
+  "zookeeper_logs": [
+    "zookeeper.out"
+  ]
+}

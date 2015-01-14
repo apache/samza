@@ -26,3 +26,4 @@ docs/learn/documentation/*/api/javadocs
 .DS_Store
 out/
 *.patch
+**.pyc
