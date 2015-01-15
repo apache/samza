@@ -7,7 +7,7 @@
   "yarn_rm_stop_cmd": "hadoop-2.4.0/sbin/yarn-daemon.sh stop resourcemanager",
   "yarn_rm_install_path": "deploy/yarn_rm",
   "yarn_rm_post_install_cmds": [
-    "sed -i.bak '/<configuration>/a <property><name>yarn.nodemanager.vmem-pmem-ratio</name><value>10</value></property>' hadoop-2.4.0/etc/hadoop/yarn-site.xml",
+    "sed -i.bak 's/<configuration>/<configuration><property><name>yarn.nodemanager.vmem-pmem-ratio<\\/name><value>10<\\/value><\\/property>/' hadoop-2.4.0/etc/hadoop/yarn-site.xml",
     "mkdir -p hadoop-2.4.0/conf",
     "chmod 755 hadoop-2.4.0/conf",
     "cp hadoop-2.4.0/etc/hadoop/yarn-site.xml hadoop-2.4.0/conf/yarn-site.xml"
@@ -23,7 +23,7 @@
   "yarn_nm_stop_cmd": "hadoop-2.4.0/sbin/yarn-daemon.sh stop nodemanager",
   "yarn_nm_install_path": "deploy/yarn_nm",
   "yarn_nm_post_install_cmds": [
-    "sed -i.bak '/<configuration>/a <property><name>yarn.nodemanager.vmem-pmem-ratio</name><value>10</value></property>' hadoop-2.4.0/etc/hadoop/yarn-site.xml",
+    "sed -i.bak 's/<configuration>/<configuration><property><name>yarn.nodemanager.vmem-pmem-ratio<\\/name><value>10<\\/value><\\/property>/' hadoop-2.4.0/etc/hadoop/yarn-site.xml",
     "mkdir -p hadoop-2.4.0/conf",
     "chmod 755 hadoop-2.4.0/conf",
     "cp hadoop-2.4.0/etc/hadoop/yarn-site.xml hadoop-2.4.0/conf/yarn-site.xml"
