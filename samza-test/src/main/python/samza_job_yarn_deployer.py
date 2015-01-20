@@ -23,6 +23,7 @@ import requests
 import shutil
 import tarfile
 import zopkio.constants as constants
+import zopkio.runtime as runtime
 import templates
 
 from subprocess import PIPE, Popen
@@ -43,6 +44,8 @@ class SamzaJobYarnDeployer(Deployer):
     """
     logging.getLogger("paramiko").setLevel(logging.ERROR)
     # map from job_id to app_id
+    self.username = runtime.get_username()
+    self.password = runtime.get_password()
     self.app_ids = {}
     self.default_configs = configs
     Deployer.__init__(self)
@@ -74,9 +77,9 @@ class SamzaJobYarnDeployer(Deployer):
     exec_file_install_path = os.path.join(install_path, package_id)
     for host in nm_hosts:
       logger.info('Deploying {0} on host: {1}'.format(package_id, host))
-      with get_ssh_client(host) as ssh:
+      with get_ssh_client(host, self.username, self.password) as ssh:
         better_exec_command(ssh, "mkdir -p {0}".format(install_path), "Failed to create path: {0}".format(install_path))
-      with get_sftp_client(host) as ftp:
+      with get_sftp_client(host, self.username, self.password) as ftp:
         def progress(transferred_bytes, total_bytes_to_transfer):
           logger.debug("{0} of {1} bytes transferred.".format(transferred_bytes, total_bytes_to_transfer))
         ftp.put(executable, exec_file_location, callback=progress)
@@ -190,7 +193,7 @@ class SamzaJobYarnDeployer(Deployer):
 
     # Delete job package on all NMs.
     for host in nm_hosts:
-      with get_ssh_client(host) as ssh:
+      with get_ssh_client(host, self.username, self.password) as ssh:
         better_exec_command(ssh, "rm -rf {0}".format(install_path), "Failed to remove {0}".format(install_path))
 
     # Delete job pacakge directory from local driver box.
