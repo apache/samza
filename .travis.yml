@@ -43,4 +43,4 @@ notifications:
     template:
       - "%{repository} (%{branch}:%{commit} by %{author}): %{message} (%{build_url})"
   email:
-    - dev@samza.incubator.apache.org
+    - dev@samza.apache.org

@@ -22,7 +22,7 @@ layout: nil
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
   <url>
-    <loc>http://samza.incubator.apache.org/</loc>
+    <loc>http://samza.apache.org/</loc>
     <lastmod>{{ site.time | date: "%Y-%m-%d" }}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
@@ -30,7 +30,7 @@ layout: nil
 
   {% for post in site.posts %}
   <url>
-    <loc>http://samza.incubator.apache.org{{ post.url }}/</loc>
+    <loc>http://samza.apache.org{{ post.url }}/</loc>
     <lastmod>{{ post.date | date: "%Y-%m-%d" }}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.2</priority>
@@ -39,7 +39,7 @@ layout: nil
 
   {% for page in site.html_pages %}
   <url>
-    <loc>http://samza.incubator.apache.org{{ page.url }}</loc>
+    <loc>http://samza.apache.org{{ page.url }}</loc>
     <lastmod>{{ site.time | date: "%Y-%m-%d" }}</lastmod>
     {% if page.changefreq %}<changefreq>{{ page.changefreq }}</changefreq>{% endif %}
     {% if page.priority %}<priority>{{ page.priority }}</priority>{% endif %}

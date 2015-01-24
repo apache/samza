@@ -19,12 +19,12 @@ title: Code
    limitations under the License.
 -->
 
-Samza's code is in an Apache Git repository located [here](https://git-wip-us.apache.org/repos/asf?p=incubator-samza.git;a=tree).
+Samza's code is in an Apache Git repository located [here](https://git-wip-us.apache.org/repos/asf?p=samza.git;a=tree).
 
 You can check out Samza's code by running:
 
 ```
-git clone http://git-wip-us.apache.org/repos/asf/incubator-samza.git
+git clone http://git-wip-us.apache.org/repos/asf/samza.git
 ```
 
 Please see the [Rules](rules.html) page for information on how to contribute.

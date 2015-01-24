@@ -38,8 +38,3 @@ We are just moving our code to open source. This newly open sourced version has 
 
  * We have not yet fully implemented our plans around fault-tolerance semantics.
 
-### Pardon our Dust
-
-Apache Samza is currently undergoing incubation at the [Apache Software Foundation](http://www.apache.org/).
-
-![Apache Incubator Logo](img/apache-egg-logo.png)

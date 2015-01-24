@@ -42,7 +42,7 @@ If you're working with versioned content (anything in the learn or img directori
 
 The local-site-test.sh script must be run every time a change is made to versioned content locally in order to trigger a refresh with Jekyll.
 
-Keep in mind that versioned content in older versions links to samza.incubator.apache.org, not the localhost:4000. This is because they are not updated by your branch and are using the values in SVN instead.
+Keep in mind that versioned content in older versions links to samza.apache.org, not the localhost:4000. This is because they are not updated by your branch and are using the values in SVN instead.
 
 To add a new version, change the version number in _config.yml. All links in pages should use {{site.version}}, not hard-coded version number.
 
@@ -58,4 +58,4 @@ To build and publish the website to Samza's Apache SVN repository, run:
 
     bin/publish-site.sh "updating welcome page" criccomini
 
-This command will re-build the Javadocs and website, checkout https://svn.apache.org/repos/asf/incubator/samza/site/ locally, copy the site into the directory, and commit the changes.
+This command will re-build the Javadocs and website, checkout https://svn.apache.org/repos/asf/samza/site/ locally, copy the site into the directory, and commit the changes.

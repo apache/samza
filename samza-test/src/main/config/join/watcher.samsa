@@ -27,5 +27,5 @@ task.window.ms=300000
 
 max.time.between.epochs.ms=600000
 mail.smtp.host=TODO
-mail.to=dev@samza.incubator.apache.org
+mail.to=dev@samza.apache.org
 mail.from=gregor@incubator.apache.org

@@ -19,7 +19,7 @@ First, clean any non-checked-in files from git (this removes all such files with
 
 Alternatively, you can make a fresh clone of the repository to a separate directory:
 
-    git clone https://git-wip-us.apache.org/repos/asf/incubator-samza.git samza-release
+    git clone http://git-wip-us.apache.org/repos/asf/samza.git samza-release
     cd samza-release
 
 Then build the tarball:

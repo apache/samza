@@ -26,13 +26,13 @@ Let's use Eclipse to attach a remote debugger to a Samza container. If you're an
 Start by checking out Samza, so we have access to the source.
 
 {% highlight bash %}
-git clone http://git-wip-us.apache.org/repos/asf/incubator-samza.git
+git clone http://git-wip-us.apache.org/repos/asf/samza.git
 {% endhighlight %}
 
 Next, grab hello-samza.
 
 {% highlight bash %}
-git clone git://git.apache.org/incubator-samza-hello-samza.git
+git clone git://git.apache.org/samza-hello-samza.git
 {% endhighlight %}
 
 ### Setup the Environment
@@ -40,7 +40,7 @@ git clone git://git.apache.org/incubator-samza-hello-samza.git
 Now, let's setup the Eclipse project files.
 
 {% highlight bash %}
-cd incubator-samza
+cd samza
 ./gradlew eclipse
 {% endhighlight %}
 
@@ -50,7 +50,7 @@ Let's also release Samza to Maven's local repository, so hello-samza has access 
 ./gradlew -PscalaVersion=2.10 clean publishToMavenLocal
 {% endhighlight %}
 
-Next, open Eclipse, and import the Samza source code into your workspace: "File" &gt; "Import" &gt; "Existing Projects into Workspace" &gt; "Browse". Select 'incubator-samza' folder, and hit 'finish'.
+Next, open Eclipse, and import the Samza source code into your workspace: "File" &gt; "Import" &gt; "Existing Projects into Workspace" &gt; "Browse". Select 'samza' folder, and hit 'finish'.
 
 ### Enable Remote Debugging
 

@@ -26,7 +26,7 @@ Developers:
   Releases will be signed using one of these keys in this file. This file will
   be available with the distributed Apache Samza releases at:
 
-      https://dist.apache.org/repos/dist/release/incubator/samza/KEYS
+      https://dist.apache.org/repos/dist/release/samza/KEYS
 
 ********************************************************************************
 

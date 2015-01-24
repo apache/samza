@@ -126,8 +126,8 @@ Some of the following steps are exactlly identical to what you have seen in [hel
 
 {% highlight bash %}
 cd /tmp
-git clone http://git-wip-us.apache.org/repos/asf/incubator-samza.git
-cd incubator-samza
+git clone http://git-wip-us.apache.org/repos/asf/samza.git
+cd samza
 ./gradlew clean publishToMavenLocal
 cd ..
 {% endhighlight %}

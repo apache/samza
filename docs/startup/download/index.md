@@ -126,8 +126,8 @@ Snapshot builds are available in the Apache Maven snapshot repository.
 If you're interested in working on Samza, or building the JARs from scratch, then you'll need to checkout and build the code. Samza does not have a binary release at this time. To check out and build Samza, run these commands.
 
 {% highlight bash %}
-git clone http://git-wip-us.apache.org/repos/asf/incubator-samza.git
-cd incubator-samza
+git clone http://git-wip-us.apache.org/repos/asf/samza.git
+cd samza
 ./gradlew clean build
 {% endhighlight %}
 

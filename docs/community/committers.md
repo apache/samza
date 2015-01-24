@@ -63,25 +63,3 @@ Committer, and PMC member<br/>
 Committer, and PMC member<br/>
 <a href="https://www.linkedin.com/pub/chinmay-soman/5/610/35" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
 <a href="https://twitter.com/ChinmaySoman" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
-
-### Mentors
-
-**Chris Douglas**<br/>
-Apache Member<br/>
-<a href="http://www.linkedin.com/pub/chris-douglas/1/33a/733" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
-<a href="https://twitter.com/chris_douglas" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
-
-**Jakob Homan**<br/>
-Apache Member, Committer, and PMC member<br/>
-<a href="http://www.linkedin.com/in/jghoman" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
-<a href="http://twitter.com/blueboxtraveler" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
-
-**Arun C Murthy**<br/>
-Apache Member<br/>
-<a href="http://www.linkedin.com/in/acmurthy" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
-<a href="https://twitter.com/acmurthy" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
-
-**Roman Shaposhnik**<br/>
-Apache Incubator PMC Member<br/>
-<a href="http://www.linkedin.com/in/shaposhnik" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
-<a href="https://twitter.com/rhatr" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>

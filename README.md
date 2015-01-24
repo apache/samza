@@ -1,6 +1,6 @@
 ## What is Samza?
 
-[Apache Incubator Samza](http://samza.incubator.apache.org/) is a distributed stream processing framework. It uses [Apache Kafka](http://kafka.apache.org) for messaging, and [Apache Hadoop YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) to provide fault tolerance, processor isolation, security, and resource management.
+[Apache Samza](http://samza.apache.org/) is a distributed stream processing framework. It uses [Apache Kafka](http://kafka.apache.org) for messaging, and [Apache Hadoop YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) to provide fault tolerance, processor isolation, security, and resource management.
 
 Samza's key features include:
 
@@ -12,7 +12,7 @@ Samza's key features include:
 * **Pluggable:** Though Samza works out of the box with Kafka and YARN, Samza provides a pluggable API that lets you run Samza with other messaging systems and execution environments.
 * **Processor isolation:** Samza works with Apache YARN, which supports Hadoop's security model, and resource isolation through Linux CGroups.
 
-Check out [Hello Samza](https://samza.incubator.apache.org/startup/hello-samza/0.7.0/) to try Samza. Read the [Background](https://samza.incubator.apache.org/learn/documentation/0.7.0/introduction/background.html) page to learn more about Samza.
+Check out [Hello Samza](https://samza.apache.org/startup/hello-samza/0.8/) to try Samza. Read the [Background](https://samza.apache.org/learn/documentation/0.8/introduction/background.html) page to learn more about Samza.
 
 ### Building Samza
 

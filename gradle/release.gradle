@@ -70,12 +70,12 @@ subprojects {
     project {
       name 'Apache Samza (incubating)'
       description 'A distributed stream processing framework built upon Apache Kafka and Apache Hadoop YARN.'
-      url 'http://samza.incubator.apache.org/'
+      url 'http://samza.apache.org/'
 
       scm {
-        url 'https://git-wip-us.apache.org/repos/asf?p=incubator-samza.git;a=tree'
-        connection 'scm:http://git-wip-us.apache.org/repos/asf/incubator-samza.git'
-        developerConnection 'scm:https://git-wip-us.apache.org/repos/asf/incubator-samza.git'
+        url 'https://git-wip-us.apache.org/repos/asf?p=samza.git;a=tree'
+        connection 'scm:http://git-wip-us.apache.org/repos/asf/samza.git'
+        developerConnection 'scm:https://git-wip-us.apache.org/repos/asf/samza.git'
       }
 
       licenses {
