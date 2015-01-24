@@ -45,7 +45,7 @@ echo "Replacing version"
 
 echo "Checking out SVN site."
 SVN_TMP=`mktemp -d /tmp/samza-svn.XXXX`
-svn co https://svn.apache.org/repos/asf/incubator/samza/ $SVN_TMP
+svn co https://svn.apache.org/repos/asf/samza/ $SVN_TMP
 cp -r _site/* $SVN_TMP/site/
 svn add --force $SVN_TMP/site
 svn commit $SVN_TMP -m"$COMMENT" --username $USER

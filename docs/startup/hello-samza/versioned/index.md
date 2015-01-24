@@ -18,14 +18,14 @@ title: Hello Samza
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-The [hello-samza](https://github.com/apache/incubator-samza-hello-samza) project is a stand-alone project designed to help you run your first Samza job.
+The [hello-samza](https://github.com/apache/samza-hello-samza) project is a stand-alone project designed to help you run your first Samza job.
 
 ### Get the Code
 
 Check out the hello-samza project:
 
 {% highlight bash %}
-git clone git://git.apache.org/incubator-samza-hello-samza.git hello-samza
+git clone git://git.apache.org/samza-hello-samza.git hello-samza
 cd hello-samza
 {% endhighlight %}
 

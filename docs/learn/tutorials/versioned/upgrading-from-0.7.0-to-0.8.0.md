@@ -22,17 +22,17 @@ title: Upgrading from 0.7.0 to 0.8.0
 Samza's [checkpointing](../../documentation/{{site.version}}/container/checkpointing.html) implementation changed between Samza 0.7.0 and 0.8.0. If you are running a Samza job with 0.7.0, and upgrade to 0.8.0, your job's checkpoint offsets will be lost, and the job will start (by default) with the most recent message in its input streams. If this is undesirable, and a job needs to pick up where it left off, the following steps must be taken:
 
 1. Shutdown your job.
-2. Run the [CheckpointMigrationTool](https://git-wip-us.apache.org/repos/asf?p=incubator-samza.git;a=blob;f=samza-kafka/src/main/scala/org/apache/samza/util/CheckpointMigrationTool.scala;h=5c4b3c4c544ae4367377b1a84d9a85a3de671018;hb=0.8.0).
+2. Run the [CheckpointMigrationTool](https://git-wip-us.apache.org/repos/asf?p=samza.git;a=blob;f=samza-kafka/src/main/scala/org/apache/samza/util/CheckpointMigrationTool.scala;h=5c4b3c4c544ae4367377b1a84d9a85a3de671018;hb=0.8.0).
 3. Start your job.
 
-The CheckpointMigrationTool is responsible for migrating your checkpoint topic from the 0.7.0 style format to the 0.8.0 style format. This tool works only against Kafka, so you must be storing your checkpoints in Kafka with the [KafkaCheckpointManager](https://git-wip-us.apache.org/repos/asf?p=incubator-samza.git;a=blob;f=samza-kafka/src/main/scala/org/apache/samza/checkpoint/kafka/KafkaCheckpointManager.scala;h=1d5627d0c561a0be6b48ee307b755958e62b783e;hb=0.8.0).
+The CheckpointMigrationTool is responsible for migrating your checkpoint topic from the 0.7.0 style format to the 0.8.0 style format. This tool works only against Kafka, so you must be storing your checkpoints in Kafka with the [KafkaCheckpointManager](https://git-wip-us.apache.org/repos/asf?p=samza.git;a=blob;f=samza-kafka/src/main/scala/org/apache/samza/checkpoint/kafka/KafkaCheckpointManager.scala;h=1d5627d0c561a0be6b48ee307b755958e62b783e;hb=0.8.0).
 
 ### Running CheckpointMigrationTool
 
 Checkout Samza 0.8.0:
 
-    git clone http://git-wip-us.apache.org/repos/asf/incubator-samza.git
-    cd incubator-samza
+    git clone http://git-wip-us.apache.org/repos/asf/samza.git
+    cd samza
     git fetch origin 0.8.0
     git checkout 0.8.0
 
