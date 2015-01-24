@@ -21,29 +21,36 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-  <Project rdf:about="http://samza.incubator.apache.org/">
-    <created>2014-06-13</created>
+  <Project rdf:about="http://samza.apache.org/">
+    <created>2015-01-23</created>
     <license rdf:resource="http://spdx.org/licenses/Apache-2.0" />
     <name>Apache Samza</name>
-    <homepage rdf:resource="http://samza.incubator.apache.org/" />
-    <asfext:pmc rdf:resource="http://incubator.apache.org" />
+    <homepage rdf:resource="http://samza.apache.org/" />
+    <asfext:pmc rdf:resource="http://samza.apache.org" />
     <shortdesc>Apache Samza is a distributed stream processing framework.</shortdesc>
     <description>Apache Samza provides a system for processing stream data from publish-subscribe systems such as Apache Kafka. The developer writes a stream processing task, and executes it as a Samza job. Samza then routes messages between stream processing tasks and the publish-subscribe systems that the messages are addressed to.</description>
-    <bug-database rdf:resource="http://issues.apache.org/jira/browse/SAMZA/" />
-    <mailing-list rdf:resource="http://samza.incubator.apache.org/community/mailing-lists.html" />
-    <download-page rdf:resource="http://samza.incubator.apache.org/startup/download/" />
+    <bug-database rdf:resource="https://issues.apache.org/jira/browse/SAMZA" />
+    <mailing-list rdf:resource="http://samza.apache.org/community/mailing-lists.html" />
+    <download-page rdf:resource="http://samza.apache.org/startup/download" />
     <programming-language>Scala</programming-language>
     <category rdf:resource="http://projects.apache.org/category/big-data" />
+    <release>
+      <Version>
+        <name>Samza 0.8.0</name>
+        <created>2014-12-09</created>
+        <revision>0.8.0</revision>
+      </Version>
+    </release>
     <repository>
-      <SVNRepository>
-        <location rdf:resource="http://git://git.apache.org/incubator-samza.git"/>
-        <browse rdf:resource="http://github.com/apache/incubator-samza"/>
-      </SVNRepository>
+      <GitRepository>
+        <location rdf:resource="https://github.com/apache/samza.git"/>
+        <browse rdf:resource="https://github.com/apache/samza"/>
+      </GitRepository>
     </repository>
     <maintainer>
       <foaf:Person>
-        <foaf:name>Jakob Homan</foaf:name>
-          <foaf:mbox rdf:resource="mailto:jghoman@apache.org"/>
+        <foaf:name>Chris Riccomini</foaf:name>
+          <foaf:mbox rdf:resource="mailto:criccomini@apache.org"/>
       </foaf:Person>
     </maintainer>
   </Project>
