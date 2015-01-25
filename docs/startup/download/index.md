@@ -25,7 +25,7 @@ If you just want to play around with Samza for the first time, go to [Hello Samz
 
 ### Source Releases
 
- * [samza-sources-0.8.0-incubating.tgz](http://www.apache.org/dyn/closer.cgi/incubator/samza/0.8.0-incubating)
+ * [samza-sources-0.8.0-incubating.tgz](http://www.apache.org/dyn/closer.cgi/samza/0.8.0-incubating)
  * [samza-sources-0.7.0-incubating.tgz](https://archive.apache.org/dist/incubator/samza/0.7.0-incubating)
 
 ### Maven

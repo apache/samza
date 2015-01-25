@@ -38,3 +38,8 @@ We are just moving our code to open source. This newly open sourced version has 
 
  * We have not yet fully implemented our plans around fault-tolerance semantics.
 
+### Apache Software Foundation
+
+Apache Samza is a top level project of the [Apache Software Foundation](http://www.apache.org/).
+
+![Apache Software Foundation Logo](http://www.apache.org/images/feather.gif)
