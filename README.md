@@ -34,7 +34,7 @@ Samza builds with [Scala](http://www.scala-lang.org/) 2.10 and [YARN](http://had
 
 ### Testing Samza
 
-[![Build Status](https://travis-ci.org/apache/incubator-samza.svg?branch=master)](https://travis-ci.org/apache/incubator-samza)
+[![Build Status](https://travis-ci.org/apache/samza.svg?branch=master)](https://travis-ci.org/apache/samza)
 
 To run all tests:
 
@@ -77,6 +77,8 @@ For IntelliJ, run:
 
     ./gradlew idea
 
-### Pardon our Dust
+### Apache Software Foundation
 
-Apache Samza is currently undergoing incubation at the [Apache Software Foundation](http://www.apache.org/).
+Apache Samza is a top level project of the [Apache Software Foundation](http://www.apache.org/).
+
+![Apache Software Foundation Logo](http://www.apache.org/images/feather.gif)

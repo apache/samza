@@ -32,12 +32,6 @@ Apache Samza is a distributed stream processing framework. It uses <a target="_b
 
 Check out [Hello Samza](/startup/hello-samza/{{site.version}}) to try Samza. Read the [Background](/learn/documentation/{{site.version}}/introduction/background.html) page to learn more about Samza.
 
-### Limitations
-
-We are just moving our code to open source. This newly open sourced version has a few limitations:
-
- * We have not yet fully implemented our plans around fault-tolerance semantics.
-
 ### Apache Software Foundation
 
 Apache Samza is a top level project of the [Apache Software Foundation](http://www.apache.org/).
