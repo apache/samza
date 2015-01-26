@@ -97,5 +97,5 @@ function check_and_enable_64_bit_mode {
 # Check if 64 bit is set. If not - try and set it if it's supported
 [[ $JAVA_OPTS != *-d64* ]] && check_and_enable_64_bit_mode
 
-echo $JAVA $JAVA_OPTS -cp $CLASSPATH $@
-exec $JAVA $JAVA_OPTS -cp $CLASSPATH $@
+echo $JAVA $JAVA_OPTS -cp $CLASSPATH "$@"
+exec $JAVA $JAVA_OPTS -cp $CLASSPATH "$@"
