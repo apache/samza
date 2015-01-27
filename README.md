@@ -1,7 +1,7 @@
 hello-samza
 ===========
 
-Hello Samza is a starter project for [Apache Samza](http://samza.apache.org/) (Incubating) jobs.
+Hello Samza is a starter project for [Apache Samza](http://samza.apache.org/) jobs.
 
 Please see [Hello Samza](http://samza.apache.org/startup/hello-samza/0.8/) to get started.
 
