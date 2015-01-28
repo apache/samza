@@ -275,6 +275,7 @@ project(":samza-shell") {
   // Usage: ./gradlew samza-shell:runJob \
   //    -PconfigPath=file:///path/to/job/config.properties
   task runJob(type:JavaExec) {
+    description 'To run a job (defined in a properties file)'
     main = 'org.apache.samza.job.JobRunner'
     classpath = configurations.gradleShell
     if (project.hasProperty('configPath')) args += ['--config-path', configPath]
@@ -284,6 +285,7 @@ project(":samza-shell") {
   // Usage: ./gradlew samza-shell:checkpointTool \
   //    -PconfigPath=file:///path/to/job/config.properties -PnewOffsets=file:///path/to/new/offsets.properties
   task checkpointTool(type:JavaExec) {
+    description 'Command-line tool to inspect and manipulate the job’s checkpoint'
     main = 'org.apache.samza.checkpoint.CheckpointTool'
     classpath = configurations.gradleShell
     if (project.hasProperty('configPath')) args += ['--config-path', configPath]
@@ -294,6 +296,7 @@ project(":samza-shell") {
   // Usage: ./gradlew samza-shell:kvPerformanceTest
   //    -PconfigPath=file:///path/to/job/config.properties
   task kvPerformanceTest(type:JavaExec) {
+    description 'Command-line tool to run key-value performance tests'
     main = 'org.apache.samza.test.performance.TestKeyValuePerformance'
     classpath = configurations.gradleShell
     if (project.hasProperty('configPath')) args += ['--config-path', configPath]
@@ -397,6 +400,7 @@ project(":samza-test_$scalaVersion") {
   }
 
   tasks.create(name: "releaseTestJobs", dependsOn: configurations.archives.artifacts, type: Tar) {
+    description 'Build an integration test tarball'
     compression = Compression.GZIP
     from(file("$projectDir/src/main/config")) { into "config/" }
     from(file("$projectDir/src/main/resources")) { into "lib/" }
