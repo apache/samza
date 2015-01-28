@@ -19,18 +19,14 @@
 
 package org.apache.samza.system.kafka
 
-
-import java.util.Properties
-
-import kafka.utils.ZKStringSerializer
-import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.util.{Logging, KafkaUtil, ExponentialSleepStrategy, ClientUtilTopicMetadataStore}
 import org.apache.samza.config.Config
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.config.KafkaConfig.Config2Kafka
-import org.apache.samza.SamzaException
-import kafka.producer.Producer
+import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.system.SystemFactory
+import org.I0Itec.zkclient.ZkClient
+import kafka.utils.ZKStringSerializer
 
 
 class KafkaSystemFactory extends SystemFactory with Logging {
@@ -40,8 +36,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
     // Kind of goofy to need a producer config for consumers, but we need metadata.
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
-    val brokerListString = Option(producerConfig.brokerList)
-      .getOrElse(throw new SamzaException("No broker list defined in config for %s." format systemName))
+    val bootstrapServers = producerConfig.bootsrapServers
     val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
 
     val timeout = consumerConfig.socketTimeoutMs
@@ -53,7 +48,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val autoOffsetResetTopics = config.getAutoOffsetResetTopics(systemName)
     val fetchThreshold = config.getConsumerFetchThreshold(systemName).getOrElse("50000").toInt
     val offsetGetter = new GetOffset(autoOffsetResetDefault, autoOffsetResetTopics)
-    val metadataStore = new ClientUtilTopicMetadataStore(brokerListString, clientId, timeout)
+    val metadataStore = new ClientUtilTopicMetadataStore(bootstrapServers, clientId, timeout)
 
     new KafkaSystemConsumer(
       systemName = systemName,
@@ -72,11 +67,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry) = {
     val clientId = KafkaUtil.getClientId("samza-producer", config)
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
-    val batchSize = Option(producerConfig.batchNumMessages)
-      .getOrElse(1000)
-    val reconnectIntervalMs = Option(producerConfig.retryBackoffMs)
-      .getOrElse(1000)
-    val getProducer = () => { new Producer[Object, Object](producerConfig) }
+    val getProducer = () => { new KafkaProducer(producerConfig.getProducerProperties) }
     val metrics = new KafkaSystemProducerMetrics(systemName, registry)
 
     // Unlike consumer, no need to use encoders here, since they come for free 
@@ -85,8 +76,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
     new KafkaSystemProducer(
       systemName,
-      batchSize,
-      new ExponentialSleepStrategy(initialDelayMs = reconnectIntervalMs),
+      new ExponentialSleepStrategy(initialDelayMs = producerConfig.reconnectIntervalMs),
       getProducer,
       metrics)
   }
@@ -94,8 +84,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
   def getAdmin(systemName: String, config: Config) = {
     val clientId = KafkaUtil.getClientId("samza-admin", config)
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
-    val brokerListString = Option(producerConfig.brokerList)
-      .getOrElse(throw new SamzaException("No broker list defined in config for %s." format systemName))
+    val bootstrapServers = producerConfig.bootsrapServers
     val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
     val timeout = consumerConfig.socketTimeoutMs
     val bufferSize = consumerConfig.socketReceiveBufferBytes
@@ -106,13 +95,13 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     {
        val replicationFactor = config.getChangelogStreamReplicationFactor(storeName).getOrElse("2").toInt
        val changelogInfo = ChangelogInfo(replicationFactor, config.getChangelogKafkaProperties(storeName))
-       info("Creating topic meta information for topic: " + topicName + " with replication factor: " + replicationFactor)
+       info("Creating topic meta information for topic: %s with replication factor: %s" format (topicName, replicationFactor))
        (topicName, changelogInfo)
     }}.toMap
 
     new KafkaSystemAdmin(
       systemName,
-      brokerListString,
+      bootstrapServers,
       timeout,
       bufferSize,
       clientId,

@@ -20,7 +20,6 @@
 package org.apache.samza.checkpoint.kafka
 
 import org.apache.samza.util.Logging
-import kafka.producer.Producer
 import kafka.utils.ZKStringSerializer
 import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.SamzaException
@@ -33,6 +32,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.util.{ KafkaUtil, ClientUtilTopicMetadataStore }
 import java.util.Properties
 import scala.collection.JavaConversions._
+import org.apache.kafka.clients.producer.KafkaProducer
 
 object KafkaCheckpointManagerFactory {
   /**
@@ -41,17 +41,14 @@ object KafkaCheckpointManagerFactory {
   val CHECKPOINT_LOG_VERSION_NUMBER = 1
 
   val INJECTED_PRODUCER_PROPERTIES = Map(
-    "request.required.acks" -> "-1",
+    "acks" -> "all",
     // Forcibly disable compression because Kafka doesn't support compression
     // on log compacted topics. Details in SAMZA-393.
-    "compression.codec" -> "none",
-    "producer.type" -> "sync",
-    // Subtract one here, because DefaultEventHandler calls messageSendMaxRetries + 1.
-    "message.send.max.retries" -> (Integer.MAX_VALUE - 1).toString)
+    "compression.codec" -> "none")
 
   // Set the checkpoint topic configs to have a very small segment size and
-  // enable log compaction. This keeps job startup time small since there
-  // are fewer useless (overwritten) messages to read from the checkpoint
+  // enable log compaction. This keeps job startup time small since there 
+  // are fewer useless (overwritten) messages to read from the checkpoint 
   // topic.
   def getCheckpointTopicProperties(config: Config) = {
     val segmentBytes = config
@@ -83,7 +80,7 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     val fetchSize = consumerConfig.fetchMessageMaxBytes // must be > buffer size
 
     val connectProducer = () => {
-      new Producer[Array[Byte], Array[Byte]](producerConfig)
+      new KafkaProducer(producerConfig.getProducerProperties)
     }
     val zkConnect = Option(consumerConfig.zkConnect)
       .getOrElse(throw new SamzaException("no zookeeper.connect defined in config"))
@@ -92,9 +89,8 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     }
     val jobName = config.getName.getOrElse(throw new SamzaException("Missing job name in configs"))
     val jobId = config.getJobId.getOrElse("1")
-    val brokersListString = Option(producerConfig.brokerList)
-      .getOrElse(throw new SamzaException("No broker list defined in config for %s." format systemName))
-    val metadataStore = new ClientUtilTopicMetadataStore(brokersListString, clientId, socketTimeout)
+    val bootstrapServers = producerConfig.bootsrapServers
+    val metadataStore = new ClientUtilTopicMetadataStore(bootstrapServers, clientId, socketTimeout)
     val checkpointTopic = getTopic(jobName, jobId)
 
     // Find out the SSPGrouperFactory class so it can be included/verified in the key

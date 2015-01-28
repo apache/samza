@@ -28,15 +28,20 @@ import org.apache.samza.metrics.Gauge
 import org.apache.samza.metrics.MetricsRegistry
 
 class KafkaSystemProducerMetrics(val systemName: String = "unknown", val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
-  val reconnects = newCounter("producer-reconnects")
+  /* Tracks the number of calls made to send in KafkaSystemProducer */
   val sends = newCounter("producer-sends")
+  /* Tracks the number of calls made to flush in KafkaSystemProducer */
   val flushes = newCounter("flushes")
-  val flushSizes = newCounter("flush-sizes")
+  /* Tracks how long the flush call takes to complete */
   val flushMs = newTimer("flush-ms")
-
-  def setBufferSize(source: String, getValue: () => Int) {
-    newGauge("%s-producer-buffer-size" format source, getValue)
-  }
+  /* Tracks the number of times the system producer retries a send request (due to RetriableException) */
+  val retries = newCounter("producer-retries")
+  /* Tracks the number of times flush operation failed */
+  val flushFailed = newCounter("flush-failed")
+  /* Tracks the number of send requests that was failed by the KafkaProducer (due to unrecoverable errors) */
+  val sendFailed = newCounter("producer-send-failed")
+  /* Tracks the number of send requests that was successfully completed by the KafkaProducer */
+  val sendSuccess = newCounter("producer-send-success")
 
   override def getPrefix = systemName + "-"
 }

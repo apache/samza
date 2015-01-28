@@ -22,16 +22,12 @@ package org.apache.samza.test.integration
 import java.util.Properties
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import java.util.logging.{Level, LogManager, Handler, Logger}
 
 import kafka.admin.AdminUtils
 import kafka.common.ErrorMapping
 import kafka.consumer.Consumer
 import kafka.consumer.ConsumerConfig
 import kafka.message.MessageAndMetadata
-import kafka.producer.KeyedMessage
-import kafka.producer.Producer
-import kafka.producer.ProducerConfig
 import kafka.server.KafkaConfig
 import kafka.server.KafkaServer
 import kafka.utils.TestUtils
@@ -52,6 +48,7 @@ import org.apache.samza.job.StreamJob
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.system.kafka.TopicMetadataCache
 import org.apache.samza.system.{SystemStreamPartition, IncomingMessageEnvelope}
+import org.apache.samza.config.KafkaProducerConfig
 import org.apache.samza.task.InitableTask
 import org.apache.samza.task.MessageCollector
 import org.apache.samza.task.StreamTask
@@ -67,6 +64,9 @@ import scala.collection.JavaConversions._
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.SynchronizedMap
+import org.apache.kafka.clients.producer.{ProducerConfig, Producer, ProducerRecord, KafkaProducer}
+import java.util
+
 
 object TestStatefulTask {
   val INPUT_TOPIC = "input"
@@ -93,14 +93,15 @@ object TestStatefulTask {
   props2.setProperty("auto.create.topics.enable","false")
   props3.setProperty("auto.create.topics.enable","false")
 
-  val config = new java.util.Properties()
+  val config = new util.HashMap[String, Object]()
   val brokers = "localhost:%d,localhost:%d,localhost:%d" format (port1, port2, port3)
-  config.put("metadata.broker.list", brokers)
-  config.put("producer.type", "sync")
+  config.put("bootstrap.servers", brokers)
   config.put("request.required.acks", "-1")
-  config.put("serializer.class", "kafka.serializer.StringEncoder");
-  val producerConfig = new ProducerConfig(config)
-  var producer: Producer[String, String] = null
+  config.put("serializer.class", "kafka.serializer.StringEncoder")
+  config.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, new Integer(1))
+  config.put(ProducerConfig.RETRIES_CONFIG, new Integer(Integer.MAX_VALUE-1))
+  val producerConfig = new KafkaProducerConfig("kafka", "i001", config)
+  var producer: Producer = null
   val cp1 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "123"))
   val cp2 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "12345"))
   var zookeeper: EmbeddedZookeeper = null
@@ -116,7 +117,7 @@ object TestStatefulTask {
     server2 = TestUtils.createServer(new KafkaConfig(props2))
     server3 = TestUtils.createServer(new KafkaConfig(props3))
     zkClient = new ZkClient(zkConnect + "/", 6000, 6000, ZKStringSerializer)
-    producer = new Producer(producerConfig)
+    producer = new KafkaProducer(producerConfig.getProducerProperties)
     metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")
 
     createTopics
@@ -163,6 +164,7 @@ object TestStatefulTask {
 
   @AfterClass
   def afterCleanLogDirs {
+    producer.close()
     server1.shutdown
     server1.awaitShutdown()
     server2.shutdown
@@ -216,7 +218,7 @@ class TestStatefulTask {
     "systems.kafka.consumer.auto.offset.reset" -> "smallest", // applies to an empty topic
     "systems.kafka.samza.msg.serde" -> "string",
     "systems.kafka.consumer.zookeeper.connect" -> zkConnect,
-    "systems.kafka.producer.metadata.broker.list" -> ("localhost:%s" format port1),
+    "systems.kafka.producer.bootstrap.servers" -> ("localhost:%s" format port1),
     // Since using state, need a checkpoint manager
     "task.checkpoint.factory" -> "org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory",
     "task.checkpoint.system" -> "kafka",
@@ -353,7 +355,7 @@ class TestStatefulTask {
    * Send a message to the input topic, and validate that it gets to the test task.
    */
   def send(task: TestTask, msg: String) {
-    producer.send(new KeyedMessage(INPUT_TOPIC, msg))
+    producer.send(new ProducerRecord(INPUT_TOPIC, msg.getBytes)).get()
     task.awaitMessage
     assertEquals(msg, task.received.last)
   }

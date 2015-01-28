@@ -23,8 +23,7 @@ import kafka.admin.AdminUtils
 import kafka.common.InvalidMessageSizeException
 import kafka.common.UnknownTopicOrPartitionException
 import kafka.message.InvalidMessageException
-import kafka.producer.Producer
-import kafka.producer.ProducerConfig
+
 import kafka.server.KafkaConfig
 import kafka.server.KafkaServer
 import kafka.utils.TestUtils
@@ -35,7 +34,7 @@ import kafka.zk.EmbeddedZookeeper
 
 import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.checkpoint.Checkpoint
-import org.apache.samza.config.MapConfig
+import org.apache.samza.config.{KafkaProducerConfig, MapConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 import org.apache.samza.serializers.CheckpointSerde
@@ -47,6 +46,7 @@ import org.junit.{ AfterClass, BeforeClass, Test }
 
 import scala.collection._
 import scala.collection.JavaConversions._
+import org.apache.kafka.clients.producer.{ProducerConfig, KafkaProducer}
 
 object TestKafkaCheckpointManager {
   val checkpointTopic = "checkpoint-topic"
@@ -69,13 +69,14 @@ object TestKafkaCheckpointManager {
   val props3 = TestUtils.createBrokerConfig(brokerId3, port3)
   props1.put("controlled.shutdown.enable", "true")
 
-  val config = new java.util.Properties()
+  val config = new java.util.HashMap[String, Object]()
   val brokers = "localhost:%d,localhost:%d,localhost:%d" format (port1, port2, port3)
-  config.put("metadata.broker.list", brokers)
-  config.put("producer.type", "sync")
-  config.put("request.required.acks", "-1")
+  config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers)
+  config.put("acks", "all")
+  config.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, new Integer(1))
+  config.put(ProducerConfig.RETRIES_CONFIG, new Integer(java.lang.Integer.MAX_VALUE-1))
   config.putAll(KafkaCheckpointManagerFactory.INJECTED_PRODUCER_PROPERTIES)
-  val producerConfig = new ProducerConfig(config)
+  val producerConfig = new KafkaProducerConfig("kafka", "i001", config)
   val partition = new Partition(0)
   val cp1 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", partition) -> "123"))
   val cp2 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", partition) -> "12345"))
@@ -163,7 +164,7 @@ class TestKafkaCheckpointManager {
         fail("Expected a KafkaCheckpointException.")
       } catch {
         case e: KafkaCheckpointException => None
-      }
+        }
       kcm.stop
     }
   }
@@ -177,7 +178,7 @@ class TestKafkaCheckpointManager {
     bufferSize = 64 * 1024,
     fetchSize = 300 * 1024,
     metadataStore = metadataStore,
-    connectProducer = () => new Producer[Array[Byte], Array[Byte]](producerConfig),
+    connectProducer = () => new KafkaProducer(producerConfig.getProducerProperties),
     connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer),
     systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
     checkpointTopicProperties = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(new MapConfig(Map[String, String]())))
@@ -192,7 +193,7 @@ class TestKafkaCheckpointManager {
     bufferSize = 64 * 1024,
     fetchSize = 300 * 1024,
     metadataStore = metadataStore,
-    connectProducer = () => new Producer[Array[Byte], Array[Byte]](producerConfig),
+    connectProducer = () => new KafkaProducer(producerConfig.getProducerProperties),
     connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer),
     systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
     serde = new InvalideSerde(exception),

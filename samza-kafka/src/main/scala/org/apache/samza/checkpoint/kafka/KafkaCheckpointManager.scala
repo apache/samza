@@ -31,8 +31,6 @@ import kafka.common.TopicExistsException
 import kafka.common.UnknownTopicOrPartitionException
 import kafka.consumer.SimpleConsumer
 import kafka.message.InvalidMessageException
-import kafka.producer.KeyedMessage
-import kafka.producer.Producer
 import kafka.utils.Utils
 import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.SamzaException
@@ -45,6 +43,7 @@ import org.apache.samza.util.ExponentialSleepStrategy
 import org.apache.samza.util.TopicMetadataStore
 import scala.collection.mutable
 import java.util.Properties
+import org.apache.kafka.clients.producer.{Producer, ProducerRecord}
 
 /**
  * Kafka checkpoint manager is used to store checkpoints in a Kafka topic.
@@ -62,7 +61,7 @@ class KafkaCheckpointManager(
   bufferSize: Int,
   fetchSize: Int,
   metadataStore: TopicMetadataStore,
-  connectProducer: () => Producer[Array[Byte], Array[Byte]],
+  connectProducer: () => Producer,
   connectZk: () => ZkClient,
   systemStreamPartitionGrouperFactoryString: String,
   retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
@@ -71,7 +70,7 @@ class KafkaCheckpointManager(
   import KafkaCheckpointManager._
 
   var taskNames = Set[TaskName]()
-  var producer: Producer[Array[Byte], Array[Byte]] = null
+  var producer: Producer = null
   var taskNamesToOffsets: Map[TaskName, Checkpoint] = null
 
   var startingOffset: Option[Long] = None // Where to start reading for each subsequent call of readCheckpoint
@@ -121,7 +120,7 @@ class KafkaCheckpointManager(
           producer = connectProducer()
         }
 
-        producer.send(new KeyedMessage(checkpointTopic, key, 0, msg))
+        producer.send(new ProducerRecord(checkpointTopic, 0, key, msg)).get()
         loop.done
       },
 

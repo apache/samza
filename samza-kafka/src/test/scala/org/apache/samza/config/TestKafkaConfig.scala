@@ -39,7 +39,7 @@ class TestKafkaConfig {
     val props = new Properties
     props.setProperty(" systems.kafka.samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory")
     props.setProperty("systems.kafka.consumer.zookeeper.connect", "localhost:2181/")
-    props.setProperty("systems.kafka.producer.metadata.broker.list", "localhost:9092")
+    props.setProperty("systems.kafka.producer.bootstrap.servers", "localhost:9092")
 
     val mapConfig = new MapConfig(props.toMap[String, String])
     val kafkaConfig = new KafkaConfig(mapConfig)
@@ -82,7 +82,7 @@ class TestKafkaConfig {
   def testStreamLevelFetchSizeOverride() {
     val props = new Properties
     props.setProperty("systems.kafka.consumer.zookeeper.connect", "localhost:2181/")
-    props.setProperty("systems.kafka.producer.metadata.broker.list", "localhost:9092")
+    props.setProperty("systems.kafka.producer.bootstrap.servers", "localhost:9092")
 
     val mapConfig = new MapConfig(props.toMap[String, String])
     val kafkaConfig = new KafkaConfig(mapConfig)

@@ -19,141 +19,152 @@
 
 package org.apache.samza.system.kafka
 
-import java.nio.ByteBuffer
-import java.util.Properties
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-
-import kafka.producer.KeyedMessage
-import kafka.producer.Producer
-import kafka.producer.ProducerConfig
-import kafka.producer.ProducerPool
-import kafka.producer.async.DefaultEventHandler
-import kafka.serializer.Encoder
-
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.system.OutgoingMessageEnvelope
-import org.apache.samza.system.SystemStream
-import org.junit.Assert._
+import org.apache.samza.system.{OutgoingMessageEnvelope, SystemStream}
 import org.junit.Test
 
-import scala.collection.JavaConversions._
+import org.apache.kafka.clients.producer._
+import java.util
+import org.junit.Assert._
+import org.scalatest.Assertions.intercept
+import org.apache.kafka.common.errors.RecordTooLargeException
+import org.apache.samza.SamzaException
+
 
 class TestKafkaSystemProducer {
 
-  val someMessage = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "test")
-
-  def getProps = {
-    val props = new Properties
-    props.put("broker.list", "")
-    props.put("metadata.broker.list", "")
-    props
-  }
+  val someMessage = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "test".getBytes)
 
   @Test
   def testKafkaProducer {
-    val props = getProps
-    @volatile var msgsSent = new CountDownLatch(1)
-
-    val producer = new KafkaSystemProducer(systemName = "test", batchSize = 1, getProducer = (() => {
-      new Producer[Object, Object](new ProducerConfig(props)) {
-        override def send(messages: KeyedMessage[Object, Object]*) {
-          msgsSent.countDown
-        }
-      }
-    }), metrics = new KafkaSystemProducerMetrics)
-
-    producer.register("test")
-    producer.start
-    producer.send("test", someMessage)
-    producer.stop
-    msgsSent.await(120, TimeUnit.SECONDS)
-    assertEquals(0, msgsSent.getCount)
+    val systemProducer = new KafkaSystemProducer(systemName = "test",
+                                           getProducer = () => { new MockProducer(true) },
+                                           metrics = new KafkaSystemProducerMetrics)
+    systemProducer.register("test")
+    systemProducer.start
+    systemProducer.send("test", someMessage)
+    assertEquals(1, systemProducer.producer.asInstanceOf[MockProducer].history().size())
+    systemProducer.stop
   }
 
   @Test
-  def testKafkaProducerBatch {
-    val props = getProps
-    @volatile var msgsSent = 0
-
-    val producer = new KafkaSystemProducer(systemName = "test", batchSize = 2, getProducer = (() => {
-      new Producer[Object, Object](new ProducerConfig(props)) {
-        override def send(messages: KeyedMessage[Object, Object]*) {
-          msgsSent += 1
-        }
-      }
-    }), metrics = new KafkaSystemProducerMetrics)
-
-    // second message should trigger the count down
-    producer.register("test")
-    producer.start
-    producer.send("test", someMessage)
-    assertEquals(0, msgsSent)
-    producer.send("test", someMessage)
-    assertEquals(1, msgsSent)
-    producer.stop
+  def testKafkaProducerUsingMockKafkaProducer {
+    val mockProducer = new MockKafkaProducer(1, "test", 1)
+    val systemProducer = new KafkaSystemProducer(systemName = "test",
+                                                 getProducer = () => mockProducer,
+                                                 metrics = new KafkaSystemProducerMetrics)
+    systemProducer.register("test")
+    systemProducer.start()
+    systemProducer.send("test", someMessage)
+    assertEquals(1, mockProducer.getMsgsSent)
+    systemProducer.stop()
   }
 
   @Test
-  def testKafkaProducerFlush {
-    val props = getProps
-    val msgs = scala.collection.mutable.ListBuffer[String]()
-    val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a")
-    val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b")
+  def testKafkaProducerBufferedSend {
+    val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a".getBytes)
+    val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b".getBytes)
+    val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
 
-    val producer = new KafkaSystemProducer(systemName = "test", batchSize = 3, getProducer = (() => {
-      new Producer[Object, Object](new ProducerConfig(props)) {
-        override def send(messages: KeyedMessage[Object, Object]*) {
-          msgs ++= messages.map(_.message.asInstanceOf[String])
-        }
-      }
-    }), metrics = new KafkaSystemProducerMetrics)
+    val mockProducer = new MockKafkaProducer(1, "test", 1)
+    val systemProducer = new KafkaSystemProducer(systemName = "test",
+                                                 getProducer = () => mockProducer,
+                                                 metrics = new KafkaSystemProducerMetrics)
+    systemProducer.register("test")
+    systemProducer.start()
+    systemProducer.send("test", msg1)
 
-    // flush should trigger the count down
+    mockProducer.setShouldBuffer(true)
+    systemProducer.send("test", msg2)
+    systemProducer.send("test", msg3)
+    assertEquals(1, mockProducer.getMsgsSent)
+
+    val sendThread: Thread = mockProducer.startDelayedSendThread(2000)
+    sendThread.join()
+
+    assertEquals(3, mockProducer.getMsgsSent)
+    systemProducer.stop()
+  }
+
+  @Test
+  def testKafkaProducerFlushSuccessful {
+    val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a".getBytes)
+    val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b".getBytes)
+    val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
+
+    val mockProducer = new MockKafkaProducer(1, "test", 1)
+    val systemProducer = new KafkaSystemProducer(systemName = "test",
+                                                 getProducer = () => mockProducer,
+                                                 metrics = new KafkaSystemProducerMetrics)
+    systemProducer.register("test")
+    systemProducer.start()
+    systemProducer.send("test", msg1)
+
+    mockProducer.setShouldBuffer(true)
+    systemProducer.send("test", msg2)
+    systemProducer.send("test", msg3)
+    assertEquals(1, mockProducer.getMsgsSent)
+    mockProducer.startDelayedSendThread(2000)
+    systemProducer.flush("test")
+    assertEquals(3, mockProducer.getMsgsSent)
+    systemProducer.stop()
+  }
+
+  @Test
+  def testKafkaProducerFlushWithException {
+    val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a".getBytes)
+    val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b".getBytes)
+    val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
+    val msg4 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "d".getBytes)
+
+    val mockProducer = new MockKafkaProducer(1, "test", 1)
+    val systemProducer = new KafkaSystemProducer(systemName = "test",
+                                                 getProducer = () => mockProducer,
+                                                 metrics = new KafkaSystemProducerMetrics)
+    systemProducer.register("test")
+    systemProducer.start()
+    systemProducer.send("test", msg1)
+
+    mockProducer.setShouldBuffer(true)
+    systemProducer.send("test", msg2)
+    mockProducer.setErrorNext(true, new RecordTooLargeException())
+    systemProducer.send("test", msg3)
+    systemProducer.send("test", msg4)
+
+    assertEquals(1, mockProducer.getMsgsSent)
+    mockProducer.startDelayedSendThread(2000)
+    val thrown = intercept[SamzaException] {
+                                             systemProducer.flush("test")
+                                           }
+    assertTrue(thrown.isInstanceOf[SamzaException])
+    assertEquals(2, mockProducer.getMsgsSent)
+    systemProducer.stop()
+  }
+
+  @Test
+  def testKafkaProducerExceptions {
+    val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a".getBytes)
+    val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b".getBytes)
+    val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
+    val msg4 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "d".getBytes)
+
+    val mockProducer = new MockKafkaProducer(1, "test", 1)
+    val producer = new KafkaSystemProducer(systemName =  "test",
+                                           getProducer = () => mockProducer,
+                                           metrics = new KafkaSystemProducerMetrics)
     producer.register("test")
-    producer.start
+    producer.start()
     producer.send("test", msg1)
     producer.send("test", msg2)
-    assertEquals(0, msgs.size)
-    producer.flush("test")
-    assertEquals(2, msgs.size)
-    assertEquals("a", msgs(0))
-    assertEquals("b", msgs(1))
-    producer.stop
-  }
+    producer.send("test", msg3)
+    mockProducer.setErrorNext(true, new RecordTooLargeException())
 
-  @Test
-  def testKafkaSyncProducerExceptions {
-    var msgsSent = 0
-    val props = new Properties
-    val out = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a")
-    props.put("metadata.broker.list", "")
-    props.put("broker.list", "")
-    props.put("producer.type", "sync")
-
-    var failCount = 0
-    val producer = new KafkaSystemProducer(systemName = "test", batchSize = 1, getProducer = (() => {
-      failCount += 1
-      if (failCount <= 5) {
-        throw new RuntimeException("Pretend to fail in factory")
-      }
-      new Producer[Object, Object](new ProducerConfig(props)) {
-        override def send(messages: KeyedMessage[Object, Object]*) {
-          assertNotNull(messages)
-          assertEquals(1, messages.length)
-          assertEquals("a", messages(0).message)
-          msgsSent += 1
-          if (msgsSent <= 5) {
-            throw new RuntimeException("Pretend to fail in send")
-          }
-        }
-      }
-    }), metrics = new KafkaSystemProducerMetrics)
-
-    producer.register("test")
-    producer.start
-    producer.send("test", out)
-    producer.stop
-    assertEquals(6, msgsSent)
+    val thrown = intercept[SamzaException] {
+       producer.send("test", msg4)
+    }
+    assertTrue(thrown.isInstanceOf[SamzaException])
+    assertTrue(thrown.getMessage.contains("RecordTooLargeException"))
+    assertEquals(true, producer.sendFailed.get())
+    assertEquals(3, mockProducer.getMsgsSent)
+    producer.stop()
   }
 }

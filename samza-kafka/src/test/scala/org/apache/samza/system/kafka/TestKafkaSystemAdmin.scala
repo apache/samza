@@ -27,9 +27,6 @@ import kafka.admin.AdminUtils
 import kafka.common.ErrorMapping
 import kafka.consumer.Consumer
 import kafka.consumer.ConsumerConfig
-import kafka.producer.KeyedMessage
-import kafka.producer.Producer
-import kafka.producer.ProducerConfig
 import kafka.server.KafkaConfig
 import kafka.server.KafkaServer
 import kafka.utils.TestUtils
@@ -50,6 +47,9 @@ import org.junit.Assert._
 import org.junit.{Test, BeforeClass, AfterClass}
 
 import scala.collection.JavaConversions._
+import org.apache.samza.config.KafkaProducerConfig
+import org.apache.kafka.clients.producer.{ProducerRecord, KafkaProducer}
+import java.util
 
 object TestKafkaSystemAdmin {
   val TOPIC = "input"
@@ -70,14 +70,13 @@ object TestKafkaSystemAdmin {
   val props2 = TestUtils.createBrokerConfig(brokerId2, port2)
   val props3 = TestUtils.createBrokerConfig(brokerId3, port3)
 
-  val config = new java.util.Properties()
+  val config = new util.HashMap[String, Object]()
   val brokers = "localhost:%d,localhost:%d,localhost:%d" format (port1, port2, port3)
-  config.put("metadata.broker.list", brokers)
-  config.put("producer.type", "sync")
+  config.put("bootstrap.servers", brokers)
   config.put("request.required.acks", "-1")
   config.put("serializer.class", "kafka.serializer.StringEncoder")
-  val producerConfig = new ProducerConfig(config)
-  var producer: Producer[String, String] = null
+  val producerConfig = new KafkaProducerConfig("kafka", "i001", config)
+  var producer: KafkaProducer = null
   var zookeeper: EmbeddedZookeeper = null
   var server1: KafkaServer = null
   var server2: KafkaServer = null
@@ -91,7 +90,7 @@ object TestKafkaSystemAdmin {
     server2 = TestUtils.createServer(new KafkaConfig(props2))
     server3 = TestUtils.createServer(new KafkaConfig(props3))
     zkClient = new ZkClient(zkConnect + "/", 6000, 6000, ZKStringSerializer)
-    producer = new Producer(producerConfig)
+    producer = new KafkaProducer(producerConfig.getProducerProperties)
     metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")
   }
 
@@ -143,6 +142,7 @@ object TestKafkaSystemAdmin {
 
   @AfterClass
   def afterCleanLogDirs {
+    producer.close()
     server1.shutdown
     server1.awaitShutdown()
     server2.shutdown
@@ -229,7 +229,7 @@ class TestKafkaSystemAdmin {
 
     // Add a new message to one of the partitions, and verify that it works as 
     // expected.
-    producer.send(new KeyedMessage(TOPIC, "key1", "val1"))
+    producer.send(new ProducerRecord(TOPIC, 48, "key1".getBytes, "val1".getBytes)).get()
     metadata = systemAdmin.getSystemStreamMetadata(Set(TOPIC))
     assertEquals(1, metadata.size)
     val streamName = metadata.keySet.head
@@ -245,7 +245,7 @@ class TestKafkaSystemAdmin {
     assertEquals("0", sspMetadata.get(new Partition(3)).getUpcomingOffset)
 
     // Add a second message to one of the same partition.
-    producer.send(new KeyedMessage(TOPIC, "key1", "val2"))
+    producer.send(new ProducerRecord(TOPIC, 48, "key1".getBytes, "val2".getBytes)).get()
     metadata = systemAdmin.getSystemStreamMetadata(Set(TOPIC))
     assertEquals(1, metadata.size)
     assertEquals(TOPIC, streamName)

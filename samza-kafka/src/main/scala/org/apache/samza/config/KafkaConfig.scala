@@ -22,14 +22,15 @@ package org.apache.samza.config
 
 import java.util.regex.Pattern
 
-import org.apache.samza.SamzaException
 import org.apache.samza.util.Util
+import org.apache.samza.util.Logging
 
 import scala.collection.JavaConversions._
 import kafka.consumer.ConsumerConfig
-import java.util.Properties
-import kafka.producer.ProducerConfig
-import java.util.UUID
+import java.util.{Properties, UUID}
+import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.samza.SamzaException
+import java.util
 import scala.collection.JavaConverters._
 import org.apache.samza.system.kafka.KafkaSystemFactory
 import org.apache.samza.config.SystemConfig.Config2System
@@ -153,10 +154,48 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     injectedProps: Map[String, String] = Map()) = {
 
     val subConf = config.subset("systems.%s.producer." format systemName, true)
-    val producerProps = new Properties()
+    val producerProps = new util.HashMap[String, Object]()
     producerProps.putAll(subConf)
     producerProps.put("client.id", clientId)
     producerProps.putAll(injectedProps)
-    new ProducerConfig(producerProps)
+    new KafkaProducerConfig(systemName, clientId, producerProps)
+  }
+}
+
+class KafkaProducerConfig(val systemName: String,
+                          val clientId: String = "",
+                          properties: java.util.Map[String, Object] = new util.HashMap[String, Object]()) extends Logging {
+
+  // Copied from new Kafka API - Workaround until KAFKA-1794 is resolved
+  val RECONNECT_BACKOFF_MS_DEFAULT = 10L
+
+  //Overrides specific to samza-kafka (these are considered as defaults in Samza & can be overridden by user
+  val MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT: java.lang.Integer = 1.asInstanceOf[Integer]
+  val RETRIES_DEFAULT: java.lang.Integer = Integer.MAX_VALUE
+
+  def getProducerProperties = {
+    val producerProperties: java.util.Map[String, Object] = new util.HashMap[String, Object]()
+    producerProperties.putAll(properties)
+
+    // Always set (new) producer config for max_in_flight_requests_per_connection and retries_config to 1 & INT.MaxValue
+    // so that the producer does not optimistically send batches asychronously and thereby, messing up the ordering of outgoing messages
+    // Retries config is set to Max so that when all attempts fail, Samza also fails the send. We do not have any special handler
+    // for producer failure
+    // DO NOT let caller to override these 2 configs for Kafka
+    producerProperties.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT)
+    producerProperties.put(ProducerConfig.RETRIES_CONFIG, RETRIES_DEFAULT)
+    producerProperties
+  }
+
+  val reconnectIntervalMs =  Option(properties.get(ProducerConfig.RECONNECT_BACKOFF_MS_CONFIG))
+          .getOrElse(RECONNECT_BACKOFF_MS_DEFAULT).asInstanceOf[Long]
+
+  val bootsrapServers = {
+    if(properties.containsKey("metadata.broker.list"))
+      warn("Kafka producer configuration contains 'metadata.broker.list'. This configuration is deprecated . Samza has been upgraded " +
+             "to use Kafka's new producer API. Please update your configurations based on the documentation at http://kafka.apache.org/documentation.html#newproducerconfigs")
+    Option(properties.get("bootstrap.servers"))
+            .getOrElse(throw new SamzaException("No bootstrap servers defined in config for %s." format systemName))
+            .asInstanceOf[String]
   }
 }

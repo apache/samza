@@ -66,7 +66,7 @@ class TestKafkaSystemFactory {
     val producerFactory = new KafkaSystemFactory
     val config = new MapConfig(Map[String, String](
       "job.name" -> "test",
-      "systems.test.producer.metadata.broker.list" -> "",
+      "systems.test.producer.bootstrap.servers" -> "",
       "systems.test.samza.key.serde" -> "json",
       "systems.test.samza.msg.serde" -> "json",
       "serializers.registry.json.class" -> "samza.serializers.JsonSerdeFactory"))

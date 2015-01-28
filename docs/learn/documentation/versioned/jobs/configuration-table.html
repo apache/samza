@@ -675,9 +675,12 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="systems-samza-producer-metadata-broker-list">systems.<span class="system">system-name</span>.<br>producer.metadata.broker.list</td>
+                    <td class="property" id="systems-samza-producer-bootstrap-servers">systems.<span class="system">system-name</span>.<br>producer.bootstrap.servers</td>
                     <td class="default"></td>
                     <td class="description">
+                        <b>Note</b>:
+                        <i>This variable was previously defined as "producer.metadata.broker.list", which has been deprecated with this version.</i>
+                        <br />
                         A list of network endpoints where the Kafka brokers are running. This is given as
                         a comma-separated list of <code>hostname:port</code> pairs, for example
                         <code>kafka1.example.com:9092,kafka2.example.com:9092,kafka3.example.com:9092</code>.
@@ -689,34 +692,12 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="systems-samza-producer-producer-type">systems.<span class="system">system-name</span>.<br>producer.producer.type</td>
-                    <td class="default">sync</td>
-                    <td class="description">
-                        Controls whether messages emitted from a stream processor should be buffered before
-                        they are sent to Kafka. The options are:
-                        <dl>
-                            <dt><code>sync</code></dt>
-                            <dd>Any messages sent to output streams are synchronously flushed to the Kafka brokers
-                                before the next message from an input stream is processed.</dd>
-                            <dt><code>async</code></dt>
-                            <dd>Messages sent to output streams are buffered within the Samza container, and published
-                                to the Kafka brokers as a batch. This setting can increase throughput, but
-                                risks buffered messages being lost if a container abruptly fails. The maximum
-                                number of messages to buffer is controlled with
-                                systems.<span class="system">system-name</span>.producer.batch.num.messages
-                                and the maximum time (in milliseconds) to wait before flushing the buffer is set with
-                                systems.<span class="system">system-name</span>.producer.queue.buffering.max.ms.</dd>
-                        </dl>
-                    </td>
-                </tr>
-
-                <tr>
                     <td class="property" id="systems-samza-producer">systems.<span class="system">system-name</span>.<br>producer.*</td>
                     <td class="default"></td>
                     <td class="description">
-                        Any <a href="http://kafka.apache.org/documentation.html#producerconfigs">Kafka producer configuration</a>
+                        Any <a href="http://kafka.apache.org/documentation.html#newproducerconfigs">Kafka producer configuration</a>
                         can be included here. For example, to change the request timeout, you can set
-                        systems.<span class="system">system-name</span>.producer.request.timeout.ms.
+                        systems.<span class="system">system-name</span>.producer.timeout.ms.
                         (There is no need to configure <code>client.id</code> as it is automatically
                         configured by Samza.)
                     </td>

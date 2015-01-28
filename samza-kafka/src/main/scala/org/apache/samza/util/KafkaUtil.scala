@@ -21,7 +21,11 @@ package org.apache.samza.util
 
 import org.apache.samza.config.{Config, ConfigException}
 import org.apache.samza.config.JobConfig.Config2Job
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
+import org.apache.samza.system.OutgoingMessageEnvelope
+import org.apache.kafka.common.utils.Utils
+import java.util.Random
+import org.apache.kafka.common.PartitionInfo
 
 object KafkaUtil {
   val counter = new AtomicLong(0)
@@ -39,4 +43,10 @@ object KafkaUtil {
         System.currentTimeMillis,
         counter.getAndIncrement)
 
+  private def abs(n: Int) = if(n == Integer.MIN_VALUE) 0 else math.abs(n)
+
+  def getIntegerPartitionKey(envelope: OutgoingMessageEnvelope, partitions: java.util.List[PartitionInfo]): Integer = {
+    val numPartitions = partitions.size
+    abs(envelope.getPartitionKey.hashCode()) % numPartitions
+  }
 }
