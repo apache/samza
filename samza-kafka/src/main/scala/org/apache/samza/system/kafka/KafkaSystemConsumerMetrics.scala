@@ -32,6 +32,7 @@ class KafkaSystemConsumerMetrics(val systemName: String = "unknown", val registr
   val bytesRead = new ConcurrentHashMap[TopicAndPartition, Counter]
   val reads = new ConcurrentHashMap[TopicAndPartition, Counter]
   val lag = new ConcurrentHashMap[TopicAndPartition, Gauge[Long]]
+  val highWatermark = new ConcurrentHashMap[TopicAndPartition, Gauge[Long]]
 
   /*
    * (String, Int) = (host, port) of BrokerProxy.
@@ -48,6 +49,7 @@ class KafkaSystemConsumerMetrics(val systemName: String = "unknown", val registr
       offsets.put(tp, newCounter("%s-%s-offset-change" format (tp.topic, tp.partition)))
       bytesRead.put(tp, newCounter("%s-%s-bytes-read" format (tp.topic, tp.partition)))
       reads.put(tp, newCounter("%s-%s-messages-read" format (tp.topic, tp.partition)))
+      highWatermark.put(tp, newGauge("%s-%s-high-watermark" format (tp.topic, tp.partition), -1L))
       lag.put(tp, newGauge("%s-%s-messages-behind-high-watermark" format (tp.topic, tp.partition), 0L))
     }
   }

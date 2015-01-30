@@ -44,6 +44,7 @@ import scala.collection.JavaConversions._
 
 class TestBrokerProxy extends Logging {
   val tp2 = new TopicAndPartition("Redbird", 2013)
+  var fetchTp1 = true // control whether fetching tp1 messages or not
 
   def getMockBrokerProxy() = {
     val sink = new MessageSink {
@@ -56,7 +57,7 @@ class TestBrokerProxy extends Logging {
       }
 
       // Never need messages for tp2.
-      def needsMoreMessages(tp: TopicAndPartition): Boolean = !tp.equals(tp2)
+      def needsMoreMessages(tp: TopicAndPartition): Boolean = !tp.equals(tp2) && fetchTp1
     }
 
     val system = "daSystem"
@@ -142,6 +143,8 @@ class TestBrokerProxy extends Logging {
             sc.fetch(request)
           }
 
+          when(sc.earliestOrLatestOffset(any(classOf[TopicAndPartition]), any(classOf[Long]), any(classOf[Int]))).thenReturn(100)
+
           override def getOffsetsBefore(request: OffsetRequest): OffsetResponse = sc.getOffsetsBefore(request)
 
           override def commitOffsets(request: OffsetCommitRequest): OffsetCommitResponse = sc.commitOffsets(request)
@@ -194,6 +197,25 @@ class TestBrokerProxy extends Logging {
       case se: SamzaException => assertEquals(se.getMessage, "Already consuming TopicPartition [Redbird,2012]")
       case other: Exception => fail("Got some other exception than what we were expecting: " + other)
     }
+  }
+
+  @Test def brokerProxyUpdateLatencyMetrics() = {
+    val (bp, tp, _) = getMockBrokerProxy()
+
+    bp.start
+    bp.addTopicPartition(tp, Option("0"))
+    Thread.sleep(1000)
+    // update when fetching messages
+    assertEquals(500, bp.metrics.highWatermark(tp).getValue)
+    assertEquals(415, bp.metrics.lag(tp).getValue)
+
+    fetchTp1 = false
+    Thread.sleep(1000)
+    // update when not fetching messages
+    assertEquals(100, bp.metrics.highWatermark(tp).getValue)
+    assertEquals(15, bp.metrics.lag(tp).getValue)
+
+    fetchTp1 = true
   }
 
   @Test def brokerProxyCorrectlyHandlesOffsetOutOfRange():Unit = {

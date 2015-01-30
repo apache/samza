@@ -181,6 +181,9 @@ class BrokerProxy(
 
       nonErrorResponses.foreach { nonError => moveMessagesToTheirQueue(nonError.getKey, nonError.getValue) }
     } else {
+
+      refreshLatencyMetrics
+
       debug("No topic/partitions need to be fetched for %s:%s right now. Sleeping %sms." format (host, port, sleepMSWhileNoTopicPartitions))
 
       metrics.brokerSkippedFetchRequests(host, port).inc
@@ -259,6 +262,7 @@ class BrokerProxy(
     // Update high water mark
     val hw = data.hw
     if (hw >= 0) {
+      metrics.highWatermark(tp).set(hw)
       metrics.lag(tp).set(hw - nextOffset)
     } else {
       debug("Got a high water mark less than 0 (%d) for %s, so skipping." format (hw, tp))
@@ -283,5 +287,23 @@ class BrokerProxy(
 
     thread.interrupt
     thread.join
+  }
+
+  private def refreshLatencyMetrics {
+    nextOffsets.foreach{
+      case (topicAndPartition, offset) => {
+        val latestOffset = simpleConsumer.earliestOrLatestOffset(topicAndPartition, -1, Request.OrdinaryConsumerId)
+        trace("latest offset of %s is %s" format (topicAndPartition, latestOffset))
+        if (latestOffset >= 0) {
+          // only update the registered topicAndpartitions
+          if(metrics.highWatermark.containsKey(topicAndPartition)) {
+            metrics.highWatermark(topicAndPartition).set(latestOffset)
+          }
+          if(metrics.lag.containsKey(topicAndPartition)) {
+            metrics.lag(topicAndPartition).set(latestOffset - offset)
+          }
+        }
+      }
+    }
   }
 }
