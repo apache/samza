@@ -20,8 +20,8 @@
 package org.apache.samza.storage.kv
 
 import org.apache.samza.util.Logging
-
 import scala.collection._
+import java.util.Arrays
 
 /**
  * A write-behind caching layer around the leveldb store. The purpose of this cache is three-fold:
@@ -150,13 +150,15 @@ class CachedStore[K, V](
     metrics.flushes.inc
 
     // write out the contents of the dirty list oldest first
-    val batch = new java.util.ArrayList[Entry[K, V]](this.dirtyCount)
-    for (k <- this.dirty.reverse) {
+    val batch = new Array[Entry[K, V]](this.dirtyCount)
+    var pos : Int = this.dirtyCount - 1;
+    for (k <- this.dirty) {
       val entry = this.cache.get(k)
       entry.dirty = null // not dirty any more
-      batch.add(new Entry(k, entry.value))
+      batch(pos) = new Entry(k, entry.value)
+      pos -= 1
     }
-    store.putAll(batch)
+    store.putAll(Arrays.asList(batch : _*))
     store.flush
     metrics.flushBatchSize.inc(batch.size)
 

@@ -112,6 +112,13 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
   }
 
   @Test
+  def putStessTest() {
+    for( a <- 0 to 1900000){
+        store.put(b(a+"k"), b("v"))
+      }
+  }
+
+  @Test
   def doublePutAndGet() {
     val k = b("k2")
     store.put(k, b("v1"))
@@ -252,7 +259,7 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
             .slice(2, TestKeyValueStores.CacheSize)
             .map(b(_))
             .foreach(store.get(_))
-    store.put(keys(TestKeyValueStores.CacheSize), something)
+    store.put(keys(10), something)
 
     // Now try and trigger an NPE since the dirty list has an element (1) 
     // that's no longer in the cache.
@@ -339,8 +346,8 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
 }
 
 object TestKeyValueStores {
-  val CacheSize = 10
-  val BatchSize = 5
+  val CacheSize = 1000000
+  val BatchSize = 1000000
   @Parameters
   def parameters: java.util.Collection[Array[String]] = Arrays.asList(
       //LevelDB
