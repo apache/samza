@@ -25,7 +25,6 @@ import java.util.Random
 
 import org.apache.samza.serializers.Serde
 import org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStore
-import org.iq80.leveldb.Options
 import org.junit.After
 import org.junit.Assert._
 import org.junit.Before
@@ -40,7 +39,7 @@ import scala.collection.mutable.ArrayBuffer
 
 /**
  * Test suite to check different key value store operations
- * @param typeOfStore Defines type of key-value store (Eg: "leveldb" / "inmemory")
+ * @param typeOfStore Defines type of key-value store (Eg: "rocksdb" / "inmemory")
  * @param storeConfig Defines whether we're using caching / serde / both / or none in front of the store
  */
 @RunWith(value = classOf[Parameterized])
@@ -48,7 +47,7 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
   import TestKeyValueStores._
 
   val letters = "abcdefghijklmnopqrstuvwxyz".map(_.toString)
-  val dir = new File(System.getProperty("java.io.tmpdir"), "leveldb-test-" + new Random().nextInt(Int.MaxValue))
+  val dir = new File(System.getProperty("java.io.tmpdir"), "rocksdb-test-" + new Random().nextInt(Int.MaxValue))
   var store: KeyValueStore[Array[Byte], Array[Byte]] = null
   var cache = false
   var serde = false
@@ -56,9 +55,6 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
   @Before
   def setup() {
     val kvStore : KeyValueStore[Array[Byte], Array[Byte]] = typeOfStore match {
-      case "leveldb" =>
-        dir.mkdirs ()
-        new LevelDbKeyValueStore (dir, new Options)
       case "inmemory" =>
         new InMemoryKeyValueStore
       case "rocksdb" =>
@@ -151,7 +147,7 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
     // out. Our check (below) uses == for cached entries, and using 
     // numEntires >= CacheSize would result in the LRU cache dropping some 
     // entries. The result would be that we get the correct byte array back 
-    // from the cache's underlying store (leveldb), but that == would fail.
+    // from the cache's underlying store (rocksdb), but that == would fail.
     val numEntries = CacheSize - 1
     val entries = (0 until numEntries).map(i => new Entry(b("k" + i), b("v" + i)))
     store.putAll(entries)
@@ -350,11 +346,6 @@ object TestKeyValueStores {
   val BatchSize = 1000000
   @Parameters
   def parameters: java.util.Collection[Array[String]] = Arrays.asList(
-      //LevelDB
-      Array("leveldb", "cache"),
-      Array("leveldb", "serde"),
-      Array("leveldb", "cache-and-serde"),
-      Array("leveldb", "none"),
       //Inmemory
       Array("inmemory", "cache"),
       Array("inmemory", "serde"),

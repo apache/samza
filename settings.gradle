@@ -22,7 +22,6 @@ include \
   'samza-kafka',
   'samza-kv',
   'samza-kv-inmemory',
-  'samza-kv-leveldb',
   'samza-kv-rocksdb',
   'samza-log4j',
   'samza-shell',

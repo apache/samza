@@ -75,12 +75,6 @@ A Maven-based Samza project can pull in all required dependencies Samza dependen
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
-  <artifactId>samza-kv-leveldb_2.10</artifactId>
-  <version>0.8.0</version>
-  <scope>runtime</scope>
-</dependency>
-<dependency>
-  <groupId>org.apache.samza</groupId>
   <artifactId>samza-kv-rocksdb_2.10</artifactId>
   <version>0.8.0</version>
   <scope>runtime</scope>

@@ -24,14 +24,14 @@ import scala.collection._
 import java.util.Arrays
 
 /**
- * A write-behind caching layer around the leveldb store. The purpose of this cache is three-fold:
- * 1. Batch together writes to leveldb, this turns out to be a great optimization
+ * A write-behind caching layer around the rocksdb store. The purpose of this cache is three-fold:
+ * 1. Batch together writes to rocksdb, this turns out to be a great optimization
  * 2. Avoid duplicate writes and duplicate log entries within a commit interval. i.e. if there are two updates to the same key, log only the later.
  * 3. Avoid deserialization cost for gets on very common keys
  *
  * This caching does introduce a few odd corner cases :-(
- * 1. Items in the cache have pass-by-reference semantics but items in leveldb have pass-by-value semantics. Modifying items after a put is a bad idea.
- * 2. Range queries require flushing the cache (as the ordering comes from leveldb)
+ * 1. Items in the cache have pass-by-reference semantics but items in rocksdb have pass-by-value semantics. Modifying items after a put is a bad idea.
+ * 2. Range queries require flushing the cache (as the ordering comes from rocksdb)
  *
  * In implementation this cache is just an LRU hash map that discards the oldest entry when full. There is an accompanying "dirty list" that references keys
  * that have not yet been written to disk. All writes go to the dirty list and when the list is long enough we flush out all those values at once. Dirty items

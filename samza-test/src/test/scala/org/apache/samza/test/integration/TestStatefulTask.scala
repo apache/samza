@@ -205,7 +205,7 @@ class TestStatefulTask {
     "task.class" -> "org.apache.samza.test.integration.TestTask",
     "task.inputs" -> "kafka.input",
     "serializers.registry.string.class" -> "org.apache.samza.serializers.StringSerdeFactory",
-    "stores.mystore.factory" -> "org.apache.samza.storage.kv.KeyValueStorageEngineFactory",
+    "stores.mystore.factory" -> "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory",
     "stores.mystore.key.serde" -> "string",
     "stores.mystore.msg.serde" -> "string",
     "stores.mystore.changelog" -> "kafka.mystoreChangelog",

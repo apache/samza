@@ -832,13 +832,8 @@
                         <a href="../api/javadocs/org/apache/samza/task/InitableTask.html#init(org.apache.samza.config.Config, org.apache.samza.task.TaskContext)">init()</a>
                         method). The value of this property is the fully-qualified name of a Java class that implements
                         <a href="../api/javadocs/org/apache/samza/storage/StorageEngineFactory.html">StorageEngineFactory</a>.
-                        Samza currently ships with two storage engine implementations:
+                        Samza currently ships with one storage engine implementation:
                         <dl>
-                            <dt><code>org.apache.samza.storage.kv.LevelDbKeyValueStorageEngineFactory</code></dt>
-                            <dd>An on-disk storage engine with a key-value interface, implemented using
-                                <a href="https://code.google.com/p/leveldb/">LevelDB</a>. It supports fast random-access
-                                reads and writes, as well as range queries on keys. LevelDB can be configured with
-                                various <a href="#keyvalue-leveldb">additional tuning parameters</a>.</dd>
                             <dt><code>org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory</code></dt>
                             <dd>An on-disk storage engine with a key-value interface, implemented using
                                 <a href="http://rocksdb.org/">RocksDB</a>. It supports fast random-access
@@ -1004,7 +999,7 @@
                           <dt><code>fifo</code></dt>
                           <dd>Use <a href="https://github.com/facebook/rocksdb/wiki/FIFO-compaction-style">FIFO</a> compaction.</dd>
                           <dt><code>level</code></dt>
-                          <dd>Use LevelDB's standard leveled compaction.</dd>
+                          <dd>Use RocksDB's standard leveled compaction.</dd>
                       </dl>
                     </td>
                 </tr>
@@ -1014,102 +1009,6 @@
                     <td class="default">3</td>
                     <td class="description">
                       Configures the <a href="https://github.com/facebook/rocksdb/wiki/Basic-Operations#write-buffer">number of write buffers</a> that a RocksDB store uses. This allows RocksDB to continue taking writes to other buffers even while a given write buffer is being flushed to disk.
-                    </td>
-                </tr>
-
-                <tr>
-                    <th colspan="3" class="section" id="keyvalue-leveldb">
-                        Using LevelDB for key-value storage<br>
-                        <span class="subtitle">
-                            (This section applies if you have set
-                            <a href="#stores-factory" class="property">stores.*.factory</a>
-                            <code>= org.apache.samza.storage.kv.LevelDbKeyValueStorageEngineFactory</code>)
-                        </span>
-                    </th>
-                </tr>
-
-                <tr>
-                    <td class="property" id="stores-leveldb-write-batch-size">stores.<span class="store">store-name</span>.<br>write.batch.size</td>
-                    <td class="default">500</td>
-                    <td class="description">
-                        For better write performance, the storage engine buffers writes and applies them
-                        to the underlying store in a batch. If the same key is written multiple times
-                        in quick succession, this buffer also deduplicates writes to the same key. This
-                        property is set to the number of key/value pairs that should be kept in this
-                        in-memory buffer, per task instance. The number cannot be greater than
-                        <a href="#stores-leveldb-object-cache-size" class="property">stores.*.object.cache.size</a>.
-                    </td>
-                </tr>
-
-                <tr>
-                    <td class="property" id="stores-leveldb-object-cache-size">stores.<span class="store">store-name</span>.<br>object.cache.size</td>
-                    <td class="default">1000</td>
-                    <td class="description">
-                        Samza maintains an additional cache in front of LevelDB for frequently-accessed
-                        objects. This cache contains deserialized objects (avoiding the deserialization
-                        overhead on cache hits), in contrast to the LevelDB block cache
-                        (<a href="#stores-leveldb-container-cache-size-bytes" class="property">stores.*.container.cache.size.bytes</a>),
-                        which caches serialized objects. This property determines the number of objects
-                        to keep in Samza's cache, per task instance. This same cache is also used for
-                        write buffering (see <a href="#stores-leveldb-write-batch-size" class="property">stores.*.write.batch.size</a>).
-                        A value of 0 disables all caching and batching.
-                    </td>
-                </tr>
-
-                <tr>
-                    <td class="property" id="stores-leveldb-container-cache-size-bytes">stores.<span class="store">store-name</span>.container.<br>cache.size.bytes</td>
-                    <td class="default">104857600</td>
-                    <td class="description">
-                        The size of LevelDB's block cache in bytes, per container. If there are several
-                        task instances within one container, each is given a proportional share of this cache.
-                        Note that this is an off-heap memory allocation, so the container's total memory use
-                        is the maximum JVM heap size <em>plus</em> the size of this cache.
-                    </td>
-                </tr>
-
-                <tr>
-                    <td class="property" id="stores-leveldb-container-write-buffer-size-bytes">stores.<span class="store">store-name</span>.container.<br>write.buffer.size.bytes</td>
-                    <td class="default">33554432</td>
-                    <td class="description">
-                        The amount of memory (in bytes) that LevelDB uses for buffering writes before they are
-                        written to disk, per container. If there are several task instances within one
-                        container, each is given a proportional share of this buffer. This setting also
-                        determines the size of LevelDB's segment files.
-                    </td>
-                </tr>
-
-                <tr>
-                    <td class="property" id="stores-leveldb-compaction-delete-threshold">stores.<span class="store">store-name</span>.<br>compaction.delete.threshold</td>
-                    <td class="default">-1</td>
-                    <td class="description">
-                        Setting this property forces a LevelDB compaction to be performed after a certain
-                        number of keys have been deleted from the store. This is used to work around
-                        <a href="https://issues.apache.org/jira/browse/SAMZA-254">performance issues</a>
-                        in certain workloads.
-                    </td>
-                </tr>
-
-                <tr>
-                    <td class="property" id="stores-leveldb-compression">stores.<span class="store">store-name</span>.<br>leveldb.compression</td>
-                    <td class="default">snappy</td>
-                    <td class="description">
-                        This property controls whether LevelDB should compress data on disk and in the
-                        block cache. The following values are valid:
-                        <dl>
-                            <dt><code>snappy</code></dt>
-                            <dd>Compress data using the <a href="https://code.google.com/p/snappy/">Snappy</a> codec.</dd>
-                            <dt><code>none</code></dt>
-                            <dd>Do not compress data.</dd>
-                        </dl>
-                    </td>
-                </tr>
-
-                <tr>
-                    <td class="property" id="stores-leveldb-block-size-bytes">stores.<span class="store">store-name</span>.<br>leveldb.block.size.bytes</td>
-                    <td class="default">4096</td>
-                    <td class="description">
-                        If compression is enabled, LevelDB groups approximately this many uncompressed bytes
-                        into one compressed block. You probably don't need to change this property.
                     </td>
                 </tr>
 
