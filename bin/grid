@@ -58,15 +58,15 @@ install_all() {
 
 install_samza() {
   mkdir -p "$DEPLOY_ROOT_DIR"
-  if [ -d "$DOWNLOAD_CACHE_DIR/incubator-samza/.git" ]; then
-    pushd "$DOWNLOAD_CACHE_DIR/incubator-samza"
+  if [ -d "$DOWNLOAD_CACHE_DIR/samza/.git" ]; then
+    pushd "$DOWNLOAD_CACHE_DIR/samza"
     git fetch origin
     git reset --hard origin/master
   else
     mkdir -p $DOWNLOAD_CACHE_DIR
     pushd $DOWNLOAD_CACHE_DIR
-    git clone git://git.apache.org/incubator-samza.git
-    cd incubator-samza
+    git clone git://git.apache.org/samza.git
+    cd samza
   fi
   ./gradlew -PscalaVersion=2.10 clean publishToMavenLocal
   popd
