@@ -33,7 +33,7 @@ under the License.
   <description>
     Samza is a stream processing system. Think of it as Map-Reduce for streams.
   </description>
-  <url>https://samza.incubator.apache.org/</url>
+  <url>https://samza.apache.org/</url>
 
   <dependencies>
     <dependency>
