@@ -29,8 +29,7 @@ allprojects {
   repositories {
     mavenCentral()
     mavenLocal()
-   }
-
+  }
 }
 
 apply from: file("gradle/dependency-versions.gradle")
@@ -41,41 +40,46 @@ apply from: file('gradle/customize.gradle')
 
 rat {
   excludes = [
+    '*.patch',
+    '**/*.eot',
+    '**/*.graffle',
+    '**/*.iml',
+    '**/*.ipr',
+    '**/*.iws',
+    '**/*.json',
+    '**/*.otf',
+    '**/*.svg',
+    '**/*.ttf',
+    '**/*.woff',
+    '**/.classpath',
+    '**/.cache/**',
     '**/.git/**',
+    '**/.gitignore',
     '**/.gradle/**',
     '**/.project',
-    '**/.settings',
-    '**/*.iml',
-    '**/*.iws',
-    '**/*.ipr',
-    'gradle/wrapper/**',
-    '.reviewboardrc',
-    'gradlew',
-    'gradlew.bat',
-    'README.md',
-    'RELEASE.md',
+    '**/.settings/**',
     '**/.DS_Store/**',
-    '**/.gitignore',
-    '**/build/**',
-    'docs/Gemfile.lock',
-    'docs/sitemap.xml',
-    'docs/_site/**',
-    'samza-test/state/mystore/**',
-    '**/bootstrap.min.js',
-    '**/jquery-1.11.1.min.js',
-    '**/jquery.tablesorter.min.js',
     '**/bootstrap.css.map',
     '**/bootstrap.min.css',
-    '**/ropa-sans.css',
+    '**/bootstrap.min.js',
+    '**/build/**',
     '**/font-awesome.min.css',
-    '**/syntax.css',
+    '**/jquery-1.11.1.min.js',
+    '**/jquery.tablesorter.min.js',
     '**/non-responsive.less',
-    '**/*.graffle',
-    '**/*.otf',
-    '**/*.woff',
-    '**/*.eot',
-    '**/*.svg',
-    '**/*.ttf'
+    '**/ropa-sans.css',
+    '**/syntax.css',
+    '.reviewboardrc',
+    'docs/_site/**',
+    'docs/sitemap.xml',
+    'docs/learn/documentation/*/api/javadocs/**',
+    'docs/Gemfile.lock',
+    'gradle/wrapper/**',
+    'gradlew',
+    'gradlew.bat',
+    'samza-test/state/mystore/**',
+    'README.md',
+    'RELEASE.md',
   ]
 }
 
