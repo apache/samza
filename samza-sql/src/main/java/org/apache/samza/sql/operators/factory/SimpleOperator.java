@@ -16,21 +16,35 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-core',
-  'samza-kafka',
-  'samza-kv',
-  'samza-kv-inmemory',
-  'samza-kv-rocksdb',
-  'samza-log4j',
-  'samza-shell',
-  'samza-yarn',
-  'samza-test',
-  'samza-sql'
 
-rootProject.children.each {
-  if (it.name != 'samza-api' && it.name != 'samza-shell' && it.name != 'samza-log4j') {
-    it.name = it.name + "_" + scalaVersion
+package org.apache.samza.sql.operators.factory;
+
+import org.apache.samza.sql.api.operators.Operator;
+import org.apache.samza.sql.api.operators.spec.OperatorSpec;
+
+
+/**
+ * An abstract class that encapsulate the basic information and methods that all operator classes should implement.
+ *
+ */
+public abstract class SimpleOperator implements Operator {
+  /**
+   * The specification of this operator
+   */
+  private final OperatorSpec spec;
+
+  /**
+   * Ctor of <code>SimpleOperator</code> class
+   *
+   * @param spec The specification of this operator
+   */
+  public SimpleOperator(OperatorSpec spec) {
+    this.spec = spec;
   }
+
+  @Override
+  public OperatorSpec getSpec() {
+    return this.spec;
+  }
+
 }

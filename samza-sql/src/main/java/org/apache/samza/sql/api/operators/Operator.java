@@ -16,21 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-core',
-  'samza-kafka',
-  'samza-kv',
-  'samza-kv-inmemory',
-  'samza-kv-rocksdb',
-  'samza-log4j',
-  'samza-shell',
-  'samza-yarn',
-  'samza-test',
-  'samza-sql'
 
-rootProject.children.each {
-  if (it.name != 'samza-api' && it.name != 'samza-shell' && it.name != 'samza-log4j') {
-    it.name = it.name + "_" + scalaVersion
-  }
+package org.apache.samza.sql.api.operators;
+
+import org.apache.samza.sql.api.operators.spec.OperatorSpec;
+import org.apache.samza.task.InitableTask;
+import org.apache.samza.task.WindowableTask;
+
+
+/**
+ * This class defines the common interface for operator classes, no matter what input data are.
+ *
+ * <p> It extends the <code>InitableTask</code> and <code>WindowableTask</code> to reuse the interface methods
+ * <code>init</code> and <code>window</code> for initialization and timeout operations
+ *
+ */
+public interface Operator extends InitableTask, WindowableTask {
+
+  /**
+   * Method to the specification of this <code>Operator</code>
+   *
+   * @return The <code>OperatorSpec</code> object that defines the configuration/parameters of the operator
+   */
+  OperatorSpec getSpec();
+
 }
