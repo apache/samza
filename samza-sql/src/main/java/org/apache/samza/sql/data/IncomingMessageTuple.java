@@ -18,6 +18,7 @@
  */
 package org.apache.samza.sql.data;
 
+import org.apache.samza.sql.api.data.Data;
 import org.apache.samza.sql.api.data.EntityName;
 import org.apache.samza.sql.api.data.Tuple;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -52,8 +53,8 @@ public class IncomingMessageTuple implements Tuple {
 
   // TODO: the return type should be changed to the generic data type
   @Override
-  public Object getMessage() {
-    return this.imsg.getMessage();
+  public Data getMessage() {
+    return (Data) this.imsg.getMessage();
   }
 
   @Override
@@ -62,8 +63,8 @@ public class IncomingMessageTuple implements Tuple {
   }
 
   @Override
-  public Object getKey() {
-    return imsg.getKey();
+  public Data getKey() {
+    return (Data) this.imsg.getKey();
   }
 
   @Override
