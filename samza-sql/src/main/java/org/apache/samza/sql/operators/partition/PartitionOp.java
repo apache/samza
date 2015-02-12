@@ -82,8 +82,9 @@ public final class PartitionOp extends SimpleOperator implements TupleOperator {
 
   @Override
   public void process(Tuple tuple, SqlMessageCollector collector) throws Exception {
-    collector.send(new OutgoingMessageEnvelope(PartitionOp.this.spec.getSystemStream(), tuple.getKey().value(),
-        tuple.getMessage().getFieldData(PartitionOp.this.spec.getParKey()).value(), tuple.getMessage().value()));
+    collector.send(new OutgoingMessageEnvelope(PartitionOp.this.spec.getSystemStream(), tuple.getKey(),
+        null /* TODO: when merge with Schema API changes, use: tuple
+             .getMessage().getFieldData(PartitionOp.this.spec.getParKey()) */, tuple.getMessage()));
   }
 
 }

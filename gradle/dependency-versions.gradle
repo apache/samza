@@ -35,5 +35,4 @@
   guavaVersion = "17.0"
   commonsCodecVersion = "1.9"
   commonsCollectionVersion = "3.2.1"
-  avroVersion = "1.7.7"
 }
