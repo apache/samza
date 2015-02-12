@@ -61,7 +61,7 @@ class KafkaCheckpointManager(
   bufferSize: Int,
   fetchSize: Int,
   metadataStore: TopicMetadataStore,
-  connectProducer: () => Producer,
+  connectProducer: () => Producer[Array[Byte], Array[Byte]],
   connectZk: () => ZkClient,
   systemStreamPartitionGrouperFactoryString: String,
   retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
@@ -70,7 +70,7 @@ class KafkaCheckpointManager(
   import KafkaCheckpointManager._
 
   var taskNames = Set[TaskName]()
-  var producer: Producer = null
+  var producer: Producer[Array[Byte], Array[Byte]] = null
   var taskNamesToOffsets: Map[TaskName, Checkpoint] = null
 
   var startingOffset: Option[Long] = None // Where to start reading for each subsequent call of readCheckpoint

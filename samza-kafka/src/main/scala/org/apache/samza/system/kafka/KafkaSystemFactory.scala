@@ -67,7 +67,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry) = {
     val clientId = KafkaUtil.getClientId("samza-producer", config)
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
-    val getProducer = () => { new KafkaProducer(producerConfig.getProducerProperties) }
+    val getProducer = () => { new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties) }
     val metrics = new KafkaSystemProducerMetrics(systemName, registry)
 
     // Unlike consumer, no need to use encoders here, since they come for free 

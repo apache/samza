@@ -101,7 +101,7 @@ object TestStatefulTask {
   config.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, new Integer(1))
   config.put(ProducerConfig.RETRIES_CONFIG, new Integer(Integer.MAX_VALUE-1))
   val producerConfig = new KafkaProducerConfig("kafka", "i001", config)
-  var producer: Producer = null
+  var producer: Producer[Array[Byte], Array[Byte]] = null
   val cp1 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "123"))
   val cp2 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "12345"))
   var zookeeper: EmbeddedZookeeper = null
@@ -117,7 +117,7 @@ object TestStatefulTask {
     server2 = TestUtils.createServer(new KafkaConfig(props2))
     server3 = TestUtils.createServer(new KafkaConfig(props3))
     zkClient = new ZkClient(zkConnect + "/", 6000, 6000, ZKStringSerializer)
-    producer = new KafkaProducer(producerConfig.getProducerProperties)
+    producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
     metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")
 
     createTopics

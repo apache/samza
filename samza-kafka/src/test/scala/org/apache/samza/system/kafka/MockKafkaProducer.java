@@ -40,9 +40,10 @@ import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.samza.utils.TestUtils;
+import org.apache.kafka.common.MetricName;
 
 
-public class MockKafkaProducer implements Producer {
+public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
   private Cluster _cluster;
   private List<FutureTask<RecordMetadata>> _callbacksList = new ArrayList<FutureTask<RecordMetadata>>();
@@ -164,7 +165,7 @@ public class MockKafkaProducer implements Producer {
   }
 
   @Override
-  public Map<String, ? extends Metric> metrics() {
+  public Map<MetricName, Metric> metrics() {
     return null;
   }
 

@@ -80,7 +80,7 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     val fetchSize = consumerConfig.fetchMessageMaxBytes // must be > buffer size
 
     val connectProducer = () => {
-      new KafkaProducer(producerConfig.getProducerProperties)
+      new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
     }
     val zkConnect = Option(consumerConfig.zkConnect)
       .getOrElse(throw new SamzaException("no zookeeper.connect defined in config"))

@@ -37,11 +37,11 @@ import java.util.concurrent.Future
 
 class KafkaSystemProducer(systemName: String,
                           retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
-                          getProducer: () => Producer,
+                          getProducer: () => Producer[Array[Byte], Array[Byte]],
                           metrics: KafkaSystemProducerMetrics,
                           val clock: () => Long = () => System.currentTimeMillis) extends SystemProducer with Logging with TimerUtils
 {
-  var producer: Producer = null
+  var producer: Producer[Array[Byte], Array[Byte]] = null
   val latestFuture: javaMap[String, Future[RecordMetadata]] = new util.HashMap[String, Future[RecordMetadata]]()
   val sendFailed: AtomicBoolean = new AtomicBoolean(false)
   var exceptionThrown: AtomicReference[Exception] = new AtomicReference[Exception]()

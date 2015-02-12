@@ -76,7 +76,7 @@ object TestKafkaSystemAdmin {
   config.put("request.required.acks", "-1")
   config.put("serializer.class", "kafka.serializer.StringEncoder")
   val producerConfig = new KafkaProducerConfig("kafka", "i001", config)
-  var producer: KafkaProducer = null
+  var producer: KafkaProducer[Array[Byte], Array[Byte]] = null
   var zookeeper: EmbeddedZookeeper = null
   var server1: KafkaServer = null
   var server2: KafkaServer = null
@@ -90,7 +90,7 @@ object TestKafkaSystemAdmin {
     server2 = TestUtils.createServer(new KafkaConfig(props2))
     server3 = TestUtils.createServer(new KafkaConfig(props3))
     zkClient = new ZkClient(zkConnect + "/", 6000, 6000, ZKStringSerializer)
-    producer = new KafkaProducer(producerConfig.getProducerProperties)
+    producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
     metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")
   }
 

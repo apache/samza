@@ -34,6 +34,7 @@ import java.util
 import scala.collection.JavaConverters._
 import org.apache.samza.system.kafka.KafkaSystemFactory
 import org.apache.samza.config.SystemConfig.Config2System
+import org.apache.kafka.common.serialization.ByteArraySerializer
 
 object KafkaConfig {
   val REGEX_RESOLVED_STREAMS = "job.config.rewriter.%s.regex"
@@ -174,8 +175,19 @@ class KafkaProducerConfig(val systemName: String,
   val RETRIES_DEFAULT: java.lang.Integer = Integer.MAX_VALUE
 
   def getProducerProperties = {
+    val byteArraySerializerClassName = classOf[ByteArraySerializer].getCanonicalName
     val producerProperties: java.util.Map[String, Object] = new util.HashMap[String, Object]()
     producerProperties.putAll(properties)
+
+    if(!producerProperties.containsKey(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG)) {
+      debug("%s undefined. Defaulting to %s." format (ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, byteArraySerializerClassName))
+      producerProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, byteArraySerializerClassName)
+    }
+
+    if(!producerProperties.containsKey(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG)) {
+      debug("%s undefined. Defaulting to %s." format (ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, byteArraySerializerClassName))
+      producerProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, byteArraySerializerClassName)
+    }
 
     // Always set (new) producer config for max_in_flight_requests_per_connection and retries_config to 1 & INT.MaxValue
     // so that the producer does not optimistically send batches asychronously and thereby, messing up the ordering of outgoing messages
