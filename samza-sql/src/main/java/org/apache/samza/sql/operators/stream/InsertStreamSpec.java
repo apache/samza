@@ -16,21 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-core',
-  'samza-kafka',
-  'samza-kv',
-  'samza-kv-inmemory',
-  'samza-kv-rocksdb',
-  'samza-log4j',
-  'samza-shell',
-  'samza-yarn',
-  'samza-test',
-  'samza-sql'
 
-rootProject.children.each {
-  if (it.name != 'samza-api' && it.name != 'samza-shell' && it.name != 'samza-log4j') {
-    it.name = it.name + "_" + scalaVersion
+package org.apache.samza.sql.operators.stream;
+
+import org.apache.samza.sql.api.data.EntityName;
+import org.apache.samza.sql.api.operators.spec.OperatorSpec;
+import org.apache.samza.sql.operators.factory.SimpleOperatorSpec;
+
+
+/**
+ * Example implementation of specification of <code>InsertStream</code> operator
+ */
+public class InsertStreamSpec extends SimpleOperatorSpec implements OperatorSpec {
+
+  /**
+   * Default ctor of <code>InsertStreamSpec</code>
+   *
+   * @param id The identifier of the operator
+   * @param input The input relation entity
+   * @param output The output stream entity
+   */
+  public InsertStreamSpec(String id, EntityName input, EntityName output) {
+    super(id, input, output);
   }
 }

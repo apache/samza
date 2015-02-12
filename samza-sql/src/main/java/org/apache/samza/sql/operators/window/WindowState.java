@@ -16,21 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-core',
-  'samza-kafka',
-  'samza-kv',
-  'samza-kv-inmemory',
-  'samza-kv-rocksdb',
-  'samza-log4j',
-  'samza-shell',
-  'samza-yarn',
-  'samza-test',
-  'samza-sql'
 
-rootProject.children.each {
-  if (it.name != 'samza-api' && it.name != 'samza-shell' && it.name != 'samza-log4j') {
-    it.name = it.name + "_" + scalaVersion
+package org.apache.samza.sql.operators.window;
+
+public class WindowState {
+  public String startOffset = null;
+  public String endOffset = null;
+  public boolean isClosed = false;
+
+  public void open(String offset) {
+    this.isClosed = false;
+    this.startOffset = offset;
+  }
+
+  public void close(String offset) {
+    this.endOffset = offset;
+    this.isClosed = true;
+  }
+
+  public void advanceTo(String offset) {
+    this.endOffset = offset;
+  }
+
+  public boolean isClosed() {
+    return this.isClosed;
   }
 }

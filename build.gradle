@@ -246,6 +246,26 @@ project(":samza-yarn_$scalaVersion") {
   jar.dependsOn("lesscss")
 }
 
+project(":samza-sql_$scalaVersion") {
+  apply plugin: 'java'
+
+  configurations {
+    // Remove transitive dependencies from Zookeeper that we don't want.
+    compile.exclude group: 'javax.jms', module: 'jms'
+    compile.exclude group: 'com.sun.jdmk', module: 'jmxtools'
+    compile.exclude group: 'com.sun.jmx', module: 'jmxri'
+  }
+
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaVersion")
+    compile project(":samza-kv_$scalaVersion")
+    compile "commons-collections:commons-collections:$commonsCollectionVersion"
+    testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-all:$mockitoVersion"
+  }
+}
+
 project(":samza-shell") {
   apply plugin: 'java'
 

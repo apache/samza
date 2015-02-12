@@ -16,21 +16,32 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-core',
-  'samza-kafka',
-  'samza-kv',
-  'samza-kv-inmemory',
-  'samza-kv-rocksdb',
-  'samza-log4j',
-  'samza-shell',
-  'samza-yarn',
-  'samza-test',
-  'samza-sql'
 
-rootProject.children.each {
-  if (it.name != 'samza-api' && it.name != 'samza-shell' && it.name != 'samza-log4j') {
-    it.name = it.name + "_" + scalaVersion
-  }
+package org.apache.samza.sql.api.data;
+
+import org.apache.samza.storage.kv.KeyValueStore;
+
+
+/**
+ * This class defines the general interface of <code>Relation</code>, which is defined as a map of <code>Tuple</code>.
+ *
+ * <p>The interface is defined as an extension to <code>KeyValueStore&lt;Object, Tuple&gt;</code>.
+ *
+ */
+
+public interface Relation extends KeyValueStore<Object, Tuple> {
+
+  /**
+   * Get the primary key field name for this table
+   *
+   * @return The name of the primary key field
+   */
+  String getPrimaryKey();
+
+  /**
+   * Get the name of the relation created by CREATE TABLE
+   *
+   * @return The relation name
+   */
+  EntityName getName();
 }
