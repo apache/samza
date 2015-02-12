@@ -32,7 +32,7 @@ public interface Tuple {
    *
    * @return Message object in the tuple
    */
-  Object getMessage();
+  Data getMessage();
 
   /**
    * Method to indicate whether the tuple is a delete tuple or an insert tuple
@@ -46,7 +46,7 @@ public interface Tuple {
    *
    * @return The <code>key</code> of the tuple
    */
-  Object getKey();
+  Data getKey();
 
   /**
    * Get the stream name of the tuple. Note this stream name should be unique in the system.

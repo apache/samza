@@ -78,7 +78,7 @@ rat {
     'gradlew',
     'gradlew.bat',
     'samza-test/state/mystore/**',
-    'README.md',
+    '**/README.md',
     'RELEASE.md',
   ]
 }
@@ -249,18 +249,12 @@ project(":samza-yarn_$scalaVersion") {
 project(":samza-sql_$scalaVersion") {
   apply plugin: 'java'
 
-  configurations {
-    // Remove transitive dependencies from Zookeeper that we don't want.
-    compile.exclude group: 'javax.jms', module: 'jms'
-    compile.exclude group: 'com.sun.jdmk', module: 'jmxtools'
-    compile.exclude group: 'com.sun.jmx', module: 'jmxri'
-  }
-
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
     compile project(":samza-kv_$scalaVersion")
     compile "commons-collections:commons-collections:$commonsCollectionVersion"
+    compile "org.apache.avro:avro:$avroVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
   }
