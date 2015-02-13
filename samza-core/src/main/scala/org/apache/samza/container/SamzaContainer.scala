@@ -59,13 +59,19 @@ import java.net.URL
 import org.apache.samza.job.model.{TaskModel, ContainerModel, JobModel}
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.config.JobConfig.Config2Job
+import java.lang.Thread.UncaughtExceptionHandler
 
 object SamzaContainer extends Logging {
   def main(args: Array[String]) {
-    safeMain(() => new JmxServer)
+    safeMain(() => new JmxServer, new SamzaContainerExceptionHandler(() => System.exit(1)))
   }
 
-  def safeMain(newJmxServer: () => JmxServer) {
+  def safeMain(
+    newJmxServer: () => JmxServer,
+    exceptionHandler: UncaughtExceptionHandler = null) {
+    if (exceptionHandler != null) {
+      Thread.setDefaultUncaughtExceptionHandler(exceptionHandler)
+    }
     putMDC("containerName", "samza-container-" + System.getenv(ShellCommandConfig.ENV_CONTAINER_ID))
     // Break out the main method to make the JmxServer injectable so we can
     // validate that we don't leak JMX non-daemon threads if we have an
