@@ -29,6 +29,12 @@ allprojects {
   repositories {
     mavenCentral()
     mavenLocal()
+    maven {
+      url "https://repository.apache.org/content/repositories/snapshots/"
+    }
+    maven {
+      url "http://conjars.org/repo"
+    }
   }
 }
 
@@ -69,6 +75,7 @@ rat {
     '**/non-responsive.less',
     '**/ropa-sans.css',
     '**/syntax.css',
+    '.idea/**',
     '.reviewboardrc',
     'docs/_site/**',
     'docs/sitemap.xml',
@@ -255,6 +262,7 @@ project(":samza-sql_$scalaVersion") {
     compile project(":samza-kv_$scalaVersion")
     compile "commons-collections:commons-collections:$commonsCollectionVersion"
     compile "org.apache.avro:avro:$avroVersion"
+    compile "org.apache.calcite:calcite-core:$calciteVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
   }
