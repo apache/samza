@@ -181,6 +181,7 @@ under the License.
           <version>0.9</version>
           <configuration>
             <excludes>
+              <exclude>*.patch</exclude>
               <exclude>**/target/**</exclude>
               <exclude>*.json</exclude>
               <exclude>.vagrant/**</exclude>
