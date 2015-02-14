@@ -39,7 +39,7 @@ class SamzaJobYarnDeployer(Deployer):
     to start and stop Samza jobs in a YARN grid.
 
     param: configs -- Map of config key/values pairs. These configs will be used
-    as a default whenever overrides are not provided in the methods (intall, 
+    as a default whenever overrides are not provided in the methods (install, 
     start, stop, etc) below.
     """
     logging.getLogger("paramiko").setLevel(logging.ERROR)
@@ -173,6 +173,47 @@ class SamzaJobYarnDeployer(Deployer):
       p.wait()
       assert p.returncode == 0, "Command returned non-zero exit code ({0}): {1}".format(p.returncode, command)
 
+  def await(self, job_id, configs={}):
+    """
+    Waits for a Samza job to finish using bin/stat-yarn-job.sh. A job is 
+    finished when its "Final State" is not "UNDEFINED".
+
+    param: job_id -- A unique ID used to idenitfy a Samza job.
+    param: configs -- Map of config key/values pairs. Valid keys include:
+
+    package_id: The package_id for the package that contains the code for job_id.
+    Usually, the package_id refers to the .tgz job tarball that contains the
+    code necessary to run job_id.
+    """
+    configs = self._get_merged_configs(configs)
+    self._validate_configs(configs, ['package_id'])
+
+    # Get configs.
+    package_id = configs.get('package_id')
+
+    # Get the application_id for the job.
+    application_id = self.app_ids.get(job_id)
+
+    # Stat the job, if it's been started, or WARN and return if it's hasn't.
+    final_state = 'UNDEFINED'
+    if not application_id:
+      logger.warn("Can't stat a job that was never started: {0}".format(job_id))
+    else:
+      command = "{0} {1}".format(os.path.join(package_id, "bin/stat-yarn-job.sh"), application_id)
+      env = self._get_env_vars(package_id)
+      while final_state == 'UNDEFINED':
+        p = Popen(command.split(' '), stdin=PIPE, stdout=PIPE, stderr=PIPE, env=env)
+        output, err = p.communicate()
+        logger.debug("Output from run-job.sh:\nstdout: {0}\nstderr: {1}".format(output, err))
+        assert p.returncode == 0, "Command ({0}) returned non-zero exit code ({1}).\nstdout: {2}\nstderr: {3}".format(command, p.returncode, output, err)
+
+        # Check the final state for the job.
+        regex = r'.*Final.State . (\w*)'
+        match = re.match(regex, output.replace("\n", ' '))
+        final_state = match.group(1)
+        logger.debug("Got final state {0} for job_id {1}.".format(final_state, job_id))
+    return final_state
+
   def uninstall(self, package_id, configs={}):
     """
     Removes the install path for package_id from all remote hosts that it's been
@@ -200,6 +241,10 @@ class SamzaJobYarnDeployer(Deployer):
     shutil.rmtree(package_id)
 
   # TODO we should implement the below helper methods over time, as we need them.
+
+  def get_processes(self):
+    # TODO raise NotImplementedError
+    return []
 
   def get_pid(self, container_id, configs={}):
     raise NotImplementedError

@@ -22,51 +22,59 @@ from kafka import SimpleProducer, SimpleConsumer
 
 logger = logging.getLogger(__name__)
 
-DEPLOYER = 'samza_job_deployer'
-JOB_ID = 'negate_number'
+JOB_ID = 'kafka-read-write-performance'
 PACKAGE_ID = 'tests'
-CONFIG_FILE = 'config/negate-number.properties'
-TEST_INPUT_TOPIC = 'samza-test-topic'
-TEST_OUTPUT_TOPIC = 'samza-test-topic-output'
-NUM_MESSAGES = 50
+CONFIG_FILE = 'config/perf/kafka-read-write-performance.properties'
+TEST_INPUT_TOPIC = 'kafka-read-write-performance-input'
+TEST_OUTPUT_TOPIC = 'kafka-read-write-performance-output'
+NUM_MESSAGES = 1000000
+MESSAGE = 'a' * 200
 
-def test_samza_job():
+def test_kafka_read_write_performance():
   """
-  Runs a job that reads converts input strings to integers, negates the 
-  integer, and outputs to a Kafka topic.
+  Runs a Samza job that reads from Kafka, and writes back out to it. The 
+  writes/sec for the job is logged to the job's container.
   """
   _load_data()
   util.start_job(PACKAGE_ID, JOB_ID, CONFIG_FILE)
   util.await_job(PACKAGE_ID, JOB_ID)
 
-def validate_samza_job():
+def validate_kafka_read_write_performance():
   """
-  Validates that negate-number negated all messages, and sent the output to 
-  samza-test-topic-output.
+  Validates that all messages were sent to the output topic.
   """
-  logger.info('Running validate_samza_job')
+  logger.info('Running validate_kafka_read_write_performance')
   kafka = util.get_kafka_client()
   kafka.ensure_topic_exists(TEST_OUTPUT_TOPIC)
-  consumer = SimpleConsumer(kafka, 'samza-test-group', TEST_OUTPUT_TOPIC)
+  consumer = SimpleConsumer(
+    kafka, 
+    'samza-test-group', 
+    TEST_OUTPUT_TOPIC,
+    fetch_size_bytes=1000000,
+    buffer_size=32768,
+    max_buffer_size=None)
+  # wait 5 minutes to get all million messages
   messages = consumer.get_messages(count=NUM_MESSAGES, block=True, timeout=300)
   message_count = len(messages)
   assert NUM_MESSAGES == message_count, 'Expected {0} lines, but found {1}'.format(NUM_MESSAGES, message_count)
-  for message in map(lambda m: m.message.value, messages):
-    assert int(message) < 0 , 'Expected negative integer but received {0}'.format(message)
   kafka.close()
 
 def _load_data():
   """
-  Sends 50 messages (1 .. 50) to samza-test-topic.
+  Sends 10 million messages to kafka-read-write-performance-input.
   """
-  logger.info('Running test_samza_job')
+  logger.info('Running test_kafka_read_write_performance')
   kafka = util.get_kafka_client()
   kafka.ensure_topic_exists(TEST_INPUT_TOPIC)
   producer = SimpleProducer(
     kafka,
-    async=False,
     req_acks=SimpleProducer.ACK_AFTER_CLUSTER_COMMIT,
-    ack_timeout=30000)
-  for i in range(1, NUM_MESSAGES + 1):
-    producer.send_messages(TEST_INPUT_TOPIC, str(i))
+    ack_timeout=30000,
+    batch_send=True,
+    batch_send_every_n=200)
+  logger.info('Loading {0} test messages.'.format(NUM_MESSAGES))
+  for i in range(0, NUM_MESSAGES):
+    if i % 100000 == 0:
+      logger.info('Loaded {0} messages.'.format(i))
+    producer.send_messages(TEST_INPUT_TOPIC, MESSAGE)
   kafka.close()

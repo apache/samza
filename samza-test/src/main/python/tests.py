@@ -24,6 +24,7 @@ test = {
   'perf_code': os.path.join(dir, 'perf.py'),
   'configs_directory': os.path.join(dir, 'configs'),
   'test_code': [
-    os.path.join(dir, 'tests', 'smoke_tests.py')
+    os.path.join(dir, 'tests', 'smoke_tests.py'),
+    os.path.join(dir, 'tests', 'performance_tests.py'),
   ],
 }

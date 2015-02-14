@@ -3,21 +3,21 @@
     "kafka_instance_0": "localhost"
   },
   "kafka_port": 9092,
-  "kafka_start_cmd": "kafka_2.9.2-0.8.1.1/bin/kafka-server-start.sh -daemon kafka_2.9.2-0.8.1.1/config/server.properties",
-  "kafka_stop_cmd": "kafka_2.9.2-0.8.1.1/bin/kafka-server-stop.sh",
+  "kafka_start_cmd": "kafka_2.9.2-0.8.2.0/bin/kafka-server-start.sh -daemon kafka_2.9.2-0.8.2.0/config/server.properties",
+  "kafka_stop_cmd": "kafka_2.9.2-0.8.2.0/bin/kafka-server-stop.sh",
   "kafka_install_path": "deploy/kafka",
-  "kafka_executable": "kafka_2.9.2-0.8.1.1.tgz",
+  "kafka_executable": "kafka_2.9.2-0.8.2.0.tgz",
   "kafka_post_install_cmds": [
-    "sed -i.bak 's/SIGINT/SIGTERM/g' kafka_2.9.2-0.8.1.1/bin/kafka-server-stop.sh",
-    "sed -i.bak 's/^num\\.partitions *=.*/num.partitions=1/' kafka_2.9.2-0.8.1.1/config/server.properties",
-    "sed -i.bak 's/.*log.dirs.*/log.dirs=data/g' kafka_2.9.2-0.8.1.1/config/server.properties"
+    "sed -i.bak 's/SIGINT/SIGTERM/g' kafka_2.9.2-0.8.2.0/bin/kafka-server-stop.sh",
+    "sed -i.bak 's/^num\\.partitions *=.*/num.partitions=1/' kafka_2.9.2-0.8.2.0/config/server.properties",
+    "sed -i.bak 's/.*log.dirs.*/log.dirs=data/g' kafka_2.9.2-0.8.2.0/config/server.properties"
   ],
   "kafka_logs": [
     "log-cleaner.log",
-    "kafka_2.9.2-0.8.1.1/logs/controller.log",
-    "kafka_2.9.2-0.8.1.1/logs/kafka-request.log",
-    "kafka_2.9.2-0.8.1.1/logs/kafkaServer-gc.log",
-    "kafka_2.9.2-0.8.1.1/logs/server.log",
-    "kafka_2.9.2-0.8.1.1/logs/state-change.log"
+    "kafka_2.9.2-0.8.2.0/logs/controller.log",
+    "kafka_2.9.2-0.8.2.0/logs/kafka-request.log",
+    "kafka_2.9.2-0.8.2.0/logs/kafkaServer-gc.log",
+    "kafka_2.9.2-0.8.2.0/logs/server.log",
+    "kafka_2.9.2-0.8.2.0/logs/state-change.log"
   ]
 }
