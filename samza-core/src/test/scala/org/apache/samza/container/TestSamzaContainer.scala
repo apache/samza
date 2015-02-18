@@ -52,6 +52,8 @@ import org.junit.Assert._
 import org.junit.Test
 import org.scalatest.junit.AssertionsForJUnit
 import java.lang.Thread.UncaughtExceptionHandler
+import org.apache.samza.serializers._
+import org.apache.samza.SamzaException
 
 class TestSamzaContainer extends AssertionsForJUnit {
   @Test
@@ -167,5 +169,27 @@ class TestSamzaContainer extends AssertionsForJUnit {
     t.start
     t.join
     assertTrue(caughtException)
+  }
+
+  @Test
+  def testDefaultSerdesFromSerdeName {
+    import SamzaContainer._
+    val config = new MapConfig
+    assertTrue(defaultSerdesFromSerdeName("byte", "testSystemException", config).isInstanceOf[ByteSerde])
+    assertTrue(defaultSerdesFromSerdeName("integer", "testSystemException", config).isInstanceOf[IntegerSerde])
+    assertTrue(defaultSerdesFromSerdeName("json", "testSystemException", config).isInstanceOf[JsonSerde])
+    assertTrue(defaultSerdesFromSerdeName("long", "testSystemException", config).isInstanceOf[LongSerde])
+    assertTrue(defaultSerdesFromSerdeName("serializable", "testSystemException", config).isInstanceOf[SerializableSerde[java.io.Serializable @unchecked]])
+    assertTrue(defaultSerdesFromSerdeName("string", "testSystemException", config).isInstanceOf[StringSerde])
+
+    // throw SamzaException if can not find the correct serde
+    var throwSamzaException = false
+    try {
+      defaultSerdesFromSerdeName("otherName", "testSystemException", config)
+    } catch {
+      case e: SamzaException => throwSamzaException = true
+      case _: Exception =>
+    }
+    assertTrue(throwSamzaException)
   }
 }
