@@ -30,8 +30,12 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.Log4jSystemConfig;
 import org.apache.samza.config.ShellCommandConfig;
+import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.serializers.Serde;
+import org.apache.samza.serializers.SerdeFactory;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemFactory;
@@ -55,6 +59,7 @@ public class StreamAppender extends AppenderSkeleton {
   private String key = null;
   private String streamName = null;
   private boolean isApplicationMaster = false;
+  private Serde<LoggingEvent> serde = null;
   private Logger log = Logger.getLogger(StreamAppender.class);
 
   /**
@@ -96,6 +101,8 @@ public class StreamAppender extends AppenderSkeleton {
       throw new SamzaException("Please define log4j system name and factory class");
     }
 
+    setSerde(log4jSystemConfig, systemName, streamName);
+
     systemProducer = systemFactory.getProducer(systemName, config, new MetricsRegistryMap());
     systemStream = new SystemStream(systemName, streamName);
     systemProducer.register(SOURCE);
@@ -111,7 +118,7 @@ public class StreamAppender extends AppenderSkeleton {
       try {
         recursiveCall.set(true);
         OutgoingMessageEnvelope outgoingMessageEnvelope =
-            new OutgoingMessageEnvelope(systemStream, key.getBytes("UTF-8"), subAppend(event).getBytes("UTF-8"));
+            new OutgoingMessageEnvelope(systemStream, key.getBytes("UTF-8"), serde.toBytes(subLog(event)));
         systemProducer.send(SOURCE, outgoingMessageEnvelope);
       } catch (UnsupportedEncodingException e) {
         throw new SamzaException("can not send the log messages", e);
@@ -127,6 +134,12 @@ public class StreamAppender extends AppenderSkeleton {
     } else {
       return this.layout.format(event).trim();
     }
+  }
+
+  private LoggingEvent subLog(LoggingEvent event) {
+    return new LoggingEvent(event.getFQNOfLoggerClass(), event.getLogger(), event.getTimeStamp(),
+        event.getLevel(), subAppend(event), event.getThreadName(), event.getThrowableInformation(),
+        event.getNDC(), event.getLocationInformation(), event.getProperties());
   }
 
   @Override
@@ -181,5 +194,35 @@ public class StreamAppender extends AppenderSkeleton {
     }
     String streamName = "__samza_" + jobName + "_" + jobId + "_logs";
     return streamName.replace("-", "_");
+  }
+
+  /**
+   * set the serde for this appender. It looks for the stream serde first, then system serde.
+   * If still can not get the serde, throws exceptions. 
+   *
+   * @param log4jSystemConfig log4jSystemConfig for this appender
+   * @param systemName name of the system
+   * @param streamName name of the stream
+   */
+  private void setSerde(Log4jSystemConfig log4jSystemConfig, String systemName, String streamName) {
+    String serdeClass = null;
+    String serdeName = log4jSystemConfig.getStreamSerdeName(systemName, streamName);
+
+    if (serdeName == null) {
+      serdeName = log4jSystemConfig.getSystemSerdeName(systemName);
+    }
+
+    if (serdeName == null) {
+      throw new SamzaException("Missing serde name. Please specify the " + StreamConfig.MSG_SERDE() + " or " + SystemConfig.MSG_SERDE() + " property.");
+    }
+
+    serdeClass = log4jSystemConfig.getSerdeClass(serdeName);
+
+    if (serdeClass != null) {
+      SerdeFactory<LoggingEvent> serdeFactory = Util.<SerdeFactory<LoggingEvent>> getObj(serdeClass);
+      serde = serdeFactory.getSerde(systemName, config);
+    } else {
+      throw new SamzaException("Can not find serializers class. Please specify serializers.registry.s%.class property");
+    }
   }
 }
