@@ -28,7 +28,7 @@ import org.apache.samza.serializers.Serde;
 
 /**
  * A serializer for LoggingEvent. It provides two methods. {@link #toBytes(LoggingEvent object)} serializes
- * the {@link @LoggingEvent}'s messages into bytes. {@link #fromBytes(byte[] bytes)} will creates a new
+ * the {@link org.apache.log4j.spi.LoggingEvent}'s messages into bytes. {@link #fromBytes(byte[] bytes)} will creates a new
  * LoggingEvent based on the messages, which is deserialized from the bytes.
  */
 public class LoggingEventStringSerde implements Serde<LoggingEvent> {
@@ -49,7 +49,7 @@ public class LoggingEventStringSerde implements Serde<LoggingEvent> {
   }
 
   /**
-   * Convert bytes to a {@link LoggingEvent}. This LoggingEvent uses logging
+   * Convert bytes to a {@link org.apache.log4j.spi.LoggingEvent}. This LoggingEvent uses logging
    * information of the {@link LoggingEventStringSerde}, which includes log
    * name, log category and log level.
    *
