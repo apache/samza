@@ -151,7 +151,9 @@ class TaskInstance(
 
     metrics.commits.inc
 
-    storageManager.flush
+    if (storageManager != null) {
+      storageManager.flush
+    }
 
     trace("Flushing producers for taskName: %s" format taskName)
 

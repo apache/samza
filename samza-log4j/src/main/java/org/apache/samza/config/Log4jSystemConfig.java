@@ -22,6 +22,8 @@ package org.apache.samza.config;
 import java.util.ArrayList;
 import java.util.Map;
 
+import org.apache.samza.logging.log4j.serializers.LoggingEventStringSerdeFactory;
+
 /**
  * This class contains the methods for getting properties that are needed by the
  * StreamAppender.
@@ -71,6 +73,31 @@ public class Log4jSystemConfig {
     }
     String systemFactory = String.format(SystemConfig.SYSTEM_FACTORY(), name);
     return getValue(systemFactory);
+  }
+
+  /**
+   * get the class name according to the serde name. If the serde name is "log4j" and
+   * the serde class is not configured, will use the default {@link LoggingEventStringSerdeFactory}
+   * 
+   * @param name serde name
+   * @return serde factory name
+   */
+  public String getSerdeClass(String name) {
+    String className = getValue(String.format(SerializerConfig.SERDE(), name));
+    if (className == null && name.equals("log4j")) {
+      className = LoggingEventStringSerdeFactory.class.getCanonicalName();
+    }
+    return className;
+  }
+
+  public String getSystemSerdeName(String name) {
+    String systemSerdeNameConfig = String.format(SystemConfig.MSG_SERDE(), name);
+    return getValue(systemSerdeNameConfig);
+  }
+
+  public String getStreamSerdeName(String systemName, String streamName) {
+    String streamSerdeNameConfig = String.format(StreamConfig.MSG_SERDE(), systemName, streamName);
+    return getValue(streamSerdeNameConfig);
   }
 
   /**

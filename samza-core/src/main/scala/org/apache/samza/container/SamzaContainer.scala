@@ -59,13 +59,20 @@ import java.net.URL
 import org.apache.samza.job.model.{TaskModel, ContainerModel, JobModel}
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.config.JobConfig.Config2Job
+import java.lang.Thread.UncaughtExceptionHandler
+import org.apache.samza.serializers._
 
 object SamzaContainer extends Logging {
   def main(args: Array[String]) {
-    safeMain(() => new JmxServer)
+    safeMain(() => new JmxServer, new SamzaContainerExceptionHandler(() => System.exit(1)))
   }
 
-  def safeMain(newJmxServer: () => JmxServer) {
+  def safeMain(
+    newJmxServer: () => JmxServer,
+    exceptionHandler: UncaughtExceptionHandler = null) {
+    if (exceptionHandler != null) {
+      Thread.setDefaultUncaughtExceptionHandler(exceptionHandler)
+    }
     putMDC("containerName", "samza-container-" + System.getenv(ShellCommandConfig.ENV_CONTAINER_ID))
     // Break out the main method to make the JmxServer injectable so we can
     // validate that we don't leak JMX non-daemon threads if we have an
@@ -99,6 +106,28 @@ object SamzaContainer extends Logging {
     SamzaObjectMapper
       .getObjectMapper
       .readValue(Util.read(new URL(url)), classOf[JobModel])
+  }
+
+  /**
+   * A helper function which returns system's default serde according to the
+   * serde name. If not found, throw exception.
+   */
+  def defaultSerdesFromSerdeName(serdeName: String, exceptionSystemName: String, config: Config) = {
+    info("looking for default serdes")
+    def getSerde(serdeFactory: String) = {
+      Util.getObj[SerdeFactory[Object]](serdeFactory).getSerde(serdeName, config)
+    }
+    val serde = serdeName match {
+      case "byte" => getSerde(classOf[ByteSerdeFactory].getCanonicalName)
+      case "integer" => getSerde(classOf[IntegerSerdeFactory].getCanonicalName)
+      case "json" => getSerde(classOf[JsonSerdeFactory].getCanonicalName)
+      case "long" => getSerde(classOf[LongSerdeFactory].getCanonicalName)
+      case "serializable" => getSerde(classOf[SerializableSerdeFactory[java.io.Serializable]].getCanonicalName)
+      case "string" => getSerde(classOf[StringSerdeFactory].getCanonicalName)
+      case _ => throw new SamzaException("Serde %s for system %s does not exist in configuration." format (serdeName, exceptionSystemName))
+    }
+    info("use default serde %s for %s" format (serde, serdeName))
+    serde
   }
 
   def apply(containerModel: ContainerModel, config: Config) = {
@@ -216,7 +245,7 @@ object SamzaContainer extends Logging {
         .filter(getSerdeName(_).isDefined)
         .map(systemName => {
           val serdeName = getSerdeName(systemName).get
-          val serde = serdes.getOrElse(serdeName, throw new SamzaException("Serde %s for system %s does not exist in configuration." format (serdeName, systemName)))
+          val serde = serdes.getOrElse(serdeName, defaultSerdesFromSerdeName(serdeName, systemName, config))
           (systemName, serde)
         }).toMap
     }
@@ -229,7 +258,7 @@ object SamzaContainer extends Logging {
         .filter(systemStream => getSerdeName(systemStream).isDefined)
         .map(systemStream => {
           val serdeName = getSerdeName(systemStream).get
-          val serde = serdes.getOrElse(serdeName, throw new SamzaException("Serde %s for system %s does not exist in configuration." format (serdeName, systemStream)))
+          val serde = serdes.getOrElse(serdeName, defaultSerdesFromSerdeName(serdeName, systemStream.toString, config))
           (systemStream, serde)
         }).toMap
     }

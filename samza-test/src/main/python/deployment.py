@@ -76,36 +76,25 @@ def setup_suite():
         'hostname': host
       })
 
-  # Start the Samza jobs.
+  # Setup Samza job deployer.
   samza_job_deployer = SamzaJobYarnDeployer({
+    'config_factory': c('samza_config_factory'),
     'yarn_site_template': c('yarn_site_template'),
     'yarn_driver_configs': c('yarn_driver_configs'),
     'yarn_nm_hosts': c('yarn_nm_hosts').values(),
     'install_path': samza_install_path,
   })
 
-  samza_job_deployer.install('smoke_tests', {
+  samza_job_deployer.install('tests', {
     'executable': c('samza_executable'),
   })
 
-  samza_job_deployer.start('negate_number', {
-    'package_id': 'smoke_tests',
-    'config_factory': c('samza_config_factory'),
-    'config_file': c('samza_config_file'),
-    'install_path': samza_install_path,
-  })
+  runtime.set_deployer('samza_job_deployer', samza_job_deployer)
 
 def teardown_suite():
-  # Stop the samza jobs.
-  samza_job_deployer.stop('negate_number', {
-    'package_id': 'smoke_tests',
-    'install_path': samza_install_path,
-  })
-
-  samza_job_deployer.uninstall('smoke_tests')
+  samza_job_deployer.uninstall('tests')
 
   # Undeploy everything.
   for name, deployer in deployers.iteritems():
     for instance, host in c(name + '_hosts').iteritems():
       deployer.undeploy(instance)
-

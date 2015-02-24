@@ -20,7 +20,6 @@
 package org.apache.samza.container
 
 import scala.collection.JavaConversions._
-
 import org.apache.samza.Partition
 import org.apache.samza.config.Config
 import org.apache.samza.config.MapConfig
@@ -52,6 +51,9 @@ import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
 import org.junit.Assert._
 import org.junit.Test
 import org.scalatest.junit.AssertionsForJUnit
+import java.lang.Thread.UncaughtExceptionHandler
+import org.apache.samza.serializers._
+import org.apache.samza.SamzaException
 
 class TestSamzaContainer extends AssertionsForJUnit {
   @Test
@@ -143,5 +145,51 @@ class TestSamzaContainer extends AssertionsForJUnit {
       case e: Exception => // Expected
     }
     assertTrue(task.wasShutdown)
+  }
+
+  @Test
+  def testUncaughtExceptionHandler {
+    var caughtException = false
+    val exceptionHandler = new UncaughtExceptionHandler {
+      def uncaughtException(t: Thread, e: Throwable) {
+        caughtException = true
+      }
+    }
+    try {
+      SamzaContainer.safeMain(() => null, exceptionHandler)
+    } catch {
+      case _: Exception =>
+      // Expect some random exception from SamzaContainer because we haven't 
+      // set any environment variables for container ID, etc.
+    }
+    assertFalse(caughtException)
+    val t = new Thread(new Runnable {
+      def run = throw new RuntimeException("Uncaught exception in another thread. Catch this.")
+    })
+    t.start
+    t.join
+    assertTrue(caughtException)
+  }
+
+  @Test
+  def testDefaultSerdesFromSerdeName {
+    import SamzaContainer._
+    val config = new MapConfig
+    assertTrue(defaultSerdesFromSerdeName("byte", "testSystemException", config).isInstanceOf[ByteSerde])
+    assertTrue(defaultSerdesFromSerdeName("integer", "testSystemException", config).isInstanceOf[IntegerSerde])
+    assertTrue(defaultSerdesFromSerdeName("json", "testSystemException", config).isInstanceOf[JsonSerde])
+    assertTrue(defaultSerdesFromSerdeName("long", "testSystemException", config).isInstanceOf[LongSerde])
+    assertTrue(defaultSerdesFromSerdeName("serializable", "testSystemException", config).isInstanceOf[SerializableSerde[java.io.Serializable @unchecked]])
+    assertTrue(defaultSerdesFromSerdeName("string", "testSystemException", config).isInstanceOf[StringSerde])
+
+    // throw SamzaException if can not find the correct serde
+    var throwSamzaException = false
+    try {
+      defaultSerdesFromSerdeName("otherName", "testSystemException", config)
+    } catch {
+      case e: SamzaException => throwSamzaException = true
+      case _: Exception =>
+    }
+    assertTrue(throwSamzaException)
   }
 }

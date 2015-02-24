@@ -1,3 +1,4 @@
+#!/bin/bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,26 +16,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Job
-job.factory.class=org.apache.samza.job.yarn.YarnJobFactory
-job.name=samza-negate-number
+[[ $JAVA_OPTS != *-Dlog4j.configuration* ]] && export JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=file:$(dirname $0)/log4j-console.xml"
 
-# YARN
-yarn.container.count=1
-
-# Task
-task.class=org.apache.samza.test.integration.NegateNumberTask
-task.inputs=kafka.samza-test-topic
-task.max.messages=50
-task.outputs=kafka.samza-test-topic-output
-
-# Serializers
-serializers.registry.string.class=org.apache.samza.serializers.StringSerdeFactory
-
-# Kafka System
-systems.kafka.samza.factory=org.apache.samza.system.kafka.KafkaSystemFactory
-systems.kafka.samza.msg.serde=string
-systems.kafka.samza.key.serde=string
-systems.kafka.samza.offset.default=oldest
-systems.kafka.consumer.zookeeper.connect=localhost:2181/
-systems.kafka.producer.bootstrap.servers=localhost:9092
+exec $(dirname $0)/run-class.sh org.apache.hadoop.yarn.client.cli.ApplicationCLI application -status "$@"
