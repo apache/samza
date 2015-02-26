@@ -29,6 +29,7 @@ import org.apache.samza.util.Logging
 class SamzaContainerExceptionHandler(exit: () => Unit) extends UncaughtExceptionHandler with Logging {
   def uncaughtException(t: Thread, e: Throwable) {
     error("Uncaught exception in thread (name=%s). Exiting process now.".format(t.getName), e)
+    e.printStackTrace(System.err);
     exit()
   }
 }
