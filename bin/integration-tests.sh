@@ -79,7 +79,7 @@ if [[ $SWITCHES != *"console-log-level"* ]]; then
 fi
 
 # run the tests
-zopkio --config-overrides remote_install_path=$ABS_TEST_DIR $SWITCHES $SCRIPTS_DIR/tests.py
+zopkio --config-overrides remote_install_path=$ABS_TEST_DIR $SWITCHES $SCRIPTS_DIR/integration_tests.py
 
 # go back to execution directory
 deactivate

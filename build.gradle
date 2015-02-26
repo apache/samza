@@ -376,19 +376,6 @@ project(":samza-test_$scalaVersion") {
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
   }
 
-  test {
-    // Bump up the heap so we can start ZooKeeper and Kafka brokers. Also
-    // required for TestSamzaContainerPerformance when a high thread count
-    // with a lot of inputs is used.
-    minHeapSize = "1560m"
-    maxHeapSize = "1560m"
-    jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
-
-    // Forward all samza.* system properties to test subprocesses. This is
-    // useful for configuring TestSamzaContainerPerformance from the CLI.
-    systemProperties = System.properties.findAll { it.key.startsWith("samza") }
-  }
-
   tasks.create(name: "releaseTestJobs", dependsOn: configurations.archives.artifacts, type: Tar) {
     description 'Build an integration test tarball'
     compression = Compression.GZIP
