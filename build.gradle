@@ -80,6 +80,7 @@ rat {
     'samza-test/state/mystore/**',
     'README.md',
     'RELEASE.md',
+    'samza-test/src/main/resources/**'
   ]
 }
 
@@ -382,6 +383,7 @@ project(":samza-test_$scalaVersion") {
     from(file("$projectDir/src/main/config")) { into "config/" }
     from(file("$projectDir/src/main/resources")) { into "lib/" }
     from(project(':samza-shell').file("src/main/bash")) { into "bin/" }
+    from(file("$projectDir/src/main/python/ghostface_killah.py")) { into "bin/"}
     from(project(':samza-shell').file("src/main/resources")) { into "lib/" }
     from(project(':samza-shell').file("src/main/resources/log4j-console.xml")) { into "bin/" }
     from '../LICENSE'

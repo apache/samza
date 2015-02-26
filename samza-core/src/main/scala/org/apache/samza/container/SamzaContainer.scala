@@ -79,6 +79,7 @@ object SamzaContainer extends Logging {
     // exception in the main method.
     val containerId = System.getenv(ShellCommandConfig.ENV_CONTAINER_ID).toInt
     val coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL)
+    logger.info("######### Coordinator URL in SafeMain() - " + coordinatorUrl)
     val jobModel = readJobModel(coordinatorUrl)
     val containerModel = jobModel.getContainers()(containerId.toInt)
     val config = jobModel.getConfig

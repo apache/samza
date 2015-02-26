@@ -31,6 +31,11 @@ import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.task.TaskCoordinator.RequestScope;
 
+/**
+ * This is a simple task that writes each message to a state store and prints them all out on reload.
+ * 
+ * It is useful for command line testing with the kafka console producer and consumer and text messages.
+ */
 public class SimpleStatefulTask implements StreamTask, InitableTask {
   
   private KeyValueStore<String, String> store;

@@ -17,15 +17,22 @@
 # under the License.
 
 # Job
-job.name=watcher
+job.name=checker
+
+systems.kafka.partitioner.class=org.apache.samza.test.integration.join.EpochPartitioner
 
 # Task
-task.class=samza.test.integration.join.Joiner
-task.inputs=kafka.epoch
+task.class=org.apache.samza.test.integration.join.Checker
+task.inputs=kafka.completed-keys
 
-task.window.ms=300000
+stores.checker-state.factory=org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory
+stores.checker-state.key.serde=string
+stores.checker-state.msg.serde=string
+stores.checker-state.changelog=kafka.checker-state
+stores.checker-state.changelog.replication.factor=1
 
-max.time.between.epochs.ms=600000
-mail.smtp.host=TODO
-mail.to=dev@samza.apache.org
-mail.from=gregor@incubator.apache.org
+task.window.ms=30000
+
+num.partitions=2
+expected.keys=5000
+

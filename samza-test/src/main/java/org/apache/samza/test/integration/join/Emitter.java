@@ -32,14 +32,14 @@ import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.task.TaskCoordinator.RequestScope;
 import org.apache.samza.task.WindowableTask;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/**
- * This job takes input from "epoch" and for each epoch emits "max" records of form
- *   (key = counter, value = epoch-partition)
- *   
- */
+
 @SuppressWarnings("unchecked")
 public class Emitter implements StreamTask, InitableTask, WindowableTask {
+  
+  private static Logger logger = LoggerFactory.getLogger(Emitter.class);
   
   private static String EPOCH = "the-epoch";
   private static String COUNT = "the-count";
@@ -59,6 +59,8 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
     if(envelope.getSystemStreamPartition().getStream().equals("epoch")) {
       int newEpoch = Integer.parseInt((String) envelope.getMessage());
+      logger.info("New epoch in message - " + newEpoch);
+
       Integer epoch = getInt(EPOCH);
       if(epoch == null || newEpoch == epoch)
         return;
@@ -66,7 +68,8 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
         throw new IllegalArgumentException("Got new epoch " + newEpoch + " which is less than current epoch " + epoch);
       
       // it's a new era, reset current epoch and count
-      this.state.put(EPOCH, Integer.toString(epoch));
+      logger.info("Epoch: " + newEpoch);
+      this.state.put(EPOCH, Integer.toString(newEpoch));
       this.state.put(COUNT, "0");
       coordinator.commit(RequestScope.ALL_TASKS_IN_CONTAINER);
     }
@@ -80,15 +83,19 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
     }
     int counter = getInt(COUNT);
     if(counter < max) {
-      OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(new SystemStream("kafka", "emitted"), Integer.toString(counter), epoch + "-" + taskName);
+      logger.info("Emitting: " + counter + ", epoch = " + epoch + ", task = " + taskName);
+      OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(new SystemStream("kafka", "emitted"), Integer.toString(counter), epoch + "-" + taskName.toString());
       collector.send(envelope);
       this.state.put(COUNT, Integer.toString(getInt(COUNT) + 1));
-    } else {
-      trySleep(100);
     }
+/*    if(counter == max) {
+        logger.info("###### Committing because we finished emitting counter in this epoch");
+        coordinator.commit(RequestScope.ALL_TASKS_IN_CONTAINER);
+    }*/
   }
   
   private void resetEpoch() {
+    logger.info("Resetting epoch to 0");
     state.put(EPOCH, "0");
     state.put(COUNT, "0");
   }
@@ -96,14 +103,6 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
   private Integer getInt(String key) {
     String value = this.state.get(key);
     return value == null? null : Integer.parseInt(value);
-  }
-  
-  private void trySleep(long ms) {
-    try {
-      Thread.sleep(ms);
-    } catch(Exception e) {
-      e.printStackTrace();
-    }
   }
 
 }

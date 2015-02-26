@@ -17,20 +17,16 @@
 # under the License.
 
 # Job
-job.name=checker
-
-systems.kafka.partitioner.class=samza.test.integration.join.EpochPartitioner
+job.name=joiner
 
 # Task
-task.class=samza.test.integration.join.Checker
-task.inputs=kafka.completed-keys
+task.class=org.apache.samza.test.integration.join.Joiner
+task.inputs=kafka.emitted
 
-stores.checker-state.factory=samza.storage.kv.KeyValueStorageEngineFactory
-stores.checker-state.key.serde=string
-stores.checker-state.msg.serde=string
-stores.checker-state.changelog=kafka.checker-state
+stores.joiner-state.factory=org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory
+stores.joiner-state.key.serde=string
+stores.joiner-state.msg.serde=string
+stores.joiner-state.changelog=kafka.joiner-state
+stores.joiner-state.changelog.replication.factor=1
 
-task.window.ms=300000
-
-num.partitions=4
-expected.keys=100000
+num.partitions=2
