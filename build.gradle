@@ -377,6 +377,13 @@ project(":samza-test_$scalaVersion") {
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
   }
 
+  test {
+    // Bump up the heap so we can run KV store tests.
+    minHeapSize = "1560m"
+    maxHeapSize = "1560m"
+    jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
+  }
+
   tasks.create(name: "releaseTestJobs", dependsOn: configurations.archives.artifacts, type: Tar) {
     description 'Build an integration test tarball'
     compression = Compression.GZIP
