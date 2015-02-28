@@ -88,10 +88,6 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
       collector.send(envelope);
       this.state.put(COUNT, Integer.toString(getInt(COUNT) + 1));
     }
-/*    if(counter == max) {
-        logger.info("###### Committing because we finished emitting counter in this epoch");
-        coordinator.commit(RequestScope.ALL_TASKS_IN_CONTAINER);
-    }*/
   }
   
   private void resetEpoch() {

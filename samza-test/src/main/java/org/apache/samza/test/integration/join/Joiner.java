@@ -80,7 +80,6 @@ public class Joiner implements StreamTask, InitableTask {
       if(partitions.partitions.size() == expected) {
         logger.info("Completed: " + key + " -> " + Integer.toString(epoch));
         collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", "completed-keys"), key, Integer.toString(epoch)));
-//        logger.info("Completed key " + key + " for epoch " + epoch);
       }
     }
     this.store.put(key, partitions.toString());

@@ -137,6 +137,7 @@ class BrokerProxy(
             }
 
             while (!Thread.currentThread.isInterrupted) {
+              messageSink.refreshDropped
               if (nextOffsets.size == 0) {
                 debug("No TopicPartitions to fetch. Sleeping.")
                 Thread.sleep(sleepMSWhileNoTopicPartitions)
@@ -271,9 +272,8 @@ class BrokerProxy(
   override def toString() = "BrokerProxy for %s:%d" format (host, port)
 
   def start {
-    info("Starting " + toString)
-
     if (!thread.isAlive) {
+      info("Starting " + toString)
       thread.setDaemon(true)
       thread.setName(SAMZA_THREAD_NAME_PREFIX + BrokerProxy.BROKER_PROXY_THREAD_NAME_PREFIX + thread.getName)
       thread.start

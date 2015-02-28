@@ -38,6 +38,8 @@ import org.apache.samza.util.TopicMetadataStore
 import org.apache.samza.util.ExponentialSleepStrategy
 import kafka.api.TopicMetadata
 import org.apache.samza.util.ExponentialSleepStrategy
+import java.util.concurrent.ConcurrentHashMap
+import scala.collection.JavaConversions._
 
 object KafkaSystemConsumer {
   def toTopicAndPartition(systemStreamPartition: SystemStreamPartition) = {
@@ -86,27 +88,21 @@ private[kafka] class KafkaSystemConsumer(
 
   type HostPort = (String, Int)
   val brokerProxies = scala.collection.mutable.Map[HostPort, BrokerProxy]()
-  var nextOffsets = Map[SystemStreamPartition, String]()
+  val topicPartitionsAndOffsets: scala.collection.concurrent.Map[TopicAndPartition, String] = new ConcurrentHashMap[TopicAndPartition, String]()
   var perPartitionFetchThreshold = fetchThreshold
 
   def start() {
-    if (nextOffsets.size > 0) {
-      perPartitionFetchThreshold = fetchThreshold / nextOffsets.size
+    if (topicPartitionsAndOffsets.size > 0) {
+      perPartitionFetchThreshold = fetchThreshold / topicPartitionsAndOffsets.size
     }
 
-    val topicPartitionsAndOffsets = nextOffsets.map {
-      case (systemStreamPartition, offset) =>
-        val topicAndPartition = KafkaSystemConsumer.toTopicAndPartition(systemStreamPartition)
-        (topicAndPartition, offset)
-    }
-
-    refreshBrokers(topicPartitionsAndOffsets)
+    refreshBrokers
   }
 
   override def register(systemStreamPartition: SystemStreamPartition, offset: String) {
     super.register(systemStreamPartition, offset)
 
-    nextOffsets += systemStreamPartition -> offset
+    topicPartitionsAndOffsets += KafkaSystemConsumer.toTopicAndPartition(systemStreamPartition) -> offset
 
     metrics.registerTopicAndPartition(KafkaSystemConsumer.toTopicAndPartition(systemStreamPartition))
   }
@@ -134,8 +130,9 @@ private[kafka] class KafkaSystemConsumer(
     }
   }
 
-  def refreshBrokers(topicPartitionsAndOffsets: Map[TopicAndPartition, String]) {
+  def refreshBrokers {
     var tpToRefresh = topicPartitionsAndOffsets.keySet.toList
+    info("Refreshing brokers for: %s" format topicPartitionsAndOffsets)
     retryBackoff.run(
       loop => {
         val topics = tpToRefresh.map(_.topic).toSet
@@ -146,12 +143,27 @@ private[kafka] class KafkaSystemConsumer(
         def refresh(tp: List[TopicAndPartition]) = {
           val head :: rest = tpToRefresh
           val nextOffset = topicPartitionsAndOffsets.get(head).get
-          getHostPort(topicMetadata(head.topic), head.partition) match {
-            case Some((host, port)) =>
-              val brokerProxy = brokerProxies.getOrElseUpdate((host, port), createBrokerProxy(host, port))
-              brokerProxy.addTopicPartition(head, Option(nextOffset))
-              brokerProxy.start
-            case None => warn("No such topic-partition: %s, dropping." format head)
+          // refreshBrokers can be called from abdicate and refreshDropped, 
+          // both of which are triggered from BrokerProxy threads. To prevent 
+          // accidentally creating multiple objects for the same broker, or 
+          // accidentally not updating the topicPartitionsAndOffsets variable, 
+          // we need to lock. 
+          this.synchronized {
+            // Check if we still need this TopicAndPartition inside the 
+            // critical section. If we don't, then skip it.
+            if (topicPartitionsAndOffsets.contains(head)) {
+              getHostPort(topicMetadata(head.topic), head.partition) match {
+                case Some((host, port)) =>
+                  val brokerProxy = brokerProxies.getOrElseUpdate((host, port), createBrokerProxy(host, port))
+                  brokerProxy.addTopicPartition(head, Option(nextOffset))
+                  brokerProxy.start
+                  debug("Claimed topic-partition (%s) for (%s)".format(head, brokerProxy))
+                  topicPartitionsAndOffsets -= head
+                case None => info("No metadata available for: %s. Will try to refresh and add to a consumer thread later." format head)
+              }
+            } else {
+              debug("Ignoring refresh for %s because we already added it from another thread." format head)
+            }
           }
           rest
         }
@@ -170,6 +182,15 @@ private[kafka] class KafkaSystemConsumer(
   }
 
   val sink = new MessageSink {
+    var lastDroppedRefresh = 0L
+
+    def refreshDropped() {
+      if (topicPartitionsAndOffsets.size > 0 && clock() - lastDroppedRefresh > 10000) {
+        refreshBrokers
+        lastDroppedRefresh = clock()
+      }
+    }
+
     def setIsAtHighWatermark(tp: TopicAndPartition, isAtHighWatermark: Boolean) {
       setIsAtHead(toSystemStreamPartition(tp), isAtHighWatermark)
     }
@@ -202,7 +223,8 @@ private[kafka] class KafkaSystemConsumer(
 
     def abdicate(tp: TopicAndPartition, nextOffset: Long) {
       info("Abdicating for %s" format (tp))
-      refreshBrokers(Map(tp -> nextOffset.toString))
+      topicPartitionsAndOffsets += tp -> nextOffset.toString
+      refreshBrokers
     }
 
     private def toSystemStreamPartition(tp: TopicAndPartition) = {

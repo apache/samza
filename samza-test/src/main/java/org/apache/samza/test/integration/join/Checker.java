@@ -35,11 +35,6 @@ import org.apache.samza.task.WindowableTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-
 public class Checker implements StreamTask, WindowableTask, InitableTask {
   
   private static Logger logger = LoggerFactory.getLogger(Checker.class);
@@ -98,26 +93,19 @@ public class Checker implements StreamTask, WindowableTask, InitableTask {
     }
   }
   
-/*  private void checkEpoch(String epoch) {
+  private void checkEpoch(String epoch) {
     String curr = this.store.get(CURRENT_EPOCH);
-    if(curr == null)
+    if (curr == null)
       this.store.put(CURRENT_EPOCH, epoch);
-    else if(!curr.equals(epoch)) // should have curr > epoch
-      throw new IllegalArgumentException("Got epoch " + epoch + " but have not yet completed " + curr);
-  }*/
-    private void checkEpoch(String epoch) {
-        String curr = this.store.get(CURRENT_EPOCH);
-        if(curr == null)
-            this.store.put(CURRENT_EPOCH, epoch);
-        else {
-            int currentEpochInStore = Integer.parseInt(curr);
-            int currentEpochInMsg = Integer.parseInt(epoch);
-            if (currentEpochInMsg <= currentEpochInStore) {
-                if(currentEpochInMsg < currentEpochInStore)
-                    logger.info("#### Ignoring received epoch = " + epoch + " less than what is in store " + curr);
-            } else { // should have curr > epoch
-                throw new IllegalArgumentException("Got epoch " + epoch + " but have not yet completed " + curr);
-            }
-        }
+    else {
+      int currentEpochInStore = Integer.parseInt(curr);
+      int currentEpochInMsg = Integer.parseInt(epoch);
+      if (currentEpochInMsg <= currentEpochInStore) {
+        if (currentEpochInMsg < currentEpochInStore)
+          logger.info("#### Ignoring received epoch = " + epoch + " less than what is in store " + curr);
+      } else { // should have curr > epoch
+        throw new IllegalArgumentException("Got epoch " + epoch + " but have not yet completed " + curr);
+      }
     }
+  }
 }
