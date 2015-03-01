@@ -17,6 +17,7 @@
 
 import logging
 import socket
+import time
 import errno
 import zopkio.runtime as runtime
 from kafka import KafkaClient, SimpleProducer, SimpleConsumer
@@ -65,20 +66,24 @@ def wait_for_server(host, port, timeout=5, retries=12):
   """
   Keep trying to connect to a host port until the retry count has been reached.
   """
-  s = socket.socket()
+  s = None
 
   for i in range(retries):
     try:
+      s = socket.socket()
       s.settimeout(timeout)
       s.connect((host, port))
     except socket.timeout, err:
       # Exception occurs if timeout is set. Wait and retry.
-      pass
+      time.sleep(timeout)
     except socket.error, err:
       # Exception occurs if timeout > underlying network timeout. Wait and retry.
-      if type(err.args) != tuple or err[0] != errno.ETIMEDOUT:
+      if type(err.args) != tuple or (err[0] != errno.ETIMEDOUT and err[0] != errno.ECONNREFUSED):
         raise
+      else:
+        time.sleep(timeout)
     else:
-      s.close()
+      if s:
+        s.close()
       return True
   return False
