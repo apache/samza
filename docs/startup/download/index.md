@@ -23,6 +23,10 @@ Samza is released as a source artifact, and also through Maven.
 
 If you just want to play around with Samza for the first time, go to [Hello Samza](/startup/hello-samza/{{site.version}}).
 
+### JDK Notice
+
+Starting in June of 2015, Samza will begin requiring JDK7 or higher. Please see [this mailing list thread](http://mail-archives.apache.org/mod_mbox/samza-dev/201502.mbox/%3CCABYbY7eGFKgSgqAPot1qC8LjKu%3DKGYOLcNg3WuxfYzySAS-d1Q%40mail.gmail.com%3E) for details on this decision.
+
 ### Source Releases
 
  * [samza-sources-0.8.0-incubating.tgz](http://www.apache.org/dyn/closer.cgi/samza/0.8.0-incubating)
