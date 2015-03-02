@@ -67,7 +67,7 @@ class JobRunner(config: Config) extends Logging with Runnable {
     Option(job.waitForStatus(Running, 500)) match {
       case Some(appStatus) => {
         if (Running.equals(appStatus)) {
-          info("job started successfully")
+          info("job started successfully - " + appStatus)
         } else {
           warn("unable to start job successfully. job has status %s" format (appStatus))
         }

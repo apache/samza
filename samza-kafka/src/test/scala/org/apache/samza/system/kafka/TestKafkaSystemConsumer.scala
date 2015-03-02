@@ -35,7 +35,7 @@ class TestKafkaSystemConsumer {
   def testFetchThresholdShouldDivideEvenlyAmongPartitions {
     val metadataStore = new MockMetadataStore
     val consumer = new KafkaSystemConsumer("", new KafkaSystemConsumerMetrics, metadataStore, fetchThreshold = 50000) {
-      override def refreshBrokers(topicPartitionsAndOffsets: Map[TopicAndPartition, String]) {
+      override def refreshBrokers {
       }
     }
 

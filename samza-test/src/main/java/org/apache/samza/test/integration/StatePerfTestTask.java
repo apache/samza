@@ -29,6 +29,9 @@ import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.task.TaskCoordinator.RequestScope;
 
+/**
+ * A simple performance test that just reads in messages and writes them to a state store as quickly as possible and periodically prints out throughput numbers
+ */
 public class StatePerfTestTask implements StreamTask, InitableTask {
   
   private KeyValueStore<String, String> store;

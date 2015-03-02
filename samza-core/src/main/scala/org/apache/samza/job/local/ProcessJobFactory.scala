@@ -35,7 +35,7 @@ import org.apache.samza.coordinator.JobCoordinator
  * Creates a stand alone ProcessJob with the specified config.
  */
 class ProcessJobFactory extends StreamJobFactory with Logging {
-  def getJob(config: Config): StreamJob = {
+  def   getJob(config: Config): StreamJob = {
     val coordinator = JobCoordinator(config, 1)
     val containerModel = coordinator.jobModel.getContainers.get(0)
 
@@ -53,16 +53,16 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
           }
         }
       }
+      coordinator.start
 
       commandBuilder
         .setConfig(config)
         .setId(0)
-
-      coordinator.start
+        .setUrl(coordinator.server.getUrl)
 
       new ProcessJob(commandBuilder)
     } finally {
-      coordinator.stop
+//      coordinator.stop
     }
   }
 }

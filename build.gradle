@@ -87,6 +87,7 @@ rat {
     'samza-test/state/mystore/**',
     '**/README.md',
     'RELEASE.md',
+    'samza-test/src/main/resources/**'
   ]
 }
 
@@ -399,16 +400,10 @@ project(":samza-test_$scalaVersion") {
   }
 
   test {
-    // Bump up the heap so we can start ZooKeeper and Kafka brokers. Also
-    // required for TestSamzaContainerPerformance when a high thread count
-    // with a lot of inputs is used.
+    // Bump up the heap so we can run KV store tests.
     minHeapSize = "1560m"
     maxHeapSize = "1560m"
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
-
-    // Forward all samza.* system properties to test subprocesses. This is
-    // useful for configuring TestSamzaContainerPerformance from the CLI.
-    systemProperties = System.properties.findAll { it.key.startsWith("samza") }
   }
 
   tasks.create(name: "releaseTestJobs", dependsOn: configurations.archives.artifacts, type: Tar) {
@@ -417,6 +412,7 @@ project(":samza-test_$scalaVersion") {
     from(file("$projectDir/src/main/config")) { into "config/" }
     from(file("$projectDir/src/main/resources")) { into "lib/" }
     from(project(':samza-shell').file("src/main/bash")) { into "bin/" }
+    from(file("$projectDir/src/main/python/ghostface_killah.py")) { into "bin/"}
     from(project(':samza-shell').file("src/main/resources")) { into "lib/" }
     from(project(':samza-shell').file("src/main/resources/log4j-console.xml")) { into "bin/" }
     from '../LICENSE'

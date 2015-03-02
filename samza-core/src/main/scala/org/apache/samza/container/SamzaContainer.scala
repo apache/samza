@@ -78,7 +78,9 @@ object SamzaContainer extends Logging {
     // validate that we don't leak JMX non-daemon threads if we have an
     // exception in the main method.
     val containerId = System.getenv(ShellCommandConfig.ENV_CONTAINER_ID).toInt
+    logger.info("Got container ID: %s" format containerId)
     val coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL)
+    logger.info("Got coordinator URL: %s" format coordinatorUrl)
     val jobModel = readJobModel(coordinatorUrl)
     val containerModel = jobModel.getContainers()(containerId.toInt)
     val config = jobModel.getConfig

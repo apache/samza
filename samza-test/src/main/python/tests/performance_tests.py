@@ -22,9 +22,11 @@ from kafka import SimpleProducer, SimpleConsumer
 
 logger = logging.getLogger(__name__)
 
-JOB_ID = 'kafka-read-write-performance'
 PACKAGE_ID = 'tests'
-CONFIG_FILE = 'config/perf/kafka-read-write-performance.properties'
+KAFKA_JOB_ID = 'kafka-read-write-performance'
+KAFKA_CONFIG_FILE = 'config/perf/kafka-read-write-performance.properties'
+CONTAINER_JOB_ID = 'container-performance'
+CONTAINER_CONFIG_FILE = 'config/perf/container-performance.properties'
 TEST_INPUT_TOPIC = 'kafka-read-write-performance-input'
 TEST_OUTPUT_TOPIC = 'kafka-read-write-performance-output'
 NUM_MESSAGES = 1000000
@@ -36,8 +38,8 @@ def test_kafka_read_write_performance():
   writes/sec for the job is logged to the job's container.
   """
   _load_data()
-  util.start_job(PACKAGE_ID, JOB_ID, CONFIG_FILE)
-  util.await_job(PACKAGE_ID, JOB_ID)
+  util.start_job(PACKAGE_ID, KAFKA_JOB_ID, KAFKA_CONFIG_FILE)
+  util.await_job(PACKAGE_ID, KAFKA_JOB_ID)
 
 def validate_kafka_read_write_performance():
   """
@@ -58,6 +60,17 @@ def validate_kafka_read_write_performance():
   message_count = len(messages)
   assert NUM_MESSAGES == message_count, 'Expected {0} lines, but found {1}'.format(NUM_MESSAGES, message_count)
   kafka.close()
+
+def test_container_performance():
+  """
+  Runs TestPerformanceTask with a MockSystem to test how fast the 
+  SamzaContainer can go.
+  """
+  util.start_job(PACKAGE_ID, CONTAINER_JOB_ID, CONTAINER_CONFIG_FILE)
+  util.await_job(PACKAGE_ID, CONTAINER_JOB_ID)
+
+def validate_container_performance():
+  pass
 
 def _load_data():
   """

@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.system.kafka
 
 import kafka.common.TopicAndPartition
@@ -27,6 +28,8 @@ private[kafka] trait MessageSink {
   def addMessage(tp: TopicAndPartition, msg: MessageAndOffset, highWatermark: Long): Unit
 
   def abdicate(tp: TopicAndPartition, nextOffset: Long): Unit
-  
+
+  def refreshDropped(): Unit
+
   def needsMoreMessages(tp: TopicAndPartition): Boolean
 }

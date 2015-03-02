@@ -20,6 +20,7 @@
 package org.apache.samza.test.integration.join;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -31,9 +32,12 @@ import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.task.WindowableTask;
-import static java.lang.System.out;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Checker implements StreamTask, WindowableTask, InitableTask {
+  
+  private static Logger logger = LoggerFactory.getLogger(Checker.class);
 
   private static String CURRENT_EPOCH = "current-epoch";
   private KeyValueStore<String, String> store;
@@ -52,40 +56,56 @@ public class Checker implements StreamTask, WindowableTask, InitableTask {
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
     String key = (String) envelope.getKey();
     String epoch = (String) envelope.getMessage();
+    logger.info("Got key=" + key + ", epoch = " + epoch + " in checker...");
     checkEpoch(epoch);
     this.store.put(key, epoch);
   }
   
   @Override
   public void window(MessageCollector collector, TaskCoordinator coordinator) {
-    KeyValueIterator<String, String> iter = this.store.all();
     String currentEpoch = this.store.get(CURRENT_EPOCH);
-    out.println("Checking if epoch " + currentEpoch + " is complete.");
+    logger.info("Checking if epoch " + currentEpoch + " is complete.");
     int count = 0;
+    KeyValueIterator<String, String> iter = this.store.all();
+
     while(iter.hasNext()) {
-      String foundEpoch = iter.next().getValue();
-      if(foundEpoch.equals(currentEpoch))
-        count += 1;
+      Entry<String, String> entry= iter.next();
+      String foundEpoch = entry.getValue();
+      if(foundEpoch.equals(currentEpoch)) {
+          count += 1;
+      } else {
+          logger.info("####### Found a different epoch! - " + foundEpoch + " Current epoch is " + currentEpoch);
+      }
     }
     iter.close();
     if(count == expectedKeys + 1) {
-      out.println("Epoch " + currentEpoch + " is complete.");
+      logger.info("Epoch " + currentEpoch + " is complete.");
       int nextEpoch = Integer.parseInt(currentEpoch) + 1;
-      for(int i = 0; i < numPartitions; i++)
-        collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", "epoch"), i, Integer.toString(nextEpoch))); 
+      for(int i = 0; i < numPartitions; i++) {
+          logger.info("Emitting next epoch - " + Integer.toString(i) + " -> " + Integer.toString(nextEpoch));
+          collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", "epoch"), Integer.toString(i), Integer.toString(nextEpoch)));
+      }
+      this.store.put(CURRENT_EPOCH, Integer.toString(nextEpoch));
     } else if(count > expectedKeys + 1) {
       throw new IllegalStateException("Got " + count + " keys, which is more than the expected " + (expectedKeys + 1));
     } else {
-      out.println("Only found " + count + " valid keys, try again later.");
+      logger.info("Only found " + count + " valid keys, try again later.");
     }
   }
   
   private void checkEpoch(String epoch) {
     String curr = this.store.get(CURRENT_EPOCH);
-    if(curr == null)
+    if (curr == null)
       this.store.put(CURRENT_EPOCH, epoch);
-    else if(!curr.equals(epoch))
-      throw new IllegalArgumentException("Got epoch " + epoch + " but have not yet completed " + curr);
+    else {
+      int currentEpochInStore = Integer.parseInt(curr);
+      int currentEpochInMsg = Integer.parseInt(epoch);
+      if (currentEpochInMsg <= currentEpochInStore) {
+        if (currentEpochInMsg < currentEpochInStore)
+          logger.info("#### Ignoring received epoch = " + epoch + " less than what is in store " + curr);
+      } else { // should have curr > epoch
+        throw new IllegalArgumentException("Got epoch " + epoch + " but have not yet completed " + curr);
+      }
+    }
   }
-
 }

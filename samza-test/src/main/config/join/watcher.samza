@@ -17,15 +17,12 @@
 # under the License.
 
 # Job
-job.name=joiner
+job.name=watcher
 
 # Task
-task.class=samza.test.integration.join.Joiner
-task.inputs=kafka.emitted
+task.class=org.apache.samza.test.integration.join.Watcher
+task.inputs=kafka.epoch
 
-stores.joiner-state.factory=samza.storage.kv.KeyValueStorageEngineFactory
-stores.joiner-state.key.serde=string
-stores.joiner-state.msg.serde=string
-stores.joiner-state.changelog=kafka.checker-state
+task.window.ms=40000
 
-num.partitions=4
+max.time.between.epochs.ms=60000

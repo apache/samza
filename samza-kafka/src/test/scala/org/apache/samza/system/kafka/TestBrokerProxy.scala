@@ -51,6 +51,8 @@ class TestBrokerProxy extends Logging {
       val receivedMessages = new scala.collection.mutable.ListBuffer[(TopicAndPartition, MessageAndOffset, Boolean)]()
       def abdicate(tp: TopicAndPartition, nextOffset: Long) {}
 
+      def refreshDropped() {}
+
       def addMessage(tp: TopicAndPartition, msg: MessageAndOffset, highWatermark: Long) { receivedMessages.add((tp, msg, msg.offset.equals(highWatermark))) }
 
       def setIsAtHighWatermark(tp: TopicAndPartition, isAtHighWatermark: Boolean) {
