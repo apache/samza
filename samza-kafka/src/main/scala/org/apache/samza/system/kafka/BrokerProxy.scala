@@ -153,8 +153,9 @@ class BrokerProxy(
           },
 
           (exception, loop) => {
-            warn("Restarting consumer due to %s. Turn on debugging to get a full stack trace." format exception)
+            warn("Restarting consumer due to %s. Releasing ownership of all partitions, and restarting consumer. Turn on debugging to get a full stack trace." format exception)
             debug("Exception detail:", exception)
+            abdicateAll
             reconnect = true
           })
       } catch {
@@ -182,7 +183,6 @@ class BrokerProxy(
 
       nonErrorResponses.foreach { nonError => moveMessagesToTheirQueue(nonError.getKey, nonError.getValue) }
     } else {
-
       refreshLatencyMetrics
 
       debug("No topic/partitions need to be fetched for %s:%s right now. Sleeping %sms." format (host, port, sleepMSWhileNoTopicPartitions))
@@ -193,13 +193,27 @@ class BrokerProxy(
     }
   }
 
-  def handleErrors(errorResponses: mutable.Set[Entry[TopicAndPartition, FetchResponsePartitionData]], response:FetchResponse) = {
+  /**
+   * Releases ownership for a single TopicAndPartition. The 
+   * KafkaSystemConsumer will try and find a new broker for the 
+   * TopicAndPartition.
+   */
+  def abdicate(tp: TopicAndPartition) = removeTopicPartition(tp) match {
     // Need to be mindful of a tp that was removed by another thread
-    def abdicate(tp:TopicAndPartition) = removeTopicPartition(tp) match {
-        case Some(offset) => messageSink.abdicate(tp, offset)
-        case None         => warn("Tried to abdicate for topic partition not in map. Removed in interim?")
-      }
+    case Some(offset) => messageSink.abdicate(tp, offset)
+    case None => warn("Tried to abdicate for topic partition not in map. Removed in interim?")
+  }
 
+  /**
+   * Releases all TopicAndPartition ownership for this BrokerProxy thread. The 
+   * KafkaSystemConsumer will try and find a new broker for the 
+   * TopicAndPartition.
+   */
+  def abdicateAll {
+    nextOffsets.keySet.foreach(abdicate(_))
+  }
+
+  def handleErrors(errorResponses: mutable.Set[Entry[TopicAndPartition, FetchResponsePartitionData]], response:FetchResponse) = {
     // FetchResponse should really return Option and a list of the errors so we don't have to find them ourselves
     case class Error(tp: TopicAndPartition, code: Short, exception: Throwable)
 

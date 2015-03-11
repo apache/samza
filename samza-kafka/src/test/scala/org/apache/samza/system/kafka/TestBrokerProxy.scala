@@ -21,6 +21,7 @@
 package org.apache.samza.system.kafka
 
 import java.nio.ByteBuffer
+import java.nio.channels.ClosedChannelException
 import java.util.concurrent.CountDownLatch
 
 import kafka.api._
@@ -298,5 +299,63 @@ class TestBrokerProxy extends Logging {
     if(failString != null) {
       fail(failString)
     }
+  }
+
+  /**
+   * Test that makes sure that BrokerProxy abdicates all TopicAndPartitions 
+   * that it owns when a consumer failure occurs.
+   */
+  @Test def brokerProxyAbdicatesOnConnectionFailure():Unit = {
+    val countdownLatch = new CountDownLatch(1)
+    var abdicated: Option[TopicAndPartition] = None
+    @volatile var refreshDroppedCount = 0
+    val mockMessageSink = new MessageSink {
+      override def setIsAtHighWatermark(tp: TopicAndPartition, isAtHighWatermark: Boolean) {
+      }
+      override def addMessage(tp: TopicAndPartition, msg: MessageAndOffset, highWatermark: Long) {
+      }
+      override def abdicate(tp: TopicAndPartition, nextOffset: Long) {
+        abdicated = Some(tp)
+        countdownLatch.countDown
+      }
+      override def refreshDropped() {
+        refreshDroppedCount += 1
+      }
+      override def needsMoreMessages(tp: TopicAndPartition): Boolean = {
+        true
+      }
+    }
+
+    val doNothingMetrics = new KafkaSystemConsumerMetrics()
+    val tp = new TopicAndPartition("topic", 42)
+    val mockOffsetGetter = mock(classOf[GetOffset])
+    val mockSimpleConsumer = mock(classOf[DefaultFetchSimpleConsumer])
+
+    when(mockOffsetGetter.isValidOffset(any(classOf[DefaultFetchSimpleConsumer]), Matchers.eq(tp), Matchers.eq("0"))).thenReturn(true)
+    when(mockOffsetGetter.getResetOffset(any(classOf[DefaultFetchSimpleConsumer]), Matchers.eq(tp))).thenReturn(1492l)
+    when(mockSimpleConsumer.defaultFetch(any())).thenThrow(new SamzaException("Pretend this is a ClosedChannelException. Can't use ClosedChannelException because it's checked, and Mockito doesn't like that."))
+
+    val bp = new BrokerProxy("host", 567, "system", "clientID", doNothingMetrics, mockMessageSink, Int.MaxValue, 1024000, new StreamFetchSizes(256 * 1024), 524288, 1000, mockOffsetGetter) {
+      override def createSimpleConsumer() = {
+        mockSimpleConsumer
+      }
+    }
+
+    val waitForRefresh = () => {
+      val currentRefreshDroppedCount = refreshDroppedCount
+      while (refreshDroppedCount == currentRefreshDroppedCount) {
+        Thread.sleep(100)
+      }
+    }
+
+    bp.addTopicPartition(tp, Option("0"))
+    bp.start
+    // BP should refresh on startup.
+    waitForRefresh()
+    countdownLatch.await()
+    // BP should continue refreshing after it's abdicated all TopicAndPartitions.
+    waitForRefresh()
+    bp.stop
+    assertEquals(tp, abdicated.getOrElse(null))
   }
 }
