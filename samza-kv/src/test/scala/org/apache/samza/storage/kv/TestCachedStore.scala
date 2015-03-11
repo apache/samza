@@ -17,20 +17,19 @@
  * under the License.
  */
 
-package org.apache.samza.serializers
+package org.apache.samza.storage.kv
 
-import org.apache.samza.config.Config
+import org.junit.Test
+import org.junit.Assert._
+import org.mockito.Mockito._
 
-/**
- * A serializer for bytes that is effectively a no-op but can be useful for 
- * binary messages.
- */
-class ByteSerdeFactory extends SerdeFactory[Array[Byte]] {
-  def getSerde(name: String, config: Config): Serde[Array[Byte]] = new ByteSerde
-}
-
-class ByteSerde extends Serde[Array[Byte]] {
-  def toBytes(bytes: Array[Byte]) = bytes
-
-  def fromBytes(bytes: Array[Byte]) = bytes
+class TestCachedStore {
+  @Test
+  def testArrayCheck {
+    val kv = mock(classOf[KeyValueStore[Array[Byte], Array[Byte]]])
+    val store = new CachedStore[Array[Byte], Array[Byte]](kv, 100, 100)
+    assertFalse(store.hasArrayKeys)
+    store.put("test1-key".getBytes("UTF-8"), "test1-value".getBytes("UTF-8"))
+    assertTrue(store.hasArrayKeys)
+  }
 }

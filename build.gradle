@@ -317,6 +317,7 @@ project(":samza-kv_$scalaVersion") {
     compile project(":samza-core_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-all:$mockitoVersion"
   }
 }
 

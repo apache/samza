@@ -20,17 +20,30 @@
 package org.apache.samza.serializers
 
 import org.apache.samza.config.Config
+import java.nio.ByteBuffer
 
 /**
- * A serializer for bytes that is effectively a no-op but can be useful for 
+ * A serializer for bytes that is effectively a no-op but can be useful for
  * binary messages.
  */
-class ByteSerdeFactory extends SerdeFactory[Array[Byte]] {
-  def getSerde(name: String, config: Config): Serde[Array[Byte]] = new ByteSerde
+class ByteBufferSerdeFactory extends SerdeFactory[ByteBuffer] {
+  def getSerde(name: String, config: Config): Serde[ByteBuffer] = new ByteBufferSerde
 }
 
-class ByteSerde extends Serde[Array[Byte]] {
-  def toBytes(bytes: Array[Byte]) = bytes
+class ByteBufferSerde extends Serde[ByteBuffer] {
+  def toBytes(byteBuffer: ByteBuffer) = {
+    if (byteBuffer != null) {
+      val bytes = new Array[Byte](byteBuffer.remaining())
+      byteBuffer.get(bytes)
+      bytes
+    } else {
+      null
+    }
+  }
 
-  def fromBytes(bytes: Array[Byte]) = bytes
+  def fromBytes(bytes: Array[Byte]) = if (bytes != null) {
+    ByteBuffer.wrap(bytes)
+  } else {
+    null
+  }
 }

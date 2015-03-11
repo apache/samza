@@ -72,6 +72,9 @@ class CachedStore[K, V](
     }
   }
 
+  /** tracks whether an array has been used as a key. since this is dangerous with LinkedHashMap, we want to warn on it. **/
+  private var containsArrayKeys = false
+
   // Use counters here, rather than directly accessing variables using .size
   // since metrics can be accessed in other threads, and cache.size is not
   // thread safe since we're using a LinkedHashMap, and dirty.size is slow
@@ -108,6 +111,8 @@ class CachedStore[K, V](
 
   def put(key: K, value: V) {
     metrics.puts.inc
+
+    checkKeyIsArray(key)
 
     // Add the key to the front of the dirty list (and remove any prior
     // occurrences to dedupe).
@@ -194,6 +199,16 @@ class CachedStore[K, V](
 
     store.close
   }
+
+  private def checkKeyIsArray(key: K) {
+    if (!containsArrayKeys && key.isInstanceOf[Array[_]]) {
+      // Warn the first time that we see an array key.
+      warn("Using arrays as keys results in unpredictable behavior since cache is implemented with a map. Consider using ByteBuffer, or a different key type.")
+      containsArrayKeys = true
+    }
+  }
+
+  def hasArrayKeys = containsArrayKeys
 }
 
 private case class CacheEntry[K, V](var value: V, var dirty: mutable.DoubleLinkedList[K])

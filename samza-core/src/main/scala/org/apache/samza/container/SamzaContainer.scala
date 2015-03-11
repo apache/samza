@@ -121,6 +121,7 @@ object SamzaContainer extends Logging {
     }
     val serde = serdeName match {
       case "byte" => getSerde(classOf[ByteSerdeFactory].getCanonicalName)
+      case "bytebuffer" => getSerde(classOf[ByteBufferSerdeFactory].getCanonicalName)
       case "integer" => getSerde(classOf[IntegerSerdeFactory].getCanonicalName)
       case "json" => getSerde(classOf[JsonSerdeFactory].getCanonicalName)
       case "long" => getSerde(classOf[LongSerdeFactory].getCanonicalName)
