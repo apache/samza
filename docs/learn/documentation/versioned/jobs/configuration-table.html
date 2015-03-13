@@ -388,6 +388,19 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="task-log4j-location-info-enabled">task.log4j.location.info.enabled</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        Defines whether or not to include log4j's LocationInfo data in Log4j StreamAppender messages. LocationInfo includes
+                        information such as the file, class, and line that wrote a log message. This setting is only active if the Log4j 
+                        stream appender is being used. (See <a href="logging.html#stream-log4j-appender">Stream Log4j Appender</a>)
+                        <dl>
+                            <dt>Example: <code>task.log4j.location.info.enabled=true</code></dt>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="task-poll-interval-ms">task.poll.interval.ms</td>
                     <td class="default"></td>
                     <td class="description">

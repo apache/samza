@@ -190,6 +190,7 @@ project(':samza-log4j') {
     compile "log4j:log4j:$log4jVersion"
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
+    compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     testCompile "junit:junit:$junitVersion"
   }
 }

@@ -28,12 +28,45 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.logging.log4j.serializers.LoggingEventJsonSerde;
+import org.apache.samza.logging.log4j.serializers.LoggingEventStringSerde;
 import org.apache.samza.logging.log4j.serializers.LoggingEventStringSerdeFactory;
 import org.junit.Test;
 
 public class TestStreamAppender {
 
   static Logger log = Logger.getLogger(TestStreamAppender.class);
+
+  @Test
+  public void testDefaultSerde() {
+    System.setProperty("samza.container.name", "samza-container-1");
+    MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
+    PatternLayout layout = new PatternLayout();
+    layout.setConversionPattern("%m");
+    systemProducerAppender.setLayout(layout);
+    systemProducerAppender.activateOptions();
+    assertNotNull(systemProducerAppender.getSerde());
+    assertEquals(LoggingEventJsonSerde.class, systemProducerAppender.getSerde().getClass());
+  }
+
+  @Test
+  public void testNonDefaultSerde() {
+    System.setProperty("samza.container.name", "samza-container-1");
+    String streamName = StreamAppender.getStreamName("log4jTest", "1");
+    Map<String, String> map = new HashMap<String, String>();
+    map.put("job.name", "log4jTest");
+    map.put("job.id", "1");
+    map.put("serializers.registry.log4j-string.class", LoggingEventStringSerdeFactory.class.getCanonicalName());
+    map.put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName());
+    map.put("systems.mock.streams." + streamName + ".samza.msg.serde", "log4j-string");
+    MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender(new MapConfig(map));
+    PatternLayout layout = new PatternLayout();
+    layout.setConversionPattern("%m");
+    systemProducerAppender.setLayout(layout);
+    systemProducerAppender.activateOptions();
+    assertNotNull(systemProducerAppender.getSerde());
+    assertEquals(LoggingEventStringSerde.class, systemProducerAppender.getSerde().getClass());
+  }
 
   @Test
   public void testSystemProducerAppender() {
@@ -51,8 +84,8 @@ public class TestStreamAppender {
     systemProducerAppender.flushSystemProducer();
 
     assertEquals(2, MockSystemProducer.messagesReceived.size());
-    assertEquals("testing", new String((byte[])MockSystemProducer.messagesReceived.get(0)));
-    assertEquals("testing2", new String((byte[])MockSystemProducer.messagesReceived.get(1)));
+    assertTrue(new String((byte[]) MockSystemProducer.messagesReceived.get(0)).contains("\"message\":\"testing\""));
+    assertTrue(new String((byte[]) MockSystemProducer.messagesReceived.get(1)).contains("\"message\":\"testing2\""));
   }
 
   /**
@@ -61,13 +94,22 @@ public class TestStreamAppender {
    * stays is difficult to test.
    */
   class MockSystemProducerAppender extends StreamAppender {
-    @Override
-    protected Config getConfig() {
+    private final Config config;
+
+    public MockSystemProducerAppender() {
       Map<String, String> map = new HashMap<String, String>();
       map.put("job.name", "log4jTest");
       map.put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName());
-      map.put("systems.mock.samza.msg.serde", "log4j");
-      return new MapConfig(map);
+      config = new MapConfig(map);
+    }
+
+    public MockSystemProducerAppender(Config config) {
+      this.config = config;
+    }
+
+    @Override
+    protected Config getConfig() {
+      return config;
     }
   }
 }

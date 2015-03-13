@@ -20,9 +20,8 @@
 package org.apache.samza.config;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
-
-import org.apache.samza.logging.log4j.serializers.LoggingEventStringSerdeFactory;
 
 /**
  * This class contains the methods for getting properties that are needed by the
@@ -30,6 +29,7 @@ import org.apache.samza.logging.log4j.serializers.LoggingEventStringSerdeFactory
  */
 public class Log4jSystemConfig {
 
+  private static final String LOCATION_ENABLED = "task.log4j.location.info.enabled";
   private static final String TASK_LOG4J_SYSTEM = "task.log4j.system";
   private static final String SYSTEM_PREFIX = "systems.";
   private static final String SYSTEM_FACTORY_SUFFIX = ".samza.factory";
@@ -41,30 +41,42 @@ public class Log4jSystemConfig {
   }
 
   /**
+   * Defines whether or not to include file location information for Log4J
+   * appender messages. File location information includes the method, line
+   * number, class, etc.
+   * 
+   * @return If true, will include file location (method, line number, etc)
+   *         information in Log4J appender messages.
+   */
+  public boolean getLocationEnabled() {
+    return "true".equals(config.get(Log4jSystemConfig.LOCATION_ENABLED, "false"));
+  }
+
+  /**
    * Get the log4j system name from the config. If it's not defined, try to
    * guess the system name if there is only one system is defined.
    *
    * @return log4j system name
    */
   public String getSystemName() {
-    String log4jSystem = getValue(TASK_LOG4J_SYSTEM);
+    String log4jSystem = config.get(TASK_LOG4J_SYSTEM, null);
     if (log4jSystem == null) {
-      ArrayList<String> systemNames = getSystemNames();
+      List<String> systemNames = getSystemNames();
       if (systemNames.size() == 1) {
         log4jSystem = systemNames.get(0);
       } else {
-        throw new ConfigException("Missing task.log4j.system configuration, and more than 1 systems were found.");
+        throw new ConfigException("Missing " + TASK_LOG4J_SYSTEM + " configuration, and more than 1 systems were found.");
       }
     }
     return log4jSystem;
   }
 
   public String getJobName() {
-    return getValue(JobConfig.JOB_NAME());
+    return config.get(JobConfig.JOB_NAME(), null);
   }
 
   public String getJobId() {
-    return getValue(JobConfig.JOB_ID());
+    return config.get(JobConfig.JOB_ID(), null);
   }
 
   public String getSystemFactory(String name) {
@@ -72,47 +84,24 @@ public class Log4jSystemConfig {
       return null;
     }
     String systemFactory = String.format(SystemConfig.SYSTEM_FACTORY(), name);
-    return getValue(systemFactory);
+    return config.get(systemFactory, null);
   }
 
   /**
-   * get the class name according to the serde name. If the serde name is "log4j" and
-   * the serde class is not configured, will use the default {@link LoggingEventStringSerdeFactory}
+   * Get the class name according to the serde name.
    * 
-   * @param name serde name
-   * @return serde factory name
+   * @param name
+   *          serde name
+   * @return serde factory name, or null if there is no factory defined for the
+   *         supplied serde name.
    */
   public String getSerdeClass(String name) {
-    String className = getValue(String.format(SerializerConfig.SERDE(), name));
-    if (className == null && name.equals("log4j")) {
-      className = LoggingEventStringSerdeFactory.class.getCanonicalName();
-    }
-    return className;
-  }
-
-  public String getSystemSerdeName(String name) {
-    String systemSerdeNameConfig = String.format(SystemConfig.MSG_SERDE(), name);
-    return getValue(systemSerdeNameConfig);
+    return config.get(String.format(SerializerConfig.SERDE(), name), null);
   }
 
   public String getStreamSerdeName(String systemName, String streamName) {
     String streamSerdeNameConfig = String.format(StreamConfig.MSG_SERDE(), systemName, streamName);
-    return getValue(streamSerdeNameConfig);
-  }
-
-  /**
-   * A helper method to get the value from the config. If the config does not
-   * contain the key, return null.
-   *
-   * @param key key name
-   * @return value of the key in the config
-   */
-  protected String getValue(String key) {
-    if (config.containsKey(key)) {
-      return config.get(key);
-    } else {
-      return null;
-    }
+    return config.get(streamSerdeNameConfig, null);
   }
 
   /**
@@ -120,7 +109,7 @@ public class Log4jSystemConfig {
    * 
    * @return A list system names
    */
-  protected ArrayList<String> getSystemNames() {
+  protected List<String> getSystemNames() {
     Config subConf = config.subset(SYSTEM_PREFIX, true);
     ArrayList<String> systemNames = new ArrayList<String>();
     for (Map.Entry<String, String> entry : subConf.entrySet()) {
