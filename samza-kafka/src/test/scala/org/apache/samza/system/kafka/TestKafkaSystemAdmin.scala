@@ -22,9 +22,7 @@
 package org.apache.samza.system.kafka
 
 import java.util.Properties
-
 import kafka.admin.AdminUtils
-import kafka.common.ErrorMapping
 import kafka.consumer.Consumer
 import kafka.consumer.ConsumerConfig
 import kafka.server.KafkaConfig
@@ -34,7 +32,6 @@ import kafka.utils.TestZKUtils
 import kafka.utils.Utils
 import kafka.utils.ZKStringSerializer
 import kafka.zk.EmbeddedZookeeper
-
 import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.Partition
 import org.apache.samza.system.SystemStreamMetadata
@@ -45,11 +42,12 @@ import org.apache.samza.util.ClientUtilTopicMetadataStore
 import org.apache.samza.util.TopicMetadataStore
 import org.junit.Assert._
 import org.junit.{Test, BeforeClass, AfterClass}
-
 import scala.collection.JavaConversions._
 import org.apache.samza.config.KafkaProducerConfig
 import org.apache.kafka.clients.producer.{ProducerRecord, KafkaProducer}
 import java.util
+import kafka.common.ErrorMapping
+import org.apache.samza.util.KafkaUtil
 
 object TestKafkaSystemAdmin {
   val TOPIC = "input"
@@ -113,7 +111,7 @@ object TestKafkaSystemAdmin {
         val topicMetadata = topicMetadataMap(TOPIC)
         val errorCode = topicMetadata.errorCode
 
-        ErrorMapping.maybeThrowException(errorCode)
+        KafkaUtil.maybeThrowException(errorCode)
 
         done = expectedPartitionCount == topicMetadata.partitionsMetadata.size
       } catch {

@@ -34,6 +34,7 @@ import org.apache.samza.util.ThreadNamePrefix.SAMZA_THREAD_NAME_PREFIX
 import scala.collection.JavaConversions._
 import scala.collection.concurrent
 import scala.collection.mutable
+import org.apache.samza.util.KafkaUtil
 
 /**
  *  Companion object for class JvmMetrics encapsulating various constants
@@ -235,7 +236,7 @@ class BrokerProxy(
     // handle the recoverable errors.
     remainingErrors.foreach(e => {
       warn("Got non-recoverable error codes during multifetch. Throwing an exception to trigger reconnect. Errors: %s" format remainingErrors.mkString(","))
-      ErrorMapping.maybeThrowException(e.code) })
+      KafkaUtil.maybeThrowException(e.code) })
 
     notLeaderOrUnknownTopic.foreach(e => abdicate(e.tp))
 

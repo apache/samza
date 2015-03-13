@@ -28,12 +28,13 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, Logging}
 import kafka.api._
 import kafka.consumer.SimpleConsumer
-import kafka.common.{TopicExistsException, TopicAndPartition, ErrorMapping}
+import kafka.common.{TopicExistsException, TopicAndPartition}
 import java.util.{Properties, UUID}
 import scala.collection.JavaConversions._
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import kafka.consumer.ConsumerConfig
 import kafka.admin.AdminUtils
+import org.apache.samza.util.KafkaUtil
 
 object KafkaSystemAdmin extends Logging {
   /**
@@ -222,12 +223,11 @@ class KafkaSystemAdmin(
       .values
       // Convert the topic metadata to a Seq[(Broker, TopicAndPartition)] 
       .flatMap(topicMetadata => {
-        ErrorMapping.maybeThrowException(topicMetadata.errorCode)
+        KafkaUtil.maybeThrowException(topicMetadata.errorCode)
         topicMetadata
           .partitionsMetadata
           // Convert Seq[PartitionMetadata] to Seq[(Broker, TopicAndPartition)]
           .map(partitionMetadata => {
-            ErrorMapping.maybeThrowException(partitionMetadata.errorCode)
             val topicAndPartition = new TopicAndPartition(topicMetadata.topic, partitionMetadata.partitionId)
             val leader = partitionMetadata
               .leader
@@ -263,7 +263,7 @@ class KafkaSystemAdmin(
       .getOffsetsBefore(new OffsetRequest(partitionOffsetInfo))
       .partitionErrorAndOffsets
       .mapValues(partitionErrorAndOffset => {
-        ErrorMapping.maybeThrowException(partitionErrorAndOffset.error)
+        KafkaUtil.maybeThrowException(partitionErrorAndOffset.error)
         partitionErrorAndOffset.offsets.head
       })
 
@@ -320,7 +320,7 @@ class KafkaSystemAdmin(
         val metadataStore = new ClientUtilTopicMetadataStore(brokerListString, clientId, timeout)
         val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topicName), systemName, metadataStore.getTopicInfo)
         val topicMetadata = topicMetadataMap(topicName)
-        ErrorMapping.maybeThrowException(topicMetadata.errorCode)
+        KafkaUtil.maybeThrowException(topicMetadata.errorCode)
 
         val partitionCount = topicMetadata.partitionsMetadata.length
         if (partitionCount < numKafkaChangelogPartitions) {
