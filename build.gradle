@@ -175,6 +175,11 @@ project(":samza-kafka_$scalaVersion") {
     minHeapSize = "1560m"
     maxHeapSize = "1560m"
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
+    // There appear to be issues between TestKafkaSystemAdmin and 
+    // TestKafkaCheckpointManager both running brokeres and ZK. Restarting the 
+    // gradle worker after every test clears things up. These tests should be
+    // moved to the integration test suite.
+    forkEvery = 1
   }
 }
 
