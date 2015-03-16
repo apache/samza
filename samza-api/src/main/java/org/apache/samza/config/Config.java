@@ -33,6 +33,9 @@ import java.util.regex.Pattern;
  * Store and retrieve named, typed values as configuration for classes implementing this interface.
  */
 public abstract class Config implements Map<String, String> {
+  public static final String SENSITIVE_PREFIX = "sensitive.";
+  public static final String SENSITIVE_MASK = "********";
+
   public Config subset(String prefix) {
     return subset(prefix, true);
   }
@@ -220,6 +223,8 @@ public abstract class Config implements Map<String, String> {
       throw new ConfigException("Date format exception.", e);
     }
   }
+
+  public abstract Config sanitize();
 
   public void clear() {
     throw new ConfigException("Config is immutable.");

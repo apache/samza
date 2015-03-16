@@ -58,6 +58,9 @@ Configuration keys that absolutely must be defined for a Samza job are:
 
 ### Configuration Keys
 
-A complete list of configuration keys can be found on the [Configuration Table](configuration-table.html) page.
+A complete list of configuration keys can be found on the [Configuration Table](configuration-table.html) page.  Note
+that configuration keys prefixed with "sensitive." are treated specially, in that the values associated with such keys
+will be masked in logs and Samza's YARN ApplicationMaster UI.  This is to prevent accidental disclosure only; no
+encryption is done.
 
 ## [Packaging &raquo;](packaging.html)

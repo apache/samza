@@ -37,7 +37,7 @@ class ApplicationMasterWebServlet(config: Config, state: SamzaAppMasterState) ex
 
   get("/") {
     layoutTemplate("/WEB-INF/views/index.scaml",
-      "config" -> TreeMap(config.toMap.toArray: _*),
+      "config" -> TreeMap(config.sanitize.toMap.toArray: _*),
       "state" -> state,
       "rmHttpAddress" -> WebAppUtils.getRMWebAppURLWithScheme(yarnConfig))
   }

@@ -31,11 +31,11 @@ import java.util.Set;
  */
 public class MapConfig extends Config {
   private final Map<String, String> map;
-  
+
   public MapConfig() {
     this.map = Collections.emptyMap();
   }
-  
+
   public MapConfig(Map<String, String> map) {
     this(Collections.singletonList(map));
   }
@@ -79,6 +79,21 @@ public class MapConfig extends Config {
   }
 
   @Override
+  public Config sanitize() {
+    return new MapConfig(sanitizeMap());
+  }
+
+  private Map<String, String> sanitizeMap() {
+    Map<String, String> sanitized = new HashMap<String, String>(map);
+    for (Entry<String, String> entry : sanitized.entrySet()) {
+      if (entry.getKey().startsWith(SENSITIVE_PREFIX)) {
+        entry.setValue(SENSITIVE_MASK);
+      }
+    }
+    return sanitized;
+  }
+
+  @Override
   public int hashCode() {
     final int prime = 31;
     int result = 1;
@@ -105,6 +120,6 @@ public class MapConfig extends Config {
 
   @Override
   public String toString() {
-    return map.toString();
+    return sanitizeMap().toString();
   }
 }
