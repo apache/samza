@@ -65,6 +65,10 @@ class TaskInstance(
       null
     }
     def getTaskName = taskName
+
+    override def setStartingOffset(ssp: SystemStreamPartition, offset: String): Unit = {
+      offsetManager.startingOffsets += (ssp -> offset)
+    }
   }
 
   def registerMetrics {

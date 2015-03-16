@@ -40,12 +40,7 @@ import org.apache.samza.system.SystemStreamMetadata
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.chooser.RoundRobinChooser
-import org.apache.samza.task.MessageCollector
-import org.apache.samza.task.ReadableCoordinator
-import org.apache.samza.task.StreamTask
-import org.apache.samza.task.TaskCoordinator
-import org.apache.samza.task.TaskInstanceCollector
-import org.apache.samza.task.WindowableTask
+import org.apache.samza.task._
 import org.junit.Assert._
 import org.junit.Test
 import org.scalatest.Assertions.intercept
@@ -239,5 +234,55 @@ class TestTaskInstance {
     assertEquals(1L, getCount(group, classOf[TroublesomeException].getName))
     assertEquals(2L, getCount(group, classOf[NonFatalException].getName))
     assertEquals(1L, getCount(group, classOf[FatalException].getName))
+  }
+
+
+  /**
+   * Tests that the init() method of task can override the existing offset
+   * assignment.
+   */
+  @Test
+  def testManualOffsetReset {
+
+    val partition0 = new SystemStreamPartition("system", "stream", new Partition(0))
+    val partition1 = new SystemStreamPartition("system", "stream", new Partition(1))
+
+    val task = new StreamTask with InitableTask {
+
+      override def init(config: Config, context: TaskContext): Unit = {
+
+        assertTrue("Can only update offsets for assigned partition",
+          context.getSystemStreamPartitions.contains(partition1)
+        )
+
+        context.setStartingOffset(partition1, "10")
+      }
+
+      override def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator): Unit = {}
+    }
+
+    val chooser = new RoundRobinChooser()
+    val consumers = new SystemConsumers(chooser, consumers = Map.empty)
+    val producers = new SystemProducers(Map.empty, new SerdeManager())
+    val collector = new TaskInstanceCollector(producers)
+
+    val offsetManager = new OffsetManager()
+
+    offsetManager.startingOffsets ++= Map(partition0 -> "0", partition1 -> "0")
+
+    val taskInstance = new TaskInstance(
+      task = task,
+      taskName = new TaskName("Offset Reset Task 0"),
+      config = new MapConfig(),
+      metrics = new TaskInstanceMetrics(),
+      consumerMultiplexer = consumers,
+      collector = collector,
+      offsetManager = offsetManager,
+      systemStreamPartitions = Set(partition0, partition1) )
+
+    taskInstance.initTask
+
+    assertEquals(Some("0"), offsetManager.getStartingOffset(partition0))
+    assertEquals(Some("10"), offsetManager.getStartingOffset(partition1))
   }
 }

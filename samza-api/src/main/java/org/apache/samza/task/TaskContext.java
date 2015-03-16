@@ -37,4 +37,14 @@ public interface TaskContext {
   Object getStore(String name);
 
   TaskName getTaskName();
+
+  /**
+   * Set the starting offset for the given {@link org.apache.samza.system.SystemStreamPartition}. Offsets
+   * can only be set for a {@link org.apache.samza.system.SystemStreamPartition} assigned to this task
+   * (as returned by {@link #getSystemStreamPartitions()}); trying to set the offset for any other partition
+   * will have no effect.
+   *
+   * NOTE: this feature is experimental, and the API may change in a future release.
+   */
+  void setStartingOffset(SystemStreamPartition ssp, String offset);
 }
