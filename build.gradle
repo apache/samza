@@ -145,6 +145,9 @@ project(":samza-core_$scalaVersion") {
 project(":samza-kafka_$scalaVersion") {
   apply plugin: 'scala'
 
+  sourceSets.test.scala.srcDir "src/test/java"
+  sourceSets.test.java.srcDirs = []
+
   configurations {
     // Remove transitive dependencies from Zookeeper that we don't want.
     compile.exclude group: 'javax.jms', module: 'jms'
