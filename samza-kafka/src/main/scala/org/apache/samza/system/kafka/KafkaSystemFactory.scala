@@ -25,9 +25,18 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.config.KafkaConfig.Config2Kafka
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.system.SystemFactory
+import org.apache.samza.config.StorageConfig._
 import org.I0Itec.zkclient.ZkClient
 import kafka.utils.ZKStringSerializer
 
+object KafkaSystemFactory extends Logging {
+  def getInjectedProducerProperties(systemName: String, config: Config) = if (config.isChangelogSystem(systemName)) {
+    warn("System name '%s' is being used as a changelog. Disabling compression since Kafka does not support compression for log compacted topics." format systemName)
+    Map[String, String]("compression.type" -> "none")
+  } else {
+    Map[String, String]()
+  }
+}
 
 class KafkaSystemFactory extends SystemFactory with Logging {
   def getConsumer(systemName: String, config: Config, registry: MetricsRegistry) = {
@@ -66,7 +75,8 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry) = {
     val clientId = KafkaUtil.getClientId("samza-producer", config)
-    val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
+    val injectedProps = KafkaSystemFactory.getInjectedProducerProperties(systemName, config)
+    val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId, injectedProps)
     val getProducer = () => { new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties) }
     val metrics = new KafkaSystemProducerMetrics(systemName, registry)
 

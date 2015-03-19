@@ -43,8 +43,8 @@ object KafkaCheckpointManagerFactory {
   val INJECTED_PRODUCER_PROPERTIES = Map(
     "acks" -> "all",
     // Forcibly disable compression because Kafka doesn't support compression
-    // on log compacted topics. Details in SAMZA-393.
-    "compression.codec" -> "none")
+    // on log compacted topics. Details in SAMZA-586.
+    "compression.type" -> "none")
 
   // Set the checkpoint topic configs to have a very small segment size and
   // enable log compaction. This keeps job startup time small since there 
