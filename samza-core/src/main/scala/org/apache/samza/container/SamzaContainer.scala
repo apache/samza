@@ -541,8 +541,8 @@ class SamzaContainer(
       startMetrics
       startOffsetManager
       startStores
-      startTask
       startProducers
+      startTask
       startConsumers
 
       info("Entering run loop.")
@@ -555,8 +555,8 @@ class SamzaContainer(
       info("Shutting down.")
 
       shutdownConsumers
-      shutdownProducers
       shutdownTask
+      shutdownProducers
       shutdownStores
       shutdownOffsetManager
       shutdownMetrics
