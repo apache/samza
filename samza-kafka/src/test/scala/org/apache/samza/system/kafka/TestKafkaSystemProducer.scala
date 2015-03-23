@@ -133,8 +133,8 @@ class TestKafkaSystemProducer {
     assertEquals(1, mockProducer.getMsgsSent)
     mockProducer.startDelayedSendThread(2000)
     val thrown = intercept[SamzaException] {
-                                             systemProducer.flush("test")
-                                           }
+      systemProducer.flush("test")
+    }
     assertTrue(thrown.isInstanceOf[SamzaException])
     assertEquals(2, mockProducer.getMsgsSent)
     systemProducer.stop()
@@ -162,9 +162,36 @@ class TestKafkaSystemProducer {
        producer.send("test", msg4)
     }
     assertTrue(thrown.isInstanceOf[SamzaException])
-    assertTrue(thrown.getMessage.contains("RecordTooLargeException"))
+    assertTrue(thrown.getCause.isInstanceOf[RecordTooLargeException])
     assertEquals(true, producer.sendFailed.get())
     assertEquals(3, mockProducer.getMsgsSent)
     producer.stop()
+  }
+
+  @Test
+  def testKafkaProducerFlushMsgsWhenStop {
+    val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a".getBytes)
+    val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b".getBytes)
+    val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
+    val msg4 = new OutgoingMessageEnvelope(new SystemStream("test2", "test"), "d".getBytes)
+
+    val mockProducer = new MockKafkaProducer(1, "test", 1)
+    val systemProducer = new KafkaSystemProducer(systemName = "test",
+                                                 getProducer = () => mockProducer,
+                                                 metrics = new KafkaSystemProducerMetrics)
+    systemProducer.register("test")
+    systemProducer.register("test2")
+    systemProducer.start()
+    systemProducer.send("test", msg1)
+
+    mockProducer.setShouldBuffer(true)
+    systemProducer.send("test", msg2)
+    systemProducer.send("test", msg3)
+    systemProducer.send("test2", msg4)
+    assertEquals(1, mockProducer.getMsgsSent)
+    mockProducer.startDelayedSendThread(2000)
+    assertEquals(1, mockProducer.getMsgsSent)
+    systemProducer.stop()
+    assertEquals(4, mockProducer.getMsgsSent)
   }
 }
