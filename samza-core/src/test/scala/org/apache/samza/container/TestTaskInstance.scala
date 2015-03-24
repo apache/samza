@@ -69,6 +69,7 @@ class TestTaskInstance {
     val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
     val taskName = new TaskName("taskName")
     val collector = new TaskInstanceCollector(producerMultiplexer)
+    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
     val taskInstance: TaskInstance = new TaskInstance(
       task,
       taskName,
@@ -76,6 +77,7 @@ class TestTaskInstance {
       new TaskInstanceMetrics,
       consumerMultiplexer,
       collector,
+      containerContext,
       offsetManager)
     // Pretend we got a message with offset 2 and next offset 3.
     val coordinator = new ReadableCoordinator(taskName)
@@ -159,6 +161,7 @@ class TestTaskInstance {
     val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
     val taskName = new TaskName("taskName")
     val collector = new TaskInstanceCollector(producerMultiplexer)
+    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
 
     val registry = new MetricsRegistryMap
     val taskMetrics = new TaskInstanceMetrics(registry = registry)
@@ -169,6 +172,7 @@ class TestTaskInstance {
       taskMetrics,
       consumerMultiplexer,
       collector,
+      containerContext,
       offsetManager,
       exceptionHandler = TaskInstanceExceptionHandler(taskMetrics, config))
 
@@ -211,6 +215,7 @@ class TestTaskInstance {
     val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
     val taskName = new TaskName("taskName")
     val collector = new TaskInstanceCollector(producerMultiplexer)
+    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
 
     val registry = new MetricsRegistryMap
     val taskMetrics = new TaskInstanceMetrics(registry = registry)
@@ -221,6 +226,7 @@ class TestTaskInstance {
       taskMetrics,
       consumerMultiplexer,
       collector,
+      containerContext,
       offsetManager,
       exceptionHandler = TaskInstanceExceptionHandler(taskMetrics, config))
 
@@ -261,23 +267,28 @@ class TestTaskInstance {
       override def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator): Unit = {}
     }
 
+    val config = new MapConfig()
     val chooser = new RoundRobinChooser()
     val consumers = new SystemConsumers(chooser, consumers = Map.empty)
     val producers = new SystemProducers(Map.empty, new SerdeManager())
+    val metrics = new TaskInstanceMetrics()
+    val taskName = new TaskName("Offset Reset Task 0")
     val collector = new TaskInstanceCollector(producers)
+    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
 
     val offsetManager = new OffsetManager()
 
     offsetManager.startingOffsets ++= Map(partition0 -> "0", partition1 -> "0")
 
     val taskInstance = new TaskInstance(
-      task = task,
-      taskName = new TaskName("Offset Reset Task 0"),
-      config = new MapConfig(),
-      metrics = new TaskInstanceMetrics(),
-      consumerMultiplexer = consumers,
-      collector = collector,
-      offsetManager = offsetManager,
+      task,
+      taskName,
+      config,
+      metrics,
+      consumers,
+      collector,
+      containerContext,
+      offsetManager,
       systemStreamPartitions = Set(partition0, partition1) )
 
     taskInstance.initTask

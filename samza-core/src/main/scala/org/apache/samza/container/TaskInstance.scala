@@ -46,6 +46,7 @@ class TaskInstance(
   metrics: TaskInstanceMetrics,
   consumerMultiplexer: SystemConsumers,
   collector: TaskInstanceCollector,
+  containerContext: SamzaContainerContext,
   offsetManager: OffsetManager = new OffsetManager,
   storageManager: TaskStorageManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
@@ -65,6 +66,7 @@ class TaskInstance(
       null
     }
     def getTaskName = taskName
+    def getSamzaContainerContext = containerContext
 
     override def setStartingOffset(ssp: SystemStreamPartition, offset: String): Unit = {
       offsetManager.startingOffsets += (ssp -> offset)

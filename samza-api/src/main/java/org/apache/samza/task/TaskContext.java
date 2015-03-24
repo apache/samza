@@ -19,6 +19,7 @@
 
 package org.apache.samza.task;
 
+import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.SystemStreamPartition;
@@ -37,6 +38,8 @@ public interface TaskContext {
   Object getStore(String name);
 
   TaskName getTaskName();
+
+  SamzaContainerContext getSamzaContainerContext();
 
   /**
    * Set the starting offset for the given {@link org.apache.samza.system.SystemStreamPartition}. Offsets
