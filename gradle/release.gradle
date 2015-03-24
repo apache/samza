@@ -27,7 +27,7 @@ task sourceRelease(type: Tar) {
   description = "Build a source release, specifically excluding the build directories and gradle wrapper files"
   compression = Compression.GZIP
 
-  baseName = "apache-samza-${project.version}-incubating-src"
+  baseName = "apache-samza-${project.version}-src"
 
   from(project.rootDir) {
     exclude '**/build'
@@ -68,7 +68,7 @@ subprojects {
 
   modifyPom {
     project {
-      name 'Apache Samza (incubating)'
+      name 'Apache Samza'
       description 'A distributed stream processing framework built upon Apache Kafka and Apache Hadoop YARN.'
       url 'http://samza.apache.org/'
 
