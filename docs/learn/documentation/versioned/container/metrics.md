@@ -95,7 +95,7 @@ public class MyJavaStreamTask implements StreamTask, InitableTask {
 }
 {% endhighlight %}
 
-Samza currently supports two kind of metrics: [counters](../api/javadocs/org/apache/samza/metrics/Counter.html) and [gauges](../api/javadocs/org/apache/samza/metrics/Gauge.html). Use a counter when you want to track how often something occurs, and a gauge when you want to report the level of something, such as the size of a buffer. Each task instance (for each input stream partition) gets its own set of metrics.
+Samza currently supports three kinds of metrics: [counters](../api/javadocs/org/apache/samza/metrics/Counter.html), [gauges](../api/javadocs/org/apache/samza/metrics/Gauge.html) and [timer](../api/javadocs/org/apache/samza/metrics/Timer.html). Use a counter when you want to track how often something occurs, a gauge when you want to report the level of something, such as the size of a buffer, and a timer when you want to know how much time the block of code spends. Each task instance (for each input stream partition) gets its own set of metrics.
 
 If you want to report metrics in some other way, e.g. directly to a graphing system (without going via Kafka), you can implement a [MetricsReporterFactory](../api/javadocs/org/apache/samza/metrics/MetricsReporterFactory.html) and reference it in your job configuration.
 
