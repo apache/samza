@@ -38,4 +38,11 @@ class TestKafkaSerdeConfig {
     assertEquals(MAGIC_VAL, config.getKafkaEncoder("test").getOrElse(""))
     assertEquals(MAGIC_VAL, config.getKafkaDecoder("test").getOrElse(""))
   }
+
+  @Test
+  def testKafkaConfigurationProperties {
+    val properties = config.getKafkaProperties("test")
+    assertEquals(MAGIC_VAL, properties.getString("encoder"))
+    assertEquals(MAGIC_VAL, properties.getString("decoder"))
+  }
 }

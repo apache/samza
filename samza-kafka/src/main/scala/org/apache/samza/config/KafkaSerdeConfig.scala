@@ -19,6 +19,10 @@
 
 package org.apache.samza.config
 
+import java.util.Properties
+
+import kafka.utils.VerifiableProperties
+
 object KafkaSerdeConfig {
   // kafka serde config constants
   val ENCODER = SerializerConfig.SERIALIZER_PREFIX + ".encoder"
@@ -33,4 +37,12 @@ class KafkaSerdeConfig(config: Config) extends ScalaMapConfig(config) {
 
   def getKafkaDecoder(serializer: String) =
     getOption(KafkaSerdeConfig.DECODER format serializer)
+
+  def getKafkaProperties(serializer: String) = {
+    val properties = new Properties();
+    val prefix = SerializerConfig.SERIALIZER_PREFIX format serializer + "."
+    properties.putAll(config.subset(prefix, true))
+
+    new VerifiableProperties(properties);
+  }
 }
