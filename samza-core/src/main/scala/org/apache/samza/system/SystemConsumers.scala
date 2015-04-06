@@ -290,9 +290,12 @@ class SystemConsumers(
         Some(serdeManager.fromBytes(rawEnvelope))
       } catch {
         case e: Exception if !dropDeserializationError =>
-          throw new SystemConsumersException("Cannot deserialize an incoming message.", e)
+          throw new SystemConsumersException(
+            "Cannot deserialize an incoming message for %s"
+              .format(systemStreamPartition.getSystemStream.toString), e)
         case ex: Exception =>
-          debug("Cannot deserialize an incoming message. Dropping the error message.", ex)
+          debug("Cannot deserialize an incoming message for %s. Dropping the error message."
+                .format(systemStreamPartition.getSystemStream.toString), ex)
           metrics.deserializationError.inc
           None
       }
