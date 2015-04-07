@@ -19,26 +19,35 @@
 
 package org.apache.samza.serializers
 
-import org.apache.samza.config.Config
+import java.nio.BufferUnderflowException
+import java.util.UUID
 
-/**
- * A serializer for strings
- */
-class StringSerdeFactory extends SerdeFactory[String] {
-  def getSerde(name: String, config: Config): Serde[String] =
-    new StringSerde(config.get("encoding", "UTF-8"))
-}
+import org.junit.Assert._
+import org.junit.Test
 
-class StringSerde(val encoding: String) extends Serde[String] {
-  def toBytes(obj: String): Array[Byte] = if (obj != null) {
-    obj.toString.getBytes(encoding)
-  } else {
-    null
+class TestUUIDSerde {
+  private val serde = new UUIDSerde
+
+  @Test
+  def testUUIDSerde {
+    val uuid = new UUID(13, 42)
+    val bytes = serde.toBytes(uuid)
+    assertArrayEquals(Array[Byte](0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 42), bytes)
+    assertEquals(uuid, serde.fromBytes(bytes))
   }
 
-  def fromBytes(bytes: Array[Byte]): String = if (bytes != null) {
-    new String(bytes, 0, bytes.size, encoding)
-  } else {
-    null
+  @Test
+  def testToBytesWhenNull {
+    assertEquals(null, serde.toBytes(null))
+  }
+
+  @Test
+  def testFromBytesWhenNull {
+    assertEquals(null, serde.fromBytes(null))
+  }
+
+  @Test(expected = classOf[BufferUnderflowException])
+  def testFromBytesWhenInvalid {
+    assertEquals(null, serde.fromBytes(Array[Byte](0)))
   }
 }
