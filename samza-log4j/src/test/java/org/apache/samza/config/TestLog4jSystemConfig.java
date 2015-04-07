@@ -19,12 +19,12 @@
 
 package org.apache.samza.config;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.samza.logging.log4j.serializers.LoggingEventStringSerdeFactory;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -35,14 +35,13 @@ public class TestLog4jSystemConfig {
   public ExpectedException exception = ExpectedException.none();
 
   @Test
-  public void testGetSystemNamesAndGetValue() {
+  public void testGetSystemNames() {
     Map<String, String> map = new HashMap<String, String>();
     map.put("systems.system1.samza.factory","1");
     map.put("systems.system2.samza.factory","2");
     Log4jSystemConfig log4jSystemConfig = new Log4jSystemConfig(new MapConfig(map));
 
     assertEquals(2, log4jSystemConfig.getSystemNames().size());
-    assertEquals("1", log4jSystemConfig.getValue("systems.system1.samza.factory"));
   }
 
   @Test
@@ -71,20 +70,27 @@ public class TestLog4jSystemConfig {
     Map<String, String> map = new HashMap<String, String>();
     Log4jSystemConfig log4jSystemConfig = new Log4jSystemConfig(new MapConfig(map));
 
-    // get the default serde
-    assertEquals(LoggingEventStringSerdeFactory.class.getCanonicalName(), log4jSystemConfig.getSerdeClass("log4j"));
     // get null
     assertNull(log4jSystemConfig.getSerdeClass("otherName"));
+
+    // get serde
+    map.put("serializers.registry.log4j.class", "someClass");
+    log4jSystemConfig = new Log4jSystemConfig(new MapConfig(map));
+    assertEquals("someClass", log4jSystemConfig.getSerdeClass("log4j"));
   }
 
   @Test
   public void testGetSerdeName() {
     Map<String, String> map = new HashMap<String, String>();
-    map.put("systems.mockSystem.streams.mockStream.samza.msg.serde", "streamSerde");
     map.put("systems.mockSystem.samza.msg.serde", "systemSerde");
     Log4jSystemConfig log4jSystemConfig = new Log4jSystemConfig(new MapConfig(map));
 
+    // no stream serde
+    assertNull(log4jSystemConfig.getStreamSerdeName("mockSystem", "mockStream"));
+
+    // stream serde
+    map.put("systems.mockSystem.streams.mockStream.samza.msg.serde", "streamSerde");
+    log4jSystemConfig = new Log4jSystemConfig(new MapConfig(map));
     assertEquals("streamSerde", log4jSystemConfig.getStreamSerdeName("mockSystem", "mockStream"));
-    assertEquals("systemSerde", log4jSystemConfig.getSystemSerdeName("mockSystem"));
   }
 }

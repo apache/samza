@@ -20,8 +20,8 @@
 package org.apache.samza.config
 
 import scala.collection.JavaConversions._
-
 import org.apache.samza.util.Logging
+import org.apache.samza.util.Util
 
 object StorageConfig {
   // stream config constants
@@ -42,5 +42,19 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
   def getStoreNames: Seq[String] = {
     val conf = config.subset("stores.", true)
     conf.keys.filter(k => k.endsWith(".factory")).map(k => k.substring(0, k.length - ".factory".length)).toSeq
+  }
+
+  /**
+   * Helper method to check if a system has a changelog attached to it.
+   */
+  def isChangelogSystem(systemName: String) = {
+    config
+      .getStoreNames
+      // Get changelogs for all stores in the format of "system.stream"
+      .map(getChangelogStream(_))
+      .filter(_.isDefined)
+      // Convert "system.stream" to systemName
+      .map(systemStreamName => Util.getSystemStreamFromNames(systemStreamName.get).getSystem)
+      .contains(systemName)
   }
 }

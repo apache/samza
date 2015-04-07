@@ -35,8 +35,9 @@ class SerializerConfig(config: Config) extends ScalaMapConfig(config) {
    * Returns a list of all serializer names from the config file. Useful for
    * getting individual serializers.
    */
+  import SerializerConfig._
   def getSerdeNames() = {
-    val subConf = config.subset("serializers.registry.", true)
+    val subConf = config.subset(SERIALIZER_PREFIX format "", true)
     subConf.keys.filter(k => k.endsWith(".class")).map(_.replace(".class", ""))
   }
 }

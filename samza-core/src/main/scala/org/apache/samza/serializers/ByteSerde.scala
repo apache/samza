@@ -22,7 +22,8 @@ package org.apache.samza.serializers
 import org.apache.samza.config.Config
 
 /**
- * A serializer for bytes that is effectively a no-op but can be useful for binary messages.
+ * A serializer for bytes that is effectively a no-op but can be useful for 
+ * binary messages.
  */
 class ByteSerdeFactory extends SerdeFactory[Array[Byte]] {
   def getSerde(name: String, config: Config): Serde[Array[Byte]] = new ByteSerde

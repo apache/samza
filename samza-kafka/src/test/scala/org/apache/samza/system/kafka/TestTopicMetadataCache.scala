@@ -21,15 +21,15 @@ package org.apache.samza.system.kafka
 
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.{ AtomicBoolean, AtomicInteger }
-
 import kafka.api.TopicMetadata
-
 import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.util.Clock
 import org.apache.samza.util.TopicMetadataStore
 import org.junit.Assert._
 import org.junit.Before
 import org.junit.Test
+import kafka.common.ErrorMapping
+import kafka.api.PartitionMetadata
 
 class TestTopicMetadataCache {
 
@@ -123,5 +123,15 @@ class TestTopicMetadataCache {
     }
     assertTrue(numAssertionSuccess.get())
     assertEquals(1, mockStore.numberOfCalls.get())
+  }
+
+  @Test
+  def testBadErrorCodes {
+    val partitionMetadataBad = new PartitionMetadata(0, None, Seq(), errorCode = ErrorMapping.LeaderNotAvailableCode)
+    val partitionMetadataGood = new PartitionMetadata(0, None, Seq(), errorCode = ErrorMapping.NoError)
+    assertTrue(TopicMetadataCache.hasBadErrorCode(new TopicMetadata("test", List.empty, ErrorMapping.RequestTimedOutCode)))
+    assertTrue(TopicMetadataCache.hasBadErrorCode(new TopicMetadata("test", List(partitionMetadataBad), ErrorMapping.NoError)))
+    assertFalse(TopicMetadataCache.hasBadErrorCode(new TopicMetadata("test", List.empty, ErrorMapping.NoError)))
+    assertFalse(TopicMetadataCache.hasBadErrorCode(new TopicMetadata("test", List(partitionMetadataGood), ErrorMapping.NoError)))
   }
 }

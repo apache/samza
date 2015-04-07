@@ -22,9 +22,7 @@ package org.apache.samza.test.integration
 import java.util.Properties
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-
 import kafka.admin.AdminUtils
-import kafka.common.ErrorMapping
 import kafka.consumer.Consumer
 import kafka.consumer.ConsumerConfig
 import kafka.message.MessageAndMetadata
@@ -35,7 +33,6 @@ import kafka.utils.TestZKUtils
 import kafka.utils.Utils
 import kafka.utils.ZKStringSerializer
 import kafka.zk.EmbeddedZookeeper
-
 import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.Checkpoint
@@ -59,14 +56,13 @@ import org.apache.samza.util.ClientUtilTopicMetadataStore
 import org.apache.samza.util.TopicMetadataStore
 import org.junit.Assert._
 import org.junit.{BeforeClass, AfterClass, Test}
-
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.SynchronizedMap
 import org.apache.kafka.clients.producer.{ProducerConfig, Producer, ProducerRecord, KafkaProducer}
 import java.util
-
+import org.apache.samza.util.KafkaUtil
 
 object TestStatefulTask {
   val INPUT_TOPIC = "input"
@@ -145,7 +141,7 @@ object TestStatefulTask {
           val topicMetadata = topicMetadataMap(topic)
           val errorCode = topicMetadata.errorCode
 
-          ErrorMapping.maybeThrowException(errorCode)
+          KafkaUtil.maybeThrowException(errorCode)
         })
 
         done = true

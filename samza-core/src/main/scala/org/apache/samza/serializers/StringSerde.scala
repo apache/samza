@@ -19,7 +19,6 @@
 
 package org.apache.samza.serializers
 
-import java.nio.ByteBuffer
 import org.apache.samza.config.Config
 
 /**

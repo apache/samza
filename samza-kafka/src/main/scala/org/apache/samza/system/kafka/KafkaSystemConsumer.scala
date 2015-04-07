@@ -142,7 +142,6 @@ private[kafka] class KafkaSystemConsumer(
         // This avoids trying to re-add the same topic partition repeatedly
         def refresh(tp: List[TopicAndPartition]) = {
           val head :: rest = tpToRefresh
-          val nextOffset = topicPartitionsAndOffsets.get(head).get
           // refreshBrokers can be called from abdicate and refreshDropped, 
           // both of which are triggered from BrokerProxy threads. To prevent 
           // accidentally creating multiple objects for the same broker, or 
@@ -151,18 +150,18 @@ private[kafka] class KafkaSystemConsumer(
           this.synchronized {
             // Check if we still need this TopicAndPartition inside the 
             // critical section. If we don't, then skip it.
-            if (topicPartitionsAndOffsets.contains(head)) {
-              getHostPort(topicMetadata(head.topic), head.partition) match {
-                case Some((host, port)) =>
-                  val brokerProxy = brokerProxies.getOrElseUpdate((host, port), createBrokerProxy(host, port))
-                  brokerProxy.addTopicPartition(head, Option(nextOffset))
-                  brokerProxy.start
-                  debug("Claimed topic-partition (%s) for (%s)".format(head, brokerProxy))
-                  topicPartitionsAndOffsets -= head
-                case None => info("No metadata available for: %s. Will try to refresh and add to a consumer thread later." format head)
-              }
-            } else {
-              debug("Ignoring refresh for %s because we already added it from another thread." format head)
+            topicPartitionsAndOffsets.get(head) match {
+              case Some(nextOffset) =>
+                getHostPort(topicMetadata(head.topic), head.partition) match {
+                  case Some((host, port)) =>
+                    val brokerProxy = brokerProxies.getOrElseUpdate((host, port), createBrokerProxy(host, port))
+                    brokerProxy.addTopicPartition(head, Option(nextOffset))
+                    brokerProxy.start
+                    debug("Claimed topic-partition (%s) for (%s)".format(head, brokerProxy))
+                    topicPartitionsAndOffsets -= head
+                  case None => info("No metadata available for: %s. Will try to refresh and add to a consumer thread later." format head)
+                }
+              case _ => debug("Ignoring refresh for %s because we already added it from another thread." format head)
             }
           }
           rest
@@ -182,7 +181,7 @@ private[kafka] class KafkaSystemConsumer(
   }
 
   val sink = new MessageSink {
-    var lastDroppedRefresh = 0L
+    var lastDroppedRefresh = clock()
 
     def refreshDropped() {
       if (topicPartitionsAndOffsets.size > 0 && clock() - lastDroppedRefresh > 10000) {

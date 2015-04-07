@@ -21,7 +21,7 @@ package org.apache.samza.system.kafka
 
 import org.apache.samza.util.Logging
 import kafka.api.TopicMetadata
-import kafka.common.ErrorMapping
+import org.apache.samza.util.KafkaUtil
 
 /**
  * TopicMetadataCache is used to cache all the topic metadata for Kafka per
@@ -43,7 +43,7 @@ object TopicMetadataCache extends Logging {
       val missingTopics = topics.filter(topic => !topicMetadataMap.contains(systemName, topic))
       val topicsWithBadOrExpiredMetadata = (topics -- missingTopics).filter(topic => {
         val metadata = topicMetadataMap(systemName, topic)
-        metadata.streamMetadata.errorCode != ErrorMapping.NoError || ((time - metadata.lastRefreshMs) > cacheTimeout)
+        hasBadErrorCode(metadata.streamMetadata) || ((time - metadata.lastRefreshMs) > cacheTimeout)
       })
       val topicsToRefresh = missingTopics ++ topicsWithBadOrExpiredMetadata
 
@@ -66,5 +66,13 @@ object TopicMetadataCache extends Logging {
 
   def clear {
     topicMetadataMap.clear
+  }
+
+  /**
+   * Helper method to check if a topic's metadata has a bad errorCode, or if a
+   * partition's metadata has a bad errorCode.
+   */
+  def hasBadErrorCode(streamMetadata: TopicMetadata) = {
+    KafkaUtil.isBadErrorCode(streamMetadata.errorCode) || streamMetadata.partitionsMetadata.exists(partitionMetadata => KafkaUtil.isBadErrorCode(partitionMetadata.errorCode))
   }
 }

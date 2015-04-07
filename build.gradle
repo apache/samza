@@ -62,6 +62,7 @@ rat {
     '**/.git/**',
     '**/.gitignore',
     '**/.gradle/**',
+    '**/.idea/**',
     '**/.project',
     '**/.settings/**',
     '**/.DS_Store/**',
@@ -152,6 +153,9 @@ project(":samza-core_$scalaVersion") {
 project(":samza-kafka_$scalaVersion") {
   apply plugin: 'scala'
 
+  sourceSets.test.scala.srcDir "src/test/java"
+  sourceSets.test.java.srcDirs = []
+
   configurations {
     // Remove transitive dependencies from Zookeeper that we don't want.
     compile.exclude group: 'javax.jms', module: 'jms'
@@ -182,6 +186,11 @@ project(":samza-kafka_$scalaVersion") {
     minHeapSize = "1560m"
     maxHeapSize = "1560m"
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
+    // There appear to be issues between TestKafkaSystemAdmin and 
+    // TestKafkaCheckpointManager both running brokeres and ZK. Restarting the 
+    // gradle worker after every test clears things up. These tests should be
+    // moved to the integration test suite.
+    forkEvery = 1
   }
 }
 
@@ -192,6 +201,7 @@ project(':samza-log4j') {
     compile "log4j:log4j:$log4jVersion"
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
+    compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     testCompile "junit:junit:$junitVersion"
   }
 }
@@ -339,6 +349,7 @@ project(":samza-kv_$scalaVersion") {
     compile project(":samza-core_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-all:$mockitoVersion"
   }
 }
 

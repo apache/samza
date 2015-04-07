@@ -29,7 +29,7 @@ object RocksDbKeyValueStore extends Logging {
   def options(storeConfig: Config, containerContext: SamzaContainerContext) = {
     val cacheSize = storeConfig.getLong("container.cache.size.bytes", 100 * 1024 * 1024L)
     val writeBufSize = storeConfig.getLong("container.write.buffer.size.bytes", 32 * 1024 * 1024)
-    val options = new Options();
+    val options = new Options()
 
     // Cache size and write buffer size are specified on a per-container basis.
     val numTasks = containerContext.taskNames.size
@@ -77,6 +77,7 @@ object RocksDbKeyValueStore extends Logging {
 class RocksDbKeyValueStore(
   val dir: File,
   val options: Options,
+  val writeOptions: WriteOptions = new WriteOptions(),
   val metrics: KeyValueStoreMetrics = new KeyValueStoreMetrics) extends KeyValueStore[Array[Byte], Array[Byte]] with Logging {
 
   private lazy val db = RocksDB.open(options, dir.toString)
@@ -97,11 +98,11 @@ class RocksDbKeyValueStore(
     metrics.puts.inc
     require(key != null, "Null key not allowed.")
     if (value == null) {
-      db.remove(key)
+      db.remove(writeOptions, key)
       deletesSinceLastCompaction += 1
     } else {
       metrics.bytesWritten.inc(key.size + value.size)
-      db.put(key, value)
+      db.put(writeOptions, key, value)
     }
   }
 
@@ -115,12 +116,12 @@ class RocksDbKeyValueStore(
       val curr = iter.next()
       if (curr.getValue == null) {
         deletes += 1
-        db.remove(curr.getKey);
+        db.remove(writeOptions, curr.getKey)
       } else {
         val key = curr.getKey
         val value = curr.getValue
         metrics.bytesWritten.inc(key.size + value.size)
-        db.put(key, value)
+        db.put(writeOptions, key, value)
       }
     }
     metrics.puts.inc(wrote)

@@ -19,7 +19,7 @@
 
 package org.apache.samza.config;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 import java.util.Map;
 import java.util.HashMap;
@@ -60,5 +60,24 @@ public class TestConfig {
 
     Class c4 = getClass(mc.getLong("testkey", defaultLong));
     assertEquals(Long.class, c4);
+  }
+
+  @Test
+  public void testSanitize() {
+    Map<String, String> m = new HashMap<String, String>() {{
+      put("key1", "value1");
+      put("key2", "value2");
+      put("sensitive.key3", "secret1");
+      put("sensitive.key4", "secret2");
+    }};
+
+    Config config = new MapConfig(m);
+    assertFalse(config.toString().contains("secret"));
+
+    Config sanitized = config.sanitize();
+    assertEquals("value1", sanitized.get("key1"));
+    assertEquals("value2", sanitized.get("key2"));
+    assertEquals(Config.SENSITIVE_MASK, sanitized.get("sensitive.key3"));
+    assertEquals(Config.SENSITIVE_MASK, sanitized.get("sensitive.key4"));
   }
 }

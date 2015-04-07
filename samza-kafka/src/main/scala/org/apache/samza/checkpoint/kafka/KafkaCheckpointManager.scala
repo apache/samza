@@ -44,6 +44,7 @@ import org.apache.samza.util.TopicMetadataStore
 import scala.collection.mutable
 import java.util.Properties
 import org.apache.kafka.clients.producer.{Producer, ProducerRecord}
+import org.apache.samza.util.KafkaUtil
 
 /**
  * Kafka checkpoint manager is used to store checkpoints in a Kafka topic.
@@ -159,7 +160,7 @@ class KafkaCheckpointManager(
       .get(topicAndPartition)
       .getOrElse(throw new KafkaCheckpointException("Unable to find offset information for %s:0" format checkpointTopic))
     // Fail or retry if there was an an issue with the offset request.
-    ErrorMapping.maybeThrowException(offsetResponse.error)
+    KafkaUtil.maybeThrowException(offsetResponse.error)
 
     val offset: Long = offsetResponse
       .offsets
@@ -287,7 +288,7 @@ class KafkaCheckpointManager(
                 warn("Got an offset out of range exception while getting last entry in %s for topic %s and partition 0, so returning a null offset to the KafkaConsumer. Let it decide what to do based on its autooffset.reset setting." format (entryType, checkpointTopic))
                 return
               }
-              ErrorMapping.maybeThrowException(errorCode)
+              KafkaUtil.maybeThrowException(errorCode)
             }
 
             for (response <- fetchResponse.messageSet(checkpointTopic, 0)) {
@@ -385,7 +386,7 @@ class KafkaCheckpointManager(
       loop => {
         val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(checkpointTopic), systemName, metadataStore.getTopicInfo)
         val topicMetadata = topicMetadataMap(checkpointTopic)
-        ErrorMapping.maybeThrowException(topicMetadata.errorCode)
+        KafkaUtil.maybeThrowException(topicMetadata.errorCode)
 
         val partitionCount = topicMetadata.partitionsMetadata.length
         if (partitionCount != 1) {

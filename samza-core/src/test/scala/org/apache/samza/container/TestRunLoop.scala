@@ -25,14 +25,14 @@ import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.junit.AssertionsForJUnit
-import org.scalatest.matchers.ShouldMatchers
+import org.scalatest.{Matchers => ScalaTestMatchers}
 import org.scalatest.mock.MockitoSugar
 import org.apache.samza.Partition
 import org.apache.samza.system.{ IncomingMessageEnvelope, SystemConsumers, SystemStreamPartition }
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.task.TaskCoordinator.RequestScope
 
-class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ShouldMatchers {
+class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMatchers {
   class StopRunLoop extends RuntimeException
 
   val p0 = new Partition(0)
@@ -210,5 +210,39 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ShouldMatche
     testMetrics.windowMs.getSnapshot.getSize should equal(2)
     testMetrics.processMs.getSnapshot.getSize should equal(2)
     testMetrics.commitMs.getSnapshot.getSize should equal(2)
+  }
+
+  @Test
+  def testShutdownHook: Unit = {
+    // The shutdown hook can't be directly tested so we verify that a) both add and remove
+    // are called and b) invoking the shutdown hook actually kills the run loop.
+    val consumers = mock[SystemConsumers]
+    when(consumers.choose).thenReturn(envelope0)
+    val testMetrics = new SamzaContainerMetrics
+    var addCalled = false
+    var removeCalled = false
+    val runLoop = new RunLoop(
+      taskInstances = getMockTaskInstances,
+      consumerMultiplexer = consumers,
+      metrics = testMetrics) {
+      override def addShutdownHook() {
+        addCalled = true
+      }
+      override def removeShutdownHook() {
+        removeCalled = true
+      }
+    }
+
+    val runThread = new Thread(runLoop)
+    runThread.start()
+
+    runLoop.shutdownHook.start()
+    runLoop.shutdownHook.join(1000)
+    runThread.join(1000)
+
+    assert(addCalled)
+    assert(removeCalled)
+    assert(!runLoop.shutdownHook.isAlive)
+    assert(!runThread.isAlive)
   }
 }

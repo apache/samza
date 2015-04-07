@@ -74,16 +74,18 @@ The goal of these steps is to configure YARN to read http filesystem because we 
 
 {% highlight bash %}
 cd /tmp
-curl http://www.scala-lang.org/files/archive/scala-2.10.3.tgz > scala-2.10.3.tgz
-tar -xvf scala-2.10.3.tgz
+curl http://www.scala-lang.org/files/archive/scala-2.10.4.tgz > scala-2.10.4.tgz
+tar -xvf scala-2.10.4.tgz
 {% endhighlight %}
 
-5\. Add Scala and its log jars.
+5\. Add Scala, its log jars, and Samza's HttpFileSystem implementation.
 
 {% highlight bash %}
-cp /tmp/scala-2.10.3/lib/scala-compiler.jar $HADOOP_YARN_HOME/share/hadoop/hdfs/lib
-cp /tmp/scala-2.10.3/lib/scala-library.jar $HADOOP_YARN_HOME/share/hadoop/hdfs/lib
-curl http://search.maven.org/remotecontent?filepath=org/clapper/grizzled-slf4j_2.10/1.0.1/grizzled-slf4j_2.10-1.0.1.jar > $HADOOP_YARN_HOME/share/hadoop/hdfs/lib/grizzled-slf4j_2.10-1.0.1.jar
+cp /tmp/scala-2.10.4/lib/scala-compiler.jar $HADOOP_YARN_HOME/share/hadoop/hdfs/lib
+cp /tmp/scala-2.10.4/lib/scala-library.jar $HADOOP_YARN_HOME/share/hadoop/hdfs/lib
+curl -L http://search.maven.org/remotecontent?filepath=org/clapper/grizzled-slf4j_2.10/1.0.1/grizzled-slf4j_2.10-1.0.1.jar > $HADOOP_YARN_HOME/share/hadoop/hdfs/lib/grizzled-slf4j_2.10-1.0.1.jar
+curl -L http://search.maven.org/remotecontent?filepath=org/apache/samza/samza-yarn_2.10/0.8.0/samza-yarn_2.10-0.8.0.jar > $HADOOP_YARN_HOME/share/hadoop/hdfs/lib/samza-yarn_2.10-0.8.0.jar
+curl -L http://search.maven.org/remotecontent?filepath=org/apache/samza/samza-core_2.10/0.8.0/samza-core_2.10-0.8.0.jar > $HADOOP_YARN_HOME/share/hadoop/hdfs/lib/samza-core_2.10-0.8.0.jar
 {% endhighlight %}
 
 6\. Add http configuration in core-site.xml (create the core-site.xml file and add content).

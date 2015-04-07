@@ -45,7 +45,7 @@ class RunLoop(
   private var lastCommitMs = 0L
   private var taskShutdownRequests: Set[TaskName] = Set()
   private var taskCommitRequests: Set[TaskName] = Set()
-  private var shutdownNow = false
+  @volatile private var shutdownNow = false
 
   // Messages come from the chooser with no connection to the TaskInstance they're bound for.
   // Keep a mapping of SystemStreamPartition to TaskInstance to efficiently route them.
@@ -56,15 +56,36 @@ class RunLoop(
     taskInstances.values.map { getSystemStreamPartitionToTaskInstance }.flatten.toMap
   }
 
+  val shutdownHook = new Thread() {
+    override def run() = {
+      info("Triggering shutdown in response to shutdown hook")
+      shutdownNow = true
+    }
+  }
+
+  protected def addShutdownHook() {
+    Runtime.getRuntime().addShutdownHook(shutdownHook)
+  }
+
+  protected def removeShutdownHook() {
+    Runtime.getRuntime().removeShutdownHook(shutdownHook)
+  }
+
   /**
    * Starts the run loop. Blocks until either the tasks request shutdown, or an
    * unhandled exception is thrown.
    */
   def run {
-    while (!shutdownNow) {
-      process
-      window
-      commit
+    try {
+      addShutdownHook()
+
+      while (!shutdownNow) {
+        process
+        window
+        commit
+      }
+    } finally {
+      removeShutdownHook()
     }
   }
 

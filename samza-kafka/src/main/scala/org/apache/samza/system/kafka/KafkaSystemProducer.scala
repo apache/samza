@@ -33,6 +33,7 @@ import org.apache.kafka.common.errors.RetriableException
 import org.apache.kafka.common.PartitionInfo
 import java.util
 import java.util.concurrent.Future
+import scala.collection.JavaConversions._
 
 
 class KafkaSystemProducer(systemName: String,
@@ -51,6 +52,7 @@ class KafkaSystemProducer(systemName: String,
 
   def stop() {
     if (producer != null) {
+      latestFuture.keys.foreach(flush(_))
       producer.close
     }
   }
@@ -136,11 +138,13 @@ class KafkaSystemProducer(systemName: String,
         }
         if (sendFailed.get()) {
           logger.error("Unable to send message from %s to system %s" format(source, systemName))
-          //Close producer
-          stop()
+          //Close producer.
+          if (producer != null) {
+            producer.close
+          }
           producer = null
           metrics.flushFailed.inc
-          throw new SamzaException("Unable to send message from %s to system %s" format(source, systemName))
+          throw new SamzaException("Unable to send message from %s to system %s." format(source, systemName), exceptionThrown.get)
         } else {
           trace("Flushed %s." format (source))
         }

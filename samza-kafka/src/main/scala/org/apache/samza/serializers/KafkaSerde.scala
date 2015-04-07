@@ -22,6 +22,7 @@ import java.nio.ByteBuffer
 import org.apache.samza.util.Util
 import kafka.serializer.Encoder
 import kafka.serializer.Decoder
+import kafka.utils.VerifiableProperties
 import org.apache.samza.config.Config
 import org.apache.samza.config.KafkaSerdeConfig.Config2KafkaSerde
 import org.apache.samza.SamzaException
@@ -39,8 +40,23 @@ class KafkaSerdeFactory[T] extends SerdeFactory[T] {
     val decoderClassName = config
       .getKafkaDecoder(name)
       .getOrElse(throw new SamzaException("No kafka decoder defined for %s" format name))
-    val encoder = Util.getObj[Encoder[T]](encoderClassName)
-    val decoder = Util.getObj[Decoder[T]](decoderClassName)
+
+    val verifiableProperties = config.getKafkaProperties(name)
+
+    val encoder = getObj[Encoder[T]](encoderClassName, verifiableProperties);
+    val decoder = getObj[Decoder[T]](decoderClassName, verifiableProperties);
+
     new KafkaSerde(encoder, decoder)
+  }
+
+  /**
+   * Instantiate a class instance from a given className and properties.
+   */
+  private def getObj[T](className: String, properties: VerifiableProperties) = {
+    Class
+      .forName(className)
+      .getDeclaredConstructor(classOf[VerifiableProperties])
+      .newInstance(properties)
+      .asInstanceOf[T]
   }
 }
