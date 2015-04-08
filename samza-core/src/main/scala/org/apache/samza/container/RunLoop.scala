@@ -39,7 +39,8 @@ class RunLoop(
   val metrics: SamzaContainerMetrics,
   val windowMs: Long = -1,
   val commitMs: Long = 60000,
-  val clock: () => Long = { System.currentTimeMillis }) extends Runnable with TimerUtils with Logging {
+  val clock: () => Long = { System.currentTimeMillis },
+  val shutdownMs: Long = 5000) extends Runnable with TimerUtils with Logging {
 
   private var lastWindowMs = 0L
   private var lastCommitMs = 0L
@@ -56,37 +57,34 @@ class RunLoop(
     taskInstances.values.map { getSystemStreamPartitionToTaskInstance }.flatten.toMap
   }
 
-  val shutdownHook = new Thread() {
-    override def run() = {
-      info("Triggering shutdown in response to shutdown hook")
-      shutdownNow = true
-    }
-  }
-
-  protected def addShutdownHook() {
-    Runtime.getRuntime().addShutdownHook(shutdownHook)
-  }
-
-  protected def removeShutdownHook() {
-    Runtime.getRuntime().removeShutdownHook(shutdownHook)
-  }
 
   /**
    * Starts the run loop. Blocks until either the tasks request shutdown, or an
    * unhandled exception is thrown.
    */
   def run {
-    try {
-      addShutdownHook()
+    addShutdownHook(Thread.currentThread())
 
-      while (!shutdownNow) {
-        process
-        window
-        commit
-      }
-    } finally {
-      removeShutdownHook()
+    while (!shutdownNow) {
+      process
+      window
+      commit
     }
+  }
+
+  private def addShutdownHook(runLoopThread: Thread) {
+    Runtime.getRuntime().addShutdownHook(new Thread() {
+      override def run() = {
+        info("Shutting down, will wait up to %s ms" format shutdownMs)
+        shutdownNow = true
+        runLoopThread.join(shutdownMs)
+        if (runLoopThread.isAlive) {
+          warn("Did not shut down within %s ms, exiting" format shutdownMs)
+        } else {
+          info("Shutdown complete")
+        }
+      }
+    })
   }
 
   /**
