@@ -19,17 +19,11 @@
 
 package org.apache.samza.job.local
 
-import org.apache.samza.container.SamzaContainer
-import org.apache.samza.util.Logging
-import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
 import org.apache.samza.config.TaskConfig._
-import org.apache.samza.job.{ CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory }
-import org.apache.samza.util.Util
-import scala.collection.JavaConversions._
-import org.apache.samza.coordinator.server.HttpServer
-import org.apache.samza.coordinator.server.JobServlet
 import org.apache.samza.coordinator.JobCoordinator
+import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory}
+import org.apache.samza.util.{Logging, Util}
 
 /**
  * Creates a stand alone ProcessJob with the specified config.
@@ -39,30 +33,27 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     val coordinator = JobCoordinator(config, 1)
     val containerModel = coordinator.jobModel.getContainers.get(0)
 
-    try {
-      val commandBuilder = {
-        config.getCommandClass match {
-          case Some(cmdBuilderClassName) => {
-            // A command class was specified, so we need to use a process job to
-            // execute the command in its own process.
-            Util.getObj[CommandBuilder](cmdBuilderClassName)
-          }
-          case _ => {
-            info("Defaulting to ShellCommandBuilder")
-            new ShellCommandBuilder
-          }
+    val commandBuilder = {
+      config.getCommandClass match {
+        case Some(cmdBuilderClassName) => {
+          // A command class was specified, so we need to use a process job to
+          // execute the command in its own process.
+          Util.getObj[CommandBuilder](cmdBuilderClassName)
+        }
+        case _ => {
+          info("Defaulting to ShellCommandBuilder")
+          new ShellCommandBuilder
         }
       }
-      coordinator.start
-
-      commandBuilder
-        .setConfig(config)
-        .setId(0)
-        .setUrl(coordinator.server.getUrl)
-
-      new ProcessJob(commandBuilder)
-    } finally {
-//      coordinator.stop
     }
+    // JobCoordinator is stopped by ProcessJob when it exits
+    coordinator.start
+
+    commandBuilder
+      .setConfig(config)
+      .setId(0)
+      .setUrl(coordinator.server.getUrl)
+
+    new ProcessJob(commandBuilder, coordinator)
   }
 }

@@ -211,38 +211,4 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
     testMetrics.processMs.getSnapshot.getSize should equal(2)
     testMetrics.commitMs.getSnapshot.getSize should equal(2)
   }
-
-  @Test
-  def testShutdownHook: Unit = {
-    // The shutdown hook can't be directly tested so we verify that a) both add and remove
-    // are called and b) invoking the shutdown hook actually kills the run loop.
-    val consumers = mock[SystemConsumers]
-    when(consumers.choose).thenReturn(envelope0)
-    val testMetrics = new SamzaContainerMetrics
-    var addCalled = false
-    var removeCalled = false
-    val runLoop = new RunLoop(
-      taskInstances = getMockTaskInstances,
-      consumerMultiplexer = consumers,
-      metrics = testMetrics) {
-      override def addShutdownHook() {
-        addCalled = true
-      }
-      override def removeShutdownHook() {
-        removeCalled = true
-      }
-    }
-
-    val runThread = new Thread(runLoop)
-    runThread.start()
-
-    runLoop.shutdownHook.start()
-    runLoop.shutdownHook.join(1000)
-    runThread.join(1000)
-
-    assert(addCalled)
-    assert(removeCalled)
-    assert(!runLoop.shutdownHook.isAlive)
-    assert(!runThread.isAlive)
-  }
 }

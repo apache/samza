@@ -19,23 +19,18 @@
 
 package org.apache.samza.job.local
 
-import org.apache.samza.job.ApplicationStatus.New
-import org.apache.samza.job.ApplicationStatus.Running
-import org.apache.samza.job.ApplicationStatus.SuccessfulFinish
-import org.apache.samza.job.ApplicationStatus.UnsuccessfulFinish
-import org.apache.samza.job.ApplicationStatus
-import org.apache.samza.job.StreamJob
-import org.apache.samza.util.Logging
+import java.io.{InputStream, OutputStream}
 import java.util.concurrent.CountDownLatch
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.InputStream
-import java.io.OutputStream
+
 import org.apache.samza.SamzaException
-import org.apache.samza.job.CommandBuilder
+import org.apache.samza.coordinator.JobCoordinator
+import org.apache.samza.job.ApplicationStatus.{New, Running, UnsuccessfulFinish}
+import org.apache.samza.job.{ApplicationStatus, CommandBuilder, StreamJob}
+import org.apache.samza.util.Logging
+
 import scala.collection.JavaConversions._
 
-class ProcessJob(commandBuilder: CommandBuilder) extends StreamJob with Logging {
+class ProcessJob(commandBuilder: CommandBuilder, jobCoordinator: JobCoordinator) extends StreamJob with Logging {
   var jobStatus: Option[ApplicationStatus] = None
   var process: Process = null
 
@@ -63,6 +58,7 @@ class ProcessJob(commandBuilder: CommandBuilder) extends StreamJob with Logging 
         errThread.start
         waitForThreadStart.countDown
         process.waitFor
+        jobCoordinator.stop
       }
     }
 

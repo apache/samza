@@ -27,6 +27,7 @@ object TaskConfig {
   val INPUT_STREAMS = "task.inputs" // streaming.input-streams
   val WINDOW_MS = "task.window.ms" // window period in milliseconds
   val COMMIT_MS = "task.commit.ms" // commit period in milliseconds
+  val SHUTDOWN_MS = "task.shutdown.ms" // how long to wait for a clean shutdown
   val TASK_CLASS = "task.class" // streaming.task-factory-class
   val COMMAND_BUILDER = "task.command.class" // streaming.task-factory-class
   val LIFECYCLE_LISTENERS = "task.lifecycle.listeners" // li-generator,foo
@@ -75,6 +76,11 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) {
   }
 
   def getCommitMs: Option[Long] = getOption(TaskConfig.COMMIT_MS) match {
+    case Some(ms) => Some(ms.toLong)
+    case _ => None
+  }
+
+  def getShutdownMs: Option[Long] = getOption(TaskConfig.SHUTDOWN_MS) match {
     case Some(ms) => Some(ms.toLong)
     case _ => None
   }

@@ -400,6 +400,10 @@ object SamzaContainer extends Logging {
 
     info("Got commit milliseconds: %s" format taskCommitMs)
 
+    val taskShutdownMs = config.getShutdownMs.getOrElse(5000L)
+
+    info("Got shutdown timeout milliseconds: %s" format taskShutdownMs)
+
     // Wire up all task-instance-level (unshared) objects.
 
     val taskNames = containerModel
@@ -509,7 +513,8 @@ object SamzaContainer extends Logging {
       consumerMultiplexer = consumerMultiplexer,
       metrics = samzaContainerMetrics,
       windowMs = taskWindowMs,
-      commitMs = taskCommitMs)
+      commitMs = taskCommitMs,
+      shutdownMs = taskShutdownMs)
 
     info("Samza container setup complete.")
 
