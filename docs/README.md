@@ -52,10 +52,38 @@ To auto-generate the latest Javadocs, run:
 
     bin/generate-javadocs.sh
 
-## Release
+## Publish
 
 To build and publish the website to Samza's Apache SVN repository, run:
 
     bin/publish-site.sh "updating welcome page" criccomini
 
 This command will re-build the Javadocs and website, checkout https://svn.apache.org/repos/asf/samza/site/ locally, copy the site into the directory, and commit the changes.
+
+## Release-new-version Website Checklist
+
+Assume we want to release x.x.x , need to work on two branches: x.x.x and master.
+
+Following can be done when updating the gradle.properties file
+
+1. in x.x.x branch,
+
+    * modify the docs/_config.yml to make the "version" and "latest-release" to x.x.x
+
+    * remove "git checkout latest" in docs/startup/hello-samza/versioned/index.md
+
+2. in master branch,
+
+    * modify the docs/_config.yml to make the "latest-release" to x.x.x
+
+    * add the x.x.x release to Archive category in docs/_layout/default.html and x.x.x release part in docs/archive/index.html
+
+    * update the download page to use x.x.x release
+
+    * update the version number in "tar -xvf ./target/hello-samza-x.x.x-dist.tar.gz -C deploy/samza" in docs/startup/hello-samza/versioned/index.md
+
+After apache mirrors pick up the new release,
+
+3. in x.x.x branch, run bin/publish-site.sh "updating welcome page" criccomini
+
+4. in master branch, run bin/publish-site.sh "updating welcome page" criccomini
