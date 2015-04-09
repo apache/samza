@@ -53,7 +53,7 @@ Before you can run a Samza job, you need to build a package for it. This package
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-0.9.0-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-0.10.0-dist.tar.gz -C deploy/samza
 {% endhighlight %}
 
 ### Run a Samza Job

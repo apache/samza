@@ -87,6 +87,32 @@ class TestOffsetManager {
   }
 
   @Test
+  def testGetCheckpointedOffsetMetric{
+    val taskName = new TaskName("c")
+    val systemStream = new SystemStream("test-system", "test-stream")
+    val partition = new Partition(0)
+    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+    val testStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
+    val systemStreamMetadata = Map(systemStream -> testStreamMetadata)
+    val config = new MapConfig
+    val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
+    val systemAdmins = Map("test-system" -> getSystemAdmin)
+    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins)
+    offsetManager.register(taskName, Set(systemStreamPartition))
+    offsetManager.start
+    // Should get offset 45 back from the checkpoint manager, which is last processed, and system admin should return 46 as starting offset.
+    offsetManager.checkpoint(taskName)
+    assertEquals("45", offsetManager.offsetManagerMetrics.checkpointedOffsets.get(systemStreamPartition).getValue)
+    offsetManager.update(systemStreamPartition, "46")
+    offsetManager.update(systemStreamPartition, "47")
+    offsetManager.checkpoint(taskName)
+    assertEquals("47", offsetManager.offsetManagerMetrics.checkpointedOffsets.get(systemStreamPartition).getValue)
+    offsetManager.update(systemStreamPartition, "48")
+    offsetManager.checkpoint(taskName)
+    assertEquals("48", offsetManager.offsetManagerMetrics.checkpointedOffsets.get(systemStreamPartition).getValue)
+  }
+
+  @Test
   def testShouldResetStreams {
     val taskName = new TaskName("c")
     val systemStream = new SystemStream("test-system", "test-stream")
