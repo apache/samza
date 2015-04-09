@@ -61,6 +61,7 @@ import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.config.JobConfig.Config2Job
 import java.lang.Thread.UncaughtExceptionHandler
 import org.apache.samza.serializers._
+import org.apache.samza.checkpoint.OffsetManagerMetrics
 
 object SamzaContainer extends Logging {
   def main(args: Array[String]) {
@@ -147,6 +148,7 @@ object SamzaContainer extends Logging {
     val samzaContainerMetrics = new SamzaContainerMetrics(containerName, registry)
     val systemProducersMetrics = new SystemProducersMetrics(registry)
     val systemConsumersMetrics = new SystemConsumersMetrics(registry)
+    val offsetManagerMetrics = new OffsetManagerMetrics(registry)
 
     val inputSystemStreamPartitions = containerModel
       .getTasks
@@ -336,7 +338,7 @@ object SamzaContainer extends Logging {
 
     info("Got checkpoint manager: %s" format checkpointManager)
 
-    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, systemAdmins)
+    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, systemAdmins, offsetManagerMetrics)
 
     info("Got offset manager: %s" format offsetManager)
 
