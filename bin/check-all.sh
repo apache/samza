@@ -22,7 +22,7 @@
 set -e
 
 SCALAs=( "2.10" )
-JDKs=( "JAVA6_HOME" "JAVA7_HOME" "JAVA8_HOME" )
+JDKs=( "JAVA7_HOME" "JAVA8_HOME" )
 YARNs=( "2.4.0" "2.5.0" )
 
 # get base directory
