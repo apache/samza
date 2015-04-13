@@ -204,9 +204,7 @@ class SystemConsumers(
       metrics.choseObject.inc
       metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition.getSystemStream).inc
 
-      if (!update(systemStreamPartition)) {
-        emptySystemStreamPartitionsBySystem.get(systemStreamPartition.getSystem).add(systemStreamPartition)
-      }
+      tryUpdate(systemStreamPartition)
     }
 
     if (envelopeFromChooser == null || lastPollMs < clock() - pollIntervalMs) {
@@ -257,12 +255,24 @@ class SystemConsumers(
 
           // Update the chooser if it needs a message for this SSP.
           if (emptySystemStreamPartitionsBySystem.get(systemStreamPartition.getSystem).remove(systemStreamPartition)) {
-            update(systemStreamPartition)
+            tryUpdate(systemStreamPartition)
           }
         }
       }
     } else {
       trace("Skipping polling for %s. Already have messages available for all registered SystemStreamPartitions." format (systemName))
+    }
+  }
+
+  private def tryUpdate(ssp: SystemStreamPartition) {
+    var updated = false
+    try {
+      updated = update(ssp)
+    } finally {
+      if (!updated) {
+        // if failed to update the chooser, add the ssp back into the emptySystemStreamPartitionBySystem map to ensure that we will poll for the next message
+        emptySystemStreamPartitionsBySystem.get(ssp.getSystem).add(ssp)
+      }
     }
   }
 
