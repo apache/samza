@@ -63,3 +63,8 @@ Committer, and PMC member<br/>
 Committer, and PMC member<br/>
 <a href="https://www.linkedin.com/pub/chinmay-soman/5/610/35" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
 <a href="https://twitter.com/ChinmaySoman" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
+
+**Yi Pan**<br/>
+Committer<br/>
+<a href="https://www.linkedin.com/pub/yi-pan/9/85a/238" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="https://twitter.com/nickpan47" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
