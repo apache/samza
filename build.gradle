@@ -264,7 +264,7 @@ project(":samza-yarn_$scalaVersion") {
   jar.dependsOn("lesscss")
 }
 
-project(":samza-sql_$scalaVersion") {
+project(":samza-sql-core_$scalaVersion") {
   apply plugin: 'java'
 
   dependencies {

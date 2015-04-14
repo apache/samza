@@ -28,7 +28,7 @@ import java.util.List;
 
 /**
  * Converts an Avro schema to Calcite RelDataType.
- * <p/>
+ * <p></p>
  * <p>Inspired by parquet-mr.</p>
  */
 public class AvroSchemaConverter {

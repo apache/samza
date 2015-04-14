@@ -42,7 +42,9 @@ public class QueryPlannerTest {
       + "       tables: [ {\n"
       + "         type: 'custom',\n"
       + "         name: 'ORDERS',\n"
-      + "         stream: true,\n"
+      + "         stream: {\n"
+      + "           stream: true\n"
+      + "         },\n"
       + "         factory: '" + SamzaStreamTableFactory.class.getName() + "'\n"
       + "       } ]\n"
       + "     }\n";

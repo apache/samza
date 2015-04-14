@@ -67,9 +67,7 @@ public class QueryPlanner {
           COMMUTE
               ? JoinAssociateRule.INSTANCE
               : ProjectMergeRule.INSTANCE,
-          FilterTableRule.INSTANCE,
-          ProjectTableRule.INSTANCE,
-          ProjectTableRule.INSTANCE2,
+          FilterTableScanRule.INSTANCE,
           ProjectFilterTransposeRule.INSTANCE,
           FilterProjectTransposeRule.INSTANCE,
           FilterJoinRule.FILTER_ON_JOIN,
