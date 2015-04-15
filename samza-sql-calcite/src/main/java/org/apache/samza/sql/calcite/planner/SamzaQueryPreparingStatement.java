@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.sql.planner;
+package org.apache.samza.sql.calcite.planner;
 
 import com.google.common.collect.Maps;
 import org.apache.calcite.adapter.enumerable.EnumerableRel;

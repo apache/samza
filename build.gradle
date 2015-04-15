@@ -279,6 +279,17 @@ project(":samza-sql-core_$scalaVersion") {
   }
 }
 
+project(":samza-sql-calcite_$scalaVersion") {
+  apply plugin: 'java'
+
+  dependencies {
+    compile project(":samza-sql-core_$scalaVersion")
+    compile "org.apache.calcite:calcite-core:$calciteVersion"
+    testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-all:$mockitoVersion"
+  }
+}
+
 project(":samza-shell") {
   apply plugin: 'java'
 

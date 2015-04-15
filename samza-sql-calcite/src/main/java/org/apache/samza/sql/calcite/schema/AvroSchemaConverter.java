@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.sql.metadata;
+package org.apache.samza.sql.calcite.schema;
 
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;

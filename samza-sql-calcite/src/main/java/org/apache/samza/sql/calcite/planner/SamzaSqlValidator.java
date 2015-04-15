@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.sql.planner;
+package org.apache.samza.sql.calcite.planner;
 
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.rel.type.RelDataType;
@@ -27,6 +27,9 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.sql.validate.SqlValidatorCatalogReader;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
 
+/**
+ * Defines a Samza specific SQL validator based on Calcite's SQL validator implementation.
+ */
 public class SamzaSqlValidator extends SqlValidatorImpl{
   /**
    * Creates a validator.

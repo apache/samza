@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.sql.planner;
+package org.apache.samza.sql.calcite.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -36,7 +36,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class QueryPlannerTest {
+public class TestQueryPlanner {
   public static final String STREAM_SCHEMA = "     {\n"
       + "       name: 'STREAMS',\n"
       + "       tables: [ {\n"
