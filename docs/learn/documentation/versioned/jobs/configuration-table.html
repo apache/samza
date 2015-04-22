@@ -167,12 +167,16 @@
                         the set of input streams dynamically at runtime. The value of this property is a
                         fully-qualified Java classname which must implement
                         <a href="../api/javadocs/org/apache/samza/config/ConfigRewriter.html">ConfigRewriter</a>.
-                        Samza ships with one rewriter by default:
+                        Samza ships with these rewriters by default:
                         <dl>
                             <dt><code>org.apache.samza.config.RegExTopicGenerator</code></dt>
                             <dd>When consuming from Kafka, this allows you to consume all Kafka topics that match
                                 some regular expression (rather than having to list each topic explicitly).
                                 This rewriter has <a href="#regex-rewriter">additional configuration</a>.</dd>
+                            <dt><code>org.apache.samza.config.EnvironmentConfigRewriter</code></dt>
+                            <dd>This rewriter takes environment variables that are prefixed with <i>SAMZA_</i>
+                                and adds them to the configuration, overriding previous values where they
+                                exist. The keys are lowercased and underscores are converted to dots.</dd>
                         </dl>
                     </td>
                 </tr>
