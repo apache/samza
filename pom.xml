@@ -189,6 +189,10 @@ under the License.
               <exclude>**/.cache/**</exclude>
               <exclude>deploy/**</exclude>
               <exclude>**/.project</exclude>
+              <exclude>**/.gradle/**</exclude>
+              <exclude>**/gradle/**</exclude>
+              <exclude>**/gradlew*</exclude>
+              <exclude>**/build/**</exclude>
             </excludes>
           </configuration>
         </plugin>
