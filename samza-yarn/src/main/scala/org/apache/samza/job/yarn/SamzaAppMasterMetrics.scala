@@ -65,12 +65,12 @@ class SamzaAppMasterMetrics(
   }).toMap
 
   override def onInit() {
-    val mRunningContainers = newGauge("running-containers", () => state.runningTasks.size)
+    val mRunningContainers = newGauge("running-containers", () => state.runningContainers.size)
     val mNeededContainers = newGauge("needed-containers", () => state.neededContainers)
-    val mCompletedContainers = newGauge("completed-containers", () => state.completedTasks)
+    val mCompletedContainers = newGauge("completed-containers", () => state.completedContainers)
     val mFailedContainers = newGauge("failed-containers", () => state.failedContainers)
     val mReleasedContainers = newGauge("released-containers", () => state.releasedContainers)
-    val mTasks = newGauge("task-count", () => state.taskCount)
+    val mContainers = newGauge("container-count", () => state.containerCount)
     val mHost = newGauge("http-host", () => state.nodeHost)
     val mTrackingPort = newGauge("http-port", () => state.trackingUrl.getPort)
     val mRpcPort = newGauge("rpc-port", () => state.rpcUrl.getPort)

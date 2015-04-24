@@ -80,7 +80,7 @@ class ApplicationMasterRestServlet(config: Config, state: SamzaAppMasterState, r
   get("/am") {
     val containers = new HashMap[String, HashMap[String, Object]]
 
-    state.runningTasks.foreach {
+    state.runningContainers.foreach {
       case (containerId, container) =>
         val yarnContainerId = container.id.toString
         val containerMap = new HashMap[String, Object]

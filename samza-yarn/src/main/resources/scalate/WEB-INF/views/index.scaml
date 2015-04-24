@@ -72,7 +72,7 @@
         %tr
           %tr
             %td.key Completed
-            %td= state.completedTasks.toString
+            %td= state.completedContainers.toString
           %tr
             %td.key Needed
             %td= state.neededContainers.toString
@@ -93,9 +93,9 @@
             %th Start Time
             %th Up Time
         %tbody
-          - for((taskId, container) <- state.runningTasks)
+          - for((containerId, container) <- state.runningContainers)
             %tr
-              %td #{taskId.toString}
+              %td #{containerId.toString}
               %td
                 %a(target="_blank" href="http://#{container.nodeHttpAddress}/node/containerlogs/#{container.id.toString}/#{username}")= container.id.toString
               %td
@@ -111,24 +111,24 @@
         %tbody
           %tr
             %td.key Total
-            %td= state.taskCount.toString
+            %td= state.containerCount.toString
           %tr
             %td.key Unclaimed
-            %td= state.unclaimedTasks.size.toString
+            %td= state.unclaimedContainers.size.toString
           %tr
             %td.key Finished
-            %td= state.finishedTasks.size.toString
+            %td= state.finishedContainers.size.toString
 
       %h3 TaskName Assignment
       %table.table.table-striped.table-bordered.tablesorter#taskids-table
         %thead
           %tr
-            %th Task ID
+            %th Task Group ID
             %th TaskName
             %th SystemStreamPartitions
             %th Container
         %tbody
-          - for((containerId, container) <- state.runningTasks)
+          - for((containerId, container) <- state.runningContainers)
             - val containerModel = state.jobCoordinator.jobModel.getContainers.get(containerId)
             - for((taskName, taskModel) <- containerModel.getTasks)
               %tr

@@ -152,10 +152,10 @@ class TestSamzaAppMasterTaskManager {
     "yarn.container.retry.window.ms" -> "1999999999"))
 
   @Test
-  def testAppMasterShouldDefaultToOneContainerIfTaskCountIsNotSpecified {
+  def testAppMasterShouldDefaultToOneContainerIfContainerCountIsNotSpecified {
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
     val taskManager = new SamzaAppMasterTaskManager(clock, config, state, null, new YarnConfiguration)
-    assertEquals(1, state.taskCount)
+    assertEquals(1, state.containerCount)
   }
 
   @Test
@@ -166,8 +166,8 @@ class TestSamzaAppMasterTaskManager {
     assertFalse(taskManager.shouldShutdown)
     taskManager.onContainerCompleted(getContainerStatus(state.containerId, 0, ""))
     assertTrue(taskManager.shouldShutdown)
-    assertEquals(1, state.completedTasks)
-    assertEquals(1, state.taskCount)
+    assertEquals(1, state.completedContainers)
+    assertEquals(1, state.containerCount)
     assertTrue(state.jobHealthy)
     assertEquals(FinalApplicationStatus.SUCCEEDED, state.status)
   }
@@ -212,7 +212,7 @@ class TestSamzaAppMasterTaskManager {
     val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(false, List(), List())))
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
     state.coordinatorUrl = new URL("http://localhost:1234")
-    state.taskCount = 2
+    state.containerCount = 2
     var containersRequested = 0
     var containersStarted = 0
     val taskManager = new SamzaAppMasterTaskManager(clock, config, state, amClient, new YarnConfiguration) {
@@ -237,16 +237,16 @@ class TestSamzaAppMasterTaskManager {
     // allocate container 2
     taskManager.onContainerAllocated(getContainer(container2))
     assertEquals(0, state.neededContainers)
-    assertEquals(1, state.runningTasks.size)
-    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(1, state.runningContainers.size)
+    assertEquals(0, state.unclaimedContainers.size)
     assertEquals(1, containersRequested)
     assertEquals(1, containersStarted)
 
     // allocate an extra container, which the AM doesn't need, and should be released
     taskManager.onContainerAllocated(getContainer(container3))
     assertEquals(0, state.neededContainers)
-    assertEquals(1, state.runningTasks.size)
-    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(1, state.runningContainers.size)
+    assertEquals(0, state.unclaimedContainers.size)
     assertEquals(1, amClient.getClient.requests.size)
     assertEquals(1, amClient.getClient.getRelease.size)
     assertEquals(container3, amClient.getClient.getRelease.head)
@@ -260,8 +260,8 @@ class TestSamzaAppMasterTaskManager {
     taskManager.onContainerCompleted(getContainerStatus(container3, -100, "pretend the container was released"))
     assertFalse(taskManager.shouldShutdown)
     assertEquals(0, state.neededContainers)
-    assertEquals(1, state.runningTasks.size)
-    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(1, state.runningContainers.size)
+    assertEquals(0, state.unclaimedContainers.size)
     assertEquals(0, amClient.getClient.requests.size)
     assertEquals(0, amClient.getClient.getRelease.size)
 
@@ -276,8 +276,8 @@ class TestSamzaAppMasterTaskManager {
     taskManager.onContainerAllocated(getContainer(container2))
     assertEquals(0, state.neededContainers)
     assertTrue(state.jobHealthy)
-    assertEquals(1, state.runningTasks.size)
-    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(1, state.runningContainers.size)
+    assertEquals(0, state.unclaimedContainers.size)
   }
 
   @Test
@@ -287,7 +287,7 @@ class TestSamzaAppMasterTaskManager {
     val newConfig = new MapConfig(map)
     val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(false, List(), List())))
     val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
-    state.taskCount = 2
+    state.containerCount = 2
     state.coordinatorUrl = new URL("http://localhost:1234")
     var containersStarted = 0
     val taskManager = new SamzaAppMasterTaskManager(clock, newConfig, state, amClient, new YarnConfiguration) {
@@ -305,43 +305,43 @@ class TestSamzaAppMasterTaskManager {
     assertEquals(0, amClient.getClient.getRelease.size)
     taskManager.onContainerAllocated(getContainer(container2))
     assertEquals(1, state.neededContainers)
-    assertEquals(1, state.runningTasks.size)
-    assertEquals(1, state.unclaimedTasks.size)
+    assertEquals(1, state.runningContainers.size)
+    assertEquals(1, state.unclaimedContainers.size)
     assertEquals(1, containersStarted)
     taskManager.onContainerAllocated(getContainer(container3))
     assertEquals(0, state.neededContainers)
-    assertEquals(2, state.runningTasks.size)
-    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(2, state.runningContainers.size)
+    assertEquals(0, state.unclaimedContainers.size)
     assertEquals(2, containersStarted)
 
     // container2 finishes successfully
     taskManager.onContainerCompleted(getContainerStatus(container2, 0, ""))
     assertEquals(0, state.neededContainers)
-    assertEquals(1, state.runningTasks.size)
-    assertEquals(0, state.unclaimedTasks.size)
-    assertEquals(1, state.completedTasks)
+    assertEquals(1, state.runningContainers.size)
+    assertEquals(0, state.unclaimedContainers.size)
+    assertEquals(1, state.completedContainers)
 
     // container3 fails
     taskManager.onContainerCompleted(getContainerStatus(container3, 1, "expected failure here"))
     assertEquals(1, state.neededContainers)
-    assertEquals(0, state.runningTasks.size)
-    assertEquals(1, state.unclaimedTasks.size)
-    assertEquals(1, state.completedTasks)
+    assertEquals(0, state.runningContainers.size)
+    assertEquals(1, state.unclaimedContainers.size)
+    assertEquals(1, state.completedContainers)
     assertFalse(taskManager.shouldShutdown)
 
     // container3 is re-allocated
     taskManager.onContainerAllocated(getContainer(container3))
     assertEquals(0, state.neededContainers)
-    assertEquals(1, state.runningTasks.size)
-    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(1, state.runningContainers.size)
+    assertEquals(0, state.unclaimedContainers.size)
     assertEquals(3, containersStarted)
 
     // container3 finishes sucecssfully
     taskManager.onContainerCompleted(getContainerStatus(container3, 0, ""))
     assertEquals(0, state.neededContainers)
-    assertEquals(0, state.runningTasks.size)
-    assertEquals(0, state.unclaimedTasks.size)
-    assertEquals(2, state.completedTasks)
+    assertEquals(0, state.runningContainers.size)
+    assertEquals(0, state.unclaimedContainers.size)
+    assertEquals(2, state.completedContainers)
     assertTrue(taskManager.shouldShutdown)
   }
 
@@ -371,18 +371,18 @@ class TestSamzaAppMasterTaskManager {
     assertEquals(1, amClient.getClient.requests.size)
     assertEquals(0, amClient.getClient.getRelease.size)
     assertEquals(1, state.neededContainers)
-    assertEquals(0, state.runningTasks.size)
-    assertEquals(1, state.unclaimedTasks.size)
+    assertEquals(0, state.runningContainers.size)
+    assertEquals(1, state.unclaimedContainers.size)
     taskManager.onContainerAllocated(getContainer(container2))
     assertEquals(0, state.neededContainers)
-    assertEquals(1, state.runningTasks.size)
-    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(1, state.runningContainers.size)
+    assertEquals(0, state.unclaimedContainers.size)
     assertEquals(1, containersRequested)
     assertEquals(1, containersStarted)
     taskManager.onContainerAllocated(getContainer(container3))
     assertEquals(0, state.neededContainers)
-    assertEquals(1, state.runningTasks.size)
-    assertEquals(0, state.unclaimedTasks.size)
+    assertEquals(1, state.runningContainers.size)
+    assertEquals(0, state.unclaimedContainers.size)
     assertEquals(1, containersRequested)
     assertEquals(1, containersStarted)
     assertEquals(1, amClient.getClient.requests.size)
@@ -403,7 +403,7 @@ class MockSystemFactory extends SystemFactory {
   }
 
   def getAdmin(systemName: String, config: Config) = {
-    val containerCount = config.getTaskCount.getOrElse(1)
+    val containerCount = config.getContainerCount.getOrElse(1)
     new MockSystemAdmin(containerCount)
   }
 }

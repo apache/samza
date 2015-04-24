@@ -52,7 +52,7 @@ object SamzaAppMasterTaskManager {
   val DEFAULT_CONTAINER_RETRY_WINDOW_MS = 300000
 }
 
-case class TaskFailure(val count: Int, val lastFailure: Long)
+case class ContainerFailure(val count: Int, val lastFailure: Long)
 
 /**
  * Samza's application master is mostly interested in requesting containers to
@@ -63,29 +63,29 @@ case class TaskFailure(val count: Int, val lastFailure: Long)
 class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaAppMasterState, amClient: AMRMClientAsync[ContainerRequest], conf: YarnConfiguration) extends YarnAppMasterListener with Logging {
   import SamzaAppMasterTaskManager._
 
-  state.taskCount = config
-    .getTaskCount
+  state.containerCount = config
+    .getContainerCount
     .getOrElse({
-      info("No %s specified. Defaulting to one container." format YarnConfig.TASK_COUNT)
+      info("No %s specified. Defaulting to one container." format YarnConfig.CONTAINER_COUNT)
       1
     })
-  state.jobCoordinator = JobCoordinator(config, state.taskCount)
+  state.jobCoordinator = JobCoordinator(config, state.containerCount)
 
-  var taskFailures = Map[Int, TaskFailure]()
+  var containerFailures = Map[Int, ContainerFailure]()
   var tooManyFailedContainers = false
   // TODO we might want to use NMClientAsync as well
   var containerManager: NMClient = null
 
-  override def shouldShutdown = state.completedTasks == state.taskCount || tooManyFailedContainers
+  override def shouldShutdown = state.completedContainers == state.containerCount || tooManyFailedContainers
 
   override def onInit() {
-    state.neededContainers = state.taskCount
-    state.unclaimedTasks = state.jobCoordinator.jobModel.getContainers.keySet.map(_.toInt).toSet
+    state.neededContainers = state.containerCount
+    state.unclaimedContainers = state.jobCoordinator.jobModel.getContainers.keySet.map(_.toInt).toSet
     containerManager = NMClient.createNMClient()
     containerManager.init(conf)
     containerManager.start
 
-    info("Requesting %s containers" format state.taskCount)
+    info("Requesting %s containers" format state.containerCount)
 
     requestContainers(config.getContainerMaxMemoryMb.getOrElse(DEFAULT_CONTAINER_MEM), config.getContainerMaxCpuCores.getOrElse(DEFAULT_CPU_CORES), state.neededContainers)
   }
@@ -101,22 +101,22 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
 
     info("Got a container from YARN ResourceManager: %s" format container)
 
-    state.unclaimedTasks.headOption match {
-      case Some(taskId) => {
-        info("Got available task id (%d) for container: %s" format (taskId, container))
-        val sspTaskNames = state.jobCoordinator.jobModel.getContainers.get(taskId)
-        info("Claimed SSP taskNames %s for container ID %s" format (sspTaskNames, taskId))
+    state.unclaimedContainers.headOption match {
+      case Some(containerId) => {
+        info("Got available container ID (%d) for container: %s" format (containerId, container))
+        val sspTaskNames = state.jobCoordinator.jobModel.getContainers.get(containerId)
+        info("Claimed SSP taskNames %s for container ID %s" format (sspTaskNames, containerId))
         val cmdBuilderClassName = config.getCommandClass.getOrElse(classOf[ShellCommandBuilder].getName)
         val cmdBuilder = Class.forName(cmdBuilderClassName).newInstance.asInstanceOf[CommandBuilder]
           .setConfig(config)
-          .setId(taskId)
+          .setId(containerId)
           .setUrl(state.coordinatorUrl)
         val command = cmdBuilder.buildCommand
-        info("Task ID %s using command %s" format (taskId, command))
+        info("Container ID %s using command %s" format (containerId, command))
         val env = cmdBuilder.buildEnvironment.map { case (k, v) => (k, Util.envVarEscape(v)) }
-        info("Task ID %s using env %s" format (taskId, env))
+        info("Container ID %s using env %s" format (containerId, env))
         val path = new Path(config.getPackagePath.get)
-        info("Starting task ID %s using package path %s" format (taskId, path))
+        info("Starting container ID %s using package path %s" format (containerId, path))
 
         startContainer(
           path,
@@ -128,12 +128,12 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
         if (state.neededContainers == 0) {
           state.jobHealthy = true
         }
-        state.runningTasks += taskId -> new YarnContainer(container)
-        state.unclaimedTasks -= taskId
+        state.runningContainers += containerId -> new YarnContainer(container)
+        state.unclaimedContainers -= containerId
 
-        info("Claimed task ID %s for container %s on node %s (http://%s/node/containerlogs/%s)." format (taskId, containerIdStr, container.getNodeId.getHost, container.getNodeHttpAddress, containerIdStr))
+        info("Claimed container ID %s for container %s on node %s (http://%s/node/containerlogs/%s)." format (containerId, containerIdStr, container.getNodeId.getHost, container.getNodeHttpAddress, containerIdStr))
 
-        info("Started task ID %s" format taskId)
+        info("Started container ID %s" format containerId)
       }
       case _ => {
         // there are no more tasks to run, so release the container
@@ -146,11 +146,11 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
 
   override def onContainerCompleted(containerStatus: ContainerStatus) {
     val containerIdStr = ConverterUtils.toString(containerStatus.getContainerId)
-    val taskId = state.runningTasks.filter { case (_, container) => container.id.equals(containerStatus.getContainerId()) }.keys.headOption
+    val containerId = state.runningContainers.filter { case (_, container) => container.id.equals(containerStatus.getContainerId()) }.keys.headOption
 
-    taskId match {
-      case Some(taskId) => {
-        state.runningTasks -= taskId
+    containerId match {
+      case Some(containerId) => {
+        state.runningContainers -= containerId
       }
       case _ => None
     }
@@ -159,15 +159,15 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
       case 0 => {
         info("Container %s completed successfully." format containerIdStr)
 
-        state.completedTasks += 1
+        state.completedContainers += 1
 
-        if (taskId.isDefined) {
-          state.finishedTasks += taskId.get
-          taskFailures -= taskId.get
+        if (containerId.isDefined) {
+          state.finishedContainers += containerId.get
+          containerFailures -= containerId.get
         }
 
-        if (state.completedTasks == state.taskCount) {
-          info("Setting job status to SUCCEEDED, since all tasks have been marked as completed.")
+        if (state.completedContainers == state.containerCount) {
+          info("Setting job status to SUCCEEDED, since all containers have been marked as completed.")
           state.status = FinalApplicationStatus.SUCCEEDED
         }
       }
@@ -178,16 +178,16 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
 
         state.releasedContainers += 1
 
-        // If this container was assigned some partitions (a containerId), then 
-        // clean up, and request a new container for the tasks. This only 
-        // should happen if the container was 'lost' due to node failure, not 
+        // If this container was assigned some partitions (a containerId), then
+        // clean up, and request a new container for the tasks. This only
+        // should happen if the container was 'lost' due to node failure, not
         // if the AM released the container.
-        if (taskId.isDefined) {
-          info("Released container %s was assigned task ID %s. Requesting a new container for the task." format (containerIdStr, taskId.get))
+        if (containerId.isDefined) {
+          info("Released container %s was assigned task group ID %s. Requesting a new container for the task group." format (containerIdStr, containerId.get))
 
           state.neededContainers += 1
           state.jobHealthy = false
-          state.unclaimedTasks += taskId.get
+          state.unclaimedContainers += containerId.get
 
           // request a new container
           requestContainers(config.getContainerMaxMemoryMb.getOrElse(DEFAULT_CONTAINER_MEM), config.getContainerMaxCpuCores.getOrElse(DEFAULT_CPU_CORES), 1)
@@ -199,33 +199,33 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
         state.failedContainers += 1
         state.jobHealthy = false
 
-        taskId match {
-          case Some(taskId) =>
-            info("Failed container %s owned task id %s." format (containerIdStr, taskId))
+        containerId match {
+          case Some(containerId) =>
+            info("Failed container %s owned task group ID %s." format (containerIdStr, containerId))
 
-            state.unclaimedTasks += taskId
+            state.unclaimedContainers += containerId
             state.neededContainers += 1
 
-            // A container failed for an unknown reason. Let's check to see if 
-            // we need to shutdown the whole app master if too many container 
-            // failures have happened. The rules for failing are that the failure 
-            // count for a task id must be > the configured retry count, and the 
-            // last failure (the one prior to this one) must have happened less 
-            // than retry window ms ago. If retry count is set to 0, the app 
-            // master will fail on any container failure. If the retry count is 
-            // set to a number < 0, a container failure will never trigger an 
-            // app master failure.
+            // A container failed for an unknown reason. Let's check to see if
+            // we need to shutdown the whole app master if too many container
+            // failures have happened. The rules for failing are that the
+            // failure count for a task group id must be > the configured retry
+            // count, and the last failure (the one prior to this one) must have
+            // happened less than retry window ms ago. If retry count is set to
+            // 0, the app master will fail on any container failure. If the
+            // retry count is set to a number < 0, a container failure will
+            // never trigger an app master failure.
             val retryCount = config.getContainerRetryCount.getOrElse(DEFAULT_CONTAINER_RETRY_COUNT)
             val retryWindowMs = config.getContainerRetryWindowMs.getOrElse(DEFAULT_CONTAINER_RETRY_WINDOW_MS)
 
             if (retryCount == 0) {
-              error("Task id %s (%s) failed, and retry count is set to 0, so shutting down the application master, and marking the job as failed."
-                format (taskId, containerIdStr))
+              error("Container ID %s (%s) failed, and retry count is set to 0, so shutting down the application master, and marking the job as failed."
+                format (containerId, containerIdStr))
 
               tooManyFailedContainers = true
             } else if (retryCount > 0) {
-              val (currentFailCount, lastFailureTime) = taskFailures.get(taskId) match {
-                case Some(TaskFailure(count, lastFailure)) => (count + 1, lastFailure)
+              val (currentFailCount, lastFailureTime) = containerFailures.get(containerId) match {
+                case Some(ContainerFailure(count, lastFailure)) => (count + 1, lastFailure)
                 case _ => (1, 0L)
               }
 
@@ -233,24 +233,24 @@ class SamzaAppMasterTaskManager(clock: () => Long, config: Config, state: SamzaA
                 val lastFailureMsDiff = clock() - lastFailureTime
 
                 if (lastFailureMsDiff < retryWindowMs) {
-                  error("Task id %s (%s) has failed %s times, with last failure %sms ago. This is greater than retry count of %s and window of %s, so shutting down the application master, and marking the job as failed."
-                    format (taskId, containerIdStr, currentFailCount, lastFailureMsDiff, retryCount, retryWindowMs))
+                  error("Container ID %s (%s) has failed %s times, with last failure %sms ago. This is greater than retry count of %s and window of %s, so shutting down the application master, and marking the job as failed."
+                    format (containerId, containerIdStr, currentFailCount, lastFailureMsDiff, retryCount, retryWindowMs))
 
-                  // We have too many failures, and we're within the window 
+                  // We have too many failures, and we're within the window
                   // boundary, so reset shut down the app master.
                   tooManyFailedContainers = true
                   state.status = FinalApplicationStatus.FAILED
                 } else {
-                  info("Resetting fail count for task id %s back to 1, since last container failure (%s) for this task id was outside the bounds of the retry window."
-                    format (taskId, containerIdStr))
+                  info("Resetting fail count for container ID %s back to 1, since last container failure (%s) for this container ID was outside the bounds of the retry window."
+                    format (containerId, containerIdStr))
 
-                  // Reset counter back to 1, since the last failure for this 
+                  // Reset counter back to 1, since the last failure for this
                   // container happened outside the window boundary.
-                  taskFailures += taskId -> TaskFailure(1, clock())
+                  containerFailures += containerId -> ContainerFailure(1, clock())
                 }
               } else {
-                info("Current fail count for task id %s is %s." format (taskId, currentFailCount))
-                taskFailures += taskId -> TaskFailure(currentFailCount, clock())
+                info("Current fail count for container ID %s is %s." format (containerId, currentFailCount))
+                containerFailures += containerId -> ContainerFailure(currentFailCount, clock())
               }
             }
 

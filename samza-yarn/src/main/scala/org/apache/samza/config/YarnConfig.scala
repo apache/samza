@@ -26,7 +26,7 @@ object YarnConfig {
   val CONTAINER_MAX_CPU_CORES = "yarn.container.cpu.cores"
   val CONTAINER_RETRY_COUNT = "yarn.container.retry.count"
   val CONTAINER_RETRY_WINDOW_MS = "yarn.container.retry.window.ms"
-  val TASK_COUNT = "yarn.container.count"
+  val CONTAINER_COUNT = "yarn.container.count"
   val AM_JVM_OPTIONS = "yarn.am.opts"
   val AM_JMX_ENABLED = "yarn.am.jmx.enabled"
   val AM_CONTAINER_MAX_MEMORY_MB = "yarn.am.container.memory.mb"
@@ -47,7 +47,7 @@ class YarnConfig(config: Config) extends ScalaMapConfig(config) {
 
   def getPackagePath = getOption(YarnConfig.PACKAGE_PATH)
 
-  def getTaskCount: Option[Int] = getOption(YarnConfig.TASK_COUNT).map(_.toInt)
+  def getContainerCount: Option[Int] = getOption(YarnConfig.CONTAINER_COUNT).map(_.toInt)
 
   def getAmOpts = getOption(YarnConfig.AM_JVM_OPTIONS)
 
