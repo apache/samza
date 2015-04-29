@@ -113,23 +113,21 @@ object SamzaContainer extends Logging {
   }
 
   /**
-   * A helper function which returns system's default serde according to the
+   * A helper function which returns system's default serde factory class according to the
    * serde name. If not found, throw exception.
    */
-  def defaultSerdesFromSerdeName(serdeName: String, exceptionSystemName: String, config: Config) = {
+  def defaultSerdeFactoryFromSerdeName(serdeName: String) = {
     info("looking for default serdes")
-    def getSerde(serdeFactory: String) = {
-      Util.getObj[SerdeFactory[Object]](serdeFactory).getSerde(serdeName, config)
-    }
+
     val serde = serdeName match {
-      case "byte" => getSerde(classOf[ByteSerdeFactory].getCanonicalName)
-      case "bytebuffer" => getSerde(classOf[ByteBufferSerdeFactory].getCanonicalName)
-      case "integer" => getSerde(classOf[IntegerSerdeFactory].getCanonicalName)
-      case "json" => getSerde(classOf[JsonSerdeFactory].getCanonicalName)
-      case "long" => getSerde(classOf[LongSerdeFactory].getCanonicalName)
-      case "serializable" => getSerde(classOf[SerializableSerdeFactory[java.io.Serializable]].getCanonicalName)
-      case "string" => getSerde(classOf[StringSerdeFactory].getCanonicalName)
-      case _ => throw new SamzaException("Serde %s for system %s does not exist in configuration." format (serdeName, exceptionSystemName))
+      case "byte" => classOf[ByteSerdeFactory].getCanonicalName
+      case "bytebuffer" => classOf[ByteBufferSerdeFactory].getCanonicalName
+      case "integer" => classOf[IntegerSerdeFactory].getCanonicalName
+      case "json" => classOf[JsonSerdeFactory].getCanonicalName
+      case "long" => classOf[LongSerdeFactory].getCanonicalName
+      case "serializable" => classOf[SerializableSerdeFactory[java.io.Serializable]].getCanonicalName
+      case "string" => classOf[StringSerdeFactory].getCanonicalName
+      case _ => throw new SamzaException("No class defined for serde %s" format serdeName)
     }
     info("use default serde %s for %s" format (serde, serdeName))
     serde
@@ -233,7 +231,7 @@ object SamzaContainer extends Logging {
     val serdes = serdeNames.map(serdeName => {
       val serdeClassName = config
         .getSerdeClass(serdeName)
-        .getOrElse(throw new SamzaException("No class defined for serde: %s." format serdeName))
+        .getOrElse(defaultSerdeFactoryFromSerdeName(serdeName))
 
       val serde = Util.getObj[SerdeFactory[Object]](serdeClassName)
         .getSerde(serdeName, config)
@@ -251,7 +249,7 @@ object SamzaContainer extends Logging {
         .filter(getSerdeName(_).isDefined)
         .map(systemName => {
           val serdeName = getSerdeName(systemName).get
-          val serde = serdes.getOrElse(serdeName, defaultSerdesFromSerdeName(serdeName, systemName, config))
+          val serde = serdes.getOrElse(serdeName, throw new SamzaException("No class defined for serde: %s." format serdeName))
           (systemName, serde)
         }).toMap
     }
@@ -264,7 +262,7 @@ object SamzaContainer extends Logging {
         .filter(systemStream => getSerdeName(systemStream).isDefined)
         .map(systemStream => {
           val serdeName = getSerdeName(systemStream).get
-          val serde = serdes.getOrElse(serdeName, defaultSerdesFromSerdeName(serdeName, systemStream.toString, config))
+          val serde = serdes.getOrElse(serdeName, throw new SamzaException("No class defined for serde: %s." format serdeName))
           (systemStream, serde)
         }).toMap
     }
@@ -454,11 +452,11 @@ object SamzaContainer extends Logging {
               null
             }
             val keySerde = config.getStorageKeySerde(storeName) match {
-              case Some(keySerde) => serdes(keySerde)
+              case Some(keySerde) => serdes.getOrElse(keySerde, throw new SamzaException("No class defined for serde: %s." format keySerde))
               case _ => null
             }
             val msgSerde = config.getStorageMsgSerde(storeName) match {
-              case Some(msgSerde) => serdes(msgSerde)
+              case Some(msgSerde) => serdes.getOrElse(msgSerde, throw new SamzaException("No class defined for serde: %s." format msgSerde))
               case _ => null
             }
             val storePartitionDir = TaskStorageManager.getStorePartitionDir(storeBaseDir, storeName, taskName)

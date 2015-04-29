@@ -166,7 +166,7 @@ class TestSamzaContainer extends AssertionsForJUnit {
       SamzaContainer.safeMain(() => null, exceptionHandler)
     } catch {
       case _: Exception =>
-      // Expect some random exception from SamzaContainer because we haven't 
+      // Expect some random exception from SamzaContainer because we haven't
       // set any environment variables for container ID, etc.
     }
     assertFalse(caughtException)
@@ -179,20 +179,20 @@ class TestSamzaContainer extends AssertionsForJUnit {
   }
 
   @Test
-  def testDefaultSerdesFromSerdeName {
+  def testDefaultSerdeFactoryFromSerdeName {
     import SamzaContainer._
     val config = new MapConfig
-    assertTrue(defaultSerdesFromSerdeName("byte", "testSystemException", config).isInstanceOf[ByteSerde])
-    assertTrue(defaultSerdesFromSerdeName("integer", "testSystemException", config).isInstanceOf[IntegerSerde])
-    assertTrue(defaultSerdesFromSerdeName("json", "testSystemException", config).isInstanceOf[JsonSerde[Object]])
-    assertTrue(defaultSerdesFromSerdeName("long", "testSystemException", config).isInstanceOf[LongSerde])
-    assertTrue(defaultSerdesFromSerdeName("serializable", "testSystemException", config).isInstanceOf[SerializableSerde[java.io.Serializable @unchecked]])
-    assertTrue(defaultSerdesFromSerdeName("string", "testSystemException", config).isInstanceOf[StringSerde])
+    assertEquals(classOf[ByteSerdeFactory].getName, defaultSerdeFactoryFromSerdeName("byte"))
+    assertEquals(classOf[IntegerSerdeFactory].getName, defaultSerdeFactoryFromSerdeName("integer"))
+    assertEquals(classOf[JsonSerdeFactory].getName, defaultSerdeFactoryFromSerdeName("json"))
+    assertEquals(classOf[LongSerdeFactory].getName, defaultSerdeFactoryFromSerdeName("long"))
+    assertEquals(classOf[SerializableSerdeFactory[java.io.Serializable@unchecked]].getName, defaultSerdeFactoryFromSerdeName("serializable"))
+    assertEquals(classOf[StringSerdeFactory].getName, defaultSerdeFactoryFromSerdeName("string"))
 
     // throw SamzaException if can not find the correct serde
     var throwSamzaException = false
     try {
-      defaultSerdesFromSerdeName("otherName", "testSystemException", config)
+      defaultSerdeFactoryFromSerdeName("otherName")
     } catch {
       case e: SamzaException => throwSamzaException = true
       case _: Exception =>
