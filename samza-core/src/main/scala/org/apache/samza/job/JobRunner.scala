@@ -20,16 +20,27 @@
 package org.apache.samza.job
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{Config, ConfigRewriter}
+import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.factories.PropertiesConfigFactory
 import org.apache.samza.job.ApplicationStatus.Running
-import org.apache.samza.util.Util
 import org.apache.samza.util.CommandLine
 import org.apache.samza.util.Logging
+import org.apache.samza.util.Util
 import scala.collection.JavaConversions._
+import org.apache.samza.config.SystemConfig.Config2System
+import org.apache.samza.config.ConfigException
+import org.apache.samza.config.SystemConfig
+import org.apache.samza.system.SystemFactory
+import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.coordinator.stream.CoordinatorStreamMessage
+import org.apache.samza.coordinator.stream.CoordinatorStreamMessage.SetConfig
+import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer
+import org.apache.samza.system.SystemStream
+import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 
-object JobRunner extends Logging {
+object JobRunner {
+  val SOURCE = "job-runner"
+
   def main(args: Array[String]) {
     val cmdline = new CommandLine
     val options = cmdline.parser.parse(args: _*)
@@ -43,23 +54,43 @@ object JobRunner extends Logging {
  * on a config URI. The configFactory is instantiated, fed the configPath,
  * and returns a Config, which is used to execute the job.
  */
-class JobRunner(config: Config) extends Logging with Runnable {
-
-  def run() {
-    val conf = rewriteConfig(config)
-
-    val jobFactoryClass = conf.getStreamJobFactoryClass match {
+class JobRunner(config: Config) extends Logging {
+  def run() = {
+    debug("config: %s" format (config))
+    val jobFactoryClass = config.getStreamJobFactoryClass match {
       case Some(factoryClass) => factoryClass
       case _ => throw new SamzaException("no job factory class defined")
     }
-
     val jobFactory = Class.forName(jobFactoryClass).newInstance.asInstanceOf[StreamJobFactory]
-
     info("job factory: %s" format (jobFactoryClass))
-    debug("config: %s" format (conf))
+    val factory = new CoordinatorStreamSystemFactory
+    val coordinatorSystemConsumer = factory.getCoordinatorStreamSystemConsumer(config, new MetricsRegistryMap)
+    val coordinatorSystemProducer = factory.getCoordinatorStreamSystemProducer(config, new MetricsRegistryMap)
+
+    // Create the coordinator stream if it doesn't exist
+    info("Creating coordinator stream");
+    val (coordinatorSystemStream, systemFactory) = Util.getCoordinatorSystemStreamAndFactory(config)
+    val systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem, config)
+    systemAdmin.createCoordinatorStream(coordinatorSystemStream.getStream)
+
+    info("Storing config in coordinator stream.")
+    coordinatorSystemProducer.register(JobRunner.SOURCE)
+    coordinatorSystemProducer.start
+    coordinatorSystemProducer.writeConfig(JobRunner.SOURCE, config)
+    info("Loading old config from coordinator stream.")
+    coordinatorSystemConsumer.register
+    coordinatorSystemConsumer.start
+    coordinatorSystemConsumer.bootstrap
+    coordinatorSystemConsumer.stop
+    val oldConfig = coordinatorSystemConsumer.getConfig();
+    info("Deleting old configs that are no longer defined: %s".format(oldConfig.keySet -- config.keySet))
+    (oldConfig.keySet -- config.keySet).foreach(key => {
+      coordinatorSystemProducer.send(new CoordinatorStreamMessage.Delete(JobRunner.SOURCE, key, SetConfig.TYPE))
+    })
+    coordinatorSystemProducer.stop
 
     // Create the actual job, and submit it.
-    val job = jobFactory.getJob(conf).submit
+    val job = jobFactory.getJob(config).submit
 
     info("waiting for job to start")
 
@@ -76,22 +107,6 @@ class JobRunner(config: Config) extends Logging with Runnable {
     }
 
     info("exiting")
-  }
-
-  // Apply any and all config re-writer classes that the user has specified
-  def rewriteConfig(config: Config): Config = {
-    def rewrite(c: Config, rewriterName: String): Config = {
-      val klass = config
-        .getConfigRewriterClass(rewriterName)
-        .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
-      val rewriter = Util.getObj[ConfigRewriter](klass)
-      info("Re-writing config file with " + rewriter)
-      rewriter.rewrite(rewriterName, c)
-    }
-
-    config.getConfigRewriters match {
-      case Some(rewriters) => rewriters.split(",").foldLeft(config)(rewrite(_, _))
-      case None => config
-    }
+    job
   }
 }

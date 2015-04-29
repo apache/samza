@@ -94,6 +94,24 @@ class KafkaSystemAdmin(
   brokerListString: String,
 
   /**
+   * A method that returns a ZkClient for the Kafka system. This is invoked
+   * when the system admin is attempting to create a coordinator stream.
+   */
+  connectZk: () => ZkClient,
+
+  /**
+   * Custom properties to use when the system admin tries to create a new
+   * coordinator stream.
+   */
+  coordinatorStreamProperties: Properties = new Properties,
+
+  /**
+   * The replication factor to use when the system admin creates a new
+   * coordinator stream.
+   */
+  coordinatorStreamReplicationFactor: Int = 1,
+
+  /**
    * The timeout to use for the simple consumer when fetching metadata from
    * Kafka. Equivalent to Kafka's socket.timeout.ms configuration.
    */
@@ -111,12 +129,6 @@ class KafkaSystemAdmin(
    * Kafka. Equivalent to Kafka's client.id configuration.
    */
   clientId: String = UUID.randomUUID.toString,
-
-  /**
-   * A function that returns a Zookeeper client to connect to fetch the meta
-   * data information
-   */
-  connectZk: () => ZkClient,
 
   /**
    * Replication factor for the Changelog topic in kafka
@@ -201,8 +213,39 @@ class KafkaSystemAdmin(
       (exception, loop) => {
         warn("Unable to fetch last offsets for streams %s due to %s. Retrying." format (streams, exception))
         debug("Exception detail:", exception)
-      }
-    ).getOrElse(throw new SamzaException("Failed to get system stream metadata"))
+      }).getOrElse(throw new SamzaException("Failed to get system stream metadata"))
+  }
+
+  def createCoordinatorStream(streamName: String) {
+    info("Attempting to create coordinator stream %s." format streamName)
+    new ExponentialSleepStrategy(initialDelayMs = 500).run(
+      loop => {
+        val zkClient = connectZk()
+        try {
+          AdminUtils.createTopic(
+            zkClient,
+            streamName,
+            1, // Always one partition for coordinator stream.
+            coordinatorStreamReplicationFactor,
+            coordinatorStreamProperties)
+        } finally {
+          zkClient.close
+        }
+
+        info("Created coordinator stream %s." format streamName)
+        loop.done
+      },
+
+      (exception, loop) => {
+        exception match {
+          case e: TopicExistsException =>
+            info("Coordinator stream %s already exists." format streamName)
+            loop.done
+          case e: Exception =>
+            warn("Failed to create topic %s: %s. Retrying." format (streamName, e))
+            debug("Exception detail:", e)
+        }
+      })
   }
 
   /**

@@ -100,15 +100,15 @@ object TestKafkaSystemAdmin {
       REPLICATION_FACTOR)
   }
 
-  def validateTopic(expectedPartitionCount: Int) {
+  def validateTopic(topic: String, expectedPartitionCount: Int) {
     var done = false
     var retries = 0
     val maxRetries = 100
 
     while (!done && retries < maxRetries) {
       try {
-        val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(TOPIC), "kafka", metadataStore.getTopicInfo)
-        val topicMetadata = topicMetadataMap(TOPIC)
+        val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topic), "kafka", metadataStore.getTopicInfo)
+        val topicMetadata = topicMetadataMap(topic)
         val errorCode = topicMetadata.errorCode
 
         KafkaUtil.maybeThrowException(errorCode)
@@ -207,10 +207,9 @@ class TestKafkaSystemAdmin {
 
   @Test
   def testShouldGetOldestNewestAndNextOffsets {
-
     // Create an empty topic with 50 partitions, but with no offsets.
     createTopic
-    validateTopic(50)
+    validateTopic(TOPIC, 50)
 
     // Verify the empty topic behaves as expected.
     var metadata = systemAdmin.getSystemStreamMetadata(Set(TOPIC))
@@ -271,7 +270,6 @@ class TestKafkaSystemAdmin {
 
   @Test
   def testNonExistentTopic {
-
     val initialOffsets = systemAdmin.getSystemStreamMetadata(Set("non-existent-topic"))
     val metadata = initialOffsets.getOrElse("non-existent-topic", fail("missing metadata"))
     assertEquals(metadata, new SystemStreamMetadata("non-existent-topic", Map(
@@ -289,7 +287,21 @@ class TestKafkaSystemAdmin {
     assertEquals("3", offsetsAfter(ssp2))
   }
 
-  class KafkaSystemAdminWithTopicMetadataError extends KafkaSystemAdmin("test", brokers, connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer)) {
+  @Test
+  def testShouldCreateCoordinatorStream {
+    val topic = "test-coordinator-stream"
+    val systemAdmin = new KafkaSystemAdmin("test", brokers, () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer), coordinatorStreamReplicationFactor = 3)
+    systemAdmin.createCoordinatorStream(topic)
+    validateTopic(topic, 1)
+    val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topic), "kafka", metadataStore.getTopicInfo)
+    assertTrue(topicMetadataMap.contains(topic))
+    val topicMetadata = topicMetadataMap(topic)
+    val partitionMetadata = topicMetadata.partitionsMetadata.head
+    assertEquals(0, partitionMetadata.partitionId)
+    assertEquals(3, partitionMetadata.replicas.size)
+  }
+
+  class KafkaSystemAdminWithTopicMetadataError extends KafkaSystemAdmin("test", brokers, () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer)) {
     import kafka.api.{ TopicMetadata, TopicMetadataResponse }
 
     // Simulate Kafka telling us that the leader for the topic is not available

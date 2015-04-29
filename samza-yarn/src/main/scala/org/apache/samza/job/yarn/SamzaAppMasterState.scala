@@ -33,7 +33,7 @@ import org.apache.samza.coordinator.JobCoordinator
  * responses from YARN's resource manager (via SamzaAppMasterTaskManager). This
  * class holds the current state of the application master.
  */
-class SamzaAppMasterState(val taskId: Int, val containerId: ContainerId, val nodeHost: String, val nodePort: Int, val nodeHttpPort: Int) extends YarnAppMasterListener with Logging {
+class SamzaAppMasterState(val jobCoordinator: JobCoordinator, val taskId: Int, val containerId: ContainerId, val nodeHost: String, val nodePort: Int, val nodeHttpPort: Int) extends YarnAppMasterListener with Logging {
   // controlled by the AM
   var completedContainers = 0
   var neededContainers = 0
@@ -43,7 +43,6 @@ class SamzaAppMasterState(val taskId: Int, val containerId: ContainerId, val nod
   var runningContainers = Map[Int, YarnContainer]()
   var unclaimedContainers = Set[Int]()
   var finishedContainers = Set[Int]()
-  var jobCoordinator: JobCoordinator = null
   var status = FinalApplicationStatus.UNDEFINED
   var jobHealthy = true
 

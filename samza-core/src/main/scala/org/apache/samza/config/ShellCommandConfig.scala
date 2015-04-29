@@ -21,9 +21,9 @@ package org.apache.samza.config
 
 object ShellCommandConfig {
   /**
-   * This environment variable is used to store a JSON serialized map of all configuration.
+   * This environment variable is used to store a JSON serialized map of all coordinator system configs.
    */
-  val ENV_CONFIG = "SAMZA_CONFIG"
+  val ENV_COORDINATOR_SYSTEM_CONFIG = "SAMZA_COORDINATOR_SYSTEM_CONFIG"
 
   /**
    * The ID for a container. This is an integer number between 0 and

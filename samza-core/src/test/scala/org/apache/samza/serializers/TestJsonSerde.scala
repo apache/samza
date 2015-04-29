@@ -23,11 +23,13 @@ import org.junit.Assert._
 import org.junit.Test
 
 import scala.collection.JavaConversions._
+import scala.collection.immutable.HashMap
+
 
 class TestJsonSerde {
   @Test
   def testJsonSerdeShouldWork {
-    val serde = new JsonSerde
+    val serde = new JsonSerde[java.util.HashMap[String, Object]]
     val obj = new java.util.HashMap[String, Object](Map[String, Object]("hi" -> "bye", "why" -> new java.lang.Integer(2)))
     val bytes = serde.toBytes(obj)
     assertEquals(obj, serde.fromBytes(bytes))

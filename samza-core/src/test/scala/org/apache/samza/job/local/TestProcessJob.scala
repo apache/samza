@@ -56,7 +56,7 @@ class TestProcessJob {
   }
 }
 
-class MockJobCoordinator extends JobCoordinator(null, null) {
+class MockJobCoordinator extends JobCoordinator(null, null, null) {
   var stopped: Boolean = false
 
   override def start: Unit = { }

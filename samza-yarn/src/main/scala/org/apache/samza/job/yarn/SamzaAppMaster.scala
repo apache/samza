@@ -39,6 +39,7 @@ import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.util.hadoop.HttpFileSystem
 import org.apache.samza.util.Logging
 import org.apache.samza.serializers.model.SamzaObjectMapper
+import org.apache.samza.coordinator.JobCoordinator
 import org.apache.samza.SamzaException
 
 /**
@@ -70,8 +71,12 @@ object SamzaAppMaster extends Logging with AMRMClientAsync.CallbackHandler {
     info("got node manager port: %s" format nodePortString)
     val nodeHttpPortString = System.getenv(ApplicationConstants.Environment.NM_HTTP_PORT.toString)
     info("got node manager http port: %s" format nodeHttpPortString)
-    val config = new MapConfig(SamzaObjectMapper.getObjectMapper.readValue(System.getenv(ShellCommandConfig.ENV_CONFIG), classOf[Config]))
-    info("got config: %s" format config)
+    val coordinatorSystemConfig = new MapConfig(SamzaObjectMapper.getObjectMapper.readValue(System.getenv(ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG), classOf[Config]))
+    info("got coordinator system config: %s" format coordinatorSystemConfig)
+    val registry = new MetricsRegistryMap
+    val jobCoordinator = JobCoordinator(coordinatorSystemConfig, registry)
+    val config = jobCoordinator.jobModel.getConfig
+    info("got config: %s" format coordinatorSystemConfig)
     putMDC("jobName", config.getName.getOrElse(throw new SamzaException("can not find the job name")))
     putMDC("jobId", config.getJobId.getOrElse("1"))
     val hConfig = new YarnConfiguration
@@ -79,14 +84,13 @@ object SamzaAppMaster extends Logging with AMRMClientAsync.CallbackHandler {
     val interval = config.getAMPollIntervalMs.getOrElse(DEFAULT_POLL_INTERVAL_MS)
     val amClient = AMRMClientAsync.createAMRMClientAsync[ContainerRequest](interval, this)
     val clientHelper = new ClientHelper(hConfig)
-    val registry = new MetricsRegistryMap
     val containerMem = config.getContainerMaxMemoryMb.getOrElse(DEFAULT_CONTAINER_MEM)
     val containerCpu = config.getContainerMaxCpuCores.getOrElse(DEFAULT_CPU_CORES)
     val jmxServer = if (new YarnConfig(config).getJmxServerEnabled) Some(new JmxServer()) else None
 
     try {
       // wire up all of the yarn event listeners
-      val state = new SamzaAppMasterState(-1, containerId, nodeHostString, nodePortString.toInt, nodeHttpPortString.toInt)
+      val state = new SamzaAppMasterState(jobCoordinator, -1, containerId, nodeHostString, nodePortString.toInt, nodeHttpPortString.toInt)
       val service = new SamzaAppMasterService(config, state, registry, clientHelper)
       val lifecycle = new SamzaAppMasterLifecycle(containerMem, containerCpu, state, amClient)
       val metrics = new SamzaAppMasterMetrics(config, state, registry)

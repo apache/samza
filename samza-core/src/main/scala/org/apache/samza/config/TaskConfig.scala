@@ -19,8 +19,8 @@
 
 package org.apache.samza.config
 
-import org.apache.samza.util.Util
 import org.apache.samza.system.SystemStream
+import org.apache.samza.util.Util
 
 object TaskConfig {
   // task config constants

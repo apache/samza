@@ -20,10 +20,12 @@
 package org.apache.samza.job.model;
 
 import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
+
 
 /**
  * <p>
@@ -39,12 +41,12 @@ import org.apache.samza.system.SystemStreamPartition;
  */
 public class TaskModel implements Comparable<TaskModel> {
   private final TaskName taskName;
-  private final Set<SystemStreamPartition> systemStreamPartitions;
+  private final Map<SystemStreamPartition, String> systemStreamPartitionsToOffsets;
   private final Partition changelogPartition;
 
-  public TaskModel(TaskName taskName, Set<SystemStreamPartition> systemStreamPartitions, Partition changelogPartition) {
+  public TaskModel(TaskName taskName, Map<SystemStreamPartition, String> systemStreamPartitionsToOffsets, Partition changelogPartition) {
     this.taskName = taskName;
-    this.systemStreamPartitions = Collections.unmodifiableSet(systemStreamPartitions);
+    this.systemStreamPartitionsToOffsets = Collections.unmodifiableMap(systemStreamPartitionsToOffsets);
     this.changelogPartition = changelogPartition;
   }
 
@@ -53,53 +55,53 @@ public class TaskModel implements Comparable<TaskModel> {
   }
 
   public Set<SystemStreamPartition> getSystemStreamPartitions() {
-    return systemStreamPartitions;
+    return systemStreamPartitionsToOffsets.keySet();
   }
 
   public Partition getChangelogPartition() {
     return changelogPartition;
   }
 
+  public Map<SystemStreamPartition, String> getCheckpointedOffsets() {
+    return systemStreamPartitionsToOffsets;
+  }
+
   @Override
-  public String toString() {
-    return "TaskModel [taskName=" + taskName + ", systemStreamPartitions=" + systemStreamPartitions + ", changeLogPartition=" + changelogPartition + "]";
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    TaskModel taskModel = (TaskModel) o;
+
+    if (!changelogPartition.equals(taskModel.changelogPartition)) {
+      return false;
+    }
+    if (!systemStreamPartitionsToOffsets.equals(taskModel.systemStreamPartitionsToOffsets)) {
+      return false;
+    }
+    if (!taskName.equals(taskModel.taskName)) {
+      return false;
+    }
+
+    return true;
   }
 
   @Override
   public int hashCode() {
-    final int prime = 31;
-    int result = 1;
-    result = prime * result + ((changelogPartition == null) ? 0 : changelogPartition.hashCode());
-    result = prime * result + ((systemStreamPartitions == null) ? 0 : systemStreamPartitions.hashCode());
-    result = prime * result + ((taskName == null) ? 0 : taskName.hashCode());
+    int result = taskName.hashCode();
+    result = 31 * result + systemStreamPartitionsToOffsets.hashCode();
+    result = 31 * result + changelogPartition.hashCode();
     return result;
   }
 
   @Override
-  public boolean equals(Object obj) {
-    if (this == obj)
-      return true;
-    if (obj == null)
-      return false;
-    if (getClass() != obj.getClass())
-      return false;
-    TaskModel other = (TaskModel) obj;
-    if (changelogPartition == null) {
-      if (other.changelogPartition != null)
-        return false;
-    } else if (!changelogPartition.equals(other.changelogPartition))
-      return false;
-    if (systemStreamPartitions == null) {
-      if (other.systemStreamPartitions != null)
-        return false;
-    } else if (!systemStreamPartitions.equals(other.systemStreamPartitions))
-      return false;
-    if (taskName == null) {
-      if (other.taskName != null)
-        return false;
-    } else if (!taskName.equals(other.taskName))
-      return false;
-    return true;
+
+  public String toString() {
+    return "TaskModel [taskName=" + taskName + ", systemStreamPartitions=" + systemStreamPartitionsToOffsets.keySet() + ", changeLogPartition=" + changelogPartition + "]";
   }
 
   public int compareTo(TaskModel other) {

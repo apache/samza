@@ -18,19 +18,33 @@
  */
 
 package org.apache.samza.serializers
+
+import org.apache.samza.SamzaException
+import org.apache.samza.serializers.model.SamzaObjectMapper
+import org.codehaus.jackson.`type`.TypeReference
 import org.codehaus.jackson.map.ObjectMapper
-import java.nio.ByteBuffer
 import org.apache.samza.config.Config
 
-class JsonSerde extends Serde[Object] {
-  val objectMapper = new ObjectMapper
+class JsonSerde[T] extends Serde[T] {
+  val mapper = SamzaObjectMapper.getObjectMapper()
 
-  def toBytes(obj: Object) = objectMapper
-    .writeValueAsString(obj)
-    .getBytes("UTF-8")
+  def toBytes(obj: T): Array[Byte] = {
+    try {
+      mapper.writeValueAsString(obj).getBytes("UTF-8")
+    }
+    catch {
+      case e: Exception => throw new SamzaException(e);
+    }
+  }
 
-  def fromBytes(bytes: Array[Byte]) = objectMapper
-    .readValue(bytes, classOf[Object])
+  def fromBytes(bytes: Array[Byte]): T = {
+     try {
+         mapper.readValue(new String(bytes, "UTF-8"), new TypeReference[T]() {})}
+     catch {
+       case e: Exception => throw new SamzaException(e);
+     }
+  }
+
 }
 
 class JsonSerdeFactory extends SerdeFactory[Object] {

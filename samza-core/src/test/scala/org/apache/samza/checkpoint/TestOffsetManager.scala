@@ -65,7 +65,7 @@ class TestOffsetManager {
     val config = new MapConfig
     val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
     val systemAdmins = Map("test-system" -> getSystemAdmin)
-    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins)
+    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins, new OffsetManagerMetrics, checkpointManager.getOffets)
     offsetManager.register(taskName, Set(systemStreamPartition))
     offsetManager.start
     assertTrue(checkpointManager.isStarted)
@@ -97,7 +97,7 @@ class TestOffsetManager {
     val config = new MapConfig
     val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
     val systemAdmins = Map("test-system" -> getSystemAdmin)
-    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins)
+    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins, new OffsetManagerMetrics, checkpointManager.getOffets)
     offsetManager.register(taskName, Set(systemStreamPartition))
     offsetManager.start
     // Should get offset 45 back from the checkpoint manager, which is last processed, and system admin should return 46 as starting offset.
@@ -179,22 +179,6 @@ class TestOffsetManager {
     }
   }
 
-  @Ignore("OffsetManager.start is supposed to throw an exception - but it doesn't") @Test
-  def testShouldFailWhenMissingDefault {
-    val taskName = new TaskName("c")
-    val systemStream = new SystemStream("test-system", "test-stream")
-    val partition = new Partition(0)
-    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
-    val testStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
-    val systemStreamMetadata = Map(systemStream -> testStreamMetadata)
-    val offsetManager = OffsetManager(systemStreamMetadata, new MapConfig(Map[String, String]()))
-    offsetManager.register(taskName, Set(systemStreamPartition))
-
-    intercept[SamzaException] {
-      offsetManager.start
-    }
-  }
-
   @Test
   def testDefaultSystemShouldFailWhenFailIsSpecified {
     val systemStream = new SystemStream("test-system", "test-stream")
@@ -255,24 +239,26 @@ class TestOffsetManager {
     assertEquals(Some("13"), offsetManager.getStartingOffset(ssp))
   }
 
+
   private def getCheckpointManager(systemStreamPartition: SystemStreamPartition, taskName:TaskName = new TaskName("taskName")) = {
     val checkpoint = new Checkpoint(Map(systemStreamPartition -> "45"))
-
-    new CheckpointManager {
+    new CheckpointManager(null, null, null) {
       var isStarted = false
       var isStopped = false
       var registered = Set[TaskName]()
       var checkpoints: Map[TaskName, Checkpoint] = Map(taskName -> checkpoint)
       var taskNameToPartitionMapping: util.Map[TaskName, java.lang.Integer] = new util.HashMap[TaskName, java.lang.Integer]()
-      def start { isStarted = true }
-      def register(taskName: TaskName) { registered += taskName }
-      def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) { checkpoints += taskName -> checkpoint }
-      def readLastCheckpoint(taskName: TaskName) = checkpoints.getOrElse(taskName, null)
-      def stop { isStopped = true }
+      override def start { isStarted = true }
+      override def register(taskName: TaskName) { registered += taskName }
+      override def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) { checkpoints += taskName -> checkpoint }
+      override def readLastCheckpoint(taskName: TaskName) = checkpoints.getOrElse(taskName, null)
+      override def stop { isStopped = true }
 
-      override def writeChangeLogPartitionMapping(mapping: util.Map[TaskName, java.lang.Integer]): Unit = taskNameToPartitionMapping = mapping
-
-      override def readChangeLogPartitionMapping(): util.Map[TaskName, java.lang.Integer] = taskNameToPartitionMapping
+      // Only for testing purposes - not present in actual checkpoint manager
+      def getOffets: util.Map[SystemStreamPartition, String] =
+      {
+        checkpoint.getOffsets()
+      }
     }
   }
 
@@ -284,8 +270,12 @@ class TestOffsetManager {
       def getSystemStreamMetadata(streamNames: java.util.Set[String]) =
         Map[String, SystemStreamMetadata]()
 
-      override def createChangelogStream(topicName: String, numOfChangeLogPartitions: Int) = {
-        new SamzaException("Method not implemented")
+      override def createChangelogStream(topicName: String, numOfChangeLogPartitions: Int) {
+        new UnsupportedOperationException("Method not implemented.")
+      }
+
+      override def createCoordinatorStream(streamName: String) {
+        new UnsupportedOperationException("Method not implemented.")
       }
     }
   }

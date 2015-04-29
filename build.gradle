@@ -123,7 +123,9 @@ project(':samza-api') {
 
 project(":samza-core_$scalaVersion") {
   apply plugin: 'scala'
-
+  // Force scala joint compilation
+  sourceSets.main.scala.srcDir "src/main/java"
+  sourceSets.main.java.srcDirs = []
   jar {
     manifest {
       attributes("Implementation-Version": "$version")
@@ -239,6 +241,7 @@ project(":samza-yarn_$scalaVersion") {
     compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile project(":samza-core_$scalaVersion").sourceSets.test.output
   }
 
   repositories {
@@ -384,6 +387,7 @@ project(":samza-test_$scalaVersion") {
     testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
     testCompile "com.101tec:zkclient:$zkClientVersion"
     testCompile project(":samza-kafka_$scalaVersion")
+    testCompile project(":samza-core_$scalaVersion").sourceSets.test.output
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
   }

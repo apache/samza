@@ -40,12 +40,12 @@ public class TestSamzaObjectMapper {
   public void testJsonTaskModel() throws Exception {
     ObjectMapper mapper = SamzaObjectMapper.getObjectMapper();
     Map<String, String> configMap = new HashMap<String, String>();
+    Map<SystemStreamPartition, String> sspOffset = new HashMap<SystemStreamPartition, String>();
     configMap.put("a", "b");
     Config config = new MapConfig(configMap);
-    Set<SystemStreamPartition> inputSystemStreamPartitions = new HashSet<SystemStreamPartition>();
-    inputSystemStreamPartitions.add(new SystemStreamPartition("foo", "bar", new Partition(1)));
     TaskName taskName = new TaskName("test");
-    TaskModel taskModel = new TaskModel(taskName, inputSystemStreamPartitions, new Partition(2));
+    sspOffset.put(new SystemStreamPartition("foo", "bar", new Partition(1)), "");
+    TaskModel taskModel = new TaskModel(taskName, sspOffset, new Partition(2));
     Map<TaskName, TaskModel> tasks = new HashMap<TaskName, TaskModel>();
     tasks.put(taskName, taskModel);
     ContainerModel containerModel = new ContainerModel(1, tasks);

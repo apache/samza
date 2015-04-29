@@ -21,8 +21,6 @@ package org.apache.samza.config
 
 import org.apache.samza.util.Logging
 import scala.collection.JavaConversions._
-import org.apache.samza.SamzaException
-import org.apache.samza.util.Util
 import org.apache.samza.system.SystemStream
 
 object StreamConfig {

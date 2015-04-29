@@ -34,8 +34,10 @@ import org.junit.Test
 import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
 import java.net.URL
+import org.apache.samza.coordinator.JobCoordinator
 
 class TestSamzaAppMasterLifecycle {
+  val coordinator = new JobCoordinator(null, null, null)
   val amClient = new AMRMClientAsyncImpl[ContainerRequest](1, Mockito.mock(classOf[CallbackHandler])) {
     var host = ""
     var port = 0
@@ -79,7 +81,7 @@ class TestSamzaAppMasterLifecycle {
 
   @Test
   def testLifecycleShouldRegisterOnInit {
-    val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "test", 1, 2)
+    val state = new SamzaAppMasterState(coordinator, -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "test", 1, 2)
     state.rpcUrl = new URL("http://localhost:1")
     state.trackingUrl = new URL("http://localhost:2")
     val saml = new SamzaAppMasterLifecycle(512, 2, state, amClient)
@@ -91,7 +93,7 @@ class TestSamzaAppMasterLifecycle {
 
   @Test
   def testLifecycleShouldUnregisterOnShutdown {
-    val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
+    val state = new SamzaAppMasterState(coordinator, -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
     state.status = FinalApplicationStatus.SUCCEEDED
     new SamzaAppMasterLifecycle(128, 1, state, amClient).onShutdown
     assertEquals(FinalApplicationStatus.SUCCEEDED, amClient.status)
@@ -111,7 +113,7 @@ class TestSamzaAppMasterLifecycle {
 
   @Test
   def testLifecycleShouldShutdownOnInvalidContainerSettings {
-    val state = new SamzaAppMasterState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "test", 1, 2)
+    val state = new SamzaAppMasterState(coordinator, -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "test", 1, 2)
     state.rpcUrl = new URL("http://localhost:1")
     state.trackingUrl = new URL("http://localhost:2")
     List(new SamzaAppMasterLifecycle(768, 1, state, amClient),

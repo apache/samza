@@ -19,6 +19,7 @@
 
 package org.apache.samza.container
 
+import java.util
 import scala.collection.JavaConversions._
 import org.apache.samza.Partition
 import org.apache.samza.config.Config
@@ -29,7 +30,6 @@ import org.apache.samza.coordinator.server.JobServlet
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskModel
-import org.apache.samza.metrics.JmxServer
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.StreamMetadataCache
@@ -54,21 +54,25 @@ import org.scalatest.junit.AssertionsForJUnit
 import java.lang.Thread.UncaughtExceptionHandler
 import org.apache.samza.serializers._
 import org.apache.samza.SamzaException
+import org.apache.samza.checkpoint.CheckpointManager
 
 class TestSamzaContainer extends AssertionsForJUnit {
   @Test
   def testReadJobModel {
     val config = new MapConfig(Map("a" -> "b"))
+    val offsets = new util.HashMap[SystemStreamPartition, String]();
+    offsets.put(new SystemStreamPartition("system","stream", new Partition(0)), "1")
     val tasks = Map(
-      new TaskName("t1") -> new TaskModel(new TaskName("t1"), Set[SystemStreamPartition](), new Partition(0)),
-      new TaskName("t2") -> new TaskModel(new TaskName("t2"), Set[SystemStreamPartition](), new Partition(0)))
+      new TaskName("t1") -> new TaskModel(new TaskName("t1"), offsets, new Partition(0)),
+      new TaskName("t2") -> new TaskModel(new TaskName("t2"), offsets, new Partition(0)))
     val containers = Map(
       Integer.valueOf(0) -> new ContainerModel(0, tasks),
       Integer.valueOf(1) -> new ContainerModel(1, tasks))
     val jobModel = new JobModel(config, containers)
+    def jobModelGenerator(): JobModel = jobModel
     val server = new HttpServer
-    val coordinator = new JobCoordinator(jobModel, server)
-    coordinator.server.addServlet("/*", new JobServlet(jobModel))
+    val coordinator = new JobCoordinator(jobModel, server, new MockCheckpointManager)
+    coordinator.server.addServlet("/*", new JobServlet(jobModelGenerator))
     try {
       coordinator.start
       assertEquals(jobModel, SamzaContainer.readJobModel(server.getUrl.toString))
@@ -180,7 +184,7 @@ class TestSamzaContainer extends AssertionsForJUnit {
     val config = new MapConfig
     assertTrue(defaultSerdesFromSerdeName("byte", "testSystemException", config).isInstanceOf[ByteSerde])
     assertTrue(defaultSerdesFromSerdeName("integer", "testSystemException", config).isInstanceOf[IntegerSerde])
-    assertTrue(defaultSerdesFromSerdeName("json", "testSystemException", config).isInstanceOf[JsonSerde])
+    assertTrue(defaultSerdesFromSerdeName("json", "testSystemException", config).isInstanceOf[JsonSerde[Object]])
     assertTrue(defaultSerdesFromSerdeName("long", "testSystemException", config).isInstanceOf[LongSerde])
     assertTrue(defaultSerdesFromSerdeName("serializable", "testSystemException", config).isInstanceOf[SerializableSerde[java.io.Serializable @unchecked]])
     assertTrue(defaultSerdesFromSerdeName("string", "testSystemException", config).isInstanceOf[StringSerde])
@@ -195,4 +199,9 @@ class TestSamzaContainer extends AssertionsForJUnit {
     }
     assertTrue(throwSamzaException)
   }
+}
+
+class MockCheckpointManager extends CheckpointManager(null, null) {
+  override def start() = {}
+  override def stop() = {}
 }

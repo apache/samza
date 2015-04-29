@@ -20,8 +20,6 @@
 package org.apache.samza.coordinator.server;
 
 import java.net.InetAddress
-import java.net.URI
-import java.net.UnknownHostException
 import javax.servlet.Servlet
 import org.apache.samza.SamzaException
 import org.eclipse.jetty.server.Connector
@@ -31,6 +29,7 @@ import org.eclipse.jetty.servlet.ServletContextHandler
 import org.eclipse.jetty.servlet.ServletHolder
 import java.net.URL
 import org.apache.samza.util.Logging
+
 
 /**
  * <p>A Jetty-based HTTP server. The server allows arbitrary servlets to be added

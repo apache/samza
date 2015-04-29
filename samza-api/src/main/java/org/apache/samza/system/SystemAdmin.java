@@ -23,10 +23,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Helper interface attached to an underlying system to fetch
- * information about streams, partitions, offsets, etc. This interface is useful
- * for providing utility methods that Samza needs in order to interact with a
- * system.
+ * Helper interface attached to an underlying system to fetch information about
+ * streams, partitions, offsets, etc. This interface is useful for providing
+ * utility methods that Samza needs in order to interact with a system.
  */
 public interface SystemAdmin {
 
@@ -51,10 +50,22 @@ public interface SystemAdmin {
    */
   Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames);
 
-    /**
-     * An API to create a change log stream
-     * @param streamName The name of the stream to be created in the underlying stream
-     * @param numOfPartitions The number of partitions in the changelog stream
-     */
+  /**
+   * An API to create a change log stream
+   * 
+   * @param streamName
+   *          The name of the stream to be created in the underlying stream
+   * @param numOfPartitions
+   *          The number of partitions in the changelog stream
+   */
   void createChangelogStream(String streamName, int numOfPartitions);
+
+  /**
+   * Create a stream for the job coordinator. If the stream already exists, this
+   * call should simply return.
+   * 
+   * @param streamName
+   *          The name of the coordinator stream to create.
+   */
+  void createCoordinatorStream(String streamName);
 }

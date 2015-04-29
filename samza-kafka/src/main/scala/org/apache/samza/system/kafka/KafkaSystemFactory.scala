@@ -19,10 +19,13 @@
 
 package org.apache.samza.system.kafka
 
+import java.util.Properties
+import org.apache.samza.SamzaException
 import org.apache.samza.util.{Logging, KafkaUtil, ExponentialSleepStrategy, ClientUtilTopicMetadataStore}
 import org.apache.samza.config.Config
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.config.KafkaConfig.Config2Kafka
+import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.system.SystemFactory
 import org.apache.samza.config.StorageConfig._
@@ -98,8 +101,14 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
     val timeout = consumerConfig.socketTimeoutMs
     val bufferSize = consumerConfig.socketReceiveBufferBytes
+    val zkConnect = Option(consumerConfig.zkConnect)
+      .getOrElse(throw new SamzaException("no zookeeper.connect defined in config"))
+    val connectZk = () => {
+      new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer)
+    }
+    val coordinatorStreamProperties = getCoordinatorTopicProperties(config)
+    val coordinatorStreamReplicationFactor = config.getCoordinatorReplicationFactor.toInt
     val storeToChangelog = config.getKafkaChangelogEnabledStores()
-
     // Construct the meta information for each topic, if the replication factor is not defined, we use 2 as the number of replicas for the change log stream.
     val topicMetaInformation = storeToChangelog.map{case (storeName, topicName) =>
     {
@@ -112,10 +121,20 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     new KafkaSystemAdmin(
       systemName,
       bootstrapServers,
+      connectZk,
+      coordinatorStreamProperties,
+      coordinatorStreamReplicationFactor,
       timeout,
       bufferSize,
       clientId,
-      () => new ZkClient(consumerConfig.zkConnect, 6000, 6000, ZKStringSerializer),
       topicMetaInformation)
   }
+
+  def getCoordinatorTopicProperties(config: Config) = {
+    val segmentBytes = config.getCoordinatorSegmentBytes
+    (new Properties /: Map(
+      "cleanup.policy" -> "compact",
+      "segment.bytes" -> segmentBytes)) { case (props, (k, v)) => props.put(k, v); props }
+  }
+
 }

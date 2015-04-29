@@ -19,9 +19,9 @@
 
 package org.apache.samza.coordinator.server
 
+import org.apache.samza.util.Util
 import org.junit.Assert._
 import org.junit.Test
-import org.apache.samza.util.Util
 import java.net.URL
 
 class TestHttpServer {

@@ -68,6 +68,6 @@ class TestGroupByContainerCount {
   }
 
   private def getTaskModel(name: String, partitionId: Int) = {
-    new TaskModel(new TaskName(name), Set[SystemStreamPartition](), new Partition(partitionId))
+    new TaskModel(new TaskName(name), Map[SystemStreamPartition, String](), new Partition(partitionId))
   }
 }
