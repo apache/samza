@@ -36,5 +36,5 @@
   commonsCodecVersion = "1.9"
   commonsCollectionVersion = "3.2.1"
   avroVersion = "1.7.7"
-  calciteVersion = "1.2.0-incubating-SNAPSHOT"
+  calciteVersion = "1.2.0-incubating"
 }
