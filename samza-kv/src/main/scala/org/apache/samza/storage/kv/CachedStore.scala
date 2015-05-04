@@ -97,6 +97,33 @@ class CachedStore[K, V](
     }
   }
 
+  def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
+    metrics.gets.inc(keys.size)
+    val returnValue = new java.util.HashMap[K, V](keys.size)
+    val misses = new java.util.ArrayList[K]
+    val keysIterator = keys.iterator
+    while (keysIterator.hasNext) {
+      val key = keysIterator.next
+      val cached = cache.get(key)
+      if (cached != null) {
+        metrics.cacheHits.inc
+        returnValue.put(key, cached.value)
+      } else {
+        misses.add(key)
+      }
+    }
+    if (!misses.isEmpty) {
+      val entryIterator = store.getAll(misses).entrySet.iterator
+      while (entryIterator.hasNext) {
+        val entry = entryIterator.next
+        returnValue.put(entry.getKey, entry.getValue)
+        cache.put(entry.getKey, new CacheEntry(entry.getValue, null))
+      }
+      cacheCount = cache.size // update outside the loop since it's used for metrics and not for time-sensitive logic
+    }
+    returnValue
+  }
+
   def range(from: K, to: K) = {
     metrics.ranges.inc
     flush()
@@ -172,9 +199,6 @@ class CachedStore[K, V](
     this.dirtyCount = 0
   }
 
-  /**
-   * Perform multiple local updates and log out all changes to the changelog
-   */
   def putAll(entries: java.util.List[Entry[K, V]]) {
     val iter = entries.iterator
     while (iter.hasNext) {
@@ -183,13 +207,14 @@ class CachedStore[K, V](
     }
   }
 
-  /**
-   * Perform the local delete and log it out to the changelog
-   */
   def delete(key: K) {
     metrics.deletes.inc
 
     put(key, null.asInstanceOf[V])
+  }
+
+  def deleteAll(keys: java.util.List[K]) = {
+    KeyValueStore.Extension.deleteAll(this, keys);
   }
 
   def close() {

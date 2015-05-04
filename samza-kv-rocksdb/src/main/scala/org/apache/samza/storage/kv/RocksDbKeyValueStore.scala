@@ -94,6 +94,24 @@ class RocksDbKeyValueStore(
     found
   }
 
+  def getAll(keys: java.util.List[Array[Byte]]): java.util.Map[Array[Byte], Array[Byte]] = {
+    metrics.getAlls.inc
+    require(keys != null, "Null keys not allowed.")
+    val map = db.multiGet(keys)
+    if (map != null) {
+      var bytesRead = 0L
+      val iterator = map.values().iterator
+      while (iterator.hasNext) {
+        val value = iterator.next
+        if (value != null) {
+          bytesRead += value.size
+        }
+      }
+      metrics.bytesRead.inc(bytesRead)
+    }
+    map
+  }
+
   def put(key: Array[Byte], value: Array[Byte]) {
     metrics.puts.inc
     require(key != null, "Null key not allowed.")
@@ -132,6 +150,10 @@ class RocksDbKeyValueStore(
   def delete(key: Array[Byte]) {
     metrics.deletes.inc
     put(key, null)
+  }
+
+  def deleteAll(keys: java.util.List[Array[Byte]]) = {
+    KeyValueStore.Extension.deleteAll(this, keys)
   }
 
   def range(from: Array[Byte], to: Array[Byte]): KeyValueIterator[Array[Byte], Array[Byte]] = {
@@ -203,7 +225,7 @@ class RocksDbKeyValueStore(
 
     override def finalize() {
       if (open) {
-        trace("Leaked reference to level db iterator, forcing close.")
+        trace("Leaked reference to RocksDB iterator, forcing close.")
         close()
       }
     }

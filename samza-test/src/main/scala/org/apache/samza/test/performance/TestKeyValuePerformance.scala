@@ -19,25 +19,26 @@
 
 package org.apache.samza.test.performance
 
-import org.apache.samza.util.Logging
+import java.io.File
+import java.util
+import java.util.UUID
+import java.util.concurrent.TimeUnit
+
+import com.google.common.base.Stopwatch
 import org.apache.samza.config.Config
 import org.apache.samza.config.StorageConfig._
-import org.apache.samza.container.{TaskName, SamzaContainerContext}
+import org.apache.samza.container.{SamzaContainerContext, TaskName}
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.storage.kv.KeyValueStore
-import org.apache.samza.storage.kv.KeyValueStorageEngine
+import org.apache.samza.serializers.{ByteSerde, SerdeManager, UUIDSerde}
 import org.apache.samza.storage.StorageEngineFactory
-import org.apache.samza.util.CommandLine
-import org.apache.samza.util.Util
-import org.apache.samza.serializers.{StringSerde, ByteSerde, SerdeManager}
-import org.apache.samza.Partition
-import org.apache.samza.SamzaException
+import org.apache.samza.storage.kv.{KeyValueStorageEngine, KeyValueStore}
+import org.apache.samza.system.{SystemProducer, SystemProducers}
 import org.apache.samza.task.TaskInstanceCollector
-import org.apache.samza.system.SystemProducers
-import org.apache.samza.system.SystemProducer
-import java.io.File
-import java.util.UUID
-import java.util
+import org.apache.samza.util.{CommandLine, Logging, Util}
+import org.apache.samza.{Partition, SamzaException}
+
+import scala.collection.JavaConversions._
+import scala.util.Random
 
 /**
  * A simple CLI-based tool for running various key-value performance tests.
@@ -60,14 +61,15 @@ object TestKeyValuePerformance extends Logging {
 
   val testMethods: Map[String, (KeyValueStorageEngine[Array[Byte], Array[Byte]], Config) => Unit] = Map(
     "all-with-deletes" -> runTestAllWithDeletes,
-    "rocksdb-write-performance" -> runTestMsgWritePerformance
-  )
+    "rocksdb-write-performance" -> runTestMsgWritePerformance,
+    "get-all-vs-get-write-many-read-many" -> runTestGetAllVsGetWriteManyReadMany,
+    "get-all-vs-get-write-once-read-many" -> runTestGetAllVsGetWriteOnceReadMany)
 
   def main(args: Array[String]) {
     val cmdline = new CommandLine
     val options = cmdline.parser.parse(args: _*)
     val config = cmdline.loadConfig(options)
-    val tests = config.get("test.methods", "rocksdb-write-performance,all-with-deletes").split(",")
+    val tests = config.get("test.methods").split(",")
 
     tests.foreach{ test =>
       info("Running test: %s" format test)
@@ -81,7 +83,7 @@ object TestKeyValuePerformance extends Logging {
   }
 
   def invokeTest(testName: String, testMethod: (KeyValueStorageEngine[Array[Byte], Array[Byte]], Config) => Unit, config: Config) {
-    val taskNames = new util.ArrayList[TaskName]()
+    val taskNames = new java.util.ArrayList[TaskName]()
     val partitionCount = config.getInt("partition.count", 1)
     (0 until partitionCount).map(p => taskNames.add(new TaskName(new Partition(p).toString)))
 
@@ -139,7 +141,6 @@ object TestKeyValuePerformance extends Logging {
 
     info("Using (num loops, messages per batch, message size in bytes) => (%s, %s, %s)" format (numLoops, messagesPerBatch, messageSizeBytes))
     new TestKeyValuePerformance().testAllWithDeletes(db, numLoops, messagesPerBatch, messageSizeBytes)
-
   }
 
   def runTestMsgWritePerformance(db: KeyValueStore[Array[Byte], Array[Byte]], config: Config) {
@@ -150,6 +151,13 @@ object TestKeyValuePerformance extends Logging {
     new TestKeyValuePerformance().testMsgWritePerformance(db, messageCount, messageSizeBytes)
   }
 
+  def runTestGetAllVsGetWriteManyReadMany(db: KeyValueStore[Array[Byte], Array[Byte]], config: Config) {
+    new TestKeyValuePerformance().testGetAllVsGetWriteManyReadMany(db, config)
+  }
+
+  def runTestGetAllVsGetWriteOnceReadMany(db: KeyValueStore[Array[Byte], Array[Byte]], config: Config) {
+    new TestKeyValuePerformance().testGetAllVsGetWriteOnceReadMany(db, config)
+  }
 }
 
 class TestKeyValuePerformance extends Logging {
@@ -200,7 +208,6 @@ class TestKeyValuePerformance extends Logging {
     info("Total time: %ss" format ((System.currentTimeMillis - start) * .001))
   }
 
-
   /**
    * Test that successively writes a set of fixed-size messages to the KV store
    * and computes the total time for the operations
@@ -221,5 +228,108 @@ class TestKeyValuePerformance extends Logging {
     })
     val timeTaken = System.currentTimeMillis - start
     info("Total time to write %d msgs of size %d bytes : %s s" format (numMsgs, msgSizeInBytes, timeTaken * .001))
+  }
+
+  /**
+   * Test that ::getAll performance is better than that of ::get (test when there are many writes and many reads).
+   * @param store key-value store instance that is being tested
+   * @param config the test case's config
+   */
+  def testGetAllVsGetWriteManyReadMany(store: KeyValueStore[Array[Byte],Array[Byte]], config: Config): Unit = {
+    val iterationsCount = config.getInt("iterations.count", 100)
+    val maxMessagesCountPerBatch = config.getInt("message.max-count-per-batch", 100000)
+    val maxMessageSizeBytes = config.getInt("message.max-size.bytes", 1024)
+    val timer = Stopwatch.createUnstarted
+    val uuidSerde = new UUIDSerde
+
+    info("iterations count: " + iterationsCount)
+    info("max messages count per batch: " + maxMessagesCountPerBatch)
+    info("max message size in bytes: " + maxMessageSizeBytes)
+    info("%12s%12s%12s%12s".format("Msg Count", "Bytes/Msg", "get ms", "getAll ms"))
+
+    try {
+      (0 until iterationsCount).foreach(i => {
+        val messageSizeBytes = Random.nextInt(maxMessageSizeBytes)
+        val messagesCountPerBatch = Random.nextInt(maxMessagesCountPerBatch)
+        val keys = (0 until messagesCountPerBatch).map(k => uuidSerde.toBytes(UUID.randomUUID)).toList
+        val shuffledKeys = Random.shuffle(keys) // to reduce locality of reference -- sequential access may be unfair
+
+        keys.foreach(k => store.put(k, Random.nextString(messageSizeBytes).getBytes(Encoding)))
+        store.flush()
+
+        timer.reset().start()
+        assert(store.getAll(shuffledKeys).size == shuffledKeys.size)
+        val getAllTime = timer.stop().elapsed(TimeUnit.MILLISECONDS)
+
+        // Restore cache, in case it's enabled, to a state similar to the one above when the getAll test started
+        keys.foreach(k => store.put(k, Random.nextString(messageSizeBytes).getBytes(Encoding)))
+        store.flush()
+
+        timer.reset().start()
+        shuffledKeys.foreach(store.get)
+        val getTime = timer.stop().elapsed(TimeUnit.MILLISECONDS)
+
+        info("%12d%12d%12d%12d".format(messagesCountPerBatch, messageSizeBytes, getTime, getAllTime))
+        if (getAllTime > getTime) {
+          error("getAll was slower than get!")
+        }
+      })
+    } finally {
+      store.close()
+    }
+  }
+
+  /**
+   * Test that ::getAll performance is better than that of ::get (test when data are written once and read many times);
+   * load is usually greater than the storage engine's cache size (not to be confused with Samza's cache layer),
+   * and keys are randomly selected from the stored entries to perform a fair comparison of ::get vs. ::getAll (in case
+   * the underlying storage engine caches data in blocks and ::getAll causes a block to be loaded into the cache --
+   * one can argue that ::get should trigger the same behavior, but it's worth testing this WORM scenario regardless)
+   * @param store key-value store instance that is being tested
+   * @param config the test case's config
+   */
+  def testGetAllVsGetWriteOnceReadMany(store: KeyValueStore[Array[Byte],Array[Byte]], config: Config): Unit = {
+    val iterationsCount = config.getInt("iterations.count", 100)
+    val maxMessagesCountPerBatch = config.getInt("message.max-count-per-batch", 10000 + Random.nextInt(20000))
+    val maxMessageSizeBytes = config.getInt("message.max-size.bytes", 1024)
+    val totalMessagesCount = iterationsCount * maxMessagesCountPerBatch
+    val timer = Stopwatch.createUnstarted
+    val uuidSerde = new UUIDSerde
+
+    info("write once -- putting %d messages in store".format(totalMessagesCount))
+    val keys = (0 until totalMessagesCount).map(k => uuidSerde.toBytes(UUID.randomUUID)).toList
+    keys.foreach(k => store.put(k, Random.nextString(Random.nextInt(maxMessageSizeBytes)).getBytes(Encoding)))
+    store.flush()
+
+    info("iterations count: " + iterationsCount)
+    info("max messages count per batch: " + maxMessagesCountPerBatch)
+    info("max message size in bytes: " + maxMessageSizeBytes)
+    info("%12s%12s%12s%12s".format("Msg Count", "Total Size", "get ms", "getAll ms"))
+
+    try {
+      (0 until iterationsCount).foreach(i => {
+        val messagesCountPerBatch = Random.nextInt(maxMessagesCountPerBatch)
+        val shuffledKeys = Random.shuffle(keys).take(messagesCountPerBatch)
+
+        // We want to measure ::getAll when called many times, so populate the cache because first call is a cache-miss
+        val totalSize = store.getAll(shuffledKeys).values.map(_.length).sum
+        timer.reset().start()
+        assert(store.getAll(shuffledKeys).size == shuffledKeys.size)
+        val getAllTime = timer.stop().elapsed(TimeUnit.MILLISECONDS)
+
+        // We want to measure ::get when called many times, so populate the cache because first call is a cache-miss
+        shuffledKeys.foreach(store.get)
+        timer.reset().start()
+        shuffledKeys.foreach(store.get)
+        val getTime = timer.stop().elapsed(TimeUnit.MILLISECONDS)
+
+        info("%12d%12d%12d%12d".format(messagesCountPerBatch, totalSize, getTime, getAllTime))
+        if (getAllTime > getTime) {
+          error("getAll was slower than get!")
+        }
+      })
+    } finally {
+      store.close()
+    }
   }
 }

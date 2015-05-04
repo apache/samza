@@ -26,10 +26,12 @@ class KeyValueStoreMetrics(
   val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
 
   val gets = newCounter("gets")
+  val getAlls = newCounter("getAlls")
   val ranges = newCounter("ranges")
   val alls = newCounter("alls")
   val puts = newCounter("puts")
   val deletes = newCounter("deletes")
+  val deleteAlls = newCounter("deleteAlls")
   val flushes = newCounter("flushes")
   val bytesWritten = newCounter("bytes-written")
   val bytesRead = newCounter("bytes-read")

@@ -44,6 +44,11 @@ class KeyValueStorageEngine[K, V](
     db.get(key)
   }
 
+  def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
+    metrics.gets.inc(keys.size)
+    db.getAll(keys)
+  }
+
   def put(key: K, value: V) = {
     metrics.puts.inc
     db.put(key, value)
@@ -57,6 +62,11 @@ class KeyValueStorageEngine[K, V](
   def delete(key: K) = {
     metrics.deletes.inc
     db.delete(key)
+  }
+
+  def deleteAll(keys: java.util.List[K]) = {
+    metrics.deletes.inc(keys.size)
+    db.deleteAll(keys)
   }
 
   def range(from: K, to: K) = {
