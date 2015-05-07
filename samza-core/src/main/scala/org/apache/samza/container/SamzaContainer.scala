@@ -369,12 +369,6 @@ object SamzaContainer extends Logging {
       metrics = systemProducersMetrics,
       dropSerializationError = dropSerializationError)
 
-    // TODO not sure how we should make this config based, or not. Kind of
-    // strange, since it has some dynamic directories when used with YARN.
-    val storeBaseDir = new File(System.getProperty("user.dir"), "state")
-
-    info("Got storage engine base directory: %s" format storeBaseDir)
-
     val storageEngineFactories = config
       .getStoreNames
       .map(storeName => {
@@ -443,6 +437,24 @@ object SamzaContainer extends Logging {
 
       info("Got store consumers: %s" format storeConsumers)
 
+      // TODO not sure how we should make this config based, or not. Kind of
+      // strange, since it has some dynamic directories when used with YARN.
+      val defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state")
+      info("Got default storage engine base directory: %s" format defaultStoreBaseDir)
+
+      var loggedStorageBaseDir: File = null
+      if(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) != null) {
+        val jobNameAndId = Util.getJobNameAndId(config)
+        loggedStorageBaseDir = new File(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) + File.separator + jobNameAndId._1 + "-" + jobNameAndId._2)
+      } else {
+        warn("No override was provided for logged store base directory. This disables local state re-use on " +
+          "application restart. If you want to enable this feature, set LOGGED_STORE_BASE_DIR as an environment " +
+          "variable in all machines running the Samza container")
+        loggedStorageBaseDir = defaultStoreBaseDir
+      }
+
+      info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
+
       val taskStores = storageEngineFactories
         .map {
           case (storeName, storageEngineFactory) =>
@@ -459,10 +471,15 @@ object SamzaContainer extends Logging {
               case Some(msgSerde) => serdes.getOrElse(msgSerde, throw new SamzaException("No class defined for serde: %s." format msgSerde))
               case _ => null
             }
-            val storePartitionDir = TaskStorageManager.getStorePartitionDir(storeBaseDir, storeName, taskName)
+            val storeBaseDir = if(changeLogSystemStreamPartition != null) {
+              TaskStorageManager.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
+            }
+            else {
+              TaskStorageManager.getStorePartitionDir(defaultStoreBaseDir, storeName, taskName)
+            }
             val storageEngine = storageEngineFactory.getStorageEngine(
               storeName,
-              storePartitionDir,
+              storeBaseDir,
               keySerde,
               msgSerde,
               collector,
@@ -481,7 +498,8 @@ object SamzaContainer extends Logging {
         changeLogSystemStreams = changeLogSystemStreams,
         maxChangeLogStreamPartitions,
         streamMetadataCache = streamMetadataCache,
-        storeBaseDir = storeBaseDir,
+        storeBaseDir = defaultStoreBaseDir,
+        loggedStoreBaseDir = loggedStorageBaseDir,
         partition = taskModel.getChangelogPartition,
         systemAdmins = systemAdmins)
 

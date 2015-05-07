@@ -46,6 +46,14 @@ object ShellCommandConfig {
    */
   val ENV_JAVA_HOME = "JAVA_HOME"
 
+  /*
+   * The base directory for storing logged data stores used in Samza. This has to be set on all machine running Samza
+   * containers. For example, when using YARN, it has to be set in all NMs and passed to the containers.
+   * If this environment variable is not set, the path defaults to current working directory (which is the same as the
+   * path for persisting non-logged data stores)
+   */
+  val ENV_LOGGED_STORE_BASE_DIR = "LOGGED_STORE_BASE_DIR"
+
   val COMMAND_SHELL_EXECUTE = "task.execute"
   val TASK_JVM_OPTS = "task.opts"
   val TASK_JAVA_HOME = "task.java.home"

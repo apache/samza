@@ -20,8 +20,9 @@
 package org.apache.samza.util
 
 import java.net.{HttpURLConnection, URL}
-import java.io.{InputStream, BufferedReader, File, InputStreamReader}
+import java.io._
 import java.lang.management.ManagementFactory
+import java.util.zip.CRC32
 import org.apache.samza.{SamzaException, Partition}
 import org.apache.samza.system.{SystemFactory, SystemStreamPartition, SystemStream}
 import java.util.Random
@@ -236,5 +237,61 @@ object Util extends Logging {
      }
      new SystemStreamPartition(new SystemStream(ssp.substring(0, idx), ssp.substring(idx + 1, lastIdx)),
                                new Partition(Integer.parseInt(ssp.substring(lastIdx + 1))))
+  }
+
+  /**
+   * Method to generate the CRC32 checksum code for any given data
+   * @param data The string for which checksum has to be generated
+   * @return long type value representing the checksum
+   * */
+  def getChecksumValue(data: String) = {
+    val crc = new CRC32
+    crc.update(data.getBytes)
+    crc.getValue
+  }
+
+  /**
+   * Method that always writes checksum & data to a file
+   * Checksum is pre-fixed to the data and is a 32-bit long type data.
+   * @param file The file handle to write to
+   * @param data The data to be written to the file
+   * */
+  def writeDataToFile(file: File, data: String) = {
+    val checksum = getChecksumValue(data)
+    var oos: ObjectOutputStream = null
+    var fos: FileOutputStream = null
+    try {
+      fos = new FileOutputStream(file)
+      oos = new ObjectOutputStream(fos)
+      oos.writeLong(checksum)
+      oos.writeUTF(data)
+    } finally {
+      oos.close()
+      fos.close()
+    }
+  }
+
+  /**
+   * Method to read from a file that has a checksum prepended to the data
+   * @param file The file handle to read from
+   * */
+  def readDataFromFile(file: File) = {
+    var fis: FileInputStream = null
+    var ois: ObjectInputStream = null
+    try {
+      fis = new FileInputStream(file)
+      ois = new ObjectInputStream(fis)
+      val checksumFromFile = ois.readLong()
+      val data = ois.readUTF()
+      if(checksumFromFile == getChecksumValue(data)) {
+        data
+      } else {
+        info("Checksum match failed. Data in file is corrupted. Skipping content.")
+        null
+      }
+    } finally {
+      ois.close()
+      fis.close()
+    }
   }
 }

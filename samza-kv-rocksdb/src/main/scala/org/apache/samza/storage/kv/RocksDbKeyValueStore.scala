@@ -68,7 +68,6 @@ object RocksDbKeyValueStore extends Logging {
 
     options.setMaxWriteBufferNumber(storeConfig.get("rocksdb.num.write.buffers", "3").toInt)
     options.setCreateIfMissing(true)
-    options.setErrorIfExists(true)
     options
   }
 
