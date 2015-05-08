@@ -35,57 +35,57 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
 
   val underlying = new util.TreeMap[Array[Byte], Array[Byte]] (UnsignedBytes.lexicographicalComparator())
 
-  def flush(): Unit = {
+  override def flush(): Unit = {
     // No-op for In memory store.
     metrics.flushes.inc
   }
 
-  def close(): Unit = Unit
+  override def close(): Unit = Unit
 
-  private def getIter(tm:util.SortedMap[Array[Byte], Array[Byte]]) = {
-    new KeyValueIterator[Array[Byte], Array[Byte]] {
-      val iter = tm.entrySet().iterator()
+  private class InMemoryIterator (val iter: util.Iterator[util.Map.Entry[Array[Byte], Array[Byte]]])
+    extends KeyValueIterator[Array[Byte], Array[Byte]] {
 
-      override def close(): Unit = Unit
+    override def close(): Unit = Unit
 
-      override def remove(): Unit = iter.remove()
+    override def remove(): Unit = iter.remove()
 
-      override def next(): Entry[Array[Byte], Array[Byte]] = {
-        val n = iter.next()
-        if (n != null && n.getKey != null) {
-          metrics.bytesRead.inc(n.getKey.size)
-        }
-        if (n != null && n.getValue != null) {
-          metrics.bytesRead.inc(n.getValue.size)
-        }
-        new Entry(n.getKey, n.getValue)
+    override def next(): Entry[Array[Byte], Array[Byte]] = {
+      val n = iter.next()
+      if (n != null && n.getKey != null) {
+        metrics.bytesRead.inc(n.getKey.size)
       }
-
-      override def hasNext: Boolean = iter.hasNext
+      if (n != null && n.getValue != null) {
+        metrics.bytesRead.inc(n.getValue.size)
+      }
+      new Entry(n.getKey, n.getValue)
     }
+
+    override def hasNext: Boolean = iter.hasNext
   }
 
-  def all(): KeyValueIterator[Array[Byte], Array[Byte]] = {
+  override def all(): KeyValueIterator[Array[Byte], Array[Byte]] = {
     metrics.alls.inc
-    getIter(underlying)
+
+    new InMemoryIterator(underlying.entrySet().iterator())
   }
 
-  def range(from: Array[Byte], to: Array[Byte]): KeyValueIterator[Array[Byte], Array[Byte]] = {
+  override def range(from: Array[Byte], to: Array[Byte]): KeyValueIterator[Array[Byte], Array[Byte]] = {
     metrics.ranges.inc
     require(from != null && to != null, "Null bound not allowed.")
-    getIter(underlying.subMap(from, to))
+
+    new InMemoryIterator(underlying.subMap(from, to).entrySet().iterator())
   }
 
-  def delete(key: Array[Byte]): Unit = {
+  override def delete(key: Array[Byte]): Unit = {
     metrics.deletes.inc
     put(key, null)
   }
 
-  def deleteAll(keys: java.util.List[Array[Byte]]) = {
-    KeyValueStore.Extension.deleteAll(this, keys);
+  override def deleteAll(keys: java.util.List[Array[Byte]]) = {
+    KeyValueStore.Extension.deleteAll(this, keys)
   }
 
-  def putAll(entries: util.List[Entry[Array[Byte], Array[Byte]]]): Unit = {
+  override def putAll(entries: util.List[Entry[Array[Byte], Array[Byte]]]): Unit = {
     // TreeMap's putAll requires a map, so we'd need to iterate over all the entries anyway
     // to use it, in order to putAll here.  Therefore, just iterate here.
     val iter = entries.iterator()
@@ -95,7 +95,7 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
     }
   }
 
-  def put(key: Array[Byte], value: Array[Byte]): Unit = {
+  override def put(key: Array[Byte], value: Array[Byte]): Unit = {
     metrics.puts.inc
     require(key != null, "Null key not allowed.")
     if (value == null) {
@@ -107,7 +107,7 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
     }
   }
 
-  def get(key: Array[Byte]): Array[Byte] = {
+  override def get(key: Array[Byte]): Array[Byte] = {
     metrics.gets.inc
     require(key != null, "Null key not allowed.")
     val found = underlying.get(key)
@@ -117,7 +117,7 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
     found
   }
 
-  def getAll(keys: java.util.List[Array[Byte]]): java.util.Map[Array[Byte], Array[Byte]] = {
+  override def getAll(keys: java.util.List[Array[Byte]]): java.util.Map[Array[Byte], Array[Byte]] = {
     KeyValueStore.Extension.getAll(this, keys);
   }
 }
