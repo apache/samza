@@ -21,6 +21,6 @@ package org.apache.samza.storage.kv;
 
 import java.util.Iterator;
 
-public interface KeyValueIterator<K,V> extends Iterator<Entry<K,V>> {
+public interface KeyValueIterator<K, V> extends Iterator<Entry<K, V>> {
   public void close();
 }

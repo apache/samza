@@ -29,7 +29,6 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
-import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Util;
 import org.codehaus.jackson.JsonGenerator;
@@ -108,7 +107,7 @@ public class SamzaObjectMapper {
     public Config deserialize(JsonParser jsonParser, DeserializationContext context) throws IOException, JsonProcessingException {
       ObjectCodec oc = jsonParser.getCodec();
       JsonNode node = oc.readTree(jsonParser);
-      return new MapConfig(OBJECT_MAPPER.<Map<String, String>> readValue(node, new TypeReference<Map<String, String>>() {
+      return new MapConfig(OBJECT_MAPPER.<Map<String, String>>readValue(node, new TypeReference<Map<String, String>>() {
       }));
     }
   }
@@ -147,8 +146,7 @@ public class SamzaObjectMapper {
 
   public static class SystemStreamPartitionKeySerializer extends JsonSerializer<SystemStreamPartition> {
     @Override
-    public void serialize(SystemStreamPartition systemStreamPartition, JsonGenerator jgen, SerializerProvider provider)
-        throws IOException {
+    public void serialize(SystemStreamPartition systemStreamPartition, JsonGenerator jgen, SerializerProvider provider) throws IOException {
       String ssp = Util.sspToString(systemStreamPartition);
       jgen.writeFieldName(ssp);
     }
@@ -156,8 +154,7 @@ public class SamzaObjectMapper {
 
   public static class SystemStreamPartitionKeyDeserializer extends KeyDeserializer {
     @Override
-    public Object deserializeKey(String sspString, DeserializationContext ctxt)
-        throws IOException {
+    public Object deserializeKey(String sspString, DeserializationContext ctxt) throws IOException {
       return Util.stringToSsp(sspString);
     }
   }

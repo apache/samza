@@ -45,7 +45,7 @@ public class SimpleStatefulTask implements StreamTask, InitableTask {
     this.store = (KeyValueStore<String, String>) context.getStore("mystore");
     System.out.println("Contents of store: ");
     KeyValueIterator<String, String> iter = store.all();
-    while(iter.hasNext()) {
+    while (iter.hasNext()) {
       Entry<String, String> entry = iter.next();
       System.out.println(entry.getKey() + " => " + entry.getValue());
     }

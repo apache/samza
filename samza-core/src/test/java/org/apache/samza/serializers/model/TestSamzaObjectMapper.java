@@ -19,11 +19,9 @@
 
 package org.apache.samza.serializers.model;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;

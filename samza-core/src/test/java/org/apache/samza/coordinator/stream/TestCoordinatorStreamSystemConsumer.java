@@ -19,7 +19,10 @@
 
 package org.apache.samza.coordinator.stream;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,8 +32,6 @@ import java.util.Set;
 
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
-import org.apache.samza.coordinator.stream.CoordinatorStreamMessage.Delete;
-import org.apache.samza.coordinator.stream.CoordinatorStreamMessage.SetConfig;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumer;
@@ -102,9 +103,9 @@ public class TestCoordinatorStreamSystemConsumer {
 
       if (pollCount++ == 0) {
         List<IncomingMessageEnvelope> list = new ArrayList<IncomingMessageEnvelope>();
-        SetConfig setConfig1 = new SetConfig("test", "job.name", "my-job-name");
-        SetConfig setConfig2 = new SetConfig("test", "job.id", "1234");
-        Delete delete = new Delete("test", "job.name", SetConfig.TYPE);
+        CoordinatorStreamMessage.SetConfig setConfig1 = new CoordinatorStreamMessage.SetConfig("test", "job.name", "my-job-name");
+        CoordinatorStreamMessage.SetConfig setConfig2 = new CoordinatorStreamMessage.SetConfig("test", "job.id", "1234");
+        CoordinatorStreamMessage.Delete delete = new CoordinatorStreamMessage.Delete("test", "job.name", CoordinatorStreamMessage.SetConfig.TYPE);
         list.add(new IncomingMessageEnvelope(systemStreamPartition, null, serialize(setConfig1.getKeyArray()), serialize(setConfig1.getMessageMap())));
         list.add(new IncomingMessageEnvelope(systemStreamPartition, null, serialize(setConfig2.getKeyArray()), serialize(setConfig2.getMessageMap())));
         list.add(new IncomingMessageEnvelope(systemStreamPartition, null, serialize(delete.getKeyArray()), delete.getMessageMap()));

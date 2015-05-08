@@ -29,7 +29,6 @@ import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.coordinator.stream.CoordinatorStreamMessage.SetConfig;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -110,8 +109,7 @@ public class CoordinatorStreamSystemConsumer {
    * Starts the underlying SystemConsumer.
    */
   public void start() {
-    if(isStarted)
-    {
+    if (isStarted) {
       log.info("Coordinator stream consumer already started");
       return;
     }
@@ -147,12 +145,12 @@ public class CoordinatorStreamSystemConsumer {
         CoordinatorStreamMessage coordinatorStreamMessage = new CoordinatorStreamMessage(keyArray, valueMap);
         log.debug("Received coordinator stream message: {}", coordinatorStreamMessage);
         bootstrappedStreamSet.add(coordinatorStreamMessage);
-        if (SetConfig.TYPE.equals(coordinatorStreamMessage.getType())) {
+        if (CoordinatorStreamMessage.SetConfig.TYPE.equals(coordinatorStreamMessage.getType())) {
           String configKey = coordinatorStreamMessage.getKey();
           if (coordinatorStreamMessage.isDelete()) {
             configMap.remove(configKey);
           } else {
-            String configValue = new SetConfig(coordinatorStreamMessage).getConfigValue();
+            String configValue = new CoordinatorStreamMessage.SetConfig(coordinatorStreamMessage).getConfigValue();
             configMap.put(configKey, configValue);
           }
         }
@@ -166,7 +164,7 @@ public class CoordinatorStreamSystemConsumer {
 
   public Set<CoordinatorStreamMessage> getBoostrappedStream() {
     log.info("Returning the bootstrapped data from the stream");
-    if(!isBootstrapped)
+    if (!isBootstrapped)
       bootstrap();
     return bootstrappedStreamSet;
   }
@@ -176,7 +174,7 @@ public class CoordinatorStreamSystemConsumer {
     bootstrap();
     HashSet<CoordinatorStreamMessage> bootstrappedStream = new HashSet<CoordinatorStreamMessage>();
     for (CoordinatorStreamMessage coordinatorStreamMessage : bootstrappedStreamSet) {
-      if(type.equalsIgnoreCase(coordinatorStreamMessage.getType())) {
+      if (type.equalsIgnoreCase(coordinatorStreamMessage.getType())) {
         bootstrappedStream.add(coordinatorStreamMessage);
       }
     }

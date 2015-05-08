@@ -61,7 +61,7 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
    */
   public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
 
-    if(useCachedConsumer && mockConsumer != null) {
+    if (useCachedConsumer && mockConsumer != null) {
       return mockConsumer;
     }
 

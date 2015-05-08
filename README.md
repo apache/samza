@@ -50,6 +50,10 @@ To run all integration tests:
 
     ./bin/integration-tests.sh <dir>
 
+### Running checkstyle on the java code ###
+
+    ./gradlew checkstyleMain checkstyleTest
+
 ### Job Management
 
 To run a job (defined in a properties file):

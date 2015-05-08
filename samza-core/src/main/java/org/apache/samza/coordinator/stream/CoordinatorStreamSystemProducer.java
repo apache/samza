@@ -74,8 +74,7 @@ public class CoordinatorStreamSystemProducer {
    * Creates the coordinator stream, and starts the system producer.
    */
   public void start() {
-    if(isStarted)
-    {
+    if (isStarted) {
       log.info("Coordinator stream producer already started");
       return;
     }

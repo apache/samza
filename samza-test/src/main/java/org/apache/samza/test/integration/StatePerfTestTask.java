@@ -33,10 +33,11 @@ import org.apache.samza.task.TaskCoordinator.RequestScope;
  * A simple performance test that just reads in messages and writes them to a state store as quickly as possible and periodically prints out throughput numbers
  */
 public class StatePerfTestTask implements StreamTask, InitableTask {
-  
+
+  private static final int LOG_INTERVAL = 100000;
+
   private KeyValueStore<String, String> store;
   private int count = 0;
-  private int LOG_INTERVAL = 100000;
   private long start = System.currentTimeMillis();
 
   @SuppressWarnings("unchecked")
@@ -47,9 +48,9 @@ public class StatePerfTestTask implements StreamTask, InitableTask {
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
     store.put((String) envelope.getMessage(), (String) envelope.getMessage());
     count++;
-    if(count % LOG_INTERVAL == 0) {
-      double ellapsedSecs = (System.currentTimeMillis() - start)/1000.0;
-      System.out.println(String.format("Throughput = %.2f messages/sec.", count/ellapsedSecs));
+    if (count % LOG_INTERVAL == 0) {
+      double ellapsedSecs = (System.currentTimeMillis() - start) / 1000.0;
+      System.out.println(String.format("Throughput = %.2f messages/sec.", count / ellapsedSecs));
       start = System.currentTimeMillis();
       count = 0;
       coordinator.commit(RequestScope.ALL_TASKS_IN_CONTAINER);

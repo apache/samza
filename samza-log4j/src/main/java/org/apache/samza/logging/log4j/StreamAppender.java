@@ -32,8 +32,6 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.Log4jSystemConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.ShellCommandConfig;
-import org.apache.samza.config.StreamConfig;
-import org.apache.samza.config.SystemConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.logging.log4j.serializers.LoggingEventJsonSerdeFactory;
@@ -54,9 +52,9 @@ import org.apache.samza.util.Util;
  */
 public class StreamAppender extends AppenderSkeleton {
 
-  private final String JAVA_OPTS_CONTAINER_NAME = "samza.container.name";
-  private final String APPLICATION_MASTER_TAG = "samza-application-master";
-  private final String SOURCE = "log4j-log";
+  private static final String JAVA_OPTS_CONTAINER_NAME = "samza.container.name";
+  private static final String APPLICATION_MASTER_TAG = "samza-application-master";
+  private static final String SOURCE = "log4j-log";
   private Config config = null;
   private SystemStream systemStream = null;
   private SystemProducer systemProducer = null;
@@ -104,7 +102,7 @@ public class StreamAppender extends AppenderSkeleton {
     String systemName = log4jSystemConfig.getSystemName();
     String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName);
     if (systemFactoryName != null) {
-      systemFactory = Util.<SystemFactory> getObj(systemFactoryName);
+      systemFactory = Util.<SystemFactory>getObj(systemFactoryName);
     } else {
       throw new SamzaException("Please define log4j system name and factory class");
     }
@@ -214,7 +212,7 @@ public class StreamAppender extends AppenderSkeleton {
    * @param streamName name of the stream
    */
   private void setSerde(Log4jSystemConfig log4jSystemConfig, String systemName, String streamName) {
-    String serdeClass = LoggingEventJsonSerdeFactory.class.getCanonicalName();;
+    String serdeClass = LoggingEventJsonSerdeFactory.class.getCanonicalName();
     String serdeName = log4jSystemConfig.getStreamSerdeName(systemName, streamName);
 
     if (serdeName != null) {
@@ -222,7 +220,7 @@ public class StreamAppender extends AppenderSkeleton {
     }
 
     if (serdeClass != null) {
-      SerdeFactory<LoggingEvent> serdeFactory = Util.<SerdeFactory<LoggingEvent>> getObj(serdeClass);
+      SerdeFactory<LoggingEvent> serdeFactory = Util.<SerdeFactory<LoggingEvent>>getObj(serdeClass);
       serde = serdeFactory.getSerde(systemName, config);
     } else {
       String serdeKey = String.format(SerializerConfig.SERDE(), serdeName);

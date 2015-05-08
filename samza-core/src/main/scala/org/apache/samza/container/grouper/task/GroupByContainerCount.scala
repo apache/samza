@@ -19,10 +19,8 @@
 
 package org.apache.samza.container.grouper.task
 
-import org.apache.samza.container.TaskName
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.job.model.ContainerModel
-import org.apache.samza.system.SystemStreamPartition
 import scala.collection.JavaConversions._
 
 /**

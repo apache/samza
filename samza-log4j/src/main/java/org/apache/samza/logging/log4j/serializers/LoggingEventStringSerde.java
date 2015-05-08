@@ -32,8 +32,8 @@ import org.apache.samza.serializers.Serde;
  * LoggingEvent based on the messages, which is deserialized from the bytes.
  */
 public class LoggingEventStringSerde implements Serde<LoggingEvent> {
-  final private String ENCODING = "UTF-8";
-  final Logger logger = Logger.getLogger(LoggingEventStringSerde.class);
+  private static final String ENCODING = "UTF-8";
+  private final Logger logger = Logger.getLogger(LoggingEventStringSerde.class);
 
   @Override
   public byte[] toBytes(LoggingEvent object) {

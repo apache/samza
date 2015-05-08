@@ -32,18 +32,20 @@ public class TestConfig {
    * overloaded args
    */
   Class getClass(long l) {
-    return Long.class ;
+    return Long.class;
   }
 
   Class getClass(short s) {
-    return Short.class ;
+    return Short.class;
   }
 
   @Test
   public void testgetShortAndLong() {
-    Map<String, String> m = new HashMap<String, String>() {{
-      put("testkey", "11");
-    }};
+    Map<String, String> m = new HashMap<String, String>() {
+      {
+        put("testkey", "11");
+      }
+    };
 
     MapConfig mc = new MapConfig(m);
     short defaultShort = 0;
@@ -64,12 +66,14 @@ public class TestConfig {
 
   @Test
   public void testSanitize() {
-    Map<String, String> m = new HashMap<String, String>() {{
-      put("key1", "value1");
-      put("key2", "value2");
-      put("sensitive.key3", "secret1");
-      put("sensitive.key4", "secret2");
-    }};
+    Map<String, String> m = new HashMap<String, String>() {
+      {
+        put("key1", "value1");
+        put("key2", "value2");
+        put("sensitive.key3", "secret1");
+        put("sensitive.key4", "secret2");
+      }
+    };
 
     Config config = new MapConfig(m);
     assertFalse(config.toString().contains("secret"));

@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.stream.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.CoordinatorStreamMessage.SetCheckpoint;
@@ -101,7 +100,7 @@ public class CheckpointManager {
     for (CoordinatorStreamMessage coordinatorStreamMessage : bootstrappedStream) {
       SetCheckpoint setCheckpoint = new SetCheckpoint(coordinatorStreamMessage);
       TaskName taskNameInCheckpoint = new TaskName(setCheckpoint.getKey());
-      if(taskNames.contains(taskNameInCheckpoint)) {
+      if (taskNames.contains(taskNameInCheckpoint)) {
         taskNamesToOffsets.put(taskNameInCheckpoint, setCheckpoint.getCheckpoint());
         log.debug("Adding checkpoint {} for taskName {}", taskNameInCheckpoint, taskName);
       }

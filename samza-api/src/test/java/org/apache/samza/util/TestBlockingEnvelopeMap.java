@@ -39,7 +39,7 @@ import org.junit.Test;
 
 public class TestBlockingEnvelopeMap {
   private static final SystemStreamPartition SSP = new SystemStreamPartition("test", "test", new Partition(0));
-  private static final IncomingMessageEnvelope envelope = new IncomingMessageEnvelope(SSP, null, null, null);
+  private static final IncomingMessageEnvelope ENVELOPE = new IncomingMessageEnvelope(SSP, null, null, null);
   private static final Set<SystemStreamPartition> FETCH = new HashSet<SystemStreamPartition>();
 
   static {
@@ -69,12 +69,12 @@ public class TestBlockingEnvelopeMap {
   public void testShouldGetSomeMessages() throws InterruptedException {
     BlockingEnvelopeMap map = new MockBlockingEnvelopeMap();
     map.register(SSP, "0");
-    map.put(SSP, envelope);
+    map.put(SSP, ENVELOPE);
     Map<SystemStreamPartition, List<IncomingMessageEnvelope>> envelopes = map.poll(FETCH, 0);
     assertEquals(1, envelopes.size());
     assertEquals(1, envelopes.get(SSP).size());
-    map.put(SSP, envelope);
-    map.put(SSP, envelope);
+    map.put(SSP, ENVELOPE);
+    map.put(SSP, ENVELOPE);
     envelopes = map.poll(FETCH, 0);
     assertEquals(1, envelopes.size());
     assertEquals(2, envelopes.get(SSP).size());
@@ -117,10 +117,10 @@ public class TestBlockingEnvelopeMap {
     // because BlockingEnvelopeMap calls clock.currentTimeMillis twice, and
     // uses the second call to determine the actual poll time.
     final BlockingEnvelopeMap map = new MockBlockingEnvelopeMap(q, new Clock() {
-      private final long NOW = System.currentTimeMillis();
+      private final long now = System.currentTimeMillis();
 
       public long currentTimeMillis() {
-        return NOW;
+        return now;
       }
     });
 
@@ -166,7 +166,7 @@ public class TestBlockingEnvelopeMap {
 
       pollTimeoutBarrier.countDown();
 
-      return envelope;
+      return ENVELOPE;
     }
   }
 

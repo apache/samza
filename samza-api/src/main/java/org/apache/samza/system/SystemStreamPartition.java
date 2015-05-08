@@ -96,7 +96,7 @@ public class SystemStreamPartition extends SystemStream implements Comparable<Sy
 
   @Override
   public String toString() {
-    return "SystemStreamPartition ["+ system + ", " + stream + ", " + partition.getPartitionId() + "]";
+    return "SystemStreamPartition [" + system + ", " + stream + ", " + partition.getPartitionId() + "]";
   }
 
   @Override

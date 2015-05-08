@@ -93,9 +93,9 @@ import org.slf4j.LoggerFactory;
  * </p>
  */
 public class CoordinatorStreamMessage {
-  public static int VERSION_INDEX = 0;
-  public static int TYPE_INDEX = 1;
-  public static int KEY_INDEX = 2;
+  public static final int VERSION_INDEX = 0;
+  public static final int TYPE_INDEX = 1;
+  public static final int KEY_INDEX = 2;
 
   private static final Logger log = LoggerFactory.getLogger(CoordinatorStreamMessage.class);
 
@@ -135,7 +135,7 @@ public class CoordinatorStreamMessage {
   }
 
   public CoordinatorStreamMessage(String source) {
-    this(source, new Object[] { Integer.valueOf(VERSION), null, null }, new HashMap<String, Object>());
+    this(source, new Object[] {Integer.valueOf(VERSION), null, null}, new HashMap<String, Object>());
   }
 
   public CoordinatorStreamMessage(String source, Object[] keyArray, Map<String, Object> messageMap) {

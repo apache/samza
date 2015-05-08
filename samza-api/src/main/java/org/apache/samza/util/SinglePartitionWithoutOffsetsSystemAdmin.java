@@ -37,10 +37,10 @@ import org.apache.samza.system.SystemStreamPartition;
  * Samza needs at least one partition for an input stream, in order to read it.
  */
 public class SinglePartitionWithoutOffsetsSystemAdmin implements SystemAdmin {
-  private static final Map<Partition, SystemStreamPartitionMetadata> fakePartitionMetadata = new HashMap<Partition, SystemStreamPartitionMetadata>();
+  private static final Map<Partition, SystemStreamPartitionMetadata> FAKE_PARTITION_METADATA = new HashMap<Partition, SystemStreamPartitionMetadata>();
 
   static {
-    fakePartitionMetadata.put(new Partition(0), new SystemStreamPartitionMetadata(null, null, null));
+    FAKE_PARTITION_METADATA.put(new Partition(0), new SystemStreamPartitionMetadata(null, null, null));
   }
 
   @Override
@@ -48,14 +48,14 @@ public class SinglePartitionWithoutOffsetsSystemAdmin implements SystemAdmin {
     Map<String, SystemStreamMetadata> metadata = new HashMap<String, SystemStreamMetadata>();
 
     for (String streamName : streamNames) {
-      metadata.put(streamName, new SystemStreamMetadata(streamName, fakePartitionMetadata));
+      metadata.put(streamName, new SystemStreamMetadata(streamName, FAKE_PARTITION_METADATA));
     }
 
     return metadata;
   }
 
   @Override
-  public void createChangelogStream(String streamName, int numOfPartitions){
+  public void createChangelogStream(String streamName, int numOfPartitions) {
     throw new SamzaException("Method not implemented");
   }
 

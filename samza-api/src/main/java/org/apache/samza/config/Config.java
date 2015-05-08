@@ -58,18 +58,18 @@ public abstract class Config implements Map<String, String> {
   }
 
   public Config regexSubset(String regex) {
-      Map<String, String> out = new HashMap<String, String>();
-      Pattern pattern = Pattern.compile(regex);
+    Map<String, String> out = new HashMap<String, String>();
+    Pattern pattern = Pattern.compile(regex);
 
-      for (Entry<String, String> entry : entrySet()) {
-        String k = entry.getKey();
-        Matcher matcher = pattern.matcher(k);
-        if(matcher.find()){
-            out.put(k, entry.getValue());
-        }
+    for (Entry<String, String> entry : entrySet()) {
+      String k = entry.getKey();
+      Matcher matcher = pattern.matcher(k);
+      if (matcher.find()) {
+        out.put(k, entry.getValue());
       }
+    }
 
-      return new MapConfig(out);
+    return new MapConfig(out);
   }
 
   public String get(String k, String defaultString) {

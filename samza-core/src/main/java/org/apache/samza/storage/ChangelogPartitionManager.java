@@ -20,7 +20,6 @@
 package org.apache.samza.storage;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.container.TaskName;
@@ -73,7 +72,7 @@ public class ChangelogPartitionManager {
    */
   public void register(TaskName taskName) {
     log.debug("Adding taskName {} to {}", taskName, this);
-    if(!isCoordinatorConsumerRegistered) {
+    if (!isCoordinatorConsumerRegistered) {
       coordinatorStreamConsumer.register();
       isCoordinatorConsumerRegistered = true;
     }

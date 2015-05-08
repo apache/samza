@@ -22,13 +22,11 @@ package org.apache.samza.coordinator.stream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.config.Config;
-import org.apache.samza.coordinator.stream.CoordinatorStreamMessage.SetConfig;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
@@ -72,8 +70,7 @@ public class MockCoordinatorStreamWrappedConsumer extends BlockingEnvelopeMap {
       for (Map.Entry<String, String> configPair : config.entrySet()) {
         byte[] keyBytes = null;
         byte[] messgeBytes = null;
-        if(configPair.getKey().startsWith(CHECKPOINTPREFIX))
-        {
+        if (configPair.getKey().startsWith(CHECKPOINTPREFIX)) {
           String[] checkpointInfo = configPair.getKey().split(":");
           String[] sspOffsetPair = configPair.getValue().split(":");
           HashMap<SystemStreamPartition, String> checkpointMap = new HashMap<SystemStreamPartition, String>();
@@ -82,16 +79,14 @@ public class MockCoordinatorStreamWrappedConsumer extends BlockingEnvelopeMap {
           CoordinatorStreamMessage.SetCheckpoint setCheckpoint = new CoordinatorStreamMessage.SetCheckpoint(checkpointInfo[1], checkpointInfo[2], cp);
           keyBytes = MAPPER.writeValueAsString(setCheckpoint.getKeyArray()).getBytes("UTF-8");
           messgeBytes = MAPPER.writeValueAsString(setCheckpoint.getMessageMap()).getBytes("UTF-8");
-        }
-        else if (configPair.getKey().startsWith(CHANGELOGPREFIX)) {
+        } else if (configPair.getKey().startsWith(CHANGELOGPREFIX)) {
           String[] changelogInfo = configPair.getKey().split(":");
           String changeLogPartition = configPair.getValue();
           CoordinatorStreamMessage.SetChangelogMapping changelogMapping = new CoordinatorStreamMessage.SetChangelogMapping(changelogInfo[1], changelogInfo[2], Integer.parseInt(changeLogPartition));
           keyBytes = MAPPER.writeValueAsString(changelogMapping.getKeyArray()).getBytes("UTF-8");
           messgeBytes = MAPPER.writeValueAsString(changelogMapping.getMessageMap()).getBytes("UTF-8");
-        }
-        else {
-          SetConfig setConfig = new SetConfig("source", configPair.getKey(), configPair.getValue());
+        } else {
+          CoordinatorStreamMessage.SetConfig setConfig = new CoordinatorStreamMessage.SetConfig("source", configPair.getKey(), configPair.getValue());
           keyBytes = MAPPER.writeValueAsString(setConfig.getKeyArray()).getBytes("UTF-8");
           messgeBytes = MAPPER.writeValueAsString(setConfig.getMessageMap()).getBytes("UTF-8");
         }
@@ -106,23 +101,21 @@ public class MockCoordinatorStreamWrappedConsumer extends BlockingEnvelopeMap {
 
   @Override
   public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(
-      Set<SystemStreamPartition> systemStreamPartitions, long timeout)
-      throws InterruptedException {
+    Set<SystemStreamPartition> systemStreamPartitions, long timeout)
+    throws InterruptedException {
 
-    if(blockpollFlag) {
+    if (blockpollFlag) {
       blockConsumerPoll.await();
     }
 
     return super.poll(systemStreamPartitions, timeout);
   }
 
-  public CountDownLatch blockPool()
-  {
+  public CountDownLatch blockPool() {
     blockpollFlag = true;
     return blockConsumerPoll;
   }
 
 
-  public void stop() {
-  }
+  public void stop() {}
 }

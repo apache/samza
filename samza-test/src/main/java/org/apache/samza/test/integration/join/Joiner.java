@@ -19,7 +19,6 @@
 
 package org.apache.samza.test.integration.join;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -36,7 +35,6 @@ import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Int;
 
 @SuppressWarnings("unchecked")
 public class Joiner implements StreamTask, InitableTask {
@@ -64,20 +62,20 @@ public class Joiner implements StreamTask, InitableTask {
     int partition = Integer.parseInt(pieces[1].split(" ")[1]);
     Partitions partitions = loadPartitions(epoch, key);
     logger.info("Joiner got epoch = " + epoch + ", partition = " + partition + ", parts = " + partitions);
-    if(partitions.epoch < epoch) {
+    if (partitions.epoch < epoch) {
       // we are in a new era
-      if(partitions.partitions.size() != expected)
+      if (partitions.partitions.size() != expected)
         throw new IllegalArgumentException("Should have " + expected + " partitions when new epoch starts.");
       logger.info("Reseting epoch to " + epoch);
       this.store.delete(key);
       partitions.epoch = epoch;
       partitions.partitions.clear();
       partitions.partitions.add(partition);
-    } else if(partitions.epoch > epoch){
+    } else if (partitions.epoch > epoch) {
       logger.info("Ignoring message for epoch " + epoch);
     } else {
       partitions.partitions.add(partition);
-      if(partitions.partitions.size() == expected) {
+      if (partitions.partitions.size() == expected) {
         logger.info("Completed: " + key + " -> " + Integer.toString(epoch));
         collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", "completed-keys"), key, Integer.toString(epoch)));
       }
@@ -89,7 +87,7 @@ public class Joiner implements StreamTask, InitableTask {
   private Partitions loadPartitions(int epoch, String key) {
     String current = this.store.get(key);
     Partitions partitions;
-    if(current == null)
+    if (current == null)
       partitions = new Partitions(epoch, new HashSet<Integer>());
     else
       partitions = Partitions.parse(current);
@@ -109,7 +107,7 @@ public class Joiner implements StreamTask, InitableTask {
       String[] pieces = s.split("\\|", -1);
       int epoch = Integer.parseInt(pieces[1]);
       Set<Integer> set = new HashSet<Integer>(pieces.length);
-      for(int i = 2; i < pieces.length - 1; i++)
+      for (int i = 2; i < pieces.length - 1; i++)
         set.add(Integer.parseInt(pieces[i]));
       return new Partitions(epoch, set);
     }
@@ -118,7 +116,7 @@ public class Joiner implements StreamTask, InitableTask {
       StringBuilder b = new StringBuilder("|");
       b.append(epoch);
       b.append("|");
-      for(int p: partitions) {
+      for (int p: partitions) {
         b.append(p);
         b.append("|");
       }
