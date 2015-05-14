@@ -29,7 +29,7 @@ allprojects {
   repositories {
     mavenCentral()
     mavenLocal()
-  }
+ }
 }
 
 apply from: file("gradle/dependency-versions.gradle")

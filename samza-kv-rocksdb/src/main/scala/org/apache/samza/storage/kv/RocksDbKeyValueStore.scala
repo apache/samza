@@ -20,10 +20,12 @@
 package org.apache.samza.storage.kv
 
 import java.io.File
+import org.apache.samza.SamzaException
 import org.apache.samza.util.{ LexicographicComparator, Logging }
 import org.apache.samza.config.Config
 import org.apache.samza.container.SamzaContainerContext
 import org.rocksdb._
+import org.rocksdb.TtlDB;
 
 object RocksDbKeyValueStore extends Logging {
   def options(storeConfig: Config, containerContext: SamzaContainerContext) = {
@@ -49,11 +51,9 @@ object RocksDbKeyValueStore extends Logging {
       })
 
     val blockSize = storeConfig.getInt("rocksdb.block.size.bytes", 4096)
-    val bloomBits = storeConfig.getInt("rocksdb.bloomfilter.bits", 10)
     val table_options = new BlockBasedTableConfig()
     table_options.setBlockCacheSize(cacheSizePerContainer)
       .setBlockSize(blockSize)
-      .setFilterBitsPerKey(bloomBits)
 
     options.setTableFormatConfig(table_options)
     options.setCompactionStyle(
@@ -68,18 +68,81 @@ object RocksDbKeyValueStore extends Logging {
 
     options.setMaxWriteBufferNumber(storeConfig.get("rocksdb.num.write.buffers", "3").toInt)
     options.setCreateIfMissing(true)
+    options.setErrorIfExists(false)
     options
   }
 
+  def openDB(dir: File, options: Options, storeConfig: Config, isLoggedStore: Boolean, storeName: String): RocksDB = {
+    var ttl = 0L
+    var useTTL = false
+
+    if (storeConfig.containsKey("rocksdb.ttl.ms"))
+    {
+      try
+      {
+        ttl = storeConfig.getLong("rocksdb.ttl.ms")
+
+        // RocksDB accepts TTL in seconds, convert ms to seconds
+        if (ttl < 1000)
+        {
+          warn("The ttl values requested for %s is %d, which is less than 1000 (minimum), using 1000 instead",
+               storeName,
+               ttl)
+          ttl = 1000
+        }
+        ttl = ttl / 1000
+
+        useTTL = true
+        if (isLoggedStore)
+        {
+          error("%s is a TTL based store, changelog is not supported for TTL based stores, use at your own discretion" format storeName)
+        }
+      }
+      catch
+        {
+          case nfe: NumberFormatException => throw new SamzaException("rocksdb.ttl.ms configuration is not a number, " + "value found %s" format storeConfig.get(
+            "rocksdb.ttl.ms"))
+        }
+    }
+
+    try
+    {
+      if (useTTL)
+      {
+        info("Opening RocksDB store with TTL value: %s" format ttl)
+        TtlDB.open(options, dir.toString, ttl.toInt, false)
+      }
+      else
+      {
+        RocksDB.open(options, dir.toString)
+      }
+    }
+    catch
+      {
+        case rocksDBException: RocksDBException =>
+        {
+          throw new SamzaException(
+            "Error opening RocksDB store %s at location %s, received the following exception from RocksDB %s".format(
+              storeName,
+              dir.toString,
+              rocksDBException))
+        }
+      }
+  }
 }
 
 class RocksDbKeyValueStore(
   val dir: File,
   val options: Options,
+  val storeConfig: Config,
+  val isLoggedStore: Boolean,
+  val storeName: String,
   val writeOptions: WriteOptions = new WriteOptions(),
   val metrics: KeyValueStoreMetrics = new KeyValueStoreMetrics) extends KeyValueStore[Array[Byte], Array[Byte]] with Logging {
 
-  private lazy val db = RocksDB.open(options, dir.toString)
+  // lazy val here is important because the store directories do not exist yet, it can only be opened
+  // after the directories are created, which happens much later from now.
+  private lazy val db = RocksDbKeyValueStore.openDB(dir, options, storeConfig, isLoggedStore, storeName)
   private val lexicographic = new LexicographicComparator()
   private var deletesSinceLastCompaction = 0
 

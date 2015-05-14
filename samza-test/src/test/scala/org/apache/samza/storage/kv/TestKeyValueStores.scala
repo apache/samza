@@ -23,6 +23,7 @@ import java.io.File
 import java.util.Arrays
 import java.util.Random
 
+import org.apache.samza.config.{MapConfig, StorageConfig}
 import org.apache.samza.serializers.Serde
 import org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStore
 import org.junit.After
@@ -58,7 +59,13 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
       case "inmemory" =>
         new InMemoryKeyValueStore
       case "rocksdb" =>
-        new RocksDbKeyValueStore (dir, new org.rocksdb.Options().setCreateIfMissing(true).setCompressionType(org.rocksdb.CompressionType.SNAPPY_COMPRESSION))
+        new RocksDbKeyValueStore (dir,
+                                  new org.rocksdb.Options()
+                                  .setCreateIfMissing(true)
+                                  .setCompressionType(org.rocksdb.CompressionType.SNAPPY_COMPRESSION),
+                                  new MapConfig(),
+                                  false,
+                                  "someStore")
       case _ =>
         throw new IllegalArgumentException("Type of store undefined: " + typeOfStore)
     }

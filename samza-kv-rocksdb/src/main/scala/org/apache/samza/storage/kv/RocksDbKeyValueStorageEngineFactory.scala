@@ -25,6 +25,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.storage.kv._
 import org.apache.samza.system.SystemStreamPartition
 import org.rocksdb.WriteOptions
+import org.apache.samza.config.StorageConfig._
 
 class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngineFactory[K, V]
 {
@@ -43,10 +44,11 @@ class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngi
                           changeLogSystemStreamPartition: SystemStreamPartition,
                           containerContext: SamzaContainerContext): KeyValueStore[Array[Byte], Array[Byte]] = {
     val storageConfig = containerContext.config.subset("stores." + storeName + ".", true)
+    val isLoggedStore = containerContext.config.getChangelogStream(storeName).isDefined
     val rocksDbMetrics = new KeyValueStoreMetrics(storeName, registry)
     val rocksDbOptions = RocksDbKeyValueStore.options(storageConfig, containerContext)
     val rocksDbWriteOptions = new WriteOptions().setDisableWAL(true)
-    val rocksDb = new RocksDbKeyValueStore(storeDir, rocksDbOptions, rocksDbWriteOptions, rocksDbMetrics)
+    val rocksDb = new RocksDbKeyValueStore(storeDir, rocksDbOptions, storageConfig, isLoggedStore, storeName, rocksDbWriteOptions, rocksDbMetrics)
     rocksDb
   }
 }

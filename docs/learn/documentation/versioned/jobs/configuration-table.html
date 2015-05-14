@@ -1006,10 +1006,12 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="stores-rocksdb-bloomfilter-bits">stores.<span class="store">store-name</span>.<br>rocksdb.bloomfilter.bits</td>
-                    <td class="default">10</td>
+                    <td class="property" id="stores-rocksdb-ttl">stores.<span class="store">store-name</span>.<br>rocksdb.ttl.ms</td>
+                    <td class="default"></td>
                     <td class="description">
-                      In RocksDB, every SST file <a href="https://github.com/facebook/rocksdb/wiki/RocksDB-Bloom-Filter">contains a Bloom filter</a>, which is used to determine if the file may contain a given key. Setting the bloom filter bit size allows developers to make the trade-off between the accuracy of the bloom filter, and its memory usage.
+                        The time-to-live of the store. Please note it's not a strict TTL limit (removed only
+                        after compaction). Please use caution opening a database with and without TTL, as it might corrupt the
+                        database. Please make sure to read the <a href="https://github.com/facebook/rocksdb/wiki/Time-to-Live">constraints</a> before using.
                     </td>
                 </tr>
 
