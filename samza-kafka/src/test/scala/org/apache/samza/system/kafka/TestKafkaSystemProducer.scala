@@ -33,6 +33,7 @@ import org.apache.samza.SamzaException
 class TestKafkaSystemProducer {
 
   val someMessage = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "test".getBytes)
+  val StreamNameNullOrEmptyErrorMsg = "Stream Name should be specified in the stream configuration file.";
 
   @Test
   def testKafkaProducer {
@@ -193,5 +194,29 @@ class TestKafkaSystemProducer {
     assertEquals(1, mockProducer.getMsgsSent)
     systemProducer.stop()
     assertEquals(4, mockProducer.getMsgsSent)
+  }
+
+  @Test
+  def testSystemStreamNameNullOrEmpty {
+    val omeStreamNameNull = new OutgoingMessageEnvelope(new SystemStream("test", null), "a".getBytes)
+    val omeStreamNameEmpty = new OutgoingMessageEnvelope(new SystemStream("test", ""), "a".getBytes)
+    val mockProducer = new MockKafkaProducer(1, "testMock", 1)
+    val producer = new KafkaSystemProducer(systemName = "test", getProducer = () => mockProducer,
+                                           metrics = new KafkaSystemProducerMetrics)
+
+    val thrownNull = intercept[IllegalArgumentException] {
+      producer.register("test1")
+      producer.start()
+      producer.send("testSrc1", omeStreamNameNull)
+      assertEquals(0, mockProducer.getMsgsSent)
+    }
+    val thrownEmpty = intercept[IllegalArgumentException] {
+      producer.register("test2")
+      producer.start()
+      producer.send("testSrc2", omeStreamNameEmpty)
+      assertEquals(0, mockProducer.getMsgsSent)
+    }
+    assertTrue(thrownNull.getMessage() == StreamNameNullOrEmptyErrorMsg)
+    assertTrue(thrownEmpty.getMessage() == StreamNameNullOrEmptyErrorMsg)
   }
 }
