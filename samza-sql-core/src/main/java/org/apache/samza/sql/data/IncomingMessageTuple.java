@@ -22,10 +22,12 @@ import org.apache.samza.sql.api.data.Data;
 import org.apache.samza.sql.api.data.EntityName;
 import org.apache.samza.sql.api.data.Tuple;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.sql.LongOffset;
+import org.apache.samza.system.sql.Offset;
 
 
 /**
- * This class implements a <code>Tuple</code> class that encapsulates <code>IncomingMessageEnvelope</code> from the system
+ * This class implements a {@link org.apache.samza.sql.api.data.Tuple} that encapsulates an {@link org.apache.samza.system.IncomingMessageEnvelope} from the system
  *
  */
 public class IncomingMessageTuple implements Tuple {
@@ -40,7 +42,12 @@ public class IncomingMessageTuple implements Tuple {
   private final EntityName strmEntity;
 
   /**
-   * Ctor to create a <code>IncomingMessageTuple</code> from <code>IncomingMessageEnvelope</code>
+   * The receive time of this incoming message
+   */
+  private final long recvTimeNano;
+
+  /**
+   * Ctor to create a {@code IncomingMessageTuple} from {@link org.apache.samza.system.IncomingMessageEnvelope}
    *
    * @param imsg The incoming system message
    */
@@ -49,9 +56,9 @@ public class IncomingMessageTuple implements Tuple {
     this.strmEntity =
         EntityName.getStreamName(String.format("%s:%s", imsg.getSystemStreamPartition().getSystem(), imsg
             .getSystemStreamPartition().getStream()));
+    this.recvTimeNano = System.nanoTime();
   }
 
-  // TODO: the return type should be changed to the generic data type
   @Override
   public Data getMessage() {
     return (Data) this.imsg.getMessage();
@@ -68,8 +75,20 @@ public class IncomingMessageTuple implements Tuple {
   }
 
   @Override
-  public EntityName getStreamName() {
+  public EntityName getEntityName() {
     return this.strmEntity;
   }
 
+  @Override
+  public long getCreateTimeNano() {
+    // TODO: this is wrong and just to keep as an placeholder. It should be replaced by the message publish time when the publish timestamp is available in the message metadata
+    return this.recvTimeNano;
+  }
+
+  @Override
+  public Offset getOffset() {
+    // TODO: need to add offset factory to generate different types of offset. This is just a placeholder,
+    // assuming incoming message carries long value as offset (i.e. Kafka case)
+    return new LongOffset(this.imsg.getOffset());
+  }
 }

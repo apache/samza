@@ -26,20 +26,19 @@ import org.apache.samza.config.Config;
 import org.apache.samza.sql.api.data.EntityName;
 import org.apache.samza.sql.api.data.Relation;
 import org.apache.samza.sql.api.data.Tuple;
-import org.apache.samza.sql.api.operators.TupleOperator;
-import org.apache.samza.sql.operators.factory.SimpleOperator;
+import org.apache.samza.sql.api.operators.OperatorCallback;
+import org.apache.samza.sql.operators.factory.SimpleOperatorImpl;
 import org.apache.samza.storage.kv.KeyValueIterator;
-import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
-import org.apache.samza.task.sql.SqlMessageCollector;
+import org.apache.samza.task.sql.SimpleMessageCollector;
 
 
 /**
  * This class defines an example build-in operator for a fixed size window operator that converts a stream to a relation
  *
  */
-public class BoundedTimeWindow extends SimpleOperator implements TupleOperator {
+public class BoundedTimeWindow extends SimpleOperatorImpl {
 
   /**
    * The specification of this window operator
@@ -59,7 +58,7 @@ public class BoundedTimeWindow extends SimpleOperator implements TupleOperator {
   /**
    * Ctor that takes <code>WindowSpec</code> specification as input argument
    *
-   * <p>This version of constructor is often used in an implementation of <code>SqlOperatorFactory</code>
+   * <p>This version of constructor is often used in an implementation of {@link org.apache.samza.sql.api.operators.SqlOperatorFactory}
    *
    * @param spec The window specification object
    */
@@ -77,20 +76,23 @@ public class BoundedTimeWindow extends SimpleOperator implements TupleOperator {
    * @param output The output relation name
    */
   public BoundedTimeWindow(String wndId, int lengthSec, String input, String output) {
-    super(new WindowSpec(wndId, EntityName.getStreamName(input), EntityName.getRelationName(output), lengthSec));
+    this(new WindowSpec(wndId, EntityName.getStreamName(input), EntityName.getStreamName(output), lengthSec));
+  }
+
+  /**
+   * A simplified version of ctor that allows users to randomly created a window operator w/o spec object
+   *
+   * @param wndId The identifier of this window operator
+   * @param lengthSec The window size in seconds
+   * @param input The input stream name
+   * @param output The output relation name
+   */
+  public BoundedTimeWindow(String wndId, int lengthSec, String input, String output, OperatorCallback callback) {
+    super(new WindowSpec(wndId, EntityName.getStreamName(input), EntityName.getStreamName(output), lengthSec), callback);
     this.spec = (WindowSpec) super.getSpec();
   }
 
-  @Override
-  public void process(Tuple tuple, SqlMessageCollector collector) throws Exception {
-    // for each tuple, this will evaluate the incoming tuple and update the window states.
-    // If the window states allow generating output, calculate the delta changes in
-    // the window relation and execute the relation operation <code>nextOp</code>
-    updateWindow(tuple);
-    processWindowChanges(collector);
-  }
-
-  private void processWindowChanges(SqlMessageCollector collector) throws Exception {
+  private void processWindowChanges(SimpleMessageCollector collector) throws Exception {
     if (windowStateChange()) {
       collector.send(getWindowChanges());
     }
@@ -119,14 +121,6 @@ public class BoundedTimeWindow extends SimpleOperator implements TupleOperator {
   }
 
   @Override
-  public void window(MessageCollector collector, TaskCoordinator coordinator) throws Exception {
-    SqlMessageCollector sqlCollector = (SqlMessageCollector) collector;
-    updateWindowTimeout();
-    processWindowChanges(sqlCollector);
-    sqlCollector.timeout(this.spec.getOutputNames());
-  }
-
-  @Override
   public void init(Config config, TaskContext context) throws Exception {
     // TODO Auto-generated method stub
     if (this.relation == null) {
@@ -137,5 +131,31 @@ public class BoundedTimeWindow extends SimpleOperator implements TupleOperator {
         this.windowStates.add((WindowState) iter.next().getValue().getMessage());
       }
     }
+  }
+
+  @Override
+  protected void realProcess(Tuple tuple, SimpleMessageCollector collector, TaskCoordinator coordinator)
+      throws Exception {
+    // for each tuple, this will evaluate the incoming tuple and update the window states.
+    // If the window states allow generating output, calculate the delta changes in
+    // the window relation and execute the relation operation <code>nextOp</code>
+    updateWindow(tuple);
+    processWindowChanges(collector);
+  }
+
+  @Override
+  protected void realProcess(Relation rel, SimpleMessageCollector collector, TaskCoordinator coordinator)
+      throws Exception {
+    for (KeyValueIterator<Object, Tuple> iter = rel.all(); iter.hasNext();) {
+      updateWindow(iter.next().getValue());
+      processWindowChanges(collector);
+    }
+  }
+
+  @Override
+  protected void realRefresh(long timeNano, SimpleMessageCollector collector, TaskCoordinator coordinator)
+      throws Exception {
+    updateWindowTimeout();
+    processWindowChanges(collector);
   }
 }

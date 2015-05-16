@@ -17,34 +17,24 @@
  * under the License.
  */
 
-package org.apache.samza.sql.operators.factory;
+package org.apache.samza.sql.api.data;
 
-import org.apache.samza.sql.api.operators.Operator;
-import org.apache.samza.sql.api.operators.spec.OperatorSpec;
+import java.util.List;
 
 
 /**
- * An abstract class that encapsulate the basic information and methods that all operator classes should implement.
+ * This interface defines an ordered {@link org.apache.samza.sql.api.data.Relation}, which has an ordered key.
  *
+ * <p> This is to define a stream created by CREATE STREAM statement
+ *
+ * @param <K> The ordered key for the {@code Stream} class
  */
-public abstract class SimpleOperator implements Operator {
+public interface Stream<K extends Comparable<?>> extends Relation<K> {
   /**
-   * The specification of this operator
-   */
-  private final OperatorSpec spec;
-
-  /**
-   * Ctor of <code>SimpleOperator</code> class
+   * Get the list of field names used as the order keys for this stream
    *
-   * @param spec The specification of this operator
+   * @return The list of field names used to construct the order key for the stream
    */
-  public SimpleOperator(OperatorSpec spec) {
-    this.spec = spec;
-  }
-
-  @Override
-  public OperatorSpec getSpec() {
-    return this.spec;
-  }
+  List<String> getOrderFields();
 
 }

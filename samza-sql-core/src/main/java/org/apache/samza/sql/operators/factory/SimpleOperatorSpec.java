@@ -22,12 +22,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.samza.sql.api.data.EntityName;
-import org.apache.samza.sql.api.operators.spec.OperatorSpec;
+import org.apache.samza.sql.api.operators.OperatorSpec;
 
 
 /**
  * An abstract class that encapsulate the basic information and methods that all specification of operators should implement.
- *
+ * It implements {@link org.apache.samza.sql.api.operators.OperatorSpec}
  */
 public abstract class SimpleOperatorSpec implements OperatorSpec {
   /**
@@ -46,9 +46,9 @@ public abstract class SimpleOperatorSpec implements OperatorSpec {
   private final List<EntityName> outputs = new ArrayList<EntityName>();
 
   /**
-   * Ctor of the <code>SimpleOperatorSpec</code> for simple <code>Operator</code>s w/ one input and one output
+   * Ctor of the {@code SimpleOperatorSpec} for simple {@link org.apache.samza.sql.api.operators.SimpleOperator}s w/ one input and one output
    *
-   * @param id Unique identifier of the <code>Operator</code> object
+   * @param id Unique identifier of the {@link org.apache.samza.sql.api.operators.SimpleOperator} object
    * @param input The only input entity
    * @param output The only output entity
    */
@@ -59,9 +59,9 @@ public abstract class SimpleOperatorSpec implements OperatorSpec {
   }
 
   /**
-   * Ctor of <code>SimpleOperatorSpec</code> with general format: m inputs and n outputs
+   * Ctor of {@code SimpleOperatorSpec} with general format: m inputs and n outputs
    *
-   * @param id Unique identifier of the <code>Operator</code> object
+   * @param id Unique identifier of the {@link org.apache.samza.sql.api.operators.SimpleOperator} object
    * @param inputs The list of input entities
    * @param output The list of output entities
    */

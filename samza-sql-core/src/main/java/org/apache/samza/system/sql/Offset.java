@@ -17,21 +17,11 @@
  * under the License.
  */
 
-package org.apache.samza.sql.api.operators;
-
-
+package org.apache.samza.system.sql;
 
 /**
- * This class defines the interface of SQL operator factory, which creates the {@link org.apache.samza.sql.api.operators.SimpleOperator}s:
+ * A generic interface extending {@link java.lang.Comparable} to be used as {@code Offset} in a stream
  */
-public interface SqlOperatorFactory {
-
-  /**
-   * Interface method to create/get the {@link org.apache.samza.sql.api.operators.SimpleOperator} object
-   *
-   * @param spec The specification of the {@link org.apache.samza.sql.api.operators.SimpleOperator} object
-   * @return The {@link org.apache.samza.sql.api.operators.SimpleOperator} object
-   */
-  SimpleOperator getOperator(OperatorSpec spec);
+public interface Offset extends Comparable<Offset> {
 
 }

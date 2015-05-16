@@ -17,21 +17,22 @@
  * under the License.
  */
 
-package org.apache.samza.sql.api.operators;
+package org.apache.samza.sql.operators.join;
 
+import java.util.List;
+
+import org.apache.samza.sql.api.data.EntityName;
+import org.apache.samza.sql.operators.factory.SimpleOperatorSpec;
 
 
 /**
- * This class defines the interface of SQL operator factory, which creates the {@link org.apache.samza.sql.api.operators.SimpleOperator}s:
+ * This class defines the specification of a {@link org.apache.samza.sql.operators.join.StreamStreamJoin} operator
  */
-public interface SqlOperatorFactory {
+public class StreamStreamJoinSpec extends SimpleOperatorSpec {
 
-  /**
-   * Interface method to create/get the {@link org.apache.samza.sql.api.operators.SimpleOperator} object
-   *
-   * @param spec The specification of the {@link org.apache.samza.sql.api.operators.SimpleOperator} object
-   * @return The {@link org.apache.samza.sql.api.operators.SimpleOperator} object
-   */
-  SimpleOperator getOperator(OperatorSpec spec);
+  public StreamStreamJoinSpec(String id, List<EntityName> inputs, EntityName output, List<String> joinKeys) {
+    super(id, inputs, output);
+    // TODO Auto-generated constructor stub
+  }
 
 }

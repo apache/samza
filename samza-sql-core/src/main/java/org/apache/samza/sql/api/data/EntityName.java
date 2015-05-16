@@ -24,15 +24,15 @@ import java.util.Map;
 
 
 /**
- * This class defines the name scheme for the collective data entities in Samza Stream SQL, i.e. relations and streams.
+ * This class defines the name scheme for the collective data entities in Samza Stream SQL, i.e. tables and streams.
  */
 public class EntityName {
   /**
-   * <code>EntityType</code> defines the types of the entity names
+   * {@code EntityType} defines the types of the entity names
    *
    */
   private enum EntityType {
-    RELATION,
+    TABLE,
     STREAM
   };
 
@@ -44,16 +44,15 @@ public class EntityName {
   /**
    * Formatted name of the entity.
    *
-   * <p>This formatted name of the entity should be unique identifier for the corresponding relation/stream in the system.
+   * <p>This formatted name of the entity should be unique identifier for the corresponding table/stream in the system.
    * e.g. for a Kafka system stream named "mystream", the formatted name should be "kafka:mystream".
    */
   private final String name;
 
-  //TODO: we may want to replace the map with Guava cache to allow GC
   /**
-   * Static map of already allocated relation names
+   * Static map of already allocated table names
    */
-  private static Map<String, EntityName> relations = new HashMap<String, EntityName>();
+  private static Map<String, EntityName> tables = new HashMap<String, EntityName>();
 
   /**
    * Static map of already allocated stream names
@@ -86,18 +85,18 @@ public class EntityName {
   }
 
   /**
-   * Check to see whether this entity name is for a relation
+   * Check to see whether this entity name is for a table
    *
-   * @return true if the entity type is <code>EntityType.RELATION</code>; false otherwise
+   * @return true if the entity type is {@code EntityType.TABLE}; false otherwise
    */
-  public boolean isRelation() {
-    return this.type.equals(EntityType.RELATION);
+  public boolean isTable() {
+    return this.type.equals(EntityType.TABLE);
   }
 
   /**
    * Check to see whether this entity name is for a stream
    *
-   * @return true if the entity type is <code>EntityType.STREAM</code>; false otherwise
+   * @return true if the entity type is {@code EntityType.STREAM}; false otherwise
    */
   public boolean isStream() {
     return this.type.equals(EntityType.STREAM);
@@ -113,16 +112,16 @@ public class EntityName {
   }
 
   /**
-   * Static method to get the instance of <code>EntityName</code> with type <code>EntityType.RELATION</code>
+   * Static method to get the instance of {@code EntityName} with type {@code EntityType.TABLE}
    *
    * @param name The formatted entity name of the relation
    * @return A <code>EntityName</code> for a relation
    */
-  public static EntityName getRelationName(String name) {
-    if (relations.get(name) == null) {
-      relations.put(name, new EntityName(EntityType.RELATION, name));
+  public static EntityName getTableName(String name) {
+    if (tables.get(name) == null) {
+      tables.put(name, new EntityName(EntityType.TABLE, name));
     }
-    return relations.get(name);
+    return tables.get(name);
   }
 
   /**

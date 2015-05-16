@@ -20,31 +20,33 @@
 package org.apache.samza.sql.operators.partition;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.sql.api.data.Relation;
 import org.apache.samza.sql.api.data.Tuple;
-import org.apache.samza.sql.api.operators.TupleOperator;
-import org.apache.samza.sql.operators.factory.SimpleOperator;
+import org.apache.samza.sql.api.operators.OperatorCallback;
+import org.apache.samza.sql.operators.factory.SimpleOperatorImpl;
+import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
-import org.apache.samza.task.sql.SqlMessageCollector;
+import org.apache.samza.task.sql.SimpleMessageCollector;
 
 
 /**
  * This is an example build-in operator that performs a simple stream re-partition operation.
  *
  */
-public final class PartitionOp extends SimpleOperator implements TupleOperator {
+public class PartitionOp extends SimpleOperatorImpl {
 
   /**
-   * The specification of this <code>PartitionOp</code>
+   * The specification of this {@code PartitionOp}
    *
    */
   private final PartitionSpec spec;
 
   /**
-   * Ctor that takes the <code>PartitionSpec</code> object as input.
+   * Ctor that takes the {@link org.apache.samza.sql.operators.partition.PartitionSpec} object as input.
    *
    * @param spec The <code>PartitionSpec</code> object
    */
@@ -64,7 +66,23 @@ public final class PartitionOp extends SimpleOperator implements TupleOperator {
    * @param parNum The number of partitions used for the output stream
    */
   public PartitionOp(String id, String input, String system, String output, String parKey, int parNum) {
-    super(new PartitionSpec(id, input, new SystemStream(system, output), parKey, parNum));
+    this(new PartitionSpec(id, input, new SystemStream(system, output), parKey, parNum));
+  }
+
+  /**
+   * A simplified constructor that allow users to randomly create <code>PartitionOp</code>
+   *
+   * @param id The identifier of this operator
+   * @param input The input stream name of this operator
+   * @param system The output system name of this operator
+   * @param output The output stream name of this operator
+   * @param parKey The partition key used for the output stream
+   * @param parNum The number of partitions used for the output stream
+   * @param callback The callback functions for operator
+   */
+  public PartitionOp(String id, String input, String system, String output, String parKey, int parNum,
+      OperatorCallback callback) {
+    super(new PartitionSpec(id, input, new SystemStream(system, output), parKey, parNum), callback);
     this.spec = (PartitionSpec) super.getSpec();
   }
 
@@ -75,15 +93,28 @@ public final class PartitionOp extends SimpleOperator implements TupleOperator {
   }
 
   @Override
-  public void window(MessageCollector collector, TaskCoordinator coordinator) throws Exception {
+  protected void realRefresh(long timeNano, SimpleMessageCollector collector, TaskCoordinator coordinator)
+      throws Exception {
     // TODO Auto-generated method stub
     // NOOP or flush
   }
 
   @Override
-  public void process(Tuple tuple, SqlMessageCollector collector) throws Exception {
-    collector.send(new OutgoingMessageEnvelope(PartitionOp.this.spec.getSystemStream(), tuple.getKey().value(),
-        tuple.getMessage().getFieldData(PartitionOp.this.spec.getParKey()).value(), tuple.getMessage().value()));
+  protected void realProcess(Tuple tuple, SimpleMessageCollector collector, TaskCoordinator coordinator)
+      throws Exception {
+    collector.send(new OutgoingMessageEnvelope(PartitionOp.this.spec.getSystemStream(), tuple.getMessage()
+        .getFieldData(PartitionOp.this.spec.getParKey()).value(), tuple.getKey().value(), tuple.getMessage().value()));
+  }
+
+  @Override
+  protected void realProcess(Relation deltaRelation, SimpleMessageCollector collector, TaskCoordinator coordinator)
+      throws Exception {
+    for(KeyValueIterator<?, Tuple> iter = deltaRelation.all(); iter.hasNext(); ) {
+      Entry<?, Tuple> entry = iter.next();
+      collector.send(new OutgoingMessageEnvelope(PartitionOp.this.spec.getSystemStream(), entry.getValue().getMessage()
+          .getFieldData(PartitionOp.this.spec.getParKey()).value(), entry.getValue().getKey().value(), entry.getValue()
+          .getMessage().value()));
+    }
   }
 
 }

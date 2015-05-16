@@ -17,26 +17,22 @@
  * under the License.
  */
 
-package org.apache.samza.sql.operators.stream;
-
-import org.apache.samza.sql.api.data.EntityName;
-import org.apache.samza.sql.api.operators.spec.OperatorSpec;
-import org.apache.samza.sql.operators.factory.SimpleOperatorSpec;
-
+package org.apache.samza.sql.api.data;
 
 /**
- * Example implementation of specification of <code>InsertStream</code> operator
+ * This interface defines a non-ordered {@link org.apache.samza.sql.api.data.Relation}, which has a unique primary key
+ *
+ * <p> This is to define a table created by CREATE TABLE statement
+ *
+ * @param <K> The primary key for the {@code Table} class
  */
-public class InsertStreamSpec extends SimpleOperatorSpec implements OperatorSpec {
+public interface Table<K> extends Relation<K> {
 
   /**
-   * Default ctor of <code>InsertStreamSpec</code>
+   * Get the primary key field name for this table
    *
-   * @param id The identifier of the operator
-   * @param input The input relation entity
-   * @param output The output stream entity
+   * @return The name of the primary key field
    */
-  public InsertStreamSpec(String id, EntityName input, EntityName output) {
-    super(id, input, output);
-  }
+  String getPrimaryKeyName();
+
 }

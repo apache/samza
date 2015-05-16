@@ -20,12 +20,12 @@
 package org.apache.samza.sql.operators.window;
 
 import org.apache.samza.sql.api.data.EntityName;
-import org.apache.samza.sql.api.operators.spec.OperatorSpec;
+import org.apache.samza.sql.api.operators.OperatorSpec;
 import org.apache.samza.sql.operators.factory.SimpleOperatorSpec;
 
 
 /**
- * This class implements the specification class for the build-in <code>BoundedTimeWindow</code> operator
+ * This class implements the specification class for the build-in {@link org.apache.samza.sql.operators.window.BoundedTimeWindow} operator
  */
 public class WindowSpec extends SimpleOperatorSpec implements OperatorSpec {
 
@@ -35,7 +35,7 @@ public class WindowSpec extends SimpleOperatorSpec implements OperatorSpec {
   private final int wndSizeSec;
 
   /**
-   * Default ctor of the <code>WindowSpec</code> object
+   * Default ctor of the {@code WindowSpec} object
    *
    * @param id The identifier of the operator
    * @param input The input stream entity

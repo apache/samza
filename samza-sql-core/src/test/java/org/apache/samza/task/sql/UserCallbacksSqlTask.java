@@ -23,6 +23,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.sql.api.data.Relation;
+import org.apache.samza.sql.api.data.Stream;
+import org.apache.samza.sql.api.data.Tuple;
+import org.apache.samza.sql.api.operators.OperatorCallback;
 import org.apache.samza.sql.data.IncomingMessageTuple;
 import org.apache.samza.sql.operators.factory.SimpleRouter;
 import org.apache.samza.sql.operators.join.StreamStreamJoin;
@@ -49,27 +53,69 @@ import org.apache.samza.task.WindowableTask;
  * This example also uses an implementation of <code>SqlMessageCollector</code> (@see <code>OperatorMessageCollector</code>)
  * that uses <code>OperatorRouter</code> to automatically execute the whole paths that connects operators together.
  */
-public class StreamSqlTask implements StreamTask, InitableTask, WindowableTask {
+public class UserCallbacksSqlTask implements StreamTask, InitableTask, WindowableTask {
 
-  private SimpleRouter rteCntx;
+  private SimpleRouter simpleRtr;
+
+  private final OperatorCallback wndCallback = new OperatorCallback() {
+
+    @Override
+    public Tuple beforeProcess(Tuple tuple, MessageCollector collector, TaskCoordinator coordinator) {
+      return filterWindowInput(tuple, collector, coordinator);
+    }
+
+    @Override
+    public Relation beforeProcess(Relation rel, MessageCollector collector, TaskCoordinator coordinator) {
+      return onRelationInput(rel, collector, coordinator);
+    }
+
+    @Override
+    public Relation afterProcess(Relation rel, MessageCollector collector, TaskCoordinator coordinator) {
+      return rel;
+    }
+
+    @Override
+    public Tuple afterProcess(Tuple tuple, MessageCollector collector, TaskCoordinator coordinator) {
+      return tuple;
+    }
+
+    private Tuple filterWindowInput(Tuple tuple, MessageCollector collector, TaskCoordinator coordinator) {
+      // filter all delete tuples before send
+      if (tuple.isDelete()) {
+        return null;
+      }
+      return tuple;
+    }
+
+    private Relation onRelationInput(Relation rel, MessageCollector collector,
+        TaskCoordinator coordinator) {
+      // check whether the input is a stream
+      if (!(rel instanceof Stream<?>)) {
+        throw new IllegalArgumentException("Wrong input entity");
+      }
+      return rel;
+    }
+  };
 
   @Override
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator)
       throws Exception {
-    this.rteCntx.process(new IncomingMessageTuple(envelope), collector, coordinator);
+    this.simpleRtr.process(new IncomingMessageTuple(envelope), collector, coordinator);
   }
 
   @Override
   public void window(MessageCollector collector, TaskCoordinator coordinator) throws Exception {
-    this.rteCntx.refresh(System.nanoTime(), collector, coordinator);
+    this.simpleRtr.refresh(System.nanoTime(), collector, coordinator);
   }
 
   @Override
   public void init(Config config, TaskContext context) throws Exception {
     // create all operators via the operator factory
     // 1. create two window operators
-    BoundedTimeWindow wnd1 = new BoundedTimeWindow("fixedWnd1", 10, "inputStream1", "fixedWndOutput1");
-    BoundedTimeWindow wnd2 = new BoundedTimeWindow("fixedWnd2", 10, "inputStream2", "fixedWndOutput2");
+    BoundedTimeWindow wnd1 =
+        new BoundedTimeWindow("fixedWnd1", 10, "inputStream1", "fixedWndOutput1", this.wndCallback);
+    BoundedTimeWindow wnd2 =
+        new BoundedTimeWindow("fixedWnd2", 10, "inputStream2", "fixedWndOutput2", this.wndCallback);
     // 2. create one join operator
     @SuppressWarnings("serial")
     List<String> inputRelations = new ArrayList<String>() {
@@ -90,15 +136,15 @@ public class StreamSqlTask implements StreamTask, InitableTask, WindowableTask {
     PartitionOp par = new PartitionOp("parOp1", "joinOutput", "kafka", "parOutputStrm1", "joinKey", 50);
 
     // Now, connecting the operators via the OperatorRouter
-    this.rteCntx = new SimpleRouter();
+    this.simpleRtr = new SimpleRouter();
     // 1. set two system input operators (i.e. two window operators)
-    this.rteCntx.addOperator(wnd1);
-    this.rteCntx.addOperator(wnd2);
+    this.simpleRtr.addOperator(wnd1);
+    this.simpleRtr.addOperator(wnd2);
     // 2. connect join operator to both window operators
-    this.rteCntx.addOperator(join);
+    this.simpleRtr.addOperator(join);
     // 3. connect re-partition operator to the stream operator
-    this.rteCntx.addOperator(par);
+    this.simpleRtr.addOperator(par);
 
-    this.rteCntx.init(config, context);
+    this.simpleRtr.init(config, context);
   }
 }

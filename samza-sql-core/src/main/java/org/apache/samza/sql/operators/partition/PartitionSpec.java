@@ -20,13 +20,13 @@
 package org.apache.samza.sql.operators.partition;
 
 import org.apache.samza.sql.api.data.EntityName;
-import org.apache.samza.sql.api.operators.spec.OperatorSpec;
+import org.apache.samza.sql.api.operators.OperatorSpec;
 import org.apache.samza.sql.operators.factory.SimpleOperatorSpec;
 import org.apache.samza.system.SystemStream;
 
 
 /**
- * This class defines the specification class of <code>PartitionOp</code> operator
+ * This class defines the specification class of {@link org.apache.samza.sql.operators.partition.PartitionOp}
  *
  */
 public class PartitionSpec extends SimpleOperatorSpec implements OperatorSpec {
@@ -47,11 +47,11 @@ public class PartitionSpec extends SimpleOperatorSpec implements OperatorSpec {
   private final SystemStream sysStream;
 
   /**
-   * Ctor to create the <code>PartitionSpec</code>
+   * Ctor to create the {@code PartitionSpec}
    *
-   * @param id The ID of the <code>PartitionOp</code>
+   * @param id The ID of the {@link org.apache.samza.sql.operators.partition.PartitionOp}
    * @param input The input stream name
-   * @param output The output <code>SystemStream</code> object
+   * @param output The output {@link org.apache.samza.system.SystemStream} object
    * @param parKey The name of the partition key
    * @param parNum The number of partitions
    */
@@ -81,7 +81,7 @@ public class PartitionSpec extends SimpleOperatorSpec implements OperatorSpec {
   }
 
   /**
-   * Method to get the output <code>SystemStream</code>
+   * Method to get the output {@link org.apache.samza.system.SystemStream}
    *
    * @return The output system stream object
    */

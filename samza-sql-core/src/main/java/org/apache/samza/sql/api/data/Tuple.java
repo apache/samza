@@ -19,6 +19,9 @@
 
 package org.apache.samza.sql.api.data;
 
+import org.apache.samza.system.sql.Offset;
+
+
 /**
  * This class defines the generic interface of <code>Tuple</code>, which is a entry from the incoming stream, or one row in a <code>Relation</code>.
  *
@@ -53,6 +56,20 @@ public interface Tuple {
    *
    * @return The stream name which this tuple belongs to
    */
-  EntityName getStreamName();
+  EntityName getEntityName();
+
+  /**
+   * Get the message creation timestamp of the tuple.
+   *
+   * @return The tuple's creation timestamp in nano seconds.
+   */
+  long getCreateTimeNano();
+
+  /**
+   * Get the offset of the tuple in the stream. This should be used to uniquely identify a tuple in a stream.
+   *
+   * @return The offset of the tuple in the stream.
+   */
+  Offset getOffset();
 
 }

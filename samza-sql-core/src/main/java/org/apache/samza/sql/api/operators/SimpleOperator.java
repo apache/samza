@@ -22,16 +22,13 @@ package org.apache.samza.sql.api.operators;
 
 
 /**
- * This class defines the interface of SQL operator factory, which creates the {@link org.apache.samza.sql.api.operators.SimpleOperator}s:
+ * The interface for a {@code SimpleOperator} that implements a simple primitive relational logic operation
  */
-public interface SqlOperatorFactory {
-
+public interface SimpleOperator extends Operator {
   /**
-   * Interface method to create/get the {@link org.apache.samza.sql.api.operators.SimpleOperator} object
+   * Method to get the specification of this {@code SimpleOperator}
    *
-   * @param spec The specification of the {@link org.apache.samza.sql.api.operators.SimpleOperator} object
-   * @return The {@link org.apache.samza.sql.api.operators.SimpleOperator} object
+   * @return The {@link org.apache.samza.sql.api.operators.OperatorSpec} object that defines the configuration/parameters of the operator
    */
-  SimpleOperator getOperator(OperatorSpec spec);
-
+  OperatorSpec getSpec();
 }

@@ -17,21 +17,10 @@
  * under the License.
  */
 
-package org.apache.samza.sql.api.operators;
-
-
+package org.apache.samza.sql.window.storage;
 
 /**
- * This class defines the interface of SQL operator factory, which creates the {@link org.apache.samza.sql.api.operators.SimpleOperator}s:
+ * This defines the base class for all keys used in window operators
  */
-public interface SqlOperatorFactory {
-
-  /**
-   * Interface method to create/get the {@link org.apache.samza.sql.api.operators.SimpleOperator} object
-   *
-   * @param spec The specification of the {@link org.apache.samza.sql.api.operators.SimpleOperator} object
-   * @return The {@link org.apache.samza.sql.api.operators.SimpleOperator} object
-   */
-  SimpleOperator getOperator(OperatorSpec spec);
-
+public abstract class OrderedStoreKey implements Comparable<OrderedStoreKey> {
 }

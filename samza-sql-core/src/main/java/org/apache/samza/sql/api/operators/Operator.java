@@ -19,25 +19,55 @@
 
 package org.apache.samza.sql.api.operators;
 
-import org.apache.samza.sql.api.operators.spec.OperatorSpec;
-import org.apache.samza.task.InitableTask;
-import org.apache.samza.task.WindowableTask;
+import org.apache.samza.config.Config;
+import org.apache.samza.sql.api.data.Relation;
+import org.apache.samza.sql.api.data.Tuple;
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskContext;
+import org.apache.samza.task.TaskCoordinator;
 
 
-/**
- * This class defines the common interface for operator classes, no matter what input data are.
- *
- * <p> It extends the <code>InitableTask</code> and <code>WindowableTask</code> to reuse the interface methods
- * <code>init</code> and <code>window</code> for initialization and timeout operations
- *
- */
-public interface Operator extends InitableTask, WindowableTask {
+public interface Operator {
+  /**
+   * Method to initialize the operator
+   *
+   * @param config The configuration object
+   * @param context The task context
+   * @throws Exception Throws Exception if failed to initialize the operator
+   */
+  void init(Config config, TaskContext context) throws Exception;
 
   /**
-   * Method to the specification of this <code>Operator</code>
+   * Method to perform a relational logic on the input relation
    *
-   * @return The <code>OperatorSpec</code> object that defines the configuration/parameters of the operator
+   * <p> The actual implementation of relational logic is performed by the implementation of this method.
+   *
+   * @param deltaRelation The changed rows in the input relation, including the inserts/deletes/updates
+   * @param collector The {@link org.apache.samza.task.MessageCollector} that accepts outputs from the operator
+   * @param coordinator The {@link org.apache.samza.task.TaskCoordinator} in the context
+   * @throws Exception Throws exception if failed
    */
-  OperatorSpec getSpec();
+  void process(Relation deltaRelation, MessageCollector collector, TaskCoordinator coordinator)
+      throws Exception;
+
+  /**
+   * Method to process on an input tuple.
+   *
+   * @param tuple The input tuple, which has the incoming message from a stream
+   * @param collector The {@link org.apache.samza.task.MessageCollector} that accepts outputs from the operator
+   * @param coordinator The {@link org.apache.samza.task.TaskCoordinator} in the context
+   * @throws Exception Throws exception if failed
+   */
+  void process(Tuple tuple, MessageCollector collector, TaskCoordinator coordinator) throws Exception;
+
+  /**
+   * Method to refresh the result when a timer expires
+   *
+   * @param timeNano The current system time in nano second
+   * @param collector The {@link org.apache.samza.task.MessageCollector} that accepts outputs from the operator
+   * @param coordinator The {@link org.apache.samza.task.TaskCoordinator} in the context
+   * @throws Exception Throws exception if failed
+   */
+  void refresh(long timeNano, MessageCollector collector, TaskCoordinator coordinator) throws Exception;
 
 }

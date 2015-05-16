@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.sql.api.operators.spec;
+package org.apache.samza.sql.api.operators;
 
 import java.util.List;
 
@@ -25,27 +25,24 @@ import org.apache.samza.sql.api.data.EntityName;
 
 
 /**
- * This class defines a generic specification interface class for all operators.
+ * This class defines a generic specification interface class for all {@link org.apache.samza.sql.api.operators.SimpleOperator}s.
  *
  * <p>The purpose of this class is to encapsulate all the details of configuration/parameters of a specific implementation of an operator.
  *
  * <p>The generic methods for an operator specification is to provide methods to get the unique ID, the list of entity names (i.e. stream name
- * in <code>Tuple</code> or <code>Relation</code> name) of input variables , and the list of entity names of the output variables.
+ * in {@link org.apache.samza.sql.api.data.Table} or {@link org.apache.samza.sql.api.data.Stream} name) of input variables , and the list of entity names of the output variables.
  *
  */
 public interface OperatorSpec {
   /**
    * Interface method that returns the unique ID of the operator in a task
    *
-   * @return The unique ID of the <code>Operator</code> object
+   * @return The unique ID of the {@link org.apache.samza.sql.api.operators.SimpleOperator} object
    */
   String getId();
 
   /**
    * Access method to the list of entity names of input variables.
-   *
-   * <p>The input entity names are either stream names if the operator is a <code>TupleOperator</code>;
-   * or <code>Relation</code> names if the operator is a <code>RelationOperator</code>
    *
    * @return A list of entity names of the inputs
    */
@@ -53,9 +50,6 @@ public interface OperatorSpec {
 
   /**
    * Access method to the list of entity name of the output variable
-   *
-   * <p>The output entity name is either a stream name if the operator generates tuples as an output stream;
-   * or <code>Relation</code> names if the operator generates a <code>Relation</code> as output.
    *
    * @return The entity name of the output
    *
