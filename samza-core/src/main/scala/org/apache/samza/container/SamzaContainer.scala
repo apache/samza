@@ -90,7 +90,7 @@ object SamzaContainer extends Logging {
 
     try {
       jmxServer = newJmxServer()
-      SamzaContainer(containerModel, config).run
+      SamzaContainer(containerModel, jobModel).run
     } finally {
       if (jmxServer != null) {
         jmxServer.stop
@@ -133,7 +133,8 @@ object SamzaContainer extends Logging {
     serde
   }
 
-  def apply(containerModel: ContainerModel, config: Config) = {
+  def apply(containerModel: ContainerModel, jobModel: JobModel) = {
+    val config = jobModel.getConfig
     val containerId = containerModel.getContainerId
     val containerName = "samza-container-%s" format containerId
     val containerPID = Util.getContainerPID
@@ -410,12 +411,12 @@ object SamzaContainer extends Logging {
 
     val containerContext = new SamzaContainerContext(containerId, config, taskNames)
 
-    // compute the number of partitions necessary for the change log stream creation.
-    // Increment by 1 because partition starts from 0, but we need the absolute count,
-    // this value is used for change log topic creation.
-    val maxChangeLogStreamPartitions = containerModel.getTasks.values
-            .max(Ordering.by{task:TaskModel => task.getChangelogPartition.getPartitionId})
-            .getChangelogPartition.getPartitionId + 1
+    // Compute the number of change log stream partitions as the maximum partition-id
+    // of all total number of tasks of the job; Increment by 1 because partition ids
+    // start from 0 while we need the absolute count.
+    val maxChangeLogStreamPartitions = jobModel.getContainers.values.flatMap { container: ContainerModel =>
+      container.getTasks.values.map(_.getChangelogPartition.getPartitionId)
+    }.max + 1
 
     val taskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.map(taskModel => {
       debug("Setting up task instance: %s" format taskModel)
