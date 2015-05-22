@@ -20,7 +20,7 @@ package org.apache.samza.storage.kv.inmemory
 
 import com.google.common.primitives.UnsignedBytes
 import org.apache.samza.util.Logging
-import org.apache.samza.storage.kv.{KeyValueStoreMetrics, KeyValueIterator, Entry, KeyValueStore}
+import org.apache.samza.storage.kv.{ KeyValueStoreMetrics, KeyValueIterator, Entry, KeyValueStore }
 import java.util
 
 /**
@@ -31,9 +31,9 @@ import java.util
  * @param metrics A metrics instance to publish key-value store related statistics
  */
 class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStoreMetrics)
-  extends KeyValueStore[Array[Byte], Array[Byte]] with Logging {
+    extends KeyValueStore[Array[Byte], Array[Byte]] with Logging {
 
-  val underlying = new util.TreeMap[Array[Byte], Array[Byte]] (UnsignedBytes.lexicographicalComparator())
+  val underlying = new util.TreeMap[Array[Byte], Array[Byte]](UnsignedBytes.lexicographicalComparator())
 
   override def flush(): Unit = {
     // No-op for In memory store.
@@ -42,37 +42,38 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
 
   override def close(): Unit = Unit
 
-  private def getIter(tm:util.SortedMap[Array[Byte], Array[Byte]]) = {
-    new KeyValueIterator[Array[Byte], Array[Byte]] {
-      val iter = tm.entrySet().iterator()
+  private class InMemoryIterator(val iter: util.Iterator[util.Map.Entry[Array[Byte], Array[Byte]]])
+      extends KeyValueIterator[Array[Byte], Array[Byte]] {
 
-      override def close(): Unit = Unit
+    override def close(): Unit = Unit
 
-      override def remove(): Unit = iter.remove()
+    override def remove(): Unit = iter.remove()
 
-      override def next(): Entry[Array[Byte], Array[Byte]] = {
-        val n = iter.next()
-        if (n != null && n.getKey != null) {
-          metrics.bytesRead.inc(n.getKey.size)
-        }
-        if (n != null && n.getValue != null) {
-          metrics.bytesRead.inc(n.getValue.size)
-        }
-        new Entry(n.getKey, n.getValue)
+    override def next(): Entry[Array[Byte], Array[Byte]] = {
+      val n = iter.next()
+      if (n != null && n.getKey != null) {
+        metrics.bytesRead.inc(n.getKey.size)
       }
-
-      override def hasNext: Boolean = iter.hasNext
+      if (n != null && n.getValue != null) {
+        metrics.bytesRead.inc(n.getValue.size)
+      }
+      new Entry(n.getKey, n.getValue)
     }
+
+    override def hasNext: Boolean = iter.hasNext
   }
+
   override def all(): KeyValueIterator[Array[Byte], Array[Byte]] = {
     metrics.alls.inc
-    getIter(underlying)
+
+    new InMemoryIterator(underlying.entrySet().iterator())
   }
 
   override def range(from: Array[Byte], to: Array[Byte]): KeyValueIterator[Array[Byte], Array[Byte]] = {
     metrics.ranges.inc
     require(from != null && to != null, "Null bound not allowed.")
-    getIter(underlying.subMap(from, to))
+
+    new InMemoryIterator(underlying.subMap(from, to).entrySet().iterator())
   }
 
   override def delete(key: Array[Byte]): Unit = {
@@ -84,7 +85,7 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
     // TreeMap's putAll requires a map, so we'd need to iterate over all the entries anyway
     // to use it, in order to putAll here.  Therefore, just iterate here.
     val iter = entries.iterator()
-    while(iter.hasNext) {
+    while (iter.hasNext) {
       val next = iter.next()
       put(next.getKey, next.getValue)
     }
@@ -112,4 +113,3 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
     found
   }
 }
-

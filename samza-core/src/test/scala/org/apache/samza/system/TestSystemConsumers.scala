@@ -241,9 +241,10 @@ class TestSystemConsumers {
     // it should not throw exceptions when deserializaion fails if dropDeserializationError is set to true
     val consumers2 = new SystemConsumers(msgChooser, consumer, serdeManager, dropDeserializationError = true)
     consumers2.register(systemStreamPartition, "0")
-    consumers2.start
     consumer(system).putBytesMessage
     consumer(system).putStringMessage
+    consumer(system).putBytesMessage
+    consumers2.start
 
     var notThrowException = true;
     try {
@@ -251,9 +252,29 @@ class TestSystemConsumers {
     } catch {
       case e: Throwable => notThrowException = false
     }
-
     assertTrue("it should not throw any exception", notThrowException)
+
+    var msgEnvelope = Some(consumers2.choose)
+    assertTrue("Consumer did not succeed in receiving the second message after Serde exception in choose", msgEnvelope.get != null)
     consumers2.stop
+
+    // ensure that the system consumer will continue after poll() method ignored a Serde exception
+    consumer(system).putStringMessage
+    consumer(system).putBytesMessage
+
+    notThrowException = true;
+    try {
+      consumers2.start
+    } catch {
+      case e: Throwable => notThrowException = false
+    }
+    assertTrue("SystemConsumer start should not throw any Serde exception", notThrowException)
+
+    msgEnvelope = null
+    msgEnvelope = Some(consumers2.choose)
+    assertTrue("Consumer did not succeed in receiving the second message after Serde exception in poll", msgEnvelope.get != null)
+    consumers2.stop
+
   }
 
   /**

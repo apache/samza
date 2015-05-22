@@ -358,7 +358,7 @@
                     <td class="default"></td>
                     <td class="description">
                         This property is to define how the system deals with deserialization failure situation. If set to true, the system will
-                        skip the error messages and keep running. If set to false, the system with throw exceptions and fail the container. Default 
+                        skip the error messages and keep running. If set to false, the system with throw exceptions and fail the container. Default
                         is false.
                     </td>
                 </tr>
@@ -368,7 +368,7 @@
                     <td class="default"></td>
                     <td class="description">
                         This property is to define how the system deals with serialization failure situation. If set to true, the system will
-                        drop the error messages and keep running. If set to false, the system with throw exceptions and fail the container. Default 
+                        drop the error messages and keep running. If set to false, the system with throw exceptions and fail the container. Default
                         is false.
                     </td>
                 </tr>
@@ -392,7 +392,7 @@
                     <td class="default">false</td>
                     <td class="description">
                         Defines whether or not to include log4j's LocationInfo data in Log4j StreamAppender messages. LocationInfo includes
-                        information such as the file, class, and line that wrote a log message. This setting is only active if the Log4j 
+                        information such as the file, class, and line that wrote a log message. This setting is only active if the Log4j
                         stream appender is being used. (See <a href="logging.html#stream-log4j-appender">Stream Log4j Appender</a>)
                         <dl>
                             <dt>Example: <code>task.log4j.location.info.enabled=true</code></dt>
@@ -404,13 +404,13 @@
                     <td class="property" id="task-poll-interval-ms">task.poll.interval.ms</td>
                     <td class="default"></td>
                     <td class="description">
-                      Samza's container polls for more messages under two conditions. The first condition arises when there are simply no remaining 
-                      buffered messages to process for any input SystemStreamPartition. The second condition arises when some input 
+                      Samza's container polls for more messages under two conditions. The first condition arises when there are simply no remaining
+                      buffered messages to process for any input SystemStreamPartition. The second condition arises when some input
                       SystemStreamPartitions have empty buffers, but some do not. In the latter case, a polling interval is defined to determine how
-                      often to refresh the empty SystemStreamPartition buffers. By default, this interval is 50ms, which means that any empty 
-                      SystemStreamPartition buffer will be refreshed at least every 50ms. A higher value here means that empty SystemStreamPartitions 
-                      will be refreshed less often, which means more latency is introduced, but less CPU and network will be used. Decreasing this 
-                      value means that empty SystemStreamPartitions are refreshed more frequently, thereby introducing less latency, but increasing 
+                      often to refresh the empty SystemStreamPartition buffers. By default, this interval is 50ms, which means that any empty
+                      SystemStreamPartition buffer will be refreshed at least every 50ms. A higher value here means that empty SystemStreamPartitions
+                      will be refreshed less often, which means more latency is introduced, but less CPU and network will be used. Decreasing this
+                      value means that empty SystemStreamPartitions are refreshed more frequently, thereby introducing less latency, but increasing
                       CPU and network utilization.
                     </td>
                 </tr>
@@ -422,6 +422,14 @@
                       This property specifies which exceptions should be ignored if thrown in a task's <code>process</code> or <code>window</code>
                       methods. The exceptions to be ignored should be a comma-separated list of fully-qualified class names of the exceptions or
                       <code>*</code> to ignore all exceptions.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="task-shutdown-ms">task.shutdown.ms</td>
+                    <td class="default">5000</td>
+                    <td class="description">
+                        This property controls how long the Samza container will wait for an orderly shutdown of task instances.
                     </td>
                 </tr>
 
@@ -502,7 +510,7 @@
                         one of the following:
                         <dl>
                             <dt><code>upcoming</code></dt>
-                            <dd>Start processing messages that are published after the job starts. Any messages published while 
+                            <dd>Start processing messages that are published after the job starts. Any messages published while
                                 the job was not running are not processed.</dd>
                             <dt><code>oldest</code></dt>
                             <dd>Start processing at the oldest available message in the system, and
@@ -766,7 +774,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="store-changelog-partitions">stores.<span class="store">store-name</span>.changelog.<br>replication.factor</td>
+                    <td class="property" id="store-changelog-replication-factor">stores.<span class="store">store-name</span>.changelog.<br>replication.factor</td>
                     <td class="default">2</td>
                     <td class="description">
                         The property defines the number of replicas to use for the change log stream.

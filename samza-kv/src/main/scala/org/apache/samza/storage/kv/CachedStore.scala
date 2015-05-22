@@ -40,14 +40,15 @@ import java.util.Arrays
  * This class is very non-thread safe.
  *
  * @param store The store to cache
- * @param cacheEntries The number of entries to hold in the in memory-cache
+ * @param cacheSize The number of entries to hold in the in memory-cache
  * @param writeBatchSize The number of entries to batch together before forcing a write
+ * @param metrics The metrics recording object for this cached store
  */
 class CachedStore[K, V](
-  val store: KeyValueStore[K, V],
-  val cacheSize: Int,
-  val writeBatchSize: Int,
-  val metrics: CachedStoreMetrics = new CachedStoreMetrics) extends KeyValueStore[K, V] with Logging {
+    val store: KeyValueStore[K, V],
+    val cacheSize: Int,
+    val writeBatchSize: Int,
+    val metrics: CachedStoreMetrics = new CachedStoreMetrics) extends KeyValueStore[K, V] with Logging {
 
   /** the number of items in the dirty list */
   @volatile private var dirtyCount = 0
@@ -82,7 +83,7 @@ class CachedStore[K, V](
   metrics.setDirtyCount(() => dirtyCount)
   metrics.setCacheSize(() => cacheCount)
 
-  def get(key: K) = {
+  override def get(key: K) = {
     metrics.gets.inc
 
     val c = cache.get(key)
@@ -97,19 +98,41 @@ class CachedStore[K, V](
     }
   }
 
-  def range(from: K, to: K) = {
+  private class CachedStoreIterator(val iter: KeyValueIterator[K, V])
+      extends KeyValueIterator[K, V] {
+
+    var last: Entry[K, V] = null
+
+    override def close(): Unit = iter.close()
+
+    override def remove(): Unit = {
+      iter.remove()
+      delete(last.getKey)
+    }
+
+    override def next() = {
+      last = iter.next()
+      last
+    }
+
+    override def hasNext: Boolean = iter.hasNext
+  }
+
+  override def range(from: K, to: K): KeyValueIterator[K, V] = {
     metrics.ranges.inc
     flush()
-    store.range(from, to)
+
+    new CachedStoreIterator(store.range(from, to))
   }
 
-  def all() = {
+  override def all(): KeyValueIterator[K, V] = {
     metrics.alls.inc
     flush()
-    store.all()
+
+    new CachedStoreIterator(store.all())
   }
 
-  def put(key: K, value: V) {
+  override def put(key: K, value: V) {
     metrics.puts.inc
 
     checkKeyIsArray(key)
@@ -126,7 +149,7 @@ class CachedStore[K, V](
         this.dirty = found.dirty.next
         this.dirty.prev = null
       } else {
-        found.dirty.remove
+        found.dirty.remove()
       }
     }
     this.dirty = new mutable.DoubleLinkedList(key, this.dirty)
@@ -149,22 +172,22 @@ class CachedStore[K, V](
     }
   }
 
-  def flush() {
+  override def flush() {
     trace("Flushing.")
 
     metrics.flushes.inc
 
     // write out the contents of the dirty list oldest first
     val batch = new Array[Entry[K, V]](this.dirtyCount)
-    var pos : Int = this.dirtyCount - 1;
+    var pos: Int = this.dirtyCount - 1
     for (k <- this.dirty) {
       val entry = this.cache.get(k)
       entry.dirty = null // not dirty any more
       batch(pos) = new Entry(k, entry.value)
       pos -= 1
     }
-    store.putAll(Arrays.asList(batch : _*))
-    store.flush
+    store.putAll(Arrays.asList(batch: _*))
+    store.flush()
     metrics.flushBatchSize.inc(batch.size)
 
     // reset the dirty list
@@ -188,16 +211,13 @@ class CachedStore[K, V](
    */
   def delete(key: K) {
     metrics.deletes.inc
-
     put(key, null.asInstanceOf[V])
   }
 
   def close() {
     trace("Closing.")
-
-    flush
-
-    store.close
+    flush()
+    store.close()
   }
 
   private def checkKeyIsArray(key: K) {
