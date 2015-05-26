@@ -60,7 +60,7 @@ class TestSamzaContainer extends AssertionsForJUnit {
   @Test
   def testReadJobModel {
     val config = new MapConfig(Map("a" -> "b"))
-    val offsets = new util.HashMap[SystemStreamPartition, String]();
+    val offsets = new util.HashMap[SystemStreamPartition, String]()
     offsets.put(new SystemStreamPartition("system","stream", new Partition(0)), "1")
     val tasks = Map(
       new TaskName("t1") -> new TaskModel(new TaskName("t1"), offsets, new Partition(0)),
@@ -79,6 +79,27 @@ class TestSamzaContainer extends AssertionsForJUnit {
     } finally {
       coordinator.stop
     }
+  }
+
+  @Test
+  def testChangelogPartitions {
+    val config = new MapConfig(Map("a" -> "b"))
+    val offsets = new util.HashMap[SystemStreamPartition, String]()
+    offsets.put(new SystemStreamPartition("system", "stream", new Partition(0)), "1")
+    val tasksForContainer1 = Map(
+      new TaskName("t1") -> new TaskModel(new TaskName("t1"), offsets, new Partition(0)),
+      new TaskName("t2") -> new TaskModel(new TaskName("t2"), offsets, new Partition(1)))
+    val tasksForContainer2 = Map(
+      new TaskName("t3") -> new TaskModel(new TaskName("t3"), offsets, new Partition(2)),
+      new TaskName("t4") -> new TaskModel(new TaskName("t4"), offsets, new Partition(3)),
+      new TaskName("t5") -> new TaskModel(new TaskName("t6"), offsets, new Partition(4)))
+    val containerModel1 = new ContainerModel(0, tasksForContainer1)
+    val containerModel2 = new ContainerModel(1, tasksForContainer2)
+    val containers = Map(
+      Integer.valueOf(0) -> containerModel1,
+      Integer.valueOf(1) -> containerModel2)
+    val jobModel = new JobModel(config, containers)
+    assertEquals(jobModel.maxChangeLogStreamPartitions, 5)
   }
 
   @Test

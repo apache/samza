@@ -39,9 +39,22 @@ public class JobModel {
   private final Config config;
   private final Map<Integer, ContainerModel> containers;
 
+  public int maxChangeLogStreamPartitions;
+
   public JobModel(Config config, Map<Integer, ContainerModel> containers) {
     this.config = config;
     this.containers = Collections.unmodifiableMap(containers);
+
+    // Compute the number of change log stream partitions as the maximum partition-id
+    // of all total number of tasks of the job; Increment by 1 because partition ids
+    // start from 0 while we need the absolute count.
+    this.maxChangeLogStreamPartitions = 0;
+    for (ContainerModel container: containers.values()) {
+      for (TaskModel task: container.getTasks().values()) {
+        if (this.maxChangeLogStreamPartitions < task.getChangelogPartition().getPartitionId() + 1)
+          this.maxChangeLogStreamPartitions = task.getChangelogPartition().getPartitionId() + 1;
+      }
+    }
   }
 
   public Config getConfig() {

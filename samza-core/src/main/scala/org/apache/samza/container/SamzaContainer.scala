@@ -409,13 +409,6 @@ object SamzaContainer extends Logging {
 
     val containerContext = new SamzaContainerContext(containerId, config, taskNames)
 
-    // Compute the number of change log stream partitions as the maximum partition-id
-    // of all total number of tasks of the job; Increment by 1 because partition ids
-    // start from 0 while we need the absolute count.
-    val maxChangeLogStreamPartitions = jobModel.getContainers.values.flatMap { container: ContainerModel =>
-      container.getTasks.values.map(_.getChangelogPartition.getPartitionId)
-    }.max + 1
-
     val taskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.map(taskModel => {
       debug("Setting up task instance: %s" format taskModel)
 
@@ -497,7 +490,7 @@ object SamzaContainer extends Logging {
         taskStores = taskStores,
         storeConsumers = storeConsumers,
         changeLogSystemStreams = changeLogSystemStreams,
-        maxChangeLogStreamPartitions,
+        jobModel.maxChangeLogStreamPartitions,
         streamMetadataCache = streamMetadataCache,
         storeBaseDir = defaultStoreBaseDir,
         loggedStoreBaseDir = loggedStorageBaseDir,
