@@ -68,3 +68,8 @@ Committer, and PMC member<br/>
 Committer<br/>
 <a href="https://www.linkedin.com/pub/yi-pan/9/85a/238" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
 <a href="https://twitter.com/nickpan47" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
+
+**Navina Ramesh**<br/>
+Committer<br/>
+<a href="https://www.linkedin.com/in/rnavina" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="https://twitter.com/navina_r" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
