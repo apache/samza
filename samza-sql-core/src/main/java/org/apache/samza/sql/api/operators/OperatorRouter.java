@@ -19,6 +19,7 @@
 
 package org.apache.samza.sql.api.operators;
 
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.samza.sql.api.data.EntityName;
@@ -50,5 +51,12 @@ public interface OperatorRouter extends Operator {
    * @return The list of {@link org.apache.samza.sql.api.operators.SimpleOperator} taking {@code output} as input table/stream
    */
   List<SimpleOperator> getNextOperators(EntityName output);
+
+  /**
+   * This method provides an iterator to go through all operators connected via {@code OperatorRouter}
+   *
+   * @return An {@link java.util.Iterator} for all operators connected via {@code OperatorRouter}
+   */
+  Iterator<SimpleOperator> iterator();
 
 }

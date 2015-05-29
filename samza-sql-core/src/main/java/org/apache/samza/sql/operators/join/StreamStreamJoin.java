@@ -29,7 +29,7 @@ import org.apache.samza.sql.api.data.Relation;
 import org.apache.samza.sql.api.data.Stream;
 import org.apache.samza.sql.api.data.Tuple;
 import org.apache.samza.sql.api.operators.OperatorCallback;
-import org.apache.samza.sql.operators.factory.SimpleOperatorImpl;
+import org.apache.samza.sql.operators.SimpleOperatorImpl;
 import org.apache.samza.sql.operators.window.BoundedTimeWindow;
 import org.apache.samza.sql.window.storage.OrderedStoreKey;
 import org.apache.samza.storage.kv.Entry;
@@ -37,7 +37,6 @@ import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.task.sql.SimpleMessageCollector;
-
 
 /**
  * This class implements a simple stream-to-stream join

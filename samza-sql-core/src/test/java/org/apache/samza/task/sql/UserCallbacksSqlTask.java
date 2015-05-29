@@ -20,19 +20,22 @@
 package org.apache.samza.task.sql;
 
 import java.util.ArrayList;
-import java.util.List;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.sql.api.data.EntityName;
 import org.apache.samza.sql.api.data.Relation;
 import org.apache.samza.sql.api.data.Stream;
 import org.apache.samza.sql.api.data.Tuple;
 import org.apache.samza.sql.api.operators.OperatorCallback;
+import org.apache.samza.sql.api.operators.OperatorRouter;
+import org.apache.samza.sql.api.operators.OperatorSource;
 import org.apache.samza.sql.data.IncomingMessageTuple;
-import org.apache.samza.sql.operators.factory.SimpleRouter;
-import org.apache.samza.sql.operators.join.StreamStreamJoin;
-import org.apache.samza.sql.operators.partition.PartitionOp;
+import org.apache.samza.sql.operators.factory.TopologyBuilder;
+import org.apache.samza.sql.operators.join.StreamStreamJoinSpec;
+import org.apache.samza.sql.operators.partition.PartitionSpec;
 import org.apache.samza.sql.operators.window.BoundedTimeWindow;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
@@ -55,7 +58,7 @@ import org.apache.samza.task.WindowableTask;
  */
 public class UserCallbacksSqlTask implements StreamTask, InitableTask, WindowableTask {
 
-  private SimpleRouter simpleRtr;
+  private OperatorRouter simpleRtr;
 
   private final OperatorCallback wndCallback = new OperatorCallback() {
 
@@ -87,8 +90,7 @@ public class UserCallbacksSqlTask implements StreamTask, InitableTask, Windowabl
       return tuple;
     }
 
-    private Relation onRelationInput(Relation rel, MessageCollector collector,
-        TaskCoordinator coordinator) {
+    private Relation onRelationInput(Relation rel, MessageCollector collector, TaskCoordinator coordinator) {
       // check whether the input is a stream
       if (!(rel instanceof Stream<?>)) {
         throw new IllegalArgumentException("Wrong input entity");
@@ -108,42 +110,24 @@ public class UserCallbacksSqlTask implements StreamTask, InitableTask, Windowabl
     this.simpleRtr.refresh(System.nanoTime(), collector, coordinator);
   }
 
+  @SuppressWarnings("serial")
   @Override
   public void init(Config config, TaskContext context) throws Exception {
-    // create all operators via the operator factory
-    // 1. create two window operators
-    BoundedTimeWindow wnd1 =
-        new BoundedTimeWindow("fixedWnd1", 10, "inputStream1", "fixedWndOutput1", this.wndCallback);
-    BoundedTimeWindow wnd2 =
-        new BoundedTimeWindow("fixedWnd2", 10, "inputStream2", "fixedWndOutput2", this.wndCallback);
-    // 2. create one join operator
-    @SuppressWarnings("serial")
-    List<String> inputRelations = new ArrayList<String>() {
-      {
-        add("fixedWndOutput1");
-        add("fixedWndOutput2");
-      }
-    };
-    @SuppressWarnings("serial")
-    List<String> joinKeys = new ArrayList<String>() {
-      {
-        add("key1");
-        add("key2");
-      }
-    };
-    StreamStreamJoin join = new StreamStreamJoin("joinOp", inputRelations, "joinOutput", joinKeys);
-    // 4. create a re-partition operator
-    PartitionOp par = new PartitionOp("parOp1", "joinOutput", "kafka", "parOutputStrm1", "joinKey", 50);
-
-    // Now, connecting the operators via the OperatorRouter
-    this.simpleRtr = new SimpleRouter();
-    // 1. set two system input operators (i.e. two window operators)
-    this.simpleRtr.addOperator(wnd1);
-    this.simpleRtr.addOperator(wnd2);
-    // 2. connect join operator to both window operators
-    this.simpleRtr.addOperator(join);
-    // 3. connect re-partition operator to the stream operator
-    this.simpleRtr.addOperator(par);
+    // Now, create the operator and connect them via TopologyBuilder
+    OperatorSource joinSource1 =
+        TopologyBuilder.create()
+            .operator(new BoundedTimeWindow("fixedWnd2", 10, "kafka:inputStream2", null, this.wndCallback)).stream();
+    this.simpleRtr =
+        TopologyBuilder.create()
+            .operator(new BoundedTimeWindow("fixedWnd1", 10, "kafka:inputStream1", null, this.wndCallback))
+        .operator(new StreamStreamJoinSpec("joinOp", new ArrayList<EntityName>(), null, new ArrayList<String>() {
+          {
+            add("key1");
+            add("key2");
+          }
+        })).bind(joinSource1)
+        .operator(new PartitionSpec("parOp1", null, new SystemStream("kafka", "parOutputStrm1"), "joinKey", 50))
+        .build();
 
     this.simpleRtr.init(config, context);
   }

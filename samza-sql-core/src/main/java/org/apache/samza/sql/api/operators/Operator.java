@@ -27,7 +27,11 @@ import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 
 
+/**
+ * This class defines the common interface for operator classes.
+ */
 public interface Operator {
+
   /**
    * Method to initialize the operator
    *

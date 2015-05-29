@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.sql.operators.factory;
+package org.apache.samza.sql.operators;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -131,6 +131,11 @@ public final class SimpleRouter implements OperatorRouter {
         iter.next().refresh(nanoSec, opCollector, coordinator);
       }
     }
+  }
+
+  @Override
+  public Iterator<SimpleOperator> iterator() {
+    return this.operators.iterator();
   }
 
 }

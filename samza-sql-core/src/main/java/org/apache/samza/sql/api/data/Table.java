@@ -19,6 +19,9 @@
 
 package org.apache.samza.sql.api.data;
 
+import java.util.List;
+
+
 /**
  * This interface defines a non-ordered {@link org.apache.samza.sql.api.data.Relation}, which has a unique primary key
  *
@@ -31,8 +34,8 @@ public interface Table<K> extends Relation<K> {
   /**
    * Get the primary key field name for this table
    *
-   * @return The name of the primary key field
+   * @return The names of the primary key fields
    */
-  String getPrimaryKeyName();
+  List<String> getPrimaryKeyNames();
 
 }

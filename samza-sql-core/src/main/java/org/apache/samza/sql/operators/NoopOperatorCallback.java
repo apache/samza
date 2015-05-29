@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.sql.operators.factory;
+package org.apache.samza.sql.operators;
 
 import org.apache.samza.sql.api.data.Relation;
 import org.apache.samza.sql.api.data.Tuple;
@@ -25,6 +25,9 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
 
+/**
+ * This is a default NOOP operator callback object that does nothing before and after the process method
+ */
 public final class NoopOperatorCallback implements OperatorCallback {
 
   @Override

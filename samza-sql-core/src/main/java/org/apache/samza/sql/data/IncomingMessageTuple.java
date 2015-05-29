@@ -81,7 +81,6 @@ public class IncomingMessageTuple implements Tuple {
 
   @Override
   public long getCreateTimeNano() {
-    // TODO: this is wrong and just to keep as an placeholder. It should be replaced by the message publish time when the publish timestamp is available in the message metadata
     return this.recvTimeNano;
   }
 

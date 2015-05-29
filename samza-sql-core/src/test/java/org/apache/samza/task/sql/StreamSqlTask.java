@@ -24,7 +24,7 @@ import java.util.List;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.data.IncomingMessageTuple;
-import org.apache.samza.sql.operators.factory.SimpleRouter;
+import org.apache.samza.sql.operators.SimpleRouter;
 import org.apache.samza.sql.operators.join.StreamStreamJoin;
 import org.apache.samza.sql.operators.partition.PartitionOp;
 import org.apache.samza.sql.operators.window.BoundedTimeWindow;
@@ -51,25 +51,25 @@ import org.apache.samza.task.WindowableTask;
  */
 public class StreamSqlTask implements StreamTask, InitableTask, WindowableTask {
 
-  private SimpleRouter rteCntx;
+  private SimpleRouter router;
 
   @Override
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator)
       throws Exception {
-    this.rteCntx.process(new IncomingMessageTuple(envelope), collector, coordinator);
+    this.router.process(new IncomingMessageTuple(envelope), collector, coordinator);
   }
 
   @Override
   public void window(MessageCollector collector, TaskCoordinator coordinator) throws Exception {
-    this.rteCntx.refresh(System.nanoTime(), collector, coordinator);
+    this.router.refresh(System.nanoTime(), collector, coordinator);
   }
 
   @Override
   public void init(Config config, TaskContext context) throws Exception {
     // create all operators via the operator factory
     // 1. create two window operators
-    BoundedTimeWindow wnd1 = new BoundedTimeWindow("fixedWnd1", 10, "inputStream1", "fixedWndOutput1");
-    BoundedTimeWindow wnd2 = new BoundedTimeWindow("fixedWnd2", 10, "inputStream2", "fixedWndOutput2");
+    BoundedTimeWindow wnd1 = new BoundedTimeWindow("fixedWnd1", 10, "kafka:inputStream1", "fixedWndOutput1");
+    BoundedTimeWindow wnd2 = new BoundedTimeWindow("fixedWnd2", 10, "kafka:inputStream2", "fixedWndOutput2");
     // 2. create one join operator
     @SuppressWarnings("serial")
     List<String> inputRelations = new ArrayList<String>() {
@@ -86,19 +86,19 @@ public class StreamSqlTask implements StreamTask, InitableTask, WindowableTask {
       }
     };
     StreamStreamJoin join = new StreamStreamJoin("joinOp", inputRelations, "joinOutput", joinKeys);
-    // 4. create a re-partition operator
+    // 3. create a re-partition operator
     PartitionOp par = new PartitionOp("parOp1", "joinOutput", "kafka", "parOutputStrm1", "joinKey", 50);
 
     // Now, connecting the operators via the OperatorRouter
-    this.rteCntx = new SimpleRouter();
+    this.router = new SimpleRouter();
     // 1. set two system input operators (i.e. two window operators)
-    this.rteCntx.addOperator(wnd1);
-    this.rteCntx.addOperator(wnd2);
+    this.router.addOperator(wnd1);
+    this.router.addOperator(wnd2);
     // 2. connect join operator to both window operators
-    this.rteCntx.addOperator(join);
+    this.router.addOperator(join);
     // 3. connect re-partition operator to the stream operator
-    this.rteCntx.addOperator(par);
+    this.router.addOperator(par);
 
-    this.rteCntx.init(config, context);
+    this.router.init(config, context);
   }
 }

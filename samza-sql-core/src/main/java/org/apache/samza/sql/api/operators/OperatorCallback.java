@@ -23,7 +23,6 @@ import org.apache.samza.sql.api.data.Tuple;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
-
 /**
  * Defines the callback functions to allow customized functions to be invoked before process and before sending the result
  */

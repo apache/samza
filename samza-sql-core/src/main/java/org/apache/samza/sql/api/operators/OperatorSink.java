@@ -16,18 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.sql.api.operators;
 
-/**
- * The interface for a {@code SimpleOperator} that implements a simple primitive relational logic operation
- */
-public interface SimpleOperator extends Operator {
-  /**
-   * Method to get the specification of this {@code SimpleOperator}
-   *
-   * @return The {@link org.apache.samza.sql.api.operators.OperatorSpec} object that defines the configuration/parameters of the operator
-   */
-  OperatorSpec getSpec();
+import java.util.Iterator;
 
+import org.apache.samza.sql.api.data.EntityName;
+
+
+public interface OperatorSink {
+  Iterator<SimpleOperator> opIterator();
+
+  EntityName getName();
 }
