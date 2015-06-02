@@ -19,11 +19,10 @@
 
 package org.apache.samza.sql.operators.join;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.samza.sql.api.data.EntityName;
-import org.apache.samza.sql.operators.SimpleOperatorSpec;
+import org.apache.samza.sql.operators.factory.SimpleOperatorSpec;
 
 
 /**
@@ -33,18 +32,6 @@ public class StreamStreamJoinSpec extends SimpleOperatorSpec {
 
   public StreamStreamJoinSpec(String id, List<EntityName> inputs, EntityName output, List<String> joinKeys) {
     super(id, inputs, output);
-    // TODO Auto-generated constructor stub
-  }
-
-  @SuppressWarnings("serial")
-  public StreamStreamJoinSpec(String id, List<String> inputRelations, String output, List<String> joinKeys) {
-    super(id, new ArrayList<EntityName>() {
-      {
-        for (String input : inputRelations) {
-          add(EntityName.getStreamName(input));
-        }
-      }
-    }, EntityName.getStreamName(output));
     // TODO Auto-generated constructor stub
   }
 

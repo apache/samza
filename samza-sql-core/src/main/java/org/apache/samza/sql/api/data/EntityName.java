@@ -49,8 +49,6 @@ public class EntityName {
    */
   private final String name;
 
-  private final boolean isSystemEntity;
-
   /**
    * Static map of already allocated table names
    */
@@ -61,19 +59,15 @@ public class EntityName {
    */
   private static Map<String, EntityName> streams = new HashMap<String, EntityName>();
 
-  private static final String ANONYMOUS = "anonymous";
-
   /**
    * Private ctor to create entity names
    *
    * @param type Type of the entity name
    * @param name Formatted name of the entity
-   * @param isSystemEntity whether the entity is a system input/output
    */
-  private EntityName(EntityType type, String name, boolean isSystemEntity) {
+  private EntityName(EntityType type, String name) {
     this.type = type;
     this.name = name;
-    this.isSystemEntity = isSystemEntity;
   }
 
   @Override
@@ -108,10 +102,6 @@ public class EntityName {
     return this.type.equals(EntityType.STREAM);
   }
 
-  public boolean isSystemEntity() {
-    return this.isSystemEntity;
-  }
-
   /**
    * Get the formatted entity name
    *
@@ -121,24 +111,15 @@ public class EntityName {
     return this.name;
   }
 
-  public static EntityName getTableName(String name) {
-    return getTableName(name, false);
-  }
-
-  public static EntityName getStreamName(String name) {
-    return getStreamName(name, false);
-  }
-
   /**
    * Static method to get the instance of {@code EntityName} with type {@code EntityType.TABLE}
    *
    * @param name The formatted entity name of the relation
-   * @param isSystem The boolean flag indicating whether this is a system input/output
    * @return A <code>EntityName</code> for a relation
    */
-  public static EntityName getTableName(String name, boolean isSystem) {
+  public static EntityName getTableName(String name) {
     if (tables.get(name) == null) {
-      tables.put(name, new EntityName(EntityType.TABLE, name, isSystem));
+      tables.put(name, new EntityName(EntityType.TABLE, name));
     }
     return tables.get(name);
   }
@@ -147,25 +128,13 @@ public class EntityName {
    * Static method to get the instance of <code>EntityName</code> with type <code>EntityType.STREAM</code>
    *
    * @param name The formatted entity name of the stream
-   * @param isSystem The boolean flag indicating whether this is a system input/output
    * @return A <code>EntityName</code> for a stream
    */
-  public static EntityName getStreamName(String name, boolean isSystem) {
+  public static EntityName getStreamName(String name) {
     if (streams.get(name) == null) {
-      streams.put(name, new EntityName(EntityType.STREAM, name, isSystem));
+      streams.put(name, new EntityName(EntityType.STREAM, name));
     }
     return streams.get(name);
   }
 
-  public static EntityName getAnonymousStream() {
-    return getStreamName(ANONYMOUS);
-  }
-
-  public static EntityName getAnonymousTable() {
-    return getTableName(ANONYMOUS);
-  }
-
-  public boolean isAnonymous() {
-    return this.name.equals(ANONYMOUS);
-  }
 }

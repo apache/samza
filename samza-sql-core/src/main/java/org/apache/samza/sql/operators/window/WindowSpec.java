@@ -21,7 +21,7 @@ package org.apache.samza.sql.operators.window;
 
 import org.apache.samza.sql.api.data.EntityName;
 import org.apache.samza.sql.api.operators.OperatorSpec;
-import org.apache.samza.sql.operators.SimpleOperatorSpec;
+import org.apache.samza.sql.operators.factory.SimpleOperatorSpec;
 
 
 /**
@@ -45,11 +45,6 @@ public class WindowSpec extends SimpleOperatorSpec implements OperatorSpec {
   public WindowSpec(String id, EntityName input, EntityName output, int lengthSec) {
     super(id, input, output);
     this.wndSizeSec = lengthSec;
-  }
-
-  public WindowSpec(String id, int wndSize, String input) {
-    super(id, EntityName.getStreamName(input), null);
-    this.wndSizeSec = wndSize;
   }
 
   /**

@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.sql.operators;
+package org.apache.samza.sql.operators.factory;
 
 import org.apache.samza.sql.api.data.Relation;
 import org.apache.samza.sql.api.data.Tuple;
@@ -32,6 +32,7 @@ import org.apache.samza.task.sql.SimpleMessageCollector;
 /**
  * An abstract class that encapsulate the basic information and methods that all operator classes should implement.
  * It implements the interface {@link org.apache.samza.sql.api.operators.SimpleOperator}
+ *
  */
 public abstract class SimpleOperatorImpl implements SimpleOperator {
   /**
@@ -40,11 +41,7 @@ public abstract class SimpleOperatorImpl implements SimpleOperator {
   private final OperatorSpec spec;
 
   /**
-<<<<<<< HEAD
-   * The callback object
-=======
    * The callback function
->>>>>>> SAMZA-552: use OperatorCallback to allow implementation of callbacks w/o inheriting and creating many sub-classes from operators
    */
   private final OperatorCallback callback;
 
@@ -106,7 +103,7 @@ public abstract class SimpleOperatorImpl implements SimpleOperator {
     if (!(collector instanceof SimpleMessageCollector)) {
       return new SimpleMessageCollector(collector, coordinator, this.callback);
     } else {
-      ((SimpleMessageCollector) collector).switchCallback(this.callback);
+      ((SimpleMessageCollector) collector).switchOperatorCallback(this.callback);
       return (SimpleMessageCollector) collector;
     }
   }
@@ -128,19 +125,11 @@ public abstract class SimpleOperatorImpl implements SimpleOperator {
    * @param rel The input relation
    * @param collector The {@link org.apache.samza.task.sql.SimpleMessageCollector} in the context
    * @param coordinator The {@link org.apache.samza.task.TaskCoordinator} in the context
-   * @throws Exception Throws exception if failed to process
+   * @throws Exception
    */
   protected abstract void realProcess(Relation rel, SimpleMessageCollector collector, TaskCoordinator coordinator)
       throws Exception;
 
-  /**
-   * Method to be overriden by each specific implementation class of operator to perform relational logic operation on an input {@link org.apache.samza.sql.api.data.Tuple}
-   *
-   * @param ituple The input tuple
-   * @param collector The {@link org.apache.samza.task.sql.SimpleMessageCollector} in the context
-   * @param coordinator The {@link org.apache.samza.task.TaskCoordinator} in the context
-   * @throws Exception Throws exception if failed to process
-   */
   protected abstract void realProcess(Tuple ituple, SimpleMessageCollector collector, TaskCoordinator coordinator)
       throws Exception;
 

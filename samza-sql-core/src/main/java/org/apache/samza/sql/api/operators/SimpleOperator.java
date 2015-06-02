@@ -19,6 +19,8 @@
 
 package org.apache.samza.sql.api.operators;
 
+
+
 /**
  * The interface for a {@code SimpleOperator} that implements a simple primitive relational logic operation
  */
@@ -29,5 +31,4 @@ public interface SimpleOperator extends Operator {
    * @return The {@link org.apache.samza.sql.api.operators.OperatorSpec} object that defines the configuration/parameters of the operator
    */
   OperatorSpec getSpec();
-
 }

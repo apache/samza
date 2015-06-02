@@ -22,7 +22,6 @@ package org.apache.samza.task.sql;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.api.data.Relation;
 import org.apache.samza.sql.api.data.Tuple;
-import org.apache.samza.sql.api.operators.Operator;
 import org.apache.samza.sql.api.operators.OperatorCallback;
 import org.apache.samza.sql.data.IncomingMessageTuple;
 import org.apache.samza.sql.operators.window.BoundedTimeWindow;
@@ -40,7 +39,7 @@ import org.apache.samza.task.WindowableTask;
  *
  */
 public class RandomWindowOperatorTask implements StreamTask, InitableTask, WindowableTask {
-  private Operator operator;
+  private BoundedTimeWindow wndOp;
 
   private final OperatorCallback wndCallback = new OperatorCallback() {
 
@@ -78,20 +77,20 @@ public class RandomWindowOperatorTask implements StreamTask, InitableTask, Windo
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator)
       throws Exception {
     // based on tuple's stream name, get the window op and run process()
-    operator.process(new IncomingMessageTuple(envelope), collector, coordinator);
+    wndOp.process(new IncomingMessageTuple(envelope), collector, coordinator);
 
   }
 
   @Override
   public void window(MessageCollector collector, TaskCoordinator coordinator) throws Exception {
     // based on tuple's stream name, get the window op and run process()
-    operator.refresh(System.nanoTime(), collector, coordinator);
+    wndOp.refresh(System.nanoTime(), collector, coordinator);
   }
 
   @Override
   public void init(Config config, TaskContext context) throws Exception {
     // 1. create a fixed length 10 sec window operator
-    this.operator = new BoundedTimeWindow("wndOp1", 10, "kafka:stream1", "wndOutput", this.wndCallback);
-    this.operator.init(config, context);
+    this.wndOp = new BoundedTimeWindow("wndOp1", 10, "kafka:stream1", "relation1", this.wndCallback);
+    this.wndOp.init(config, context);
   }
 }

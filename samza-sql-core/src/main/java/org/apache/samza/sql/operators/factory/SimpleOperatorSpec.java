@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.sql.operators;
+package org.apache.samza.sql.operators.factory;
 
 import java.util.ArrayList;
 import java.util.List;
