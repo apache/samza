@@ -20,6 +20,7 @@
 package org.apache.samza.job.model;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
 
@@ -38,12 +39,18 @@ import org.apache.samza.config.Config;
 public class JobModel {
   private final Config config;
   private final Map<Integer, ContainerModel> containers;
+  private final Map<Integer, String> containerToHostMapping;
 
   public int maxChangeLogStreamPartitions;
 
   public JobModel(Config config, Map<Integer, ContainerModel> containers) {
+    this(config, containers, new HashMap<Integer, String>());
+  }
+
+  public JobModel(Config config, Map<Integer, ContainerModel> containers, Map<Integer, String> containerToHostMapping) {
     this.config = config;
     this.containers = Collections.unmodifiableMap(containers);
+    this.containerToHostMapping = Collections.unmodifiableMap(containerToHostMapping);
 
     // Compute the number of change log stream partitions as the maximum partition-id
     // of all total number of tasks of the job; Increment by 1 because partition ids

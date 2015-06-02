@@ -41,14 +41,14 @@ import org.slf4j.LoggerFactory;
  * pre-defined fields (such as timestamp, host, etc) for the value map, which
  * are common to all messages.
  * </p>
- * 
+ *
  * <p>
  * The full structure for a CoordinatorStreamMessage is:
  * </p>
- * 
+ *
  * <pre>
  * key =&gt; [1, "set-config", "job.name"] 
- * 
+ *
  * message =&gt; {
  *   "host": "192.168.0.1",
  *   "username": "criccomini",
@@ -56,16 +56,16 @@ import org.slf4j.LoggerFactory;
  *   "timestamp": 123456789,
  *   "values": {
  *     "value": "my-job-name"
- *   } 
+ *   }
  * }
  * </pre>
- * 
+ *
  * Where the key's structure is:
- * 
+ *
  * <pre>
  * key =&gt; [&lt;version&gt;, &lt;type&gt;, &lt;key&gt;]
  * </pre>
- * 
+ *
  * <p>
  * Note that the white space in the above JSON blobs are done for legibility.
  * Over the wire, the JSON should be compact, and no unnecessary white space
@@ -74,7 +74,7 @@ import org.slf4j.LoggerFactory;
  * be evaluated as two different keys, and Kafka will not log compact them (if
  * Kafka is used as the underlying system for a coordinator stream).
  * </p>
- * 
+ *
  * <p>
  * The "values" map in the message is defined on a per-message-type basis. For
  * set-config messages, there is just a single key/value pair, where the "value"
@@ -82,7 +82,7 @@ import org.slf4j.LoggerFactory;
  * in "values" (one for each SystemStreamPartition/offset pair for a given
  * TaskName).
  * </p>
- * 
+ *
  * <p>
  * The most important fields are type, key, and values. The type field (defined
  * as index 1 in the key list) defines the kind of message, the key (defined as
@@ -213,7 +213,7 @@ public class CoordinatorStreamMessage {
    * The type of the message is used to convert a generic
    * CoordinatorStreaMessage into a specific message, such as a SetConfig
    * message.
-   * 
+   *
    * @return The type of the message.
    */
   public String getType() {
@@ -356,17 +356,17 @@ public class CoordinatorStreamMessage {
      * Considering Kafka's log compaction, for example, the keys of a message
      * and its delete key must match exactly:
      * </p>
-     * 
+     *
      * <pre>
      * k=&gt;[1,"job.name","set-config"] .. v=&gt; {..some stuff..}
      * v=&gt;[1,"job.name","set-config"] .. v=&gt; null
      * </pre>
-     * 
+     *
      * <p>
      * Deletes are modeled as a CoordinatorStreamMessage with a null message
      * map, and a key that's identical to the key map that's to be deleted.
      * </p>
-     * 
+     *
      * @param source
      *          The source ID of the sender of the delete message.
      * @param key
@@ -472,5 +472,43 @@ public class CoordinatorStreamMessage {
     public int getPartition() {
       return Integer.parseInt(getMessageValue("Partition"));
     }
+  }
+
+  /**
+   * SetContainerHostMapping is used internally by the samza framework to
+   * persist the container-to-host mappings.
+   *
+   * Structure of the message looks like:
+   * {
+   *     Key: $ContainerId
+   *     Type: set-container-host-assignment
+   *     Source: "SamzaContainer-$ContainerId"
+   *     MessageMap:
+   *     {
+   *         ip: InetAddressString
+   *     }
+   * }
+   * */
+  public static class SetContainerHostMapping extends CoordinatorStreamMessage {
+    public static final String TYPE = "set-container-host-assignment";
+    private static final String IP_KEY = "ip";
+
+    public SetContainerHostMapping(CoordinatorStreamMessage message) {
+      super(message.getKeyArray(), message.getMessageMap());
+    }
+
+    public SetContainerHostMapping(String source, String key, String hostHttpAddress) {
+      super(source);
+      setType(TYPE);
+      setKey(key);
+      putMessageValue(IP_KEY, hostHttpAddress);
+
+    }
+
+    public String getHostLocality() {
+      return getMessageValue(IP_KEY);
+
+    }
+
   }
 }

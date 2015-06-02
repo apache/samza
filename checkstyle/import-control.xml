@@ -99,7 +99,7 @@
 
     <subpackage name="container">
         <allow pkg="org.apache.samza.config" />
-
+        <allow pkg="org.apache.samza.coordinator.stream" />
         <subpackage name="grouper">
             <subpackage name="stream">
                 <allow pkg="org.apache.samza.container" />

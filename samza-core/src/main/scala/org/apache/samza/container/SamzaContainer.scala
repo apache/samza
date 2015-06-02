@@ -56,7 +56,7 @@ import org.apache.samza.task.TaskInstanceCollector
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
 import scala.collection.JavaConversions._
-import java.net.URL
+import java.net.{UnknownHostException, InetAddress, URL}
 import org.apache.samza.job.model.{TaskModel, ContainerModel, JobModel}
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.config.JobConfig.Config2Job
@@ -331,6 +331,7 @@ object SamzaContainer extends Logging {
     val coordinatorSystemConsumer = new CoordinatorStreamSystemFactory().getCoordinatorStreamSystemConsumer(config, samzaContainerMetrics.registry)
     val coordinatorSystemProducer = new CoordinatorStreamSystemFactory().getCoordinatorStreamSystemProducer(config, samzaContainerMetrics.registry)
     val checkpointManager = new CheckpointManager(coordinatorSystemProducer, coordinatorSystemConsumer, String.valueOf(containerId))
+    val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
 
     info("Got checkpoint manager: %s" format checkpointManager)
 
@@ -531,11 +532,13 @@ object SamzaContainer extends Logging {
     info("Samza container setup complete.")
 
     new SamzaContainer(
+      containerContext = containerContext,
       taskInstances = taskInstances,
       runLoop = runLoop,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       offsetManager = offsetManager,
+      localityManager = localityManager,
       metrics = samzaContainerMetrics,
       reporters = reporters,
       jvm = jvm)
@@ -543,12 +546,14 @@ object SamzaContainer extends Logging {
 }
 
 class SamzaContainer(
+  containerContext: SamzaContainerContext,
   taskInstances: Map[TaskName, TaskInstance],
   runLoop: RunLoop,
   consumerMultiplexer: SystemConsumers,
   producerMultiplexer: SystemProducers,
   metrics: SamzaContainerMetrics,
   offsetManager: OffsetManager = new OffsetManager,
+  localityManager: LocalityManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   jvm: JvmMetrics = null) extends Runnable with Logging {
 
@@ -558,6 +563,7 @@ class SamzaContainer(
 
       startMetrics
       startOffsetManager
+      startLocalityManager
       startStores
       startProducers
       startTask
@@ -576,6 +582,7 @@ class SamzaContainer(
       shutdownTask
       shutdownProducers
       shutdownStores
+      shutdownLocalityManager
       shutdownOffsetManager
       shutdownMetrics
 
@@ -610,6 +617,25 @@ class SamzaContainer(
     info("Starting offset manager.")
 
     offsetManager.start
+  }
+
+  def startLocalityManager {
+    if(localityManager != null) {
+      info("Registering localityManager for the container")
+      localityManager.start
+      localityManager.register(String.valueOf(containerContext.id))
+
+      info("Writing container locality to Coordinator Stream")
+      try {
+        val hostInetAddress = InetAddress.getLocalHost.getHostAddress
+        localityManager.writeContainerToHostMapping(containerContext.id, hostInetAddress)
+      } catch {
+        case uhe: UnknownHostException =>
+          warn("Received UnknownHostException when persisting locality info for container %d: %s" format (containerContext.id, uhe.getMessage))  //No-op
+        case unknownException: Throwable =>
+          warn("Received an exception when persisting locality info for container %d: %s" format (containerContext.id, unknownException.getMessage))
+      }
+    }
   }
 
   def startStores {
@@ -666,6 +692,13 @@ class SamzaContainer(
     info("Shutting down task instance stores.")
 
     taskInstances.values.foreach(_.shutdownStores)
+  }
+
+  def shutdownLocalityManager {
+    if(localityManager != null) {
+      info("Shutting down locality manager.")
+      localityManager.stop
+    }
   }
 
   def shutdownOffsetManager {

@@ -161,11 +161,13 @@ class TestSamzaContainer extends AssertionsForJUnit {
       consumerMultiplexer = consumerMultiplexer,
       metrics = new SamzaContainerMetrics)
     val container = new SamzaContainer(
-      Map(taskName -> taskInstance),
-      runLoop,
-      consumerMultiplexer,
-      producerMultiplexer,
-      new SamzaContainerMetrics)
+      containerContext = containerContext,
+      taskInstances = Map(taskName -> taskInstance),
+      runLoop = runLoop,
+      consumerMultiplexer = consumerMultiplexer,
+      producerMultiplexer = producerMultiplexer,
+      metrics = new SamzaContainerMetrics
+    )
     try {
       container.run
       fail("Expected exception to be thrown in run method.")

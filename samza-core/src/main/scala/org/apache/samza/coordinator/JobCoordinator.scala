@@ -26,7 +26,7 @@ import org.apache.samza.SamzaException
 import org.apache.samza.container.grouper.task.GroupByContainerCount
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
 import java.util
-import org.apache.samza.container.TaskName
+import org.apache.samza.container.{LocalityManager, TaskName}
 import org.apache.samza.storage.ChangelogPartitionManager
 import org.apache.samza.util.Logging
 import org.apache.samza.metrics.MetricsRegistryMap
@@ -73,7 +73,8 @@ object JobCoordinator extends Logging {
     info("Got config: %s" format config)
     val checkpointManager = new CheckpointManager(coordinatorSystemProducer, coordinatorSystemConsumer, "Job-coordinator")
     val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, "Job-coordinator")
-    getJobCoordinator(rewriteConfig(config), checkpointManager, changelogManager)
+    val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
+    getJobCoordinator(rewriteConfig(config), checkpointManager, changelogManager, localityManager)
   }
 
   def apply(coordinatorSystemConfig: Config): JobCoordinator = apply(coordinatorSystemConfig, new MetricsRegistryMap())
@@ -81,9 +82,12 @@ object JobCoordinator extends Logging {
   /**
    * Build a JobCoordinator using a Samza job's configuration.
    */
-  def getJobCoordinator(config: Config, checkpointManager: CheckpointManager, changelogManager: ChangelogPartitionManager) = {
+  def getJobCoordinator(config: Config,
+                        checkpointManager: CheckpointManager,
+                        changelogManager: ChangelogPartitionManager,
+                        localityManager: LocalityManager) = {
     val containerCount = config.getContainerCount
-    val jobModelGenerator = initializeJobModel(config, containerCount, checkpointManager, changelogManager)
+    val jobModelGenerator = initializeJobModel(config, containerCount, checkpointManager, changelogManager, localityManager)
     val server = new HttpServer
     server.addServlet("/*", new JobServlet(jobModelGenerator))
     new JobCoordinator(jobModelGenerator(), server, checkpointManager)
@@ -157,7 +161,8 @@ object JobCoordinator extends Logging {
   private def initializeJobModel(config: Config,
                                  containerCount: Int,
                                  checkpointManager: CheckpointManager,
-                                 changelogManager: ChangelogPartitionManager): () => JobModel = {
+                                 changelogManager: ChangelogPartitionManager,
+                                 localityManager: LocalityManager): () => JobModel = {
     // TODO containerCount should go away when we generalize the job coordinator,
     // and have a non-yarn-specific way of specifying container count.
 
@@ -168,24 +173,31 @@ object JobCoordinator extends Logging {
     val groups = grouper.group(allSystemStreamPartitions)
 
     // Initialize the ChangelogPartitionManager and the CheckpointManager
-    val previousChangelogeMapping = if (changelogManager != null)
+    val previousChangelogMapping = if (changelogManager != null)
     {
-      changelogManager.start
-      changelogManager.readChangeLogPartitionMapping
+      changelogManager.start()
+      changelogManager.readChangeLogPartitionMapping()
     }
     else
     {
-      new util.HashMap[TaskName, java.lang.Integer]()
+      new util.HashMap[TaskName, Integer]()
     }
-    checkpointManager.start
+
+    checkpointManager.start()
     groups.foreach(taskSSP => checkpointManager.register(taskSSP._1))
+
+    // We don't need to start() localityManager as they share the same instances with checkpoint and changelog managers.
+    // TODO: This code will go away with refactoring - SAMZA-678
+
+    localityManager.start()
 
     // Generate the jobModel
     def jobModelGenerator(): JobModel = refreshJobModel(config,
                                                         allSystemStreamPartitions,
                                                         checkpointManager,
                                                         groups,
-                                                        previousChangelogeMapping,
+                                                        previousChangelogMapping,
+                                                        localityManager,
                                                         containerCount)
 
     val jobModel = jobModelGenerator()
@@ -194,14 +206,14 @@ object JobCoordinator extends Logging {
     if (changelogManager != null)
     {
       // newChangelogMapping is the merging of all current task:changelog
-      // assignments with whatever we had before (previousChangelogeMapping).
+      // assignments with whatever we had before (previousChangelogMapping).
       // We must persist legacy changelog assignments so that
       // maxChangelogPartitionId always has the absolute max, not the current
       // max (in case the task with the highest changelog partition mapping
       // disappears.
       val newChangelogMapping = jobModel.getContainers.flatMap(_._2.getTasks).map{case (taskName,taskModel) => {
                                                  taskName -> Integer.valueOf(taskModel.getChangelogPartition.getPartitionId)
-                                               }}.toMap ++ previousChangelogeMapping
+                                               }}.toMap ++ previousChangelogMapping
       info("Saving task-to-changelog partition mapping: %s" format newChangelogMapping)
       changelogManager.writeChangeLogPartitionMapping(newChangelogMapping)
     }
@@ -219,13 +231,14 @@ object JobCoordinator extends Logging {
                               allSystemStreamPartitions: util.Set[SystemStreamPartition],
                               checkpointManager: CheckpointManager,
                               groups: util.Map[TaskName, util.Set[SystemStreamPartition]],
-                              previousChangelogeMapping: util.Map[TaskName, Integer],
+                              previousChangelogMapping: util.Map[TaskName, Integer],
+                              localityManager: LocalityManager,
                               containerCount: Int): JobModel = {
     this.synchronized
     {
       // If no mappings are present(first time the job is running) we return -1, this will allow 0 to be the first change
       // mapping.
-      var maxChangelogPartitionId = previousChangelogeMapping.values.map(_.toInt).toList.sorted.lastOption.getOrElse(-1)
+      var maxChangelogPartitionId = previousChangelogMapping.values.map(_.toInt).toList.sorted.lastOption.getOrElse(-1)
 
       // Assign all SystemStreamPartitions to TaskNames.
       val taskModels =
@@ -235,7 +248,7 @@ object JobCoordinator extends Logging {
                   val checkpoint = Option(checkpointManager.readLastCheckpoint(taskName)).getOrElse(new Checkpoint(new util.HashMap[SystemStreamPartition, String]()))
                   // Find the system partitions which don't have a checkpoint and set null for the values for offsets
                   val offsetMap = systemStreamPartitions.map(ssp => (ssp -> null)).toMap ++ checkpoint.getOffsets
-                  val changelogPartition = Option(previousChangelogeMapping.get(taskName)) match
+                  val changelogPartition = Option(previousChangelogMapping.get(taskName)) match
                   {
                     case Some(changelogPartitionId) => new Partition(changelogPartitionId)
                     case _ =>
@@ -255,7 +268,16 @@ object JobCoordinator extends Logging {
       val containerModels = containerGrouper.group(taskModels).map
               { case (containerModel) => Integer.valueOf(containerModel.getContainerId) -> containerModel }.toMap
 
-      new JobModel(config, containerModels)
+      val containerLocality = if(localityManager != null) {
+        localityManager.readContainerLocality()
+      } else {
+        new util.HashMap[Integer, String]()
+      }
+
+      containerLocality.foreach{case (container: Integer, location: String) =>
+        info("Container id %d  -->  %s" format (container.intValue(), location))
+      }
+      new JobModel(config, containerModels, containerLocality)
     }
   }
 }
