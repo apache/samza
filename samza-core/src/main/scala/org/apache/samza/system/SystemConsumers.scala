@@ -173,7 +173,7 @@ class SystemConsumers(
 
   def register(systemStreamPartition: SystemStreamPartition, offset: String) {
     debug("Registering stream: %s, %s" format (systemStreamPartition, offset))
-    metrics.registerSystemStream(systemStreamPartition.getSystemStream)
+    metrics.registerSystemStreamPartition(systemStreamPartition)
     unprocessedMessagesBySSP.put(systemStreamPartition, new ArrayDeque[IncomingMessageEnvelope]())
     chooser.register(systemStreamPartition, offset)
 
@@ -202,7 +202,7 @@ class SystemConsumers(
       // Ok to give the chooser a new message from this stream.
       timeout = 0
       metrics.choseObject.inc
-      metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition.getSystemStream).inc
+      metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition).inc
 
       tryUpdate(systemStreamPartition)
     }

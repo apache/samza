@@ -31,7 +31,7 @@ class SystemConsumersMetrics(val registry: MetricsRegistry = new MetricsRegistry
   val systemPolls = scala.collection.mutable.Map[String, Counter]()
   val systemStreamPartitionFetchesPerPoll = scala.collection.mutable.Map[String, Counter]()
   val systemMessagesPerPoll = scala.collection.mutable.Map[String, Counter]()
-  val systemStreamMessagesChosen = scala.collection.mutable.Map[SystemStream, Counter]()
+  val systemStreamMessagesChosen = scala.collection.mutable.Map[SystemStreamPartition, Counter]()
 
   def setNeededByChooser(getValue: () => Int) {
     newGauge("ssps-needed-by-chooser", getValue)
@@ -53,7 +53,7 @@ class SystemConsumersMetrics(val registry: MetricsRegistry = new MetricsRegistry
     }
   }
 
-  def registerSystemStream(systemStream: SystemStream) {
-    systemStreamMessagesChosen += systemStream -> newCounter("%s-%s-messages-chosen" format (systemStream.getSystem, systemStream.getStream))
+  def registerSystemStreamPartition(systemStreamPartition: SystemStreamPartition) {
+    systemStreamMessagesChosen += systemStreamPartition -> newCounter("%s-%s-%d-messages-chosen" format (systemStreamPartition.getSystem, systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId))
   }
 }
