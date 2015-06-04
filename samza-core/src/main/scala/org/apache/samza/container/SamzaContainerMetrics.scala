@@ -37,4 +37,5 @@ class SamzaContainerMetrics(
   val windowMs = newTimer("window-ms")
   val processMs = newTimer("process-ms")
   val commitMs = newTimer("commit-ms")
+  val utilization = newGauge("event-loop-utilization", 0.0F);
 }

@@ -191,9 +191,9 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
       commitMs = 1L,
       clock = () => {
         now += 1L
-        // clock() is called 13 times totally in RunLoop
+        // clock() is called 15 times totally in RunLoop
         // stop the runLoop after one run
-        if (now == 13L) throw new StopRunLoop
+        if (now == 15L) throw new StopRunLoop
         now
       })
     intercept[StopRunLoop] { runLoop.run }

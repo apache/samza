@@ -44,6 +44,7 @@ class RunLoop(
 
   private var lastWindowMs = 0L
   private var lastCommitMs = 0L
+  private var activeMs = 0L
   private var taskShutdownRequests: Set[TaskName] = Set()
   private var taskCommitRequests: Set[TaskName] = Set()
   @volatile private var shutdownNow = false
@@ -66,9 +67,13 @@ class RunLoop(
     addShutdownHook(Thread.currentThread())
 
     while (!shutdownNow) {
+      val loopStartTime = clock();
       process
       window
       commit
+      val totalMs = clock() - loopStartTime
+      metrics.utilization.set(activeMs.toFloat/totalMs)
+      activeMs = 0L
     }
   }
 
@@ -95,7 +100,7 @@ class RunLoop(
     trace("Attempting to choose a message to process.")
     metrics.processes.inc
 
-    updateTimer(metrics.processMs) {
+    activeMs += updateTimerAndGetDuration(metrics.processMs) {
       val envelope = updateTimer(metrics.chooseMs) {
         consumerMultiplexer.choose
       }
@@ -122,7 +127,7 @@ class RunLoop(
    * Invokes WindowableTask.window on all tasks if it's time to do so.
    */
   private def window {
-    updateTimer(metrics.windowMs) {
+    activeMs += updateTimerAndGetDuration(metrics.windowMs) {
       if (windowMs >= 0 && lastWindowMs + windowMs < clock()) {
         trace("Windowing stream tasks.")
         lastWindowMs = clock()
@@ -142,7 +147,7 @@ class RunLoop(
    * Commits task state as a a checkpoint, if necessary.
    */
   private def commit {
-    updateTimer(metrics.commitMs) {
+    activeMs += updateTimerAndGetDuration(metrics.commitMs) {
       if (commitMs >= 0 && lastCommitMs + commitMs < clock()) {
         trace("Committing task instances because the commit interval has elapsed.")
         lastCommitMs = clock()
