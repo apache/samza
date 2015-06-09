@@ -18,18 +18,28 @@
  */
 
 package org.apache.samza.job.yarn
-import org.apache.samza.job.StreamJobFactory
-import org.apache.hadoop.yarn.conf.YarnConfiguration
-import org.apache.samza.config.Config
+
+import org.apache.samza.config.MapConfig
 import org.apache.samza.util.hadoop.HttpFileSystem
+import org.junit.Assert._
+import org.junit.Test
 
-class YarnJobFactory extends StreamJobFactory {
-  def getJob(config: Config) = {
-    // TODO fix this. needed to support http package locations.
-    val hConfig = new YarnConfiguration
-    hConfig.set("fs.http.impl", classOf[HttpFileSystem].getName)
-    hConfig.set("fs.https.impl", classOf[HttpFileSystem].getName)
 
-    new YarnJob(config, hConfig)
+class TestYarnJobFactory {
+
+  @Test
+  def testGetJob {
+
+    val jobFactory = new YarnJobFactory
+
+    val yarnJob = jobFactory.getJob(new MapConfig)
+
+    val hConfig = yarnJob.client.yarnClient.getConfig
+
+    assertEquals(classOf[HttpFileSystem].getName, hConfig.get("fs.http.impl"))
+
+    assertEquals(classOf[HttpFileSystem].getName, hConfig.get("fs.https.impl"))
+
   }
 }
+
