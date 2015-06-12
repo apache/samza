@@ -117,7 +117,7 @@ Configuring the StreamAppender will automatically encode messages using logstash
 
 {% highlight jproperties %}
 serializers.registry.log4j-string.class=org.apache.samza.logging.log4j.serializers.LoggingEventStringSerdeFactory
-systems.mock.streams.\_\_samza\__jobname_\__jobid_\_logs.samza.msg.serde=log4j-string
+systems.mock.streams.__samza_jobname_jobid_logs.samza.msg.serde=log4j-string
 {% endhighlight %}
 
 The StreamAppender will always send messages to a job's log stream keyed by the container name.
