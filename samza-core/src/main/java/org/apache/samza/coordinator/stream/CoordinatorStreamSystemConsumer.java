@@ -21,6 +21,7 @@ package org.apache.samza.coordinator.stream;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -57,7 +58,7 @@ public class CoordinatorStreamSystemConsumer {
   private final Map<String, String> configMap;
   private boolean isBootstrapped;
   private boolean isStarted;
-  private Set<CoordinatorStreamMessage> bootstrappedStreamSet = new HashSet<CoordinatorStreamMessage>();
+  private Set<CoordinatorStreamMessage> bootstrappedStreamSet = new LinkedHashSet<CoordinatorStreamMessage>();
 
   public CoordinatorStreamSystemConsumer(SystemStream coordinatorSystemStream, SystemConsumer systemConsumer, SystemAdmin systemAdmin, Serde<List<?>> keySerde, Serde<Map<String, Object>> messageSerde) {
     this.coordinatorSystemStreamPartition = new SystemStreamPartition(coordinatorSystemStream, new Partition(0));
@@ -172,7 +173,7 @@ public class CoordinatorStreamSystemConsumer {
   public Set<CoordinatorStreamMessage> getBootstrappedStream(String type) {
     log.debug("Bootstrapping coordinator stream for messages of type {}", type);
     bootstrap();
-    HashSet<CoordinatorStreamMessage> bootstrappedStream = new HashSet<CoordinatorStreamMessage>();
+    LinkedHashSet<CoordinatorStreamMessage> bootstrappedStream = new LinkedHashSet<CoordinatorStreamMessage>();
     for (CoordinatorStreamMessage coordinatorStreamMessage : bootstrappedStreamSet) {
       if (type.equalsIgnoreCase(coordinatorStreamMessage.getType())) {
         bootstrappedStream.add(coordinatorStreamMessage);

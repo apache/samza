@@ -20,12 +20,13 @@
 package org.apache.samza.coordinator.stream;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -43,7 +44,7 @@ import org.junit.Test;
 public class TestCoordinatorStreamSystemConsumer {
   @Test
   public void testCoordinatorStreamSystemConsumer() {
-    Map<String, String> expectedConfig = new HashMap<String, String>();
+    Map<String, String> expectedConfig = new LinkedHashMap<String, String>();
     expectedConfig.put("job.id", "1234");
     SystemStream systemStream = new SystemStream("system", "stream");
     MockSystemConsumer systemConsumer = new MockSystemConsumer(new SystemStreamPartition(systemStream, new Partition(0)));
@@ -61,10 +62,32 @@ public class TestCoordinatorStreamSystemConsumer {
       // Expected.
     }
     consumer.bootstrap();
+    assertTrue(testOrder(consumer.getBoostrappedStream()));
     assertEquals(expectedConfig, consumer.getConfig());
     assertFalse(systemConsumer.isStopped());
     consumer.stop();
     assertTrue(systemConsumer.isStopped());
+  }
+
+  private boolean testOrder(Set<CoordinatorStreamMessage> bootstrappedStreamSet) {
+    int initialSize = bootstrappedStreamSet.size();
+    List<CoordinatorStreamMessage> listStreamMessages = new ArrayList<CoordinatorStreamMessage>();
+    listStreamMessages.add(new CoordinatorStreamMessage.SetConfig("order1", "job.name.order1", "my-order1-name"));
+    listStreamMessages.add(new CoordinatorStreamMessage.SetConfig("order2", "job.name.order2", "my-order2-name"));
+    listStreamMessages.add(new CoordinatorStreamMessage.SetConfig("order3", "job.name.order3", "my-order3-name"));
+    bootstrappedStreamSet.addAll(listStreamMessages);
+    Iterator<CoordinatorStreamMessage> iter = bootstrappedStreamSet.iterator();
+
+    for (int i = 0;  i < initialSize; ++i) {
+      iter.next();
+    }
+    int i = 0;
+    while (iter.hasNext()) {
+      if (!iter.next().getKey().equals(listStreamMessages.get(i++).getKey())) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static class MockSystemConsumer implements SystemConsumer {
@@ -96,7 +119,7 @@ public class TestCoordinatorStreamSystemConsumer {
     }
 
     public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Set<SystemStreamPartition> systemStreamPartitions, long timeout) throws InterruptedException {
-      Map<SystemStreamPartition, List<IncomingMessageEnvelope>> map = new HashMap<SystemStreamPartition, List<IncomingMessageEnvelope>>();
+      Map<SystemStreamPartition, List<IncomingMessageEnvelope>> map = new LinkedHashMap<SystemStreamPartition, List<IncomingMessageEnvelope>>();
       assertEquals(1, systemStreamPartitions.size());
       SystemStreamPartition systemStreamPartition = systemStreamPartitions.iterator().next();
       assertEquals(expectedSystemStreamPartition, systemStreamPartition);
