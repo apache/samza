@@ -42,8 +42,8 @@ class RunLoop(
   val clock: () => Long = { System.currentTimeMillis },
   val shutdownMs: Long = 5000) extends Runnable with TimerUtils with Logging {
 
-  private var lastWindowMs = 0L
-  private var lastCommitMs = 0L
+  private var lastWindowMs = clock()
+  private var lastCommitMs = clock()
   private var activeMs = 0L
   private var taskShutdownRequests: Set[TaskName] = Set()
   private var taskCommitRequests: Set[TaskName] = Set()

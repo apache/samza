@@ -101,10 +101,10 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
 
     intercept[StopRunLoop] { runLoop.run }
 
-    verify(runLoop.taskInstances(taskName0), times(5)).window(anyObject)
-    verify(runLoop.taskInstances(taskName1), times(5)).window(anyObject)
-    verify(runLoop.taskInstances(taskName0), times(10)).commit
-    verify(runLoop.taskInstances(taskName1), times(10)).commit
+    verify(runLoop.taskInstances(taskName0), times(4)).window(anyObject)
+    verify(runLoop.taskInstances(taskName1), times(4)).window(anyObject)
+    verify(runLoop.taskInstances(taskName0), times(9)).commit
+    verify(runLoop.taskInstances(taskName1), times(9)).commit
   }
 
   @Test
@@ -201,7 +201,7 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
     testMetrics.chooseMs.getSnapshot.getAverage should equal(1L)
     testMetrics.windowMs.getSnapshot.getAverage should equal(3L)
     testMetrics.processMs.getSnapshot.getAverage should equal(3L)
-    testMetrics.commitMs.getSnapshot.getAverage should equal(3L)
+    testMetrics.commitMs.getSnapshot.getAverage should equal(0L)
 
     now = 0L
     intercept[StopRunLoop] { runLoop.run }
@@ -209,6 +209,38 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
     testMetrics.chooseMs.getSnapshot.getSize should equal(2)
     testMetrics.windowMs.getSnapshot.getSize should equal(2)
     testMetrics.processMs.getSnapshot.getSize should equal(2)
-    testMetrics.commitMs.getSnapshot.getSize should equal(2)
+    testMetrics.commitMs.getSnapshot.getSize should equal(1)
+  }
+
+  @Test
+  def testCommitAndWindowNotCalledImmediatelyOnStartUp {
+    var now = 0L
+    val consumers = mock[SystemConsumers]
+    val testMetrics = new SamzaContainerMetrics
+    val runLoop = new RunLoop(
+      taskInstances = getMockTaskInstances,
+      consumerMultiplexer = consumers,
+      metrics = testMetrics,
+      commitMs = 1L,
+      windowMs = 1L,
+      clock = () => {
+        now += 1L
+        if (now == 13L) throw new StopRunLoop
+        now
+      }
+    )
+
+    intercept[StopRunLoop] {
+      runLoop.run
+    }
+    now = 0L
+    intercept[StopRunLoop] {
+      runLoop.run
+    }
+
+    // after 2 run loops number of commits and windows should be 1,
+    // as commit and window should not be called immediately on startup
+    testMetrics.commits.getCount should equal(1L)
+    testMetrics.windows.getCount should equal(1L)
   }
 }
