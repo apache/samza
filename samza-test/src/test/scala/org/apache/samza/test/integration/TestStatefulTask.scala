@@ -97,8 +97,8 @@ object TestStatefulTask {
   config.put("bootstrap.servers", brokers)
   config.put("request.required.acks", "-1")
   config.put("serializer.class", "kafka.serializer.StringEncoder")
-  config.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, new Integer(1))
-  config.put(ProducerConfig.RETRIES_CONFIG, new Integer(Integer.MAX_VALUE-1))
+  config.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "1")
+  config.put(ProducerConfig.RETRIES_CONFIG, (new Integer(Integer.MAX_VALUE-1)).toString())
   val producerConfig = new KafkaProducerConfig("kafka", "i001", config)
   var producer: Producer[Array[Byte], Array[Byte]] = null
   val cp1 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "123"))

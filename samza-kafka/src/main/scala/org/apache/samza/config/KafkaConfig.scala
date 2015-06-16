@@ -179,13 +179,23 @@ class KafkaProducerConfig(val systemName: String,
       producerProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, byteArraySerializerClassName)
     }
 
-    // Always set (new) producer config for max_in_flight_requests_per_connection and retries_config to 1 & INT.MaxValue
-    // so that the producer does not optimistically send batches asychronously and thereby, messing up the ordering of outgoing messages
-    // Retries config is set to Max so that when all attempts fail, Samza also fails the send. We do not have any special handler
-    // for producer failure
-    // DO NOT let caller to override these 2 configs for Kafka
-    producerProperties.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT)
-    producerProperties.put(ProducerConfig.RETRIES_CONFIG, RETRIES_DEFAULT)
+    if(producerProperties.containsKey(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION)
+        && producerProperties.get(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION).asInstanceOf[String].toInt > MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT) {
+      warn("Setting '%s' to a value other than %d does not guarantee message ordering because new messages will be sent without waiting for previous ones to be acknowledged." 
+          format (ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT))
+    } else {
+      producerProperties.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT)
+    }
+
+    if(producerProperties.containsKey(ProducerConfig.RETRIES_CONFIG) 
+        && producerProperties.get(ProducerConfig.RETRIES_CONFIG).asInstanceOf[String].toInt < RETRIES_DEFAULT) {
+        warn("Samza does not provide producer failure handling. Consider setting '%s' to a large value, like Int.MAX." format ProducerConfig.RETRIES_CONFIG)
+    } else {
+      // Retries config is set to Max so that when all attempts fail, Samza also fails the send. We do not have any special handler
+      // for producer failure
+      producerProperties.put(ProducerConfig.RETRIES_CONFIG, RETRIES_DEFAULT)
+    }
+    
     producerProperties
   }
 
