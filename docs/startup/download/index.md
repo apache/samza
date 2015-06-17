@@ -55,11 +55,6 @@ A Maven-based Samza project can pull in all required dependencies Samza dependen
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
-  <artifactId>samza-serializers_2.10</artifactId>
-  <version>0.9.0</version>
-</dependency>
-<dependency>
-  <groupId>org.apache.samza</groupId>
   <artifactId>samza-shell</artifactId>
   <classifier>dist</classifier>
   <type>tgz</type>
@@ -95,6 +90,16 @@ A Maven-based Samza project can pull in all required dependencies Samza dependen
   <artifactId>samza-kafka_2.10</artifactId>
   <version>0.9.0</version>
   <scope>runtime</scope>
+</dependency>
+{% endhighlight %}
+
+Samza versions less than 0.9 should include this additional dependency.
+
+{% highlight xml %}
+<dependency>
+  <groupId>org.apache.samza</groupId>
+  <artifactId>samza-serializers_2.10</artifactId>
+  <version>0.9.0</version>
 </dependency>
 {% endhighlight %}
 
