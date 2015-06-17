@@ -82,13 +82,13 @@ public interface KeyValueStore<K, V> {
   void deleteAll(List<K> keys);
 
   /**
-   * Returns an iterator for a range of entries specified by [{@code from}, {@code to}] inclusively.
+   * Returns an iterator for a sorted range of entries specified by [{@code from}, {@code to}).
    *
    * <p><b>API Note:</b> The returned iterator MUST be closed after use. The comparator used for finding entries that belong to the specified
    * range compares the underlying serialized big-endian byte array representation of keys, lexicographically.
    * @see <a href="http://en.wikipedia.org/wiki/Lexicographical_order">Lexicographical order article at Wikipedia</a></p>
    * @param from the key specifying the low endpoint (inclusive) of the keys in the returned range.
-   * @param to the key specifying the high endpoint (inclusive) of the keys in the returned range.
+   * @param to the key specifying the high endpoint (exclusive) of the keys in the returned range.
    * @return an iterator for the specified key range.
    * @throws NullPointerException if null is used for {@code from} or {@code to}.
    */
