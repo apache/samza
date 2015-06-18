@@ -66,7 +66,7 @@ class ClientHelper(conf: Configuration) extends Logging {
   /**
    * Generate an application and submit it to the resource manager to start an application master
    */
-  def submitApplication(packagePath: Path, memoryMb: Int, cpuCore: Int, cmds: List[String], env: Option[Map[String, String]], name: Option[String]): Option[ApplicationId] = {
+  def submitApplication(packagePath: Path, memoryMb: Int, cpuCore: Int, cmds: List[String], env: Option[Map[String, String]], name: Option[String], queue: String): Option[ApplicationId] = {
     val app = yarnClient.createApplication
     val newAppResponse = app.getNewApplicationResponse
     var mem = memoryMb
@@ -131,6 +131,7 @@ class ClientHelper(conf: Configuration) extends Logging {
     appCtx.setAMContainerSpec(containerCtx)
     appCtx.setApplicationType(ClientHelper.applicationType)
     info("submitting application request for %s" format appId.get)
+    appCtx.setQueue(queue)
     yarnClient.submitApplication(appCtx)
     appId
   }

@@ -32,6 +32,7 @@ object YarnConfig {
   val AM_CONTAINER_MAX_MEMORY_MB = "yarn.am.container.memory.mb"
   val AM_POLL_INTERVAL_MS = "yarn.am.poll.interval.ms"
   val AM_JAVA_HOME = "yarn.am.java.home"
+  val QUEUE = "yarn.queue"
 
   implicit def Config2Yarn(config: Config) = new YarnConfig(config)
 }
@@ -58,4 +59,6 @@ class YarnConfig(config: Config) extends ScalaMapConfig(config) {
   def getJmxServerEnabled = getBoolean(YarnConfig.AM_JMX_ENABLED, true)
 
   def getAMJavaHome = getOption(YarnConfig.AM_JAVA_HOME)
+
+  def getQueue = getOption(YarnConfig.QUEUE)
 }
