@@ -19,7 +19,12 @@
 -@ val config: scala.collection.immutable.TreeMap[String, String]
 -@ val rmHttpAddress: String
 -@ val jobName: String = config.get("job.name").getOrElse("MISSING JOB NAME")
+-@ val packagePath: String = config.get("yarn.package.path").getOrElse("MISSING PACKAGE PATH")
 -@ val username: String = org.apache.hadoop.security.UserGroupInformation.getCurrentUser.getShortUserName
+-@ val appMasterClasspath: String = scala.util.Properties.javaClassPath
+-@ val javaVmVersion: String = scala.util.Properties.javaVmVersion
+-@ val javaVmName: String = scala.util.Properties.javaVmName
+-@ val samzaVersion: String = org.apache.samza.util.Util.getClass.getPackage.getImplementationVersion
 - attributes("title") = jobName
 
 %div.col-xs-2.menu
@@ -58,6 +63,25 @@
           %tr
             %td.key Attempt ID
             %td= state.appAttemptId
+          %tr
+            %td.key Application ID
+            %td= state.appAttemptId.getApplicationId
+          %tr
+            %td.key Application master classpath
+            %td
+              %div.value= appMasterClasspath
+          %tr
+            %td.key Package path
+            %td= packagePath
+          %tr
+            %td.key Java VM name
+            %td= javaVmName
+          %tr
+            %td.key Java VM version
+            %td= javaVmVersion
+          %tr
+            %td.key Samza version
+            %td= samzaVersion
           %tr
             %td.key Application master task ID
             %td= state.taskId
