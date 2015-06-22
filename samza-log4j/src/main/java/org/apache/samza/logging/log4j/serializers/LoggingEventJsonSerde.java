@@ -153,6 +153,11 @@ public class LoggingEventJsonSerde implements Serde<LoggingEvent> {
 
   /**
    * This method is not currently implemented.
+   *
+   * @param loggingEventMap a map of logging events
+   *
+   * @return {@link LoggingEvent} decoded from the given logging event map.<br>
+   *     Currently it throws an {@link UnsupportedOperationException} as the method is not implemented yet!
    */
   public static LoggingEvent decodeFromMap(Map<String, Object> loggingEventMap) {
     throw new UnsupportedOperationException("Unable to decode LoggingEvents.");
