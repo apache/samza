@@ -48,6 +48,10 @@ public interface TaskContext {
    * will have no effect.
    *
    * NOTE: this feature is experimental, and the API may change in a future release.
+   *
+   * @param ssp {@link org.apache.samza.system.SystemStreamPartition} whose offset should be set
+   * @param offset to set for the given {@link org.apache.samza.system.SystemStreamPartition}
+   *
    */
   void setStartingOffset(SystemStreamPartition ssp, String offset);
 }
