@@ -20,6 +20,7 @@
 package org.apache.samza.config
 
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
+import org.apache.samza.system.{SystemStreamPartitionMatcher, RegexSystemStreamPartitionMatcher}
 
 object JobConfig {
   // job config constants
@@ -38,6 +39,17 @@ object JobConfig {
 
   val SSP_GROUPER_FACTORY = "job.systemstreampartition.grouper.factory"
 
+  val SSP_MATCHER_CLASS = "job.systemstreampartition.matcher.class";
+
+  val DEFAULT_SSP_MATCHER_CLASS = "org.apache.samza.system.RegexSystemStreamPartitionMatcher"
+
+  val SSP_MATCHER_CONFIG_REGEX = "job.systemstreampartition.matcher.config.regex";
+
+  val SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX = "job.systemstreampartition.matcher.config.job.factory.regex";
+
+  val DEFAULT_SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX = "org\\.apache\\.samza\\.job\\.local(.*ProcessJobFactory|.*ThreadJobFactory)";
+
+
   implicit def Config2Job(config: Config) = new JobConfig(config)
 }
 
@@ -53,4 +65,10 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) {
   def getConfigRewriterClass(name: String) = getOption(JobConfig.CONFIG_REWRITER_CLASS format name)
 
   def getSystemStreamPartitionGrouperFactory = getOption(JobConfig.SSP_GROUPER_FACTORY).getOrElse(classOf[GroupByPartitionFactory].getCanonicalName)
+
+  def getSSPMatcherClass = getOption(JobConfig.SSP_MATCHER_CLASS)
+
+  def getSSPMatcherConfigRegex = getExcept(JobConfig.SSP_MATCHER_CONFIG_REGEX)
+
+  def getSSPMatcherConfigJobFactoryRegex = getOrElse(JobConfig.SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX, JobConfig.DEFAULT_SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX)
 }
