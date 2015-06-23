@@ -91,12 +91,21 @@ class BootstrappingChooser(
     .toSet
 
   /**
+   * Store all the systemStreamPartitions registered
+   */
+  var registeredSystemStreamPartitions = Set[SystemStreamPartition]()
+
+  /**
    * The number of lagging partitions that the underlying wrapped chooser has
    * been updated with, grouped by SystemStream.
    */
   var updatedSystemStreams = Map[SystemStream, Int]()
 
   def start = {
+    // remove the systemStreamPartitions not registered.
+    laggingSystemStreamPartitions = laggingSystemStreamPartitions.filter(registeredSystemStreamPartitions.contains(_))
+    systemStreamLagCounts = laggingSystemStreamPartitions.groupBy(_.getSystemStream).map {case (systemStream, ssps) => systemStream -> ssps.size}
+
     debug("Starting bootstrapping chooser with bootstrap metadata: %s" format bootstrapStreamMetadata)
     info("Got lagging partition counts for bootstrap streams: %s" format systemStreamLagCounts)
     metrics.setLaggingSystemStreams(() => laggingSystemStreamPartitions.size)
@@ -118,6 +127,8 @@ class BootstrappingChooser(
     checkOffset(systemStreamPartition, offset, OffsetType.UPCOMING)
 
     wrapped.register(systemStreamPartition, offset)
+
+    registeredSystemStreamPartitions += systemStreamPartition
   }
 
   def update(envelope: IncomingMessageEnvelope) {
