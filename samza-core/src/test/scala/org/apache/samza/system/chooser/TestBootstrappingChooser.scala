@@ -180,6 +180,24 @@ class TestBootstrappingChooser(getChooser: (MessageChooser, Map[SystemStream, Sy
     assertNull(chooser.choose)
     // Fin.
   }
+
+  @Test
+  def testChooserRegisteredCorrectSsps {
+    val mock = new MockMessageChooser
+    val metadata1 = getMetadata(envelope1, "123")
+    val metadata2 = getMetadata(envelope2, "321")
+    val chooser = new BootstrappingChooser(mock, Map(envelope1.getSystemStreamPartition.getSystemStream -> metadata1, envelope2.getSystemStreamPartition.getSystemStream -> metadata2))
+
+    chooser.register(envelope1.getSystemStreamPartition, "1")
+    chooser.register(envelope2.getSystemStreamPartition, "1")
+    chooser.start
+
+    // it should only contain stream partition 0 and stream1 partition 1
+    val expectedLaggingSsps = Set(envelope1.getSystemStreamPartition, envelope2.getSystemStreamPartition)
+    assertEquals(expectedLaggingSsps, chooser.laggingSystemStreamPartitions)
+    val expectedSystemStreamLagCounts = Map(envelope1.getSystemStreamPartition.getSystemStream -> 1, envelope2.getSystemStreamPartition.getSystemStream -> 1)
+    assertEquals(expectedSystemStreamLagCounts, chooser.systemStreamLagCounts)
+  }
 }
 
 object TestBootstrappingChooser {
