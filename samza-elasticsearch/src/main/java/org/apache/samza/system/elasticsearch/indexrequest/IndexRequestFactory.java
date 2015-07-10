@@ -16,28 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-shell'
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-yarn',
-        'samza-test'
-] as HashSet
+package org.apache.samza.system.elasticsearch.indexrequest;
 
-scalaModules.each {
-  include it
-}
+import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.elasticsearch.action.index.IndexRequest;
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
-  }
+/**
+ * A factory that creates Elasticsearch {@link IndexRequest} instances from the Samza
+ * {@link OutgoingMessageEnvelope}
+ *
+ */
+public interface IndexRequestFactory {
+
+  IndexRequest getIndexRequest(OutgoingMessageEnvelope envelope);
+
 }

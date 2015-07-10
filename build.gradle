@@ -157,6 +157,22 @@ project(":samza-core_$scalaVersion") {
   }
 }
 
+project(':samza-elasticsearch') {
+  apply plugin: 'java'
+
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaVersion")
+    compile "org.elasticsearch:elasticsearch:$elasticsearchVersion"
+    compile "org.slf4j:slf4j-api:$slf4jVersion"
+    testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-all:$mockitoVersion"
+
+    // Logging in tests is good.
+    testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
+  }
+}
+
 project(":samza-kafka_$scalaVersion") {
   apply plugin: 'scala'
 

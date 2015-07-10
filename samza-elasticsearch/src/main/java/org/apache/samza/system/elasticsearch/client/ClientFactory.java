@@ -16,28 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-shell'
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-yarn',
-        'samza-test'
-] as HashSet
+package org.apache.samza.system.elasticsearch.client;
 
-scalaModules.each {
-  include it
-}
+import org.elasticsearch.client.Client;
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
-  }
+/**
+ * A factory that produces {@link Client} instances for connecting to an Elasticsearch cluster.
+ */
+public interface ClientFactory {
+
+  Client getClient();
+
 }

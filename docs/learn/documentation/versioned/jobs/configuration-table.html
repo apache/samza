@@ -638,6 +638,113 @@
                 </tr>
 
                 <tr>
+                    <th colspan="3" class="section" id="elasticsearch">
+                        Using <a href="https://github.com/elastic/elasticsearch">Elasticsearch</a> for output streams<br>
+                        <span class="subtitle">
+                            (This section applies if you have set
+                            <a href="#systems-samza-factory" class="property">systems.*.samza.factory</a>
+                            <code>= org.apache.samza.system.elasticsearch.ElasticsearchSystemFactory</code>)
+                        </span>
+                    </th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-client-factory-class">systems.<span class="system">system-name</span>.<br>client.factory</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required:</strong> The elasticsearch client factory used for connecting
+                        to the Elasticsearch cluster. Samza ships with the following implementations:
+                        <dl>
+                            <dt><code>org.apache.samza.system.elasticsearch.client.TransportClientFactory</code></dt>
+                            <dd>Creates a TransportClient that connects to the cluster remotely without
+                                joining it. This requires the transport host and port properties to be set.</dd>
+                            <dt><code>org.apache.samza.system.elasticsearch.client.NodeClientFactory</code></dt>
+                            <dd>Creates a Node client that connects to the cluster by joining it. By default
+                            this uses <a href="http://www.elastic.co/guide/en/elasticsearch/reference/current/modules-discovery-zen.html">zen discovery</a> to find the cluster but other methods can be configured.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-index-request-factory-class">systems.<span class="system">system-name</span>.<br>index.request.factory</td>
+                    <td class="default">org.apache.samza.system</br>.elasticsearch.indexrequest.</br>DefaultIndexRequestFactory</td>
+                    <td class="description">
+                        The index request factory that converts the Samza OutgoingMessageEnvelope into the IndexRequest
+                        to be send to elasticsearch. The default IndexRequestFactory behaves as follows:
+                        <dl>
+                            <dt><code>Stream name</code></dt>
+                            <dd>The stream name is of the format {index-name}/{type-name} which
+                            map on to the elasticsearch index and type.</dd>
+                            <dt><code>Message id</code></dt>
+                            <dd>If the message has a key this is set as the document id, otherwise Elasticsearch will generate one for each document.</dd>
+                            <dt><code>Partition id</code></dt>
+                            <dd>If the partition key is set then this is used as the Elasticsearch routing key.</dd>
+                            <dt><code>Message</code></dt>
+                            <dd>The message must be either a byte[] which is passed directly on to Elasticsearch, or a Map which is passed on to the
+                            Elasticsearch client which serialises it into a JSON String. Samza serdes are not currently supported.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-client-host">systems.<span class="system">system-name</span>.<br>client.transport.host</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required</strong> for <code>TransportClientFactory</code>
+                        <p>The hostname that the TransportClientFactory connects to.</p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-client-port">systems.<span class="system">system-name</span>.<br>client.transport.port</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required</strong> for <code>TransportClientFactory</code>
+                        <p>The port that the TransportClientFactory connects to.</p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-client-settings">systems.<span class="system">system-name</span>.<br>client.elasticsearch.*</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        Any <a href="http://www.elastic.co/guide/en/elasticsearch/client/java-api/1.x/client.html">Elasticsearch client settings</a> can be used here. They will all be passed to both the transport and node clients.
+                        Some of the common settings you will want to provide are.
+                        <dl>
+                            <dt><code>systems.<span class="system">system-name</span>.client.elasticsearch.cluster.name</code></dt>
+                            <dd>The name of the Elasticsearch cluster the client is connecting to.</dd>
+                            <dt><code>systems.<span class="system">system-name</span>.client.elasticsearch.client.transport.sniff</code></dt>
+                            <dd>If set to <code>true</code> then the transport client will discover and keep
+                                up to date all cluster nodes. This is used for load balancing and fail-over on retries.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-bulk-flush-max-actions">systems.<span class="system">system-name</span>.<br>bulk.flush.max.actions</td>
+                    <td class="default">1000</td>
+                    <td class="description">
+                        The maximum number of messages to be buffered before flushing.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-bulk-flush-max-size-mb">systems.<span class="system">system-name</span>.<br>bulk.flush.max.size.mb</td>
+                    <td class="default">5</td>
+                    <td class="description">
+                        The maximum aggregate size of messages in the buffered before flushing.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-bulk-flush-interval-ms">systems.<span class="system">system-name</span>.<br>bulk.flush.interval.ms</td>
+                    <td class="default">never</td>
+                    <td class="description">
+                        How often buffered messages should be flushed.
+                    </td>
+                </tr>
+
+                <tr>
                     <th colspan="3" class="section" id="kafka">
                         Using <a href="http://kafka.apache.org/">Kafka</a> for input streams, output streams and checkpoints<br>
                         <span class="subtitle">
