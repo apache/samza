@@ -62,7 +62,7 @@ This command will re-build the Javadocs and website, checkout https://svn.apache
 
 ## Release-new-version Website Checklist
 
-Assume we want to release x.x.x , need to work on two branches: x.x.x and master.
+Assume we want to release x.x.x and the next release is y.y.y in master, need to work on two branches: x.x.x and master.
 
 Following can be done when updating the gradle.properties file
 
@@ -80,7 +80,7 @@ Following can be done when updating the gradle.properties file
 
     * update the download page to use x.x.x release
 
-    * update the version number in "tar -xvf ./target/hello-samza-x.x.x-dist.tar.gz -C deploy/samza" in docs/startup/hello-samza/versioned/index.md
+    * update the version number in "tar -xvf ./target/hello-samza-y.y.y-dist.tar.gz -C deploy/samza" in docs/startup/hello-samza/versioned/index.md
 
 After apache mirrors pick up the new release,
 
