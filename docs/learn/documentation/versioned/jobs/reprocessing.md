@@ -80,4 +80,4 @@ If you are taking the *parallel rewind* approach described above, running two jo
 
 Samza gives you a lot of flexibility for reprocessing historical data, and you don't need to program against a separate batch processing API to take advantage of it. If you're mindful of these issues, you can build a data system that is very robust, but still gives you lots of freedom to change your processing logic in future.
 
-## [Application Master &raquo;](../yarn/application-master.html)
+## [Web UI and REST API &raquo;](web-ui-rest-api.html)
