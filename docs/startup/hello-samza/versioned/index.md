@@ -25,7 +25,7 @@ The [hello-samza](https://github.com/apache/samza-hello-samza) project is a stan
 Check out the hello-samza project:
 
 {% highlight bash %}
-git clone git://git.apache.org/samza-hello-samza.git hello-samza
+git clone https://git.apache.org/samza-hello-samza.git hello-samza
 cd hello-samza
 git checkout latest
 {% endhighlight %}
