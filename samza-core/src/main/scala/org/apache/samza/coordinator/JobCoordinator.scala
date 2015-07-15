@@ -247,7 +247,15 @@ object JobCoordinator extends Logging {
                 { case (taskName, systemStreamPartitions) =>
                   val checkpoint = Option(checkpointManager.readLastCheckpoint(taskName)).getOrElse(new Checkpoint(new util.HashMap[SystemStreamPartition, String]()))
                   // Find the system partitions which don't have a checkpoint and set null for the values for offsets
-                  val offsetMap = systemStreamPartitions.map(ssp => (ssp -> null)).toMap ++ checkpoint.getOffsets
+                  val taskOffsets = checkpoint.getOffsets
+                  val offsetMap = new util.HashMap[SystemStreamPartition, String]()
+                  systemStreamPartitions.foreach {
+                    ssp =>
+                      if(taskOffsets.containsKey(ssp))
+                        offsetMap.put(ssp, taskOffsets.get(ssp))
+                      else
+                        offsetMap.put(ssp, null)
+                  }
                   val changelogPartition = Option(previousChangelogMapping.get(taskName)) match
                   {
                     case Some(changelogPartitionId) => new Partition(changelogPartitionId)
