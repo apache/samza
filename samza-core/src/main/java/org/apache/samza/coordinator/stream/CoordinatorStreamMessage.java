@@ -211,7 +211,7 @@ public class CoordinatorStreamMessage {
 
   /**
    * The type of the message is used to convert a generic
-   * CoordinatorStreamMessage into a specific message, such as a SetConfig
+   * CoordinatorStreaMessage into a specific message, such as a SetConfig
    * message.
    *
    * @return The type of the message.
@@ -235,14 +235,14 @@ public class CoordinatorStreamMessage {
   }
 
   /**
-   * @return The username of a message.
+   * @return Whether the message signifies a delete or not.
    */
   public String getUsername() {
     return (String) this.messageMap.get("username");
   }
 
   /**
-   * @return The timestamp of a message.
+   * @return Whether the message signifies a delete or not.
    */
   public long getTimestamp() {
     return (Long) this.messageMap.get("timestamp");
@@ -254,7 +254,7 @@ public class CoordinatorStreamMessage {
   public Map<String, Object> getMessageMap() {
     if (!isDelete) {
       Map<String, Object> immutableMap = new HashMap<String, Object>(messageMap);
-      // To make sure the values is immutable, we overwrite it with an immutable version of the the values map.
+      // To make sure the values is not immutable, we overwrite it with an immutable version of the the values map.
       immutableMap.put("values", Collections.unmodifiableMap(getMessageValues()));
       return Collections.unmodifiableMap(immutableMap);
     } else {

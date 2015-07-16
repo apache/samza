@@ -123,7 +123,6 @@
 
         <allow class="org.apache.samza.Partition" />
         <allow class="org.apache.samza.SamzaException" />
-        <allow class="joptsimple.OptionSet" />
     </subpackage>
 
     <subpackage name="checkpoint">

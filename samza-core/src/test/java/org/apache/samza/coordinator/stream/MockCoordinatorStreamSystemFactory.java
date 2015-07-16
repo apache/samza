@@ -24,17 +24,13 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
-import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.SystemProducer;
-import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin;
 import org.apache.samza.util.Util;
-
-import java.util.ArrayList;
-import java.util.List;
-
 
 /**
  * Helper for creating mock CoordinatorStreamConsumer and
@@ -46,7 +42,6 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
 
   private static SystemConsumer mockConsumer = null;
   private static boolean useCachedConsumer = false;
-
   public static void enableMockConsumerCache() {
     mockConsumer = null;
     useCachedConsumer = true;
@@ -59,10 +54,9 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
 
   /**
    * Returns a consumer that sends all configs to the coordinator stream.
-   *
    * @param config Along with the configs, you can pass checkpoints and changelog stream messages into the stream.
    *               The expected pattern is cp:source:taskname -> ssp,offset for checkpoint (Use sspToString util)
-   *               ch:source:taskname -> changelogPartition for changelog
+   *                                       ch:source:taskname -> changelogPartition for changelog
    *               Everything else is processed as normal config
    */
   public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
@@ -86,10 +80,26 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
   }
 
   /**
-   * Returns a MockCoordinatorSystemProducer.
+   * Returns a no-op producer.
    */
   public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
-    return new MockSystemProducer(null);
+    // A do-nothing producer.
+    return new SystemProducer() {
+      public void start() {
+      }
+
+      public void stop() {
+      }
+
+      public void register(String source) {
+      }
+
+      public void send(String source, OutgoingMessageEnvelope envelope) {
+      }
+
+      public void flush(String source) {
+      }
+    };
   }
 
   /**
@@ -103,64 +113,6 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
   public static final class MockSystemAdmin extends SinglePartitionWithoutOffsetsSystemAdmin implements SystemAdmin {
     public void createCoordinatorStream(String streamName) {
       // Do nothing.
-    }
-  }
-
-  protected static class MockSystemProducer implements SystemProducer {
-    private final String expectedSource;
-    private final List<OutgoingMessageEnvelope> envelopes;
-    private boolean started = false;
-    private boolean registered = false;
-    private boolean flushed = false;
-
-    public MockSystemProducer(String expectedSource) {
-      this.expectedSource = expectedSource;
-      this.envelopes = new ArrayList<OutgoingMessageEnvelope>();
-    }
-
-
-    public void start() {
-      started = true;
-    }
-
-    public void stop() {
-      started = false;
-    }
-
-    public void register(String source) {
-      registered = true;
-    }
-
-    public void send(String source, OutgoingMessageEnvelope envelope) {
-      envelopes.add(envelope);
-    }
-
-    public void flush(String source) {
-      flushed = true;
-    }
-
-    public List<OutgoingMessageEnvelope> getEnvelopes() {
-      return envelopes;
-    }
-
-    public boolean isStarted() {
-      return started;
-    }
-
-    public boolean isStopped() {
-      return !started;
-    }
-
-    public boolean isRegistered() {
-      return registered;
-    }
-
-    public boolean isFlushed() {
-      return flushed;
-    }
-
-    public String getExpectedSource() {
-      return expectedSource;
     }
   }
 }
