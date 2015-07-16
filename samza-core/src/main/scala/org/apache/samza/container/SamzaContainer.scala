@@ -92,7 +92,7 @@ object SamzaContainer extends Logging {
 
     try {
       jmxServer = newJmxServer()
-      SamzaContainer(containerModel, jobModel).run
+      SamzaContainer(containerModel, jobModel, jmxServer).run
     } finally {
       if (jmxServer != null) {
         jmxServer.stop
@@ -133,7 +133,7 @@ object SamzaContainer extends Logging {
     serde
   }
 
-  def apply(containerModel: ContainerModel, jobModel: JobModel) = {
+  def apply(containerModel: ContainerModel, jobModel: JobModel, jmxServer: JmxServer) = {
     val config = jobModel.getConfig
     val containerId = containerModel.getContainerId
     val containerName = "samza-container-%s" format containerId
@@ -407,7 +407,6 @@ object SamzaContainer extends Logging {
       .values
       .map(_.getTaskName)
       .toSet
-
     val containerContext = new SamzaContainerContext(containerId, config, taskNames)
 
     val taskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.map(taskModel => {
@@ -541,7 +540,8 @@ object SamzaContainer extends Logging {
       localityManager = localityManager,
       metrics = samzaContainerMetrics,
       reporters = reporters,
-      jvm = jvm)
+      jvm = jvm,
+      jmxServer = jmxServer)
   }
 }
 
@@ -552,6 +552,7 @@ class SamzaContainer(
   consumerMultiplexer: SystemConsumers,
   producerMultiplexer: SystemProducers,
   metrics: SamzaContainerMetrics,
+  jmxServer: JmxServer,
   offsetManager: OffsetManager = new OffsetManager,
   localityManager: LocalityManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
@@ -625,10 +626,12 @@ class SamzaContainer(
       localityManager.start
       localityManager.register(String.valueOf(containerContext.id))
 
-      info("Writing container locality to Coordinator Stream")
+      info("Writing container locality and JMX address to Coordinator Stream")
       try {
         val hostInetAddress = InetAddress.getLocalHost.getHostAddress
-        localityManager.writeContainerToHostMapping(containerContext.id, hostInetAddress)
+        val jmxUrl = if (jmxServer != null) jmxServer.getJmxUrl else ""
+        val jmxTunnelingUrl = if (jmxServer != null) jmxServer.getTunnelingJmxUrl else ""
+        localityManager.writeContainerToHostMapping(containerContext.id, hostInetAddress, jmxUrl, jmxTunnelingUrl)
       } catch {
         case uhe: UnknownHostException =>
           warn("Received UnknownHostException when persisting locality info for container %d: %s" format (containerContext.id, uhe.getMessage))  //No-op

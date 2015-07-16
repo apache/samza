@@ -20,7 +20,7 @@
 package org.apache.samza.job.local
 
 
-import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap}
 import org.apache.samza.util.Logging
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
@@ -48,7 +48,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     try {
       coordinator.start
-      new ThreadJob(SamzaContainer(containerModel, coordinator.jobModel))
+      new ThreadJob(SamzaContainer(containerModel, coordinator.jobModel, new JmxServer))
     } finally {
       coordinator.stop
     }

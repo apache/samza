@@ -21,11 +21,7 @@ package org.apache.samza.job.yarn
 import org.apache.samza.util.Logging
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
 import org.apache.hadoop.yarn.api.records.ContainerId
-import java.util
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.container.TaskName
 import java.net.URL
-import org.apache.samza.job.model.JobModel
 import org.apache.samza.coordinator.JobCoordinator
 
 /**
@@ -53,4 +49,8 @@ class SamzaAppMasterState(val jobCoordinator: JobCoordinator, val taskId: Int, v
 
   // controlled on startup
   var appAttemptId = containerId.getApplicationAttemptId
+
+  // JMX address
+  var jmxUrl = ""
+  var jmxTunnelingUrl = ""
 }

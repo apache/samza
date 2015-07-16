@@ -89,6 +89,12 @@
             %td.key Application master container
             %td
               %a(target="_blank" href="http://#{state.nodeHost}:#{state.nodeHttpPort.toString}/node/containerlogs/#{state.containerId.toString}/#{username}")= state.containerId.toString
+          %tr
+            %td.key JMX server url
+            %td= state.jmxUrl
+          %tr
+            %td.key JMX server tunneling url
+            %td= state.jmxTunnelingUrl
 
     %div.tab-pane#containers
       %h2 Containers
@@ -116,6 +122,7 @@
             %th Node
             %th Start Time
             %th Up Time
+            %th JMX access
         %tbody
           - for((containerId, container) <- state.runningContainers)
             %tr
@@ -128,6 +135,10 @@
                 Start time: #{container.startTimeStr()}
               %td
                 Up time: #{container.upTimeStr()}
+              %td
+                Ordinary: #{state.jobCoordinator.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.CoordinatorStreamMessage.SetContainerHostMapping.JMX_URL_KEY)}
+                Tunneling: #{state.jobCoordinator.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.CoordinatorStreamMessage.SetContainerHostMapping.JMX_TUNNELING_URL_KEY)}
+
 
     %div.tab-pane#task-groups
       %h2 Task Groups

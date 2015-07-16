@@ -166,7 +166,8 @@ class TestSamzaContainer extends AssertionsForJUnit {
       runLoop = runLoop,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
-      metrics = new SamzaContainerMetrics
+      metrics = new SamzaContainerMetrics,
+      jmxServer = null
     )
     try {
       container.run

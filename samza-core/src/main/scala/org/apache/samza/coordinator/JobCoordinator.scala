@@ -21,7 +21,7 @@ package org.apache.samza.coordinator
 
 
 import org.apache.samza.config.Config
-import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
+import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.SamzaException
 import org.apache.samza.container.grouper.task.GroupByContainerCount
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
@@ -42,7 +42,7 @@ import org.apache.samza.coordinator.server.HttpServer
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.coordinator.server.JobServlet
 import org.apache.samza.config.SystemConfig.Config2System
-import org.apache.samza.coordinator.stream.{CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer, CoordinatorStreamMessage, CoordinatorStreamSystemFactory}
+import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 import org.apache.samza.config.ConfigRewriter
 
 /**
@@ -67,8 +67,6 @@ object JobCoordinator extends Logging {
     coordinatorSystemConsumer.start
     debug("Bootstrapping coordinator system stream.")
     coordinatorSystemConsumer.bootstrap
-    debug("Stopping coordinator system stream.")
-    coordinatorSystemConsumer.stop
     val config = coordinatorSystemConsumer.getConfig
     info("Got config: %s" format config)
     val checkpointManager = new CheckpointManager(coordinatorSystemProducer, coordinatorSystemConsumer, "Job-coordinator")
@@ -276,16 +274,7 @@ object JobCoordinator extends Logging {
       val containerModels = containerGrouper.group(taskModels).map
               { case (containerModel) => Integer.valueOf(containerModel.getContainerId) -> containerModel }.toMap
 
-      val containerLocality = if(localityManager != null) {
-        localityManager.readContainerLocality()
-      } else {
-        new util.HashMap[Integer, String]()
-      }
-
-      containerLocality.foreach{case (container: Integer, location: String) =>
-        info("Container id %d  -->  %s" format (container.intValue(), location))
-      }
-      new JobModel(config, containerModels, containerLocality)
+      new JobModel(config, containerModels, localityManager)
     }
   }
 }

@@ -38,13 +38,13 @@ public class LocalityManager {
   private final CoordinatorStreamSystemConsumer coordinatorStreamConsumer;
   private final CoordinatorStreamSystemProducer coordinatorStreamProducer;
   private static final String SOURCE = "SamzaContainer-";
-  private Map<Integer, String> containerToHostMapping;
+  private Map<Integer, Map<String, String>> containerToHostMapping;
 
   public LocalityManager(CoordinatorStreamSystemProducer coordinatorStreamProducer,
                          CoordinatorStreamSystemConsumer coordinatorStreamConsumer) {
     this.coordinatorStreamConsumer = coordinatorStreamConsumer;
     this.coordinatorStreamProducer = coordinatorStreamProducer;
-    this.containerToHostMapping = new HashMap<Integer, String>();
+    this.containerToHostMapping = new HashMap<>();
   }
 
   public void start() {
@@ -65,26 +65,34 @@ public class LocalityManager {
     coordinatorStreamProducer.register(LocalityManager.SOURCE + sourceSuffix);
   }
 
-  public Map<Integer, String> readContainerLocality() {
-    Map<Integer, String> allMappings = new HashMap<Integer, String>();
+  public Map<Integer, Map<String, String>> readContainerLocality() {
+    Map<Integer, Map<String, String>> allMappings = new HashMap<>();
     for (CoordinatorStreamMessage message: coordinatorStreamConsumer.getBootstrappedStream(SetContainerHostMapping.TYPE)) {
       SetContainerHostMapping mapping = new SetContainerHostMapping(message);
-      allMappings.put(Integer.parseInt(mapping.getKey()), mapping.getHostLocality());
+      Map<String, String> localityMappings = new HashMap<>();
+      localityMappings.put(SetContainerHostMapping.IP_KEY, mapping.getHostLocality());
+      localityMappings.put(SetContainerHostMapping.JMX_URL_KEY, mapping.getJmxUrl());
+      localityMappings.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, mapping.getJmxTunnelingUrl());
+      log.info(String.format("Read locality for container %s: %s", mapping.getKey(), localityMappings));
+      allMappings.put(Integer.parseInt(mapping.getKey()), localityMappings);
     }
     containerToHostMapping = Collections.unmodifiableMap(allMappings);
     return allMappings;
   }
 
-
-  public void writeContainerToHostMapping(Integer containerId, String hostHttpAddress) {
-    String existingMapping = containerToHostMapping.get(containerId);
-    if (existingMapping != null && !existingMapping.equals(hostHttpAddress)) {
-      log.info("Container {} moved from {} to {}", new Object[]{containerId, existingMapping, hostHttpAddress});
+  public void writeContainerToHostMapping(Integer containerId, String hostHttpAddress, String jmxAddress, String jmxTunnelingAddress) {
+    Map<String, String> existingMappings = containerToHostMapping.get(containerId);
+    String existingIpMapping = existingMappings != null ? existingMappings.get(SetContainerHostMapping.IP_KEY) : null;
+    if (existingIpMapping != null && !existingIpMapping.equals(hostHttpAddress)) {
+      log.info("Container {} moved from {} to {}", new Object[]{containerId, existingIpMapping, hostHttpAddress});
     } else {
       log.info("Container {} started at {}", containerId, hostHttpAddress);
     }
-    coordinatorStreamProducer.send(new SetContainerHostMapping(SOURCE + containerId, String.valueOf(containerId), hostHttpAddress));
-    containerToHostMapping.put(containerId, hostHttpAddress);
+    coordinatorStreamProducer.send(new SetContainerHostMapping(SOURCE + containerId, String.valueOf(containerId), hostHttpAddress, jmxAddress, jmxTunnelingAddress));
+    Map<String, String> mappings = new HashMap<>();
+    mappings.put(SetContainerHostMapping.IP_KEY, hostHttpAddress);
+    mappings.put(SetContainerHostMapping.JMX_URL_KEY, jmxAddress);
+    mappings.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, jmxTunnelingAddress);
+    containerToHostMapping.put(containerId, mappings);
   }
-
 }

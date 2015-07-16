@@ -55,6 +55,7 @@
             <allow class="org.apache.samza.Partition" />
             <allow class="org.apache.samza.container.TaskName" />
             <allow class="org.apache.samza.system.SystemStreamPartition" />
+            <allow class="org.apache.samza.container.LocalityManager" />
         </subpackage>
     </subpackage>
 

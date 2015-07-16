@@ -115,4 +115,6 @@ class JmxServer(requestedPort: Int) extends Logging {
   def stop = jmxServer.stop
 
   override def toString = "JmxServer registry port=%d server port=%d url=%s" format (getRegistryPort, getServerPort, getJmxUrl)
+
+  def getTunnelingJmxUrl = getJmxUrl.replaceAll("localhost", hostname)
 }

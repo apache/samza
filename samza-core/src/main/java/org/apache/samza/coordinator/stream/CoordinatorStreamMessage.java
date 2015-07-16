@@ -485,29 +485,42 @@ public class CoordinatorStreamMessage {
    *     Source: "SamzaContainer-$ContainerId"
    *     MessageMap:
    *     {
-   *         ip: InetAddressString
+   *         ip: InetAddressString,
+   *         jmx-url: jmxAddressString
+   *         jmx-tunneling-url: jmxTunnelingAddressString
    *     }
    * }
    * */
   public static class SetContainerHostMapping extends CoordinatorStreamMessage {
     public static final String TYPE = "set-container-host-assignment";
-    private static final String IP_KEY = "ip";
+    public static final String IP_KEY = "ip";
+    public static final String JMX_URL_KEY = "jmx-url";
+    public static final String JMX_TUNNELING_URL_KEY = "jmx-tunneling-url";
 
     public SetContainerHostMapping(CoordinatorStreamMessage message) {
       super(message.getKeyArray(), message.getMessageMap());
     }
 
-    public SetContainerHostMapping(String source, String key, String hostHttpAddress) {
+    public SetContainerHostMapping(String source, String key, String hostHttpAddress, String jmxAddress, String jmxTunnelingAddress) {
       super(source);
       setType(TYPE);
       setKey(key);
       putMessageValue(IP_KEY, hostHttpAddress);
-
+      putMessageValue(JMX_URL_KEY, jmxAddress);
+      putMessageValue(JMX_TUNNELING_URL_KEY, jmxTunnelingAddress);
     }
 
     public String getHostLocality() {
       return getMessageValue(IP_KEY);
 
+    }
+
+    public String getJmxUrl() {
+      return getMessageValue(JMX_URL_KEY);
+    }
+
+    public String getJmxTunnelingUrl() {
+      return getMessageValue(JMX_TUNNELING_URL_KEY);
     }
 
   }
