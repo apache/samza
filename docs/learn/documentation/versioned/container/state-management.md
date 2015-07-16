@@ -184,6 +184,16 @@ public interface KeyValueStore<K, V> {
 
 Additional configuration properties for the key-value store are documented in the [configuration reference](../jobs/configuration-table.html#keyvalue-rocksdb).
 
+### Debug Key-value storage
+
+Currently Samza provides a state storage tool which can recover the state store from the changelog stream to user-specified directory for reusing and debugging.
+
+{% highlight bash %}
+samza-example/target/bin/state-storage-tool.sh \
+  --config-path=file:///path/to/job/config.properties \
+  --path=directory/to/put/state/stores
+{% endhighlight %}
+
 #### Known Issues
 
 RocksDB has several rough edges. It's recommended that you read the RocksDB [tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide). Some other notes to be aware of are:

@@ -142,6 +142,13 @@
         <allow pkg="org.apache.samza.serializers" />
         <allow pkg="org.apache.samza.system" />
         <allow pkg="org.apache.samza.task" />
+        <allow pkg="org.apache.samza.util" />
+        <allow pkg="org.apache.samza.job" />
+        <allow pkg="org.apache.samza.config" />
+        <allow pkg="joptsimple" />
+
+        <allow class="org.apache.samza.SamzaException" />
+        <allow class="org.apache.samza.Partition" />
     </subpackage>
 
     <subpackage name="logging">

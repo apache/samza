@@ -36,7 +36,7 @@ object TaskStorageManager {
 
   def getStorePartitionDir(storeBaseDir: File, storeName: String, taskName: TaskName) = {
     // TODO: Sanitize, check and clean taskName string as a valid value for a file
-    new File(storeBaseDir, storeName + File.separator + taskName)
+    new File(storeBaseDir, (storeName + File.separator + taskName.toString).replace(' ', '_'))
   }
 }
 
@@ -188,9 +188,13 @@ class TaskStorageManager(
     taskStores.values.foreach(_.flush)
   }
 
-  def stop() {
+  def stopStores() {
     debug("Stopping stores.")
     taskStores.values.foreach(_.stop)
+  }
+
+  def stop() {
+    stopStores()
 
     debug("Persisting logged key value stores")
     changeLogSystemStreams.foreach { case (store, systemStream) => {
@@ -207,7 +211,6 @@ class TaskStorageManager(
       info("Successfully stored offset %s for store %s in OFFSET file " format (newestOffset, store))
     }}
   }
-
 
   /**
    * Builds a map from SystemStreamPartition to oldest offset for changelogs.

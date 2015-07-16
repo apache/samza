@@ -34,6 +34,10 @@ import org.apache.samza.config.ConfigException
 import org.apache.samza.config.MapConfig
 import scala.collection.JavaConversions._
 import org.apache.samza.config.JobConfig
+import org.apache.samza.job.model.JobModel
+import java.io.InputStreamReader
+import scala.collection.JavaConverters._
+import scala.collection.immutable.Map
 
 object Util extends Logging {
   val random = new Random
@@ -167,7 +171,6 @@ object Util extends Logging {
     body
   }
 
-
   /**
    * Generates a coordinator stream name based off of the job name and job id
    * for the jobd. The format is of the stream name will be
@@ -293,5 +296,12 @@ object Util extends Logging {
       ois.close()
       fis.close()
     }
+  }
+
+  /**
+   * Convert a java map to a Scala map
+   * */
+  def javaMapAsScalaMap[T, K](javaMap: java.util.Map[T, K]): Map[T, K] = {
+    javaMap.toMap
   }
 }
