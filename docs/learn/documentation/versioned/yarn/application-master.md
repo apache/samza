@@ -47,19 +47,6 @@ When the AM receives a reboot signal from YARN, it will throw a SamzaException. 
 
 If the AM, itself, fails, YARN will handle restarting the AM. When the AM is restarted, all containers that were running will be killed, and the AM will start from scratch. The same list of operations, shown above, will be executed. The AM will request new containers for its SamzaContainers, and proceed as though it has just started for the first time. YARN has a yarn.resourcemanager.am.max-retries configuration parameter that's defined in [yarn-site.xml](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-common/yarn-default.xml). This configuration defaults to 1, which means that, by default, a single AM failure will cause your Samza job to stop running.
 
-### Dashboard
-
-Samza's ApplicationMaster comes with a dashboard to show useful information such as:
-
-1. Where containers are located.
-2. Links to logs.
-3. The Samza job's configuration.
-4. Container failure count.
-
-You can find this dashboard by going to your YARN grid's ResourceManager page (usually something like [http://localhost:8088/cluster](http://localhost:8088/cluster)), and clicking on the "ApplicationMaster" link of a running Samza job.
-
-<img src="/img/{{site.version}}/learn/documentation/yarn/samza-am-dashboard.png" alt="Screenshot of ApplicationMaster dashboard" class="diagram-large">
-
 ### Security
 
 The Samza dashboard's HTTP access is currently un-secured, even when using YARN in secure-mode. This means that users with access to a YARN grid could port-scan a Samza ApplicationMaster's HTTP server, and open the dashboard in a browser to view its contents. Sensitive configuration can be viewed by anyone, in this way, and care should be taken. There are plans to secure Samza's ApplicationMaster using [Hadoop's security](http://docs.hortonworks.com/HDPDocuments/HDP1/HDP-1.3.0/bk_installing_manually_book/content/rpm-chap14-2-3-1.html) features ([SPENAGO](http://en.wikipedia.org/wiki/SPNEGO)).
