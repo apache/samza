@@ -84,8 +84,8 @@ tar -xvf scala-2.10.4.tgz
 cp /tmp/scala-2.10.4/lib/scala-compiler.jar $HADOOP_YARN_HOME/share/hadoop/hdfs/lib
 cp /tmp/scala-2.10.4/lib/scala-library.jar $HADOOP_YARN_HOME/share/hadoop/hdfs/lib
 curl -L http://search.maven.org/remotecontent?filepath=org/clapper/grizzled-slf4j_2.10/1.0.1/grizzled-slf4j_2.10-1.0.1.jar > $HADOOP_YARN_HOME/share/hadoop/hdfs/lib/grizzled-slf4j_2.10-1.0.1.jar
-curl -L http://search.maven.org/remotecontent?filepath=org/apache/samza/samza-yarn_2.10/0.8.0/samza-yarn_2.10-0.8.0.jar > $HADOOP_YARN_HOME/share/hadoop/hdfs/lib/samza-yarn_2.10-0.8.0.jar
-curl -L http://search.maven.org/remotecontent?filepath=org/apache/samza/samza-core_2.10/0.8.0/samza-core_2.10-0.8.0.jar > $HADOOP_YARN_HOME/share/hadoop/hdfs/lib/samza-core_2.10-0.8.0.jar
+curl -L http://search.maven.org/remotecontent?filepath=org/apache/samza/samza-yarn_2.10/0.9.1/samza-yarn_2.10-0.9.1.jar > $HADOOP_YARN_HOME/share/hadoop/hdfs/lib/samza-yarn_2.10-0.9.1.jar
+curl -L http://search.maven.org/remotecontent?filepath=org/apache/samza/samza-core_2.10/0.9.1/samza-core_2.10-0.9.1.jar > $HADOOP_YARN_HOME/share/hadoop/hdfs/lib/samza-core_2.10-0.9.1.jar
 {% endhighlight %}
 
 6\. Add http configuration in core-site.xml (create the core-site.xml file and add content).
@@ -116,7 +116,7 @@ echo 172.21.100.35 > conf/slaves
 sbin/start-yarn.sh
 {% endhighlight %}
 
-* If you get "172.21.100.35: Error: JAVA_HOME is not set and could not be found.", you'll need to add a conf/hadoop-env.sh file to the machine with the failure (172.21.100.35, in this case), which has "export JAVA_HOME=/export/apps/jdk/JDK-1_6_0_27" (or wherever your JAVA_HOME actually is).
+* If you get "172.21.100.35: Error: JAVA_HOME is not set and could not be found.", you'll need to add a conf/hadoop-env.sh file to the machine with the failure (172.21.100.35, in this case), which has "export JAVA_HOME=/export/apps/jdk/JDK-1_8_0_45" (or wherever your JAVA_HOME actually is).
 
 8\. Validate that your nodes are up by visiting http://yourHostname:8088/cluster/nodes.
 
@@ -145,7 +145,7 @@ vi src/main/config/wikipedia-feed.properties
 Change the yarn.package.path property to be:
 
 {% highlight jproperties %}
-yarn.package.path=http://yourHostname:8000/target/hello-samza-0.8.0-dist.tar.gz
+yarn.package.path=http://yourHostname:8000/target/hello-samza-0.9.1-dist.tar.gz
 {% endhighlight %}
 
 3\. Complie hello-samza.
@@ -153,7 +153,7 @@ yarn.package.path=http://yourHostname:8000/target/hello-samza-0.8.0-dist.tar.gz
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-0.8.0-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-0.9.1-dist.tar.gz -C deploy/samza
 {% endhighlight %}
 
 4\. Deploy Samza job package to Http server..
