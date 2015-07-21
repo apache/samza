@@ -50,8 +50,10 @@ class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runna
   // jvm metrics
   val gMemNonHeapUsedM = newGauge("mem-non-heap-used-mb", 0.0F)
   val gMemNonHeapCommittedM = newGauge("mem-non-heap-committed-mb", 0.0F)
+  val gMemNonHeapMaxM = newGauge("mem-non-heap-max-mb", 0.0F)
   val gMemHeapUsedM = newGauge("mem-heap-used-mb", 0.0F)
   val gMemHeapCommittedM = newGauge("mem-heap-committed-mb", 0.0F)
+  val gMemHeapMaxM = newGauge("mem-heap-max-mb", 0.0F)
   val gThreadsNew = newGauge("threads-new", 0L)
   val gThreadsRunnable = newGauge("threads-runnable", 0L)
   val gThreadsBlocked = newGauge("threads-blocked", 0L)
@@ -72,8 +74,8 @@ class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runna
     updateGcUsage
     updateThreadUsage
 
-    debug("updated metrics to: [%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s]" format
-      (gMemNonHeapUsedM, gMemNonHeapCommittedM, gMemHeapUsedM, gMemHeapCommittedM, gThreadsNew,
+    debug("updated metrics to: [%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s]" format
+      (gMemNonHeapUsedM, gMemNonHeapCommittedM, gMemNonHeapMaxM, gMemHeapUsedM, gMemHeapCommittedM,gMemHeapMaxM, gThreadsNew,
         gThreadsRunnable, gThreadsBlocked, gThreadsWaiting, gThreadsTimedWaiting,
         gThreadsTerminated, cGcCount, cGcTimeMillis))
   }
@@ -85,8 +87,10 @@ class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runna
     val memHeap = memoryMXBean.getHeapMemoryUsage()
     gMemNonHeapUsedM.set(memNonHeap.getUsed() / M)
     gMemNonHeapCommittedM.set(memNonHeap.getCommitted() / M)
+    gMemNonHeapMaxM.set(memNonHeap.getMax / M)
     gMemHeapUsedM.set(memHeap.getUsed() / M)
     gMemHeapCommittedM.set(memHeap.getCommitted() / M)
+    gMemHeapMaxM.set(memHeap.getMax() / M)
   }
 
   private def updateGcUsage {
