@@ -19,22 +19,26 @@
 
 package org.apache.samza.metrics
 
+import org.apache.samza.metrics.MetricGroup.ValueFunction
+
 
 /**
  * MetricsHelper is a little helper class to make it easy to register and
  * manage counters, gauges and timers.
+ *
+ * The name of the class that extends this trait will be used as the
+ * metric group name
  */
 trait MetricsHelper {
   val group = this.getClass.getName
   val registry: MetricsRegistry
+  val metricGroup = new MetricGroup(group, getPrefix, registry)
 
-  def newCounter(name: String) = {
-    registry.newCounter(group, (getPrefix + name).toLowerCase)
-  }
+  def newCounter(name: String) = metricGroup.newCounter(name)
 
-  def newGauge[T](name: String, value: T) = {
-    registry.newGauge(group, new Gauge((getPrefix + name).toLowerCase, value))
-  }
+  def newTimer(name: String) = metricGroup.newTimer(name)
+
+  def newGauge[T](name: String, value: T) = metricGroup.newGauge[T](name,value)
 
   /**
    * Specify a dynamic gauge that always returns the latest value when polled. 
@@ -42,13 +46,9 @@ trait MetricsHelper {
    * it from another thread.
    */
   def newGauge[T](name: String, value: () => T) = {
-    registry.newGauge(group, new Gauge((getPrefix + name).toLowerCase, value()) {
+    metricGroup.newGauge(name, new ValueFunction[T] {
       override def getValue = value()
     })
-  }
-
-  def newTimer(name: String) = {
-    registry.newTimer(group, (getPrefix + name).toLowerCase)
   }
 
   /**

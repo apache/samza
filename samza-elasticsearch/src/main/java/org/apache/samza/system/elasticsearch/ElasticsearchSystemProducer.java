@@ -23,10 +23,13 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.elasticsearch.indexrequest.IndexRequestFactory;
+import org.elasticsearch.action.ActionResponse;
+import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.Client;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,16 +64,19 @@ public class ElasticsearchSystemProducer implements SystemProducer {
 
   private final IndexRequestFactory indexRequestFactory;
   private final BulkProcessorFactory bulkProcessorFactory;
+  private final ElasticsearchSystemProducerMetrics metrics;
 
   private Client client;
 
   public ElasticsearchSystemProducer(String system, BulkProcessorFactory bulkProcessorFactory,
-                                     Client client, IndexRequestFactory indexRequestFactory) {
+                                     Client client, IndexRequestFactory indexRequestFactory,
+                                     ElasticsearchSystemProducerMetrics metrics) {
     this.system = system;
     this.sourceBulkProcessor = new HashMap<>();
     this.bulkProcessorFactory = bulkProcessorFactory;
     this.client = client;
     this.indexRequestFactory = indexRequestFactory;
+    this.metrics = metrics;
   }
 
 
@@ -102,6 +108,7 @@ public class ElasticsearchSystemProducer implements SystemProducer {
           if (response.hasFailures()) {
             sendFailed.set(true);
           } else {
+            updateSuccessMetrics(response);
             LOGGER.info(String.format("Written %s messages from %s to %s.",
                                       response.getItems().length, source, system));
           }
@@ -141,5 +148,20 @@ public class ElasticsearchSystemProducer implements SystemProducer {
     }
 
     LOGGER.info(String.format("Flushed %s to %s.", source, system));
+  }
+
+  private void updateSuccessMetrics(BulkResponse response) {
+    metrics.bulkSendSuccess.inc();
+    for (BulkItemResponse itemResp: response.getItems()) {
+        ActionResponse resp = itemResp.getResponse();
+        if (resp instanceof IndexResponse) {
+          if (((IndexResponse)resp).isCreated()) {
+            metrics.inserts.inc();
+          }
+          else {
+            metrics.updates.inc();
+          }
+        }
+      }
   }
 }

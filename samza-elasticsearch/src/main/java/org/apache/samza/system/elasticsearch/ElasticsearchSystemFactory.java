@@ -55,7 +55,8 @@ public class ElasticsearchSystemFactory implements SystemFactory {
     return new ElasticsearchSystemProducer(name,
                                            getBulkProcessorFactory(elasticsearchConfig),
                                            getClient(elasticsearchConfig),
-                                           getIndexRequestFactory(elasticsearchConfig));
+                                           getIndexRequestFactory(elasticsearchConfig),
+                                           new ElasticsearchSystemProducerMetrics(name, metricsRegistry));
   }
 
   @Override

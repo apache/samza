@@ -20,6 +20,7 @@
 package org.apache.samza.system.elasticsearch;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.elasticsearch.indexrequest.IndexRequestFactory;
@@ -43,6 +44,7 @@ public class ElasticsearchSystemProducerTest {
   private static final BulkProcessorFactory BULK_PROCESSOR_FACTORY = mock(BulkProcessorFactory.class);
   private static final Client CLIENT = mock(Client.class);
   private static final IndexRequestFactory INDEX_REQUEST_FACTORY = mock(IndexRequestFactory.class);
+  private static final ElasticsearchSystemProducerMetrics METRICS = new ElasticsearchSystemProducerMetrics("es", new MetricsRegistryMap());
   public static final String SOURCE_ONE = "one";
   public static final String SOURCE_TWO = "two";
   private SystemProducer producer;
@@ -54,7 +56,8 @@ public class ElasticsearchSystemProducerTest {
     producer = new ElasticsearchSystemProducer(SYSTEM_NAME,
                                                BULK_PROCESSOR_FACTORY,
                                                CLIENT,
-                                               INDEX_REQUEST_FACTORY);
+                                               INDEX_REQUEST_FACTORY,
+                                               METRICS);
 
     processorOne = mock(BulkProcessor.class);
     processorTwo = mock(BulkProcessor.class);
