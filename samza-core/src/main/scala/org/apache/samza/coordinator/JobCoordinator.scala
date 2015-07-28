@@ -20,10 +20,10 @@
 package org.apache.samza.coordinator
 
 
-import org.apache.samza.config.Config
+import org.apache.samza.config.{Config, ConfigRewriter}
 import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.SamzaException
-import org.apache.samza.container.grouper.task.GroupByContainerCount
+import org.apache.samza.container.grouper.task.TaskNameGrouperFactory
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
 import java.util
 import org.apache.samza.container.{LocalityManager, TaskName}
@@ -43,7 +43,6 @@ import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.coordinator.server.JobServlet
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
-import org.apache.samza.config.ConfigRewriter
 
 /**
  * Helper companion object that is responsible for wiring up a JobCoordinator
@@ -84,8 +83,7 @@ object JobCoordinator extends Logging {
                         checkpointManager: CheckpointManager,
                         changelogManager: ChangelogPartitionManager,
                         localityManager: LocalityManager) = {
-    val containerCount = config.getContainerCount
-    val jobModelGenerator = initializeJobModel(config, containerCount, checkpointManager, changelogManager, localityManager)
+    val jobModelGenerator = initializeJobModel(config, checkpointManager, changelogManager, localityManager)
     val server = new HttpServer
     server.addServlet("/*", new JobServlet(jobModelGenerator))
     new JobCoordinator(jobModelGenerator(), server, checkpointManager)
@@ -157,12 +155,9 @@ object JobCoordinator extends Logging {
    * which catchup with the latest content from the coordinator stream.
    */
   private def initializeJobModel(config: Config,
-                                 containerCount: Int,
                                  checkpointManager: CheckpointManager,
                                  changelogManager: ChangelogPartitionManager,
                                  localityManager: LocalityManager): () => JobModel = {
-    // TODO containerCount should go away when we generalize the job coordinator,
-    // and have a non-yarn-specific way of specifying container count.
 
     // Do grouping to fetch TaskName to SSP mapping
     val allSystemStreamPartitions = getInputStreamPartitions(config)
@@ -195,8 +190,7 @@ object JobCoordinator extends Logging {
                                                         checkpointManager,
                                                         groups,
                                                         previousChangelogMapping,
-                                                        localityManager,
-                                                        containerCount)
+                                                        localityManager)
 
     val jobModel = jobModelGenerator()
 
@@ -230,8 +224,7 @@ object JobCoordinator extends Logging {
                               checkpointManager: CheckpointManager,
                               groups: util.Map[TaskName, util.Set[SystemStreamPartition]],
                               previousChangelogMapping: util.Map[TaskName, Integer],
-                              localityManager: LocalityManager,
-                              containerCount: Int): JobModel = {
+                              localityManager: LocalityManager): JobModel = {
     this.synchronized
     {
       // If no mappings are present(first time the job is running) we return -1, this will allow 0 to be the first change
@@ -270,8 +263,10 @@ object JobCoordinator extends Logging {
 
       // Here is where we should put in a pluggable option for the
       // SSPTaskNameGrouper for locality, load-balancing, etc.
-      val containerGrouper = new GroupByContainerCount(containerCount)
-      val containerModels = containerGrouper.group(taskModels).map
+
+      val containerGrouperFactory = Util.getObj[TaskNameGrouperFactory](config.getTaskNameGrouperFactory)
+      val containerGrouper = containerGrouperFactory.build(config)
+      val containerModels = asScalaSet(containerGrouper.group(setAsJavaSet(taskModels))).map
               { case (containerModel) => Integer.valueOf(containerModel.getContainerId) -> containerModel }.toMap
 
       new JobModel(config, containerModels, localityManager)

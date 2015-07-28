@@ -16,10 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.container.grouper.task
+package org.apache.samza.container.grouper.task;
 
-import org.apache.samza.job.model.TaskModel
-import org.apache.samza.job.model.ContainerModel
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.TaskModel;
+
+import java.util.Set;
 
 /**
  * <p>
@@ -27,7 +29,7 @@ import org.apache.samza.job.model.ContainerModel
  * implementation of
  * {@link org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper}
  * , we can then map those groupings into the
- * {@link org.apache.samza.container.SamzaContainer}s on which they will run.
+ * SamzaContainers on which they will run.
  * This class takes a set of TaskModels and groups them together into
  * ContainerModels. All tasks within a single ContainerModel will be executed in
  * a single SamzaContainer.
@@ -40,12 +42,12 @@ import org.apache.samza.job.model.ContainerModel
  * consumption, etc.
  * </p>
  */
-trait TaskNameGrouper {
+public interface TaskNameGrouper {
   /**
    * Group tasks into the containers they will share.
    *
    * @param tasks Set of tasks to group into containers.
    * @return Set of containers, which contain the tasks that were passed in.
    */
-  def group(tasks: Set[TaskModel]): Set[ContainerModel]
+  Set<ContainerModel> group(Set<TaskModel> tasks);
 }
