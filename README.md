@@ -79,6 +79,10 @@ For IntelliJ, run:
 
     ./gradlew idea
 
+### Contribution
+
+To start contributing on Samza please read [Rules](http://samza.apache.org/contribute/rules.html) and [Contributor Corner](https://cwiki.apache.org/confluence/display/SAMZA/Contributor%27s+Corner). Notice that **Samza git repository does not support git pull request**.
+
 ### Apache Software Foundation
 
 Apache Samza is a top level project of the [Apache Software Foundation](http://www.apache.org/).
