@@ -18,13 +18,13 @@
  */
 package org.apache.samza.container.grouper.task
 
-import org.apache.samza.config.{JobConfig, Config}
-
+import org.apache.samza.config.Config
+import org.apache.samza.config.JobConfig.Config2Job
 /**
  * Factory to build the GroupByContainerCount class.
  */
 class GroupByContainerCountFactory extends TaskNameGrouperFactory {
   override def build(config: Config): TaskNameGrouper = {
-    new GroupByContainerCount(config.getInt(JobConfig.JOB_CONTAINER_COUNT, 1))
+    new GroupByContainerCount(config.getContainerCount)
   }
 }
