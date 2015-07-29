@@ -38,16 +38,18 @@ public class ElasticsearchSystemProducerMetricsTest {
         metrics.bulkSendSuccess.inc(29L);
         metrics.inserts.inc();
         metrics.updates.inc(7L);
+        metrics.conflicts.inc(3L);
 
         Set<String> groups = registry.getGroups();
         assertEquals(1, groups.size());
         assertEquals(GRP_NAME, groups.toArray()[0]);
 
         Map<String, Metric> metricMap = registry.getGroup(GRP_NAME);
-        assertEquals(3, metricMap.size());
+        assertEquals(4, metricMap.size());
         assertEquals(29L, ((Counter) metricMap.get("es-bulk-send-success")).getCount());
         assertEquals(1L, ((Counter) metricMap.get("es-docs-inserted")).getCount());
         assertEquals(7L, ((Counter) metricMap.get("es-docs-updated")).getCount());
+        assertEquals(3L, ((Counter) metricMap.get("es-version-conflicts")).getCount());
     }
 
 }

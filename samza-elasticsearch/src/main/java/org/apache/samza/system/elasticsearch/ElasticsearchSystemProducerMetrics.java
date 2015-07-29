@@ -26,6 +26,7 @@ public class ElasticsearchSystemProducerMetrics extends MetricsBase {
     public final Counter bulkSendSuccess;
     public final Counter inserts;
     public final Counter updates;
+    public final Counter conflicts;
 
     public ElasticsearchSystemProducerMetrics(String systemName, MetricsRegistry registry) {
         super(systemName + "-", registry);
@@ -33,5 +34,6 @@ public class ElasticsearchSystemProducerMetrics extends MetricsBase {
         bulkSendSuccess = newCounter("bulk-send-success");
         inserts = newCounter("docs-inserted");
         updates = newCounter("docs-updated");
+        conflicts = newCounter("version-conflicts");
     }
 }

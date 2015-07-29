@@ -22,6 +22,9 @@ package org.apache.samza.system.elasticsearch.indexrequest;
 import org.apache.samza.SamzaException;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.client.Requests;
+import org.elasticsearch.common.base.Optional;
+import org.elasticsearch.index.VersionType;
 
 import java.util.Map;
 
@@ -53,24 +56,68 @@ public class DefaultIndexRequestFactory implements IndexRequestFactory {
 
   @Override
   public IndexRequest getIndexRequest(OutgoingMessageEnvelope envelope) {
+    IndexRequest indexRequest = getRequest(envelope);
+
+    Optional<String> id = getId(envelope);
+    if (id.isPresent()) {
+      indexRequest.id(id.get());
+    }
+
+    Optional<String> routingKey = getRoutingKey(envelope);
+    if (routingKey.isPresent()) {
+      indexRequest.routing(routingKey.get());
+    }
+
+    Optional<Long> version = getVersion(envelope);
+    if (version.isPresent()) {
+      indexRequest.version(version.get());
+    }
+
+    Optional<VersionType> versionType = getVersionType(envelope);
+    if (versionType.isPresent()) {
+      indexRequest.versionType(versionType.get());
+    }
+
+    setSource(envelope, indexRequest);
+
+    return indexRequest;
+  }
+
+  protected IndexRequest getRequest(OutgoingMessageEnvelope envelope) {
     String[] parts = envelope.getSystemStream().getStream().split("/");
     if (parts.length != 2) {
       throw new SamzaException("Elasticsearch stream name must match pattern {index}/{type}");
     }
     String index = parts[0];
     String type = parts[1];
-    IndexRequest indexRequest = new IndexRequest(index, type);
+    return Requests.indexRequest(index).type(type);
+  }
 
+  protected Optional<String> getId(OutgoingMessageEnvelope envelope) {
     Object id = envelope.getKey();
-    if (id != null) {
-      indexRequest.id(id.toString());
+    if (id == null) {
+      return Optional.absent();
     }
+    return Optional.of(id.toString());
+  }
 
+  protected Optional<String> getRoutingKey(OutgoingMessageEnvelope envelope) {
     Object partitionKey = envelope.getPartitionKey();
-    if (partitionKey != null) {
-      indexRequest.routing(partitionKey.toString());
+    if (partitionKey == null) {
+      return Optional.absent();
     }
+    return Optional.of(partitionKey.toString());
+  }
 
+  protected Optional<Long> getVersion(OutgoingMessageEnvelope envelope) {
+    return Optional.absent();
+  }
+
+  protected Optional<VersionType> getVersionType(OutgoingMessageEnvelope envelope) {
+    return Optional.absent();
+  }
+
+  protected void setSource(OutgoingMessageEnvelope envelope, IndexRequest indexRequest) {
     Object message = envelope.getMessage();
     if (message instanceof byte[]) {
       indexRequest.source((byte[]) message);
@@ -79,7 +126,6 @@ public class DefaultIndexRequestFactory implements IndexRequestFactory {
     } else {
       throw new SamzaException("Unsupported message type: " + message.getClass().getCanonicalName());
     }
-
-    return indexRequest;
   }
+
 }

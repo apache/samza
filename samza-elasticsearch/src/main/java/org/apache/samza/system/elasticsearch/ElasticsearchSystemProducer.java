@@ -31,6 +31,7 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.rest.RestStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,19 +106,58 @@ public class ElasticsearchSystemProducer implements SystemProducer {
 
         @Override
         public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
+          boolean hasFatalError = false;
+          //Do not consider version conficts to be errors. Ignore old versions
           if (response.hasFailures()) {
+            for (BulkItemResponse itemResp : response.getItems()) {
+              if (itemResp.isFailed()) {
+                if (itemResp.getFailure().getStatus().equals(RestStatus.CONFLICT)) {
+                  LOGGER.info("Failed to index document in Elasticsearch: " + itemResp.getFailureMessage());
+                } else {
+                  hasFatalError = true;
+                  LOGGER.error("Failed to index document in Elasticsearch: " + itemResp.getFailureMessage());
+                }
+              }
+            }
+          }
+          if (hasFatalError) {
             sendFailed.set(true);
           } else {
             updateSuccessMetrics(response);
-            LOGGER.info(String.format("Written %s messages from %s to %s.",
-                                      response.getItems().length, source, system));
           }
         }
 
         @Override
         public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
+          LOGGER.error(failure.getMessage());
           thrown.compareAndSet(null, failure);
           sendFailed.set(true);
+        }
+
+        private void updateSuccessMetrics(BulkResponse response) {
+          metrics.bulkSendSuccess.inc();
+          int writes = 0;
+          for (BulkItemResponse itemResp: response.getItems()) {
+            if (itemResp.isFailed()) {
+              if (itemResp.getFailure().getStatus().equals(RestStatus.CONFLICT)) {
+                metrics.conflicts.inc();
+              }
+            } else {
+              ActionResponse resp = itemResp.getResponse();
+              if (resp instanceof IndexResponse) {
+                writes += 1;
+                if (((IndexResponse) resp).isCreated()) {
+                  metrics.inserts.inc();
+                } else {
+                  metrics.updates.inc();
+                }
+              } else {
+                LOGGER.error("Unexpected Elasticsearch action response type: " + resp.getClass().getSimpleName());
+              }
+            }
+          }
+          LOGGER.info(String.format("Wrote %s messages from %s to %s.",
+                  writes, source, system));
         }
     };
 
@@ -150,18 +190,4 @@ public class ElasticsearchSystemProducer implements SystemProducer {
     LOGGER.info(String.format("Flushed %s to %s.", source, system));
   }
 
-  private void updateSuccessMetrics(BulkResponse response) {
-    metrics.bulkSendSuccess.inc();
-    for (BulkItemResponse itemResp: response.getItems()) {
-        ActionResponse resp = itemResp.getResponse();
-        if (resp instanceof IndexResponse) {
-          if (((IndexResponse)resp).isCreated()) {
-            metrics.inserts.inc();
-          }
-          else {
-            metrics.updates.inc();
-          }
-        }
-      }
-  }
 }
