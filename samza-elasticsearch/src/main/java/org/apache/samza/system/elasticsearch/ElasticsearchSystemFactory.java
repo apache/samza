@@ -40,7 +40,6 @@ import java.lang.reflect.InvocationTargetException;
  *
  * <p>This only supports the {@link SystemProducer} so all other methods return an
  * {@link UnsupportedOperationException}
- * <p>
  */
 public class ElasticsearchSystemFactory implements SystemFactory {
 
