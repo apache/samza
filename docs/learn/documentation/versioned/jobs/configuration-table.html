@@ -1377,6 +1377,20 @@
                         </ul>
                     </td>
                 </tr>
+                <tr>
+                    <td class="property" id="metrics-reporter-polling-interval">metrics.reporter.<br><span class="reporter">reporter-name</span>.interval</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        If you have registered the metrics reporter
+                        <a href="#metrics-reporter-class" class="property">metrics.reporter.*.class</a>
+                        <code>= org.apache.samza.metrics.reporter.MetricsSnapshotReporterFactory</code>,
+                        you can use this property to configure how frequently the reporter will report the metrics
+                        registered with it. The value for this property should be length of the interval between
+                        consecutive metric reporting. This value is in seconds, and should be a positive integer value.
+                        This property is optional and set to 60 by default, which means metrics will be reported every
+                        60 seconds.
+                    </td>
+                </tr>
             </tbody>
         </table>
     </body>

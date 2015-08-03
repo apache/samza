@@ -107,9 +107,15 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
     info("Got serde %s." format serde)
 
+    val pollingInterval: Int = config
+      .getMetricsReporterInterval(name)
+      .getOrElse("60").toInt
+
+    info("Setting polling interval to %d" format pollingInterval)
     val reporter = new MetricsSnapshotReporter(
       producer,
       systemStream,
+      pollingInterval,
       jobName,
       jobId,
       containerName,

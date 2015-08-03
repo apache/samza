@@ -56,6 +56,7 @@ object MetricsSnapshotReporter {
 class MetricsSnapshotReporter(
   producer: SystemProducer,
   out: SystemStream,
+  pollingInterval: Int,
   jobName: String,
   jobId: String,
   containerName: String,
@@ -69,8 +70,8 @@ class MetricsSnapshotReporter(
   val resetTime = clock()
   var registries = List[(String, ReadableMetricsRegistry)]()
 
-  info("got metrics snapshot reporter properties [job name: %s, job id: %s, containerName: %s, version: %s, samzaVersion: %s, host: %s]"
-    format (jobName, jobId, containerName, version, samzaVersion, host))
+  info("got metrics snapshot reporter properties [job name: %s, job id: %s, containerName: %s, version: %s, samzaVersion: %s, host: %s, pollingInterval %s]"
+    format (jobName, jobId, containerName, version, samzaVersion, host, pollingInterval))
 
   def start {
     info("Starting producer.")
@@ -79,8 +80,7 @@ class MetricsSnapshotReporter(
 
     info("Starting reporter timer.")
 
-    // TODO could make this configurable.
-    executor.scheduleWithFixedDelay(this, 0, 60, TimeUnit.SECONDS)
+    executor.scheduleWithFixedDelay(this, 0, pollingInterval, TimeUnit.SECONDS)
   }
 
   def register(source: String, registry: ReadableMetricsRegistry) {
