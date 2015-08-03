@@ -136,8 +136,8 @@
               %td
                 Up time: #{container.upTimeStr()}
               %td
-                Ordinary: #{state.jobCoordinator.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.CoordinatorStreamMessage.SetContainerHostMapping.JMX_URL_KEY)}
-                Tunneling: #{state.jobCoordinator.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.CoordinatorStreamMessage.SetContainerHostMapping.JMX_TUNNELING_URL_KEY)}
+                Ordinary: #{state.jobCoordinator.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_URL_KEY)}
+                Tunneling: #{state.jobCoordinator.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_TUNNELING_URL_KEY)}
 
 
     %div.tab-pane#task-groups

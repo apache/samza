@@ -30,6 +30,8 @@ import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -146,12 +148,12 @@ public class CoordinatorStreamSystemConsumer {
         CoordinatorStreamMessage coordinatorStreamMessage = new CoordinatorStreamMessage(keyArray, valueMap);
         log.debug("Received coordinator stream message: {}", coordinatorStreamMessage);
         bootstrappedStreamSet.add(coordinatorStreamMessage);
-        if (CoordinatorStreamMessage.SetConfig.TYPE.equals(coordinatorStreamMessage.getType())) {
+        if (SetConfig.TYPE.equals(coordinatorStreamMessage.getType())) {
           String configKey = coordinatorStreamMessage.getKey();
           if (coordinatorStreamMessage.isDelete()) {
             configMap.remove(configKey);
           } else {
-            String configValue = new CoordinatorStreamMessage.SetConfig(coordinatorStreamMessage).getConfigValue();
+            String configValue = new SetConfig(coordinatorStreamMessage).getConfigValue();
             configMap.put(configKey, configValue);
           }
         }

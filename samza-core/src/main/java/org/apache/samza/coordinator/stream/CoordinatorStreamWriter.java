@@ -21,6 +21,7 @@ package org.apache.samza.coordinator.stream;
 
 import joptsimple.OptionSet;
 import org.apache.samza.config.Config;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +41,7 @@ public class CoordinatorStreamWriter {
 
   private static final Logger log = LoggerFactory.getLogger(CoordinatorStreamWriter.class);
   public final static String SOURCE = "coordinator-stream-writer";
-  public static final String SET_CONFIG_TYPE = CoordinatorStreamMessage.SetConfig.TYPE;
+  public static final String SET_CONFIG_TYPE = SetConfig.TYPE;
 
   private CoordinatorStreamSystemProducer coordinatorStreamSystemProducer;
 
@@ -94,7 +95,7 @@ public class CoordinatorStreamWriter {
    */
   private void sendSetConfigMessage(String key, String value) {
     log.info("sent SetConfig message with key = " + key + " and value = " + value);
-    coordinatorStreamSystemProducer.send(new CoordinatorStreamMessage.SetConfig(CoordinatorStreamWriter.SOURCE, key, value));
+    coordinatorStreamSystemProducer.send(new SetConfig(CoordinatorStreamWriter.SOURCE, key, value));
   }
 
   /**

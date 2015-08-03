@@ -25,6 +25,8 @@ import java.util.Map;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SystemAdmin;
@@ -126,7 +128,7 @@ public class CoordinatorStreamSystemProducer {
   public void writeConfig(String source, Config config) {
     log.debug("Writing config: {}", config);
     for (Map.Entry<String, String> configPair : config.entrySet()) {
-      send(new CoordinatorStreamMessage.SetConfig(source, configPair.getKey(), configPair.getValue()));
+      send(new SetConfig(source, configPair.getKey(), configPair.getValue()));
     }
     systemProducer.flush(source);
   }

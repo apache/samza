@@ -52,6 +52,8 @@
         <allow pkg="org.apache.samza.config" />
 
         <subpackage name="model">
+            <allow pkg="org.apache.samza.coordinator.stream.messages" />
+
             <allow class="org.apache.samza.Partition" />
             <allow class="org.apache.samza.container.TaskName" />
             <allow class="org.apache.samza.system.SystemStreamPartition" />
@@ -101,6 +103,7 @@
     <subpackage name="container">
         <allow pkg="org.apache.samza.config" />
         <allow pkg="org.apache.samza.coordinator.stream" />
+        <allow class="org.apache.samza.coordinator.stream.AbstractCoordinatorStreamManager" />
         <subpackage name="grouper">
             <subpackage name="stream">
                 <allow pkg="org.apache.samza.container" />
@@ -120,10 +123,12 @@
         <allow pkg="org.apache.samza.system" />
         <allow pkg="org.apache.samza.serializers" />
         <allow pkg="org.apache.samza.util" />
+        <allow pkg="org.apache.samza.coordinator.stream.messages" />
 
         <allow class="org.apache.samza.Partition" />
         <allow class="org.apache.samza.SamzaException" />
         <allow class="joptsimple.OptionSet" />
+        <allow class="org.apache.samza.container.TaskName" />
     </subpackage>
 
     <subpackage name="checkpoint">
@@ -134,6 +139,7 @@
         <allow pkg="org.apache.samza.system" />
 
         <allow class="org.apache.samza.SamzaException" />
+        <allow class="org.apache.samza.coordinator.stream.AbstractCoordinatorStreamManager" />
     </subpackage>
 
     <subpackage name="storage">
@@ -143,6 +149,7 @@
         <allow pkg="org.apache.samza.serializers" />
         <allow pkg="org.apache.samza.system" />
         <allow pkg="org.apache.samza.task" />
+        <allow class="org.apache.samza.coordinator.stream.AbstractCoordinatorStreamManager" />
         <allow pkg="org.apache.samza.util" />
         <allow pkg="org.apache.samza.job" />
         <allow pkg="org.apache.samza.config" />
@@ -179,6 +186,11 @@
             <allow pkg="org.apache.samza.task" />
             <allow pkg="org.apache.samza.util" />
         </subpackage>
+    </subpackage>
+
+    <subpackage name="manager">
+        <allow pkg="org.apache.samza.coordinator.stream" />
+        <allow class="org.apache.samza.container.TaskName" />
     </subpackage>
 
 </import-control>

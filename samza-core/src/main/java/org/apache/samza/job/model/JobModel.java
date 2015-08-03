@@ -74,7 +74,7 @@ public class JobModel {
    * Returns the container to host mapping for a given container ID and mapping key
    *
    * @param containerId the ID of the container
-   * @param key mapping key which is one of the keys declared in {@link org.apache.samza.coordinator.stream.CoordinatorStreamMessage.SetContainerHostMapping}
+   * @param key mapping key which is one of the keys declared in {@link org.apache.samza.coordinator.stream.messages.SetContainerHostMapping}
    * @return the value if it exists for a given container and key, otherwise an empty string
    */
   public String getContainerToHostValue(Integer containerId, String key) {

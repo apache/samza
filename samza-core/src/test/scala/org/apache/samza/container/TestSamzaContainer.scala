@@ -225,7 +225,7 @@ class TestSamzaContainer extends AssertionsForJUnit {
   }
 }
 
-class MockCheckpointManager extends CheckpointManager(null, null) {
+class MockCheckpointManager extends CheckpointManager(null, null, "Unknown") {
   override def start() = {}
   override def stop() = {}
 }

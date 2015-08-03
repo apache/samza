@@ -33,6 +33,9 @@ import java.util.Set;
 
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
+import org.apache.samza.coordinator.stream.messages.Delete;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumer;
@@ -72,9 +75,9 @@ public class TestCoordinatorStreamSystemConsumer {
   private boolean testOrder(Set<CoordinatorStreamMessage> bootstrappedStreamSet) {
     int initialSize = bootstrappedStreamSet.size();
     List<CoordinatorStreamMessage> listStreamMessages = new ArrayList<CoordinatorStreamMessage>();
-    listStreamMessages.add(new CoordinatorStreamMessage.SetConfig("order1", "job.name.order1", "my-order1-name"));
-    listStreamMessages.add(new CoordinatorStreamMessage.SetConfig("order2", "job.name.order2", "my-order2-name"));
-    listStreamMessages.add(new CoordinatorStreamMessage.SetConfig("order3", "job.name.order3", "my-order3-name"));
+    listStreamMessages.add(new SetConfig("order1", "job.name.order1", "my-order1-name"));
+    listStreamMessages.add(new SetConfig("order2", "job.name.order2", "my-order2-name"));
+    listStreamMessages.add(new SetConfig("order3", "job.name.order3", "my-order3-name"));
     bootstrappedStreamSet.addAll(listStreamMessages);
     Iterator<CoordinatorStreamMessage> iter = bootstrappedStreamSet.iterator();
 
@@ -126,9 +129,9 @@ public class TestCoordinatorStreamSystemConsumer {
 
       if (pollCount++ == 0) {
         List<IncomingMessageEnvelope> list = new ArrayList<IncomingMessageEnvelope>();
-        CoordinatorStreamMessage.SetConfig setConfig1 = new CoordinatorStreamMessage.SetConfig("test", "job.name", "my-job-name");
-        CoordinatorStreamMessage.SetConfig setConfig2 = new CoordinatorStreamMessage.SetConfig("test", "job.id", "1234");
-        CoordinatorStreamMessage.Delete delete = new CoordinatorStreamMessage.Delete("test", "job.name", CoordinatorStreamMessage.SetConfig.TYPE);
+        SetConfig setConfig1 = new SetConfig("test", "job.name", "my-job-name");
+        SetConfig setConfig2 = new SetConfig("test", "job.id", "1234");
+        Delete delete = new Delete("test", "job.name", SetConfig.TYPE);
         list.add(new IncomingMessageEnvelope(systemStreamPartition, null, serialize(setConfig1.getKeyArray()), serialize(setConfig1.getMessageMap())));
         list.add(new IncomingMessageEnvelope(systemStreamPartition, null, serialize(setConfig2.getKeyArray()), serialize(setConfig2.getMessageMap())));
         list.add(new IncomingMessageEnvelope(systemStreamPartition, null, serialize(delete.getKeyArray()), delete.getMessageMap()));

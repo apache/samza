@@ -22,6 +22,7 @@ package org.apache.samza.job
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig, CoordinatorStreamMessage}
 import org.apache.samza.job.ApplicationStatus.Running
 import org.apache.samza.util.CommandLine
 import org.apache.samza.util.Logging
@@ -32,8 +33,6 @@ import org.apache.samza.config.ConfigException
 import org.apache.samza.config.SystemConfig
 import org.apache.samza.system.SystemFactory
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.coordinator.stream.CoordinatorStreamMessage
-import org.apache.samza.coordinator.stream.CoordinatorStreamMessage.SetConfig
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer
 import org.apache.samza.system.SystemStream
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
@@ -85,7 +84,7 @@ class JobRunner(config: Config) extends Logging {
     val oldConfig = coordinatorSystemConsumer.getConfig();
     info("Deleting old configs that are no longer defined: %s".format(oldConfig.keySet -- config.keySet))
     (oldConfig.keySet -- config.keySet).foreach(key => {
-      coordinatorSystemProducer.send(new CoordinatorStreamMessage.Delete(JobRunner.SOURCE, key, SetConfig.TYPE))
+      coordinatorSystemProducer.send(new Delete(JobRunner.SOURCE, key, SetConfig.TYPE))
     })
     coordinatorSystemProducer.stop
 

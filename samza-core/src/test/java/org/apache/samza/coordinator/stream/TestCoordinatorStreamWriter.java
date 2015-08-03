@@ -22,6 +22,7 @@ package org.apache.samza.coordinator.stream;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.codehaus.jackson.type.TypeReference;

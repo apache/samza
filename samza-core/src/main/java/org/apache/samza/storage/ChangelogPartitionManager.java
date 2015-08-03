@@ -21,12 +21,12 @@ package org.apache.samza.storage;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.coordinator.stream.CoordinatorStreamMessage;
-import org.apache.samza.coordinator.stream.CoordinatorStreamMessage.SetChangelogMapping;
+import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
+import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
+import org.apache.samza.coordinator.stream.AbstractCoordinatorStreamManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,36 +34,15 @@ import org.slf4j.LoggerFactory;
 /**
  * The Changelog manager is used to persist and read the changelog information from the coordinator stream.
  */
-public class ChangelogPartitionManager {
+public class ChangelogPartitionManager extends AbstractCoordinatorStreamManager {
 
   private static final Logger log = LoggerFactory.getLogger(ChangelogPartitionManager.class);
-  private final CoordinatorStreamSystemProducer coordinatorStreamProducer;
-  private final CoordinatorStreamSystemConsumer coordinatorStreamConsumer;
   private boolean isCoordinatorConsumerRegistered = false;
-  private String source;
-
-  public ChangelogPartitionManager(CoordinatorStreamSystemProducer coordinatorStreamProducer,
-      CoordinatorStreamSystemConsumer coordinatorStreamConsumer) {
-    this.coordinatorStreamConsumer = coordinatorStreamConsumer;
-    this.coordinatorStreamProducer = coordinatorStreamProducer;
-    this.source = "Unknown";
-  }
 
   public ChangelogPartitionManager(CoordinatorStreamSystemProducer coordinatorStreamProducer,
       CoordinatorStreamSystemConsumer coordinatorStreamConsumer,
       String source) {
-    this(coordinatorStreamProducer, coordinatorStreamConsumer);
-    this.source = source;
-  }
-
-  public void start() {
-    coordinatorStreamProducer.start();
-    coordinatorStreamConsumer.start();
-  }
-
-  public void stop() {
-    coordinatorStreamConsumer.stop();
-    coordinatorStreamProducer.stop();
+    super(coordinatorStreamProducer, coordinatorStreamConsumer, source);
   }
 
   /**
@@ -73,10 +52,10 @@ public class ChangelogPartitionManager {
   public void register(TaskName taskName) {
     log.debug("Adding taskName {} to {}", taskName, this);
     if (!isCoordinatorConsumerRegistered) {
-      coordinatorStreamConsumer.register();
+      registerCoordinatorStreamConsumer();
       isCoordinatorConsumerRegistered = true;
     }
-    coordinatorStreamProducer.register(taskName.getTaskName());
+    registerCoordinatorStreamProducer(taskName.getTaskName());
   }
 
   /**
@@ -85,9 +64,8 @@ public class ChangelogPartitionManager {
    */
   public Map<TaskName, Integer> readChangeLogPartitionMapping() {
     log.debug("Reading changelog partition information");
-    Set<CoordinatorStreamMessage> bootstrappedStream = coordinatorStreamConsumer.getBootstrappedStream(SetChangelogMapping.TYPE);
-    HashMap<TaskName, Integer> changelogMapping = new HashMap<TaskName, Integer>();
-    for (CoordinatorStreamMessage coordinatorStreamMessage : bootstrappedStream) {
+    final HashMap<TaskName, Integer> changelogMapping = new HashMap<TaskName, Integer>();
+    for (CoordinatorStreamMessage coordinatorStreamMessage : getBootstrappedStream(SetChangelogMapping.TYPE)) {
       SetChangelogMapping changelogMapEntry = new SetChangelogMapping(coordinatorStreamMessage);
       changelogMapping.put(new TaskName(changelogMapEntry.getTaskName()), changelogMapEntry.getPartition());
       log.debug("TaskName: {} is mapped to {}", changelogMapEntry.getTaskName(), changelogMapEntry.getPartition());
@@ -104,10 +82,7 @@ public class ChangelogPartitionManager {
     log.debug("Updating changelog information with: ");
     for (Map.Entry<TaskName, Integer> entry : changelogEntries.entrySet()) {
       log.debug("TaskName: {} to Partition: {}", entry.getKey().getTaskName(), entry.getValue());
-      SetChangelogMapping changelogMapping = new SetChangelogMapping(source,
-          entry.getKey().getTaskName(),
-          entry.getValue());
-      coordinatorStreamProducer.send(changelogMapping);
+      send(new SetChangelogMapping(getSource(), entry.getKey().getTaskName(), entry.getValue()));
     }
   }
 

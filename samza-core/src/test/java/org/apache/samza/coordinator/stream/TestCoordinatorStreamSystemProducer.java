@@ -27,6 +27,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
+import org.apache.samza.coordinator.stream.messages.Delete;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -43,9 +46,9 @@ public class TestCoordinatorStreamSystemProducer {
     MockCoordinatorSystemProducer systemProducer = new MockCoordinatorSystemProducer(source);
     MockSystemAdmin systemAdmin = new MockSystemAdmin();
     CoordinatorStreamSystemProducer producer = new CoordinatorStreamSystemProducer(systemStream, systemProducer, systemAdmin);
-    CoordinatorStreamMessage.SetConfig setConfig1 = new CoordinatorStreamMessage.SetConfig(source, "job.name", "my-job-name");
-    CoordinatorStreamMessage.SetConfig setConfig2 = new CoordinatorStreamMessage.SetConfig(source, "job.id", "1234");
-    CoordinatorStreamMessage.Delete delete = new CoordinatorStreamMessage.Delete(source, "job.name", CoordinatorStreamMessage.SetConfig.TYPE);
+    SetConfig setConfig1 = new SetConfig(source, "job.name", "my-job-name");
+    SetConfig setConfig2 = new SetConfig(source, "job.id", "1234");
+    Delete delete = new Delete(source, "job.name", SetConfig.TYPE);
     assertFalse(systemProducer.isRegistered());
     producer.register(source);
     assertTrue(systemProducer.isRegistered());

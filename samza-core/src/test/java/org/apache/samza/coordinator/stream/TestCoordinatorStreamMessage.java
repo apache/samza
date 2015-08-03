@@ -24,6 +24,10 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
+
+import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
+import org.apache.samza.coordinator.stream.messages.Delete;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.junit.Test;
 
 public class TestCoordinatorStreamMessage {
@@ -48,8 +52,8 @@ public class TestCoordinatorStreamMessage {
 
   @Test
   public void testSetConfig() {
-    CoordinatorStreamMessage.SetConfig setConfig = new CoordinatorStreamMessage.SetConfig("source", "key", "value");
-    assertEquals(CoordinatorStreamMessage.SetConfig.TYPE, setConfig.getType());
+    SetConfig setConfig = new SetConfig("source", "key", "value");
+    assertEquals(SetConfig.TYPE, setConfig.getType());
     assertEquals("key", setConfig.getKey());
     assertEquals("value", setConfig.getConfigValue());
     assertFalse(setConfig.isDelete());
@@ -58,7 +62,7 @@ public class TestCoordinatorStreamMessage {
 
   @Test
   public void testDelete() {
-    CoordinatorStreamMessage.Delete delete = new CoordinatorStreamMessage.Delete("source2", "key", "delete-type");
+    Delete delete = new Delete("source2", "key", "delete-type");
     assertEquals("delete-type", delete.getType());
     assertEquals("key", delete.getKey());
     assertNull(delete.getMessageMap());

@@ -22,12 +22,12 @@ package org.apache.samza.checkpoint;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.coordinator.stream.CoordinatorStreamMessage;
-import org.apache.samza.coordinator.stream.CoordinatorStreamMessage.SetCheckpoint;
+import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
+import org.apache.samza.coordinator.stream.messages.SetCheckpoint;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
+import org.apache.samza.coordinator.stream.AbstractCoordinatorStreamManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,34 +36,18 @@ import org.slf4j.LoggerFactory;
  * The CheckpointManager is used to persist and restore checkpoint information. The CheckpointManager uses
  * CoordinatorStream underneath to do this.
  */
-public class CheckpointManager {
+public class CheckpointManager extends AbstractCoordinatorStreamManager {
 
   private static final Logger log = LoggerFactory.getLogger(CheckpointManager.class);
-  private final CoordinatorStreamSystemProducer coordinatorStreamProducer;
-  private final CoordinatorStreamSystemConsumer coordinatorStreamConsumer;
   private final Map<TaskName, Checkpoint> taskNamesToOffsets;
   private final HashSet<TaskName> taskNames;
-  private String source;
-
-  public CheckpointManager(CoordinatorStreamSystemProducer coordinatorStreamProducer,
-      CoordinatorStreamSystemConsumer coordinatorStreamConsumer) {
-    this.coordinatorStreamConsumer = coordinatorStreamConsumer;
-    this.coordinatorStreamProducer = coordinatorStreamProducer;
-    taskNamesToOffsets = new HashMap<TaskName, Checkpoint>();
-    taskNames = new HashSet<TaskName>();
-    this.source = "Unknown";
-  }
 
   public CheckpointManager(CoordinatorStreamSystemProducer coordinatorStreamProducer,
       CoordinatorStreamSystemConsumer coordinatorStreamConsumer,
       String source) {
-    this(coordinatorStreamProducer, coordinatorStreamConsumer);
-    this.source = source;
-  }
-
-  public void start() {
-    coordinatorStreamProducer.start();
-    coordinatorStreamConsumer.start();
+    super(coordinatorStreamProducer, coordinatorStreamConsumer, source);
+    taskNamesToOffsets = new HashMap<TaskName, Checkpoint>();
+    taskNames = new HashSet<TaskName>();
   }
 
   /**
@@ -73,8 +57,8 @@ public class CheckpointManager {
   public void register(TaskName taskName) {
     log.debug("Adding taskName {} to {}", taskName, this);
     taskNames.add(taskName);
-    coordinatorStreamConsumer.register();
-    coordinatorStreamProducer.register(taskName.getTaskName());
+    registerCoordinatorStreamConsumer();
+    registerCoordinatorStreamProducer(taskName.getTaskName());
   }
 
   /**
@@ -84,8 +68,7 @@ public class CheckpointManager {
    */
   public void writeCheckpoint(TaskName taskName, Checkpoint checkpoint) {
     log.debug("Writing checkpoint for Task: {} with offsets: {}", taskName.getTaskName(), checkpoint.getOffsets());
-    SetCheckpoint checkPointMessage = new SetCheckpoint(source, taskName.getTaskName(), checkpoint);
-    coordinatorStreamProducer.send(checkPointMessage);
+    send(new SetCheckpoint(getSource(), taskName.getTaskName(), checkpoint));
   }
 
   /**
@@ -96,8 +79,7 @@ public class CheckpointManager {
   public Checkpoint readLastCheckpoint(TaskName taskName) {
     // Bootstrap each time to make sure that we are caught up with the stream, the bootstrap will just catch up on consecutive calls
     log.debug("Reading checkpoint for Task: {}", taskName.getTaskName());
-    Set<CoordinatorStreamMessage> bootstrappedStream = coordinatorStreamConsumer.getBootstrappedStream(SetCheckpoint.TYPE);
-    for (CoordinatorStreamMessage coordinatorStreamMessage : bootstrappedStream) {
+    for (CoordinatorStreamMessage coordinatorStreamMessage : getBootstrappedStream(SetCheckpoint.TYPE)) {
       SetCheckpoint setCheckpoint = new SetCheckpoint(coordinatorStreamMessage);
       TaskName taskNameInCheckpoint = new TaskName(setCheckpoint.getKey());
       if (taskNames.contains(taskNameInCheckpoint)) {
@@ -108,8 +90,4 @@ public class CheckpointManager {
     return taskNamesToOffsets.get(taskName);
   }
 
-  public void stop() {
-    coordinatorStreamConsumer.stop();
-    coordinatorStreamProducer.stop();
-  }
 }
