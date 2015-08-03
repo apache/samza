@@ -76,6 +76,8 @@ The parameter defines where the integration tests should install packages both l
 
 The default configurations that ship with Samza deploy all software, and run all tests locally on the machine from which the `integration-tests.sh` command was executed.
 
+If you have difficulties (`connection refused` error or `JAVA_HOME is not set and could not be found.` error), take a look the `Prerequisites for Running the Integration Tests Locally` section.
+
 The integration tests use SSH to interact with remote machines (and localhost). This means that you need an authentication mechanism when connecting to the machines. The two authentication mechanisms provided are:
 
 1. Interactive
@@ -102,3 +104,17 @@ The integration-tests.sh script will set the console log level to INFO by defaul
     ./bin/integration-tests.sh /tmp/samza-tests --console-log-level DEBUG
 
 Changing this setting will define how verbose Zopkio is during test execution. It does not affect any of the log4j.xml settings in Samza, YARN, Kafka, or ZooKeeper.
+
+#### Prerequisites for Running the Integration Tests Locally
+
+Before running the integration tests locally make sure that:
+
+* `ssh localhost` works
+* `ssh localhost 'echo $JAVA_HOME'` prints the correct path to Java installation on your system
+
+If `ssh localhost` does not works, you need to install an SSH server (enable `Remote login` on Mac or install `openssh-server` on Linux for example).
+
+If `ssh localhost 'echo $JAVA_HOME'` does not prints the path to Java installation on your system, you need to configure your login shell to set the `JAVA_HOME` environment variable regardless in non-interactive mode.<br>
+Zopkio is doing the deployment in non-interactive mode therefore no configuration files (including `/etc/profile`) will be taken into account.<br>
+For example if your system uses `bash` shell, you can insert `export JAVA_HOME=/path/to/java/home` at the beginning of the `~/.bashrc` file before the line `# If not running interactively, don't do anything`.<br>
+More info on this subject can be found [here](http://askubuntu.com/questions/247738/why-is-etc-profile-not-invoked-for-non-login-shells).
