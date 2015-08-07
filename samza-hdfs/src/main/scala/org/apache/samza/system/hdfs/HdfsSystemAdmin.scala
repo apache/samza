@@ -16,29 +16,30 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-shell'
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-hdfs',
-        'samza-yarn',
-        'samza-test'
-] as HashSet
+package org.apache.samza.system.hdfs
 
-scalaModules.each {
-  include it
-}
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
+import org.apache.samza.util.Logging
+import org.apache.samza.system.{SystemAdmin, SystemStreamMetadata, SystemStreamPartition}
+
+
+class HdfsSystemAdmin extends SystemAdmin with Logging {
+
+  def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = {
+    new java.util.HashMap[SystemStreamPartition, String]()
   }
+
+  def getSystemStreamMetadata(streamNames: java.util.Set[String]) = {
+    new java.util.HashMap[String, SystemStreamMetadata]()
+  }
+
+  def createChangelogStream(topicName: String, numOfChangeLogPartitions: Int) = {
+    throw new UnsupportedOperationException("Method not implemented.")
+  }
+
+  def createCoordinatorStream(streamName: String) {
+    throw new UnsupportedOperationException("Method not implemented.")
+  }
+
 }

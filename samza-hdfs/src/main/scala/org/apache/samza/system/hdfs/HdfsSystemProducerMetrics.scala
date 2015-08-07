@@ -1,4 +1,4 @@
-/*
+ /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,29 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-shell'
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-hdfs',
-        'samza-yarn',
-        'samza-test'
-] as HashSet
+package org.apache.samza.system.hdfs
 
-scalaModules.each {
-  include it
-}
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
-  }
+import org.apache.samza.metrics.{MetricsRegistry, MetricsHelper, Gauge, MetricsRegistryMap}
+
+
+class HdfsSystemProducerMetrics(val systemName: String = "unknown", val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+
+  /* Tracks the number of calls made to send in producer */
+  val sends = newCounter("producer-sends")
+  val sendSuccess = newCounter("send-success")
+  val sendFailed = newCounter("send-failed")
+  val sendMs = newTimer("send-ms")
+
+  /* Tracks the number of calls made to flush in producer */
+  val flushes = newCounter("flushes")
+  val flushFailed = newCounter("flush-failed")
+  val flushSuccess = newCounter("flush-success")
+  val flushMs = newTimer("flush-ms")
+
+  override def getPrefix = systemName + "-"
+
 }

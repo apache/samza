@@ -81,7 +81,9 @@ rat {
     'samza-test/state/mystore/**',
     'README.md',
     'RELEASE.md',
-    'samza-test/src/main/resources/**'
+    'samza-test/src/main/resources/**',
+    'samza-hdfs/src/main/resources/**',
+    'samza-hdfs/src/test/resources/**'
   ]
 }
 
@@ -209,8 +211,8 @@ project(":samza-kafka_$scalaVersion") {
     minHeapSize = "1560m"
     maxHeapSize = "1560m"
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
-    // There appear to be issues between TestKafkaSystemAdmin and 
-    // TestKafkaCheckpointManager both running brokeres and ZK. Restarting the 
+    // There appear to be issues between TestKafkaSystemAdmin and
+    // TestKafkaCheckpointManager both running brokeres and ZK. Restarting the
     // gradle worker after every test clears things up. These tests should be
     // moved to the integration test suite.
     forkEvery = 1
@@ -399,6 +401,30 @@ project(":samza-kv-rocksdb_$scalaVersion") {
   }
 }
 
+project(":samza-hdfs_$scalaVersion") {
+    apply plugin: 'scala'
+
+    dependencies {
+        compile project(':samza-api')
+        compile project(":samza-core_$scalaVersion")
+        compile project(":samza-kafka_$scalaVersion")
+        compile "org.scala-lang:scala-library:$scalaLibVersion"
+        compile("org.apache.hadoop:hadoop-hdfs:$yarnVersion") {
+          exclude module: 'slf4j-log4j12'
+          exclude module: 'servlet-api'
+        }
+        compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
+          exclude module: 'slf4j-log4j12'
+          exclude module: 'servlet-api'
+          exclude module: 'zookeeper'
+        }
+
+        testCompile "junit:junit:$junitVersion"
+        testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+        testCompile "org.apache.hadoop:hadoop-minicluster:$yarnVersion"
+    }
+}
+
 project(":samza-test_$scalaVersion") {
   apply plugin: 'scala'
   apply plugin: 'checkstyle'
@@ -418,6 +444,7 @@ project(":samza-test_$scalaVersion") {
     runtime project(":samza-log4j")
     runtime project(":samza-yarn_$scalaVersion")
     runtime project(":samza-kafka_$scalaVersion")
+    runtime project(":samza-hdfs_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
     compile "javax.mail:mail:1.4"

@@ -1391,6 +1391,41 @@
                         60 seconds.
                     </td>
                 </tr>
+
+                <tr>
+                    <th colspan="3" class="section" id="hdfs-system-producer"><a href="../hdfs/producer.html">Writing to HDFS</a></th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="hdfs-writer-class">systems.*.producer.hdfs.writer.class</td>
+                    <td class="default">org.apache.samza.system.hdfs.writer.BinarySequenceFileHdfsWriter</td>
+                    <td class="description">Fully-qualified class name of the HdfsWriter implementation this HDFS Producer system should use</td>
+                </tr>
+                <tr>
+                  <td class="property" id="hdfs-compression-type">systems.*.producer.hdfs.compression.type</td>
+                    <td class="default">none</td>
+                    <td class="description">A human-readable label for the compression type to use, such as "gzip" "snappy" etc. This label will be interpreted differently (or ignored) depending on the nature of the HdfsWriter implementation.</td>
+                </tr>
+                <tr>
+                    <td class="property" id="hdfs-base-output-dir">systems.*.producer.hdfs.base.output.dir</td>
+                    <td class="default">/user/USERNAME/SYSTEMNAME</td>
+                    <td class="description">The base output directory for HDFS writes. Defaults to the home directory of the user who ran the job, followed by the systemName for this HdfsSystemProducer as defined in the job.properties file.</td>
+                </tr>
+                <tr>
+                    <td class="property" id="hdfs-bucketer-class">systems.*.producer.hdfs.bucketer.class</td>
+                    <td class="default">org.apache.samza.system.hdfs.writer.JobNameDateTimeBucketer</td>
+                    <td class="description">Fully-qualified class name of the Bucketer implementation that will manage HDFS paths and file names. Used to batch writes by time, or other similar partitioning methods.</td>
+                </tr>
+                <tr>
+                    <td class="property" id="hdfs-bucketer-date-path-format">systems.*.producer.hdfs.bucketer.date.path.format</td>
+                    <td class="default"yyyy_MM_dd></td>
+                    <td class="description">A date format (using Java's SimpleDataFormat syntax) appropriate for use in an HDFS Path, which can configure time-based bucketing of output files.</td>
+                </tr>
+                <tr>
+                  <td class="property" id="hdfs-write-batch-size-bytes">systems.*.producer.write.batch.size.bytes</td>
+                  <td class="default">268435456</td>
+                  <td class="description">The number of bytes of outgoing messages to write to each HDFS output file before cutting a new file. Defaults to 256MB if not set.</td>
+                </tr>
             </tbody>
         </table>
     </body>
