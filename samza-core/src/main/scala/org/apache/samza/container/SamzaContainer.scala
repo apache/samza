@@ -628,7 +628,7 @@ class SamzaContainer(
 
       info("Writing container locality and JMX address to Coordinator Stream")
       try {
-        val hostInetAddress = InetAddress.getLocalHost.getHostAddress
+        val hostInetAddress = Util.getLocalHost.getHostAddress
         val jmxUrl = if (jmxServer != null) jmxServer.getJmxUrl else ""
         val jmxTunnelingUrl = if (jmxServer != null) jmxServer.getTunnelingJmxUrl else ""
         localityManager.writeContainerToHostMapping(containerContext.id, hostInetAddress, jmxUrl, jmxTunnelingUrl)

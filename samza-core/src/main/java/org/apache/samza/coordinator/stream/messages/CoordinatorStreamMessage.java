@@ -19,13 +19,12 @@
 
 package org.apache.samza.coordinator.stream.messages;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -144,8 +143,8 @@ public class CoordinatorStreamMessage {
       setTimestamp(System.currentTimeMillis());
 
       try {
-        setHost(InetAddress.getLocalHost().getHostAddress());
-      } catch (UnknownHostException e) {
+        setHost(Util.getLocalHost().getHostAddress());
+      } catch (Exception e) {
         log.warn("Unable to retrieve host for current machine. Setting coordinator stream message host field to an empty string.");
         setHost("");
       }

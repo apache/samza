@@ -19,8 +19,6 @@
 
 package org.apache.samza.logging.log4j.serializers;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -32,6 +30,7 @@ import org.apache.log4j.spi.LoggingEvent;
 import org.apache.log4j.spi.ThrowableInformation;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.util.Util;
 
 /**
  * A JSON serde that serializes Log4J LoggingEvent objects into JSON using the
@@ -173,8 +172,8 @@ public class LoggingEventJsonSerde implements Serde<LoggingEvent> {
    */
   public static String getHostname() {
     try {
-      return InetAddress.getLocalHost().getHostName();
-    } catch (UnknownHostException e) {
+      return Util.getLocalHost().getHostName();
+    } catch (Exception e) {
       return "unknown-host";
     }
   }

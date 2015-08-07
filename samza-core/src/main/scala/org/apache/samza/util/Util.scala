@@ -19,7 +19,7 @@
 
 package org.apache.samza.util
 
-import java.net.{HttpURLConnection, URL}
+import java.net._
 import java.io._
 import java.lang.management.ManagementFactory
 import java.util.zip.CRC32
@@ -34,10 +34,9 @@ import org.apache.samza.config.ConfigException
 import org.apache.samza.config.MapConfig
 import scala.collection.JavaConversions._
 import org.apache.samza.config.JobConfig
-import org.apache.samza.job.model.JobModel
 import java.io.InputStreamReader
-import scala.collection.JavaConverters._
 import scala.collection.immutable.Map
+import scala.util.control.Breaks._
 
 object Util extends Logging {
   val random = new Random
@@ -303,5 +302,27 @@ object Util extends Logging {
    * */
   def javaMapAsScalaMap[T, K](javaMap: java.util.Map[T, K]): Map[T, K] = {
     javaMap.toMap
+  }
+
+  /**
+   * Returns the the first host address which is not the loopback address, or {@link java.net.InetAddress#getLocalHost InetAddress.getLocalhost()} as a fallback
+   *
+   * @return the {@link java.net.InetAddress InetAddress} which represents the localhost
+   */
+  def getLocalHost: InetAddress = {
+    val localHost = InetAddress.getLocalHost
+    if (localHost.isLoopbackAddress) {
+      warn("Hostname %s resolves to a loopback address, trying to resolve an external IP address.".format(localHost.getHostName))
+      val networkInterfaces = if (System.getProperty("os.name").startsWith("Windows")) NetworkInterface.getNetworkInterfaces.toList else NetworkInterface.getNetworkInterfaces.toList.reverse
+      for (networkInterface <- networkInterfaces) {
+        val addresses = networkInterface.getInetAddresses.toList.filterNot(address => address.isLinkLocalAddress || address.isLoopbackAddress)
+        if (addresses.nonEmpty) {
+          val address = addresses.find(_.isInstanceOf[Inet4Address]).getOrElse(addresses.head)
+          debug("Found an external IP address %s which represents the localhost.".format(address.getHostAddress))
+          return InetAddress.getByAddress(address.getAddress)
+        }
+      }
+    }
+    localHost
   }
 }

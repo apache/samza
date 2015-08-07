@@ -20,6 +20,7 @@
 package org.apache.samza.util
 
 import java.io._
+import java.net.InetAddress
 import org.junit.Assert._
 import org.junit.Test
 
@@ -62,5 +63,10 @@ class TestUtil {
     // Check data returned
     assertEquals(data, result)
 
+  }
+
+  @Test
+  def testGetLocalHost(): Unit = {
+    assertNotNull(Util.getLocalHost)
   }
 }
