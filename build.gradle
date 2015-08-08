@@ -78,7 +78,7 @@ rat {
     'gradle/wrapper/**',
     'gradlew',
     'gradlew.bat',
-    'samza-test/state/mystore/**',
+    'samza-test/state/**',
     'README.md',
     'RELEASE.md',
     'samza-test/src/main/resources/**',

@@ -581,8 +581,8 @@ class SamzaContainer(
 
       shutdownConsumers
       shutdownTask
-      shutdownProducers
       shutdownStores
+      shutdownProducers
       shutdownLocalityManager
       shutdownOffsetManager
       shutdownMetrics
