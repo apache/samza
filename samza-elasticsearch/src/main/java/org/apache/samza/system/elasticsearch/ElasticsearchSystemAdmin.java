@@ -62,4 +62,9 @@ public class ElasticsearchSystemAdmin implements SystemAdmin {
   public void createCoordinatorStream(String streamName) {
     throw new UnsupportedOperationException();
   }
+
+  @Override
+  public void validateChangelogStream(String streamName, int numOfPartitions) {
+    throw new UnsupportedOperationException();
+  }
 }

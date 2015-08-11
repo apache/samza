@@ -71,6 +71,11 @@ public class MockSystemAdmin implements SystemAdmin {
   }
 
   @Override
+  public void validateChangelogStream(String streamName, int numOfPartitions) {
+    throw new UnsupportedOperationException("Method not implemented");
+  }
+
+  @Override
   public void createCoordinatorStream(String streamName) {
     throw new UnsupportedOperationException("Method not implemented.");
   }

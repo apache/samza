@@ -65,7 +65,7 @@ class TaskStorageManager(
   def init {
     cleanBaseDirs
     setupBaseDirs
-    createStreams
+    validateChangelogStreams
     startConsumers
     restoreStores
     stopConsumers
@@ -122,14 +122,14 @@ class TaskStorageManager(
     })
   }
 
-  private def createStreams = {
-    info("Creating streams that are not present for changelog")
+  private def validateChangelogStreams = {
+    info("Validating change log streams")
 
     for ((storeName, systemStream) <- changeLogSystemStreams) {
       val systemAdmin = systemAdmins
         .getOrElse(systemStream.getSystem,
                    throw new SamzaException("Unable to get systemAdmin for store " + storeName + " and systemStream" + systemStream))
-      systemAdmin.createChangelogStream(systemStream.getStream, changeLogStreamPartitions)
+      systemAdmin.validateChangelogStream(systemStream.getStream, changeLogStreamPartitions)
     }
 
     val changeLogMetadata = streamMetadataCache.getStreamMetadata(changeLogSystemStreams.values.toSet)

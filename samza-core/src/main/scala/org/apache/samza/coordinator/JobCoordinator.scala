@@ -20,8 +20,9 @@
 package org.apache.samza.coordinator
 
 
+import org.apache.samza.config.StorageConfig
+import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
 import org.apache.samza.config.{Config, ConfigRewriter}
-import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.SamzaException
 import org.apache.samza.container.grouper.task.TaskNameGrouperFactory
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
@@ -71,31 +72,8 @@ object JobCoordinator extends Logging {
     val checkpointManager = new CheckpointManager(coordinatorSystemProducer, coordinatorSystemConsumer, "Job-coordinator")
     val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, "Job-coordinator")
     val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
-    getJobCoordinator(rewriteConfig(config), checkpointManager, changelogManager, localityManager)
-  }
 
-  def apply(coordinatorSystemConfig: Config): JobCoordinator = apply(coordinatorSystemConfig, new MetricsRegistryMap())
-
-  /**
-   * Build a JobCoordinator using a Samza job's configuration.
-   */
-  def getJobCoordinator(config: Config,
-                        checkpointManager: CheckpointManager,
-                        changelogManager: ChangelogPartitionManager,
-                        localityManager: LocalityManager) = {
-    val jobModelGenerator = initializeJobModel(config, checkpointManager, changelogManager, localityManager)
-    val server = new HttpServer
-    server.addServlet("/*", new JobServlet(jobModelGenerator))
-    new JobCoordinator(jobModelGenerator(), server, checkpointManager)
-  }
-
-  /**
-   * For each input stream specified in config, exactly determine its
-   * partitions, returning a set of SystemStreamPartitions containing them all.
-   */
-  def getInputStreamPartitions(config: Config) = {
-    val inputSystemStreams = config.getInputStreams
-    val systemNames = config.getSystemNames.toSet
+    val systemNames = getSystemNames(config)
 
     // Map the name of each system to the corresponding SystemAdmin
     val systemAdmins = systemNames.map(systemName => {
@@ -106,8 +84,39 @@ object JobCoordinator extends Logging {
       systemName -> systemFactory.getAdmin(systemName, config)
     }).toMap
 
+    val streamMetadataCache = new StreamMetadataCache(systemAdmins)
+
+    val jobCoordinator = getJobCoordinator(rewriteConfig(config), checkpointManager, changelogManager, localityManager, streamMetadataCache)
+    createChangeLogStreams(config, jobCoordinator.jobModel.maxChangeLogStreamPartitions, streamMetadataCache)
+
+    jobCoordinator
+  }
+
+  def apply(coordinatorSystemConfig: Config): JobCoordinator = apply(coordinatorSystemConfig, new MetricsRegistryMap())
+
+  /**
+   * Build a JobCoordinator using a Samza job's configuration.
+   */
+  def getJobCoordinator(config: Config,
+                        checkpointManager: CheckpointManager,
+                        changelogManager: ChangelogPartitionManager,
+                        localityManager: LocalityManager,
+                        streamMetadataCache: StreamMetadataCache) = {
+    val jobModelGenerator = initializeJobModel(config, checkpointManager, changelogManager, localityManager, streamMetadataCache)
+    val server = new HttpServer
+    server.addServlet("/*", new JobServlet(jobModelGenerator))
+    new JobCoordinator(jobModelGenerator(), server, checkpointManager)
+  }
+
+  /**
+   * For each input stream specified in config, exactly determine its
+   * partitions, returning a set of SystemStreamPartitions containing them all.
+   */
+  def getInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache) = {
+    val inputSystemStreams = config.getInputStreams
+
     // Get the set of partitions for each SystemStream from the stream metadata
-    new StreamMetadataCache(systemAdmins)
+    streamMetadataCache
       .getStreamMetadata(inputSystemStreams)
       .flatMap {
         case (systemStream, metadata) =>
@@ -157,10 +166,12 @@ object JobCoordinator extends Logging {
   private def initializeJobModel(config: Config,
                                  checkpointManager: CheckpointManager,
                                  changelogManager: ChangelogPartitionManager,
-                                 localityManager: LocalityManager): () => JobModel = {
+                                 localityManager: LocalityManager,
+                                 streamMetadataCache: StreamMetadataCache): () => JobModel = {
+
 
     // Do grouping to fetch TaskName to SSP mapping
-    val allSystemStreamPartitions = getInputStreamPartitions(config)
+    val allSystemStreamPartitions = getInputStreamPartitions(config, streamMetadataCache)
     val grouper = getSystemStreamPartitionGrouper(config)
     info("SystemStreamPartitionGrouper " + grouper + " has grouped the SystemStreamPartitions into the following taskNames:")
     val groups = grouper.group(allSystemStreamPartitions)
@@ -272,6 +283,30 @@ object JobCoordinator extends Logging {
       new JobModel(config, containerModels, localityManager)
     }
   }
+
+  private def createChangeLogStreams(config: StorageConfig, changeLogPartitions: Int, streamMetadataCache: StreamMetadataCache) {
+    val changeLogSystemStreams = config
+      .getStoreNames
+      .filter(config.getChangelogStream(_).isDefined)
+      .map(name => (name, config.getChangelogStream(name).get)).toMap
+      .mapValues(Util.getSystemStreamFromNames(_))
+
+    for ((storeName, systemStream) <- changeLogSystemStreams) {
+      val systemAdmin = Util.getObj[SystemFactory](config
+        .getSystemFactory(systemStream.getSystem)
+        .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemStream.getSystem))
+        ).getAdmin(systemStream.getSystem, config)
+
+      systemAdmin.createChangelogStream(systemStream.getStream, changeLogPartitions)
+    }
+
+    val changeLogMetadata = streamMetadataCache.getStreamMetadata(changeLogSystemStreams.values.toSet)
+
+    info("Got change log stream metadata: %s" format changeLogMetadata)
+  }
+
+  private def getSystemNames(config: Config) = config.getSystemNames.toSet
+
 }
 
 /**

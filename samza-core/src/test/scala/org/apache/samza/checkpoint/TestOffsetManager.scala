@@ -274,6 +274,10 @@ class TestOffsetManager {
         new UnsupportedOperationException("Method not implemented.")
       }
 
+      override def validateChangelogStream(topicName: String, numOfChangeLogPartitions: Int) {
+        new UnsupportedOperationException("Method not implemented.")
+      }
+
       override def createCoordinatorStream(streamName: String) {
         new UnsupportedOperationException("Method not implemented.")
       }

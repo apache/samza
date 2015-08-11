@@ -38,6 +38,10 @@ class HdfsSystemAdmin extends SystemAdmin with Logging {
     throw new UnsupportedOperationException("Method not implemented.")
   }
 
+  def validateChangelogStream(topicName: String, numOfChangeLogPartitions: Int) = {
+    throw new UnsupportedOperationException("Method not implemented.")
+  }
+
   def createCoordinatorStream(streamName: String) {
     throw new UnsupportedOperationException("Method not implemented.")
   }

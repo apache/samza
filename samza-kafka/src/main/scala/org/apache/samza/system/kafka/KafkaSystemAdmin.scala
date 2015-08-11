@@ -394,6 +394,15 @@ class KafkaSystemAdmin(
 
   override def createChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
     createTopicInKafka(topicName, numKafkaChangelogPartitions)
+    validateChangelogStream(topicName, numKafkaChangelogPartitions)
+  }
+
+  /**
+   * Validates change log stream in Kafka. Should not be called before createChangelogStream(),
+   * since ClientUtils.fetchTopicMetadata(), used by different Kafka clients, is not read-only and
+   * will auto-create a new topic.
+   */
+  override def validateChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
     validateTopicInKafka(topicName, numKafkaChangelogPartitions)
   }
 }
