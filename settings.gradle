@@ -30,7 +30,8 @@ def scalaModules = [
         'samza-kv-rocksdb',
         'samza-hdfs',
         'samza-yarn',
-        'samza-test'
+        'samza-test',
+        'samza-autoscaling'
 ] as HashSet
 
 scalaModules.each {

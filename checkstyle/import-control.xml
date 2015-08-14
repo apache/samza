@@ -50,7 +50,11 @@
 
     <subpackage name="job">
         <allow pkg="org.apache.samza.config" />
-
+        <allow pkg="org.apache.samza.coordinator.stream" />
+        <allow pkg="org.apache.samza.metrics" />
+        <allow class="org.apache.samza.system.SystemStreamPartitionIterator" />
+        <allow class="org.apache.samza.container.SamzaContainer" />
+        <allow pkg="org.apache.samza.job.model" />
         <subpackage name="model">
             <allow pkg="org.apache.samza.coordinator.stream.messages" />
 
@@ -86,6 +90,7 @@
 
         <allow class="org.apache.samza.Partition" />
         <allow class="org.apache.samza.SamzaException" />
+        <allow class="joptsimple.OptionSet" />
     </subpackage>
 
     <subpackage name="metrics">
@@ -188,9 +193,32 @@
         </subpackage>
     </subpackage>
 
+
     <subpackage name="manager">
         <allow pkg="org.apache.samza.coordinator.stream" />
         <allow class="org.apache.samza.container.TaskName" />
+    </subpackage>
+
+    <subpackage name="autoscaling">
+        <subpackage name="deployer">
+            <allow pkg="org.apache.samza.coordinator.stream" />
+            <allow pkg="org.apache.samza.util" />
+            <allow pkg="org.apache.samza.autoscaling.utils" />
+
+            <allow class="org.apache.samza.config.Config" />
+            <allow class="org.apache.samza.config.JobConfig" />
+            <allow class="org.apache.samza.container.SamzaContainer" />
+            <allow class="org.apache.samza.job.JobRunner" />
+            <allow class="org.apache.samza.job.model.ContainerModel" />
+            <allow class="org.apache.samza.metrics.MetricsRegistryMap" />
+            <allow class="org.apache.samza.system.SystemStreamPartitionIterator" />
+            <allow class="org.apache.hadoop.yarn.exceptions.YarnException" />
+            <allow class="joptsimple.OptionSet" />
+        </subpackage>
+        <subpackage name="utils">
+            <allow pkg="org.apache.hadoop.yarn" />
+            <allow pkg="org.apache.http" />
+        </subpackage>
     </subpackage>
 
 </import-control>

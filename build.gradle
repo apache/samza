@@ -159,6 +159,38 @@ project(":samza-core_$scalaVersion") {
   }
 }
 
+project(":samza-autoscaling_$scalaVersion") {
+  apply plugin: 'scala'
+  apply plugin: 'checkstyle'
+
+
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaVersion")
+    compile "org.scala-lang:scala-library:$scalaLibVersion"
+    compile "org.slf4j:slf4j-api:$slf4jVersion"
+    compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
+    compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
+    compile "org.eclipse.jetty:jetty-webapp:$jettyVersion"
+    compile("org.apache.hadoop:hadoop-yarn-client:$yarnVersion") {
+      exclude module: 'slf4j-log4j12'
+      exclude module: 'servlet-api'
+    }
+    compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
+      exclude module: 'slf4j-log4j12'
+      exclude module: 'servlet-api'
+    }
+    compile "org.apache.httpcomponents:httpclient:$httpClientVersion"
+    testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+  }
+
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+  }
+}
+
 project(':samza-elasticsearch') {
   apply plugin: 'java'
 
