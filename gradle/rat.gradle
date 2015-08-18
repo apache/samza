@@ -103,9 +103,9 @@ class RatTask extends DefaultTask {
       reportDir.mkdirs()
     }
     generateXmlReport(reportDir)
-    printUnknownFiles()
     generateHtmlReport()
     generateTextReport()
+    printUnknownFiles()
   }
 }
 
