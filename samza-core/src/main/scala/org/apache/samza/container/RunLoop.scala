@@ -19,10 +19,9 @@
 
 package org.apache.samza.container
 
-import org.apache.samza.util.Logging
-import org.apache.samza.system.{ SystemStreamPartition, SystemConsumers }
+import org.apache.samza.system.{SystemConsumers, SystemStreamPartition}
 import org.apache.samza.task.ReadableCoordinator
-import org.apache.samza.util.TimerUtils
+import org.apache.samza.util.{Logging, TimerUtils}
 
 /**
  * Each {@link SamzaContainer} uses a single-threaded execution model: activities for
@@ -39,12 +38,13 @@ class RunLoop(
   val metrics: SamzaContainerMetrics,
   val windowMs: Long = -1,
   val commitMs: Long = 60000,
-  val clock: () => Long = { System.currentTimeMillis },
+  val clock: () => Long = { System.nanoTime },
   val shutdownMs: Long = 5000) extends Runnable with TimerUtils with Logging {
 
-  private var lastWindowMs = clock()
-  private var lastCommitMs = clock()
-  private var activeMs = 0L
+  private val metricsMsOffset = 1000000L
+  private var lastWindowNs = clock()
+  private var lastCommitNs = clock()
+  private var activeNs = 0L
   private var taskShutdownRequests: Set[TaskName] = Set()
   private var taskCommitRequests: Set[TaskName] = Set()
   @volatile private var shutdownNow = false
@@ -67,13 +67,13 @@ class RunLoop(
     addShutdownHook(Thread.currentThread())
 
     while (!shutdownNow) {
-      val loopStartTime = clock();
+      val loopStartTime = clock()
       process
       window
       commit
-      val totalMs = clock() - loopStartTime
-      metrics.utilization.set(activeMs.toFloat/totalMs)
-      activeMs = 0L
+      val totalNs = clock() - loopStartTime
+      metrics.utilization.set(activeNs.toFloat/totalNs)
+      activeNs = 0L
     }
   }
 
@@ -100,8 +100,8 @@ class RunLoop(
     trace("Attempting to choose a message to process.")
     metrics.processes.inc
 
-    activeMs += updateTimerAndGetDuration(metrics.processMs) {
-      val envelope = updateTimer(metrics.chooseMs) {
+    activeNs += updateTimerAndGetDuration(metrics.processNs) ((currentTimeNs: Long) => {
+      val envelope = updateTimer(metrics.chooseNs) {
         consumerMultiplexer.choose
       }
 
@@ -120,17 +120,17 @@ class RunLoop(
         trace("No incoming message envelope was available.")
         metrics.nullEnvelopes.inc
       }
-    }
+    })
   }
 
   /**
    * Invokes WindowableTask.window on all tasks if it's time to do so.
    */
   private def window {
-    activeMs += updateTimerAndGetDuration(metrics.windowMs) {
-      if (windowMs >= 0 && lastWindowMs + windowMs < clock()) {
+    activeNs += updateTimerAndGetDuration(metrics.windowNs) ((currentTimeNs: Long) => {
+      if (windowMs >= 0 && lastWindowNs + windowMs * metricsMsOffset < currentTimeNs) {
         trace("Windowing stream tasks.")
-        lastWindowMs = clock()
+        lastWindowNs = currentTimeNs
         metrics.windows.inc
 
         taskInstances.foreach {
@@ -140,17 +140,17 @@ class RunLoop(
             checkCoordinator(coordinator)
         }
       }
-    }
+    })
   }
 
   /**
    * Commits task state as a a checkpoint, if necessary.
    */
   private def commit {
-    activeMs += updateTimerAndGetDuration(metrics.commitMs) {
-      if (commitMs >= 0 && lastCommitMs + commitMs < clock()) {
+    activeNs += updateTimerAndGetDuration(metrics.commitNs) ((currentTimeNs: Long) => {
+      if (commitMs >= 0 && lastCommitNs + commitMs * metricsMsOffset < currentTimeNs) {
         trace("Committing task instances because the commit interval has elapsed.")
-        lastCommitMs = clock()
+        lastCommitNs = currentTimeNs
         metrics.commits.inc
         taskInstances.values.foreach(_.commit)
       } else if (!taskCommitRequests.isEmpty) {
@@ -162,7 +162,7 @@ class RunLoop(
       }
 
       taskCommitRequests = Set()
-    }
+    })
   }
 
   /**

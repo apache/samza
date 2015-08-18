@@ -19,13 +19,7 @@
 
 package org.apache.samza.system.kafka
 
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.metrics.ReadableMetricsRegistry
-import org.apache.samza.system.SystemStream
-import org.apache.samza.metrics.MetricsHelper
-import org.apache.samza.Partition
-import org.apache.samza.metrics.Gauge
-import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.metrics.{MetricsHelper, MetricsRegistry, MetricsRegistryMap}
 
 class KafkaSystemProducerMetrics(val systemName: String = "unknown", val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
   /* Tracks the number of calls made to send in KafkaSystemProducer */
@@ -33,7 +27,7 @@ class KafkaSystemProducerMetrics(val systemName: String = "unknown", val registr
   /* Tracks the number of calls made to flush in KafkaSystemProducer */
   val flushes = newCounter("flushes")
   /* Tracks how long the flush call takes to complete */
-  val flushMs = newTimer("flush-ms")
+  val flushNs = newTimer("flush-ns")
   /* Tracks the number of times the system producer retries a send request (due to RetriableException) */
   val retries = newCounter("producer-retries")
   /* Tracks the number of times flush operation failed */

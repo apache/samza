@@ -40,7 +40,7 @@ class KafkaSystemProducer(systemName: String,
                           retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
                           getProducer: () => Producer[Array[Byte], Array[Byte]],
                           metrics: KafkaSystemProducerMetrics,
-                          val clock: () => Long = () => System.currentTimeMillis) extends SystemProducer with Logging with TimerUtils
+                          val clock: () => Long = () => System.nanoTime) extends SystemProducer with Logging with TimerUtils
 {
   var producer: Producer[Array[Byte], Array[Byte]] = null
   val latestFuture: javaMap[String, Future[RecordMetadata]] = new util.HashMap[String, Future[RecordMetadata]]()
@@ -132,7 +132,7 @@ class KafkaSystemProducer(systemName: String,
   }
 
   def flush(source: String) {
-    updateTimer(metrics.flushMs) {
+    updateTimer(metrics.flushNs) {
       metrics.flushes.inc
       //if latestFuture is null, it probably means that there has been no calls to "send" messages
       //Hence, nothing to do in flush

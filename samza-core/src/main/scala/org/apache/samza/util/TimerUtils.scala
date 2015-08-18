@@ -40,14 +40,15 @@ trait TimerUtils {
   }
 
   /**
-   * A helper method to update the {@link org.apache.samza.metrics.Timer} metric.
+   * A helper method to update the {@link org.apache.samza.metrics.Timer} metrics.
    * It accepts a {@link org.apache.samza.metrics.Timer} instance and a code block
-   * with no return value. It updates the Timer instance with the duration of
+   * with no return value. It passes one Long parameter to code block that contains
+   * current time in nanoseconds. It updates the Timer instance with the duration of
    * running code block and returns the same duration.
    */
-  def updateTimerAndGetDuration(timer: Timer)(runCodeBlock: => Unit): Long = {
+  def updateTimerAndGetDuration(timer: Timer)(runCodeBlock: Long => Unit): Long = {
     val startingTime = clock()
-    runCodeBlock
+    runCodeBlock(startingTime)
     val duration = clock() - startingTime
     timer.update(duration)
     duration
