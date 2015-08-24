@@ -84,6 +84,8 @@ class ExponentialSleepStrategy(
       } catch {
         case e: InterruptedException       => throw e
         case e: ClosedByInterruptException => throw e
+        case e: OutOfMemoryError           => throw e
+        case e: StackOverflowError         => throw e
         case e: Exception                  => onException(e, loop)
       }
       if (!loop.isDone && !Thread.currentThread.isInterrupted) loop.sleep
