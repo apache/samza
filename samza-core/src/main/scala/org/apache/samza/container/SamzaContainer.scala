@@ -335,8 +335,8 @@ object SamzaContainer extends Logging {
 
     info("Got checkpoint manager: %s" format checkpointManager)
 
-    val combinedOffsets: Map[SystemStreamPartition, String] =
-      containerModel.getTasks.values().flatMap(_.getCheckpointedOffsets).toMap
+    val combinedOffsets: Map[TaskName, Map[SystemStreamPartition, String]] =
+      containerModel.getTasks.map{case (taskName, taskModel) => taskName -> mapAsScalaMap(taskModel.getCheckpointedOffsets).toMap }.toMap
 
     val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, systemAdmins, offsetManagerMetrics, combinedOffsets)
 
@@ -508,6 +508,7 @@ object SamzaContainer extends Logging {
         taskName = taskName,
         config = config,
         metrics = taskInstanceMetrics,
+        systemAdmins = systemAdmins,
         consumerMultiplexer = consumerMultiplexer,
         collector = collector,
         containerContext = containerContext,

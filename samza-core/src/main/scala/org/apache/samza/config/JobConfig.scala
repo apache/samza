@@ -19,10 +19,10 @@
 
 package org.apache.samza.config
 
-import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.util.Logging
+import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 
 object JobConfig {
   // job config constants

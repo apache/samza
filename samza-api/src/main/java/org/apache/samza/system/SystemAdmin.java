@@ -79,4 +79,14 @@ public interface SystemAdmin {
    */
   void createCoordinatorStream(String streamName);
 
+  /**
+   * Compare the two offsets. -1, 0, +1 means offset1 &lt; offset2,
+   * offset1 == offset2 and offset1 &gt; offset2 respectively. Return
+   * null if those two offsets are not comparable
+   *
+   * @param offset1
+   * @param offset2
+   * @return -1 if offset1 &lt; offset2; 0 if offset1 == offset2; 1 if offset1 &gt; offset2. Null if not comparable
+   */
+  Integer offsetComparator(String offset1, String offset2);
 }

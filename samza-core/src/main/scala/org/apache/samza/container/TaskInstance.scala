@@ -36,14 +36,15 @@ import org.apache.samza.task.StreamTask
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.task.TaskInstanceCollector
 import org.apache.samza.util.Logging
-
 import scala.collection.JavaConversions._
+import org.apache.samza.system.SystemAdmin
 
 class TaskInstance(
   task: StreamTask,
   val taskName: TaskName,
   config: Config,
   metrics: TaskInstanceMetrics,
+  systemAdmins: Map[String, SystemAdmin],
   consumerMultiplexer: SystemConsumers,
   collector: TaskInstanceCollector,
   containerContext: SamzaContainerContext,
@@ -69,9 +70,15 @@ class TaskInstance(
     def getSamzaContainerContext = containerContext
 
     override def setStartingOffset(ssp: SystemStreamPartition, offset: String): Unit = {
-      offsetManager.startingOffsets += (ssp -> offset)
+      val startingOffsets = offsetManager.startingOffsets
+      offsetManager.startingOffsets += taskName -> (startingOffsets(taskName) + (ssp -> offset))
     }
   }
+  // store the (ssp -> if this ssp is catched up) mapping. "catched up"
+  // means the same ssp in other taskInstances have the same offset as
+  // the one here.
+  var ssp2catchedupMapping: scala.collection.mutable.Map[SystemStreamPartition, Boolean] = scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
+  systemStreamPartitions.foreach(ssp2catchedupMapping += _ -> false)
 
   def registerMetrics {
     debug("Registering metrics for taskName: %s" format taskName)
@@ -115,13 +122,13 @@ class TaskInstance(
     debug("Registering consumers for taskName: %s" format taskName)
 
     systemStreamPartitions.foreach(systemStreamPartition => {
-      val offset = offsetManager.getStartingOffset(systemStreamPartition)
-        .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format systemStreamPartition))
+      val offset = offsetManager.getStartingOffset(taskName, systemStreamPartition)
+      .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format systemStreamPartition))
       consumerMultiplexer.register(systemStreamPartition, offset)
       metrics.addOffsetGauge(systemStreamPartition, () => {
         offsetManager
-          .getLastProcessedOffset(systemStreamPartition)
-          .getOrElse(null)
+          .getLastProcessedOffset(taskName, systemStreamPartition)
+          .orNull
       })
     })
   }
@@ -129,15 +136,24 @@ class TaskInstance(
   def process(envelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator) {
     metrics.processes.inc
 
-    trace("Processing incoming message envelope for taskName and SSP: %s, %s" format (taskName, envelope.getSystemStreamPartition))
-
-    exceptionHandler.maybeHandle {
-      task.process(envelope, collector, coordinator)
+    if (!ssp2catchedupMapping.getOrElse(envelope.getSystemStreamPartition,
+      throw new SamzaException(envelope.getSystemStreamPartition + " is not registered!"))) {
+      checkCaughtUp(envelope)
     }
 
-    trace("Updating offset map for taskName, SSP and offset: %s, %s, %s" format (taskName, envelope.getSystemStreamPartition, envelope.getOffset))
+    if (ssp2catchedupMapping(envelope.getSystemStreamPartition)) {
+      metrics.messagesActuallyProcessed.inc
 
-    offsetManager.update(envelope.getSystemStreamPartition, envelope.getOffset)
+      trace("Processing incoming message envelope for taskName and SSP: %s, %s" format (taskName, envelope.getSystemStreamPartition))
+
+      exceptionHandler.maybeHandle {
+        task.process(envelope, collector, coordinator)
+      }
+
+      trace("Updating offset map for taskName, SSP and offset: %s, %s, %s" format (taskName, envelope.getSystemStreamPartition, envelope.getOffset))
+
+      offsetManager.update(taskName, envelope.getSystemStreamPartition, envelope.getOffset)
+    }
   }
 
   def window(coordinator: ReadableCoordinator) {
@@ -193,4 +209,35 @@ class TaskInstance(
   override def toString() = "TaskInstance for class %s and taskName %s." format (task.getClass.getName, taskName)
 
   def toDetailedString() = "TaskInstance [taskName = %s, windowable=%s, closable=%s]" format (taskName, isWindowableTask, isClosableTask)
+
+  /**
+   * From the envelope, check if this SSP has catched up with the starting offset of the SSP
+   * in this TaskInstance. If the offsets are not comparable, default to true, which means
+   * it's already catched-up.
+   */
+  private def checkCaughtUp(envelope: IncomingMessageEnvelope) = {
+    systemAdmins match {
+      case null => {
+        warn("systemAdmin is null. Set all SystemStreamPartitions to catched-up")
+        ssp2catchedupMapping(envelope.getSystemStreamPartition) = true
+      }
+      case others => {
+        val startingOffset = offsetManager.getStartingOffset(taskName, envelope.getSystemStreamPartition)
+            .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format envelope.getSystemStreamPartition))
+        val system = envelope.getSystemStreamPartition.getSystem
+        others(system).offsetComparator(envelope.getOffset, startingOffset) match {
+          case null => {
+            info("offsets in " + system + " is not comparable. Set all SystemStreamPartitions to catched-up")
+            ssp2catchedupMapping(envelope.getSystemStreamPartition) = true // not comparable
+          }
+          case result => {
+            if (result >= 0) {
+              info(envelope.getSystemStreamPartition.toString + " is catched up.")
+              ssp2catchedupMapping(envelope.getSystemStreamPartition) = true
+            }
+          }
+        }
+      }
+    }
+  }
 }

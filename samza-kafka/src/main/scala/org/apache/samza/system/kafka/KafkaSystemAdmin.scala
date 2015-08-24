@@ -25,11 +25,11 @@ import org.apache.samza.SamzaException
 import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemStreamMetadata
 import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, Logging}
+import org.apache.samza.util.{ ClientUtilTopicMetadataStore, ExponentialSleepStrategy, Logging }
 import kafka.api._
 import kafka.consumer.SimpleConsumer
-import kafka.common.{TopicExistsException, TopicAndPartition}
-import java.util.{Properties, UUID}
+import kafka.common.{ TopicExistsException, TopicAndPartition }
+import java.util.{ Properties, UUID }
 import scala.collection.JavaConversions._
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import kafka.consumer.ConsumerConfig
@@ -134,8 +134,7 @@ class KafkaSystemAdmin(
    * Replication factor for the Changelog topic in kafka
    * Kafka properties to be used during the Changelog topic creation
    */
-  topicMetaInformation: Map[String, ChangelogInfo] =  Map[String, ChangelogInfo]()
-  ) extends SystemAdmin with Logging {
+  topicMetaInformation: Map[String, ChangelogInfo] = Map[String, ChangelogInfo]()) extends SystemAdmin with Logging {
 
   import KafkaSystemAdmin._
 
@@ -322,7 +321,7 @@ class KafkaSystemAdmin(
   private def createTopicInKafka(topicName: String, numKafkaChangelogPartitions: Int) {
     val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy
     info("Attempting to create change log topic %s." format topicName)
-    info("Using partition count "+ numKafkaChangelogPartitions + " for creating change log topic")
+    info("Using partition count " + numKafkaChangelogPartitions + " for creating change log topic")
     val topicMetaInfo = topicMetaInformation.getOrElse(topicName, throw new KafkaChangelogException("Unable to find topic information for topic " + topicName))
     retryBackoff.run(
       loop => {
@@ -348,11 +347,10 @@ class KafkaSystemAdmin(
             info("Changelog topic %s already exists." format topicName)
             loop.done
           case e: Exception =>
-            warn("Failed to create topic %s: %s. Retrying." format(topicName, e))
+            warn("Failed to create topic %s: %s. Retrying." format (topicName, e))
             debug("Exception detail:", e)
         }
-      }
-    )
+      })
   }
 
   private def validateTopicInKafka(topicName: String, numKafkaChangelogPartitions: Int) {
@@ -367,7 +365,7 @@ class KafkaSystemAdmin(
 
         val partitionCount = topicMetadata.partitionsMetadata.length
         if (partitionCount < numKafkaChangelogPartitions) {
-          throw new KafkaChangelogException("Changelog topic validation failed for topic %s because partition count %s did not match expected partition count of %d" format(topicName, topicMetadata.partitionsMetadata.length, numKafkaChangelogPartitions))
+          throw new KafkaChangelogException("Changelog topic validation failed for topic %s because partition count %s did not match expected partition count of %d" format (topicName, topicMetadata.partitionsMetadata.length, numKafkaChangelogPartitions))
         }
 
         info("Successfully validated changelog topic %s." format topicName)
@@ -378,11 +376,10 @@ class KafkaSystemAdmin(
         exception match {
           case e: KafkaChangelogException => throw e
           case e: Exception =>
-            warn("While trying to validate topic %s: %s. Retrying." format(topicName, e))
+            warn("While trying to validate topic %s: %s. Retrying." format (topicName, e))
             debug("Exception detail:", e)
         }
-      }
-    )
+      })
   }
 
   /**
@@ -404,5 +401,16 @@ class KafkaSystemAdmin(
    */
   override def validateChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
     validateTopicInKafka(topicName, numKafkaChangelogPartitions)
+  }
+
+  /**
+   * Compare the two offsets. Returns x where x < 0 if offset1 < offset2;
+   * x == 0 if offset1 == offset2; x > 0 if offset1 > offset2.
+   *
+   * Currently it's used in the context of the broadcast streams to detect
+   * the mismatch between two streams when consuming the broadcast streams.
+   */
+  override def offsetComparator(offset1: String, offset2: String) = {
+    offset1.toLong compare offset2.toLong
   }
 }

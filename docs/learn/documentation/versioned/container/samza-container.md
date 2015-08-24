@@ -102,4 +102,14 @@ Thus, if you want two events in different streams to be processed by the same ta
 
 There is one caveat in all of this: Samza currently assumes that a stream's partition count will never change. Partition splitting or repartitioning is not supported. If an input stream has N partitions, it is expected that it has always had, and will always have N partitions. If you want to re-partition a stream, you can write a job that reads messages from the stream, and writes them out to a new stream with the required number of partitions. For example, you could read messages from PageViewEvent, and write them to PageViewEventRepartition.
 
+### Broadcast Streams
+
+After 0.10.0, Samza supports broadcast streams. You can assign partitions from some streams to all the tasks. For example, you want all the tasks can consume partition 0 and 1 from a stream called global-stream-1, and partition 2 from a stream called global-stream-2. You now can configure:
+
+{% highlight jproperties %}
+task.broadcast.inputs=yourSystem.broadcast-stream-1#[0-1], yourSystem.broadcast-stream-2#2 
+{% endhighlight %}
+
+If you use "[]", you are specifying a range.
+
 ## [Streams &raquo;](streams.html)

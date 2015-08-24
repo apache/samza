@@ -142,4 +142,8 @@ class FileReaderSystemAdmin extends SystemAdmin with Logging {
   def createCoordinatorStream(streamName: String) {
     throw new UnsupportedOperationException("Method not implemented.")
   }
+
+  override def offsetComparator(offset1: String , offset2: String) = {
+    null
+  }
 }

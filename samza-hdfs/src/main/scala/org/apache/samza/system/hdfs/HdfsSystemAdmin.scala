@@ -46,4 +46,7 @@ class HdfsSystemAdmin extends SystemAdmin with Logging {
     throw new UnsupportedOperationException("Method not implemented.")
   }
 
+  def offsetComparator(offset1: String, offset2: String) = {
+    throw new UnsupportedOperationException("Method not implemented.")
+  }
 }

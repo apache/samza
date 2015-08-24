@@ -33,6 +33,10 @@
 
     <subpackage name="config">
         <allow class="org.apache.samza.SamzaException" />
+        <allow pkg="org.apache.samza.system" />
+        <allow pkg="org.apache.samza.util" />
+
+        <allow class="org.apache.samza.Partition" />
     </subpackage>
 
     <subpackage name="serializers">
@@ -113,6 +117,8 @@
             <subpackage name="stream">
                 <allow pkg="org.apache.samza.container" />
                 <allow pkg="org.apache.samza.system" />
+
+                <allow class="org.apache.samza.Partition" />
             </subpackage>
 
             <subpackage name="task">

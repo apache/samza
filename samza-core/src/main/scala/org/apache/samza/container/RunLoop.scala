@@ -51,13 +51,16 @@ class RunLoop(
 
   // Messages come from the chooser with no connection to the TaskInstance they're bound for.
   // Keep a mapping of SystemStreamPartition to TaskInstance to efficiently route them.
-  val systemStreamPartitionToTaskInstance: Map[SystemStreamPartition, TaskInstance] = {
+  val systemStreamPartitionToTaskInstances = getSystemStreamPartitionToTaskInstancesMapping
+
+  def getSystemStreamPartitionToTaskInstancesMapping: Map[SystemStreamPartition, List[TaskInstance]] = {
     // We could just pass in the SystemStreamPartitionMap during construction, but it's safer and cleaner to derive the information directly
     def getSystemStreamPartitionToTaskInstance(taskInstance: TaskInstance) = taskInstance.systemStreamPartitions.map(_ -> taskInstance).toMap
 
-    taskInstances.values.map { getSystemStreamPartitionToTaskInstance }.flatten.toMap
+    taskInstances.values.map { getSystemStreamPartitionToTaskInstance }.flatten.groupBy(_._1).map {
+      case (ssp, ssp2taskInstance) => ssp -> ssp2taskInstance.map(_._2).toList
+    }
   }
-
 
   /**
    * Starts the run loop. Blocks until either the tasks request shutdown, or an
@@ -111,11 +114,15 @@ class RunLoop(
         trace("Processing incoming message envelope for SSP %s." format ssp)
         metrics.envelopes.inc
 
-        val taskInstance = systemStreamPartitionToTaskInstance(ssp)
-        val coordinator = new ReadableCoordinator(taskInstance.taskName)
-
-        taskInstance.process(envelope, coordinator)
-        checkCoordinator(coordinator)
+        val taskInstances = systemStreamPartitionToTaskInstances(ssp)
+        taskInstances.foreach {
+          taskInstance =>
+            {
+              val coordinator = new ReadableCoordinator(taskInstance.taskName)
+              taskInstance.process(envelope, coordinator)
+              checkCoordinator(coordinator)
+            }
+        }
       } else {
         trace("No incoming message envelope was available.")
         metrics.nullEnvelopes.inc

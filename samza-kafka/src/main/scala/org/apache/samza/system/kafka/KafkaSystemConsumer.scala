@@ -40,6 +40,7 @@ import kafka.api.TopicMetadata
 import org.apache.samza.util.ExponentialSleepStrategy
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.JavaConversions._
+import org.apache.samza.system.SystemAdmin
 
 object KafkaSystemConsumer {
   def toTopicAndPartition(systemStreamPartition: SystemStreamPartition) = {
@@ -55,6 +56,7 @@ object KafkaSystemConsumer {
  */
 private[kafka] class KafkaSystemConsumer(
   systemName: String,
+  systemAdmin: SystemAdmin,
   metrics: KafkaSystemConsumerMetrics,
   metadataStore: TopicMetadataStore,
   clientId: String = "undefined-client-id-%s" format UUID.randomUUID.toString,
@@ -102,7 +104,12 @@ private[kafka] class KafkaSystemConsumer(
   override def register(systemStreamPartition: SystemStreamPartition, offset: String) {
     super.register(systemStreamPartition, offset)
 
-    topicPartitionsAndOffsets += KafkaSystemConsumer.toTopicAndPartition(systemStreamPartition) -> offset
+    val topicAndPartition = KafkaSystemConsumer.toTopicAndPartition(systemStreamPartition)
+    val existingOffset = topicPartitionsAndOffsets.getOrElseUpdate(topicAndPartition, offset)
+    // register the older offset in the consumer
+    if (systemAdmin.offsetComparator(existingOffset, offset) >= 0) {
+      topicPartitionsAndOffsets.replace(topicAndPartition, offset)
+    }
 
     metrics.registerTopicAndPartition(KafkaSystemConsumer.toTopicAndPartition(systemStreamPartition))
   }

@@ -81,4 +81,8 @@ public class SinglePartitionWithoutOffsetsSystemAdmin implements SystemAdmin {
     throw new UnsupportedOperationException("Single partition admin can't create coordinator streams.");
   }
 
+  @Override
+  public Integer offsetComparator(String offset1, String offset2) {
+    return null;
+  }
 }

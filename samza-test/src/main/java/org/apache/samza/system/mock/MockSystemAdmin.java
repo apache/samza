@@ -79,4 +79,9 @@ public class MockSystemAdmin implements SystemAdmin {
   public void createCoordinatorStream(String streamName) {
     throw new UnsupportedOperationException("Method not implemented.");
   }
+
+  @Override
+  public Integer offsetComparator(String offset1, String offset2) {
+    return null;
+  }
 }

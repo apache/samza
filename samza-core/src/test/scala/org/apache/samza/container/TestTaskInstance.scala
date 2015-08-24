@@ -20,7 +20,6 @@
 package org.apache.samza.container
 
 import java.util.concurrent.ConcurrentHashMap
-
 import org.apache.samza.SamzaException
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.OffsetManager
@@ -44,8 +43,9 @@ import org.apache.samza.task._
 import org.junit.Assert._
 import org.junit.Test
 import org.scalatest.Assertions.intercept
-
 import scala.collection.JavaConversions._
+import org.apache.samza.system.SystemAdmin
+import scala.collection.mutable.ListBuffer
 
 class TestTaskInstance {
   @Test
@@ -64,6 +64,7 @@ class TestTaskInstance {
       new SerdeManager)
     val systemStream = new SystemStream("test-system", "test-stream")
     val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+    val systemStreamPartitions = Set(systemStreamPartition)
     // Pretend our last checkpointed (next) offset was 2.
     val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
     val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
@@ -75,15 +76,17 @@ class TestTaskInstance {
       taskName,
       config,
       new TaskInstanceMetrics,
+      null,
       consumerMultiplexer,
       collector,
       containerContext,
-      offsetManager)
+      offsetManager,
+      systemStreamPartitions = systemStreamPartitions)
     // Pretend we got a message with offset 2 and next offset 3.
     val coordinator = new ReadableCoordinator(taskName)
     taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "2", null, null), coordinator)
     // Check to see if the offset manager has been properly updated with offset 3.
-    val lastProcessedOffset = offsetManager.getLastProcessedOffset(systemStreamPartition)
+    val lastProcessedOffset = offsetManager.getLastProcessedOffset(taskName, systemStreamPartition)
     assertTrue(lastProcessedOffset.isDefined)
     assertEquals("2", lastProcessedOffset.get)
   }
@@ -156,6 +159,7 @@ class TestTaskInstance {
       new SerdeManager)
     val systemStream = new SystemStream("test-system", "test-stream")
     val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+    val systemStreamPartitions = Set(systemStreamPartition)
     // Pretend our last checkpointed (next) offset was 2.
     val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
     val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
@@ -170,10 +174,12 @@ class TestTaskInstance {
       taskName,
       config,
       taskMetrics,
+      null,
       consumerMultiplexer,
       collector,
       containerContext,
       offsetManager,
+      systemStreamPartitions = systemStreamPartitions,
       exceptionHandler = TaskInstanceExceptionHandler(taskMetrics, config))
 
     val coordinator = new ReadableCoordinator(taskName)
@@ -210,6 +216,7 @@ class TestTaskInstance {
       new SerdeManager)
     val systemStream = new SystemStream("test-system", "test-stream")
     val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+    val systemStreamPartitions = Set(systemStreamPartition)
     // Pretend our last checkpointed (next) offset was 2.
     val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
     val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
@@ -224,10 +231,12 @@ class TestTaskInstance {
       taskName,
       config,
       taskMetrics,
+      null,
       consumerMultiplexer,
       collector,
       containerContext,
       offsetManager,
+      systemStreamPartitions = systemStreamPartitions,
       exceptionHandler = TaskInstanceExceptionHandler(taskMetrics, config))
 
     val coordinator = new ReadableCoordinator(taskName)
@@ -241,7 +250,6 @@ class TestTaskInstance {
     assertEquals(2L, getCount(group, classOf[NonFatalException].getName))
     assertEquals(1L, getCount(group, classOf[FatalException].getName))
   }
-
 
   /**
    * Tests that the init() method of task can override the existing offset
@@ -258,8 +266,7 @@ class TestTaskInstance {
       override def init(config: Config, context: TaskContext): Unit = {
 
         assertTrue("Can only update offsets for assigned partition",
-          context.getSystemStreamPartitions.contains(partition1)
-        )
+          context.getSystemStreamPartitions.contains(partition1))
 
         context.setStartingOffset(partition1, "10")
       }
@@ -278,22 +285,85 @@ class TestTaskInstance {
 
     val offsetManager = new OffsetManager()
 
-    offsetManager.startingOffsets ++= Map(partition0 -> "0", partition1 -> "0")
+    offsetManager.startingOffsets += taskName -> Map(partition0 -> "0", partition1 -> "0")
 
     val taskInstance = new TaskInstance(
       task,
       taskName,
       config,
       metrics,
+      null,
       consumers,
       collector,
       containerContext,
       offsetManager,
-      systemStreamPartitions = Set(partition0, partition1) )
+      systemStreamPartitions = Set(partition0, partition1))
 
     taskInstance.initTask
 
-    assertEquals(Some("0"), offsetManager.getStartingOffset(partition0))
-    assertEquals(Some("10"), offsetManager.getStartingOffset(partition1))
+    assertEquals(Some("0"), offsetManager.getStartingOffset(taskName, partition0))
+    assertEquals(Some("10"), offsetManager.getStartingOffset(taskName, partition1))
+  }
+
+  @Test
+  def testIgnoreMessagesOlderThanStartingOffsets {
+    val partition0 = new SystemStreamPartition("system", "stream", new Partition(0))
+    val partition1 = new SystemStreamPartition("system", "stream", new Partition(1))
+    val config = new MapConfig()
+    val chooser = new RoundRobinChooser()
+    val consumers = new SystemConsumers(chooser, consumers = Map.empty)
+    val producers = new SystemProducers(Map.empty, new SerdeManager())
+    val metrics = new TaskInstanceMetrics()
+    val taskName = new TaskName("testing")
+    val collector = new TaskInstanceCollector(producers)
+    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
+    val offsetManager = new OffsetManager()
+    offsetManager.startingOffsets += taskName -> Map(partition0 -> "0", partition1 -> "100")
+    val systemAdmins = Map("system" -> new MockSystemAdmin)
+    var result = new ListBuffer[IncomingMessageEnvelope]
+
+    val task = new StreamTask {
+      def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
+        result += envelope
+      }
+    }
+
+    val taskInstance = new TaskInstance(
+      task,
+      taskName,
+      config,
+      metrics,
+      systemAdmins,
+      consumers,
+      collector,
+      containerContext,
+      offsetManager,
+      systemStreamPartitions = Set(partition0, partition1))
+
+    val coordinator = new ReadableCoordinator(taskName)
+    val envelope1 = new IncomingMessageEnvelope(partition0, "1", null, null)
+    val envelope2 = new IncomingMessageEnvelope(partition0, "2", null, null)
+    val envelope3 = new IncomingMessageEnvelope(partition1, "1", null, null)
+    val envelope4 = new IncomingMessageEnvelope(partition1, "102", null, null)
+
+    taskInstance.process(envelope1, coordinator)
+    taskInstance.process(envelope2, coordinator)
+    taskInstance.process(envelope3, coordinator)
+    taskInstance.process(envelope4, coordinator)
+
+    val expected = List(envelope1, envelope2, envelope4)
+    assertEquals(expected, result.toList)
+  }
+}
+
+class MockSystemAdmin extends SystemAdmin {
+  override def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = { offsets }
+  override def getSystemStreamMetadata(streamNames: java.util.Set[String]) = null
+  override def createCoordinatorStream(stream: String) = {}
+  override def createChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {}
+  override def validateChangelogStream(topicName: String, numOfPartitions: Int) = {}
+
+  override def offsetComparator(offset1: String, offset2: String) = {
+    offset1.toLong compare offset2.toLong
   }
 }

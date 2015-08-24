@@ -274,4 +274,6 @@ class MockSystemAdmin extends SystemAdmin {
   override def createCoordinatorStream(streamName: String) {
     new UnsupportedOperationException("Method not implemented.")
   }
+  
+  override def offsetComparator(offset1: String, offset2: String) = null
 }

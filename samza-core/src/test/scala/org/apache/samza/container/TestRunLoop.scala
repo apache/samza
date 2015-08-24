@@ -20,6 +20,7 @@
 package org.apache.samza.container
 
 import org.junit.Test
+import org.junit.Assert._
 import org.mockito.Matchers
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -242,5 +243,20 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
     // as commit and window should not be called immediately on startup
     testMetrics.commits.getCount should equal(1L)
     testMetrics.windows.getCount should equal(1L)
+  }
+
+  @Test
+  def testGetSystemStreamPartitionToTaskInstancesMapping {
+    val ti0 = mock[TaskInstance]
+    val ti1 = mock[TaskInstance]
+    val ti2 = mock[TaskInstance]
+    when(ti0.systemStreamPartitions).thenReturn(Set(ssp0))
+    when(ti1.systemStreamPartitions).thenReturn(Set(ssp1))
+    when(ti2.systemStreamPartitions).thenReturn(Set(ssp1))
+
+    val mockTaskInstances = Map(taskName0 -> ti0, taskName1 -> ti1, new TaskName("2") -> ti2)
+    val runLoop = new RunLoop(mockTaskInstances, null, new SamzaContainerMetrics)
+    val expected = Map(ssp0 -> List(ti0), ssp1 -> List(ti1, ti2))
+    assertEquals(expected, runLoop.getSystemStreamPartitionToTaskInstancesMapping)
   }
 }

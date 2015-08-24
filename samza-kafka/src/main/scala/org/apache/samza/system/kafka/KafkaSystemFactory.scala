@@ -64,6 +64,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
     new KafkaSystemConsumer(
       systemName = systemName,
+      systemAdmin = getAdmin(systemName, config),
       metrics = metrics,
       metadataStore = metadataStore,
       clientId = clientId,

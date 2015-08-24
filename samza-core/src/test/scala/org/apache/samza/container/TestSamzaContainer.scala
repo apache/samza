@@ -152,6 +152,7 @@ class TestSamzaContainer extends AssertionsForJUnit {
       taskName,
       config,
       new TaskInstanceMetrics,
+      null,
       consumerMultiplexer,
       collector,
       containerContext
