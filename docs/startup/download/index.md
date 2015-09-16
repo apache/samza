@@ -29,8 +29,8 @@ Starting in June of 2015, Samza will begin requiring JDK7 or higher. Please see 
 
 ### Source Releases
 
- * [samza-sources-0.9.1.tgz](http://www.apache.org/dyn/closer.cgi/samza/0.9.1)
- * [samza-sources-0.9.0.tgz](http://www.apache.org/dyn/closer.cgi/samza/0.9.0)
+ * [samza-sources-0.9.1.tgz](http://www.apache.org/dyn/closer.lua/samza/0.9.1)
+ * [samza-sources-0.9.0.tgz](http://www.apache.org/dyn/closer.lua/samza/0.9.0)
  * [samza-sources-0.8.0-incubating.tgz](https://archive.apache.org/dist/incubator/samza/0.8.0-incubating)
  * [samza-sources-0.7.0-incubating.tgz](https://archive.apache.org/dist/incubator/samza/0.7.0-incubating)
 
