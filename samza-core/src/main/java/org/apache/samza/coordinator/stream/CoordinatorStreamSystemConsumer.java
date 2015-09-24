@@ -127,6 +127,7 @@ public class CoordinatorStreamSystemConsumer {
   public void stop() {
     log.info("Stopping coordinator stream system consumer.");
     systemConsumer.stop();
+    isStarted = false;
   }
 
   /**

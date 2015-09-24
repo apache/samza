@@ -29,9 +29,11 @@ import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin;
 import org.apache.samza.util.Util;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -115,7 +117,7 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
 
     public MockSystemProducer(String expectedSource) {
       this.expectedSource = expectedSource;
-      this.envelopes = new ArrayList<OutgoingMessageEnvelope>();
+      this.envelopes = new ArrayList<>();
     }
 
 
@@ -132,7 +134,18 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
     }
 
     public void send(String source, OutgoingMessageEnvelope envelope) {
-      envelopes.add(envelope);
+      if (mockConsumer != null) {
+        MockCoordinatorStreamWrappedConsumer consumer = (MockCoordinatorStreamWrappedConsumer) mockConsumer;
+        SystemStreamPartition ssp = new SystemStreamPartition(envelope.getSystemStream(), new Partition(0));
+        consumer.register(ssp, "");
+        try {
+          consumer.addMessageEnvelope(new IncomingMessageEnvelope(ssp, "", envelope.getKey(), envelope.getMessage()));
+        } catch (IOException | InterruptedException e) {
+          e.printStackTrace();
+        }
+      } else {
+        envelopes.add(envelope);
+      }
     }
 
     public void flush(String source) {

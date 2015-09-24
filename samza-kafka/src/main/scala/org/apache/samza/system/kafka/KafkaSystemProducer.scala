@@ -55,6 +55,7 @@ class KafkaSystemProducer(systemName: String,
     if (producer != null) {
       latestFuture.keys.foreach(flush(_))
       producer.close
+      producer = null
     }
   }
 

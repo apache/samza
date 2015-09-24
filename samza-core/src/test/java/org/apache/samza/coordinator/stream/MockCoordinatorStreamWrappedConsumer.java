@@ -19,6 +19,7 @@
 
 package org.apache.samza.coordinator.stream;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +68,10 @@ public class MockCoordinatorStreamWrappedConsumer extends BlockingEnvelopeMap {
     convertConfigToCoordinatorMessage(config);
   }
 
+  public void addMessageEnvelope(IncomingMessageEnvelope envelope) throws IOException, InterruptedException {
+    put(systemStreamPartition, envelope);
+    setIsAtHead(systemStreamPartition, true);
+  }
 
   private void convertConfigToCoordinatorMessage(Config config) {
     try {

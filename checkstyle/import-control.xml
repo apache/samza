@@ -52,6 +52,10 @@
         </subpackage>
     </subpackage>
 
+    <subpackage name="migration">
+        <allow pkg="org.apache.samza.config" />
+    </subpackage>
+
     <subpackage name="job">
         <allow pkg="org.apache.samza.config" />
         <allow pkg="org.apache.samza.coordinator.stream" />

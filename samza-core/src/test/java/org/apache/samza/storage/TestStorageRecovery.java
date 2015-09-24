@@ -35,6 +35,7 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import org.apache.samza.system.SystemStreamPartition;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -70,8 +71,15 @@ public class TestStorageRecovery {
     when(systemAdmin.getSystemStreamMetadata(set2)).thenReturn(ssmMap);
   }
 
+  @After
+  public void teardown() {
+    MockCoordinatorStreamSystemFactory.disableMockConsumerCache();
+  }
+
   @Test
   public void testStorageEngineReceivedAllValues() {
+    MockCoordinatorStreamSystemFactory.enableMockConsumerCache();
+
     String path = "/tmp/testing";
     StorageRecovery storageRecovery = new StorageRecovery(config, path);
     storageRecovery.run();
