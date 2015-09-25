@@ -36,7 +36,7 @@ COMMAND=$1
 SYSTEM=$2
 
 DOWNLOAD_KAFKA=http://www.us.apache.org/dist/kafka/0.8.2.1/kafka_2.10-0.8.2.1.tgz
-DOWNLOAD_YARN=https://archive.apache.org/dist/hadoop/common/hadoop-2.4.0/hadoop-2.4.0.tar.gz
+DOWNLOAD_YARN=https://archive.apache.org/dist/hadoop/common/hadoop-2.6.0/hadoop-2.6.0.tar.gz
 DOWNLOAD_ZOOKEEPER=http://archive.apache.org/dist/zookeeper/zookeeper-3.4.3/zookeeper-3.4.3.tar.gz
 
 bootstrap() {
@@ -80,7 +80,7 @@ install_zookeeper() {
 
 install_yarn() {
   mkdir -p "$DEPLOY_ROOT_DIR"
-  install yarn $DOWNLOAD_YARN hadoop-2.4.0
+  install yarn $DOWNLOAD_YARN hadoop-2.6.0
   cp "$BASE_DIR/conf/yarn-site.xml" "$DEPLOY_ROOT_DIR/yarn/etc/hadoop/yarn-site.xml"
   if [ ! -f "$HOME/.samza/conf/yarn-site.xml" ]; then
     mkdir -p "$HOME/.samza/conf"
