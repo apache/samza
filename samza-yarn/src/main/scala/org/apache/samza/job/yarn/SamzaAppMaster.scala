@@ -31,9 +31,6 @@ import org.apache.samza.config.Config
 import org.apache.samza.config.ShellCommandConfig
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.YarnConfig
-import org.apache.samza.config.YarnConfig.Config2Yarn
-import org.apache.samza.job.yarn.SamzaAppMasterTaskManager.DEFAULT_CONTAINER_MEM
-import org.apache.samza.job.yarn.SamzaAppMasterTaskManager.DEFAULT_CPU_CORES
 import org.apache.samza.metrics.JmxServer
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.util.hadoop.HttpFileSystem
@@ -76,21 +73,23 @@ object SamzaAppMaster extends Logging with AMRMClientAsync.CallbackHandler {
     val registry = new MetricsRegistryMap
     val jobCoordinator = JobCoordinator(coordinatorSystemConfig, registry)
     val config = jobCoordinator.jobModel.getConfig
+    val yarnConfig = new YarnConfig(config)
     info("got config: %s" format coordinatorSystemConfig)
     putMDC("jobName", config.getName.getOrElse(throw new SamzaException("can not find the job name")))
     putMDC("jobId", config.getJobId.getOrElse("1"))
     val hConfig = new YarnConfiguration
     hConfig.set("fs.http.impl", classOf[HttpFileSystem].getName)
-    val interval = config.getAMPollIntervalMs.getOrElse(DEFAULT_POLL_INTERVAL_MS)
+    val interval = yarnConfig.getAMPollIntervalMs
     val amClient = AMRMClientAsync.createAMRMClientAsync[ContainerRequest](interval, this)
     val clientHelper = new ClientHelper(hConfig)
-    val containerMem = config.getContainerMaxMemoryMb.getOrElse(DEFAULT_CONTAINER_MEM)
-    val containerCpu = config.getContainerMaxCpuCores.getOrElse(DEFAULT_CPU_CORES)
-    val jmxServer = if (new YarnConfig(config).getJmxServerEnabled) Some(new JmxServer()) else None
+    val containerMem = yarnConfig.getContainerMaxMemoryMb
+    val containerCpu = yarnConfig.getContainerMaxCpuCores
+    val jmxServer = if (yarnConfig.getJmxServerEnabled) Some(new JmxServer()) else None
 
     try {
       // wire up all of the yarn event listeners
-      val state = new SamzaAppMasterState(jobCoordinator, -1, containerId, nodeHostString, nodePortString.toInt, nodeHttpPortString.toInt)
+      val state = new SamzaAppState(jobCoordinator, -1, containerId, nodeHostString, nodePortString.toInt, nodeHttpPortString.toInt)
+
       if (jmxServer.isDefined) {
         state.jmxUrl = jmxServer.get.getJmxUrl
         state.jmxTunnelingUrl = jmxServer.get.getTunnelingJmxUrl
@@ -99,8 +98,9 @@ object SamzaAppMaster extends Logging with AMRMClientAsync.CallbackHandler {
       val service = new SamzaAppMasterService(config, state, registry, clientHelper)
       val lifecycle = new SamzaAppMasterLifecycle(containerMem, containerCpu, state, amClient)
       val metrics = new SamzaAppMasterMetrics(config, state, registry)
-      val am = new SamzaAppMasterTaskManager({ System.currentTimeMillis }, config, state, amClient, hConfig)
-      listeners = List(state, service, lifecycle, metrics, am)
+      val taskManager = new SamzaTaskManager(config, state, amClient, hConfig)
+
+      listeners =  List(service, lifecycle, metrics, taskManager)
       run(amClient, listeners, hConfig, interval)
     } finally {
       // jmxServer has to be stopped or will prevent process from exiting.

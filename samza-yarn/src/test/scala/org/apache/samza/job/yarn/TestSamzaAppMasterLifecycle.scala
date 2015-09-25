@@ -19,9 +19,7 @@
 
 package org.apache.samza.job.yarn
 
-import java.net.URL
 import java.nio.ByteBuffer
-import java.util
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse
@@ -32,10 +30,11 @@ import org.apache.hadoop.yarn.client.api.async.impl.AMRMClientAsyncImpl
 import org.apache.hadoop.yarn.proto.YarnServiceProtos.SchedulerResourceTypes
 import org.apache.hadoop.yarn.util.ConverterUtils
 import org.apache.samza.SamzaException
-import org.apache.samza.coordinator.JobCoordinator
 import org.junit.Assert._
 import org.junit.Test
 import org.mockito.Mockito
+import java.net.URL
+import org.apache.samza.coordinator.JobCoordinator
 
 class TestSamzaAppMasterLifecycle {
   val coordinator = new JobCoordinator(null, null, null)
@@ -66,8 +65,8 @@ class TestSamzaAppMasterLifecycle {
         override def setNMTokensFromPreviousAttempts(nmTokens: java.util.List[NMToken]): Unit = Unit
         override def setQueue(queue: String): Unit = Unit
 
-        override def setSchedulerResourceTypes(types: util.EnumSet[SchedulerResourceTypes]): Unit = {}
-        override def getSchedulerResourceTypes: util.EnumSet[SchedulerResourceTypes] = null
+        override def setSchedulerResourceTypes(types: java.util.EnumSet[SchedulerResourceTypes]): Unit = {}
+        override def getSchedulerResourceTypes: java.util.EnumSet[SchedulerResourceTypes] = null
       }
     }
     override def unregisterApplicationMaster(appStatus: FinalApplicationStatus,
@@ -85,7 +84,7 @@ class TestSamzaAppMasterLifecycle {
 
   @Test
   def testLifecycleShouldRegisterOnInit {
-    val state = new SamzaAppMasterState(coordinator, -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "test", 1, 2)
+    val state = new SamzaAppState(coordinator, -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "test", 1, 2)
     state.rpcUrl = new URL("http://localhost:1")
     state.trackingUrl = new URL("http://localhost:2")
     val saml = new SamzaAppMasterLifecycle(512, 2, state, amClient)
@@ -97,7 +96,7 @@ class TestSamzaAppMasterLifecycle {
 
   @Test
   def testLifecycleShouldUnregisterOnShutdown {
-    val state = new SamzaAppMasterState(coordinator, -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
+    val state = new SamzaAppState(coordinator, -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2)
     state.status = FinalApplicationStatus.SUCCEEDED
     new SamzaAppMasterLifecycle(128, 1, state, amClient).onShutdown
     assertEquals(FinalApplicationStatus.SUCCEEDED, amClient.status)
@@ -117,7 +116,7 @@ class TestSamzaAppMasterLifecycle {
 
   @Test
   def testLifecycleShouldShutdownOnInvalidContainerSettings {
-    val state = new SamzaAppMasterState(coordinator, -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "test", 1, 2)
+    val state = new SamzaAppState(coordinator, -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "test", 1, 2)
     state.rpcUrl = new URL("http://localhost:1")
     state.trackingUrl = new URL("http://localhost:2")
     List(new SamzaAppMasterLifecycle(768, 1, state, amClient),

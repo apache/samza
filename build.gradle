@@ -274,6 +274,10 @@ project(":samza-yarn_$scalaVersion") {
   apply plugin: 'scala'
   apply plugin: 'lesscss'
 
+  // Force scala joint compilation
+  sourceSets.main.scala.srcDir "src/main/java"
+  sourceSets.main.java.srcDirs = []
+
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")

@@ -46,7 +46,7 @@ object SamzaAppMasterMetrics {
  */
 class SamzaAppMasterMetrics(
   val config: Config,
-  val state: SamzaAppMasterState,
+  val state: SamzaAppState,
   val registry: ReadableMetricsRegistry) extends MetricsHelper with YarnAppMasterListener with Logging {
 
   val jvm = new JvmMetrics(registry)
@@ -66,16 +66,16 @@ class SamzaAppMasterMetrics(
 
   override def onInit() {
     val mRunningContainers = newGauge("running-containers", () => state.runningContainers.size)
-    val mNeededContainers = newGauge("needed-containers", () => state.neededContainers)
-    val mCompletedContainers = newGauge("completed-containers", () => state.completedContainers)
-    val mFailedContainers = newGauge("failed-containers", () => state.failedContainers)
-    val mReleasedContainers = newGauge("released-containers", () => state.releasedContainers)
+    val mNeededContainers = newGauge("needed-containers", () => state.neededContainers.get())
+    val mCompletedContainers = newGauge("completed-containers", () => state.completedContainers.get())
+    val mFailedContainers = newGauge("failed-containers", () => state.failedContainers.get())
+    val mReleasedContainers = newGauge("released-containers", () => state.releasedContainers.get())
     val mContainers = newGauge("container-count", () => state.containerCount)
     val mHost = newGauge("http-host", () => state.nodeHost)
     val mTrackingPort = newGauge("http-port", () => state.trackingUrl.getPort)
     val mRpcPort = newGauge("rpc-port", () => state.rpcUrl.getPort)
     val mAppAttemptId = newGauge("app-attempt-id", () => state.appAttemptId.toString)
-    val mJobHealthy = newGauge("job-healthy", () => if (state.jobHealthy) 1 else 0)
+    val mJobHealthy = newGauge("job-healthy", () => if (state.jobHealthy.get()) 1 else 0)
 
     jvm.start
     reporters.values.foreach(_.start)

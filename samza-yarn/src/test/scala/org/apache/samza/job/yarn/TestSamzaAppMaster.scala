@@ -19,20 +19,26 @@
 
 package org.apache.samza.job.yarn
 
-import TestSamzaAppMasterTaskManager._
+import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse
 
-import org.apache.hadoop.yarn.api.records.{ Container, ContainerStatus }
+import org.apache.hadoop.yarn.api.records._
 import org.apache.hadoop.yarn.conf.YarnConfiguration
+import org.apache.hadoop.yarn.exceptions.ApplicationAttemptNotFoundException
+import org.apache.samza.job.yarn.util.{TestUtil, TestAMRMClientImpl}
 import org.junit.Test
 import org.junit.Assert._
 
-import scala.annotation.elidable
-import scala.annotation.elidable.ASSERTION
 
 class TestSamzaAppMaster {
   @Test
   def testAppMasterShouldShutdown {
-    val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(false, List(), List())))
+    val amClient = TestUtil.getAMClient(
+      new TestAMRMClientImpl(
+        TestUtil.getAppMasterResponse(
+          false,
+          new java.util.ArrayList[Container](),
+          new java.util.ArrayList[ContainerStatus]())
+      ))
     val listener = new YarnAppMasterListener {
       var init = 0
       var shutdown = 0
@@ -60,7 +66,12 @@ class TestSamzaAppMaster {
 
   @Test
   def testAppMasterShouldShutdownWithFailingListener {
-    val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(false, List(), List())))
+    val amClient = TestUtil.getAMClient(
+      new TestAMRMClientImpl(
+        TestUtil.getAppMasterResponse(
+          false,
+          new java.util.ArrayList[Container](),
+          new java.util.ArrayList[ContainerStatus]())))
     val listener1 = new YarnAppMasterListener {
       var shutdown = 0
       override def shouldShutdown = true
@@ -85,7 +96,14 @@ class TestSamzaAppMaster {
 
   @Test
   def testAppMasterShouldShutdownWithInterrupt {
-    val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(false, List(), List())))
+    val amClient = TestUtil.getAMClient(
+      new TestAMRMClientImpl(
+        TestUtil.getAppMasterResponse(
+          false,
+          new java.util.ArrayList[Container](),
+          new java.util.ArrayList[ContainerStatus]())
+      )
+    )
     val listener = new YarnAppMasterListener {
       var init = 0
       var shutdown = 0
@@ -112,7 +130,14 @@ class TestSamzaAppMaster {
 
   @Test
   def testAppMasterShouldForwardAllocatedAndCompleteContainers {
-    val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(false, List(getContainer(null)), List(getContainerStatus(null, 1, null)))))
+    val amClient = TestUtil.getAMClient(
+      new TestAMRMClientImpl(
+        TestUtil.getAppMasterResponse(
+          false,
+          new java.util.ArrayList[Container]{ add(TestUtil.getContainer(null, "", 12345));  },
+          new java.util.ArrayList[ContainerStatus]{ add(TestUtil.getContainerStatus(null, 1, null));  })
+      )
+    )
     val listener = new YarnAppMasterListener {
       var allocated = 0
       var complete = 0
@@ -134,7 +159,14 @@ class TestSamzaAppMaster {
 
   @Test
   def testAppMasterShouldReboot {
-    val amClient = getAmClient(new TestAMRMClientImpl(getAppMasterResponse(true, List(), List())))
+    val response: AllocateResponse = getAppMasterResponse(
+      true,
+      new java.util.ArrayList[Container](),
+      new java.util.ArrayList[ContainerStatus]())
+
+    val amClient = TestUtil.getAMClient(
+      new TestAMRMClientImpl(response))
+
     val listener = new YarnAppMasterListener {
       var reboot = 0
       override def onInit(): Unit = amClient.registerApplicationMaster("", -1, "")
@@ -148,4 +180,44 @@ class TestSamzaAppMaster {
     // heartbeat may be triggered for more than once
     assertTrue(listener.reboot >= 1)
   }
+
+  /**
+   * This method is necessary because in Yarn 2.6, an RM reboot results in the allocate() method throwing an exception,
+   * rather than invoking AM_RESYNC command. However, we cannot mock out the AllocateResponse class in java because it
+   * will require the getAMCommand() signature to change and allow throwing an exception. This is however allowed in Scala.
+   * Since this is beyond our scope and we don't have a better way to mock the scenario for an RM reboot in our unit
+   * tests, we are keeping the following scala method for now.
+   */
+  def getAppMasterResponse(reboot: Boolean, containers: java.util.List[Container], completed: java.util.List[ContainerStatus]) =
+    new AllocateResponse {
+      override def getResponseId() = 0
+      override def setResponseId(responseId: Int) {}
+      override def getAllocatedContainers() = containers
+      override def setAllocatedContainers(containers: java.util.List[Container]) {}
+      override def getAvailableResources(): Resource = null
+      override def setAvailableResources(limit: Resource) {}
+      override def getCompletedContainersStatuses() = completed
+      override def setCompletedContainersStatuses(containers: java.util.List[ContainerStatus]) {}
+      override def setUpdatedNodes(nodes: java.util.List[NodeReport]) {}
+      override def getUpdatedNodes = new java.util.ArrayList[NodeReport]()
+      override def getNumClusterNodes = 1
+      override def setNumClusterNodes(num: Int) {}
+      override def getNMTokens = new java.util.ArrayList[NMToken]()
+      override def setNMTokens(nmTokens: java.util.List[NMToken]) {}
+      override def setAMCommand(command: AMCommand) {}
+      override def getPreemptionMessage = null
+      override def setPreemptionMessage(request: PreemptionMessage) {}
+      override def getDecreasedContainers(): java.util.List[ContainerResourceDecrease] = java.util.Collections.emptyList[ContainerResourceDecrease]
+      override def getIncreasedContainers(): java.util.List[ContainerResourceIncrease] = java.util.Collections.emptyList[ContainerResourceIncrease]
+      override def setDecreasedContainers(decrease: java.util.List[ContainerResourceDecrease]): Unit = Unit
+      override def setIncreasedContainers(increase: java.util.List[ContainerResourceIncrease]): Unit = Unit
+
+      override def getAMCommand = if (reboot) {
+        throw new ApplicationAttemptNotFoundException("Test - out of sync")
+      } else {
+        null
+      }
+      override def getAMRMToken: Token = null
+      override def setAMRMToken(amRMToken: Token): Unit = {}
+    }
 }

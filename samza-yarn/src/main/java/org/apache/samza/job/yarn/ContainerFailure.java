@@ -17,28 +17,32 @@
  * under the License.
  */
 
-package org.apache.samza.webapp
+package org.apache.samza.job.yarn;
 
-import org.scalatra._
-import scalate.ScalateSupport
-import org.apache.samza.job.yarn.{SamzaAppState}
-import org.apache.samza.config.Config
-import scala.collection.JavaConversions._
-import scala.collection.immutable.TreeMap
-import org.apache.hadoop.yarn.conf.YarnConfiguration
-import org.apache.hadoop.yarn.webapp.util.WebAppUtils
+/**
+ * Class that encapsulates information related to a container failure
+ * */
+public class ContainerFailure {
+  /**
+   * Number of times a container has failed
+   * */
+  private int count;
+  /**
+   * Latest failure time of the container
+   * */
+  private Long lastFailure;
 
-class ApplicationMasterWebServlet(config: Config, state: SamzaAppState) extends ScalatraServlet with ScalateSupport {
-  val yarnConfig = new YarnConfiguration
-
-  before() {
-    contentType = "text/html"
+  public ContainerFailure(int count,
+                          Long lastFailure) {
+    this.count = count;
+    this.lastFailure = lastFailure;
   }
 
-  get("/") {
-    layoutTemplate("/WEB-INF/views/index.scaml",
-      "config" -> TreeMap(config.sanitize.toMap.toArray: _*),
-      "state" -> state,
-      "rmHttpAddress" -> WebAppUtils.getRMWebAppURLWithScheme(yarnConfig))
+  public int getCount() {
+    return count;
+  }
+
+  public Long getLastFailure() {
+    return lastFailure;
   }
 }

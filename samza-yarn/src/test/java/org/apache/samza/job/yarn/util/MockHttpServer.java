@@ -16,29 +16,40 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.job.yarn.util;
 
-package org.apache.samza.webapp
+import org.apache.samza.coordinator.server.HttpServer;
+import org.eclipse.jetty.servlet.ServletHolder;
 
-import org.scalatra._
-import scalate.ScalateSupport
-import org.apache.samza.job.yarn.{SamzaAppState}
-import org.apache.samza.config.Config
-import scala.collection.JavaConversions._
-import scala.collection.immutable.TreeMap
-import org.apache.hadoop.yarn.conf.YarnConfiguration
-import org.apache.hadoop.yarn.webapp.util.WebAppUtils
+import java.net.MalformedURLException;
+import java.net.URL;
 
-class ApplicationMasterWebServlet(config: Config, state: SamzaAppState) extends ScalatraServlet with ScalateSupport {
-  val yarnConfig = new YarnConfiguration
+public class MockHttpServer extends HttpServer {
 
-  before() {
-    contentType = "text/html"
+  public MockHttpServer(String rootPath, int port, String resourceBasePath, ServletHolder defaultHolder) {
+    super(rootPath, port, resourceBasePath, defaultHolder);
+    start();
   }
 
-  get("/") {
-    layoutTemplate("/WEB-INF/views/index.scaml",
-      "config" -> TreeMap(config.sanitize.toMap.toArray: _*),
-      "state" -> state,
-      "rmHttpAddress" -> WebAppUtils.getRMWebAppURLWithScheme(yarnConfig))
+  @Override
+  public void start() {
+    super.running_$eq(true);
+  }
+
+  @Override
+  public void stop() {
+    super.running_$eq(false);
+  }
+
+  @Override
+  public URL getUrl() {
+    if(running()) {
+      try {
+        return new URL("http://localhost:12345/");
+      } catch (MalformedURLException mue) {
+        mue.printStackTrace();
+      }
+    }
+    return null;
   }
 }

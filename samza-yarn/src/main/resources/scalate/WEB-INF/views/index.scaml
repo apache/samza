@@ -15,7 +15,7 @@
   KIND, either express or implied.  See the License for the
   specific language governing permissions and limitations
   under the License.
--@ val state: org.apache.samza.job.yarn.SamzaAppMasterState
+-@ val state: org.apache.samza.job.yarn.SamzaAppState
 -@ val config: scala.collection.immutable.TreeMap[String, String]
 -@ val rmHttpAddress: String
 -@ val jobName: String = config.get("job.name").getOrElse("MISSING JOB NAME")
@@ -88,7 +88,7 @@
           %tr
             %td.key Application master container
             %td
-              %a(target="_blank" href="http://#{state.nodeHost}:#{state.nodeHttpPort.toString}/node/containerlogs/#{state.containerId.toString}/#{username}")= state.containerId.toString
+              %a(target="_blank" href="http://#{state.nodeHost}:#{state.nodeHttpPort.toString}/node/containerlogs/#{state.amContainerId.toString}/#{username}")= state.amContainerId.toString
           %tr
             %td.key JMX server url
             %td= state.jmxUrl
@@ -147,9 +147,6 @@
           %tr
             %td.key Total
             %td= state.containerCount.toString
-          %tr
-            %td.key Unclaimed
-            %td= state.unclaimedContainers.size.toString
           %tr
             %td.key Finished
             %td= state.finishedContainers.size.toString

@@ -16,29 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.job.yarn;
 
-package org.apache.samza.webapp
+import org.junit.Test;
 
-import org.scalatra._
-import scalate.ScalateSupport
-import org.apache.samza.job.yarn.{SamzaAppState}
-import org.apache.samza.config.Config
-import scala.collection.JavaConversions._
-import scala.collection.immutable.TreeMap
-import org.apache.hadoop.yarn.conf.YarnConfiguration
-import org.apache.hadoop.yarn.webapp.util.WebAppUtils
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
-class ApplicationMasterWebServlet(config: Config, state: SamzaAppState) extends ScalatraServlet with ScalateSupport {
-  val yarnConfig = new YarnConfiguration
+public class TestSamzaContainerRequest {
+  private static final String ANY_HOST = ContainerRequestState.ANY_HOST;
 
-  before() {
-    contentType = "text/html"
-  }
+  @Test
+  public void testPreferredHostIsNeverNull() {
+    SamzaContainerRequest request = new SamzaContainerRequest(0, null);
 
-  get("/") {
-    layoutTemplate("/WEB-INF/views/index.scaml",
-      "config" -> TreeMap(config.sanitize.toMap.toArray: _*),
-      "state" -> state,
-      "rmHttpAddress" -> WebAppUtils.getRMWebAppURLWithScheme(yarnConfig))
+    assertNotNull(request.getPreferredHost());
+
+    // preferredHost is null, it should automatically default to ANY_HOST
+    assertTrue(request.getPreferredHost().equals(ANY_HOST));
+
+    SamzaContainerRequest request1 = new SamzaContainerRequest(1, "abc");
+    assertNotNull(request1.getPreferredHost());
+    assertTrue(request1.getPreferredHost().equals("abc"));
+
   }
 }

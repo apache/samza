@@ -1317,6 +1317,36 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="yarn-allocator-sleep-ms">yarn.allocator.sleep.ms</td>
+                    <td class="default">3600</td>
+                    <td class="description">
+                        The container allocator thread is responsible for matching requests to allocated containers.
+                        The sleep interval for this thread is configured using this property.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-samza-host_affinity-enabled">yarn.samza.host-affinity.enabled</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        This property indicates whether host-affinity is enabled or not. Host-affinity refers to the ability of the Application Master to request and allocate a container on the same host every time the job is deployed.
+                        When host-affinity is enabled, the AM makes a "best-effort" to honor the host-affinity constraint.
+                        The property <a href="#yarn-container-request-timeout-ms" class="property">yarn.container.request.timeout.ms</a> determines how long to wait before de-prioritizing the host-affinity constraint and assigning the container to any available resource.
+                        <b>Please Note</b>: This feature is tested to work with the FairScheduler in Yarn when continuous-scheduling is enabled.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-container-request-timeout-ms">yarn.container.request.timeout.ms</td>
+                    <td class="default">5000</td>
+                    <td class="description">
+                        The allocator thread periodically checks the state of the container requests and allocated containers to determine the assignment of a container to an allocated resource.
+                        This property determines the number of milliseconds before a container request is considered to have expired / timed-out.
+                        When a request expires, it gets allocated to any available container that was returned by the RM.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="yarn-queue">yarn.queue</td>
                     <td class="default"></td>
                     <td class="description">

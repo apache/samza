@@ -41,6 +41,7 @@ import scala.util.control.Breaks._
 object Util extends Logging {
   val random = new Random
 
+  def clock: Long = System.currentTimeMillis
   /**
    * Make an environment variable string safe to pass.
    */
