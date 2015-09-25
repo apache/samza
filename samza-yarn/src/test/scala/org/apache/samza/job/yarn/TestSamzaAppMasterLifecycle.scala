@@ -19,22 +19,23 @@
 
 package org.apache.samza.job.yarn
 
+import java.net.URL
 import java.nio.ByteBuffer
+import java.util
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse
 import org.apache.hadoop.yarn.api.records._
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync.CallbackHandler
 import org.apache.hadoop.yarn.client.api.async.impl.AMRMClientAsyncImpl
+import org.apache.hadoop.yarn.proto.YarnServiceProtos.SchedulerResourceTypes
 import org.apache.hadoop.yarn.util.ConverterUtils
 import org.apache.samza.SamzaException
-import org.mockito.Mockito
+import org.apache.samza.coordinator.JobCoordinator
 import org.junit.Assert._
 import org.junit.Test
-import scala.annotation.elidable
-import scala.annotation.elidable.ASSERTION
-import java.net.URL
-import org.apache.samza.coordinator.JobCoordinator
+import org.mockito.Mockito
 
 class TestSamzaAppMasterLifecycle {
   val coordinator = new JobCoordinator(null, null, null)
@@ -64,6 +65,9 @@ class TestSamzaAppMasterLifecycle {
         override def setContainersFromPreviousAttempts(containers: java.util.List[Container]): Unit = Unit
         override def setNMTokensFromPreviousAttempts(nmTokens: java.util.List[NMToken]): Unit = Unit
         override def setQueue(queue: String): Unit = Unit
+
+        override def setSchedulerResourceTypes(types: util.EnumSet[SchedulerResourceTypes]): Unit = {}
+        override def getSchedulerResourceTypes: util.EnumSet[SchedulerResourceTypes] = null
       }
     }
     override def unregisterApplicationMaster(appStatus: FinalApplicationStatus,

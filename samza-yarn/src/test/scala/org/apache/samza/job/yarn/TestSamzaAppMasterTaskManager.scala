@@ -19,36 +19,31 @@
 
 package org.apache.samza.job.yarn
 
+import java.net.URL
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse
-import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse
+import org.apache.hadoop.yarn.api.protocolrecords.{AllocateResponse, RegisterApplicationMasterResponse}
 import org.apache.hadoop.yarn.api.records._
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
 import org.apache.hadoop.yarn.client.api.async.impl.AMRMClientAsyncImpl
 import org.apache.hadoop.yarn.client.api.impl.AMRMClientImpl
 import org.apache.hadoop.yarn.conf.YarnConfiguration
+import org.apache.hadoop.yarn.exceptions.ApplicationAttemptNotFoundException
 import org.apache.hadoop.yarn.util.ConverterUtils
 import org.apache.samza.Partition
-import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.YarnConfig.Config2Yarn
-import org.apache.samza.config.MapConfig
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.system.SystemFactory
-import org.apache.samza.system.SystemStreamPartition
-import org.junit.Test
-import scala.collection.JavaConversions._
-import TestSamzaAppMasterTaskManager._
-import java.net.URL
-import org.apache.samza.system.SystemAdmin
-import org.apache.samza.system.SystemStreamMetadata
-import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.coordinator.JobCoordinator
-import org.apache.samza.job.model.JobModel
-import org.apache.samza.job.model.ContainerModel
+import org.apache.samza.config.{Config, MapConfig}
 import org.apache.samza.container.TaskName
-import org.apache.samza.job.model.TaskModel
+import org.apache.samza.coordinator.JobCoordinator
+import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
+import org.apache.samza.job.yarn.TestSamzaAppMasterTaskManager._
+import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.apache.samza.system.{SystemAdmin, SystemFactory, SystemStreamMetadata, SystemStreamPartition}
+import org.junit.Test
+
+import scala.collection.JavaConversions._
 
 object TestSamzaAppMasterTaskManager {
   def getContainer(containerId: ContainerId) = new Container {
@@ -100,7 +95,10 @@ object TestSamzaAppMasterTaskManager {
     def getRelease = release
     def resetRelease = release.clear
     override def registerApplicationMaster(appHostName: String, appHostPort: Int, appTrackingUrl: String): RegisterApplicationMasterResponse = null
-    override def allocate(progressIndicator: Float): AllocateResponse = response
+    override def allocate(progressIndicator: Float): AllocateResponse = {
+      response.getAMCommand
+      response
+    }
     override def unregisterApplicationMaster(appStatus: FinalApplicationStatus, appMessage: String, appTrackingUrl: String) = ()
     override def addContainerRequest(req: ContainerRequest) { requests ::= req }
     override def removeContainerRequest(req: ContainerRequest) {}
@@ -135,10 +133,13 @@ object TestSamzaAppMasterTaskManager {
       override def setIncreasedContainers(increase: java.util.List[ContainerResourceIncrease]): Unit = Unit
 
       override def getAMCommand = if (reboot) {
-        AMCommand.AM_RESYNC
+        throw new ApplicationAttemptNotFoundException("Test - out of sync")
       } else {
         null
       }
+
+      override def getAMRMToken: Token = null
+      override def setAMRMToken(amRMToken: Token): Unit = {}
     }
 }
 
