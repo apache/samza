@@ -79,7 +79,6 @@ class KafkaCheckpointMigration extends MigrationPlan with Logging {
     coordinatorSystemConsumer.start()
     coordinatorSystemConsumer.bootstrap()
     val stream = coordinatorSystemConsumer.getBootstrappedStream(SetMigrationMetaMessage.TYPE)
-    coordinatorSystemConsumer.stop()
     val message = new SetMigrationMetaMessage(source, migrationKey, migrationVal)
     stream.contains(message.asInstanceOf[CoordinatorStreamMessage])
   }
