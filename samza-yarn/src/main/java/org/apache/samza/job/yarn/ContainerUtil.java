@@ -23,6 +23,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
@@ -168,7 +169,7 @@ public class ContainerUtil {
       // now remove the AM->RM token so that containers cannot access it
       Iterator iter = credentials.getAllTokens().iterator();
       while (iter.hasNext()) {
-        TokenIdentifier token = (TokenIdentifier) iter.next();
+        TokenIdentifier token = ((Token) iter.next()).decodeIdentifier();
         if (token.getKind().equals(AMRMTokenIdentifier.KIND_NAME)) {
           iter.remove();
         }
