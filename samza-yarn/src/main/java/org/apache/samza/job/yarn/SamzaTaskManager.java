@@ -36,8 +36,6 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.Map;
 
-import static junit.framework.Assert.assertTrue;
-
 /**
  * Samza's application master is mostly interested in requesting containers to
  * run Samza jobs. SamzaTaskManager is responsible for requesting new
@@ -112,8 +110,6 @@ class SamzaTaskManager implements YarnAppMasterListener {
 
     // Request initial set of containers
     Map<Integer, String> containerToHostMapping = state.jobCoordinator.jobModel().getAllContainerLocality();
-
-    assertTrue(containerToHostMapping.size() == state.containerCount);
 
     containerAllocator.requestContainers(containerToHostMapping);
 
