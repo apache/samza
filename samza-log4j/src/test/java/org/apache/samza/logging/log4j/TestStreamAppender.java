@@ -59,6 +59,7 @@ public class TestStreamAppender {
     map.put("serializers.registry.log4j-string.class", LoggingEventStringSerdeFactory.class.getCanonicalName());
     map.put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName());
     map.put("systems.mock.streams." + streamName + ".samza.msg.serde", "log4j-string");
+    map.put("task.log4j.system", "mock");
     MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender(new MapConfig(map));
     PatternLayout layout = new PatternLayout();
     layout.setConversionPattern("%m");
@@ -100,6 +101,7 @@ public class TestStreamAppender {
       Map<String, String> map = new HashMap<String, String>();
       map.put("job.name", "log4jTest");
       map.put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName());
+      map.put("task.log4j.system", "mock");
       config = new MapConfig(map);
     }
 

@@ -53,13 +53,8 @@ public class TestLog4jSystemConfig {
     Log4jSystemConfig log4jSystemConfig = new Log4jSystemConfig(new MapConfig(map));
     assertEquals("log4j-system", log4jSystemConfig.getSystemName());
 
-    // use the default system name
-    map.remove("task.log4j.system");
-    log4jSystemConfig = new Log4jSystemConfig(new MapConfig(map));
-    assertEquals("system1", log4jSystemConfig.getSystemName());
-
     // throw ConfigException
-    map.put("systems.system2.samza.factory", "2");
+    map.remove("task.log4j.system");
     log4jSystemConfig = new Log4jSystemConfig(new MapConfig(map));
     exception.expect(ConfigException.class);
     log4jSystemConfig.getSystemName();

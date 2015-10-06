@@ -381,9 +381,8 @@
                     <td class="property" id="task-log4j-system">task.log4j.system</td>
                     <td class="default"></td>
                     <td class="description">
-                        Specify the system name for the StreamAppender. If Samza can not find this property and there is
-                        only one system in the config, it will guess to use that system for the log4j appender. If this property
-                        is not specified and there are more than one system in the config, Samza throws exception. (See
+                        Specify the system name for the StreamAppender. If this property is not specified in the config,
+                        Samza throws exception. (See
                         <a href="logging.html#stream-log4j-appender">Stream Log4j Appender</a>)
                         <dl>
                             <dt>Example: <code>task.log4j.system=kafka</code></dt>

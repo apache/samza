@@ -19,8 +19,6 @@
 
 package org.apache.samza.config;
 
-import java.util.List;
-
 /**
  * This class contains the methods for getting properties that are needed by the
  * StreamAppender.
@@ -47,20 +45,15 @@ public class Log4jSystemConfig extends JavaSystemConfig {
   }
 
   /**
-   * Get the log4j system name from the config. If it's not defined, try to
-   * guess the system name if there is only one system is defined.
+   * Get the log4j system name from the config.
+   * If it's not defined, throw a ConfigException
    *
    * @return log4j system name
    */
   public String getSystemName() {
     String log4jSystem = get(TASK_LOG4J_SYSTEM, null);
     if (log4jSystem == null) {
-      List<String> systemNames = getSystemNames();
-      if (systemNames.size() == 1) {
-        log4jSystem = systemNames.get(0);
-      } else {
-        throw new ConfigException("Missing " + TASK_LOG4J_SYSTEM + " configuration, and more than 1 systems were found.");
-      }
+      throw new ConfigException("Missing " + TASK_LOG4J_SYSTEM + " configuration. Can't figure out the system name to use.");
     }
     return log4jSystem;
   }

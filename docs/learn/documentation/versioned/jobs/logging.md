@@ -97,7 +97,7 @@ And then updating your log4j.xml to include the appender:
 
 #### Stream Log4j Appender
 
-Samza provides a StreamAppender to publish the logs into a specific system. You can specify the system name using "task.log4j.system" and change name of log stream with param 'StreamName'. If there is only one system in the config, Samza will use that system for the log publishing. Also we have the [MDC](http://logback.qos.ch/manual/mdc.html) keys "containerName", "jobName" and "jobId", which help identify the source of the log. In order to use this appender, simply add:
+Samza provides a StreamAppender to publish the logs into a specific system. You can specify the system name using "task.log4j.system" and change name of log stream with param 'StreamName'. Also, we have the [MDC](http://logback.qos.ch/manual/mdc.html) keys "containerName", "jobName" and "jobId", which help identify the source of the log. In order to use this appender, simply add:
 
 {% highlight xml %}
 <appender name="StreamAppender" class="org.apache.samza.logging.log4j.StreamAppender">
@@ -109,10 +109,15 @@ Samza provides a StreamAppender to publish the logs into a specific system. You 
 </appender>
 {% endhighlight %}
 
-and add:
+and
 
 {% highlight xml %}
 <appender-ref ref="StreamAppender"/>
+{% endhighlight %}
+
+to log4j.xml and define the system name by specifying the config:
+{% highlight xml %}
+task.log4j.system="<system-name>"
 {% endhighlight %}
 
 Configuring the StreamAppender will automatically encode messages using logstash's [Log4J JSON format](https://github.com/logstash/log4j-jsonevent-layout). Samza also supports pluggable serialization for those that prefer non-JSON logging events. This can be configured the same way other stream serializers are defined:

@@ -104,7 +104,7 @@ public class StreamAppender extends AppenderSkeleton {
     if (systemFactoryName != null) {
       systemFactory = Util.<SystemFactory>getObj(systemFactoryName);
     } else {
-      throw new SamzaException("Please define log4j system name and factory class");
+      throw new SamzaException("Could not figure out the \"" + systemName + "\" system factory for log4j StreamAppender to use");
     }
 
     setSerde(log4jSystemConfig, systemName, streamName);
