@@ -18,6 +18,12 @@
  */
 package org.apache.samza.job.yarn;
 
+import java.lang.reflect.Field;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.client.api.async.impl.AMRMClientAsyncImpl;
@@ -30,6 +36,8 @@ import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.job.yarn.util.MockContainerListener;
+import org.apache.samza.job.yarn.util.MockContainerRequestState;
 import org.apache.samza.job.yarn.util.MockContainerUtil;
 import org.apache.samza.job.yarn.util.MockHttpServer;
 import org.apache.samza.job.yarn.util.TestAMRMClientImpl;
@@ -40,16 +48,10 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.lang.reflect.Field;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.Assert.*;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class TestHostAwareContainerAllocator {
   private static final int ALLOCATOR_SLEEP_TIME = 1;
@@ -60,6 +62,7 @@ public class TestHostAwareContainerAllocator {
 
   private AMRMClientAsyncImpl amRmClientAsync;
   private TestAMRMClientImpl testAMRMClient;
+  private MockContainerRequestState requestState;
   private HostAwareContainerAllocator containerAllocator;
   private Thread allocatorThread;
   private ContainerUtil containerUtil;
@@ -114,12 +117,17 @@ public class TestHostAwareContainerAllocator {
 
     containerUtil = TestUtil.getContainerUtil(getConfig(), state);
 
+    requestState = new MockContainerRequestState(amRmClientAsync, true);
     containerAllocator = new HostAwareContainerAllocator(
         amRmClientAsync,
         containerUtil,
         ALLOCATOR_SLEEP_TIME,
         CONTAINER_REQUEST_TIMEOUT
     );
+    Field requestStateField = containerAllocator.getClass().getSuperclass().getDeclaredField("containerRequestState");
+    requestStateField.setAccessible(true);
+    requestStateField.set(containerAllocator, requestState);
+
     allocatorThread = new Thread(containerAllocator);
   }
 
@@ -131,9 +139,27 @@ public class TestHostAwareContainerAllocator {
 
   @Test
   public void testAllocatorReleasesExtraContainers() throws Exception {
-    Container container = TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "abc", 123);
-    Container container1 = TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "abc", 123);
-    Container container2 = TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000003"), "def", 123);
+    final Container container = TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "abc", 123);
+    final Container container1 = TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "abc", 123);
+    final Container container2 = TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000003"), "def", 123);
+
+    // Set up our final asserts before starting the allocator thread
+    MockContainerListener listener = new MockContainerListener(3, 2, null, new Runnable() {
+      @Override
+      public void run() {
+        assertNotNull(testAMRMClient.getRelease());
+        assertEquals(2, testAMRMClient.getRelease().size());
+        assertTrue(testAMRMClient.getRelease().contains(container1.getId()));
+        assertTrue(testAMRMClient.getRelease().contains(container2.getId()));
+
+        // Test that state is cleaned up
+        assertEquals(0, requestState.getRequestsQueue().size());
+        assertEquals(0, requestState.getRequestsToCountMap().size());
+        assertNull(requestState.getContainersOnAHost("abc"));
+        assertNull(requestState.getContainersOnAHost("def"));
+      }
+    });
+    requestState.registerContainerListener(listener);
 
     allocatorThread.start();
 
@@ -143,22 +169,7 @@ public class TestHostAwareContainerAllocator {
     containerAllocator.addContainer(container1);
     containerAllocator.addContainer(container2);
 
-    Thread.sleep(600);
-
-    Field requestStateField = containerAllocator.getClass().getSuperclass().getDeclaredField("containerRequestState");
-    requestStateField.setAccessible(true);
-    ContainerRequestState requestState = (ContainerRequestState) requestStateField.get(containerAllocator);
-
-    assertNotNull(testAMRMClient.getRelease());
-    assertEquals(2, testAMRMClient.getRelease().size());
-    assertTrue(testAMRMClient.getRelease().contains(container1.getId()));
-    assertTrue(testAMRMClient.getRelease().contains(container2.getId()));
-
-    // Test that state is cleaned up
-    assertEquals(0, requestState.getRequestsQueue().size());
-    assertEquals(0, requestState.getRequestsToCountMap().size());
-    assertNull(requestState.getContainersOnAHost("abc"));
-    assertNull(requestState.getContainersOnAHost("def"));
+    listener.verify();
   }
 
   /**
@@ -176,10 +187,6 @@ public class TestHostAwareContainerAllocator {
 
     containerAllocator.requestContainers(containersToHostMapping);
 
-    Field requestStateField = containerAllocator.getClass().getSuperclass().getDeclaredField("containerRequestState");
-    requestStateField.setAccessible(true);
-    ContainerRequestState requestState = (ContainerRequestState) requestStateField.get(containerAllocator);
-
     assertNotNull(requestState);
 
     assertNotNull(requestState.getRequestsQueue());
@@ -195,18 +202,12 @@ public class TestHostAwareContainerAllocator {
    */
   @Test
   public void testAddContainerWithHostAffinity() throws Exception {
-    Field requestStateField = containerAllocator.getClass().getSuperclass().getDeclaredField("containerRequestState");
-    requestStateField.setAccessible(true);
-    ContainerRequestState requestState = (ContainerRequestState) requestStateField.get(containerAllocator);
-
     containerAllocator.requestContainers(new HashMap<Integer, String>() {
       {
         put(0, "abc");
         put(1, "xyz");
       }
     });
-
-    allocatorThread.start();
 
     assertNotNull(requestState.getContainersOnAHost("abc"));
     assertEquals(0, requestState.getContainersOnAHost("abc").size());
@@ -221,15 +222,17 @@ public class TestHostAwareContainerAllocator {
     containerAllocator.addContainer(TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000003"), "xyz", 123));
 
     assertNotNull(requestState.getContainersOnAHost("abc"));
-    assertTrue(requestState.getContainersOnAHost("abc").size() == 1);
+    assertEquals(1, requestState.getContainersOnAHost("abc").size());
 
     assertNotNull(requestState.getContainersOnAHost("xyz"));
-    assertTrue(requestState.getContainersOnAHost("xyz").size() == 1);
+    assertEquals(1, requestState.getContainersOnAHost("xyz").size());
 
     assertNotNull(requestState.getContainersOnAHost(ANY_HOST));
     assertTrue(requestState.getContainersOnAHost(ANY_HOST).size() == 1);
-    assertEquals(ConverterUtils.toContainerId("container_1350670447861_0003_01_000004"), requestState.getContainersOnAHost(ANY_HOST).get(0).getId());
+    assertEquals(ConverterUtils.toContainerId("container_1350670447861_0003_01_000004"),
+        requestState.getContainersOnAHost(ANY_HOST).get(0).getId());
   }
+
 
   @Test
   public void testRequestContainers() throws Exception {
@@ -244,11 +247,6 @@ public class TestHostAwareContainerAllocator {
     allocatorThread.start();
 
     containerAllocator.requestContainers(containersToHostMapping);
-
-
-    Field requestStateField = containerAllocator.getClass().getSuperclass().getDeclaredField("containerRequestState");
-    requestStateField.setAccessible(true);
-    ContainerRequestState requestState = (ContainerRequestState) requestStateField.get(containerAllocator);
 
     assertNotNull(testAMRMClient.requests);
     assertEquals(4, testAMRMClient.requests.size());
@@ -284,10 +282,6 @@ public class TestHostAwareContainerAllocator {
     };
     containerAllocator.requestContainers(containersToHostMapping);
 
-    Field requestStateField = containerAllocator.getClass().getSuperclass().getDeclaredField("containerRequestState");
-    requestStateField.setAccessible(true);
-    ContainerRequestState requestState = (ContainerRequestState) requestStateField.get(containerAllocator);
-
     assertNotNull(requestState.getRequestsQueue());
     assertTrue(requestState.getRequestsQueue().size() == 2);
 
@@ -298,19 +292,26 @@ public class TestHostAwareContainerAllocator {
     assertNotNull(requestState.getRequestsToCountMap().get("def"));
     assertTrue(requestState.getRequestsToCountMap().get("def").get() == 1);
 
-    allocatorThread.start();
+    // Set up our final asserts before starting the allocator thread
+    MockContainerListener listener = new MockContainerListener(2, 0, new Runnable() {
+      @Override
+      public void run() {
+        assertNull(requestState.getContainersOnAHost("xyz"));
+        assertNull(requestState.getContainersOnAHost("zzz"));
+        assertNotNull(requestState.getContainersOnAHost(ANY_HOST));
+        assertTrue(requestState.getContainersOnAHost(ANY_HOST).size() == 2);
+      }
+    }, null);
+    requestState.registerContainerListener(listener);
 
-    Thread.sleep(600);
+    allocatorThread.start();
 
     Container container0 = TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "xyz", 123);
     Container container1 = TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000003"), "zzz", 123);
     containerAllocator.addContainer(container0);
     containerAllocator.addContainer(container1);
 
-    assertNull(requestState.getContainersOnAHost("xyz"));
-    assertNull(requestState.getContainersOnAHost("zzz"));
-    assertNotNull(requestState.getContainersOnAHost(ANY_HOST));
-    assertTrue(requestState.getContainersOnAHost(ANY_HOST).size() == 2);
+    listener.verify();
 
     Thread.sleep(1000);
 

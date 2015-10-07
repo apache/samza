@@ -200,8 +200,11 @@ public class ContainerRequestState {
   /**
    * If requestQueue is empty, all extra containers in the buffer should be released and update the entire system's state
    * Needs to be synchronized because it is modifying shared state buffers
+   * @return the number of containers released.
    */
-  public synchronized void releaseExtraContainers() {
+  public synchronized int releaseExtraContainers() {
+    int numReleasedContainers = 0;
+
     if (hostAffinityEnabled) {
       if (requestsQueue.isEmpty()) {
         log.info("Requests Queue is empty. Should clear up state.");
@@ -213,6 +216,7 @@ public class ContainerRequestState {
             for (Container c : containers) {
               log.info("Releasing extra container {} allocated on {}", c.getId(), host);
               amClient.releaseAssignedContainer(c.getId());
+              numReleasedContainers++;
             }
           }
         }
@@ -227,10 +231,12 @@ public class ContainerRequestState {
           Container c = availableContainers.remove(0);
           log.info("Releasing extra allocated container - {}", c.getId());
           amClient.releaseAssignedContainer(c.getId());
+          numReleasedContainers++;
         }
         clearState();
       }
     }
+    return numReleasedContainers;
   }
 
   /**
