@@ -81,6 +81,10 @@ public class CoordinatorStreamSystemConsumer {
    * coordinator stream with the SystemConsumer using the earliest offset.
    */
   public void register() {
+    if (isStarted) {
+      log.info("Coordinator stream partition {} has already been registered. Skipping.", coordinatorSystemStreamPartition);
+      return;
+    }
     log.debug("Attempting to register: {}", coordinatorSystemStreamPartition);
     Set<String> streamNames = new HashSet<String>();
     String streamName = coordinatorSystemStreamPartition.getStream();

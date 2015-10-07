@@ -52,9 +52,9 @@ public class TestCoordinatorStreamSystemConsumer {
     SystemStream systemStream = new SystemStream("system", "stream");
     MockSystemConsumer systemConsumer = new MockSystemConsumer(new SystemStreamPartition(systemStream, new Partition(0)));
     CoordinatorStreamSystemConsumer consumer = new CoordinatorStreamSystemConsumer(systemStream, systemConsumer, new SinglePartitionWithoutOffsetsSystemAdmin());
-    assertFalse(systemConsumer.isRegistered());
+    assertEquals(0, systemConsumer.getRegisterCount());
     consumer.register();
-    assertTrue(systemConsumer.isRegistered());
+    assertEquals(1, systemConsumer.getRegisterCount());
     assertFalse(systemConsumer.isStarted());
     consumer.start();
     assertTrue(systemConsumer.isStarted());
@@ -70,6 +70,23 @@ public class TestCoordinatorStreamSystemConsumer {
     assertFalse(systemConsumer.isStopped());
     consumer.stop();
     assertTrue(systemConsumer.isStopped());
+  }
+
+  @Test
+  public void testCoordinatorStreamSystemConsumerRegisterOnceOnly() throws Exception {
+    Map<String, String> expectedConfig = new LinkedHashMap<String, String>();
+    expectedConfig.put("job.id", "1234");
+    SystemStream systemStream = new SystemStream("system", "stream");
+    MockSystemConsumer systemConsumer = new MockSystemConsumer(new SystemStreamPartition(systemStream, new Partition(0)));
+    CoordinatorStreamSystemConsumer consumer = new CoordinatorStreamSystemConsumer(systemStream, systemConsumer, new SinglePartitionWithoutOffsetsSystemAdmin());
+    assertEquals(0, systemConsumer.getRegisterCount());
+    consumer.register();
+    assertEquals(1, systemConsumer.getRegisterCount());
+    assertFalse(systemConsumer.isStarted());
+    consumer.start();
+    assertTrue(systemConsumer.isStarted());
+    consumer.register();
+    assertEquals(1, systemConsumer.getRegisterCount());
   }
 
   private boolean testOrder(Set<CoordinatorStreamMessage> bootstrappedStreamSet) {
@@ -96,7 +113,7 @@ public class TestCoordinatorStreamSystemConsumer {
   private static class MockSystemConsumer implements SystemConsumer {
     private boolean started = false;
     private boolean stopped = false;
-    private boolean registered = false;
+    private int registerCount = 0;
     private final SystemStreamPartition expectedSystemStreamPartition;
     private int pollCount = 0;
 
@@ -113,13 +130,11 @@ public class TestCoordinatorStreamSystemConsumer {
     }
 
     public void register(SystemStreamPartition systemStreamPartition, String offset) {
-      registered = true;
+      registerCount++;
       assertEquals(expectedSystemStreamPartition, systemStreamPartition);
     }
 
-    public boolean isRegistered() {
-      return registered;
-    }
+    public int getRegisterCount() { return registerCount; }
 
     public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Set<SystemStreamPartition> systemStreamPartitions, long timeout) throws InterruptedException {
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> map = new LinkedHashMap<SystemStreamPartition, List<IncomingMessageEnvelope>>();
