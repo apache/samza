@@ -21,11 +21,7 @@ package org.apache.samza.job.yarn;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
-import org.apache.samza.util.Util;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.List;
+import org.apache.samza.config.YarnConfig;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -46,6 +42,8 @@ public abstract class AbstractContainerAllocator implements Runnable {
   protected final AMRMClientAsync<AMRMClient.ContainerRequest> amClient;
   protected final int ALLOCATOR_SLEEP_TIME;
   protected final ContainerUtil containerUtil;
+  protected final int containerMaxMemoryMb;
+  protected final int containerMaxCpuCore;
 
   @Override
   public abstract void run();
@@ -58,12 +56,14 @@ public abstract class AbstractContainerAllocator implements Runnable {
 
   public AbstractContainerAllocator(AMRMClientAsync<AMRMClient.ContainerRequest> amClient,
                             ContainerUtil containerUtil,
-                            int allocatorSleepTime,
-                            ContainerRequestState containerRequestState) {
+                            ContainerRequestState containerRequestState,
+                            YarnConfig yarnConfig) {
     this.amClient = amClient;
     this.containerUtil = containerUtil;
-    this.ALLOCATOR_SLEEP_TIME = allocatorSleepTime;
+    this.ALLOCATOR_SLEEP_TIME = yarnConfig.getAllocatorSleepTime();
     this.containerRequestState = containerRequestState;
+    this.containerMaxMemoryMb = yarnConfig.getContainerMaxMemoryMb();
+    this.containerMaxCpuCore = yarnConfig.getContainerMaxCpuCores();
   }
 
 
@@ -93,7 +93,12 @@ public abstract class AbstractContainerAllocator implements Runnable {
    * @param preferredHost Name of the host that you prefer to run the container on
    */
   public final void requestContainer(int expectedContainerId, String preferredHost) {
-    SamzaContainerRequest request = new SamzaContainerRequest(expectedContainerId, preferredHost);
+    SamzaContainerRequest request = new SamzaContainerRequest(
+        containerMaxMemoryMb,
+        containerMaxCpuCore,
+        DEFAULT_PRIORITY,
+        expectedContainerId,
+        preferredHost);
     containerRequestState.updateRequestState(request);
   }
 

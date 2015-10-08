@@ -28,6 +28,7 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.YarnConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.JobCoordinator;
@@ -134,8 +135,13 @@ public class TestSamzaTaskManager {
 
   @Test
   public void testSamzaTaskManager() throws Exception {
+    Map<String, String> conf = new HashMap<>();
+    conf.putAll(getConfig());
+    conf.put("yarn.container.memory.mb", "500");
+    conf.put("yarn.container.cpu.cores", "5");
+
     SamzaTaskManager taskManager = new SamzaTaskManager(
-        getConfig(),
+        new MapConfig(conf),
         state,
         amRmClientAsync,
         new YarnConfiguration()
@@ -143,9 +149,17 @@ public class TestSamzaTaskManager {
 
     AbstractContainerAllocator allocator = (AbstractContainerAllocator) getPrivateFieldFromTaskManager("containerAllocator", taskManager).get(taskManager);
     assertEquals(ContainerAllocator.class, allocator.getClass());
+    // Asserts that samza exposed container configs is honored by allocator thread
+    assertEquals(500, allocator.containerMaxMemoryMb);
+    assertEquals(5, allocator.containerMaxCpuCore);
+
+    conf.clear();
+    conf.putAll(getConfigWithHostAffinity());
+    conf.put("yarn.container.memory.mb", "500");
+    conf.put("yarn.container.cpu.cores", "5");
 
     taskManager = new SamzaTaskManager(
-        getConfigWithHostAffinity(),
+        new MapConfig(conf),
         state,
         amRmClientAsync,
         new YarnConfiguration()
@@ -153,12 +167,21 @@ public class TestSamzaTaskManager {
 
     allocator = (AbstractContainerAllocator) getPrivateFieldFromTaskManager("containerAllocator", taskManager).get(taskManager);
     assertEquals(HostAwareContainerAllocator.class, allocator.getClass());
+    // Asserts that samza exposed container configs is honored by allocator thread
+    assertEquals(500, allocator.containerMaxMemoryMb);
+    assertEquals(5, allocator.containerMaxCpuCore);
+  }
+
+  @Test
+  public void testContainerConfigsAreHonoredInAllocator() {
+
   }
 
   @Test
   public void testOnInit() throws Exception {
+    Config conf = getConfig();
     SamzaTaskManager taskManager = new SamzaTaskManager(
-        getConfig(),
+        conf,
         state,
         amRmClientAsync,
         new YarnConfiguration()
@@ -167,7 +190,7 @@ public class TestSamzaTaskManager {
     MockContainerAllocator allocator = new MockContainerAllocator(
         amRmClientAsync,
         TestUtil.getContainerUtil(getConfig(), state),
-        1);
+        new YarnConfig(conf));
     getPrivateFieldFromTaskManager("containerAllocator", taskManager).set(taskManager, allocator);
 
     getPrivateFieldFromTaskManager("allocatorThread", taskManager).set(taskManager, new Thread() {
@@ -238,8 +261,9 @@ public class TestSamzaTaskManager {
    */
   @Test
   public void testNewContainerRequestedOnFailureWithUnknownCode() throws Exception {
+    Config conf = getConfig();
     SamzaTaskManager taskManager = new SamzaTaskManager(
-        getConfig(),
+        conf,
         state,
         amRmClientAsync,
         new YarnConfiguration()
@@ -247,7 +271,7 @@ public class TestSamzaTaskManager {
     MockContainerAllocator allocator = new MockContainerAllocator(
         amRmClientAsync,
         TestUtil.getContainerUtil(getConfig(), state),
-        1);
+        new YarnConfig(conf));
     getPrivateFieldFromTaskManager("containerAllocator", taskManager).set(taskManager, allocator);
 
     Thread thread = new Thread(allocator);
@@ -303,8 +327,9 @@ public class TestSamzaTaskManager {
    */
   @Test
   public void testSameContainerRequestedOnFailureWithUnknownCode() throws Exception {
+    Config conf = getConfigWithHostAffinity();
     SamzaTaskManager taskManager = new SamzaTaskManager(
-        getConfigWithHostAffinity(),
+        conf,
         state,
         amRmClientAsync,
         new YarnConfiguration()
@@ -312,7 +337,7 @@ public class TestSamzaTaskManager {
     MockContainerAllocator allocator = new MockContainerAllocator(
         amRmClientAsync,
         TestUtil.getContainerUtil(getConfig(), state),
-        1);
+        new YarnConfig(conf));
     getPrivateFieldFromTaskManager("containerAllocator", taskManager).set(taskManager, allocator);
 
     Thread thread = new Thread(allocator);
@@ -381,7 +406,7 @@ public class TestSamzaTaskManager {
     MockContainerAllocator allocator = new MockContainerAllocator(
         amRmClientAsync,
         TestUtil.getContainerUtil(getConfig(), state),
-        1);
+        new YarnConfig(new MapConfig(config)));
     getPrivateFieldFromTaskManager("containerAllocator", taskManager).set(taskManager, allocator);
 
     Thread thread = new Thread(allocator);

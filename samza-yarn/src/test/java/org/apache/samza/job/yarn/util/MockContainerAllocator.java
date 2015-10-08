@@ -20,9 +20,8 @@ package org.apache.samza.job.yarn.util;
 
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
-import org.apache.samza.job.yarn.AbstractContainerAllocator;
+import org.apache.samza.config.YarnConfig;
 import org.apache.samza.job.yarn.ContainerAllocator;
-import org.apache.samza.job.yarn.ContainerRequestState;
 import org.apache.samza.job.yarn.ContainerUtil;
 
 import java.util.Map;
@@ -32,8 +31,8 @@ public class MockContainerAllocator extends ContainerAllocator {
 
   public MockContainerAllocator(AMRMClientAsync<AMRMClient.ContainerRequest> amrmClientAsync,
                                 ContainerUtil containerUtil,
-                                int allocatorSleepTime) {
-    super(amrmClientAsync, containerUtil, allocatorSleepTime);
+                                YarnConfig yarnConfig) {
+    super(amrmClientAsync, containerUtil, yarnConfig);
   }
 
   @Override

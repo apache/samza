@@ -21,11 +21,10 @@ package org.apache.samza.job.yarn;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
+import org.apache.samza.config.YarnConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.List;
-import java.util.Map;
 
 /**
  * This is the default allocator thread that will be used by SamzaTaskManager.
@@ -38,8 +37,8 @@ public class ContainerAllocator extends AbstractContainerAllocator {
 
   public ContainerAllocator(AMRMClientAsync<AMRMClient.ContainerRequest> amClient,
                             ContainerUtil containerUtil,
-                            int allocatorSleepTime) {
-    super(amClient, containerUtil, allocatorSleepTime, new ContainerRequestState(amClient, false));
+                            YarnConfig yarnConfig) {
+    super(amClient, containerUtil, new ContainerRequestState(amClient, false), yarnConfig);
   }
 
   /**

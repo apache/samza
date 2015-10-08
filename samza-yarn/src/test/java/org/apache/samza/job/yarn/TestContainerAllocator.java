@@ -30,6 +30,7 @@ import org.apache.hadoop.yarn.client.api.async.impl.AMRMClientAsyncImpl;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.YarnConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.server.HttpServer;
@@ -53,7 +54,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class TestContainerAllocator {
-  private final int ALLOCATOR_SLEEP_TIME = 10;
   private static final String ANY_HOST = ContainerRequestState.ANY_HOST;
   private final HttpServer server = new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class));
 
@@ -74,6 +74,7 @@ public class TestContainerAllocator {
       put("systems.test-system.samza.msg.serde", "org.apache.samza.serializers.JsonSerde");
       put("yarn.container.retry.count", "1");
       put("yarn.container.retry.window.ms", "1999999999");
+      put("yarn.allocator.sleep.ms", "10");
     }
   });
 
@@ -107,7 +108,7 @@ public class TestContainerAllocator {
     containerAllocator = new ContainerAllocator(
         amRmClientAsync,
         TestUtil.getContainerUtil(config, state),
-        ALLOCATOR_SLEEP_TIME
+        new YarnConfig(config)
     );
     Field requestStateField = containerAllocator.getClass().getSuperclass().getDeclaredField("containerRequestState");
     requestStateField.setAccessible(true);

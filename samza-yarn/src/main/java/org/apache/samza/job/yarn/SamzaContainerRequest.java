@@ -63,6 +63,7 @@ public class SamzaContainerRequest implements Comparable<SamzaContainerRequest> 
     this.requestTimestamp = System.currentTimeMillis();
   }
 
+  // Convenience class for unit testing
   public SamzaContainerRequest(int expectedContainerId, String preferredHost) {
     this(
         AbstractContainerAllocator.DEFAULT_CONTAINER_MEM,

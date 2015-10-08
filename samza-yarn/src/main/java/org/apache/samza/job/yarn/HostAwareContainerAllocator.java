@@ -21,11 +21,10 @@ package org.apache.samza.job.yarn;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
+import org.apache.samza.config.YarnConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.List;
-import java.util.Map;
 
 /**
  * This is the allocator thread that will be used by SamzaTaskManager when host-affinity is enabled for a job. It is similar to {@link org.apache.samza.job.yarn.ContainerAllocator}, except that it considers container locality for allocation.
@@ -43,10 +42,9 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
 
   public HostAwareContainerAllocator(AMRMClientAsync<AMRMClient.ContainerRequest> amClient,
                                      ContainerUtil containerUtil,
-                                     int allocatorSleepTime,
-                                     int containerRequestTimeout) {
-    super(amClient, containerUtil, allocatorSleepTime, new ContainerRequestState(amClient, true));
-    this.CONTAINER_REQUEST_TIMEOUT = containerRequestTimeout;
+                                     YarnConfig yarnConfig) {
+    super(amClient, containerUtil, new ContainerRequestState(amClient, true), yarnConfig);
+    this.CONTAINER_REQUEST_TIMEOUT = yarnConfig.getContainerRequestTimeout();
   }
 
   /**

@@ -32,7 +32,6 @@ import org.apache.samza.config.YarnConfig;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -84,14 +83,13 @@ class SamzaTaskManager implements YarnAppMasterListener {
       this.containerAllocator = new HostAwareContainerAllocator(
           amClient,
           new ContainerUtil(config, state, conf),
-          yarnConfig.getAllocatorSleepTime(),
-          yarnConfig.getContainerRequestTimeout()
+          yarnConfig
       );
     } else {
       this.containerAllocator = new ContainerAllocator(
           amClient,
           new ContainerUtil(config, state, conf),
-          yarnConfig.getAllocatorSleepTime());
+          yarnConfig);
     }
 
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
