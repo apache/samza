@@ -21,8 +21,8 @@ package org.apache.samza.coordinator
 
 
 import org.apache.samza.config.StorageConfig
-import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
-import org.apache.samza.config.{Config, ConfigRewriter}
+import org.apache.samza.job.model.{JobModel, TaskModel}
+import org.apache.samza.config.Config
 import org.apache.samza.SamzaException
 import org.apache.samza.container.grouper.task.TaskNameGrouperFactory
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
@@ -90,7 +90,7 @@ object JobCoordinator extends Logging {
 
     val streamMetadataCache = new StreamMetadataCache(systemAdmins)
 
-    val jobCoordinator = getJobCoordinator(rewriteConfig(config), changelogManager, localityManager, streamMetadataCache)
+    val jobCoordinator = getJobCoordinator(config, changelogManager, localityManager, streamMetadataCache)
     createChangeLogStreams(config, jobCoordinator.jobModel.maxChangeLogStreamPartitions, streamMetadataCache)
 
     jobCoordinator
@@ -138,29 +138,6 @@ object JobCoordinator extends Logging {
     val factoryString = config.getSystemStreamPartitionGrouperFactory
     val factory = Util.getObj[SystemStreamPartitionGrouperFactory](factoryString)
     factory.getSystemStreamPartitionGrouper(config)
-  }
-
-  /**
-   * Re-writes configuration using a ConfigRewriter, if one is defined. If
-   * there is no ConfigRewriter defined for the job, then this method is a
-   * no-op.
-   *
-   * @param config The config to re-write.
-   */
-  def rewriteConfig(config: Config): Config = {
-    def rewrite(c: Config, rewriterName: String): Config = {
-      val klass = config
-        .getConfigRewriterClass(rewriterName)
-        .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
-      val rewriter = Util.getObj[ConfigRewriter](klass)
-      info("Re-writing config with " + rewriter)
-      rewriter.rewrite(rewriterName, c)
-    }
-
-    config.getConfigRewriters match {
-      case Some(rewriters) => rewriters.split(",").foldLeft(config)(rewrite(_, _))
-      case _ => config
-    }
   }
 
   /**
