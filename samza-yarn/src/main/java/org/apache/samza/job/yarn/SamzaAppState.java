@@ -23,6 +23,7 @@ import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.hadoop.yarn.api.records.ContainerStatus;
 
 import java.net.URL;
 import java.util.HashSet;
@@ -117,6 +118,11 @@ public class SamzaAppState {
    * Number of containers released due to extra allocation returned by the RM
    */
   public AtomicInteger releasedContainers = new AtomicInteger(0);
+
+  /**
+   * ContainerStatus of failed containers.
+   */
+  public ConcurrentMap<String, ContainerStatus> failedContainersStatus = new ConcurrentHashMap<String, ContainerStatus>();
 
   /**
    * Number of containers configured for the job

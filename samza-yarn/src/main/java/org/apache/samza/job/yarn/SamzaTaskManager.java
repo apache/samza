@@ -204,6 +204,7 @@ class SamzaTaskManager implements YarnAppMasterListener {
         log.info("Container " + containerIdStr + " failed with exit code " + exitStatus + " - " + containerStatus.getDiagnostics());
 
         state.failedContainers.incrementAndGet();
+        state.failedContainersStatus.put(containerIdStr, containerStatus);
         state.jobHealthy.set(false);
 
         if(containerId != -1) {

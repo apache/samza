@@ -139,6 +139,22 @@
                 Ordinary: #{state.jobCoordinator.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_URL_KEY)}
                 Tunneling: #{state.jobCoordinator.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_TUNNELING_URL_KEY)}
 
+      %h2 Failed Containers
+      %table.table.table-striped.table-bordered.tablesorter#containers-table
+        %thead
+          %tr
+            %th Container
+            %th Exit code
+            %th Message
+        %tbody
+          - for((containerId, containerStatus) <- state.failedContainersStatus)
+            %tr
+              %td
+                #{containerId}
+              %td
+                Exit code: #{containerStatus.getExitStatus}
+              %td
+                %div.value= containerStatus.getDiagnostics
 
     %div.tab-pane#task-groups
       %h2 Task Groups
