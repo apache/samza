@@ -446,7 +446,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="task-global-inputs">task.global.inputs</td>
+                    <td class="property" id="task-broadcast-inputs">task.broadcast.inputs</td>
                     <td class="default"></td>
                     <td class="description">
                        This property specifies the partitions that all tasks should consume. The systemStreamPartitions you put
@@ -456,7 +456,7 @@
                        or <span class="system">system-name</span>.<span class="stream">stream-name</span>#[<i>startingPartitionId</i>-<i>endingPartitionId</i>]</dt>
                        </dl>
                        <dl>
-                            <dt>Example: <code>task.global.inputs=mySystem.globalStream#[1-2], mySystem.anotherGlobalStream#1</code></dt>
+                            <dt>Example: <code>task.broadcast.inputs=mySystem.broadcastStream#[1-2], mySystem.broadcastStream#1</code></dt>
                        </dl>
                     </td>
                 </tr>
