@@ -34,7 +34,7 @@ public class TestTaskConfigJava {
   @Test
   public void testGetBroadcastSystemStreamPartitions() {
     HashMap<String, String> map = new HashMap<String, String>();
-    map.put("task.broadcast.inputs", "kafka.foo#4, kafka.boo#5, kafka.z-o-o#[12-14]");
+    map.put("task.broadcast.inputs", "kafka.foo#4, kafka.boo#5, kafka.z-o-o#[12-14], kafka.foo.bar#[3-4]");
     Config config = new MapConfig(map);
 
     TaskConfigJava taskConfig = new TaskConfigJava(config);
@@ -46,6 +46,8 @@ public class TestTaskConfigJava {
     expected.add(new SystemStreamPartition("kafka", "z-o-o", new Partition(12)));
     expected.add(new SystemStreamPartition("kafka", "z-o-o", new Partition(13)));
     expected.add(new SystemStreamPartition("kafka", "z-o-o", new Partition(14)));
+    expected.add(new SystemStreamPartition("kafka", "foo.bar", new Partition(3)));
+    expected.add(new SystemStreamPartition("kafka", "foo.bar", new Partition(4)));
     assertEquals(expected, systemStreamPartitionSet);
 
     map.put("task.broadcast.inputs", "kafka.foo");
@@ -57,5 +59,15 @@ public class TestTaskConfigJava {
       catchCorrectException = true;
     }
     assertTrue(catchCorrectException);
+
+    map.put("task.broadcast.inputs", "kafka.org.apache.events.WhitelistedIps#1-2");
+    taskConfig = new TaskConfigJava(new MapConfig(map));
+    boolean invalidFormatException = false;
+    try {
+      taskConfig.getBroadcastSystemStreamPartitions();
+    } catch (IllegalArgumentException e) {
+      invalidFormatException = true;
+    }
+    assertTrue(invalidFormatException);
   }
 }
