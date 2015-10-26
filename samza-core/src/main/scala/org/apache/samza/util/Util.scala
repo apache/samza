@@ -36,7 +36,7 @@ import scala.collection.JavaConversions._
 import org.apache.samza.config.JobConfig
 import java.io.InputStreamReader
 import scala.collection.immutable.Map
-import scala.util.control.Breaks._
+import org.apache.samza.serializers._
 
 object Util extends Logging {
   val random = new Random
@@ -325,5 +325,26 @@ object Util extends Logging {
       }
     }
     localHost
+  }
+
+  /**
+   * A helper function which returns system's default serde factory class according to the
+   * serde name. If not found, throw exception.
+   */
+  def defaultSerdeFactoryFromSerdeName(serdeName: String) = {
+    info("looking for default serdes")
+
+    val serde = serdeName match {
+      case "byte" => classOf[ByteSerdeFactory].getCanonicalName
+      case "bytebuffer" => classOf[ByteBufferSerdeFactory].getCanonicalName
+      case "integer" => classOf[IntegerSerdeFactory].getCanonicalName
+      case "json" => classOf[JsonSerdeFactory].getCanonicalName
+      case "long" => classOf[LongSerdeFactory].getCanonicalName
+      case "serializable" => classOf[SerializableSerdeFactory[java.io.Serializable]].getCanonicalName
+      case "string" => classOf[StringSerdeFactory].getCanonicalName
+      case _ => throw new SamzaException("No class defined for serde %s" format serdeName)
+    }
+    info("use default serde %s for %s" format (serde, serdeName))
+    serde
   }
 }

@@ -61,7 +61,6 @@ import org.apache.samza.job.model.{TaskModel, ContainerModel, JobModel}
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.config.JobConfig.Config2Job
 import java.lang.Thread.UncaughtExceptionHandler
-import org.apache.samza.serializers._
 import org.apache.samza.checkpoint.OffsetManagerMetrics
 
 object SamzaContainer extends Logging {
@@ -110,27 +109,6 @@ object SamzaContainer extends Logging {
     SamzaObjectMapper
       .getObjectMapper
       .readValue(Util.read(new URL(url)), classOf[JobModel])
-  }
-
-  /**
-   * A helper function which returns system's default serde factory class according to the
-   * serde name. If not found, throw exception.
-   */
-  def defaultSerdeFactoryFromSerdeName(serdeName: String) = {
-    info("looking for default serdes")
-
-    val serde = serdeName match {
-      case "byte" => classOf[ByteSerdeFactory].getCanonicalName
-      case "bytebuffer" => classOf[ByteBufferSerdeFactory].getCanonicalName
-      case "integer" => classOf[IntegerSerdeFactory].getCanonicalName
-      case "json" => classOf[JsonSerdeFactory].getCanonicalName
-      case "long" => classOf[LongSerdeFactory].getCanonicalName
-      case "serializable" => classOf[SerializableSerdeFactory[java.io.Serializable]].getCanonicalName
-      case "string" => classOf[StringSerdeFactory].getCanonicalName
-      case _ => throw new SamzaException("No class defined for serde %s" format serdeName)
-    }
-    info("use default serde %s for %s" format (serde, serdeName))
-    serde
   }
 
   def apply(containerModel: ContainerModel, jobModel: JobModel, jmxServer: JmxServer) = {
@@ -232,7 +210,7 @@ object SamzaContainer extends Logging {
     val serdes = serdeNames.map(serdeName => {
       val serdeClassName = config
         .getSerdeClass(serdeName)
-        .getOrElse(defaultSerdeFactoryFromSerdeName(serdeName))
+        .getOrElse(Util.defaultSerdeFactoryFromSerdeName(serdeName))
 
       val serde = Util.getObj[SerdeFactory[Object]](serdeClassName)
         .getSerde(serdeName, config)

@@ -202,28 +202,6 @@ class TestSamzaContainer extends AssertionsForJUnit {
     t.join
     assertTrue(caughtException)
   }
-
-  @Test
-  def testDefaultSerdeFactoryFromSerdeName {
-    import SamzaContainer._
-    val config = new MapConfig
-    assertEquals(classOf[ByteSerdeFactory].getName, defaultSerdeFactoryFromSerdeName("byte"))
-    assertEquals(classOf[IntegerSerdeFactory].getName, defaultSerdeFactoryFromSerdeName("integer"))
-    assertEquals(classOf[JsonSerdeFactory].getName, defaultSerdeFactoryFromSerdeName("json"))
-    assertEquals(classOf[LongSerdeFactory].getName, defaultSerdeFactoryFromSerdeName("long"))
-    assertEquals(classOf[SerializableSerdeFactory[java.io.Serializable@unchecked]].getName, defaultSerdeFactoryFromSerdeName("serializable"))
-    assertEquals(classOf[StringSerdeFactory].getName, defaultSerdeFactoryFromSerdeName("string"))
-
-    // throw SamzaException if can not find the correct serde
-    var throwSamzaException = false
-    try {
-      defaultSerdeFactoryFromSerdeName("otherName")
-    } catch {
-      case e: SamzaException => throwSamzaException = true
-      case _: Exception =>
-    }
-    assertTrue(throwSamzaException)
-  }
 }
 
 class MockCheckpointManager extends CheckpointManager(null, null, "Unknown") {

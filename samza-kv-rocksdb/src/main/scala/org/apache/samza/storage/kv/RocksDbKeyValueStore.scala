@@ -28,49 +28,6 @@ import org.rocksdb._
 import org.rocksdb.TtlDB;
 
 object RocksDbKeyValueStore extends Logging {
-  def options(storeConfig: Config, containerContext: SamzaContainerContext) = {
-    val cacheSize = storeConfig.getLong("container.cache.size.bytes", 100 * 1024 * 1024L)
-    val writeBufSize = storeConfig.getLong("container.write.buffer.size.bytes", 32 * 1024 * 1024)
-    val options = new Options()
-
-    // Cache size and write buffer size are specified on a per-container basis.
-    val numTasks = containerContext.taskNames.size
-    options.setWriteBufferSize((writeBufSize / numTasks).toInt)
-    var cacheSizePerContainer = cacheSize / numTasks
-    options.setCompressionType(
-      storeConfig.get("rocksdb.compression", "snappy") match {
-        case "snappy" => CompressionType.SNAPPY_COMPRESSION
-        case "bzip2" => CompressionType.BZLIB2_COMPRESSION
-        case "zlib" => CompressionType.ZLIB_COMPRESSION
-        case "lz4" => CompressionType.LZ4_COMPRESSION
-        case "lz4hc" => CompressionType.LZ4HC_COMPRESSION
-        case "none" => CompressionType.NO_COMPRESSION
-        case _ =>
-          warn("Unknown rocksdb.compression codec %s, defaulting to Snappy" format storeConfig.get("rocksdb.compression", "snappy"))
-          CompressionType.SNAPPY_COMPRESSION
-      })
-
-    val blockSize = storeConfig.getInt("rocksdb.block.size.bytes", 4096)
-    val table_options = new BlockBasedTableConfig()
-    table_options.setBlockCacheSize(cacheSizePerContainer)
-      .setBlockSize(blockSize)
-
-    options.setTableFormatConfig(table_options)
-    options.setCompactionStyle(
-      storeConfig.get("rocksdb.compaction.style", "universal") match {
-        case "universal" => CompactionStyle.UNIVERSAL
-        case "fifo" => CompactionStyle.FIFO
-        case "level" => CompactionStyle.LEVEL
-        case _ =>
-          warn("Unknown rocksdb.compactionStyle %s, defaulting to universal" format storeConfig.get("rocksdb.compaction.style", "universal"))
-          CompactionStyle.UNIVERSAL
-      })
-
-    options.setMaxWriteBufferNumber(storeConfig.get("rocksdb.num.write.buffers", "3").toInt)
-    options.setCreateIfMissing(true)
-    options.setErrorIfExists(false)
-    options
-  }
 
   def openDB(dir: File, options: Options, storeConfig: Config, isLoggedStore: Boolean, storeName: String): RocksDB = {
     var ttl = 0L

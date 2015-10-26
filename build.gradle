@@ -428,6 +428,9 @@ project(":samza-kv-inmemory_$scalaVersion") {
 project(":samza-kv-rocksdb_$scalaVersion") {
   apply plugin: 'scala'
 
+  sourceSets.test.scala.srcDir "src/test/java"
+  sourceSets.test.java.srcDirs = []
+
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
