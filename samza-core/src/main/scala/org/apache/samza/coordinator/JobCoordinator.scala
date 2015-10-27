@@ -52,6 +52,11 @@ import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 object JobCoordinator extends Logging {
 
   /**
+   * a volatile value to store the current instantiated <code>JobCoordinator</code>
+   */
+  @volatile var currentJobCoordinator: JobCoordinator = null
+
+  /**
    * @param coordinatorSystemConfig A config object that contains job.name,
    * job.id, and all system.&lt;job-coordinator-system-name&gt;.*
    * configuration. The method will use this config to read all configuration
@@ -105,7 +110,8 @@ object JobCoordinator extends Logging {
     val jobModelGenerator = initializeJobModel(config, checkpointManager, changelogManager, localityManager, streamMetadataCache)
     val server = new HttpServer
     server.addServlet("/*", new JobServlet(jobModelGenerator))
-    new JobCoordinator(jobModelGenerator(), server, checkpointManager)
+    currentJobCoordinator = new JobCoordinator(jobModelGenerator(), server, checkpointManager)
+    currentJobCoordinator
   }
 
   /**

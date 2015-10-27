@@ -69,8 +69,7 @@ public class Log4jSystemConfig extends JavaSystemConfig {
   /**
    * Get the class name according to the serde name.
    * 
-   * @param name
-   *          serde name
+   * @param name serde name
    * @return serde factory name, or null if there is no factory defined for the
    *         supplied serde name.
    */
