@@ -24,6 +24,7 @@ import java.io.File
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
+import org.apache.samza.migration.JobRunnerMigration
 import org.junit.Test
 import org.junit.After
 import org.junit.Assert._
@@ -51,8 +52,7 @@ class TestJobRunner {
         "file://%s/src/test/resources/test-migration-fail.properties" format new File(".").getCanonicalPath))
       fail("Should have failed already.")
     } catch {
-      case se: SamzaException => assertEquals(se.getMessage, "Auto checkpoint migration for 0.10.0 upgrade is only supported for Kafka checkpointing system, " +
-        "for everything else, please use the checkpoint tool and remove task.checkpoint.factory configuration")
+      case se: SamzaException => assertEquals(se.getMessage, JobRunnerMigration.UNSUPPORTED_ERROR_MSG)
     }
   }
 

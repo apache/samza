@@ -98,7 +98,7 @@ public class TestHostAwareContainerAllocator {
       containers.put(i, container);
     }
     JobModel jobModel = new JobModel(getConfig(), containers);
-    return new JobCoordinator(jobModel, server, null);
+    return new JobCoordinator(jobModel, server);
   }
 
 

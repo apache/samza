@@ -65,7 +65,7 @@ class TestOffsetManager {
     val config = new MapConfig
     val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
     val systemAdmins = Map("test-system" -> getSystemAdmin)
-    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins, new OffsetManagerMetrics, checkpointManager.getOffets)
+    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins, new OffsetManagerMetrics)
     offsetManager.register(taskName, Set(systemStreamPartition))
     offsetManager.start
     assertTrue(checkpointManager.isStarted)
@@ -97,7 +97,7 @@ class TestOffsetManager {
     val config = new MapConfig
     val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
     val systemAdmins = Map("test-system" -> getSystemAdmin)
-    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins, new OffsetManagerMetrics, checkpointManager.getOffets)
+    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins, new OffsetManagerMetrics)
     offsetManager.register(taskName, Set(systemStreamPartition))
     offsetManager.start
     // Should get offset 45 back from the checkpoint manager, which is last processed, and system admin should return 46 as starting offset.
@@ -242,17 +242,17 @@ class TestOffsetManager {
 
   private def getCheckpointManager(systemStreamPartition: SystemStreamPartition, taskName:TaskName = new TaskName("taskName")) = {
     val checkpoint = new Checkpoint(Map(systemStreamPartition -> "45"))
-    new CheckpointManager(null, null, null) {
+    new CheckpointManager {
       var isStarted = false
       var isStopped = false
       var registered = Set[TaskName]()
       var checkpoints: Map[TaskName, Checkpoint] = Map(taskName -> checkpoint)
       var taskNameToPartitionMapping: util.Map[TaskName, java.lang.Integer] = new util.HashMap[TaskName, java.lang.Integer]()
-      override def start { isStarted = true }
-      override def register(taskName: TaskName) { registered += taskName }
-      override def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) { checkpoints += taskName -> checkpoint }
-      override def readLastCheckpoint(taskName: TaskName) = checkpoints.getOrElse(taskName, null)
-      override def stop { isStopped = true }
+      def start { isStarted = true }
+      def register(taskName: TaskName) { registered += taskName }
+      def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) { checkpoints += taskName -> checkpoint }
+      def readLastCheckpoint(taskName: TaskName) = checkpoints.getOrElse(taskName, null)
+      def stop { isStopped = true }
 
       // Only for testing purposes - not present in actual checkpoint manager
       def getOffets = Map(taskName -> mapAsScalaMap(checkpoint.getOffsets()).toMap)

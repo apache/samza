@@ -1471,6 +1471,29 @@
                   <td class="default">268435456</td>
                   <td class="description">The number of bytes of outgoing messages to write to each HDFS output file before cutting a new file. Defaults to 256MB if not set.</td>
                 </tr>
+
+                <tr>
+                    <th colspan="3" class="section" id="task-migration">
+                        Migrating from Samza 0.9.1 to 0.10.0<br>
+                        <span class="subtitle">
+                            (This section applies if you are upgrading from Samza 0.9.1 to 0.10.0 and have set
+                            <a href="#task-checkpoint-factory" class="property">task.checkpoint.factory</a> to anything <b> other than </b>
+                            <code>org.apache.samza.checkpoint.file.FileSystemCheckpointManagerFactory</code>)
+                        </span>
+                    </th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="task-checkpoint-skip-migration">task.checkpoint.skip-migration</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        When migrating from 0.9.1 to 0.10.0, the taskName-to-changelog partition mapping was moved from the checkpoint stream to the coordinator stream. <br />
+                        If you are using a checkpoint manager other than kafka
+                        (<code>org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory</code>), you have to
+                        manually migrate taskName-to-changelog partition mapping to the coordinator stream. <br />
+                        This can be achieved with the assistance of the <code>checkpoint-tool.sh</code>.
+                    </td>
+                </tr>
             </tbody>
         </table>
     </body>

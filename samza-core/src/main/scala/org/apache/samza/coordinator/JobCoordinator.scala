@@ -74,7 +74,6 @@ object JobCoordinator extends Logging {
     coordinatorSystemConsumer.bootstrap
     val config = coordinatorSystemConsumer.getConfig
     info("Got config: %s" format config)
-    val checkpointManager = new CheckpointManager(coordinatorSystemProducer, coordinatorSystemConsumer, "Job-coordinator")
     val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, "Job-coordinator")
     val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
 
@@ -91,7 +90,7 @@ object JobCoordinator extends Logging {
 
     val streamMetadataCache = new StreamMetadataCache(systemAdmins)
 
-    val jobCoordinator = getJobCoordinator(rewriteConfig(config), checkpointManager, changelogManager, localityManager, streamMetadataCache)
+    val jobCoordinator = getJobCoordinator(rewriteConfig(config), changelogManager, localityManager, streamMetadataCache)
     createChangeLogStreams(config, jobCoordinator.jobModel.maxChangeLogStreamPartitions, streamMetadataCache)
 
     jobCoordinator
@@ -103,14 +102,13 @@ object JobCoordinator extends Logging {
    * Build a JobCoordinator using a Samza job's configuration.
    */
   def getJobCoordinator(config: Config,
-                        checkpointManager: CheckpointManager,
                         changelogManager: ChangelogPartitionManager,
                         localityManager: LocalityManager,
                         streamMetadataCache: StreamMetadataCache) = {
-    val jobModelGenerator = initializeJobModel(config, checkpointManager, changelogManager, localityManager, streamMetadataCache)
+    val jobModelGenerator = initializeJobModel(config, changelogManager, localityManager, streamMetadataCache)
     val server = new HttpServer
     server.addServlet("/*", new JobServlet(jobModelGenerator))
-    currentJobCoordinator = new JobCoordinator(jobModelGenerator(), server, checkpointManager)
+    currentJobCoordinator = new JobCoordinator(jobModelGenerator(), server)
     currentJobCoordinator
   }
 
@@ -170,7 +168,6 @@ object JobCoordinator extends Logging {
    * which catchup with the latest content from the coordinator stream.
    */
   private def initializeJobModel(config: Config,
-                                 checkpointManager: CheckpointManager,
                                  changelogManager: ChangelogPartitionManager,
                                  localityManager: LocalityManager,
                                  streamMetadataCache: StreamMetadataCache): () => JobModel = {
@@ -192,10 +189,6 @@ object JobCoordinator extends Logging {
     {
       new util.HashMap[TaskName, Integer]()
     }
-
-    checkpointManager.start()
-    groups.foreach(taskSSP => checkpointManager.register(taskSSP._1))
-
     // We don't need to start() localityManager as they share the same instances with checkpoint and changelog managers.
     // TODO: This code will go away with refactoring - SAMZA-678
 
@@ -204,7 +197,6 @@ object JobCoordinator extends Logging {
     // Generate the jobModel
     def jobModelGenerator(): JobModel = refreshJobModel(config,
                                                         allSystemStreamPartitions,
-                                                        checkpointManager,
                                                         groups,
                                                         previousChangelogMapping,
                                                         localityManager)
@@ -238,7 +230,6 @@ object JobCoordinator extends Logging {
    */
   private def refreshJobModel(config: Config,
                               allSystemStreamPartitions: util.Set[SystemStreamPartition],
-                              checkpointManager: CheckpointManager,
                               groups: util.Map[TaskName, util.Set[SystemStreamPartition]],
                               previousChangelogMapping: util.Map[TaskName, Integer],
                               localityManager: LocalityManager): JobModel = {
@@ -253,17 +244,6 @@ object JobCoordinator extends Logging {
       {
         groups.map
                 { case (taskName, systemStreamPartitions) =>
-                  val checkpoint = Option(checkpointManager.readLastCheckpoint(taskName)).getOrElse(new Checkpoint(new util.HashMap[SystemStreamPartition, String]()))
-                  // Find the system partitions which don't have a checkpoint and set null for the values for offsets
-                  val taskOffsets = checkpoint.getOffsets
-                  val offsetMap = new util.HashMap[SystemStreamPartition, String]()
-                  systemStreamPartitions.foreach {
-                    ssp =>
-                      if(taskOffsets.containsKey(ssp))
-                        offsetMap.put(ssp, taskOffsets.get(ssp))
-                      else
-                        offsetMap.put(ssp, null)
-                  }
                   val changelogPartition = Option(previousChangelogMapping.get(taskName)) match
                   {
                     case Some(changelogPartitionId) => new Partition(changelogPartitionId)
@@ -274,7 +254,7 @@ object JobCoordinator extends Logging {
                       info("New task %s is being assigned changelog partition %s." format(taskName, maxChangelogPartitionId))
                       new Partition(maxChangelogPartitionId)
                   }
-                  new TaskModel(taskName, offsetMap, changelogPartition)
+                  new TaskModel(taskName, systemStreamPartitions, changelogPartition)
                 }.toSet
       }
 
@@ -336,12 +316,7 @@ class JobCoordinator(
   /**
    * HTTP server used to serve a Samza job's container model to SamzaContainers when they start up.
    */
-  val server: HttpServer = null,
-
-  /**
-   * Handle to checkpoint manager that's used to refresh the JobModel
-   */
-  val checkpointManager: CheckpointManager) extends Logging {
+  val server: HttpServer = null) extends Logging {
 
   debug("Got job model: %s." format jobModel)
 
@@ -358,9 +333,6 @@ class JobCoordinator(
       debug("Stopping HTTP server.")
       server.stop
       info("Stopped HTTP server.")
-      debug("Stopping checkpoint manager.")
-      checkpointManager.stop()
-      info("Stopped checkpoint manager.")
     }
   }
 }

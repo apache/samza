@@ -20,22 +20,18 @@
 package org.apache.samza.coordinator.stream;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import org.apache.samza.SamzaException;
-import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
-import org.apache.samza.coordinator.stream.messages.SetCheckpoint;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.BlockingEnvelopeMap;
-import org.apache.samza.util.Util;
 import org.codehaus.jackson.map.ObjectMapper;
 
 /**
@@ -47,7 +43,6 @@ import org.codehaus.jackson.map.ObjectMapper;
 public class MockCoordinatorStreamWrappedConsumer extends BlockingEnvelopeMap {
   private final static ObjectMapper MAPPER = SamzaObjectMapper.getObjectMapper();
   public final static String CHANGELOGPREFIX = "ch:";
-  public final static String CHECKPOINTPREFIX = "cp:";
   public final CountDownLatch blockConsumerPoll = new CountDownLatch(1);
   public boolean blockpollFlag = false;
 
@@ -78,16 +73,7 @@ public class MockCoordinatorStreamWrappedConsumer extends BlockingEnvelopeMap {
       for (Map.Entry<String, String> configPair : config.entrySet()) {
         byte[] keyBytes = null;
         byte[] messgeBytes = null;
-        if (configPair.getKey().startsWith(CHECKPOINTPREFIX)) {
-          String[] checkpointInfo = configPair.getKey().split(":");
-          String[] sspOffsetPair = configPair.getValue().split(":");
-          HashMap<SystemStreamPartition, String> checkpointMap = new HashMap<SystemStreamPartition, String>();
-          checkpointMap.put(Util.stringToSsp(sspOffsetPair[0]), sspOffsetPair[1]);
-          Checkpoint cp = new Checkpoint(checkpointMap);
-          SetCheckpoint setCheckpoint = new SetCheckpoint(checkpointInfo[1], checkpointInfo[2], cp);
-          keyBytes = MAPPER.writeValueAsString(setCheckpoint.getKeyArray()).getBytes("UTF-8");
-          messgeBytes = MAPPER.writeValueAsString(setCheckpoint.getMessageMap()).getBytes("UTF-8");
-        } else if (configPair.getKey().startsWith(CHANGELOGPREFIX)) {
+        if (configPair.getKey().startsWith(CHANGELOGPREFIX)) {
           String[] changelogInfo = configPair.getKey().split(":");
           String changeLogPartition = configPair.getValue();
           SetChangelogMapping changelogMapping = new SetChangelogMapping(changelogInfo[1], changelogInfo[2], Integer.parseInt(changeLogPartition));

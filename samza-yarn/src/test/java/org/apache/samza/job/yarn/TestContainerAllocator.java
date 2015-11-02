@@ -87,7 +87,7 @@ public class TestContainerAllocator {
       containers.put(i, container);
     }
     JobModel jobModel = new JobModel(config, containers);
-    return new JobCoordinator(jobModel, server, null);
+    return new JobCoordinator(jobModel, server);
   }
 
   @Before

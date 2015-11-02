@@ -40,6 +40,10 @@ object KafkaConfig {
   val REGEX_RESOLVED_SYSTEM = "job.config.rewriter.%s.system"
   val REGEX_INHERITED_CONFIG = "job.config.rewriter.%s.config"
 
+  val CHECKPOINT_SYSTEM = "task.checkpoint.system"
+  val CHECKPOINT_REPLICATION_FACTOR = "task.checkpoint.replication.factor"
+  val CHECKPOINT_SEGMENT_BYTES = "task.checkpoint.segment.bytes"
+
   val CHANGELOG_STREAM_REPLICATION_FACTOR = "stores.%s.changelog.replication.factor"
   val CHANGELOG_STREAM_KAFKA_SETTINGS = "stores.%s.changelog.kafka."
   // The default segment size to use for changelog topics
@@ -54,10 +58,16 @@ object KafkaConfig {
    */
   val CONSUMER_FETCH_THRESHOLD = SystemConfig.SYSTEM_PREFIX + "samza.fetch.threshold"
 
+  val DEFAULT_CHECKPOINT_SEGMENT_BYTES = 26214400
+
   implicit def Config2Kafka(config: Config) = new KafkaConfig(config)
 }
 
 class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
+  // checkpoints
+  def getCheckpointSystem = getOption(KafkaConfig.CHECKPOINT_SYSTEM)
+  def getCheckpointReplicationFactor() = getOption(KafkaConfig.CHECKPOINT_REPLICATION_FACTOR)
+  def getCheckpointSegmentBytes() = getInt(KafkaConfig.CHECKPOINT_SEGMENT_BYTES, KafkaConfig.DEFAULT_CHECKPOINT_SEGMENT_BYTES)
   // custom consumer config
   def getConsumerFetchThreshold(name: String) = getOption(KafkaConfig.CONSUMER_FETCH_THRESHOLD format name)
 

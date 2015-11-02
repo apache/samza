@@ -24,7 +24,10 @@ import org.apache.samza.SamzaException
 
 
 object JobRunnerMigration {
-  val CHECKPOINTMIGRATION = "old.checkpoint.KafkaCheckpointMigration"
+  val CHECKPOINT_MIGRATION = "org.apache.samza.migration.KafkaCheckpointMigration"
+  val UNSUPPORTED_ERROR_MSG = "Auto checkpoint migration for 0.10.0 upgrade is only supported for Kafka checkpointing system, " +
+    "for everything else, please use the checkpoint tool to migrate the taskname-to-changelog mapping, and add " +
+    "task.checkpoint.skip-migration=true to your configs."
   def apply(config: Config) = {
     val migration = new JobRunnerMigration
     migration.checkpointMigration(config)
@@ -38,15 +41,18 @@ class JobRunnerMigration extends Logging {
     checkpointFactory match {
       case Some("org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory") =>
         info("Performing checkpoint migration")
-        val checkpointMigrationPlan = Util.getObj[MigrationPlan](JobRunnerMigration.CHECKPOINTMIGRATION)
+        val checkpointMigrationPlan = Util.getObj[MigrationPlan](JobRunnerMigration.CHECKPOINT_MIGRATION)
         checkpointMigrationPlan.migrate(config)
       case None =>
         info("No task.checkpoint.factory defined, not performing any checkpoint migration")
       case _ =>
-        val errorMsg = "Auto checkpoint migration for 0.10.0 upgrade is only supported for Kafka checkpointing system, " +
-          "for everything else, please use the checkpoint tool and remove task.checkpoint.factory configuration"
-        error(errorMsg)
-        throw new SamzaException(errorMsg)
+        val skipMigration = config.getBoolean("task.checkpoint.skip-migration", false)
+        if (skipMigration) {
+          info("Job is configured to skip any checkpoint migration.")
+        } else {
+          error(JobRunnerMigration.UNSUPPORTED_ERROR_MSG)
+          throw new SamzaException(JobRunnerMigration.UNSUPPORTED_ERROR_MSG)
+        }
     }
   }
 }

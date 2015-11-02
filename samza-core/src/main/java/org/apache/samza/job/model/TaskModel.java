@@ -20,7 +20,6 @@
 package org.apache.samza.job.model;
 
 import java.util.Collections;
-import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.container.TaskName;
@@ -41,12 +40,12 @@ import org.apache.samza.system.SystemStreamPartition;
  */
 public class TaskModel implements Comparable<TaskModel> {
   private final TaskName taskName;
-  private final Map<SystemStreamPartition, String> systemStreamPartitionsToOffsets;
+  private final Set<SystemStreamPartition> systemStreamPartitions;
   private final Partition changelogPartition;
 
-  public TaskModel(TaskName taskName, Map<SystemStreamPartition, String> systemStreamPartitionsToOffsets, Partition changelogPartition) {
+  public TaskModel(TaskName taskName, Set<SystemStreamPartition> systemStreamPartitions, Partition changelogPartition) {
     this.taskName = taskName;
-    this.systemStreamPartitionsToOffsets = Collections.unmodifiableMap(systemStreamPartitionsToOffsets);
+    this.systemStreamPartitions = Collections.unmodifiableSet(systemStreamPartitions);
     this.changelogPartition = changelogPartition;
   }
 
@@ -55,15 +54,11 @@ public class TaskModel implements Comparable<TaskModel> {
   }
 
   public Set<SystemStreamPartition> getSystemStreamPartitions() {
-    return systemStreamPartitionsToOffsets.keySet();
+    return systemStreamPartitions;
   }
 
   public Partition getChangelogPartition() {
     return changelogPartition;
-  }
-
-  public Map<SystemStreamPartition, String> getCheckpointedOffsets() {
-    return systemStreamPartitionsToOffsets;
   }
 
   @Override
@@ -80,7 +75,7 @@ public class TaskModel implements Comparable<TaskModel> {
     if (!changelogPartition.equals(taskModel.changelogPartition)) {
       return false;
     }
-    if (!systemStreamPartitionsToOffsets.equals(taskModel.systemStreamPartitionsToOffsets)) {
+    if (!systemStreamPartitions.equals(taskModel.systemStreamPartitions)) {
       return false;
     }
     if (!taskName.equals(taskModel.taskName)) {
@@ -93,7 +88,7 @@ public class TaskModel implements Comparable<TaskModel> {
   @Override
   public int hashCode() {
     int result = taskName.hashCode();
-    result = 31 * result + systemStreamPartitionsToOffsets.hashCode();
+    result = 31 * result + systemStreamPartitions.hashCode();
     result = 31 * result + changelogPartition.hashCode();
     return result;
   }
@@ -101,7 +96,7 @@ public class TaskModel implements Comparable<TaskModel> {
   @Override
 
   public String toString() {
-    return "TaskModel [taskName=" + taskName + ", systemStreamPartitions=" + systemStreamPartitionsToOffsets.keySet() + ", changeLogPartition=" + changelogPartition + "]";
+    return "TaskModel [taskName=" + taskName + ", systemStreamPartitions=" + systemStreamPartitions + ", changeLogPartition=" + changelogPartition + "]";
   }
 
   public int compareTo(TaskModel other) {

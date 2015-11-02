@@ -72,8 +72,7 @@ object OffsetManager extends Logging {
     config: Config,
     checkpointManager: CheckpointManager = null,
     systemAdmins: Map[String, SystemAdmin] = Map(),
-    offsetManagerMetrics: OffsetManagerMetrics = new OffsetManagerMetrics,
-    latestOffsets: Map[TaskName, Map[SystemStreamPartition, String]] = Map()) = {
+    offsetManagerMetrics: OffsetManagerMetrics = new OffsetManagerMetrics) = {
     debug("Building offset manager for %s." format systemStreamMetadata)
 
     val offsetSettings = systemStreamMetadata
@@ -99,7 +98,7 @@ object OffsetManager extends Logging {
           // Build OffsetSetting so we can create a map for OffsetManager.
           (systemStream, OffsetSetting(systemStreamMetadata, defaultOffsetType, resetOffset))
       }.toMap
-    new OffsetManager(offsetSettings, checkpointManager, systemAdmins, offsetManagerMetrics, latestOffsets)
+    new OffsetManager(offsetSettings, checkpointManager, systemAdmins, offsetManagerMetrics)
   }
 }
 
@@ -142,22 +141,12 @@ class OffsetManager(
   /**
    * offsetManagerMetrics for keeping track of checkpointed offsets of each SystemStreamPartition.
    */
-  val offsetManagerMetrics: OffsetManagerMetrics = new OffsetManagerMetrics,
-
-  /*
-   * The previously read checkpoints restored from the coordinator stream
-   */
-  val previousCheckpointedOffsets: Map[TaskName, Map[SystemStreamPartition, String]] = Map()) extends Logging {
+  val offsetManagerMetrics: OffsetManagerMetrics = new OffsetManagerMetrics) extends Logging {
 
   /**
    * Last offsets processed for each SystemStreamPartition.
    */
-  // Filter out null offset values, we can't use them, these exist only because of SSP information
-  var lastProcessedOffsets = previousCheckpointedOffsets.map {
-    case (taskName, sspToOffset) => {
-      taskName -> sspToOffset.filter(_._2 != null)
-    }
-  }
+  var lastProcessedOffsets = Map[TaskName, Map[SystemStreamPartition, String]]()
 
   /**
    * Offsets to start reading from for each SystemStreamPartition. This
@@ -175,13 +164,12 @@ class OffsetManager(
   def register(taskName: TaskName, systemStreamPartitionsToRegister: Set[SystemStreamPartition]) {
     systemStreamPartitions.getOrElseUpdate(taskName, mutable.Set[SystemStreamPartition]()).addAll(systemStreamPartitionsToRegister)
     // register metrics
-    systemStreamPartitions.foreach { case (taskName, ssp) => ssp.foreach(ssp => offsetManagerMetrics.addCheckpointedOffset(ssp, "")) }
+    systemStreamPartitions.foreach { case (taskName, ssp) => ssp.foreach (ssp => offsetManagerMetrics.addCheckpointedOffset(ssp, "")) }
   }
 
   def start {
     registerCheckpointManager
-    initializeCheckpointManager
-    loadOffsets
+    loadOffsetsFromCheckpointManager
     stripResetStreams
     loadStartingOffsets
     loadDefaults
@@ -269,32 +257,51 @@ class OffsetManager(
     }
   }
 
-  private def initializeCheckpointManager {
+  /**
+   * Loads last processed offsets from checkpoint manager for all registered
+   * partitions.
+   */
+  private def loadOffsetsFromCheckpointManager {
     if (checkpointManager != null) {
+      debug("Loading offsets from checkpoint manager.")
+
       checkpointManager.start
+      val result = systemStreamPartitions
+        .keys
+        .flatMap(restoreOffsetsFromCheckpoint(_))
+        .toMap
+      lastProcessedOffsets ++= result.map {
+        case (taskName, sspToOffset) => {
+          taskName -> sspToOffset.filter {
+            case (systemStreamPartition, offset) =>
+              val shouldKeep = offsetSettings.contains(systemStreamPartition.getSystemStream)
+              if (!shouldKeep) {
+                info("Ignoring previously checkpointed offset %s for %s since the offset is for a stream that is not currently an input stream." format (offset, systemStreamPartition))
+              }
+              info("Checkpointed offset is currently %s for %s" format (offset, systemStreamPartition))
+              shouldKeep
+          }
+        }
+      }
     } else {
       debug("Skipping offset load from checkpoint manager because no manager was defined.")
     }
   }
 
   /**
-   * Loads last processed offsets from checkpoint manager for all registered
-   * partitions.
+   * Loads last processed offsets for a single taskName.
    */
-  private def loadOffsets {
-    debug("Loading offsets")
-    lastProcessedOffsets.map {
-      case (taskName, sspToOffsets) => {
-        taskName -> sspToOffsets.filter {
-          case (systemStreamPartition, offset) =>
-            val shouldKeep = offsetSettings.contains(systemStreamPartition.getSystemStream)
-            if (!shouldKeep) {
-              info("Ignoring previously checkpointed offset %s for %s since the offset is for a stream that is not currently an input stream." format (offset, systemStreamPartition))
-            }
-            info("Checkpointed offset is currently %s for %s." format (offset, systemStreamPartition))
-            shouldKeep
-        }
-      }
+  private def restoreOffsetsFromCheckpoint(taskName: TaskName): Map[TaskName, Map[SystemStreamPartition, String]] = {
+    debug("Loading checkpoints for taskName: %s." format taskName)
+
+    val checkpoint = checkpointManager.readLastCheckpoint(taskName)
+
+    if (checkpoint != null) {
+      Map(taskName -> checkpoint.getOffsets.toMap)
+    } else {
+      info("Did not receive a checkpoint for taskName %s. Proceeding without a checkpoint." format taskName)
+
+      Map(taskName -> Map())
     }
   }
 

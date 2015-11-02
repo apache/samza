@@ -29,10 +29,9 @@ import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.CommandLine
+import org.apache.samza.util.{Util, CommandLine, Logging}
 import org.apache.samza.{Partition, SamzaException}
 import scala.collection.JavaConversions._
-import org.apache.samza.util.Logging
 import org.apache.samza.coordinator.JobCoordinator
 
 import scala.collection.immutable.HashMap
@@ -118,10 +117,12 @@ object CheckpointTool {
   }
 
   def apply(config: Config, offsets: TaskNameToCheckpointMap) = {
-    val factory = new CoordinatorStreamSystemFactory
-    val coordinatorStreamConsumer = factory.getCoordinatorStreamSystemConsumer(config, new MetricsRegistryMap())
-    val coordinatorStreamProducer = factory.getCoordinatorStreamSystemProducer(config, new MetricsRegistryMap())
-    val manager = new CheckpointManager(coordinatorStreamProducer, coordinatorStreamConsumer, "checkpoint-tool")
+    val manager = config.getCheckpointManagerFactory match {
+      case Some(className) =>
+        Util.getObj[CheckpointManagerFactory](className).getCheckpointManager(config, new MetricsRegistryMap)
+      case _ =>
+        throw new SamzaException("This job does not use checkpointing (task.checkpoint.factory is not set).")
+    }
     new CheckpointTool(config, offsets, manager)
   }
 
