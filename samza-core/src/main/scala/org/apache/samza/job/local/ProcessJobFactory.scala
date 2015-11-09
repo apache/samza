@@ -48,10 +48,9 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     }
     // JobCoordinator is stopped by ProcessJob when it exits
     coordinator.start
-    val coordinatorSystemConfig = Util.buildCoordinatorStreamConfig(config)
 
     commandBuilder
-            .setConfig(coordinatorSystemConfig)
+            .setConfig(config)
             .setId(0)
             .setUrl(coordinator.server.getUrl)
 
