@@ -62,14 +62,18 @@ class CachedStore[K, V](
   /** an lru cache of values that holds cacheEntries and calls flush() if necessary when discarding */
   private val cache = new java.util.LinkedHashMap[K, CacheEntry[K, V]]((cacheSize * 1.2).toInt, 1.0f, true) {
     override def removeEldestEntry(eldest: java.util.Map.Entry[K, CacheEntry[K, V]]): Boolean = {
-      val entry = eldest.getValue
-      // if this entry hasn't been written out yet, flush it and all other dirty keys
-      if (entry.dirty != null) {
-        debug("Found a dirty entry. Flushing.")
+      val evict = super.size > cacheSize
+      // We need backwards compatibility with the previous broken flushing behavior for array keys.
+      if (evict || hasArrayKeys) {
+        val entry = eldest.getValue
+        // if this entry hasn't been written out yet, flush it and all other dirty keys
+        if (entry.dirty != null) {
+          debug("Found a dirty entry. Flushing.")
 
-        flush()
+          flush()
+        }
       }
-      super.size > cacheSize
+      evict
     }
   }
 

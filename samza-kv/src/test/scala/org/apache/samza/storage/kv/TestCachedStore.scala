@@ -33,6 +33,8 @@ class TestCachedStore {
 
     assertFalse(store.hasArrayKeys)
     store.put("test1-key".getBytes("UTF-8"), "test1-value".getBytes("UTF-8"))
+    // Ensure we preserve old, broken flushing behavior for array keys
+    verify(kv).flush();
     assertTrue(store.hasArrayKeys)
   }
 
@@ -87,5 +89,28 @@ class TestCachedStore {
     assertFalse(iter.hasNext)
     assertNull(kv.get(keys.get(1)))
     assertNull(store.get(keys.get(1)))
+  }
+
+  @Test
+  def testFlushing() {
+    val kv = mock(classOf[KeyValueStore[String, String]])
+    val store = new CachedStore[String, String](kv, 4, 4)
+
+    val keys = Arrays.asList("test1-key",
+      "test2-key",
+      "test3-key",
+      "test4-key")
+    val values = Arrays.asList("test1-value",
+      "test2-value",
+      "test3-value",
+      "test4-value")
+
+    for (i <- 0 until 3) {
+      store.put(keys.get(i), values.get(i))
+    }
+
+    verify(kv, never()).flush()
+    store.put(keys.get(3), values.get(3));
+    verify(kv).flush();
   }
 }
