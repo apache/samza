@@ -105,6 +105,7 @@ public class TestCoordinatorStreamWriter {
     assertTrue(systemProducer.isStopped());
   }
 
+  @SuppressWarnings({ "unchecked", "rawtypes" })
   public void testSendMessage() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
 
     //check a correct message

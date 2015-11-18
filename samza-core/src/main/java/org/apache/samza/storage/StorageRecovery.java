@@ -204,6 +204,7 @@ public class StorageRecovery extends CommandLine {
    * create one TaskStorageManager for each task. Add all of them to the
    * List<TaskStorageManager>
    */
+  @SuppressWarnings({ "unchecked", "rawtypes" })
   private void getTaskStorageManagers() {
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(Util.javaMapAsScalaMap(systemAdmins), 5000, SystemClock.instance());
 

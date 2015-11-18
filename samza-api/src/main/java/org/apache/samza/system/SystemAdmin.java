@@ -84,8 +84,8 @@ public interface SystemAdmin {
    * offset1 == offset2 and offset1 &gt; offset2 respectively. Return
    * null if those two offsets are not comparable
    *
-   * @param offset1
-   * @param offset2
+   * @param offset1 First offset for comparison.
+   * @param offset2 Second offset for comparison.
    * @return -1 if offset1 &lt; offset2; 0 if offset1 == offset2; 1 if offset1 &gt; offset2. Null if not comparable
    */
   Integer offsetComparator(String offset1, String offset2);

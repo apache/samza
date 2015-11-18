@@ -38,8 +38,8 @@ public class JavaSerializerConfig extends MapConfig {
   }
 
   /**
-   * Returns a list of all serializer names from the config file. Useful for
-   * getting individual serializers.
+   * Useful for getting individual serializers.
+   * @return a list of all serializer names from the config file
    */
   public List<String> getSerdeNames() {
     List<String> results = new ArrayList<String>();
