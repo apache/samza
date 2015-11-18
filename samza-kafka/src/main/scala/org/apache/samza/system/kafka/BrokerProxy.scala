@@ -303,6 +303,11 @@ class BrokerProxy(
   def stop {
     info("Shutting down " + toString)
 
+    if (simpleConsumer != null) {
+      info("closing simple consumer...")
+      simpleConsumer.close
+    }
+
     thread.interrupt
     thread.join
   }
