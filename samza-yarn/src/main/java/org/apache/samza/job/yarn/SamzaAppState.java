@@ -158,6 +158,10 @@ public class SamzaAppState {
    */
   public AtomicBoolean jobHealthy = new AtomicBoolean(true);
 
+  public AtomicInteger containerRequests = new AtomicInteger(0);
+
+  public AtomicInteger matchedContainerRequests = new AtomicInteger(0);
+
   public SamzaAppState(JobCoordinator jobCoordinator,
                        int taskId,
                        ContainerId amContainerId,

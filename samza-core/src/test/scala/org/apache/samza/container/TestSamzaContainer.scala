@@ -20,6 +20,11 @@
 package org.apache.samza.container
 
 import java.util
+import org.apache.samza.storage.TaskStorageManager
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
+import org.scalatest.mock.MockitoSugar
+
 import scala.collection.JavaConversions._
 import org.apache.samza.Partition
 import org.apache.samza.config.Config
@@ -30,7 +35,6 @@ import org.apache.samza.coordinator.server.JobServlet
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskModel
-import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.StreamMetadataCache
 import org.apache.samza.system.SystemConsumer
@@ -53,10 +57,10 @@ import org.junit.Test
 import org.scalatest.junit.AssertionsForJUnit
 import java.lang.Thread.UncaughtExceptionHandler
 import org.apache.samza.serializers._
-import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
+import org.mockito.Mockito._
 
-class TestSamzaContainer extends AssertionsForJUnit {
+class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   @Test
   def testReadJobModel {
     val config = new MapConfig(Map("a" -> "b"))
@@ -201,6 +205,60 @@ class TestSamzaContainer extends AssertionsForJUnit {
     t.start
     t.join
     assertTrue(caughtException)
+  }
+
+  @Test
+  def testStartStoresIncrementsCounter {
+    val task = new StreamTask {
+      def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
+      }
+    }
+    val config = new MapConfig
+    val taskName = new TaskName("taskName")
+    val consumerMultiplexer = new SystemConsumers(
+      new RoundRobinChooser,
+      Map[String, SystemConsumer]())
+    val producerMultiplexer = new SystemProducers(
+      Map[String, SystemProducer](),
+      new SerdeManager)
+    val collector = new TaskInstanceCollector(producerMultiplexer)
+    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
+    val mockTaskStorageManager = mock[TaskStorageManager]
+
+    when(mockTaskStorageManager.init).thenAnswer(new Answer[String] {
+      override def answer(invocation: InvocationOnMock): String = {
+        Thread.sleep(1)
+        ""
+      }
+    })
+
+    val taskInstance: TaskInstance = new TaskInstance(
+      task,
+      taskName,
+      config,
+      new TaskInstanceMetrics,
+      null,
+      consumerMultiplexer,
+      collector,
+      containerContext,
+      storageManager = mockTaskStorageManager
+    )
+    val containerMetrics = new SamzaContainerMetrics()
+    containerMetrics.addStoreRestorationGauge(taskName, "store")
+    val container = new SamzaContainer(
+      containerContext = containerContext,
+      taskInstances = Map(taskName -> taskInstance),
+      runLoop = null,
+      consumerMultiplexer = consumerMultiplexer,
+      producerMultiplexer = producerMultiplexer,
+      metrics = containerMetrics,
+      jmxServer = null
+    )
+    container.startStores
+    assertNotNull(containerMetrics.taskStoreRestorationMetrics)
+    assertNotNull(containerMetrics.taskStoreRestorationMetrics.get(taskName))
+    assertTrue(containerMetrics.taskStoreRestorationMetrics.get(taskName).getValue >= 1)
+
   }
 }
 

@@ -100,6 +100,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
         expectedContainerId,
         preferredHost);
     containerRequestState.updateRequestState(request);
+    containerUtil.incrementContainerRequests();
   }
 
   /**

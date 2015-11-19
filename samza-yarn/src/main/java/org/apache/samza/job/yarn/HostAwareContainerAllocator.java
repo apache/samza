@@ -76,7 +76,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
             containerRequestState.updateStateAfterAssignment(request, preferredHost, container);
 
             log.info("Running {} on {}", expectedContainerId, container.getId());
-            containerUtil.runContainer(expectedContainerId, container);
+            containerUtil.runMatchedContainer(expectedContainerId, container);
           } else {
             // No allocated container on preferredHost
             log.info(

@@ -404,6 +404,7 @@ object SamzaContainer extends Logging {
             val systemConsumer = systemFactories
               .getOrElse(changeLogSystemStream.getSystem, throw new SamzaException("Changelog system %s for store %s does not exist in the config." format (changeLogSystemStream, storeName)))
               .getConsumer(changeLogSystemStream.getSystem, config, taskInstanceMetrics.registry)
+            samzaContainerMetrics.addStoreRestorationGauge(taskName, storeName)
             (storeName, systemConsumer)
         }.toMap
 
@@ -622,8 +623,16 @@ class SamzaContainer(
 
   def startStores {
     info("Starting task instance stores.")
-
-    taskInstances.values.foreach(_.startStores)
+    taskInstances.values.foreach(taskInstance => {
+      val startTime = System.currentTimeMillis()
+      taskInstance.startStores
+      // Measuring the time to restore the stores
+      val timeToRestore = System.currentTimeMillis() - startTime
+      val taskGauge = metrics.taskStoreRestorationMetrics.getOrElse(taskInstance.taskName, null)
+      if (taskGauge != null) {
+        taskGauge.set(timeToRestore)
+      }
+    })
   }
 
   def startTask {

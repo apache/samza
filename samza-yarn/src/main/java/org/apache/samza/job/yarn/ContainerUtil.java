@@ -77,6 +77,15 @@ public class ContainerUtil {
     this.nmClient = nmClient;
   }
 
+  public void incrementContainerRequests() {
+    state.containerRequests.incrementAndGet();
+  }
+
+  public void runMatchedContainer(int samzaContainerId, Container container) {
+    state.matchedContainerRequests.incrementAndGet();
+    runContainer(samzaContainerId, container);
+  }
+
   public void runContainer(int samzaContainerId, Container container) {
     String containerIdStr = ConverterUtils.toString(container.getId());
     log.info("Got available container ID ({}) for container: {}", samzaContainerId, container);

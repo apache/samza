@@ -76,6 +76,15 @@ class SamzaAppMasterMetrics(
     val mRpcPort = newGauge("rpc-port", () => state.rpcUrl.getPort)
     val mAppAttemptId = newGauge("app-attempt-id", () => state.appAttemptId.toString)
     val mJobHealthy = newGauge("job-healthy", () => if (state.jobHealthy.get()) 1 else 0)
+    val mLocalityMatchedRequests = newGauge(
+      "locality-matched",
+      () => {
+        if (state.containerRequests.get() != 0) {
+          state.matchedContainerRequests.get() / state.containerRequests.get()
+        } else {
+          0L
+        }
+      })
 
     jvm.start
     reporters.values.foreach(_.start)
