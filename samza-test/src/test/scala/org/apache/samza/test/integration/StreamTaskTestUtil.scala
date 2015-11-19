@@ -98,6 +98,7 @@ object StreamTaskTestUtil {
    */
   var jobConfig = Map(
     "job.factory.class" -> classOf[ThreadJobFactory].getCanonicalName,
+    "job.coordinator.system" -> "kafka",
     "task.inputs" -> "kafka.input",
     "serializers.registry.string.class" -> "org.apache.samza.serializers.StringSerdeFactory",
     "systems.kafka.samza.factory" -> "org.apache.samza.system.kafka.KafkaSystemFactory",
@@ -109,7 +110,6 @@ object StreamTaskTestUtil {
     "systems.kafka.consumer.zookeeper.connect" -> zkConnect,
     "systems.kafka.producer.bootstrap.servers" -> ("localhost:%s" format port1),
     // Since using state, need a checkpoint manager
-    // Due to SAMZA-754, the following section can not be removed yet.
     "task.checkpoint.factory" -> "org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory",
     "task.checkpoint.system" -> "kafka",
     "task.checkpoint.replication.factor" -> "1",

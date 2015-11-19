@@ -218,8 +218,8 @@ class TestKafkaSystemAdmin {
     // Verify partition count.
     var sspMetadata = metadata(TOPIC).getSystemStreamPartitionMetadata
     assertEquals(50, sspMetadata.size)
-    // Empty topics should have null for earliest/latest offset.
-    assertNull(sspMetadata.get(new Partition(0)).getOldestOffset)
+    // Empty topics should have null for latest offset and 0 for earliest offset
+    assertEquals("0", sspMetadata.get(new Partition(0)).getOldestOffset)
     assertNull(sspMetadata.get(new Partition(0)).getNewestOffset)
     // Empty Kafka topics should have a next offset of 0.
     assertEquals("0", sspMetadata.get(new Partition(0)).getUpcomingOffset)
@@ -237,7 +237,7 @@ class TestKafkaSystemAdmin {
     assertEquals("0", sspMetadata.get(new Partition(48)).getNewestOffset)
     assertEquals("1", sspMetadata.get(new Partition(48)).getUpcomingOffset)
     // Some other partition should be empty.
-    assertNull(sspMetadata.get(new Partition(3)).getOldestOffset)
+    assertEquals("0", sspMetadata.get(new Partition(3)).getOldestOffset)
     assertNull(sspMetadata.get(new Partition(3)).getNewestOffset)
     assertEquals("0", sspMetadata.get(new Partition(3)).getUpcomingOffset)
 
@@ -273,7 +273,7 @@ class TestKafkaSystemAdmin {
     val initialOffsets = systemAdmin.getSystemStreamMetadata(Set("non-existent-topic"))
     val metadata = initialOffsets.getOrElse("non-existent-topic", fail("missing metadata"))
     assertEquals(metadata, new SystemStreamMetadata("non-existent-topic", Map(
-      new Partition(0) -> new SystemStreamPartitionMetadata(null, null, "0"))))
+      new Partition(0) -> new SystemStreamPartitionMetadata("0", null, "0"))))
   }
 
   @Test

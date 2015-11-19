@@ -194,9 +194,15 @@ class KafkaSystemAdmin(
             upcomingOffsets.foreach {
               case (topicAndPartition, offset) =>
                 if (offset.toLong <= 0) {
-                  debug("Stripping oldest/newest offsets for %s because the topic appears empty." format topicAndPartition)
-                  oldestOffsets -= topicAndPartition
+                  debug("Stripping newest offsets for %s because the topic appears empty." format topicAndPartition)
                   newestOffsets -= topicAndPartition
+                  debug("Setting oldest offset to 0 to consume from beginning")
+                  oldestOffsets.get(topicAndPartition) match {
+                    case Some(s) =>
+                      oldestOffsets.updated(topicAndPartition, "0")
+                    case None =>
+                      oldestOffsets.put(topicAndPartition, "0")
+                  }
                 }
             }
           } finally {
