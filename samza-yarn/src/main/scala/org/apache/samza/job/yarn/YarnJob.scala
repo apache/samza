@@ -73,8 +73,8 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
         }
         envMapWithJavaHome
       }),
-      Some("%s_%s" format (config.getName.get, config.getJobId.getOrElse(1)))
-    )
+      Some("%s_%s" format (config.getName.get, config.getJobId.getOrElse(1))),
+      Option(yarnConfig.getQueueName))
     this
   }
 

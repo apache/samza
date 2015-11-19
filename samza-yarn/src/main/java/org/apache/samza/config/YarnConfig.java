@@ -35,6 +35,11 @@ public class YarnConfig extends MapConfig {
   private static final int DEFAULT_CONTAINER_MEM = 1024;
 
   /**
+   * Name of YARN queue to run jobs on
+   */
+  public static final String QUEUE_NAME = "yarn.queue";
+
+  /**
    * Number of CPU cores to request from YARN per container
    */
   public static final String CONTAINER_MAX_CPU_CORES = "yarn.container.cpu.cores";
@@ -144,6 +149,9 @@ public class YarnConfig extends MapConfig {
     return get(AM_JVM_OPTIONS, "");
   }
 
+  public String getQueueName() {
+    return get(QUEUE_NAME, null);
+  }
 
   public String getAMJavaHome() {
     return get(AM_JAVA_HOME, null);
