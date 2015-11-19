@@ -50,17 +50,8 @@ object JobConfig {
 class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getName = getOption(JobConfig.JOB_NAME)
 
-  def getCoordinatorSystemName = getOption(JobConfig.JOB_COORDINATOR_SYSTEM).getOrElse({
-    // If no coordinator system is configured, try and guess it if there's just one system configured.
-    val systemNames = config.getSystemNames.toSet
-    if (systemNames.size == 1) {
-      val systemName = systemNames.iterator.next
-      info("No coordinator system defined, so defaulting to %s" format systemName)
-      systemName
-    } else {
-      throw new ConfigException("Missing job.coordinator.system configuration.")
-    }
-  })
+  def getCoordinatorSystemName = getOption(JobConfig.JOB_COORDINATOR_SYSTEM).getOrElse(
+      throw new ConfigException("Missing job.coordinator.system configuration. Cannot proceed with job execution."))
 
   def getContainerCount = {
     getOption(JobConfig.JOB_CONTAINER_COUNT) match {
