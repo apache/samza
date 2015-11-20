@@ -304,9 +304,8 @@ object SamzaContainer extends Logging {
 
     info("Got metrics reporters: %s" format reporters.keys)
 
-    val coordinatorSystemConsumer = new CoordinatorStreamSystemFactory().getCoordinatorStreamSystemConsumer(config, samzaContainerMetrics.registry)
     val coordinatorSystemProducer = new CoordinatorStreamSystemFactory().getCoordinatorStreamSystemProducer(config, samzaContainerMetrics.registry)
-    val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
+    val localityManager = new LocalityManager(coordinatorSystemProducer)
     val checkpointManager = config.getCheckpointManagerFactory() match {
       case Some(checkpointFactoryClassName) if (!checkpointFactoryClassName.isEmpty) =>
         Util
