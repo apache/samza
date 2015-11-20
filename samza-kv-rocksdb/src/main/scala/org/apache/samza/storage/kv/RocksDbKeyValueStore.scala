@@ -95,6 +95,7 @@ class RocksDbKeyValueStore(
   val isLoggedStore: Boolean,
   val storeName: String,
   val writeOptions: WriteOptions = new WriteOptions(),
+  val flushOptions: FlushOptions = new FlushOptions(),
   val metrics: KeyValueStoreMetrics = new KeyValueStoreMetrics) extends KeyValueStore[Array[Byte], Array[Byte]] with Logging {
 
   // lazy val here is important because the store directories do not exist yet, it can only be opened
@@ -190,8 +191,8 @@ class RocksDbKeyValueStore(
 
   def flush {
     metrics.flushes.inc
-    // TODO still not exposed in Java RocksDB API, follow up with rocksDB team
-    trace("Flush in RocksDbKeyValueStore is not supported, ignoring")
+    trace("Flushing.")
+    db.flush(flushOptions)
   }
 
   def close() {

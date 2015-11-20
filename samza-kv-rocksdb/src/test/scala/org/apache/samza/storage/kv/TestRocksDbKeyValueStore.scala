@@ -30,7 +30,7 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.{NoOpMetricsRegistry, ExponentialSleepStrategy}
 import org.apache.samza.util.Util._
 import org.junit.{Assert, Test}
-import org.rocksdb.{RocksDBException, Options}
+import org.rocksdb.{RocksDB, FlushOptions, RocksDBException, Options}
 
 class TestRocksDbKeyValueStore
 {
@@ -64,5 +64,27 @@ class TestRocksDbKeyValueStore
     })
     Assert.assertNull(rocksDB.get(key))
     rocksDB.close()
+  }
+
+  @Test
+  def testFlush(): Unit = {
+    val map = new util.HashMap[String, String]()
+    val config = new MapConfig(map)
+    val flushOptions = new FlushOptions().setWaitForFlush(true)
+    val options = new Options()
+    options.setCreateIfMissing(true)
+    val rocksDB = RocksDbKeyValueStore.openDB(new File(System.getProperty("java.io.tmpdir")),
+                                              options,
+                                              config,
+                                              false,
+                                              "dbStore")
+    val key = "key".getBytes("UTF-8")
+    rocksDB.put(key, "val".getBytes("UTF-8"))
+    rocksDB.flush(flushOptions)
+    val dbDir = new File(System.getProperty("java.io.tmpdir")).toString
+    val rocksDBReadOnly = RocksDB.openReadOnly(options, dbDir)
+    Assert.assertEquals(new String(rocksDBReadOnly.get(key), "UTF-8"), "val")
+    rocksDB.close()
+    rocksDBReadOnly.close()
   }
 }
