@@ -60,6 +60,15 @@ object KafkaConfig {
 
   val DEFAULT_CHECKPOINT_SEGMENT_BYTES = 26214400
 
+  /**
+   * Defines how many bytes to use for the buffered prefetch messages for job as a whole.
+   * The bytes for a single system/stream/partition are computed based on this.
+   * This fetches wholes messages, hence this bytes limit is a soft one, and the actual usage can be
+   * the bytes limit + size of max message in the partition for a given stream.
+   * If the value of this property is > 0 then this takes precedence over CONSUMER_FETCH_THRESHOLD config.
+   */
+  val CONSUMER_FETCH_THRESHOLD_BYTES = SystemConfig.SYSTEM_PREFIX + "samza.fetch.threshold.bytes"
+
   implicit def Config2Kafka(config: Config) = new KafkaConfig(config)
 }
 
@@ -70,6 +79,9 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getCheckpointSegmentBytes() = getInt(KafkaConfig.CHECKPOINT_SEGMENT_BYTES, KafkaConfig.DEFAULT_CHECKPOINT_SEGMENT_BYTES)
   // custom consumer config
   def getConsumerFetchThreshold(name: String) = getOption(KafkaConfig.CONSUMER_FETCH_THRESHOLD format name)
+  def getConsumerFetchThresholdBytes(name: String) = getOption(KafkaConfig.CONSUMER_FETCH_THRESHOLD_BYTES format name)
+  def isConsumerFetchThresholdBytesEnabled(name: String): Boolean = getConsumerFetchThresholdBytes(name).getOrElse("-1").toLong > 0
+
 
   /**
    * Returns a map of topic -> fetch.message.max.bytes value for all streams that

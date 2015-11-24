@@ -23,6 +23,10 @@ import kafka.api.TopicMetadata
 import kafka.api.PartitionMetadata
 import kafka.cluster.Broker
 import kafka.common.TopicAndPartition
+import kafka.message.Message
+import kafka.message.MessageAndOffset
+
+import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.Partition
 import org.apache.samza.util.TopicMetadataStore
@@ -34,6 +38,9 @@ import org.mockito.Matchers._
 
 class TestKafkaSystemConsumer {
   val systemAdmin: SystemAdmin = mock(classOf[KafkaSystemAdmin])
+  private val SSP: SystemStreamPartition = new SystemStreamPartition("test", "test", new Partition(0))
+  private val envelope: IncomingMessageEnvelope = new IncomingMessageEnvelope(SSP, null, null, null)
+  private val envelopeWithSize: IncomingMessageEnvelope = new IncomingMessageEnvelope(SSP, null, null, null, 100)
 
   @Test
   def testFetchThresholdShouldDivideEvenlyAmongPartitions {
@@ -113,6 +120,69 @@ class TestKafkaSystemConsumer {
     assertEquals("0", consumer.topicPartitionsAndOffsets(KafkaSystemConsumer.toTopicAndPartition(ssp0)))
     assertEquals("2", consumer.topicPartitionsAndOffsets(KafkaSystemConsumer.toTopicAndPartition(ssp1)))
     assertEquals("0", consumer.topicPartitionsAndOffsets(KafkaSystemConsumer.toTopicAndPartition(ssp2)))
+  }
+
+  @Test
+  def testFetchThresholdBytesShouldDivideEvenlyAmongPartitions {
+    val metadataStore = new MockMetadataStore
+    val consumer = new KafkaSystemConsumer("", systemAdmin, new KafkaSystemConsumerMetrics, metadataStore,
+      fetchThreshold = 50000, fetchThresholdBytes = 60000L, fetchLimitByBytesEnabled = true) {
+      override def refreshBrokers {
+      }
+    }
+
+    for (i <- 0 until 10) {
+      consumer.register(new SystemStreamPartition("test-system", "test-stream", new Partition(i)), "0")
+    }
+
+    consumer.start
+
+    assertEquals(5000, consumer.perPartitionFetchThreshold)
+    assertEquals(3000, consumer.perPartitionFetchThresholdBytes)
+  }
+
+  @Test
+  def testFetchThresholdBytes {
+    val metadataStore = new MockMetadataStore
+    val consumer = new KafkaSystemConsumer("test-system", systemAdmin, new KafkaSystemConsumerMetrics, metadataStore,
+      fetchThreshold = 50000, fetchThresholdBytes = 60000L, fetchLimitByBytesEnabled = true) {
+      override def refreshBrokers {
+      }
+    }
+
+    for (i <- 0 until 10) {
+      consumer.register(new SystemStreamPartition("test-system", "test-stream", new Partition(i)), "0")
+    }
+
+    consumer.start
+
+    val msg = Array[Byte](5, 112, 9, 126)
+    val msgAndOffset: MessageAndOffset = MessageAndOffset(new Message(msg), 887654)
+    // 4 data + 14 Message overhead + 80 IncomingMessageEnvelope overhead
+    consumer.sink.addMessage(new TopicAndPartition("test-stream", 0),  msgAndOffset, 887354)
+
+    assertEquals(98, consumer.getMessagesSizeInQueue(new SystemStreamPartition("test-system", "test-stream", new Partition(0))))
+  }
+
+
+  @Test
+  def testFetchThresholdBytesDisabled {
+    val metadataStore = new MockMetadataStore
+    val consumer = new KafkaSystemConsumer("", systemAdmin, new KafkaSystemConsumerMetrics, metadataStore,
+      fetchThreshold = 50000, fetchThresholdBytes = 60000L) {
+      override def refreshBrokers {
+      }
+    }
+
+    for (i <- 0 until 10) {
+      consumer.register(new SystemStreamPartition("test-system", "test-stream", new Partition(i)), "0")
+    }
+
+    consumer.start
+
+    assertEquals(5000, consumer.perPartitionFetchThreshold)
+    assertEquals(0, consumer.perPartitionFetchThresholdBytes)
+    assertEquals(0, consumer.getMessagesSizeInQueue(new SystemStreamPartition("test-system", "test-stream", new Partition(0))))
   }
 }
 

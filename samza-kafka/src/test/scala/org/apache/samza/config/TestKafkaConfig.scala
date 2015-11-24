@@ -108,6 +108,16 @@ class TestKafkaConfig {
     val consumerConfig2 = kafkaConfig2.getFetchMessageMaxBytesTopics(SYSTEM_NAME)
     // topic fetch size
     assertEquals(256*256, consumerConfig2 getOrElse ("topic1", 1024*1024))
+
+    // default samza.fetch.threshold.bytes
+    val mapConfig3 = new MapConfig(props.toMap[String, String])
+    val kafkaConfig3 = new KafkaConfig(mapConfig3)
+    assertTrue(kafkaConfig3.getConsumerFetchThresholdBytes("kafka").isEmpty)
+
+    props.setProperty("systems.kafka.samza.fetch.threshold.bytes", "65536")
+    val mapConfig4 = new MapConfig(props.toMap[String, String])
+    val kafkaConfig4 = new KafkaConfig(mapConfig4)
+    assertEquals("65536", kafkaConfig4.getConsumerFetchThresholdBytes("kafka").get)
   }
 
   @Test

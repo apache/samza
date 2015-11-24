@@ -28,6 +28,7 @@ public class IncomingMessageEnvelope {
   private final String offset;
   private final Object key;
   private final Object message;
+  private final int size;
 
   /**
    * Constructs a new IncomingMessageEnvelope from specified components.
@@ -38,10 +39,24 @@ public class IncomingMessageEnvelope {
    * @param message A deserialized message received from the partition offset.
    */
   public IncomingMessageEnvelope(SystemStreamPartition systemStreamPartition, String offset, Object key, Object message) {
+    this(systemStreamPartition, offset, key, message, 0);
+  }
+
+  /**
+   * Constructs a new IncomingMessageEnvelope from specified components.
+   * @param systemStreamPartition The aggregate object representing the incoming stream name, the name of the cluster
+   * from which the stream came, and the partition of the stream from which the message was received.
+   * @param offset The offset in the partition that the message was received from.
+   * @param key A deserialized key received from the partition offset.
+   * @param message A deserialized message received from the partition offset.
+   * @param size size of the message and key in bytes.
+   */
+  public IncomingMessageEnvelope(SystemStreamPartition systemStreamPartition, String offset, Object key, Object message, int size) {
     this.systemStreamPartition = systemStreamPartition;
     this.offset = offset;
     this.key = key;
     this.message = message;
+    this.size = size;
   }
 
   public SystemStreamPartition getSystemStreamPartition() {
@@ -58,6 +73,10 @@ public class IncomingMessageEnvelope {
 
   public Object getMessage() {
     return message;
+  }
+
+  public int getSize() {
+    return size;
   }
 
   @Override

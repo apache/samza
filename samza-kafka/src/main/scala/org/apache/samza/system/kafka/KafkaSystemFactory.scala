@@ -62,6 +62,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val autoOffsetResetDefault = consumerConfig.autoOffsetReset
     val autoOffsetResetTopics = config.getAutoOffsetResetTopics(systemName)
     val fetchThreshold = config.getConsumerFetchThreshold(systemName).getOrElse("50000").toInt
+    val fetchThresholdBytes = config.getConsumerFetchThresholdBytes(systemName).getOrElse("-1").toLong
     val offsetGetter = new GetOffset(autoOffsetResetDefault, autoOffsetResetTopics)
     val metadataStore = new ClientUtilTopicMetadataStore(bootstrapServers, clientId, timeout)
 
@@ -77,6 +78,8 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       consumerMinSize = consumerMinSize,
       consumerMaxWait = consumerMaxWait,
       fetchThreshold = fetchThreshold,
+      fetchThresholdBytes = fetchThresholdBytes,
+      fetchLimitByBytesEnabled = config.isConsumerFetchThresholdBytesEnabled(systemName),
       offsetGetter = offsetGetter)
   }
 
