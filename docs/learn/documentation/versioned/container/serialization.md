@@ -75,7 +75,7 @@ Each serde is defined with a factory class. Samza comes with several builtin ser
 </style>
 <table>
     <tr>
-        <th class="section"> Serde Name</th>
+        <th> Serde Name</th>
         <th> Data Handled </th>
     </tr>
     <tr>
