@@ -79,14 +79,14 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getSystemStreamPartitionGrouperFactory = getOption(JobConfig.SSP_GROUPER_FACTORY).getOrElse(classOf[GroupByPartitionFactory].getCanonicalName)
 
   val CHECKPOINT_SEGMENT_BYTES = "task.checkpoint.segment.bytes"
+  val CHECKPOINT_REPLICATION_FACTOR = "task.checkpoint.replication.factor"
 
   def getCoordinatorReplicationFactor = getOption(JobConfig.JOB_REPLICATION_FACTOR) match {
     case Some(rplFactor) => rplFactor
     case _ =>
-      // TODO get rid of checkpoint configs in a future release
-      getOption("task.checkpoint.replication.factor") match {
+      getOption(CHECKPOINT_REPLICATION_FACTOR) match {
         case Some(rplFactor) =>
-          warn("Configuration 'task.checkpoint.replication.factor' is deprecated. Please use %s." format JobConfig.JOB_REPLICATION_FACTOR)
+          info("%s was not found. Using %s=%s for coordinator stream" format (JobConfig.JOB_REPLICATION_FACTOR, CHECKPOINT_REPLICATION_FACTOR, rplFactor))
           rplFactor
         case _ => "3"
       }
@@ -95,10 +95,9 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getCoordinatorSegmentBytes = getOption(JobConfig.JOB_SEGMENT_BYTES) match {
     case Some(segBytes) => segBytes
     case _ =>
-      // TODO get rid of checkpoint configs in a future release
-      getOption("task.checkpoint.segment.bytes") match {
+      getOption(CHECKPOINT_SEGMENT_BYTES) match {
         case Some(segBytes) =>
-          warn("Configuration 'task.checkpoint.segment.bytes' is deprecated. Please use %s." format JobConfig.JOB_SEGMENT_BYTES)
+          info("%s was not found. Using %s=%s for coordinator stream" format (JobConfig.JOB_SEGMENT_BYTES, CHECKPOINT_SEGMENT_BYTES, segBytes))
           segBytes
         case _ => "26214400"
       }

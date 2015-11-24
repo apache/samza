@@ -163,6 +163,26 @@
                         <strong>Required:</strong> The <span class="system">system-name</span> to use for creating and maintaining the <a href="../container/coordinator-stream.html">Coordinator Stream</a>.
                     </td>
                 </tr>
+
+                <tr>
+                    <td class="property" id="job-coordinator-replication-factor">job.coordinator.<br />replication.factor</td>
+                    <td class="default">3</td>
+                    <td class="description">
+                        If you are using Kafka for coordinator stream, this is the number of Kafka nodes to which you want the
+                        coordinator topic replicated for durability.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job-coordinator-segment-bytes">job.coordinator.<br />segment.bytes</td>
+                    <td class="default">26214400</td>
+                    <td class="description">
+                        If you are using a Kafka system for coordinator stream, this is the segment size to be used for the coordinator
+                        topic's log segments. Keeping this number small is useful because it increases the frequency
+                        that Kafka will garbage collect old messages.
+                    </td>
+                </tr>
+
                 <tr>
                     <td class="property" id="job-config-rewriter-class">job.config.rewriter.<br><span class="rewriter">rewriter-name</span>.class</td>
                     <td class="default"></td>
