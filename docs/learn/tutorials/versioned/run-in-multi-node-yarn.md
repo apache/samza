@@ -27,12 +27,12 @@ If you already have a multi-node YARN cluster (such as CDH5 cluster), you can sk
 
 ### Basic YARN Setting
 
-1\. Download [YARN 2.6](http://mirror.symnds.com/software/Apache/hadoop/common/hadoop-2.6.0/hadoop-2.6.0.tar.gz) to /tmp and untar it.
+1\. Download [YARN 2.6](http://mirror.symnds.com/software/Apache/hadoop/common/hadoop-2.6.1/hadoop-2.6.1.tar.gz) to /tmp and untar it.
 
 {% highlight bash %}
 cd /tmp
-tar -xvf hadoop-2.6.0.tar.gz
-cd hadoop-2.6.0
+tar -xvf hadoop-2.6.1.tar.gz
+cd hadoop-2.6.1
 {% endhighlight %}
 
 2\. Set up environment variables.
@@ -111,7 +111,7 @@ Add the following code:
 7\. Basically, you copy the hadoop file in your host machine to slave machines. (172.21.100.35, in my case):
 
 {% highlight bash %}
-scp -r . 172.21.100.35:/tmp/hadoop-2.6.0
+scp -r . 172.21.100.35:/tmp/hadoop-2.6.1
 echo 172.21.100.35 > conf/slaves
 sbin/start-yarn.sh
 {% endhighlight %}
