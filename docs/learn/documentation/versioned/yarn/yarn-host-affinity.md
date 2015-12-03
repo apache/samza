@@ -96,7 +96,13 @@ export LOGGED_STORE_BASE_DIR=<path-for-state-stores>
     <value>1000*</value> <!-- Should be tuned per requirement -->
 </property>
 {% endhighlight %}
-
+3. Configure Yarn Node Manager SIGTERM to SIGKILL timeout to be reasonable time s.t. Node Manager will give Samza Container enough time to perform a clean shutdown in yarn-site.xml {% highlight xml %}
+<property>
+    <name>yarn.nodemanager.sleep-delay-before-sigkill.ms</name>
+    <description>No. of ms to wait between sending a SIGTERM and SIGKILL to a container</description>
+    <value>600000</value> <!-- Set it to 10min to allow enough time for clean shutdown of containers -->
+</property>
+{% endhighlight %}
 
 ## Configuring a Samza job to use Host Affinity
 Any stateful Samza job can leverage this feature to reduce the Mean Time To Restore (MTTR) of it's state stores by setting <code>yarn.samza.host-affinity</code> to true.
