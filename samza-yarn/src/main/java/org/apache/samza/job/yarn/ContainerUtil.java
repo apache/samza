@@ -114,7 +114,7 @@ public class ContainerUtil {
       }
 
       Path path = new Path(yarnConfig.getPackagePath());
-      log.info("Starting container ID {} using package path %s", samzaContainerId, path);
+      log.info("Starting container ID {} using package path {}", samzaContainerId, path);
 
       startContainer(
           path,
