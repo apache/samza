@@ -206,9 +206,15 @@ class TaskStorageManager(
                           .get(partition)
       val newestOffset = sspMetadata.getNewestOffset
 
-      val offsetFile = new File(TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, store, taskName), offsetFileName)
-      Util.writeDataToFile(offsetFile, newestOffset)
-      info("Successfully stored offset %s for store %s in OFFSET file " format (newestOffset, store))
+      if (newestOffset != null) {
+        val offsetFile = new File(TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, store, taskName), offsetFileName)
+        Util.writeDataToFile(offsetFile, newestOffset)
+        info("Successfully stored offset %s for store %s in OFFSET file " format (newestOffset, store))
+      }
+      else {
+        //if newestOffset is null, then it means the store is empty. No need to persist the offset file
+        info("Not storing OFFSET file for taskName %s. Store %s backed by changelog topic : %s, partition: %s is empty. " format (taskName, store, systemStream.getStream, partition.getPartitionId))
+      }
     }}
   }
 
