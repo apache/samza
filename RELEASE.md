@@ -19,6 +19,12 @@ Before you start, here are a few prerequisite steps that would be useful later:
    # Make sure you have your GPG key generated and added to KEYS file. GPG tools: https://gpgtools.org/
    # Setup your personal website on Apache: http://www.apache.org/dev/new-committers-guide.html
 
+And before you proceed, do the following steps:
+
+   # create a branch $VERSION from the latest master branch
+   # update the gradle.property s.t. the following property is $VERSION w/o the suffix '-SNAPSHOT':
+      version=$VERSION
+
 Validate that all Samza source files have proper license information in their header.
 
     ./gradlew check
