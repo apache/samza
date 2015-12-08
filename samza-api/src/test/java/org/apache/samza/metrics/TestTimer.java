@@ -42,7 +42,7 @@ public class TestTimer {
 
   @Test
   public void testDefaultTimerUpdateAndGetSnapshot() {
-    Timer timer = new Timer("test");
+    Timer timer = new Timer("test", 300, clock);
     timer.update(1L);
     timer.update(2L);
 

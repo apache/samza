@@ -52,6 +52,18 @@ public class Timer implements Metric {
   }
 
   /**
+   * Construct a {@link Timer} with given window size and collision buffer
+   *
+   * @param name name of this timer
+   * @param windowMs the window size. unit is millisecond
+   * @param collisionBuffer amount of collisions allowed in one millisecond.
+   * @param clock the clock for the reservoir
+   */
+  public Timer(String name, long windowMs, int collisionBuffer, Clock clock) {
+    this(name, new SlidingTimeWindowReservoir(windowMs, collisionBuffer, clock));
+  }
+
+  /**
    * Construct a {@link Timer} with given {@link Reservoir}
    *
    * @param name name of this timer
