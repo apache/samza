@@ -19,10 +19,14 @@
 
 package org.apache.samza.container
 
+
+import org.apache.samza.metrics.{Timer, SlidingTimeWindowReservoir, MetricsRegistryMap}
+import org.apache.samza.util.Clock
 import org.junit.Test
 import org.junit.Assert._
 import org.mockito.Matchers
 import org.mockito.Mockito._
+import org.mockito.internal.util.reflection.Whitebox
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.junit.AssertionsForJUnit
@@ -183,7 +187,19 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
     var now = 0L
     val consumers = mock[SystemConsumers]
     when(consumers.choose).thenReturn(envelope0)
-    val testMetrics = new SamzaContainerMetrics
+    val clock = new Clock {
+      var c = 0L
+      def currentTimeMillis: Long = {
+        c += 1L
+        c
+      }
+    }
+    val testMetrics = new SamzaContainerMetrics("test", new MetricsRegistryMap() {
+      override def newTimer(group: String, name: String) = {
+        newTimer(group, new Timer(name, new SlidingTimeWindowReservoir(300000, clock)))
+      }
+    })
+
     val runLoop = new RunLoop(
       taskInstances = getMockTaskInstances,
       consumerMultiplexer = consumers,
