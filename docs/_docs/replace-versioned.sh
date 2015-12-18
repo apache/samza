@@ -17,8 +17,8 @@
 # under the License.
 
 # get the version number
-version=`cat _config.yml | grep 'version:' | cut -d' ' -f 2`
-latestRelease=`cat _config.yml | grep 'latest-release:' | cut -d' ' -f 2`
+version=`cat _config.yml | grep 'version:' | cut -d' ' -f 2 | sed -e "s/'//g"`
+latestRelease=`cat _config.yml | grep 'latest-release:' | cut -d' ' -f 2 | sed -e "s/'//g"`
 DIR=$(dirname $0)/..
 
 if test -z "$version" || test -z "$latestRelease"; then
