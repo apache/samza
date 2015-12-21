@@ -27,7 +27,7 @@ under the License.
 
   <groupId>org.apache.samza</groupId>
   <artifactId>hello-samza</artifactId>
-  <version>0.9.1</version>
+  <version>0.10.0</version>
   <packaging>jar</packaging>
   <name>Samza Example</name>
   <description>
@@ -106,14 +106,14 @@ under the License.
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-hdfs</artifactId>
-      <version>2.4.0</version>
+      <version>2.6.1</version>
     </dependency>
   </dependencies>
 
   <properties>
     <!-- maven specific properties -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <samza.version>0.9.1</samza.version>
+    <samza.version>0.10.0</samza.version>
   </properties>
 
   <developers>
@@ -204,8 +204,8 @@ under the License.
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.1</version>
         <configuration>
-          <source>1.6</source>
-          <target>1.6</target>
+          <source>1.7</source>
+          <target>1.7</target>
         </configuration>
       </plugin>
       <plugin>
