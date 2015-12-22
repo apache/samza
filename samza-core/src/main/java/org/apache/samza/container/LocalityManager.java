@@ -101,10 +101,14 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
       localityMappings.put(SetContainerHostMapping.HOST_KEY, mapping.getHostLocality());
       localityMappings.put(SetContainerHostMapping.JMX_URL_KEY, mapping.getJmxUrl());
       localityMappings.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, mapping.getJmxTunnelingUrl());
-      log.info(String.format("Read locality for container %s: %s", mapping.getKey(), localityMappings));
       allMappings.put(Integer.parseInt(mapping.getKey()), localityMappings);
     }
     containerToHostMapping = Collections.unmodifiableMap(allMappings);
+
+    for (Map.Entry<Integer, Map<String, String>> entry : containerToHostMapping.entrySet()) {
+      log.debug(String.format("Locality for container %s: %s", entry.getKey(), entry.getValue()));
+    }
+
     return allMappings;
   }
 

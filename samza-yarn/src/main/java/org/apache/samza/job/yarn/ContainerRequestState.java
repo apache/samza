@@ -207,7 +207,7 @@ public class ContainerRequestState {
 
     if (hostAffinityEnabled) {
       if (requestsQueue.isEmpty()) {
-        log.info("Requests Queue is empty. Should clear up state.");
+        log.debug("Container Requests Queue is empty.");
 
         List<String> allocatedHosts = getAllocatedHosts();
         for (String host : allocatedHosts) {
@@ -224,7 +224,7 @@ public class ContainerRequestState {
       }
     } else {
       if (requestsQueue.isEmpty()) {
-        log.info("No more pending requests in queue.");
+        log.debug("No more pending requests in Container Requests Queue.");
 
         List<Container> availableContainers = getContainersOnAHost(ANY_HOST);
         while(availableContainers != null && !availableContainers.isEmpty()) {
