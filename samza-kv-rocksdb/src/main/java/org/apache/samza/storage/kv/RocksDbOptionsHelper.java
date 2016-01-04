@@ -21,10 +21,7 @@ package org.apache.samza.storage.kv;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.container.SamzaContainerContext;
-import org.rocksdb.BlockBasedTableConfig;
-import org.rocksdb.CompactionStyle;
-import org.rocksdb.CompressionType;
-import org.rocksdb.Options;
+import org.rocksdb.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +37,32 @@ public class RocksDbOptionsHelper {
     // Cache size and write buffer size are specified on a per-container basis.
     int numTasks = containerContext.taskNames.size();
     options.setWriteBufferSize((int) (writeBufSize / numTasks));
+
+    InfoLogLevel infoLogLevel = InfoLogLevel.WARN_LEVEL;
+    String infoLogLevelInConfig = storeConfig.get("rocksdb.log.level", "warn");
+    switch (infoLogLevelInConfig) {
+      case "fatal":
+        infoLogLevel = InfoLogLevel.FATAL_LEVEL;
+        break;
+      case "error":
+        infoLogLevel = InfoLogLevel.ERROR_LEVEL;
+        break;
+      case "warn":
+        infoLogLevel = InfoLogLevel.WARN_LEVEL;
+        break;
+      case "info":
+        infoLogLevel = InfoLogLevel.INFO_LEVEL;
+        break;
+      case "debug":
+        infoLogLevel = InfoLogLevel.DEBUG_LEVEL;
+        break;
+      default:
+        log.warn("Unknown rocksdb.log.level " + infoLogLevelInConfig + ", overwriting to warn");
+    }
+    options.setInfoLogLevel(infoLogLevel);
+    options.setKeepLogFileNum(storeConfig.getLong("rocksdb.log.keepfilenum", 24));
+    options.setLogFileTimeToRoll(storeConfig.getLong("rocksdb.log.timetoroll", 3600));
+    options.setMaxLogFileSize(storeConfig.getLong("rocksdb.log.maxfilesize", 10*1024*1024));
 
     CompressionType compressionType = CompressionType.SNAPPY_COMPRESSION;
     String compressionInConfig = storeConfig.get("rocksdb.compression", "snappy");
