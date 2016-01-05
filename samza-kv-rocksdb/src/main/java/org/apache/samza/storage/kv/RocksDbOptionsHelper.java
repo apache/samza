@@ -93,7 +93,10 @@ public class RocksDbOptionsHelper {
     Long cacheSizePerContainer = cacheSize / numTasks;
     int blockSize = storeConfig.getInt("rocksdb.block.size.bytes", 4096);
     BlockBasedTableConfig tableOptions = new BlockBasedTableConfig();
-    tableOptions.setBlockCacheSize(cacheSizePerContainer).setBlockSize(blockSize);
+    tableOptions.setBlockCacheSize(cacheSizePerContainer);
+    tableOptions.setBlockSize(blockSize);
+    int bloomBits = storeConfig.getInt("rocksdb.bloomfilter.bits", 10);
+    tableOptions.setFilter(new BloomFilter(bloomBits, true));
     options.setTableFormatConfig(tableOptions);
 
     CompactionStyle compactionStyle = CompactionStyle.UNIVERSAL;
@@ -113,9 +116,18 @@ public class RocksDbOptionsHelper {
     }
     options.setCompactionStyle(compactionStyle);
 
+    int cores = Runtime.getRuntime().availableProcessors();
+    options.setMaxBackgroundCompactions(storeConfig.getInt("rocksdb.max.background.compactions", cores));
+    options.setMaxBackgroundFlushes(storeConfig.getInt("rocksdb.max.background.flushes", 1));
     options.setMaxWriteBufferNumber(storeConfig.getInt("rocksdb.num.write.buffers", 3));
     options.setCreateIfMissing(true);
     options.setErrorIfExists(false);
+
+    if (compactionStyle == CompactionStyle.LEVEL) {
+      options.setTargetFileSizeBase(storeConfig.getLong("rocksdb.target.file.size.base", 20 * 1024 * 1024L));
+      options.setMaxBytesForLevelBase(storeConfig.getLong("rocksdb.max.bytes.level.base", 100 * 1024 * 1024L));
+      //options.setSourceCompactionFactor();
+    }
 
     return options;
   }
