@@ -20,6 +20,8 @@
 package org.apache.samza.coordinator
 
 
+import java.util.concurrent.atomic.AtomicReference
+
 import org.apache.samza.config.StorageConfig
 import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.config.Config
@@ -55,6 +57,7 @@ object JobCoordinator extends Logging {
    * a volatile value to store the current instantiated <code>JobCoordinator</code>
    */
   @volatile var currentJobCoordinator: JobCoordinator = null
+  val jobModelRef: AtomicReference[JobModel] = new AtomicReference[JobModel]()
 
   /**
    * @param coordinatorSystemConfig A config object that contains job.name,
@@ -105,10 +108,12 @@ object JobCoordinator extends Logging {
                         changelogManager: ChangelogPartitionManager,
                         localityManager: LocalityManager,
                         streamMetadataCache: StreamMetadataCache) = {
-    val jobModelGenerator = initializeJobModel(config, changelogManager, localityManager, streamMetadataCache)
+    val jobModel: JobModel = initializeJobModel(config, changelogManager, localityManager, streamMetadataCache)
+    jobModelRef.set(jobModel)
+
     val server = new HttpServer
-    server.addServlet("/*", new JobServlet(jobModelGenerator))
-    currentJobCoordinator = new JobCoordinator(jobModelGenerator(), server)
+    server.addServlet("/*", new JobServlet(jobModelRef))
+    currentJobCoordinator = new JobCoordinator(jobModel, server)
     currentJobCoordinator
   }
 
@@ -141,15 +146,13 @@ object JobCoordinator extends Logging {
   }
 
   /**
-   * The method intializes the jobModel and creates a JobModel generator which can be used to generate new JobModels
-   * which catchup with the latest content from the coordinator stream.
+   * The method intializes the jobModel and returns it to the caller.
+   * Note: refreshJobModel can be used as a lambda for JobModel generation in the future.
    */
   private def initializeJobModel(config: Config,
                                  changelogManager: ChangelogPartitionManager,
                                  localityManager: LocalityManager,
-                                 streamMetadataCache: StreamMetadataCache): () => JobModel = {
-
-
+                                 streamMetadataCache: StreamMetadataCache): JobModel = {
     // Do grouping to fetch TaskName to SSP mapping
     val allSystemStreamPartitions = getInputStreamPartitions(config, streamMetadataCache)
     val grouper = getSystemStreamPartitionGrouper(config)
@@ -195,56 +198,54 @@ object JobCoordinator extends Logging {
       info("Saving task-to-changelog partition mapping: %s" format newChangelogMapping)
       changelogManager.writeChangeLogPartitionMapping(newChangelogMapping)
     }
-    // Return a jobModelGenerator lambda that can be used to refresh the job model
-    jobModelGenerator
+
+    jobModel
   }
 
   /**
    * Build a full Samza job model. The function reads the latest checkpoint from the underlying coordinator stream and
    * builds a new JobModel.
-   * This method needs to be thread safe, the reason being, for every HTTP request from a container, this method is called
-   * and underlying it uses the same instance of coordinator stream producer and coordinator stream consumer.
+   * Note: This method no longer needs to be thread safe because HTTP request from a container no longer triggers a jobmodel
+   * refresh. Hence, there is no need for synchronization as before.
    */
   private def refreshJobModel(config: Config,
                               allSystemStreamPartitions: util.Set[SystemStreamPartition],
                               groups: util.Map[TaskName, util.Set[SystemStreamPartition]],
                               previousChangelogMapping: util.Map[TaskName, Integer],
                               localityManager: LocalityManager): JobModel = {
-    this.synchronized
+
+    // If no mappings are present(first time the job is running) we return -1, this will allow 0 to be the first change
+    // mapping.
+    var maxChangelogPartitionId = previousChangelogMapping.values.map(_.toInt).toList.sorted.lastOption.getOrElse(-1)
+
+    // Assign all SystemStreamPartitions to TaskNames.
+    val taskModels =
     {
-      // If no mappings are present(first time the job is running) we return -1, this will allow 0 to be the first change
-      // mapping.
-      var maxChangelogPartitionId = previousChangelogMapping.values.map(_.toInt).toList.sorted.lastOption.getOrElse(-1)
-
-      // Assign all SystemStreamPartitions to TaskNames.
-      val taskModels =
-      {
-        groups.map
-                { case (taskName, systemStreamPartitions) =>
-                  val changelogPartition = Option(previousChangelogMapping.get(taskName)) match
-                  {
-                    case Some(changelogPartitionId) => new Partition(changelogPartitionId)
-                    case _ =>
-                      // If we've never seen this TaskName before, then assign it a
-                      // new changelog.
-                      maxChangelogPartitionId += 1
-                      info("New task %s is being assigned changelog partition %s." format(taskName, maxChangelogPartitionId))
-                      new Partition(maxChangelogPartitionId)
-                  }
-                  new TaskModel(taskName, systemStreamPartitions, changelogPartition)
-                }.toSet
-      }
-
-      // Here is where we should put in a pluggable option for the
-      // SSPTaskNameGrouper for locality, load-balancing, etc.
-
-      val containerGrouperFactory = Util.getObj[TaskNameGrouperFactory](config.getTaskNameGrouperFactory)
-      val containerGrouper = containerGrouperFactory.build(config)
-      val containerModels = asScalaSet(containerGrouper.group(setAsJavaSet(taskModels))).map
-              { case (containerModel) => Integer.valueOf(containerModel.getContainerId) -> containerModel }.toMap
-
-      new JobModel(config, containerModels, localityManager)
+      groups.map
+              { case (taskName, systemStreamPartitions) =>
+                val changelogPartition = Option(previousChangelogMapping.get(taskName)) match
+                {
+                  case Some(changelogPartitionId) => new Partition(changelogPartitionId)
+                  case _ =>
+                    // If we've never seen this TaskName before, then assign it a
+                    // new changelog.
+                    maxChangelogPartitionId += 1
+                    info("New task %s is being assigned changelog partition %s." format(taskName, maxChangelogPartitionId))
+                    new Partition(maxChangelogPartitionId)
+                }
+                new TaskModel(taskName, systemStreamPartitions, changelogPartition)
+              }.toSet
     }
+
+    // Here is where we should put in a pluggable option for the
+    // SSPTaskNameGrouper for locality, load-balancing, etc.
+
+    val containerGrouperFactory = Util.getObj[TaskNameGrouperFactory](config.getTaskNameGrouperFactory)
+    val containerGrouper = containerGrouperFactory.build(config)
+    val containerModels = asScalaSet(containerGrouper.group(setAsJavaSet(taskModels))).map
+            { case (containerModel) => Integer.valueOf(containerModel.getContainerId) -> containerModel }.toMap
+
+    new JobModel(config, containerModels, localityManager)
   }
 
   private def createChangeLogStreams(config: StorageConfig, changeLogPartitions: Int, streamMetadataCache: StreamMetadataCache) {

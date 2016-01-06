@@ -52,8 +52,7 @@ import org.apache.samza.system.chooser.MessageChooserFactory
 import org.apache.samza.system.chooser.RoundRobinChooserFactory
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskInstanceCollector
-import org.apache.samza.util.Logging
-import org.apache.samza.util.Util
+import org.apache.samza.util.{ExponentialSleepStrategy, Logging, Util}
 import scala.collection.JavaConversions._
 import java.net.{UnknownHostException, InetAddress, URL}
 import org.apache.samza.job.model.{TaskModel, ContainerModel, JobModel}
@@ -62,6 +61,8 @@ import org.apache.samza.config.JobConfig.Config2Job
 import java.lang.Thread.UncaughtExceptionHandler
 
 object SamzaContainer extends Logging {
+  val DEFAULT_READ_JOBMODEL_DELAY_MS = 100
+
   def main(args: Array[String]) {
     safeMain(() => new JmxServer, new SamzaContainerExceptionHandler(() => System.exit(1)))
   }
@@ -102,11 +103,15 @@ object SamzaContainer extends Logging {
    * assignments, and returns objects to be used for SamzaContainer's
    * constructor.
    */
-  def readJobModel(url: String) = {
+  def readJobModel(url: String, initialDelayMs: Int = scala.util.Random.nextInt(DEFAULT_READ_JOBMODEL_DELAY_MS)) = {
     info("Fetching configuration from: %s" format url)
     SamzaObjectMapper
       .getObjectMapper
-      .readValue(Util.read(new URL(url)), classOf[JobModel])
+      .readValue(
+        Util.read(
+          url = new URL(url),
+          retryBackoff = new ExponentialSleepStrategy(initialDelayMs = initialDelayMs)),
+        classOf[JobModel])
   }
 
   def apply(containerModel: ContainerModel, jobModel: JobModel, jmxServer: JmxServer) = {

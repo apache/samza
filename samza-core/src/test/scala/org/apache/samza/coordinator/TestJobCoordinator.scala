@@ -19,6 +19,8 @@
 
 package org.apache.samza.coordinator
 
+import org.apache.samza.serializers.model.SamzaObjectMapper
+import org.apache.samza.util.Util
 import org.junit.{After, Test}
 import org.junit.Assert._
 import scala.collection.JavaConversions._
@@ -98,10 +100,21 @@ class TestJobCoordinator {
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache()
 
     val coordinator = JobCoordinator(new MapConfig(config ++ otherConfigs))
+    val expectedJobModel = new JobModel(new MapConfig(config), containers)
+
+    // Verify that the atomicReference is initialized
+    assertNotNull(JobCoordinator.jobModelRef.get())
+    assertEquals(expectedJobModel, JobCoordinator.jobModelRef.get())
+
     coordinator.start
-    val jobModel = new JobModel(new MapConfig(config), containers)
     assertEquals(new MapConfig(config), coordinator.jobModel.getConfig)
-    assertEquals(jobModel, coordinator.jobModel)
+    assertEquals(expectedJobModel, coordinator.jobModel)
+
+    // Verify that the JobServlet is serving the correct jobModel
+    val jobModelFromCoordinatorUrl = SamzaObjectMapper.getObjectMapper.readValue(Util.read(coordinator.server.getUrl), classOf[JobModel])
+    assertEquals(expectedJobModel, jobModelFromCoordinatorUrl)
+
+    coordinator.stop
   }
 
   @Test
