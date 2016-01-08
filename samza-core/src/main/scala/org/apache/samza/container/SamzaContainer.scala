@@ -195,8 +195,7 @@ object SamzaContainer extends Logging {
             (systemName, systemFactory.getProducer(systemName, config, samzaContainerMetrics.registry))
           } catch {
             case e: Exception =>
-              info("Failed to create a producer for %s, so skipping." format systemName)
-              debug("Exception detail:", e)
+              error("Failed to create a producer for %s, so skipping.".format(systemName), e)
               (systemName, null)
           }
       }
