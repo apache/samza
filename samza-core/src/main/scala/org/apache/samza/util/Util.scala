@@ -119,15 +119,22 @@ object Util extends Logging {
   }
 
   /**
+   * Overriding read method defined below so that it can be accessed from Java classes with default values
+   */
+  def read(url: URL, timeout: Int): String = {
+    read(url, timeout, new ExponentialSleepStrategy)
+  }
+
+  /**
    * Reads a URL and returns its body as a string. Does no error handling.
    *
    * @param url HTTP URL to read from.
    * @param timeout How long to wait before timing out when connecting to or reading from the HTTP server.
+   * @param retryBackoff Instance of exponentialSleepStrategy that encapsulates info on how long to sleep and retry operation
    * @return String payload of the body of the HTTP response.
    */
-  def read(url: URL, timeout: Int = 60000): String = {
+  def read(url: URL, timeout: Int = 60000, retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy): String = {
     var httpConn = getHttpConnection(url, timeout)
-    val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy
     retryBackoff.run(loop => {
       if(httpConn.getResponseCode != 200)
       {
@@ -143,6 +150,10 @@ object Util extends Logging {
     },
     (exception, loop) => {
       exception match {
+        case ioe: IOException => {
+          warn("Error getting response from Job coordinator server. received IOException: %s. Retrying..." format ioe.getClass)
+          httpConn = getHttpConnection(url, timeout)
+        }
         case e: Exception =>
           loop.done
           error("Unable to connect to Job coordinator server, received exception", e)

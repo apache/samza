@@ -84,6 +84,7 @@ public class RocksDbOptionsHelper {
       break;
     case "none":
       compressionType = CompressionType.NO_COMPRESSION;
+      break;
     default:
       log.warn("Unknown rocksdb.compression codec " + compressionInConfig + ", overwriting to Snappy");
     }

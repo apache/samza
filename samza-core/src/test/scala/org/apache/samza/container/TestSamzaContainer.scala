@@ -19,7 +19,9 @@
 
 package org.apache.samza.container
 
+import java.net.SocketTimeoutException
 import java.util
+import java.util.concurrent.atomic.AtomicReference
 import org.apache.samza.storage.TaskStorageManager
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
@@ -30,8 +32,7 @@ import org.apache.samza.Partition
 import org.apache.samza.config.Config
 import org.apache.samza.config.MapConfig
 import org.apache.samza.coordinator.JobCoordinator
-import org.apache.samza.coordinator.server.HttpServer
-import org.apache.samza.coordinator.server.JobServlet
+import org.apache.samza.coordinator.server.{ServletBase, HttpServer, JobServlet}
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskModel
@@ -76,13 +77,41 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     def jobModelGenerator(): JobModel = jobModel
     val server = new HttpServer
     val coordinator = new JobCoordinator(jobModel, server)
-    coordinator.server.addServlet("/*", new JobServlet(jobModelGenerator))
+    JobCoordinator.jobModelRef.set(jobModelGenerator())
+    coordinator.server.addServlet("/*", new JobServlet(JobCoordinator.jobModelRef))
     try {
       coordinator.start
       assertEquals(jobModel, SamzaContainer.readJobModel(server.getUrl.toString))
     } finally {
       coordinator.stop
     }
+  }
+
+  @Test
+  def testReadJobModelWithTimeouts {
+    val config = new MapConfig(Map("a" -> "b"))
+    val offsets = new util.HashMap[SystemStreamPartition, String]()
+    offsets.put(new SystemStreamPartition("system","stream", new Partition(0)), "1")
+    val tasks = Map(
+      new TaskName("t1") -> new TaskModel(new TaskName("t1"), offsets.keySet(), new Partition(0)),
+      new TaskName("t2") -> new TaskModel(new TaskName("t2"), offsets.keySet(), new Partition(0)))
+    val containers = Map(
+      Integer.valueOf(0) -> new ContainerModel(0, tasks),
+      Integer.valueOf(1) -> new ContainerModel(1, tasks))
+    val jobModel = new JobModel(config, containers)
+    def jobModelGenerator(): JobModel = jobModel
+    val server = new HttpServer
+    val coordinator = new JobCoordinator(jobModel, server)
+    JobCoordinator.jobModelRef.set(jobModelGenerator())
+    val mockJobServlet = new MockJobServlet(2, JobCoordinator.jobModelRef)
+    coordinator.server.addServlet("/*", mockJobServlet)
+    try {
+      coordinator.start
+      assertEquals(jobModel, SamzaContainer.readJobModel(server.getUrl.toString))
+    } finally {
+      coordinator.stop
+    }
+    assertEquals(2, mockJobServlet.exceptionCount)
   }
 
   @Test
@@ -271,4 +300,18 @@ class MockCheckpointManager extends CheckpointManager {
   override def readLastCheckpoint(taskName: TaskName): Checkpoint = { new Checkpoint(Map[SystemStreamPartition, String]()) }
 
   override def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint): Unit = { }
+}
+
+class MockJobServlet(exceptionLimit: Int, jobModelRef: AtomicReference[JobModel]) extends JobServlet(jobModelRef) {
+  var exceptionCount = 0
+
+  override protected def getObjectToWrite() = {
+    if (exceptionCount < exceptionLimit) {
+      exceptionCount += 1
+      throw new java.io.IOException("Throwing exception")
+    } else {
+      val jobModel = jobModelRef.get()
+      jobModel
+    }
+  }
 }
