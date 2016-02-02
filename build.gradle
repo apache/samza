@@ -334,7 +334,7 @@ project(":samza-yarn_$scalaVersion") {
   jar.dependsOn("lesscss")
 }
 
-project(":samza-sql-core_$scalaVersion") {
+project(":samza-sql-core") {
   apply plugin: 'java'
 
   dependencies {
@@ -348,11 +348,11 @@ project(":samza-sql-core_$scalaVersion") {
   }
 }
 
-project(":samza-sql-calcite_$scalaVersion") {
+project(":samza-sql-calcite") {
   apply plugin: 'java'
 
   dependencies {
-    compile project(":samza-sql-core_$scalaVersion")
+    compile project(":samza-sql-core")
     compile "org.apache.calcite:calcite-core:$calciteVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
