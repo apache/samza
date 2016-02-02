@@ -19,9 +19,9 @@
 
 package org.apache.samza.container
 
-import org.apache.samza.metrics.ReadableMetricsRegistry
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.metrics.MetricsHelper
+import java.util
+
+import org.apache.samza.metrics.{Gauge, ReadableMetricsRegistry, MetricsRegistryMap, MetricsHelper}
 
 class SamzaContainerMetrics(
   val source: String = "unknown",
@@ -33,8 +33,15 @@ class SamzaContainerMetrics(
   val sends = newCounter("send-calls")
   val envelopes = newCounter("process-envelopes")
   val nullEnvelopes = newCounter("process-null-envelopes")
-  val chooseMs = newTimer("choose-ms")
-  val windowMs = newTimer("window-ms")
-  val processMs = newTimer("process-ms")
-  val commitMs = newTimer("commit-ms")
+  val chooseNs = newTimer("choose-ns")
+  val windowNs = newTimer("window-ns")
+  val processNs = newTimer("process-ns")
+  val commitNs = newTimer("commit-ns")
+  val utilization = newGauge("event-loop-utilization", 0.0F);
+
+  val taskStoreRestorationMetrics: util.Map[TaskName, Gauge[Long]] = new util.HashMap[TaskName, Gauge[Long]]()
+
+  def addStoreRestorationGauge(taskName: TaskName, storeName: String) {
+    taskStoreRestorationMetrics.put(taskName, newGauge("%s-%s-restore-time" format(taskName.toString, storeName), -1L))
+  }
 }

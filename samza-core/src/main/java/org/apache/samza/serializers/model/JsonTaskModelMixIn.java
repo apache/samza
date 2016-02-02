@@ -20,6 +20,7 @@
 package org.apache.samza.serializers.model;
 
 import java.util.Set;
+
 import org.apache.samza.Partition;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;

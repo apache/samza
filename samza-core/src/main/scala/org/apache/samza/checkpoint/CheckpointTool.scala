@@ -26,13 +26,16 @@ import org.apache.samza.checkpoint.CheckpointTool.TaskNameToCheckpointMap
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.{Config, StreamConfig}
 import org.apache.samza.container.TaskName
+import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.{CommandLine, Util}
+import org.apache.samza.util.{Util, CommandLine, Logging}
 import org.apache.samza.{Partition, SamzaException}
 import scala.collection.JavaConversions._
-import org.apache.samza.util.Logging
 import org.apache.samza.coordinator.JobCoordinator
+
+import scala.collection.immutable.HashMap
+
 
 /**
  * Command-line tool for inspecting and manipulating the checkpoints for a job.
@@ -113,31 +116,32 @@ object CheckpointTool {
     }
   }
 
+  def apply(config: Config, offsets: TaskNameToCheckpointMap) = {
+    val manager = config.getCheckpointManagerFactory match {
+      case Some(className) =>
+        Util.getObj[CheckpointManagerFactory](className).getCheckpointManager(config, new MetricsRegistryMap)
+      case _ =>
+        throw new SamzaException("This job does not use checkpointing (task.checkpoint.factory is not set).")
+    }
+    new CheckpointTool(config, offsets, manager)
+  }
+
   def main(args: Array[String]) {
     val cmdline = new CheckpointToolCommandLine
     val options = cmdline.parser.parse(args: _*)
     val config = cmdline.loadConfig(options)
-    val tool = new CheckpointTool(config, cmdline.newOffsets)
+    val tool = CheckpointTool(config, cmdline.newOffsets)
     tool.run
   }
 }
 
-class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap) extends Logging {
-  val manager = config.getCheckpointManagerFactory match {
-    case Some(className) =>
-      Util.getObj[CheckpointManagerFactory](className).getCheckpointManager(config, new MetricsRegistryMap)
-    case _ =>
-      throw new SamzaException("This job does not use checkpointing (task.checkpoint.factory is not set).")
-  }
-
-  // The CheckpointManagerFactory needs to perform this same operation when initializing
-  // the manager. TODO figure out some way of avoiding duplicated work.
+class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap, manager: CheckpointManager) extends Logging {
 
   def run {
     info("Using %s" format manager)
 
     // Find all the TaskNames that would be generated for this job config
-    val coordinator = JobCoordinator(config, 1)
+    val coordinator = JobCoordinator(config)
     val taskNames = coordinator
       .jobModel
       .getContainers
@@ -165,7 +169,10 @@ class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap) extend
 
   /** Load the most recent checkpoint state for all a specified TaskName. */
   def readLastCheckpoint(taskName:TaskName): Map[SystemStreamPartition, String] = {
-    manager.readLastCheckpoint(taskName).getOffsets.toMap
+    Option(manager.readLastCheckpoint(taskName))
+            .getOrElse(new Checkpoint(new HashMap[SystemStreamPartition, String]()))
+            .getOffsets
+            .toMap
   }
 
   /**

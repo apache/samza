@@ -28,6 +28,7 @@ import kafka.api._
 import kafka.common.{NotLeaderForPartitionException, UnknownTopicOrPartitionException, ErrorMapping, TopicAndPartition}
 import kafka.consumer.ConsumerConfig
 import kafka.message.MessageSet
+import org.apache.samza.SamzaException
 import org.apache.samza.util.ExponentialSleepStrategy
 import org.apache.samza.util.Logging
 import org.apache.samza.util.ThreadNamePrefix.SAMZA_THREAD_NAME_PREFIX
@@ -84,7 +85,7 @@ class BrokerProxy(
     val hostString = "%s:%d" format (host, port)
     info("Creating new SimpleConsumer for host %s for system %s" format (hostString, system))
 
-    val sc = new DefaultFetchSimpleConsumer(host, port, timeout, bufferSize, clientID, fetchSize, consumerMinSize, consumerMaxWait) 
+    val sc = new DefaultFetchSimpleConsumer(host, port, timeout, bufferSize, clientID, fetchSize, consumerMinSize, consumerMaxWait)
     sc
   }
 
@@ -160,8 +161,10 @@ class BrokerProxy(
             reconnect = true
           })
       } catch {
-        case e: InterruptedException => info("Got interrupt exception in broker proxy thread.")
+        case e: InterruptedException       => info("Got interrupt exception in broker proxy thread.")
         case e: ClosedByInterruptException => info("Got closed by interrupt exception in broker proxy thread.")
+        case e: OutOfMemoryError           => throw new SamzaException("Got out of memory error in broker proxy thread.")
+        case e: StackOverflowError         => throw new SamzaException("Got stack overflow error in broker proxy thread.")
       }
 
       if (Thread.currentThread.isInterrupted) info("Shutting down due to interrupt.")
@@ -299,6 +302,11 @@ class BrokerProxy(
 
   def stop {
     info("Shutting down " + toString)
+
+    if (simpleConsumer != null) {
+      info("closing simple consumer...")
+      simpleConsumer.close
+    }
 
     thread.interrupt
     thread.join

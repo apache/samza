@@ -30,7 +30,7 @@ import org.apache.samza.util.Logging
  * this means registering and unregistering with the RM, and shutting down
  * when the RM tells us to Reboot.
  */
-class SamzaAppMasterLifecycle(containerMem: Int, containerCpu: Int, state: SamzaAppMasterState, amClient: AMRMClientAsync[ContainerRequest]) extends YarnAppMasterListener with Logging {
+class SamzaAppMasterLifecycle(containerMem: Int, containerCpu: Int, state: SamzaAppState, amClient: AMRMClientAsync[ContainerRequest]) extends YarnAppMasterListener with Logging {
   var validResourceRequest = true
   var shutdownMessage: String = null
 
@@ -50,7 +50,7 @@ class SamzaAppMasterLifecycle(containerMem: Int, containerCpu: Int, state: Samza
       error(shutdownMessage)
       validResourceRequest = false
       state.status = FinalApplicationStatus.FAILED
-      state.jobHealthy = false
+      state.jobHealthy.set(false)
     }
   }
 

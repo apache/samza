@@ -41,9 +41,9 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
   
   private static Logger logger = LoggerFactory.getLogger(Emitter.class);
   
-  private static String EPOCH = "the-epoch";
-  private static String COUNT = "the-count";
-  
+  private static final String EPOCH = "the-epoch";
+  private static final String COUNT = "the-count";
+
   private KeyValueStore<String, String> state;
   private int max;
   private TaskName taskName;
@@ -57,14 +57,14 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
 
   @Override
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
-    if(envelope.getSystemStreamPartition().getStream().equals("epoch")) {
+    if (envelope.getSystemStreamPartition().getStream().equals("epoch")) {
       int newEpoch = Integer.parseInt((String) envelope.getMessage());
       logger.info("New epoch in message - " + newEpoch);
 
       Integer epoch = getInt(EPOCH);
-      if(epoch == null || newEpoch == epoch)
+      if (epoch == null || newEpoch == epoch)
         return;
-      if(newEpoch < epoch)
+      if (newEpoch < epoch)
         throw new IllegalArgumentException("Got new epoch " + newEpoch + " which is less than current epoch " + epoch);
       
       // it's a new era, reset current epoch and count
@@ -77,12 +77,12 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
   
   public void window(MessageCollector collector, TaskCoordinator coordinator) {
     Integer epoch = getInt(EPOCH);
-    if(epoch == null) {
+    if (epoch == null) {
       resetEpoch();
       return;
     }
     int counter = getInt(COUNT);
-    if(counter < max) {
+    if (counter < max) {
       logger.info("Emitting: " + counter + ", epoch = " + epoch + ", task = " + taskName);
       OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(new SystemStream("kafka", "emitted"), Integer.toString(counter), epoch + "-" + taskName.toString());
       collector.send(envelope);
@@ -98,7 +98,7 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
   
   private Integer getInt(String key) {
     String value = this.state.get(key);
-    return value == null? null : Integer.parseInt(value);
+    return value == null ? null : Integer.parseInt(value);
   }
 
 }

@@ -18,25 +18,28 @@
  */
 package org.apache.samza.container.grouper.task
 
+import java.util
+
 import org.apache.samza.container.TaskName
 import org.apache.samza.system.SystemStreamPartition
 import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.Partition
-import scala.collection.JavaConversions
 import org.scalatest.Assertions.intercept
 import scala.collection.JavaConversions._
 
 class TestGroupByContainerCount {
   @Test
   def testEmptyTasks {
-    intercept[IllegalArgumentException] { new GroupByContainerCount(1).group(Set()) }
+    intercept[IllegalArgumentException] { new GroupByContainerCount(1).group(new util.HashSet()) }
   }
 
   @Test
   def testFewerTasksThanContainers {
-    intercept[IllegalArgumentException] { new GroupByContainerCount(2).group(Set(null)) }
+    val taskModels = new util.HashSet[TaskModel]()
+    taskModels.add(getTaskModel("1", 1))
+    intercept[IllegalArgumentException] { new GroupByContainerCount(2).group(taskModels) }
   }
 
   @Test
@@ -47,8 +50,8 @@ class TestGroupByContainerCount {
       getTaskModel("3", 3),
       getTaskModel("4", 4),
       getTaskModel("5", 5))
-    val containers = new GroupByContainerCount(2)
-      .group(taskModels)
+    val containers = asScalaSet(new GroupByContainerCount(2)
+      .group(setAsJavaSet(taskModels)))
       .map(containerModel => containerModel.getContainerId -> containerModel)
       .toMap
     assertEquals(2, containers.size)

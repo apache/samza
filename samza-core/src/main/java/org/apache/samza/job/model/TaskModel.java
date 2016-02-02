@@ -25,12 +25,13 @@ import org.apache.samza.Partition;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
+
 /**
  * <p>
  * The data model used to represent a task. The model is used in the job
  * coordinator and SamzaContainer to determine how to execute Samza jobs.
  * </p>
- * 
+ *
  * <p>
  * The hierarchy for a Samza's job data model is that jobs have containers, and
  * containers have tasks. Each data model contains relevant information, such as
@@ -61,45 +62,41 @@ public class TaskModel implements Comparable<TaskModel> {
   }
 
   @Override
-  public String toString() {
-    return "TaskModel [taskName=" + taskName + ", systemStreamPartitions=" + systemStreamPartitions + ", changeLogPartition=" + changelogPartition + "]";
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    TaskModel taskModel = (TaskModel) o;
+
+    if (!changelogPartition.equals(taskModel.changelogPartition)) {
+      return false;
+    }
+    if (!systemStreamPartitions.equals(taskModel.systemStreamPartitions)) {
+      return false;
+    }
+    if (!taskName.equals(taskModel.taskName)) {
+      return false;
+    }
+
+    return true;
   }
 
   @Override
   public int hashCode() {
-    final int prime = 31;
-    int result = 1;
-    result = prime * result + ((changelogPartition == null) ? 0 : changelogPartition.hashCode());
-    result = prime * result + ((systemStreamPartitions == null) ? 0 : systemStreamPartitions.hashCode());
-    result = prime * result + ((taskName == null) ? 0 : taskName.hashCode());
+    int result = taskName.hashCode();
+    result = 31 * result + systemStreamPartitions.hashCode();
+    result = 31 * result + changelogPartition.hashCode();
     return result;
   }
 
   @Override
-  public boolean equals(Object obj) {
-    if (this == obj)
-      return true;
-    if (obj == null)
-      return false;
-    if (getClass() != obj.getClass())
-      return false;
-    TaskModel other = (TaskModel) obj;
-    if (changelogPartition == null) {
-      if (other.changelogPartition != null)
-        return false;
-    } else if (!changelogPartition.equals(other.changelogPartition))
-      return false;
-    if (systemStreamPartitions == null) {
-      if (other.systemStreamPartitions != null)
-        return false;
-    } else if (!systemStreamPartitions.equals(other.systemStreamPartitions))
-      return false;
-    if (taskName == null) {
-      if (other.taskName != null)
-        return false;
-    } else if (!taskName.equals(other.taskName))
-      return false;
-    return true;
+
+  public String toString() {
+    return "TaskModel [taskName=" + taskName + ", systemStreamPartitions=" + systemStreamPartitions + ", changeLogPartition=" + changelogPartition + "]";
   }
 
   public int compareTo(TaskModel other) {

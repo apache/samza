@@ -19,10 +19,9 @@
 
 package org.apache.samza.container
 
-import org.apache.samza.util.Logging
-import org.apache.samza.system.{ SystemStreamPartition, SystemConsumers }
+import org.apache.samza.system.{SystemConsumers, SystemStreamPartition}
 import org.apache.samza.task.ReadableCoordinator
-import org.apache.samza.util.TimerUtils
+import org.apache.samza.util.{Logging, TimerUtils}
 
 /**
  * Each {@link SamzaContainer} uses a single-threaded execution model: activities for
@@ -39,24 +38,29 @@ class RunLoop(
   val metrics: SamzaContainerMetrics,
   val windowMs: Long = -1,
   val commitMs: Long = 60000,
-  val clock: () => Long = { System.currentTimeMillis },
+  val clock: () => Long = { System.nanoTime },
   val shutdownMs: Long = 5000) extends Runnable with TimerUtils with Logging {
 
-  private var lastWindowMs = 0L
-  private var lastCommitMs = 0L
+  private val metricsMsOffset = 1000000L
+  private var lastWindowNs = clock()
+  private var lastCommitNs = clock()
+  private var activeNs = 0L
   private var taskShutdownRequests: Set[TaskName] = Set()
   private var taskCommitRequests: Set[TaskName] = Set()
   @volatile private var shutdownNow = false
 
   // Messages come from the chooser with no connection to the TaskInstance they're bound for.
   // Keep a mapping of SystemStreamPartition to TaskInstance to efficiently route them.
-  val systemStreamPartitionToTaskInstance: Map[SystemStreamPartition, TaskInstance] = {
+  val systemStreamPartitionToTaskInstances = getSystemStreamPartitionToTaskInstancesMapping
+
+  def getSystemStreamPartitionToTaskInstancesMapping: Map[SystemStreamPartition, List[TaskInstance]] = {
     // We could just pass in the SystemStreamPartitionMap during construction, but it's safer and cleaner to derive the information directly
     def getSystemStreamPartitionToTaskInstance(taskInstance: TaskInstance) = taskInstance.systemStreamPartitions.map(_ -> taskInstance).toMap
 
-    taskInstances.values.map { getSystemStreamPartitionToTaskInstance }.flatten.toMap
+    taskInstances.values.map { getSystemStreamPartitionToTaskInstance }.flatten.groupBy(_._1).map {
+      case (ssp, ssp2taskInstance) => ssp -> ssp2taskInstance.map(_._2).toList
+    }
   }
-
 
   /**
    * Starts the run loop. Blocks until either the tasks request shutdown, or an
@@ -66,9 +70,13 @@ class RunLoop(
     addShutdownHook(Thread.currentThread())
 
     while (!shutdownNow) {
+      val loopStartTime = clock()
       process
       window
       commit
+      val totalNs = clock() - loopStartTime
+      metrics.utilization.set(activeNs.toFloat/totalNs)
+      activeNs = 0L
     }
   }
 
@@ -95,8 +103,8 @@ class RunLoop(
     trace("Attempting to choose a message to process.")
     metrics.processes.inc
 
-    updateTimer(metrics.processMs) {
-      val envelope = updateTimer(metrics.chooseMs) {
+    activeNs += updateTimerAndGetDuration(metrics.processNs) ((currentTimeNs: Long) => {
+      val envelope = updateTimer(metrics.chooseNs) {
         consumerMultiplexer.choose
       }
 
@@ -106,26 +114,30 @@ class RunLoop(
         trace("Processing incoming message envelope for SSP %s." format ssp)
         metrics.envelopes.inc
 
-        val taskInstance = systemStreamPartitionToTaskInstance(ssp)
-        val coordinator = new ReadableCoordinator(taskInstance.taskName)
-
-        taskInstance.process(envelope, coordinator)
-        checkCoordinator(coordinator)
+        val taskInstances = systemStreamPartitionToTaskInstances(ssp)
+        taskInstances.foreach {
+          taskInstance =>
+            {
+              val coordinator = new ReadableCoordinator(taskInstance.taskName)
+              taskInstance.process(envelope, coordinator)
+              checkCoordinator(coordinator)
+            }
+        }
       } else {
         trace("No incoming message envelope was available.")
         metrics.nullEnvelopes.inc
       }
-    }
+    })
   }
 
   /**
    * Invokes WindowableTask.window on all tasks if it's time to do so.
    */
   private def window {
-    updateTimer(metrics.windowMs) {
-      if (windowMs >= 0 && lastWindowMs + windowMs < clock()) {
+    activeNs += updateTimerAndGetDuration(metrics.windowNs) ((currentTimeNs: Long) => {
+      if (windowMs >= 0 && lastWindowNs + windowMs * metricsMsOffset < currentTimeNs) {
         trace("Windowing stream tasks.")
-        lastWindowMs = clock()
+        lastWindowNs = currentTimeNs
         metrics.windows.inc
 
         taskInstances.foreach {
@@ -135,17 +147,17 @@ class RunLoop(
             checkCoordinator(coordinator)
         }
       }
-    }
+    })
   }
 
   /**
    * Commits task state as a a checkpoint, if necessary.
    */
   private def commit {
-    updateTimer(metrics.commitMs) {
-      if (commitMs >= 0 && lastCommitMs + commitMs < clock()) {
+    activeNs += updateTimerAndGetDuration(metrics.commitNs) ((currentTimeNs: Long) => {
+      if (commitMs >= 0 && lastCommitNs + commitMs * metricsMsOffset < currentTimeNs) {
         trace("Committing task instances because the commit interval has elapsed.")
-        lastCommitMs = clock()
+        lastCommitNs = currentTimeNs
         metrics.commits.inc
         taskInstances.values.foreach(_.commit)
       } else if (!taskCommitRequests.isEmpty) {
@@ -157,7 +169,7 @@ class RunLoop(
       }
 
       taskCommitRequests = Set()
-    }
+    })
   }
 
   /**

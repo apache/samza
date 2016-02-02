@@ -19,32 +19,25 @@
 
 package org.apache.samza.checkpoint.kafka
 
-import org.apache.samza.util.Logging
 import java.nio.ByteBuffer
 import java.util
-import kafka.admin.AdminUtils
+import java.util.Properties
+
 import kafka.api._
-import kafka.common.ErrorMapping
-import kafka.common.InvalidMessageSizeException
-import kafka.common.TopicAndPartition
-import kafka.common.TopicExistsException
-import kafka.common.UnknownTopicOrPartitionException
+import kafka.common.{ErrorMapping, InvalidMessageSizeException, TopicAndPartition, UnknownTopicOrPartitionException}
 import kafka.consumer.SimpleConsumer
 import kafka.message.InvalidMessageException
 import kafka.utils.Utils
 import org.I0Itec.zkclient.ZkClient
+import org.apache.kafka.clients.producer.{Producer, ProducerRecord}
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.Checkpoint
-import org.apache.samza.checkpoint.CheckpointManager
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.container.TaskName
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system.kafka.TopicMetadataCache
-import org.apache.samza.util.ExponentialSleepStrategy
-import org.apache.samza.util.TopicMetadataStore
+import org.apache.samza.util._
+
 import scala.collection.mutable
-import java.util.Properties
-import org.apache.kafka.clients.producer.{Producer, ProducerRecord}
-import org.apache.samza.util.KafkaUtil
 
 /**
  * Kafka checkpoint manager is used to store checkpoints in a Kafka topic.
@@ -54,27 +47,28 @@ import org.apache.samza.util.KafkaUtil
  * checkpoints and TaskName to changelog partition mappings are written.
  */
 class KafkaCheckpointManager(
-  clientId: String,
-  checkpointTopic: String,
-  systemName: String,
-  replicationFactor: Int,
-  socketTimeout: Int,
-  bufferSize: Int,
-  fetchSize: Int,
-  metadataStore: TopicMetadataStore,
-  connectProducer: () => Producer[Array[Byte], Array[Byte]],
-  connectZk: () => ZkClient,
-  systemStreamPartitionGrouperFactoryString: String,
-  retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
-  serde: CheckpointSerde = new CheckpointSerde,
-  checkpointTopicProperties: Properties = new Properties) extends CheckpointManager with Logging {
-  import KafkaCheckpointManager._
+                              clientId: String,
+                              checkpointTopic: String,
+                              val systemName: String,
+                              replicationFactor: Int,
+                              socketTimeout: Int,
+                              bufferSize: Int,
+                              fetchSize: Int,
+                              val metadataStore: TopicMetadataStore,
+                              connectProducer: () => Producer[Array[Byte], Array[Byte]],
+                              val connectZk: () => ZkClient,
+                              systemStreamPartitionGrouperFactoryString: String,
+                              val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
+                              serde: CheckpointSerde = new CheckpointSerde,
+                              checkpointTopicProperties: Properties = new Properties) extends CheckpointManager with Logging {
+  import org.apache.samza.checkpoint.kafka.KafkaCheckpointManager._
 
   var taskNames = Set[TaskName]()
   var producer: Producer[Array[Byte], Array[Byte]] = null
   var taskNamesToOffsets: Map[TaskName, Checkpoint] = null
 
   var startingOffset: Option[Long] = None // Where to start reading for each subsequent call of readCheckpoint
+  val kafkaUtil: KafkaUtil = new KafkaUtil(retryBackoff, connectZk)
 
   KafkaCheckpointLogKey.setSystemStreamPartitionGrouperFactoryString(systemStreamPartitionGrouperFactoryString)
 
@@ -90,43 +84,18 @@ class KafkaCheckpointManager(
     val key = KafkaCheckpointLogKey.getCheckpointKey(taskName)
     val keyBytes = key.toBytes()
     val msgBytes = serde.toBytes(checkpoint)
-
-    writeLog(CHECKPOINT_LOG4J_ENTRY, keyBytes, msgBytes)
-  }
-
-  /**
-   * Write the taskName to partition mapping that is being maintained by this CheckpointManager
-   *
-   * @param changelogPartitionMapping Each TaskName's partition within the changelog
-   */
-  override def writeChangeLogPartitionMapping(changelogPartitionMapping: util.Map[TaskName, java.lang.Integer]) {
-    val key = KafkaCheckpointLogKey.getChangelogPartitionMappingKey()
-    val keyBytes = key.toBytes()
-    val msgBytes = serde.changelogPartitionMappingToBytes(changelogPartitionMapping)
-
-    writeLog(CHANGELOG_PARTITION_MAPPING_LOG4j, keyBytes, msgBytes)
-  }
-
-  /**
-   * Common code for writing either checkpoints or changelog-partition-mappings to the log
-   *
-   * @param logType Type of entry that is being written, for logging
-   * @param key pre-serialized key for message
-   * @param msg pre-serialized message to write to log
-   */
-  private def writeLog(logType:String, key: Array[Byte], msg: Array[Byte]) {
     retryBackoff.run(
       loop => {
         if (producer == null) {
           producer = connectProducer()
         }
 
-        producer.send(new ProducerRecord(checkpointTopic, 0, key, msg)).get()
+        producer.send(new ProducerRecord(checkpointTopic, 0, keyBytes, msgBytes)).get()
         loop.done
       },
 
       (exception, loop) => {
-        warn("Failed to write %s partition entry %s: %s. Retrying." format(logType, key, exception))
+        warn("Failed to write %s partition entry %s: %s. Retrying." format(CHECKPOINT_LOG4J_ENTRY, key, exception))
         debug("Exception detail:", exception)
         if (producer != null) {
           producer.close
@@ -142,7 +111,7 @@ class KafkaCheckpointManager(
     val partitionMetadata = metadata.partitionsMetadata
       .filter(_.partitionId == 0)
       .headOption
-      .getOrElse(throw new KafkaCheckpointException("Tried to find partition information for partition 0 for checkpoint topic, but it didn't exist in Kafka."))
+      .getOrElse(throw new KafkaUtilException("Tried to find partition information for partition 0 for checkpoint topic, but it didn't exist in Kafka."))
     val leader = partitionMetadata
       .leader
       .getOrElse(throw new SamzaException("No leader available for topic %s" format checkpointTopic))
@@ -158,14 +127,14 @@ class KafkaCheckpointManager(
     val offsetResponse = consumer.getOffsetsBefore(new OffsetRequest(Map(topicAndPartition -> PartitionOffsetRequestInfo(earliestOrLatest, 1))))
       .partitionErrorAndOffsets
       .get(topicAndPartition)
-      .getOrElse(throw new KafkaCheckpointException("Unable to find offset information for %s:0" format checkpointTopic))
+      .getOrElse(throw new KafkaUtilException("Unable to find offset information for %s:0" format checkpointTopic))
     // Fail or retry if there was an an issue with the offset request.
     KafkaUtil.maybeThrowException(offsetResponse.error)
 
     val offset: Long = offsetResponse
       .offsets
       .headOption
-      .getOrElse(throw new KafkaCheckpointException("Got response, but no offsets defined for %s:0" format checkpointTopic))
+      .getOrElse(throw new KafkaUtilException("Got response, but no offsets defined for %s:0" format checkpointTopic))
 
     offset
   }
@@ -200,49 +169,22 @@ class KafkaCheckpointManager(
   /**
    * Read through entire log, discarding changelog mapping, and building map of TaskNames to Checkpoints
    */
-  private def readCheckpointsFromLog(): Map[TaskName, Checkpoint] = {
+  def readCheckpointsFromLog(): Map[TaskName, Checkpoint] = {
     val checkpoints = mutable.Map[TaskName, Checkpoint]()
 
     def shouldHandleEntry(key: KafkaCheckpointLogKey) = key.isCheckpointKey
 
     def handleCheckpoint(payload: ByteBuffer, checkpointKey:KafkaCheckpointLogKey): Unit = {
       val taskName = checkpointKey.getCheckpointTaskName
-
-      if (taskNames.contains(taskName)) {
-        val checkpoint = serde.fromBytes(Utils.readBytes(payload))
-
-        debug("Adding checkpoint " + checkpoint + " for taskName " + taskName)
-
-        checkpoints.put(taskName, checkpoint) // replacing any existing, older checkpoints as we go
-      }
+      val checkpoint = serde.fromBytes(Utils.readBytes(payload))
+      debug("Adding checkpoint " + checkpoint + " for taskName " + taskName)
+      checkpoints.put(taskName, checkpoint) // replacing any existing, older checkpoints as we go
     }
 
     readLog(CHECKPOINT_LOG4J_ENTRY, shouldHandleEntry, handleCheckpoint)
-
     checkpoints.toMap /* of the immutable kind */
   }
 
-  /**
-   * Read through entire log, discarding checkpoints, finding latest changelogPartitionMapping
-   *
-   * Lots of duplicated code from the checkpoint method, but will be better to refactor this code into AM-based
-   * checkpoint log reading
-   */
-  override def readChangeLogPartitionMapping(): util.Map[TaskName, java.lang.Integer] = {
-    var changelogPartitionMapping: util.Map[TaskName, java.lang.Integer] = new util.HashMap[TaskName, java.lang.Integer]()
-
-    def shouldHandleEntry(key: KafkaCheckpointLogKey) = key.isChangelogPartitionMapping
-
-    def handleCheckpoint(payload: ByteBuffer, checkpointKey:KafkaCheckpointLogKey): Unit = {
-      changelogPartitionMapping = serde.changelogPartitionMappingFromBytes(Utils.readBytes(payload))
-
-      debug("Adding changelog partition mapping" + changelogPartitionMapping)
-    }
-
-    readLog(CHANGELOG_PARTITION_MAPPING_LOG4j, shouldHandleEntry, handleCheckpoint)
-
-    changelogPartitionMapping
-  }
 
   /**
    * Common code for reading both changelog partition mapping and change log
@@ -296,7 +238,7 @@ class KafkaCheckpointManager(
               startingOffset = Some(offset) // For next time we call
 
               if (!response.message.hasKey) {
-                throw new KafkaCheckpointException("Encountered message without key.")
+                throw new KafkaUtilException("Encountered message without key.")
               }
 
               val checkpointKey = KafkaCheckpointLogKey.fromBytes(Utils.readBytes(response.message.key))
@@ -318,10 +260,10 @@ class KafkaCheckpointManager(
 
       (exception, loop) => {
         exception match {
-          case e: InvalidMessageException => throw new KafkaCheckpointException("Got InvalidMessageException from Kafka, which is unrecoverable, so fail the samza job", e)
-          case e: InvalidMessageSizeException => throw new KafkaCheckpointException("Got InvalidMessageSizeException from Kafka, which is unrecoverable, so fail the samza job", e)
-          case e: UnknownTopicOrPartitionException => throw new KafkaCheckpointException("Got UnknownTopicOrPartitionException from Kafka, which is unrecoverable, so fail the samza job", e)
-          case e: KafkaCheckpointException => throw e
+          case e: InvalidMessageException => throw new KafkaUtilException("Got InvalidMessageException from Kafka, which is unrecoverable, so fail the samza job", e)
+          case e: InvalidMessageSizeException => throw new KafkaUtilException("Got InvalidMessageSizeException from Kafka, which is unrecoverable, so fail the samza job", e)
+          case e: UnknownTopicOrPartitionException => throw new KafkaUtilException("Got UnknownTopicOrPartitionException from Kafka, which is unrecoverable, so fail the samza job", e)
+          case e: KafkaUtilException => throw e
           case e: Exception =>
             warn("While trying to read last %s entry for topic %s and partition 0: %s. Retrying." format(entryType, checkpointTopic, e))
             debug("Exception detail:", e)
@@ -332,8 +274,8 @@ class KafkaCheckpointManager(
   }
 
   def start {
-    create
-    validateTopic
+    kafkaUtil.createTopic(checkpointTopic, 1, replicationFactor, checkpointTopicProperties)
+    kafkaUtil.validateTopicPartitionCount(checkpointTopic, systemName, metadataStore, 1)
   }
 
   def register(taskName: TaskName) {
@@ -347,65 +289,26 @@ class KafkaCheckpointManager(
     }
   }
 
-  def create {
-    info("Attempting to create checkpoint topic %s." format checkpointTopic)
-    retryBackoff.run(
-      loop => {
-        val zkClient = connectZk()
-        try {
-          AdminUtils.createTopic(
-            zkClient,
-            checkpointTopic,
-            1,
-            replicationFactor,
-            checkpointTopicProperties)
-        } finally {
-          zkClient.close
-        }
 
-        info("Created checkpoint topic %s." format checkpointTopic)
-        loop.done
-      },
+  /**
+   * Read through entire log, discarding checkpoints, finding latest changelogPartitionMapping
+   * To be used for Migration purpose only. In newer version, changelogPartitionMapping will be handled through coordinator stream
+   */
+  @Deprecated
+  def readChangeLogPartitionMapping(): util.Map[TaskName, java.lang.Integer] = {
+    var changelogPartitionMapping: util.Map[TaskName, java.lang.Integer] = new util.HashMap[TaskName, java.lang.Integer]()
 
-      (exception, loop) => {
-        exception match {
-          case e: TopicExistsException =>
-            info("Checkpoint topic %s already exists." format checkpointTopic)
-            loop.done
-          case e: Exception =>
-            warn("Failed to create topic %s: %s. Retrying." format(checkpointTopic, e))
-            debug("Exception detail:", e)
-        }
-      }
-    )
-  }
+    def shouldHandleEntry(key: KafkaCheckpointLogKey) = key.isChangelogPartitionMapping
 
-  private def validateTopic {
-    info("Validating checkpoint topic %s." format checkpointTopic)
-    retryBackoff.run(
-      loop => {
-        val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(checkpointTopic), systemName, metadataStore.getTopicInfo)
-        val topicMetadata = topicMetadataMap(checkpointTopic)
-        KafkaUtil.maybeThrowException(topicMetadata.errorCode)
+    def handleCheckpoint(payload: ByteBuffer, checkpointKey:KafkaCheckpointLogKey): Unit = {
+      changelogPartitionMapping = serde.changelogPartitionMappingFromBytes(Utils.readBytes(payload))
 
-        val partitionCount = topicMetadata.partitionsMetadata.length
-        if (partitionCount != 1) {
-          throw new KafkaCheckpointException("Checkpoint topic validation failed for topic %s because partition count %s did not match expected partition count of 1." format(checkpointTopic, topicMetadata.partitionsMetadata.length))
-        }
+      debug("Adding changelog partition mapping" + changelogPartitionMapping)
+    }
 
-        info("Successfully validated checkpoint topic %s." format checkpointTopic)
-        loop.done
-      },
+    readLog(CHANGELOG_PARTITION_MAPPING_LOG4j, shouldHandleEntry, handleCheckpoint)
 
-      (exception, loop) => {
-        exception match {
-          case e: KafkaCheckpointException => throw e
-          case e: Exception =>
-            warn("While trying to validate topic %s: %s. Retrying." format(checkpointTopic, e))
-            debug("Exception detail:", e)
-        }
-      }
-    )
+    changelogPartitionMapping
   }
 
   override def toString = "KafkaCheckpointManager [systemName=%s, checkpointTopic=%s]" format(systemName, checkpointTopic)
@@ -414,14 +317,4 @@ class KafkaCheckpointManager(
 object KafkaCheckpointManager {
   val CHECKPOINT_LOG4J_ENTRY = "checkpoint log"
   val CHANGELOG_PARTITION_MAPPING_LOG4j = "changelog partition mapping"
-}
-
-/**
- * KafkaCheckpointManager handles retries, so we need two kinds of exceptions:
- * one to signal a hard failure, and the other to retry. The
- * KafkaCheckpointException is thrown to indicate a hard failure that the Kafka
- * CheckpointManager can't recover from.
- */
-class KafkaCheckpointException(s: String, t: Throwable) extends SamzaException(s, t) {
-  def this(s: String) = this(s, null)
 }

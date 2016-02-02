@@ -184,6 +184,48 @@ public interface KeyValueStore<K, V> {
 
 Additional configuration properties for the key-value store are documented in the [configuration reference](../jobs/configuration-table.html#keyvalue-rocksdb).
 
+### Debug Key-value storage
+
+#### Materialize a state store from the changelog
+
+Currently Samza provides a state storage tool which can recover the state store from the changelog stream to user-specified directory for reusing and debugging.
+
+{% highlight bash %}
+samza-example/target/bin/state-storage-tool.sh \
+  --config-path=file:///path/to/job/config.properties \
+  --path=directory/to/put/state/stores
+{% endhighlight %}
+
+#### Read the value from a running RocksDB
+
+Samza also provides a tool to read the value from a running job's RocksDB.
+
+{% highlight bash %}
+samza-example/target/bin/read-rocksdb-tool.sh \
+  --config-path=file:///path/to/job/config.properties \
+  --db-path=/tmp/nm-local-dir/state/test-state/Partition_0 \
+  --db-name=test-state \
+  --string-key=a,b,c
+{% endhighlight %}
+
+* `--config-path`(required): your job's configuration file
+* `--db-path`(required): the location of your RocksDB. This is convenient if the RocksDB is in the same machine as the tool. E.g. if you are running hello-samza in your local machine, the location maybe in 
+_/tmp/hadoop/nm-local-dir/usercache/username/appcache/applicationId/containerId/state/storeName/PartitionNumber_
+* `--db-name`(required): if you only have one state store specified in the config file, you can ignore this one. Otherwise, you need to provide the state store name here.
+* `--string-key`: the key list. This one only works if your keys are string. There are also another two options: `--integer-key`, `--long-key`. They work for integer keys and long keys respectively.
+
+**Limitations**:
+
+* This only works with three kinds of keys: string, integer and long. This is because we can only accept those kinds of keys from the command line (it is really tricky to accept bytes, avro, json, etc from the command line). But it is also easy to use this tool programmatically (The key and value both are deserialized.)
+{% highlight bash %}
+RocksDbKeyValueReader kvReader = new RocksDbKeyValueReader(dbName, pathOfdb, config)
+Object value = kvReader.get(key)
+{% endhighlight %}
+
+
+* Because Samza job has some caches and buffers, you may not be able to see expected values (or even not be able to see any value, if all the data is buffered). Some of the related configuration are `stores.store-name.container.write.buffer.size.bytes`, `stores.store-name.write.batch.size`, `stores.store-name.object.cache.size`. You may want to set them to very small for testing.
+* Since RocksDB memtable is not flushed to disk immediately on every write, you may not be able to see the expected values until it is written to the SST file on disk. For more details on RocksDb, you can refer the docs [here](https://github.com/facebook/rocksdb/wiki/RocksDB-Basics).
+
 #### Known Issues
 
 RocksDB has several rough edges. It's recommended that you read the RocksDB [tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide). Some other notes to be aware of are:

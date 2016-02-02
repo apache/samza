@@ -37,6 +37,8 @@ import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStreamPartition;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * <p>
  * BlockingEnvelopeMap is a helper class for SystemConsumer implementations.
@@ -63,15 +65,13 @@ import org.apache.samza.system.SystemStreamPartition;
 public abstract class BlockingEnvelopeMap implements SystemConsumer {
   private final BlockingEnvelopeMapMetrics metrics;
   private final ConcurrentHashMap<SystemStreamPartition, BlockingQueue<IncomingMessageEnvelope>> bufferedMessages;
+  private final ConcurrentHashMap<SystemStreamPartition, AtomicLong> bufferedMessagesSize;  // size in bytes per SystemStreamPartition
   private final Map<SystemStreamPartition, Boolean> noMoreMessage;
   private final Clock clock;
+  protected final boolean fetchLimitByBytesEnabled;
 
   public BlockingEnvelopeMap() {
     this(new NoOpMetricsRegistry());
-  }
-
-  public BlockingEnvelopeMap(Clock clock) {
-    this(new NoOpMetricsRegistry(), clock);
   }
 
   public BlockingEnvelopeMap(MetricsRegistry metricsRegistry) {
@@ -83,15 +83,18 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
   }
 
   public BlockingEnvelopeMap(MetricsRegistry metricsRegistry, Clock clock) {
-    this(metricsRegistry, clock, null);
+    this(metricsRegistry, clock, null, false);
   }
 
-  public BlockingEnvelopeMap(MetricsRegistry metricsRegistry, Clock clock, String metricsGroupName) {
+  public BlockingEnvelopeMap(MetricsRegistry metricsRegistry, Clock clock, String metricsGroupName, boolean fetchLimitByBytesEnabled) {
     metricsGroupName = (metricsGroupName == null) ? this.getClass().getName() : metricsGroupName;
     this.metrics = new BlockingEnvelopeMapMetrics(metricsGroupName, metricsRegistry);
     this.bufferedMessages = new ConcurrentHashMap<SystemStreamPartition, BlockingQueue<IncomingMessageEnvelope>>();
     this.noMoreMessage = new ConcurrentHashMap<SystemStreamPartition, Boolean>();
     this.clock = clock;
+    this.fetchLimitByBytesEnabled = fetchLimitByBytesEnabled;
+    // Created when size is disabled for code simplification, and as the overhead is negligible.
+    this.bufferedMessagesSize = new ConcurrentHashMap<SystemStreamPartition, AtomicLong>();
   }
 
   /**
@@ -100,6 +103,8 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
   public void register(SystemStreamPartition systemStreamPartition, String offset) {
     metrics.initMetrics(systemStreamPartition);
     bufferedMessages.putIfAbsent(systemStreamPartition, newBlockingQueue());
+    // Created when size is disabled for code simplification, and the overhead is negligible.
+    bufferedMessagesSize.putIfAbsent(systemStreamPartition, new AtomicLong(0));
   }
 
   protected BlockingQueue<IncomingMessageEnvelope> newBlockingQueue() {
@@ -150,10 +155,22 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
 
       if (outgoingList.size() > 0) {
         messagesToReturn.put(systemStreamPartition, outgoingList);
+        if (fetchLimitByBytesEnabled) {
+          subtractSizeOnQDrain(systemStreamPartition, outgoingList);
+        }
       }
     }
 
     return messagesToReturn;
+  }
+
+  private void subtractSizeOnQDrain(SystemStreamPartition systemStreamPartition, List<IncomingMessageEnvelope> outgoingList) {
+    long outgoingListBytes = 0;
+    for (IncomingMessageEnvelope envelope : outgoingList) {
+      outgoingListBytes += envelope.getSize();
+    }
+    // subtract the size of the messages dequeued.
+    bufferedMessagesSize.get(systemStreamPartition).addAndGet(-1 * outgoingListBytes);
   }
 
   /**
@@ -166,6 +183,9 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
    */
   protected void put(SystemStreamPartition systemStreamPartition, IncomingMessageEnvelope envelope) throws InterruptedException {
     bufferedMessages.get(systemStreamPartition).put(envelope);
+    if (fetchLimitByBytesEnabled) {
+      bufferedMessagesSize.get(systemStreamPartition).addAndGet(envelope.getSize());
+    }
   }
 
   /**
@@ -198,6 +218,16 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
     }
   }
 
+  public long getMessagesSizeInQueue(SystemStreamPartition systemStreamPartition) {
+    AtomicLong sizeInBytes = bufferedMessagesSize.get(systemStreamPartition);
+
+    if (sizeInBytes == null) {
+      throw new NullPointerException("Attempting to get size for " + systemStreamPartition + ", but the system/stream/partition was never registered. or fetch");
+    } else {
+      return sizeInBytes.get();
+    }
+  }
+
   protected Boolean setIsAtHead(SystemStreamPartition systemStreamPartition, boolean isAtHead) {
     metrics.setNoMoreMessages(systemStreamPartition, isAtHead);
     return noMoreMessage.put(systemStreamPartition, isAtHead);
@@ -227,11 +257,14 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
     }
 
     public void initMetrics(SystemStreamPartition systemStreamPartition) {
-      this.noMoreMessageGaugeMap.putIfAbsent(systemStreamPartition, metricsRegistry.<Boolean> newGauge(group, "no-more-messages-" + systemStreamPartition, false));
+      this.noMoreMessageGaugeMap.putIfAbsent(systemStreamPartition, metricsRegistry.<Boolean>newGauge(group, "no-more-messages-" + systemStreamPartition, false));
       this.blockingPollCountMap.putIfAbsent(systemStreamPartition, metricsRegistry.newCounter(group, "blocking-poll-count-" + systemStreamPartition));
       this.blockingPollTimeoutCountMap.putIfAbsent(systemStreamPartition, metricsRegistry.newCounter(group, "blocking-poll-timeout-count-" + systemStreamPartition));
 
-      metricsRegistry.<Integer> newGauge(group, new BufferGauge(systemStreamPartition, "buffered-message-count-" + systemStreamPartition));
+      metricsRegistry.<Integer>newGauge(group, new BufferGauge(systemStreamPartition, "buffered-message-count-" + systemStreamPartition));
+      if (fetchLimitByBytesEnabled) {
+        metricsRegistry.<Long>newGauge(group, new BufferSizeGauge(systemStreamPartition, "buffered-message-size-" + systemStreamPartition));
+      }
     }
 
     public void setNoMoreMessages(SystemStreamPartition systemStreamPartition, boolean noMoreMessages) {
@@ -269,6 +302,27 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
       }
 
       return envelopes.size();
+    }
+  }
+
+  public class BufferSizeGauge extends Gauge<Long> {
+    private final SystemStreamPartition systemStreamPartition;
+
+    public BufferSizeGauge(SystemStreamPartition systemStreamPartition, String name) {
+      super(name, 0L);
+
+      this.systemStreamPartition = systemStreamPartition;
+    }
+
+    @Override
+    public Long getValue() {
+      AtomicLong sizeInBytes = bufferedMessagesSize.get(systemStreamPartition);
+
+      if (sizeInBytes == null) {
+        return 0L;
+      }
+
+      return sizeInBytes.get();
     }
   }
 }

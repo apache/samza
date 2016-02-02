@@ -19,14 +19,13 @@
 
 package org.apache.samza.metrics
 
-import org.apache.samza.util.Logging
+import org.apache.samza.util.{Util, Logging}
 import java.rmi.server.RMIServerSocketFactory
-import java.net.{ InetAddress, ServerSocket }
+import java.net.ServerSocket
 import java.rmi.registry.LocateRegistry
 import management.ManagementFactory
 import java.util
 import javax.management.remote.{ JMXConnectorServerFactory, JMXServiceURL }
-import org.apache.samza.config.Config
 
 /**
  * Programmatically start the JMX server and its accompanying RMI server. This is necessary in order to reliably
@@ -39,7 +38,7 @@ import org.apache.samza.config.Config
  * @param requestedPort Port on which to start JMX server, 0 for ephemeral
  */
 class JmxServer(requestedPort: Int) extends Logging {
-  val hostname = InetAddress.getLocalHost.getHostName
+  val hostname = Util.getLocalHost.getHostName
 
   def this() = this(0)
 
@@ -70,7 +69,7 @@ class JmxServer(requestedPort: Int) extends Logging {
         "This behavior is not well defined and our values will collide with any set on command line.")
     }
 
-    info("According to InetAddress.getLocalHost.getHostName we are " + hostname)
+    info("According to Util.getLocalHost.getHostName we are " + hostname)
     updateSystemProperty("com.sun.management.jmxremote.authenticate", "false")
     updateSystemProperty("com.sun.management.jmxremote.ssl", "false")
     updateSystemProperty("java.rmi.server.hostname", hostname)
@@ -115,4 +114,6 @@ class JmxServer(requestedPort: Int) extends Logging {
   def stop = jmxServer.stop
 
   override def toString = "JmxServer registry port=%d server port=%d url=%s" format (getRegistryPort, getServerPort, getJmxUrl)
+
+  def getTunnelingJmxUrl = getJmxUrl.replaceAll("localhost", hostname)
 }

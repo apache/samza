@@ -38,6 +38,22 @@ class SerializedKeyValueStore[K, V](
     fromBytesOrNull(found, msgSerde)
   }
 
+  def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
+    metrics.gets.inc(keys.size)
+    val mapBytes = store.getAll(serializeKeys(keys))
+    if (mapBytes != null) {
+      val map = new java.util.HashMap[K, V](mapBytes.size)
+      val entryIterator = mapBytes.entrySet.iterator
+      while (entryIterator.hasNext) {
+        val entry = entryIterator.next
+        map.put(fromBytesOrNull(entry.getKey, keySerde), fromBytesOrNull(entry.getValue, msgSerde))
+      }
+      map
+    } else {
+      null.asInstanceOf[java.util.Map[K, V]]
+    }
+  }
+
   def put(key: K, value: V) {
     metrics.puts.inc
     val keyBytes = toBytesOrNull(key, keySerde)
@@ -62,6 +78,11 @@ class SerializedKeyValueStore[K, V](
     metrics.deletes.inc
     val keyBytes = toBytesOrNull(key, keySerde)
     store.delete(keyBytes)
+  }
+
+  def deleteAll(keys: java.util.List[K]) = {
+    metrics.deletes.inc(keys.size)
+    store.deleteAll(serializeKeys(keys))
   }
 
   def range(from: K, to: K): KeyValueIterator[K, V] = {
@@ -102,7 +123,7 @@ class SerializedKeyValueStore[K, V](
     store.close
   }
 
-  def toBytesOrNull[T](t: T, serde: Serde[T]): Array[Byte] = if (t == null) {
+  private def toBytesOrNull[T](t: T, serde: Serde[T]): Array[Byte] = if (t == null) {
     null
   } else {
     val bytes = serde.toBytes(t)
@@ -110,11 +131,20 @@ class SerializedKeyValueStore[K, V](
     bytes
   }
 
-  def fromBytesOrNull[T](bytes: Array[Byte], serde: Serde[T]): T = if (bytes == null) {
+  private def fromBytesOrNull[T](bytes: Array[Byte], serde: Serde[T]): T = if (bytes == null) {
     null.asInstanceOf[T]
   } else {
     val obj = serde.fromBytes(bytes)
     metrics.bytesDeserialized.inc(bytes.size)
     obj
+  }
+
+  private def serializeKeys(keys: java.util.List[K]): java.util.List[Array[Byte]] = {
+    val bytes = new java.util.ArrayList[Array[Byte]](keys.size)
+    val keysIterator = keys.iterator
+    while (keysIterator.hasNext) {
+      bytes.add(toBytesOrNull(keysIterator.next, keySerde))
+    }
+    bytes
   }
 }

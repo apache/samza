@@ -19,8 +19,6 @@
 
 package org.apache.samza.logging.log4j.serializers;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -32,6 +30,7 @@ import org.apache.log4j.spi.LoggingEvent;
 import org.apache.log4j.spi.ThrowableInformation;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.util.Util;
 
 /**
  * A JSON serde that serializes Log4J LoggingEvent objects into JSON using the
@@ -51,6 +50,7 @@ public class LoggingEventJsonSerde implements Serde<LoggingEvent> {
 
   // Have to wrap rather than extend due to type collisions between
   // Serde<LoggingEvent> and Serde<Object>.
+  @SuppressWarnings("rawtypes")
   private final JsonSerde jsonSerde;
 
   /**
@@ -69,15 +69,17 @@ public class LoggingEventJsonSerde implements Serde<LoggingEvent> {
 
   /**
    * Constructs the serde.
-   * 
+   *
    * @param includeLocationInfo
    *          Whether to include location info in the logging event or not.
    */
+  @SuppressWarnings("rawtypes")
   public LoggingEventJsonSerde(boolean includeLocationInfo) {
     this.includeLocationInfo = includeLocationInfo;
     this.jsonSerde = new JsonSerde();
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   public byte[] toBytes(LoggingEvent loggingEvent) {
     Map<String, Object> loggingEventMap = encodeToMap(loggingEvent, includeLocationInfo);
@@ -153,6 +155,11 @@ public class LoggingEventJsonSerde implements Serde<LoggingEvent> {
 
   /**
    * This method is not currently implemented.
+   *
+   * @param loggingEventMap a map of logging events
+   *
+   * @return {@link LoggingEvent} decoded from the given logging event map.<br>
+   *     Currently it throws an {@link UnsupportedOperationException} as the method is not implemented yet!
    */
   public static LoggingEvent decodeFromMap(Map<String, Object> loggingEventMap) {
     throw new UnsupportedOperationException("Unable to decode LoggingEvents.");
@@ -168,8 +175,8 @@ public class LoggingEventJsonSerde implements Serde<LoggingEvent> {
    */
   public static String getHostname() {
     try {
-      return InetAddress.getLocalHost().getHostName();
-    } catch (UnknownHostException e) {
+      return Util.getLocalHost().getHostName();
+    } catch (Exception e) {
       return "unknown-host";
     }
   }

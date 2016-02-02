@@ -59,6 +59,7 @@ public class TestStreamAppender {
     map.put("serializers.registry.log4j-string.class", LoggingEventStringSerdeFactory.class.getCanonicalName());
     map.put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName());
     map.put("systems.mock.streams." + streamName + ".samza.msg.serde", "log4j-string");
+    map.put("task.log4j.system", "mock");
     MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender(new MapConfig(map));
     PatternLayout layout = new PatternLayout();
     layout.setConversionPattern("%m");
@@ -69,7 +70,7 @@ public class TestStreamAppender {
   }
 
   @Test
-  public void testSystemProducerAppender() {
+  public void testSystemProducerAppenderInContainer() {
     System.setProperty("samza.container.name", "samza-container-1");
 
     MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
@@ -86,6 +87,43 @@ public class TestStreamAppender {
     assertEquals(2, MockSystemProducer.messagesReceived.size());
     assertTrue(new String((byte[]) MockSystemProducer.messagesReceived.get(0)).contains("\"message\":\"testing\""));
     assertTrue(new String((byte[]) MockSystemProducer.messagesReceived.get(1)).contains("\"message\":\"testing2\""));
+
+    // reset
+    log.removeAllAppenders();
+    MockSystemProducer.messagesReceived.clear();
+  }
+
+  @Test
+  public void testSystemProducerAppenderInAM() {
+    System.setProperty("samza.container.name", "samza-application-master");
+
+    MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
+    PatternLayout layout = new PatternLayout();
+    layout.setConversionPattern("%m");
+    systemProducerAppender.setLayout(layout);
+    systemProducerAppender.activateOptions();
+    log.addAppender(systemProducerAppender);
+
+    log.info("no-received");
+    systemProducerAppender.flushSystemProducer();
+    // it should not receive anything because the system is not setup
+    assertEquals(0, MockSystemProducer.messagesReceived.size());
+
+    systemProducerAppender.setupSystem();
+    MockSystemProducerAppender.systemInitialized = true;
+
+    log.info("testing3");
+    log.info("testing4");
+    systemProducerAppender.flushSystemProducer();
+
+    // be able to received msgs now
+    assertEquals(2, MockSystemProducer.messagesReceived.size());
+    assertTrue(new String((byte[]) MockSystemProducer.messagesReceived.get(0)).contains("\"message\":\"testing3\""));
+    assertTrue(new String((byte[]) MockSystemProducer.messagesReceived.get(1)).contains("\"message\":\"testing4\""));
+
+    // reset
+    log.removeAllAppenders();
+    MockSystemProducer.messagesReceived.clear();
   }
 
   /**
@@ -100,6 +138,7 @@ public class TestStreamAppender {
       Map<String, String> map = new HashMap<String, String>();
       map.put("job.name", "log4jTest");
       map.put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName());
+      map.put("task.log4j.system", "mock");
       config = new MapConfig(map);
     }
 

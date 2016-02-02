@@ -40,12 +40,13 @@ class KafkaSystemProducer(systemName: String,
                           retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
                           getProducer: () => Producer[Array[Byte], Array[Byte]],
                           metrics: KafkaSystemProducerMetrics,
-                          val clock: () => Long = () => System.currentTimeMillis) extends SystemProducer with Logging with TimerUtils
+                          val clock: () => Long = () => System.nanoTime) extends SystemProducer with Logging with TimerUtils
 {
   var producer: Producer[Array[Byte], Array[Byte]] = null
   val latestFuture: javaMap[String, Future[RecordMetadata]] = new util.HashMap[String, Future[RecordMetadata]]()
   val sendFailed: AtomicBoolean = new AtomicBoolean(false)
   var exceptionThrown: AtomicReference[Exception] = new AtomicReference[Exception]()
+  val StreamNameNullOrEmptyErrorMsg = "Stream Name should be specified in the stream configuration file.";
 
   def start() {
   }
@@ -54,6 +55,7 @@ class KafkaSystemProducer(systemName: String,
     if (producer != null) {
       latestFuture.keys.foreach(flush(_))
       producer.close
+      producer = null
     }
   }
 
@@ -74,6 +76,9 @@ class KafkaSystemProducer(systemName: String,
     // Java-based Kafka producer API requires an "Integer" type partitionKey and does not allow custom overriding of Partitioners
     // Any kind of custom partitioning has to be done on the client-side
     val topicName = envelope.getSystemStream.getStream
+    if (topicName == null || topicName == "") {
+      throw new IllegalArgumentException(StreamNameNullOrEmptyErrorMsg)
+    }
     val partitions: java.util.List[PartitionInfo]  = producer.partitionsFor(topicName)
     val partitionKey = if(envelope.getPartitionKey != null) KafkaUtil.getIntegerPartitionKey(envelope, partitions) else null
     val record = new ProducerRecord(envelope.getSystemStream.getStream,
@@ -128,7 +133,7 @@ class KafkaSystemProducer(systemName: String,
   }
 
   def flush(source: String) {
-    updateTimer(metrics.flushMs) {
+    updateTimer(metrics.flushNs) {
       metrics.flushes.inc
       //if latestFuture is null, it probably means that there has been no calls to "send" messages
       //Hence, nothing to do in flush

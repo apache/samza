@@ -19,18 +19,23 @@
 
 package org.apache.samza.container
 
+import java.net.SocketTimeoutException
+import java.util
+import java.util.concurrent.atomic.AtomicReference
+import org.apache.samza.storage.TaskStorageManager
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
+import org.scalatest.mock.MockitoSugar
+
 import scala.collection.JavaConversions._
 import org.apache.samza.Partition
 import org.apache.samza.config.Config
 import org.apache.samza.config.MapConfig
 import org.apache.samza.coordinator.JobCoordinator
-import org.apache.samza.coordinator.server.HttpServer
-import org.apache.samza.coordinator.server.JobServlet
+import org.apache.samza.coordinator.server.{ServletBase, HttpServer, JobServlet}
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskModel
-import org.apache.samza.metrics.JmxServer
-import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.StreamMetadataCache
 import org.apache.samza.system.SystemConsumer
@@ -53,28 +58,81 @@ import org.junit.Test
 import org.scalatest.junit.AssertionsForJUnit
 import java.lang.Thread.UncaughtExceptionHandler
 import org.apache.samza.serializers._
-import org.apache.samza.SamzaException
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
+import org.mockito.Mockito._
 
-class TestSamzaContainer extends AssertionsForJUnit {
+class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   @Test
   def testReadJobModel {
     val config = new MapConfig(Map("a" -> "b"))
+    val offsets = new util.HashMap[SystemStreamPartition, String]()
+    offsets.put(new SystemStreamPartition("system","stream", new Partition(0)), "1")
     val tasks = Map(
-      new TaskName("t1") -> new TaskModel(new TaskName("t1"), Set[SystemStreamPartition](), new Partition(0)),
-      new TaskName("t2") -> new TaskModel(new TaskName("t2"), Set[SystemStreamPartition](), new Partition(0)))
+      new TaskName("t1") -> new TaskModel(new TaskName("t1"), offsets.keySet(), new Partition(0)),
+      new TaskName("t2") -> new TaskModel(new TaskName("t2"), offsets.keySet(), new Partition(0)))
     val containers = Map(
       Integer.valueOf(0) -> new ContainerModel(0, tasks),
       Integer.valueOf(1) -> new ContainerModel(1, tasks))
     val jobModel = new JobModel(config, containers)
+    def jobModelGenerator(): JobModel = jobModel
     val server = new HttpServer
     val coordinator = new JobCoordinator(jobModel, server)
-    coordinator.server.addServlet("/*", new JobServlet(jobModel))
+    JobCoordinator.jobModelRef.set(jobModelGenerator())
+    coordinator.server.addServlet("/*", new JobServlet(JobCoordinator.jobModelRef))
     try {
       coordinator.start
       assertEquals(jobModel, SamzaContainer.readJobModel(server.getUrl.toString))
     } finally {
       coordinator.stop
     }
+  }
+
+  @Test
+  def testReadJobModelWithTimeouts {
+    val config = new MapConfig(Map("a" -> "b"))
+    val offsets = new util.HashMap[SystemStreamPartition, String]()
+    offsets.put(new SystemStreamPartition("system","stream", new Partition(0)), "1")
+    val tasks = Map(
+      new TaskName("t1") -> new TaskModel(new TaskName("t1"), offsets.keySet(), new Partition(0)),
+      new TaskName("t2") -> new TaskModel(new TaskName("t2"), offsets.keySet(), new Partition(0)))
+    val containers = Map(
+      Integer.valueOf(0) -> new ContainerModel(0, tasks),
+      Integer.valueOf(1) -> new ContainerModel(1, tasks))
+    val jobModel = new JobModel(config, containers)
+    def jobModelGenerator(): JobModel = jobModel
+    val server = new HttpServer
+    val coordinator = new JobCoordinator(jobModel, server)
+    JobCoordinator.jobModelRef.set(jobModelGenerator())
+    val mockJobServlet = new MockJobServlet(2, JobCoordinator.jobModelRef)
+    coordinator.server.addServlet("/*", mockJobServlet)
+    try {
+      coordinator.start
+      assertEquals(jobModel, SamzaContainer.readJobModel(server.getUrl.toString))
+    } finally {
+      coordinator.stop
+    }
+    assertEquals(2, mockJobServlet.exceptionCount)
+  }
+
+  @Test
+  def testChangelogPartitions {
+    val config = new MapConfig(Map("a" -> "b"))
+    val offsets = new util.HashMap[SystemStreamPartition, String]()
+    offsets.put(new SystemStreamPartition("system", "stream", new Partition(0)), "1")
+    val tasksForContainer1 = Map(
+      new TaskName("t1") -> new TaskModel(new TaskName("t1"), offsets.keySet(), new Partition(0)),
+      new TaskName("t2") -> new TaskModel(new TaskName("t2"), offsets.keySet(), new Partition(1)))
+    val tasksForContainer2 = Map(
+      new TaskName("t3") -> new TaskModel(new TaskName("t3"), offsets.keySet(), new Partition(2)),
+      new TaskName("t4") -> new TaskModel(new TaskName("t4"), offsets.keySet(), new Partition(3)),
+      new TaskName("t5") -> new TaskModel(new TaskName("t6"), offsets.keySet(), new Partition(4)))
+    val containerModel1 = new ContainerModel(0, tasksForContainer1)
+    val containerModel2 = new ContainerModel(1, tasksForContainer2)
+    val containers = Map(
+      Integer.valueOf(0) -> containerModel1,
+      Integer.valueOf(1) -> containerModel2)
+    val jobModel = new JobModel(config, containers)
+    assertEquals(jobModel.maxChangeLogStreamPartitions, 5)
   }
 
   @Test
@@ -127,6 +185,7 @@ class TestSamzaContainer extends AssertionsForJUnit {
       taskName,
       config,
       new TaskInstanceMetrics,
+      null,
       consumerMultiplexer,
       collector,
       containerContext
@@ -136,11 +195,14 @@ class TestSamzaContainer extends AssertionsForJUnit {
       consumerMultiplexer = consumerMultiplexer,
       metrics = new SamzaContainerMetrics)
     val container = new SamzaContainer(
-      Map(taskName -> taskInstance),
-      runLoop,
-      consumerMultiplexer,
-      producerMultiplexer,
-      new SamzaContainerMetrics)
+      containerContext = containerContext,
+      taskInstances = Map(taskName -> taskInstance),
+      runLoop = runLoop,
+      consumerMultiplexer = consumerMultiplexer,
+      producerMultiplexer = producerMultiplexer,
+      metrics = new SamzaContainerMetrics,
+      jmxServer = null
+    )
     try {
       container.run
       fail("Expected exception to be thrown in run method.")
@@ -162,7 +224,7 @@ class TestSamzaContainer extends AssertionsForJUnit {
       SamzaContainer.safeMain(() => null, exceptionHandler)
     } catch {
       case _: Exception =>
-      // Expect some random exception from SamzaContainer because we haven't 
+      // Expect some random exception from SamzaContainer because we haven't
       // set any environment variables for container ID, etc.
     }
     assertFalse(caughtException)
@@ -175,24 +237,81 @@ class TestSamzaContainer extends AssertionsForJUnit {
   }
 
   @Test
-  def testDefaultSerdesFromSerdeName {
-    import SamzaContainer._
-    val config = new MapConfig
-    assertTrue(defaultSerdesFromSerdeName("byte", "testSystemException", config).isInstanceOf[ByteSerde])
-    assertTrue(defaultSerdesFromSerdeName("integer", "testSystemException", config).isInstanceOf[IntegerSerde])
-    assertTrue(defaultSerdesFromSerdeName("json", "testSystemException", config).isInstanceOf[JsonSerde])
-    assertTrue(defaultSerdesFromSerdeName("long", "testSystemException", config).isInstanceOf[LongSerde])
-    assertTrue(defaultSerdesFromSerdeName("serializable", "testSystemException", config).isInstanceOf[SerializableSerde[java.io.Serializable @unchecked]])
-    assertTrue(defaultSerdesFromSerdeName("string", "testSystemException", config).isInstanceOf[StringSerde])
-
-    // throw SamzaException if can not find the correct serde
-    var throwSamzaException = false
-    try {
-      defaultSerdesFromSerdeName("otherName", "testSystemException", config)
-    } catch {
-      case e: SamzaException => throwSamzaException = true
-      case _: Exception =>
+  def testStartStoresIncrementsCounter {
+    val task = new StreamTask {
+      def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
+      }
     }
-    assertTrue(throwSamzaException)
+    val config = new MapConfig
+    val taskName = new TaskName("taskName")
+    val consumerMultiplexer = new SystemConsumers(
+      new RoundRobinChooser,
+      Map[String, SystemConsumer]())
+    val producerMultiplexer = new SystemProducers(
+      Map[String, SystemProducer](),
+      new SerdeManager)
+    val collector = new TaskInstanceCollector(producerMultiplexer)
+    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
+    val mockTaskStorageManager = mock[TaskStorageManager]
+
+    when(mockTaskStorageManager.init).thenAnswer(new Answer[String] {
+      override def answer(invocation: InvocationOnMock): String = {
+        Thread.sleep(1)
+        ""
+      }
+    })
+
+    val taskInstance: TaskInstance = new TaskInstance(
+      task,
+      taskName,
+      config,
+      new TaskInstanceMetrics,
+      null,
+      consumerMultiplexer,
+      collector,
+      containerContext,
+      storageManager = mockTaskStorageManager
+    )
+    val containerMetrics = new SamzaContainerMetrics()
+    containerMetrics.addStoreRestorationGauge(taskName, "store")
+    val container = new SamzaContainer(
+      containerContext = containerContext,
+      taskInstances = Map(taskName -> taskInstance),
+      runLoop = null,
+      consumerMultiplexer = consumerMultiplexer,
+      producerMultiplexer = producerMultiplexer,
+      metrics = containerMetrics,
+      jmxServer = null
+    )
+    container.startStores
+    assertNotNull(containerMetrics.taskStoreRestorationMetrics)
+    assertNotNull(containerMetrics.taskStoreRestorationMetrics.get(taskName))
+    assertTrue(containerMetrics.taskStoreRestorationMetrics.get(taskName).getValue >= 1)
+
+  }
+}
+
+class MockCheckpointManager extends CheckpointManager {
+  override def start() = {}
+  override def stop() = {}
+
+  override def register(taskName: TaskName): Unit = {}
+
+  override def readLastCheckpoint(taskName: TaskName): Checkpoint = { new Checkpoint(Map[SystemStreamPartition, String]()) }
+
+  override def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint): Unit = { }
+}
+
+class MockJobServlet(exceptionLimit: Int, jobModelRef: AtomicReference[JobModel]) extends JobServlet(jobModelRef) {
+  var exceptionCount = 0
+
+  override protected def getObjectToWrite() = {
+    if (exceptionCount < exceptionLimit) {
+      exceptionCount += 1
+      throw new java.io.IOException("Throwing exception")
+    } else {
+      val jobModel = jobModelRef.get()
+      jobModel
+    }
   }
 }

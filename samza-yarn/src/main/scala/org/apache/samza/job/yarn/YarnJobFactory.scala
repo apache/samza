@@ -28,6 +28,7 @@ class YarnJobFactory extends StreamJobFactory {
     // TODO fix this. needed to support http package locations.
     val hConfig = new YarnConfiguration
     hConfig.set("fs.http.impl", classOf[HttpFileSystem].getName)
+    hConfig.set("fs.https.impl", classOf[HttpFileSystem].getName)
 
     new YarnJob(config, hConfig)
   }

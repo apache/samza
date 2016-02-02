@@ -48,24 +48,24 @@ import org.junit.Test;
  * with the JmxAppender added as a root-level appender.
  */
 public class TestJmxAppender {
-  public static final int port = 5500;
-  public static final JMXServiceURL url = getJmxServiceURL();
+  public static final int PORT = 5500;
+  public static final JMXServiceURL URL = getJmxServiceURL();
   private static JMXConnectorServer cs = null;
   private static final Logger log = Logger.getLogger(TestJmxAppender.class.getName());
 
   private static JMXServiceURL getJmxServiceURL() {
     try {
-      return new JMXServiceURL("service:jmx:rmi:///jndi/rmi://localhost:" + port + "/jmxapitestrmi");
-    } catch(Exception e) {
+      return new JMXServiceURL("service:jmx:rmi:///jndi/rmi://localhost:" + PORT + "/jmxapitestrmi");
+    } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
 
   @BeforeClass
   public static void beforeSetupServers() throws Exception {
-    LocateRegistry.createRegistry(port);
+    LocateRegistry.createRegistry(PORT);
     MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-    cs = JMXConnectorServerFactory.newJMXConnectorServer(url, null, mbeanServer);
+    cs = JMXConnectorServerFactory.newJMXConnectorServer(URL, null, mbeanServer);
     cs.start();
   }
 
@@ -78,7 +78,7 @@ public class TestJmxAppender {
 
   @Test
   public void testJmxAppender() throws Exception {
-    MBeanServerConnection mbserver = JMXConnectorFactory.connect(url).getMBeanServerConnection();
+    MBeanServerConnection mbserver = JMXConnectorFactory.connect(URL).getMBeanServerConnection();
     ObjectName objectName = new ObjectName(JmxAppender.JMX_OBJECT_DOMAIN + ":type=" + JmxAppender.JMX_OBJECT_TYPE + ",name=" + JmxAppender.JMX_OBJECT_NAME);
     String level = null;
     MockAppender mockAppender = new MockAppender();

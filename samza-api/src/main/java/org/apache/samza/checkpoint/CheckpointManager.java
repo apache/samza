@@ -19,52 +19,35 @@
 
 package org.apache.samza.checkpoint;
 
-import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
-
-import java.util.Map;
 
 /**
  * CheckpointManagers read and write {@link org.apache.samza.checkpoint.Checkpoint} to some
  * implementation-specific location.
  */
 public interface CheckpointManager {
-  public void start();
+  void start();
 
   /**
    * Registers this manager to write checkpoints of a specific Samza stream partition.
    * @param taskName Specific Samza taskName of which to write checkpoints for.
    */
-  public void register(TaskName taskName);
+  void register(TaskName taskName);
 
   /**
    * Writes a checkpoint based on the current state of a Samza stream partition.
    * @param taskName Specific Samza taskName of which to write a checkpoint of.
    * @param checkpoint Reference to a Checkpoint object to store offset data in.
    */
-  public void writeCheckpoint(TaskName taskName, Checkpoint checkpoint);
+  void writeCheckpoint(TaskName taskName, Checkpoint checkpoint);
 
   /**
    * Returns the last recorded checkpoint for a specified taskName.
    * @param taskName Specific Samza taskName for which to get the last checkpoint of.
    * @return A Checkpoint object with the recorded offset data of the specified partition.
    */
-  public Checkpoint readLastCheckpoint(TaskName taskName);
+  Checkpoint readLastCheckpoint(TaskName taskName);
 
-  /**
-   * Read the taskName to partition mapping that is being maintained by this CheckpointManager
-   *
-   * @return TaskName to task log partition mapping, or an empty map if there were no messages.
-   */
-  public Map<TaskName, Integer> readChangeLogPartitionMapping();
-
-  /**
-   * Write the taskName to partition mapping that is being maintained by this CheckpointManager
-   *
-   * @param mapping Each TaskName's partition within the changelog
-   */
-  public void writeChangeLogPartitionMapping(Map<TaskName, Integer> mapping);
-
-  public void stop();
+  void stop();
 
 }

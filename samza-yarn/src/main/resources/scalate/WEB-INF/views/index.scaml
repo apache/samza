@@ -15,11 +15,16 @@
   KIND, either express or implied.  See the License for the
   specific language governing permissions and limitations
   under the License.
--@ val state: org.apache.samza.job.yarn.SamzaAppMasterState
+-@ val state: org.apache.samza.job.yarn.SamzaAppState
 -@ val config: scala.collection.immutable.TreeMap[String, String]
 -@ val rmHttpAddress: String
 -@ val jobName: String = config.get("job.name").getOrElse("MISSING JOB NAME")
+-@ val packagePath: String = config.get("yarn.package.path").getOrElse("MISSING PACKAGE PATH")
 -@ val username: String = org.apache.hadoop.security.UserGroupInformation.getCurrentUser.getShortUserName
+-@ val appMasterClasspath: String = scala.util.Properties.javaClassPath
+-@ val javaVmVersion: String = scala.util.Properties.javaVmVersion
+-@ val javaVmName: String = scala.util.Properties.javaVmName
+-@ val samzaVersion: String = org.apache.samza.util.Util.getClass.getPackage.getImplementationVersion
 - attributes("title") = jobName
 
 %div.col-xs-2.menu
@@ -59,12 +64,37 @@
             %td.key Attempt ID
             %td= state.appAttemptId
           %tr
+            %td.key Application ID
+            %td= state.appAttemptId.getApplicationId
+          %tr
+            %td.key Application master classpath
+            %td
+              %div.value= appMasterClasspath
+          %tr
+            %td.key Package path
+            %td= packagePath
+          %tr
+            %td.key Java VM name
+            %td= javaVmName
+          %tr
+            %td.key Java VM version
+            %td= javaVmVersion
+          %tr
+            %td.key Samza version
+            %td= samzaVersion
+          %tr
             %td.key Application master task ID
             %td= state.taskId
           %tr
             %td.key Application master container
             %td
-              %a(target="_blank" href="http://#{state.nodeHost}:#{state.nodeHttpPort.toString}/node/containerlogs/#{state.containerId.toString}/#{username}")= state.containerId.toString
+              %a(target="_blank" href="http://#{state.nodeHost}:#{state.nodeHttpPort.toString}/node/containerlogs/#{state.amContainerId.toString}/#{username}")= state.amContainerId.toString
+          %tr
+            %td.key JMX server url
+            %td= state.jmxUrl
+          %tr
+            %td.key JMX server tunneling url
+            %td= state.jmxTunnelingUrl
 
     %div.tab-pane#containers
       %h2 Containers
@@ -72,7 +102,7 @@
         %tr
           %tr
             %td.key Completed
-            %td= state.completedTasks.toString
+            %td= state.completedContainers.toString
           %tr
             %td.key Needed
             %td= state.neededContainers.toString
@@ -92,10 +122,11 @@
             %th Node
             %th Start Time
             %th Up Time
+            %th JMX access
         %tbody
-          - for((taskId, container) <- state.runningTasks)
+          - for((containerId, container) <- state.runningContainers)
             %tr
-              %td #{taskId.toString}
+              %td #{containerId.toString}
               %td
                 %a(target="_blank" href="http://#{container.nodeHttpAddress}/node/containerlogs/#{container.id.toString}/#{username}")= container.id.toString
               %td
@@ -104,6 +135,26 @@
                 Start time: #{container.startTimeStr()}
               %td
                 Up time: #{container.upTimeStr()}
+              %td
+                Ordinary: #{state.jobCoordinator.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_URL_KEY)}
+                Tunneling: #{state.jobCoordinator.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_TUNNELING_URL_KEY)}
+
+      %h2 Failed Containers
+      %table.table.table-striped.table-bordered.tablesorter#containers-table
+        %thead
+          %tr
+            %th Container
+            %th Exit code
+            %th Message
+        %tbody
+          - for((containerId, containerStatus) <- state.failedContainersStatus)
+            %tr
+              %td
+                #{containerId}
+              %td
+                Exit code: #{containerStatus.getExitStatus}
+              %td
+                %div.value= containerStatus.getDiagnostics
 
     %div.tab-pane#task-groups
       %h2 Task Groups
@@ -111,24 +162,21 @@
         %tbody
           %tr
             %td.key Total
-            %td= state.taskCount.toString
-          %tr
-            %td.key Unclaimed
-            %td= state.unclaimedTasks.size.toString
+            %td= state.containerCount.toString
           %tr
             %td.key Finished
-            %td= state.finishedTasks.size.toString
+            %td= state.finishedContainers.size.toString
 
       %h3 TaskName Assignment
       %table.table.table-striped.table-bordered.tablesorter#taskids-table
         %thead
           %tr
-            %th Task ID
+            %th Task Group ID
             %th TaskName
             %th SystemStreamPartitions
             %th Container
         %tbody
-          - for((containerId, container) <- state.runningTasks)
+          - for((containerId, container) <- state.runningContainers)
             - val containerModel = state.jobCoordinator.jobModel.getContainers.get(containerId)
             - for((taskName, taskModel) <- containerModel.getTasks)
               %tr

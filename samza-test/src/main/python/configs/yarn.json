@@ -3,34 +3,34 @@
   "yarn_rm_hosts": {
     "yarn_rm_instance_0": "localhost"
   },
-  "yarn_rm_start_cmd": "hadoop-2.4.0/sbin/yarn-daemon.sh start resourcemanager",
-  "yarn_rm_stop_cmd": "hadoop-2.4.0/sbin/yarn-daemon.sh stop resourcemanager",
+  "yarn_rm_start_cmd": "hadoop-2.6.1/sbin/yarn-daemon.sh start resourcemanager",
+  "yarn_rm_stop_cmd": "hadoop-2.6.1/sbin/yarn-daemon.sh stop resourcemanager",
   "yarn_rm_install_path": "deploy/yarn_rm",
   "yarn_rm_post_install_cmds": [
-    "sed -i.bak 's/<configuration>/<configuration><property><name>yarn.nodemanager.vmem-pmem-ratio<\\/name><value>10<\\/value><\\/property>/' hadoop-2.4.0/etc/hadoop/yarn-site.xml",
-    "mkdir -p hadoop-2.4.0/conf",
-    "chmod 755 hadoop-2.4.0/conf",
-    "cp hadoop-2.4.0/etc/hadoop/yarn-site.xml hadoop-2.4.0/conf/yarn-site.xml"
+    "sed -i.bak 's/<configuration>/<configuration><property><name>yarn.nodemanager.vmem-pmem-ratio<\\/name><value>10<\\/value><\\/property>/' hadoop-2.6.1/etc/hadoop/yarn-site.xml",
+    "mkdir -p hadoop-2.6.1/conf",
+    "chmod 755 hadoop-2.6.1/conf",
+    "cp hadoop-2.6.1/etc/hadoop/yarn-site.xml hadoop-2.6.1/conf/yarn-site.xml"
   ],
-  "yarn_rm_executable": "hadoop-2.4.0.tar.gz",
+  "yarn_rm_executable": "hadoop-2.6.1.tar.gz",
   "yarn_rm_logs": [
-    "hadoop-2.4.0/logs"
+    "hadoop-2.6.1/logs"
   ],
   "yarn_nm_hosts": {
     "yarn_nm_instance_0": "localhost"
   },
-  "yarn_nm_start_cmd": "hadoop-2.4.0/sbin/yarn-daemon.sh start nodemanager",
-  "yarn_nm_stop_cmd": "hadoop-2.4.0/sbin/yarn-daemon.sh stop nodemanager",
+  "yarn_nm_start_cmd": "hadoop-2.6.1/sbin/yarn-daemon.sh start nodemanager",
+  "yarn_nm_stop_cmd": "hadoop-2.6.1/sbin/yarn-daemon.sh stop nodemanager",
   "yarn_nm_install_path": "deploy/yarn_nm",
   "yarn_nm_post_install_cmds": [
-    "sed -i.bak 's/<configuration>/<configuration><property><name>yarn.nodemanager.vmem-pmem-ratio<\\/name><value>10<\\/value><\\/property>/' hadoop-2.4.0/etc/hadoop/yarn-site.xml",
-    "mkdir -p hadoop-2.4.0/conf",
-    "chmod 755 hadoop-2.4.0/conf",
-    "cp hadoop-2.4.0/etc/hadoop/yarn-site.xml hadoop-2.4.0/conf/yarn-site.xml"
+    "sed -i.bak 's/<configuration>/<configuration><property><name>yarn.nodemanager.vmem-pmem-ratio<\\/name><value>10<\\/value><\\/property>/' hadoop-2.6.1/etc/hadoop/yarn-site.xml",
+    "mkdir -p hadoop-2.6.1/conf",
+    "chmod 755 hadoop-2.6.1/conf",
+    "cp hadoop-2.6.1/etc/hadoop/yarn-site.xml hadoop-2.6.1/conf/yarn-site.xml"
   ],
-  "yarn_nm_executable": "hadoop-2.4.0.tar.gz",
+  "yarn_nm_executable": "hadoop-2.6.1.tar.gz",
   "yarn_nm_logs": [
-    "hadoop-2.4.0/logs"
+    "hadoop-2.6.1/logs"
   ],
   "yarn_driver_configs": {
     "yarn.resourcemanager.hostname": "localhost"

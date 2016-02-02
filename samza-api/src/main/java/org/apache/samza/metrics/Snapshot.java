@@ -32,7 +32,7 @@ public class Snapshot {
 
   public Snapshot(Collection<Long> values) {
     this.values = new ArrayList<Long>(values);
-    this.size = values.size();
+    this.size = this.values.size();
     Collections.sort(this.values);
   }
 

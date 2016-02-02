@@ -38,7 +38,9 @@ import org.apache.samza.task.MessageCollector
 trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] {
 
   /**
-   * Return a KeyValueStore instance for the given store name
+   * Return a KeyValueStore instance for the given store name,
+   * which will be used as the underlying raw store
+   *
    * @param storeName Name of the store
    * @param storeDir The directory of the store
    * @param registry MetricsRegistry to which to publish store specific metrics.
@@ -90,29 +92,35 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
       throw new SamzaException("Must define a message serde when using key value storage.")
     }
 
-    val kvStore = getKVStore(storeName, storeDir, registry, changeLogSystemStreamPartition, containerContext)
+    val rawStore = getKVStore(storeName, storeDir, registry, changeLogSystemStreamPartition, containerContext)
 
+    // maybe wrap with logging
     val maybeLoggedStore = if (changeLogSystemStreamPartition == null) {
-      kvStore
+      rawStore
     } else {
       val loggedStoreMetrics = new LoggedStoreMetrics(storeName, registry)
-      new LoggedStore(kvStore, changeLogSystemStreamPartition, collector, loggedStoreMetrics)
+      new LoggedStore(rawStore, changeLogSystemStreamPartition, collector, loggedStoreMetrics)
     }
 
+    // wrap with serialization
     val serializedMetrics = new SerializedKeyValueStoreMetrics(storeName, registry)
     val serialized = new SerializedKeyValueStore[K, V](maybeLoggedStore, keySerde, msgSerde, serializedMetrics)
+
+    // maybe wrap with caching
     val maybeCachedStore = if (enableCache) {
       val cachedStoreMetrics = new CachedStoreMetrics(storeName, registry)
       new CachedStore(serialized, cacheSize, batchSize, cachedStoreMetrics)
     } else {
       serialized
     }
-    val db = new NullSafeKeyValueStore(maybeCachedStore)
-    val keyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics(storeName, registry)
 
+    // wrap with null value checking
+    val nullSafeStore = new NullSafeKeyValueStore(maybeCachedStore)
+
+    // create the storage engine and return
     // TODO: Decide if we should use raw bytes when restoring
-
-    new KeyValueStorageEngine(db, kvStore, keyValueStorageEngineMetrics, batchSize)
+    val keyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics(storeName, registry)
+    new KeyValueStorageEngine(nullSafeStore, rawStore, keyValueStorageEngineMetrics, batchSize)
   }
 
 }

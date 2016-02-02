@@ -31,6 +31,7 @@ class TaskInstanceMetrics(
   val commits = newCounter("commit-calls")
   val windows = newCounter("window-calls")
   val processes = newCounter("process-calls")
+  val messagesActuallyProcessed = newCounter("messages-actually-processed")
   val sends = newCounter("send-calls")
   val flushes = newCounter("flush-calls")
   val messagesSent = newCounter("messages-sent")

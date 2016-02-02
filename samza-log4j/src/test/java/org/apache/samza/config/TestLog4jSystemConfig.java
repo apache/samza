@@ -37,8 +37,8 @@ public class TestLog4jSystemConfig {
   @Test
   public void testGetSystemNames() {
     Map<String, String> map = new HashMap<String, String>();
-    map.put("systems.system1.samza.factory","1");
-    map.put("systems.system2.samza.factory","2");
+    map.put("systems.system1.samza.factory", "1");
+    map.put("systems.system2.samza.factory", "2");
     Log4jSystemConfig log4jSystemConfig = new Log4jSystemConfig(new MapConfig(map));
 
     assertEquals(2, log4jSystemConfig.getSystemNames().size());
@@ -48,18 +48,13 @@ public class TestLog4jSystemConfig {
   public void testGetLog4jSystemName() {
     Map<String, String> map = new HashMap<String, String>();
     map.put("task.log4j.system", "log4j-system");
-    map.put("systems.system1.samza.factory","1");
+    map.put("systems.system1.samza.factory", "1");
 
     Log4jSystemConfig log4jSystemConfig = new Log4jSystemConfig(new MapConfig(map));
     assertEquals("log4j-system", log4jSystemConfig.getSystemName());
 
-    // use the default system name
-    map.remove("task.log4j.system");
-    log4jSystemConfig = new Log4jSystemConfig(new MapConfig(map));
-    assertEquals("system1", log4jSystemConfig.getSystemName());
-
     // throw ConfigException
-    map.put("systems.system2.samza.factory", "2");
+    map.remove("task.log4j.system");
     log4jSystemConfig = new Log4jSystemConfig(new MapConfig(map));
     exception.expect(ConfigException.class);
     log4jSystemConfig.getSystemName();

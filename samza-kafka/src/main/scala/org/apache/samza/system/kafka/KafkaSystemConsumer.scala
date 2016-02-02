@@ -21,6 +21,7 @@ package org.apache.samza.system.kafka
 
 import kafka.common.TopicAndPartition
 import org.apache.samza.util.Logging
+import kafka.message.Message
 import kafka.message.MessageAndOffset
 import org.apache.samza.Partition
 import kafka.utils.Utils
@@ -32,16 +33,21 @@ import org.apache.samza.util.BlockingEnvelopeMap
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.IncomingMessageEnvelope
 import kafka.consumer.ConsumerConfig
-import org.apache.samza.util.ExponentialSleepStrategy
-import org.apache.samza.SamzaException
 import org.apache.samza.util.TopicMetadataStore
-import org.apache.samza.util.ExponentialSleepStrategy
 import kafka.api.TopicMetadata
 import org.apache.samza.util.ExponentialSleepStrategy
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.JavaConversions._
+import org.apache.samza.system.SystemAdmin
 
 object KafkaSystemConsumer {
+
+  // Approximate additional shallow heap overhead per message in addition to the raw bytes
+  // received from Kafka  4 + 64 + 4 + 4 + 4 = 80 bytes overhead.
+  // As this overhead is a moving target, and not very large
+  // compared to the message size its being ignore in the computation for now.
+  val MESSAGE_SIZE_OVERHEAD =  4 + 64 + 4 + 4 + 4;
+
   def toTopicAndPartition(systemStreamPartition: SystemStreamPartition) = {
     val topic = systemStreamPartition.getStream
     val partitionId = systemStreamPartition.getPartition.getPartitionId
@@ -55,6 +61,7 @@ object KafkaSystemConsumer {
  */
 private[kafka] class KafkaSystemConsumer(
   systemName: String,
+  systemAdmin: SystemAdmin,
   metrics: KafkaSystemConsumerMetrics,
   metadataStore: TopicMetadataStore,
   clientId: String = "undefined-client-id-%s" format UUID.randomUUID.toString,
@@ -78,22 +85,65 @@ private[kafka] class KafkaSystemConsumer(
    * to an increase in memory usage since more messages will be held in memory.
    */
   fetchThreshold: Int = 50000,
+  /**
+   * Defines a low water mark for how many bytes we buffer before we start
+   * executing fetch requests against brokers to get more messages. This
+   * value is divided by 2 because the messages are buffered twice, once in
+   * KafkaConsumer and then in SystemConsumers. This value
+   * is divided equally among all registered SystemStreamPartitions.
+   * However this is a soft limit per partition, as the
+   * bytes are cached at the message boundaries, and the actual usage can be
+   * 1000 bytes + size of max message in the partition for a given stream.
+   * The bytes if the size of the bytebuffer in Message. Hence, the
+   * Object overhead is not taken into consideration. In this codebase
+   * it seems to be quite small. Hence, even for 500000 messages this is around 4MB x 2 = 8MB,
+   * which is not considerable.
+   *
+   * For example,
+   * if fetchThresholdBytes is set to 100000 bytes, and there are 50
+   * SystemStreamPartitions registered, then the per-partition threshold is
+   * (100000 / 2) / 50 = 1000 bytes.
+   * As this is a soft limit, the actual usage can be 1000 bytes + size of max message.
+   * As soon as a SystemStreamPartition's buffered messages bytes drops
+   * below 1000, a fetch request will be executed to get more data for it.
+   *
+   * Increasing this parameter will decrease the latency between when a queue
+   * is drained of messages and when new messages are enqueued, but also leads
+   * to an increase in memory usage since more messages will be held in memory.
+   *
+   * The default value is -1, which means this is not used. When the value
+   * is > 0, then the fetchThreshold which is count based is ignored.
+   */
+  fetchThresholdBytes: Long = -1,
+  /**
+   * if(fetchThresholdBytes > 0) true else false
+   */
+  fetchLimitByBytesEnabled: Boolean = false,
   offsetGetter: GetOffset = new GetOffset("fail"),
   deserializer: Decoder[Object] = new DefaultDecoder().asInstanceOf[Decoder[Object]],
   keyDeserializer: Decoder[Object] = new DefaultDecoder().asInstanceOf[Decoder[Object]],
   retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
-  clock: () => Long = { System.currentTimeMillis }) extends BlockingEnvelopeMap(metrics.registry, new Clock {
-  def currentTimeMillis = clock()
-}, classOf[KafkaSystemConsumerMetrics].getName) with Toss with Logging {
+  clock: () => Long = { System.currentTimeMillis }) extends BlockingEnvelopeMap(
+    metrics.registry,
+    new Clock {
+      def currentTimeMillis = clock()
+    },
+    classOf[KafkaSystemConsumerMetrics].getName,
+    fetchLimitByBytesEnabled) with Toss with Logging {
 
   type HostPort = (String, Int)
   val brokerProxies = scala.collection.mutable.Map[HostPort, BrokerProxy]()
   val topicPartitionsAndOffsets: scala.collection.concurrent.Map[TopicAndPartition, String] = new ConcurrentHashMap[TopicAndPartition, String]()
   var perPartitionFetchThreshold = fetchThreshold
+  var perPartitionFetchThresholdBytes = 0L
 
   def start() {
     if (topicPartitionsAndOffsets.size > 0) {
       perPartitionFetchThreshold = fetchThreshold / topicPartitionsAndOffsets.size
+      // messages get double buffered, hence divide by 2
+      if(fetchLimitByBytesEnabled) {
+        perPartitionFetchThresholdBytes = (fetchThresholdBytes / 2) / topicPartitionsAndOffsets.size
+      }
     }
 
     refreshBrokers
@@ -102,7 +152,12 @@ private[kafka] class KafkaSystemConsumer(
   override def register(systemStreamPartition: SystemStreamPartition, offset: String) {
     super.register(systemStreamPartition, offset)
 
-    topicPartitionsAndOffsets += KafkaSystemConsumer.toTopicAndPartition(systemStreamPartition) -> offset
+    val topicAndPartition = KafkaSystemConsumer.toTopicAndPartition(systemStreamPartition)
+    val existingOffset = topicPartitionsAndOffsets.getOrElseUpdate(topicAndPartition, offset)
+    // register the older offset in the consumer
+    if (systemAdmin.offsetComparator(existingOffset, offset) >= 0) {
+      topicPartitionsAndOffsets.replace(topicAndPartition, offset)
+    }
 
     metrics.registerTopicAndPartition(KafkaSystemConsumer.toTopicAndPartition(systemStreamPartition))
   }
@@ -195,7 +250,15 @@ private[kafka] class KafkaSystemConsumer(
     }
 
     def needsMoreMessages(tp: TopicAndPartition) = {
-      getNumMessagesInQueue(toSystemStreamPartition(tp)) <= perPartitionFetchThreshold
+      if(fetchLimitByBytesEnabled) {
+        getMessagesSizeInQueue(toSystemStreamPartition(tp)) < perPartitionFetchThresholdBytes
+      } else {
+        getNumMessagesInQueue(toSystemStreamPartition(tp)) < perPartitionFetchThreshold
+      }
+    }
+
+    def getMessageSize(message: Message): Integer = {
+      message.size + KafkaSystemConsumer.MESSAGE_SIZE_OVERHEAD
     }
 
     def addMessage(tp: TopicAndPartition, msg: MessageAndOffset, highWatermark: Long) = {
@@ -215,7 +278,11 @@ private[kafka] class KafkaSystemConsumer(
         null
       }
 
-      put(systemStreamPartition, new IncomingMessageEnvelope(systemStreamPartition, offset, key, message))
+      if(fetchLimitByBytesEnabled ) {
+        put(systemStreamPartition, new IncomingMessageEnvelope(systemStreamPartition, offset, key, message, getMessageSize(msg.message)))
+      } else {
+        put(systemStreamPartition, new IncomingMessageEnvelope(systemStreamPartition, offset, key, message))
+      }
 
       setIsAtHead(systemStreamPartition, isAtHead)
     }

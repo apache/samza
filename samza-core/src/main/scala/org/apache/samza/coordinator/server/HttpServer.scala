@@ -19,9 +19,6 @@
 
 package org.apache.samza.coordinator.server;
 
-import java.net.InetAddress
-import java.net.URI
-import java.net.UnknownHostException
 import javax.servlet.Servlet
 import org.apache.samza.SamzaException
 import org.eclipse.jetty.server.Connector
@@ -30,7 +27,8 @@ import org.eclipse.jetty.servlet.DefaultServlet
 import org.eclipse.jetty.servlet.ServletContextHandler
 import org.eclipse.jetty.servlet.ServletHolder
 import java.net.URL
-import org.apache.samza.util.Logging
+import org.apache.samza.util.{Util, Logging}
+
 
 /**
  * <p>A Jetty-based HTTP server. The server allows arbitrary servlets to be added
@@ -132,7 +130,8 @@ class HttpServer(
   def getUrl = {
     if (running) {
       val runningPort = server.getConnectors()(0).asInstanceOf[Connector].getLocalPort()
-      new URL("http://" + InetAddress.getLocalHost().getHostAddress() + ":" + runningPort + rootPath)
+
+      new URL("http://" + Util.getLocalHost.getHostName + ":" + runningPort + rootPath)
     } else {
       throw new SamzaException("HttpServer is not currently running, so URLs are not available for it.")
     }

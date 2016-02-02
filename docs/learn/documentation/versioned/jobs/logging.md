@@ -97,27 +97,34 @@ And then updating your log4j.xml to include the appender:
 
 #### Stream Log4j Appender
 
-Samza provides a StreamAppender to publish the logs into a specific system. You can specify the system name using "task.log4j.system". If there is only one system in the config, Samza will use that system for the log publishing. Also we have the [MDC](http://logback.qos.ch/manual/mdc.html) keys "containerName", "jobName" and "jobId", which help identify the source of the log. In order to use this appender, simply add:
+Samza provides a StreamAppender to publish the logs into a specific system. You can specify the system name using "task.log4j.system" and change name of log stream with param 'StreamName'. Also, we have the [MDC](http://logback.qos.ch/manual/mdc.html) keys "containerName", "jobName" and "jobId", which help identify the source of the log. In order to use this appender, simply add:
 
 {% highlight xml %}
 <appender name="StreamAppender" class="org.apache.samza.logging.log4j.StreamAppender">
+   <!-- optional -->
+   <param name="StreamName" value="EpicStreamName"/>
    <layout class="org.apache.log4j.PatternLayout">
      <param name="ConversionPattern" value="%X{containerName} %X{jobName} %X{jobId} %d{yyyy-MM-dd HH:mm:ss} %c{1} [%p] %m%n" />
    </layout>
 </appender>
 {% endhighlight %}
 
-and add:
+and
 
 {% highlight xml %}
 <appender-ref ref="StreamAppender"/>
+{% endhighlight %}
+
+to log4j.xml and define the system name by specifying the config:
+{% highlight xml %}
+task.log4j.system="<system-name>"
 {% endhighlight %}
 
 Configuring the StreamAppender will automatically encode messages using logstash's [Log4J JSON format](https://github.com/logstash/log4j-jsonevent-layout). Samza also supports pluggable serialization for those that prefer non-JSON logging events. This can be configured the same way other stream serializers are defined:
 
 {% highlight jproperties %}
 serializers.registry.log4j-string.class=org.apache.samza.logging.log4j.serializers.LoggingEventStringSerdeFactory
-systems.mock.streams.\_\_samza\__jobname_\__jobid_\_logs.samza.msg.serde=log4j-string
+systems.mock.streams.__samza_jobname_jobid_logs.samza.msg.serde=log4j-string
 {% endhighlight %}
 
 The StreamAppender will always send messages to a job's log stream keyed by the container name.

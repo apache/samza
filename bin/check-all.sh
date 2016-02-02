@@ -23,7 +23,7 @@ set -e
 
 SCALAs=( "2.10" )
 JDKs=( "JAVA7_HOME" "JAVA8_HOME" )
-YARNs=( "2.4.0" "2.5.0" )
+YARNs=( "2.6.1" "2.7.1" )
 
 # get base directory
 home_dir=`pwd`
@@ -56,6 +56,21 @@ if [ "$any_not_set" = "true" ]; then
   exit 0
 fi
 
+# chose gradle script (prefers gradlew)
+if [ -e "${base_dir}/gradlew" ]; then
+  gradle_file="${base_dir}/gradlew"
+else
+  gradle_base_file=$(which gradle)
+
+  if [ -f "${gradle_base_file}" ]; then
+    gradle_file="${gradle_base_file}"
+    echo "Gradlew is not found. Using currently installed gradle, found on: ${gradle_file}."
+  else
+    echo "No gradle has been found on system, please install it."
+    exit 1
+  fi
+fi
+
 # run all checks
 for i in "${JDKs[@]}"
 do
@@ -66,7 +81,7 @@ do
     for yarn_version in "${YARNs[@]}"
     do
       echo "------------- Running check task against JDK${jdk_number}/Scala ${scala_version}/YARN ${yarn_version}"
-      $base_dir/gradlew -PscalaVersion=${scala_version} -PyarnVersion=${yarn_version} -Dorg.gradle.java.home=${!i} clean check $@
+      ${gradle_file} -PscalaVersion=${scala_version} -PyarnVersion=${yarn_version} -Dorg.gradle.java.home=${!i} clean check $@
       echo "------------- Finished running check task against JDK${jdk_number}/Scala ${scala_version}/YARN ${yarn_version}"
     done
   done

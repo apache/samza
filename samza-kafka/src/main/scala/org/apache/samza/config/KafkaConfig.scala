@@ -24,7 +24,6 @@ import java.util.regex.Pattern
 
 import org.apache.samza.util.Util
 import org.apache.samza.util.Logging
-
 import scala.collection.JavaConversions._
 import kafka.consumer.ConsumerConfig
 import java.util.{Properties, UUID}
@@ -59,6 +58,17 @@ object KafkaConfig {
    */
   val CONSUMER_FETCH_THRESHOLD = SystemConfig.SYSTEM_PREFIX + "samza.fetch.threshold"
 
+  val DEFAULT_CHECKPOINT_SEGMENT_BYTES = 26214400
+
+  /**
+   * Defines how many bytes to use for the buffered prefetch messages for job as a whole.
+   * The bytes for a single system/stream/partition are computed based on this.
+   * This fetches wholes messages, hence this bytes limit is a soft one, and the actual usage can be
+   * the bytes limit + size of max message in the partition for a given stream.
+   * If the value of this property is > 0 then this takes precedence over CONSUMER_FETCH_THRESHOLD config.
+   */
+  val CONSUMER_FETCH_THRESHOLD_BYTES = SystemConfig.SYSTEM_PREFIX + "samza.fetch.threshold.bytes"
+
   implicit def Config2Kafka(config: Config) = new KafkaConfig(config)
 }
 
@@ -66,10 +76,12 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   // checkpoints
   def getCheckpointSystem = getOption(KafkaConfig.CHECKPOINT_SYSTEM)
   def getCheckpointReplicationFactor() = getOption(KafkaConfig.CHECKPOINT_REPLICATION_FACTOR)
-  def getCheckpointSegmentBytes() = getOption(KafkaConfig.CHECKPOINT_SEGMENT_BYTES)
-
+  def getCheckpointSegmentBytes() = getInt(KafkaConfig.CHECKPOINT_SEGMENT_BYTES, KafkaConfig.DEFAULT_CHECKPOINT_SEGMENT_BYTES)
   // custom consumer config
   def getConsumerFetchThreshold(name: String) = getOption(KafkaConfig.CONSUMER_FETCH_THRESHOLD format name)
+  def getConsumerFetchThresholdBytes(name: String) = getOption(KafkaConfig.CONSUMER_FETCH_THRESHOLD_BYTES format name)
+  def isConsumerFetchThresholdBytesEnabled(name: String): Boolean = getConsumerFetchThresholdBytes(name).getOrElse("-1").toLong > 0
+
 
   /**
    * Returns a map of topic -> fetch.message.max.bytes value for all streams that
@@ -189,13 +201,23 @@ class KafkaProducerConfig(val systemName: String,
       producerProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, byteArraySerializerClassName)
     }
 
-    // Always set (new) producer config for max_in_flight_requests_per_connection and retries_config to 1 & INT.MaxValue
-    // so that the producer does not optimistically send batches asychronously and thereby, messing up the ordering of outgoing messages
-    // Retries config is set to Max so that when all attempts fail, Samza also fails the send. We do not have any special handler
-    // for producer failure
-    // DO NOT let caller to override these 2 configs for Kafka
-    producerProperties.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT)
-    producerProperties.put(ProducerConfig.RETRIES_CONFIG, RETRIES_DEFAULT)
+    if(producerProperties.containsKey(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION)
+        && producerProperties.get(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION).asInstanceOf[String].toInt > MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT) {
+      warn("Setting '%s' to a value other than %d does not guarantee message ordering because new messages will be sent without waiting for previous ones to be acknowledged." 
+          format (ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT))
+    } else {
+      producerProperties.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT)
+    }
+
+    if(producerProperties.containsKey(ProducerConfig.RETRIES_CONFIG) 
+        && producerProperties.get(ProducerConfig.RETRIES_CONFIG).asInstanceOf[String].toInt < RETRIES_DEFAULT) {
+        warn("Samza does not provide producer failure handling. Consider setting '%s' to a large value, like Int.MAX." format ProducerConfig.RETRIES_CONFIG)
+    } else {
+      // Retries config is set to Max so that when all attempts fail, Samza also fails the send. We do not have any special handler
+      // for producer failure
+      producerProperties.put(ProducerConfig.RETRIES_CONFIG, RETRIES_DEFAULT)
+    }
+    
     producerProperties
   }
 

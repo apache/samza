@@ -27,17 +27,18 @@ Samza's main integration with YARN comes in the form of a Samza ApplicationMaste
 
 When the Samza ApplicationMaster starts up, it does the following:
 
-1. Receives configuration from YARN via the STREAMING_CONFIG environment variable.
+1. Creates the [Job Coordinator](../container/coordinator-stream.html#JobCoordinator) which bootstraps the Job Model and config from the [Coordinator Stream](../container/coordinator-stream.html).
 2. Starts a JMX server on a random port.
 3. Instantiates a metrics registry and reporters to keep track of relevant metrics.
 4. Registers the AM with YARN's RM.
-5. Get the total number of partitions for the Samza job using each input stream's PartitionManager (see the [Streams](../container/streams.html) page for details).
+5. Gets the total number of partitions for the Samza job using each input stream's PartitionManager (see the [Streams](../container/streams.html) page for details).
 6. Read the total number of containers requested from the Samza job's configuration.
 7. Assign each partition to a container (called a Task Group in Samza's AM dashboard).
-8. Make a [ResourceRequest](http://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/api/records/ResourceRequest.html) to YARN for each container.
-9. Poll the YARN RM every second to check for allocated and released containers.
+8. Make a [ResourceRequest](http://hadoop.apache.org/docs/current/api/org/apache/hadoop/yarn/api/records/ResourceRequest.html) to YARN for each container. If [host-affinity](yarn-host-affinity.html) is enabled on the job, the AM uses the container locality information provided by the Job Coordinator and requests for the same host in the ResourceRequest.
+9. Starts a ContainerAllocator thread that matches allocated containers and starts the container process.
+10. Poll the YARN RM every second to check for allocated and released containers.
 
-From this point on, the ApplicationMaster just reacts to events from the RM.
+From this point on, the ApplicationMaster just reacts to events from the RM and delegates it to the ContainerAllocator thread.
 
 ### Fault Tolerance
 
@@ -46,19 +47,6 @@ Whenever a container is allocated, the AM will work with the YARN NM to start a 
 When the AM receives a reboot signal from YARN, it will throw a SamzaException. This will trigger a clean and successful shutdown of the AM (YARN won't think the AM failed).
 
 If the AM, itself, fails, YARN will handle restarting the AM. When the AM is restarted, all containers that were running will be killed, and the AM will start from scratch. The same list of operations, shown above, will be executed. The AM will request new containers for its SamzaContainers, and proceed as though it has just started for the first time. YARN has a yarn.resourcemanager.am.max-retries configuration parameter that's defined in [yarn-site.xml](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-common/yarn-default.xml). This configuration defaults to 1, which means that, by default, a single AM failure will cause your Samza job to stop running.
-
-### Dashboard
-
-Samza's ApplicationMaster comes with a dashboard to show useful information such as:
-
-1. Where containers are located.
-2. Links to logs.
-3. The Samza job's configuration.
-4. Container failure count.
-
-You can find this dashboard by going to your YARN grid's ResourceManager page (usually something like [http://localhost:8088/cluster](http://localhost:8088/cluster)), and clicking on the "ApplicationMaster" link of a running Samza job.
-
-<img src="/img/{{site.version}}/learn/documentation/yarn/samza-am-dashboard.png" alt="Screenshot of ApplicationMaster dashboard" class="diagram-large">
 
 ### Security
 

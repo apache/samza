@@ -131,7 +131,19 @@ class FileReaderSystemAdmin extends SystemAdmin with Logging {
     enterPosition
   }
 
-  override def createChangelogStream(topicName: String, numOfChangeLogPartitions: Int) = {
-    throw new SamzaException("Method not implemented")
+  def createChangelogStream(topicName: String, numOfChangeLogPartitions: Int) = {
+    throw new UnsupportedOperationException("Method not implemented.")
+  }
+
+  def validateChangelogStream(topicName: String, numOfChangeLogPartitions: Int) = {
+    throw new UnsupportedOperationException("Method not implemented.")
+  }
+
+  def createCoordinatorStream(streamName: String) {
+    throw new UnsupportedOperationException("Method not implemented.")
+  }
+
+  override def offsetComparator(offset1: String , offset2: String) = {
+    null
   }
 }

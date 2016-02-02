@@ -19,27 +19,20 @@
 
 package org.apache.samza.checkpoint.kafka
 
-import org.apache.samza.util.Logging
+import java.util.Properties
+
 import kafka.utils.ZKStringSerializer
 import org.I0Itec.zkclient.ZkClient
+import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.CheckpointManager
-import org.apache.samza.checkpoint.CheckpointManagerFactory
-import org.apache.samza.config.Config
+import org.apache.samza.checkpoint.{CheckpointManager, CheckpointManagerFactory}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.KafkaConfig.Config2Kafka
+import org.apache.samza.config.{Config, KafkaConfig}
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.util.{ KafkaUtil, ClientUtilTopicMetadataStore }
-import java.util.Properties
-import scala.collection.JavaConversions._
-import org.apache.kafka.clients.producer.KafkaProducer
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, Logging}
 
 object KafkaCheckpointManagerFactory {
-  /**
-   * Version number to track the format of the checkpoint log
-   */
-  val CHECKPOINT_LOG_VERSION_NUMBER = 1
-
   val INJECTED_PRODUCER_PROPERTIES = Map(
     "acks" -> "all",
     // Forcibly disable compression because Kafka doesn't support compression
@@ -51,66 +44,58 @@ object KafkaCheckpointManagerFactory {
   // are fewer useless (overwritten) messages to read from the checkpoint 
   // topic.
   def getCheckpointTopicProperties(config: Config) = {
-    val segmentBytes = config
-      .getCheckpointSegmentBytes
-      .getOrElse("26214400")
-
+    val segmentBytes: Int = if (config == null) {
+      KafkaConfig.DEFAULT_CHECKPOINT_SEGMENT_BYTES
+    } else {
+      config.getCheckpointSegmentBytes()
+    }
     (new Properties /: Map(
       "cleanup.policy" -> "compact",
-      "segment.bytes" -> segmentBytes)) { case (props, (k, v)) => props.put(k, v); props }
+      "segment.bytes" -> String.valueOf(segmentBytes))) { case (props, (k, v)) => props.put(k, v); props }
   }
 }
 
 class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Logging {
-  import KafkaCheckpointManagerFactory._
+  import org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory._
 
   def getCheckpointManager(config: Config, registry: MetricsRegistry): CheckpointManager = {
     val clientId = KafkaUtil.getClientId("samza-checkpoint-manager", config)
+    val jobName = config.getName.getOrElse(throw new SamzaException("Missing job name in configs"))
+    val jobId = config.getJobId.getOrElse("1")
+
     val systemName = config
       .getCheckpointSystem
       .getOrElse(throw new SamzaException("no system defined for Kafka's checkpoint manager."))
+
     val producerConfig = config.getKafkaSystemProducerConfig(
       systemName,
       clientId,
       INJECTED_PRODUCER_PROPERTIES)
-    val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
-    val replicationFactor = config.getCheckpointReplicationFactor.getOrElse("3").toInt
-    val socketTimeout = consumerConfig.socketTimeoutMs
-    val bufferSize = consumerConfig.socketReceiveBufferBytes
-    val fetchSize = consumerConfig.fetchMessageMaxBytes // must be > buffer size
-
     val connectProducer = () => {
       new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
     }
+
+    val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
     val zkConnect = Option(consumerConfig.zkConnect)
       .getOrElse(throw new SamzaException("no zookeeper.connect defined in config"))
     val connectZk = () => {
       new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer)
     }
-    val jobName = config.getName.getOrElse(throw new SamzaException("Missing job name in configs"))
-    val jobId = config.getJobId.getOrElse("1")
-    val bootstrapServers = producerConfig.bootsrapServers
-    val metadataStore = new ClientUtilTopicMetadataStore(bootstrapServers, clientId, socketTimeout)
-    val checkpointTopic = getTopic(jobName, jobId)
+    val socketTimeout = consumerConfig.socketTimeoutMs
 
-    // Find out the SSPGrouperFactory class so it can be included/verified in the key
-    val systemStreamPartitionGrouperFactoryString = config.getSystemStreamPartitionGrouperFactory
 
     new KafkaCheckpointManager(
       clientId,
-      checkpointTopic,
+      KafkaUtil.getCheckpointTopic(jobName, jobId),
       systemName,
-      replicationFactor,
+      config.getCheckpointReplicationFactor.getOrElse("3").toInt,
       socketTimeout,
-      bufferSize,
-      fetchSize,
-      metadataStore,
+      consumerConfig.socketReceiveBufferBytes,
+      consumerConfig.fetchMessageMaxBytes,            // must be > buffer size
+      new ClientUtilTopicMetadataStore(producerConfig.bootsrapServers, clientId, socketTimeout),
       connectProducer,
       connectZk,
-      systemStreamPartitionGrouperFactoryString,
+      config.getSystemStreamPartitionGrouperFactory,      // To find out the SSPGrouperFactory class so it can be included/verified in the key
       checkpointTopicProperties = getCheckpointTopicProperties(config))
   }
-
-  private def getTopic(jobName: String, jobId: String) =
-    "__samza_checkpoint_ver_%d_for_%s_%s" format (CHECKPOINT_LOG_VERSION_NUMBER, jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
 }

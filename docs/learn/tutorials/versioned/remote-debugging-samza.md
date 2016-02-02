@@ -32,7 +32,7 @@ git clone http://git-wip-us.apache.org/repos/asf/samza.git
 Next, grab hello-samza.
 
 {% highlight bash %}
-git clone git://git.apache.org/samza-hello-samza.git
+git clone https://git.apache.org/samza-hello-samza.git
 {% endhighlight %}
 
 ### Setup the Environment
@@ -83,7 +83,7 @@ Once the grid starts, you can start the wikipedia-feed Samza job.
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-0.8.0-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-0.10.0-dist.tar.gz -C deploy/samza
 deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties
 {% endhighlight %}
 

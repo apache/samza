@@ -19,6 +19,8 @@
 
 package org.apache.samza.job.local
 
+
+import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap}
 import org.apache.samza.util.Logging
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
@@ -26,7 +28,6 @@ import org.apache.samza.config.ShellCommandConfig._
 import org.apache.samza.config.TaskConfig._
 import org.apache.samza.container.SamzaContainer
 import org.apache.samza.job.{ StreamJob, StreamJobFactory }
-import org.apache.samza.util.Util
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.coordinator.JobCoordinator
 
@@ -36,7 +37,7 @@ import org.apache.samza.coordinator.JobCoordinator
 class ThreadJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config): StreamJob = {
     info("Creating a ThreadJob, which is only meant for debugging.")
-    val coordinator = JobCoordinator(config, 1)
+    val coordinator = JobCoordinator(config)
     val containerModel = coordinator.jobModel.getContainers.get(0)
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
@@ -47,7 +48,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     try {
       coordinator.start
-      new ThreadJob(SamzaContainer(containerModel, config))
+      new ThreadJob(SamzaContainer(containerModel, coordinator.jobModel, new JmxServer))
     } finally {
       coordinator.stop
     }

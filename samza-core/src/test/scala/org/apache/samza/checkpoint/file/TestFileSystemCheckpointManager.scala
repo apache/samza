@@ -53,9 +53,9 @@ class TestFileSystemCheckpointManager  {
   @Test
   def testReadForCheckpointFileThatDoesExistShouldReturnProperCheckpoint {
     val cp = new Checkpoint(Map(
-          new SystemStreamPartition("a", "b", new Partition(0)) -> "c",
-          new SystemStreamPartition("a", "c", new Partition(1)) -> "d",
-          new SystemStreamPartition("b", "d", new Partition(2)) -> "e"))
+      new SystemStreamPartition("a", "b", new Partition(0)) -> "c",
+      new SystemStreamPartition("a", "c", new Partition(1)) -> "d",
+      new SystemStreamPartition("b", "d", new Partition(2)) -> "e"))
 
     var readCp:Checkpoint = null
     val cpm =  new FileSystemCheckpointManager("some-job-name", tempFolder.getRoot)

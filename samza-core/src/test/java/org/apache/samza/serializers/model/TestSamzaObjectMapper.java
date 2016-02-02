@@ -19,11 +19,12 @@
 
 package org.apache.samza.serializers.model;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -40,12 +41,12 @@ public class TestSamzaObjectMapper {
   public void testJsonTaskModel() throws Exception {
     ObjectMapper mapper = SamzaObjectMapper.getObjectMapper();
     Map<String, String> configMap = new HashMap<String, String>();
+    Set<SystemStreamPartition> ssp = new HashSet<>();
     configMap.put("a", "b");
     Config config = new MapConfig(configMap);
-    Set<SystemStreamPartition> inputSystemStreamPartitions = new HashSet<SystemStreamPartition>();
-    inputSystemStreamPartitions.add(new SystemStreamPartition("foo", "bar", new Partition(1)));
     TaskName taskName = new TaskName("test");
-    TaskModel taskModel = new TaskModel(taskName, inputSystemStreamPartitions, new Partition(2));
+    ssp.add(new SystemStreamPartition("foo", "bar", new Partition(1)));
+    TaskModel taskModel = new TaskModel(taskName, ssp, new Partition(2));
     Map<TaskName, TaskModel> tasks = new HashMap<TaskName, TaskModel>();
     tasks.put(taskName, taskModel);
     ContainerModel containerModel = new ContainerModel(1, tasks);

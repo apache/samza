@@ -24,40 +24,53 @@ import org.apache.samza.util.Util.notNull
 import scala.collection.JavaConversions._
 
 object NullSafeKeyValueStore {
-  val KEY_ERROR_MSG = "Null is not a valid key."
-  val VAL_ERROR_MSG = "Null is not a valid value."
+  val NullKeyErrorMessage = "Null is not a valid key."
+  val NullKeysErrorMessage = "Null is not a valid keys list."
+  val NullValueErrorMessage = "Null is not a valid value."
 }
 
 class NullSafeKeyValueStore[K, V](store: KeyValueStore[K, V]) extends KeyValueStore[K, V] {
   import NullSafeKeyValueStore._
 
   def get(key: K): V = {
-    notNull(key, KEY_ERROR_MSG)
+    notNull(key, NullKeyErrorMessage)
     store.get(key)
   }
 
+  def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
+    notNull(keys, NullKeysErrorMessage)
+    keys.foreach(key => notNull(key, NullKeyErrorMessage))
+    store.getAll(keys)
+  }
+
   def put(key: K, value: V) {
-    notNull(key, KEY_ERROR_MSG)
-    notNull(value, VAL_ERROR_MSG)
+    notNull(key, NullKeyErrorMessage)
+    notNull(value, NullValueErrorMessage)
     store.put(key, value)
   }
 
   def putAll(entries: java.util.List[Entry[K, V]]) {
     entries.foreach(entry => {
-      notNull(entry.getKey, KEY_ERROR_MSG)
-      notNull(entry.getValue, VAL_ERROR_MSG)
+      notNull(entry.getKey, NullKeyErrorMessage)
+      notNull(entry.getValue, NullValueErrorMessage)
     })
     store.putAll(entries)
   }
 
   def delete(key: K) {
-    notNull(key, KEY_ERROR_MSG)
+    notNull(key, NullKeyErrorMessage)
     store.delete(key)
   }
 
+  def deleteAll(keys: java.util.List[K]) = {
+    notNull(keys, NullKeysErrorMessage)
+    keys.foreach(key => notNull(key, NullKeyErrorMessage))
+    store.deleteAll(keys)
+  }
+
   def range(from: K, to: K): KeyValueIterator[K, V] = {
-    notNull(from, KEY_ERROR_MSG)
-    notNull(to, KEY_ERROR_MSG)
+    notNull(from, NullKeyErrorMessage)
+    notNull(to, NullKeyErrorMessage)
     store.range(from, to)
   }
 

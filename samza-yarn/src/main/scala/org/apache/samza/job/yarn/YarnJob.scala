@@ -24,53 +24,57 @@ import org.apache.hadoop.security.UserGroupInformation
 import org.apache.hadoop.yarn.api.records.ApplicationId
 import org.apache.hadoop.yarn.api.ApplicationConstants
 import org.apache.samza.config.Config
+import org.apache.samza.config.JobConfig
 import org.apache.samza.util.Util
 import org.apache.samza.job.ApplicationStatus
 import org.apache.samza.job.ApplicationStatus.Running
 import org.apache.samza.job.StreamJob
 import org.apache.samza.job.ApplicationStatus.SuccessfulFinish
 import org.apache.samza.job.ApplicationStatus.UnsuccessfulFinish
-import org.apache.samza.config.YarnConfig.Config2Yarn
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.YarnConfig
 import org.apache.samza.config.ShellCommandConfig
 import org.apache.samza.SamzaException
 import org.apache.samza.serializers.model.SamzaObjectMapper
+import org.apache.samza.config.JobConfig.Config2Job
+import scala.collection.JavaConversions._
+import org.apache.samza.config.MapConfig
+import org.apache.samza.config.ConfigException
+import org.apache.samza.config.SystemConfig
 
-object YarnJob {
-  val DEFAULT_AM_CONTAINER_MEM = 1024
-}
 
 /**
  * Starts the application manager
  */
 class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
-  import YarnJob._
 
   val client = new ClientHelper(hadoopConfig)
   var appId: Option[ApplicationId] = None
+  val yarnConfig = new YarnConfig(config)
 
   def submit: YarnJob = {
     appId = client.submitApplication(
-      new Path(config.getPackagePath.getOrElse(throw new SamzaException("No YARN package path defined in config."))),
-      config.getAMContainerMaxMemoryMb.getOrElse(DEFAULT_AM_CONTAINER_MEM),
+      new Path(yarnConfig.getPackagePath),
+      yarnConfig.getAMContainerMaxMemoryMb,
       1,
       List(
         "export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec ./__package/bin/run-am.sh 1>logs/%s 2>logs/%s"
           format (ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.STDOUT, ApplicationConstants.STDERR)),
       Some({
+        val coordinatorSystemConfig = Util.buildCoordinatorStreamConfig(config)
         val envMap = Map(
-          ShellCommandConfig.ENV_CONFIG -> Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString(config)),
-          ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(config.getAmOpts.getOrElse("")))
-        val envMapWithJavaHome = config.getAMJavaHome match {
-          case Some(javaHome) => envMap + (ShellCommandConfig.ENV_JAVA_HOME -> javaHome)
-          case None => envMap
+          ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG -> Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString(coordinatorSystemConfig)),
+          ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(yarnConfig.getAmOpts))
+        val amJavaHome = yarnConfig.getAMJavaHome
+        val envMapWithJavaHome = if(amJavaHome == null) {
+          envMap
+        } else {
+          envMap + (ShellCommandConfig.ENV_JAVA_HOME -> amJavaHome)
         }
         envMapWithJavaHome
       }),
-
-      Some("%s_%s" format (config.getName.get, config.getJobId.getOrElse(1))))
-
+      Some("%s_%s" format (config.getName.get, config.getJobId.getOrElse(1))),
+      Option(yarnConfig.getQueueName))
     this
   }
 

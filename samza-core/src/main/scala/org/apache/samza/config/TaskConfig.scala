@@ -19,8 +19,8 @@
 
 package org.apache.samza.config
 
-import org.apache.samza.util.Util
 import org.apache.samza.system.SystemStream
+import org.apache.samza.util.{Logging, Util}
 
 object TaskConfig {
   // task config constants
@@ -37,6 +37,7 @@ object TaskConfig {
   val DROP_DESERIALIZATION_ERROR = "task.drop.deserialization.errors" // define whether drop the messages or not when deserialization fails
   val DROP_SERIALIZATION_ERROR = "task.drop.serialization.errors" // define whether drop the messages or not when serialization fails
   val IGNORED_EXCEPTIONS = "task.ignored.exceptions" // exceptions to ignore in process and window
+  val GROUPER_FACTORY = "task.name.grouper.factory" // class name for task grouper
 
   /**
    * Samza's container polls for more messages under two conditions. The first
@@ -58,7 +59,7 @@ object TaskConfig {
   implicit def Config2Task(config: Config) = new TaskConfig(config)
 }
 
-class TaskConfig(config: Config) extends ScalaMapConfig(config) {
+class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getInputStreams = getOption(TaskConfig.INPUT_STREAMS) match {
     case Some(streams) => if (streams.length > 0) {
       streams.split(",").map(systemStreamNames => {
@@ -104,4 +105,14 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) {
   def getPollIntervalMs = getOption(TaskConfig.POLL_INTERVAL_MS)
 
   def getIgnoredExceptions = getOption(TaskConfig.IGNORED_EXCEPTIONS)
+
+  def getTaskNameGrouperFactory = {
+    getOption(TaskConfig.GROUPER_FACTORY) match {
+      case Some(grouperFactory) => grouperFactory
+      case _ =>
+        info("No %s configuration, using 'org.apache.samza.container.grouper.task.GroupByContainerCountFactory'" format TaskConfig.GROUPER_FACTORY)
+        "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
+    }
+  }
+
 }

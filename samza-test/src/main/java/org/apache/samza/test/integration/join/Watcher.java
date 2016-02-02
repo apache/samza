@@ -47,7 +47,7 @@ public class Watcher implements StreamTask, WindowableTask, InitableTask {
   @Override
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
     int epoch = Integer.parseInt((String) envelope.getMessage());
-    if(epoch > currentEpoch) {
+    if (epoch > currentEpoch) {
       logger.info("Epoch changed to " + epoch + " from " + currentEpoch);
       this.currentEpoch = epoch;
       this.lastEpochChange = System.currentTimeMillis();
@@ -58,10 +58,10 @@ public class Watcher implements StreamTask, WindowableTask, InitableTask {
   @Override
   public void window(MessageCollector collector, TaskCoordinator coordinator) {
     boolean isLagging = System.currentTimeMillis() - lastEpochChange > maxTimeBetweenEpochsMs;
-    if(!inError && isLagging) {
+    if (!inError && isLagging) {
       this.inError = true;
       logger.info("Error state detected, alerting...");
-      logger.error("Job failed to make progress!" + String.format("No epoch change for %d minutes.", this.maxTimeBetweenEpochsMs / (60*1000)));
+      logger.error("Job failed to make progress!" + String.format("No epoch change for %d minutes.", this.maxTimeBetweenEpochsMs / (60 * 1000)));
     }
   }
   

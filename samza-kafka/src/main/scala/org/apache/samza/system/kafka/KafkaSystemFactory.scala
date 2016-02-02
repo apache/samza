@@ -19,15 +19,21 @@
 
 package org.apache.samza.system.kafka
 
+import java.util.Properties
+import org.apache.samza.SamzaException
 import org.apache.samza.util.{Logging, KafkaUtil, ExponentialSleepStrategy, ClientUtilTopicMetadataStore}
 import org.apache.samza.config.Config
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.config.KafkaConfig.Config2Kafka
+import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.system.SystemFactory
 import org.apache.samza.config.StorageConfig._
 import org.I0Itec.zkclient.ZkClient
 import kafka.utils.ZKStringSerializer
+import org.apache.samza.system.SystemProducer
+import org.apache.samza.system.SystemAdmin
+import org.apache.samza.system.SystemConsumer
 
 object KafkaSystemFactory extends Logging {
   def getInjectedProducerProperties(systemName: String, config: Config) = if (config.isChangelogSystem(systemName)) {
@@ -39,7 +45,7 @@ object KafkaSystemFactory extends Logging {
 }
 
 class KafkaSystemFactory extends SystemFactory with Logging {
-  def getConsumer(systemName: String, config: Config, registry: MetricsRegistry) = {
+  def getConsumer(systemName: String, config: Config, registry: MetricsRegistry): SystemConsumer = {
     val clientId = KafkaUtil.getClientId("samza-consumer", config)
     val metrics = new KafkaSystemConsumerMetrics(systemName, registry)
 
@@ -56,11 +62,13 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val autoOffsetResetDefault = consumerConfig.autoOffsetReset
     val autoOffsetResetTopics = config.getAutoOffsetResetTopics(systemName)
     val fetchThreshold = config.getConsumerFetchThreshold(systemName).getOrElse("50000").toInt
+    val fetchThresholdBytes = config.getConsumerFetchThresholdBytes(systemName).getOrElse("-1").toLong
     val offsetGetter = new GetOffset(autoOffsetResetDefault, autoOffsetResetTopics)
     val metadataStore = new ClientUtilTopicMetadataStore(bootstrapServers, clientId, timeout)
 
     new KafkaSystemConsumer(
       systemName = systemName,
+      systemAdmin = getAdmin(systemName, config),
       metrics = metrics,
       metadataStore = metadataStore,
       clientId = clientId,
@@ -70,10 +78,12 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       consumerMinSize = consumerMinSize,
       consumerMaxWait = consumerMaxWait,
       fetchThreshold = fetchThreshold,
+      fetchThresholdBytes = fetchThresholdBytes,
+      fetchLimitByBytesEnabled = config.isConsumerFetchThresholdBytesEnabled(systemName),
       offsetGetter = offsetGetter)
   }
 
-  def getProducer(systemName: String, config: Config, registry: MetricsRegistry) = {
+  def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
     val clientId = KafkaUtil.getClientId("samza-producer", config)
     val injectedProps = KafkaSystemFactory.getInjectedProducerProperties(systemName, config)
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId, injectedProps)
@@ -91,15 +101,21 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       metrics)
   }
 
-  def getAdmin(systemName: String, config: Config) = {
+  def getAdmin(systemName: String, config: Config): SystemAdmin = {
     val clientId = KafkaUtil.getClientId("samza-admin", config)
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
     val bootstrapServers = producerConfig.bootsrapServers
     val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
     val timeout = consumerConfig.socketTimeoutMs
     val bufferSize = consumerConfig.socketReceiveBufferBytes
+    val zkConnect = Option(consumerConfig.zkConnect)
+      .getOrElse(throw new SamzaException("no zookeeper.connect defined in config"))
+    val connectZk = () => {
+      new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer)
+    }
+    val coordinatorStreamProperties = getCoordinatorTopicProperties(config)
+    val coordinatorStreamReplicationFactor = config.getCoordinatorReplicationFactor.toInt
     val storeToChangelog = config.getKafkaChangelogEnabledStores()
-
     // Construct the meta information for each topic, if the replication factor is not defined, we use 2 as the number of replicas for the change log stream.
     val topicMetaInformation = storeToChangelog.map{case (storeName, topicName) =>
     {
@@ -112,10 +128,20 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     new KafkaSystemAdmin(
       systemName,
       bootstrapServers,
+      connectZk,
+      coordinatorStreamProperties,
+      coordinatorStreamReplicationFactor,
       timeout,
       bufferSize,
       clientId,
-      () => new ZkClient(consumerConfig.zkConnect, 6000, 6000, ZKStringSerializer),
       topicMetaInformation)
   }
+
+  def getCoordinatorTopicProperties(config: Config) = {
+    val segmentBytes = config.getCoordinatorSegmentBytes
+    (new Properties /: Map(
+      "cleanup.policy" -> "compact",
+      "segment.bytes" -> segmentBytes)) { case (props, (k, v)) => props.put(k, v); props }
+  }
+
 }

@@ -41,6 +41,11 @@ class LoggedStore[K, V](
     store.get(key)
   }
 
+  def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
+    metrics.gets.inc(keys.size)
+    store.getAll(keys)
+  }
+
   def range(from: K, to: K) = {
     metrics.ranges.inc
     store.range(from, to)
@@ -80,6 +85,18 @@ class LoggedStore[K, V](
     metrics.deletes.inc
     store.delete(key)
     collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, key, null))
+  }
+
+  /**
+   * Perform the local deletes and log them out to the changelog
+   */
+  def deleteAll(keys: java.util.List[K]) = {
+    metrics.deletes.inc(keys.size)
+    store.deleteAll(keys)
+    val keysIterator = keys.iterator
+    while (keysIterator.hasNext) {
+      collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, keysIterator.next, null))
+    }
   }
 
   def flush {

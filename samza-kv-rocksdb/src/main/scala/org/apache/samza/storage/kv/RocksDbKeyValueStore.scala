@@ -20,67 +20,87 @@
 package org.apache.samza.storage.kv
 
 import java.io.File
+import org.apache.samza.SamzaException
 import org.apache.samza.util.{ LexicographicComparator, Logging }
 import org.apache.samza.config.Config
 import org.apache.samza.container.SamzaContainerContext
 import org.rocksdb._
+import org.rocksdb.TtlDB;
 
 object RocksDbKeyValueStore extends Logging {
-  def options(storeConfig: Config, containerContext: SamzaContainerContext) = {
-    val cacheSize = storeConfig.getLong("container.cache.size.bytes", 100 * 1024 * 1024L)
-    val writeBufSize = storeConfig.getLong("container.write.buffer.size.bytes", 32 * 1024 * 1024)
-    val options = new Options()
 
-    // Cache size and write buffer size are specified on a per-container basis.
-    val numTasks = containerContext.taskNames.size
-    options.setWriteBufferSize((writeBufSize / numTasks).toInt)
-    var cacheSizePerContainer = cacheSize / numTasks
-    options.setCompressionType(
-      storeConfig.get("rocksdb.compression", "snappy") match {
-        case "snappy" => CompressionType.SNAPPY_COMPRESSION
-        case "bzip2" => CompressionType.BZLIB2_COMPRESSION
-        case "zlib" => CompressionType.ZLIB_COMPRESSION
-        case "lz4" => CompressionType.LZ4_COMPRESSION
-        case "lz4hc" => CompressionType.LZ4HC_COMPRESSION
-        case "none" => CompressionType.NO_COMPRESSION
-        case _ =>
-          warn("Unknown rocksdb.compression codec %s, defaulting to Snappy" format storeConfig.get("rocksdb.compression", "snappy"))
-          CompressionType.SNAPPY_COMPRESSION
-      })
+  def openDB(dir: File, options: Options, storeConfig: Config, isLoggedStore: Boolean, storeName: String): RocksDB = {
+    var ttl = 0L
+    var useTTL = false
 
-    val blockSize = storeConfig.getInt("rocksdb.block.size.bytes", 4096)
-    val bloomBits = storeConfig.getInt("rocksdb.bloomfilter.bits", 10)
-    val table_options = new BlockBasedTableConfig()
-    table_options.setBlockCacheSize(cacheSizePerContainer)
-      .setBlockSize(blockSize)
-      .setFilterBitsPerKey(bloomBits)
+    if (storeConfig.containsKey("rocksdb.ttl.ms"))
+    {
+      try
+      {
+        ttl = storeConfig.getLong("rocksdb.ttl.ms")
 
-    options.setTableFormatConfig(table_options)
-    options.setCompactionStyle(
-      storeConfig.get("rocksdb.compaction.style", "universal") match {
-        case "universal" => CompactionStyle.UNIVERSAL
-        case "fifo" => CompactionStyle.FIFO
-        case "level" => CompactionStyle.LEVEL
-        case _ =>
-          warn("Unknown rocksdb.compactionStyle %s, defaulting to universal" format storeConfig.get("rocksdb.compaction.style", "universal"))
-          CompactionStyle.UNIVERSAL
-      })
+        // RocksDB accepts TTL in seconds, convert ms to seconds
+        if (ttl < 1000)
+        {
+          warn("The ttl values requested for %s is %d, which is less than 1000 (minimum), using 1000 instead",
+               storeName,
+               ttl)
+          ttl = 1000
+        }
+        ttl = ttl / 1000
 
-    options.setMaxWriteBufferNumber(storeConfig.get("rocksdb.num.write.buffers", "3").toInt)
-    options.setCreateIfMissing(true)
-    options.setErrorIfExists(true)
-    options
+        useTTL = true
+        if (isLoggedStore)
+        {
+          error("%s is a TTL based store, changelog is not supported for TTL based stores, use at your own discretion" format storeName)
+        }
+      }
+      catch
+        {
+          case nfe: NumberFormatException => throw new SamzaException("rocksdb.ttl.ms configuration is not a number, " + "value found %s" format storeConfig.get(
+            "rocksdb.ttl.ms"))
+        }
+    }
+
+    try
+    {
+      if (useTTL)
+      {
+        info("Opening RocksDB store with TTL value: %s" format ttl)
+        TtlDB.open(options, dir.toString, ttl.toInt, false)
+      }
+      else
+      {
+        RocksDB.open(options, dir.toString)
+      }
+    }
+    catch
+      {
+        case rocksDBException: RocksDBException =>
+        {
+          throw new SamzaException(
+            "Error opening RocksDB store %s at location %s, received the following exception from RocksDB %s".format(
+              storeName,
+              dir.toString,
+              rocksDBException))
+        }
+      }
   }
-
 }
 
 class RocksDbKeyValueStore(
   val dir: File,
   val options: Options,
+  val storeConfig: Config,
+  val isLoggedStore: Boolean,
+  val storeName: String,
   val writeOptions: WriteOptions = new WriteOptions(),
+  val flushOptions: FlushOptions = new FlushOptions(),
   val metrics: KeyValueStoreMetrics = new KeyValueStoreMetrics) extends KeyValueStore[Array[Byte], Array[Byte]] with Logging {
 
-  private lazy val db = RocksDB.open(options, dir.toString)
+  // lazy val here is important because the store directories do not exist yet, it can only be opened
+  // after the directories are created, which happens much later from now.
+  private lazy val db = RocksDbKeyValueStore.openDB(dir, options, storeConfig, isLoggedStore, storeName)
   private val lexicographic = new LexicographicComparator()
   private var deletesSinceLastCompaction = 0
 
@@ -92,6 +112,24 @@ class RocksDbKeyValueStore(
       metrics.bytesRead.inc(found.size)
     }
     found
+  }
+
+  def getAll(keys: java.util.List[Array[Byte]]): java.util.Map[Array[Byte], Array[Byte]] = {
+    metrics.getAlls.inc
+    require(keys != null, "Null keys not allowed.")
+    val map = db.multiGet(keys)
+    if (map != null) {
+      var bytesRead = 0L
+      val iterator = map.values().iterator
+      while (iterator.hasNext) {
+        val value = iterator.next
+        if (value != null) {
+          bytesRead += value.size
+        }
+      }
+      metrics.bytesRead.inc(bytesRead)
+    }
+    map
   }
 
   def put(key: Array[Byte], value: Array[Byte]) {
@@ -134,6 +172,10 @@ class RocksDbKeyValueStore(
     put(key, null)
   }
 
+  def deleteAll(keys: java.util.List[Array[Byte]]) = {
+    KeyValueStore.Extension.deleteAll(this, keys)
+  }
+
   def range(from: Array[Byte], to: Array[Byte]): KeyValueIterator[Array[Byte], Array[Byte]] = {
     metrics.ranges.inc
     require(from != null && to != null, "Null bound not allowed.")
@@ -149,8 +191,8 @@ class RocksDbKeyValueStore(
 
   def flush {
     metrics.flushes.inc
-    // TODO still not exposed in Java RocksDB API, follow up with rocksDB team
-    trace("Flush in RocksDbKeyValueStore is not supported, ignoring")
+    trace("Flushing.")
+    db.flush(flushOptions)
   }
 
   def close() {
@@ -203,7 +245,7 @@ class RocksDbKeyValueStore(
 
     override def finalize() {
       if (open) {
-        trace("Leaked reference to level db iterator, forcing close.")
+        trace("Leaked reference to RocksDB iterator, forcing close.")
         close()
       }
     }

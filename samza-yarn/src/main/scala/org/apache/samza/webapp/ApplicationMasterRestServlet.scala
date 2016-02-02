@@ -22,16 +22,14 @@ package org.apache.samza.webapp
 import org.scalatra._
 import scalate.ScalateSupport
 import org.apache.samza.config.Config
-import org.apache.samza.job.yarn.SamzaAppMasterState
-import org.apache.samza.job.yarn.ClientHelper
+import org.apache.samza.job.yarn.{SamzaAppState, ClientHelper}
 import org.apache.samza.metrics._
 import scala.collection.JavaConversions._
 import org.apache.hadoop.yarn.conf.YarnConfiguration
-import org.codehaus.jackson.map.ObjectMapper
 import java.util.HashMap
 import org.apache.samza.serializers.model.SamzaObjectMapper
 
-class ApplicationMasterRestServlet(config: Config, state: SamzaAppMasterState, registry: ReadableMetricsRegistry) extends ScalatraServlet with ScalateSupport {
+class ApplicationMasterRestServlet(config: Config, state: SamzaAppState, registry: ReadableMetricsRegistry) extends ScalatraServlet with ScalateSupport {
   val yarnConfig = new YarnConfiguration
   val client = new ClientHelper(yarnConfig)
   val jsonMapper = SamzaObjectMapper.getObjectMapper
@@ -72,7 +70,7 @@ class ApplicationMasterRestServlet(config: Config, state: SamzaAppMasterState, r
     val contextMap = new HashMap[String, Object]
 
     contextMap.put("task-id", state.taskId: java.lang.Integer)
-    contextMap.put("name", state.containerId.toString)
+    contextMap.put("name", state.amContainerId.toString)
 
     jsonMapper.writeValueAsString(contextMap)
   }
@@ -80,7 +78,7 @@ class ApplicationMasterRestServlet(config: Config, state: SamzaAppMasterState, r
   get("/am") {
     val containers = new HashMap[String, HashMap[String, Object]]
 
-    state.runningTasks.foreach {
+    state.runningContainers.foreach {
       case (containerId, container) =>
         val yarnContainerId = container.id.toString
         val containerMap = new HashMap[String, Object]
@@ -95,7 +93,7 @@ class ApplicationMasterRestServlet(config: Config, state: SamzaAppMasterState, r
 
     val status = Map[String, Object](
       "app-attempt-id" -> state.appAttemptId.toString,
-      "container-id" -> state.containerId.toString,
+      "container-id" -> state.amContainerId.toString,
       "containers" -> containers,
       "host" -> "%s:%s".format(state.nodeHost, state.rpcUrl.getPort))
 

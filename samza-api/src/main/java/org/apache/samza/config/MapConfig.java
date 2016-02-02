@@ -42,7 +42,7 @@ public class MapConfig extends Config {
 
   public MapConfig(List<Map<String, String>> maps) {
     this.map = new HashMap<String, String>();
-    for(Map<String, String> m: maps)
+    for (Map<String, String> m: maps)
       this.map.putAll(m);
   }
 

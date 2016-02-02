@@ -39,7 +39,8 @@ public class Checker implements StreamTask, WindowableTask, InitableTask {
   
   private static Logger logger = LoggerFactory.getLogger(Checker.class);
 
-  private static String CURRENT_EPOCH = "current-epoch";
+  private static final String CURRENT_EPOCH = "current-epoch";
+
   private KeyValueStore<String, String> store;
   private int expectedKeys;
   private int numPartitions;
@@ -68,25 +69,25 @@ public class Checker implements StreamTask, WindowableTask, InitableTask {
     int count = 0;
     KeyValueIterator<String, String> iter = this.store.all();
 
-    while(iter.hasNext()) {
-      Entry<String, String> entry= iter.next();
+    while (iter.hasNext()) {
+      Entry<String, String> entry = iter.next();
       String foundEpoch = entry.getValue();
-      if(foundEpoch.equals(currentEpoch)) {
-          count += 1;
+      if (foundEpoch.equals(currentEpoch)) {
+        count += 1;
       } else {
-          logger.info("####### Found a different epoch! - " + foundEpoch + " Current epoch is " + currentEpoch);
+        logger.info("####### Found a different epoch! - " + foundEpoch + " Current epoch is " + currentEpoch);
       }
     }
     iter.close();
-    if(count == expectedKeys + 1) {
+    if (count == expectedKeys + 1) {
       logger.info("Epoch " + currentEpoch + " is complete.");
       int nextEpoch = Integer.parseInt(currentEpoch) + 1;
-      for(int i = 0; i < numPartitions; i++) {
-          logger.info("Emitting next epoch - " + Integer.toString(i) + " -> " + Integer.toString(nextEpoch));
-          collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", "epoch"), Integer.toString(i), Integer.toString(nextEpoch)));
+      for (int i = 0; i < numPartitions; i++) {
+        logger.info("Emitting next epoch - " + Integer.toString(i) + " -> " + Integer.toString(nextEpoch));
+        collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", "epoch"), Integer.toString(i), Integer.toString(nextEpoch)));
       }
       this.store.put(CURRENT_EPOCH, Integer.toString(nextEpoch));
-    } else if(count > expectedKeys + 1) {
+    } else if (count > expectedKeys + 1) {
       throw new IllegalStateException("Got " + count + " keys, which is more than the expected " + (expectedKeys + 1));
     } else {
       logger.info("Only found " + count + " valid keys, try again later.");

@@ -31,8 +31,8 @@ import scala.collection.JavaConversions._
  * This implements both the key/value interface and the storage engine interface.
  */
 class KeyValueStorageEngine[K, V](
-  db: KeyValueStore[K, V],
-  rawDb: KeyValueStore[Array[Byte], Array[Byte]],
+  wrapperStore: KeyValueStore[K, V],
+  rawStore: KeyValueStore[Array[Byte], Array[Byte]],
   metrics: KeyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics,
   batchSize: Int = 500) extends StorageEngine with KeyValueStore[K, V] with Logging {
 
@@ -41,37 +41,47 @@ class KeyValueStorageEngine[K, V](
   /* delegate to underlying store */
   def get(key: K): V = {
     metrics.gets.inc
-    db.get(key)
+    wrapperStore.get(key)
+  }
+
+  def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
+    metrics.gets.inc(keys.size)
+    wrapperStore.getAll(keys)
   }
 
   def put(key: K, value: V) = {
     metrics.puts.inc
-    db.put(key, value)
+    wrapperStore.put(key, value)
   }
 
   def putAll(entries: java.util.List[Entry[K, V]]) = {
     metrics.puts.inc(entries.size)
-    db.putAll(entries)
+    wrapperStore.putAll(entries)
   }
 
   def delete(key: K) = {
     metrics.deletes.inc
-    db.delete(key)
+    wrapperStore.delete(key)
+  }
+
+  def deleteAll(keys: java.util.List[K]) = {
+    metrics.deletes.inc(keys.size)
+    wrapperStore.deleteAll(keys)
   }
 
   def range(from: K, to: K) = {
     metrics.ranges.inc
-    db.range(from, to)
+    wrapperStore.range(from, to)
   }
 
   def all() = {
     metrics.alls.inc
-    db.all()
+    wrapperStore.all()
   }
 
   /**
    * Restore the contents of this key/value store from the change log,
-   * batching updates and skipping serialization for efficiency.
+   * batching updates to underlying raw store to skip wrapping functions for efficiency.
    */
   def restore(envelopes: java.util.Iterator[IncomingMessageEnvelope]) {
     val batch = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](batchSize)
@@ -83,7 +93,7 @@ class KeyValueStorageEngine[K, V](
       batch.add(new Entry(keyBytes, valBytes))
 
       if (batch.size >= batchSize) {
-        rawDb.putAll(batch)
+        rawStore.putAll(batch)
         batch.clear()
       }
 
@@ -101,7 +111,7 @@ class KeyValueStorageEngine[K, V](
     }
 
     if (batch.size > 0) {
-      rawDb.putAll(batch)
+      rawStore.putAll(batch)
     }
   }
 
@@ -110,19 +120,19 @@ class KeyValueStorageEngine[K, V](
 
     metrics.flushes.inc
 
-    db.flush
+    wrapperStore.flush()
   }
 
   def stop() = {
     trace("Stopping.")
 
-    close
+    close()
   }
 
   def close() = {
     trace("Closing.")
 
-    flush
-    db.close
+    flush()
+    wrapperStore.close()
   }
 }

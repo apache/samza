@@ -19,8 +19,9 @@
 
 package org.apache.samza.storage
 
-import java.io.File
-import scala.collection.Map
+import java.io._
+import java.util
+import scala.collection.{JavaConversions, Map}
 import org.apache.samza.util.Logging
 import org.apache.samza.Partition
 import org.apache.samza.system._
@@ -35,7 +36,7 @@ object TaskStorageManager {
 
   def getStorePartitionDir(storeBaseDir: File, storeName: String, taskName: TaskName) = {
     // TODO: Sanitize, check and clean taskName string as a valid value for a file
-    new File(storeBaseDir, storeName + File.separator + taskName)
+    new File(storeBaseDir, (storeName + File.separator + taskName.toString).replace(' ', '_'))
   }
 }
 
@@ -50,40 +51,85 @@ class TaskStorageManager(
   changeLogStreamPartitions: Int,
   streamMetadataCache: StreamMetadataCache,
   storeBaseDir: File = new File(System.getProperty("user.dir"), "state"),
+  loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
   partition: Partition,
   systemAdmins: Map[String, SystemAdmin]) extends Logging {
 
   var taskStoresToRestore = taskStores
   var changeLogOldestOffsets: Map[SystemStream, String] = Map()
+  val fileOffset: util.Map[SystemStreamPartition, String] = new util.HashMap[SystemStreamPartition, String]()
+  val offsetFileName = "OFFSET"
 
   def apply(storageEngineName: String) = taskStores(storageEngineName)
 
   def init {
     cleanBaseDirs
-    createStreams
+    setupBaseDirs
+    validateChangelogStreams
     startConsumers
     restoreStores
     stopConsumers
   }
 
-  private def cleanBaseDirs {
-    debug("Cleaning base directories for stores.")
-    taskStores.keys.foreach(storeName => {
-      val storagePartitionDir = TaskStorageManager.getStorePartitionDir(storeBaseDir, storeName, taskName)
+  private def setupBaseDirs {
+    debug("Setting up base directories for stores.")
 
-      debug("Cleaning %s for store %s." format (storagePartitionDir, storeName))
+    val loggedStores = changeLogSystemStreams.keySet
 
-      Util.rm(storagePartitionDir)
-      storagePartitionDir.mkdirs
+    (taskStores.keySet -- loggedStores)
+      .foreach(TaskStorageManager.getStorePartitionDir(storeBaseDir, _, taskName).mkdirs)
+
+    loggedStores.foreach(storeName => {
+      val loggedStoragePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
+      if(!loggedStoragePartitionDir.exists()) loggedStoragePartitionDir.mkdirs
     })
   }
 
-  private def createStreams = {
-    info("Creating streams that are not present for changelog")
+  private def cleanBaseDirs {
+    debug("Cleaning base directories for stores.")
+
+    taskStores.keys.foreach(storeName => {
+      val storagePartitionDir = TaskStorageManager.getStorePartitionDir(storeBaseDir, storeName, taskName)
+      info("Got logged storage partition directory as %s" format storagePartitionDir.toPath.toString)
+
+      if(storagePartitionDir.exists()) {
+        debug("Deleting default storage partition directory %s" format storagePartitionDir.toPath.toString)
+        Util.rm(storagePartitionDir)
+      }
+
+      val loggedStoragePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
+      info("Got logged storage partition directory as %s" format loggedStoragePartitionDir.toPath.toString)
+
+      var deleteLoggedStoragePartitionDir = false
+
+      val offsetFileRef = new File(loggedStoragePartitionDir, offsetFileName)
+      if(offsetFileRef.exists()) {
+        debug("Found offset file in partition directory: %s" format offsetFileRef.toPath.toString)
+        val offset = Util.readDataFromFile(offsetFileRef)
+        if(offset != null && !offset.isEmpty) {
+          fileOffset.put(new SystemStreamPartition(changeLogSystemStreams(storeName), partition), offset)
+        } else {
+          deleteLoggedStoragePartitionDir = true
+        }
+        offsetFileRef.delete()
+      } else {
+        info("No offset file found in logged storage partition directory: %s" format loggedStoragePartitionDir.toPath.toString)
+        deleteLoggedStoragePartitionDir = true
+      }
+      if(deleteLoggedStoragePartitionDir && loggedStoragePartitionDir.exists()) {
+        Util.rm(loggedStoragePartitionDir)
+      }
+    })
+  }
+
+  private def validateChangelogStreams = {
+    info("Validating change log streams")
 
     for ((storeName, systemStream) <- changeLogSystemStreams) {
-      var systemAdmin = systemAdmins.getOrElse(systemStream.getSystem, throw new SamzaException("Unable to get systemAdmin for store " + storeName + " and systemStream" + systemStream))
-      systemAdmin.createChangelogStream(systemStream.getStream, changeLogStreamPartitions)
+      val systemAdmin = systemAdmins
+        .getOrElse(systemStream.getSystem,
+                   throw new SamzaException("Unable to get systemAdmin for store " + storeName + " and systemStream" + systemStream))
+      systemAdmin.validateChangelogStream(systemStream.getStream, changeLogStreamPartitions)
     }
 
     val changeLogMetadata = streamMetadataCache.getStreamMetadata(changeLogSystemStreams.values.toSet)
@@ -99,15 +145,16 @@ class TaskStorageManager(
     for ((storeName, systemStream) <- changeLogSystemStreams) {
       val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
       val consumer = storeConsumers(storeName)
-      val offset = changeLogOldestOffsets.getOrElse(systemStream, throw new SamzaException("Missing a change log offset for %s." format systemStreamPartition))
+      val offset =
+        Option(fileOffset.get(systemStreamPartition))
+          .getOrElse(changeLogOldestOffsets
+            .getOrElse(systemStream, throw new SamzaException("Missing a change log offset for %s." format systemStreamPartition)))
 
       if (offset != null) {
         info("Registering change log consumer with offset %s for %s." format (offset, systemStreamPartition))
-
         consumer.register(systemStreamPartition, offset)
       } else {
         info("Skipping change log restoration for %s because stream appears to be empty (offset was null)." format systemStreamPartition)
-
         taskStoresToRestore -= storeName
       }
     }
@@ -123,7 +170,7 @@ class TaskStorageManager(
         val systemStream = changeLogSystemStreams(storeName)
         val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
         val systemConsumer = storeConsumers(storeName)
-        val systemConsumerIterator = new SystemStreamPartitionIterator(systemConsumer, systemStreamPartition);
+        val systemConsumerIterator = new SystemStreamPartitionIterator(systemConsumer, systemStreamPartition)
         store.restore(systemConsumerIterator)
       }
     }
@@ -141,12 +188,35 @@ class TaskStorageManager(
     taskStores.values.foreach(_.flush)
   }
 
-  def stop() {
+  def stopStores() {
     debug("Stopping stores.")
-
     taskStores.values.foreach(_.stop)
   }
 
+  def stop() {
+    stopStores()
+
+    debug("Persisting logged key value stores")
+    changeLogSystemStreams.foreach { case (store, systemStream) => {
+      val streamToMetadata = systemAdmins(systemStream.getSystem)
+                              .getSystemStreamMetadata(JavaConversions.setAsJavaSet(Set(systemStream.getStream)))
+      val sspMetadata = streamToMetadata
+                          .get(systemStream.getStream)
+                          .getSystemStreamPartitionMetadata
+                          .get(partition)
+      val newestOffset = sspMetadata.getNewestOffset
+
+      if (newestOffset != null) {
+        val offsetFile = new File(TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, store, taskName), offsetFileName)
+        Util.writeDataToFile(offsetFile, newestOffset)
+        info("Successfully stored offset %s for store %s in OFFSET file " format (newestOffset, store))
+      }
+      else {
+        //if newestOffset is null, then it means the store is empty. No need to persist the offset file
+        info("Not storing OFFSET file for taskName %s. Store %s backed by changelog topic : %s, partition: %s is empty. " format (taskName, store, systemStream.getStream, partition.getPartitionId))
+      }
+    }}
+  }
 
   /**
    * Builds a map from SystemStreamPartition to oldest offset for changelogs.

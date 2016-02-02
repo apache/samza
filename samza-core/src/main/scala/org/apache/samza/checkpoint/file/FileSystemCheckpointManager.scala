@@ -36,9 +36,9 @@ import org.apache.samza.serializers.CheckpointSerde
 import scala.io.Source
 
 class FileSystemCheckpointManager(
-  jobName: String,
-  root: File,
-  serde: CheckpointSerde = new CheckpointSerde) extends CheckpointManager {
+                                   jobName: String,
+                                   root: File,
+                                   serde: CheckpointSerde = new CheckpointSerde) extends CheckpointManager {
 
   override def register(taskName: TaskName):Unit = Unit
 
@@ -72,26 +72,6 @@ class FileSystemCheckpointManager(
 
   private def getFile(jobName: String, taskName: TaskName, fileType:String) =
     new File(root, "%s-%s-%s" format (jobName, taskName, fileType))
-
-  private def getChangeLogPartitionMappingFile() = getFile(jobName, new TaskName("partition-mapping"), "changelog-partition-mapping")
-
-  override def readChangeLogPartitionMapping(): util.Map[TaskName, java.lang.Integer] = {
-    try {
-      val bytes = Source.fromFile(getChangeLogPartitionMappingFile()).map(_.toByte).toArray
-      serde.changelogPartitionMappingFromBytes(bytes)
-    } catch {
-      case e: FileNotFoundException => new util.HashMap[TaskName, java.lang.Integer]()
-    }
-  }
-
-  def writeChangeLogPartitionMapping(mapping: util.Map[TaskName, java.lang.Integer]): Unit = {
-    val hashmap = new util.HashMap[TaskName, java.lang.Integer](mapping)
-    val bytes = serde.changelogPartitionMappingToBytes(hashmap)
-    val fos = new FileOutputStream(getChangeLogPartitionMappingFile())
-
-    fos.write(bytes)
-    fos.close
-  }
 }
 
 class FileSystemCheckpointManagerFactory extends CheckpointManagerFactory {

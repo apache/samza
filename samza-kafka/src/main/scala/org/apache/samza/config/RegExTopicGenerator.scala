@@ -23,12 +23,12 @@ import org.I0Itec.zkclient.ZkClient
 import kafka.utils.{ ZkUtils, ZKStringSerializer }
 import org.apache.samza.config.KafkaConfig.{ Config2Kafka, REGEX_RESOLVED_STREAMS }
 import org.apache.samza.SamzaException
+import org.apache.samza.util.Util
 import collection.JavaConversions._
 import org.apache.samza.util.Logging
 import scala.collection._
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.system.SystemStream
-import org.apache.samza.util.Util
 import scala.util.Sorting
 
 /**

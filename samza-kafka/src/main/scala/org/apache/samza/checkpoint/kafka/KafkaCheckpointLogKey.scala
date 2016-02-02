@@ -19,10 +19,12 @@
 package org.apache.samza.checkpoint.kafka
 
 import java.util
+
 import org.apache.samza.SamzaException
 import org.apache.samza.container.TaskName
 import org.codehaus.jackson.`type`.TypeReference
 import org.codehaus.jackson.map.ObjectMapper
+
 import scala.collection.JavaConversions._
 
 /**
@@ -33,7 +35,7 @@ import scala.collection.JavaConversions._
  */
 class KafkaCheckpointLogKey private (val map: Map[String, String]) {
   // This might be better as a case class...
-  import KafkaCheckpointLogKey._
+  import org.apache.samza.checkpoint.kafka.KafkaCheckpointLogKey._
 
   /**
    * Serialize this key to bytes
@@ -60,6 +62,7 @@ class KafkaCheckpointLogKey private (val map: Map[String, String]) {
    *
    * @return true iff this key's entry is for a changelog partition mapping
    */
+  @Deprecated
   def isChangelogPartitionMapping = getKey.equals(CHANGELOG_PARTITION_KEY_TYPE)
 
   /**
@@ -94,13 +97,17 @@ object KafkaCheckpointLogKey {
    */
   val CHECKPOINT_KEY_KEY = "type"
   val CHECKPOINT_KEY_TYPE = "checkpoint"
+
+  @Deprecated
   val CHANGELOG_PARTITION_KEY_TYPE = "changelog-partition-mapping"
+
   val CHECKPOINT_TASKNAME_KEY = "taskName"
   val SYSTEMSTREAMPARTITION_GROUPER_FACTORY_KEY = "systemstreampartition-grouper-factory"
 
   /**
    * Partition mapping keys have no dynamic values, so we just need one instance.
    */
+  @Deprecated
   val CHANGELOG_PARTITION_MAPPING_KEY = new KafkaCheckpointLogKey(Map(CHECKPOINT_KEY_KEY -> CHANGELOG_PARTITION_KEY_TYPE))
 
   private val JSON_MAPPER = new ObjectMapper()
@@ -143,6 +150,7 @@ object KafkaCheckpointLogKey {
    *
    * @return Key for changelog partition mapping entry
    */
+  @Deprecated
   def getChangelogPartitionMappingKey() = CHANGELOG_PARTITION_MAPPING_KEY
 
   /**

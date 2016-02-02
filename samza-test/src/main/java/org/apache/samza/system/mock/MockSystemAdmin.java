@@ -22,8 +22,8 @@ package org.apache.samza.system.mock;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+
 import org.apache.samza.Partition;
-import org.apache.samza.SamzaException;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
@@ -54,12 +54,7 @@ public class MockSystemAdmin implements SystemAdmin {
     return metadata;
   }
 
-    @Override
-    public void createChangelogStream(String streamName, int numOfPartitions) {
-        throw new SamzaException("Method not implemented");
-    }
-
-    @Override
+  @Override
   public Map<SystemStreamPartition, String> getOffsetsAfter(Map<SystemStreamPartition, String> offsets) {
     Map<SystemStreamPartition, String> offsetsAfter = new HashMap<SystemStreamPartition, String>();
 
@@ -68,5 +63,25 @@ public class MockSystemAdmin implements SystemAdmin {
     }
 
     return offsetsAfter;
+  }
+
+  @Override
+  public void createChangelogStream(String streamName, int numOfPartitions) {
+    throw new UnsupportedOperationException("Method not implemented");
+  }
+
+  @Override
+  public void validateChangelogStream(String streamName, int numOfPartitions) {
+    throw new UnsupportedOperationException("Method not implemented");
+  }
+
+  @Override
+  public void createCoordinatorStream(String streamName) {
+    throw new UnsupportedOperationException("Method not implemented.");
+  }
+
+  @Override
+  public Integer offsetComparator(String offset1, String offset2) {
+    return null;
   }
 }

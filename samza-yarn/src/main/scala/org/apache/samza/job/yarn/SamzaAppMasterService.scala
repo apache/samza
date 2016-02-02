@@ -19,6 +19,8 @@
 
 package org.apache.samza.job.yarn
 
+import org.apache.samza.coordinator.stream.CoordinatorStreamWriter
+import org.apache.samza.coordinator.stream.messages.SetConfig
 import org.apache.samza.util.Logging
 import org.apache.samza.config.Config
 import org.apache.samza.metrics.ReadableMetricsRegistry
@@ -33,9 +35,10 @@ import org.apache.samza.webapp.ApplicationMasterWebServlet
  * dashboards to check on the status of a job. SamzaAppMasterService starts
  * up the web service when initialized.
  */
-class SamzaAppMasterService(config: Config, state: SamzaAppMasterState, registry: ReadableMetricsRegistry, clientHelper: ClientHelper) extends YarnAppMasterListener with Logging {
+class SamzaAppMasterService(config: Config, state: SamzaAppState, registry: ReadableMetricsRegistry, clientHelper: ClientHelper) extends YarnAppMasterListener with Logging {
   var rpcApp: HttpServer = null
   var webApp: HttpServer = null
+  val SERVER_URL_OPT: String = "samza.autoscaling.server.url"
 
   override def onInit() {
     // try starting the samza AM dashboard at a random rpc and tracking port
@@ -54,7 +57,14 @@ class SamzaAppMasterService(config: Config, state: SamzaAppMasterState, registry
     state.trackingUrl = webApp.getUrl
     state.coordinatorUrl = state.jobCoordinator.server.getUrl
 
-    info("Webapp is started at (rpc %s, tracking %s, coordinator %s)" format (state.rpcUrl, state.trackingUrl, state.coordinatorUrl))
+    //write server url to coordinator stream
+    val coordinatorStreamWriter: CoordinatorStreamWriter = new CoordinatorStreamWriter(config)
+    coordinatorStreamWriter.start()
+    coordinatorStreamWriter.sendMessage(SetConfig.TYPE, SERVER_URL_OPT, state.coordinatorUrl.toString)
+    coordinatorStreamWriter.stop()
+    debug("sent server url message with value: %s " format state.coordinatorUrl.toString)
+
+    info("Webapp is started at (rpc %s, tracking %s, coordinator %s)" format(state.rpcUrl, state.trackingUrl, state.coordinatorUrl))
   }
 
   override def onShutdown() {

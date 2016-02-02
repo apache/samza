@@ -22,6 +22,7 @@ package org.apache.samza.logging.log4j;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.Logger;
@@ -31,6 +32,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.Log4jSystemConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.ShellCommandConfig;
+import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.logging.log4j.serializers.LoggingEventJsonSerdeFactory;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -50,9 +52,9 @@ import org.apache.samza.util.Util;
  */
 public class StreamAppender extends AppenderSkeleton {
 
-  private final String JAVA_OPTS_CONTAINER_NAME = "samza.container.name";
-  private final String APPLICATION_MASTER_TAG = "samza-application-master";
-  private final String SOURCE = "log4j-log";
+  private static final String JAVA_OPTS_CONTAINER_NAME = "samza.container.name";
+  private static final String APPLICATION_MASTER_TAG = "samza-application-master";
+  private static final String SOURCE = "log4j-log";
   private Config config = null;
   private SystemStream systemStream = null;
   private SystemProducer systemProducer = null;
@@ -61,16 +63,12 @@ public class StreamAppender extends AppenderSkeleton {
   private boolean isApplicationMaster = false;
   private Serde<LoggingEvent> serde = null;
   private Logger log = Logger.getLogger(StreamAppender.class);
+  protected static volatile boolean systemInitialized = false;
 
   /**
    * used to detect if this thread is called recursively
    */
-  private final ThreadLocal<Boolean> recursiveCall = new ThreadLocal<Boolean>() {
-    @Override
-    protected Boolean initialValue() {
-      return false;
-    }
-  };
+  private final AtomicBoolean recursiveCall = new AtomicBoolean(false);
 
   public String getStreamName() {
     return this.streamName;
@@ -86,44 +84,37 @@ public class StreamAppender extends AppenderSkeleton {
     if (containerName != null) {
       isApplicationMaster = containerName.contains(APPLICATION_MASTER_TAG);
     } else {
-      throw new SamzaException("Got null container name from system property: " + JAVA_OPTS_CONTAINER_NAME + ". This is used as the key for the log appender, so can't proceed.");
+      throw new SamzaException("Got null container name from system property: " + JAVA_OPTS_CONTAINER_NAME +
+          ". This is used as the key for the log appender, so can't proceed.");
     }
     key = containerName; // use the container name as the key for the logs
-    config = getConfig();
-    SystemFactory systemFactory = null;
-    Log4jSystemConfig log4jSystemConfig = new Log4jSystemConfig(config);
-
-    if (streamName == null) {
-      streamName = getStreamName(log4jSystemConfig.getJobName(), log4jSystemConfig.getJobId());
-    }
-
-    String systemName = log4jSystemConfig.getSystemName();
-    String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName);
-    if (systemFactoryName != null) {
-      systemFactory = Util.<SystemFactory> getObj(systemFactoryName);
+    // StreamAppender has to wait until the JobCoordinator is up when the log is in the AM
+    if (isApplicationMaster) {
+      systemInitialized = false;
     } else {
-      throw new SamzaException("Please define log4j system name and factory class");
+      setupSystem();
+      systemInitialized = true;
     }
-
-    setSerde(log4jSystemConfig, systemName, streamName);
-
-    systemProducer = systemFactory.getProducer(systemName, config, new MetricsRegistryMap());
-    systemStream = new SystemStream(systemName, streamName);
-    systemProducer.register(SOURCE);
-    systemProducer.start();
-
-    log.info(SOURCE + " has been registered in " + systemName + ". So all the logs will be sent to " + streamName
-        + " in " + systemName + ". Logs are partitioned by " + key);
   }
 
   @Override
-  protected void append(LoggingEvent event) {
+  public void append(LoggingEvent event) {
     if (!recursiveCall.get()) {
       try {
         recursiveCall.set(true);
-        OutgoingMessageEnvelope outgoingMessageEnvelope =
-            new OutgoingMessageEnvelope(systemStream, key.getBytes("UTF-8"), serde.toBytes(subLog(event)));
-        systemProducer.send(SOURCE, outgoingMessageEnvelope);
+        if (!systemInitialized) {
+          if (JobCoordinator.currentJobCoordinator() != null) {
+            // JobCoordinator has been instantiated
+            setupSystem();
+            systemInitialized = true;
+          } else {
+            log.trace("Waiting for the JobCoordinator to be instantiated...");
+          }
+        } else {
+          OutgoingMessageEnvelope outgoingMessageEnvelope =
+              new OutgoingMessageEnvelope(systemStream, key.getBytes("UTF-8"), serde.toBytes(subLog(event)));
+          systemProducer.send(SOURCE, outgoingMessageEnvelope);
+        }
       } catch (UnsupportedEncodingException e) {
         throw new SamzaException("can not send the log messages", e);
       } finally {
@@ -148,10 +139,13 @@ public class StreamAppender extends AppenderSkeleton {
 
   @Override
   public void close() {
+    log.info("Shutting down the StreamAppender...");
     if (!this.closed) {
       this.closed = true;
       flushSystemProducer();
-      systemProducer.stop();
+      if (systemProducer !=  null) {
+        systemProducer.stop();
+      }
     }
   }
 
@@ -164,7 +158,9 @@ public class StreamAppender extends AppenderSkeleton {
    * force the system producer to flush the messages
    */
   public void flushSystemProducer() {
-    systemProducer.flush(SOURCE);
+    if (systemProducer != null) {
+      systemProducer.flush(SOURCE);
+    }
   }
 
   /**
@@ -177,10 +173,12 @@ public class StreamAppender extends AppenderSkeleton {
 
     try {
       if (isApplicationMaster) {
-        config = SamzaObjectMapper.getObjectMapper().readValue(System.getenv(ShellCommandConfig.ENV_CONFIG()), Config.class);
+        config = JobCoordinator.currentJobCoordinator().jobModel().getConfig();
       } else {
         String url = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
-        config = SamzaObjectMapper.getObjectMapper().readValue(Util.read(new URL(url), 30000), JobModel.class).getConfig();
+        config = SamzaObjectMapper.getObjectMapper()
+            .readValue(Util.read(new URL(url), 30000), JobModel.class)
+            .getConfig();
       }
     } catch (IOException e) {
       throw new SamzaException("can not read the config", e);
@@ -189,7 +187,35 @@ public class StreamAppender extends AppenderSkeleton {
     return config;
   }
 
-  public static String getStreamName(String jobName, String jobId) {
+  protected void setupSystem() {
+    config = getConfig();
+    SystemFactory systemFactory = null;
+    Log4jSystemConfig log4jSystemConfig = new Log4jSystemConfig(config);
+
+    if (streamName == null) {
+      streamName = getStreamName(log4jSystemConfig.getJobName(), log4jSystemConfig.getJobId());
+    }
+
+    String systemName = log4jSystemConfig.getSystemName();
+    String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName);
+    if (systemFactoryName != null) {
+      systemFactory = Util.<SystemFactory>getObj(systemFactoryName);
+    } else {
+      throw new SamzaException("Could not figure out \"" + systemName + "\" system factory for log4j StreamAppender to use");
+    }
+
+    setSerde(log4jSystemConfig, systemName, streamName);
+
+    systemProducer = systemFactory.getProducer(systemName, config, new MetricsRegistryMap());
+    systemStream = new SystemStream(systemName, streamName);
+    systemProducer.register(SOURCE);
+    systemProducer.start();
+
+    log.info(SOURCE + " has been registered in " + systemName + ". So all the logs will be sent to " + streamName
+        + " in " + systemName + ". Logs are partitioned by " + key);
+  }
+
+  protected static String getStreamName(String jobName, String jobId) {
     if (jobName == null) {
       throw new SamzaException("job name is null. Please specify job.name");
     }
@@ -209,7 +235,7 @@ public class StreamAppender extends AppenderSkeleton {
    * @param streamName name of the stream
    */
   private void setSerde(Log4jSystemConfig log4jSystemConfig, String systemName, String streamName) {
-    String serdeClass = LoggingEventJsonSerdeFactory.class.getCanonicalName();;
+    String serdeClass = LoggingEventJsonSerdeFactory.class.getCanonicalName();
     String serdeName = log4jSystemConfig.getStreamSerdeName(systemName, streamName);
 
     if (serdeName != null) {
@@ -217,11 +243,12 @@ public class StreamAppender extends AppenderSkeleton {
     }
 
     if (serdeClass != null) {
-      SerdeFactory<LoggingEvent> serdeFactory = Util.<SerdeFactory<LoggingEvent>> getObj(serdeClass);
+      SerdeFactory<LoggingEvent> serdeFactory = Util.<SerdeFactory<LoggingEvent>>getObj(serdeClass);
       serde = serdeFactory.getSerde(systemName, config);
     } else {
       String serdeKey = String.format(SerializerConfig.SERDE(), serdeName);
-      throw new SamzaException("Can not find serializers class for key '" + serdeName + "'. Please specify " + serdeKey + " property");
+      throw new SamzaException("Can not find serializers class for key '" + serdeName + "'. Please specify " +
+          serdeKey + " property");
     }
   }
 

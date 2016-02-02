@@ -19,7 +19,6 @@
 
 package org.apache.samza.metrics.reporter
 
-import java.net.InetAddress
 import org.apache.samza.util.Logging
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
@@ -32,9 +31,7 @@ import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
 import org.apache.samza.util.Util
-import org.apache.samza.metrics.ReadableMetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.serializers.Serializer
 import org.apache.samza.serializers.SerdeFactory
 import org.apache.samza.system.SystemFactory
 
@@ -107,15 +104,21 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
     info("Got serde %s." format serde)
 
+    val pollingInterval: Int = config
+      .getMetricsReporterInterval(name)
+      .getOrElse("60").toInt
+
+    info("Setting polling interval to %d" format pollingInterval)
     val reporter = new MetricsSnapshotReporter(
       producer,
       systemStream,
+      pollingInterval,
       jobName,
       jobId,
       containerName,
       version,
       samzaVersion,
-      InetAddress.getLocalHost().getHostName(),
+      Util.getLocalHost.getHostName,
       serde)
 
     reporter.register(this.getClass.getSimpleName.toString, registry)

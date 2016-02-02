@@ -122,7 +122,7 @@
                         <strong>Required:</strong> The <a href="job-runner.html">job factory</a> to use for running this job.
                         The value is a fully-qualified Java classname, which must implement
                         <a href="../api/javadocs/org/apache/samza/job/StreamJobFactory.html">StreamJobFactory</a>.
-                        Samza ships with two implementations:
+                        Samza ships with three implementations:
                         <dl>
                             <dt><code>org.apache.samza.job.local.ThreadJobFactory</code></dt>
                             <dd>Runs your job on your local machine using threads. This is intended only for
@@ -156,6 +156,32 @@
                         others' checkpoints, and perhaps interfere with each other in other ways.
                     </td>
                 </tr>
+                <tr>
+                    <td class="property" id="job-coordinator-system">job.coordinator.system</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required:</strong> The <span class="system">system-name</span> to use for creating and maintaining the <a href="../container/coordinator-stream.html">Coordinator Stream</a>.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job-coordinator-replication-factor">job.coordinator.<br />replication.factor</td>
+                    <td class="default">3</td>
+                    <td class="description">
+                        If you are using Kafka for coordinator stream, this is the number of Kafka nodes to which you want the
+                        coordinator topic replicated for durability.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job-coordinator-segment-bytes">job.coordinator.<br />segment.bytes</td>
+                    <td class="default">26214400</td>
+                    <td class="description">
+                        If you are using a Kafka system for coordinator stream, this is the segment size to be used for the coordinator
+                        topic's log segments. Keeping this number small is useful because it increases the frequency
+                        that Kafka will garbage collect old messages.
+                    </td>
+                </tr>
 
                 <tr>
                     <td class="property" id="job-config-rewriter-class">job.config.rewriter.<br><span class="rewriter">rewriter-name</span>.class</td>
@@ -167,12 +193,16 @@
                         the set of input streams dynamically at runtime. The value of this property is a
                         fully-qualified Java classname which must implement
                         <a href="../api/javadocs/org/apache/samza/config/ConfigRewriter.html">ConfigRewriter</a>.
-                        Samza ships with one rewriter by default:
+                        Samza ships with these rewriters by default:
                         <dl>
                             <dt><code>org.apache.samza.config.RegExTopicGenerator</code></dt>
                             <dd>When consuming from Kafka, this allows you to consume all Kafka topics that match
                                 some regular expression (rather than having to list each topic explicitly).
                                 This rewriter has <a href="#regex-rewriter">additional configuration</a>.</dd>
+                            <dt><code>org.apache.samza.config.EnvironmentConfigRewriter</code></dt>
+                            <dd>This rewriter takes environment variables that are prefixed with <i>SAMZA_</i>
+                                and adds them to the configuration, overriding previous values where they
+                                exist. The keys are lowercased and underscores are converted to dots.</dd>
                         </dl>
                     </td>
                 </tr>
@@ -377,9 +407,8 @@
                     <td class="property" id="task-log4j-system">task.log4j.system</td>
                     <td class="default"></td>
                     <td class="description">
-                        Specify the system name for the StreamAppender. If Samza can not find this property and there is
-                        only one system in the config, it will guess to use that system for the log4j appender. If this property
-                        is not specified and there are more than one system in the config, Samza throws exception. (See
+                        Specify the system name for the StreamAppender. If this property is not specified in the config,
+                        Samza throws exception. (See
                         <a href="logging.html#stream-log4j-appender">Stream Log4j Appender</a>)
                         <dl>
                             <dt>Example: <code>task.log4j.system=kafka</code></dt>
@@ -430,6 +459,31 @@
                     <td class="default">5000</td>
                     <td class="description">
                         This property controls how long the Samza container will wait for an orderly shutdown of task instances.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="task-name-grouper-factory">task.name.grouper.factory</td>
+                    <td class="default">org.apache.samza.<br>container.grouper.task.<br>GroupByContainerCountFactory</td>
+                    <td class="description">
+                        The fully-qualified name of the Java class which determines the factory class which will build the TaskNameGrouper.
+                        The default configuration value if the property is not present is <code>task.name.grouper.factory=org.apache.samza.container.grouper.task.GroupByContainerCountFactory</code>.<br>
+                        The user can specify a custom implementation of the TaskNameGrouperFactory where a custom logic is implemented for grouping the tasks.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="task-broadcast-inputs">task.broadcast.inputs</td>
+                    <td class="default"></td>
+                    <td class="description">
+                       This property specifies the partitions that all tasks should consume. The systemStreamPartitions you put
+                       here will be sent to all the tasks.
+                       <dl>
+                         <dt>Format: <span class="system">system-name</span>.<span class="stream">stream-name</span>#<i>partitionId</i>
+                       or <span class="system">system-name</span>.<span class="stream">stream-name</span>#[<i>startingPartitionId</i>-<i>endingPartitionId</i>]</dt>
+                       </dl>
+                       <dl>
+                            <dt>Example: <code>task.broadcast.inputs=mySystem.broadcastStream#[0-2], mySystem.broadcastStream#0</code></dt>
+                       </dl>
                     </td>
                 </tr>
 
@@ -634,6 +688,113 @@
                 </tr>
 
                 <tr>
+                    <th colspan="3" class="section" id="elasticsearch">
+                        Using <a href="https://github.com/elastic/elasticsearch">Elasticsearch</a> for output streams<br>
+                        <span class="subtitle">
+                            (This section applies if you have set
+                            <a href="#systems-samza-factory" class="property">systems.*.samza.factory</a>
+                            <code>= org.apache.samza.system.elasticsearch.ElasticsearchSystemFactory</code>)
+                        </span>
+                    </th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-client-factory-class">systems.<span class="system">system-name</span>.<br>client.factory</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required:</strong> The elasticsearch client factory used for connecting
+                        to the Elasticsearch cluster. Samza ships with the following implementations:
+                        <dl>
+                            <dt><code>org.apache.samza.system.elasticsearch.client.TransportClientFactory</code></dt>
+                            <dd>Creates a TransportClient that connects to the cluster remotely without
+                                joining it. This requires the transport host and port properties to be set.</dd>
+                            <dt><code>org.apache.samza.system.elasticsearch.client.NodeClientFactory</code></dt>
+                            <dd>Creates a Node client that connects to the cluster by joining it. By default
+                            this uses <a href="http://www.elastic.co/guide/en/elasticsearch/reference/current/modules-discovery-zen.html">zen discovery</a> to find the cluster but other methods can be configured.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-index-request-factory-class">systems.<span class="system">system-name</span>.<br>index.request.factory</td>
+                    <td class="default">org.apache.samza.system</br>.elasticsearch.indexrequest.</br>DefaultIndexRequestFactory</td>
+                    <td class="description">
+                        The index request factory that converts the Samza OutgoingMessageEnvelope into the IndexRequest
+                        to be send to elasticsearch. The default IndexRequestFactory behaves as follows:
+                        <dl>
+                            <dt><code>Stream name</code></dt>
+                            <dd>The stream name is of the format {index-name}/{type-name} which
+                            map on to the elasticsearch index and type.</dd>
+                            <dt><code>Message id</code></dt>
+                            <dd>If the message has a key this is set as the document id, otherwise Elasticsearch will generate one for each document.</dd>
+                            <dt><code>Partition id</code></dt>
+                            <dd>If the partition key is set then this is used as the Elasticsearch routing key.</dd>
+                            <dt><code>Message</code></dt>
+                            <dd>The message must be either a byte[] which is passed directly on to Elasticsearch, or a Map which is passed on to the
+                            Elasticsearch client which serialises it into a JSON String. Samza serdes are not currently supported.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-client-host">systems.<span class="system">system-name</span>.<br>client.transport.host</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required</strong> for <code>TransportClientFactory</code>
+                        <p>The hostname that the TransportClientFactory connects to.</p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-client-port">systems.<span class="system">system-name</span>.<br>client.transport.port</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required</strong> for <code>TransportClientFactory</code>
+                        <p>The port that the TransportClientFactory connects to.</p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-client-settings">systems.<span class="system">system-name</span>.<br>client.elasticsearch.*</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        Any <a href="http://www.elastic.co/guide/en/elasticsearch/client/java-api/1.x/client.html">Elasticsearch client settings</a> can be used here. They will all be passed to both the transport and node clients.
+                        Some of the common settings you will want to provide are.
+                        <dl>
+                            <dt><code>systems.<span class="system">system-name</span>.client.elasticsearch.cluster.name</code></dt>
+                            <dd>The name of the Elasticsearch cluster the client is connecting to.</dd>
+                            <dt><code>systems.<span class="system">system-name</span>.client.elasticsearch.client.transport.sniff</code></dt>
+                            <dd>If set to <code>true</code> then the transport client will discover and keep
+                                up to date all cluster nodes. This is used for load balancing and fail-over on retries.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-bulk-flush-max-actions">systems.<span class="system">system-name</span>.<br>bulk.flush.max.actions</td>
+                    <td class="default">1000</td>
+                    <td class="description">
+                        The maximum number of messages to be buffered before flushing.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-bulk-flush-max-size-mb">systems.<span class="system">system-name</span>.<br>bulk.flush.max.size.mb</td>
+                    <td class="default">5</td>
+                    <td class="description">
+                        The maximum aggregate size of messages in the buffered before flushing.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-bulk-flush-interval-ms">systems.<span class="system">system-name</span>.<br>bulk.flush.interval.ms</td>
+                    <td class="default">never</td>
+                    <td class="description">
+                        How often buffered messages should be flushed.
+                    </td>
+                </tr>
+
+                <tr>
                     <th colspan="3" class="section" id="kafka">
                         Using <a href="http://kafka.apache.org/">Kafka</a> for input streams, output streams and checkpoints<br>
                         <span class="subtitle">
@@ -741,6 +902,31 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="systems-samza-fetch-threshold-bytes">systems.<span class="system">system-name</span>.<br>samza.fetch.threshold.bytes</td>
+                    <td class="default">-1</td>
+                    <td class="description">
+                        When consuming streams from Kafka, a Samza container maintains an in-memory buffer
+                        for incoming messages in order to increase throughput (the stream task can continue
+                        processing buffered messages while new messages are fetched from Kafka). This
+                        parameter determines the total size of messages we aim to buffer across all stream
+                        partitions consumed by a container based on bytes. Defines how many bytes to use for the buffered
+                        prefetch messages for job as a whole. The bytes for a single system/stream/partition are computed based on this.
+                        This fetches the entire messages, hence this bytes limit is a soft one, and the actual usage can be the bytes
+                        limit + size of max message in the partition for a given stream. If the value of this property is > 0
+                        then this takes precedence over systems.<span class="system">system-name</span>.samza.fetch.threshold.<br>
+                        For example, if fetchThresholdBytes is set to 100000 bytes, and there are 50 SystemStreamPartitions registered,
+                        then the per-partition threshold is (100000 / 2) / 50 = 1000 bytes. As this is a soft limit, the actual usage
+                        can be 1000 bytes + size of max message. As soon as a SystemStreamPartition's buffered messages bytes drops
+                        below 1000, a fetch request will be executed to get more data for it.
+
+                        Increasing this parameter will decrease the latency between when a queue is drained of messages and when new
+                        messages are enqueued, but also leads to an increase in memory usage since more messages will be held in memory.
+
+                        The default value is -1, which means this is not used.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="task-checkpoint-system">task.checkpoint.system</td>
                     <td class="default"></td>
                     <td class="description">
@@ -782,7 +968,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="store-changelog-partitions">stores.<span class="store">store-name</span>.changelog.<br>topic-level-property</td>
+                    <td class="property" id="store-changelog-partitions">stores.<span class="store">store-name</span>.changelog.<br>kafka.topic-level-property</td>
                     <td class="default"></td>
                     <td class="description">
                         The property allows you to specify topic level settings for the changelog topic to be created.
@@ -1002,10 +1188,12 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="stores-rocksdb-bloomfilter-bits">stores.<span class="store">store-name</span>.<br>rocksdb.bloomfilter.bits</td>
-                    <td class="default">10</td>
+                    <td class="property" id="stores-rocksdb-ttl">stores.<span class="store">store-name</span>.<br>rocksdb.ttl.ms</td>
+                    <td class="default"></td>
                     <td class="description">
-                      In RocksDB, every SST file <a href="https://github.com/facebook/rocksdb/wiki/RocksDB-Bloom-Filter">contains a Bloom filter</a>, which is used to determine if the file may contain a given key. Setting the bloom filter bit size allows developers to make the trade-off between the accuracy of the bloom filter, and its memory usage.
+                        The time-to-live of the store. Please note it's not a strict TTL limit (removed only
+                        after compaction). Please use caution opening a database with and without TTL, as it might corrupt the
+                        database. Please make sure to read the <a href="https://github.com/facebook/rocksdb/wiki/Time-to-Live">constraints</a> before using.
                     </td>
                 </tr>
 
@@ -1179,6 +1367,36 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="yarn-allocator-sleep-ms">yarn.allocator.sleep.ms</td>
+                    <td class="default">3600</td>
+                    <td class="description">
+                        The container allocator thread is responsible for matching requests to allocated containers.
+                        The sleep interval for this thread is configured using this property.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-samza-host_affinity-enabled">yarn.samza.host-affinity.enabled</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        This property indicates whether host-affinity is enabled or not. Host-affinity refers to the ability of the Application Master to request and allocate a container on the same host every time the job is deployed.
+                        When host-affinity is enabled, the AM makes a "best-effort" to honor the host-affinity constraint.
+                        The property <a href="#yarn-container-request-timeout-ms" class="property">yarn.container.request.timeout.ms</a> determines how long to wait before de-prioritizing the host-affinity constraint and assigning the container to any available resource.
+                        <b>Please Note</b>: This feature is tested to work with the FairScheduler in Yarn when continuous-scheduling is enabled.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-container-request-timeout-ms">yarn.container.request.timeout.ms</td>
+                    <td class="default">5000</td>
+                    <td class="description">
+                        The allocator thread periodically checks the state of the container requests and allocated containers to determine the assignment of a container to an allocated resource.
+                        This property determines the number of milliseconds before a container request is considered to have expired / timed-out.
+                        When a request expires, it gets allocated to any available container that was returned by the RM.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="yarn-queue">yarn.queue</td>
                     <td class="default"></td>
                     <td class="description">
@@ -1253,6 +1471,78 @@
                                 (registering the serde under a <span class="serde">serde-name</span> of
                                 <code>metrics-serde</code>)</li>
                         </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="metrics-reporter-polling-interval">metrics.reporter.<br><span class="reporter">reporter-name</span>.interval</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        If you have registered the metrics reporter
+                        <a href="#metrics-reporter-class" class="property">metrics.reporter.*.class</a>
+                        <code>= org.apache.samza.metrics.reporter.MetricsSnapshotReporterFactory</code>,
+                        you can use this property to configure how frequently the reporter will report the metrics
+                        registered with it. The value for this property should be length of the interval between
+                        consecutive metric reporting. This value is in seconds, and should be a positive integer value.
+                        This property is optional and set to 60 by default, which means metrics will be reported every
+                        60 seconds.
+                    </td>
+                </tr>
+
+                <tr>
+                    <th colspan="3" class="section" id="hdfs-system-producer"><a href="../hdfs/producer.html">Writing to HDFS</a></th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="hdfs-writer-class">systems.*.producer.hdfs.writer.class</td>
+                    <td class="default">org.apache.samza.system.hdfs.writer.BinarySequenceFileHdfsWriter</td>
+                    <td class="description">Fully-qualified class name of the HdfsWriter implementation this HDFS Producer system should use</td>
+                </tr>
+                <tr>
+                  <td class="property" id="hdfs-compression-type">systems.*.producer.hdfs.compression.type</td>
+                    <td class="default">none</td>
+                    <td class="description">A human-readable label for the compression type to use, such as "gzip" "snappy" etc. This label will be interpreted differently (or ignored) depending on the nature of the HdfsWriter implementation.</td>
+                </tr>
+                <tr>
+                    <td class="property" id="hdfs-base-output-dir">systems.*.producer.hdfs.base.output.dir</td>
+                    <td class="default">/user/USERNAME/SYSTEMNAME</td>
+                    <td class="description">The base output directory for HDFS writes. Defaults to the home directory of the user who ran the job, followed by the systemName for this HdfsSystemProducer as defined in the job.properties file.</td>
+                </tr>
+                <tr>
+                    <td class="property" id="hdfs-bucketer-class">systems.*.producer.hdfs.bucketer.class</td>
+                    <td class="default">org.apache.samza.system.hdfs.writer.JobNameDateTimeBucketer</td>
+                    <td class="description">Fully-qualified class name of the Bucketer implementation that will manage HDFS paths and file names. Used to batch writes by time, or other similar partitioning methods.</td>
+                </tr>
+                <tr>
+                    <td class="property" id="hdfs-bucketer-date-path-format">systems.*.producer.hdfs.bucketer.date.path.format</td>
+                    <td class="default"yyyy_MM_dd></td>
+                    <td class="description">A date format (using Java's SimpleDataFormat syntax) appropriate for use in an HDFS Path, which can configure time-based bucketing of output files.</td>
+                </tr>
+                <tr>
+                  <td class="property" id="hdfs-write-batch-size-bytes">systems.*.producer.write.batch.size.bytes</td>
+                  <td class="default">268435456</td>
+                  <td class="description">The number of bytes of outgoing messages to write to each HDFS output file before cutting a new file. Defaults to 256MB if not set.</td>
+                </tr>
+
+                <tr>
+                    <th colspan="3" class="section" id="task-migration">
+                        Migrating from Samza 0.9.1 to 0.10.0<br>
+                        <span class="subtitle">
+                            (This section applies if you are upgrading from Samza 0.9.1 to 0.10.0 and have set
+                            <a href="#task-checkpoint-factory" class="property">task.checkpoint.factory</a> to anything <b> other than </b>
+                            <code>org.apache.samza.checkpoint.file.FileSystemCheckpointManagerFactory</code>)
+                        </span>
+                    </th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="task-checkpoint-skip-migration">task.checkpoint.skip-migration</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        When migrating from 0.9.1 to 0.10.0, the taskName-to-changelog partition mapping was moved from the checkpoint stream to the coordinator stream. <br />
+                        If you are using a checkpoint manager other than kafka
+                        (<code>org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory</code>), you have to
+                        manually migrate taskName-to-changelog partition mapping to the coordinator stream. <br />
+                        This can be achieved with the assistance of the <code>checkpoint-tool.sh</code>.
                     </td>
                 </tr>
             </tbody>

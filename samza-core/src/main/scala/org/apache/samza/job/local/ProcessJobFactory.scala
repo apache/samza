@@ -30,7 +30,7 @@ import org.apache.samza.util.{Logging, Util}
  */
 class ProcessJobFactory extends StreamJobFactory with Logging {
   def   getJob(config: Config): StreamJob = {
-    val coordinator = JobCoordinator(config, 1)
+    val coordinator = JobCoordinator(config)
     val containerModel = coordinator.jobModel.getContainers.get(0)
 
     val commandBuilder = {
@@ -50,9 +50,9 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     coordinator.start
 
     commandBuilder
-      .setConfig(config)
-      .setId(0)
-      .setUrl(coordinator.server.getUrl)
+            .setConfig(config)
+            .setId(0)
+            .setUrl(coordinator.server.getUrl)
 
     new ProcessJob(commandBuilder, coordinator)
   }

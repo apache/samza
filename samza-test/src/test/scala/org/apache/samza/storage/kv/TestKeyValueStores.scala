@@ -23,6 +23,7 @@ import java.io.File
 import java.util.Arrays
 import java.util.Random
 
+import org.apache.samza.config.{MapConfig, StorageConfig}
 import org.apache.samza.serializers.Serde
 import org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStore
 import org.junit.After
@@ -58,7 +59,13 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
       case "inmemory" =>
         new InMemoryKeyValueStore
       case "rocksdb" =>
-        new RocksDbKeyValueStore (dir, new org.rocksdb.Options().setCreateIfMissing(true).setCompressionType(org.rocksdb.CompressionType.SNAPPY_COMPRESSION))
+        new RocksDbKeyValueStore (dir,
+                                  new org.rocksdb.Options()
+                                  .setCreateIfMissing(true)
+                                  .setCompressionType(org.rocksdb.CompressionType.SNAPPY_COMPRESSION),
+                                  new MapConfig(),
+                                  false,
+                                  "someStore")
       case _ =>
         throw new IllegalArgumentException("Type of store undefined: " + typeOfStore)
     }
@@ -97,8 +104,36 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
   }
 
   @Test
-  def getNonExistantIsNull() {
+  def getNonExistentIsNull() {
     assertNull(store.get(b("hello")))
+  }
+
+  @Test
+  def testGetAllWhenZeroMatch() {
+    store.put(b("hello"), b("world"))
+    val keys = List(b("foo"), b("bar"))
+    val actual = store.getAll(keys)
+    keys.foreach(k => assertNull("Key: " + k, actual.get(k)))
+  }
+
+  @Test
+  def testGetAllWhenFullMatch() {
+    val expected = Map(b("k0") -> b("v0"), b("k1") -> b("v1"))
+    expected.foreach(e => store.put(e._1, e._2))
+    val actual = store.getAll(expected.keys.toList)
+    assertEquals("Size", expected.size, actual.size)
+    expected.foreach(e => assertArrayEquals("Value at: " + s(e._1), e._2, actual.get(e._1)))
+  }
+
+  @Test
+  def testGetAllWhenPartialMatch() {
+    val all = Map(b("k0") -> b("v0"), b("k1") -> b("v1"), b("k2") -> b("v2"))
+    val found = all.entrySet.head
+    val notFound = all.entrySet.last
+    store.put(found.getKey, found.getValue)
+    val actual = store.getAll(List(notFound.getKey, found.getKey))
+    assertNull(actual.get(notFound.getKey))
+    assertArrayEquals(found.getValue, actual.get(found.getKey))
   }
 
   @Test
@@ -108,17 +143,9 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
   }
 
   @Test
-  def putStessTest() {
-    for( a <- 0 to 1900000){
-        store.put(b(a+"k"), b("v"))
-      }
-  }
-
-  @Test
   def doublePutAndGet() {
     val k = b("k2")
     store.put(k, b("v1"))
-    store.put(k, b("v2"))
     store.put(k, b("v3"))
     assertArrayEquals(b("v3"), store.get(k))
   }
@@ -127,11 +154,13 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
   def testNullsWithSerde() {
     if (serde) {
       val a = b("a")
-      val keyMsg = Some(NullSafeKeyValueStore.KEY_ERROR_MSG)
-      val valMsg = Some(NullSafeKeyValueStore.VAL_ERROR_MSG)
 
       intercept[NullPointerException] { store.get(null) }
+      intercept[NullPointerException] { store.getAll(null) }
+      intercept[NullPointerException] { store.getAll(List(a, null)) }
       intercept[NullPointerException] { store.delete(null) }
+      intercept[NullPointerException] { store.deleteAll(null) }
+      intercept[NullPointerException] { store.deleteAll(List(a, null)) }
       intercept[NullPointerException] { store.put(null, a) }
       intercept[NullPointerException] { store.put(a, null) }
       intercept[NullPointerException] { store.putAll(List(new Entry(a, a), new Entry[Array[Byte], Array[Byte]](a, null))) }
@@ -187,6 +216,41 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
     assertArrayEquals(a, store.get(a))
     store.delete(a)
     assertNull(store.get(a))
+  }
+
+  @Test
+  def testDeleteAllWhenZeroMatch() {
+    val foo = b("foo")
+    store.put(foo, foo)
+    store.deleteAll(List(b("bar")))
+    assertArrayEquals(foo, store.get(foo))
+  }
+
+  @Test
+  def testDeleteAllWhenFullMatch() {
+    val all = Map(b("k0") -> b("v0"), b("k1") -> b("v1"))
+    all.foreach(e => store.put(e._1, e._2))
+    assertEquals(all.size, store.getAll(all.keys.toList).size)
+    store.deleteAll(all.keys.toList)
+    all.keys.foreach(key => assertNull("Value at: " + s(key), store.get(key)))
+  }
+
+  @Test
+  def testDeleteAllWhenPartialMatch() {
+    val all = Map(b("k0") -> b("v0"), b("k1") -> b("v1"))
+    val found = all.entrySet.head
+    val leftAlone = all.entrySet.last
+    all.foreach(e => store.put(e._1, e._2))
+    assertArrayEquals(found.getValue, store.get(found.getKey))
+    store.deleteAll(List(b("not found"), found.getKey))
+    store.flush()
+    val allIterator = store.all
+    try {
+      assertEquals(1, allIterator.size)
+      assertArrayEquals(leftAlone.getValue, store.get(leftAlone.getKey))
+    } finally {
+      allIterator.close()
+    }
   }
 
   @Test
@@ -342,8 +406,8 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
 }
 
 object TestKeyValueStores {
-  val CacheSize = 1000000
-  val BatchSize = 1000000
+  val CacheSize = 1024
+  val BatchSize = 1024
   @Parameters
   def parameters: java.util.Collection[Array[String]] = Arrays.asList(
       //Inmemory

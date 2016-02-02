@@ -19,10 +19,11 @@
 
 package org.apache.samza.coordinator.server
 
+import org.apache.samza.util.Util
 import org.junit.Assert._
 import org.junit.Test
-import org.apache.samza.util.Util
 import java.net.URL
+import org.eclipse.jetty.server.Connector
 
 class TestHttpServer {
   @Test
@@ -35,6 +36,18 @@ class TestHttpServer {
       assertEquals("{\"foo\":\"bar\"}", body)
       val css = Util.read(new URL(server.getUrl + "/css/ropa-sans.css"))
       assertTrue(css.contains("RopaSans"))
+    } finally {
+      server.stop
+    }
+  }
+
+  @Test
+  def testHttpServerUrl {
+    val server = new HttpServer("/test", resourceBasePath = "scalate")
+    try {
+      server.addServlet("/basic", new BasicServlet())
+      server.start
+      assertTrue(server.getUrl.getHost == Util.getLocalHost.getHostName)
     } finally {
       server.stop
     }

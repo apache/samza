@@ -19,11 +19,10 @@
 
 package org.apache.samza.container.grouper.task
 
-import org.apache.samza.container.TaskName
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.job.model.ContainerModel
-import org.apache.samza.system.SystemStreamPartition
 import scala.collection.JavaConversions._
+import java.util
 
 /**
  * Group the SSP taskNames by dividing the number of taskNames into the number
@@ -36,11 +35,10 @@ import scala.collection.JavaConversions._
 class GroupByContainerCount(numContainers: Int) extends TaskNameGrouper {
   require(numContainers > 0, "Must have at least one container")
 
-  override def group(tasks: Set[TaskModel]): Set[ContainerModel] = {
+  override def group(tasks: util.Set[TaskModel]): util.Set[ContainerModel] = {
     require(tasks.size > 0, "No tasks found. Likely due to no input partitions. Can't run a job with no tasks.")
     require(tasks.size >= numContainers, "Your container count (%s) is larger than your task count (%s). Can't have containers with nothing to do, so aborting." format (numContainers, tasks.size))
-
-    tasks
+    setAsJavaSet(tasks
       .toList
       // Sort tasks by taskName.
       .sortWith { case (task1, task2) => task1.compareTo(task2) < 0 }
@@ -50,8 +48,8 @@ class GroupByContainerCount(numContainers: Int) extends TaskNameGrouper {
       .groupBy(_._2 % numContainers)
       // Take just TaskModel and remove task IDs.
       .mapValues(_.map { case (task, taskId) => (task.getTaskName, task) }.toMap)
-      .map { case (containerId, tasks) => new ContainerModel(containerId, tasks) }
-      .toSet
+      .map { case (containerId, taskModels) => new ContainerModel(containerId, taskModels) }
+      .toSet)
   }
 }
 
