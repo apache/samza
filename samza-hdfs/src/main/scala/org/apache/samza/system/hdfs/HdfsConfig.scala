@@ -54,6 +54,9 @@ object HdfsConfig {
   val HDFS_WRITER_CLASS_NAME ="systems.%s.producer.hdfs.writer.class"
   val HDFS_WRITER_CLASS_NAME_DEFAULT = "org.apache.samza.system.hdfs.writer.BinarySequenceFileHdfsWriter"
 
+  // fully-qualified class name of the class to wrap in Avro SpecificDatumWriter.
+  val HDFS_WRITER_AVRO_CLASS_NAME ="systems.%s.producer.hdfs.writer.avro.class"
+
   // fully qualified class name of the Bucketer impl the HdfsWriter should use to generate HDFS paths and filenames
   val BUCKETER_CLASS = "systems.%s.producer.hdfs.bucketer.class"
   val BUCKETER_CLASS_DEFAULT = "org.apache.samza.system.hdfs.writer.JobNameDateTimeBucketer"
@@ -70,6 +73,13 @@ class HdfsConfig(config: Config) extends ScalaMapConfig(config) {
    */
   def getHdfsWriterClassName(systemName: String): String = {
     getOrElse(HdfsConfig.HDFS_WRITER_CLASS_NAME format systemName, HdfsConfig.HDFS_WRITER_CLASS_NAME_DEFAULT)
+  }
+
+  /**
+    * @return the fully-qualified class name of the class to wrap in Avro SpecificDatumWriter.
+    */
+  def getAvroClassName(systemName: String): String = {
+    getOrElse(HdfsConfig.HDFS_WRITER_AVRO_CLASS_NAME format systemName, "")
   }
 
   /**
