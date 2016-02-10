@@ -33,11 +33,13 @@ import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.config.StorageConfig.Config2Storage
 import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.Partition
 import org.apache.samza.job.model.TaskModel
+import org.apache.samza.system.SystemStreamPartitionMatcher
 import org.apache.samza.system.StreamMetadataCache
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.serializers.model.SamzaObjectMapper
@@ -105,6 +107,27 @@ object JobCoordinator extends Logging {
       }.toSet
   }
 
+  def getMatchedInputStreamPartitions(config: Config) : Set[SystemStreamPartition] = {
+    val allSystemStreamPartitions = getInputStreamPartitions(config)
+    config.getSSPMatcherClass match {
+      case Some(s) => {
+        val jfr = config.getSSPMatcherConfigJobFactoryRegex.r
+        config.getStreamJobFactoryClass match {
+          case Some(jfr(_*)) => {
+            info("before match: allSystemStreamPartitions.size = %s" format (allSystemStreamPartitions.size))
+            val sspMatcher = Util.getObj[SystemStreamPartitionMatcher](s)
+            val matchedPartitions = sspMatcher.filter(allSystemStreamPartitions, config).asScala.toSet
+            // Usually a small set hence ok to log at info level
+            info("after match: matchedPartitions = %s" format (matchedPartitions))
+            matchedPartitions
+          }
+          case _ => allSystemStreamPartitions
+        }
+      }
+      case _ => allSystemStreamPartitions
+    }
+  }
+
   /**
    * Gets a SystemStreamPartitionGrouper object from the configuration.
    */
@@ -121,7 +144,7 @@ object JobCoordinator extends Logging {
     // TODO containerCount should go away when we generalize the job coordinator, 
     // and have a non-yarn-specific way of specifying container count.
     val checkpointManager = getCheckpointManager(config)
-    val allSystemStreamPartitions = getInputStreamPartitions(config)
+    val allSystemStreamPartitions = getMatchedInputStreamPartitions(config)
     val grouper = getSystemStreamPartitionGrouper(config)
     val previousChangelogeMapping = if (checkpointManager != null) {
       checkpointManager.start

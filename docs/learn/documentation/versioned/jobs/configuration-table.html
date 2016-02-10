@@ -203,6 +203,51 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="job-systemstreampartition-matcher-class">job.systemstreampartition.matcher.class</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        If you want to enable static partition assignment, then this is a <strong>required</strong> configuration.
+                        The value of this property is a fully-qualified Java class name that implements the interface
+                        <code>org.apache.samza.system.SystemStreamPartitionMatcher</code>.
+                        Samza ships with one matcher class by default:
+                        <dl>
+                            <dt><code>org.apache.samza.system.RegexSystemStreamPartitionMatcher</code></dt>
+                            <dd>This classes uses a standard Java supported regex to determine which partition matches,
+                                and thus statically assigned to the Job. For example "[1-2]", statically assigns partition 1 and 2
+                                for all the specified system and streams (topics in case of Kafka) to the job. </dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job_systemstreampartition_matcher_config_regex">job.systemstreampartition.matcher.config.regex</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        If <code>job.systemstreampartition.matcher.class</code> is specified,
+                        then this property is a <strong>required</strong> configuration. The value should be a valid Java supported regex.
+                        <code>org.apache.samza.system.SystemStreamPartitionMatcher</code>.For example "[1-2]", statically assigns
+                        partition 1 and 2 for all the specified system and streams (topics in case of Kakfa) to the job.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job_systemstreampartition_matcher_config_job_factory_regex">job.systemstreampartition.matcher.config.job.factory.regex</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This configuration can be used to specify the Java supported regex to match the <code>StreamJobFactory</code>
+                        for which the static partition assignment should be enabled. This configuration enables the partition
+                        assignment feature to be used for custom <code>StreamJobFactory</code>(ies) as well.
+                        <p>
+                        This config defaults to the following value:
+                        <code>"org\\.apache\\.samza\\.job\\.local(.*ProcessJobFactory|.*ThreadJobFactory)"</code>,
+                        which enables static partition assignment when <code>job.factory.class</code> is set to
+                        <code>org.apache.samza.job.local.ProjectJobFactory</code> or <code>org.apache.samza.job.local.ThreadJobFactory.</code>
+                        </p>
+                    </td>
+                </tr>
+
+
+                <tr>
                     <th colspan="3" class="section" id="task"><a href="../api/overview.html">Task configuration</a></th>
                 </tr>
 
