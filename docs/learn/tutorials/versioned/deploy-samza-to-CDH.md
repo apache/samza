@@ -19,7 +19,15 @@ title: Deploy Samza Job To CDH
    limitations under the License.
 -->
 
-The tutorial assumes you have successfully run [hello-samza](../../../startup/hello-samza/{{site.version}}/) and now you want to deploy the job to your Cloudera Data Hub ([CDH](http://www.cloudera.com/content/cloudera/en/products-and-services/cdh.html)). This tutorial is based on CDH 5.0.0 and uses hello-samza as the example job.
+The tutorial assumes you have successfully run [hello-samza](../../../startup/hello-samza/{{site.version}}/) and now you want to deploy the job to your Cloudera Data Hub ([CDH](http://www.cloudera.com/content/cloudera/en/products-and-services/cdh.html)). This tutorial is based on CDH 5.4.0 and uses hello-samza as the example job.
+
+### Compile Package for CDH 5.4.0
+
+We need to use a specific compile option to build hello-samza package for CDH 5.4.0
+
+{% highlight bash %}
+mvn clean package -Denv=cdh5.4.0
+{% endhighlight %}
 
 ### Upload Package to Cluster
 
