@@ -17,6 +17,8 @@
  * under the License.
  */
  ext {
+  awsSdkVersion="1.9.39"
+  kinesisClientVersion="1.4.0"
   elasticsearchVersion = "1.5.1"
   jodaTimeVersion = "2.2"
   joptSimpleVersion = "3.2"

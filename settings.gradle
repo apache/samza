@@ -19,6 +19,7 @@
 include \
   'samza-api',
   'samza-elasticsearch',
+  'samza-kinesis',
   'samza-log4j',
   'samza-shell'
 
