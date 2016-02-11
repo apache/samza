@@ -98,7 +98,7 @@ class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsC
     val path = bucketer.get.getNextWritePath(dfs)
     val datumWriter = new GenericDatumWriter[GenericRecord]()
     val fileWriter = new DataFileWriter[GenericRecord](datumWriter);
-    Some(fileWriter.create(schema, new File(path.toString)))
+    Some(fileWriter.create(schema, dfs.create(path)))
   }
 
 }
