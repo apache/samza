@@ -52,7 +52,7 @@ object RocksDbKeyValueStore extends Logging {
         useTTL = true
         if (isLoggedStore)
         {
-          error("%s is a TTL based store, changelog is not supported for TTL based stores, use at your own discretion" format storeName)
+          warn("%s is a TTL based store, changelog is not supported for TTL based stores, use at your own discretion" format storeName)
         }
       }
       catch

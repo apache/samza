@@ -20,7 +20,7 @@
 package org.apache.samza.config;
 
 import org.apache.samza.SamzaException;
-import org.elasticsearch.common.base.Optional;
+import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
