@@ -35,8 +35,9 @@ class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsC
   extends HdfsWriter[DataFileWriter[Object]](dfs, systemName, config) {
 
   val avroClassName = config.getAvroClassName(systemName)
-  val avroClass = Class.forName(avroClassName).newInstance().asInstanceOf[SpecificRecordBase]
-  val schema = ReflectData.makeNullable(avroClass.getSchema)
+  //val avroClass = Class.forName(avroClassName).newInstance().asInstanceOf[SpecificRecordBase]
+  //val schema = ReflectData.makeNullable(avroClass.getSchema)
+  val schema = ReflectData.get().getSchema(Class.forName(avroClassName))
   val datumWriter = new ReflectDatumWriter[Object](schema)
 
   val batchSize = config.getWriteBatchSizeBytes(systemName)
