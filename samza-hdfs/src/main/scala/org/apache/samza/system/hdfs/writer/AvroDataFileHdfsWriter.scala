@@ -21,7 +21,6 @@ package org.apache.samza.system.hdfs.writer
 
 import org.apache.avro.file.DataFileWriter
 import org.apache.avro.reflect.{ReflectData, ReflectDatumWriter}
-import org.apache.avro.specific.SpecificRecordBase
 import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.io.compress.{DefaultCodec, GzipCodec, SnappyCodec}
 import org.apache.hadoop.io.{IOUtils, Writable}
@@ -35,9 +34,9 @@ class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsC
   extends HdfsWriter[DataFileWriter[Object]](dfs, systemName, config) {
 
   val avroClassName = config.getAvroClassName(systemName)
-  //val avroClass = Class.forName(avroClassName).newInstance().asInstanceOf[SpecificRecordBase]
+  val avroClass = Class.forName(avroClassName) //.newInstance().asInstanceOf[SpecificRecordBase]
   //val schema = ReflectData.makeNullable(avroClass.getSchema)
-  val schema = ReflectData.get().getSchema(Class.forName(avroClassName))
+  val schema = ReflectData.get().getSchema(avroClass)
   val datumWriter = new ReflectDatumWriter[Object](schema)
 
   val batchSize = config.getWriteBatchSizeBytes(systemName)
@@ -74,7 +73,7 @@ class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsC
     }
 
     writer.map { seq =>
-      val record = outgoing.getMessage
+      val record = outgoing.getMessage.asInstanceOf[avroClass.type]
       //bytesWritten += getOutputSizeInBytes(record)
       seq.append(record)
     }
