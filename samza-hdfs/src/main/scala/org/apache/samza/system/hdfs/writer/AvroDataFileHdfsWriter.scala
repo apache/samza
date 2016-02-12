@@ -24,7 +24,8 @@ import java.io.File
 import org.apache.avro.Schema
 import org.apache.avro.file.DataFileWriter
 import org.apache.avro.generic.{GenericDatumWriter, GenericRecord}
-import org.apache.avro.specific.SpecificRecordBase
+import org.apache.avro.reflect.{ReflectDatumWriter, ReflectData}
+import org.apache.avro.specific.{SpecificDatumWriter, SpecificRecordBase}
 import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.io.SequenceFile.Writer
 import org.apache.hadoop.io.compress.{DefaultCodec, GzipCodec, SnappyCodec}
@@ -36,11 +37,12 @@ import org.apache.samza.system.hdfs.HdfsConfig
   * Created by ebice on 1/29/2016.
   */
 class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsConfig)
-  extends HdfsWriter[DataFileWriter[GenericRecord]](dfs, systemName, config) {
+  extends HdfsWriter[DataFileWriter[Object]](dfs, systemName, config) {
 
   val avroClassName = config.getAvroClassName(systemName)
   val avroClass = Class.forName(avroClassName).newInstance().asInstanceOf[SpecificRecordBase]
   val schema = avroClass.getSchema
+  val datumWriter = new ReflectDatumWriter[Object](schema)
 
   val batchSize = config.getWriteBatchSizeBytes(systemName)
   val bucketer = Some(Bucketer.getInstance(systemName, config))
@@ -62,9 +64,7 @@ class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsC
   def getCompressionCodec(compressionType: String) = {
     compressionType match {
       case "snappy" => new SnappyCodec()
-
       case "gzip"   => new GzipCodec()
-
       case _        => new DefaultCodec()
     }
   }
@@ -78,7 +78,7 @@ class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsC
     }
 
     writer.map { seq =>
-      val record = outgoing.getMessage.asInstanceOf[GenericRecord]
+      val record = outgoing.getMessage
       //bytesWritten += getOutputSizeInBytes(record)
       seq.append(record)
     }
@@ -94,10 +94,9 @@ class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsC
     bytesWritten >= batchSize || bucketer.get.shouldChangeBucket
   }
 
-  protected def getNextWriter: Option[DataFileWriter[GenericRecord]] = {
+  protected def getNextWriter: Option[DataFileWriter[Object]] = {
     val path = bucketer.get.getNextWritePath(dfs)
-    val datumWriter = new GenericDatumWriter[GenericRecord]()
-    val fileWriter = new DataFileWriter[GenericRecord](datumWriter);
+    val fileWriter = new DataFileWriter[Object](datumWriter);
     Some(fileWriter.create(schema, dfs.create(path)))
   }
 
