@@ -33,11 +33,10 @@ import org.apache.samza.system.hdfs.HdfsConfig
 class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsConfig)
   extends HdfsWriter[DataFileWriter[Object]](dfs, systemName, config) {
 
-  val avroClassName = config.getAvroClassName(systemName)
-  val avroClass = Class.forName(avroClassName) //.newInstance().asInstanceOf[SpecificRecordBase]
-  //val schema = ReflectData.makeNullable(avroClass.getSchema)
-  val schema = ReflectData.get().getSchema(avroClass)
-  val datumWriter = new ReflectDatumWriter[Object](schema)
+  //val avroClassName = config.getAvroClassName(systemName)
+  //val avroClass = Class.forName(avroClassName) //.newInstance().asInstanceOf[SpecificRecordBase]
+  //val schema = ReflectData.get().getSchema(avroClass)
+  //val datumWriter = new ReflectDatumWriter[Object](schema)
 
   val batchSize = config.getWriteBatchSizeBytes(systemName)
   val bucketer = Some(Bucketer.getInstance(systemName, config))
@@ -67,13 +66,13 @@ class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsC
   override def flush: Unit = writer.map { _.flush }
 
   override def write(outgoing: OutgoingMessageEnvelope): Unit = {
+    val record = outgoing.getMessage
     if (shouldStartNewOutputFile) {
       close
-      writer = getNextWriter
+      writer = getNextWriter(record)
     }
 
     writer.map { seq =>
-      val record = outgoing.getMessage.asInstanceOf[avroClass.type]
       //bytesWritten += getOutputSizeInBytes(record)
       seq.append(record)
     }
@@ -89,9 +88,11 @@ class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsC
     bytesWritten >= batchSize || bucketer.get.shouldChangeBucket
   }
 
-  protected def getNextWriter: Option[DataFileWriter[Object]] = {
+  protected def getNextWriter(record: Object): Option[DataFileWriter[Object]] = {
     val path = bucketer.get.getNextWritePath(dfs)
-    val fileWriter = new DataFileWriter[Object](datumWriter);
+    val schema = ReflectData.get().getSchema(record.getClass)
+    val datumWriter = new ReflectDatumWriter[Object](schema)
+    val fileWriter = new DataFileWriter[Object](datumWriter)
     Some(fileWriter.create(schema, dfs.create(path)))
   }
 
