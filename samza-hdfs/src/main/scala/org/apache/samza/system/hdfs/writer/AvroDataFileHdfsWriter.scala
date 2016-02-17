@@ -33,23 +33,9 @@ import org.apache.samza.system.hdfs.HdfsConfig
 class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsConfig)
   extends HdfsWriter[DataFileWriter[Object]](dfs, systemName, config) {
 
-  //val avroClassName = config.getAvroClassName(systemName)
-  //val avroClass = Class.forName(avroClassName) //.newInstance().asInstanceOf[SpecificRecordBase]
-  //val schema = ReflectData.get().getSchema(avroClass)
-  //val datumWriter = new ReflectDatumWriter[Object](schema)
-
-  val batchSize = config.getWriteBatchSizeBytes(systemName)
+  val batchSize = config.getWriteBatchSizeRecords(systemName)
   val bucketer = Some(Bucketer.getInstance(systemName, config))
-
-  var bytesWritten = 0L
-
-  /**
-    * Calculate (or estimate) the byte size of the outgoing message. Used internally
-    * by HdfsWriters to decide when to cut a new output file based on max size.
-    */
-  def getOutputSizeInBytes(writable: Writable): Long = {
-    0
-  }
+  var recordsWritten = 0L
 
   /**
     *  Accepts a human-readable compression type from the job properties file such as
@@ -73,19 +59,19 @@ class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsC
     }
 
     writer.map { seq =>
-      //bytesWritten += getOutputSizeInBytes(record)
       seq.append(record)
+      recordsWritten += 1
     }
   }
 
   override def close: Unit = {
     writer.map { w => w.flush ; IOUtils.closeStream(w) }
     writer = None
-    bytesWritten = 0L
+    recordsWritten = 0L
   }
 
   protected def shouldStartNewOutputFile: Boolean = {
-    bytesWritten >= batchSize || bucketer.get.shouldChangeBucket
+    recordsWritten >= batchSize || bucketer.get.shouldChangeBucket
   }
 
   protected def getNextWriter(record: Object): Option[DataFileWriter[Object]] = {

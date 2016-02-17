@@ -43,8 +43,12 @@ object HdfsConfig {
   val BASE_OUTPUT_DIR_DEFAULT = "/user/%s/%s"
 
   // how much data to write before splitting off a new partfile
-  val WRITE_BATCH_SIZE = "systems.%s.producer.hdfs.write.batch.size.bytes"
-  val WRITE_BATCH_SIZE_DEFAULT = (1024L * 1024L * 256L).toString
+  val WRITE_BATCH_SIZE_BYTES = "systems.%s.producer.hdfs.write.batch.size.bytes"
+  val WRITE_BATCH_SIZE_BYTES_DEFAULT = (1024L * 1024L * 256L).toString
+
+  // how much data to write before splitting off a new partfile
+  val WRITE_BATCH_SIZE_RECORDS = "systems.%s.producer.hdfs.write.batch.size.records"
+  val WRITE_BATCH_SIZE_RECORDS_DEFAULT = (256L * 1024L).toString
 
   // human-readable compression type name to be interpreted/handled by the HdfsWriter impl
   val COMPRESSION_TYPE = "systems.%s.producer.hdfs.compression.type"
@@ -53,9 +57,6 @@ object HdfsConfig {
   // fully qualified class name of the HdfsWriter impl for the named Producer system
   val HDFS_WRITER_CLASS_NAME ="systems.%s.producer.hdfs.writer.class"
   val HDFS_WRITER_CLASS_NAME_DEFAULT = "org.apache.samza.system.hdfs.writer.BinarySequenceFileHdfsWriter"
-
-  // fully-qualified class name of the class to wrap in Avro SpecificDatumWriter.
-  val HDFS_WRITER_AVRO_CLASS_NAME ="systems.%s.producer.hdfs.writer.avro.class"
 
   // fully qualified class name of the Bucketer impl the HdfsWriter should use to generate HDFS paths and filenames
   val BUCKETER_CLASS = "systems.%s.producer.hdfs.bucketer.class"
@@ -73,13 +74,6 @@ class HdfsConfig(config: Config) extends ScalaMapConfig(config) {
    */
   def getHdfsWriterClassName(systemName: String): String = {
     getOrElse(HdfsConfig.HDFS_WRITER_CLASS_NAME format systemName, HdfsConfig.HDFS_WRITER_CLASS_NAME_DEFAULT)
-  }
-
-  /**
-    * @return the fully-qualified class name of the class to wrap in Avro SpecificDatumWriter.
-    */
-  def getAvroClassName(systemName: String): String = {
-    getOrElse(HdfsConfig.HDFS_WRITER_AVRO_CLASS_NAME format systemName, "")
   }
 
   /**
@@ -117,7 +111,15 @@ class HdfsConfig(config: Config) extends ScalaMapConfig(config) {
    * MapReduce utilization for Hadoop jobs that will process the data later.
    */
   def getWriteBatchSizeBytes(systemName: String): Long = {
-    getOrElse(HdfsConfig.WRITE_BATCH_SIZE format systemName, HdfsConfig.WRITE_BATCH_SIZE_DEFAULT).toLong
+    getOrElse(HdfsConfig.WRITE_BATCH_SIZE_BYTES format systemName, HdfsConfig.WRITE_BATCH_SIZE_BYTES_DEFAULT).toLong
+  }
+
+  /**
+    * Split output files from all writer tasks based on # of bytes written to optimize
+    * MapReduce utilization for Hadoop jobs that will process the data later.
+    */
+  def getWriteBatchSizeRecords(systemName: String): Long = {
+    getOrElse(HdfsConfig.WRITE_BATCH_SIZE_RECORDS format systemName, HdfsConfig.WRITE_BATCH_SIZE_RECORDS_DEFAULT).toLong
   }
 
   /**
