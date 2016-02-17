@@ -24,6 +24,9 @@ import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.samza.config.YarnConfig;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 /**
  * This class is responsible for making requests for containers to the AM and also, assigning a container to run on an allocated resource.
@@ -34,6 +37,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * See {@link org.apache.samza.job.yarn.ContainerAllocator} and {@link org.apache.samza.job.yarn.HostAwareContainerAllocator}
  */
 public abstract class AbstractContainerAllocator implements Runnable {
+  private static final Logger log = LoggerFactory.getLogger(AbstractContainerAllocator.class);
+
   public static final String ANY_HOST = ContainerRequestState.ANY_HOST;
   public static final int DEFAULT_PRIORITY = 0;
   public static final int DEFAULT_CONTAINER_MEM = 1024;
@@ -44,9 +49,6 @@ public abstract class AbstractContainerAllocator implements Runnable {
   protected final ContainerUtil containerUtil;
   protected final int containerMaxMemoryMb;
   protected final int containerMaxCpuCore;
-
-  @Override
-  public abstract void run();
 
   // containerRequestState indicate the state of all unfulfilled container requests and allocated containers
   protected final ContainerRequestState containerRequestState;
@@ -66,6 +68,31 @@ public abstract class AbstractContainerAllocator implements Runnable {
     this.containerMaxCpuCore = yarnConfig.getContainerMaxCpuCores();
   }
 
+  /**
+   * Continuously assigns requested containers to the allocated containers provided by the cluster manager.
+   * The loop frequency is governed by thread sleeps for ALLOCATOR_SLEEP_TIME ms.
+   *
+   * Terminates when the isRunning flag is cleared.
+   */
+  @Override
+  public void run() {
+    while(isRunning.get()) {
+      try {
+        assignContainerRequests();
+        Thread.sleep(ALLOCATOR_SLEEP_TIME);
+      } catch (InterruptedException e) {
+        log.info("Got InterruptedException in AllocatorThread.", e);
+      } catch (Exception e) {
+        log.error("Got unknown Exception in AllocatorThread.", e);
+      }
+    }
+  }
+
+  /**
+   * Assigns the container requests from the queue to the allocated containers from the cluster manager and
+   * runs them.
+   */
+  protected abstract void assignContainerRequests();
 
   /**
    * Called during initial request for containers
