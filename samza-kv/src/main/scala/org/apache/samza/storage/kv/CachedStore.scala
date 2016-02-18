@@ -34,8 +34,8 @@ import java.util.Arrays
  * 2. Range queries require flushing the cache (as the ordering comes from rocksdb)
  *
  * In implementation this cache is just an LRU hash map that discards the oldest entry when full. There is an accompanying "dirty list" that references keys
- * that have not yet been written to disk. All writes go to the dirty list and when the list is long enough we flush out all those values at once. Dirty items
- * that time out of the cache before being written will also trigger a full flush of the dirty list.
+ * that have not yet been written to disk. All writes go to the dirty list and when the list is long enough we call putAll on all those values at once. Dirty items
+ * that time out of the cache before being written will also trigger a putAll of the dirty list.
  *
  * This class is very non-thread safe.
  *
@@ -59,7 +59,7 @@ class CachedStore[K, V](
   /** the list of items to be written out on flush from newest to oldest */
   private var dirty = new mutable.DoubleLinkedList[K]()
 
-  /** an lru cache of values that holds cacheEntries and calls flush() if necessary when discarding */
+  /** an lru cache of values that holds cacheEntries and calls putAll() on dirty entries if necessary when discarding */
   private val cache = new java.util.LinkedHashMap[K, CacheEntry[K, V]]((cacheSize * 1.2).toInt, 1.0f, true) {
     override def removeEldestEntry(eldest: java.util.Map.Entry[K, CacheEntry[K, V]]): Boolean = {
       val evict = super.size > cacheSize
@@ -68,9 +68,13 @@ class CachedStore[K, V](
         val entry = eldest.getValue
         // if this entry hasn't been written out yet, flush it and all other dirty keys
         if (entry.dirty != null) {
-          debug("Found a dirty entry. Flushing.")
-
-          flush()
+          if (hasArrayKeys) {
+            debug("Found a dirty entry and cache has array keys. Flushing.")
+            flush()
+          } else {
+            debug("Found a dirty entry. Calling putAll() on all dirty entries.")
+            putAllDirtyEntries()
+          }
         }
       }
       evict
@@ -168,11 +172,11 @@ class CachedStore[K, V](
       found.dirty = this.dirty
     }
 
-    // Flush the dirty values if the write list is full.
+    // putAll() dirty values if the write list is full.
     if (dirtyCount >= writeBatchSize) {
-      debug("Dirty count %s >= write batch size %s. Flushing." format (dirtyCount, writeBatchSize))
+      debug("Dirty count %s >= write batch size %s. Calling putAll() on all dirty entries." format (dirtyCount, writeBatchSize))
 
-      flush()
+      putAllDirtyEntries()
     }
   }
 
@@ -180,7 +184,12 @@ class CachedStore[K, V](
     trace("Flushing.")
 
     metrics.flushes.inc
+    putAllDirtyEntries()
+    store.flush()
+  }
 
+  private def putAllDirtyEntries() {
+    trace("Calling putAll() on dirty entries.")
     // write out the contents of the dirty list oldest first
     val batch = new Array[Entry[K, V]](this.dirtyCount)
     var pos : Int = this.dirtyCount - 1
@@ -191,9 +200,7 @@ class CachedStore[K, V](
       pos -= 1
     }
     store.putAll(Arrays.asList(batch : _*))
-    store.flush()
-    metrics.flushBatchSize.inc(batch.size)
-
+    metrics.putAllDirtyEntriesBatchSize.inc(batch.size)
     // reset the dirty list
     this.dirty = new mutable.DoubleLinkedList[K]()
     this.dirtyCount = 0

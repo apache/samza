@@ -19,11 +19,16 @@
 
 package org.apache.samza.storage.kv
 
+import java.util
+
 import org.junit.Test
 import org.junit.Assert._
+import org.mockito.ArgumentCaptor
 import org.mockito.Mockito._
+import org.mockito.Matchers.anyObject
 
 import java.util.Arrays
+import scala.collection.JavaConverters._
 
 class TestCachedStore {
   @Test
@@ -92,7 +97,7 @@ class TestCachedStore {
   }
 
   @Test
-  def testFlushing() {
+  def testPutAllDirtyEntries() {
     val kv = mock(classOf[KeyValueStore[String, String]])
     val store = new CachedStore[String, String](kv, 4, 4)
 
@@ -109,8 +114,16 @@ class TestCachedStore {
       store.put(keys.get(i), values.get(i))
     }
 
+    verify(kv, never()).putAll(anyObject())
     verify(kv, never()).flush()
-    store.put(keys.get(3), values.get(3));
-    verify(kv).flush();
+    store.put(keys.get(3), values.get(3))
+
+    val entriesCaptor = ArgumentCaptor.forClass(classOf[util.List[Entry[String, String]]])
+    verify(kv).putAll(entriesCaptor.capture)
+    verify(kv, never()).flush()
+
+    val dirtyEntries = entriesCaptor.getAllValues.get(0).asScala.toSeq
+    assertEquals(dirtyEntries map (_.getKey), Seq("test1-key", "test2-key", "test3-key", "test4-key"))
+    assertEquals(dirtyEntries map (_.getValue), Seq("test1-value", "test2-value", "test3-value", "test4-value"))
   }
 }
