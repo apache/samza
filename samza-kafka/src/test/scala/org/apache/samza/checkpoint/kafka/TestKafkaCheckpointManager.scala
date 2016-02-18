@@ -28,7 +28,7 @@ import kafka.zk.EmbeddedZookeeper
 import org.I0Itec.zkclient.ZkClient
 import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig, ProducerRecord}
 import org.apache.samza.checkpoint.Checkpoint
-import org.apache.samza.config.{KafkaProducerConfig, MapConfig}
+import org.apache.samza.config.{JobConfig, KafkaProducerConfig, MapConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 import org.apache.samza.serializers.CheckpointSerde
@@ -81,6 +81,7 @@ class TestKafkaCheckpointManager {
   var server2: KafkaServer = null
   var server3: KafkaServer = null
   var metadataStore: TopicMetadataStore = null
+  var failOnTopicValidation = true
 
   val systemStreamPartitionGrouperFactoryString = classOf[GroupByPartitionFactory].getCanonicalName
 
@@ -125,13 +126,13 @@ class TestKafkaCheckpointManager {
   }
 
 
-  private def createCheckpointTopic(cpTopic: String = checkpointTopic) = {
+  private def createCheckpointTopic(cpTopic: String = checkpointTopic, partNum: Int = 1) = {
     val zkClient = new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer)
     try {
       AdminUtils.createTopic(
         zkClient,
-        checkpointTopic,
-        1,
+        cpTopic,
+        partNum,
         1,
         checkpointTopicConfig)
     } catch {
@@ -202,9 +203,38 @@ class TestKafkaCheckpointManager {
     }
   }
 
-  private def getKafkaCheckpointManager = new KafkaCheckpointManager(
+  @Test
+  def testFailOnTopicValidation {
+    // first case - default case, we should fail on validation
+    failOnTopicValidation = true
+    val checkpointTopic8 = checkpointTopic + "8";
+    val kcm = getKafkaCheckpointManagerWithParam(checkpointTopic8)
+    val taskName = new TaskName(partition.toString)
+    kcm.register(taskName)
+    createCheckpointTopic(checkpointTopic8, 8) // create topic with the wrong number of partitions
+    try {
+      kcm.start
+      fail("Expected a KafkaUtilException for invalid number of partitions in the topic.")
+    }catch {
+      case e: KafkaUtilException => None
+    }
+    kcm.stop
+
+    // same validation but ignore the validation error (pass 'false' to validate..)
+    failOnTopicValidation = false
+    val kcm1 = getKafkaCheckpointManagerWithParam((checkpointTopic8))
+    kcm1.register(taskName)
+    try {
+      kcm1.start
+    }catch {
+      case e: KafkaUtilException => fail("Did not expect a KafkaUtilException for invalid number of partitions in the topic.")
+    }
+    kcm1.stop
+  }
+
+  private def getKafkaCheckpointManagerWithParam(cpTopic: String) = new KafkaCheckpointManager(
     clientId = "some-client-id",
-    checkpointTopic = checkpointTopic,
+    checkpointTopic = cpTopic,
     systemName = "kafka",
     replicationFactor = 3,
     socketTimeout = 30000,
@@ -214,7 +244,11 @@ class TestKafkaCheckpointManager {
     connectProducer = () => new KafkaProducer(producerConfig.getProducerProperties),
     connectZk = () => new ZkClient(zkConnect, 60000, 60000, ZKStringSerializer),
     systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
+    failOnCheckpointValidation = failOnTopicValidation,
     checkpointTopicProperties = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(new MapConfig(Map[String, String]())))
+
+  // CheckpointManager with a specific checkpoint topic
+  private def getKafkaCheckpointManager = getKafkaCheckpointManagerWithParam(checkpointTopic)
 
   // inject serde. Kafka exceptions will be thrown when serde.fromBytes is called
   private def getKafkaCheckpointManagerWithInvalidSerde(exception: String) = new KafkaCheckpointManager(
@@ -229,6 +263,7 @@ class TestKafkaCheckpointManager {
     connectProducer = () => new KafkaProducer(producerConfig.getProducerProperties),
     connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer),
     systemStreamPartitionGrouperFactoryString = systemStreamPartitionGrouperFactoryString,
+    failOnCheckpointValidation = failOnTopicValidation,
     serde = new InvalideSerde(exception),
     checkpointTopicProperties = KafkaCheckpointManagerFactory.getCheckpointTopicProperties(new MapConfig(Map[String, String]())))
 

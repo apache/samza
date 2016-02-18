@@ -96,6 +96,7 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
       connectProducer,
       connectZk,
       config.getSystemStreamPartitionGrouperFactory,      // To find out the SSPGrouperFactory class so it can be included/verified in the key
+      config.failOnCheckpointValidation,
       checkpointTopicProperties = getCheckpointTopicProperties(config))
   }
 }

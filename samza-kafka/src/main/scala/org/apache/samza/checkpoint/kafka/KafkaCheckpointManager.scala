@@ -58,6 +58,7 @@ class KafkaCheckpointManager(
                               connectProducer: () => Producer[Array[Byte], Array[Byte]],
                               val connectZk: () => ZkClient,
                               systemStreamPartitionGrouperFactoryString: String,
+                              failOnCheckpointValidation: Boolean,
                               val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
                               serde: CheckpointSerde = new CheckpointSerde,
                               checkpointTopicProperties: Properties = new Properties) extends CheckpointManager with Logging {
@@ -275,7 +276,7 @@ class KafkaCheckpointManager(
 
   def start {
     kafkaUtil.createTopic(checkpointTopic, 1, replicationFactor, checkpointTopicProperties)
-    kafkaUtil.validateTopicPartitionCount(checkpointTopic, systemName, metadataStore, 1)
+    kafkaUtil.validateTopicPartitionCount(checkpointTopic, systemName, metadataStore, 1, failOnCheckpointValidation)
   }
 
   def register(taskName: TaskName) {

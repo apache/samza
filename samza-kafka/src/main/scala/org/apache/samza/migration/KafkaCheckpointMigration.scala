@@ -104,7 +104,8 @@ class KafkaCheckpointMigration extends MigrationPlan with Logging {
         checkpointTopicName,
         getCheckpointSystemName(config),
         getTopicMetadataStore(config),
-        1)
+        1,
+        config.failOnCheckpointValidation)
 
       if (migrationVerification(coordinatorSystemConsumer)) {
         info("Migration %s was already performed, doing nothing" format migrationKey)

@@ -43,6 +43,12 @@ object JobConfig {
   val JOB_REPLICATION_FACTOR = "job.coordinator.replication.factor"
   val JOB_SEGMENT_BYTES = "job.coordinator.segment.bytes"
   val SSP_GROUPER_FACTORY = "job.systemstreampartition.grouper.factory"
+  // number of partitions in the checkpoint stream should be 1. But sometimes,
+  // if a stream was created(automatically) with the wrong number of partitions(default number of partitions
+  // for new streams), there is no easy fix for the user (topic deletion or reducing of number of partitions
+  // is not yet supported, and auto-creation of the topics cannot be always easily tuned off).
+  // So we add a setting that allows for the job to continue even though number of partitions is not 1.
+  val JOB_FAIL_CHECKPOINT_VALIDATION = "job.checkpoint.validation.enabled"
 
   implicit def Config2Job(config: Config) = new JobConfig(config)
 }
@@ -71,6 +77,8 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getStreamJobFactoryClass = getOption(JobConfig.STREAM_JOB_FACTORY_CLASS)
 
   def getJobId = getOption(JobConfig.JOB_ID)
+
+  def failOnCheckpointValidation = { getBoolean(JobConfig.JOB_FAIL_CHECKPOINT_VALIDATION, true) }
 
   def getConfigRewriters = getOption(JobConfig.CONFIG_REWRITERS)
 
