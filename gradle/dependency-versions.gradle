@@ -29,7 +29,7 @@
   metricsVersion = "2.2.0"
   kafkaVersion = "0.8.2.1"
   commonsHttpClientVersion = "3.1"
-  rocksdbVersion = "3.13.1"
+  rocksdbVersion = "3.13.1-MINE"
   yarnVersion = "2.7.1"
   slf4jVersion = "1.6.2"
   log4jVersion = "1.2.17"

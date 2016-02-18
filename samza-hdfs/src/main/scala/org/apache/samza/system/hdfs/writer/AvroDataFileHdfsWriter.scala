@@ -22,8 +22,8 @@ package org.apache.samza.system.hdfs.writer
 import org.apache.avro.file.DataFileWriter
 import org.apache.avro.reflect.{ReflectData, ReflectDatumWriter}
 import org.apache.hadoop.fs.FileSystem
+import org.apache.hadoop.io.IOUtils
 import org.apache.hadoop.io.compress.{DefaultCodec, GzipCodec, SnappyCodec}
-import org.apache.hadoop.io.{IOUtils, Writable}
 import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.system.hdfs.HdfsConfig
 
