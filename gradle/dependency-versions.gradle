@@ -20,7 +20,7 @@
   elasticsearchVersion = "1.5.1"
   jodaTimeVersion = "2.2"
   joptSimpleVersion = "3.2"
-  jacksonVersion = "1.8.5"
+  jacksonVersion = "1.9.13"
   junitVersion = "4.8.1"
   mockitoVersion = "1.8.4"
   scalaTestVersion = "2.2.4"
