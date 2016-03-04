@@ -40,7 +40,7 @@ configurations {
 }
 
 dependencies {
-    compile(group: 'org.codehaus.jackson', name: 'jackson-jaxrs', version: '1.8.5')
+    compile(group: 'org.codehaus.jackson', name: 'jackson-jaxrs', version: '1.9.13')
     compile(group: 'org.slf4j', name: 'slf4j-api', version: "$SLF4J_VERSION")
     compile(group: 'org.slf4j', name: 'slf4j-log4j12', version: "$SLF4J_VERSION")
     compile(group: 'org.schwering', name: 'irclib', version: '1.10')
