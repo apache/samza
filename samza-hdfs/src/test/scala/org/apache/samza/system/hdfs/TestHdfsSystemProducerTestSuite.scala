@@ -20,13 +20,16 @@
 package org.apache.samza.system.hdfs
 
 
-import java.io.{File, IOException}
+import java.io.{InputStreamReader, File, IOException}
 import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
 
+import org.apache.avro.file.{SeekableFileInput, CodecFactory, DataFileWriter, DataFileReader}
+import org.apache.avro.reflect.{ReflectDatumReader, ReflectDatumWriter, ReflectData}
+import org.apache.avro.specific.SpecificDatumReader
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileStatus, FileSystem, Path, PathFilter}
+import org.apache.hadoop.fs._
 import org.apache.hadoop.hdfs.{DFSConfigKeys,MiniDFSCluster}
 import org.apache.hadoop.io.{SequenceFile, BytesWritable, LongWritable, Text}
 import org.apache.hadoop.io.SequenceFile.Reader
@@ -52,13 +55,19 @@ object TestHdfsSystemProducerTestSuite {
   val JOB_NAME = "samza-hdfs-test-job" // write some data as BytesWritable
   val BATCH_JOB_NAME = "samza-hdfs-test-batch-job" // write enough binary data to force the producer to split partfiles
   val TEXT_JOB_NAME = "samza-hdfs-test-job-text" // write some data as String
+  val AVRO_JOB_NAME = "samza-hdfs-test-job-avro" // write some data as Avro
   val TEXT_BATCH_JOB_NAME = "samza-hdfs-test-batch-job-text" // force a file split, understanding that Text does some compressing
+  val AVRO_BATCH_JOB_NAME = "samza-hdfs-test-batch-job-avro" // force a file split, understanding that Avro does some compressing
   val RESOURCE_PATH_FORMAT = "file://%s/src/test/resources/%s.properties"
   val TEST_DATE = (new SimpleDateFormat("yyyy_MM_dd-HH")).format(new Date)
 
   // Test data
   val EXPECTED = Array[String]("small_data", "medium_data", "large_data")
   val LUMP = new scala.util.Random().nextString(BATCH_SIZE)
+
+  case class AvroTestClass(a1: Long, b2: String) {
+    def this() = this(0L, "")
+  }
 
   val hdfsFactory = new TestHdfsSystemFactory()
   val propsFactory = new PropertiesConfigFactory()
@@ -249,6 +258,83 @@ class TestHdfsSystemProducerTestSuite extends Logging {
           assertEquals(LUMP, data)
           assertEquals(LUMP.length, data.length)
         }
+      }
+
+    } finally {
+      producer.map { _.stop }
+    }
+  }
+
+  @Test
+  def testHdfsSystemProducerAvroWrite {
+    var producer: Option[HdfsSystemProducer] = None
+
+    try {
+      producer = buildProducer(AVRO_JOB_NAME, cluster.get)
+      producer.get.register(TEST)
+      producer.get.start
+
+      Thread.sleep(PAUSE)
+
+      val systemStream = new SystemStream(AVRO_JOB_NAME, TEST)
+      val atc = new AvroTestClass(1280382045923456789L, "alkjdsfafloiqulkjasoiuqlklakdsflkja")
+      producer.get.send(TEST, new OutgoingMessageEnvelope(systemStream, atc))
+
+      producer.get.stop
+      producer = None
+
+      val dfs = cluster.get.getFileSystem
+      val results = dfs.listStatus(testWritePath(AVRO_JOB_NAME))
+      val bytesWritten = results.toList.foldLeft(0L) { (acc, status) => acc + status.getLen }
+      assertTrue(results.length == 1)
+      assertTrue(bytesWritten > 0L)
+
+      val atf = new AvroFSInput(FileContext.getFileContext(), results.head.getPath)
+      val schema = ReflectData.get().getSchema(atc.getClass)
+      val datumReader = new ReflectDatumReader[Object](schema)
+      val tfReader = DataFileReader.openReader(atf, datumReader)
+      val atc2 = tfReader.next().asInstanceOf[AvroTestClass]
+
+      assertTrue(atc == atc2)
+
+    } finally {
+      producer.map { _.stop }
+    }
+  }
+
+  @Test
+  def testHdfsSystemProducerWriteAvroBatches {
+    var producer: Option[HdfsSystemProducer] = None
+
+    try {
+      producer = buildProducer(AVRO_BATCH_JOB_NAME, cluster.get)
+
+      producer.get.start
+      producer.get.register(TEST)
+      Thread.sleep(PAUSE)
+
+      val systemStream = new SystemStream(AVRO_BATCH_JOB_NAME, TEST)
+      val atc = new AvroTestClass(1280382045923456789L, "alkjdsfafloiqulkjasoiuqlklakdsflkja")
+
+      (1 to 20).map {
+        i => producer.get.send(TEST, new OutgoingMessageEnvelope(systemStream, atc))
+      }
+
+      producer.get.stop
+      producer = None
+
+      val dfs = cluster.get.getFileSystem
+      val results = dfs.listStatus(testWritePath(AVRO_BATCH_JOB_NAME))
+      // systems.samza-hdfs-test-batch-job-text.producer.hdfs.write.batch.size.records=10
+      assertEquals(2, results.length)
+
+      results.foreach { r =>
+        val atf = new AvroFSInput(FileContext.getFileContext(), r.getPath)
+        val schema = ReflectData.get().getSchema(atc.getClass)
+        val datumReader = new ReflectDatumReader[Object](schema)
+        val tfReader = DataFileReader.openReader(atf, datumReader)
+        val atc2 = tfReader.next().asInstanceOf[AvroTestClass]
+        assertTrue(atc == atc2)
       }
 
     } finally {

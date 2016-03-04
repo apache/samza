@@ -1525,9 +1525,14 @@
                     <td class="description">A date format (using Java's SimpleDataFormat syntax) appropriate for use in an HDFS Path, which can configure time-based bucketing of output files.</td>
                 </tr>
                 <tr>
-                  <td class="property" id="hdfs-write-batch-size-bytes">systems.*.producer.write.batch.size.bytes</td>
+                  <td class="property" id="hdfs-write-batch-size-bytes">systems.*.producer.hdfs.write.batch.size.bytes</td>
                   <td class="default">268435456</td>
                   <td class="description">The number of bytes of outgoing messages to write to each HDFS output file before cutting a new file. Defaults to 256MB if not set.</td>
+                </tr>
+                <tr>
+                    <td class="property" id="hdfs-write-batch-size-records">systems.*.producer.hdfs.write.batch.size.records</td>
+                    <td class="default">262144</td>
+                    <td class="description">The number of outgoing messages to write to each HDFS output file before cutting a new file. Defaults to 262144 if not set.</td>
                 </tr>
 
                 <tr>
