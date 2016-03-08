@@ -18,6 +18,13 @@
  */
 package org.apache.samza.job.yarn;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DataOutputBuffer;
@@ -27,7 +34,12 @@ import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
-import org.apache.hadoop.yarn.api.records.*;
+import org.apache.hadoop.yarn.api.records.Container;
+import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
+import org.apache.hadoop.yarn.api.records.LocalResource;
+import org.apache.hadoop.yarn.api.records.LocalResourceType;
+import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
+import org.apache.hadoop.yarn.api.records.URL;
 import org.apache.hadoop.yarn.client.api.NMClient;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
@@ -43,10 +55,6 @@ import org.apache.samza.job.ShellCommandBuilder;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.*;
 
 public class ContainerUtil {
   private static final Logger log = LoggerFactory.getLogger(ContainerUtil.class);
@@ -81,74 +89,47 @@ public class ContainerUtil {
     state.containerRequests.incrementAndGet();
   }
 
-  public void runMatchedContainer(int samzaContainerId, Container container) {
+  public void runMatchedContainer(int samzaContainerId, Container container) throws SamzaContainerLaunchException {
     state.matchedContainerRequests.incrementAndGet();
     runContainer(samzaContainerId, container);
   }
 
-  public void runContainer(int samzaContainerId, Container container) {
+  public void runContainer(int samzaContainerId, Container container) throws SamzaContainerLaunchException {
     String containerIdStr = ConverterUtils.toString(container.getId());
     log.info("Got available container ID ({}) for container: {}", samzaContainerId, container);
 
-    String cmdBuilderClassName;
-    if (taskConfig.getCommandClass().isDefined()) {
-      cmdBuilderClassName = taskConfig.getCommandClass().get();
-    } else {
-      cmdBuilderClassName = ShellCommandBuilder.class.getName();
+    CommandBuilder cmdBuilder = getCommandBuilder(samzaContainerId);
+    String command = cmdBuilder.buildCommand();
+    log.info("Container ID {} using command {}", samzaContainerId, command);
+
+    Map<String, String> env = getEscapedEnvironmentVariablesMap(cmdBuilder);
+    printContainerEnvironmentVariables(samzaContainerId, env);
+
+    Path path = new Path(yarnConfig.getPackagePath());
+    log.info("Starting container ID {} using package path {}", samzaContainerId, path);
+
+    startContainer(path, container, env,
+        getFormattedCommand(ApplicationConstants.LOG_DIR_EXPANSION_VAR, command, ApplicationConstants.STDOUT,
+            ApplicationConstants.STDERR));
+
+    if (state.neededContainers.decrementAndGet() == 0) {
+      state.jobHealthy.set(true);
     }
-      CommandBuilder cmdBuilder = (CommandBuilder) Util.getObj(cmdBuilderClassName);
-      cmdBuilder
-          .setConfig(config)
-          .setId(samzaContainerId)
-          .setUrl(state.coordinatorUrl);
+    state.runningContainers.put(samzaContainerId, new YarnContainer(container));
 
-      String command = cmdBuilder.buildCommand();
-      log.info("Container ID {} using command {}", samzaContainerId, command);
+    log.info("Claimed container ID {} for container {} on node {} (http://{}/node/containerlogs/{}).",
+        new Object[]{samzaContainerId, containerIdStr, container
+            .getNodeId().getHost(), container.getNodeHttpAddress(), containerIdStr});
 
-      log.info("Container ID {} using environment variables: ", samzaContainerId);
-      Map<String, String> env = new HashMap<String, String>();
-      for (Map.Entry<String, String> entry: cmdBuilder.buildEnvironment().entrySet()) {
-        String escapedValue = Util.envVarEscape(entry.getValue());
-        env.put(entry.getKey(), escapedValue);
-        log.info("{}={} ", entry.getKey(), escapedValue);
-      }
-
-      Path path = new Path(yarnConfig.getPackagePath());
-      log.info("Starting container ID {} using package path {}", samzaContainerId, path);
-
-      startContainer(
-          path,
-          container,
-          env,
-          getFormattedCommand(
-              ApplicationConstants.LOG_DIR_EXPANSION_VAR,
-              command,
-              ApplicationConstants.STDOUT,
-              ApplicationConstants.STDERR)
-      );
-
-      if (state.neededContainers.decrementAndGet() == 0) {
-        state.jobHealthy.set(true);
-      }
-      state.runningContainers.put(samzaContainerId, new YarnContainer(container));
-
-      log.info("Claimed container ID {} for container {} on node {} (http://{}/node/containerlogs/{}).",
-          new Object[]{
-              samzaContainerId,
-              containerIdStr,
-              container.getNodeId().getHost(),
-              container.getNodeHttpAddress(),
-              containerIdStr}
-      );
-
-      log.info("Started container ID {}", samzaContainerId);
+    log.info("Started container ID {}", samzaContainerId);
   }
 
   protected void startContainer(Path packagePath,
                                 Container container,
                                 Map<String, String> env,
-                                final String cmd) {
-    log.info("starting container {} {} {} {}",
+                                final String cmd)
+      throws SamzaContainerLaunchException {
+    log.info("Starting container {} {} {} {}",
         new Object[]{packagePath, container, env, cmd});
 
     // set the local package so that the containers and app master are provisioned with it
@@ -205,10 +186,10 @@ public class ContainerUtil {
       nmClient.startContainer(container, context);
     } catch (YarnException ye) {
       log.error("Received YarnException when starting container: " + container.getId(), ye);
-      throw new SamzaException("Received YarnException when starting container: " + container.getId());
+      throw new SamzaContainerLaunchException("Received YarnException when starting container: " + container.getId(), ye);
     } catch (IOException ioe) {
       log.error("Received IOException when starting container: " + container.getId(), ioe);
-      throw new SamzaException("Received IOException when starting container: " + container.getId());
+      throw new SamzaContainerLaunchException("Received IOException when starting container: " + container.getId(), ioe);
     }
   }
 
@@ -218,5 +199,46 @@ public class ContainerUtil {
                                      String stdErr) {
     return "export SAMZA_LOG_DIR=" + logDirExpansionVar + " && ln -sfn " + logDirExpansionVar +
         " logs && exec ./__package/" + command + " 1>logs/" + stdOut + " 2>logs/" + stdErr;
+  }
+
+  /**
+   * Instantiates and initializes the configured {@link CommandBuilder} class.
+   *
+   * @param samzaContainerId  the Samza container Id for which the container start command will be built.
+   * @return                  the command builder, which is initialized and ready to build the command.
+   */
+  private CommandBuilder getCommandBuilder(int samzaContainerId) {
+    String cmdBuilderClassName = taskConfig.getCommandClass(ShellCommandBuilder.class.getName());
+    CommandBuilder cmdBuilder = (CommandBuilder) Util.getObj(cmdBuilderClassName);
+    cmdBuilder.setConfig(config).setId(samzaContainerId).setUrl(state.coordinatorUrl);
+    return cmdBuilder;
+  }
+
+  /**
+   * Gets the environment variables from the specified {@link CommandBuilder} and escapes certain characters.
+   *
+   * @param cmdBuilder        the command builder containing the environment variables.
+   * @return                  the map containing the escaped environment variables.
+   */
+  private Map<String, String> getEscapedEnvironmentVariablesMap(CommandBuilder cmdBuilder) {
+    Map<String, String> env = new HashMap<String, String>();
+    for (Map.Entry<String, String> entry : cmdBuilder.buildEnvironment().entrySet()) {
+      String escapedValue = Util.envVarEscape(entry.getValue());
+      env.put(entry.getKey(), escapedValue);
+    }
+
+    return env;
+  }
+
+  /**
+   * @param samzaContainerId  the Samza container Id for logging purposes.
+   * @param env               the Map of environment variables to their respective values.
+   */
+  private void printContainerEnvironmentVariables(int samzaContainerId, Map<String, String> env) {
+    StringBuilder sb = new StringBuilder();
+    for (Map.Entry<String, String> entry : env.entrySet()) {
+      sb.append(String.format("\n%s=%s", entry.getKey(), entry.getValue()));
+    }
+    log.info("Container ID {} using environment variables: {}", samzaContainerId, sb.toString());
   }
 }

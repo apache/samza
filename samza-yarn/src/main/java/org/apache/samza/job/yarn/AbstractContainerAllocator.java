@@ -18,9 +18,11 @@
  */
 package org.apache.samza.job.yarn;
 
+import java.util.List;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.YarnConfig;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -51,10 +53,10 @@ public abstract class AbstractContainerAllocator implements Runnable {
   protected final int containerMaxCpuCore;
 
   // containerRequestState indicate the state of all unfulfilled container requests and allocated containers
-  protected final ContainerRequestState containerRequestState;
+  private final ContainerRequestState containerRequestState;
 
   // state that controls the lifecycle of the allocator thread
-  protected AtomicBoolean isRunning = new AtomicBoolean(true);
+  private AtomicBoolean isRunning = new AtomicBoolean(true);
 
   public AbstractContainerAllocator(AMRMClientAsync<AMRMClient.ContainerRequest> amClient,
                             ContainerUtil containerUtil,
@@ -79,6 +81,10 @@ public abstract class AbstractContainerAllocator implements Runnable {
     while(isRunning.get()) {
       try {
         assignContainerRequests();
+
+        // Release extra containers and update the entire system's state
+        containerRequestState.releaseExtraContainers();
+
         Thread.sleep(ALLOCATOR_SLEEP_TIME);
       } catch (InterruptedException e) {
         log.info("Got InterruptedException in AllocatorThread.", e);
@@ -93,6 +99,41 @@ public abstract class AbstractContainerAllocator implements Runnable {
    * runs them.
    */
   protected abstract void assignContainerRequests();
+
+  /**
+   * Updates the request state and runs the container on the specified host. Assumes a container
+   * is available on the preferred host, so the caller must verify that before invoking this method.
+   *
+   * @param request             the {@link SamzaContainerRequest} which is being handled.
+   * @param preferredHost       the preferred host on which the container should be run or
+   *                            {@link ContainerRequestState#ANY_HOST} if there is no host preference.
+   */
+  protected void runContainer(SamzaContainerRequest request, String preferredHost) {
+    // Get the available container
+    Container container = peekAllocatedContainer(preferredHost);
+    if (container == null)
+      throw new SamzaException("Expected container was unavailable on host " + preferredHost);
+
+    // Update state
+    containerRequestState.updateStateAfterAssignment(request, preferredHost, container);
+    int expectedContainerId = request.expectedContainerId;
+
+    // Cancel request and run container
+    log.info("Found available containers on {}. Assigning request for container_id {} with "
+            + "timestamp {} to container {}",
+        new Object[]{preferredHost, String.valueOf(expectedContainerId), request.getRequestTimestamp(), container.getId()});
+    try {
+      if (preferredHost.equals(ANY_HOST)) {
+        containerUtil.runContainer(expectedContainerId, container);
+      } else {
+        containerUtil.runMatchedContainer(expectedContainerId, container);
+      }
+    } catch (SamzaContainerLaunchException e) {
+      log.warn(String.format("Got exception while starting container %s. Requesting a new container on any host", container), e);
+      containerRequestState.releaseUnstartableContainer(container);
+      requestContainer(expectedContainerId, ContainerAllocator.ANY_HOST);
+    }
+  }
 
   /**
    * Called during initial request for containers
@@ -131,6 +172,22 @@ public abstract class AbstractContainerAllocator implements Runnable {
   }
 
   /**
+   * @return {@code true} if there is a pending request, {@code false} otherwise.
+   */
+  protected boolean hasPendingRequest() {
+    return peekPendingRequest() != null;
+  }
+
+  /**
+   * Retrieves, but does not remove, the next pending request in the queue.
+   *
+   * @return  the pending request or {@code null} if there is no pending request.
+   */
+  protected SamzaContainerRequest peekPendingRequest() {
+    return containerRequestState.getRequestsQueue().peek();
+  }
+
+  /**
    * Method that adds allocated container to a synchronized buffer of allocated containers list
    * See allocatedContainers in {@link org.apache.samza.job.yarn.ContainerRequestState}
    *
@@ -138,6 +195,29 @@ public abstract class AbstractContainerAllocator implements Runnable {
    */
   public final void addContainer(Container container) {
     containerRequestState.addContainer(container);
+  }
+
+  /**
+   * @param host  the host for which a container is needed.
+   * @return      {@code true} if there is a container allocated for the specified host, {@code false} otherwise.
+   */
+  protected boolean hasAllocatedContainer(String host) {
+    return peekAllocatedContainer(host) != null;
+  }
+
+  /**
+   * Retrieves, but does not remove, the first allocated container on the specified host.
+   *
+   * @param host  the host for which a container is needed.
+   * @return      the first {@link Container} allocated for the specified host or {@code null} if there isn't one.
+   */
+  protected Container peekAllocatedContainer(String host) {
+    List<Container> allocatedContainers = containerRequestState.getContainersOnAHost(host);
+    if (allocatedContainers == null || allocatedContainers.isEmpty()) {
+      return null;
+    }
+
+    return allocatedContainers.get(0);
   }
 
   public final void setIsRunning(boolean state) {

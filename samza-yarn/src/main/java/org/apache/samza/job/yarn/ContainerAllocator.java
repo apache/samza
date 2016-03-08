@@ -23,8 +23,6 @@ import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.samza.config.YarnConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * This is the default allocator thread that will be used by SamzaTaskManager.
@@ -33,8 +31,6 @@ import org.slf4j.LoggerFactory;
  * If there aren't enough containers, it waits by sleeping for {@code ALLOCATOR_SLEEP_TIME} milliseconds.
  */
 public class ContainerAllocator extends AbstractContainerAllocator {
-  private static final Logger log = LoggerFactory.getLogger(ContainerAllocator.class);
-
   public ContainerAllocator(AMRMClientAsync<AMRMClient.ContainerRequest> amClient,
                             ContainerUtil containerUtil,
                             YarnConfig yarnConfig) {
@@ -50,20 +46,9 @@ public class ContainerAllocator extends AbstractContainerAllocator {
    * */
   @Override
   public void assignContainerRequests() {
-    List<Container> allocatedContainers = containerRequestState.getContainersOnAHost(ANY_HOST);
-    while (!containerRequestState.getRequestsQueue().isEmpty() && allocatedContainers != null && allocatedContainers.size() > 0) {
-      SamzaContainerRequest request = containerRequestState.getRequestsQueue().peek();
-      Container container = allocatedContainers.get(0);
-
-      // Update state
-      containerRequestState.updateStateAfterAssignment(request, ANY_HOST, container);
-
-      // Cancel request and run container
-      log.info("Running {} on {}", request.expectedContainerId, container.getId());
-      containerUtil.runContainer(request.expectedContainerId, container);
+    while (hasPendingRequest() && hasAllocatedContainer(ANY_HOST)) {
+      SamzaContainerRequest request = peekPendingRequest();
+      runContainer(request, ANY_HOST);
     }
-
-    // If requestQueue is empty, all extra containers in the buffer should be released.
-    containerRequestState.releaseExtraContainers();
   }
 }

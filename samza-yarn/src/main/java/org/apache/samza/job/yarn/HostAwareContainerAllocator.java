@@ -18,8 +18,6 @@
  */
 package org.apache.samza.job.yarn;
 
-import java.util.List;
-import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.samza.config.YarnConfig;
@@ -56,48 +54,32 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    */
   @Override
   public void assignContainerRequests() {
-    while (!containerRequestState.getRequestsQueue().isEmpty()) {
-      SamzaContainerRequest request = containerRequestState.getRequestsQueue().peek();
+    while (hasPendingRequest()) {
+      SamzaContainerRequest request = peekPendingRequest();
       String preferredHost = request.getPreferredHost();
       int expectedContainerId = request.getExpectedContainerId();
 
       log.info("Handling request for container id {} on preferred host {}", expectedContainerId, preferredHost);
 
-      List<Container> allocatedContainers = containerRequestState.getContainersOnAHost(preferredHost);
-      if (allocatedContainers != null && allocatedContainers.size() > 0) {
+      if (hasAllocatedContainer(preferredHost)) {
         // Found allocated container at preferredHost
-        Container container = allocatedContainers.get(0);
-
-        containerRequestState.updateStateAfterAssignment(request, preferredHost, container);
-
-        log.info("Running {} on {}", expectedContainerId, container.getId());
-        containerUtil.runMatchedContainer(expectedContainerId, container);
+        runContainer(request, preferredHost);
       } else {
         // No allocated container on preferredHost
         log.info("Did not find any allocated containers on preferred host {} for running container id {}",
             preferredHost, expectedContainerId);
         boolean expired = requestExpired(request);
-        allocatedContainers = containerRequestState.getContainersOnAHost(ANY_HOST);
-        if (!expired || allocatedContainers == null || allocatedContainers.size() == 0) {
+        if (expired || !hasAllocatedContainer(ANY_HOST)) {
           log.info("Either the request timestamp {} is greater than container request timeout {}ms or we couldn't "
                   + "find any free allocated containers in the buffer. Breaking out of loop.",
               request.getRequestTimestamp(), CONTAINER_REQUEST_TIMEOUT);
           break;
         } else {
-          if (allocatedContainers.size() > 0) {
-            Container container = allocatedContainers.get(0);
-            log.info("Found available containers on ANY_HOST. Assigning request for container_id {} with "
-                    + "timestamp {} to container {}",
-                new Object[]{String.valueOf(expectedContainerId), request.getRequestTimestamp(), container.getId()});
-            containerRequestState.updateStateAfterAssignment(request, ANY_HOST, container);
-            log.info("Running {} on {}", expectedContainerId, container.getId());
-            containerUtil.runContainer(expectedContainerId, container);
-          }
+          runContainer(request, ANY_HOST);
         }
       }
     }
-    // Release extra containers and update the entire system's state
-    containerRequestState.releaseExtraContainers();
+
   }
 
   private boolean requestExpired(SamzaContainerRequest request) {

@@ -94,6 +94,8 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getCommandClass = getOption(TaskConfig.COMMAND_BUILDER)
 
+  def getCommandClass(defaultValue: String) = getOrDefault(TaskConfig.COMMAND_BUILDER, defaultValue)
+
   def getCheckpointManagerFactory() = getOption(TaskConfig.CHECKPOINT_MANAGER_FACTORY)
 
   def getMessageChooserClass = getOption(TaskConfig.MESSAGE_CHOOSER_CLASS_NAME)

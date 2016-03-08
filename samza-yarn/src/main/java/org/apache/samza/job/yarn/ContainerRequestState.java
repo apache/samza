@@ -239,6 +239,19 @@ public class ContainerRequestState {
   }
 
   /**
+   * Releases a container that was allocated and assigned but could not be started.
+   * e.g. because of a ConnectException while trying to communicate with the NM.
+   * This method assumes the specified container and associated request have already
+   * been removed from their respective queues.
+   *
+   * @param container the {@link Container} to release.
+   */
+  public void releaseUnstartableContainer(Container container) {
+    log.info("Releasing unstartable container {}", container.getId());
+    amClient.releaseAssignedContainer(container.getId());
+  }
+
+  /**
    * Clears all the state variables
    * Performed when there are no more unfulfilled requests
    * This is not synchronized because it is private.

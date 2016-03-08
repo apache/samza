@@ -281,7 +281,7 @@ public class TestSamzaTaskManager {
     taskManager.onInit();
 
     assertFalse(taskManager.shouldShutdown());
-    assertEquals(1, allocator.containerRequestState.getRequestsQueue().size());
+    assertEquals(1, allocator.getContainerRequestState().getRequestsQueue().size());
 
     Container container = TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "abc", 123);
     taskManager.onContainerAllocated(container);
@@ -293,8 +293,8 @@ public class TestSamzaTaskManager {
     taskManager.onContainerCompleted(TestUtil.getContainerStatus(container.getId(), 1, "Expecting a failure here"));
 
     // The above failure should trigger a container request
-    assertEquals(1, allocator.containerRequestState.getRequestsQueue().size());
-    assertEquals(ContainerRequestState.ANY_HOST, allocator.containerRequestState.getRequestsQueue().peek().getPreferredHost());
+    assertEquals(1, allocator.getContainerRequestState().getRequestsQueue().size());
+    assertEquals(ContainerRequestState.ANY_HOST, allocator.getContainerRequestState().getRequestsQueue().peek().getPreferredHost());
     assertFalse(taskManager.shouldShutdown());
     assertFalse(state.jobHealthy.get());
     assertEquals(2, testAMRMClient.requests.size());
@@ -311,7 +311,7 @@ public class TestSamzaTaskManager {
     taskManager.onContainerCompleted(TestUtil.getContainerStatus(container.getId(), 1, "Expecting a failure here"));
 
     // The above failure should trigger a job shutdown because our retry count is set to 1
-    assertEquals(0, allocator.containerRequestState.getRequestsQueue().size());
+    assertEquals(0, allocator.getContainerRequestState().getRequestsQueue().size());
     assertEquals(2, testAMRMClient.requests.size());
     assertEquals(0, testAMRMClient.getRelease().size());
     assertFalse(state.jobHealthy.get());
@@ -347,7 +347,7 @@ public class TestSamzaTaskManager {
     taskManager.onInit();
 
     assertFalse(taskManager.shouldShutdown());
-    assertEquals(1, allocator.containerRequestState.getRequestsQueue().size());
+    assertEquals(1, allocator.getContainerRequestState().getRequestsQueue().size());
 
     Container container = TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "abc", 123);
     taskManager.onContainerAllocated(container);
@@ -359,8 +359,8 @@ public class TestSamzaTaskManager {
     taskManager.onContainerCompleted(TestUtil.getContainerStatus(container.getId(), 1, "Expecting a failure here"));
 
     // The above failure should trigger a container request
-    assertEquals(1, allocator.containerRequestState.getRequestsQueue().size());
-    assertEquals("abc", allocator.containerRequestState.getRequestsQueue().peek().getPreferredHost());
+    assertEquals(1, allocator.getContainerRequestState().getRequestsQueue().size());
+    assertEquals("abc", allocator.getContainerRequestState().getRequestsQueue().peek().getPreferredHost());
     assertFalse(taskManager.shouldShutdown());
     assertFalse(state.jobHealthy.get());
     assertEquals(2, testAMRMClient.requests.size());
@@ -377,7 +377,7 @@ public class TestSamzaTaskManager {
     taskManager.onContainerCompleted(TestUtil.getContainerStatus(container.getId(), 1, "Expecting a failure here"));
 
     // The above failure should trigger a job shutdown because our retry count is set to 1
-    assertEquals(0, allocator.containerRequestState.getRequestsQueue().size());
+    assertEquals(0, allocator.getContainerRequestState().getRequestsQueue().size());
     assertEquals(2, testAMRMClient.requests.size());
     assertEquals(0, testAMRMClient.getRelease().size());
     assertFalse(state.jobHealthy.get());
@@ -415,7 +415,7 @@ public class TestSamzaTaskManager {
     // Start the task manager
     taskManager.onInit();
     assertFalse(taskManager.shouldShutdown());
-    assertEquals(1, allocator.containerRequestState.getRequestsQueue().size());
+    assertEquals(1, allocator.getContainerRequestState().getRequestsQueue().size());
 
     Container container = TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "abc", 123);
     taskManager.onContainerAllocated(container);
@@ -427,32 +427,32 @@ public class TestSamzaTaskManager {
     taskManager.onContainerCompleted(TestUtil.getContainerStatus(container.getId(), ContainerExitStatus.DISKS_FAILED, "Disk failure"));
 
     // The above failure should trigger a container request
-    assertEquals(1, allocator.containerRequestState.getRequestsQueue().size());
+    assertEquals(1, allocator.getContainerRequestState().getRequestsQueue().size());
     assertFalse(taskManager.shouldShutdown());
     assertFalse(state.jobHealthy.get());
     assertEquals(2, testAMRMClient.requests.size());
     assertEquals(0, testAMRMClient.getRelease().size());
-    assertEquals(ContainerRequestState.ANY_HOST, allocator.containerRequestState.getRequestsQueue().peek().getPreferredHost());
+    assertEquals(ContainerRequestState.ANY_HOST, allocator.getContainerRequestState().getRequestsQueue().peek().getPreferredHost());
 
     // Create container failure - with ContainerExitStatus.PREEMPTED
     taskManager.onContainerCompleted(TestUtil.getContainerStatus(container.getId(), ContainerExitStatus.PREEMPTED, "Task Preempted by RM"));
 
     // The above failure should trigger a container request
-    assertEquals(1, allocator.containerRequestState.getRequestsQueue().size());
+    assertEquals(1, allocator.getContainerRequestState().getRequestsQueue().size());
     assertFalse(taskManager.shouldShutdown());
     assertFalse(state.jobHealthy.get());
-    assertEquals(ContainerRequestState.ANY_HOST, allocator.containerRequestState.getRequestsQueue().peek().getPreferredHost());
+    assertEquals(ContainerRequestState.ANY_HOST, allocator.getContainerRequestState().getRequestsQueue().peek().getPreferredHost());
 
     // Create container failure - with ContainerExitStatus.ABORTED
     taskManager.onContainerCompleted(TestUtil.getContainerStatus(container.getId(), ContainerExitStatus.ABORTED, "Task Aborted by the NM"));
 
     // The above failure should trigger a container request
-    assertEquals(1, allocator.containerRequestState.getRequestsQueue().size());
+    assertEquals(1, allocator.getContainerRequestState().getRequestsQueue().size());
     assertEquals(2, testAMRMClient.requests.size());
     assertEquals(0, testAMRMClient.getRelease().size());
     assertFalse(taskManager.shouldShutdown());
     assertFalse(state.jobHealthy.get());
-    assertEquals(ContainerRequestState.ANY_HOST, allocator.containerRequestState.getRequestsQueue().peek().getPreferredHost());
+    assertEquals(ContainerRequestState.ANY_HOST, allocator.getContainerRequestState().getRequestsQueue().peek().getPreferredHost());
 
     taskManager.onShutdown();
   }

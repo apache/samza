@@ -19,6 +19,7 @@
 
 package org.apache.samza.job.yarn;
 
+import java.util.Map;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
@@ -34,6 +35,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SamzaAppState {
+  /**
+   * Represents an invalid or unknown Samza container ID.
+   */
+  private static final int UNUSED_CONTAINER_ID = -1;
+
   /**
    * Job Coordinator is started in the AM and follows the {@link org.apache.samza.job.yarn.SamzaAppMasterService}
    * lifecycle. It helps querying JobModel related info in {@link org.apache.samza.webapp.ApplicationMasterRestServlet}
@@ -176,5 +182,31 @@ public class SamzaAppState {
     this.nodeHttpPort = nodeHttpPort;
     this.appAttemptId = amContainerId.getApplicationAttemptId();
 
+  }
+
+  /**
+   * Returns the Samza container ID if the specified YARN container ID corresponds to a running container.
+   *
+   * @param yarnContainerId the YARN container ID.
+   * @return                the Samza container ID if it is running,
+   *                        otherwise {@link SamzaAppState#UNUSED_CONTAINER_ID}.
+   */
+  public int getRunningSamzaContainerId(ContainerId yarnContainerId) {
+    int containerId = UNUSED_CONTAINER_ID;
+    for(Map.Entry<Integer, YarnContainer> entry: runningContainers.entrySet()) {
+      if(entry.getValue().id().equals(yarnContainerId)) {
+        containerId = entry.getKey();
+        break;
+      }
+    }
+    return containerId;
+  }
+
+  /**
+   * @param samzaContainerId  the Samza container ID to validate.
+   * @return                  {@code true} if the ID is valid, {@code false} otherwise
+   */
+  public static boolean isValidContainerId(int samzaContainerId) {
+    return samzaContainerId != UNUSED_CONTAINER_ID;
   }
 }

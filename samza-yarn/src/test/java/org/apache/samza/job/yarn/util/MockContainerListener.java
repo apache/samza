@@ -19,27 +19,37 @@
 
 package org.apache.samza.job.yarn.util;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.hadoop.yarn.api.records.Container;
+import org.apache.samza.job.yarn.SamzaContainerRequest;
+import scala.tools.nsc.Global;
 
 import static org.junit.Assert.assertTrue;
 
 public class MockContainerListener {
-  private static final int NUM_CONDITIONS = 2;
+  private static final int NUM_CONDITIONS = 3;
   private boolean allContainersAdded = false;
   private boolean allContainersReleased = false;
   private final int numExpectedContainersAdded;
   private final int numExpectedContainersReleased;
+  private final int numExpectedContainersAssigned;
   private final Runnable addContainerAssertions;
   private final Runnable releaseContainerAssertions;
+  private final Runnable assignContainerAssertions;
 
   public MockContainerListener(int numExpectedContainersAdded,
       int numExpectedContainersReleased,
+      int numExpectedContainersAssigned,
       Runnable addContainerAssertions,
-      Runnable releaseContainerAssertions) {
+      Runnable releaseContainerAssertions,
+      Runnable assignContainerAssertions) {
     this.numExpectedContainersAdded = numExpectedContainersAdded;
     this.numExpectedContainersReleased = numExpectedContainersReleased;
+    this.numExpectedContainersAssigned = numExpectedContainersAssigned;
     this.addContainerAssertions = addContainerAssertions;
     this.releaseContainerAssertions = releaseContainerAssertions;
+    this.assignContainerAssertions = assignContainerAssertions;
   }
 
   public synchronized void postAddContainer(Container container, int totalAddedContainers) {
@@ -76,5 +86,15 @@ public class MockContainerListener {
 
     assertTrue("Not all containers were added.", allContainersAdded);
     assertTrue("Not all containers were released.", allContainersReleased);
+  }
+
+  public void postUpdateRequestStateAfterAssignment(int totalAssignedContainers) {
+    if (totalAssignedContainers == numExpectedContainersAssigned) {
+      if (assignContainerAssertions != null) {
+        assignContainerAssertions.run();
+      }
+
+      this.notifyAll();
+    }
   }
 }

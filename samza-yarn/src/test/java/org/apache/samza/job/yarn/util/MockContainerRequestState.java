@@ -19,23 +19,39 @@
 package org.apache.samza.job.yarn.util;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.samza.job.yarn.ContainerRequestState;
+import org.apache.samza.job.yarn.SamzaContainerRequest;
 
 
 public class MockContainerRequestState extends ContainerRequestState {
   private final List<MockContainerListener> _mockContainerListeners = new ArrayList<MockContainerListener>();
   private int numAddedContainers = 0;
   private int numReleasedContainers = 0;
+  private int numAssignedContainers = 0;
+  public Queue<SamzaContainerRequest> assignedRequests = new LinkedList<>();
 
   public MockContainerRequestState(AMRMClientAsync<AMRMClient.ContainerRequest> amClient,
       boolean hostAffinityEnabled) {
     super(amClient, hostAffinityEnabled);
   }
 
+  @Override
+  public synchronized void updateStateAfterAssignment(SamzaContainerRequest request, String assignedHost, Container container) {
+    super.updateStateAfterAssignment(request, assignedHost, container);
+
+    numAssignedContainers++;
+    assignedRequests.add(request);
+
+    for (MockContainerListener listener : _mockContainerListeners) {
+      listener.postUpdateRequestStateAfterAssignment(numAssignedContainers);
+    }
+  }
 
   @Override
   public synchronized void addContainer(Container container) {
@@ -56,6 +72,16 @@ public class MockContainerRequestState extends ContainerRequestState {
     }
 
     return numAddedContainers;
+  }
+
+  @Override
+  public void releaseUnstartableContainer(Container container) {
+    super.releaseUnstartableContainer(container);
+
+    numReleasedContainers += 1;
+    for (MockContainerListener listener : _mockContainerListeners) {
+      listener.postReleaseContainers(numReleasedContainers);
+    }
   }
 
   public void registerContainerListener(MockContainerListener listener) {

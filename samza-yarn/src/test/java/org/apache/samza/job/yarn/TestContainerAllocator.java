@@ -19,6 +19,7 @@
 
 package org.apache.samza.job.yarn;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.job.yarn.util.MockContainerListener;
 import org.apache.samza.job.yarn.util.MockContainerRequestState;
+import org.apache.samza.job.yarn.util.MockContainerUtil;
 import org.apache.samza.job.yarn.util.MockHttpServer;
 import org.apache.samza.job.yarn.util.TestAMRMClientImpl;
 import org.apache.samza.job.yarn.util.TestUtil;
@@ -61,6 +63,7 @@ public class TestContainerAllocator {
   private TestAMRMClientImpl testAMRMClient;
   private MockContainerRequestState requestState;
   private ContainerAllocator containerAllocator;
+  private ContainerUtil containerUtil;
   private Thread allocatorThread;
 
   private Config config = new MapConfig(new HashMap<String, String>() {
@@ -105,9 +108,10 @@ public class TestContainerAllocator {
     state.coordinatorUrl = new URL("http://localhost:7778/");
 
     requestState = new MockContainerRequestState(amRmClientAsync, false);
+    containerUtil = TestUtil.getContainerUtil(config, state);
     containerAllocator = new ContainerAllocator(
         amRmClientAsync,
-        TestUtil.getContainerUtil(config, state),
+        containerUtil,
         new YarnConfig(config)
     );
     Field requestStateField = containerAllocator.getClass().getSuperclass().getDeclaredField("containerRequestState");
@@ -195,6 +199,59 @@ public class TestContainerAllocator {
   }
 
   /**
+   * If the container fails to start e.g because it fails to connect to a NM on a host that
+   * is down, the allocator should request a new container on a different host.
+   */
+  @Test
+  public void testRerequestOnAnyHostIfContainerStartFails() throws Exception {
+    final Container container = TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "2", 123);
+    final Container container1 = TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "1", 123);
+
+    ((MockContainerUtil) containerUtil).containerStartException = new IOException("You shall not... connect to the NM!");
+
+    // Set up our final asserts before starting the allocator thread
+    MockContainerListener listener = new MockContainerListener(2, 1, 2, null, new Runnable() {
+      @Override
+      public void run() {
+        // The failed container should be released. The successful one should not.
+        assertNotNull(testAMRMClient.getRelease());
+        assertEquals(1, testAMRMClient.getRelease().size());
+        assertTrue(testAMRMClient.getRelease().contains(container.getId()));
+      }
+    },
+        new Runnable() {
+          @Override
+          public void run() {
+            // Test that the first request assignment had a preferred host and the retry didn't
+            assertEquals(2, requestState.assignedRequests.size());
+
+            SamzaContainerRequest request = requestState.assignedRequests.remove();
+            assertEquals(0, request.expectedContainerId);
+            assertEquals("2", request.getPreferredHost());
+
+            request = requestState.assignedRequests.remove();
+            assertEquals(0, request.expectedContainerId);
+            assertEquals("ANY_HOST", request.getPreferredHost());
+
+            // This routine should be called after the retry is assigned, but before it's started.
+            // So there should still be 1 container needed.
+            assertEquals(1, state.neededContainers.get());
+          }
+        }
+    );
+    requestState.registerContainerListener(listener);
+
+    allocatorThread.start();
+
+    // Only request 1 container and we should see 2 assignments in the assertions above (because of the retry)
+    containerAllocator.requestContainer(0, "2");
+    containerAllocator.addContainer(container);
+    containerAllocator.addContainer(container1);
+
+    listener.verify();
+  }
+
+  /**
    * Extra allocated containers that are returned by the RM and unused by the AM should be released.
    * Containers are considered "extra" only when there are no more pending requests to fulfill
    * @throws Exception
@@ -206,7 +263,7 @@ public class TestContainerAllocator {
     final Container container2 = TestUtil.getContainer(ConverterUtils.toContainerId("container_1350670447861_0003_01_000003"), "def", 123);
 
     // Set up our final asserts before starting the allocator thread
-    MockContainerListener listener = new MockContainerListener(3, 2, null, new Runnable() {
+    MockContainerListener listener = new MockContainerListener(3, 2, 0, null, new Runnable() {
       @Override
       public void run() {
         assertNotNull(testAMRMClient.getRelease());
@@ -220,7 +277,7 @@ public class TestContainerAllocator {
         assertNull(requestState.getContainersOnAHost("abc"));
         assertNull(requestState.getContainersOnAHost("def"));
       }
-    });
+    }, null);
     requestState.registerContainerListener(listener);
 
     allocatorThread.start();
