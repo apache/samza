@@ -97,6 +97,11 @@ class SerializedKeyValueStore[K, V](
     new DeserializingIterator(store.all)
   }
 
+  def newIterator(): KeyValueIterator[K, V] = {
+    metrics.newIterator.inc
+    new DeserializingIterator(store.newIterator())
+  }
+
   private class DeserializingIterator(iter: KeyValueIterator[Array[Byte], Array[Byte]]) extends KeyValueIterator[K, V] {
     def hasNext() = iter.hasNext()
     def remove() = iter.remove()
@@ -107,6 +112,10 @@ class SerializedKeyValueStore[K, V](
       val value = fromBytesOrNull(nxt.getValue, msgSerde)
       new Entry(key, value)
     }
+
+    override def seekToFirst(): Unit = iter.seekToFirst()
+
+    override def seek(key: K): Unit = iter.seek(toBytesOrNull(key, keySerde))
   }
 
   def flush {

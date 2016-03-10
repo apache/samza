@@ -103,6 +103,13 @@ public interface KeyValueStore<K, V> {
   KeyValueIterator<K, V> all();
 
   /**
+   * Return an iterator which is yet to be positions. This iterator must be positioned
+   * first before a call to next() is made. This iterator MUST be closed after use.
+   * @return An iterator
+   */
+  KeyValueIterator<K, V> newIterator();
+
+  /**
    * Closes this key-value store, if applicable, relinquishing any underlying resources.
    */
   void close();

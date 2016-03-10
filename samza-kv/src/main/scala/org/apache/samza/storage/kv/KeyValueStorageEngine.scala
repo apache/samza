@@ -79,6 +79,11 @@ class KeyValueStorageEngine[K, V](
     wrapperStore.all()
   }
 
+  def newIterator() = {
+    metrics.newIterator.inc
+    wrapperStore.newIterator()
+  }
+
   /**
    * Restore the contents of this key/value store from the change log,
    * batching updates to underlying raw store to skip wrapping functions for efficiency.

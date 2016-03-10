@@ -78,6 +78,10 @@ class NullSafeKeyValueStore[K, V](store: KeyValueStore[K, V]) extends KeyValueSt
     store.all
   }
 
+  def newIterator(): KeyValueIterator[K, V] = {
+    store.newIterator()
+  }
+
   def flush {
     store.flush
   }

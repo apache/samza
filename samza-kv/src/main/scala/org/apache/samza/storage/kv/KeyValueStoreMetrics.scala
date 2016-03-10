@@ -35,6 +35,7 @@ class KeyValueStoreMetrics(
   val flushes = newCounter("flushes")
   val bytesWritten = newCounter("bytes-written")
   val bytesRead = newCounter("bytes-read")
+  val newIterator = newCounter("newitertor")
 
   override def getPrefix = storeName + "-"
 }
