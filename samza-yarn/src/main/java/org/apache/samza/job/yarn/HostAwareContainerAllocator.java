@@ -68,14 +68,15 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
         // No allocated container on preferredHost
         log.info("Did not find any allocated containers on preferred host {} for running container id {}",
             preferredHost, expectedContainerId);
+
         boolean expired = requestExpired(request);
-        if (expired || !hasAllocatedContainer(ANY_HOST)) {
+        if (expired && hasAllocatedContainer(ANY_HOST)) {
+          runContainer(request, ANY_HOST);
+        } else {
           log.info("Either the request timestamp {} is greater than container request timeout {}ms or we couldn't "
                   + "find any free allocated containers in the buffer. Breaking out of loop.",
               request.getRequestTimestamp(), CONTAINER_REQUEST_TIMEOUT);
           break;
-        } else {
-          runContainer(request, ANY_HOST);
         }
       }
     }
