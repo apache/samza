@@ -352,6 +352,12 @@ project(":samza-sql-core") {
 project(":samza-sql-calcite") {
   apply plugin: 'java'
 
+  repositories {
+    maven {
+      url "http://conjars.org/repo"
+    }
+  }
+
   dependencies {
     compile project(":samza-sql-core")
     compile "org.apache.calcite:calcite-core:$calciteVersion"
