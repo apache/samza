@@ -20,9 +20,18 @@ include \
   'samza-api',
   'samza-elasticsearch',
   'samza-log4j',
-  'samza-shell',
+  'samza-shell'
+
+def jdk8Modules = [
   'samza-sql-core',
   'samza-sql-calcite'
+] as HashSet
+
+if (JavaVersion.current().isJava8Compatible()) {
+  jdk8Modules.each {
+    include it
+  }
+}
 
 def scalaModules = [
         'samza-core',

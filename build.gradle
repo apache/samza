@@ -335,34 +335,39 @@ project(":samza-yarn_$scalaVersion") {
   jar.dependsOn("lesscss")
 }
 
-project(":samza-sql-core") {
-  apply plugin: 'java'
-
-  dependencies {
-    compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
-    compile project(":samza-kv_$scalaVersion")
-    compile "commons-collections:commons-collections:$commonsCollectionVersion"
-    compile "org.apache.avro:avro:$avroVersion"
-    testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
-  }
-}
-
-project(":samza-sql-calcite") {
-  apply plugin: 'java'
-
-  repositories {
-    maven {
-      url "http://conjars.org/repo"
+if (JavaVersion.current().isJava8Compatible()) {
+  project(":samza-sql-core") {
+    apply plugin: 'java'
+    
+    sourceCompatibility = 1.8
+    
+    dependencies {
+      compile project(':samza-api')
+      compile project(":samza-core_$scalaVersion")
+      compile "commons-collections:commons-collections:$commonsCollectionVersion"
+      compile "org.apache.avro:avro:$avroVersion"
+      testCompile "junit:junit:$junitVersion"
+      testCompile "org.mockito:mockito-all:$mockitoVersion"
     }
   }
 
-  dependencies {
-    compile project(":samza-sql-core")
-    compile "org.apache.calcite:calcite-core:$calciteVersion"
-    testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
+  project(":samza-sql-calcite") {
+    apply plugin: 'java'
+
+    repositories {
+      maven {
+        url "http://conjars.org/repo"
+      }
+    }
+
+    sourceCompatibility = 1.8
+
+    dependencies {
+      compile project(":samza-sql-core")
+      compile "org.apache.calcite:calcite-core:$calciteVersion"
+      testCompile "junit:junit:$junitVersion"
+      testCompile "org.mockito:mockito-all:$mockitoVersion"
+    }
   }
 }
 
