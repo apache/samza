@@ -152,6 +152,10 @@ public class CoordinatorStreamSystemConsumer {
         }
         CoordinatorStreamMessage coordinatorStreamMessage = new CoordinatorStreamMessage(keyArray, valueMap);
         log.debug("Received coordinator stream message: {}", coordinatorStreamMessage);
+        // Remove any existing entry. Set.add() does not add if the element already exists.
+        if (bootstrappedStreamSet.remove(coordinatorStreamMessage)) {
+          log.debug("Removed duplicate message: {}", coordinatorStreamMessage);
+        }
         bootstrappedStreamSet.add(coordinatorStreamMessage);
         if (SetConfig.TYPE.equals(coordinatorStreamMessage.getType())) {
           String configKey = coordinatorStreamMessage.getKey();
@@ -182,7 +186,9 @@ public class CoordinatorStreamSystemConsumer {
     bootstrap();
     LinkedHashSet<CoordinatorStreamMessage> bootstrappedStream = new LinkedHashSet<CoordinatorStreamMessage>();
     for (CoordinatorStreamMessage coordinatorStreamMessage : bootstrappedStreamSet) {
+      log.trace("Considering message: {}", coordinatorStreamMessage);
       if (type.equalsIgnoreCase(coordinatorStreamMessage.getType())) {
+        log.trace("Adding message: {}", coordinatorStreamMessage);
         bootstrappedStream.add(coordinatorStreamMessage);
       }
     }
