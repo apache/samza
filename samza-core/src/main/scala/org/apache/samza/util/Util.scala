@@ -208,8 +208,14 @@ object Util extends Logging {
   def buildCoordinatorStreamConfig(config: Config) = {
     val (jobName, jobId) = getJobNameAndId(config)
     // Build a map with just the system config and job.name/job.id. This is what's required to start the JobCoordinator.
-    new MapConfig(config.subset(SystemConfig.SYSTEM_PREFIX format config.getCoordinatorSystemName, false) ++
-      Map[String, String](JobConfig.JOB_NAME -> jobName, JobConfig.JOB_ID -> jobId, JobConfig.JOB_COORDINATOR_SYSTEM -> config.getCoordinatorSystemName))
+    new MapConfig(
+      config.subset(SystemConfig.SYSTEM_PREFIX format config.getCoordinatorSystemName, false) ++
+      Map[String, String](
+        JobConfig.JOB_NAME -> jobName,
+        JobConfig.JOB_ID -> jobId,
+        JobConfig.JOB_COORDINATOR_SYSTEM -> config.getCoordinatorSystemName,
+        JobConfig.MONITOR_PARTITION_CHANGE -> String.valueOf(config.getMonitorPartitionChange),
+        JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> String.valueOf(config.getMonitorPartitionChangeFrequency)))
   }
 
   /**

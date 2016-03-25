@@ -19,6 +19,8 @@
 
 package org.apache.samza.coordinator
 
+import java.util
+
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.util.Util
 import org.junit.{After, Test}
@@ -30,18 +32,13 @@ import org.apache.samza.config.SystemConfig
 import org.apache.samza.container.{SamzaContainer, TaskName}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.config.Config
-import org.apache.samza.system.SystemFactory
-import org.apache.samza.system.SystemAdmin
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.system.SystemStreamMetadata
+import org.apache.samza.system._
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.Partition
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.config.JobConfig
-import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.system.SystemConsumer
 import org.apache.samza.coordinator.stream.{MockCoordinatorStreamWrappedConsumer, MockCoordinatorStreamSystemFactory}
 
 class TestJobCoordinator {
@@ -93,7 +90,9 @@ class TestJobCoordinator {
       TaskConfig.INPUT_STREAMS -> "test.stream1",
       SystemConfig.SYSTEM_FACTORY.format("test") -> classOf[MockSystemFactory].getCanonicalName,
       SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
-      TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
+      TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory",
+      JobConfig.MONITOR_PARTITION_CHANGE -> "true",
+      JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> "100"
       )
 
     // We want the mocksystemconsumer to use the same instance across runs
@@ -114,7 +113,12 @@ class TestJobCoordinator {
     val jobModelFromCoordinatorUrl = SamzaObjectMapper.getObjectMapper.readValue(Util.read(coordinator.server.getUrl), classOf[JobModel])
     assertEquals(expectedJobModel, jobModelFromCoordinatorUrl)
 
+    // Check the status of Stream Partition Count Monitor
+    assertNotNull(coordinator.streamPartitionCountMonitor)
+    assertTrue(coordinator.streamPartitionCountMonitor.isRunning())
+
     coordinator.stop
+    assertFalse(coordinator.streamPartitionCountMonitor.isRunning())
   }
 
   @Test
@@ -202,7 +206,7 @@ class MockSystemFactory extends SystemFactory {
   def getAdmin(systemName: String, config: Config) = new MockSystemAdmin
 }
 
-class MockSystemAdmin extends SystemAdmin {
+class MockSystemAdmin extends ExtendedSystemAdmin {
   def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = null
   def getSystemStreamMetadata(streamNames: java.util.Set[String]): java.util.Map[String, SystemStreamMetadata] = {
     assertEquals(1, streamNames.size)
@@ -227,4 +231,18 @@ class MockSystemAdmin extends SystemAdmin {
   }
   
   override def offsetComparator(offset1: String, offset2: String) = null
+
+  override def getSystemStreamPartitionCounts(streamNames: util.Set[String]): util.Map[String, SystemStreamMetadata] = {
+    assertEquals(1, streamNames.size())
+    val result = streamNames.map {
+      stream =>
+        val partitionMetadata = Map(
+          new Partition(0) -> new SystemStreamPartitionMetadata("", "", ""),
+          new Partition(1) -> new SystemStreamPartitionMetadata("", "", ""),
+          new Partition(2) -> new SystemStreamPartitionMetadata("", "", "")
+        )
+        stream -> new SystemStreamMetadata(stream, partitionMetadata)
+    }.toMap
+    result
+  }
 }

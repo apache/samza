@@ -19,17 +19,18 @@
 
 package org.apache.samza.system.kafka
 
+import java.util
+
 import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
-import org.apache.samza.system.SystemAdmin
-import org.apache.samza.system.SystemStreamMetadata
-import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.system.{ExtendedSystemAdmin, SystemStreamMetadata, SystemStreamPartition}
 import org.apache.samza.util.{ ClientUtilTopicMetadataStore, ExponentialSleepStrategy, Logging }
 import kafka.api._
 import kafka.consumer.SimpleConsumer
 import kafka.common.{ TopicExistsException, TopicAndPartition }
 import java.util.{ Properties, UUID }
+import scala.collection.JavaConversions
 import scala.collection.JavaConversions._
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import kafka.consumer.ConsumerConfig
@@ -134,9 +135,41 @@ class KafkaSystemAdmin(
    * Replication factor for the Changelog topic in kafka
    * Kafka properties to be used during the Changelog topic creation
    */
-  topicMetaInformation: Map[String, ChangelogInfo] = Map[String, ChangelogInfo]()) extends SystemAdmin with Logging {
+  topicMetaInformation: Map[String, ChangelogInfo] = Map[String, ChangelogInfo]()) extends ExtendedSystemAdmin with Logging {
 
   import KafkaSystemAdmin._
+
+  def getSystemStreamPartitionCounts(streams: util.Set[String]): util.Map[String, SystemStreamMetadata] = {
+    getSystemStreamPartitionCounts(streams, new ExponentialSleepStrategy(initialDelayMs = 500))
+  }
+
+  def getSystemStreamPartitionCounts(streams: util.Set[String], retryBackoff: ExponentialSleepStrategy): util.Map[String, SystemStreamMetadata] = {
+    debug("Fetching system stream partition count for: %s" format streams)
+    retryBackoff.run(
+      loop => {
+        val metadata = TopicMetadataCache.getTopicMetadata(
+          streams.toSet,
+          systemName,
+        getTopicMetadata)
+        val result = metadata.map {
+          case (topic, topicMetadata) => {
+            val partitionsMap = topicMetadata.partitionsMetadata.map {
+              pm =>
+                new Partition(pm.partitionId) -> new SystemStreamPartitionMetadata("", "", "")
+            }.toMap[Partition, SystemStreamPartitionMetadata]
+            (topic -> new SystemStreamMetadata(topic, partitionsMap))
+          }
+        }
+        loop.done
+        JavaConversions.mapAsJavaMap(result)
+      },
+
+      (exception, loop) => {
+        warn("Unable to fetch last offsets for streams %s due to %s. Retrying." format (streams, exception))
+        debug("Exception detail:", exception)
+      }
+    ).getOrElse(throw new SamzaException("Failed to get system stream metadata"))
+  }
 
   /**
    * Returns the offset for the message after the specified offset for each

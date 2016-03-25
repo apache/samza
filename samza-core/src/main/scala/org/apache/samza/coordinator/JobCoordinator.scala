@@ -20,32 +20,26 @@
 package org.apache.samza.coordinator
 
 
+import java.util
 import java.util.concurrent.atomic.AtomicReference
 
-import org.apache.samza.config.StorageConfig
-import org.apache.samza.job.model.{JobModel, TaskModel}
-import org.apache.samza.config.Config
-import org.apache.samza.SamzaException
-import org.apache.samza.container.grouper.task.TaskNameGrouperFactory
-import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
-import java.util
-import org.apache.samza.container.{LocalityManager, TaskName}
-import org.apache.samza.storage.ChangelogPartitionManager
-import org.apache.samza.util.Logging
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.util.Util
-import scala.collection.JavaConversions._
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.Partition
-import org.apache.samza.system.StreamMetadataCache
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.system.SystemFactory
-import org.apache.samza.coordinator.server.HttpServer
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
-import org.apache.samza.coordinator.server.JobServlet
 import org.apache.samza.config.SystemConfig.Config2System
+import org.apache.samza.config.TaskConfig.Config2Task
+import org.apache.samza.config.{Config, StorageConfig}
+import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
+import org.apache.samza.container.grouper.task.TaskNameGrouperFactory
+import org.apache.samza.container.{LocalityManager, TaskName}
+import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
+import org.apache.samza.job.model.{JobModel, TaskModel}
+import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.storage.ChangelogPartitionManager
+import org.apache.samza.system.{ExtendedSystemAdmin, StreamMetadataCache, SystemFactory, SystemStreamPartition}
+import org.apache.samza.util.{Logging, Util}
+import org.apache.samza.{Partition, SamzaException}
+
+import scala.collection.JavaConversions._
 
 /**
  * Helper companion object that is responsible for wiring up a JobCoordinator
@@ -58,6 +52,7 @@ object JobCoordinator extends Logging {
    */
   @volatile var currentJobCoordinator: JobCoordinator = null
   val jobModelRef: AtomicReference[JobModel] = new AtomicReference[JobModel]()
+  var streamPartitionCountMonitor: StreamPartitionCountMonitor = null
 
   /**
    * @param coordinatorSystemConfig A config object that contains job.name,
@@ -92,6 +87,19 @@ object JobCoordinator extends Logging {
     }).toMap
 
     val streamMetadataCache = new StreamMetadataCache(systemAdmins)
+    if (config.getMonitorPartitionChange) {
+      val extendedSystemAdmins = systemAdmins.filter{
+        case (systemName, systemAdmin) => systemAdmin.isInstanceOf[ExtendedSystemAdmin]
+      }
+      val inputStreamsToMonitor = config.getInputStreams.filter(systemStream => extendedSystemAdmins.containsKey(systemStream.getSystem))
+      if (inputStreamsToMonitor.nonEmpty) {
+        streamPartitionCountMonitor = new StreamPartitionCountMonitor(
+          inputStreamsToMonitor,
+          streamMetadataCache,
+          metricsRegistryMap,
+          config.getMonitorPartitionChangeFrequency)
+      }
+    }
 
     val jobCoordinator = getJobCoordinator(config, changelogManager, localityManager, streamMetadataCache)
     createChangeLogStreams(config, jobCoordinator.jobModel.maxChangeLogStreamPartitions, streamMetadataCache)
@@ -113,7 +121,7 @@ object JobCoordinator extends Logging {
 
     val server = new HttpServer
     server.addServlet("/*", new JobServlet(jobModelRef))
-    currentJobCoordinator = new JobCoordinator(jobModel, server)
+    currentJobCoordinator = new JobCoordinator(jobModel, server, streamPartitionCountMonitor)
     currentJobCoordinator
   }
 
@@ -294,7 +302,8 @@ class JobCoordinator(
   /**
    * HTTP server used to serve a Samza job's container model to SamzaContainers when they start up.
    */
-  val server: HttpServer = null) extends Logging {
+  val server: HttpServer = null,
+  val streamPartitionCountMonitor: StreamPartitionCountMonitor = null) extends Logging {
 
   debug("Got job model: %s." format jobModel)
 
@@ -302,13 +311,21 @@ class JobCoordinator(
     if (server != null) {
       debug("Starting HTTP server.")
       server.start
-      info("Startd HTTP server: %s" format server.getUrl)
+      if (streamPartitionCountMonitor != null) {
+        debug("Starting Stream Partition Count Monitor..")
+        streamPartitionCountMonitor.startMonitor()
+      }
+      info("Started HTTP server: %s" format server.getUrl)
     }
   }
 
   def stop {
     if (server != null) {
       debug("Stopping HTTP server.")
+      if (streamPartitionCountMonitor != null) {
+        debug("Stopping Stream Partition Count Monitor..")
+        streamPartitionCountMonitor.stopMonitor()
+      }
       server.stop
       info("Stopped HTTP server.")
     }

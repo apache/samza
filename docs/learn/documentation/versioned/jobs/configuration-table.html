@@ -184,6 +184,27 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="job-coordinator-monitor-partition-change">job.coordinator.<br />monitor-partition-change</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        If you are using Kafka for coordinator stream, this configuration enables the Job Coordinator to
+                        detect partition count difference in Kafka input topics. On detection, it updates a Gauge
+                        metric of format <span class="system">system-name</span>.<span class="stream">stream-name</span>.partitionCount,
+                        which indicates the difference in the partition count from the initial state. Please note that currently this
+                        feature only works for Kafka-based systems.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job-coordinator-monitor-partition-change-frequency-ms">job.coordinator.<br />monitor-partition-change.frequency.ms</td>
+                    <td class="default">300000</td>
+                    <td class="description">
+                        The frequency at which the input streams' partition count change should be detected. This check
+                        can be tuned to be pretty low as partition increase is not a common event.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="job-config-rewriter-class">job.config.rewriter.<br><span class="rewriter">rewriter-name</span>.class</td>
                     <td class="default"></td>
                     <td class="description">

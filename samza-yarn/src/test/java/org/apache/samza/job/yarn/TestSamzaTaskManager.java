@@ -109,7 +109,7 @@ public class TestSamzaTaskManager {
     when(mockLocalityManager.readContainerLocality()).thenReturn(localityMap);
 
     JobModel jobModel = new JobModel(getConfig(), containers, mockLocalityManager);
-    return new JobCoordinator(jobModel, server);
+    return new JobCoordinator(jobModel, server, null);
   }
 
   @Before

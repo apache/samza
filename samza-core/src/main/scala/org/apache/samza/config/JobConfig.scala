@@ -19,10 +19,8 @@
 
 package org.apache.samza.config
 
-import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.SystemConfig.Config2System
-import org.apache.samza.util.Logging
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
+import org.apache.samza.util.Logging
 
 object JobConfig {
   // job config constants
@@ -49,6 +47,9 @@ object JobConfig {
   // is not yet supported, and auto-creation of the topics cannot be always easily tuned off).
   // So we add a setting that allows for the job to continue even though number of partitions is not 1.
   val JOB_FAIL_CHECKPOINT_VALIDATION = "job.checkpoint.validation.enabled"
+  val MONITOR_PARTITION_CHANGE = "job.coordinator.monitor-partition-change"
+  val MONITOR_PARTITION_CHANGE_FREQUENCY_MS = "job.coordinator.monitor-partition-change.frequency.ms"
+  val DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS = 300000
 
   implicit def Config2Job(config: Config) = new JobConfig(config)
 }
@@ -73,6 +74,12 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
         }
     }
   }
+
+  def getMonitorPartitionChange = getBoolean(JobConfig.MONITOR_PARTITION_CHANGE, false)
+
+  def getMonitorPartitionChangeFrequency = getInt(
+    JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS,
+    JobConfig.DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS)
 
   def getStreamJobFactoryClass = getOption(JobConfig.STREAM_JOB_FACTORY_CLASS)
 
