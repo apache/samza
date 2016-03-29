@@ -43,6 +43,7 @@ import org.apache.samza.job.yarn.util.TestAMRMClientImpl;
 import org.apache.samza.job.yarn.util.TestUtil;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -91,8 +92,8 @@ public class TestSamzaTaskManager {
     return new MapConfig(map);
   }
 
-  private SamzaAppState state = new SamzaAppState(getCoordinator(1), -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2);
-  private final HttpServer server = new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class));
+  private SamzaAppState state = null;
+  private HttpServer server = null;
 
   private JobCoordinator getCoordinator(int containerCount) {
     Map<Integer, ContainerModel> containers = new java.util.HashMap<>();
@@ -101,14 +102,16 @@ public class TestSamzaTaskManager {
       containers.put(i, container);
     }
     Map<Integer, Map<String, String>> localityMap = new HashMap<>();
-    localityMap.put(0, new HashMap<String, String>(){{
-      put(SetContainerHostMapping.HOST_KEY, "abc");
-    }
+    localityMap.put(0, new HashMap<String, String>(){
+      {
+        put(SetContainerHostMapping.HOST_KEY, "abc");
+      }
     });
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readContainerLocality()).thenReturn(localityMap);
 
     JobModel jobModel = new JobModel(getConfig(), containers, mockLocalityManager);
+    JobCoordinator.jobModelRef().getAndSet(jobModel);
     return new JobCoordinator(jobModel, server, null);
   }
 
@@ -123,8 +126,16 @@ public class TestSamzaTaskManager {
         ));
     amRmClientAsync = TestUtil.getAMClient(testAMRMClient);
 
+    server = new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class));
+
     // Initialize coordinator url
+    state = new SamzaAppState(getCoordinator(1), -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "", 1, 2);
     state.coordinatorUrl = new URL("http://localhost:1234");
+  }
+
+  @After
+  public void teardown() {
+    server.stop();
   }
 
   private Field getPrivateFieldFromTaskManager(String fieldName, SamzaTaskManager object) throws Exception {
