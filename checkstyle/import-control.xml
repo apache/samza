@@ -104,6 +104,7 @@
     <subpackage name="metrics">
         <allow pkg="org.apache.samza.config" />
         <allow pkg="org.apache.samza.util" />
+        <allow pkg="org.apache.samza.container" />
     </subpackage>
 
     <subpackage name="task">
