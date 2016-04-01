@@ -45,7 +45,7 @@ REST API produces JSON and provides information about metrics, task context, con
   </thead>
   <tbody>
     <tr>
-      <td>/metrics</td><td>HahsMap that represents metrics for every 60 seconds.</td>
+      <td>/metrics</td><td>HashMap that represents metrics for every 60 seconds.</td>
     </tr>
     <tr>
       <td>/task-context</td><td>HashMap that provides information about task context including task name and task ID.</td>
