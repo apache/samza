@@ -19,6 +19,9 @@
 
 package org.apache.samza.config
 
+
+import java.io.File
+
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 import org.apache.samza.util.Logging
 
@@ -36,6 +39,8 @@ object JobConfig {
   val CONFIG_REWRITER_CLASS = "job.config.rewriter.%s.class" // streaming.job_config_rewriter_class - regex, system, config
   val JOB_NAME = "job.name" // streaming.job_name
   val JOB_ID = "job.id" // streaming.job_id
+  val SAMZA_FWK_PATH = "samza.fwk.path"
+  val SAMZA_FWK_VERSION = "samza.fwk.version"
   val JOB_COORDINATOR_SYSTEM = "job.coordinator.system"
   val JOB_CONTAINER_COUNT = "job.container.count"
   val JOB_REPLICATION_FACTOR = "job.coordinator.replication.factor"
@@ -52,6 +57,23 @@ object JobConfig {
   val DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS = 300000
 
   implicit def Config2Job(config: Config) = new JobConfig(config)
+
+  /**
+   * reads the config to figure out if split deployment is enabled
+   * and fwk directory is setup
+   * @return fwk + "/" + version
+   */
+  def getFwkPath (conf: Config) = {
+    var fwkPath = conf.get(JobConfig.SAMZA_FWK_PATH, "")
+    var fwkVersion = conf.get(JobConfig.SAMZA_FWK_VERSION)
+    if (fwkVersion == null || fwkVersion.isEmpty()) {
+      fwkVersion = "STABLE"
+    }
+    if (! fwkPath.isEmpty()) {
+      fwkPath = fwkPath + File.separator  + fwkVersion
+    }
+    fwkPath
+  }
 }
 
 class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {

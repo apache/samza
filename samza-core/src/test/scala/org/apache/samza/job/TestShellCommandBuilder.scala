@@ -41,4 +41,21 @@ class TestShellCommandBuilder {
     assertEquals("1", environment(ShellCommandConfig.ENV_CONTAINER_ID))
     assertEquals(urlStr, environment(ShellCommandConfig.ENV_COORDINATOR_URL))
   }
+
+  // if cmdPath is specified, the full path to the command should be adjusted
+  @Test
+  def testCommandWithFwkPath {
+    val urlStr = "http://www.linkedin.com"
+    val config = new MapConfig(Map(ShellCommandConfig.COMMAND_SHELL_EXECUTE -> "foo"))
+    val scb = new ShellCommandBuilder
+    scb.setConfig(config)
+    scb.setId(1)
+    scb.setUrl(new URL(urlStr))
+    val command = scb.buildCommand
+    assertEquals("foo", command)
+
+    scb.setCommandPath("/fwk/path")
+    val command1 = scb.buildCommand
+    assertEquals("/fwk/path/foo", command1)
+  }
 }

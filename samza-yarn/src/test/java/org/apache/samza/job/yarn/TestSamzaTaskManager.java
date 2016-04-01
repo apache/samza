@@ -21,12 +21,14 @@ package org.apache.samza.job.yarn;
 
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
+import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.client.api.async.impl.AMRMClientAsyncImpl;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.YarnConfig;
 import org.apache.samza.container.LocalityManager;
@@ -63,7 +65,7 @@ public class TestSamzaTaskManager {
 
   private static volatile boolean isRunning = false;
 
-  private Config config = new MapConfig(new HashMap<String, String>() {
+  private Map<String, String> configVals = new HashMap<String, String>()  {
     {
       put("yarn.container.count", "1");
       put("systems.test-system.samza.factory", "org.apache.samza.job.yarn.MockSystemFactory");
@@ -77,7 +79,8 @@ public class TestSamzaTaskManager {
       put("yarn.allocator.sleep.ms", "1");
       put("yarn.container.request.timeout.ms", "2");
     }
-  });
+  };
+  private Config config = new MapConfig(configVals);
 
   private Config getConfig() {
     Map<String, String> map = new HashMap<>();
@@ -466,5 +469,34 @@ public class TestSamzaTaskManager {
     assertEquals(ContainerRequestState.ANY_HOST, allocator.getContainerRequestState().getRequestsQueue().peek().getPreferredHost());
 
     taskManager.onShutdown();
+  }
+
+  @Test
+  public void testAppMasterWithFwk () {
+    SamzaTaskManager taskManager = new SamzaTaskManager(
+        new MapConfig(config),
+        state,
+        amRmClientAsync,
+        new YarnConfiguration()
+    );
+    taskManager.onInit();
+
+    assertFalse(taskManager.shouldShutdown());
+    ContainerId container2 = ConverterUtils.toContainerId("container_1350670447861_0003_01_000002");
+    taskManager.onContainerAllocated(TestUtil.getContainer(container2, "", 12345));
+
+
+    configVals.put(JobConfig.SAMZA_FWK_PATH(), "/export/content/whatever");
+    Config config1 = new MapConfig(configVals);
+
+    SamzaTaskManager taskManager1 = new SamzaTaskManager(
+        new MapConfig(config1),
+        state,
+        amRmClientAsync,
+        new YarnConfiguration()
+    );
+
+    taskManager1.onInit();
+    taskManager1.onContainerAllocated(TestUtil.getContainer(container2, "", 12345));
   }
 }

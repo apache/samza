@@ -19,7 +19,10 @@
 
 package org.apache.samza.job.local
 
-import org.apache.samza.config.Config
+
+import java.io.File
+
+import org.apache.samza.config.{JobConfig, Config}
 import org.apache.samza.config.TaskConfig._
 import org.apache.samza.coordinator.JobCoordinator
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory}
@@ -32,6 +35,9 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
   def   getJob(config: Config): StreamJob = {
     val coordinator = JobCoordinator(config)
     val containerModel = coordinator.jobModel.getContainers.get(0)
+
+    val fwkPath = JobConfig.getFwkPath(config) // see if split deployment is configured
+    info("Process job. using fwkPath = " + fwkPath)
 
     val commandBuilder = {
       config.getCommandClass match {
@@ -53,6 +59,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
             .setConfig(config)
             .setId(0)
             .setUrl(coordinator.server.getUrl)
+            .setCommandPath(fwkPath)
 
     new ProcessJob(commandBuilder, coordinator)
   }

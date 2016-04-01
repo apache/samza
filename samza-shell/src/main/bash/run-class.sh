@@ -28,6 +28,9 @@ cd $base_dir
 base_dir=`pwd`
 cd $home_dir
 
+echo home_dir=$home_dir
+echo "framework base (location of this script). base_dir=$base_dir"
+
 if [ ! -d "$base_dir/lib" ]; then
   echo "Unable to find $base_dir/lib, which is required to run."
   exit 1
@@ -38,11 +41,39 @@ HADOOP_CONF_DIR="${HADOOP_CONF_DIR:-$HADOOP_YARN_HOME/conf}"
 CLASSPATH=$HADOOP_CONF_DIR
 GC_LOG_ROTATION_OPTS="-XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10241024"
 DEFAULT_LOG4J_FILE=$base_dir/lib/log4j.xml
+BASE_LIB_DIR="$base_dir/lib"
+# JOB_LIB_DIR will be set for yarn container in ContainerUtil.java
+# for others we set it to home_dir/lib
+JOB_LIB_DIR="${JOB_LIB_DIR:-$home_dir/lib}"
 
-for file in $base_dir/lib/*.[jw]ar;
-do
-  CLASSPATH=$CLASSPATH:$file
-done
+export JOB_LIB_DIR=$JOB_LIB_DIR
+
+if [ -d "$JOB_LIB_DIR" ] && [ "$JOB_LIB_DIR" != "$BASE_LIB_DIR" ]; then
+  # build a common classpath
+  # this class path will contain all the jars from the framework and the job's libs.
+  # in case of different version of the same lib - we pick the highest
+
+  #all jars from the fwk
+  base_jars=`ls $BASE_LIB_DIR/*.[jw]ar`
+  #all jars from the job
+  job_jars=`for file in $JOB_LIB_DIR/*.[jw]ar; do name=\`basename $file\`; if [[ $base_jars != *"$name"* ]]; then echo "$file"; fi; done`
+  # get all lib jars and reverse sort it by versions
+  all_jars=`for file in $base_jars $job_jars; do echo \`basename $file|sed 's/.*[-]\([0-9]\+\..*\)[jw]ar$/\1/'\` $file; done|sort -t. -k 1,1nr -k 2,2nr -k 3,3nr -k 4,4nr|awk '{print $2}'`
+  # generate the class path based on the sorted result
+  for jar in $all_jars; do CLASSPATH=$CLASSPATH:$jar; done
+
+  # for debug only
+  echo base_jars=$base_jars
+  echo job_jars=$job_jars
+  echo all_jars=$all_jars
+  echo generated combined CLASSPATH=$CLASSPATH
+else
+  #default behavior
+  for file in $BASE_LIB_DIR/*.[jw]ar;
+  do
+    CLASSPATH=$CLASSPATH:$file
+  done
+fi
 
 if [ -z "$JAVA_HOME" ]; then
   JAVA="java"

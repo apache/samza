@@ -23,6 +23,7 @@ import java.net.URL;
 import java.util.Map;
 import org.apache.samza.config.Config;
 
+
 /**
  * CommandBuilders are used to customize the command necessary to launch a Samza
  * Job for a particular framework, such as YARN or the LocalJobRunner.
@@ -31,6 +32,7 @@ public abstract class CommandBuilder {
   protected Config config;
   protected int id;
   protected URL url;
+  protected String commandPath;
 
   /**
    * @param config
@@ -61,6 +63,16 @@ public abstract class CommandBuilder {
    */
   public CommandBuilder setId(int id) {
     this.id = id;
+    return this;
+  }
+
+  /**
+   * @param path
+   * Specify path to the command (in case it needs to be adjusted)
+   * @return self
+   */
+  public CommandBuilder setCommandPath(String path) {
+    this.commandPath = path;
     return this;
   }
 
