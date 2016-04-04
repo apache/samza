@@ -90,7 +90,7 @@ class TaskStorageManager(
 
     taskStores.keys.foreach(storeName => {
       val storagePartitionDir = TaskStorageManager.getStorePartitionDir(storeBaseDir, storeName, taskName)
-      info("Got logged storage partition directory as %s" format storagePartitionDir.toPath.toString)
+      info("Got storage partition directory as %s" format storagePartitionDir.toPath.toString)
 
       if(storagePartitionDir.exists()) {
         debug("Deleting default storage partition directory %s" format storagePartitionDir.toPath.toString)
@@ -100,26 +100,34 @@ class TaskStorageManager(
       val loggedStoragePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
       info("Got logged storage partition directory as %s" format loggedStoragePartitionDir.toPath.toString)
 
-      var deleteLoggedStoragePartitionDir = false
-
-      val offsetFileRef = new File(loggedStoragePartitionDir, offsetFileName)
-      if(offsetFileRef.exists()) {
-        debug("Found offset file in partition directory: %s" format offsetFileRef.toPath.toString)
-        val offset = Util.readDataFromFile(offsetFileRef)
-        if(offset != null && !offset.isEmpty) {
-          fileOffset.put(new SystemStreamPartition(changeLogSystemStreams(storeName), partition), offset)
-        } else {
-          deleteLoggedStoragePartitionDir = true
-        }
-        offsetFileRef.delete()
-      } else {
-        info("No offset file found in logged storage partition directory: %s" format loggedStoragePartitionDir.toPath.toString)
-        deleteLoggedStoragePartitionDir = true
-      }
-      if(deleteLoggedStoragePartitionDir && loggedStoragePartitionDir.exists()) {
-        Util.rm(loggedStoragePartitionDir)
+      // If we find valid offsets s.t. we can restore the state, keep the disk files. Otherwise, delete them.
+      if(!readOffsetFile(storeName, loggedStoragePartitionDir) && loggedStoragePartitionDir.exists()) {
+          Util.rm(loggedStoragePartitionDir)
       }
     })
+  }
+
+  /**
+    * Attempts to read the offset file and returns {@code true} if the offsets were read successfully.
+    *
+    * @param storeName                  the name of the store for which the offsets are needed
+    * @param loggedStoragePartitionDir  the directory for the store
+    * @return                           true if the offsets were read successfully, false otherwise.
+    */
+  private def readOffsetFile(storeName: String, loggedStoragePartitionDir: File): Boolean = {
+    var offsetsRead = false
+    val offsetFileRef = new File(loggedStoragePartitionDir, offsetFileName)
+    if(offsetFileRef.exists()) {
+      debug("Found offset file in partition directory: %s" format offsetFileRef.toPath.toString)
+      val offset = Util.readDataFromFile(offsetFileRef)
+      if(offset != null && !offset.isEmpty) {
+        fileOffset.put(new SystemStreamPartition(changeLogSystemStreams(storeName), partition), offset)
+        offsetsRead = true
+      }
+    } else {
+      info("No offset file found in logged storage partition directory: %s" format loggedStoragePartitionDir.toPath.toString)
+    }
+    offsetsRead
   }
 
   private def validateChangelogStreams = {
@@ -186,6 +194,7 @@ class TaskStorageManager(
     debug("Flushing stores.")
 
     taskStores.values.foreach(_.flush)
+    flushChangelogOffsetFiles()
   }
 
   def stopStores() {
@@ -196,24 +205,41 @@ class TaskStorageManager(
   def stop() {
     stopStores()
 
+    flushChangelogOffsetFiles()
+  }
+
+  /**
+    * Writes the offset files for each changelog to disk.
+    * These files are used when stores are restored from disk to determine whether
+    * there is any new information in the changelog that is not reflected in the disk
+    * copy of the store. If there is any delta, it is replayed from the changelog
+    * e.g. This can happen if the job was run on this host, then another
+    * host and back to this host.
+    */
+  private def flushChangelogOffsetFiles() {
     debug("Persisting logged key value stores")
     changeLogSystemStreams.foreach { case (store, systemStream) => {
       val streamToMetadata = systemAdmins(systemStream.getSystem)
-                              .getSystemStreamMetadata(JavaConversions.setAsJavaSet(Set(systemStream.getStream)))
+              .getSystemStreamMetadata(JavaConversions.setAsJavaSet(Set(systemStream.getStream)))
       val sspMetadata = streamToMetadata
-                          .get(systemStream.getStream)
-                          .getSystemStreamPartitionMetadata
-                          .get(partition)
+              .get(systemStream.getStream)
+              .getSystemStreamPartitionMetadata
+              .get(partition)
       val newestOffset = sspMetadata.getNewestOffset
 
       if (newestOffset != null) {
         val offsetFile = new File(TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, store, taskName), offsetFileName)
-        Util.writeDataToFile(offsetFile, newestOffset)
-        info("Successfully stored offset %s for store %s in OFFSET file " format (newestOffset, store))
+
+        try {
+          Util.writeDataToFile(offsetFile, newestOffset)
+          debug("Successfully stored offset %s for store %s in OFFSET file " format(newestOffset, store))
+        } catch {
+          case e: Exception => error("Exception storing offset %s for store %s" format(newestOffset, store), e)
+        }
       }
       else {
         //if newestOffset is null, then it means the store is empty. No need to persist the offset file
-        info("Not storing OFFSET file for taskName %s. Store %s backed by changelog topic : %s, partition: %s is empty. " format (taskName, store, systemStream.getStream, partition.getPartitionId))
+        debug("Not storing OFFSET file for taskName %s. Store %s backed by changelog topic : %s, partition: %s is empty. " format (taskName, store, systemStream.getStream, partition.getPartitionId))
       }
     }}
   }

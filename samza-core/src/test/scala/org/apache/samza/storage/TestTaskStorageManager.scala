@@ -80,8 +80,8 @@ class TestTaskStorageManager extends MockitoSugar {
 
   @Test
   def testCleanBaseDirsWithOffsetFileForLoggedStore() {
-    val checkFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName), "OFFSET")
-    Util.writeDataToFile(checkFilePath, "100")
+    val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName), "OFFSET")
+    Util.writeDataToFile(offsetFilePath, "100")
 
     val taskStorageManager = new TaskStorageManagerBuilder()
       .addStore(loggedStore)
@@ -92,7 +92,7 @@ class TestTaskStorageManager extends MockitoSugar {
     cleanDirMethod.setAccessible(true)
     cleanDirMethod.invoke(taskStorageManager, new Array[Object](0):_*)
 
-    assertTrue("Offset file was not removed. Clean up failed!", !checkFilePath.exists())
+    assertTrue("Offset file was removed. Clean up failed!", offsetFilePath.exists())
     assertEquals("Offset read does not match what was in the file", "100", taskStorageManager.fileOffset.get(new SystemStreamPartition("kafka", "testStream", new Partition(0))))
   }
 
@@ -115,13 +115,81 @@ class TestTaskStorageManager extends MockitoSugar {
       .build
 
     //Invoke test method
-    val stopMethod = taskStorageManager.getClass.getDeclaredMethod("stop", new Array[java.lang.Class[_]](0):_*)
-    stopMethod.setAccessible(true)
-    stopMethod.invoke(taskStorageManager, new Array[Object](0):_*)
+    taskStorageManager.stop()
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
     assertEquals("Found incorrect value in offset file!", "100", Util.readDataFromFile(offsetFilePath))
+  }
+
+  @Test
+  def testFlushCreatesOffsetFileForLoggedStore() {
+    val partition = new Partition(0)
+
+    val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName) + File.separator + "OFFSET")
+
+    val mockSystemAdmin = mock[SystemAdmin]
+    val mockSspMetadata = Map("testStream" -> new SystemStreamMetadata("testStream" , JavaConversions.mapAsJavaMap[Partition, SystemStreamPartitionMetadata](Map(partition -> new SystemStreamPartitionMetadata("20", "100", "101")))))
+    val myMap = JavaConversions.mapAsJavaMap[String, SystemStreamMetadata](mockSspMetadata)
+    when(mockSystemAdmin.getSystemStreamMetadata(any(JavaConversions.setAsJavaSet(Set("")).getClass))).thenReturn(myMap)
+
+    //Build TaskStorageManager
+    val taskStorageManager = new TaskStorageManagerBuilder()
+            .addStore(loggedStore)
+            .setSystemAdmin("kafka", mockSystemAdmin)
+            .setPartition(partition)
+            .build
+
+    //Invoke test method
+    taskStorageManager.flush()
+
+    //Check conditions
+    assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
+    assertEquals("Found incorrect value in offset file!", "100", Util.readDataFromFile(offsetFilePath))
+  }
+
+  @Test
+  def testFlushOverwritesOffsetFileForLoggedStore() {
+    val partition = new Partition(0)
+
+    val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName) + File.separator + "OFFSET")
+    Util.writeDataToFile(offsetFilePath, "100")
+
+    val mockSystemAdmin = mock[SystemAdmin]
+    var mockSspMetadata = Map("testStream" -> new SystemStreamMetadata("testStream" , JavaConversions.mapAsJavaMap[Partition, SystemStreamPartitionMetadata](Map(partition -> new SystemStreamPartitionMetadata("20", "139", "140")))))
+    var myMap = JavaConversions.mapAsJavaMap[String, SystemStreamMetadata](mockSspMetadata)
+    when(mockSystemAdmin.getSystemStreamMetadata(any(JavaConversions.setAsJavaSet(Set("")).getClass))).thenReturn(myMap)
+
+    //Build TaskStorageManager
+    val taskStorageManager = new TaskStorageManagerBuilder()
+            .addStore(loggedStore)
+            .setSystemAdmin("kafka", mockSystemAdmin)
+            .setPartition(partition)
+            .build
+
+    //Invoke test method
+    taskStorageManager.flush()
+
+    //Check conditions
+    assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
+    assertEquals("Found incorrect value in offset file!", "139", Util.readDataFromFile(offsetFilePath))
+
+    // Flush again
+    mockSspMetadata = Map("testStream" -> new SystemStreamMetadata("testStream" , JavaConversions.mapAsJavaMap[Partition, SystemStreamPartitionMetadata](Map(partition -> new SystemStreamPartitionMetadata("20", "193", "194")))))
+    myMap = JavaConversions.mapAsJavaMap[String, SystemStreamMetadata](mockSspMetadata)
+    when(mockSystemAdmin.getSystemStreamMetadata(any(JavaConversions.setAsJavaSet(Set("")).getClass))).thenReturn(myMap)
+
+    //Invoke test method
+    taskStorageManager.flush()
+
+    //Check conditions
+    assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
+    assertEquals("Found incorrect value in offset file!", "193", Util.readDataFromFile(offsetFilePath))
+  }
+
+  @Test
+  def testFlushOffsetFileExceptionsHandledGracefully(): Unit = {
+
   }
 
   @Test
@@ -143,9 +211,7 @@ class TestTaskStorageManager extends MockitoSugar {
       .build
 
     //Invoke test method
-    val stopMethod = taskStorageManager.getClass.getDeclaredMethod("stop", new Array[java.lang.Class[_]](0):_*)
-    stopMethod.setAccessible(true)
-    stopMethod.invoke(taskStorageManager, new Array[Object](0):_*)
+    taskStorageManager.stop()
 
     //Check conditions
     assertTrue("Offset file should not exist!", !offsetFilePath.exists())
