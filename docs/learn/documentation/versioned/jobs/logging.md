@@ -70,7 +70,7 @@ These settings are very useful if you're using a file-based appender. For exampl
    <param name="MaxFileSize" value="256MB" />
    <param name="MaxBackupIndex" value="20" />
    <layout class="org.apache.log4j.PatternLayout">
-    <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss} %c{1} [%p] %m%n" />
+    <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} [%p] %m%n" />
    </layout>
 </appender>
 {% endhighlight %}
@@ -105,7 +105,7 @@ Samza provides a StreamAppender to publish the logs into a specific system. You 
    <!-- optional -->
    <param name="StreamName" value="EpicStreamName"/>
    <layout class="org.apache.log4j.PatternLayout">
-     <param name="ConversionPattern" value="%X{containerName} %X{jobName} %X{jobId} %d{yyyy-MM-dd HH:mm:ss} %c{1} [%p] %m%n" />
+     <param name="ConversionPattern" value="%X{containerName} %X{jobName} %X{jobId} %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} [%p] %m%n" />
    </layout>
 </appender>
 {% endhighlight %}
