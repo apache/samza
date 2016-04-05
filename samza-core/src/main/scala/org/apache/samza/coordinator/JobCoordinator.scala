@@ -28,7 +28,7 @@ import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.{Config, StorageConfig}
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
-import org.apache.samza.container.grouper.task.TaskNameGrouperFactory
+import org.apache.samza.container.grouper.task.{BalancingTaskNameGrouper, TaskNameGrouperFactory}
 import org.apache.samza.container.{LocalityManager, TaskName}
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
@@ -247,13 +247,18 @@ object JobCoordinator extends Logging {
 
     // Here is where we should put in a pluggable option for the
     // SSPTaskNameGrouper for locality, load-balancing, etc.
-
     val containerGrouperFactory = Util.getObj[TaskNameGrouperFactory](config.getTaskNameGrouperFactory)
     val containerGrouper = containerGrouperFactory.build(config)
-    val containerModels = asScalaSet(containerGrouper.group(setAsJavaSet(taskModels))).map
+    val containerModels = {
+      if (containerGrouper.isInstanceOf[BalancingTaskNameGrouper])
+        containerGrouper.asInstanceOf[BalancingTaskNameGrouper].balance(taskModels, localityManager)
+      else
+        containerGrouper.group(taskModels)
+    }
+    val containerMap = asScalaSet(containerModels).map
             { case (containerModel) => Integer.valueOf(containerModel.getContainerId) -> containerModel }.toMap
 
-    new JobModel(config, containerModels, localityManager)
+    new JobModel(config, containerMap, localityManager)
   }
 
   private def createChangeLogStreams(config: StorageConfig, changeLogPartitions: Int, streamMetadataCache: StreamMetadataCache) {

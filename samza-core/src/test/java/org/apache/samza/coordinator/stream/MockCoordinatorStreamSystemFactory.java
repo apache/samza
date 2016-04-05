@@ -137,11 +137,13 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
 
   public static final class MockCoordinatorStreamSystemConsumer extends CoordinatorStreamSystemConsumer {
     private final MockCoordinatorStreamWrappedConsumer consumer;
+    private final SystemStream stream;
     private boolean isRegistered = false;
     private boolean isStarted = false;
 
     public MockCoordinatorStreamSystemConsumer(SystemStream stream, SystemConsumer consumer, SystemAdmin admin) {
       super(stream, consumer, admin);
+      this.stream = stream;
       this.consumer = (MockCoordinatorStreamWrappedConsumer) consumer;
     }
 
@@ -150,6 +152,8 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
     }
 
     public void register() {
+      SystemStreamPartition ssp = new SystemStreamPartition(stream, new Partition(0));
+      consumer.register(ssp, "");
       isRegistered = true;
     }
 

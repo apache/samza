@@ -16,15 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.container.grouper.task
+package org.apache.samza.container.grouper.task;
 
-import org.apache.samza.config.Config
-import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+
+
 /**
  * Factory to build the GroupByContainerCount class.
  */
-class GroupByContainerCountFactory extends TaskNameGrouperFactory {
-  override def build(config: Config): TaskNameGrouper = {
-    new GroupByContainerCount(config.getContainerCount)
+public class GroupByContainerCountFactory implements TaskNameGrouperFactory {
+  @Override
+  public TaskNameGrouper build(Config config) {
+    return new GroupByContainerCount(new JobConfig(config).getContainerCount());
   }
 }

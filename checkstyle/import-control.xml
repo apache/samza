@@ -116,19 +116,24 @@
 
     <subpackage name="container">
         <allow pkg="org.apache.samza.config" />
+        <allow pkg="org.apache.samza.container" />
         <allow pkg="org.apache.samza.coordinator.stream" />
         <allow class="org.apache.samza.coordinator.stream.AbstractCoordinatorStreamManager" />
         <subpackage name="grouper">
             <subpackage name="stream">
-                <allow pkg="org.apache.samza.container" />
                 <allow pkg="org.apache.samza.system" />
-
                 <allow class="org.apache.samza.Partition" />
             </subpackage>
 
             <subpackage name="task">
                 <allow pkg="org.apache.samza.job" />
             </subpackage>
+        </subpackage>
+        <subpackage name="mock">
+            <allow class="org.apache.samza.container.TaskName" />
+            <allow pkg="org.apache.samza.job.model" />
+            <allow class="org.apache.samza.Partition" />
+            <allow pkg="org.apache.samza.system" />
         </subpackage>
     </subpackage>
 

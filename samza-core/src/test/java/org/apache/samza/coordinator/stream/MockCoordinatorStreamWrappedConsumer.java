@@ -55,6 +55,12 @@ public class MockCoordinatorStreamWrappedConsumer extends BlockingEnvelopeMap {
     this.systemStreamPartition = systemStreamPartition;
   }
 
+  @Override
+  public void register(SystemStreamPartition systemStreamPartition, String offset) {
+    super.register(systemStreamPartition, offset);
+    setIsAtHead(systemStreamPartition, true);
+  }
+
   public void start() {
     convertConfigToCoordinatorMessage(config);
   }

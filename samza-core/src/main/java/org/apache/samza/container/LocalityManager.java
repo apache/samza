@@ -19,6 +19,7 @@
 
 package org.apache.samza.container;
 
+import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
@@ -36,7 +37,8 @@ import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
  * */
 public class LocalityManager extends AbstractCoordinatorStreamManager {
   private static final Logger log = LoggerFactory.getLogger(LocalityManager.class);
-  private Map<Integer, Map<String, String>> containerToHostMapping;
+  private Map<Integer, Map<String, String>> containerToHostMapping = new HashMap<>();
+  private final TaskAssignmentManager taskAssignmentManager;
   private final boolean writeOnly;
 
   /**
@@ -48,8 +50,8 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
   public LocalityManager(CoordinatorStreamSystemProducer coordinatorStreamProducer,
                          CoordinatorStreamSystemConsumer coordinatorStreamConsumer) {
     super(coordinatorStreamProducer, coordinatorStreamConsumer, "SamzaContainer-");
-    this.containerToHostMapping = new HashMap<>();
     this.writeOnly = coordinatorStreamConsumer == null;
+    this.taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamProducer, coordinatorStreamConsumer);
   }
 
   /**
@@ -67,6 +69,7 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
    *
    * @throws UnsupportedOperationException in the case if a {@link TaskName} is passed
    */
+  @Override
   public void register(TaskName taskName) {
     throw new UnsupportedOperationException("TaskName cannot be registered with LocalityManager");
   }
@@ -135,5 +138,9 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
     mappings.put(SetContainerHostMapping.JMX_URL_KEY, jmxAddress);
     mappings.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, jmxTunnelingAddress);
     containerToHostMapping.put(containerId, mappings);
+  }
+
+  public TaskAssignmentManager getTaskAssignmentManager() {
+    return taskAssignmentManager;
   }
 }
