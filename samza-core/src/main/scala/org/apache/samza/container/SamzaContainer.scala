@@ -20,6 +20,8 @@
 package org.apache.samza.container
 
 import java.io.File
+import java.nio.file.Path
+import java.util
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.MetricsConfig.Config2Metrics
@@ -29,6 +31,8 @@ import org.apache.samza.config.StorageConfig.Config2Storage
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
+import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
+import org.apache.samza.container.disk.{PollingScanDiskSpaceMonitor, DiskSpaceMonitor}
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 import org.apache.samza.metrics.JmxServer
 import org.apache.samza.metrics.JvmMetrics
@@ -391,6 +395,14 @@ object SamzaContainer extends Logging {
       .toSet
     val containerContext = new SamzaContainerContext(containerId, config, taskNames)
 
+    // TODO not sure how we should make this config based, or not. Kind of
+    // strange, since it has some dynamic directories when used with YARN.
+    val defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state")
+    info("Got default storage engine base directory: %s" format defaultStoreBaseDir)
+
+    val storeWatchPaths = new util.HashSet[Path]()
+    storeWatchPaths.add(defaultStoreBaseDir.toPath)
+
     val taskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.map(taskModel => {
       debug("Setting up task instance: %s" format taskModel)
 
@@ -414,11 +426,6 @@ object SamzaContainer extends Logging {
 
       info("Got store consumers: %s" format storeConsumers)
 
-      // TODO not sure how we should make this config based, or not. Kind of
-      // strange, since it has some dynamic directories when used with YARN.
-      val defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state")
-      info("Got default storage engine base directory: %s" format defaultStoreBaseDir)
-
       var loggedStorageBaseDir: File = null
       if(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) != null) {
         val jobNameAndId = Util.getJobNameAndId(config)
@@ -429,6 +436,8 @@ object SamzaContainer extends Logging {
           "variable in all machines running the Samza container")
         loggedStorageBaseDir = defaultStoreBaseDir
       }
+
+      storeWatchPaths.add(loggedStorageBaseDir.toPath)
 
       info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
@@ -504,6 +513,20 @@ object SamzaContainer extends Logging {
       (taskName, taskInstance)
     }).toMap
 
+    val diskPollMillis = config.getInt("container.disk.poll.interval.ms", 0)
+    var diskSpaceMonitor: DiskSpaceMonitor = null
+    if (diskPollMillis != 0) {
+      val diskUsage = samzaContainerMetrics.createOrGetDiskUsageGauge()
+
+      diskSpaceMonitor = new PollingScanDiskSpaceMonitor(storeWatchPaths, diskPollMillis)
+      diskSpaceMonitor.registerListener(new Listener {
+        override def onUpdate(diskUsageSample: Long): Unit =
+          diskUsage.set(diskUsageSample)
+      })
+
+      info("Initialized disk space monitor watch paths to: %s" format storeWatchPaths)
+    }
+
     val runLoop = new RunLoop(
       taskInstances = taskInstances,
       consumerMultiplexer = consumerMultiplexer,
@@ -525,7 +548,8 @@ object SamzaContainer extends Logging {
       metrics = samzaContainerMetrics,
       reporters = reporters,
       jvm = jvm,
-      jmxServer = jmxServer)
+      jmxServer = jmxServer,
+      diskSpaceMonitor = diskSpaceMonitor)
   }
 }
 
@@ -537,6 +561,7 @@ class SamzaContainer(
   producerMultiplexer: SystemProducers,
   metrics: SamzaContainerMetrics,
   jmxServer: JmxServer,
+  diskSpaceMonitor: DiskSpaceMonitor = null,
   offsetManager: OffsetManager = new OffsetManager,
   localityManager: LocalityManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
@@ -550,6 +575,7 @@ class SamzaContainer(
       startOffsetManager
       startLocalityManager
       startStores
+      startDiskSpaceMonitor
       startProducers
       startTask
       startConsumers
@@ -566,12 +592,20 @@ class SamzaContainer(
       shutdownConsumers
       shutdownTask
       shutdownStores
+      shutdownDiskSpaceMonitor
       shutdownProducers
       shutdownLocalityManager
       shutdownOffsetManager
       shutdownMetrics
 
       info("Shutdown complete.")
+    }
+  }
+
+  def startDiskSpaceMonitor: Unit = {
+    if (diskSpaceMonitor != null) {
+      info("Starting disk space monitor")
+      diskSpaceMonitor.start()
     }
   }
 
@@ -711,6 +745,13 @@ class SamzaContainer(
       info("Shutting down JVM metrics.")
 
       jvm.stop
+    }
+  }
+
+  def shutdownDiskSpaceMonitor: Unit = {
+    if (diskSpaceMonitor != null) {
+      info("Shutting down disk space monitor.")
+      diskSpaceMonitor.stop()
     }
   }
 }
