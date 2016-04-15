@@ -30,7 +30,7 @@ import org.apache.samza.job.yarn.SamzaContainerRequest;
 
 
 public class MockContainerRequestState extends ContainerRequestState {
-  private final List<MockContainerListener> _mockContainerListeners = new ArrayList<MockContainerListener>();
+  private final List<MockContainerListener> mockContainerListeners = new ArrayList<MockContainerListener>();
   private int numAddedContainers = 0;
   private int numReleasedContainers = 0;
   private int numAssignedContainers = 0;
@@ -48,7 +48,7 @@ public class MockContainerRequestState extends ContainerRequestState {
     numAssignedContainers++;
     assignedRequests.add(request);
 
-    for (MockContainerListener listener : _mockContainerListeners) {
+    for (MockContainerListener listener : mockContainerListeners) {
       listener.postUpdateRequestStateAfterAssignment(numAssignedContainers);
     }
   }
@@ -58,8 +58,8 @@ public class MockContainerRequestState extends ContainerRequestState {
     super.addContainer(container);
 
     numAddedContainers++;
-    for (MockContainerListener listener : _mockContainerListeners) {
-      listener.postAddContainer(container, numAddedContainers);
+    for (MockContainerListener listener : mockContainerListeners) {
+      listener.postAddContainer(numAddedContainers);
     }
   }
 
@@ -67,7 +67,7 @@ public class MockContainerRequestState extends ContainerRequestState {
   public synchronized int releaseExtraContainers() {
     numReleasedContainers += super.releaseExtraContainers();
 
-    for (MockContainerListener listener : _mockContainerListeners) {
+    for (MockContainerListener listener : mockContainerListeners) {
       listener.postReleaseContainers(numReleasedContainers);
     }
 
@@ -79,17 +79,12 @@ public class MockContainerRequestState extends ContainerRequestState {
     super.releaseUnstartableContainer(container);
 
     numReleasedContainers += 1;
-    for (MockContainerListener listener : _mockContainerListeners) {
+    for (MockContainerListener listener : mockContainerListeners) {
       listener.postReleaseContainers(numReleasedContainers);
     }
   }
 
   public void registerContainerListener(MockContainerListener listener) {
-    _mockContainerListeners.add(listener);
+    mockContainerListeners.add(listener);
   }
-
-  public void clearContainerListeners() {
-    _mockContainerListeners.clear();
-  }
-
 }

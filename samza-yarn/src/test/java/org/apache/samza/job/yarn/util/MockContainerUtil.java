@@ -33,6 +33,7 @@ import org.apache.samza.job.yarn.SamzaContainerLaunchException;
 
 
 public class MockContainerUtil extends ContainerUtil {
+  private final List<MockContainerListener> mockContainerListeners = new ArrayList<MockContainerListener>();
   public final Map<String, List<Container>> runningContainerList = new HashMap<>();
   public Exception containerStartException = null;
 
@@ -54,6 +55,10 @@ public class MockContainerUtil extends ContainerUtil {
       runningContainerList.put(hostname, list);
     }
     super.runContainer(samzaContainerId, container);
+
+    for (MockContainerListener listener : mockContainerListeners) {
+      listener.postRunContainer(runningContainerList.size());
+    }
   }
 
   @Override
@@ -64,4 +69,11 @@ public class MockContainerUtil extends ContainerUtil {
     }
   }
 
+  public void registerContainerListener(MockContainerListener listener) {
+    mockContainerListeners.add(listener);
+  }
+
+  public void clearContainerListeners() {
+    mockContainerListeners.clear();
+  }
 }
