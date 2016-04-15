@@ -175,7 +175,9 @@ public class TestCoordinatorStreamSystemConsumer {
       assertEquals(expectedSystemStreamPartition, systemStreamPartition);
     }
 
-    public int getRegisterCount() { return registerCount; }
+    public int getRegisterCount() {
+      return registerCount;
+    }
 
     public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Set<SystemStreamPartition> systemStreamPartitions, long timeout) throws InterruptedException {
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> map = new LinkedHashMap<SystemStreamPartition, List<IncomingMessageEnvelope>>();
