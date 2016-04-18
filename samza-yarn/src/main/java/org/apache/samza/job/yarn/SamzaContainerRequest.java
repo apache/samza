@@ -48,7 +48,7 @@ public class SamzaContainerRequest implements Comparable<SamzaContainerRequest> 
     this.capability = Resource.newInstance(memoryMb, cpuCores);
     this.priority = Priority.newInstance(priority);
     this.expectedContainerId = expectedContainerId;
-    if (preferredHost == null) {
+    if (preferredHost == null || preferredHost.equals(ANY_HOST)) {
       this.preferredHost = ANY_HOST;
       this.issuedRequest = new AMRMClient.ContainerRequest(capability, null, null, this.priority);
     } else {
@@ -63,8 +63,8 @@ public class SamzaContainerRequest implements Comparable<SamzaContainerRequest> 
     this.requestTimestamp = System.currentTimeMillis();
   }
 
-  // Convenience class for unit testing
-  public SamzaContainerRequest(int expectedContainerId, String preferredHost) {
+  // Convenience constructor for unit testing
+  protected SamzaContainerRequest(int expectedContainerId, String preferredHost) {
     this(
         AbstractContainerAllocator.DEFAULT_CONTAINER_MEM,
         AbstractContainerAllocator.DEFAULT_CPU_CORES,

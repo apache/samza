@@ -21,6 +21,7 @@ package org.apache.samza.job.yarn;
 import org.junit.Test;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class TestSamzaContainerRequest {
@@ -38,6 +39,14 @@ public class TestSamzaContainerRequest {
     SamzaContainerRequest request1 = new SamzaContainerRequest(1, "abc");
     assertNotNull(request1.getPreferredHost());
     assertTrue(request1.getPreferredHost().equals("abc"));
+  }
 
+  @Test
+  public void testAnyHostIsNotPassedToYarnRequest() {
+    SamzaContainerRequest request = new SamzaContainerRequest(0, null);
+    assertNull(request.getIssuedRequest().getNodes());
+
+    SamzaContainerRequest request1 = new SamzaContainerRequest(1, ANY_HOST);
+    assertNull(request1.getIssuedRequest().getNodes());
   }
 }
