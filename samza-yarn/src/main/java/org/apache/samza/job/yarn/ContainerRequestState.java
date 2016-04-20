@@ -121,14 +121,11 @@ public class ContainerRequestState {
         int requestCountOnThisHost = requestCount.get();
         List<Container> allocatedContainersOnThisHost = allocatedContainers.get(hostName);
         if (requestCountOnThisHost > 0) {
-          if (allocatedContainersOnThisHost == null) {
+          if (allocatedContainersOnThisHost == null || allocatedContainersOnThisHost.size() < requestCountOnThisHost) {
             log.debug("Saving the container {} in the buffer for {}", container.getId(), hostName);
             addToAllocatedContainerList(hostName, container);
-          } else {
-            if (allocatedContainersOnThisHost.size() < requestCountOnThisHost) {
-              log.debug("Saving the container {} in the buffer for {}", container.getId(), hostName);
-              addToAllocatedContainerList(hostName, container);
-            } else {
+          }
+          else {
               /**
                * The RM may allocate more containers on a given host than requested. In such a case, even though the
                * requestCount != 0, it will be greater than the total request count for that host. Hence, it should be
@@ -146,19 +143,9 @@ public class ContainerRequestState {
               addToAllocatedContainerList(ANY_HOST, container);
             }
           }
-        } else {
-          log.debug(
-              "This host was never requested. Hence, saving the container {} in the buffer for ANY_HOST",
-              new Object[]{
-                  hostName,
-                  requestCountOnThisHost,
-                  container.getId()
-              }
-          );
-          addToAllocatedContainerList(ANY_HOST, container);
         }
       }
-    } else {
+     else {
       log.debug("Saving the container {} in the buffer for ANY_HOST", container.getId());
       addToAllocatedContainerList(ANY_HOST, container);
     }
