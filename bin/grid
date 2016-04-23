@@ -39,6 +39,12 @@ DOWNLOAD_KAFKA=http://www.us.apache.org/dist/kafka/0.8.2.1/kafka_2.10-0.8.2.1.tg
 DOWNLOAD_YARN=https://archive.apache.org/dist/hadoop/common/hadoop-2.6.1/hadoop-2.6.1.tar.gz
 DOWNLOAD_ZOOKEEPER=http://archive.apache.org/dist/zookeeper/zookeeper-3.4.3/zookeeper-3.4.3.tar.gz
 
+SERVICE_WAIT_TIMEOUT_SEC=10
+ZOOKEEPER_PORT=2181
+RESOURCEMANAGER_PORT=8032
+NODEMANAGER_PORT=8042
+KAFKA_PORT=9092
+
 bootstrap() {
   echo "Bootstrapping the system..."
   stop_all
@@ -126,6 +132,7 @@ start_zookeeper() {
   if [ -f $DEPLOY_ROOT_DIR/$SYSTEM/bin/zkServer.sh ]; then
     cd $DEPLOY_ROOT_DIR/$SYSTEM
     bin/zkServer.sh start
+    wait_for_service "zookeeper" $ZOOKEEPER_PORT
     cd - > /dev/null
   else
     echo 'Zookeeper is not installed. Run: bin/grid install zookeeper'
@@ -135,7 +142,9 @@ start_zookeeper() {
 start_yarn() {
   if [ -f $DEPLOY_ROOT_DIR/$SYSTEM/sbin/yarn-daemon.sh ]; then
     $DEPLOY_ROOT_DIR/$SYSTEM/sbin/yarn-daemon.sh start resourcemanager
+    wait_for_service "resourcemanager" $RESOURCEMANAGER_PORT
     $DEPLOY_ROOT_DIR/$SYSTEM/sbin/yarn-daemon.sh start nodemanager
+    wait_for_service "nodemanager" $NODEMANAGER_PORT
   else
     echo 'YARN is not installed. Run: bin/grid install yarn'
   fi
@@ -147,9 +156,27 @@ start_kafka() {
     cd $DEPLOY_ROOT_DIR/$SYSTEM
     nohup bin/kafka-server-start.sh config/server.properties > logs/kafka.log 2>&1 &
     cd - > /dev/null
+    wait_for_service "kafka" $KAFKA_PORT
   else
     echo 'Kafka is not installed. Run: bin/grid install kafka'
   fi
+}
+
+wait_for_service() {
+  local SERVICE_NAME=$1
+  local PORT=$2
+  echo "Waiting for $SERVICE_NAME to start..."
+  local CURRENT_WAIT_TIME=0
+  until $(nc -w 1 localhost $PORT); do
+    printf '.'
+    sleep 1
+    if [ $((++CURRENT_WAIT_TIME)) -eq $SERVICE_WAIT_TIMEOUT_SEC ]; then
+      printf "\nError: timed out while waiting for $SERVICE_NAME to start.\n"
+      exit 1
+    fi
+  done
+  printf '\n'
+  echo "$SERVICE_NAME has started";
 }
 
 stop_all() {
