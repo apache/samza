@@ -26,7 +26,7 @@ import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.util.ExponentialSleepStrategy
 import org.apache.samza.util.TimerUtils
 import org.apache.samza.util.KafkaUtil
-import java.util.concurrent.atomic.{AtomicReference, AtomicBoolean}
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference, AtomicBoolean}
 import java.util.{Map => javaMap}
 import org.apache.samza.SamzaException
 import org.apache.kafka.common.errors.RetriableException
@@ -40,7 +40,8 @@ class KafkaSystemProducer(systemName: String,
                           retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
                           getProducer: () => Producer[Array[Byte], Array[Byte]],
                           metrics: KafkaSystemProducerMetrics,
-                          val clock: () => Long = () => System.nanoTime) extends SystemProducer with Logging with TimerUtils
+                          val clock: () => Long = () => System.nanoTime,
+                          val maxRetries: Int = 30) extends SystemProducer with Logging with TimerUtils
 {
   var producer: Producer[Array[Byte], Array[Byte]] = null
   val latestFuture: javaMap[String, Future[RecordMetadata]] = new util.HashMap[String, Future[RecordMetadata]]()
@@ -67,6 +68,7 @@ class KafkaSystemProducer(systemName: String,
   }
 
   def send(source: String, envelope: OutgoingMessageEnvelope) {
+    var numRetries: AtomicInteger = new AtomicInteger(0)
     trace("Enqueueing message: %s, %s." format (source, envelope))
     if(producer == null) {
       info("Creating a new producer for system %s." format systemName)
@@ -114,17 +116,21 @@ class KafkaSystemProducer(systemName: String,
           loop.done
       },
       (exception, loop) => {
-        if(exception != null && !exception.isInstanceOf[RetriableException]) {   // Exception is thrown & not retriable
-          debug("Exception detail : ", exception)
+        if((exception != null && !exception.isInstanceOf[RetriableException]) || numRetries.get() >= maxRetries) {
+          // Irrecoverable exceptions.
+          error("Exception detail : ", exception)
           //Close producer
           stop()
           producer = null
           //Mark loop as done as we are not going to retry
           loop.done
           metrics.sendFailed.inc
-          throw new SamzaException("Failed to send message. Exception:\n %s".format(exception))
+          throw new SamzaException(("Failed to send message on Topic:%s Partition:%s NumRetries:%s Exception:\n %s,")
+            .format(topicName, partitionKey, numRetries, exception))
         } else {
-          warn("Retrying send messsage due to RetriableException - %s. Turn on debugging to get a full stack trace".format(exception))
+          numRetries.incrementAndGet()
+          warn(("Retrying send due to RetriableException - %s for Topic:%s Partition:%s. " +
+            "Turn on debugging to get a full stack trace").format(exception, topicName, partitionKey))
           debug("Exception detail:", exception)
           metrics.retries.inc
         }
