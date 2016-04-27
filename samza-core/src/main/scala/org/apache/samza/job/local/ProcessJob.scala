@@ -25,6 +25,7 @@ import java.util.concurrent.CountDownLatch
 import org.apache.samza.SamzaException
 import org.apache.samza.coordinator.JobCoordinator
 import org.apache.samza.job.ApplicationStatus.{New, Running, UnsuccessfulFinish}
+import org.apache.samza.job.util.ProcessKiller
 import org.apache.samza.job.{ApplicationStatus, CommandBuilder, StreamJob}
 import org.apache.samza.util.Logging
 
@@ -69,7 +70,7 @@ class ProcessJob(commandBuilder: CommandBuilder, jobCoordinator: JobCoordinator)
   }
 
   def kill: StreamJob = {
-    process.destroy
+    ProcessKiller.destroyForcibly(process)
     jobStatus = Some(UnsuccessfulFinish);
     ProcessJob.this
   }
