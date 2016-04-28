@@ -23,6 +23,4 @@ import java.util.Iterator;
 
 public interface KeyValueIterator<K, V> extends Iterator<Entry<K, V>> {
   public void close();
-  public void seekToFirst();
-  public void seek(K key);
 }

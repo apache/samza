@@ -124,10 +124,6 @@ class CachedStore[K, V](
     }
 
     override def hasNext: Boolean = iter.hasNext
-
-    override def seekToFirst(): Unit = iter.seekToFirst()
-
-    override def seek(key: K): Unit = iter.seek(key)
   }
 
   override def range(from: K, to: K): KeyValueIterator[K, V] = {
@@ -142,12 +138,6 @@ class CachedStore[K, V](
     flush()
 
     new CachedStoreIterator(store.all())
-  }
-
-  override def newIterator(): KeyValueIterator[K, V] = {
-    metrics.newIterator.inc
-    flush()
-    new CachedStoreIterator(store.newIterator())
   }
 
   override def put(key: K, value: V) {

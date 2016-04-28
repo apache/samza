@@ -61,18 +61,6 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
     }
 
     override def hasNext: Boolean = iter.hasNext
-
-    /*
-    * This method is supposed to be called only after an iterator is created first
-    * using the store's newIterator position. For some stores, the creation of the
-    * */
-    override def seekToFirst(): Unit = {
-        throw new UnsupportedOperationException
-    }
-
-    override def seek(key: Array[Byte]): Unit = {
-        throw new UnsupportedOperationException
-    }
   }
 
   override def all(): KeyValueIterator[Array[Byte], Array[Byte]] = {
@@ -131,9 +119,5 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
 
   override def getAll(keys: java.util.List[Array[Byte]]): java.util.Map[Array[Byte], Array[Byte]] = {
     KeyValueStore.Extension.getAll(this, keys);
-  }
-
-  override def newIterator(): KeyValueIterator[Array[Byte], Array[Byte]] = {
-    throw new UnsupportedOperationException
   }
 }

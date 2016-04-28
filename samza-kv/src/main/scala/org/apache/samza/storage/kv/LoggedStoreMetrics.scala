@@ -33,7 +33,6 @@ class LoggedStoreMetrics(
   val puts = newCounter("puts")
   val deletes = newCounter("deletes")
   val flushes = newCounter("flushes")
-  val newIterator = newCounter("newiterator")
 
   override def getPrefix = storeName + "-"
 }

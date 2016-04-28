@@ -56,11 +56,6 @@ class LoggedStore[K, V](
     store.all()
   }
 
-  def newIterator() = {
-    metrics.newIterator.inc
-    store.newIterator()
-  }
-
   /**
    * Perform the local update and log it out to the changelog
    */

@@ -58,14 +58,6 @@ class MockKeyValueStore extends KeyValueStore[String, String] {
     override def remove(): Unit = iter.remove()
 
     override def close(): Unit = Unit
-
-    override def seekToFirst(): Unit = {
-      throw new UnsupportedOperationException
-    }
-
-    override def seek(key: String): Unit = {
-      throw new UnsupportedOperationException
-    }
   }
 
   override def range(from: String, to: String): KeyValueIterator[String, String] =
@@ -73,9 +65,6 @@ class MockKeyValueStore extends KeyValueStore[String, String] {
 
   override def all(): KeyValueIterator[String, String] =
     new MockIterator(kvMap.entrySet().iterator())
-
-  override def newIterator(): KeyValueIterator[String, String] =
-   throw new UnsupportedOperationException
 
   override def flush() {}  // no-op
 
