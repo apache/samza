@@ -1,0 +1,121 @@
+{
+  "apps": {
+    "app": [
+      {
+        "id": "application_1459790549146_0003",
+        "user": "root",
+        "name": "protodeserializer_1",
+        "queue": "default",
+        "state": "RUNNING",
+        "finalStatus": "UNDEFINED",
+        "progress": 0,
+        "trackingUI": "ApplicationMaster",
+        "trackingUrl": "http://yarnrm:8088/proxy/application_1459790549146_0003/",
+        "diagnostics": "",
+        "clusterId": 1459790549146,
+        "applicationType": "Samza",
+        "applicationTags": "",
+        "startedTime": 1459792852675,
+        "finishedTime": 0,
+        "elapsedTime": 738921,
+        "amContainerLogs": "http://yarnnm:8042/node/containerlogs/container_1459790549146_0003_01_000001/root",
+        "amHostHttpAddress": "yarnnm:8042",
+        "allocatedMB": 1024,
+        "allocatedVCores": 2,
+        "runningContainers": 2,
+        "memorySeconds": 749045,
+        "vcoreSeconds": 1462,
+        "preemptedResourceMB": 0,
+        "preemptedResourceVCores": 0,
+        "numNonAMContainerPreempted": 0,
+        "numAMContainerPreempted": 0,
+        "resourceRequests": [
+          {
+            "capability": {
+              "memory": 512,
+              "virtualCores": 1
+            },
+            "nodeLabelExpression": "",
+            "numContainers": 0,
+            "priority": {
+              "priority": 0
+            },
+            "relaxLocality": true,
+            "resourceName": "*"
+          },
+          {
+            "capability": {
+              "memory": 512,
+              "virtualCores": 1
+            },
+            "nodeLabelExpression": "",
+            "numContainers": 0,
+            "priority": {
+              "priority": 0
+            },
+            "relaxLocality": true,
+            "resourceName": "/default-rack"
+          }
+        ]
+      },
+      {
+        "id": "application_1459790549146_0002",
+        "user": "root",
+        "name": "protodeserializer_1",
+        "queue": "default",
+        "state": "KILLED",
+        "finalStatus": "KILLED",
+        "progress": 100,
+        "trackingUI": "History",
+        "trackingUrl": "http://yarnrm:8088/cluster/app/application_1459790549146_0002",
+        "diagnostics": "Application killed by user.",
+        "clusterId": 1459790549146,
+        "applicationType": "Samza",
+        "applicationTags": "",
+        "startedTime": 1459791820396,
+        "finishedTime": 1459792284264,
+        "elapsedTime": 463868,
+        "amContainerLogs": "http://yarnnm:8042/node/containerlogs/container_1459790549146_0002_01_000001/root",
+        "amHostHttpAddress": "yarnnm:8042",
+        "allocatedMB": -1,
+        "allocatedVCores": -1,
+        "runningContainers": -1,
+        "memorySeconds": 462177,
+        "vcoreSeconds": 902,
+        "preemptedResourceMB": 0,
+        "preemptedResourceVCores": 0,
+        "numNonAMContainerPreempted": 0,
+        "numAMContainerPreempted": 0
+      },
+      {
+        "id": "application_1459790549146_0001",
+        "user": "root",
+        "name": "protodeserializer_1",
+        "queue": "default",
+        "state": "KILLED",
+        "finalStatus": "KILLED",
+        "progress": 100,
+        "trackingUI": "History",
+        "trackingUrl": "http://yarnrm:8088/cluster/app/application_1459790549146_0001",
+        "diagnostics": "Application killed by user.",
+        "clusterId": 1459790549146,
+        "applicationType": "Samza",
+        "applicationTags": "",
+        "startedTime": 1459791108916,
+        "finishedTime": 1459791813659,
+        "elapsedTime": 704743,
+        "amContainerLogs": "http://yarnnm:8042/node/containerlogs/container_1459790549146_0001_01_000001/root",
+        "amHostHttpAddress": "yarnnm:8042",
+        "allocatedMB": -1,
+        "allocatedVCores": -1,
+        "runningContainers": -1,
+        "memorySeconds": 711605,
+        "vcoreSeconds": 1389,
+        "preemptedResourceMB": 0,
+        "preemptedResourceVCores": 0,
+        "numNonAMContainerPreempted": 0,
+        "numAMContainerPreempted": 0
+      }
+    ]
+  }
+}

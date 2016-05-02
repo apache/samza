@@ -30,6 +30,7 @@
     <allow pkg="org.mockito" />
     <allow pkg="org.apache.log4j" />
     <allow pkg="org.apache.kafka" />
+    <allow pkg="org.apache.commons" />
 
     <subpackage name="config">
         <allow class="org.apache.samza.SamzaException" />
