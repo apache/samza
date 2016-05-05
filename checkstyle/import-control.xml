@@ -31,6 +31,8 @@
     <allow pkg="org.apache.log4j" />
     <allow pkg="org.apache.kafka" />
     <allow pkg="org.apache.commons" />
+    <allow class="scala.collection.JavaConversions" />
+    <allow class="scala.collection.JavaConverters" />
 
     <subpackage name="config">
         <allow class="org.apache.samza.SamzaException" />

@@ -19,6 +19,7 @@
 
 package org.apache.samza.config;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,6 +31,8 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.collection.JavaConversions;
+
 
 public class TaskConfigJava extends MapConfig {
   // broadcast streams consumed by all tasks. e.g. kafka.foo#1
@@ -52,7 +55,7 @@ public class TaskConfigJava extends MapConfig {
    */
   public Set<SystemStreamPartition> getBroadcastSystemStreamPartitions() {
     HashSet<SystemStreamPartition> systemStreamPartitionSet = new HashSet<SystemStreamPartition>();
-    List<String> systemStreamPartitions = getList(BROADCAST_INPUT_STREAMS);
+    List<String> systemStreamPartitions = getList(BROADCAST_INPUT_STREAMS, Collections.<String>emptyList());
 
     for (String systemStreamPartition : systemStreamPartitions) {
       int hashPosition = systemStreamPartition.indexOf("#");
@@ -84,5 +87,34 @@ public class TaskConfigJava extends MapConfig {
       }
     }
     return systemStreamPartitionSet;
+  }
+
+  /**
+   * Get the SystemStreams for the configured broadcast streams.
+   *
+   * @return the set of SystemStreams for which there are broadcast stream SSPs configured.
+   */
+  public Set<SystemStream> getBroadcastSystemStreams() {
+    Set<SystemStream> broadcastSS = new HashSet<>();
+    Set<SystemStreamPartition> broadcastSSPs = getBroadcastSystemStreamPartitions();
+    for (SystemStreamPartition bssp : broadcastSSPs) {
+      broadcastSS.add(bssp.getSystemStream());
+    }
+    return Collections.unmodifiableSet(broadcastSS);
+  }
+
+  /**
+   * Get the SystemStreams for the configured input and broadcast streams.
+   *
+   * @return the set of SystemStreams for both standard inputs and broadcast stream inputs.
+   */
+  public Set<SystemStream> getAllInputStreams() {
+    Set<SystemStream> allInputSS = new HashSet<>();
+
+    TaskConfig taskConfig = TaskConfig.Config2Task(this);
+    allInputSS.addAll(JavaConversions.asJavaSet(taskConfig.getInputStreams()));
+    allInputSS.addAll(getBroadcastSystemStreams());
+
+    return Collections.unmodifiableSet(allInputSS);
   }
 }
