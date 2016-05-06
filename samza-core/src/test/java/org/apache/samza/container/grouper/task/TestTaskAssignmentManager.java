@@ -96,6 +96,46 @@ public class TestTaskAssignmentManager {
     assertTrue(consumer.isStopped());
   }
 
+  @Test public void testDeleteMappings() throws Exception {
+    MockCoordinatorStreamSystemProducer producer =
+        mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
+    MockCoordinatorStreamSystemConsumer consumer =
+        mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
+    TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(producer, consumer);
+
+    taskAssignmentManager.register(new TaskName("ignoredTaskName"));
+    assertTrue(producer.isRegistered());
+    assertEquals(producer.getRegisteredSource(), "SamzaTaskAssignmentManager");
+    assertTrue(consumer.isRegistered());
+
+    taskAssignmentManager.start();
+    assertTrue(producer.isStarted());
+    assertTrue(consumer.isStarted());
+
+    Map<String, Integer> expectedMap =
+        new HashMap<String, Integer>() {
+          {
+            this.put("Task0", new Integer(0));
+            this.put("Task1", new Integer(1));
+          }
+        };
+
+    for (Map.Entry<String, Integer> entry : expectedMap.entrySet()) {
+      taskAssignmentManager.writeTaskContainerMapping(entry.getKey(), entry.getValue());
+    }
+
+    Map<String, Integer> localMap = taskAssignmentManager.readTaskAssignment();
+    assertEquals(expectedMap, localMap);
+
+    taskAssignmentManager.deleteTaskContainerMappings(localMap.keySet());
+    Map<String, Integer> deletedMap = taskAssignmentManager.readTaskAssignment();
+    assertTrue(deletedMap.isEmpty());
+
+    taskAssignmentManager.stop();
+    assertTrue(producer.isStopped());
+    assertTrue(consumer.isStopped());
+  }
+
   @Test public void testTaskAssignmentManagerEmptyCoordinatorStream() throws Exception {
     MockCoordinatorStreamSystemProducer producer =
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);

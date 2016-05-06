@@ -64,7 +64,7 @@ public class DefaultChooserConfig extends MapConfig {
 
   /**
    * Gets the priority of every SystemStream for which the priority
-   * was explicitly configured with a value &gt=0.
+   * was explicitly configured with a value &gt;=0.
    *
    * @return  the explicitly-configured stream priorities as a map from
    *          SystemStream to the configured priority value. Streams that

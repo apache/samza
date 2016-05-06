@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
  * */
 public class TaskAssignmentManager extends AbstractCoordinatorStreamManager {
   private static final Logger log = LoggerFactory.getLogger(TaskAssignmentManager.class);
-  private Map<String, Integer> taskNameToContainerId = new HashMap<>();
+  private final Map<String, Integer> taskNameToContainerId = new HashMap<>();
 
   /**
    * Default constructor that creates a read-write manager
@@ -49,16 +49,6 @@ public class TaskAssignmentManager extends AbstractCoordinatorStreamManager {
   public TaskAssignmentManager(CoordinatorStreamSystemProducer coordinatorStreamProducer,
                          CoordinatorStreamSystemConsumer coordinatorStreamConsumer) {
     super(coordinatorStreamProducer, coordinatorStreamConsumer, "SamzaTaskAssignmentManager");
-  }
-
-  /**
-   * Special constructor that creates a write-only {@link TaskAssignmentManager} that only writes
-   * to coordinator stream in SamzaContainer
-   *
-   * @param coordinatorStreamSystemProducer producer to the coordinator stream
-   */
-  public TaskAssignmentManager(CoordinatorStreamSystemProducer coordinatorStreamSystemProducer) {
-    this(coordinatorStreamSystemProducer, null);
   }
 
   @Override
@@ -75,24 +65,23 @@ public class TaskAssignmentManager extends AbstractCoordinatorStreamManager {
    * @return the map of taskName: containerId
    */
   public Map<String, Integer> readTaskAssignment() {
-    Map<String, Integer> allMappings = new HashMap<>();
+    taskNameToContainerId.clear();
     for (CoordinatorStreamMessage message: getBootstrappedStream(SetTaskContainerMapping.TYPE)) {
       if (message.isDelete()) {
-        allMappings.remove(message.getKey());
+        taskNameToContainerId.remove(message.getKey());
         log.debug("Got TaskContainerMapping delete message: {}", message);
       } else {
         SetTaskContainerMapping mapping = new SetTaskContainerMapping(message);
-        allMappings.put(mapping.getKey(), mapping.getTaskAssignment());
+        taskNameToContainerId.put(mapping.getKey(), mapping.getTaskAssignment());
         log.debug("Got TaskContainerMapping message: {}", mapping);
       }
     }
-    taskNameToContainerId = allMappings;
 
     for (Map.Entry<String, Integer> entry : taskNameToContainerId.entrySet()) {
       log.debug("Assignment for task \"{}\": {}", entry.getKey(), entry.getValue());
     }
 
-    return Collections.unmodifiableMap(allMappings);
+    return Collections.unmodifiableMap(new HashMap<>(taskNameToContainerId));
   }
 
   /**
