@@ -19,13 +19,13 @@
 --> 
 <import-control pkg="org.apache.samza">
 	
-	<!-- THINK HARD ABOUT THE LAYERING OF THE PROJECT BEFORE CHANGING THIS FILE -->
-	
-	<!-- common library dependencies -->
-	<allow pkg="java" />
-	<allow pkg="javax.management" />
-	<allow pkg="org.slf4j" />
-	<allow pkg="org.junit" />
+    <!-- THINK HARD ABOUT THE LAYERING OF THE PROJECT BEFORE CHANGING THIS FILE -->
+
+    <!-- common library dependencies -->
+    <allow pkg="java" />
+    <allow pkg="javax.management" />
+    <allow pkg="org.slf4j" />
+    <allow pkg="org.junit" />
     <allow pkg="org.codehaus" />
     <allow pkg="org.mockito" />
     <allow pkg="org.apache.log4j" />

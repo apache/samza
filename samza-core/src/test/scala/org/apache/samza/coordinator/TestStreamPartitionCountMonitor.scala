@@ -19,10 +19,12 @@
 
 package org.apache.samza.coordinator
 
+import java.util.concurrent.{CountDownLatch, TimeUnit}
+
 import org.apache.samza.Partition
 import org.apache.samza.metrics.{Gauge, MetricsRegistryMap}
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.system.{SystemAdmin, StreamMetadataCache, SystemStream, SystemStreamMetadata}
+import org.apache.samza.system.{StreamMetadataCache, SystemAdmin, SystemStream, SystemStreamMetadata}
 import org.junit.Assert._
 import org.junit.Test
 import org.mockito.Matchers
@@ -30,6 +32,9 @@ import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mock.MockitoSugar
+
+import scala.collection.JavaConversions
+
 
 class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSugar {
 
@@ -61,27 +66,25 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
 
     when(mockMetadataCache.getStreamMetadata(any(classOf[Set[SystemStream]]), Matchers.eq(true)))
       .thenReturn(initialMetadata)  // Called during StreamPartitionCountMonitor instantiation
-      .thenReturn(initialMetadata)  // Called when monitor thread is started
       .thenReturn(finalMetadata)  // Called from monitor thread the second time
-      .thenReturn(finalMetadata)
+
+    val metrics = new MetricsRegistryMap()
 
     val partitionCountMonitor = new StreamPartitionCountMonitor(
-      inputSystemStreamSet,
+      JavaConversions.setAsJavaSet(inputSystemStreamSet),
       mockMetadataCache,
-      new MetricsRegistryMap(),
+      metrics,
       5
     )
 
-    partitionCountMonitor.startMonitor()
-    Thread.sleep(50)
-    partitionCountMonitor.stopMonitor()
+    partitionCountMonitor.updatePartitionCountMetric()
 
-    assertNotNull(partitionCountMonitor.gauges.get(inputSystemStream))
-    assertEquals(1, partitionCountMonitor.gauges.get(inputSystemStream).getValue)
+    assertNotNull(partitionCountMonitor.getGauges().get(inputSystemStream))
+    assertEquals(1, partitionCountMonitor.getGauges().get(inputSystemStream).getValue)
 
-    assertNotNull(partitionCountMonitor.metrics.getGroup("job-coordinator"))
+    assertNotNull(metrics.getGroup("job-coordinator"))
 
-    val metricGroup = partitionCountMonitor.metrics.getGroup("job-coordinator")
+    val metricGroup = metrics.getGroup("job-coordinator")
     assertTrue(metricGroup.get("test-system-test-stream-partitionCount").isInstanceOf[Gauge[Int]])
     assertEquals(1, metricGroup.get("test-system-test-stream-partitionCount").asInstanceOf[Gauge[Int]].getValue)
   }
@@ -92,24 +95,69 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
     val inputSystemStream = new SystemStream("test-system", "test-stream")
     val inputSystemStreamSet = Set[SystemStream](inputSystemStream)
     val monitor = new StreamPartitionCountMonitor(
-      inputSystemStreamSet,
+      JavaConversions.setAsJavaSet(inputSystemStreamSet),
       mockMetadataCache,
       new MetricsRegistryMap(),
       50
     )
-    monitor.stopMonitor()
-    monitor.startMonitor()
-    assertTrue(monitor.isRunning())
-    monitor.startMonitor()
-    assertTrue(monitor.isRunning())
-    monitor.stopMonitor()
+
     assertFalse(monitor.isRunning())
-    monitor.startMonitor()
+
+    // Normal start
+    monitor.start()
     assertTrue(monitor.isRunning())
-    monitor.stopMonitor()
+
+    // Start should be idempotent
+    monitor.start()
+    assertTrue(monitor.isRunning())
+
+    // Normal stop
+    monitor.stop()
+    assertTrue(monitor.awaitTermination(5, TimeUnit.SECONDS));
     assertFalse(monitor.isRunning())
-    monitor.stopMonitor()
+
+    // Cannot restart a stopped instance
+    try
+    {
+      monitor.start()
+      fail("IllegalStateException should have been thrown")
+    } catch {
+      case e: IllegalStateException => assertTrue(true)
+      case _: Throwable => fail("IllegalStateException should have been thrown")
+    }
     assertFalse(monitor.isRunning())
+
+    // Stop should be idempotent
+    monitor.stop()
+    assertFalse(monitor.isRunning())
+  }
+
+  @Test
+  def testScheduler(): Unit = {
+    val mockMetadataCache = new MockStreamMetadataCache
+    val inputSystemStream = new SystemStream("test-system", "test-stream")
+    val inputSystemStreamSet = Set[SystemStream](inputSystemStream)
+    val sampleCount = new CountDownLatch(2); // Verify 2 invocations
+
+    val monitor = new StreamPartitionCountMonitor(
+      JavaConversions.setAsJavaSet(inputSystemStreamSet),
+      mockMetadataCache,
+      new MetricsRegistryMap(),
+      50
+    ) {
+      override def updatePartitionCountMetric(): Unit = {
+        sampleCount.countDown()
+      }
+    }
+
+    monitor.start()
+    try {
+      if (!sampleCount.await(5, TimeUnit.SECONDS)) {
+        fail("Did not see all metric updates. Remaining count: " + sampleCount.getCount)
+      }
+    } finally {
+      monitor.stop()
+    }
   }
 
   class MockStreamMetadataCache extends StreamMetadataCache(Map[String, SystemAdmin]()) {

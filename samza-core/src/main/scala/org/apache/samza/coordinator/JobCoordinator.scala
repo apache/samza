@@ -52,7 +52,6 @@ object JobCoordinator extends Logging {
    */
   @volatile var currentJobCoordinator: JobCoordinator = null
   val jobModelRef: AtomicReference[JobModel] = new AtomicReference[JobModel]()
-  var streamPartitionCountMonitor: StreamPartitionCountMonitor = null
 
   /**
    * @param coordinatorSystemConfig A config object that contains job.name,
@@ -87,21 +86,22 @@ object JobCoordinator extends Logging {
     }).toMap
 
     val streamMetadataCache = new StreamMetadataCache(systemAdmins)
+    var streamPartitionCountMonitor: StreamPartitionCountMonitor = null
     if (config.getMonitorPartitionChange) {
       val extendedSystemAdmins = systemAdmins.filter{
-        case (systemName, systemAdmin) => systemAdmin.isInstanceOf[ExtendedSystemAdmin]
-      }
+                                                      case (systemName, systemAdmin) => systemAdmin.isInstanceOf[ExtendedSystemAdmin]
+                                                    }
       val inputStreamsToMonitor = config.getInputStreams.filter(systemStream => extendedSystemAdmins.containsKey(systemStream.getSystem))
       if (inputStreamsToMonitor.nonEmpty) {
         streamPartitionCountMonitor = new StreamPartitionCountMonitor(
-          inputStreamsToMonitor,
+          setAsJavaSet(inputStreamsToMonitor),
           streamMetadataCache,
           metricsRegistryMap,
           config.getMonitorPartitionChangeFrequency)
       }
     }
 
-    val jobCoordinator = getJobCoordinator(config, changelogManager, localityManager, streamMetadataCache)
+    val jobCoordinator = getJobCoordinator(config, changelogManager, localityManager, streamMetadataCache, streamPartitionCountMonitor)
     createChangeLogStreams(config, jobCoordinator.jobModel.maxChangeLogStreamPartitions, streamMetadataCache)
 
     jobCoordinator
@@ -115,7 +115,8 @@ object JobCoordinator extends Logging {
   def getJobCoordinator(config: Config,
                         changelogManager: ChangelogPartitionManager,
                         localityManager: LocalityManager,
-                        streamMetadataCache: StreamMetadataCache) = {
+                        streamMetadataCache: StreamMetadataCache,
+                        streamPartitionCountMonitor: StreamPartitionCountMonitor) = {
     val jobModel: JobModel = initializeJobModel(config, changelogManager, localityManager, streamMetadataCache)
     jobModelRef.set(jobModel)
 
@@ -318,7 +319,7 @@ class JobCoordinator(
       server.start
       if (streamPartitionCountMonitor != null) {
         debug("Starting Stream Partition Count Monitor..")
-        streamPartitionCountMonitor.startMonitor()
+        streamPartitionCountMonitor.start()
       }
       info("Started HTTP server: %s" format server.getUrl)
     }
@@ -329,7 +330,7 @@ class JobCoordinator(
       debug("Stopping HTTP server.")
       if (streamPartitionCountMonitor != null) {
         debug("Stopping Stream Partition Count Monitor..")
-        streamPartitionCountMonitor.stopMonitor()
+        streamPartitionCountMonitor.stop()
       }
       server.stop
       info("Stopped HTTP server.")
