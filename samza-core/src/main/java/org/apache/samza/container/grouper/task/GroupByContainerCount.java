@@ -176,7 +176,6 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
    * @param taskAssignmentManager the {@link TaskAssignmentManager} that will be used to save the mappings.
    */
   private void saveTaskAssignments(Set<ContainerModel> containers, TaskAssignmentManager taskAssignmentManager) {
-    taskAssignmentManager.register(null);
     for (ContainerModel container : containers) {
       for (TaskName taskName : container.getTasks().keySet()) {
         taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName(), container.getContainerId());

@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory.MockCoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory.MockCoordinatorStreamSystemProducer;
@@ -61,12 +60,11 @@ public class TestTaskAssignmentManager {
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
     MockCoordinatorStreamSystemConsumer consumer =
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
+    consumer.register();
     TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(producer, consumer);
 
-    taskAssignmentManager.register(new TaskName("ignoredTaskName"));
     assertTrue(producer.isRegistered());
     assertEquals(producer.getRegisteredSource(), "SamzaTaskAssignmentManager");
-    assertTrue(consumer.isRegistered());
 
     taskAssignmentManager.start();
     assertTrue(producer.isStarted());
@@ -101,12 +99,11 @@ public class TestTaskAssignmentManager {
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
     MockCoordinatorStreamSystemConsumer consumer =
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
+    consumer.register();
     TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(producer, consumer);
 
-    taskAssignmentManager.register(new TaskName("ignoredTaskName"));
     assertTrue(producer.isRegistered());
     assertEquals(producer.getRegisteredSource(), "SamzaTaskAssignmentManager");
-    assertTrue(consumer.isRegistered());
 
     taskAssignmentManager.start();
     assertTrue(producer.isStarted());
@@ -141,12 +138,11 @@ public class TestTaskAssignmentManager {
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
     MockCoordinatorStreamSystemConsumer consumer =
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
+    consumer.register();
     TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(producer, consumer);
 
-    taskAssignmentManager.register(new TaskName("ignoredTaskName"));
     assertTrue(producer.isRegistered());
     assertEquals(producer.getRegisteredSource(), "SamzaTaskAssignmentManager");
-    assertTrue(consumer.isRegistered());
 
     taskAssignmentManager.start();
     assertTrue(producer.isStarted());

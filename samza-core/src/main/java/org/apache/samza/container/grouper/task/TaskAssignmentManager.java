@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory;
 public class TaskAssignmentManager extends AbstractCoordinatorStreamManager {
   private static final Logger log = LoggerFactory.getLogger(TaskAssignmentManager.class);
   private final Map<String, Integer> taskNameToContainerId = new HashMap<>();
+  private boolean registered = false;
 
   /**
    * Default constructor that creates a read-write manager
@@ -49,13 +50,18 @@ public class TaskAssignmentManager extends AbstractCoordinatorStreamManager {
   public TaskAssignmentManager(CoordinatorStreamSystemProducer coordinatorStreamProducer,
                          CoordinatorStreamSystemConsumer coordinatorStreamConsumer) {
     super(coordinatorStreamProducer, coordinatorStreamConsumer, "SamzaTaskAssignmentManager");
+    register(null);
   }
 
   @Override
   public void register(TaskName taskName) {
-    // taskName will not be used. This producer is global scope.
-    registerCoordinatorStreamConsumer();
-    registerCoordinatorStreamProducer(getSource());
+    if (!registered) {
+      // taskName will not be used. This producer is global scope.
+      registerCoordinatorStreamProducer(getSource());
+      // We don't register the consumer because we don't manage the consumer's
+      // lifecycle. Also, we don't need to set any properties on the consumer.
+      registered = true;
+    }
   }
 
   /**
