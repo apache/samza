@@ -22,7 +22,6 @@ package org.apache.samza.coordinator.stream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,7 +69,6 @@ public class TestCoordinatorStreamSystemConsumer {
       // Expected.
     }
     consumer.bootstrap();
-    assertTrue(testOrder(consumer.getBoostrappedStream()));
     assertEquals(expectedConfig, consumer.getConfig());
     assertFalse(systemConsumer.isStopped());
     consumer.stop();
@@ -92,27 +90,6 @@ public class TestCoordinatorStreamSystemConsumer {
     assertTrue(systemConsumer.isStarted());
     consumer.register();
     assertEquals(1, systemConsumer.getRegisterCount());
-  }
-
-  private boolean testOrder(Set<CoordinatorStreamMessage> bootstrappedStreamSet) {
-    int initialSize = bootstrappedStreamSet.size();
-    List<CoordinatorStreamMessage> listStreamMessages = new ArrayList<CoordinatorStreamMessage>();
-    listStreamMessages.add(new SetConfig("order1", "job.name.order1", "my-order1-name"));
-    listStreamMessages.add(new SetConfig("order2", "job.name.order2", "my-order2-name"));
-    listStreamMessages.add(new SetConfig("order3", "job.name.order3", "my-order3-name"));
-    bootstrappedStreamSet.addAll(listStreamMessages);
-    Iterator<CoordinatorStreamMessage> iter = bootstrappedStreamSet.iterator();
-
-    for (int i = 0;  i < initialSize; ++i) {
-      iter.next();
-    }
-    int i = 0;
-    while (iter.hasNext()) {
-      if (!iter.next().getKey().equals(listStreamMessages.get(i++).getKey())) {
-        return false;
-      }
-    }
-    return true;
   }
 
   /**

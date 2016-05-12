@@ -165,8 +165,8 @@ object JobCoordinator extends Logging {
     // Do grouping to fetch TaskName to SSP mapping
     val allSystemStreamPartitions = getInputStreamPartitions(config, streamMetadataCache)
     val grouper = getSystemStreamPartitionGrouper(config)
-    info("SystemStreamPartitionGrouper " + grouper + " has grouped the SystemStreamPartitions into the following taskNames:")
     val groups = grouper.group(allSystemStreamPartitions)
+    info("SystemStreamPartitionGrouper %s has grouped the SystemStreamPartitions into %d tasks with the following taskNames: %s" format(grouper, groups.size(), groups.keySet()))
 
     // Initialize the ChangelogPartitionManager and the CheckpointManager
     val previousChangelogMapping = if (changelogManager != null)
