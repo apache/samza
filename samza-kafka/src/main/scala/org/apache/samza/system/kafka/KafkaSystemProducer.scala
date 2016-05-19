@@ -49,6 +49,13 @@ class KafkaSystemProducer(systemName: String,
   var exceptionThrown: AtomicReference[Exception] = new AtomicReference[Exception]()
   val StreamNameNullOrEmptyErrorMsg = "Stream Name should be specified in the stream configuration file.";
 
+  // Backward-compatible constructor for Java clients
+  def this(systemName: String,
+           retryBackoff: ExponentialSleepStrategy,
+           getProducer: () => Producer[Array[Byte], Array[Byte]],
+           metrics: KafkaSystemProducerMetrics,
+           clock: () => Long) = this(systemName, retryBackoff, getProducer, metrics, clock, 30)
+
   def start() {
   }
 
