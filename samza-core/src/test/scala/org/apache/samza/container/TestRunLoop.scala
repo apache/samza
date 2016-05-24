@@ -217,7 +217,7 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
 
     testMetrics.chooseNs.getSnapshot.getAverage should equal(1000000L)
     testMetrics.windowNs.getSnapshot.getAverage should equal(1000000L)
-    testMetrics.processNs.getSnapshot.getAverage should equal(3000000L)
+    testMetrics.processNs.getSnapshot.getAverage should equal(1000000L)
     testMetrics.commitNs.getSnapshot.getAverage should equal(1000000L)
 
     now = 0L

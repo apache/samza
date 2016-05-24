@@ -19,9 +19,12 @@
 
 package org.apache.samza.system
 
+
+import java.util.concurrent.TimeUnit
+
 import scala.collection.JavaConversions._
 import org.apache.samza.serializers.SerdeManager
-import org.apache.samza.util.Logging
+import org.apache.samza.util.{Logging, TimerUtils}
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.SamzaException
 import java.util.HashMap
@@ -44,7 +47,7 @@ object SystemConsumers {
  * messages, poll the MessageChooser for the next message to process, and
  * return that message to the SamzaContainer.
  */
-class SystemConsumers(
+class SystemConsumers (
 
   /**
    * The class that determines the order to process incoming messages.
@@ -59,12 +62,12 @@ class SystemConsumers(
   /**
    * The class that handles deserialization of incoming messages.
    */
-  serdeManager: SerdeManager = new SerdeManager,
+  serdeManager: SerdeManager,
 
   /**
    * A helper class to hold all of SystemConsumers' metrics.
    */
-  metrics: SystemConsumersMetrics = new SystemConsumersMetrics,
+  metrics: SystemConsumersMetrics,
 
   /**
    * If MessageChooser returns null when it's polled, SystemConsumers will
@@ -73,14 +76,14 @@ class SystemConsumers(
    * thread will sit in a tight loop polling every SystemConsumer over and
    * over again if no new messages are available.
    */
-  noNewMessagesTimeout: Int = SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
+  noNewMessagesTimeout: Int,
 
   /**
    * This parameter is to define how to deal with deserialization failure. If
    * set to true, the task will skip the messages when deserialization fails.
    * If set to false, the task will throw SamzaException and fail the container.
    */
-  dropDeserializationError: Boolean = SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
+  dropDeserializationError: Boolean,
 
   /**
    * <p>Defines an upper bound for how long the SystemConsumers will wait
@@ -96,13 +99,29 @@ class SystemConsumers(
    * with no remaining unprocessed messages, the SystemConsumers will poll for
    * it within 50ms of its availability in the stream system.</p>
    */
-  pollIntervalMs: Int = SystemConsumers.DEFAULT_POLL_INTERVAL_MS,
+  pollIntervalMs: Int,
 
   /**
    * Clock can be used to inject a custom clock when mocking this class in
    * tests. The default implementation returns the current system clock time.
    */
-  clock: () => Long = () => System.currentTimeMillis) extends Logging {
+  val clock: () => Long) extends Logging with TimerUtils {
+
+  def this(chooser: MessageChooser,
+           consumers: Map[String, SystemConsumer],
+           serdeManager: SerdeManager = new SerdeManager,
+           metrics: SystemConsumersMetrics = new SystemConsumersMetrics,
+           noNewMessagesTimeout: Int = SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
+           dropDeserializationError: Boolean = SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
+           pollIntervalMs: Int = SystemConsumers.DEFAULT_POLL_INTERVAL_MS) =
+    this(chooser,
+         consumers,
+         serdeManager,
+         metrics,
+         noNewMessagesTimeout,
+         dropDeserializationError,
+         pollIntervalMs,
+         () => System.nanoTime())
 
   /**
    * A buffer of incoming messages grouped by SystemStreamPartition. These
@@ -128,7 +147,7 @@ class SystemConsumers(
   /**
    * The last time that systems were polled for new messages.
    */
-  var lastPollMs = 0L
+  var lastPollNs = 0L
 
   /**
    * Total number of unprocessed messages in unprocessedMessagesBySSP.
@@ -187,28 +206,32 @@ class SystemConsumers(
   def choose: IncomingMessageEnvelope = {
     val envelopeFromChooser = chooser.choose
 
-    if (envelopeFromChooser == null) {
-      trace("Chooser returned null.")
+    updateTimer(metrics.deserializationNs) {
+      if (envelopeFromChooser == null) {
+       trace("Chooser returned null.")
 
-      metrics.choseNull.inc
+       metrics.choseNull.inc
 
-      // Sleep for a while so we don't poll in a tight loop.
-      timeout = noNewMessagesTimeout
-    } else {
-      val systemStreamPartition = envelopeFromChooser.getSystemStreamPartition
+       // Sleep for a while so we don't poll in a tight loop.
+       timeout = noNewMessagesTimeout
+      } else {
+       val systemStreamPartition = envelopeFromChooser.getSystemStreamPartition
 
-      trace("Chooser returned an incoming message envelope: %s" format envelopeFromChooser)
+       trace("Chooser returned an incoming message envelope: %s" format envelopeFromChooser)
 
-      // Ok to give the chooser a new message from this stream.
-      timeout = 0
-      metrics.choseObject.inc
-      metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition).inc
+       // Ok to give the chooser a new message from this stream.
+       timeout = 0
+       metrics.choseObject.inc
+       metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition).inc
 
-      tryUpdate(systemStreamPartition)
+       tryUpdate(systemStreamPartition)
+      }
     }
 
-    if (envelopeFromChooser == null || lastPollMs < clock() - pollIntervalMs) {
-      refresh
+    updateTimer(metrics.pollNs) {
+      if (envelopeFromChooser == null || TimeUnit.NANOSECONDS.toMillis(clock() - lastPollNs) > pollIntervalMs) {
+        refresh
+      }
     }
 
     envelopeFromChooser
@@ -280,7 +303,7 @@ class SystemConsumers(
     trace("Refreshing chooser with new messages.")
 
     // Update last poll time so we don't poll too frequently.
-    lastPollMs = clock()
+    lastPollNs = clock()
 
     // Poll every system for new messages.
     consumers.keys.map(poll(_))

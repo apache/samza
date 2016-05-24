@@ -103,11 +103,13 @@ class RunLoop(
     trace("Attempting to choose a message to process.")
     metrics.processes.inc
 
-    activeNs += updateTimerAndGetDuration(metrics.processNs) ((currentTimeNs: Long) => {
-      val envelope = updateTimer(metrics.chooseNs) {
-        consumerMultiplexer.choose
-      }
+    // Exclude choose time from activeNs. Although it includes deserialization time,
+    // it most closely captures idle time.
+    val envelope = updateTimer(metrics.chooseNs) {
+     consumerMultiplexer.choose
+    }
 
+    activeNs += updateTimerAndGetDuration(metrics.processNs) ((currentTimeNs: Long) => {
       if (envelope != null) {
         val ssp = envelope.getSystemStreamPartition
 
