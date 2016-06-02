@@ -20,6 +20,6 @@
 [[ $JAVA_OPTS != *-server* ]] && export JAVA_OPTS="$JAVA_OPTS -server"
 
 # Set container name system properties for use in Log4J
-[[ $JAVA_OPTS != *-Dsamza.container.name* ]] && export JAVA_OPTS="$JAVA_OPTS -Dsamza.container.name=samza-application-master"
+[[ $JAVA_OPTS != *-Dsamza.container.name* ]] && export JAVA_OPTS="$JAVA_OPTS -Dsamza.container.name=samza-job-coordinator"
 
-exec $(dirname $0)/run-class.sh org.apache.samza.job.yarn.SamzaAppMaster "$@"
+exec $(dirname $0)/run-class.sh org.apache.samza.clustermanager.ClusterBasedJobCoordinator "$@"

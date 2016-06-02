@@ -33,7 +33,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.YarnConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.job.model.ContainerModel;
@@ -98,7 +98,7 @@ public class TestSamzaTaskManager {
   private SamzaAppState state = null;
   private HttpServer server = null;
 
-  private JobCoordinator getCoordinator(int containerCount) {
+  private JobModelManager getCoordinator(int containerCount) {
     Map<Integer, ContainerModel> containers = new java.util.HashMap<>();
     for (int i = 0; i < containerCount; i++) {
       ContainerModel container = new ContainerModel(i, new HashMap<TaskName, TaskModel>());
@@ -114,8 +114,8 @@ public class TestSamzaTaskManager {
     when(mockLocalityManager.readContainerLocality()).thenReturn(localityMap);
 
     JobModel jobModel = new JobModel(getConfig(), containers, mockLocalityManager);
-    JobCoordinator.jobModelRef().getAndSet(jobModel);
-    return new JobCoordinator(jobModel, server, null);
+    JobModelManager.jobModelRef().getAndSet(jobModel);
+    return new JobModelManager(jobModel, server, null);
   }
 
   @Before

@@ -42,6 +42,23 @@
         <allow class="org.apache.samza.Partition" />
     </subpackage>
 
+    <subpackage name="clustermanager">
+        <allow class="org.apache.samza.SamzaException" />
+        <allow pkg="org.apache.samza.system" />
+        <allow pkg="org.apache.samza.util" />
+        <allow pkg="org.apache.samza.config" />
+        <allow pkg="org.apache.samza.coordinator" />
+        <allow pkg="org.apache.samza.job" />
+        <allow pkg="org.apache.samza.metrics" />
+        <allow pkg="org.apache.samza.serializers" />
+        <allow pkg="org.apache.samza.container" />
+        <allow pkg="org.eclipse.jetty.servlet" />
+
+
+        <allow class="org.apache.samza.Partition" />
+    </subpackage>
+
+
     <subpackage name="serializers">
         <allow pkg="org.apache.samza.config" />
 

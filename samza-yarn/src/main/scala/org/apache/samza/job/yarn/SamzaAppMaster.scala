@@ -36,7 +36,7 @@ import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.util.hadoop.HttpFileSystem
 import org.apache.samza.util.Logging
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.coordinator.JobCoordinator
+import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.SamzaException
 
 /**
@@ -71,7 +71,7 @@ object SamzaAppMaster extends Logging with AMRMClientAsync.CallbackHandler {
     val coordinatorSystemConfig = new MapConfig(SamzaObjectMapper.getObjectMapper.readValue(System.getenv(ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG), classOf[Config]))
     info("got coordinator system config: %s" format coordinatorSystemConfig)
     val registry = new MetricsRegistryMap
-    val jobCoordinator = JobCoordinator(coordinatorSystemConfig, registry)
+    val jobCoordinator = JobModelManager(coordinatorSystemConfig, registry)
     val config = jobCoordinator.jobModel.getConfig
     val yarnConfig = new YarnConfig(config)
     info("got config: %s" format coordinatorSystemConfig)

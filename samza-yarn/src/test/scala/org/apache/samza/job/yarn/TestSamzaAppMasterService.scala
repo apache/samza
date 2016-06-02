@@ -34,7 +34,7 @@ import scala.collection.JavaConversions._
 import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.container.TaskName
-import org.apache.samza.coordinator.JobCoordinator
+import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
 
 class TestSamzaAppMasterService {
@@ -42,7 +42,7 @@ class TestSamzaAppMasterService {
   @Test
   def testAppMasterDashboardShouldStart {
     val config = getDummyConfig
-    val state = new SamzaAppState(JobCoordinator(config), -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "", 1, 2)
+    val state = new SamzaAppState(JobModelManager(config), -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "", 1, 2)
     val service = new SamzaAppMasterService(config, state, null, null)
     val taskName = new TaskName("test")
 
@@ -73,7 +73,7 @@ class TestSamzaAppMasterService {
   def testAppMasterDashboardWebServiceShouldStart {
     // Create some dummy config
     val config = getDummyConfig
-    val state = new SamzaAppState(JobCoordinator(config), -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "", 1, 2)
+    val state = new SamzaAppState(JobModelManager(config), -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "", 1, 2)
     val service = new SamzaAppMasterService(config, state, null, null)
 
     // start the dashboard

@@ -31,7 +31,7 @@ import scala.collection.JavaConversions._
 import org.apache.samza.Partition
 import org.apache.samza.config.Config
 import org.apache.samza.config.MapConfig
-import org.apache.samza.coordinator.JobCoordinator
+import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.server.{ServletBase, HttpServer, JobServlet}
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
@@ -76,9 +76,9 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     val jobModel = new JobModel(config, containers)
     def jobModelGenerator(): JobModel = jobModel
     val server = new HttpServer
-    val coordinator = new JobCoordinator(jobModel, server)
-    JobCoordinator.jobModelRef.set(jobModelGenerator())
-    coordinator.server.addServlet("/*", new JobServlet(JobCoordinator.jobModelRef))
+    val coordinator = new JobModelManager(jobModel, server)
+    JobModelManager.jobModelRef.set(jobModelGenerator())
+    coordinator.server.addServlet("/*", new JobServlet(JobModelManager.jobModelRef))
     try {
       coordinator.start
       assertEquals(jobModel, SamzaContainer.readJobModel(server.getUrl.toString))
@@ -101,9 +101,9 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     val jobModel = new JobModel(config, containers)
     def jobModelGenerator(): JobModel = jobModel
     val server = new HttpServer
-    val coordinator = new JobCoordinator(jobModel, server)
-    JobCoordinator.jobModelRef.set(jobModelGenerator())
-    val mockJobServlet = new MockJobServlet(2, JobCoordinator.jobModelRef)
+    val coordinator = new JobModelManager(jobModel, server)
+    JobModelManager.jobModelRef.set(jobModelGenerator())
+    val mockJobServlet = new MockJobServlet(2, JobModelManager.jobModelRef)
     coordinator.server.addServlet("/*", mockJobServlet)
     try {
       coordinator.start

@@ -35,8 +35,7 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.container.SamzaContainerMetrics;
-import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.job.yarn.ClientHelper;
 import org.apache.samza.metrics.JmxMetricsAccessor;
@@ -149,9 +148,9 @@ public class YarnJobValidationTool {
   }
 
   public void validateJmxMetrics() throws Exception {
-    JobCoordinator jobCoordinator = JobCoordinator.apply(config);
+    JobModelManager jobModelManager = JobModelManager.apply(config);
     validator.init(config);
-    Map<Integer, String> jmxUrls = jobCoordinator.jobModel().getAllContainerToHostValues(SetContainerHostMapping.JMX_TUNNELING_URL_KEY);
+    Map<Integer, String> jmxUrls = jobModelManager.jobModel().getAllContainerToHostValues(SetContainerHostMapping.JMX_TUNNELING_URL_KEY);
     for (Map.Entry<Integer, String> entry : jmxUrls.entrySet()) {
       Integer containerId = entry.getKey();
       String jmxUrl = entry.getValue();

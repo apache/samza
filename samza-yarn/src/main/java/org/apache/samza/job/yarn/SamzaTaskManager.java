@@ -139,7 +139,7 @@ class SamzaTaskManager implements YarnAppMasterListener {
   }
 
   /**
-   * This methods handles the onContainerCompleted callback from the RM. Based on the ContainerExitStatus, it decides
+   * This methods handles the onResourceCompleted callback from the RM. Based on the ContainerExitStatus, it decides
    * whether a container that exited is marked as complete or failure.
    */
   @Override

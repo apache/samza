@@ -45,12 +45,12 @@ import scala.collection.JavaConversions._
  * Helper companion object that is responsible for wiring up a JobCoordinator
  * given a Config object.
  */
-object JobCoordinator extends Logging {
+object JobModelManager extends Logging {
 
   /**
    * a volatile value to store the current instantiated <code>JobCoordinator</code>
    */
-  @volatile var currentJobCoordinator: JobCoordinator = null
+  @volatile var currentJobModelManager: JobModelManager = null
   val jobModelRef: AtomicReference[JobModel] = new AtomicReference[JobModel]()
 
   /**
@@ -59,7 +59,7 @@ object JobCoordinator extends Logging {
    * configuration. The method will use this config to read all configuration
    * from the coordinator stream, and instantiate a JobCoordinator.
    */
-  def apply(coordinatorSystemConfig: Config, metricsRegistryMap: MetricsRegistryMap): JobCoordinator = {
+  def apply(coordinatorSystemConfig: Config, metricsRegistryMap: MetricsRegistryMap): JobModelManager = {
     val coordinatorStreamSystemFactory: CoordinatorStreamSystemFactory = new CoordinatorStreamSystemFactory()
     val coordinatorSystemConsumer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(coordinatorSystemConfig, metricsRegistryMap)
     val coordinatorSystemProducer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(coordinatorSystemConfig, metricsRegistryMap)
@@ -107,7 +107,7 @@ object JobCoordinator extends Logging {
     jobCoordinator
   }
 
-  def apply(coordinatorSystemConfig: Config): JobCoordinator = apply(coordinatorSystemConfig, new MetricsRegistryMap())
+  def apply(coordinatorSystemConfig: Config): JobModelManager = apply(coordinatorSystemConfig, new MetricsRegistryMap())
 
   /**
    * Build a JobCoordinator using a Samza job's configuration.
@@ -122,8 +122,8 @@ object JobCoordinator extends Logging {
 
     val server = new HttpServer
     server.addServlet("/*", new JobServlet(jobModelRef))
-    currentJobCoordinator = new JobCoordinator(jobModel, server, streamPartitionCountMonitor)
-    currentJobCoordinator
+    currentJobModelManager = new JobModelManager(jobModel, server, streamPartitionCountMonitor)
+    currentJobModelManager
   }
 
   /**
@@ -299,7 +299,7 @@ object JobCoordinator extends Logging {
  * coordinator's responsibility is simply to propagate the job model, and HTTP
  * server right now.</p>
  */
-class JobCoordinator(
+class JobModelManager(
   /**
    * The data model that describes the Samza job's containers and tasks.
    */

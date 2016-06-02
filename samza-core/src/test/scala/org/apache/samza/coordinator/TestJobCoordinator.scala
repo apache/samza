@@ -98,12 +98,12 @@ class TestJobCoordinator {
     // We want the mocksystemconsumer to use the same instance across runs
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache()
 
-    val coordinator = JobCoordinator(new MapConfig(config ++ otherConfigs))
+    val coordinator = JobModelManager(new MapConfig(config ++ otherConfigs))
     val expectedJobModel = new JobModel(new MapConfig(config), containers)
 
     // Verify that the atomicReference is initialized
-    assertNotNull(JobCoordinator.jobModelRef.get())
-    assertEquals(expectedJobModel, JobCoordinator.jobModelRef.get())
+    assertNotNull(JobModelManager.jobModelRef.get())
+    assertEquals(expectedJobModel, JobModelManager.jobModelRef.get())
 
     coordinator.start
     assertEquals(new MapConfig(config), coordinator.jobModel.getConfig)
@@ -123,7 +123,6 @@ class TestJobCoordinator {
 
   @Test
   def testJobCoordinatorChangelogPartitionMapping = {
-    System.out.println("test  ")
     val task0Name = new TaskName("Partition 0")
     val ssp0 = Set(new SystemStreamPartition("test", "stream1", new Partition(0)))
     val task1Name = new TaskName("Partition 1")
@@ -165,7 +164,7 @@ class TestJobCoordinator {
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache()
 
     // start the job coordinator and verify if it has all the checkpoints through http port
-    val coordinator = JobCoordinator(new MapConfig(config ++ otherConfigs))
+    val coordinator = JobModelManager(new MapConfig(config ++ otherConfigs))
     coordinator.start
     val url = coordinator.server.getUrl.toString
 

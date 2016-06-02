@@ -32,7 +32,7 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.{Util, CommandLine, Logging}
 import org.apache.samza.{Partition, SamzaException}
 import scala.collection.JavaConversions._
-import org.apache.samza.coordinator.JobCoordinator
+import org.apache.samza.coordinator.JobModelManager
 
 import scala.collection.immutable.HashMap
 
@@ -141,8 +141,8 @@ class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap, manage
     info("Using %s" format manager)
 
     // Find all the TaskNames that would be generated for this job config
-    val coordinator = JobCoordinator(config)
-    val taskNames = coordinator
+    val jobModelManager = JobModelManager(config)
+    val taskNames = jobModelManager
       .jobModel
       .getContainers
       .values

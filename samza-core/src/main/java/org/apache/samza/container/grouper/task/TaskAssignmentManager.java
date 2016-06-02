@@ -66,7 +66,7 @@ public class TaskAssignmentManager extends AbstractCoordinatorStreamManager {
 
   /**
    * Method to allow read container task information from coordinator stream. This method is used
-   * in {@link org.apache.samza.coordinator.JobCoordinator}.
+   * in {@link org.apache.samza.coordinator.JobModelManager}.
    *
    * @return the map of taskName: containerId
    */
