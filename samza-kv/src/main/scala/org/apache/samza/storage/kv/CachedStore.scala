@@ -63,18 +63,12 @@ class CachedStore[K, V](
   private val cache = new java.util.LinkedHashMap[K, CacheEntry[K, V]]((cacheSize * 1.2).toInt, 1.0f, true) {
     override def removeEldestEntry(eldest: java.util.Map.Entry[K, CacheEntry[K, V]]): Boolean = {
       val evict = super.size > cacheSize
-      // We need backwards compatibility with the previous broken flushing behavior for array keys.
-      if (evict || hasArrayKeys) {
+      if (evict) {
         val entry = eldest.getValue
         // if this entry hasn't been written out yet, flush it and all other dirty keys
         if (entry.dirty != null) {
-          if (hasArrayKeys) {
-            debug("Found a dirty entry and cache has array keys. Flushing.")
-            flush()
-          } else {
-            debug("Found a dirty entry. Calling putAll() on all dirty entries.")
-            putAllDirtyEntries()
-          }
+          debug("Found a dirty entry. Calling putAll() on all dirty entries.")
+          putAllDirtyEntries()
         }
       }
       evict
@@ -128,14 +122,14 @@ class CachedStore[K, V](
 
   override def range(from: K, to: K): KeyValueIterator[K, V] = {
     metrics.ranges.inc
-    flush()
+    putAllDirtyEntries()
 
     new CachedStoreIterator(store.range(from, to))
   }
 
   override def all(): KeyValueIterator[K, V] = {
     metrics.alls.inc
-    flush()
+    putAllDirtyEntries()
 
     new CachedStoreIterator(store.all())
   }
@@ -173,9 +167,19 @@ class CachedStore[K, V](
     }
 
     // putAll() dirty values if the write list is full.
-    if (dirtyCount >= writeBatchSize) {
+    val purgeNeeded = if (dirtyCount >= writeBatchSize) {
       debug("Dirty count %s >= write batch size %s. Calling putAll() on all dirty entries." format (dirtyCount, writeBatchSize))
+      true
+    } else if (hasArrayKeys) {
+      // Flush every time to support the following legacy behavior:
+      // If array keys are used with a cached store, get() will always miss the cache because of array equality semantics
+      // However, it will fall back to the underlying store which does support arrays.
+      true
+    } else {
+      false
+    }
 
+    if (purgeNeeded) {
       putAllDirtyEntries()
     }
   }
@@ -232,7 +236,7 @@ class CachedStore[K, V](
   private def checkKeyIsArray(key: K) {
     if (!containsArrayKeys && key.isInstanceOf[Array[_]]) {
       // Warn the first time that we see an array key.
-      warn("Using arrays as keys results in unpredictable behavior since cache is implemented with a map. Consider using ByteBuffer, or a different key type.")
+      warn("Using arrays as keys results in unpredictable behavior since cache is implemented with a map. Consider using ByteBuffer, or a different key type, or turn off the cache altogether.")
       containsArrayKeys = true
     }
   }
