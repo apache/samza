@@ -230,8 +230,10 @@ object SamzaContainer extends Logging {
      */
     val buildSystemSerdeMap = (getSerdeName: (String) => Option[String]) => {
       systemNames
-        .filter(getSerdeName(_).isDefined)
-        .map(systemName => {
+        .filter( sn => {
+          val serde = getSerdeName(sn)
+          serde.isDefined && !serde.get.equals("")
+        }).map(systemName => {
           val serdeName = getSerdeName(systemName).get
           val serde = serdes.getOrElse(serdeName, throw new SamzaException("No class defined for serde: %s." format serdeName))
           (systemName, serde)
