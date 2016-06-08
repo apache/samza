@@ -60,7 +60,43 @@ class KafkaSystemConsumerMetrics(val systemName: String = "unknown", val registr
     brokerReads.put((host, port), newCounter("%s-%s-messages-read" format (host, port)))
     brokerSkippedFetchRequests.put((host, port), newCounter("%s-%s-skipped-fetch-requests" format (host, port)))
     topicPartitions.put((host, port), newGauge("%s-%s-topic-partitions" format (host, port), 0))
+
+
   }
 
+  // java friendlier interfaces
+  // Gauges
+  def setTopicPartitionValue(host: String, port: Int, value: Int) {
+    topicPartitions.get((host,port)).set(value)
+  }
+  def setLagValue(topicAndPartition: TopicAndPartition, value: Long) {
+    lag.get((topicAndPartition)).set(value);
+  }
+  def setHighWatermarkValue(topicAndPartition: TopicAndPartition, value: Long) {
+    highWatermark.get((topicAndPartition)).set(value);
+  }
+
+  // Counters
+  def incBrokerReads(host: String, port: Int) {
+    brokerReads.get((host,port)).inc
+  }
+  def incReads(topicAndPartition: TopicAndPartition) {
+    reads.get(topicAndPartition).inc;
+  }
+  def incBytesReads(topicAndPartition: TopicAndPartition, inc: Long) {
+    reads.get(topicAndPartition).inc(inc);
+  }
+  def incBrokerBytesReads(host: String, port: Int, inc: Long) {
+    brokerReads.get((host,port)).inc(inc)
+  }
+  def incBrokerSkippedFetchRequests(host: String, port: Int) {
+    brokerSkippedFetchRequests.get((host,port)).inc()
+  }
+  def setOffsets(topicAndPartition: TopicAndPartition, offset: Long) {
+    offsets.get(topicAndPartition).set(offset)
+  }
+  def incReconnects(host: String, port: Int) {
+    reconnects.get((host,port)).inc()
+  }
   override def getPrefix = systemName + "-"
 }
