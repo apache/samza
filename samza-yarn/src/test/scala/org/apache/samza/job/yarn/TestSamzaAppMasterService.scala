@@ -43,7 +43,7 @@ class TestSamzaAppMasterService {
   def testAppMasterDashboardShouldStart {
     val config = getDummyConfig
     val state = new SamzaAppState(JobModelManager(config), -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "", 1, 2)
-    val service = new SamzaAppMasterService(config, state, null, null)
+    val service = new SamzaAppMasterService(config, state, null, null, null)
     val taskName = new TaskName("test")
 
     // start the dashboard
@@ -74,7 +74,7 @@ class TestSamzaAppMasterService {
     // Create some dummy config
     val config = getDummyConfig
     val state = new SamzaAppState(JobModelManager(config), -1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "", 1, 2)
-    val service = new SamzaAppMasterService(config, state, null, null)
+    val service = new SamzaAppMasterService(config, state, null, null, null)
 
     // start the dashboard
     service.onInit

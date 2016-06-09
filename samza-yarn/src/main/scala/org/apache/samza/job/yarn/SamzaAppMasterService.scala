@@ -19,6 +19,8 @@
 
 package org.apache.samza.job.yarn
 
+import org.apache.hadoop.security.UserGroupInformation
+import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.samza.coordinator.stream.CoordinatorStreamWriter
 import org.apache.samza.coordinator.stream.messages.SetConfig
 import org.apache.samza.util.Logging
@@ -31,14 +33,19 @@ import org.apache.samza.webapp.ApplicationMasterRestServlet
 import org.apache.samza.webapp.ApplicationMasterWebServlet
 
 /**
- * Samza's application master runs a very basic HTTP/JSON service to allow
- * dashboards to check on the status of a job. SamzaAppMasterService starts
- * up the web service when initialized.
- */
-class SamzaAppMasterService(config: Config, state: SamzaAppState, registry: ReadableMetricsRegistry, clientHelper: ClientHelper) extends YarnAppMasterListener with Logging {
+  * Samza's application master runs a very basic HTTP/JSON service to allow
+  * dashboards to check on the status of a job. SamzaAppMasterService starts
+  * up the web service when initialized.
+  * <p />
+  * Besides the HTTP/JSON service endpoints, it also starts an optional
+  * SecurityManager which takes care of the security needs when running in
+  * a secure environment.
+  */
+class SamzaAppMasterService(config: Config, state: SamzaAppState, registry: ReadableMetricsRegistry, clientHelper: ClientHelper, yarnConfiguration: YarnConfiguration) extends YarnAppMasterListener with Logging {
   var rpcApp: HttpServer = null
   var webApp: HttpServer = null
   val SERVER_URL_OPT: String = "samza.autoscaling.server.url"
+  var securityManager: Option[SamzaAppMasterSecurityManager] = None
 
   override def onInit() {
     // try starting the samza AM dashboard at a random rpc and tracking port
@@ -65,6 +72,15 @@ class SamzaAppMasterService(config: Config, state: SamzaAppState, registry: Read
     debug("sent server url message with value: %s " format state.coordinatorUrl.toString)
 
     info("Webapp is started at (rpc %s, tracking %s, coordinator %s)" format(state.rpcUrl, state.trackingUrl, state.coordinatorUrl))
+
+    // start YarnSecurityManger for a secure cluster
+    if (UserGroupInformation.isSecurityEnabled) {
+      securityManager = Option {
+        val securityManager = new SamzaAppMasterSecurityManager(config, yarnConfiguration)
+        securityManager.start
+        securityManager
+      }
+    }
   }
 
   override def onShutdown() {
@@ -77,5 +93,9 @@ class SamzaAppMasterService(config: Config, state: SamzaAppState, registry: Read
     }
 
     state.jobCoordinator.stop
+
+    securityManager.map {
+      securityManager => securityManager.stop
+    }
   }
 }

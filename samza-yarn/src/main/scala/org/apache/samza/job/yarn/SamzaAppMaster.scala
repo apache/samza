@@ -19,9 +19,14 @@
 
 package org.apache.samza.job.yarn
 
+import java.io.IOException
+
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{Path, FileSystem}
+
 import scala.collection.JavaConversions.asScalaBuffer
 import org.apache.hadoop.yarn.api.ApplicationConstants
-import org.apache.hadoop.yarn.api.records.{ Container, ContainerStatus, NodeReport }
+import org.apache.hadoop.yarn.api.records.{FinalApplicationStatus, Container, ContainerStatus, NodeReport}
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync
 import org.apache.hadoop.yarn.conf.YarnConfiguration
@@ -85,17 +90,20 @@ object SamzaAppMaster extends Logging with AMRMClientAsync.CallbackHandler {
     val containerMem = yarnConfig.getContainerMaxMemoryMb
     val containerCpu = yarnConfig.getContainerMaxCpuCores
     val jmxServer = if (yarnConfig.getJmxServerEnabled) Some(new JmxServer()) else None
+    val jobContext = new JobContext
+    Option(yarnConfig.getYarnJobStagingDirectory).map {
+      jobStagingDirectory => jobContext.setAppStagingDir(new Path(jobStagingDirectory))
+    }
 
+    // wire up all of the yarn event listeners
+    val state = new SamzaAppState(jobCoordinator, -1, containerId, nodeHostString, nodePortString.toInt, nodeHttpPortString.toInt)
     try {
-      // wire up all of the yarn event listeners
-      val state = new SamzaAppState(jobCoordinator, -1, containerId, nodeHostString, nodePortString.toInt, nodeHttpPortString.toInt)
-
       if (jmxServer.isDefined) {
         state.jmxUrl = jmxServer.get.getJmxUrl
         state.jmxTunnelingUrl = jmxServer.get.getTunnelingJmxUrl
       }
 
-      val service = new SamzaAppMasterService(config, state, registry, clientHelper)
+      val service = new SamzaAppMasterService(config, state, registry, clientHelper, hConfig)
       val lifecycle = new SamzaAppMasterLifecycle(containerMem, containerCpu, state, amClient)
       val metrics = new SamzaAppMasterMetrics(config, state, registry)
       val taskManager = new SamzaTaskManager(config, state, amClient, hConfig)
@@ -103,6 +111,10 @@ object SamzaAppMaster extends Logging with AMRMClientAsync.CallbackHandler {
       listeners =  List(service, lifecycle, metrics, taskManager)
       run(amClient, listeners, hConfig, interval)
     } finally {
+      if (state.status != FinalApplicationStatus.UNDEFINED) {
+        YarnJobUtil.cleanupStagingDir(jobContext, FileSystem.get(hConfig))
+      }
+
       // jmxServer has to be stopped or will prevent process from exiting.
       if (jmxServer.isDefined) {
         jmxServer.get.stop
@@ -134,6 +146,7 @@ object SamzaAppMaster extends Logging with AMRMClientAsync.CallbackHandler {
       } catch {
         case e: Exception => warn("Listener %s failed to shutdown." format listener, e)
       })
+
       // amClient has to be stopped
       amClient.stop
     }
@@ -156,5 +169,4 @@ object SamzaAppMaster extends Logging with AMRMClientAsync.CallbackHandler {
     error("Error occured in amClient's callback", e)
     storedException = e
   }
-
 }

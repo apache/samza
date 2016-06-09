@@ -313,6 +313,15 @@ object SamzaContainer extends Logging {
 
     info("Got metrics reporters: %s" format reporters.keys)
 
+    val securityManager = config.getSecurityManagerFactory match {
+      case Some(securityManagerFactoryClassName) =>
+        Util
+          .getObj[SecurityManagerFactory](securityManagerFactoryClassName)
+          .getSecurityManager(config)
+      case _ => null
+    }
+    info("Got security manager: %s" format securityManager)
+
     val coordinatorSystemProducer = new CoordinatorStreamSystemFactory().getCoordinatorStreamSystemProducer(config, samzaContainerMetrics.registry)
     val localityManager = new LocalityManager(coordinatorSystemProducer)
     val checkpointManager = config.getCheckpointManagerFactory() match {
@@ -545,6 +554,7 @@ object SamzaContainer extends Logging {
       producerMultiplexer = producerMultiplexer,
       offsetManager = offsetManager,
       localityManager = localityManager,
+      securityManager = securityManager,
       metrics = samzaContainerMetrics,
       reporters = reporters,
       jvm = jvm,
@@ -564,6 +574,7 @@ class SamzaContainer(
   diskSpaceMonitor: DiskSpaceMonitor = null,
   offsetManager: OffsetManager = new OffsetManager,
   localityManager: LocalityManager = null,
+  securityManager: SecurityManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   jvm: JvmMetrics = null) extends Runnable with Logging {
 
@@ -579,6 +590,7 @@ class SamzaContainer(
       startProducers
       startTask
       startConsumers
+      startSecurityManger
 
       info("Entering run loop.")
       runLoop.run
@@ -597,6 +609,7 @@ class SamzaContainer(
       shutdownLocalityManager
       shutdownOffsetManager
       shutdownMetrics
+      shutdownSecurityManger
 
       info("Shutdown complete.")
     }
@@ -699,6 +712,14 @@ class SamzaContainer(
     consumerMultiplexer.start
   }
 
+  def startSecurityManger: Unit = {
+    if (securityManager != null) {
+      info("Starting security manager.")
+
+      securityManager.start
+    }
+  }
+
   def shutdownConsumers {
     info("Shutting down consumer multiplexer.")
 
@@ -736,6 +757,7 @@ class SamzaContainer(
     offsetManager.stop
   }
 
+
   def shutdownMetrics {
     info("Shutting down metrics reporters.")
 
@@ -745,6 +767,14 @@ class SamzaContainer(
       info("Shutting down JVM metrics.")
 
       jvm.stop
+    }
+  }
+
+  def shutdownSecurityManger: Unit = {
+    if (securityManager != null) {
+      info("Shutting down security manager.")
+
+      securityManager.stop
     }
   }
 

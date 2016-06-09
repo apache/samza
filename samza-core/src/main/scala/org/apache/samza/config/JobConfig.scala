@@ -55,6 +55,7 @@ object JobConfig {
   val MONITOR_PARTITION_CHANGE = "job.coordinator.monitor-partition-change"
   val MONITOR_PARTITION_CHANGE_FREQUENCY_MS = "job.coordinator.monitor-partition-change.frequency.ms"
   val DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS = 300000
+  val JOB_SECURITY_MANAGER_FACTORY = "job.security.manager.factory"
 
   implicit def Config2Job(config: Config) = new JobConfig(config)
 
@@ -114,6 +115,8 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getConfigRewriterClass(name: String) = getOption(JobConfig.CONFIG_REWRITER_CLASS format name)
 
   def getSystemStreamPartitionGrouperFactory = getOption(JobConfig.SSP_GROUPER_FACTORY).getOrElse(classOf[GroupByPartitionFactory].getCanonicalName)
+
+  def getSecurityManagerFactory = getOption(JobConfig.JOB_SECURITY_MANAGER_FACTORY)
 
   val CHECKPOINT_SEGMENT_BYTES = "task.checkpoint.segment.bytes"
   val CHECKPOINT_REPLICATION_FACTOR = "task.checkpoint.replication.factor"

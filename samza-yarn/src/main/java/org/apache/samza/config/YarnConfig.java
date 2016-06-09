@@ -104,6 +104,31 @@ public class YarnConfig extends MapConfig {
   public static final String HOST_AFFINITY_ENABLED = "yarn.samza.host-affinity.enabled";
   private static final boolean DEFAULT_HOST_AFFINITY_ENABLED = false;
 
+  /**
+   * Principal used to log in on a Kerberized secure cluster
+   */
+  public static final String YARN_KERBEROS_PRINCIPAL = "yarn.kerberos.principal";
+
+  /**
+   * Key tab used to log in on a Kerberized secure cluster
+   */
+  public static final String YARN_KERBEROS_KEYTAB = "yarn.kerberos.keytab";
+
+  /**
+   * Interval in seconds to renew a delegation token in Kerberized secure cluster
+   */
+  public static final String YARN_TOKEN_RENEWAL_INTERVAL_SECONDS = "yarn.token.renewal.interval.seconds";
+  private static final long DEFAULT_YARN_TOKEN_RENEWAL_INTERVAL_SECONDS = 24 * 3600;
+
+  /**
+   * The location on HDFS to store the credentials file
+   */
+  public static final String YARN_CREDENTIALS_FILE = "yarn.credentials.file";
+
+  /**
+   * The staging directory on HDFS for the job
+   */
+  public static final String YARN_JOB_STAGING_DIRECTORY = "yarn.job.staging.directory";
 
   public YarnConfig(Config config) {
     super(config);
@@ -167,5 +192,25 @@ public class YarnConfig extends MapConfig {
 
   public boolean getHostAffinityEnabled() {
     return getBoolean(HOST_AFFINITY_ENABLED, DEFAULT_HOST_AFFINITY_ENABLED);
+  }
+
+  public String getYarnKerberosPrincipal() {
+    return get(YARN_KERBEROS_PRINCIPAL, null);
+  }
+
+  public String getYarnKerberosKeytab() {
+    return get(YARN_KERBEROS_KEYTAB, null);
+  }
+
+  public long getYarnTokenRenewalIntervalSeconds() {
+    return getLong(YARN_TOKEN_RENEWAL_INTERVAL_SECONDS, DEFAULT_YARN_TOKEN_RENEWAL_INTERVAL_SECONDS);
+  }
+
+  public String getYarnCredentialsFile() {
+    return get(YARN_CREDENTIALS_FILE, null);
+  }
+
+  public String getYarnJobStagingDirectory() {
+    return get(YARN_JOB_STAGING_DIRECTORY, null);
   }
 }
