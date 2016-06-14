@@ -218,30 +218,48 @@ class TaskStorageManager(
     */
   private def flushChangelogOffsetFiles() {
     debug("Persisting logged key value stores")
-    changeLogSystemStreams.foreach { case (store, systemStream) => {
-      val streamToMetadata = systemAdmins(systemStream.getSystem)
-              .getSystemStreamMetadata(JavaConversions.setAsJavaSet(Set(systemStream.getStream)))
-      val sspMetadata = streamToMetadata
-              .get(systemStream.getStream)
-              .getSystemStreamPartitionMetadata
-              .get(partition)
-      val newestOffset = sspMetadata.getNewestOffset
 
-      if (newestOffset != null) {
-        val offsetFile = new File(TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, store, taskName), offsetFileName)
+    for ((storeName, systemStream) <- changeLogSystemStreams) {
+      val systemAdmin = systemAdmins
+              .getOrElse(systemStream.getSystem,
+                         throw new SamzaException("Unable to get systemAdmin for store " + storeName + " and systemStream" + systemStream))
 
-        try {
-          Util.writeDataToFile(offsetFile, newestOffset)
-          debug("Successfully stored offset %s for store %s in OFFSET file " format(newestOffset, store))
-        } catch {
-          case e: Exception => error("Exception storing offset %s for store %s" format(newestOffset, store), e)
+      debug("Fetching newest offset for store %s" format(storeName))
+      try {
+        val newestOffset = if (systemAdmin.isInstanceOf[ExtendedSystemAdmin]) {
+          // This approach is much more efficient because it only fetches the newest offset for 1 SSP
+          // rather than newest and oldest offsets for all SSPs. Use it if we can.
+          systemAdmin.asInstanceOf[ExtendedSystemAdmin].getNewestOffset(new SystemStreamPartition(systemStream.getSystem, systemStream.getStream, partition), 3)
+        } else {
+          val streamToMetadata = systemAdmins(systemStream.getSystem)
+                  .getSystemStreamMetadata(JavaConversions.setAsJavaSet(Set(systemStream.getStream)))
+          val sspMetadata = streamToMetadata
+                  .get(systemStream.getStream)
+                  .getSystemStreamPartitionMetadata
+                  .get(partition)
+          sspMetadata.getNewestOffset
         }
+        debug("Got offset %s for store %s" format(newestOffset, storeName))
+
+        val offsetFile = new File(TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName), offsetFileName)
+        if (newestOffset != null) {
+          debug("Storing offset for store in OFFSET file ")
+          Util.writeDataToFile(offsetFile, newestOffset)
+          debug("Successfully stored offset %s for store %s in OFFSET file " format(newestOffset, storeName))
+        } else {
+          //if newestOffset is null, then it means the store is (or has become) empty. No need to persist the offset file
+          if (offsetFile.exists()) {
+            Util.rm(offsetFile)
+          }
+          debug("Not storing OFFSET file for taskName %s. Store %s backed by changelog topic : %s, partition: %s is empty. " format (taskName, storeName, systemStream.getStream, partition.getPartitionId))
+        }
+      } catch {
+        case e: Exception => error("Exception storing offset for store %s. Skipping." format(storeName), e)
       }
-      else {
-        //if newestOffset is null, then it means the store is empty. No need to persist the offset file
-        debug("Not storing OFFSET file for taskName %s. Store %s backed by changelog topic : %s, partition: %s is empty. " format (taskName, store, systemStream.getStream, partition.getPartitionId))
-      }
-    }}
+
+    }
+
+    debug("Done persisting logged key value stores")
   }
 
   /**

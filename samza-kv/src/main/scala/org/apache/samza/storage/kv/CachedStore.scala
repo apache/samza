@@ -185,11 +185,12 @@ class CachedStore[K, V](
   }
 
   override def flush() {
-    trace("Flushing.")
-
+    trace("Purging dirty entries from CachedStore.")
     metrics.flushes.inc
     putAllDirtyEntries()
+    trace("Flushing store.")
     store.flush()
+    trace("Flushed store.")
   }
 
   private def putAllDirtyEntries() {

@@ -91,6 +91,7 @@ public class CoordinatorStreamSystemConsumer {
     String streamName = coordinatorSystemStreamPartition.getStream();
     streamNames.add(streamName);
     Map<String, SystemStreamMetadata> systemStreamMetadataMap = systemAdmin.getSystemStreamMetadata(streamNames);
+    log.info(String.format("Got metadata %s", systemStreamMetadataMap.toString()));
 
     if (systemStreamMetadataMap == null) {
       throw new SamzaException("Received a null systemStreamMetadataMap from the systemAdmin. This is illegal.");

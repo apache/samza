@@ -231,7 +231,8 @@ class MockSystemAdmin extends ExtendedSystemAdmin {
   
   override def offsetComparator(offset1: String, offset2: String) = null
 
-  override def getSystemStreamPartitionCounts(streamNames: util.Set[String]): util.Map[String, SystemStreamMetadata] = {
+  override def getSystemStreamPartitionCounts(streamNames: util.Set[String],
+                                              cacheTTL: Long): util.Map[String, SystemStreamMetadata] = {
     assertEquals(1, streamNames.size())
     val result = streamNames.map {
       stream =>
@@ -244,4 +245,8 @@ class MockSystemAdmin extends ExtendedSystemAdmin {
     }.toMap
     result
   }
+
+  override def getNewestOffset(ssp: SystemStreamPartition, maxRetries: Integer) = null
+
+
 }

@@ -26,5 +26,8 @@ import java.util.Set;
  * TODO: Merge this interface method with SystemAdmin when we upgrade to JDK 1.8
  */
 public interface ExtendedSystemAdmin extends SystemAdmin {
-  Map<String, SystemStreamMetadata> getSystemStreamPartitionCounts(Set<String> streamNames);
+  Map<String, SystemStreamMetadata> getSystemStreamPartitionCounts(Set<String> streamNames, long cacheTTL);
+
+  // Makes fewer offset requests than getSystemStreamMetadata
+  String getNewestOffset(SystemStreamPartition ssp, Integer maxRetries);
 }

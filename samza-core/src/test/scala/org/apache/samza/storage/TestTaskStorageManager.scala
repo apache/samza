@@ -122,6 +122,10 @@ class TestTaskStorageManager extends MockitoSugar {
     assertEquals("Found incorrect value in offset file!", "100", Util.readDataFromFile(offsetFilePath))
   }
 
+  /**
+    * For instances of SystemAdmin, the store manager should call the slow getSystemStreamMetadata() method
+    * which gets offsets for ALL n partitions of the changelog, regardless of how many we need for the current task.
+    */
   @Test
   def testFlushCreatesOffsetFileForLoggedStore() {
     val partition = new Partition(0)
@@ -146,6 +150,40 @@ class TestTaskStorageManager extends MockitoSugar {
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
     assertEquals("Found incorrect value in offset file!", "100", Util.readDataFromFile(offsetFilePath))
+  }
+
+  /**
+    * For instances of ExtendedSystemAdmin, the store manager should call the optimized getNewestOffset() method.
+    * Flush should also delete the existing OFFSET file if the changelog partition (for some reason) becomes empty
+    */
+  @Test
+  def testFlushCreatesOffsetFileForLoggedStoreExtendedSystemAdmin() {
+    val partition = new Partition(0)
+
+    val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName) + File.separator + "OFFSET")
+
+    val mockSystemAdmin = mock[ExtendedSystemAdmin]
+    when(mockSystemAdmin.getNewestOffset(any(classOf[SystemStreamPartition]), anyInt())).thenReturn("100").thenReturn(null)
+
+    //Build TaskStorageManager
+    val taskStorageManager = new TaskStorageManagerBuilder()
+            .addStore(loggedStore)
+            .setSystemAdmin("kafka", mockSystemAdmin)
+            .setPartition(partition)
+            .build
+
+    //Invoke test method
+    taskStorageManager.flush()
+
+    //Check conditions
+    assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
+    assertEquals("Found incorrect value in offset file!", "100", Util.readDataFromFile(offsetFilePath))
+
+    //Invoke test method again
+    taskStorageManager.flush()
+
+    //Check conditions
+    assertFalse("Offset file for null offset exists!", offsetFilePath.exists())
   }
 
   @Test
