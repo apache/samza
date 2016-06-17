@@ -359,7 +359,7 @@ object Util extends Logging {
       case "long" => classOf[LongSerdeFactory].getCanonicalName
       case "serializable" => classOf[SerializableSerdeFactory[java.io.Serializable]].getCanonicalName
       case "string" => classOf[StringSerdeFactory].getCanonicalName
-      case _ => throw new SamzaException("No class defined for serde %s" format serdeName)
+      case _ => throw new SamzaException("defaultSerdeFactoryFromSerdeName: No class defined for serde %s" format serdeName)
     }
     info("use default serde %s for %s" format (serde, serdeName))
     serde

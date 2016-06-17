@@ -155,7 +155,7 @@ object SamzaContainer extends Logging {
 
     val serdeStreams = systemNames.foldLeft(Set[SystemStream]())(_ ++ config.getSerdeStreams(_))
 
-    debug("Got serde streams: %s" format serdeStreams)
+    info("Got serde streams: %s" format serdeStreams)
 
     val serdeNames = config.getSerdeNames
 
@@ -230,12 +230,10 @@ object SamzaContainer extends Logging {
      */
     val buildSystemSerdeMap = (getSerdeName: (String) => Option[String]) => {
       systemNames
-        .filter( sn => {
-          val serde = getSerdeName(sn)
-          serde.isDefined && !serde.get.equals("")
-        }).map(systemName => {
+        .filter(systemName => getSerdeName(systemName).isDefined)
+              .map(systemName => {
           val serdeName = getSerdeName(systemName).get
-          val serde = serdes.getOrElse(serdeName, throw new SamzaException("No class defined for serde: %s." format serdeName))
+          val serde = serdes.getOrElse(serdeName, throw new SamzaException("buildSystemSerdeMap: No class defined for serde: %s." format serdeName))
           (systemName, serde)
         }).toMap
     }
@@ -248,7 +246,7 @@ object SamzaContainer extends Logging {
         .filter(systemStream => getSerdeName(systemStream).isDefined)
         .map(systemStream => {
           val serdeName = getSerdeName(systemStream).get
-          val serde = serdes.getOrElse(serdeName, throw new SamzaException("No class defined for serde: %s." format serdeName))
+          val serde = serdes.getOrElse(serdeName, throw new SamzaException("buildSystemStreamSerdeMap: No class defined for serde: %s." format serdeName))
           (systemStream, serde)
         }).toMap
     }
@@ -459,11 +457,11 @@ object SamzaContainer extends Logging {
               null
             }
             val keySerde = config.getStorageKeySerde(storeName) match {
-              case Some(keySerde) => serdes.getOrElse(keySerde, throw new SamzaException("No class defined for serde: %s." format keySerde))
+              case Some(keySerde) => serdes.getOrElse(keySerde, throw new SamzaException("StorageKeySerde: No class defined for serde: %s." format keySerde))
               case _ => null
             }
             val msgSerde = config.getStorageMsgSerde(storeName) match {
-              case Some(msgSerde) => serdes.getOrElse(msgSerde, throw new SamzaException("No class defined for serde: %s." format msgSerde))
+              case Some(msgSerde) => serdes.getOrElse(msgSerde, throw new SamzaException("StorageMsgSerde: No class defined for serde: %s." format msgSerde))
               case _ => null
             }
             val storeBaseDir = if(changeLogSystemStreamPartition != null) {
