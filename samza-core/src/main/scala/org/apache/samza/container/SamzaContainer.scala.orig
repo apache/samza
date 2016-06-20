@@ -32,8 +32,7 @@ import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
-import org.apache.samza.container.disk.WatermarkDiskQuotaPolicy.Entry
-import org.apache.samza.container.disk.{NoThrottlingDiskQuotaPolicyFactory, DiskQuotaPolicyFactory, NoThrottlingDiskQuotaPolicy, WatermarkDiskQuotaPolicy, PollingScanDiskSpaceMonitor, DiskSpaceMonitor}
+import org.apache.samza.container.disk.{PollingScanDiskSpaceMonitor, DiskSpaceMonitor}
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 import org.apache.samza.metrics.JmxServer
 import org.apache.samza.metrics.JvmMetrics
@@ -57,7 +56,7 @@ import org.apache.samza.system.chooser.MessageChooserFactory
 import org.apache.samza.system.chooser.RoundRobinChooserFactory
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskInstanceCollector
-import org.apache.samza.util.{ThrottlingExecutor, ExponentialSleepStrategy, Logging, Util}
+import org.apache.samza.util.{ExponentialSleepStrategy, Logging, Util}
 import scala.collection.JavaConversions._
 import java.net.{UnknownHostException, InetAddress, URL}
 import org.apache.samza.job.model.{TaskModel, ContainerModel, JobModel}
@@ -67,7 +66,6 @@ import java.lang.Thread.UncaughtExceptionHandler
 
 object SamzaContainer extends Logging {
   val DEFAULT_READ_JOBMODEL_DELAY_MS = 100
-  val DISK_POLL_INTERVAL_KEY = "container.disk.poll.interval.ms"
 
   def main(args: Array[String]) {
     safeMain(() => new JmxServer, new SamzaContainerExceptionHandler(() => System.exit(1)))
@@ -157,7 +155,7 @@ object SamzaContainer extends Logging {
 
     val serdeStreams = systemNames.foldLeft(Set[SystemStream]())(_ ++ config.getSerdeStreams(_))
 
-    info("Got serde streams: %s" format serdeStreams)
+    debug("Got serde streams: %s" format serdeStreams)
 
     val serdeNames = config.getSerdeNames
 
@@ -232,10 +230,12 @@ object SamzaContainer extends Logging {
      */
     val buildSystemSerdeMap = (getSerdeName: (String) => Option[String]) => {
       systemNames
-        .filter(systemName => getSerdeName(systemName).isDefined)
-              .map(systemName => {
+        .filter( sn => {
+          val serde = getSerdeName(sn)
+          serde.isDefined && !serde.get.equals("")
+        }).map(systemName => {
           val serdeName = getSerdeName(systemName).get
-          val serde = serdes.getOrElse(serdeName, throw new SamzaException("buildSystemSerdeMap: No class defined for serde: %s." format serdeName))
+          val serde = serdes.getOrElse(serdeName, throw new SamzaException("No class defined for serde: %s." format serdeName))
           (systemName, serde)
         }).toMap
     }
@@ -248,7 +248,7 @@ object SamzaContainer extends Logging {
         .filter(systemStream => getSerdeName(systemStream).isDefined)
         .map(systemStream => {
           val serdeName = getSerdeName(systemStream).get
-          val serde = serdes.getOrElse(serdeName, throw new SamzaException("buildSystemStreamSerdeMap: No class defined for serde: %s." format serdeName))
+          val serde = serdes.getOrElse(serdeName, throw new SamzaException("No class defined for serde: %s." format serdeName))
           (systemStream, serde)
         }).toMap
     }
@@ -459,11 +459,11 @@ object SamzaContainer extends Logging {
               null
             }
             val keySerde = config.getStorageKeySerde(storeName) match {
-              case Some(keySerde) => serdes.getOrElse(keySerde, throw new SamzaException("StorageKeySerde: No class defined for serde: %s." format keySerde))
+              case Some(keySerde) => serdes.getOrElse(keySerde, throw new SamzaException("No class defined for serde: %s." format keySerde))
               case _ => null
             }
             val msgSerde = config.getStorageMsgSerde(storeName) match {
-              case Some(msgSerde) => serdes.getOrElse(msgSerde, throw new SamzaException("StorageMsgSerde: No class defined for serde: %s." format msgSerde))
+              case Some(msgSerde) => serdes.getOrElse(msgSerde, throw new SamzaException("No class defined for serde: %s." format msgSerde))
               case _ => null
             }
             val storeBaseDir = if(changeLogSystemStreamPartition != null) {
@@ -522,32 +522,18 @@ object SamzaContainer extends Logging {
       (taskName, taskInstance)
     }).toMap
 
-    val executor = new ThrottlingExecutor()
-
-    val diskQuotaBytes = config.getLong("container.disk.quota.bytes", Long.MaxValue)
-    samzaContainerMetrics.diskQuotaBytes.set(diskQuotaBytes)
-
-    val diskQuotaPolicyFactoryString = config.get("container.disk.quota.policy.factory",
-      classOf[NoThrottlingDiskQuotaPolicyFactory].getName)
-    val diskQuotaPolicyFactory = Util.getObj[DiskQuotaPolicyFactory](diskQuotaPolicyFactoryString)
-    val diskQuotaPolicy = diskQuotaPolicyFactory.create(config)
-
+    val diskPollMillis = config.getInt("container.disk.poll.interval.ms", 0)
     var diskSpaceMonitor: DiskSpaceMonitor = null
-    val diskPollMillis = config.getInt(DISK_POLL_INTERVAL_KEY, 0)
     if (diskPollMillis != 0) {
+      val diskUsage = samzaContainerMetrics.createOrGetDiskUsageGauge()
+
       diskSpaceMonitor = new PollingScanDiskSpaceMonitor(storeWatchPaths, diskPollMillis)
       diskSpaceMonitor.registerListener(new Listener {
-        override def onUpdate(diskUsageBytes: Long): Unit = {
-          val newWorkRate = diskQuotaPolicy.apply(1.0 - (diskUsageBytes.toDouble / diskQuotaBytes))
-          executor.setWorkFactor(newWorkRate)
-          samzaContainerMetrics.executorWorkFactor.set(executor.getWorkFactor)
-          samzaContainerMetrics.diskUsageBytes.set(diskUsageBytes)
-        }
+        override def onUpdate(diskUsageSample: Long): Unit =
+          diskUsage.set(diskUsageSample)
       })
 
       info("Initialized disk space monitor watch paths to: %s" format storeWatchPaths)
-    } else {
-      info(s"Disk quotas disabled because polling interval is not set ($DISK_POLL_INTERVAL_KEY)")
     }
 
     val runLoop = new RunLoop(
@@ -556,8 +542,7 @@ object SamzaContainer extends Logging {
       metrics = samzaContainerMetrics,
       windowMs = taskWindowMs,
       commitMs = taskCommitMs,
-      shutdownMs = taskShutdownMs,
-      executor = executor)
+      shutdownMs = taskShutdownMs)
 
     info("Samza container setup complete.")
 

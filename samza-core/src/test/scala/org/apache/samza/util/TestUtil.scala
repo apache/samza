@@ -93,4 +93,20 @@ class TestUtil {
     }
     assertTrue(throwSamzaException)
   }
+
+  @Test
+  def testClampAdd() {
+    assertEquals(0, Util.clampAdd(0, 0))
+    assertEquals(2, Util.clampAdd(1, 1))
+    assertEquals(-2, Util.clampAdd(-1, -1))
+    assertEquals(Long.MaxValue, Util.clampAdd(Long.MaxValue, 0))
+    assertEquals(Long.MaxValue - 1, Util.clampAdd(Long.MaxValue, -1))
+    assertEquals(Long.MaxValue, Util.clampAdd(Long.MaxValue, 1))
+    assertEquals(Long.MaxValue, Util.clampAdd(Long.MaxValue, Long.MaxValue))
+    assertEquals(Long.MinValue, Util.clampAdd(Long.MinValue, 0))
+    assertEquals(Long.MinValue, Util.clampAdd(Long.MinValue, -1))
+    assertEquals(Long.MinValue + 1, Util.clampAdd(Long.MinValue, 1))
+    assertEquals(Long.MinValue, Util.clampAdd(Long.MinValue, Long.MinValue))
+    assertEquals(-1, Util.clampAdd(Long.MaxValue, Long.MinValue))
+  }
 }

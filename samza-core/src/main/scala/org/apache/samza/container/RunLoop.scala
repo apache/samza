@@ -19,6 +19,8 @@
 
 package org.apache.samza.container
 
+import java.util.concurrent.Executor
+
 import org.apache.samza.system.{SystemConsumers, SystemStreamPartition}
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.util.{Logging, TimerUtils}
@@ -39,7 +41,8 @@ class RunLoop(
   val windowMs: Long = -1,
   val commitMs: Long = 60000,
   val clock: () => Long = { System.nanoTime },
-  val shutdownMs: Long = 5000) extends Runnable with TimerUtils with Logging {
+  val shutdownMs: Long = 5000,
+  val executor: Executor = new SameThreadExecutor()) extends Runnable with TimerUtils with Logging {
 
   private val metricsMsOffset = 1000000L
   private var lastWindowNs = clock()
@@ -69,14 +72,20 @@ class RunLoop(
   def run {
     addShutdownHook(Thread.currentThread())
 
+    val runTask = new Runnable() {
+      override def run(): Unit = {
+        val loopStartTime = clock()
+        process
+        window
+        commit
+        val totalNs = clock() - loopStartTime
+        metrics.utilization.set(activeNs.toFloat / totalNs)
+        activeNs = 0L
+      }
+    }
+
     while (!shutdownNow) {
-      val loopStartTime = clock()
-      process
-      window
-      commit
-      val totalNs = clock() - loopStartTime
-      metrics.utilization.set(activeNs.toFloat/totalNs)
-      activeNs = 0L
+      executor.execute(runTask)
     }
   }
 

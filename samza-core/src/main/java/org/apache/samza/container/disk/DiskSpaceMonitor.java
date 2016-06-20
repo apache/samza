@@ -51,6 +51,9 @@ public interface DiskSpaceMonitor {
   interface Listener {
     /**
      * Invoked with new samples as they become available.
+     * <p>
+     * Updates are guaranteed to be serialized. In other words, a listener's onUpdate callback
+     * may only be invoked once at a time by a DiskSpaceMonitor.
      *
      * @param diskUsageSample the measured disk usage size in bytes.
      */

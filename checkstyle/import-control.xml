@@ -115,7 +115,8 @@
     <subpackage name="util">
         <allow pkg="org.apache.samza.metrics" />
         <allow pkg="org.apache.samza.system" />
-
+        <allow pkg="junit.framework" />
+        
         <allow class="org.apache.samza.Partition" />
         <allow class="org.apache.samza.SamzaException" />
         <allow class="joptsimple.OptionSet" />
@@ -138,7 +139,10 @@
         <allow pkg="org.apache.samza.config" />
         <allow pkg="org.apache.samza.container" />
         <allow pkg="org.apache.samza.coordinator.stream" />
+        <allow pkg="org.apache.samza.util" />
+        <allow pkg="junit.framework" />
         <allow class="org.apache.samza.coordinator.stream.AbstractCoordinatorStreamManager" />
+
         <subpackage name="grouper">
             <subpackage name="stream">
                 <allow pkg="org.apache.samza.system" />

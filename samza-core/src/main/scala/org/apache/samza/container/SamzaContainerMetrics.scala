@@ -38,21 +38,13 @@ class SamzaContainerMetrics(
   val processNs = newTimer("process-ns")
   val commitNs = newTimer("commit-ns")
   val utilization = newGauge("event-loop-utilization", 0.0F)
+  val diskUsageBytes = newGauge("disk-usage-bytes", 0L)
+  val diskQuotaBytes = newGauge("disk-quota-bytes", Long.MaxValue)
+  val executorWorkFactor = newGauge("executor-work-factor", 1.0)
 
   val taskStoreRestorationMetrics: util.Map[TaskName, Gauge[Long]] = new util.HashMap[TaskName, Gauge[Long]]()
 
   def addStoreRestorationGauge(taskName: TaskName, storeName: String) {
     taskStoreRestorationMetrics.put(taskName, newGauge("%s-%s-restore-time" format(taskName.toString, storeName), -1L))
-  }
-
-  /**
-   * Creates or gets the disk usage gauge for the container and returns it.
-   */
-  def createOrGetDiskUsageGauge(): Gauge[Long] = {
-    // Despite the name, this function appears to be idempotent. A more defensive approach would be
-    // to ensure idempotency at this level, e.g. via a CAS operation. Unfortunately, it appears that
-    // the mechanism to register a Gauge is hidden. An alternative would be to use a mutex to
-    // set ensure the gauge is created once.
-    newGauge("disk-usage", 0L)
   }
 }
