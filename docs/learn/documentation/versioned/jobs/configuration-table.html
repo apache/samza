@@ -340,6 +340,18 @@
                         This setting controls if the job should fail(true) or just warn(false) in case the validation of checkpoint partition number fails. <br/> <b>CAUTION</b>: this configuration needs to be used w/ care. It should only be used as a work-around after the checkpoint has been auto-created with wrong number of partitions by mistake.
                     </td>
                 </tr>
+                <tr>
+                    <td class="property" id="job-security-manager-factory">job.security.manager.factory</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This is the factory class used to create the proper <a href="../api/javadocs/org/apache/samza/container/SecurityManager.html">SecurityManager</a> to handle security for Samza containers when running in a secure environment, such as Yarn with Kerberos eanbled.
+                        Samza ships with one security manager by default:
+                        <dl>
+                            <dt><code>org.apache.samza.job.yarn.SamzaYarnSecurityManagerFactory</code></dt>
+                            <dd>Supports Samza containers to run properly in a Kerberos enabled Yarn cluster. Each Samza container, once started, will create a <a href="../api/javadocs/org/apache/samza/job/yarn/SamzaContainerSecurityManager.html">SamzaContainerSecurityManager</a>. SamzaContainerSecurityManager runs on its separate thread and update user's delegation tokens at the interval specified by <a href="#yarn-token-renewal-interval-seconds" class="property">yarn.token.renewal.interval.seconds</a>. See <a href="../yarn/yarn-security.html">Yarn Security</a> for details.</dd>
+                        </dl>
+                    </td>
+                </tr>
 
                 <tr>
                     <th colspan="3" class="section" id="task"><a href="../api/overview.html">Task configuration</a></th>
@@ -1510,6 +1522,32 @@
                     <td class="default"></td>
                     <td class="description">
                         Determines which YARN queue will be used for Samza job.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-kerberos-principal">yarn.kerberos.principal</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        Principal the Samza job uses to authenticate itself into KDC, when running on a Kerberos enabled YARN cluster.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-kerberos-keytab">yarn.kerberos.keytab</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The full path to the file containing keytab for the principal, specified by <a href="#yarn-kerberos-principal" class="property">yarn.kerberos.principal</a>.
+                        The keytab file is uploaded to the staging directory unique to each application on HDFS and the Application Master then uses the keytab and principal to
+                        periodically logs in to recreate the delegation tokens.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-token-renewal-interval-seconds">yarn.token.renewal.interval.seconds</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The time interval by which the Application Master re-authenticates and renew the delegation tokens. This value should be smaller than the length of time a delegation token is valid on hadoop namenodes before expiration.
                     </td>
                 </tr>
 

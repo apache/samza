@@ -19,7 +19,7 @@ title: YARN Jobs
    limitations under the License.
 -->
 
-When you define `job.factory.class=org.apache.samza.job.yarn.YarnJobFactory` in your job's configuration, Samza will use YARN to execute your job. The YarnJobFactory will use the HADOOP_YARN_HOME environment variable on the machine that run-job.sh is executed on to get the appropriate YARN configuration, which will define where the YARN resource manager is. The YarnJob will work with the resource manager to get your job started on the YARN cluster.
+When you define `job.factory.class=org.apache.samza.job.yarn.YarnJobFactory` in your job's configuration, Samza will use YARN to execute your job. The YarnJobFactory will use the `HADOOP_YARN_HOME` environment variable on the machine that run-job.sh is executed on to get the appropriate YARN configuration, which will define where the YARN resource manager is. The YarnJob will work with the resource manager to get your job started on the YARN cluster.
 
 If you want to use YARN to run your Samza job, you'll also need to define the location of your Samza job's package. For example, you might say:
 

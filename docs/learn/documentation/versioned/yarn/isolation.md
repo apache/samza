@@ -43,4 +43,4 @@ If YARN is setup to use CGroups, then YARN will guarantee that a container will 
 
 See [this blog post](http://riccomini.name/posts/hadoop/2013-06-14-yarn-with-cgroups/) for details on setting up YARN with CGroups.
 
-## [Security &raquo;](../operations/security.html)
+## [YARN Security &raquo;](../yarn/yarn-secuirty.html)
