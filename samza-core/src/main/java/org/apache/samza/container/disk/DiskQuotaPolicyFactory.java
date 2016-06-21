@@ -29,6 +29,7 @@ public interface DiskQuotaPolicyFactory {
   /**
    * Creates and returns a disk quota policy instance.
    * @param config configuration that may apply to this factory
+   * @return the disk quote policy instance created
    */
   DiskQuotaPolicy create(Config config);
 }

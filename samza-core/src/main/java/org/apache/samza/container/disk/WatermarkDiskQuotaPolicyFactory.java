@@ -30,8 +30,8 @@ import java.util.List;
  * A factory for producing {@link WatermarkDiskQuotaPolicy} instances. This class is only required
  * due to Samza's string-only config. In the event that a richer config system is added it would
  * be possible to construct a {@link WatermarkDiskQuotaPolicy} directly.
- * <p>
- * <table>
+ *
+ * <table summary="">
  *   <tr><th>Name</th><th>Default</th><th>Description</th></tr>
  *   <tr>
  *     <td>container.disk.quota.policy.count</td>

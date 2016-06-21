@@ -27,6 +27,9 @@ public interface DiskQuotaPolicy {
   /**
    * Given the latest percentage of available disk quota, this method returns the work rate that
    * should be applied to the container as a value in (0.0, 1.0].
+   *
+   * @param availableDiskQuotaPercentage latest percentage of available disk quota
+   * @return work rate to be applied
    */
   double apply(double availableDiskQuotaPercentage);
 }
