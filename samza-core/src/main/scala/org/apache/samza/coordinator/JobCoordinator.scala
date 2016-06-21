@@ -35,11 +35,13 @@ import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.storage.ChangelogPartitionManager
-import org.apache.samza.system.{ExtendedSystemAdmin, StreamMetadataCache, SystemFactory, SystemStreamPartition}
+import org.apache.samza.system.{ExtendedSystemAdmin, StreamMetadataCache, SystemFactory, SystemStreamPartition, SystemStreamPartitionMatcher}
 import org.apache.samza.util.{Logging, Util}
 import org.apache.samza.{Partition, SamzaException}
 
 import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
+
 
 /**
  * Helper companion object that is responsible for wiring up a JobCoordinator
@@ -145,6 +147,28 @@ object JobModelManager extends Logging {
       }.toSet
   }
 
+  def getMatchedInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache) : Set[SystemStreamPartition] = {
+    val allSystemStreamPartitions = getInputStreamPartitions(config, streamMetadataCache)
+    config.getSSPMatcherClass match {
+      case Some(s) => {
+        val jfr = config.getSSPMatcherConfigJobFactoryRegex.r
+        config.getStreamJobFactoryClass match {
+          case Some(jfr(_*)) => {
+            info("before match: allSystemStreamPartitions.size = %s" format (allSystemStreamPartitions.size))
+            val sspMatcher = Util.getObj[SystemStreamPartitionMatcher](s)
+            val matchedPartitions = sspMatcher.filter(allSystemStreamPartitions, config).asScala.toSet
+            // Usually a small set hence ok to log at info level
+            info("after match: matchedPartitions = %s" format (matchedPartitions))
+            matchedPartitions
+          }
+          case _ => allSystemStreamPartitions
+        }
+      }
+      case _ => allSystemStreamPartitions
+    }
+  }
+
+
   /**
    * Gets a SystemStreamPartitionGrouper object from the configuration.
    */
@@ -163,7 +187,7 @@ object JobModelManager extends Logging {
                                  localityManager: LocalityManager,
                                  streamMetadataCache: StreamMetadataCache): JobModel = {
     // Do grouping to fetch TaskName to SSP mapping
-    val allSystemStreamPartitions = getInputStreamPartitions(config, streamMetadataCache)
+    val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache)
     val grouper = getSystemStreamPartitionGrouper(config)
     val groups = grouper.group(allSystemStreamPartitions)
     info("SystemStreamPartitionGrouper %s has grouped the SystemStreamPartitions into %d tasks with the following taskNames: %s" format(grouper, groups.size(), groups.keySet()))

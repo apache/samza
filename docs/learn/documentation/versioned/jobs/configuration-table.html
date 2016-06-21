@@ -252,6 +252,87 @@
                         </dl>
                     </td>
                 </tr>
+
+                <tr>
+                    <td class="property" id="job-systemstreampartition-matcher-class">job.systemstreampartition.matcher.class</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        If you want to enable static partition assignment, then this is a <strong>required</strong> configuration.
+                        The value of this property is a fully-qualified Java class name that implements the interface
+                        <code>org.apache.samza.system.SystemStreamPartitionMatcher</code>.
+                        Samza ships with two matcher classes:
+                        <dl>
+                            <dt><code>org.apache.samza.system.RangeSystemStreamPartitionMatcher</code></dt>
+                            <dd>This classes uses a comma separated list of range(s) to determine which partition matches,
+                                and thus statically assigned to the Job. For example "2,3,1-2", statically assigns partition
+                                1, 2, and 3 for all the specified system and streams (topics in case of Kafka) to the job.
+                                For config validation each element in the comma separated list much conform to one of the
+                                following regex:
+                                <ul>
+                                    <li><code>"(\\d+)"</code> or </li>
+                                    <li><code>"(\\d+-\\d+)"</code> </li>
+                                </ul>
+                                <code>JobConfig.SSP_MATCHER_CLASS_RANGE</code> constant has the canonical name of this class.
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt><code>org.apache.samza.system.RegexSystemStreamPartitionMatcher</code></dt>
+                            <dd>This classes uses a standard Java supported regex to determine which partition matches,
+                                and thus statically assigned to the Job. For example "[1-2]", statically assigns partition 1 and 2
+                                for all the specified system and streams (topics in case of Kafka) to the job.
+                                <code>JobConfig.SSP_MATCHER_CLASS_REGEX</code> constant has the canonical name of this class.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job_systemstreampartition_matcher_config_range">job.systemstreampartition.matcher.config.range</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        If <code>job.systemstreampartition.matcher.class</code> is specified, and the value of this property is
+                        <code>org.apache.samza.system.RangeSystemStreamPartitionMatcher</code>, then this property is a
+                        <strong>required</strong> configuration. Specify a comma separated list of range(s) to determine which
+                        partition matches, and thus statically assigned to the Job. For example "2,3,11-20", statically assigns
+                        partition 2, 3, and 11 to 20 for all the specified system and streams (topics in case of Kafka) to the job.
+                        A singel configuration value like "19" is valid as well. This statically assigns partition 19.
+                        For config validation each element in the comma separated list much conform to one of the
+                        following regex:
+                        <ul>
+                            <li><code>"(\\d+)"</code> or </li>
+                            <li><code>"(\\d+-\\d+)"</code> </li>
+                        </ul>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job_systemstreampartition_matcher_config_regex">job.systemstreampartition.matcher.config.regex</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        If <code>job.systemstreampartition.matcher.class</code> is specified, and the value of this property is
+                        <code>org.apache.samza.system.RegexSystemStreamPartitionMatcher</code>, then this property is a
+                        <strong>required</strong> configuration. The value should be a valid Java supported regex. For example "[1-2]",
+                        statically assigns partition 1 and 2 for all the specified system and streams (topics in case of Kakfa) to the job.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job_systemstreampartition_matcher_co
+                    nfig_job_factory_regex">job.systemstreampartition.matcher.config.job.factory.regex</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This configuration can be used to specify the Java supported regex to match the <code>StreamJobFactory</code>
+                        for which the static partition assignment should be enabled. This configuration enables the partition
+                        assignment feature to be used for custom <code>StreamJobFactory</code>(ies) as well.
+                        <p>
+                            This config defaults to the following value:
+                            <code>"org\\.apache\\.samza\\.job\\.local(.*ProcessJobFactory|.*ThreadJobFactory)"</code>,
+                            which enables static partition assignment when <code>job.factory.class</code> is set to
+                            <code>org.apache.samza.job.local.ProcessJobFactory</code> or <code>org.apache.samza.job.local.ThreadJobFactory.</code>
+                        </p>
+                    </td>
+                </tr>
+
+
                 <tr>
                     <td class="property" id="job-checkpoint-validation-enabled">job.checkpoint.<br>validation.enabled</td>
                     <td class="default">true</td>
