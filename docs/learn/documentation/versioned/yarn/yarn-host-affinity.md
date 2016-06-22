@@ -85,14 +85,14 @@ export LOGGED_STORE_BASE_DIR=<path-for-state-stores>
     <value>true</value>
 </property>
 <property>
-    <name>yarn.schedular.fair.locality-delay-node-ms</name>
+    <name>yarn.scheduler.fair.locality-delay-node-ms</name>
     <description>Delay time in milliseconds before relaxing locality at node-level</description>
     <value>1000</value>  <!-- Should be tuned per requirement -->
 </property>
 <property>
-    <name>yarn.schedular.fair.locality-delay-rack-ms</name>
+    <name>yarn.scheduler.fair.locality-delay-rack-ms</name>
     <description>Delay time in milliseconds before relaxing locality at rack-level</description>
-    <value>1000*</value> <!-- Should be tuned per requirement -->
+    <value>1000</value> <!-- Should be tuned per requirement -->
 </property>
 {% endhighlight %}
 3. Configure Yarn Node Manager SIGTERM to SIGKILL timeout to be reasonable time s.t. Node Manager will give Samza Container enough time to perform a clean shutdown in yarn-site.xml {% highlight xml %}
@@ -105,9 +105,9 @@ export LOGGED_STORE_BASE_DIR=<path-for-state-stores>
 4. The Yarn [Rack Awareness](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/RackAwareness.html) feature is not required and does not change the behavior of Samza Host Affinity. However, if Rack Awareness is configured in the cluster, make sure the DNSToSwitchMapping implementation is robust. Any failures could cause container requests to fall back to the defaultRack. This will cause ContainerRequests to not match the preferred host, which will degrade Host Affinity. For details, see [SAMZA-866](https://issues.apache.org/jira/browse/SAMZA-886)
 
 ## Configuring a Samza job to use Host Affinity
-Any stateful Samza job can leverage this feature to reduce the Mean Time To Restore (MTTR) of it's state stores by setting <code>yarn.samza.host-affinity</code> to true.
+Any stateful Samza job can leverage this feature to reduce the Mean Time To Restore (MTTR) of its state stores by setting <code>yarn.samza.host-affinity.enabled</code> to true.
 {% highlight bash %}
-yarn.samza.host-affinity=true  # Default: false
+yarn.samza.host-affinity.enabled=true  # Default: false
 {% endhighlight %}
 
 Enabling this feature for a stateless Samza job should not have any adverse effect on the job.
