@@ -62,7 +62,7 @@ public class TestStorageRecovery {
 
     Set<String> set1 = new HashSet<String>(Arrays.asList(SYSTEM_STREAM_NAME));
     Set<String> set2 = new HashSet<String>(Arrays.asList(INPUT_STREAM));
-    HashMap<String, SystemStreamMetadata> ssmMap = new HashMap<String, SystemStreamMetadata>();
+    HashMap<String, SystemStreamMetadata> ssmMap = new HashMap<>();
     ssmMap.put(SYSTEM_STREAM_NAME, systemStreamMetadata);
     ssmMap.put(INPUT_STREAM, inputSystemStreamMetadata);
     when(systemAdmin.getSystemStreamMetadata(set1)).thenReturn(ssmMap);

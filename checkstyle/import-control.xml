@@ -202,6 +202,10 @@
 
         <allow class="org.apache.samza.SamzaException" />
         <allow class="org.apache.samza.Partition" />
+
+        <subpackage name="kv">
+            <allow pkg="org.apache.samza.storage" />
+        </subpackage>
     </subpackage>
 
     <subpackage name="logging">

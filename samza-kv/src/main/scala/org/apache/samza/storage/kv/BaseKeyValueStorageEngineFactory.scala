@@ -25,7 +25,7 @@ import org.apache.samza.SamzaException
 import org.apache.samza.container.SamzaContainerContext
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.Serde
-import org.apache.samza.storage.{StorageEngine, StorageEngineFactory}
+import org.apache.samza.storage.{StoreProperties, StorageEngine, StorageEngineFactory}
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.MessageCollector
 
@@ -37,6 +37,8 @@ import org.apache.samza.task.MessageCollector
  */
 trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] {
 
+  private val INMEMORY_KV_STORAGE_ENGINE_FACTORY =
+    "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory"
   /**
    * Return a KeyValueStore instance for the given store name,
    * which will be used as the underlying raw store
@@ -74,8 +76,17 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
                         registry: MetricsRegistry,
                         changeLogSystemStreamPartition: SystemStreamPartition,
                         containerContext: SamzaContainerContext): StorageEngine = {
-
     val storageConfig = containerContext.config.subset("stores." + storeName + ".", true)
+    val storeFactory = storageConfig.get("factory")
+    var storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder()
+
+    if (storeFactory == null) {
+      throw new SamzaException("Store factory not defined. Cannot proceed with KV store creation!")
+    }
+    if (!storeFactory.equals(INMEMORY_KV_STORAGE_ENGINE_FACTORY)) {
+      storePropertiesBuilder = storePropertiesBuilder.setPersistedToDisk(true)
+    }
+
     val batchSize = storageConfig.getInt("write.batch.size", 500)
     val cacheSize = storageConfig.getInt("object.cache.size", math.max(batchSize, 1000))
     val enableCache = cacheSize > 0
@@ -99,6 +110,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
       rawStore
     } else {
       val loggedStoreMetrics = new LoggedStoreMetrics(storeName, registry)
+      storePropertiesBuilder = storePropertiesBuilder.setLoggedStore(true)
       new LoggedStore(rawStore, changeLogSystemStreamPartition, collector, loggedStoreMetrics)
     }
 
@@ -120,7 +132,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     // create the storage engine and return
     // TODO: Decide if we should use raw bytes when restoring
     val keyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics(storeName, registry)
-    new KeyValueStorageEngine(nullSafeStore, rawStore, keyValueStorageEngineMetrics, batchSize)
+    new KeyValueStorageEngine(storePropertiesBuilder.build(), nullSafeStore, rawStore, keyValueStorageEngineMetrics, batchSize)
   }
 
 }

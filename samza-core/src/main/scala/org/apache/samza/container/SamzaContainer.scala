@@ -22,8 +22,11 @@ package org.apache.samza.container
 import java.io.File
 import java.nio.file.Path
 import java.util
+import java.lang.Thread.UncaughtExceptionHandler
+import java.net.{URL, UnknownHostException}
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
+import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.SerializerConfig.Config2Serializer
 import org.apache.samza.config.ShellCommandConfig
@@ -32,38 +35,18 @@ import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
-import org.apache.samza.container.disk.WatermarkDiskQuotaPolicy.Entry
-import org.apache.samza.container.disk.{NoThrottlingDiskQuotaPolicyFactory, DiskQuotaPolicyFactory, NoThrottlingDiskQuotaPolicy, WatermarkDiskQuotaPolicy, PollingScanDiskSpaceMonitor, DiskSpaceMonitor}
+import org.apache.samza.container.disk.{NoThrottlingDiskQuotaPolicyFactory, DiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor, DiskSpaceMonitor}
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
-import org.apache.samza.metrics.JmxServer
-import org.apache.samza.metrics.JvmMetrics
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.metrics.MetricsReporter
-import org.apache.samza.metrics.MetricsReporterFactory
-import org.apache.samza.serializers.SerdeFactory
-import org.apache.samza.serializers.SerdeManager
-import org.apache.samza.storage.StorageEngineFactory
-import org.apache.samza.storage.TaskStorageManager
-import org.apache.samza.system.StreamMetadataCache
-import org.apache.samza.system.SystemConsumers
-import org.apache.samza.system.SystemConsumersMetrics
-import org.apache.samza.system.SystemFactory
-import org.apache.samza.system.SystemProducers
-import org.apache.samza.system.SystemProducersMetrics
-import org.apache.samza.system.SystemStream
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.system.chooser.DefaultChooser
-import org.apache.samza.system.chooser.MessageChooserFactory
-import org.apache.samza.system.chooser.RoundRobinChooserFactory
-import org.apache.samza.task.StreamTask
-import org.apache.samza.task.TaskInstanceCollector
+import org.apache.samza.job.model.{ContainerModel, JobModel}
+import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter, MetricsReporterFactory}
+import org.apache.samza.serializers.{SerdeFactory, SerdeManager}
+import org.apache.samza.serializers.model.SamzaObjectMapper
+import org.apache.samza.storage.{StorageEngineFactory, TaskStorageManager}
+import org.apache.samza.system.{StreamMetadataCache, SystemConsumers, SystemConsumersMetrics, SystemFactory, SystemProducers, SystemProducersMetrics, SystemStream, SystemStreamPartition}
+import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
+import org.apache.samza.task.{StreamTask, TaskInstanceCollector}
 import org.apache.samza.util.{ThrottlingExecutor, ExponentialSleepStrategy, Logging, Util}
 import scala.collection.JavaConversions._
-import java.net.{UnknownHostException, InetAddress, URL}
-import org.apache.samza.job.model.{TaskModel, ContainerModel, JobModel}
-import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.config.JobConfig.Config2Job
-import java.lang.Thread.UncaughtExceptionHandler
 
 object SamzaContainer extends Logging {
   val DEFAULT_READ_JOBMODEL_DELAY_MS = 100

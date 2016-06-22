@@ -46,13 +46,13 @@ public interface StorageEngineFactory<K, V> {
    * @param containerContext Information about the container in which the task is executing.
    * @return The storage engine instance.
    */
-  public StorageEngine getStorageEngine(
-      String storeName,
-      File storeDir,
-      Serde<K> keySerde,
-      Serde<V> msgSerde,
-      MessageCollector collector,
-      MetricsRegistry registry,
-      SystemStreamPartition changeLogSystemStreamPartition,
-      SamzaContainerContext containerContext);
+  StorageEngine getStorageEngine(
+    String storeName,
+    File storeDir,
+    Serde<K> keySerde,
+    Serde<V> msgSerde,
+    MessageCollector collector,
+    MetricsRegistry registry,
+    SystemStreamPartition changeLogSystemStreamPartition,
+    SamzaContainerContext containerContext);
 }

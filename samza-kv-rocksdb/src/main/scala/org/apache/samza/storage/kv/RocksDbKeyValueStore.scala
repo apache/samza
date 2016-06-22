@@ -23,9 +23,8 @@ import java.io.File
 import org.apache.samza.SamzaException
 import org.apache.samza.util.{ LexicographicComparator, Logging }
 import org.apache.samza.config.Config
-import org.apache.samza.container.SamzaContainerContext
 import org.rocksdb._
-import org.rocksdb.TtlDB;
+import org.rocksdb.TtlDB
 
 object RocksDbKeyValueStore extends Logging {
 

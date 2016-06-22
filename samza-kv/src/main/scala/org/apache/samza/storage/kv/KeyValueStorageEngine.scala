@@ -20,7 +20,7 @@
 package org.apache.samza.storage.kv
 
 import org.apache.samza.util.Logging
-import org.apache.samza.storage.StorageEngine
+import org.apache.samza.storage.{StoreProperties, StorageEngine}
 import org.apache.samza.system.IncomingMessageEnvelope
 
 import scala.collection.JavaConversions._
@@ -31,6 +31,7 @@ import scala.collection.JavaConversions._
  * This implements both the key/value interface and the storage engine interface.
  */
 class KeyValueStorageEngine[K, V](
+  storeProperties: StoreProperties,
   wrapperStore: KeyValueStore[K, V],
   rawStore: KeyValueStore[Array[Byte], Array[Byte]],
   metrics: KeyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics,
@@ -135,4 +136,6 @@ class KeyValueStorageEngine[K, V](
     flush()
     wrapperStore.close()
   }
+
+  override def getStoreProperties: StoreProperties = storeProperties
 }

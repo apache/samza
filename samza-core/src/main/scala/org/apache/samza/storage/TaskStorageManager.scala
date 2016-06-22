@@ -21,13 +21,13 @@ package org.apache.samza.storage
 
 import java.io._
 import java.util
-import scala.collection.{JavaConversions, Map}
-import org.apache.samza.util.Logging
-import org.apache.samza.Partition
-import org.apache.samza.system._
-import org.apache.samza.util.Util
-import org.apache.samza.SamzaException
+
+import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.container.TaskName
+import org.apache.samza.system._
+import org.apache.samza.util.{Logging, Util}
+
+import scala.collection.{JavaConversions, Map}
 
 object TaskStorageManager {
   def getStoreDir(storeBaseDir: File, storeName: String) = {
@@ -55,7 +55,13 @@ class TaskStorageManager(
   partition: Partition,
   systemAdmins: Map[String, SystemAdmin]) extends Logging {
 
-  var taskStoresToRestore = taskStores
+  var taskStoresToRestore = taskStores.filter{
+    case (storeName, storageEngine) => storageEngine.getStoreProperties.isLoggedStore
+  }
+  val persistedStores = taskStores.filter{
+    case (storeName, storageEngine) => storageEngine.getStoreProperties.isPersistedToDisk
+  }
+
   var changeLogOldestOffsets: Map[SystemStream, String] = Map()
   val fileOffset: util.Map[SystemStreamPartition, String] = new util.HashMap[SystemStreamPartition, String]()
   val offsetFileName = "OFFSET"
@@ -63,29 +69,15 @@ class TaskStorageManager(
   def apply(storageEngineName: String) = taskStores(storageEngineName)
 
   def init {
-    cleanBaseDirs
-    setupBaseDirs
-    validateChangelogStreams
-    startConsumers
-    restoreStores
-    stopConsumers
+    cleanBaseDirs()
+    setupBaseDirs()
+    validateChangelogStreams()
+    startConsumers()
+    restoreStores()
+    stopConsumers()
   }
 
-  private def setupBaseDirs {
-    debug("Setting up base directories for stores.")
-
-    val loggedStores = changeLogSystemStreams.keySet
-
-    (taskStores.keySet -- loggedStores)
-      .foreach(TaskStorageManager.getStorePartitionDir(storeBaseDir, _, taskName).mkdirs)
-
-    loggedStores.foreach(storeName => {
-      val loggedStoragePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
-      if(!loggedStoragePartitionDir.exists()) loggedStoragePartitionDir.mkdirs
-    })
-  }
-
-  private def cleanBaseDirs {
+  private def cleanBaseDirs() {
     debug("Cleaning base directories for stores.")
 
     taskStores.keys.foreach(storeName => {
@@ -99,12 +91,25 @@ class TaskStorageManager(
 
       val loggedStoragePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
       info("Got logged storage partition directory as %s" format loggedStoragePartitionDir.toPath.toString)
-
       // If we find valid offsets s.t. we can restore the state, keep the disk files. Otherwise, delete them.
-      if(!readOffsetFile(storeName, loggedStoragePartitionDir) && loggedStoragePartitionDir.exists()) {
-          Util.rm(loggedStoragePartitionDir)
+      if (!persistedStores.contains(storeName) ||
+        (loggedStoragePartitionDir.exists() && !readOffsetFile(storeName, loggedStoragePartitionDir))) {
+        Util.rm(loggedStoragePartitionDir)
       }
     })
+  }
+
+  private def setupBaseDirs() {
+    debug("Setting up base directories for stores.")
+    taskStores.foreach {
+      case (storeName, storageEngine) =>
+        if (storageEngine.getStoreProperties.isLoggedStore) {
+          val loggedStoragePartitionDir = TaskStorageManager.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
+          if (!loggedStoragePartitionDir.exists()) loggedStoragePartitionDir.mkdirs()
+        } else {
+          TaskStorageManager.getStorePartitionDir(storeBaseDir, storeName, taskName).mkdirs()
+        }
+    }
   }
 
   /**
@@ -130,7 +135,7 @@ class TaskStorageManager(
     offsetsRead
   }
 
-  private def validateChangelogStreams = {
+  private def validateChangelogStreams() = {
     info("Validating change log streams")
 
     for ((storeName, systemStream) <- changeLogSystemStreams) {
@@ -147,7 +152,7 @@ class TaskStorageManager(
     info("Assigning oldest change log offsets for taskName %s: %s" format (taskName, changeLogOldestOffsets))
   }
 
-  private def startConsumers {
+  private def startConsumers() {
     debug("Starting consumers for stores.")
 
     for ((storeName, systemStream) <- changeLogSystemStreams) {
@@ -170,7 +175,7 @@ class TaskStorageManager(
     storeConsumers.values.foreach(_.start)
   }
 
-  private def restoreStores {
+  private def restoreStores() {
     debug("Restoring stores.")
 
     for ((storeName, store) <- taskStoresToRestore) {
@@ -184,7 +189,7 @@ class TaskStorageManager(
     }
   }
 
-  private def stopConsumers {
+  private def stopConsumers() {
     debug("Stopping consumers for stores.")
 
     storeConsumers.values.foreach(_.stop)
@@ -219,7 +224,7 @@ class TaskStorageManager(
   private def flushChangelogOffsetFiles() {
     debug("Persisting logged key value stores")
 
-    for ((storeName, systemStream) <- changeLogSystemStreams) {
+    for ((storeName, systemStream) <- changeLogSystemStreams.filterKeys(storeName => persistedStores.contains(storeName))) {
       val systemAdmin = systemAdmins
               .getOrElse(systemStream.getSystem,
                          throw new SamzaException("Unable to get systemAdmin for store " + storeName + " and systemStream" + systemStream))

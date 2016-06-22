@@ -32,6 +32,7 @@ public class MockStorageEngineFactory implements StorageEngineFactory<Object, Ob
   public StorageEngine getStorageEngine(String storeName, File storeDir, Serde<Object> keySerde, Serde<Object> msgSerde,
       MessageCollector collector, MetricsRegistry registry, SystemStreamPartition changeLogSystemStreamPartition,
       SamzaContainerContext containerContext) {
-    return new MockStorageEngine(storeName, storeDir, changeLogSystemStreamPartition);
+    StoreProperties storeProperties = new StoreProperties.StorePropertiesBuilder().setLoggedStore(true).build();
+    return new MockStorageEngine(storeName, storeDir, changeLogSystemStreamPartition, storeProperties);
   }
 }

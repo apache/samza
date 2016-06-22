@@ -20,19 +20,16 @@
 package org.apache.samza.storage.kv
 
 import java.io.File
-import java.util.Arrays
-import java.util.Random
+import java.util.{Arrays, Random}
 
-import org.apache.samza.config.{MapConfig, StorageConfig}
+import org.apache.samza.config.MapConfig
 import org.apache.samza.serializers.Serde
 import org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStore
-import org.junit.After
 import org.junit.Assert._
-import org.junit.Before
-import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
+import org.junit.{After, Before, Test}
 import org.scalatest.Assertions.intercept
 
 import scala.collection.JavaConversions._
@@ -59,13 +56,14 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
       case "inmemory" =>
         new InMemoryKeyValueStore
       case "rocksdb" =>
-        new RocksDbKeyValueStore (dir,
-                                  new org.rocksdb.Options()
-                                  .setCreateIfMissing(true)
-                                  .setCompressionType(org.rocksdb.CompressionType.SNAPPY_COMPRESSION),
-                                  new MapConfig(),
-                                  false,
-                                  "someStore")
+        new RocksDbKeyValueStore (
+          dir,
+          new org.rocksdb.Options()
+            .setCreateIfMissing(true)
+            .setCompressionType(org.rocksdb.CompressionType.SNAPPY_COMPRESSION),
+          new MapConfig(),
+          false,
+          "someStore")
       case _ =>
         throw new IllegalArgumentException("Type of store undefined: " + typeOfStore)
     }
