@@ -185,7 +185,7 @@ object Util extends Logging {
   /**
    * Generates a coordinator stream name based off of the job name and job id
    * for the jobd. The format is of the stream name will be
-   * __samza_coordinator_&lt;JOBNAME&gt;_&lt;JOBID&gt;.
+   * &#95;&#95;samza_coordinator_&lt;JOBNAME&gt;_&lt;JOBID&gt;.
    */
   def getCoordinatorStreamName(jobName: String, jobId: String) = {
     "__samza_coordinator_%s_%s" format (jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
@@ -359,6 +359,7 @@ object Util extends Logging {
       case "long" => classOf[LongSerdeFactory].getCanonicalName
       case "serializable" => classOf[SerializableSerdeFactory[java.io.Serializable]].getCanonicalName
       case "string" => classOf[StringSerdeFactory].getCanonicalName
+      case "double" => classOf[DoubleSerdeFactory].getCanonicalName
       case _ => throw new SamzaException("defaultSerdeFactoryFromSerdeName: No class defined for serde %s" format serdeName)
     }
     info("use default serde %s for %s" format (serde, serdeName))

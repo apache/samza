@@ -775,6 +775,10 @@
                             <dd>Encodes <code>java.lang.String</code> objects as UTF-8.</dd>
                             <dt><code>org.apache.samza.serializers.JsonSerdeFactory</code></dt>
                             <dd>Encodes nested structures of <code>java.util.Map</code>, <code>java.util.List</code> etc. as JSON.</dd>
+                            <dt><code>org.apache.samza.serializers.LongSerdeFactory</code></dt>
+                            <dd>Encodes <code>java.lang.Long</code> as binary (8 bytes fixed-length big-endian encoding).</dd>
+                            <dt><code>org.apache.samza.serializers.DoubleSerdeFactory</code></dt>
+                            <dd>Encodes <code>java.lang.Double</code> as binray (8 bytes double-precision float point).</dd>
                             <dt><code>org.apache.samza.serializers.MetricsSnapshotSerdeFactory</code></dt>
                             <dd>Encodes <code>org.apache.samza.metrics.reporter.MetricsSnapshot</code> objects (which are
                                 used for <a href="../container/metrics.html">reporting metrics</a>) as JSON.</dd>
