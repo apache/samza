@@ -81,7 +81,7 @@ For IntelliJ, run:
 
 ### Contribution
 
-To start contributing on Samza please read [Rules](http://samza.apache.org/contribute/rules.html) and [Contributor Corner](https://cwiki.apache.org/confluence/display/SAMZA/Contributor%27s+Corner). Notice that **Samza git repository does not support git pull request**.
+To start contributing on Samza please read [Rules](http://samza.apache.org/contribute/rules.html) and [Contributor Corner](https://cwiki.apache.org/confluence/display/SAMZA/Contributor%27s+Corner)
 
 ### Apache Software Foundation
 
