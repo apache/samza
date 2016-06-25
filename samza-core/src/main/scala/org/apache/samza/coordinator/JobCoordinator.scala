@@ -87,7 +87,7 @@ object JobModelManager extends Logging {
       systemName -> systemFactory.getAdmin(systemName, config)
     }).toMap
 
-    val streamMetadataCache = new StreamMetadataCache(systemAdmins)
+    val streamMetadataCache = new StreamMetadataCache(systemAdmins = systemAdmins, cacheTTLms = 0)
     var streamPartitionCountMonitor: StreamPartitionCountMonitor = null
     if (config.getMonitorPartitionChange) {
       val extendedSystemAdmins = systemAdmins.filter{
@@ -104,7 +104,7 @@ object JobModelManager extends Logging {
     }
 
     val jobCoordinator = getJobCoordinator(config, changelogManager, localityManager, streamMetadataCache, streamPartitionCountMonitor)
-    createChangeLogStreams(config, jobCoordinator.jobModel.maxChangeLogStreamPartitions, streamMetadataCache)
+    createChangeLogStreams(config, jobCoordinator.jobModel.maxChangeLogStreamPartitions)
 
     jobCoordinator
   }
@@ -137,7 +137,7 @@ object JobModelManager extends Logging {
 
     // Get the set of partitions for each SystemStream from the stream metadata
     streamMetadataCache
-      .getStreamMetadata(inputSystemStreams)
+      .getStreamMetadata(inputSystemStreams, true)
       .flatMap {
         case (systemStream, metadata) =>
           metadata
@@ -286,7 +286,7 @@ object JobModelManager extends Logging {
     new JobModel(config, containerMap, localityManager)
   }
 
-  private def createChangeLogStreams(config: StorageConfig, changeLogPartitions: Int, streamMetadataCache: StreamMetadataCache) {
+  private def createChangeLogStreams(config: StorageConfig, changeLogPartitions: Int) {
     val changeLogSystemStreams = config
       .getStoreNames
       .filter(config.getChangelogStream(_).isDefined)
@@ -301,10 +301,6 @@ object JobModelManager extends Logging {
 
       systemAdmin.createChangelogStream(systemStream.getStream, changeLogPartitions)
     }
-
-    val changeLogMetadata = streamMetadataCache.getStreamMetadata(changeLogSystemStreams.values.toSet)
-
-    info("Got change log stream metadata: %s" format changeLogMetadata)
   }
 
   private def getSystemNames(config: Config) = config.getSystemNames.toSet
