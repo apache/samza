@@ -19,6 +19,8 @@
 
 package org.apache.samza.job.yarn;
 
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.records.*;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
@@ -40,6 +42,7 @@ import org.apache.samza.util.hadoop.HttpFileSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -90,6 +93,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   private final SamzaYarnAppMasterService service;
 
+  private final YarnConfig yarnConfig;
 
   /**
    * State variables to map Yarn specific callbacks into Samza specific callbacks.
@@ -126,18 +130,19 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     int nodePort = Integer.parseInt(nodePortString);
     int nodeHttpPort = Integer.parseInt(nodeHttpPortString);
     YarnConfig yarnConfig = new YarnConfig(config);
+    this.yarnConfig = yarnConfig;
     int interval = yarnConfig.getAMPollIntervalMs();
 
     //Instantiate the AM Client.
     this.amClient = AMRMClientAsync.createAMRMClientAsync(interval, this);
 
-    this.state = new YarnAppState(jobModelManager, -1, containerId, nodeHostString, nodePort, nodeHttpPort, samzaAppState);
+    this.state = new YarnAppState(-1, containerId, nodeHostString, nodePort, nodeHttpPort);
 
     log.info("Initialized YarnAppState: {}", state.toString());
-    this.service = new SamzaYarnAppMasterService(config, this.state, registry);
+    this.service = new SamzaYarnAppMasterService(config, samzaAppState, this.state, registry, hConfig);
 
     log.info("ContainerID str {}, Nodehost  {} , Nodeport  {} , NodeHttpport {}", new Object [] {containerIdStr, nodeHostString, nodePort, nodeHttpPort});
-    this.lifecycle = new SamzaYarnAppMasterLifecycle(yarnConfig.getContainerMaxMemoryMb(), yarnConfig.getContainerMaxCpuCores(), state, amClient );
+    this.lifecycle = new SamzaYarnAppMasterLifecycle(yarnConfig.getContainerMaxMemoryMb(), yarnConfig.getContainerMaxCpuCores(), samzaAppState, state, amClient );
 
     yarnContainerRunner = new YarnContainerRunner(config, hConfig);
   }
@@ -312,6 +317,33 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     amClient.stop();
     log.info("Stopping the AM service " );
     service.onShutdown();
+
+    if(status != SamzaApplicationState.SamzaAppStatus.UNDEFINED) {
+      cleanupStagingDir();
+    }
+  }
+
+  /**
+   * Cleans up the staging directory of the job. All exceptions during the cleanup
+   * are swallowed.
+   */
+  private void cleanupStagingDir() {
+    String yarnJobStagingDirectory = yarnConfig.getYarnJobStagingDirectory();
+    if(yarnJobStagingDirectory != null) {
+      JobContext context = new JobContext();
+      context.setAppStagingDir(new Path(yarnJobStagingDirectory));
+
+      FileSystem fs = null;
+      try {
+        fs = FileSystem.get(hConfig);
+      } catch (IOException e) {
+        log.error("Unable to clean up file system: {}", e);
+        return;
+      }
+      if(fs != null) {
+        YarnJobUtil.cleanupStagingDir(context, fs);
+      }
+    }
   }
 
   /**

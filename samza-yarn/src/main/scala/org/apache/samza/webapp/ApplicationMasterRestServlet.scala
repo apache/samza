@@ -19,17 +19,18 @@
 
 package org.apache.samza.webapp
 
+import org.apache.samza.clustermanager.SamzaApplicationState
 import org.scalatra._
 import scalate.ScalateSupport
 import org.apache.samza.config.Config
-import org.apache.samza.job.yarn.{SamzaAppState, ClientHelper}
+import org.apache.samza.job.yarn.{YarnAppState, ClientHelper}
 import org.apache.samza.metrics._
 import scala.collection.JavaConversions._
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import java.util.HashMap
 import org.apache.samza.serializers.model.SamzaObjectMapper
 
-class ApplicationMasterRestServlet(config: Config, state: SamzaAppState, registry: ReadableMetricsRegistry) extends ScalatraServlet with ScalateSupport {
+class ApplicationMasterRestServlet(config: Config, samzaAppState: SamzaApplicationState, state: YarnAppState, registry: ReadableMetricsRegistry) extends ScalatraServlet with ScalateSupport {
   val yarnConfig = new YarnConfiguration
   val client = new ClientHelper(yarnConfig)
   val jsonMapper = SamzaObjectMapper.getObjectMapper
@@ -78,11 +79,11 @@ class ApplicationMasterRestServlet(config: Config, state: SamzaAppState, registr
   get("/am") {
     val containers = new HashMap[String, HashMap[String, Object]]
 
-    state.runningContainers.foreach {
+    state.runningYarnContainers.foreach {
       case (containerId, container) =>
         val yarnContainerId = container.id.toString
         val containerMap = new HashMap[String, Object]
-        val taskModels = state.jobCoordinator.jobModel.getContainers.get(containerId).getTasks
+        val taskModels = samzaAppState.jobModelManager.jobModel.getContainers.get(containerId).getTasks
         containerMap.put("yarn-address", container.nodeHttpAddress)
         containerMap.put("start-time", container.startTime.toString)
         containerMap.put("up-time", container.upTime.toString)

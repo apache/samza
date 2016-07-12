@@ -155,7 +155,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
       //launches a StreamProcessor on the resource
       clusterResourceManager.launchStreamProcessor(resource, builder);
 
-      if (state.neededResources.decrementAndGet() == 0) {
+      if (state.neededContainers.decrementAndGet() == 0) {
         state.jobHealthy.set(true);
       }
       state.runningContainers.put(request.getContainerID(), resource);

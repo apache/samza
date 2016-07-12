@@ -254,11 +254,11 @@ public class TestContainerAllocator {
 
             // This routine should be called after the retry is assigned, but before it's started.
             // So there should still be 1 container needed.
-            assertEquals(1, state.neededResources.get());
+            assertEquals(1, state.neededContainers.get());
           }
         }, null
     );
-    state.neededResources.set(1);
+    state.neededContainers.set(1);
     requestState.registerContainerListener(listener);
 
     containerAllocator.requestResource(0, "2");

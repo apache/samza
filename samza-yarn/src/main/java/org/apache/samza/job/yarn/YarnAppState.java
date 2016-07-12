@@ -53,29 +53,24 @@ public class YarnAppState {
 
   public ConcurrentMap<String, ContainerStatus> failedContainersStatus = new ConcurrentHashMap<String, ContainerStatus>();
 
-  public YarnAppState(JobModelManager jobModelManager,
-                      int taskId,
+  public YarnAppState(int taskId,
                       ContainerId amContainerId,
                       String nodeHost,
                       int nodePort,
-                      int nodeHttpPort,
-                      SamzaApplicationState state) {
-    this.jobModelManager = jobModelManager;
+                      int nodeHttpPort
+                      ) {
     this.taskId = taskId;
     this.amContainerId = amContainerId;
     this.nodeHost = nodeHost;
     this.nodePort = nodePort;
     this.nodeHttpPort = nodeHttpPort;
     this.appAttemptId = amContainerId.getApplicationAttemptId();
-    this.samzaAppState = state;
   }
 
 
   @Override
   public String toString() {
     return "YarnAppState{" +
-        "samzaAppState=" + samzaAppState +
-        ", jobModelReader=" + jobModelManager +
         ", taskId=" + taskId +
         ", amContainerId=" + amContainerId +
         ", nodeHost='" + nodeHost + '\'' +
@@ -90,7 +85,6 @@ public class YarnAppState {
         '}';
   }
 
-  public final SamzaApplicationState samzaAppState;
    /* The following state variables are primarily used for reference in the AM web services   */
 
   /**
@@ -98,7 +92,6 @@ public class YarnAppState {
    * Used for displaying in the AM UI. Usage found in {@link org.apache.samza.webapp.ApplicationMasterRestServlet}
    * and scalate/WEB-INF/views/index.scaml
    */
-  public final JobModelManager jobModelManager;
 
   public final int taskId;
   /**
@@ -132,7 +125,7 @@ public class YarnAppState {
   //TODO: Make the below 3 variables immutable. Tracked as a part of SAMZA-902. Save for later.
   /**
    * Job Coordinator URL
-   * Usage in {@link org.apache.samza.job.yarn.SamzaAppMasterService} &amp; YarnContainerRunner
+   * Usage in {@link org.apache.samza.job.yarn.SamzaYarnAppMasterService} &amp; YarnContainerRunner
    */
   public URL coordinatorUrl = null;
   /**

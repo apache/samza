@@ -192,7 +192,7 @@ public class TestContainerProcessManager {
     assertTrue(isRunning);
 
     // Verify the remaining state
-    assertEquals(1, state.neededResources.get());
+    assertEquals(1, state.neededContainers.get());
     assertEquals(1, allocator.requestedContainers);
 
     taskManager.stop();

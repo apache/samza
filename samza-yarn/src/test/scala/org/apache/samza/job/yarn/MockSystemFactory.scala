@@ -17,32 +17,27 @@
  * under the License.
  */
 
-package org.apache.samza.job.yarn;
+package org.apache.samza.job.yarn
+
+import org.apache.samza.config.{JobConfig, Config}
+import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.system.SystemFactory
 
 /**
- * Class that encapsulates information related to a container failure
- * */
-public class ContainerFailure {
-  /**
-   * Number of times a container has failed
-   * */
-  private int count;
-  /**
-   * Latest failure time of the container
-   * */
-  private Long lastFailure;
+  * A {@link org.apache.samza.system.SystemFactory} implementation that returns a {@link org.apache.samza.job.yarn.MockSystemAdmin}.
+  */
 
-  public ContainerFailure(int count,
-                          Long lastFailure) {
-    this.count = count;
-    this.lastFailure = lastFailure;
+class MockSystemFactory extends SystemFactory {
+  def getConsumer(systemName: String, config: Config, registry: MetricsRegistry) = {
+    throw new RuntimeException("Hmm. Not implemented.")
   }
 
-  public int getCount() {
-    return count;
+  def getProducer(systemName: String, config: Config, registry: MetricsRegistry) = {
+    throw new RuntimeException("Hmm. Not implemented.")
   }
 
-  public Long getLastFailure() {
-    return lastFailure;
+  def getAdmin(systemName: String, config: Config) = {
+    val jobConfig = new JobConfig(config)
+    new MockSystemAdmin(jobConfig.getContainerCount)
   }
 }

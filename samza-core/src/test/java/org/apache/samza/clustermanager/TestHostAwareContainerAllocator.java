@@ -230,11 +230,11 @@ public class TestHostAwareContainerAllocator {
 
             // This routine should be called after the retry is assigned, but before it's started.
             // So there should still be 1 container needed.
-            assertEquals(1, state.neededResources.get());
+            assertEquals(1, state.neededContainers.get());
           }
         }, null
     );
-    state.neededResources.set(1);
+    state.neededContainers.set(1);
     requestState.registerContainerListener(listener);
 
     // Only request 1 container and we should see 2 assignments in the assertions above (because of the retry)

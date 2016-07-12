@@ -21,8 +21,6 @@ package org.apache.samza.clustermanager;
 
 import org.apache.samza.coordinator.JobModelManager;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -87,15 +85,15 @@ public class SamzaApplicationState {
   public final AtomicInteger containerCount = new AtomicInteger(0);
 
   /**
-   * Set of finished containers - TODO: Can be changed to a counter
+   * Set of finished containers
    */
-  public final Set<Integer> finishedContainers = new HashSet<Integer>();
+  public final AtomicInteger finishedContainers = new AtomicInteger(0);
 
   /**
    *  Number of containers needed for the job to be declared healthy
    *  Modified by both the AMRMCallbackThread and the ContainerAllocator thread
    */
-  public final AtomicInteger neededResources = new AtomicInteger(0);
+  public final AtomicInteger neededContainers = new AtomicInteger(0);
 
   /**
    *  Map of the samzaContainerId to the {@link SamzaResource} on which it is running

@@ -15,7 +15,8 @@
   KIND, either express or implied.  See the License for the
   specific language governing permissions and limitations
   under the License.
--@ val state: org.apache.samza.job.yarn.SamzaAppState
+-@ val state: org.apache.samza.job.yarn.YarnAppState
+-@ val samzaAppState: org.apache.samza.clustermanager.SamzaApplicationState
 -@ val config: scala.collection.immutable.TreeMap[String, String]
 -@ val rmHttpAddress: String
 -@ val jobName: String = config.get("job.name").getOrElse("MISSING JOB NAME")
@@ -91,10 +92,10 @@
               %a(target="_blank" href="http://#{state.nodeHost}:#{state.nodeHttpPort.toString}/node/containerlogs/#{state.amContainerId.toString}/#{username}")= state.amContainerId.toString
           %tr
             %td.key JMX server url
-            %td= state.jmxUrl
+            %td= samzaAppState.jmxUrl
           %tr
             %td.key JMX server tunneling url
-            %td= state.jmxTunnelingUrl
+            %td= samzaAppState.jmxTunnelingUrl
 
     %div.tab-pane#containers
       %h2 Containers
@@ -102,16 +103,16 @@
         %tr
           %tr
             %td.key Completed
-            %td= state.completedContainers.toString
+            %td= samzaAppState.completedContainers.toString
           %tr
             %td.key Needed
-            %td= state.neededContainers.toString
+            %td= samzaAppState.neededContainers.toString
           %tr
             %td.key Failed
-            %td= state.failedContainers.toString
+            %td= samzaAppState.failedContainers.toString
           %tr
             %td.key Released
-            %td= state.releasedContainers.toString
+            %td= samzaAppState.releasedContainers.toString
 
       %h2 Running Containers
       %table.table.table-striped.table-bordered.tablesorter#containers-table
@@ -124,7 +125,7 @@
             %th Up Time
             %th JMX access
         %tbody
-          - for((containerId, container) <- state.runningContainers)
+          - for((containerId, container) <- state.runningYarnContainers)
             %tr
               %td #{containerId.toString}
               %td
@@ -136,8 +137,8 @@
               %td
                 Up time: #{container.upTimeStr()}
               %td
-                Ordinary: #{state.jobCoordinator.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_URL_KEY)}
-                Tunneling: #{state.jobCoordinator.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_TUNNELING_URL_KEY)}
+                Ordinary: #{samzaAppState.jobModelManager.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_URL_KEY)}
+                Tunneling: #{samzaAppState.jobModelManager.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_TUNNELING_URL_KEY)}
 
       %h2 Failed Containers
       %table.table.table-striped.table-bordered.tablesorter#containers-table
@@ -162,10 +163,10 @@
         %tbody
           %tr
             %td.key Total
-            %td= state.containerCount.toString
+            %td= samzaAppState.containerCount.toString
           %tr
             %td.key Finished
-            %td= state.finishedContainers.size.toString
+            %td= samzaAppState.finishedContainers.toString
 
       %h3 TaskName Assignment
       %table.table.table-striped.table-bordered.tablesorter#taskids-table
@@ -176,8 +177,8 @@
             %th SystemStreamPartitions
             %th Container
         %tbody
-          - for((containerId, container) <- state.runningContainers)
-            - val containerModel = state.jobCoordinator.jobModel.getContainers.get(containerId)
+          - for((containerId, container) <- state.runningYarnContainers)
+            - val containerModel = samzaAppState.jobModelManager.jobModel.getContainers.get(containerId)
             - for((taskName, taskModel) <- containerModel.getTasks)
               %tr
                 %td= containerId

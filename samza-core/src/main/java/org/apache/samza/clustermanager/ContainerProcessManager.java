@@ -169,7 +169,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     final int containerCount = jobConfig.getContainerCount();
 
     state.containerCount.set(containerCount);
-    state.neededResources.set(containerCount);
+    state.neededContainers.set(containerCount);
 
     // Request initial set of containers
     Map<Integer, String> containerToHostMapping = state.jobModelManager.jobModel().getAllContainerLocality();
@@ -249,7 +249,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         state.completedContainers.incrementAndGet();
 
         if (containerId != -1) {
-          state.finishedContainers.add(containerId);
+          state.finishedContainers.incrementAndGet();
           containerFailures.remove(containerId);
         }
 
@@ -277,7 +277,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         if (containerId != -1) {
           log.info("Released container {} was assigned task group ID {}. Requesting a refactor container for the task group.", containerIdStr, containerId);
 
-          state.neededResources.incrementAndGet();
+          state.neededContainers.incrementAndGet();
           state.jobHealthy.set(false);
 
           // request a container on refactor host
@@ -295,7 +295,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         state.jobHealthy.set(false);
 
         if (containerId != -1) {
-          state.neededResources.incrementAndGet();
+          state.neededContainers.incrementAndGet();
           // Find out previously running container location
           String lastSeenOn = state.jobModelManager.jobModel().getContainerToHostValue(containerId, SetContainerHostMapping.HOST_KEY);
           if (!hostAffinityEnabled || lastSeenOn == null) {
