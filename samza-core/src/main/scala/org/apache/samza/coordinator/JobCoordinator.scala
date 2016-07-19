@@ -71,9 +71,12 @@ object JobModelManager extends Logging {
     coordinatorSystemConsumer.start
     debug("Bootstrapping coordinator system stream.")
     coordinatorSystemConsumer.bootstrap
+    val source = "Job-coordinator"
+    coordinatorSystemProducer.register(source)
+    info("Registering coordinator system stream producer.")
     val config = coordinatorSystemConsumer.getConfig
     info("Got config: %s" format config)
-    val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, "Job-coordinator")
+    val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, source)
     val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
 
     val systemNames = getSystemNames(config)

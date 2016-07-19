@@ -19,36 +19,39 @@
 
 package org.apache.samza.container
 
+
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
-import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemConsumers
-import org.apache.samza.task.TaskContext
+import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.task.AsyncStreamTask
 import org.apache.samza.task.ClosableTask
 import org.apache.samza.task.InitableTask
-import org.apache.samza.task.WindowableTask
-import org.apache.samza.task.StreamTask
 import org.apache.samza.task.ReadableCoordinator
+import org.apache.samza.task.StreamTask
+import org.apache.samza.task.TaskCallbackFactory
+import org.apache.samza.task.TaskContext
 import org.apache.samza.task.TaskInstanceCollector
+import org.apache.samza.task.WindowableTask
 import org.apache.samza.util.Logging
-import scala.collection.JavaConversions._
-import org.apache.samza.system.SystemAdmin
 
-class TaskInstance(
-  task: StreamTask,
+import scala.collection.JavaConversions._
+
+class TaskInstance[T](
+  task: T,
   val taskName: TaskName,
   config: Config,
-  metrics: TaskInstanceMetrics,
+  val metrics: TaskInstanceMetrics,
   systemAdmins: Map[String, SystemAdmin],
   consumerMultiplexer: SystemConsumers,
   collector: TaskInstanceCollector,
   containerContext: SamzaContainerContext,
-  offsetManager: OffsetManager = new OffsetManager,
+  val offsetManager: OffsetManager = new OffsetManager,
   storageManager: TaskStorageManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
@@ -56,6 +59,8 @@ class TaskInstance(
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
+  val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
+
   val context = new TaskContext {
     def getMetricsRegistry = metrics.registry
     def getSystemStreamPartitions = systemStreamPartitions
@@ -133,7 +138,7 @@ class TaskInstance(
     })
   }
 
-  def process(envelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator) {
+  def process(envelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator, callbackFactory: TaskCallbackFactory = null) {
     metrics.processes.inc
 
     if (!ssp2catchedupMapping.getOrElse(envelope.getSystemStreamPartition,
@@ -146,13 +151,20 @@ class TaskInstance(
 
       trace("Processing incoming message envelope for taskName and SSP: %s, %s" format (taskName, envelope.getSystemStreamPartition))
 
-      exceptionHandler.maybeHandle {
-        task.process(envelope, collector, coordinator)
+      if (isAsyncTask) {
+        exceptionHandler.maybeHandle {
+          val callback = callbackFactory.createCallback()
+          task.asInstanceOf[AsyncStreamTask].processAsync(envelope, collector, coordinator, callback)
+        }
+      } else {
+        exceptionHandler.maybeHandle {
+         task.asInstanceOf[StreamTask].process(envelope, collector, coordinator)
+        }
+
+        trace("Updating offset map for taskName, SSP and offset: %s, %s, %s" format (taskName, envelope.getSystemStreamPartition, envelope.getOffset))
+
+        offsetManager.update(taskName, envelope.getSystemStreamPartition, envelope.getOffset)
       }
-
-      trace("Updating offset map for taskName, SSP and offset: %s, %s, %s" format (taskName, envelope.getSystemStreamPartition, envelope.getOffset))
-
-      offsetManager.update(taskName, envelope.getSystemStreamPartition, envelope.getOffset)
     }
   }
 

@@ -99,7 +99,7 @@ class SystemConsumers (
    * with no remaining unprocessed messages, the SystemConsumers will poll for
    * it within 50ms of its availability in the stream system.</p>
    */
-  pollIntervalMs: Int,
+  val pollIntervalMs: Int,
 
   /**
    * Clock can be used to inject a custom clock when mocking this class in
@@ -203,28 +203,31 @@ class SystemConsumers (
     }
   }
 
-  def choose: IncomingMessageEnvelope = {
+  def choose (updateChooser: Boolean = true): IncomingMessageEnvelope = {
     val envelopeFromChooser = chooser.choose
 
     updateTimer(metrics.deserializationNs) {
       if (envelopeFromChooser == null) {
-       trace("Chooser returned null.")
+        trace("Chooser returned null.")
 
-       metrics.choseNull.inc
+        metrics.choseNull.inc
 
-       // Sleep for a while so we don't poll in a tight loop.
-       timeout = noNewMessagesTimeout
+        // Sleep for a while so we don't poll in a tight loop.
+        timeout = noNewMessagesTimeout
       } else {
-       val systemStreamPartition = envelopeFromChooser.getSystemStreamPartition
+        val systemStreamPartition = envelopeFromChooser.getSystemStreamPartition
 
-       trace("Chooser returned an incoming message envelope: %s" format envelopeFromChooser)
+        trace("Chooser returned an incoming message envelope: %s" format envelopeFromChooser)
 
-       // Ok to give the chooser a new message from this stream.
-       timeout = 0
-       metrics.choseObject.inc
-       metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition).inc
+        // Ok to give the chooser a new message from this stream.
+        timeout = 0
+        metrics.choseObject.inc
+        metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition).inc
 
-       tryUpdate(systemStreamPartition)
+        if (updateChooser) {
+          trace("Update chooser for " + systemStreamPartition.getPartition)
+          tryUpdate(systemStreamPartition)
+        }
       }
     }
 
@@ -287,7 +290,7 @@ class SystemConsumers (
     }
   }
 
-  private def tryUpdate(ssp: SystemStreamPartition) {
+  def tryUpdate(ssp: SystemStreamPartition) {
     var updated = false
     try {
       updated = update(ssp)

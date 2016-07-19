@@ -36,6 +36,7 @@ class HdfsSystemProducer(
   val clock: () => Long = () => System.currentTimeMillis) extends SystemProducer with Logging with TimerUtils {
   val dfs = FileSystem.get(new Configuration(true))
   val writers: MMap[String, HdfsWriter[_]] = MMap.empty[String, HdfsWriter[_]]
+  private val lock = new Object //synchronization lock for thread safe access
 
   def start(): Unit = {
     info("entering HdfsSystemProducer.start() call for system: " + systemName + ", client: " + clientId)
@@ -43,52 +44,65 @@ class HdfsSystemProducer(
 
   def stop(): Unit = {
     info("entering HdfsSystemProducer.stop() for system: " + systemName + ", client: " + clientId)
-    writers.values.map { _.close }
-    dfs.close
+
+    lock.synchronized {
+      writers.values.map(_.close)
+      dfs.close
+    }
   }
 
   def register(source: String): Unit = {
     info("entering HdfsSystemProducer.register(" + source + ") " +
       "call for system: " + systemName + ", client: " + clientId)
-    writers += (source -> HdfsWriter.getInstance(dfs, systemName, config))
+
+    lock.synchronized {
+      writers += (source -> HdfsWriter.getInstance(dfs, systemName, config))
+    }
   }
 
   def flush(source: String): Unit = {
     debug("entering HdfsSystemProducer.flush(" + source + ") " +
       "call for system: " + systemName + ", client: " + clientId)
-    try {
-      metrics.flushes.inc
-      updateTimer(metrics.flushMs) { writers.get(source).head.flush }
-      metrics.flushSuccess.inc
-    } catch {
-      case e: Exception => {
-        metrics.flushFailed.inc
-        warn("Exception thrown while client " + clientId + " flushed HDFS out stream, msg: " + e.getMessage)
-        debug("Detailed message from exception thrown by client " + clientId + " in HDFS flush: ", e)
-        writers.get(source).head.close
-        throw e
+
+    metrics.flushes.inc
+    lock.synchronized {
+      try {
+        updateTimer(metrics.flushMs) {
+          writers.get(source).head.flush
+        }
+      } catch {
+        case e: Exception => {
+          metrics.flushFailed.inc
+          warn("Exception thrown while client " + clientId + " flushed HDFS out stream, msg: " + e.getMessage)
+          debug("Detailed message from exception thrown by client " + clientId + " in HDFS flush: ", e)
+          writers.get(source).head.close
+          throw e
+        }
       }
     }
+    metrics.flushSuccess.inc
   }
 
   def send(source: String, ome: OutgoingMessageEnvelope) = {
     debug("entering HdfsSystemProducer.send(source = " + source + ", envelope) " +
       "call for system: " + systemName + ", client: " + clientId)
+
     metrics.sends.inc
-    try {
-      updateTimer(metrics.sendMs) {
-        writers.get(source).head.write(ome)
-      }
-      metrics.sendSuccess.inc
-    } catch {
-      case e: Exception => {
-        metrics.sendFailed.inc
-        warn("Exception thrown while client " + clientId + " wrote to HDFS, msg: " + e.getMessage)
-        debug("Detailed message from exception thrown by client " + clientId + " in HDFS write: ", e)
-        writers.get(source).head.close
-        throw e
+    lock.synchronized {
+      try {
+        updateTimer(metrics.sendMs) {
+          writers.get(source).head.write(ome)
+        }
+      } catch {
+        case e: Exception => {
+          metrics.sendFailed.inc
+          warn("Exception thrown while client " + clientId + " wrote to HDFS, msg: " + e.getMessage)
+          debug("Detailed message from exception thrown by client " + clientId + " in HDFS write: ", e)
+          writers.get(source).head.close
+          throw e
+        }
       }
     }
+    metrics.sendSuccess.inc
   }
-
 }

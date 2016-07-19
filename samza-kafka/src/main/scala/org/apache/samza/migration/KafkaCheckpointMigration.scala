@@ -140,6 +140,7 @@ class KafkaCheckpointMigration extends MigrationPlan with Logging {
   def migrationCompletionMark(coordinatorSystemProducer: CoordinatorStreamSystemProducer) = {
     info("Marking completion of migration %s" format migrationKey)
     val message = new SetMigrationMetaMessage(source, migrationKey, migrationVal)
+    coordinatorSystemProducer.register(source)
     coordinatorSystemProducer.start()
     coordinatorSystemProducer.send(message)
     coordinatorSystemProducer.stop()

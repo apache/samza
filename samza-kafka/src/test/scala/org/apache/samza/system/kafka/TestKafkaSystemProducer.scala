@@ -140,7 +140,7 @@ class TestKafkaSystemProducer {
       systemProducer.flush("test")
     }
     assertTrue(thrown.isInstanceOf[SamzaException])
-    assertEquals(2, mockProducer.getMsgsSent)
+    assertEquals(3, mockProducer.getMsgsSent) // msg1, msg2 and msg4 will be sent
     systemProducer.stop()
   }
 
@@ -150,14 +150,12 @@ class TestKafkaSystemProducer {
     val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b".getBytes)
     val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
     val msg4 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "d".getBytes)
-    val numMaxRetries = 3
 
     val mockProducer = new MockKafkaProducer(1, "test", 1)
     val producerMetrics = new KafkaSystemProducerMetrics()
     val producer = new KafkaSystemProducer(systemName =  "test",
       getProducer = () => mockProducer,
-      metrics = producerMetrics,
-      maxRetries = numMaxRetries)
+      metrics = producerMetrics)
 
     producer.register("test")
     producer.start()
@@ -169,14 +167,15 @@ class TestKafkaSystemProducer {
     assertEquals(0, producerMetrics.retries.getCount)
     mockProducer.setErrorNext(true, new TimeoutException())
 
+    producer.send("test", msg4)
     val thrown = intercept[SamzaException] {
-      producer.send("test", msg4)
+      producer.flush("test")
     }
     assertTrue(thrown.isInstanceOf[SamzaException])
     assertTrue(thrown.getCause.isInstanceOf[TimeoutException])
-    assertEquals(true, producer.sendFailed.get())
     assertEquals(3, mockProducer.getMsgsSent)
-    assertEquals(numMaxRetries, producerMetrics.retries.getCount)
+    // retriable exception will be thrown immediately
+    assertEquals(0, producerMetrics.retries.getCount)
     producer.stop()
   }
 
@@ -199,12 +198,12 @@ class TestKafkaSystemProducer {
     producer.send("test", msg3)
     mockProducer.setErrorNext(true, new RecordTooLargeException())
 
+    producer.send("test", msg4)
     val thrown = intercept[SamzaException] {
-       producer.send("test", msg4)
+       producer.flush("test")
     }
     assertTrue(thrown.isInstanceOf[SamzaException])
     assertTrue(thrown.getCause.isInstanceOf[RecordTooLargeException])
-    assertEquals(true, producer.sendFailed.get())
     assertEquals(3, mockProducer.getMsgsSent)
     assertEquals(0, producerMetrics.retries.getCount)
     producer.stop()

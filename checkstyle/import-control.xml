@@ -33,6 +33,7 @@
     <allow pkg="org.apache.commons" />
     <allow class="scala.collection.JavaConversions" />
     <allow class="scala.collection.JavaConverters" />
+    <allow pkg="scala.runtime" />
 
     <subpackage name="config">
         <allow class="org.apache.samza.SamzaException" />
@@ -133,6 +134,10 @@
         <allow pkg="org.apache.samza.container" />
         <allow pkg="org.apache.samza.metrics" />
         <allow pkg="org.apache.samza.system" />
+        <allow pkg="org.apache.samza.util" />
+        <allow pkg="org.apache.samza.checkpoint" />
+        <allow class="org.apache.samza.SamzaException" />
+        <allow class="org.apache.samza.Partition" />
     </subpackage>
 
     <subpackage name="container">
@@ -142,7 +147,10 @@
         <allow pkg="org.apache.samza.util" />
         <allow pkg="junit.framework" />
         <allow class="org.apache.samza.coordinator.stream.AbstractCoordinatorStreamManager" />
-
+        <allow class="org.apache.samza.SamzaException" />
+        <allow pkg="org.apache.samza.system" />
+        <allow pkg="org.apache.samza.task" />
+        <allow pkg="org.apache.samza.util" />
         <subpackage name="grouper">
             <subpackage name="stream">
                 <allow pkg="org.apache.samza.system" />

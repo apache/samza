@@ -20,7 +20,9 @@
 package org.apache.samza.storage.kv
 
 import java.io.File
-import java.util.{Arrays, Random}
+import java.util.Arrays
+import java.util.Random
+import java.util.concurrent.CountDownLatch
 
 import org.apache.samza.config.MapConfig
 import org.apache.samza.serializers.Serde
@@ -29,7 +31,9 @@ import org.junit.Assert._
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import org.junit.{After, Before, Test}
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
 import org.scalatest.Assertions.intercept
 
 import scala.collection.JavaConversions._
@@ -136,8 +140,9 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
 
   @Test
   def putAndGet() {
-    store.put(b("k"), b("v"))
-    assertArrayEquals(b("v"), store.get(b("k")))
+    val k = b("k")
+    store.put(k, b("v"))
+    assertArrayEquals(b("v"), store.get(k))
   }
 
   @Test
@@ -379,6 +384,181 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
     })
   }
 
+  @Test
+  def testParallelReadWriteSameKey(): Unit = {
+    // Make test deterministic by seeding the random number generator.
+    val key = b("key")
+    val val1 = "val1"
+    val val2 = "val2"
+
+    val runner1 = new Thread(new Runnable {
+      override def run(): Unit = {
+        store.put(key, b(val1))
+      }
+    })
+
+    val runner2 = new Thread(new Runnable {
+      override def run(): Unit = {
+        while(!val1.equals({store.get(key) match {
+          case null => ""
+          case _ => { new String(store.get(key), "UTF-8") }
+        }})) {}
+        store.put(key, b(val2))
+      }
+    })
+
+    runner2.start()
+    runner1.start()
+
+    runner2.join(1000)
+    runner1.join(1000)
+
+    assertEquals("val2", new String(store.get(key), "UTF-8"))
+
+    store.delete(key)
+    store.flush()
+  }
+
+  @Test
+  def testParallelReadWriteDiffKeys(): Unit = {
+    // Make test deterministic by seeding the random number generator.
+    val key1 = b("key1")
+    val key2 = b("key2")
+    val val1 = "val1"
+    val val2 = "val2"
+
+    val runner1 = new Thread(new Runnable {
+      override def run(): Unit = {
+        store.put(key1, b(val1))
+      }
+    })
+
+    val runner2 = new Thread(new Runnable {
+      override def run(): Unit = {
+        while(!val1.equals({store.get(key1) match {
+          case null => ""
+          case _ => { new String(store.get(key1), "UTF-8") }
+        }})) {}
+        store.delete(key1)
+      }
+    })
+
+    val runner3 = new Thread(new Runnable {
+      override def run(): Unit = {
+        store.put(key2, b(val2))
+      }
+    })
+
+    val runner4 = new Thread(new Runnable {
+      override def run(): Unit = {
+        while(!val2.equals({store.get(key2) match {
+          case null => ""
+          case _ => { new String(store.get(key2), "UTF-8") }
+        }})) {}
+        store.delete(key2)
+      }
+    })
+
+    runner2.start()
+    runner1.start()
+    runner3.start()
+    runner4.start()
+
+    runner2.join(1000)
+    runner1.join(1000)
+    runner3.join(1000)
+    runner4.join(1000)
+
+    assertNull(store.get(key1))
+    assertNull(store.get(key2))
+
+    store.flush()
+  }
+
+  @Test
+  def testParallelIteratorAndWrite(): Unit = {
+    // Make test deterministic by seeding the random number generator.
+    val key1 = b("key1")
+    val key2 = b("key2")
+    val val1 = "val1"
+    val val2 = "val2"
+    @volatile var throwable: Throwable = null
+
+    store.put(key1, b(val1))
+    store.put(key2, b(val2))
+
+    val runner1StartLatch = new CountDownLatch(1)
+    val runner2StartLatch = new CountDownLatch(1)
+
+    val runner1 = new Thread(new Runnable {
+      override def run(): Unit = {
+        runner1StartLatch.await()
+        store.put(key1, b("val1-2"))
+        store.delete(key2)
+        store.flush()
+        runner2StartLatch.countDown()
+      }
+    })
+
+    val runner2 = new Thread(new Runnable {
+      override def run(): Unit = {
+        runner2StartLatch.await()
+        val iter = store.all() //snapshot after change
+        try {
+          while (iter.hasNext) {
+            val e = iter.next()
+            if ("key1".equals(new String(e.getKey, "UTF-8"))) {
+              assertEquals("val1-2", new String(e.getValue, "UTF-8"))
+            }
+            System.out.println(String.format("iterator1: key: %s, value: %s", new String(e.getKey, "UTF-8"), new String(e.getValue, "UTF-8")))
+          }
+          iter.close()
+        } catch {
+          case t: Throwable => throwable = t
+        }
+      }
+    })
+
+    val runner3 = new Thread(new Runnable {
+      override def run(): Unit = {
+        val iter = store.all()  //snapshot
+        runner1StartLatch.countDown()
+        try {
+          while (iter.hasNext) {
+            val e = iter.next()
+            val key = new String(e.getKey, "UTF-8")
+            val value = new String(e.getValue, "UTF-8")
+            if (key.equals("key1")) {
+              assertEquals(val1, value)
+            }
+            else if (key.equals("key2") && !val2.equals(value)) {
+              assertEquals(val2, value)
+            }
+            else if (!key.equals("key1") && !key.equals("key2")) {
+              throw new Exception("unknow key " + new String(e.getKey, "UTF-8") + ", value: " + new String(e.getValue, "UTF-8"))
+            }
+            System.out.println(String.format("iterator2: key: %s, value: %s", new String(e.getKey, "UTF-8"), new String(e.getValue, "UTF-8")))
+          }
+          iter.close()
+        } catch {
+          case t: Throwable => throwable = t
+        }
+      }
+    })
+
+    runner2.start()
+    runner3.start()
+    runner1.start()
+
+    runner2.join()
+    runner1.join()
+    runner3.join()
+
+    if(throwable != null) throw throwable
+
+    store.flush()
+  }
+
   def checkRange(vals: IndexedSeq[String], iter: KeyValueIterator[Array[Byte], Array[Byte]]) {
     for (v <- vals) {
       assertTrue(iter.hasNext)
@@ -417,5 +597,6 @@ object TestKeyValueStores {
       Array("rocksdb","cache"),
       Array("rocksdb","serde"),
       Array("rocksdb","cache-and-serde"),
-      Array("rocksdb","none"))
+      Array("rocksdb","none")
+  )
 }

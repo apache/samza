@@ -20,12 +20,19 @@
 package org.apache.samza.container
 
 import java.io.File
+import java.lang.Thread.UncaughtExceptionHandler
+import java.net.URL
+import java.net.UnknownHostException
 import java.nio.file.Path
 import java.util
-import java.lang.Thread.UncaughtExceptionHandler
-import java.net.{URL, UnknownHostException}
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.{CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
+import org.apache.samza.checkpoint.CheckpointManagerFactory
+import org.apache.samza.checkpoint.OffsetManager
+import org.apache.samza.checkpoint.OffsetManagerMetrics
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.SerializerConfig.Config2Serializer
@@ -34,18 +41,45 @@ import org.apache.samza.config.StorageConfig.Config2Storage
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
+import org.apache.samza.container.disk.DiskQuotaPolicyFactory
+import org.apache.samza.container.disk.DiskSpaceMonitor
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
-import org.apache.samza.container.disk.{NoThrottlingDiskQuotaPolicyFactory, DiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor, DiskSpaceMonitor}
+import org.apache.samza.container.disk.NoThrottlingDiskQuotaPolicyFactory
+import org.apache.samza.container.disk.PollingScanDiskSpaceMonitor
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
-import org.apache.samza.job.model.{ContainerModel, JobModel}
-import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter, MetricsReporterFactory}
-import org.apache.samza.serializers.{SerdeFactory, SerdeManager}
+import org.apache.samza.job.model.ContainerModel
+import org.apache.samza.job.model.JobModel
+import org.apache.samza.metrics.JmxServer
+import org.apache.samza.metrics.JvmMetrics
+import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.metrics.MetricsReporter
+import org.apache.samza.metrics.MetricsReporterFactory
+import org.apache.samza.serializers.SerdeFactory
+import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.storage.{StorageEngineFactory, TaskStorageManager}
-import org.apache.samza.system.{StreamMetadataCache, SystemConsumers, SystemConsumersMetrics, SystemFactory, SystemProducers, SystemProducersMetrics, SystemStream, SystemStreamPartition}
-import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
-import org.apache.samza.task.{StreamTask, TaskInstanceCollector}
-import org.apache.samza.util.{ThrottlingExecutor, ExponentialSleepStrategy, Logging, Util}
+import org.apache.samza.storage.StorageEngineFactory
+import org.apache.samza.storage.TaskStorageManager
+import org.apache.samza.system.StreamMetadataCache
+import org.apache.samza.system.SystemConsumers
+import org.apache.samza.system.SystemConsumersMetrics
+import org.apache.samza.system.SystemFactory
+import org.apache.samza.system.SystemProducers
+import org.apache.samza.system.SystemProducersMetrics
+import org.apache.samza.system.SystemStream
+import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.system.chooser.DefaultChooser
+import org.apache.samza.system.chooser.MessageChooserFactory
+import org.apache.samza.system.chooser.RoundRobinChooserFactory
+import org.apache.samza.task.AsyncRunLoop
+import org.apache.samza.task.AsyncStreamTask
+import org.apache.samza.task.AsyncStreamTaskAdapter
+import org.apache.samza.task.StreamTask
+import org.apache.samza.task.TaskInstanceCollector
+import org.apache.samza.util.ExponentialSleepStrategy
+import org.apache.samza.util.Logging
+import org.apache.samza.util.ThrottlingExecutor
+import org.apache.samza.util.Util
+
 import scala.collection.JavaConversions._
 
 object SamzaContainer extends Logging {
@@ -164,6 +198,12 @@ object SamzaContainer extends Logging {
 
     info("Got input stream metadata: %s" format inputStreamMetadata)
 
+    val taskClassName = config
+      .getTaskClass
+      .getOrElse(throw new SamzaException("No task class defined in configuration."))
+
+    info("Got stream task class: %s" format taskClassName)
+
     val consumers = inputSystems
       .map(systemName => {
         val systemFactory = systemFactories(systemName)
@@ -180,6 +220,9 @@ object SamzaContainer extends Logging {
       .toMap
 
     info("Got system consumers: %s" format consumers.keys)
+
+    val isAsyncTask = classOf[AsyncStreamTask].isAssignableFrom(Class.forName(taskClassName))
+    info("%s is AsyncStreamTask" format taskClassName)
 
     val producers = systemFactories
       .map {
@@ -360,26 +403,22 @@ object SamzaContainer extends Logging {
 
     info("Got storage engines: %s" format storageEngineFactories.keys)
 
-    val taskClassName = config
-      .getTaskClass
-      .getOrElse(throw new SamzaException("No task class defined in configuration."))
+    val singleThreadMode = config.getSingleThreadMode
+    info("Got single thread mode: " + singleThreadMode)
 
-    info("Got stream task class: %s" format taskClassName)
+    if(singleThreadMode && isAsyncTask) {
+      throw new SamzaException("AsyncStreamTask %s cannot run on single thread mode." format taskClassName)
+    }
 
-    val taskWindowMs = config.getWindowMs.getOrElse(-1L)
+    val threadPoolSize = config.getThreadPoolSize
+    info("Got thread pool size: " + threadPoolSize)
 
-    info("Got window milliseconds: %s" format taskWindowMs)
-
-    val taskCommitMs = config.getCommitMs.getOrElse(60000L)
-
-    info("Got commit milliseconds: %s" format taskCommitMs)
-
-    val taskShutdownMs = config.getShutdownMs.getOrElse(5000L)
-
-    info("Got shutdown timeout milliseconds: %s" format taskShutdownMs)
+    val taskThreadPool = if (!singleThreadMode && threadPoolSize > 0)
+      Executors.newFixedThreadPool(threadPoolSize)
+    else
+      null
 
     // Wire up all task-instance-level (unshared) objects.
-
     val taskNames = containerModel
       .getTasks
       .values
@@ -395,12 +434,18 @@ object SamzaContainer extends Logging {
     val storeWatchPaths = new util.HashSet[Path]()
     storeWatchPaths.add(defaultStoreBaseDir.toPath)
 
-    val taskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.map(taskModel => {
+    val taskInstances: Map[TaskName, TaskInstance[_]] = containerModel.getTasks.values.map(taskModel => {
       debug("Setting up task instance: %s" format taskModel)
 
       val taskName = taskModel.getTaskName
 
-      val task = Util.getObj[StreamTask](taskClassName)
+      val taskObj = Class.forName(taskClassName).newInstance
+
+      val task = if (!singleThreadMode && !isAsyncTask)
+        // Wrap the StreamTask into a AsyncStreamTask with the build-in thread pool
+        new AsyncStreamTaskAdapter(taskObj.asInstanceOf[StreamTask], taskThreadPool)
+      else
+        taskObj
 
       val taskInstanceMetrics = new TaskInstanceMetrics("TaskName-%s" format taskName)
 
@@ -487,20 +532,22 @@ object SamzaContainer extends Logging {
 
       info("Retrieved SystemStreamPartitions " + systemStreamPartitions + " for " + taskName)
 
-      val taskInstance = new TaskInstance(
-        task = task,
-        taskName = taskName,
-        config = config,
-        metrics = taskInstanceMetrics,
-        systemAdmins = systemAdmins,
-        consumerMultiplexer = consumerMultiplexer,
-        collector = collector,
-        containerContext = containerContext,
-        offsetManager = offsetManager,
-        storageManager = storageManager,
-        reporters = reporters,
-        systemStreamPartitions = systemStreamPartitions,
-        exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config))
+      def createTaskInstance[T] (task: T ): TaskInstance[T] = new TaskInstance[T](
+          task = task,
+          taskName = taskName,
+          config = config,
+          metrics = taskInstanceMetrics,
+          systemAdmins = systemAdmins,
+          consumerMultiplexer = consumerMultiplexer,
+          collector = collector,
+          containerContext = containerContext,
+          offsetManager = offsetManager,
+          storageManager = storageManager,
+          reporters = reporters,
+          systemStreamPartitions = systemStreamPartitions,
+          exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config))
+
+      val taskInstance = createTaskInstance(task)
 
       (taskName, taskInstance)
     }).toMap
@@ -533,14 +580,13 @@ object SamzaContainer extends Logging {
       info(s"Disk quotas disabled because polling interval is not set ($DISK_POLL_INTERVAL_KEY)")
     }
 
-    val runLoop = new RunLoop(
-      taskInstances = taskInstances,
-      consumerMultiplexer = consumerMultiplexer,
-      metrics = samzaContainerMetrics,
-      windowMs = taskWindowMs,
-      commitMs = taskCommitMs,
-      shutdownMs = taskShutdownMs,
-      executor = executor)
+    val runLoop = RunLoopFactory.createRunLoop(
+      taskInstances,
+      consumerMultiplexer,
+      taskThreadPool,
+      executor,
+      samzaContainerMetrics,
+      config)
 
     info("Samza container setup complete.")
 
@@ -557,14 +603,15 @@ object SamzaContainer extends Logging {
       reporters = reporters,
       jvm = jvm,
       jmxServer = jmxServer,
-      diskSpaceMonitor = diskSpaceMonitor)
+      diskSpaceMonitor = diskSpaceMonitor,
+      taskThreadPool = taskThreadPool)
   }
 }
 
 class SamzaContainer(
   containerContext: SamzaContainerContext,
-  taskInstances: Map[TaskName, TaskInstance],
-  runLoop: RunLoop,
+  taskInstances: Map[TaskName, TaskInstance[_]],
+  runLoop: Runnable,
   consumerMultiplexer: SystemConsumers,
   producerMultiplexer: SystemProducers,
   metrics: SamzaContainerMetrics,
@@ -574,7 +621,10 @@ class SamzaContainer(
   localityManager: LocalityManager = null,
   securityManager: SecurityManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
-  jvm: JvmMetrics = null) extends Runnable with Logging {
+  jvm: JvmMetrics = null,
+  taskThreadPool: ExecutorService = null) extends Runnable with Logging {
+
+  val shutdownMs = containerContext.config.getShutdownMs.getOrElse(5000L)
 
   def run {
     try {
@@ -591,6 +641,7 @@ class SamzaContainer(
       startSecurityManger
 
       info("Entering run loop.")
+      addShutdownHook
       runLoop.run
     } catch {
       case e: Exception =>
@@ -710,12 +761,31 @@ class SamzaContainer(
     consumerMultiplexer.start
   }
 
-  def startSecurityManger: Unit = {
+  def startSecurityManger {
     if (securityManager != null) {
       info("Starting security manager.")
 
       securityManager.start
     }
+  }
+
+  def addShutdownHook {
+    val runLoopThread = Thread.currentThread()
+    Runtime.getRuntime().addShutdownHook(new Thread() {
+      override def run() = {
+        info("Shutting down, will wait up to %s ms" format shutdownMs)
+        runLoop match {
+          case runLoop: RunLoop => runLoop.shutdown
+          case asyncRunLoop: AsyncRunLoop => asyncRunLoop.shutdown()
+        }
+        runLoopThread.join(shutdownMs)
+        if (runLoopThread.isAlive) {
+          warn("Did not shut down within %s ms, exiting" format shutdownMs)
+        } else {
+          info("Shutdown complete")
+        }
+      }
+    })
   }
 
   def shutdownConsumers {
@@ -732,6 +802,19 @@ class SamzaContainer(
 
   def shutdownTask {
     info("Shutting down task instance stream tasks.")
+
+
+    if (taskThreadPool != null) {
+      info("Shutting down task thread pool")
+      try {
+        taskThreadPool.shutdown()
+        if(taskThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
+          taskThreadPool.shutdownNow()
+        }
+      } catch {
+        case e: Exception => error(e.getMessage, e)
+      }
+    }
 
     taskInstances.values.foreach(_.shutdownTask)
   }

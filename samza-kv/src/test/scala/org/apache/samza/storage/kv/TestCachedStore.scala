@@ -127,21 +127,6 @@ class TestCachedStore {
     }
     assertFalse(iter.hasNext)
 
-    // test iterator remove
-    iter = store.all()
-    iter.next()
-    iter.remove()
-
-    assertNull(kv.get(keys.get(0)))
-    assertNull(store.get(keys.get(0)))
-
-    iter = store.range(keys.get(1), keys.get(2))
-    iter.next()
-    iter.remove()
-
-    assertFalse(iter.hasNext)
-    assertNull(kv.get(keys.get(1)))
-    assertNull(store.get(keys.get(1)))
   }
 
   @Test

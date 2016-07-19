@@ -21,12 +21,18 @@ package org.apache.samza.container
 
 import java.util.concurrent.Executor
 
-import org.apache.samza.system.{SystemConsumers, SystemStreamPartition}
+import org.apache.samza.system.SystemConsumers
+import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.task.CoordinatorRequests
 import org.apache.samza.task.ReadableCoordinator
-import org.apache.samza.util.{Logging, TimerUtils}
+import org.apache.samza.task.StreamTask
+import org.apache.samza.util.Logging
+import org.apache.samza.util.TimerUtils
+
+import scala.collection.JavaConversions._
 
 /**
- * Each {@link SamzaContainer} uses a single-threaded execution model: activities for
+ * The run loop uses a single-threaded execution model: activities for
  * all {@link TaskInstance}s within a container are multiplexed onto one execution
  * thread. Those activities include task callbacks (such as StreamTask.process and
  * WindowableTask.window), committing checkpoints, etc.
@@ -34,31 +40,29 @@ import org.apache.samza.util.{Logging, TimerUtils}
  * <p>This class manages the execution of that run loop, determining what needs to
  * be done when.
  */
-class RunLoop(
-  val taskInstances: Map[TaskName, TaskInstance],
+class RunLoop (
+  val taskInstances: Map[TaskName, TaskInstance[StreamTask]],
   val consumerMultiplexer: SystemConsumers,
   val metrics: SamzaContainerMetrics,
   val windowMs: Long = -1,
   val commitMs: Long = 60000,
   val clock: () => Long = { System.nanoTime },
-  val shutdownMs: Long = 5000,
   val executor: Executor = new SameThreadExecutor()) extends Runnable with TimerUtils with Logging {
 
   private val metricsMsOffset = 1000000L
   private var lastWindowNs = clock()
   private var lastCommitNs = clock()
   private var activeNs = 0L
-  private var taskShutdownRequests: Set[TaskName] = Set()
-  private var taskCommitRequests: Set[TaskName] = Set()
   @volatile private var shutdownNow = false
+  private val coordinatorRequests: CoordinatorRequests = new CoordinatorRequests(taskInstances.keySet)
 
   // Messages come from the chooser with no connection to the TaskInstance they're bound for.
   // Keep a mapping of SystemStreamPartition to TaskInstance to efficiently route them.
   val systemStreamPartitionToTaskInstances = getSystemStreamPartitionToTaskInstancesMapping
 
-  def getSystemStreamPartitionToTaskInstancesMapping: Map[SystemStreamPartition, List[TaskInstance]] = {
+  def getSystemStreamPartitionToTaskInstancesMapping: Map[SystemStreamPartition, List[TaskInstance[StreamTask]]] = {
     // We could just pass in the SystemStreamPartitionMap during construction, but it's safer and cleaner to derive the information directly
-    def getSystemStreamPartitionToTaskInstance(taskInstance: TaskInstance) = taskInstance.systemStreamPartitions.map(_ -> taskInstance).toMap
+    def getSystemStreamPartitionToTaskInstance(taskInstance: TaskInstance[StreamTask]) = taskInstance.systemStreamPartitions.map(_ -> taskInstance).toMap
 
     taskInstances.values.map { getSystemStreamPartitionToTaskInstance }.flatten.groupBy(_._1).map {
       case (ssp, ssp2taskInstance) => ssp -> ssp2taskInstance.map(_._2).toList
@@ -70,8 +74,6 @@ class RunLoop(
    * unhandled exception is thrown.
    */
   def run {
-    addShutdownHook(Thread.currentThread())
-
     val runTask = new Runnable() {
       override def run(): Unit = {
         val loopStartTime = clock()
@@ -89,19 +91,8 @@ class RunLoop(
     }
   }
 
-  private def addShutdownHook(runLoopThread: Thread) {
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      override def run() = {
-        info("Shutting down, will wait up to %s ms" format shutdownMs)
-        shutdownNow = true
-        runLoopThread.join(shutdownMs)
-        if (runLoopThread.isAlive) {
-          warn("Did not shut down within %s ms, exiting" format shutdownMs)
-        } else {
-          info("Shutdown complete")
-        }
-      }
-    })
+  def shutdown = {
+    shutdownNow = true
   }
 
   /**
@@ -115,7 +106,7 @@ class RunLoop(
     // Exclude choose time from activeNs. Although it includes deserialization time,
     // it most closely captures idle time.
     val envelope = updateTimer(metrics.chooseNs) {
-     consumerMultiplexer.choose
+     consumerMultiplexer.choose()
     }
 
     activeNs += updateTimerAndGetDuration(metrics.processNs) ((currentTimeNs: Long) => {
@@ -128,11 +119,11 @@ class RunLoop(
         val taskInstances = systemStreamPartitionToTaskInstances(ssp)
         taskInstances.foreach {
           taskInstance =>
-            {
-              val coordinator = new ReadableCoordinator(taskInstance.taskName)
-              taskInstance.process(envelope, coordinator)
-              checkCoordinator(coordinator)
-            }
+          {
+            val coordinator = new ReadableCoordinator(taskInstance.taskName)
+            taskInstance.process(envelope, coordinator)
+            coordinatorRequests.update(coordinator)
+          }
         }
       } else {
         trace("No incoming message envelope was available.")
@@ -155,7 +146,7 @@ class RunLoop(
           case (taskName, task) =>
             val coordinator = new ReadableCoordinator(taskName)
             task.window(coordinator)
-            checkCoordinator(coordinator)
+            coordinatorRequests.update(coordinator)
         }
       }
     })
@@ -167,47 +158,20 @@ class RunLoop(
   private def commit {
     activeNs += updateTimerAndGetDuration(metrics.commitNs) ((currentTimeNs: Long) => {
       if (commitMs >= 0 && lastCommitNs + commitMs * metricsMsOffset < currentTimeNs) {
-        trace("Committing task instances because the commit interval has elapsed.")
+        info("Committing task instances because the commit interval has elapsed.")
         lastCommitNs = currentTimeNs
         metrics.commits.inc
         taskInstances.values.foreach(_.commit)
-      } else if (!taskCommitRequests.isEmpty) {
+      } else if (!coordinatorRequests.commitRequests.isEmpty){
         trace("Committing due to explicit commit request.")
         metrics.commits.inc
-        taskCommitRequests.foreach(taskName => {
+        coordinatorRequests.commitRequests.foreach(taskName => {
           taskInstances(taskName).commit
         })
       }
 
-      taskCommitRequests = Set()
+      shutdownNow |= coordinatorRequests.shouldShutdownNow
+      coordinatorRequests.commitRequests.clear()
     })
-  }
-
-  /**
-   * A new TaskCoordinator object is passed to a task on every call to StreamTask.process
-   * and WindowableTask.window. This method checks whether the task requested that we
-   * do something that affects the run loop (such as commit or shut down), and updates
-   * run loop state accordingly.
-   */
-  private def checkCoordinator(coordinator: ReadableCoordinator) {
-    if (coordinator.requestedCommitTask) {
-      debug("Task %s requested commit for current task only" format coordinator.taskName)
-      taskCommitRequests += coordinator.taskName
-    }
-
-    if (coordinator.requestedCommitAll) {
-      debug("Task %s requested commit for all tasks in the container" format coordinator.taskName)
-      taskCommitRequests ++= taskInstances.keys
-    }
-
-    if (coordinator.requestedShutdownOnConsensus) {
-      taskShutdownRequests += coordinator.taskName
-      info("Shutdown has now been requested by tasks: %s" format taskShutdownRequests)
-    }
-
-    if (coordinator.requestedShutdownNow || taskShutdownRequests.size == taskInstances.size) {
-      info("Shutdown requested.")
-      shutdownNow = true
-    }
   }
 }

@@ -50,8 +50,6 @@ public class TestKafkaSystemProducerJava {
       }
     });
 
-    // Default value should have been used.
-    assertEquals(30, ksp.maxRetries());
     long now = System.currentTimeMillis();
     assertTrue((Long)ksp.clock().apply() >= now);
   }

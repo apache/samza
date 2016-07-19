@@ -180,7 +180,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       new SerdeManager)
     val collector = new TaskInstanceCollector(producerMultiplexer)
     val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
-    val taskInstance: TaskInstance = new TaskInstance(
+    val taskInstance: TaskInstance[StreamTask] = new TaskInstance[StreamTask](
       task,
       taskName,
       config,
@@ -261,7 +261,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       }
     })
 
-    val taskInstance: TaskInstance = new TaskInstance(
+    val taskInstance: TaskInstance[StreamTask] = new TaskInstance[StreamTask](
       task,
       taskName,
       config,
