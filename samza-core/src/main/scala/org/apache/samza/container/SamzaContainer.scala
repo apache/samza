@@ -28,7 +28,8 @@ import java.util
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-
+import java.lang.Thread.UncaughtExceptionHandler
+import java.net.{URL, UnknownHostException}
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.CheckpointManagerFactory
 import org.apache.samza.checkpoint.OffsetManager
@@ -552,7 +553,8 @@ object SamzaContainer extends Logging {
       (taskName, taskInstance)
     }).toMap
 
-    val executor = new ThrottlingExecutor()
+    val executor = new ThrottlingExecutor(
+      config.getLong("container.disk.quota.delay.max.ms", TimeUnit.SECONDS.toMillis(1)))
 
     val diskQuotaBytes = config.getLong("container.disk.quota.bytes", Long.MaxValue)
     samzaContainerMetrics.diskQuotaBytes.set(diskQuotaBytes)

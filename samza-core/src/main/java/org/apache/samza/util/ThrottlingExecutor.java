@@ -20,6 +20,7 @@
 package org.apache.samza.util;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * An object that performs work on the current thread and optionally slows the rate of execution.
@@ -33,16 +34,18 @@ public class ThrottlingExecutor implements Executor {
   public static final double MAX_WORK_FACTOR = 1.0;
   public static final double MIN_WORK_FACTOR = 0.001;
 
+  private final long maxDelayNanos;
   private final HighResolutionClock clock;
 
   private volatile double workToIdleFactor;
   private long pendingNanos;
 
-  public ThrottlingExecutor() {
-    this(new SystemHighResolutionClock());
+  public ThrottlingExecutor(long maxDelayMillis) {
+    this(maxDelayMillis, new SystemHighResolutionClock());
   }
 
-  ThrottlingExecutor(HighResolutionClock clock) {
+  ThrottlingExecutor(long maxDelayMillis, HighResolutionClock clock) {
+    this.maxDelayNanos = TimeUnit.MILLISECONDS.toNanos(maxDelayMillis);
     this.clock = clock;
   }
 
@@ -68,8 +71,10 @@ public class ThrottlingExecutor implements Executor {
       final long workNanos = clock.nanoTime() - startWorkNanos;
 
       // NOTE: we accumulate pending delay nanos here, but we later update the pending nanos during
-      // the sleep operation (if applicable), so they do not continue to grow.
-      pendingNanos = Util.clampAdd(pendingNanos, (long) (workNanos * currentWorkToIdleFactor));
+      // the sleep operation (if applicable), so they do not continue to grow. We also clamp the
+      // maximum sleep time to prevent excessively large sleeps between executions.
+      pendingNanos = Math.min(maxDelayNanos,
+          Util.clampAdd(pendingNanos, (long) (workNanos * currentWorkToIdleFactor)));
       if (pendingNanos > 0) {
         try {
           pendingNanos = clock.sleep(pendingNanos);

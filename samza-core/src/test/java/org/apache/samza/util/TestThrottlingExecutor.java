@@ -29,6 +29,8 @@ import org.junit.Test;
 import java.util.concurrent.TimeUnit;
 
 public class TestThrottlingExecutor {
+  private static final long MAX_NANOS = Long.MAX_VALUE;
+
   private static final Runnable NO_OP = new Runnable() {
     @Override
     public void run() {
@@ -42,12 +44,12 @@ public class TestThrottlingExecutor {
   @Before
   public void setUp() {
     clock = Mockito.mock(HighResolutionClock.class);
-    executor = new ThrottlingExecutor(clock);
+    executor = new ThrottlingExecutor(MAX_NANOS, clock);
   }
 
   @Test
   public void testInitialState() {
-    ThrottlingExecutor throttler = new ThrottlingExecutor();
+    ThrottlingExecutor throttler = new ThrottlingExecutor(MAX_NANOS);
     assertEquals(0, throttler.getPendingNanos());
     assertEquals(1.0, throttler.getWorkFactor());
   }
@@ -66,12 +68,12 @@ public class TestThrottlingExecutor {
 
   @Test(expected = IllegalArgumentException.class)
   public void testLessThan0PercentWorkRate() {
-    new ThrottlingExecutor().setWorkFactor(-0.1);
+    new ThrottlingExecutor(MAX_NANOS).setWorkFactor(-0.1);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testGreaterThan100PercentWorkRate() {
-    new ThrottlingExecutor().setWorkFactor(1.1);
+    new ThrottlingExecutor(MAX_NANOS).setWorkFactor(1.1);
   }
 
   @Test
@@ -180,6 +182,24 @@ public class TestThrottlingExecutor {
     executor.execute(NO_OP);
 
     verifySleepTime(workTimeNanos);
+    assertEquals(0L, executor.getPendingNanos());
+  }
+
+  @Test
+  public void testClampDelayMillis() throws InterruptedException {
+    final long maxDelayMillis = 10;
+    final long maxDelayNanos = TimeUnit.MILLISECONDS.toNanos(maxDelayMillis);
+
+    executor = new ThrottlingExecutor(maxDelayMillis, clock);
+    executor.setWorkFactor(0.5);
+
+    // Note work time exceeds maxDelayMillis
+    setWorkTime(TimeUnit.MILLISECONDS.toNanos(100));
+    setExpectedAndActualSleepTime(maxDelayNanos, maxDelayNanos);
+
+    executor.execute(NO_OP);
+
+    verifySleepTime(maxDelayNanos);
     assertEquals(0L, executor.getPendingNanos());
   }
 

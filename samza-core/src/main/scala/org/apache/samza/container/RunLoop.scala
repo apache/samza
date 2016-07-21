@@ -21,9 +21,8 @@ package org.apache.samza.container
 
 import java.util.concurrent.Executor
 
-import org.apache.samza.system.SystemConsumers
-import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.CoordinatorRequests
+import org.apache.samza.system.{IncomingMessageEnvelope, SystemConsumers, SystemStreamPartition}
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.task.StreamTask
 import org.apache.samza.util.Logging
@@ -74,20 +73,26 @@ class RunLoop (
    * unhandled exception is thrown.
    */
   def run {
-    val runTask = new Runnable() {
-      override def run(): Unit = {
-        val loopStartTime = clock()
-        process
-        window
-        commit
-        val totalNs = clock() - loopStartTime
-        metrics.utilization.set(activeNs.toFloat / totalNs)
-        activeNs = 0L
-      }
-    }
-
     while (!shutdownNow) {
-      executor.execute(runTask)
+      val loopStartTime = clock()
+
+      trace("Attempting to choose a message to process.")
+
+      // Exclude choose time from activeNs. Although it includes deserialization time,
+      // it most closely captures idle time.
+      val envelope = updateTimer(metrics.chooseNs) {
+        consumerMultiplexer.choose()
+      }
+
+      executor.execute(new Runnable() {
+        override def run(): Unit = process(envelope)
+      })
+
+      window
+      commit
+      val totalNs = clock() - loopStartTime
+      metrics.utilization.set(activeNs.toFloat / totalNs)
+      activeNs = 0L
     }
   }
 
@@ -99,15 +104,8 @@ class RunLoop (
    * Chooses a message from an input stream to process, and calls the
    * process() method on the appropriate StreamTask to handle it.
    */
-  private def process {
-    trace("Attempting to choose a message to process.")
+  private def process(envelope: IncomingMessageEnvelope) {
     metrics.processes.inc
-
-    // Exclude choose time from activeNs. Although it includes deserialization time,
-    // it most closely captures idle time.
-    val envelope = updateTimer(metrics.chooseNs) {
-     consumerMultiplexer.choose()
-    }
 
     activeNs += updateTimerAndGetDuration(metrics.processNs) ((currentTimeNs: Long) => {
       if (envelope != null) {
