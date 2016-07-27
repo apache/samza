@@ -18,6 +18,9 @@
  */
 package org.apache.samza.container.disk;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -45,6 +48,8 @@ public class PollingScanDiskSpaceMonitor implements DiskSpaceMonitor {
   private enum State { INIT, RUNNING, STOPPED }
 
   private static final ThreadFactory THREAD_FACTORY = new ThreadFactoryImpl();
+  private static final Logger log = LoggerFactory.getLogger(PollingScanDiskSpaceMonitor.class);
+
   // Note: we use this as a set where the value is always Boolean.TRUE.
   private final ConcurrentMap<Listener, Boolean> listenerSet = new ConcurrentHashMap<>();
 
@@ -184,7 +189,12 @@ public class PollingScanDiskSpaceMonitor implements DiskSpaceMonitor {
   private void updateSample() {
     long totalBytes = getSpaceUsed(watchPaths);
     for (Listener listener : listenerSet.keySet()) {
-      listener.onUpdate(totalBytes);
+      try {
+        listener.onUpdate(totalBytes);
+      } catch (Throwable e) {
+        // catch an exception thrown by one listener so that it does not impact other listeners.
+        log.error("Exception thrown by a listener ", e);
+      }
     }
   }
 

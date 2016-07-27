@@ -20,9 +20,6 @@
 package org.apache.samza.container
 
 import java.io.File
-import java.lang.Thread.UncaughtExceptionHandler
-import java.net.URL
-import java.net.UnknownHostException
 import java.nio.file.Path
 import java.util
 import java.util.concurrent.ExecutorService
@@ -47,6 +44,7 @@ import org.apache.samza.container.disk.DiskSpaceMonitor
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.NoThrottlingDiskQuotaPolicyFactory
 import org.apache.samza.container.disk.PollingScanDiskSpaceMonitor
+import org.apache.samza.container.host.{SystemMemoryStatistics, SystemStatisticsMonitor, StatisticsMonitorImpl}
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
@@ -556,6 +554,16 @@ object SamzaContainer extends Logging {
     val executor = new ThrottlingExecutor(
       config.getLong("container.disk.quota.delay.max.ms", TimeUnit.SECONDS.toMillis(1)))
 
+    val memoryStatisticsMonitor : SystemStatisticsMonitor = new StatisticsMonitorImpl()
+    memoryStatisticsMonitor.registerListener(new SystemStatisticsMonitor.Listener {
+      override def onUpdate(sample: SystemMemoryStatistics): Unit = {
+        val physicalMemoryBytes : Long = sample.getPhysicalMemoryBytes
+        val physicalMemoryMb : Double = physicalMemoryBytes / (1024.0 * 1024.0)
+        logger.debug("Container physical memory utilization (mb): " + physicalMemoryMb)
+        samzaContainerMetrics.physicalMemoryMb.set(physicalMemoryMb)
+      }
+    })
+
     val diskQuotaBytes = config.getLong("container.disk.quota.bytes", Long.MaxValue)
     samzaContainerMetrics.diskQuotaBytes.set(diskQuotaBytes)
 
@@ -606,6 +614,7 @@ object SamzaContainer extends Logging {
       jvm = jvm,
       jmxServer = jmxServer,
       diskSpaceMonitor = diskSpaceMonitor,
+      hostStatisticsMonitor = memoryStatisticsMonitor,
       taskThreadPool = taskThreadPool)
   }
 }
@@ -619,6 +628,7 @@ class SamzaContainer(
   metrics: SamzaContainerMetrics,
   jmxServer: JmxServer,
   diskSpaceMonitor: DiskSpaceMonitor = null,
+  hostStatisticsMonitor: SystemStatisticsMonitor = null,
   offsetManager: OffsetManager = new OffsetManager,
   localityManager: LocalityManager = null,
   securityManager: SecurityManager = null,
@@ -637,6 +647,7 @@ class SamzaContainer(
       startLocalityManager
       startStores
       startDiskSpaceMonitor
+      startHostStatisticsMonitor
       startProducers
       startTask
       startConsumers
@@ -656,6 +667,7 @@ class SamzaContainer(
       shutdownTask
       shutdownStores
       shutdownDiskSpaceMonitor
+      shutdownHostStatisticsMonitor
       shutdownProducers
       shutdownLocalityManager
       shutdownOffsetManager
@@ -670,6 +682,13 @@ class SamzaContainer(
     if (diskSpaceMonitor != null) {
       info("Starting disk space monitor")
       diskSpaceMonitor.start()
+    }
+  }
+
+  def startHostStatisticsMonitor: Unit = {
+    if (hostStatisticsMonitor != null) {
+      info("Starting host statistics monitor")
+      hostStatisticsMonitor.start()
     }
   }
 
@@ -867,4 +886,13 @@ class SamzaContainer(
       diskSpaceMonitor.stop()
     }
   }
+
+  def shutdownHostStatisticsMonitor: Unit = {
+    if (hostStatisticsMonitor != null) {
+      info("Shutting down host statistics monitor.")
+      hostStatisticsMonitor.stop()
+    }
+  }
+
+
 }
