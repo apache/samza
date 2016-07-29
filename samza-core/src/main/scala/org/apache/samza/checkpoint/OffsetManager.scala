@@ -186,7 +186,9 @@ class OffsetManager(
    */
   def update(taskName: TaskName, systemStreamPartition: SystemStreamPartition, offset: String) {
     lastProcessedOffsets.putIfAbsent(taskName, new ConcurrentHashMap[SystemStreamPartition, String]())
-    lastProcessedOffsets.get(taskName).put(systemStreamPartition, offset)
+    if (offset != null) {
+      lastProcessedOffsets.get(taskName).put(systemStreamPartition, offset)
+    }
   }
 
   /**

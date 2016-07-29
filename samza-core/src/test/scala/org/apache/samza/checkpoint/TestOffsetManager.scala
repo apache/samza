@@ -81,6 +81,8 @@ class TestOffsetManager {
     assertEquals("47", offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).get)
     // Should never update starting offset.
     assertEquals("46", offsetManager.getStartingOffset(taskName, systemStreamPartition).get)
+    // Should not update null offset
+    offsetManager.update(taskName, systemStreamPartition, null)
     offsetManager.checkpoint(taskName)
     val expectedCheckpoint = new Checkpoint(Map(systemStreamPartition -> "47"))
     assertEquals(expectedCheckpoint, checkpointManager.readLastCheckpoint(taskName))
