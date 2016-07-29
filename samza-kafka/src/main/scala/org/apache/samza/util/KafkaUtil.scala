@@ -45,12 +45,10 @@ object KafkaUtil extends Logging {
     config.getJobId.getOrElse("1"))
 
   def getClientId(id: String, jobName: String, jobId: String): String =
-    "%s-%s-%s-%s-%s" format
+    "%s-%s-%s" format
       (id.replaceAll("[^A-Za-z0-9]", "_"),
         jobName.replaceAll("[^A-Za-z0-9]", "_"),
-        jobId.replaceAll("[^A-Za-z0-9]", "_"),
-        System.currentTimeMillis,
-        counter.getAndIncrement)
+        jobId.replaceAll("[^A-Za-z0-9]", "_"))
 
   private def abs(n: Int) = if (n == Integer.MIN_VALUE) 0 else math.abs(n)
 

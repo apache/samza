@@ -64,7 +64,7 @@ private[kafka] class KafkaSystemConsumer(
   systemAdmin: SystemAdmin,
   metrics: KafkaSystemConsumerMetrics,
   metadataStore: TopicMetadataStore,
-  clientId: String = "undefined-client-id-%s" format UUID.randomUUID.toString,
+  clientId: String,
   timeout: Int = ConsumerConfig.ConsumerTimeoutMs,
   bufferSize: Int = ConsumerConfig.SocketBufferSize,
   fetchSize: StreamFetchSizes = new StreamFetchSizes,
