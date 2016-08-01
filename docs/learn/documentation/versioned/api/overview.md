@@ -139,4 +139,5 @@ public class SplitStringIntoWords implements StreamTask {
 }
 {% endhighlight %}
 
+For more details on APIs, please refer to [Configuration](../jobs/configuration-table.html) and [Javadocs](javadocs)
 ## [SamzaContainer &raquo;](../container/samza-container.html)

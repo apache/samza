@@ -51,7 +51,7 @@ message => {
 }
 ```
 
-The messages are essentially serialized and transmitted over the wire as JSON blobs. Hence, for serialization to work correctly, it is very important to not have any unnecessary white spaces. The white spaces in the above JSON blob have been shown for legibility only.  
+The messages are essentially serialized and transmitted over the wire as JSON blobs. Hence, for serialization to work correctly, it is very important to not have any unnecessary white spaces. The white spaces in the above JSON blob have been shown for legibility only.
 
 The most important fields are type, key, and values:
 
@@ -134,7 +134,7 @@ Thus, Job Coorindator is the single component that has the latest view of the en
 
 ### Job Coordinator Availability
 
-The Job Coordinator resides in the same container as the Samza Application Master. Thus, the availability of the Job Coordinator is tied to the availability of the Application Master (AM) in the Yarn cluster. The Samza containers are started only after initializing the Job Coordinator from the Coordinator Stream. In stable condition, when the Samza container comes up, it should be able to read the JobModel from the Job Coordinator without timing out. 
+The Job Coordinator resides in the same container as the Samza Application Master. Thus, the availability of the Job Coordinator is tied to the availability of the Application Master (AM) in the Yarn cluster. The Samza containers are started only after initializing the Job Coordinator from the Coordinator Stream. In stable condition, when the Samza container comes up, it should be able to read the JobModel from the Job Coordinator without timing out.
 
 ## Benefits of Coordinator Stream Model
 Writing the configuration to a durable stream opens the door for Samza to do a couple of things:
@@ -148,3 +148,5 @@ Writing the configuration to a durable stream opens the door for Samza to do a c
 
 
 For other interesting features that can leverage this model, please refer the [design document](https://issues.apache.org/jira/secure/attachment/12670650/DESIGN-SAMZA-348-1.pdf).
+
+## [Event Loop &raquo;](event-loop.html)

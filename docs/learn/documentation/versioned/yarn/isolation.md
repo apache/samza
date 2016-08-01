@@ -37,10 +37,10 @@ YARN has the concept of a virtual core. Each NM is assigned a total number of vi
 
 #### CGroups
 
-Unlike memory, which YARN can enforce itself (by looking at the /proc folder), YARN can't enforce CPU isolation, since this must be done at the Linux kernel level. One of YARN's interesting new features is its support for Linux [CGroups](https://www.kernel.org/doc/Documentation/cgroups/cgroups.txt). CGroups are a way to control process utilization at the kernel level in Linux.
+Unlike memory, which YARN can enforce itself (by looking at the /proc folder), YARN can't enforce CPU isolation, since this must be done at the Linux kernel level. One of YARN's interesting new features is its support for Linux [CGroups](https://www.kernel.org/doc/Documentation/cgroup-v1/cgroups.txt). CGroups are a way to control process utilization at the kernel level in Linux.
 
-If YARN is setup to use CGroups, then YARN will guarantee that a container will get at least the amount of CPU that it requires. Currently, YARN will give you more CPU, if it's available. For details on enforcing "at most" CPU usage, see [YARN-810](https://issues.apache.org/jira/browse/YARN-810). 
+If YARN is setup to use CGroups, then YARN will guarantee that a container will get at least the amount of CPU that it requires. Currently, YARN will give you more CPU, if it's available. For details on enforcing "at most" CPU usage, see [YARN-810](https://issues.apache.org/jira/browse/YARN-810).
 
 See [this blog post](http://riccomini.name/posts/hadoop/2013-06-14-yarn-with-cgroups/) for details on setting up YARN with CGroups.
 
-## [YARN Security &raquo;](../yarn/yarn-secuirty.html)
+## [Host Affinity &amp; YARN &raquo;](../yarn/yarn-host-affinity.html)

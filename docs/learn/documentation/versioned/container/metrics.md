@@ -99,4 +99,4 @@ Samza currently supports three kinds of metrics: [counters](../api/javadocs/org/
 
 If you want to report metrics in some other way, e.g. directly to a graphing system (without going via Kafka), you can implement a [MetricsReporterFactory](../api/javadocs/org/apache/samza/metrics/MetricsReporterFactory.html) and reference it in your job configuration.
 
-## [Windowing &raquo;](windowing.html)
+## [JMX &raquo;](jmx.html)

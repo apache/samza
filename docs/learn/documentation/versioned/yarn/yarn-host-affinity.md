@@ -19,7 +19,7 @@ title: Host Affinity & YARN
    limitations under the License.
 -->
 
-In Samza, containers are the units of physical parallelism that runs on a set of machines. Each container is essentially a process that runs one or more stream tasks. Each task instance consumes one or more partitions of the input streams and is associated with its own durable data store. 
+In Samza, containers are the units of physical parallelism that runs on a set of machines. Each container is essentially a process that runs one or more stream tasks. Each task instance consumes one or more partitions of the input streams and is associated with its own durable data store.
 
 We define a *Stateful Samza Job* as the Samza job that uses a key-value store in its implementation, along with an associated changelog stream. In stateful samza jobs, a task may be configured to use multiple stores. For each store there is a 1:1 mapping between the task instance and the data store. Since the allocation of containers to machines in the Yarn cluster is completely left to Yarn, Samza does not guarantee that a container (and hence, its associated task(s)) gets deployed on the same machine. Containers can get shuffled in any of the following cases:
 
@@ -70,7 +70,7 @@ Note that the Yarn cluster has to be configured to use [Fair Scheduler](https://
 
 ## Configuring YARN cluster to support Host Affinity
 
-1. Enable local state re-use by setting the <code>LOGGED\_STORE\_BASE\_DIR</code> environment variable in yarn-env.sh {% highlight bash %} 
+1. Enable local state re-use by setting the <code>LOGGED\_STORE\_BASE\_DIR</code> environment variable in yarn-env.sh {% highlight bash %}
 export LOGGED_STORE_BASE_DIR=<path-for-state-stores>
 {% endhighlight %} Without this configuration, the state stores are not persisted upon a container shutdown. This will effectively mean you will not re-use local state and hence, host-affinity becomes a moot operation.
 2. Configure Yarn to use Fair Scheduler and enable continuous-scheduling in yarn-site.xml {% highlight xml %}
@@ -119,3 +119,4 @@ As you have observed, host-affinity cannot be guaranteed all the time due to var
 1. _When the number of containers and/or container-task assignment changes across successive application runs_ - We may be able to re-use local state for a subset of partitions. Currently, there is no logic in the Job Coordinator to handle partitioning of tasks among containers intelligently. Handling this is more involved as relates to [auto-scaling](https://issues.apache.org/jira/browse/SAMZA-336) of the containers. However, with [task-container mapping](https://issues.apache.org/jira/browse/SAMZA-906), this will work better for typical container count adjustments.
 2. _When SystemStreamPartitionGrouper changes across successive application runs_ - When the grouper logic used to distribute the partitions across containers changes, the data in the Coordinator Stream (for changelog-task partition assignment etc) and the data stores becomes invalid. Thus, to be safe, we should flush out all state-related data from the Coordinator Stream. An alternative is to overwrite the Task-ChangelogPartition assignment message and the Container Locality message in the Coordinator Stream, before starting up the job again.
 
+## [Writing to HDFS &raquo;](../hdfs/producer.html)

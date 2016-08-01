@@ -45,4 +45,4 @@ The only way in which a developer can hook into a SamzaContainer's lifecycle is 
 
 A concrete example is a set of StreamTasks that all want to share the same try/catch logic in their process() method. A StreamTask can be implemented that wraps the original StreamTasks, and surrounds the original process() call with the appropriate try/catch logic. For more details, see [this discussion](https://issues.apache.org/jira/browse/SAMZA-437).
 
-## [JMX &raquo;](jmx.html)
+## [Metrics &raquo;](metrics.html)
