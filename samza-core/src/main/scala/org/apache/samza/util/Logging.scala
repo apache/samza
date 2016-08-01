@@ -19,12 +19,20 @@
 
 package org.apache.samza.util
 
-import org.slf4j.LoggerFactory
-import org.slf4j.MDC
+import org.slf4j.{LoggerFactory, MDC}
 
 trait Logging {
   val loggerName = this.getClass.getName
   lazy val logger = LoggerFactory.getLogger(loggerName)
+
+  val startupLoggerName = "STARTUP_LOGGER"
+  lazy val startupLogger = LoggerFactory.getLogger(startupLoggerName)
+
+  def startupLog(message: => Any): Unit = {
+    logger.info(message)
+    startupLogger.info(message)
+  }
+
 
   def trace(message: => Any): Unit = {
     if (logger.isTraceEnabled()) {

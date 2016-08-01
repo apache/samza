@@ -99,8 +99,8 @@ class JmxServer(requestedPort: Int) extends Logging {
   }
 
   jmxServer.start
-  info("Started " + toString)
-  info("If you are tunneling, you might want to try " + toString.replaceAll("localhost", hostname))
+  startupLog("Started " + toString)
+  startupLog("If you are tunneling, you might want to try " + toString.replaceAll("localhost", hostname))
 
   /**
    * Get RMI registry port

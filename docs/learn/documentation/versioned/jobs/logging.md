@@ -77,6 +77,24 @@ These settings are very useful if you're using a file-based appender. For exampl
 
 Setting up a file-based appender is recommended as a better alternative to using standard out. Standard out log files (see below) don't roll, and can get quite large if used for logging.
 
+#### Startup logger
+When using a rolling file appender, it is common for a long-running job to exceed the max file size and count. In such cases, the beginning of the logs will be lost. Since the beginning of the logs include some of the most critical information like configuration, it is important to not lose this information. To address this issue, Samza logs this critical information to a "startup logger" in addition to the normal logger. You can write these log messages to a separate, finite file by including the following snippet in your log4j.xml: 
+
+{% highlight xml %}
+<appender name="StartupAppender" class="org.apache.log4j.RollingFileAppender">
+   <param name="File" value="${samza.log.dir}/${samza.container.name}-startup.log" />
+   <param name="MaxFileSize" value="256MB" />
+   <param name="MaxBackupIndex" value="1" />
+   <layout class="org.apache.log4j.PatternLayout">
+    <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} [%p] %m%n" />
+   </layout>
+</appender>
+<logger name="STARTUP_LOGGER" additivity="false">
+   <level value="info" />
+   <appender-ref ref="StartupAppender"/>
+</logger>
+{% endhighlight %}
+
 #### Changing log levels
 
 Sometimes it's desirable to change the Log4J log level from `INFO` to `DEBUG` at runtime so that a developer can enable more logging for a Samza container that's exhibiting undesirable behavior. Samza provides a Log4j class called JmxAppender, which will allow you to dynamically modify log levels at runtime. The JmxAppender class is located in the samza-log4j package, and can be turned on by first adding a runtime dependency to the samza-log4j package:
