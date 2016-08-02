@@ -101,6 +101,8 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   private final ConcurrentHashMap<SamzaResource, Container> allocatedResources = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<SamzaResourceRequest, AMRMClient.ContainerRequest> requestsMap = new ConcurrentHashMap<>();
 
+  private final SamzaAppMasterMetrics metrics;
+
   final AtomicBoolean started = new AtomicBoolean(false);
   private final Object lock = new Object();
 
@@ -119,6 +121,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     hConfig.set("fs.http.impl", HttpFileSystem.class.getName());
 
     MetricsRegistryMap registry = new MetricsRegistryMap();
+    metrics = new SamzaAppMasterMetrics(config, samzaAppState, registry);
 
     // parse configs from the Yarn environment
     String containerIdStr = System.getenv(ApplicationConstants.Environment.CONTAINER_ID.toString());
@@ -157,6 +160,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
       log.info("Attempting to start an already started ContainerManager");
       return;
     }
+    metrics.start();
     service.onInit();
     log.info("Starting YarnContainerManager.");
     amClient.init(hConfig);
@@ -317,6 +321,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     amClient.stop();
     log.info("Stopping the AM service " );
     service.onShutdown();
+    metrics.stop();
 
     if(status != SamzaApplicationState.SamzaAppStatus.UNDEFINED) {
       cleanupStagingDir();
