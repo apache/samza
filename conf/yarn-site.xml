@@ -30,4 +30,8 @@ under the License.
     <name>yarn.resourcemanager.hostname</name>
     <value>127.0.0.1</value>
   </property>
+  <property>
+    <name>yarn.nodemanager.delete.debug-delay.sec</name>
+    <value>86400</value>
+  </property>
 </configuration>
