@@ -22,6 +22,7 @@ package org.apache.samza.storage.kv
 import org.apache.samza.util.Logging
 import org.apache.samza.storage.{StoreProperties, StorageEngine}
 import org.apache.samza.system.IncomingMessageEnvelope
+import org.apache.samza.util.TimerUtils
 
 import scala.collection.JavaConversions._
 
@@ -35,14 +36,19 @@ class KeyValueStorageEngine[K, V](
   wrapperStore: KeyValueStore[K, V],
   rawStore: KeyValueStore[Array[Byte], Array[Byte]],
   metrics: KeyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics,
-  batchSize: Int = 500) extends StorageEngine with KeyValueStore[K, V] with Logging {
+  batchSize: Int = 500,
+  val clock: () => Long = { System.nanoTime }) extends StorageEngine with KeyValueStore[K, V] with TimerUtils with Logging {
 
   var count = 0
 
   /* delegate to underlying store */
   def get(key: K): V = {
-    metrics.gets.inc
-    wrapperStore.get(key)
+    updateTimer(metrics.getNs) {
+      metrics.gets.inc
+
+      //update the duration and return the fetched value
+      wrapperStore.get(key)
+    }
   }
 
   def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
@@ -51,8 +57,10 @@ class KeyValueStorageEngine[K, V](
   }
 
   def put(key: K, value: V) = {
-    metrics.puts.inc
-    wrapperStore.put(key, value)
+    updateTimer(metrics.putNs) {
+      metrics.puts.inc
+      wrapperStore.put(key, value)
+    }
   }
 
   def putAll(entries: java.util.List[Entry[K, V]]) = {
@@ -61,8 +69,10 @@ class KeyValueStorageEngine[K, V](
   }
 
   def delete(key: K) = {
-    metrics.deletes.inc
-    wrapperStore.delete(key)
+    updateTimer(metrics.deleteNs) {
+      metrics.deletes.inc
+      wrapperStore.delete(key)
+    }
   }
 
   def deleteAll(keys: java.util.List[K]) = {
@@ -71,13 +81,17 @@ class KeyValueStorageEngine[K, V](
   }
 
   def range(from: K, to: K) = {
-    metrics.ranges.inc
-    wrapperStore.range(from, to)
+    updateTimer(metrics.rangeNs) {
+      metrics.ranges.inc
+      wrapperStore.range(from, to)
+    }
   }
 
   def all() = {
-    metrics.alls.inc
-    wrapperStore.all()
+    updateTimer(metrics.allNs) {
+      metrics.alls.inc
+      wrapperStore.all()
+    }
   }
 
   /**
@@ -117,11 +131,11 @@ class KeyValueStorageEngine[K, V](
   }
 
   def flush() = {
-    trace("Flushing.")
-
-    metrics.flushes.inc
-
-    wrapperStore.flush()
+    updateTimer(metrics.flushNs) {
+      trace("Flushing.")
+      metrics.flushes.inc
+      wrapperStore.flush()
+    }
   }
 
   def stop() = {
