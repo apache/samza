@@ -53,7 +53,7 @@ import org.apache.samza.util.Util;
 public class StreamAppender extends AppenderSkeleton {
 
   private static final String JAVA_OPTS_CONTAINER_NAME = "samza.container.name";
-  private static final String APPLICATION_MASTER_TAG = "samza-application-master";
+  private static final String JOB_COORDINATOR_TAG = "samza-job-coordinator";
   private static final String SOURCE = "log4j-log";
   private Config config = null;
   private SystemStream systemStream = null;
@@ -82,7 +82,7 @@ public class StreamAppender extends AppenderSkeleton {
   public void activateOptions() {
     String containerName = System.getProperty(JAVA_OPTS_CONTAINER_NAME);
     if (containerName != null) {
-      isApplicationMaster = containerName.contains(APPLICATION_MASTER_TAG);
+      isApplicationMaster = containerName.contains(JOB_COORDINATOR_TAG);
     } else {
       throw new SamzaException("Got null container name from system property: " + JAVA_OPTS_CONTAINER_NAME +
           ". This is used as the key for the log appender, so can't proceed.");
