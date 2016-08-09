@@ -29,6 +29,7 @@ Starting in June of 2015, Samza will begin requiring JDK7 or higher. Please see 
 
 ### Source Releases
 
+ * [samza-sources-0.10.1.tgz](http://www.apache.org/dyn/closer.lua/samza/0.10.1)
  * [samza-sources-0.10.0.tgz](http://www.apache.org/dyn/closer.lua/samza/0.10.0)
  * [samza-sources-0.9.1.tgz](http://www.apache.org/dyn/closer.lua/samza/0.9.1)
  * [samza-sources-0.9.0.tgz](http://www.apache.org/dyn/closer.lua/samza/0.9.0)
@@ -47,12 +48,12 @@ A Maven-based Samza project can pull in all required dependencies Samza dependen
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-api</artifactId>
-  <version>0.10.0</version>
+  <version>0.10.1</version>
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-core_2.10</artifactId>
-  <version>0.10.0</version>
+  <version>0.10.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
@@ -60,37 +61,37 @@ A Maven-based Samza project can pull in all required dependencies Samza dependen
   <artifactId>samza-shell</artifactId>
   <classifier>dist</classifier>
   <type>tgz</type>
-  <version>0.10.0</version>
+  <version>0.10.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-yarn_2.10</artifactId>
-  <version>0.10.0</version>
+  <version>0.10.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-kv_2.10</artifactId>
-  <version>0.10.0</version>
+  <version>0.10.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-kv-rocksdb_2.10</artifactId>
-  <version>0.10.0</version>
+  <version>0.10.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-kv-inmemory_2.10</artifactId>
-  <version>0.10.0</version>
+  <version>0.10.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-kafka_2.10</artifactId>
-  <version>0.10.0</version>
+  <version>0.10.1</version>
   <scope>runtime</scope>
 </dependency>
 {% endhighlight %}
