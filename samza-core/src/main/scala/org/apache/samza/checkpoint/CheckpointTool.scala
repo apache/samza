@@ -24,9 +24,10 @@ import java.util.regex.Pattern
 import joptsimple.OptionSet
 import org.apache.samza.checkpoint.CheckpointTool.TaskNameToCheckpointMap
 import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.config.{Config, StreamConfig}
+import org.apache.samza.config.{JobConfig, ConfigRewriter, Config, StreamConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
+import org.apache.samza.job.JobRunner._
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.{Util, CommandLine, Logging}
@@ -126,11 +127,29 @@ object CheckpointTool {
     new CheckpointTool(config, offsets, manager)
   }
 
+  def rewriteConfig(config: JobConfig): Config = {
+    def rewrite(c: JobConfig, rewriterName: String): Config = {
+      val klass = config
+              .getConfigRewriterClass(rewriterName)
+              .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
+      val rewriter = Util.getObj[ConfigRewriter](klass)
+      info("Re-writing config for CheckpointTool with " + rewriter)
+      rewriter.rewrite(rewriterName, c)
+    }
+
+    config.getConfigRewriters match {
+      case Some(rewriters) => rewriters.split(",").foldLeft(config)(rewrite(_, _))
+      case _ => config
+    }
+  }
+
   def main(args: Array[String]) {
     val cmdline = new CheckpointToolCommandLine
     val options = cmdline.parser.parse(args: _*)
     val config = cmdline.loadConfig(options)
-    val tool = CheckpointTool(config, cmdline.newOffsets)
+    val rconfig = rewriteConfig(new JobConfig(config))
+    print("Rewritten config" + rconfig)
+    val tool = CheckpointTool(rconfig, cmdline.newOffsets)
     tool.run
   }
 }
