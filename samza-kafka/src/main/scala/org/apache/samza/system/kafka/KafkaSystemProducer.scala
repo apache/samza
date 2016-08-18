@@ -70,12 +70,6 @@ class KafkaSystemProducer(systemName: String,
   val sources: ConcurrentHashMap[String, SourceData] = new ConcurrentHashMap[String, SourceData]
 
   def start(): Unit = {
-    producerLock.synchronized {
-      if (producer == null) {
-        info("Creating a new producer for system %s." format systemName)
-        producer = getProducer()
-      }
-    }
   }
 
   def stop() {
@@ -120,6 +114,16 @@ class KafkaSystemProducer(systemName: String,
     if (exception != null) {
       metrics.sendFailed.inc
       throw exception
+    }
+
+    // lazy initialization of the producer
+    if (producer == null) {
+      producerLock.synchronized {
+        if (producer == null) {
+          info("Creating a new producer for system %s." format systemName)
+          producer = getProducer()
+        }
+      }
     }
 
     val currentProducer = producer
