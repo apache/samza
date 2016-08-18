@@ -30,6 +30,7 @@ task wrapper(type: Wrapper) {
 version = "$SAMZA_VERSION"
 
 repositories {
+    mavenLocal()
     mavenCentral()
     maven { url "https://repository.apache.org/content/groups/public" }
 }
