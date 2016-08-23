@@ -16,31 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-shell',
-  'samza-rest'
+package org.apache.samza.rest.resources;
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-hdfs',
-        'samza-yarn',
-        'samza-test',
-        'samza-autoscaling'
-] as HashSet
+import java.util.Collections;
+import java.util.List;
+import org.apache.samza.config.Config;
+import org.apache.samza.rest.SamzaRestConfig;
 
-scalaModules.each {
-  include it
-}
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
+/**
+ * Instantiates all the resources that are shipped with the REST service.
+ */
+public class DefaultResourceFactory implements ResourceFactory {
+  @Override
+  public List<? extends Object> getResourceInstances(Config config) {
+    return Collections.singletonList(new JobsResource(new JobsResourceConfig(config)));
   }
 }

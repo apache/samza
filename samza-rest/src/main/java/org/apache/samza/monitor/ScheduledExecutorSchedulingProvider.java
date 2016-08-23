@@ -16,31 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-shell',
-  'samza-rest'
+package org.apache.samza.monitor;
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-hdfs',
-        'samza-yarn',
-        'samza-test',
-        'samza-autoscaling'
-] as HashSet
+import java.util.concurrent.ScheduledExecutorService;
 
-scalaModules.each {
-  include it
-}
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
-  }
+public class ScheduledExecutorSchedulingProvider implements SchedulingProvider {
+
+    private final ScheduledExecutorService scheduler;
+
+    public ScheduledExecutorSchedulingProvider(ScheduledExecutorService scheduler) {
+        this.scheduler = scheduler;
+    }
+
+    public void schedule(Runnable runnable, int interval) {
+        this.scheduler.scheduleAtFixedRate(runnable, 0, interval, MILLISECONDS);
+    }
+
+    public void stop() {
+        this.scheduler.shutdownNow();
+    }
 }

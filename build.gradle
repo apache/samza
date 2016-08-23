@@ -469,6 +469,64 @@ project(":samza-hdfs_$scalaVersion") {
     }
 }
 
+project(":samza-rest") {
+  apply plugin: 'java'
+
+  dependencies {
+    compile project(":samza-shell")
+    compile project(":samza-core_$scalaVersion")
+
+    runtime "org.slf4j:slf4j-log4j12:$slf4jVersion"
+    compile "com.google.guava:guava:$guavaVersion"
+    compile "org.glassfish.jersey.core:jersey-server:$jerseyVersion"
+    compile "org.glassfish.jersey.containers:jersey-container-servlet-core:$jerseyVersion"
+    compile "org.glassfish.jersey.containers:jersey-container-jetty-http:$jerseyVersion"
+    compile "org.glassfish.jersey.media:jersey-media-moxy:$jerseyVersion"
+    compile "org.eclipse.jetty.aggregate:jetty-all:$jettyVersion"
+    compile("org.apache.hadoop:hadoop-yarn-client:$yarnVersion") {
+      exclude module: 'slf4j-log4j12'
+      exclude module: 'servlet-api'
+      exclude group: 'com.sun.jersey'
+    }
+    runtime("org.apache.hadoop:hadoop-yarn-api:$yarnVersion") {
+      exclude module: 'slf4j-log4j12'
+      exclude module: 'servlet-api'
+      exclude group: 'com.sun.jersey'
+    }
+
+    testCompile "junit:junit:$junitVersion"
+    testCompile "org.glassfish.jersey.test-framework.providers:jersey-test-framework-provider-grizzly2:$jerseyVersion"
+  }
+
+  tasks.create(name: "releaseRestServiceTar", type: Tar) {
+    description 'Build a tarball containing the samza-rest component and its dependencies'
+    compression = Compression.GZIP
+    from(file("$projectDir/src/main/config")) { into "config/" }
+    from(file("$projectDir/src/main/resources/log4j.xml")) { into "bin/" }
+    from(file("$projectDir/src/main/bash/run-samza-rest-service.sh")) { into "bin/" }
+    from(project(':samza-shell').file("src/main/bash/run-class.sh")) { into "bin/" }
+    from '../LICENSE'
+    from '../NOTICE'
+    from(configurations.runtime) { into("lib/") }
+    from(jar) { into("lib/") }
+  }
+
+  tasks.create(name: "restTarGz", type: Tar) {
+    description 'Build a tarball containing the samza-rest supplementary files'
+    compression = Compression.GZIP
+    from 'src/main/bash'
+    from 'src/main/resources'
+    from(project(':samza-shell').file("src/main/bash/run-class.sh"))
+  }
+
+  artifacts {
+    archives(restTarGz) {
+      name 'samza-rest-scripts'
+      classifier 'dist'
+    }
+  }
+}
+
 project(":samza-test_$scalaVersion") {
   apply plugin: 'scala'
   apply plugin: 'checkstyle'

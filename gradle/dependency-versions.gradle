@@ -18,6 +18,7 @@
  */
  ext {
   elasticsearchVersion = "1.5.1"
+  jerseyVersion = "2.22.1"
   jodaTimeVersion = "2.2"
   joptSimpleVersion = "3.2"
   jacksonVersion = "1.9.13"

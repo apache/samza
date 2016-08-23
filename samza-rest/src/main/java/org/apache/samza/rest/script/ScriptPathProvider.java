@@ -16,31 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-shell',
-  'samza-rest'
+package org.apache.samza.rest.script;
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-hdfs',
-        'samza-yarn',
-        'samza-test',
-        'samza-autoscaling'
-] as HashSet
+import java.io.FileNotFoundException;
+import org.apache.samza.rest.proxy.job.JobInstance;
 
-scalaModules.each {
-  include it
-}
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
-  }
+/**
+ * Defines the protocol for getting script paths.
+ */
+public interface ScriptPathProvider {
+  /**
+   * @param jobInstance             the job instance which may be used to access the job installation for the script.
+   * @param scriptName              the name of the script file. Not the full path.
+   * @return                        the full path to the specified script.
+   * @throws FileNotFoundException  if the script does not exist.
+   */
+  String getScriptPath(JobInstance jobInstance, String scriptName)
+      throws FileNotFoundException;
 }

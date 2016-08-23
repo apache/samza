@@ -16,31 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-shell',
-  'samza-rest'
+package org.apache.samza.rest.proxy.job;
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-hdfs',
-        'samza-yarn',
-        'samza-test',
-        'samza-autoscaling'
-] as HashSet
+import org.apache.samza.rest.resources.JobsResourceConfig;
 
-scalaModules.each {
-  include it
-}
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
+/**
+ * Factory to produce SimpleJobProxy instances.
+ *
+ * See {@link AbstractJobProxy#fromFactory(org.apache.samza.rest.resources.JobsResourceConfig)}
+ */
+public class SimpleYarnJobProxyFactory implements JobProxyFactory {
+
+  @Override
+  public JobProxy getJobProxy(JobsResourceConfig config) {
+    return new SimpleYarnJobProxy(config);
   }
 }

@@ -16,31 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-shell',
-  'samza-rest'
+package org.apache.samza.monitor;
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-hdfs',
-        'samza-yarn',
-        'samza-test',
-        'samza-autoscaling'
-] as HashSet
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-scalaModules.each {
-  include it
-}
+import java.io.IOException;
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
-  }
+/**
+ * Provides scheduling functionality to the SamzaMonitorService.
+ */
+public interface SchedulingProvider {
+    /* Schedule a the given Runnable to run() every INTERVAL ms. */
+    void schedule(Runnable runnable, int intervalMs);
+
+    /* Stop any future executions of any scheduled tasks. */
+    void stop();
 }

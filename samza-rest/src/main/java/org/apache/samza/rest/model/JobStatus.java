@@ -16,31 +16,38 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-shell',
-  'samza-rest'
+package org.apache.samza.rest.model;
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-hdfs',
-        'samza-yarn',
-        'samza-test',
-        'samza-autoscaling'
-] as HashSet
+/**
+ * The abstract status of the job, irrespective of the status in any underlying cluster management system (e.g. YARN).
+ * This status is the client view of the job status.
+ */
+public enum JobStatus {
 
-scalaModules.each {
-  include it
-}
+    /** Job is in the process of starting but is not yet running. */
+    STARTING("starting"),
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
+    /** Job has been started. */
+    STARTED("started"),
+
+    /** Job has been stopped. */
+    STOPPED("stopped"),
+
+    /** Job status is unknown. */
+    UNKNOWN("unknown");
+
+  private final String stringVal;
+
+  JobStatus(final String stringVal) {
+    this.stringVal = stringVal;
+  }
+
+  @Override
+  public String toString() {
+    return stringVal;
+  }
+
+  public boolean hasBeenStarted() {
+    return !(this == STOPPED || this == UNKNOWN);
   }
 }

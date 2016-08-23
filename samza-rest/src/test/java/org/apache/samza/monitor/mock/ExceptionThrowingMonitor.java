@@ -16,31 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-shell',
-  'samza-rest'
+package org.apache.samza.monitor.mock;
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-hdfs',
-        'samza-yarn',
-        'samza-test',
-        'samza-autoscaling'
-] as HashSet
+import org.apache.samza.monitor.Monitor;
 
-scalaModules.each {
-  include it
-}
+import java.io.IOException;
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
-  }
+public class ExceptionThrowingMonitor implements Monitor {
+    public void monitor() throws IOException {
+        throw new IOException("I don't know what I was expecting.");
+    }
 }

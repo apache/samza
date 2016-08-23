@@ -16,31 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-shell',
-  'samza-rest'
+package org.apache.samza.rest.script;
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-hdfs',
-        'samza-yarn',
-        'samza-test',
-        'samza-autoscaling'
-] as HashSet
+import java.io.IOException;
+import java.io.InputStream;
 
-scalaModules.each {
-  include it
-}
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
-  }
+/**
+ * A script output handler processes the stream of output from the stdout and stderr channels of a script.
+ */
+public interface ScriptOutputHandler {
+
+  /**
+   * Processes the script output represented by the InputStream.
+   *
+   * Implementations must fully process the stream or the script may hang.
+   *
+   * @param output the stream of output from the script.
+   * @throws IOException if there are problems reading the output.
+   */
+  void processScriptOutput(InputStream output)
+      throws IOException;
 }

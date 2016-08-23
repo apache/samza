@@ -16,31 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-shell',
-  'samza-rest'
+package org.apache.samza.rest.resources;
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-hdfs',
-        'samza-yarn',
-        'samza-test',
-        'samza-autoscaling'
-] as HashSet
+import java.util.List;
+import org.apache.samza.config.Config;
 
-scalaModules.each {
-  include it
-}
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
-  }
+/**
+ * Instantiates a resource using the provided config.
+ *
+ * This is used to instantiate and register a specific instance of the object rather than registering the class.
+ */
+public interface ResourceFactory {
+
+  /**
+   * Constructs and returns resource instances to register with the server.
+   *
+   * @param config  the server config used to initialize the objects.
+   * @return        a collection of instances to register with the server.
+   */
+  List<? extends Object> getResourceInstances(Config config);
 }

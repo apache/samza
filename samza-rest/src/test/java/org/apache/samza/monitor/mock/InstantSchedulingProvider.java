@@ -16,31 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-include \
-  'samza-api',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-shell',
-  'samza-rest'
+package org.apache.samza.monitor.mock;
 
-def scalaModules = [
-        'samza-core',
-        'samza-kafka',
-        'samza-kv',
-        'samza-kv-inmemory',
-        'samza-kv-rocksdb',
-        'samza-hdfs',
-        'samza-yarn',
-        'samza-test',
-        'samza-autoscaling'
-] as HashSet
+import org.apache.samza.monitor.SchedulingProvider;
 
-scalaModules.each {
-  include it
-}
+/**
+ * Instead of scheduling a monitor to run, just runs it ASAP.
+ */
+public class InstantSchedulingProvider implements SchedulingProvider {
 
-rootProject.children.each {
-  if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
-  }
+    public void schedule(Runnable runnableMonitor, int interval) {
+        runnableMonitor.run();
+    }
+
+    // Nothing to stop because no deferred task was started
+    public void stop() {}
 }
