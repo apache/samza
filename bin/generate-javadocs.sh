@@ -18,11 +18,19 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BASE_DIR=$DIR/..
-JAVADOC_DIR=$BASE_DIR/docs/learn/documentation/versioned/api/javadocs
+API_JAVADOC_DIR=$BASE_DIR/docs/learn/documentation/versioned/api/javadocs
+REST_JAVADOC_DIR=$BASE_DIR/docs/learn/documentation/versioned/rest/javadocs
 
 cd $BASE_DIR
 ./gradlew javadoc
-rm -rf $JAVADOC_DIR
-mkdir -p $JAVADOC_DIR
-cp -r $BASE_DIR/samza-api/build/docs/javadoc/* $JAVADOC_DIR
+
+# API Docs
+rm -rf $API_JAVADOC_DIR
+mkdir -p $API_JAVADOC_DIR
+cp -r $BASE_DIR/samza-api/build/docs/javadoc/* $API_JAVADOC_DIR
+
+# REST Docs
+rm -rf $REST_JAVADOC_DIR
+mkdir -p $REST_JAVADOC_DIR
+cp -r $BASE_DIR/samza-rest/build/docs/javadoc/* $REST_JAVADOC_DIR
 cd -

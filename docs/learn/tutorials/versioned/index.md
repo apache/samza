@@ -29,6 +29,8 @@ title: Tutorials
 
 [Run Hello-samza without Internet](run-hello-samza-without-internet.html)
 
+[Getting Started with Samza REST](samza-rest-getting-started.html)
+
 <!-- TODO a bunch of tutorials
 [Log Walkthrough](log-walkthrough.html)
 <a href="configuring-kafka-system.html">Configuring a Kafka System</a><br/>
