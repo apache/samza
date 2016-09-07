@@ -22,7 +22,7 @@ package org.apache.samza.task;
 import org.apache.samza.system.IncomingMessageEnvelope;
 
 /**
- * An AsyncStreamTask is the basic class to support multithreading execution in Samza container. It’s provided for better
+ * An AsyncStreamTask is the basic class to support multithreading execution in Samza container. It's provided for better
  * parallelism and resource utilization. This class allows task to make asynchronous calls and fire callbacks upon completion.
  * Similar to {@link StreamTask}, an AsyncStreamTask may be augmented by implementing other interfaces, such as
  * {@link InitableTask}, {@link WindowableTask}, or {@link ClosableTask}. The following invariants hold with these mix-ins:
@@ -33,8 +33,8 @@ import org.apache.samza.system.IncomingMessageEnvelope;
  * CloseableTask.close - always the last method invoked on an AsyncStreamTask and all other AsyncStreamTask are guaranteed
  * to happen-before it.
  *
- * AsyncStreamTask.processAsync - can run in either a serialized or parallel mode. In the serialized mode (task.process.max.inflight.messages=1),
- * each invocation of processAsync is guaranteed to happen-before the next. In a parallel execution mode (task.process.max.inflight.messages&gt;1),
+ * AsyncStreamTask.processAsync - can run in either a serialized or parallel mode. In the serialized mode (task.max.concurrency=1),
+ * each invocation of processAsync is guaranteed to happen-before the next. In a parallel execution mode (task.max.concurrency&gt;1),
  * there is no such happens-before constraint and the AsyncStreamTask is required to coordinate any shared state.
  *
  * WindowableTask.window - in either above mode, it is called when no invocations to processAsync are pending and no new

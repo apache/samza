@@ -222,7 +222,9 @@ object SamzaContainer extends Logging {
     info("Got system consumers: %s" format consumers.keys)
 
     val isAsyncTask = classOf[AsyncStreamTask].isAssignableFrom(Class.forName(taskClassName))
-    info("%s is AsyncStreamTask" format taskClassName)
+    if (isAsyncTask) {
+      info("%s is AsyncStreamTask" format taskClassName)
+    }
 
     val producers = systemFactories
       .map {
