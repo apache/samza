@@ -26,6 +26,7 @@ import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.metrics.ContainerProcessManagerMetrics;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.util.ClassLoaderHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.HashMap;
@@ -402,7 +403,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     final ResourceManagerFactory factory;
 
     try {
-      factory = (ResourceManagerFactory) Class.forName(containerManagerFactoryClass).newInstance();
+      factory = ClassLoaderHelper.<ResourceManagerFactory>fromClassName(containerManagerFactoryClass);
     } catch (InstantiationException e) {
       log.error("Instantiation exception when creating ContainerManager", e);
       throw new SamzaException(e);

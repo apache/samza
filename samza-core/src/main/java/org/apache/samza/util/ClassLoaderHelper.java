@@ -16,28 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.monitor;
 
-import org.apache.samza.util.ClassLoaderHelper;
+package org.apache.samza.util;
 
-import java.lang.reflect.Constructor;
+public class ClassLoaderHelper {
 
-class MonitorLoader {
-
-    private MonitorLoader() {}
-
-    public static Monitor fromClassName(String monitorClassName)
-        throws InstantiationException {
-        Object monitorObject;
-        try {
-            monitorObject = ClassLoaderHelper.fromClassName(monitorClassName);
-        } catch (Exception e) {
-            throw (InstantiationException)
-                new InstantiationException("Unable to instantiate " + monitorClassName).initCause(e);
-        }
-        if (!(monitorObject instanceof Monitor)) {
-            throw new InstantiationException(monitorClassName + " is not an instance of Monitor");
-        }
-        return (Monitor) monitorObject;
-    }
+  public static <T> T fromClassName(String className) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
+    Class<T> clazz = (Class<T>) Class.forName(className);
+    T instance = clazz.newInstance();
+    return instance;
+  }
 }

@@ -29,6 +29,7 @@ import org.apache.samza.config.factories.PropertiesConfigFactory;
 import org.apache.samza.rest.model.Job;
 import org.apache.samza.rest.model.JobStatus;
 import org.apache.samza.rest.resources.JobsResourceConfig;
+import org.apache.samza.util.ClassLoaderHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,8 +53,7 @@ public abstract class AbstractJobProxy implements JobProxy {
     String jobProxyFactory = config.getJobProxyFactory();
     if (jobProxyFactory != null && !jobProxyFactory.isEmpty()) {
       try {
-        Class factoryCls = Class.forName(jobProxyFactory);
-        JobProxyFactory factory = (JobProxyFactory) factoryCls.newInstance();
+        JobProxyFactory factory = ClassLoaderHelper.<JobProxyFactory>fromClassName(jobProxyFactory);
         return factory.getJobProxy(config);
       } catch (Exception e) {
         throw new SamzaException(e);
@@ -120,8 +120,7 @@ public abstract class AbstractJobProxy implements JobProxy {
     }
 
     try {
-      Class factoryCls = Class.forName(configFactoryClassName);
-      return (ConfigFactory) factoryCls.newInstance();
+      return ClassLoaderHelper.<ConfigFactory>fromClassName(configFactoryClassName);
     } catch (Exception e) {
       throw new SamzaException(e);
     }

@@ -74,6 +74,7 @@ import org.apache.samza.task.AsyncStreamTask
 import org.apache.samza.task.AsyncStreamTaskAdapter
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskInstanceCollector
+import org.apache.samza.util.ClassLoaderHelper
 import org.apache.samza.util.ExponentialSleepStrategy
 import org.apache.samza.util.Logging
 import org.apache.samza.util.ThrottlingExecutor
@@ -441,11 +442,11 @@ object SamzaContainer extends Logging {
 
       val taskName = taskModel.getTaskName
 
-      val taskObj = Class.forName(taskClassName).newInstance
+      val taskObj = ClassLoaderHelper.fromClassName[StreamTask](taskClassName)
 
       val task = if (!singleThreadMode && !isAsyncTask)
         // Wrap the StreamTask into a AsyncStreamTask with the build-in thread pool
-        new AsyncStreamTaskAdapter(taskObj.asInstanceOf[StreamTask], taskThreadPool)
+        new AsyncStreamTaskAdapter(taskObj, taskThreadPool)
       else
         taskObj
 

@@ -40,6 +40,7 @@ import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.job.yarn.ClientHelper;
 import org.apache.samza.metrics.JmxMetricsAccessor;
 import org.apache.samza.metrics.MetricsValidator;
+import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.util.hadoop.HttpFileSystem;
 import org.apache.samza.util.CommandLine;
 import org.slf4j.Logger;
@@ -175,7 +176,7 @@ public class YarnJobValidationTool {
     MetricsValidator validator = null;
     if (options.has(validatorOpt)) {
       String validatorClass = options.valueOf(validatorOpt);
-      validator = (MetricsValidator) Class.forName(validatorClass).newInstance();
+      validator = ClassLoaderHelper.<MetricsValidator>fromClassName(validatorClass);
     }
 
     YarnConfiguration hadoopConfig = new YarnConfiguration();
