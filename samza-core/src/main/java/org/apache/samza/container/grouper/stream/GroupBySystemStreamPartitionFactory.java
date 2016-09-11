@@ -25,7 +25,7 @@ public class GroupBySystemStreamPartitionFactory implements SystemStreamPartitio
 
   @Override
   public SystemStreamPartitionGrouper getSystemStreamPartitionGrouper(Config config) {
-    return new GroupBySystemStreamPartition();
+    return new GroupBySystemStreamPartition(config);
   }
 
 }

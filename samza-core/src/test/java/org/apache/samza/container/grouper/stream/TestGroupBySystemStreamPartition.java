@@ -39,12 +39,15 @@ public class TestGroupBySystemStreamPartition {
   SystemStreamPartition aa1 = new SystemStreamPartition("SystemA", "StreamA", new Partition(1));
   SystemStreamPartition aa2 = new SystemStreamPartition("SystemA", "StreamA", new Partition(2));
   SystemStreamPartition ac0 = new SystemStreamPartition("SystemA", "StreamB", new Partition(0));
+  GroupBySystemStreamPartitionFactory grouperFactory = new GroupBySystemStreamPartitionFactory();
 
   @Test
   public void testLocalStreamGroupedCorrectly() {
     HashSet<SystemStreamPartition> allSSPs = new HashSet<SystemStreamPartition>();
+    HashMap<String, String> configMap = new HashMap<String, String>();
+    Config config = new MapConfig(configMap);
 
-    GroupBySystemStreamPartition grouper = new GroupBySystemStreamPartition();
+    SystemStreamPartitionGrouper grouper = grouperFactory.getSystemStreamPartitionGrouper(config);
     Map<TaskName, Set<SystemStreamPartition>> emptyResult = grouper.group(allSSPs);
     assertTrue(emptyResult.isEmpty());
 
@@ -79,7 +82,8 @@ public class TestGroupBySystemStreamPartition {
 
     HashSet<SystemStreamPartition> allSSPs = new HashSet<SystemStreamPartition>();
     Collections.addAll(allSSPs, aa0, aa1, aa2, ac0);
-    GroupBySystemStreamPartition grouper = new GroupBySystemStreamPartition(config);
+    GroupBySystemStreamPartitionFactory grouperFactory = new GroupBySystemStreamPartitionFactory();
+    SystemStreamPartitionGrouper grouper = grouperFactory.getSystemStreamPartitionGrouper(config);
     Map<TaskName, Set<SystemStreamPartition>> result = grouper.group(allSSPs);
 
     Map<TaskName, Set<SystemStreamPartition>> expectedResult = new HashMap<TaskName, Set<SystemStreamPartition>>();
