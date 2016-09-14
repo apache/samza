@@ -270,8 +270,6 @@ class BootstrappingChooser(
 }
 
 class BootstrappingChooserMetrics(val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
-  val batches = newCounter("batch-resets")
-
   def setLaggingSystemStreams(getValue: () => Int) {
     newGauge("lagging-batch-streams", getValue)
   }

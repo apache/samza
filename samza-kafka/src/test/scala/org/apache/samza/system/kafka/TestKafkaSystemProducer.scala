@@ -84,7 +84,6 @@ class TestKafkaSystemProducer {
     sendThread.join()
 
     assertEquals(3, mockProducer.getMsgsSent)
-    assertEquals(0, producerMetrics.retries.getCount)
     systemProducer.stop()
   }
 
@@ -164,7 +163,6 @@ class TestKafkaSystemProducer {
     producer.send("test", msg3)
     producer.flush("test")
 
-    assertEquals(0, producerMetrics.retries.getCount)
     mockProducer.setErrorNext(true, new TimeoutException())
 
     producer.send("test", msg4)
@@ -174,8 +172,6 @@ class TestKafkaSystemProducer {
     assertTrue(thrown.isInstanceOf[SamzaException])
     assertTrue(thrown.getCause.isInstanceOf[TimeoutException])
     assertEquals(3, mockProducer.getMsgsSent)
-    // retriable exception will be thrown immediately
-    assertEquals(0, producerMetrics.retries.getCount)
     producer.stop()
   }
 
@@ -205,7 +201,6 @@ class TestKafkaSystemProducer {
     assertTrue(thrown.isInstanceOf[SamzaException])
     assertTrue(thrown.getCause.isInstanceOf[RecordTooLargeException])
     assertEquals(3, mockProducer.getMsgsSent)
-    assertEquals(0, producerMetrics.retries.getCount)
     producer.stop()
   }
 
