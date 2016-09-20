@@ -354,6 +354,31 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="job-container-count">job.container.count</td>
+                    <td class="default">1</td>
+                    <td class="description">
+                        The number of YARN containers to request for running your job. This is the main parameter
+                        for controlling the scale (allocated computing resources) of your job: to increase the
+                        parallelism of processing, you need to increase the number of containers. The minimum is one
+                        container, and the maximum number of containers is the number of task instances (usually the
+                        <a href="../container/samza-container.html#tasks-and-partitions">number of input stream partitions</a>).
+                        Task instances are evenly distributed across the number of containers that you specify.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job-host_affinity-enabled">job.host-affinity.enabled</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        This property indicates whether host-affinity is enabled or not. Host-affinity refers to the ability of Samza to request and allocate a container on the same host every time the job is deployed.
+                        When host-affinity is enabled, Samza makes a "best-effort" to honor the host-affinity constraint.
+                        The property <a href="#cluster-manager-container-request-timeout-ms" class="property">cluster-manager.container.request.timeout.ms</a> determines how long to wait before de-prioritizing the host-affinity constraint and assigning the container to any available resource.
+                        <b>Please Note</b>: This feature is tested to work with the FairScheduler in Yarn when continuous-scheduling is enabled.
+                    </td>
+                </tr>
+
+
+                <tr>
                     <th colspan="3" class="section" id="task"><a href="../api/overview.html">Task configuration</a></th>
                 </tr>
 
@@ -1346,6 +1371,97 @@
                     </td>
                 </tr>
 
+
+                <tr>
+                    <th colspan="3" class="section" id="cluster-manager">
+                        Running Samza with a cluster manager<br>
+                    </th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="cluster-manager-container-memory-mb">cluster-manager.container.memory.mb</td>
+                    <td class="default">1024</td>
+                    <td class="description">
+                        How much memory, in megabytes, to request from the cluster manager per container of your job. Along with
+                        <a href="#cluster-manager-container-cpu-cores" class="property">cluster-manager.container.cpu.cores</a>, this
+                        property determines how many containers the cluster manager will run on one machine. If the container
+                        exceeds this limit, it will be killed, so it is important that the container's actual
+                        memory use remains below the limit. The amount of memory used is normally the JVM heap
+                        size (configured with <a href="#task-opts" class="property">task.opts</a>), plus the
+                        size of any off-heap memory allocation (for example
+                        <a href="#stores-rocksdb-container-cache-size-bytes" class="property">stores.*.container.cache.size.bytes</a>),
+                        plus a safety margin to allow for JVM overheads.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="cluster-manager-container-cpu-cores">cluster-manager.container.cpu.cores</td>
+                    <td class="default">1</td>
+                    <td class="description">
+                        The number of CPU cores to request per container of your job. Each node in the
+                        cluster has a certain number of CPU cores available, so this number (along with
+                        <a href="#cluster-manager-container-memory-mb" class="property">cluster-manager.container.memory.mb</a>)
+                        determines how many containers can be run on one machine.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="cluster-manager-container-retry-count">cluster-manager.container.<br>retry.count</td>
+                    <td class="default">8</td>
+                    <td class="description">
+                        If a container fails, it is automatically restarted by Samza. However, if a container keeps
+                        failing shortly after startup, that indicates a deeper problem, so we should kill the job
+                        rather than retrying indefinitely. This property determines the maximum number of times we are
+                        willing to restart a failed container in quick succession (the time period is configured with
+                        <a href="#cluster-manager-container-retry-window-ms" class="property">cluster-manager.container.retry.window.ms</a>).
+                        Each container in the job is counted separately. If this property is set to 0, any failed
+                        container immediately causes the whole job to fail. If it is set to a negative number, there
+                        is no limit on the number of retries.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="cluster-manager-container-retry-window-ms">cluster-manager.container.<br>retry.window.ms</td>
+                    <td class="default">300000</td>
+                    <td class="description">
+                        This property determines how frequently a container is allowed to fail before we give up and
+                        fail the job. If the same container has failed more than
+                        <a href="#cluster-manager-container-retry-count" class="property">cluster-manager.container.retry.count</a>
+                        times, and the time between failures was less than this property
+                        <code>cluster-manager.container.retry.window.ms</code> (in milliseconds), then we fail the job.
+                        There is no limit to the number of times we will restart a container if the time between
+                        failures is greater than <code>cluster-manager.container.retry.window.ms</code>.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="cluster-manager-jmx-enabled">cluster-manager.jobcoordinator.jmx.enabled</td>
+                    <td class="default">true</td>
+                    <td class="description">
+                        Determines whether a JMX server should be started on the job's JobCoordinator.
+                        (<code>true</code> or <code>false</code>).
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="cluster-manager-allocator-sleep-ms">cluster-manager.allocator.sleep.ms</td>
+                    <td class="default">3600</td>
+                    <td class="description">
+                        The container allocator thread is responsible for matching requests to allocated containers.
+                        The sleep interval for this thread is configured using this property.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="cluster-manager-container-request-timeout-ms">cluster-manager.container.request.timeout.ms</td>
+                    <td class="default">5000</td>
+                    <td class="description">
+                        The allocator thread periodically checks the state of the container requests and allocated containers to determine the assignment of a container to an allocated resource.
+                        This property determines the number of milliseconds before a container request is considered to have expired / timed-out.
+                        When a request expires, it gets allocated to any available container that was returned by the cluster manager.
+                    </td>
+                </tr>
+
                 <tr>
                     <th colspan="3" class="section" id="yarn">
                         Running your job on a <a href="../jobs/yarn-jobs.html">YARN</a> cluster<br>
@@ -1372,12 +1488,8 @@
                     <td class="property" id="yarn-container-count">yarn.container.count</td>
                     <td class="default">1</td>
                     <td class="description">
-                        The number of YARN containers to request for running your job. This is the main parameter
-                        for controlling the scale (allocated computing resources) of your job: to increase the
-                        parallelism of processing, you need to increase the number of containers. The minimum is one
-                        container, and the maximum number of containers is the number of task instances (usually the
-                        <a href="../container/samza-container.html#tasks-and-partitions">number of input stream partitions</a>).
-                        Task instances are evenly distributed across the number of containers that you specify.
+                        This is deprecated in favor of
+                        <a href="#job-container-count" class="property">job.container.count</a>
                     </td>
                 </tr>
 
@@ -1385,15 +1497,8 @@
                     <td class="property" id="yarn-container-memory-mb">yarn.container.memory.mb</td>
                     <td class="default">1024</td>
                     <td class="description">
-                        How much memory, in megabytes, to request from YARN per container of your job. Along with
-                        <a href="#yarn-container-cpu-cores" class="property">yarn.container.cpu.cores</a>, this
-                        property determines how many containers YARN will run on one machine. If the container
-                        exceeds this limit, YARN will kill it, so it is important that the container's actual
-                        memory use remains below the limit. The amount of memory used is normally the JVM heap
-                        size (configured with <a href="#task-opts" class="property">task.opts</a>), plus the
-                        size of any off-heap memory allocation (for example
-                        <a href="#stores-rocksdb-container-cache-size-bytes" class="property">stores.*.container.cache.size.bytes</a>),
-                        plus a safety margin to allow for JVM overheads.
+                        This is deprecated in favor of
+                        <a href="#cluster-manager-container-memory-mb" class="property">cluster-manager.container.memory.mb</a>
                     </td>
                 </tr>
 
@@ -1401,12 +1506,8 @@
                     <td class="property" id="yarn-container-cpu-cores">yarn.container.cpu.cores</td>
                     <td class="default">1</td>
                     <td class="description">
-                        The number of CPU cores to request from YARN per container of your job. Each node in the
-                        YARN cluster has a certain number of CPU cores available, so this number (along with
-                        <a href="#yarn-container-memory-mb" class="property">yarn.container.memory.mb</a>)
-                        determines how many containers can be run on one machine. Samza is
-                        <a href="../container/event-loop.html">single-threaded</a> and designed to run on one
-                        CPU core, so you shouldn't normally need to change this property.
+                    This is deprecated in favor of
+                    <a href="#cluster-manager-container-cpu-cores" class="property">cluster-manager.container.cpu.cores</a>
                     </td>
                 </tr>
 
@@ -1414,14 +1515,8 @@
                     <td class="property" id="yarn-container-retry-count">yarn.container.<br>retry.count</td>
                     <td class="default">8</td>
                     <td class="description">
-                        If a container fails, it is automatically restarted by YARN. However, if a container keeps
-                        failing shortly after startup, that indicates a deeper problem, so we should kill the job
-                        rather than retrying indefinitely. This property determines the maximum number of times we are
-                        willing to restart a failed container in quick succession (the time period is configured with
-                        <a href="#yarn-container-retry-window-ms" class="property">yarn.container.retry.window.ms</a>).
-                        Each container in the job is counted separately. If this property is set to 0, any failed
-                        container immediately causes the whole job to fail. If it is set to a negative number, there
-                        is no limit on the number of retries.
+                        This is deprecated in favor of
+                        <a href="#cluster-manager-container-retry-count" class="property">cluster-manager.container.retry.count</a>
                     </td>
                 </tr>
 
@@ -1429,13 +1524,8 @@
                     <td class="property" id="yarn-container-retry-window-ms">yarn.container.<br>retry.window.ms</td>
                     <td class="default">300000</td>
                     <td class="description">
-                        This property determines how frequently a container is allowed to fail before we give up and
-                        fail the job. If the same container has failed more than
-                        <a href="#yarn-container-retry-count" class="property">yarn.container.retry.count</a>
-                        times, and the time between failures was less than this property
-                        <code>yarn.container.retry.window.ms</code> (in milliseconds), then we fail the job.
-                        There is no limit to the number of times we will restart a container if the time between
-                        failures is greater than <code>yarn.container.retry.window.ms</code>.
+                        This is deprecated in favor of
+                        <a href="#cluster-manager-container-retry-window-ms" class="property">cluster-manager.container.retry.window.ms</a>
                     </td>
                 </tr>
 
@@ -1443,7 +1533,7 @@
                     <td class="property" id="yarn-am-container-memory-mb">yarn.am.container.<br>memory.mb</td>
                     <td class="default">1024</td>
                     <td class="description">
-                        Each Samza job has one special container, the
+                        Each Samza job when running in Yarn has one special container, the
                         <a href="../yarn/application-master.html">ApplicationMaster</a> (AM), which manages the
                         execution of the job. This property determines how much memory, in megabytes, to request
                         from YARN for running the ApplicationMaster.
@@ -1486,8 +1576,8 @@
                     <td class="property" id="yarn-am-jmx-enabled">yarn.am.jmx.enabled</td>
                     <td class="default">true</td>
                     <td class="description">
-                        Determines whether a JMX server should be started on this job's YARN ApplicationMaster
-                        (<code>true</code> or <code>false</code>).
+                        This is deprecated in favor of
+                        <a href="#cluster-manager-jmx-enabled" class="property">cluster-manager.jobcoordinator.jmx.enabled</a>
                     </td>
                 </tr>
 
@@ -1495,8 +1585,8 @@
                     <td class="property" id="yarn-allocator-sleep-ms">yarn.allocator.sleep.ms</td>
                     <td class="default">3600</td>
                     <td class="description">
-                        The container allocator thread is responsible for matching requests to allocated containers.
-                        The sleep interval for this thread is configured using this property.
+                        This is deprecated in favor of
+                        <a href="#cluster-manager-allocator-sleep-ms" class="property">cluster-manager.allocator.sleep.ms</a>
                     </td>
                 </tr>
 
@@ -1504,10 +1594,9 @@
                     <td class="property" id="yarn-samza-host_affinity-enabled">yarn.samza.host-affinity.enabled</td>
                     <td class="default">false</td>
                     <td class="description">
-                        This property indicates whether host-affinity is enabled or not. Host-affinity refers to the ability of the Application Master to request and allocate a container on the same host every time the job is deployed.
-                        When host-affinity is enabled, the AM makes a "best-effort" to honor the host-affinity constraint.
-                        The property <a href="#yarn-container-request-timeout-ms" class="property">yarn.container.request.timeout.ms</a> determines how long to wait before de-prioritizing the host-affinity constraint and assigning the container to any available resource.
-                        <b>Please Note</b>: This feature is tested to work with the FairScheduler in Yarn when continuous-scheduling is enabled.
+                        This is deprecated in favor of
+                        <a href="#job-host_affinity-enabled" class="property">job.host-affinity.enabled</a>
+
                     </td>
                 </tr>
 
@@ -1515,9 +1604,8 @@
                     <td class="property" id="yarn-container-request-timeout-ms">yarn.container.request.timeout.ms</td>
                     <td class="default">5000</td>
                     <td class="description">
-                        The allocator thread periodically checks the state of the container requests and allocated containers to determine the assignment of a container to an allocated resource.
-                        This property determines the number of milliseconds before a container request is considered to have expired / timed-out.
-                        When a request expires, it gets allocated to any available container that was returned by the RM.
+                        This is deprecated in favor of
+                        <a href="#cluster-manager-container-request-timeout-ms" class="property">cluster-manager.container.request.timeout.ms</a>
                     </td>
                 </tr>
 
