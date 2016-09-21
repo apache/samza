@@ -330,7 +330,7 @@ object Util extends Logging {
   def getLocalHost: InetAddress = {
     val localHost = InetAddress.getLocalHost
     if (localHost.isLoopbackAddress) {
-      warn("Hostname %s resolves to a loopback address, trying to resolve an external IP address.".format(localHost.getHostName))
+      debug("Hostname %s resolves to a loopback address, trying to resolve an external IP address.".format(localHost.getHostName))
       val networkInterfaces = if (System.getProperty("os.name").startsWith("Windows")) NetworkInterface.getNetworkInterfaces.toList else NetworkInterface.getNetworkInterfaces.toList.reverse
       for (networkInterface <- networkInterfaces) {
         val addresses = networkInterface.getInetAddresses.toList.filterNot(address => address.isLinkLocalAddress || address.isLoopbackAddress)
