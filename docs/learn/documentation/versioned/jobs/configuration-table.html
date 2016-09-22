@@ -367,6 +367,22 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="job-container-single-thread-mode">job.container.single.thread.mode</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        If set to true, samza will fallback to legacy single-threaded event loop. Default is false, which enables the <a href="../container/event-loop.html">multithreading execution</a>.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job-container-thread-pool-size">job.container.thread.pool.size</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        If configured, the container thread pool will be used to run synchronous operations of each task in parallel. The operations include StreamTask.process(), WindowableTask.window(), and internally Task.commit(). Note that the thread pool is not applicable to AsyncStremTask.processAsync(). The size should always be greater than zero. If not configured, all task operations will run in a single thread.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="job-host_affinity-enabled">job.host-affinity.enabled</td>
                     <td class="default">false</td>
                     <td class="description">
@@ -376,7 +392,6 @@
                         <b>Please Note</b>: This feature is tested to work with the FairScheduler in Yarn when continuous-scheduling is enabled.
                     </td>
                 </tr>
-
 
                 <tr>
                     <th colspan="3" class="section" id="task"><a href="../api/overview.html">Task configuration</a></th>
@@ -388,7 +403,9 @@
                     <td class="description">
                         <strong>Required:</strong> The fully-qualified name of the Java class which processes
                         incoming messages from input streams. The class must implement
-                        <a href="../api/javadocs/org/apache/samza/task/StreamTask.html">StreamTask</a>, and may optionally implement
+                        <a href="../api/javadocs/org/apache/samza/task/StreamTask.html">StreamTask</a> or
+                        <a href="../api/javadocs/org/apache/samza/task/AsyncStreamTask.html">AsyncStreamTask</a>,
+                        and may optionally implement
                         <a href="../api/javadocs/org/apache/samza/task/InitableTask.html">InitableTask</a>,
                         <a href="../api/javadocs/org/apache/samza/task/ClosableTask.html">ClosableTask</a> and/or
                         <a href="../api/javadocs/org/apache/samza/task/WindowableTask.html">WindowableTask</a>.
@@ -630,6 +647,28 @@
                        <dl>
                             <dt>Example: <code>task.broadcast.inputs=mySystem.broadcastStream#[0-2], mySystem.broadcastStream#0</code></dt>
                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="task-max-concurrency">task.max.concurrency</td>
+                    <td class="default">1</td>
+                    <td class="description">
+                        Max number of outstanding messages being processed per task at a time, and it’s applicable to both StreamTask and AsyncStreamTask. The values can be:
+                        <dl>
+                            <dt><code>1</code></dt>
+                            <dd>Each task processes one message at a time. Next message will wait until the current message process completes. This ensures strict in-order processing.</dd>
+                            <dt><code>&gt1</code></dt>
+                            <dd>Multiple outstanding messages are allowed to be processed per task at a time. The completion can be out of order. This option increases the parallelism within a task, but may result in out-of-order processing.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="task-callback-timeout-ms">task.callback.timeout.ms</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This property is for AsyncStreamTask only. It defines the max time interval from processAsync() to callback is fired. When the timeout happens, it will throw a TaskCallbackTimeoutException and shut down the container. Default is no timeout.
                     </td>
                 </tr>
 

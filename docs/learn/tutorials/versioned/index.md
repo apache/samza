@@ -31,6 +31,8 @@ title: Tutorials
 
 [Getting Started with Samza REST](samza-rest-getting-started.html)
 
+[Samza Async API and Multithreading User Guide](samza-async-user-guide.html)
+
 <!-- TODO a bunch of tutorials
 [Log Walkthrough](log-walkthrough.html)
 <a href="configuring-kafka-system.html">Configuring a Kafka System</a><br/>
