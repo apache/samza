@@ -21,14 +21,15 @@ package org.apache.samza.system.kafka
 
 import java.util
 
-import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 import org.apache.samza.system.{ExtendedSystemAdmin, SystemStreamMetadata, SystemStreamPartition}
-import org.apache.samza.util.{ ClientUtilTopicMetadataStore, ExponentialSleepStrategy, Logging }
+import org.apache.samza.util.{ ClientUtilTopicMetadataStore, ExponentialSleepStrategy, Logging, KafkaUtil }
 import kafka.api._
 import kafka.consumer.SimpleConsumer
 import kafka.common.{ TopicExistsException, TopicAndPartition }
+import kafka.consumer.ConsumerConfig
+import kafka.utils.ZkUtils
 import java.util.{ Properties, UUID }
 import scala.collection.JavaConversions
 import scala.collection.JavaConversions._
@@ -36,6 +37,7 @@ import org.apache.samza.system.SystemStreamMetadata.{OffsetType, SystemStreamPar
 import kafka.consumer.ConsumerConfig
 import kafka.admin.AdminUtils
 import org.apache.samza.util.KafkaUtil
+
 
 object KafkaSystemAdmin extends Logging {
   /**
@@ -97,10 +99,10 @@ class KafkaSystemAdmin(
   brokerListString: String,
 
   /**
-   * A method that returns a ZkClient for the Kafka system. This is invoked
+   * A method that returns a ZkUtils for the Kafka system. This is invoked
    * when the system admin is attempting to create a coordinator stream.
    */
-  connectZk: () => ZkClient,
+  connectZk: () => ZkUtils,
 
   /**
    * Custom properties to use when the system admin tries to create a new
@@ -183,6 +185,7 @@ class KafkaSystemAdmin(
    * Returns the offset for the message after the specified offset for each
    * SystemStreamPartition that was passed in.
    */
+
   override def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = {
     // This is safe to do with Kafka, even if a topic is key-deduped. If the
     // offset doesn't exist on a compacted topic, Kafka will return the first

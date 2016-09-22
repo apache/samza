@@ -39,9 +39,9 @@ import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.samza.utils.TestUtils;
 import org.apache.kafka.common.MetricName;
-
+import org.apache.kafka.common.record.Record;
+import org.apache.kafka.test.TestUtils;
 
 public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
@@ -113,7 +113,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
   }
 
   private RecordMetadata getRecordMetadata(ProducerRecord record) {
-    return new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, this.msgsSent.get());
+    return new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, this.msgsSent.get(), Record.NO_TIMESTAMP, -1, -1, -1);
   }
 
   @Override
@@ -174,6 +174,16 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
   }
 
+  @Override
+  public void close(long timeout, TimeUnit timeUnit) {
+
+  }
+
+  public synchronized void flush () {
+
+  }
+
+
   private static class FutureFailure implements Future<RecordMetadata> {
 
     private final ExecutionException exception;
@@ -215,7 +225,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
     public FutureSuccess(ProducerRecord record, int offset) {
       this.record = record;
-      this._metadata = new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, offset);
+      this._metadata = new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, offset, Record.NO_TIMESTAMP, -1, -1, -1);
     }
 
     @Override
