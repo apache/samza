@@ -18,14 +18,16 @@
  */
 package org.apache.samza.monitor.mock;
 
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.monitor.Monitor;
-import java.io.IOException;
+import org.apache.samza.monitor.MonitorConfig;
+import org.apache.samza.monitor.MonitorFactory;
 
 
-public class ExceptionThrowingMonitor implements Monitor {
+public class ExceptionThrowingMonitorFactory implements MonitorFactory {
 
-    @Override
-    public void monitor() throws IOException {
-        throw new IOException("I don't know what I was expecting.");
-    }
+  @Override
+  public Monitor getMonitorInstance(MonitorConfig config, MetricsRegistry metricsRegistry) {
+    return new ExceptionThrowingMonitor();
+  }
 }

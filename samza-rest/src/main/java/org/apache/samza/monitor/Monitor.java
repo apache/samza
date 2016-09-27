@@ -35,5 +35,4 @@ public interface Monitor {
      */
     void monitor()
         throws Exception;
-
 }

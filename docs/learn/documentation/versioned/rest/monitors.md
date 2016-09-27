@@ -20,16 +20,77 @@ title: Monitors
 -->
 
 
-Samza REST supports the ability to add Monitors to the service. The initial implementation is very basic. Monitors are essentially tasks that can be scheduled to run periodically. They do not read the config and they are all scheduled at the same global interval. More capabilities will be added later, but the initial implementation supports simple cases like monitoring the YARN NodeManager and restarting it if it dies.
+Samza REST supports the ability to add Monitors to the service. Monitors are essentially tasks that can be scheduled to run periodically.
+It provides the capability to the users to define configurations that are specific to individual Monitors.
+These configurations are injected into the monitor instances through the Config instances.
+
+## Monitor configuration
+All of the configuration keys for the monitors should be prefixed with monitor.{monitorName}.
+Since each monitor is expected to have an unique name, these prefixes provide the namespacing across
+the monitor configurations.
+
+The following configurations are required for each of the monitors.
+  <table class="table table-condensed table-bordered table-striped">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Default</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>monitor.monitorName.scheduling.interval.ms</td>
+            <td></td>
+            <td>This defines the periodic scheduling interval in milliseconds
+            for a monitor named monitorName. If this configuration is
+            not defined, it is defaulted to 60 seconds.</td>
+          </tr>
+          <tr>
+            <td>monitor.monitorName.factory.class</td>
+            <td></td>
+            <td>
+            <b>Required:</b> This should contain a fully qualified name
+            of a class that implements the MonitorFactory interface.
+            Monitors that are instantiated by the factory implementation will be scheduled for periodic execution.
+            Custom implementations of the MonitorFactory interface are expected to inject the Config
+            and MetricsRegistry instances available in the createMonitor method into the Monitors.
+            </td>
+          </tr>
+          </tr>
+        </tbody>
+  </table>
+
+  For example, configurations for two monitors named NMTaskMonitor and RMTaskMonitor should be defined as follows.
+
+  {% highlight jproperties %}
+  monitor.RMTaskMonitor.factory.class=org.apache.samza.monitor.RMTaskMonitor
+
+  monitor.RMTaskMonitor.scheduling.interval.ms=1000
+
+  monitor.RMTaskMonitor.custom.config.key1=configValue1
+
+  monitor.NMTaskMonitor.factory.class=org.apache.samza.monitor.NMTaskMonitor
+
+  monitor.NMTaskMonitor.scheduling.interval.ms=2000
+
+  monitor.NMTaskMonitor.custom.config.key2=configValue2
+
+  {% endhighlight %}
 
 ## Implementing a New Monitor
 Implement the [Monitor](javadocs/org/apache/samza/monitor/Monitor.html) interface with some behavior that should be executed periodically. The Monitor is Java code that invokes some method on the SAMZA Rest Service, runs a bash script to restart a failed NodeManager, or cleans old RocksDB sst files left by Host Affinity, for example.
 
+Implement the [MonitorFactory](javadocs/org/apache/samza/monitor/MonitorFactory.html) interface,
+which will be used to instantiate your Monitor. Each Monitor implementation should
+have a associated MonitorFactory implementation, which is responsible for instantiating the monitors.
+
 ## Adding a New Monitor to the Samza REST Service
-Add the fully-qualified class name of the Monitor implementation to the `monitor.classes` property in the service config.
+Add the fully-qualified class name of the MonitorFactory implementation to the `monitor.monitorName.factory.class` property in the service config.
+Set the config key `monitor.monitorName.scheduling.interval.ms` to the scheduling interval in milliseconds.
 
-Set the `monitor.run.interval.ms` property to the appropriate interval. The `monitor()` method will be invoked at this interval.
+The configuration key `monitor.monitorName.scheduling.interval.ms` defines the periodic scheduling interval of
+the `monitor()` method in milli seconds.
 
-For more information on these properties, see the config table in the [Overview page.](overview.html)
 
 ## [Resource Reference &raquo;](resource-directory.html)

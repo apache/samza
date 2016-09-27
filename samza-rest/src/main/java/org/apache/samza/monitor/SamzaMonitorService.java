@@ -18,13 +18,17 @@
  */
 package org.apache.samza.monitor;
 
+import java.util.Map;
+import org.apache.samza.SamzaException;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.rest.SamzaRestConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+
+import static org.apache.samza.monitor.MonitorConfig.getMonitorConfigs;
+import static org.apache.samza.monitor.MonitorLoader.instantiateMonitor;
 
 
 /**
@@ -34,22 +38,34 @@ import java.util.List;
  */
 public class SamzaMonitorService {
 
-    private static final Logger log = LoggerFactory.getLogger(SamzaMonitorService.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SamzaMonitorService.class);
 
     private final SchedulingProvider scheduler;
     private final SamzaRestConfig config;
+    private final MetricsRegistry metricsRegistry;
 
-    public SamzaMonitorService(SamzaRestConfig config, SchedulingProvider schedulingProvider) {
-        this.scheduler = schedulingProvider;
+    public SamzaMonitorService(SamzaRestConfig config,
+                               MetricsRegistry metricsRegistry,
+                               SchedulingProvider schedulingProvider) {
         this.config = config;
+        this.metricsRegistry = metricsRegistry;
+        this.scheduler = schedulingProvider;
     }
 
     public void start() {
-        List<Monitor> monitors = getMonitorsFromConfig(config);
-        int monitorRunInterval = config.getConfigMonitorIntervalMs();
-        for (Monitor monitor : monitors) {
-            log.debug("Scheduling monitor {} to run every {}ms", monitor, monitorRunInterval);
-            this.scheduler.schedule(getRunnable(monitor), monitorRunInterval);
+        try {
+            Map<String, MonitorConfig> monitorConfigs = getMonitorConfigs(config);
+            for (Map.Entry<String, MonitorConfig> entry : monitorConfigs.entrySet()) {
+                MonitorConfig monitorConfig = entry.getValue();
+                int schedulingIntervalInMs = monitorConfig.getSchedulingIntervalInMs();
+                LOGGER.info("Scheduling monitor {} to run every {} ms", entry.getKey(), schedulingIntervalInMs);
+                // MetricsRegistry has been added in the Monitor interface, since it's required in the eventual future to record metrics.
+                // We have plans to record metrics, hence adding this as a placeholder. We just aren't doing it yet.
+                scheduler.schedule(getRunnable(instantiateMonitor(monitorConfig, metricsRegistry)), schedulingIntervalInMs);
+            }
+        } catch (InstantiationException e) {
+            LOGGER.error("Exception when instantiating the monitor : ", e);
+            throw new SamzaException(e);
         }
     }
 
@@ -63,33 +79,13 @@ public class SamzaMonitorService {
                 try {
                     monitor.monitor();
                 } catch (IOException e) {
-                    log.warn("Caught IOException during " + monitor.toString() + ".monitor()", e);
+                    LOGGER.error("Caught IOException during " + monitor.toString() + ".monitor()", e);
                 } catch (InterruptedException e) {
-                    log.warn("Caught InterruptedException during " + monitor.toString() + ".monitor()", e);
+                    LOGGER.error("Caught InterruptedException during " + monitor.toString() + ".monitor()", e);
                 } catch (Exception e) {
-                    log.warn("Unexpected exception during {}.monitor()", monitor, e);
+                    LOGGER.error("Unexpected exception during {}.monitor()", monitor, e);
                 }
             }
         };
     }
-
-    /**
-     * Get all the registered monitors for the service.
-     * @return a list of Monitor objects ready to be scheduled.
-     */
-    private static List<Monitor> getMonitorsFromConfig(SamzaRestConfig config) {
-        List<String> classNames = config.getConfigMonitorClassList();
-        List<Monitor> monitors = new ArrayList<>();
-
-        for (String name: classNames) {
-            try {
-                Monitor monitor = MonitorLoader.fromClassName(name);
-                monitors.add(monitor);
-            } catch (InstantiationException e) {
-                log.warn("Unable to instantiate monitor " + name, e);
-            }
-        }
-        return monitors;
-    }
-
 }

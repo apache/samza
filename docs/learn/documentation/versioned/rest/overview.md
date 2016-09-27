@@ -79,12 +79,6 @@ job.installations.path=/hello-samza-ROOT/deploy/samza
     <tr>
       <td>rest.resource.classes</td><td></td><td>A comma-delimited list of class names of resources to register with the server. These classes can be instantiated as often as each request, the life cycle is not guaranteed to match the server. Also, the instances do not receive any config. Note that the lifecycle and ability to receive config are the primary differences between resources added via this property versus rest.resource.factory.classes</td>
     </tr>
-    <tr>
-      <td>monitor.classes</td><td></td><td>A comma-delimited list of monitor classes to use. These should be fully-qualified (org.apache.samza...) and must implement the Monitor interface.</td>
-    </tr>
-    <tr>
-      <td>monitor.run.interval.ms</td><td>60000</td><td>The interval at which to call the run() method of each monitor. This one value applies to all monitors. They are not individually configurable.</td>
-    </tr>
   </tbody>
 </table>
 

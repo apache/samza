@@ -23,6 +23,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.monitor.SamzaMonitorService;
 import org.apache.samza.monitor.ScheduledExecutorSchedulingProvider;
 import org.apache.samza.util.CommandLine;
+import org.apache.samza.util.NoOpMetricsRegistry;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -83,7 +84,9 @@ public class SamzaRestService {
       // Schedule monitors to run
       ScheduledExecutorService schedulingService = Executors.newScheduledThreadPool(1);
       ScheduledExecutorSchedulingProvider schedulingProvider = new ScheduledExecutorSchedulingProvider(schedulingService);
-      SamzaMonitorService monitorService = new SamzaMonitorService(config, schedulingProvider);
+      SamzaMonitorService monitorService = new SamzaMonitorService(config,
+                                                                   new NoOpMetricsRegistry(),
+                                                                   schedulingProvider);
       monitorService.start();
 
       restService.runBlocking();

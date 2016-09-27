@@ -44,23 +44,6 @@ public class SamzaRestConfig extends MapConfig {
   public static final String CONFIG_REST_RESOURCE_CLASSES = "rest.resource.classes";
 
   /**
-   * Specifies a comma-delimited list of class names corresponding to Monitor implementations.
-   * These will be instantiated and scheduled to run periodically at runtime.
-   * Note that you must include the ENTIRE package name (org.apache.samza...).
-   */
-  public static final String CONFIG_MONITOR_CLASSES = "monitor.classes";
-
-  /**
-   * Specifies the interval at which each registered Monitor's monitor method will be called.
-   */
-  public static final String CONFIG_MONITOR_INTERVAL_MS = "monitor.run.interval.ms";
-
-  /**
-   * Monitors run every 60s by default
-   */
-  private static final int DEFAULT_MONITOR_INTERVAL = 60000;
-
-  /**
    * The port number to use for the HTTP server or 0 to dynamically choose a port.
    */
   public static final String CONFIG_SAMZA_REST_SERVICE_PORT = "services.rest.port";
@@ -94,23 +77,6 @@ public class SamzaRestConfig extends MapConfig {
    */
   public List<String> getResourceClassNames() {
     return parseCommaDelimitedStrings(get(CONFIG_REST_RESOURCE_CLASSES));
-  }
-
-  /**
-   * @see SamzaRestConfig#CONFIG_MONITOR_CLASSES
-   * @return a list of class names as Strings corresponding to Monitors that
-   *          Samza REST should schedule or an empty list if none were configured.
-   */
-  public List<String> getConfigMonitorClassList() {
-    return parseCommaDelimitedStrings(get(CONFIG_MONITOR_CLASSES));
-  }
-
-  /**
-   * @see SamzaRestConfig#CONFIG_MONITOR_INTERVAL_MS
-   * @return an integer number of milliseconds, the period at which to schedule monitor runs.
-   */
-  public int getConfigMonitorIntervalMs() {
-    return getInt(CONFIG_MONITOR_INTERVAL_MS, DEFAULT_MONITOR_INTERVAL);
   }
 
   /**
