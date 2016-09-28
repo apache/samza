@@ -148,7 +148,7 @@ Change the yarn.package.path property to be:
 yarn.package.path=http://yourHostname:8000/target/hello-samza-0.10.0-dist.tar.gz
 {% endhighlight %}
 
-3\. Complie hello-samza.
+3\. Compile hello-samza.
 
 {% highlight bash %}
 mvn clean package
