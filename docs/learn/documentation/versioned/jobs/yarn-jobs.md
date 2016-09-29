@@ -37,6 +37,6 @@ yarn.queue=root.adhoc
 
 Samza job will run in the root.adhoc queue.
 
-<!-- TODO document yarn.container.count and other key configs -->
+<!-- TODO document job.container.count and other key configs -->
 
 ## [Logging &raquo;](logging.html)

@@ -116,7 +116,7 @@ Samza provides a command line tool to write Job Configuration messages to the co
 samza-example/target/bin/run-coordinator-stream-writer.sh \
   --config-path=file:///path/to/job/config.properties \
   --type set-config \
-  --key yarn.container.count \
+  --key job.container.count \
   --value 8
 {% endhighlight %}
 
