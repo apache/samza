@@ -57,13 +57,6 @@ class KafkaCheckpointLogKey private (val map: Map[String, String]) {
    */
   def isCheckpointKey = getKey.equals(CHECKPOINT_KEY_TYPE)
 
-  /**
-   * Is this key for a changelog partition mapping?
-   *
-   * @return true iff this key's entry is for a changelog partition mapping
-   */
-  @Deprecated
-  def isChangelogPartitionMapping = getKey.equals(CHANGELOG_PARTITION_KEY_TYPE)
 
   /**
    * If this Key is for a checkpoint entry, return its associated TaskName.
@@ -98,17 +91,9 @@ object KafkaCheckpointLogKey {
   val CHECKPOINT_KEY_KEY = "type"
   val CHECKPOINT_KEY_TYPE = "checkpoint"
 
-  @Deprecated
-  val CHANGELOG_PARTITION_KEY_TYPE = "changelog-partition-mapping"
-
   val CHECKPOINT_TASKNAME_KEY = "taskName"
   val SYSTEMSTREAMPARTITION_GROUPER_FACTORY_KEY = "systemstreampartition-grouper-factory"
 
-  /**
-   * Partition mapping keys have no dynamic values, so we just need one instance.
-   */
-  @Deprecated
-  val CHANGELOG_PARTITION_MAPPING_KEY = new KafkaCheckpointLogKey(Map(CHECKPOINT_KEY_KEY -> CHANGELOG_PARTITION_KEY_TYPE))
 
   private val JSON_MAPPER = new ObjectMapper()
   val KEY_TYPEREFERENCE = new TypeReference[util.HashMap[String, String]]() {}
@@ -144,14 +129,6 @@ object KafkaCheckpointLogKey {
 
     new KafkaCheckpointLogKey(map)
   }
-
-  /**
-   * Build a key for a changelog partition mapping entry
-   *
-   * @return Key for changelog partition mapping entry
-   */
-  @Deprecated
-  def getChangelogPartitionMappingKey() = CHANGELOG_PARTITION_MAPPING_KEY
 
   /**
    * Deserialize a Kafka checkpoint log key

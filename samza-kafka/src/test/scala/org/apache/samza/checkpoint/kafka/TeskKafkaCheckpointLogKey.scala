@@ -40,16 +40,6 @@ class TestKafkaCheckpointLogKey {
   }
 
   @Test
-  def changelogPartitionMappingKeySerializationRoundTrip() {
-    val key = KafkaCheckpointLogKey.getChangelogPartitionMappingKey()
-    val asBytes = key.toBytes()
-    val backFromBytes = KafkaCheckpointLogKey.fromBytes(asBytes)
-
-    assertEquals(key, backFromBytes)
-    assertNotSame(key, backFromBytes)
-  }
-
-  @Test
   def differingSSPGrouperFactoriesCauseException() {
 
     val checkpointKey = KafkaCheckpointLogKey.getCheckpointKey(new TaskName("TN"))
