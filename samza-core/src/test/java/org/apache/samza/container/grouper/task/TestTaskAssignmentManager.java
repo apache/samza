@@ -71,15 +71,15 @@ public class TestTaskAssignmentManager {
     assertTrue(consumer.isStarted());
 
     Map<String, Integer> expectedMap =
-        new HashMap<String, Integer>() {
-          {
-            this.put("Task0", new Integer(0));
-            this.put("Task1", new Integer(1));
-            this.put("Task2", new Integer(2));
-            this.put("Task3", new Integer(0));
-            this.put("Task4", new Integer(1));
-          }
-        };
+      new HashMap<String, Integer>() {
+        {
+          this.put("Task0", new Integer(0));
+          this.put("Task1", new Integer(1));
+          this.put("Task2", new Integer(2));
+          this.put("Task3", new Integer(0));
+          this.put("Task4", new Integer(1));
+        }
+      };
 
     for (Map.Entry<String, Integer> entry : expectedMap.entrySet()) {
       taskAssignmentManager.writeTaskContainerMapping(entry.getKey(), entry.getValue());
@@ -110,12 +110,12 @@ public class TestTaskAssignmentManager {
     assertTrue(consumer.isStarted());
 
     Map<String, Integer> expectedMap =
-        new HashMap<String, Integer>() {
-          {
-            this.put("Task0", new Integer(0));
-            this.put("Task1", new Integer(1));
-          }
-        };
+      new HashMap<String, Integer>() {
+        {
+          this.put("Task0", new Integer(0));
+          this.put("Task1", new Integer(1));
+        }
+      };
 
     for (Map.Entry<String, Integer> entry : expectedMap.entrySet()) {
       taskAssignmentManager.writeTaskContainerMapping(entry.getKey(), entry.getValue());

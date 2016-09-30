@@ -87,18 +87,18 @@ public class TestLocalityManager {
     localityManager.writeContainerToHostMapping(0, "localhost", "jmx:localhost:8080", "jmx:tunnel:localhost:9090");
     Map<Integer, Map<String, String>> localMap = localityManager.readContainerLocality();
     Map<Integer, Map<String, String>> expectedMap =
-        new HashMap<Integer, Map<String, String>>() {
-          {
-            this.put(new Integer(0),
-                new HashMap<String, String>() {
-                  {
-                    this.put(SetContainerHostMapping.HOST_KEY, "localhost");
-                    this.put(SetContainerHostMapping.JMX_URL_KEY, "jmx:localhost:8080");
-                    this.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, "jmx:tunnel:localhost:9090");
-                  }
-                });
-          }
-        };
+      new HashMap<Integer, Map<String, String>>() {
+        {
+          this.put(new Integer(0),
+            new HashMap<String, String>() {
+              {
+                this.put(SetContainerHostMapping.HOST_KEY, "localhost");
+                this.put(SetContainerHostMapping.JMX_URL_KEY, "jmx:localhost:8080");
+                this.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, "jmx:tunnel:localhost:9090");
+              }
+            });
+        }
+      };
     assertEquals(expectedMap, localMap);
 
     localityManager.stop();

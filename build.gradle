@@ -29,7 +29,7 @@ allprojects {
   repositories {
     mavenCentral()
     mavenLocal()
- }
+  }
 }
 
 apply from: file("gradle/dependency-versions.gradle")
@@ -37,6 +37,7 @@ apply from: file("gradle/dependency-versions-scala-" + scalaVersion + ".gradle")
 apply from: file("gradle/release.gradle")
 apply from: file("gradle/rat.gradle")
 apply from: file('gradle/customize.gradle')
+
 
 rat {
   excludes = [
@@ -125,6 +126,7 @@ project(':samza-api') {
 
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
   }
 }
 
@@ -135,6 +137,7 @@ project(":samza-core_$scalaVersion") {
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
   sourceSets.test.scala.srcDir "src/test/java"
+
   sourceSets.main.java.srcDirs = []
 
   jar {
@@ -158,6 +161,7 @@ project(":samza-core_$scalaVersion") {
 
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
   }
 }
 
@@ -190,6 +194,7 @@ project(":samza-autoscaling_$scalaVersion") {
 
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
   }
 }
 
@@ -269,6 +274,7 @@ project(':samza-log4j') {
 
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
   }
 }
 
@@ -412,6 +418,7 @@ project(":samza-kv_$scalaVersion") {
 
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
   }
 }
 
@@ -446,27 +453,27 @@ project(":samza-kv-rocksdb_$scalaVersion") {
 }
 
 project(":samza-hdfs_$scalaVersion") {
-    apply plugin: 'scala'
+  apply plugin: 'scala'
 
-    dependencies {
-        compile project(':samza-api')
-        compile project(":samza-core_$scalaVersion")
-        compile project(":samza-kafka_$scalaVersion")
-        compile "org.scala-lang:scala-library:$scalaLibVersion"
-        compile("org.apache.hadoop:hadoop-hdfs:$yarnVersion") {
-          exclude module: 'slf4j-log4j12'
-          exclude module: 'servlet-api'
-        }
-        compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
-          exclude module: 'slf4j-log4j12'
-          exclude module: 'servlet-api'
-          exclude module: 'zookeeper'
-        }
-
-        testCompile "junit:junit:$junitVersion"
-        testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
-        testCompile "org.apache.hadoop:hadoop-minicluster:$yarnVersion"
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaVersion")
+    compile project(":samza-kafka_$scalaVersion")
+    compile "org.scala-lang:scala-library:$scalaLibVersion"
+    compile("org.apache.hadoop:hadoop-hdfs:$yarnVersion") {
+      exclude module: 'slf4j-log4j12'
+      exclude module: 'servlet-api'
     }
+    compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
+      exclude module: 'slf4j-log4j12'
+      exclude module: 'servlet-api'
+      exclude module: 'zookeeper'
+    }
+
+    testCompile "junit:junit:$junitVersion"
+    testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+    testCompile "org.apache.hadoop:hadoop-minicluster:$yarnVersion"
+  }
 }
 
 project(":samza-rest") {
@@ -569,6 +576,7 @@ project(":samza-test_$scalaVersion") {
 
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
   }
 
   tasks.create(name: "releaseTestJobs", dependsOn: configurations.archives.artifacts, type: Tar) {
