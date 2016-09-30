@@ -51,9 +51,9 @@ PROJECT_NAME = "samza"
 CAPITALIZED_PROJECT_NAME = "samza".upper()
 
 # Remote name which points to the GitHub site
-PR_REMOTE_NAME = os.environ.get("PR_REMOTE_NAME", "apache-github")
+PR_REMOTE_NAME = os.environ.get("PR_REMOTE_NAME", "samza-github")
 # Remote name which points to Apache git
-PUSH_REMOTE_NAME = os.environ.get("PUSH_REMOTE_NAME", "apache")
+PUSH_REMOTE_NAME = os.environ.get("PUSH_REMOTE_NAME", "samza-apache")
 # ASF JIRA username
 JIRA_USERNAME = os.environ.get("JIRA_USERNAME", "")
 # ASF JIRA password

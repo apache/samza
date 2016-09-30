@@ -22,6 +22,13 @@ title: Coding Guide
 <!-- TODO link to hudson when we have an apache hudson boxes. -->
 
 These guidelines are meant to encourage consistency and best practices amongst people working on the Samza code base. They should be observed unless there is a compelling reason to ignore them.
+In general, patches should include:
+
+* Code change
+* Unit tests
+* Javadocs
+* Metrics
+* Logging
 
 ### Basic Stuff
 
