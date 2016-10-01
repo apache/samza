@@ -30,7 +30,7 @@ import org.apache.samza.system.IncomingMessageEnvelope;
  * the callbacks once it's done. If the thread pool is null, it follows the legacy
  * synchronous model to execute the tasks on the run loop thread.
  */
-public class AsyncStreamTaskAdapter implements AsyncStreamTask, InitableTask, WindowableTask, ClosableTask {
+public class AsyncStreamTaskAdapter implements AsyncStreamTask, InitableTask, WindowableTask, ClosableTask, EndOfStreamListenerTask {
   private final StreamTask wrappedTask;
   private final ExecutorService executor;
 
@@ -87,6 +87,13 @@ public class AsyncStreamTaskAdapter implements AsyncStreamTask, InitableTask, Wi
   public void close() throws Exception {
     if (wrappedTask instanceof ClosableTask) {
       ((ClosableTask) wrappedTask).close();
+    }
+  }
+
+  @Override
+  public void onEndOfStream(MessageCollector collector, TaskCoordinator coordinator) throws Exception {
+    if (wrappedTask instanceof EndOfStreamListenerTask) {
+      ((EndOfStreamListenerTask) wrappedTask).onEndOfStream(collector, coordinator);
     }
   }
 }

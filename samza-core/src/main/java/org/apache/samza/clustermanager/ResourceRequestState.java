@@ -133,15 +133,9 @@ public class ResourceRequestState {
                * requestCount != 0, it will be greater than the total request count for that host. Hence, it should be
                * assigned to ANY_HOST
                */
-              log.info(
-                  "The number of containers already allocated on {} is greater than what was " +
-                      "requested, which is {}. Hence, saving the samzaResource {} in the buffer for ANY_HOST",
-                  new Object[]{
-                    hostName,
-                    requestCountOnThisHost,
-                    samzaResource.getResourceID()
-                  }
-              );
+              log.info("The number of containers already allocated on {} is greater than what was " +
+                              "requested, which is {}. Hence, saving the samzaResource {} in the buffer for ANY_HOST",
+                      new Object[]{hostName, requestCountOnThisHost, samzaResource.getResourceID()});
               addToAllocatedResourceList(ANY_HOST, samzaResource);
             }
           }

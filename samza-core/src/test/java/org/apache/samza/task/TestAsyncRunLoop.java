@@ -19,17 +19,23 @@
 
 package org.apache.samza.task;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstance;
@@ -38,13 +44,19 @@ import org.apache.samza.container.TaskInstanceMetrics;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.system.TestSystemConsumers;
+
 import org.junit.Before;
 import org.junit.Test;
+import scala.Option;
 import scala.collection.JavaConversions;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -73,6 +85,8 @@ public class TestAsyncRunLoop {
   IncomingMessageEnvelope envelope0 = new IncomingMessageEnvelope(ssp0, "0", "key0", "value0");
   IncomingMessageEnvelope envelope1 = new IncomingMessageEnvelope(ssp1, "1", "key1", "value1");
   IncomingMessageEnvelope envelope3 = new IncomingMessageEnvelope(ssp0, "1", "key0", "value0");
+  IncomingMessageEnvelope ssp0EndOfStream = IncomingMessageEnvelope.buildEndOfStreamEnvelope(ssp0);
+  IncomingMessageEnvelope ssp1EndOfStream = IncomingMessageEnvelope.buildEndOfStreamEnvelope(ssp1);
 
   TestTask task0;
   TestTask task1;
@@ -90,13 +104,18 @@ public class TestAsyncRunLoop {
         containerMetrics);
   }
 
-  TaskInstance<AsyncStreamTask> createTaskInstance(AsyncStreamTask task, TaskName taskName, SystemStreamPartition ssp) {
+  TaskInstance<AsyncStreamTask> createTaskInstance(AsyncStreamTask task, TaskName taskName, SystemStreamPartition ssp, OffsetManager manager, SystemConsumers consumers) {
     TaskInstanceMetrics taskInstanceMetrics = new TaskInstanceMetrics("task", new MetricsRegistryMap());
     scala.collection.immutable.Set<SystemStreamPartition> sspSet = JavaConversions.asScalaSet(Collections.singleton(ssp)).toSet();
     return new TaskInstance<AsyncStreamTask>(task, taskName, mock(Config.class), taskInstanceMetrics,
-        null, consumerMultiplexer, mock(TaskInstanceCollector.class), mock(SamzaContainerContext.class),
-        offsetManager, null, null, sspSet, new TaskInstanceExceptionHandler(taskInstanceMetrics, new scala.collection.immutable.HashSet<String>()));
+        null, consumers, mock(TaskInstanceCollector.class), mock(SamzaContainerContext.class),
+        manager, null, null, sspSet, new TaskInstanceExceptionHandler(taskInstanceMetrics, new scala.collection.immutable.HashSet<String>()));
   }
+
+  TaskInstance<AsyncStreamTask> createTaskInstance(AsyncStreamTask task, TaskName taskName, SystemStreamPartition ssp) {
+    return createTaskInstance(task, taskName, ssp, offsetManager, consumerMultiplexer);
+  }
+
 
   ExecutorService callbackExecutor;
   void triggerCallback(final TestTask task, final TaskCallback callback, final boolean success) {
@@ -122,7 +141,8 @@ public class TestAsyncRunLoop {
     void run(TaskCallback callback);
   }
 
-  class TestTask implements AsyncStreamTask, WindowableTask {
+
+  class TestTask implements AsyncStreamTask, WindowableTask, EndOfStreamListenerTask {
     boolean shutdown = false;
     boolean commit = false;
     boolean success;
@@ -166,7 +186,13 @@ public class TestAsyncRunLoop {
         coordinator.shutdown(shutdownRequest);
       }
     }
+
+    @Override
+    public void onEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+      coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+    }
   }
+
 
   @Before
   public void setup() {
@@ -180,7 +206,7 @@ public class TestAsyncRunLoop {
     offsetManager = mock(OffsetManager.class);
     shutdownRequest = TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER;
 
-    when(consumerMultiplexer.pollIntervalMs()).thenReturn(1000000);
+    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
 
     tasks = new HashMap<>();
     task0 = new TestTask(true, true, false);
@@ -190,6 +216,7 @@ public class TestAsyncRunLoop {
     tasks.put(taskName0, t0);
     tasks.put(taskName1, t1);
   }
+
 
   @Test
   public void testProcessMultipleTasks() throws Exception {
@@ -207,6 +234,7 @@ public class TestAsyncRunLoop {
     assertEquals(2L, containerMetrics.processes().getCount());
   }
 
+
   @Test
   public void testProcessInOrder() throws Exception {
     AsyncRunLoop runLoop = createRunLoop();
@@ -223,12 +251,10 @@ public class TestAsyncRunLoop {
     assertEquals(3L, containerMetrics.processes().getCount());
   }
 
-  @Test
-  public void testProcessOutOfOrder() throws Exception {
-    maxMessagesInFlight = 2;
 
+  private TestCode buildOutofOrderCallback() {
     final CountDownLatch latch = new CountDownLatch(1);
-    task0.code = new TestCode() {
+    return new TestCode() {
       @Override
       public void run(TaskCallback callback) {
         IncomingMessageEnvelope envelope = ((TaskCallbackImpl) callback).envelope;
@@ -246,6 +272,13 @@ public class TestAsyncRunLoop {
         }
       }
     };
+  }
+
+  @Test
+  public void testProcessOutOfOrder() throws Exception {
+    maxMessagesInFlight = 2;
+
+    task0.code = buildOutofOrderCallback();
 
     AsyncRunLoop runLoop = createRunLoop();
     when(consumerMultiplexer.choose(false)).thenReturn(envelope0).thenReturn(envelope3).thenReturn(envelope1).thenReturn(null);
@@ -329,5 +362,154 @@ public class TestAsyncRunLoop {
     assertEquals(1, task1.completed.get());
     assertEquals(2L, containerMetrics.envelopes().getCount());
     assertEquals(2L, containerMetrics.processes().getCount());
+  }
+
+  @Test
+  public void testEndOfStreamWithMultipleTasks() throws Exception {
+    task0 = new TestTask(true, true, false);
+    task1 = new TestTask(true, true, false);
+    t0 = createTaskInstance(task0, taskName0, ssp0);
+    t1 = createTaskInstance(task1, taskName1, ssp1);
+    tasks.put(taskName0, t0);
+    tasks.put(taskName1, t1);
+
+    AsyncRunLoop runLoop = createRunLoop();
+    when(consumerMultiplexer.choose(false)).thenReturn(envelope0).thenReturn(envelope1).thenReturn(ssp0EndOfStream).thenReturn(ssp1EndOfStream);
+    runLoop.run();
+    callbackExecutor.awaitTermination(100, TimeUnit.MILLISECONDS);
+    assertEquals(1, task0.processed);
+    assertEquals(1, task0.completed.get());
+    assertEquals(1, task1.processed);
+    assertEquals(1, task1.completed.get());
+
+    assertEquals(4L, containerMetrics.envelopes().getCount());
+    assertEquals(2L, containerMetrics.processes().getCount());
+  }
+
+  @Test
+  public void testEndOfStreamWithOutOfOrderProcess() throws Exception {
+    maxMessagesInFlight = 2;
+    task0 = new TestTask(true, true, false);
+    task1 = new TestTask(true, true, false);
+    t0 = createTaskInstance(task0, taskName0, ssp0);
+    t1 = createTaskInstance(task1, taskName1, ssp1);
+    tasks.put(taskName0, t0);
+    tasks.put(taskName1, t1);
+
+    final CountDownLatch latch = new CountDownLatch(1);
+    task0.code = buildOutofOrderCallback();
+    AsyncRunLoop runLoop = createRunLoop();
+    when(consumerMultiplexer.choose(false))
+        .thenReturn(envelope0)
+        .thenReturn(envelope3)
+        .thenReturn(envelope1)
+        .thenReturn(null)
+        .thenReturn(ssp0EndOfStream)
+        .thenReturn(ssp1EndOfStream);
+
+    runLoop.run();
+
+    callbackExecutor.awaitTermination(100, TimeUnit.MILLISECONDS);
+    assertEquals(2, task0.processed);
+    assertEquals(2, task0.completed.get());
+    assertEquals(1, task1.processed);
+    assertEquals(1, task1.completed.get());
+    assertEquals(5L, containerMetrics.envelopes().getCount());
+    assertEquals(3L, containerMetrics.processes().getCount());
+  }
+
+  @Test
+  public void testEndOfStreamCommitBehavior() throws Exception {
+    //explicitly configure to disable commits inside process or window calls and invoke commit from end of stream
+    task0 = new TestTask(true, false, false);
+    task1 = new TestTask(true, false, false);
+
+    t0 = createTaskInstance(task0, taskName0, ssp0);
+    t1 = createTaskInstance(task1, taskName1, ssp1);
+    tasks.put(taskName0, t0);
+    tasks.put(taskName1, t1);
+    AsyncRunLoop runLoop = createRunLoop();
+
+    when(consumerMultiplexer.choose(false)).thenReturn(envelope0)
+        .thenReturn(envelope1)
+        .thenReturn(null)
+        .thenReturn(ssp0EndOfStream)
+        .thenReturn(ssp1EndOfStream);
+    runLoop.run();
+    callbackExecutor.awaitTermination(100, TimeUnit.MILLISECONDS);
+    verify(offsetManager).checkpoint(taskName0);
+    verify(offsetManager).checkpoint(taskName1);
+  }
+
+  @Test
+  public void testEndOfStreamOffsetManagement() throws Exception {
+    //explicitly configure to disable commits inside process or window calls and invoke commit from end of stream
+    TestTask mockStreamTask1 = new TestTask(true, false, false);
+    TestTask mockStreamTask2 = new TestTask(true, false, false);
+
+    Config config = new MapConfig();
+
+    Partition p1 = new Partition(1);
+    Partition p2 = new Partition(2);
+    SystemStreamPartition ssp1 = new SystemStreamPartition("system1", "stream1", p1);
+    SystemStreamPartition ssp2 = new SystemStreamPartition("system1", "stream2", p2);
+    IncomingMessageEnvelope envelope1 = new IncomingMessageEnvelope(ssp2, "1", "key1", "message1");
+    IncomingMessageEnvelope envelope2 = new IncomingMessageEnvelope(ssp2, "2", "key1", "message1");
+    IncomingMessageEnvelope envelope3 = IncomingMessageEnvelope.buildEndOfStreamEnvelope(ssp2);
+
+    Map<SystemStreamPartition, List<IncomingMessageEnvelope>> sspMap = new HashMap<>();
+    List<IncomingMessageEnvelope> messageList = new ArrayList<>();
+    messageList.add(envelope1);
+    messageList.add(envelope2);
+    messageList.add(envelope3);
+    sspMap.put(ssp2, messageList);
+
+
+
+    SystemConsumer mockConsumer = mock(SystemConsumer.class);
+    when(mockConsumer.poll((Set<SystemStreamPartition>) anyObject(), anyLong())).thenReturn(sspMap);
+
+    HashMap<String, SystemConsumer> systemConsumerMap = new HashMap<>();
+    systemConsumerMap.put("system1", mockConsumer);
+    SystemConsumers consumers = TestSystemConsumers.getSystemConsumers(systemConsumerMap);
+
+    TaskName taskName1 = new TaskName("task1");
+    TaskName taskName2 = new TaskName("task2");
+    Set<TaskName> taskNames = new HashSet<>();
+    taskNames.add(taskName1);
+    taskNames.add(taskName2);
+
+    OffsetManager offsetManager = mock(OffsetManager.class);
+
+    when(offsetManager.getLastProcessedOffset(taskName1, ssp1)).thenReturn(Option.apply("3"));
+    when(offsetManager.getLastProcessedOffset(taskName2, ssp2)).thenReturn(Option.apply("0"));
+    when(offsetManager.getStartingOffset(taskName1, ssp1)).thenReturn(Option.apply(IncomingMessageEnvelope.END_OF_STREAM_OFFSET));
+    when(offsetManager.getStartingOffset(taskName2, ssp2)).thenReturn(Option.apply("1"));
+
+    TaskInstance<AsyncStreamTask> taskInstance1 = createTaskInstance(mockStreamTask1, taskName1, ssp1, offsetManager, consumers);
+    TaskInstance<AsyncStreamTask> taskInstance2 = createTaskInstance(mockStreamTask2, taskName2, ssp2, offsetManager, consumers);
+    Map<TaskName, TaskInstance<AsyncStreamTask>> tasks = new HashMap<>();
+    tasks.put(taskName1, taskInstance1);
+    tasks.put(taskName2, taskInstance2);
+
+    taskInstance1.registerConsumers();
+    taskInstance2.registerConsumers();
+    consumers.start();
+
+    AsyncRunLoop runLoop =     new AsyncRunLoop(tasks,
+        executor,
+        consumers,
+        maxMessagesInFlight,
+        windowMs,
+        commitMs,
+        callbackTimeoutMs,
+        containerMetrics);
+
+
+    runLoop.run();
+    callbackExecutor.awaitTermination(100, TimeUnit.MILLISECONDS);
+
+
+
   }
 }

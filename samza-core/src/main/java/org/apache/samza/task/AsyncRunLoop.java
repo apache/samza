@@ -23,6 +23,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,6 +32,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstance;
@@ -53,6 +56,7 @@ public class AsyncRunLoop implements Runnable {
   private final Map<TaskName, AsyncTaskWorker> taskWorkers;
   private final SystemConsumers consumerMultiplexer;
   private final Map<SystemStreamPartition, List<AsyncTaskWorker>> sspToTaskWorkerMapping;
+
   private final ExecutorService threadPool;
   private final CoordinatorRequests coordinatorRequests;
   private final Object latch;
@@ -136,7 +140,6 @@ public class AsyncRunLoop implements Runnable {
         long startNs = System.nanoTime();
 
         IncomingMessageEnvelope envelope = chooseEnvelope();
-
         long chooseNs = System.nanoTime();
 
         containerMetrics.chooseNs().update(chooseNs - startNs);
@@ -199,6 +202,7 @@ public class AsyncRunLoop implements Runnable {
       worker.run();
     }
   }
+
 
   /**
    * Block the runloop thread if all tasks are busy. When a task worker finishes or window/commit completes,
@@ -273,6 +277,7 @@ public class AsyncRunLoop implements Runnable {
     WINDOW,
     COMMIT,
     PROCESS,
+    END_OF_STREAM,
     NO_OP
   }
 
@@ -284,11 +289,14 @@ public class AsyncRunLoop implements Runnable {
     private final TaskInstance<AsyncStreamTask> task;
     private final TaskCallbackManager callbackManager;
     private volatile AsyncTaskState state;
+    private volatile boolean completed = false;
+
 
     AsyncTaskWorker(TaskInstance<AsyncStreamTask> task) {
       this.task = task;
       this.callbackManager = new TaskCallbackManager(this, task.metrics(), callbackTimer, callbackTimeoutMs);
-      this.state = new AsyncTaskState(task.taskName(), task.metrics());
+      Set<SystemStreamPartition> sspSet = getWorkingSSPSet(task);
+      this.state = new AsyncTaskState(task.taskName(), task.metrics(), sspSet);
     }
 
     private void init() {
@@ -317,6 +325,20 @@ public class AsyncRunLoop implements Runnable {
     }
 
     /**
+     * Returns those partitions for the task for which we have not received end-of-stream from the consumer.
+     * @param task
+     * @return a Set of SSPs such that all SSPs are not at end of stream.
+     */
+    private Set<SystemStreamPartition> getWorkingSSPSet(TaskInstance<AsyncStreamTask> task) {
+
+      Set<SystemStreamPartition> allPartitions = new HashSet<>(JavaConversions.asJavaSet(task.systemStreamPartitions()));
+
+      // filter only those SSPs that are not at end of stream.
+      Set<SystemStreamPartition> workingSSPSet = allPartitions.stream().filter(ssp -> !consumerMultiplexer.isEndOfStream(ssp)).collect(Collectors.toSet());
+      return workingSSPSet;
+    }
+
+    /**
      * Invoke next task operation based on its state
      */
     private void run() {
@@ -330,10 +352,34 @@ public class AsyncRunLoop implements Runnable {
         case COMMIT:
           commit();
           break;
+        case END_OF_STREAM:
+          endOfStream();
+          break;
         default:
           //no op
           break;
       }
+    }
+
+    private void endOfStream() {
+      state.complete = true;
+      try {
+        ReadableCoordinator coordinator = new ReadableCoordinator(task.taskName());
+
+        task.endOfStream(coordinator);
+        // issue a request for shutdown of the task
+        coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+        coordinatorRequests.update(coordinator);
+
+        // invoke commit on the task - if the endOfStream callback had requested a final commit.
+        boolean needFinalCommit = coordinatorRequests.commitRequests().remove(task.taskName());
+        if (needFinalCommit) {
+          task.commit();
+        }
+      } finally {
+        resume();
+      }
+
     }
 
     /**
@@ -428,8 +474,6 @@ public class AsyncRunLoop implements Runnable {
       }
     }
 
-
-
     /**
      * Task process completes successfully, update the offsets based on the high-water mark.
      * Then it will trigger the listener for task state change.
@@ -494,24 +538,46 @@ public class AsyncRunLoop implements Runnable {
   private final class AsyncTaskState {
     private volatile boolean needWindow = false;
     private volatile boolean needCommit = false;
+    private volatile boolean complete = false;
+    private volatile boolean endOfStream = false;
     private volatile boolean windowOrCommitInFlight = false;
     private final AtomicInteger messagesInFlight = new AtomicInteger(0);
     private final ArrayDeque<PendingEnvelope> pendingEnvelopQueue;
+    //Set of SSPs that we are currently processing for this task instance
+    private final Set<SystemStreamPartition> processingSspSet;
     private final TaskName taskName;
     private final TaskInstanceMetrics taskMetrics;
 
-    AsyncTaskState(TaskName taskName, TaskInstanceMetrics taskMetrics) {
+    AsyncTaskState(TaskName taskName, TaskInstanceMetrics taskMetrics, Set<SystemStreamPartition> sspSet) {
       this.taskName = taskName;
       this.taskMetrics = taskMetrics;
       this.pendingEnvelopQueue = new ArrayDeque<>();
+      this.processingSspSet = sspSet;
+    }
+
+
+    private boolean checkEndOfStream() {
+      PendingEnvelope pendingEnvelope = pendingEnvelopQueue.peek();
+
+      if (pendingEnvelope != null) {
+        IncomingMessageEnvelope envelope = pendingEnvelope.envelope;
+
+        if (envelope.isEndOfStream()) {
+          SystemStreamPartition ssp = envelope.getSystemStreamPartition();
+          processingSspSet.remove(ssp);
+          pendingEnvelopQueue.remove();
+        }
+      }
+      return processingSspSet.isEmpty();
     }
 
     /**
      * Returns whether the task is ready to do process/window/commit.
      */
     private boolean isReady() {
+      endOfStream |= checkEndOfStream();
       needCommit |= coordinatorRequests.commitRequests().remove(taskName);
-      if (needWindow || needCommit) {
+      if (needWindow || needCommit || endOfStream) {
         // ready for window or commit only when no messages are in progress and
         // no window/commit in flight
         return messagesInFlight.get() == 0 && !windowOrCommitInFlight;
@@ -526,9 +592,13 @@ public class AsyncRunLoop implements Runnable {
      * Returns the next operation by this taskWorker
      */
     private WorkerOp nextOp() {
+
+      if (complete) return WorkerOp.NO_OP;
+
       if (isReady()) {
         if (needCommit) return WorkerOp.COMMIT;
         else if (needWindow) return WorkerOp.WINDOW;
+        else if (endOfStream) return WorkerOp.END_OF_STREAM;
         else if (!pendingEnvelopQueue.isEmpty()) return WorkerOp.PROCESS;
       }
       return WorkerOp.NO_OP;
@@ -576,6 +646,7 @@ public class AsyncRunLoop implements Runnable {
       log.trace("Insert envelope to task {} queue.", taskName);
       log.debug("Task {} pending envelope count is {} after insertion.", taskName, queueSize);
     }
+
 
     /**
      * Fetch the pending envelope in the pending queue for the task to process.

@@ -33,6 +33,7 @@
     <allow pkg="org.apache.commons" />
     <allow class="scala.collection.JavaConversions" />
     <allow class="scala.collection.JavaConverters" />
+    <allow class="scala.Option" />
     <allow pkg="scala.runtime" />
 
     <subpackage name="config">

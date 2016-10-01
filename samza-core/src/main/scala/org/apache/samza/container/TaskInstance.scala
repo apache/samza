@@ -31,6 +31,7 @@ import org.apache.samza.system.SystemConsumers
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.AsyncStreamTask
 import org.apache.samza.task.ClosableTask
+import org.apache.samza.task.EndOfStreamListenerTask
 import org.apache.samza.task.InitableTask
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.task.StreamTask
@@ -58,6 +59,7 @@ class TaskInstance[T](
   val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler) extends Logging {
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
+  val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
@@ -168,6 +170,14 @@ class TaskInstance[T](
     }
   }
 
+  def endOfStream(coordinator: ReadableCoordinator): Unit = {
+    if (isEndOfStreamListenerTask) {
+      exceptionHandler.maybeHandle {
+        task.asInstanceOf[EndOfStreamListenerTask].onEndOfStream(collector, coordinator);
+      }
+    }
+  }
+
   def window(coordinator: ReadableCoordinator) {
     if (isWindowableTask) {
       trace("Windowing for taskName: %s" format taskName)
@@ -220,7 +230,7 @@ class TaskInstance[T](
 
   override def toString() = "TaskInstance for class %s and taskName %s." format (task.getClass.getName, taskName)
 
-  def toDetailedString() = "TaskInstance [taskName = %s, windowable=%s, closable=%s]" format (taskName, isWindowableTask, isClosableTask)
+  def toDetailedString() = "TaskInstance [taskName = %s, windowable=%s, closable=%s endofstreamlistener=%s]" format (taskName, isWindowableTask, isClosableTask, isEndOfStreamListenerTask)
 
   /**
    * From the envelope, check if this SSP has catched up with the starting offset of the SSP

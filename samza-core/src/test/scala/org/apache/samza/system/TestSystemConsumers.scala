@@ -327,3 +327,9 @@ class TestSystemConsumers {
     def register { super.register(systemStreamPartition, "0") }
   }
 }
+
+object TestSystemConsumers {
+  def getSystemConsumers(consumers: java.util.Map[String, SystemConsumer]) : SystemConsumers = {
+    new SystemConsumers(new DefaultChooser, consumers.toMap)
+  }
+}

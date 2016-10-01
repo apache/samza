@@ -25,13 +25,13 @@ import java.util.concurrent.TimeUnit
 import scala.collection.JavaConversions._
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.util.{Logging, TimerUtils}
-import org.apache.samza.system.chooser.MessageChooser
+import org.apache.samza.system.chooser.{DefaultChooser, MessageChooser}
 import org.apache.samza.SamzaException
-import java.util.HashMap
 import java.util.ArrayDeque
+import java.util.HashSet
+import java.util.HashMap
 import java.util.Queue
 import java.util.Set
-import java.util.HashSet
 
 object SystemConsumers {
   val DEFAULT_POLL_INTERVAL_MS = 50
@@ -130,6 +130,11 @@ class SystemConsumers (
   private val unprocessedMessagesBySSP = new HashMap[SystemStreamPartition, Queue[IncomingMessageEnvelope]]()
 
   /**
+   * Set of SSPs that are currently at end-of-stream.
+   */
+  private val endOfStreamSSPs = new HashSet[SystemStreamPartition]()
+
+  /**
    * A set of SystemStreamPartitions grouped by systemName. This is used as a
    * cache to figure out which SystemStreamPartitions we need to poll from the
    * underlying system consumer.
@@ -163,7 +168,6 @@ class SystemConsumers (
 
   def start {
     debug("Starting consumers.")
-
     emptySystemStreamPartitionsBySystem ++= unprocessedMessagesBySSP
       .keySet
       .groupBy(_.getSystem)
@@ -190,8 +194,16 @@ class SystemConsumers (
     chooser.stop
   }
 
+
   def register(systemStreamPartition: SystemStreamPartition, offset: String) {
     debug("Registering stream: %s, %s" format (systemStreamPartition, offset))
+
+    if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(offset)) {
+      info("Stream : %s is already at end of stream" format (systemStreamPartition))
+      endOfStreamSSPs.add(systemStreamPartition)
+      return;
+    }
+
     metrics.registerSystemStreamPartition(systemStreamPartition)
     unprocessedMessagesBySSP.put(systemStreamPartition, new ArrayDeque[IncomingMessageEnvelope]())
     chooser.register(systemStreamPartition, offset)
@@ -201,6 +213,11 @@ class SystemConsumers (
     } catch {
       case e: NoSuchElementException => throw new SystemConsumersException("can't register " + systemStreamPartition.getSystem + "'s consumer.", e)
     }
+  }
+
+
+  def isEndOfStream(systemStreamPartition: SystemStreamPartition) = {
+    endOfStreamSSPs.contains(systemStreamPartition)
   }
 
   def choose (updateChooser: Boolean = true): IncomingMessageEnvelope = {
@@ -216,6 +233,11 @@ class SystemConsumers (
         timeout = noNewMessagesTimeout
       } else {
         val systemStreamPartition = envelopeFromChooser.getSystemStreamPartition
+
+        if (envelopeFromChooser.isEndOfStream) {
+          info("End of stream reached for partition: %s" format systemStreamPartition)
+          endOfStreamSSPs.add(systemStreamPartition)
+        }
 
         trace("Chooser returned an incoming message envelope: %s" format envelopeFromChooser)
 
@@ -254,7 +276,8 @@ class SystemConsumers (
     val systemFetchSet = emptySystemStreamPartitionsBySystem.get(systemName)
 
     // Poll when at least one SSP in this system needs more messages.
-    if (systemFetchSet.size > 0) {
+
+    if (systemFetchSet != null && systemFetchSet.size > 0) {
       val consumer = consumers(systemName)
 
       trace("Fetching: %s" format systemFetchSet)
@@ -262,7 +285,6 @@ class SystemConsumers (
       metrics.systemStreamPartitionFetchesPerPoll(systemName).inc(systemFetchSet.size)
 
       val systemStreamPartitionEnvelopes = consumer.poll(systemFetchSet, timeout)
-
       trace("Got incoming message envelopes: %s" format systemStreamPartitionEnvelopes)
 
       metrics.systemMessagesPerPoll(systemName).inc
@@ -307,7 +329,6 @@ class SystemConsumers (
 
     // Update last poll time so we don't poll too frequently.
     lastPollNs = clock()
-
     // Poll every system for new messages.
     consumers.keys.map(poll(_))
   }

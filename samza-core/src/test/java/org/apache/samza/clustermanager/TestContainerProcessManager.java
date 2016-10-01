@@ -393,10 +393,10 @@ public class TestContainerProcessManager {
   @Test
   public void testAppMasterWithFwk() {
     ContainerProcessManager taskManager = new ContainerProcessManager(
-      new MapConfig(config),
-      state,
-      new MetricsRegistryMap(),
-      manager
+        new MapConfig(config),
+        state,
+        new MetricsRegistryMap(),
+        manager
     );
     taskManager.start();
     SamzaResource container2 = new SamzaResource(1, 1024, "", "id0");
