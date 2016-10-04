@@ -16,29 +16,42 @@
  * specific language governing permissions and limitations
  * under the License.
  */
- ext {
-  elasticsearchVersion = "1.5.1"
-  jodaTimeVersion = "2.2"
-  joptSimpleVersion = "3.2"
-  jacksonVersion = "1.8.5"
-  junitVersion = "4.8.1"
-  mockitoVersion = "1.8.4"
-  scalaTestVersion = "2.2.4"
-  zkClientVersion = "0.3"
-  zookeeperVersion = "3.3.4"
-  metricsVersion = "2.2.0"
-  kafkaVersion = "0.8.2.1"
-  commonsHttpClientVersion = "3.1"
-  rocksdbVersion = "3.13.1"
-  yarnVersion = "2.6.1"
-  slf4jVersion = "1.6.2"
-  log4jVersion = "1.2.17"
-  guavaVersion = "17.0"
-  commonsCodecVersion = "1.9"
-  commonsCollectionVersion = "3.2.1"
-  avroVersion = "1.4.0"
-  calciteVersion = "1.2.0-incubating"
-  httpClientVersion="4.4.1"
-  reactiveStreamVersion="1.0.0"
-  commonsLang3Version="3.4"
+
+package org.apache.samza.operators.api.data;
+
+import java.util.List;
+import java.util.Map;
+
+
+/**
+ * A generic data interface that allows to implement data access / deserialization w/ {@link Schema}
+ */
+public interface Data {
+
+  Schema schema();
+
+  Object value();
+
+  int intValue();
+
+  long longValue();
+
+  float floatValue();
+
+  double doubleValue();
+
+  boolean booleanValue();
+
+  String strValue();
+
+  byte[] bytesValue();
+
+  List<Object> arrayValue();
+
+  Map<Object, Object> mapValue();
+
+  Data getElement(int index);
+
+  Data getFieldData(String fldName);
+
 }

@@ -23,7 +23,7 @@ include \
   'samza-shell'
 
 def jdk8Modules = [
-  'samza-sql-core',
+  'samza-operator',
   'samza-sql-calcite'
 ] as HashSet
 

@@ -16,29 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
- ext {
-  elasticsearchVersion = "1.5.1"
-  jodaTimeVersion = "2.2"
-  joptSimpleVersion = "3.2"
-  jacksonVersion = "1.8.5"
-  junitVersion = "4.8.1"
-  mockitoVersion = "1.8.4"
-  scalaTestVersion = "2.2.4"
-  zkClientVersion = "0.3"
-  zookeeperVersion = "3.3.4"
-  metricsVersion = "2.2.0"
-  kafkaVersion = "0.8.2.1"
-  commonsHttpClientVersion = "3.1"
-  rocksdbVersion = "3.13.1"
-  yarnVersion = "2.6.1"
-  slf4jVersion = "1.6.2"
-  log4jVersion = "1.2.17"
-  guavaVersion = "17.0"
-  commonsCodecVersion = "1.9"
-  commonsCollectionVersion = "3.2.1"
-  avroVersion = "1.4.0"
-  calciteVersion = "1.2.0-incubating"
-  httpClientVersion="4.4.1"
-  reactiveStreamVersion="1.0.0"
-  commonsLang3Version="3.4"
+
+package org.apache.samza.operators.impl.data.serializers;
+
+import org.apache.samza.serializers.Serde;
+import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.operators.impl.data.string.StringData;
+
+
+public class SqlStringSerde implements Serde<StringData> {
+
+    private final Serde<String> serde;
+
+    public SqlStringSerde(String encoding) {
+        this.serde = new StringSerde(encoding);
+    }
+
+    @Override
+    public StringData fromBytes(byte[] bytes) {
+          return new StringData(serde.fromBytes(bytes));
+    }
+
+    @Override
+    public byte[] toBytes(StringData object) {
+        return serde.toBytes(object.strValue());
+    }
 }

@@ -336,7 +336,7 @@ project(":samza-yarn_$scalaVersion") {
 }
 
 if (JavaVersion.current().isJava8Compatible()) {
-  project(":samza-sql-core") {
+  project(":samza-operator") {
     apply plugin: 'java'
     
     sourceCompatibility = 1.8
@@ -345,7 +345,9 @@ if (JavaVersion.current().isJava8Compatible()) {
       compile project(':samza-api')
       compile project(":samza-core_$scalaVersion")
       compile "commons-collections:commons-collections:$commonsCollectionVersion"
+      compile "org.apache.commons:commons-lang3:$commonsLang3Version"
       compile "org.apache.avro:avro:$avroVersion"
+      compile "org.reactivestreams:reactive-streams:$reactiveStreamVersion"
       testCompile "junit:junit:$junitVersion"
       testCompile "org.mockito:mockito-all:$mockitoVersion"
     }
@@ -363,7 +365,7 @@ if (JavaVersion.current().isJava8Compatible()) {
     sourceCompatibility = 1.8
 
     dependencies {
-      compile project(":samza-sql-core")
+      compile project(":samza-operator")
       compile "org.apache.calcite:calcite-core:$calciteVersion"
       testCompile "junit:junit:$junitVersion"
       testCompile "org.mockito:mockito-all:$mockitoVersion"

@@ -38,7 +38,8 @@ public class TestAvroSchemaConverter {
       " ]\n" +
       "}";
 
-  public static final Schema simpleRecord = new Schema.Parser().parse(SIMPLE_RECORD_SCHEMA);
+  public static final Schema simpleRecord = Schema.parse(SIMPLE_RECORD_SCHEMA);
+
   @Test
   public void testSimpleAvroRecord(){
     RelDataTypeFactory relDataTypeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
