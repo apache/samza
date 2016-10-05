@@ -20,31 +20,25 @@
 package org.apache.samza.system.hdfs
 
 
-import java.io.{InputStreamReader, File, IOException}
+import java.io.File
 import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
 
-import org.apache.avro.file.{SeekableFileInput, CodecFactory, DataFileWriter, DataFileReader}
-import org.apache.avro.reflect.{ReflectDatumReader, ReflectDatumWriter, ReflectData}
-import org.apache.avro.specific.SpecificDatumReader
+import org.apache.avro.file.DataFileReader
+import org.apache.avro.reflect.{ReflectData, ReflectDatumReader}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
-import org.apache.hadoop.hdfs.{DFSConfigKeys,MiniDFSCluster}
-import org.apache.hadoop.io.{SequenceFile, BytesWritable, LongWritable, Text}
+import org.apache.hadoop.hdfs.{DFSConfigKeys, MiniDFSCluster}
 import org.apache.hadoop.io.SequenceFile.Reader
-
+import org.apache.hadoop.io.{BytesWritable, LongWritable, SequenceFile, Text}
 import org.apache.samza.config.Config
-import org.apache.samza.system.hdfs.HdfsConfig._
 import org.apache.samza.config.factories.PropertiesConfigFactory
-import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.system.hdfs.HdfsConfig._
 import org.apache.samza.system.{OutgoingMessageEnvelope, SystemStream}
 import org.apache.samza.util.Logging
-
-import org.junit.{AfterClass, BeforeClass, Test}
 import org.junit.Assert._
-
-import scala.collection.JavaConverters._
+import org.junit.{AfterClass, Test}
 
 
 object TestHdfsSystemProducerTestSuite {
@@ -88,7 +82,7 @@ object TestHdfsSystemProducerTestSuite {
   }
 
   def buildProducer(name: String, cluster: MiniDFSCluster): Option[HdfsSystemProducer] @unchecked = {
-   Some(
+    Some(
       hdfsFactory.getProducer(
         name,
         propsFactory.getConfig(URI.create(RESOURCE_PATH_FORMAT format (new File(".").getCanonicalPath, name))),
@@ -277,7 +271,7 @@ class TestHdfsSystemProducerTestSuite extends Logging {
       Thread.sleep(PAUSE)
 
       val systemStream = new SystemStream(AVRO_JOB_NAME, TEST)
-      val atc = new AvroTestClass(1280382045923456789L, "alkjdsfafloiqulkjasoiuqlklakdsflkja")
+      val atc = new AvroTestClass(128038204592345678L, "alkjdsfafloiqulkjasoiuqlklakdsflkja")
       producer.get.send(TEST, new OutgoingMessageEnvelope(systemStream, atc))
 
       producer.get.stop
@@ -292,7 +286,7 @@ class TestHdfsSystemProducerTestSuite extends Logging {
       val atf = new AvroFSInput(FileContext.getFileContext(), results.head.getPath)
       val schema = ReflectData.get().getSchema(atc.getClass)
       val datumReader = new ReflectDatumReader[Object](schema)
-      val tfReader = DataFileReader.openReader(atf, datumReader)
+      val tfReader = new DataFileReader[Object](atf, datumReader)
       val atc2 = tfReader.next().asInstanceOf[AvroTestClass]
 
       assertTrue(atc == atc2)
@@ -314,7 +308,7 @@ class TestHdfsSystemProducerTestSuite extends Logging {
       Thread.sleep(PAUSE)
 
       val systemStream = new SystemStream(AVRO_BATCH_JOB_NAME, TEST)
-      val atc = new AvroTestClass(1280382045923456789L, "alkjdsfafloiqulkjasoiuqlklakdsflkja")
+      val atc = new AvroTestClass(128038204592345678L, "alkjdsfafloiqulkjasoiuqlklakdsflkja")
 
       (1 to 20).map {
         i => producer.get.send(TEST, new OutgoingMessageEnvelope(systemStream, atc))
@@ -332,7 +326,7 @@ class TestHdfsSystemProducerTestSuite extends Logging {
         val atf = new AvroFSInput(FileContext.getFileContext(), r.getPath)
         val schema = ReflectData.get().getSchema(atc.getClass)
         val datumReader = new ReflectDatumReader[Object](schema)
-        val tfReader = DataFileReader.openReader(atf, datumReader)
+        val tfReader = new DataFileReader[Object](atf, datumReader)
         val atc2 = tfReader.next().asInstanceOf[AvroTestClass]
         assertTrue(atc == atc2)
       }
@@ -347,12 +341,12 @@ class TestHdfsSystemProducerTestSuite extends Logging {
 
 class TestHdfsSystemProducer(systemName: String, config: HdfsConfig, clientId: String, metrics: HdfsSystemProducerMetrics, mini: MiniDFSCluster)
   extends HdfsSystemProducer(systemName, clientId, config, metrics) {
-    override val dfs = mini.getFileSystem
+  override val dfs = mini.getFileSystem
 }
 
 
 class TestHdfsSystemFactory extends HdfsSystemFactory {
-    def getProducer(systemName: String, config: Config, metrics: HdfsSystemProducerMetrics, cluster: MiniDFSCluster) = {
-      new TestHdfsSystemProducer(systemName, config, "test", metrics, cluster)
-    }
+  def getProducer(systemName: String, config: Config, metrics: HdfsSystemProducerMetrics, cluster: MiniDFSCluster) = {
+    new TestHdfsSystemProducer(systemName, config, "test", metrics, cluster)
+  }
 }

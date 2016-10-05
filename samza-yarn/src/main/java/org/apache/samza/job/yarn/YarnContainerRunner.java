@@ -179,7 +179,7 @@ public class YarnContainerRunner {
       Iterator iter = credentials.getAllTokens().iterator();
       while (iter.hasNext()) {
         TokenIdentifier token = ((Token) iter.next()).decodeIdentifier();
-        if (token.getKind().equals(AMRMTokenIdentifier.KIND_NAME)) {
+        if (token != null && token.getKind().equals(AMRMTokenIdentifier.KIND_NAME)) {
           iter.remove();
         }
       }

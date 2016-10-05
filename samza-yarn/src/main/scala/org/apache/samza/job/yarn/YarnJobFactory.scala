@@ -18,6 +18,9 @@
  */
 
 package org.apache.samza.job.yarn
+
+
+import org.apache.hadoop.hdfs.DistributedFileSystem
 import org.apache.samza.job.StreamJobFactory
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.samza.config.Config
@@ -29,7 +32,11 @@ class YarnJobFactory extends StreamJobFactory {
     val hConfig = new YarnConfiguration
     hConfig.set("fs.http.impl", classOf[HttpFileSystem].getName)
     hConfig.set("fs.https.impl", classOf[HttpFileSystem].getName)
-
+    hConfig.set("fs.hdfs.impl", classOf[DistributedFileSystem].getName)
+    // pass along the RM config if has any
+    if (config.containsKey(YarnConfiguration.RM_ADDRESS)) {
+      hConfig.set(YarnConfiguration.RM_ADDRESS, config.get(YarnConfiguration.RM_ADDRESS, "0.0.0.0:8032"))
+    }
     new YarnJob(config, hConfig)
   }
 }

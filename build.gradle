@@ -84,7 +84,8 @@ rat {
     'RELEASE.md',
     'samza-test/src/main/resources/**',
     'samza-hdfs/src/main/resources/**',
-    'samza-hdfs/src/test/resources/**'
+    'samza-hdfs/src/test/resources/**',
+    'out/**'
   ]
 }
 
@@ -333,6 +334,10 @@ project(":samza-yarn_$scalaVersion") {
       // Exclude because YARN's 3.4.5 ZK version is incompatbile with Kafka's 3.3.4.
       exclude module: 'zookeeper'
     }
+    compile("org.apache.hadoop:hadoop-hdfs:$yarnVersion") {
+      exclude module: 'slf4j-log4j12'
+      exclude module: 'servlet-api'
+    }
     compile("org.scalatra:scalatra_$scalaVersion:$scalatraVersion") {
       exclude module: 'scala-compiler'
       exclude module: 'slf4j-api'
@@ -494,10 +499,19 @@ project(":samza-kv-rocksdb_$scalaVersion") {
 project(":samza-hdfs_$scalaVersion") {
   apply plugin: 'scala'
 
+  // Force scala joint compilation
+  sourceSets.main.scala.srcDir "src/main/java"
+  sourceSets.test.scala.srcDir "src/test/java"
+  sourceSets.main.java.srcDirs = []
+
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
     compile project(":samza-kafka_$scalaVersion")
+    // currently hdfs system producer/consumer do depend on yarn for two things:
+    // 1. staging directory 2. security
+    // SAMZA-1032 to solve the staging directory dependency
+    compile project(":samza-yarn_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile("org.apache.hadoop:hadoop-hdfs:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
