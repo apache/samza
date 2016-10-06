@@ -25,4 +25,4 @@ exclude: [_docs]
 baseurl: http://samza.apache.org
 version: latest
 # this is the version you will go if you click 'switch version' in "latest" pages.
-latest-release: '0.10'
+latest-release: '0.11'
