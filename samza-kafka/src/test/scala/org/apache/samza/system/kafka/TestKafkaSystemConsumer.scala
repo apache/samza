@@ -67,7 +67,7 @@ class TestKafkaSystemConsumer {
     val metrics = new KafkaSystemConsumerMetrics
     // Lie and tell the store that the partition metadata is empty. We can't
     // use partition metadata because it has Broker in its constructor, which
-    // is package private to Kafka. 
+    // is package private to Kafka.
     val metadataStore = new MockMetadataStore(Map(streamName -> TopicMetadata(streamName, Seq.empty, 0)))
     var hosts = List[String]()
     var getHostPortCount = 0
@@ -81,7 +81,7 @@ class TestKafkaSystemConsumer {
       override def createBrokerProxy(host: String, port: Int): BrokerProxy = {
         new BrokerProxy(host, port, systemName, "", metrics, sink) {
           override def addTopicPartition(tp: TopicAndPartition, nextOffset: Option[String]) = {
-            // Skip this since we normally do verification of offsets, which 
+            // Skip this since we normally do verification of offsets, which
             // tries to connect to Kafka. Rather than mock that, just forget it.
             nextOffsets.size
           }
@@ -159,12 +159,11 @@ class TestKafkaSystemConsumer {
 
     val msg = Array[Byte](5, 112, 9, 126)
     val msgAndOffset: MessageAndOffset = MessageAndOffset(new Message(msg), 887654)
-    // 4 data + 14 Message overhead + 80 IncomingMessageEnvelope overhead
+    // 4 data + 18 Message overhead + 80 IncomingMessageEnvelope overhead
     consumer.sink.addMessage(new TopicAndPartition("test-stream", 0),  msgAndOffset, 887354)
 
-    assertEquals(98, consumer.getMessagesSizeInQueue(new SystemStreamPartition("test-system", "test-stream", new Partition(0))))
+    assertEquals(106, consumer.getMessagesSizeInQueue(new SystemStreamPartition("test-system", "test-stream", new Partition(0))))
   }
-
 
   @Test
   def testFetchThresholdBytesDisabled {
@@ -190,4 +189,3 @@ class TestKafkaSystemConsumer {
 class MockMetadataStore(var metadata: Map[String, TopicMetadata] = Map()) extends TopicMetadataStore {
   def getTopicInfo(topics: Set[String]): Map[String, TopicMetadata] = metadata
 }
-

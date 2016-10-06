@@ -27,6 +27,7 @@ import java.util
 import org.junit.Assert._
 import org.scalatest.Assertions.intercept
 import org.apache.kafka.common.errors.{TimeoutException, RecordTooLargeException}
+import org.apache.kafka.test.MockSerializer
 import org.apache.samza.SamzaException
 
 
@@ -37,13 +38,14 @@ class TestKafkaSystemProducer {
 
   @Test
   def testKafkaProducer {
+    val mockProducer = new MockProducer(true, new MockSerializer, new MockSerializer)
     val systemProducer = new KafkaSystemProducer(systemName = "test",
-                                           getProducer = () => { new MockProducer(true) },
-                                           metrics = new KafkaSystemProducerMetrics)
+                                                 getProducer = () => mockProducer,
+                                                 metrics = new KafkaSystemProducerMetrics)
     systemProducer.register("test")
     systemProducer.start
     systemProducer.send("test", someMessage)
-    assertEquals(1, systemProducer.producer.asInstanceOf[MockProducer].history().size())
+    assertEquals(1, systemProducer.producer.asInstanceOf[MockProducer[Array[Byte], Array[Byte]]].history().size())
     systemProducer.stop
   }
 
