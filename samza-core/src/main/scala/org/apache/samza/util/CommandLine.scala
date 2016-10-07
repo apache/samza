@@ -63,7 +63,7 @@ class CommandLine {
     // Set up the job parameters.
     val configFactoryClass = options.valueOf(configFactoryOpt)
     val configPaths = options.valuesOf(configPathOpt)
-    configFactory = ClassLoaderHelper.fromClassName[ConfigFactory](configFactoryClass)
+    configFactory = Class.forName(configFactoryClass).newInstance.asInstanceOf[ConfigFactory]
     val configOverrides = options.valuesOf(configOverrideOpt).map(kv => (kv.key, kv.value)).toMap
 
     val configs: Buffer[java.util.Map[String, String]] = configPaths.map(configFactory.getConfig)
