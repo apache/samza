@@ -24,7 +24,7 @@ This tutorial uses [hello-samza](../../../startup/hello-samza/{{site.version}}/)
 ### Upload the package
 
 {% highlight bash %}
-hadoop fs -put ./target/hello-samza-0.10.0-dist.tar.gz /path/for/tgz
+hadoop fs -put ./target/hello-samza-0.11.0-dist.tar.gz /path/for/tgz
 {% endhighlight %}
 
 ### Add HDFS configuration
