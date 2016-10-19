@@ -21,11 +21,13 @@ package org.apache.samza.monitor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.monitor.mock.DummyMonitorFactory;
 import org.apache.samza.monitor.mock.ExceptionThrowingMonitorFactory;
 import org.apache.samza.monitor.mock.InstantSchedulingProvider;
+import org.apache.samza.monitor.mock.MockMonitorFactory;
 import org.apache.samza.rest.SamzaRestConfig;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Test;
@@ -34,6 +36,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.mockito.Mockito;
 
 import static junit.framework.TestCase.assertTrue;
 import static org.apache.samza.monitor.MonitorConfig.CONFIG_MONITOR_FACTORY_CLASS;
@@ -99,6 +102,41 @@ public class TestMonitorService {
         // This will throw if the exception isn't caught within the provider.
         monitorService.start();
         monitorService.stop();
+    }
+
+    @Test
+    public void testShouldNotFailWhenTheMonitorFactoryClassIsNotDefined()
+        throws Exception {
+        // Test that when MonitorFactoryClass is not defined in the config, monitor service
+        // should not fail.
+        Map<String, String> configMap = ImmutableMap.of("monitor.monitor1.config.key1", "configValue1",
+                                                        "monitor.monitor1.config.key2", "configValue2",
+                                                        String.format("monitor.MOCK_MONITOR.%s", CONFIG_MONITOR_FACTORY_CLASS),
+                                                        MockMonitorFactory.class.getCanonicalName());
+
+        SamzaRestConfig config = new SamzaRestConfig(new MapConfig(configMap));
+        SamzaMonitorService monitorService = new SamzaMonitorService(config,
+                                                                     METRICS_REGISTRY,
+                                                                     new InstantSchedulingProvider());
+        try {
+            monitorService.start();
+        } catch (Exception e) {
+            fail();
+        }
+        Mockito.verify(MockMonitorFactory.MOCK_MONITOR, Mockito.times(1)).monitor();
+    }
+
+    @Test(expected = SamzaException.class)
+    public void testShouldFailWhenTheMonitorFactoryClassIsInvalid() {
+        // Test that when MonitorFactoryClass is defined in the config and is invalid,
+        // monitor service should fail. Should throw back SamzaException.
+        Map<String, String> configMap = ImmutableMap.of(String.format("monitor.name.%s", CONFIG_MONITOR_FACTORY_CLASS),
+                                                        "RandomClassName");
+        SamzaRestConfig config = new SamzaRestConfig(new MapConfig(configMap));
+        SamzaMonitorService monitorService = new SamzaMonitorService(config,
+                                                                     METRICS_REGISTRY,
+                                                                     new InstantSchedulingProvider());
+        monitorService.start();
     }
 
     @Test

@@ -18,6 +18,7 @@
  */
 package org.apache.samza.monitor;
 
+import com.google.common.base.Strings;
 import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -56,12 +57,19 @@ public class SamzaMonitorService {
         try {
             Map<String, MonitorConfig> monitorConfigs = getMonitorConfigs(config);
             for (Map.Entry<String, MonitorConfig> entry : monitorConfigs.entrySet()) {
+                String monitorName = entry.getKey();
                 MonitorConfig monitorConfig = entry.getValue();
-                int schedulingIntervalInMs = monitorConfig.getSchedulingIntervalInMs();
-                LOGGER.info("Scheduling monitor {} to run every {} ms", entry.getKey(), schedulingIntervalInMs);
-                // MetricsRegistry has been added in the Monitor interface, since it's required in the eventual future to record metrics.
-                // We have plans to record metrics, hence adding this as a placeholder. We just aren't doing it yet.
-                scheduler.schedule(getRunnable(instantiateMonitor(monitorConfig, metricsRegistry)), schedulingIntervalInMs);
+
+                if (!Strings.isNullOrEmpty(monitorConfig.getMonitorFactoryClass())) {
+                    int schedulingIntervalInMs = monitorConfig.getSchedulingIntervalInMs();
+                    LOGGER.info("Scheduling monitor {} to run every {} ms", monitorName, schedulingIntervalInMs);
+                    // MetricsRegistry has been added in the Monitor interface, since it's required in the eventual future to record metrics.
+                    // We have plans to record metrics, hence adding this as a placeholder. We just aren't doing it yet.
+                    scheduler.schedule(getRunnable(instantiateMonitor(monitorConfig, metricsRegistry)), schedulingIntervalInMs);
+                } else {
+                  // When MonitorFactoryClass is not defined in the config, ignore the monitor config
+                  LOGGER.warn("Not scheduling the monitor: {} to run, since monitor factory class is not set in config.", monitorName);
+                }
             }
         } catch (InstantiationException e) {
             LOGGER.error("Exception when instantiating the monitor : ", e);
