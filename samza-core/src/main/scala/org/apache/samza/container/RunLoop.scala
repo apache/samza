@@ -19,14 +19,11 @@
 
 package org.apache.samza.container
 
-import java.util.concurrent.Executor
-
 import org.apache.samza.task.CoordinatorRequests
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemConsumers, SystemStreamPartition}
 import org.apache.samza.task.ReadableCoordinator
 import org.apache.samza.task.StreamTask
-import org.apache.samza.util.Logging
-import org.apache.samza.util.TimerUtils
+import org.apache.samza.util.{Logging, Throttleable, ThrottlingExecutor, TimerUtils}
 
 import scala.collection.JavaConversions._
 
@@ -43,12 +40,13 @@ class RunLoop (
   val taskInstances: Map[TaskName, TaskInstance[StreamTask]],
   val consumerMultiplexer: SystemConsumers,
   val metrics: SamzaContainerMetrics,
+  val maxThrottlingDelayMs: Long,
   val windowMs: Long = -1,
   val commitMs: Long = 60000,
-  val clock: () => Long = { System.nanoTime },
-  val executor: Executor = new SameThreadExecutor()) extends Runnable with TimerUtils with Logging {
+  val clock: () => Long = { System.nanoTime }) extends Runnable with Throttleable with TimerUtils with Logging {
 
   private val metricsMsOffset = 1000000L
+  private val executor = new ThrottlingExecutor(maxThrottlingDelayMs)
   private var lastWindowNs = clock()
   private var lastCommitNs = clock()
   private var activeNs = 0L
@@ -96,7 +94,11 @@ class RunLoop (
     }
   }
 
-  def shutdown = {
+  def setWorkFactor(workFactor: Double): Unit = executor.setWorkFactor(workFactor)
+
+  def getWorkFactor: Double = executor.getWorkFactor
+
+  def shutdown: Unit = {
     shutdownNow = true
   }
 

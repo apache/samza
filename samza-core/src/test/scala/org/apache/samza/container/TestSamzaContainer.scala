@@ -19,23 +19,21 @@
 
 package org.apache.samza.container
 
-import java.net.SocketTimeoutException
+import java.lang.Thread.UncaughtExceptionHandler
 import java.util
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
-import org.apache.samza.storage.TaskStorageManager
-import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
-import org.scalatest.mock.MockitoSugar
 
-import scala.collection.JavaConversions._
 import org.apache.samza.Partition
-import org.apache.samza.config.Config
-import org.apache.samza.config.MapConfig
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
+import org.apache.samza.config.{Config, MapConfig}
 import org.apache.samza.coordinator.JobModelManager
-import org.apache.samza.coordinator.server.{ServletBase, HttpServer, JobServlet}
+import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskModel
+import org.apache.samza.serializers._
+import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.StreamMetadataCache
 import org.apache.samza.system.SystemConsumer
@@ -55,11 +53,13 @@ import org.apache.samza.task.TaskInstanceCollector
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
 import org.junit.Assert._
 import org.junit.Test
-import org.scalatest.junit.AssertionsForJUnit
-import java.lang.Thread.UncaughtExceptionHandler
-import org.apache.samza.serializers._
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
+import org.scalatest.junit.AssertionsForJUnit
+import org.scalatest.mock.MockitoSugar
+
+import scala.collection.JavaConversions._
 
 class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   @Test
@@ -193,7 +193,8 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     val runLoop = new RunLoop(
       taskInstances = Map(taskName -> taskInstance),
       consumerMultiplexer = consumerMultiplexer,
-      metrics = new SamzaContainerMetrics)
+      metrics = new SamzaContainerMetrics,
+      maxThrottlingDelayMs = TimeUnit.SECONDS.toMillis(1))
     val container = new SamzaContainer(
       containerContext = containerContext,
       taskInstances = Map(taskName -> taskInstance),

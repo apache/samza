@@ -19,7 +19,6 @@
 
 package org.apache.samza.container;
 
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.TaskConfig;
@@ -32,8 +31,8 @@ import org.slf4j.LoggerFactory;
 import scala.collection.JavaConversions;
 import scala.runtime.AbstractFunction1;
 
-import static org.apache.samza.util.Utils.defaultValue;
 import static org.apache.samza.util.Utils.defaultClock;
+import static org.apache.samza.util.Utils.defaultValue;
 
 /**
  * Factory class to create runloop for a Samza task, based on the type
@@ -49,7 +48,7 @@ public class RunLoopFactory {
   public static Runnable createRunLoop(scala.collection.immutable.Map<TaskName, TaskInstance<?>> taskInstances,
       SystemConsumers consumerMultiplexer,
       ExecutorService threadPool,
-      Executor executor,
+      long maxThrottlingDelayMs,
       SamzaContainerMetrics containerMetrics,
       TaskConfig config) {
 
@@ -81,10 +80,10 @@ public class RunLoopFactory {
         streamTaskInstances,
         consumerMultiplexer,
         containerMetrics,
+        maxThrottlingDelayMs,
         taskWindowMs,
         taskCommitMs,
-        defaultClock(),
-        executor);
+        defaultClock());
     } else {
       Integer taskMaxConcurrency = config.getMaxConcurrency().getOrElse(defaultValue(1));
 
@@ -106,6 +105,7 @@ public class RunLoopFactory {
         taskWindowMs,
         taskCommitMs,
         callbackTimeout,
+        maxThrottlingDelayMs,
         containerMetrics);
     }
   }

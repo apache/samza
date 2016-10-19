@@ -42,6 +42,8 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.Throttleable;
+import org.apache.samza.util.ThrottlingScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConversions;
@@ -50,7 +52,7 @@ import scala.collection.JavaConversions;
 /**
  * The AsyncRunLoop supports multithreading execution of Samza {@link AsyncStreamTask}s.
  */
-public class AsyncRunLoop implements Runnable {
+public class AsyncRunLoop implements Runnable, Throttleable {
   private static final Logger log = LoggerFactory.getLogger(AsyncRunLoop.class);
 
   private final Map<TaskName, AsyncTaskWorker> taskWorkers;
@@ -67,6 +69,7 @@ public class AsyncRunLoop implements Runnable {
   private final SamzaContainerMetrics containerMetrics;
   private final ScheduledExecutorService workerTimer;
   private final ScheduledExecutorService callbackTimer;
+  private final ThrottlingScheduler callbackExecutor;
   private volatile boolean shutdownNow = false;
   private volatile Throwable throwable = null;
 
@@ -77,6 +80,7 @@ public class AsyncRunLoop implements Runnable {
       long windowMs,
       long commitMs,
       long callbackTimeoutMs,
+      long maxThrottlingDelayMs,
       SamzaContainerMetrics containerMetrics) {
 
     this.threadPool = threadPool;
@@ -87,6 +91,7 @@ public class AsyncRunLoop implements Runnable {
     this.maxConcurrency = maxConcurrency;
     this.callbackTimeoutMs = callbackTimeoutMs;
     this.callbackTimer = (callbackTimeoutMs > 0) ? Executors.newSingleThreadScheduledExecutor() : null;
+    this.callbackExecutor = new ThrottlingScheduler(maxThrottlingDelayMs);
     this.coordinatorRequests = new CoordinatorRequests(taskInstances.keySet());
     this.latch = new Object();
     this.workerTimer = Executors.newSingleThreadScheduledExecutor();
@@ -159,8 +164,19 @@ public class AsyncRunLoop implements Runnable {
       }
     } finally {
       workerTimer.shutdown();
+      callbackExecutor.shutdown();
       if (callbackTimer != null) callbackTimer.shutdown();
     }
+  }
+
+  @Override
+  public void setWorkFactor(double workFactor) {
+    callbackExecutor.setWorkFactor(workFactor);
+  }
+
+  @Override
+  public double getWorkFactor() {
+    return callbackExecutor.getWorkFactor();
   }
 
   public void shutdown() {
@@ -480,30 +496,36 @@ public class AsyncRunLoop implements Runnable {
      * * @param callback AsyncSteamTask.processAsync callback
      */
     @Override
-    public void onComplete(TaskCallback callback) {
-      try {
-        state.doneProcess();
-        TaskCallbackImpl callbackImpl = (TaskCallbackImpl) callback;
-        containerMetrics.processNs().update(System.nanoTime() - callbackImpl.timeCreatedNs);
-        log.trace("Got callback complete for task {}, ssp {}", callbackImpl.taskName, callbackImpl.envelope.getSystemStreamPartition());
+    public void onComplete(final TaskCallback callback) {
+      long workNanos = System.nanoTime() - ((TaskCallbackImpl) callback).timeCreatedNs;
+      callbackExecutor.schedule(new Runnable() {
+        @Override
+        public void run() {
+          try {
+            state.doneProcess();
+            TaskCallbackImpl callbackImpl = (TaskCallbackImpl) callback;
+            containerMetrics.processNs().update(System.nanoTime() - callbackImpl.timeCreatedNs);
+            log.trace("Got callback complete for task {}, ssp {}", callbackImpl.taskName, callbackImpl.envelope.getSystemStreamPartition());
 
-        TaskCallbackImpl callbackToUpdate = callbackManager.updateCallback(callbackImpl, true);
-        if (callbackToUpdate != null) {
-          IncomingMessageEnvelope envelope = callbackToUpdate.envelope;
-          log.trace("Update offset for ssp {}, offset {}", envelope.getSystemStreamPartition(), envelope.getOffset());
+            TaskCallbackImpl callbackToUpdate = callbackManager.updateCallback(callbackImpl, true);
+            if (callbackToUpdate != null) {
+              IncomingMessageEnvelope envelope = callbackToUpdate.envelope;
+              log.trace("Update offset for ssp {}, offset {}", envelope.getSystemStreamPartition(), envelope.getOffset());
 
-          // update offset
-          task.offsetManager().update(task.taskName(), envelope.getSystemStreamPartition(), envelope.getOffset());
+              // update offset
+              task.offsetManager().update(task.taskName(), envelope.getSystemStreamPartition(), envelope.getOffset());
 
-          // update coordinator
-          coordinatorRequests.update(callbackToUpdate.coordinator);
+              // update coordinator
+              coordinatorRequests.update(callbackToUpdate.coordinator);
+            }
+          } catch (Throwable t) {
+            log.error(t.getMessage(), t);
+            abort(t);
+          } finally {
+            resume();
+          }
         }
-      } catch (Throwable t) {
-        log.error(t.getMessage(), t);
-        abort(t);
-      } finally {
-        resume();
-      }
+      }, workNanos);
     }
 
     /**

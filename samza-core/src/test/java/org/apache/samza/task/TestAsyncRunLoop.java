@@ -35,7 +35,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstance;
@@ -63,7 +62,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class TestAsyncRunLoop {
-
   Map<TaskName, TaskInstance<AsyncStreamTask>> tasks;
   ExecutorService executor;
   SystemConsumers consumerMultiplexer;
@@ -72,6 +70,7 @@ public class TestAsyncRunLoop {
   long windowMs;
   long commitMs;
   long callbackTimeoutMs;
+  long maxThrottlingDelayMs;
   int maxMessagesInFlight;
   TaskCoordinator.RequestScope commitRequest;
   TaskCoordinator.RequestScope shutdownRequest;
@@ -101,6 +100,7 @@ public class TestAsyncRunLoop {
         windowMs,
         commitMs,
         callbackTimeoutMs,
+        maxThrottlingDelayMs,
         containerMetrics);
   }
 
@@ -115,7 +115,6 @@ public class TestAsyncRunLoop {
   TaskInstance<AsyncStreamTask> createTaskInstance(AsyncStreamTask task, TaskName taskName, SystemStreamPartition ssp) {
     return createTaskInstance(task, taskName, ssp, offsetManager, consumerMultiplexer);
   }
-
 
   ExecutorService callbackExecutor;
   void triggerCallback(final TestTask task, final TaskCallback callback, final boolean success) {
@@ -140,7 +139,6 @@ public class TestAsyncRunLoop {
   interface TestCode {
     void run(TaskCallback callback);
   }
-
 
   class TestTask implements AsyncStreamTask, WindowableTask, EndOfStreamListenerTask {
     boolean shutdown = false;
@@ -193,7 +191,6 @@ public class TestAsyncRunLoop {
     }
   }
 
-
   @Before
   public void setup() {
     executor = null;
@@ -217,7 +214,6 @@ public class TestAsyncRunLoop {
     tasks.put(taskName1, t1);
   }
 
-
   @Test
   public void testProcessMultipleTasks() throws Exception {
     AsyncRunLoop runLoop = createRunLoop();
@@ -234,7 +230,6 @@ public class TestAsyncRunLoop {
     assertEquals(2L, containerMetrics.processes().getCount());
   }
 
-
   @Test
   public void testProcessInOrder() throws Exception {
     AsyncRunLoop runLoop = createRunLoop();
@@ -250,7 +245,6 @@ public class TestAsyncRunLoop {
     assertEquals(3L, containerMetrics.envelopes().getCount());
     assertEquals(3L, containerMetrics.processes().getCount());
   }
-
 
   private TestCode buildOutofOrderCallback() {
     final CountDownLatch latch = new CountDownLatch(1);
@@ -447,8 +441,6 @@ public class TestAsyncRunLoop {
     TestTask mockStreamTask1 = new TestTask(true, false, false);
     TestTask mockStreamTask2 = new TestTask(true, false, false);
 
-    Config config = new MapConfig();
-
     Partition p1 = new Partition(1);
     Partition p2 = new Partition(2);
     SystemStreamPartition ssp1 = new SystemStreamPartition("system1", "stream1", p1);
@@ -463,8 +455,6 @@ public class TestAsyncRunLoop {
     messageList.add(envelope2);
     messageList.add(envelope3);
     sspMap.put(ssp2, messageList);
-
-
 
     SystemConsumer mockConsumer = mock(SystemConsumer.class);
     when(mockConsumer.poll((Set<SystemStreamPartition>) anyObject(), anyLong())).thenReturn(sspMap);
@@ -496,20 +486,17 @@ public class TestAsyncRunLoop {
     taskInstance2.registerConsumers();
     consumers.start();
 
-    AsyncRunLoop runLoop =     new AsyncRunLoop(tasks,
+    AsyncRunLoop runLoop = new AsyncRunLoop(tasks,
         executor,
         consumers,
         maxMessagesInFlight,
         windowMs,
         commitMs,
         callbackTimeoutMs,
+        maxThrottlingDelayMs,
         containerMetrics);
-
 
     runLoop.run();
     callbackExecutor.awaitTermination(100, TimeUnit.MILLISECONDS);
-
-
-
   }
 }

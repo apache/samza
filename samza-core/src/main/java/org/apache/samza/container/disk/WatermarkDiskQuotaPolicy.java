@@ -19,7 +19,7 @@
 
 package org.apache.samza.container.disk;
 
-import org.apache.samza.util.ThrottlingExecutor;
+import org.apache.samza.util.Throttleable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,7 +105,7 @@ public class WatermarkDiskQuotaPolicy implements DiskQuotaPolicy {
 
     // Validate entries
     double lastHighWaterMark = 1.0;
-    double lastWorkFactor = ThrottlingExecutor.MAX_WORK_FACTOR;
+    double lastWorkFactor = Throttleable.MAX_WORK_FACTOR;
     for (int i = 0; i < entries.size(); ++i) {
       final Entry entry = entries.get(i);
 
@@ -123,10 +123,10 @@ public class WatermarkDiskQuotaPolicy implements DiskQuotaPolicy {
             dumpPolicyEntries(entries));
       }
 
-      if (entry.getWorkFactor() < ThrottlingExecutor.MIN_WORK_FACTOR) {
+      if (entry.getWorkFactor() < Throttleable.MIN_WORK_FACTOR) {
         throw new IllegalArgumentException("Policy entry " + i +
             " has work factor (" + entry.getWorkFactor() +
-            ") < minimum work factor (" + ThrottlingExecutor.MIN_WORK_FACTOR + "):" +
+            ") < minimum work factor (" + Throttleable.MIN_WORK_FACTOR + "):" +
             dumpPolicyEntries(entries));
       }
 

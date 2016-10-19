@@ -20,6 +20,8 @@
 package org.apache.samza.container
 
 
+import java.util.concurrent.TimeUnit
+
 import org.apache.samza.Partition
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.SlidingTimeWindowReservoir
@@ -69,7 +71,7 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
   def testProcessMessageFromChooser {
     val taskInstances = getMockTaskInstances
     val consumers = mock[SystemConsumers]
-    val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics)
+    val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics, TimeUnit.SECONDS.toMillis(1))
 
     when(consumers.choose()).thenReturn(envelope0).thenReturn(envelope1).thenThrow(new StopRunLoop)
     intercept[StopRunLoop] { runLoop.run }
@@ -83,7 +85,7 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
   def testNullMessageFromChooser {
     val consumers = mock[SystemConsumers]
     val map = getMockTaskInstances - taskName1 // This test only needs p0
-    val runLoop = new RunLoop(map, consumers, new SamzaContainerMetrics)
+    val runLoop = new RunLoop(map, consumers, new SamzaContainerMetrics, TimeUnit.SECONDS.toMillis(1))
     when(consumers.choose()).thenReturn(null).thenReturn(null).thenThrow(new StopRunLoop)
     intercept[StopRunLoop] { runLoop.run }
     runLoop.metrics.envelopes.getCount should equal(0L)
@@ -100,6 +102,7 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
       taskInstances = getMockTaskInstances,
       consumerMultiplexer = consumers,
       metrics = new SamzaContainerMetrics,
+      TimeUnit.SECONDS.toMillis(1),
       windowMs = 60000, // call window once per minute
       commitMs = 30000, // call commit twice per minute
       clock = () => {
@@ -120,7 +123,8 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
   def testCommitCurrentTaskManually {
     val taskInstances = getMockTaskInstances
     val consumers = mock[SystemConsumers]
-    val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics, windowMs = -1, commitMs = -1)
+    val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics,
+      TimeUnit.SECONDS.toMillis(1), windowMs = -1, commitMs = -1)
 
     when(consumers.choose()).thenReturn(envelope0).thenReturn(envelope1).thenThrow(new StopRunLoop)
     stubProcess(taskInstances(taskName0), (envelope, coordinator) => coordinator.commit(RequestScope.CURRENT_TASK))
@@ -134,7 +138,8 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
   def testCommitAllTasksManually {
     val taskInstances = getMockTaskInstances
     val consumers = mock[SystemConsumers]
-    val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics, windowMs = -1, commitMs = -1)
+    val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics,
+      TimeUnit.SECONDS.toMillis(1), windowMs = -1, commitMs = -1)
 
     when(consumers.choose()).thenReturn(envelope0).thenThrow(new StopRunLoop)
     stubProcess(taskInstances(taskName0), (envelope, coordinator) => coordinator.commit(RequestScope.ALL_TASKS_IN_CONTAINER))
@@ -148,7 +153,8 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
   def testShutdownOnConsensus {
     val taskInstances = getMockTaskInstances
     val consumers = mock[SystemConsumers]
-    val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics, windowMs = -1, commitMs = -1)
+    val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics,
+      TimeUnit.SECONDS.toMillis(1), windowMs = -1, commitMs = -1)
 
     when(consumers.choose()).thenReturn(envelope0).thenReturn(envelope0).thenReturn(envelope1)
     stubProcess(taskInstances(taskName0), (envelope, coordinator) => coordinator.shutdown(RequestScope.CURRENT_TASK))
@@ -163,7 +169,8 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
   def testShutdownNow {
     val taskInstances = getMockTaskInstances
     val consumers = mock[SystemConsumers]
-    val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics, windowMs = -1, commitMs = -1)
+    val runLoop = new RunLoop(taskInstances, consumers, new SamzaContainerMetrics
+      , TimeUnit.SECONDS.toMillis(1), windowMs = -1, commitMs = -1)
 
     when(consumers.choose()).thenReturn(envelope0).thenReturn(envelope1)
     stubProcess(taskInstances(taskName0), (envelope, coordinator) => coordinator.shutdown(RequestScope.ALL_TASKS_IN_CONTAINER))
@@ -208,6 +215,7 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
       taskInstances = getMockTaskInstances,
       consumerMultiplexer = consumers,
       metrics = testMetrics,
+      TimeUnit.SECONDS.toMillis(1),
       windowMs = 1L,
       commitMs = 1L,
       clock = () => {
@@ -242,6 +250,7 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
       taskInstances = getMockTaskInstances,
       consumerMultiplexer = consumers,
       metrics = testMetrics,
+      TimeUnit.SECONDS.toMillis(1),
       commitMs = 1L,
       windowMs = 1L,
       clock = () => {
@@ -275,7 +284,7 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
     when(ti2.systemStreamPartitions).thenReturn(Set(ssp1))
 
     val mockTaskInstances = Map(taskName0 -> ti0, taskName1 -> ti1, new TaskName("2") -> ti2)
-    val runLoop = new RunLoop(mockTaskInstances, null, new SamzaContainerMetrics)
+    val runLoop = new RunLoop(mockTaskInstances, null, new SamzaContainerMetrics, TimeUnit.SECONDS.toMillis(1))
     val expected = Map(ssp0 -> List(ti0), ssp1 -> List(ti1, ti2))
     assertEquals(expected, runLoop.getSystemStreamPartitionToTaskInstancesMapping)
   }

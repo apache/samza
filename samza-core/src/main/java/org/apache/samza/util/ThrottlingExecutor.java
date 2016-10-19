@@ -30,10 +30,7 @@ import java.util.concurrent.TimeUnit;
  * This class is *NOT* thread-safe. It is intended to be used from a single thread. However, the
  * work factor may be set from any thread.
  */
-public class ThrottlingExecutor implements Executor {
-  public static final double MAX_WORK_FACTOR = 1.0;
-  public static final double MIN_WORK_FACTOR = 0.001;
-
+public class ThrottlingExecutor implements Throttleable, Executor {
   private final long maxDelayNanos;
   private final HighResolutionClock clock;
 
@@ -54,7 +51,7 @@ public class ThrottlingExecutor implements Executor {
    * is less than 1.0) this command may optionally insert a delay before returning to satisfy the
    * requested work factor.
    * <p>
-   * This method will not operate correct if used by more than one thread.
+   * This method will not operate correctly if used by more than one thread.
    *
    * @param command the work to execute
    */
@@ -85,15 +82,7 @@ public class ThrottlingExecutor implements Executor {
     }
   }
 
-  /**
-   * Sets the work factor for this executor. A work factor of {@code 1.0} indicates that execution
-   * should proceed at full throughput. A work factor of less than {@code 1.0} will introduce
-   * delays into the {@link #execute(Runnable)} call to approximate the requested work factor. For
-   * example, if the work factor is {@code 0.7} then approximately 70% of the execute call will be
-   * spent executing the supplied command while 30% will be spent idle.
-   *
-   * @param workFactor the work factor to set for this executor.
-   */
+  @Override
   public void setWorkFactor(double workFactor) {
     if (workFactor < MIN_WORK_FACTOR) {
       throw new IllegalArgumentException("Work factor must be >= " + MIN_WORK_FACTOR);
@@ -105,11 +94,7 @@ public class ThrottlingExecutor implements Executor {
     workToIdleFactor = (1.0 - workFactor) / workFactor;
   }
 
-  /**
-   * Returns the current work factor in use.
-   * @see #setWorkFactor(double)
-   * @return the current work factor.
-   */
+  @Override
   public double getWorkFactor() {
     return 1.0 / (workToIdleFactor + 1.0);
   }
