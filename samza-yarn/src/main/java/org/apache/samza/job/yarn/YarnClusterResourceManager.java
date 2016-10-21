@@ -184,6 +184,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
 
     int memoryMb = resourceRequest.getMemoryMB();
     int cpuCores = resourceRequest.getNumCores();
+    String containerLabel = yarnConfig.getContainerLabel();
     String preferredHost = resourceRequest.getPreferredHost();
     Resource capability = Resource.newInstance(memoryMb, cpuCores);
     Priority priority =  Priority.newInstance(DEFAULT_PRIORITY);
@@ -193,7 +194,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     if (preferredHost.equals("ANY_HOST"))
     {
       log.info("Making a request for ANY_HOST " + preferredHost );
-      issuedRequest = new AMRMClient.ContainerRequest(capability, null, null, priority);
+      issuedRequest = new AMRMClient.ContainerRequest(capability, null, null, priority, true, containerLabel);
     }
     else
     {
@@ -202,7 +203,9 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
               capability,
               new String[]{preferredHost},
               null,
-              priority);
+              priority,
+              true,
+              containerLabel);
     }
     //ensure that updating the state and making the request are done atomically.
     synchronized (lock) {

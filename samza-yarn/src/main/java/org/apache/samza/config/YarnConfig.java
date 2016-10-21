@@ -46,6 +46,11 @@ public class YarnConfig extends MapConfig {
   private static final int DEFAULT_CPU_CORES = 1;
 
   /**
+   * Label to request from YARN for containers
+   */
+  public static final String CONTAINER_LABEL = "yarn.container.label";
+
+  /**
    * Maximum number of times the AM tries to restart a failed container
    */
   public static final String CONTAINER_RETRY_COUNT = "yarn.container.retry.count";
@@ -74,6 +79,11 @@ public class YarnConfig extends MapConfig {
    */
   public static final String AM_CONTAINER_MAX_MEMORY_MB = "yarn.am.container.memory.mb";
   private static final int DEFAULT_AM_CONTAINER_MAX_MEMORY_MB = 1024;
+
+  /**
+   * Label to request from YARN for running the AM
+   */
+  public static final String AM_CONTAINER_LABEL = "yarn.am.container.label";
 
   /**
    * Determines the interval for the Heartbeat between the AM and the Yarn RM
@@ -154,6 +164,10 @@ public class YarnConfig extends MapConfig {
     return getInt(CONTAINER_MAX_CPU_CORES, DEFAULT_CPU_CORES);
   }
 
+  public String getContainerLabel() {
+    return get(CONTAINER_LABEL, null);
+  }
+
   public boolean getJmxServerEnabled() {
     return getBoolean(AM_JMX_ENABLED, true);
   }
@@ -168,6 +182,10 @@ public class YarnConfig extends MapConfig {
 
   public int getAMContainerMaxMemoryMb() {
     return getInt(AM_CONTAINER_MAX_MEMORY_MB, DEFAULT_AM_CONTAINER_MAX_MEMORY_MB);
+  }
+
+  public String getAMContainerLabel() {
+    return get(AM_CONTAINER_LABEL, null);
   }
 
   public String getAmOpts() {

@@ -94,6 +94,7 @@ class ClientHelper(conf: Configuration) extends Logging {
     val mem = yarnConfig.getAMContainerMaxMemoryMb
     val cpu = 1
     val queueName = Option(yarnConfig.getQueueName)
+    val appMasterLabel = Option(yarnConfig.getAMContainerLabel)
 
     // If we are asking for memory more than the max allowed, shout out
     if (mem > newAppResponse.getMaximumResourceCapability().getMemory()) {
@@ -121,6 +122,14 @@ class ClientHelper(conf: Configuration) extends Logging {
     name match {
       case Some(name) => { appCtx.setApplicationName(name) }
       case None => { appCtx.setApplicationName(appId.get.toString) }
+    }
+
+    appMasterLabel match {
+      case Some(label) => {
+        appCtx.setNodeLabelExpression(label)
+        info("set yarn node label expression to %s" format queueName)
+      }
+      case None =>
     }
 
     queueName match {
