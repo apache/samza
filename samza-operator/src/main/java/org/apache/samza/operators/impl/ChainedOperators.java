@@ -21,9 +21,15 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.api.MessageStream;
 import org.apache.samza.operators.api.data.Message;
+import org.apache.samza.operators.api.internal.Operators.Operator;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Map.Entry;
+import java.util.Set;
 
 
 /**
@@ -33,6 +39,8 @@ import org.apache.samza.task.TaskCoordinator;
  */
 public class ChainedOperators<M extends Message> {
 
+  private final Set<OperatorImpl> subscribers = new HashSet<>();
+
   /**
    * Private constructor
    *
@@ -41,7 +49,38 @@ public class ChainedOperators<M extends Message> {
    */
   private ChainedOperators(MessageStream<M> source, TaskContext context) {
     // create the pipeline/topology starting from source
-    // pass in the context s.t. stateful stream operators can initialize their stores
+    source.getSubscribers().forEach(sub -> {
+      // pass in the context s.t. stateful stream operators can initialize their stores
+      OperatorImpl subImpl = this.createAndSubscribe(sub, source, context);
+      this.subscribers.add(subImpl);
+    });
+  }
+
+  /**
+   * Private function to recursively instantiate the implementation of operators and the chains
+   *
+   * @param operator  the operator that subscribe to {@code source}
+   * @param source  the source {@link MessageStream}
+   * @param context  the context of the task
+   * @return  the implementation object of the corresponding {@code operator}
+   */
+  private OperatorImpl<M, ? extends Message> createAndSubscribe(Operator operator, MessageStream source,
+      TaskContext context) {
+    Entry<OperatorImpl<M, ? extends Message>, Boolean> factoryEntry = OperatorFactory.getOperator(operator);
+    if (factoryEntry.getValue()) {
+      // The operator has already been instantiated and we do not need to traverse and create the subscribers any more.
+      return factoryEntry.getKey();
+    }
+    OperatorImpl<M, ? extends Message> opImpl = factoryEntry.getKey();
+    MessageStream outStream = operator.getOutputStream();
+    Collection<Operator> subs = outStream.getSubscribers();
+    subs.forEach(sub -> {
+      OperatorImpl subImpl = this.createAndSubscribe(sub, operator.getOutputStream(), context);
+      opImpl.subscribe(subImpl);
+    });
+    // initialize the operator's state store
+    opImpl.init(source, context);
+    return opImpl;
   }
 
   /**
@@ -64,10 +103,17 @@ public class ChainedOperators<M extends Message> {
    * @param coordinator  the {@link TaskCoordinator} object within the process context
    */
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    // TODO: add implementation of onNext() that actually triggers the process pipeline
+    this.subscribers.forEach(sub -> sub.onNext(message, collector, coordinator));
   }
 
+  /**
+   * Method to handle timer events
+   *
+   * @param collector  the {@link MessageCollector} object within the process context
+   * @param coordinator  the {@link TaskCoordinator} object within the process context
+   */
   public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
-    // TODO: add implementation of onTimer() that actually calls the corresponding window operator's onTimer() methods
+    long nanoTime = System.nanoTime();
+    this.subscribers.forEach(sub -> sub.onTimer(nanoTime, collector, coordinator));
   }
 }

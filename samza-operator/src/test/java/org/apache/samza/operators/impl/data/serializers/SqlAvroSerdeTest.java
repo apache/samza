@@ -64,6 +64,7 @@ public class SqlAvroSerdeTest {
   @Test
   public void testSqlAvroSerialization() throws IOException {
     AvroData decodedDatumOriginal = (AvroData)serde.fromBytes(encodeMessage(sampleOrderRecord(), orderSchema));
+    @SuppressWarnings("unchecked")
     byte[] encodedDatum = serde.toBytes(decodedDatumOriginal);
 
     AvroData decodedDatum = (AvroData)serde.fromBytes(encodedDatum);

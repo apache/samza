@@ -30,29 +30,27 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 
-import java.util.function.BiFunction;
-
 
 /**
  * Default implementation class of a {@link WindowOperator} for a session window.
  *
  * @param <M>  the type of input {@link Message}
  * @param <RK>  the type of window key
+ * @param <WS>  the type of window state
  * @param <RM>  the type of aggregated value of the window
  */
 public class SessionWindowImpl<M extends Message, RK, WS extends WindowState, RM extends WindowOutput<RK, ?>> extends
     OperatorImpl<M, RM> {
-  private final BiFunction<M, Entry<RK, WS>, RM> txfmFunction;
-  private final StateStoreImpl<M, RK, WS> wndStore;
+  private final WindowOperator<M, RK, WS, RM> sessWnd;
+  private StateStoreImpl<M, RK, WS> wndStore = null;
 
-  SessionWindowImpl(WindowOperator<M, RK, WS, RM> sessWnd, MessageStream<M> input) {
-    this.txfmFunction = sessWnd.getFunction();
-    this.wndStore = new StateStoreImpl<>(sessWnd.getStoreFunctions(), sessWnd.getStoreName(input));
+  public SessionWindowImpl(WindowOperator<M, RK, WS, RM> sessWnd) {
+    this.sessWnd = sessWnd;
   }
 
   @Override protected void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
     Entry<RK, WS> state = this.wndStore.getState(message);
-    this.nextProcessors(this.txfmFunction.apply(message, state), collector, coordinator);
+    this.nextProcessors(this.sessWnd.getFunction().apply(message, state), collector, coordinator);
     this.wndStore.updateState(message, state);
   }
 
@@ -60,7 +58,8 @@ public class SessionWindowImpl<M extends Message, RK, WS extends WindowState, RM
     // This is to periodically check the timeout triggers to get the list of window states to be updated
   }
 
-  @Override protected void init(TaskContext context) {
+  @Override protected void init(MessageStream<M> source, TaskContext context) {
+    this.wndStore = new StateStoreImpl<>(this.sessWnd.getStoreFunctions(), sessWnd.getStoreName(source));
     this.wndStore.init(context);
   }
 }

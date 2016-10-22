@@ -55,7 +55,7 @@ public class Operators {
    * Private interface for stream operator functions. The interface class defines the output of the stream operator function.
    *
    */
-  private interface Operator<OM extends Message> {
+  public interface Operator<OM extends Message> {
     MessageStream<OM> getOutputStream();
   }
 

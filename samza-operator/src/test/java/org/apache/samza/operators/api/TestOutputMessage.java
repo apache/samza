@@ -16,17 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.impl;
+package org.apache.samza.operators.api;
 
 import org.apache.samza.operators.api.data.Message;
 
 
-class TestOutputMessage implements Message<String, Integer> {
+public class TestOutputMessage implements Message<String, Integer> {
   private final String key;
   private final Integer value;
   private final long timestamp;
 
-  TestOutputMessage(String key, Integer value, long timestamp) {
+  public TestOutputMessage(String key, Integer value, long timestamp) {
     this.key = key;
     this.value = value;
     this.timestamp = timestamp;

@@ -19,6 +19,7 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.api.TestMessage;
+import org.apache.samza.operators.api.TestOutputMessage;
 import org.apache.samza.operators.api.internal.Operators.StreamOperator;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;

@@ -117,7 +117,6 @@ public class TestOperators {
 
   @Test public void testGetMergeOperator() {
     MessageStream<TestMessage> output = new MessageStream<>();
-
     Operators.StreamOperator<TestMessage, TestMessage> mergeOp = Operators.getMergeOperator(output);
     Function<TestMessage, Collection<TestMessage>> mergeFn = t -> new ArrayList<TestMessage>() {{
       this.add(t);

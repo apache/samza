@@ -25,7 +25,7 @@ import org.apache.samza.system.SystemStreamPartition;
 
 
 /**
- * Example input message w/ avro message body and string as the key.
+ * Example input message w/ Json message body and string as the key.
  */
 
 public class InputJsonSystemMessage<T> implements Message<String, T>, InputSystemMessage<Offset> {

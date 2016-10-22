@@ -19,6 +19,7 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.api.data.Message;
+import org.apache.samza.operators.api.MessageStream;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -61,6 +62,17 @@ public abstract class OperatorImpl<M extends Message, RM extends Message>
   }
 
   /**
+   * Default method for timer event
+   *
+   * @param nanoTime  the system nano-second when the timer event is triggered
+   * @param collector  the {@link MessageCollector} in the context
+   * @param coordinator  the {@link TaskCoordinator} in the context
+   */
+  public void onTimer(long nanoTime, MessageCollector collector, TaskCoordinator coordinator) {
+    this.subscribers.forEach(sub -> ((OperatorImpl)sub).onTimer(nanoTime, collector, coordinator));
+  }
+
+  /**
    * Each sub-class will implement this method to actually perform the transformation and call the downstream subscribers.
    *
    * @param message  the input {@link Message}
@@ -72,9 +84,10 @@ public abstract class OperatorImpl<M extends Message, RM extends Message>
   /**
    * Stateful operators will need to override this method to initialize the operators
    *
+   * @param source  the source that this {@link OperatorImpl} object subscribe to
    * @param context  the task context to initialize the operators within
    */
-  protected void init(TaskContext context) {};
+  protected void init(MessageStream<M> source, TaskContext context) {};
 
   /**
    * Method to trigger all downstream operators that consumes the output {@link org.apache.samza.operators.api.MessageStream}
