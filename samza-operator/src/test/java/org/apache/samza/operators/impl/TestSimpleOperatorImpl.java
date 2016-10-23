@@ -18,9 +18,9 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.api.TestMessage;
-import org.apache.samza.operators.api.TestOutputMessage;
-import org.apache.samza.operators.api.internal.Operators.StreamOperator;
+import org.apache.samza.operators.MockMessage;
+import org.apache.samza.operators.MockOutputMessage;
+import org.apache.samza.operators.internal.Operators.StreamOperator;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
@@ -35,14 +35,14 @@ import static org.mockito.Mockito.*;
 public class TestSimpleOperatorImpl {
 
   @Test public void testSimpleOperator() {
-    StreamOperator<TestMessage, TestOutputMessage> mockOp = mock(StreamOperator.class);
-    Function<TestMessage, Collection<TestOutputMessage>> txfmFn = mock(Function.class);
+    StreamOperator<MockMessage, MockOutputMessage> mockOp = mock(StreamOperator.class);
+    Function<MockMessage, Collection<MockOutputMessage>> txfmFn = mock(Function.class);
     when(mockOp.getFunction()).thenReturn(txfmFn);
 
-    SimpleOperatorImpl<TestMessage, TestOutputMessage> opImpl = spy(new SimpleOperatorImpl<>(mockOp));
-    TestMessage inMsg = mock(TestMessage.class);
-    TestOutputMessage outMsg = mock(TestOutputMessage.class);
-    Collection<TestOutputMessage> mockOutputs = new ArrayList() {{
+    SimpleOperatorImpl<MockMessage, MockOutputMessage> opImpl = spy(new SimpleOperatorImpl<>(mockOp));
+    MockMessage inMsg = mock(MockMessage.class);
+    final MockOutputMessage outMsg = mock(MockOutputMessage.class);
+    Collection<MockOutputMessage> mockOutputs = new ArrayList() {{
       this.add(outMsg);
     }};
     when(txfmFn.apply(inMsg)).thenReturn(mockOutputs);

@@ -19,8 +19,8 @@
 
 package org.apache.samza.operators.impl.data.string;
 
-import org.apache.samza.operators.api.data.Data;
-import org.apache.samza.operators.api.data.Schema;
+import org.apache.samza.operators.data.Data;
+import org.apache.samza.operators.data.Schema;
 
 import java.util.Map;
 

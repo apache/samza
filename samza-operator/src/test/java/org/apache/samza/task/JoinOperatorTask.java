@@ -19,10 +19,11 @@
 
 package org.apache.samza.task;
 
-import org.apache.samza.operators.api.MessageStream;
-import org.apache.samza.operators.api.MessageStreams.SystemMessageStream;
-import org.apache.samza.operators.api.data.IncomingSystemMessage;
-import org.apache.samza.operators.api.data.Offset;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.MessageStreams.SystemMessageStream;
+import org.apache.samza.operators.data.IncomingSystemMessage;
+import org.apache.samza.operators.data.Offset;
+import org.apache.samza.operators.task.StreamOperatorTask;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.util.ArrayList;

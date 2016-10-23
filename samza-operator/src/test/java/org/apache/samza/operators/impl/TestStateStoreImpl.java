@@ -18,9 +18,9 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.api.TestMessage;
-import org.apache.samza.operators.api.WindowState;
-import org.apache.samza.operators.api.internal.Operators.StoreFunctions;
+import org.apache.samza.operators.MockMessage;
+import org.apache.samza.operators.WindowState;
+import org.apache.samza.operators.internal.Operators.StoreFunctions;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.TaskContext;
@@ -35,18 +35,18 @@ import static org.mockito.Mockito.*;
 
 public class TestStateStoreImpl {
   @Test public void testStateStoreImpl() {
-    StoreFunctions<TestMessage, String, WindowState> mockStoreFunctions = mock(StoreFunctions.class);
+    StoreFunctions<MockMessage, String, WindowState> mockStoreFunctions = mock(StoreFunctions.class);
     // test constructor
-    StateStoreImpl<TestMessage, String, WindowState> storeImpl = new StateStoreImpl<>(mockStoreFunctions, "myStoreName");
+    StateStoreImpl<MockMessage, String, WindowState> storeImpl = new StateStoreImpl<>(mockStoreFunctions, "myStoreName");
     TaskContext mockContext = mock(TaskContext.class);
     KeyValueStore<String, WindowState> mockKvStore = mock(KeyValueStore.class);
     when(mockContext.getStore("myStoreName")).thenReturn(mockKvStore);
     // test init()
     storeImpl.init(mockContext);
     verify(mockContext, times(1)).getStore("myStoreName");
-    Function<TestMessage, String> wndKeyFn = mock(Function.class);
+    Function<MockMessage, String> wndKeyFn = mock(Function.class);
     when(mockStoreFunctions.getStoreKeyFinder()).thenReturn(wndKeyFn);
-    TestMessage mockMsg = mock(TestMessage.class);
+    MockMessage mockMsg = mock(MockMessage.class);
     when(wndKeyFn.apply(mockMsg)).thenReturn("myKey");
     WindowState mockState = mock(WindowState.class);
     when(mockKvStore.get("myKey")).thenReturn(mockState);
@@ -58,7 +58,7 @@ public class TestStateStoreImpl {
     verify(mockKvStore, times(1)).get("myKey");
     Entry<String, WindowState> oldEntry = new Entry<>("myKey", mockState);
     WindowState mockNewState = mock(WindowState.class);
-    BiFunction<TestMessage, WindowState, WindowState> mockUpdaterFn = mock(BiFunction.class);
+    BiFunction<MockMessage, WindowState, WindowState> mockUpdaterFn = mock(BiFunction.class);
     when(mockStoreFunctions.getStateUpdater()).thenReturn(mockUpdaterFn);
     when(mockUpdaterFn.apply(mockMsg, mockState)).thenReturn(mockNewState);
     // test updateState()

@@ -127,7 +127,7 @@ public class CoordinatorStreamSystemProducer {
    *          The config object to store in the coordinator stream.
    */
   public void writeConfig(String source, Config config) {
-    log.debug("Writing config: {}", config);
+    log.info("Writing config: {}", config);
     for (Map.Entry<String, String> configPair : config.entrySet()) {
       send(new SetConfig(source, configPair.getKey(), configPair.getValue()));
     }

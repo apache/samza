@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.api.TestMessage;
+import org.apache.samza.operators.MockMessage;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
@@ -29,10 +29,10 @@ import static org.mockito.Mockito.mock;
 
 public class TestProcessorContext {
   @Test public void testConstructor() {
-    TestMessage mockMsg = mock(TestMessage.class);
+    MockMessage mockMsg = mock(MockMessage.class);
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockTaskCoordinator = mock(TaskCoordinator.class);
-    ProcessorContext<TestMessage> pCntx = new ProcessorContext<>(mockMsg, mockCollector, mockTaskCoordinator);
+    ProcessorContext<MockMessage> pCntx = new ProcessorContext<>(mockMsg, mockCollector, mockTaskCoordinator);
     assertEquals(pCntx.getMessage(), mockMsg);
     assertEquals(pCntx.getCollector(), mockCollector);
     assertEquals(pCntx.getCoordinator(), mockTaskCoordinator);

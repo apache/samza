@@ -18,8 +18,8 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.api.TestMessage;
-import org.apache.samza.operators.api.TestOutputMessage;
+import org.apache.samza.operators.MockMessage;
+import org.apache.samza.operators.MockOutputMessage;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
@@ -32,7 +32,7 @@ import static org.mockito.Mockito.*;
 
 public class TestOperatorImpl {
 
-  TestMessage curInputMsg;
+  MockMessage curInputMsg;
   MessageCollector curCollector;
   TaskCoordinator curCoordinator;
 
@@ -40,29 +40,29 @@ public class TestOperatorImpl {
     this.curInputMsg = null;
     this.curCollector = null;
     this.curCoordinator = null;
-    OperatorImpl<TestMessage, TestOutputMessage> opImpl = new OperatorImpl<TestMessage, TestOutputMessage>() {
-      @Override protected void onNext(TestMessage message, MessageCollector collector, TaskCoordinator coordinator) {
+    OperatorImpl<MockMessage, MockOutputMessage> opImpl = new OperatorImpl<MockMessage, MockOutputMessage>() {
+      @Override protected void onNext(MockMessage message, MessageCollector collector, TaskCoordinator coordinator) {
         TestOperatorImpl.this.curInputMsg = message;
         TestOperatorImpl.this.curCollector = collector;
         TestOperatorImpl.this.curCoordinator = coordinator;
       }
     };
     // verify subscribe() added the mockSub and nextProcessors() invoked the mockSub.onNext()
-    Subscriber<ProcessorContext<TestOutputMessage>> mockSub = mock(Subscriber.class);
+    Subscriber<ProcessorContext<MockOutputMessage>> mockSub = mock(Subscriber.class);
     opImpl.subscribe(mockSub);
-    TestOutputMessage xOutput = mock(TestOutputMessage.class);
+    MockOutputMessage xOutput = mock(MockOutputMessage.class);
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
     opImpl.nextProcessors(xOutput, mockCollector, mockCoordinator);
-    verify(mockSub, times(1)).onNext(argThat(new ArgumentMatcher<ProcessorContext<TestOutputMessage>>() {
+    verify(mockSub, times(1)).onNext(argThat(new ArgumentMatcher<ProcessorContext<MockOutputMessage>>() {
       @Override public boolean matches(Object argument) {
-        ProcessorContext<TestOutputMessage> pCntx = (ProcessorContext<TestOutputMessage>) argument;
+        ProcessorContext<MockOutputMessage> pCntx = (ProcessorContext<MockOutputMessage>) argument;
         return pCntx.getMessage().equals(xOutput) && pCntx.getCoordinator().equals(mockCoordinator) && pCntx.getCollector().equals(mockCollector);
       }
     }));
     // verify onNext() is invoked correctly
-    TestMessage mockInput = mock(TestMessage.class);
-    ProcessorContext<TestMessage> inCntx = new ProcessorContext<>(mockInput, mockCollector, mockCoordinator);
+    MockMessage mockInput = mock(MockMessage.class);
+    ProcessorContext<MockMessage> inCntx = new ProcessorContext<>(mockInput, mockCollector, mockCoordinator);
     opImpl.onNext(inCntx);
     assertEquals(mockInput, this.curInputMsg);
     assertEquals(mockCollector, this.curCollector);

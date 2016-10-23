@@ -20,6 +20,10 @@ package org.apache.samza.task;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.impl.ChainedOperators;
+import org.apache.samza.operators.impl.ChainedOperatorsFactory;
+import org.apache.samza.operators.internal.OperatorChainSupplier;
+import org.apache.samza.operators.task.StreamOperatorAdaptorTask;
+import org.apache.samza.operators.task.StreamOperatorTask;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.Partition;
 import org.junit.Before;
@@ -39,7 +43,7 @@ import static org.mockito.Mockito.*;
 public class TestStreamOperatorAdaptorTask {
   Field userTaskField = null;
   Field chainedOpsField = null;
-
+  OperatorChainSupplier factory =  new ChainedOperatorsFactory();
   @Before public void prep() throws NoSuchFieldException {
     userTaskField = StreamOperatorAdaptorTask.class.getDeclaredField("userTask");
     chainedOpsField = StreamOperatorAdaptorTask.class.getDeclaredField("operatorChains");
@@ -50,7 +54,7 @@ public class TestStreamOperatorAdaptorTask {
 
   @Test public void testConstructor() throws IllegalAccessException {
     StreamOperatorTask userTask = mock(StreamOperatorTask.class);
-    StreamOperatorAdaptorTask adaptorTask = new StreamOperatorAdaptorTask(userTask);
+    StreamOperatorAdaptorTask adaptorTask = new StreamOperatorAdaptorTask(userTask, factory);
     StreamOperatorTask taskMemberVar = (StreamOperatorTask) userTaskField.get(adaptorTask);
     Map<SystemStreamPartition, ChainedOperators> chainsMap = (Map<SystemStreamPartition, ChainedOperators>) chainedOpsField.get(adaptorTask);
     assertEquals(taskMemberVar, userTask);
@@ -59,7 +63,7 @@ public class TestStreamOperatorAdaptorTask {
 
   @Test public void testInit() throws Exception {
     StreamOperatorTask userTask = mock(StreamOperatorTask.class);
-    StreamOperatorAdaptorTask adaptorTask = new StreamOperatorAdaptorTask(userTask);
+    StreamOperatorAdaptorTask adaptorTask = new StreamOperatorAdaptorTask(userTask, factory);
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
     Set<SystemStreamPartition> testInputs = new HashSet() {{

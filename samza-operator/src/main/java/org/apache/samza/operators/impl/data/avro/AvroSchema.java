@@ -23,8 +23,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.avro.Schema.Field;
-import org.apache.samza.operators.api.data.Data;
-import org.apache.samza.operators.api.data.Schema;
+import org.apache.samza.operators.data.Data;
+import org.apache.samza.operators.data.Schema;
 
 
 public class AvroSchema implements Schema {

@@ -19,9 +19,10 @@
 
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.api.MessageStream;
-import org.apache.samza.operators.api.data.Message;
-import org.apache.samza.operators.api.internal.Operators.Operator;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.internal.OperatorChain;
+import org.apache.samza.operators.internal.Operators.Operator;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -37,7 +38,7 @@ import java.util.Set;
  *
  * @param <M>  type of message in the input stream {@code source}
  */
-public class ChainedOperators<M extends Message> {
+public class ChainedOperators<M extends Message> implements OperatorChain<M> {
 
   private final Set<OperatorImpl> subscribers = new HashSet<>();
 
@@ -47,7 +48,7 @@ public class ChainedOperators<M extends Message> {
    * @param source  the input source {@link MessageStream}
    * @param context  the {@link TaskContext} object that we need to instantiate the state stores
    */
-  private ChainedOperators(MessageStream<M> source, TaskContext context) {
+  ChainedOperators(MessageStream<M> source, TaskContext context) {
     // create the pipeline/topology starting from source
     source.getSubscribers().forEach(sub -> {
       // pass in the context s.t. stateful stream operators can initialize their stores
@@ -83,17 +84,6 @@ public class ChainedOperators<M extends Message> {
     return opImpl;
   }
 
-  /**
-   * Static method to create a {@link ChainedOperators} from the {@code source} stream
-   *
-   * @param source  the input source {@link MessageStream}
-   * @param context  the {@link TaskContext} object used to initialize the {@link StateStoreImpl}
-   * @param <M>  the type of input {@link Message}
-   * @return a {@link ChainedOperators} object takes the {@code source} as input
-   */
-  public static <M extends Message> ChainedOperators create(MessageStream<M> source, TaskContext context) {
-    return new ChainedOperators<>(source, context);
-  }
 
   /**
    * Method to navigate the incoming {@code message} through the processing chains

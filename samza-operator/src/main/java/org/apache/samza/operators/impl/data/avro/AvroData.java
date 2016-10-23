@@ -25,8 +25,8 @@ import java.util.Map;
 
 import org.apache.avro.generic.GenericArray;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.samza.operators.api.data.Data;
-import org.apache.samza.operators.api.data.Schema;
+import org.apache.samza.operators.data.Data;
+import org.apache.samza.operators.data.Schema;
 
 
 public class AvroData implements Data {

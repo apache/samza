@@ -117,21 +117,17 @@ subprojects {
 
 project(':samza-api') {
   apply plugin: 'java'
-  apply plugin: 'checkstyle'
 
   dependencies {
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
   }
 
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-  }
 }
 
 project(":samza-core_$scalaVersion") {
   apply plugin: 'scala'
-  apply plugin: 'checkstyle'
+  //apply plugin: 'checkstyle'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -156,9 +152,9 @@ project(":samza-core_$scalaVersion") {
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
   }
 
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-  }
+  //checkstyle {
+  //  configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+  //}
 }
 
 project(":samza-autoscaling_$scalaVersion") {
@@ -348,6 +344,7 @@ if (JavaVersion.current().isJava8Compatible()) {
       compile "org.apache.commons:commons-lang3:$commonsLang3Version"
       compile "org.apache.avro:avro:$avroVersion"
       compile "org.reactivestreams:reactive-streams:$reactiveStreamVersion"
+      testCompile project(":samza-api").sourceSets.test.output
       testCompile "junit:junit:$junitVersion"
       testCompile "org.mockito:mockito-all:$mockitoVersion"
     }
@@ -438,6 +435,10 @@ project(":samza-shell") {
 project(":samza-kv_$scalaVersion") {
   apply plugin: 'scala'
   apply plugin: 'checkstyle'
+  sourceSets.test.scala.srcDir "src/test/java"
+  sourceSets.test.java.srcDirs = []
+  sourceSets.main.scala.srcDir "src/main/java"
+  sourceSets.main.java.srcDirs = []
 
   dependencies {
     compile project(':samza-api')
@@ -454,6 +455,10 @@ project(":samza-kv_$scalaVersion") {
 
 project(":samza-kv-inmemory_$scalaVersion") {
   apply plugin: 'scala'
+  sourceSets.test.scala.srcDir "src/test/java"
+  sourceSets.test.java.srcDirs = []
+  sourceSets.main.scala.srcDir "src/main/java"
+  sourceSets.main.java.srcDirs = []
 
   dependencies {
     compile project(':samza-api')
@@ -470,6 +475,9 @@ project(":samza-kv-rocksdb_$scalaVersion") {
 
   sourceSets.test.scala.srcDir "src/test/java"
   sourceSets.test.java.srcDirs = []
+  sourceSets.main.scala.srcDir "src/main/java"
+  sourceSets.main.java.srcDirs = []
+
 
   dependencies {
     compile project(':samza-api')
@@ -509,6 +517,11 @@ project(":samza-hdfs_$scalaVersion") {
 project(":samza-test_$scalaVersion") {
   apply plugin: 'scala'
   apply plugin: 'checkstyle'
+  sourceSets.main.scala.srcDir "src/main/java"
+  sourceSets.test.scala.srcDir "src/test/java"
+  sourceSets.main.java.srcDirs = []
+  sourceSets.test.java.srcDirs = []
+
 
   configurations {
     // Remove transitive dependencies from Zookeeper that we don't want.
@@ -523,6 +536,7 @@ project(":samza-test_$scalaVersion") {
     compile project(":samza-kv-rocksdb_$scalaVersion")
     compile project(":samza-core_$scalaVersion")
     runtime project(":samza-log4j")
+    runtime project(":samza-operator")
     runtime project(":samza-yarn_$scalaVersion")
     runtime project(":samza-kafka_$scalaVersion")
     runtime project(":samza-hdfs_$scalaVersion")
