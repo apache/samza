@@ -75,6 +75,7 @@ public class ChainedOperators<M extends Message> implements OperatorChain<M> {
     OperatorImpl<M, ? extends Message> opImpl = factoryEntry.getKey();
     MessageStream outStream = operator.getOutputStream();
     Collection<Operator> subs = outStream.getSubscribers();
+
     subs.forEach(sub -> {
       OperatorImpl subImpl = this.createAndSubscribe(sub, operator.getOutputStream(), context);
       opImpl.subscribe(subImpl);

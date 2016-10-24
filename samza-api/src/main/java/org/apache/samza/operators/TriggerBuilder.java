@@ -198,7 +198,7 @@ public final class TriggerBuilder<M extends Message, V> {
    */
   public TriggerBuilder<M, V> addTimeoutSinceLastMessage(long timeoutMs) {
     this.timerTrigger = this.addTimerTrigger(this.timerTrigger,
-        s -> TimeUnit.NANOSECONDS.toMillis(s.getLastMessageTimeNs()) + timeoutMs < System.currentTimeMillis());
+        s -> TimeUnit.NANOSECONDS.toMillis(s.getLastMessageTimeNs()) + timeoutMs < TimeUnit.NANOSECONDS.toMillis(System.nanoTime()));
     return this;
   }
 
@@ -210,7 +210,7 @@ public final class TriggerBuilder<M extends Message, V> {
    */
   public TriggerBuilder<M, V> addTimeoutSinceFirstMessage(long timeoutMs) {
     this.timerTrigger = this.addTimerTrigger(this.timerTrigger, s ->
-        TimeUnit.NANOSECONDS.toMillis(s.getFirstMessageTimeNs()) + timeoutMs < System.currentTimeMillis());
+        TimeUnit.NANOSECONDS.toMillis(s.getFirstMessageTimeNs()) + timeoutMs < TimeUnit.NANOSECONDS.toMillis(System.nanoTime()));
     return this;
   }
 

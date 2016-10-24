@@ -137,7 +137,7 @@ public class Operators {
 
     @Override
     public MessageStream getOutputStream() {
-      return null;
+      return new MessageStream();
     }
 
     /**
@@ -184,7 +184,7 @@ public class Operators {
      * Constructor of state store functions.
      *
      */
-    private StoreFunctions(Function<M, SK> keyFinder,
+    public StoreFunctions(Function<M, SK> keyFinder,
         BiFunction<M, SS, SS> stateUpdater) {
       this.storeKeyFinder = keyFinder;
       this.stateUpdater = stateUpdater;

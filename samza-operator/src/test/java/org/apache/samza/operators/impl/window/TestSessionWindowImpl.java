@@ -18,22 +18,34 @@
  */
 package org.apache.samza.operators.impl.window;
 
+import junit.framework.Assert;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MockMessage;
+import org.apache.samza.operators.TriggerBuilder;
 import org.apache.samza.operators.WindowState;
+import org.apache.samza.operators.Windows;
+import org.apache.samza.operators.impl.ProcessorContext;
+import org.apache.samza.operators.internal.Operators;
 import org.apache.samza.operators.internal.Operators.StoreFunctions;
 import org.apache.samza.operators.internal.Operators.WindowOperator;
+import org.apache.samza.operators.internal.WindowFn;
 import org.apache.samza.operators.internal.WindowOutput;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentMatcher;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
+import scala.util.parsing.json.JSONObject;
 
 import java.lang.reflect.Field;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -59,47 +71,54 @@ public class TestSessionWindowImpl {
     assertEquals(wndOp, sessWndField.get(sessWnd));
   }
 
-  @Test public void testInitAndProcess() throws IllegalAccessException {
-    WindowOperator<MockMessage, String, WindowState<Integer>, WindowOutput<String, Integer>> wndOp = mock(WindowOperator.class);
-    BiFunction<MockMessage, Entry<String, WindowState<Integer>>, WindowOutput<String, Integer>> mockTxfmFn = mock(BiFunction.class);
-    SessionWindowImpl<MockMessage, String, WindowState<Integer>, WindowOutput<String, Integer>> sessWnd = new SessionWindowImpl<>(wndOp);
-
-    // construct and init the SessionWindowImpl object
-    MessageStream<MockMessage> mockInputStrm = mock(MessageStream.class);
-    StoreFunctions<MockMessage, String, WindowState<Integer>> mockStoreFns = mock(StoreFunctions.class);
-    Function<MockMessage, String> wndKeyFn = m -> "test-msg-key";
-    when(mockStoreFns.getStoreKeyFinder()).thenReturn(wndKeyFn);
-    when(wndOp.getStoreFunctions()).thenReturn(mockStoreFns);
-    when(wndOp.getStoreName(mockInputStrm)).thenReturn("test-wnd-store");
-    when(wndOp.getFunction()).thenReturn(mockTxfmFn);
-    TaskContext mockContext = mock(TaskContext.class);
-    KeyValueStore<String, WindowState<Integer>> mockKvStore = mock(KeyValueStore.class);
-    when(mockContext.getStore("test-wnd-store")).thenReturn(mockKvStore);
-    sessWnd.init(mockInputStrm, mockContext);
-
-    // test onNext() method. Make sure the transformation function and the state update functions are invoked.
-    MockMessage mockMsg = mock(MockMessage.class);
+  @Test
+  public void testSessionWindowLogic() throws Exception {
+    Function<MockMessage, String> keyFunction = (m) -> m.getKey();
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
-    BiFunction<MockMessage, WindowState<Integer>, WindowState<Integer>> stateUpdaterFn = mock(BiFunction.class);
-    when(mockStoreFns.getStateUpdater()).thenReturn(stateUpdaterFn);
-    WindowState<Integer> mockNewState = mock(WindowState.class);
-    WindowState<Integer> oldState = mock(WindowState.class);
-    when(mockKvStore.get("test-msg-key")).thenReturn(oldState);
-    when(stateUpdaterFn.apply(mockMsg, oldState)).thenReturn(mockNewState);
-    sessWnd.onNext(mockMsg, mockCollector, mockCoordinator);
-    verify(mockTxfmFn, times(1)).apply(argThat(new ArgumentMatcher<MockMessage>() {
-      @Override public boolean matches(Object argument) {
-        MockMessage xIn = (MockMessage) argument;
-        return xIn.equals(mockMsg);
+
+    final Windows.Window<MockMessage, String, Integer, WindowOutput<String, Integer>> window = Windows.
+        intoSessionCounter(keyFunction)
+        .setTriggers(TriggerBuilder.earlyTriggerWhenExceedWndLen(2));
+
+    WindowFn internalWindowFn = Windows.getInternalWindowFn(window);
+    MessageStream stream = new MessageStream();
+
+    WindowOperator sessionWindow = Operators.getWindowOperator(internalWindowFn);
+    SessionWindowImpl windowImpl = new SessionWindowImpl(sessionWindow);
+    final AtomicInteger windowTriggerCount = new AtomicInteger(0);
+
+    windowImpl.subscribe(new Subscriber<ProcessorContext>() {
+      @Override
+      public void onSubscribe(Subscription s) {
+
       }
-    }), argThat(new ArgumentMatcher<Entry<String, WindowState<Integer>>>() {
-      @Override public boolean matches(Object argument) {
-        Entry<String, WindowState<Integer>> xIn = (Entry<String, WindowState<Integer>>) argument;
-        return xIn.getKey().equals("test-msg-key") && xIn.getValue().equals(oldState);
+
+      @Override
+      public void onNext(ProcessorContext processorContext) {
+        windowTriggerCount.incrementAndGet();
+        WindowOutput<String, Integer> output = (WindowOutput) processorContext.getMessage();
+        Assert.assertEquals(output.getKey(), "key1");
+        Integer value = output.getMessage();
+        Assert.assertEquals(value.intValue(), 3);
       }
-    }));
-    verify(stateUpdaterFn, times(1)).apply(mockMsg, oldState);
-    verify(mockKvStore, times(1)).put("test-msg-key", mockNewState);
+
+      @Override
+      public void onError(Throwable t) {
+
+      }
+
+      @Override
+      public void onComplete() {
+
+      }
+    });
+
+    String jsonString = "{\"userId\":3, \"urlId\":\"google\", \"region\":\"india\"}";
+    ObjectMapper mapper = new ObjectMapper();
+    Map<String,Object> map = mapper.readValue(jsonString, Map.class);
+    System.out.println(map);
   }
+
+
 }

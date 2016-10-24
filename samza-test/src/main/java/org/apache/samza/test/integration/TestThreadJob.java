@@ -11,6 +11,7 @@ import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by jvenkatr on 10/23/16.
@@ -37,7 +38,22 @@ public class TestThreadJob {
 
   public static void main(String[] args) throws Exception {
     TestThreadJob tt = new TestThreadJob();
-    tt.test();
+    tt.test();/*
+    long start = System.nanoTime();
+
+    System.out.println(start);
+    long startMillis = TimeUnit.NANOSECONDS.toMillis(start);
+
+    long timeoutMs = 10000;
+    while(true) {
+      Thread.sleep(1000);
+      //long currTimeMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
+      long currTimeMillis = System.currentTimeMillis();
+
+      System.out.println(currTimeMillis + " " + startMillis + " " + (currTimeMillis - startMillis) + " ");
+      System.out.println(currTimeMillis - startMillis > timeoutMs);
+    }
+    */
   }
 
 }
