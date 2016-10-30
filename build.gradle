@@ -516,7 +516,7 @@ project(":samza-hdfs_$scalaVersion") {
 
 project(":samza-test_$scalaVersion") {
   apply plugin: 'scala'
-  apply plugin: 'checkstyle'
+  //apply plugin: 'checkstyle'
   sourceSets.main.scala.srcDir "src/main/java"
   sourceSets.test.scala.srcDir "src/test/java"
   sourceSets.main.java.srcDirs = []
@@ -535,6 +535,7 @@ project(":samza-test_$scalaVersion") {
     compile project(":samza-kv-inmemory_$scalaVersion")
     compile project(":samza-kv-rocksdb_$scalaVersion")
     compile project(":samza-core_$scalaVersion")
+    compile project(":samza-operator")
     runtime project(":samza-log4j")
     runtime project(":samza-operator")
     runtime project(":samza-yarn_$scalaVersion")
@@ -545,6 +546,7 @@ project(":samza-test_$scalaVersion") {
     compile "javax.mail:mail:1.4"
     compile "junit:junit:$junitVersion"
     compile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion"
+    compile "org.apache.commons:commons-math3:3.0"
     testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
     testCompile "com.101tec:zkclient:$zkClientVersion"
     testCompile project(":samza-kafka_$scalaVersion")
@@ -560,9 +562,9 @@ project(":samza-test_$scalaVersion") {
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
   }
 
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-  }
+  //checkstyle {
+  //  configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+  //}
 
   tasks.create(name: "releaseTestJobs", dependsOn: configurations.archives.artifacts, type: Tar) {
     description 'Build an integration test tarball'
