@@ -21,13 +21,13 @@ package org.apache.samza.operators;
 import org.apache.samza.operators.data.Message;
 
 
-public class MockMessage implements Message<String, String> {
+public class TestMessage implements Message<String, String> {
 
   private final String key;
   private final String value;
   private final long timestamp;
 
-  MockMessage(String key, String value, long timestamp) {
+  TestMessage(String key, String value, long timestamp) {
     this.key = key;
     this.value = value;
     this.timestamp = timestamp;

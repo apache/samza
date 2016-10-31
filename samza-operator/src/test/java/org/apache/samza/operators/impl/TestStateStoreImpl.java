@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.MockMessage;
+import org.apache.samza.operators.TestMessage;
 import org.apache.samza.operators.WindowState;
 import org.apache.samza.operators.internal.Operators.StoreFunctions;
 import org.apache.samza.storage.kv.Entry;
@@ -35,18 +35,18 @@ import static org.mockito.Mockito.*;
 
 public class TestStateStoreImpl {
   @Test public void testStateStoreImpl() {
-    StoreFunctions<MockMessage, String, WindowState> mockStoreFunctions = mock(StoreFunctions.class);
+    StoreFunctions<TestMessage, String, WindowState> mockStoreFunctions = mock(StoreFunctions.class);
     // test constructor
-    StateStoreImpl<MockMessage, String, WindowState> storeImpl = new StateStoreImpl<>(mockStoreFunctions, "myStoreName");
+    StateStoreImpl<TestMessage, String, WindowState> storeImpl = new StateStoreImpl<>(mockStoreFunctions, "myStoreName");
     TaskContext mockContext = mock(TaskContext.class);
     KeyValueStore<String, WindowState> mockKvStore = mock(KeyValueStore.class);
     when(mockContext.getStore("myStoreName")).thenReturn(mockKvStore);
     // test init()
     storeImpl.init(mockContext);
     verify(mockContext, times(1)).getStore("myStoreName");
-    Function<MockMessage, String> wndKeyFn = mock(Function.class);
+    Function<TestMessage, String> wndKeyFn = mock(Function.class);
     when(mockStoreFunctions.getStoreKeyFinder()).thenReturn(wndKeyFn);
-    MockMessage mockMsg = mock(MockMessage.class);
+    TestMessage mockMsg = mock(TestMessage.class);
     when(wndKeyFn.apply(mockMsg)).thenReturn("myKey");
     WindowState mockState = mock(WindowState.class);
     when(mockKvStore.get("myKey")).thenReturn(mockState);
@@ -58,7 +58,7 @@ public class TestStateStoreImpl {
     verify(mockKvStore, times(1)).get("myKey");
     Entry<String, WindowState> oldEntry = new Entry<>("myKey", mockState);
     WindowState mockNewState = mock(WindowState.class);
-    BiFunction<MockMessage, WindowState, WindowState> mockUpdaterFn = mock(BiFunction.class);
+    BiFunction<TestMessage, WindowState, WindowState> mockUpdaterFn = mock(BiFunction.class);
     when(mockStoreFunctions.getStateUpdater()).thenReturn(mockUpdaterFn);
     when(mockUpdaterFn.apply(mockMsg, mockState)).thenReturn(mockNewState);
     // test updateState()

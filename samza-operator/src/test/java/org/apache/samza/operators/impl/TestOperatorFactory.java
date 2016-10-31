@@ -19,8 +19,8 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.MockMessage;
-import org.apache.samza.operators.MockOutputMessage;
+import org.apache.samza.operators.TestMessage;
+import org.apache.samza.operators.TestOutputMessage;
 import org.apache.samza.operators.data.Message;
 import org.apache.samza.operators.internal.Operators.PartialJoinOperator;
 import org.apache.samza.operators.internal.Operators.SinkOperator;
@@ -50,10 +50,10 @@ public class TestOperatorFactory {
   @Test public void testGetOperator() throws NoSuchFieldException, IllegalAccessException {
     // get window operator
     WindowOperator mockWnd = mock(WindowOperator.class);
-    Map.Entry<OperatorImpl<MockMessage, ? extends Message>, Boolean>
-        factoryEntry = OperatorFactory.<MockMessage, MockOutputMessage>getOperator(mockWnd);
+    Map.Entry<OperatorImpl<TestMessage, ? extends Message>, Boolean>
+        factoryEntry = OperatorFactory.<TestMessage, TestOutputMessage>getOperator(mockWnd);
     assertFalse(factoryEntry.getValue());
-    OperatorImpl<MockMessage, MockOutputMessage> opImpl = (OperatorImpl<MockMessage, MockOutputMessage>) factoryEntry.getKey();
+    OperatorImpl<TestMessage, TestOutputMessage> opImpl = (OperatorImpl<TestMessage, TestOutputMessage>) factoryEntry.getKey();
     assertTrue(opImpl instanceof SessionWindowImpl);
     Field sessWndField = SessionWindowImpl.class.getDeclaredField("sessWnd");
     sessWndField.setAccessible(true);
@@ -61,34 +61,34 @@ public class TestOperatorFactory {
     assertEquals(sessWnd, mockWnd);
 
     // get simple operator
-    StreamOperator<MockMessage, MockOutputMessage> mockSimpleOp = mock(StreamOperator.class);
-    Function<MockMessage, Collection<MockOutputMessage>>  mockTxfmFn = mock(Function.class);
+    StreamOperator<TestMessage, TestOutputMessage> mockSimpleOp = mock(StreamOperator.class);
+    Function<TestMessage, Collection<TestOutputMessage>>  mockTxfmFn = mock(Function.class);
     when(mockSimpleOp.getFunction()).thenReturn(mockTxfmFn);
-    factoryEntry = OperatorFactory.<MockMessage, MockOutputMessage>getOperator(mockSimpleOp);
-    opImpl = (OperatorImpl<MockMessage, MockOutputMessage>) factoryEntry.getKey();
+    factoryEntry = OperatorFactory.<TestMessage, TestOutputMessage>getOperator(mockSimpleOp);
+    opImpl = (OperatorImpl<TestMessage, TestOutputMessage>) factoryEntry.getKey();
     assertTrue(opImpl instanceof SimpleOperatorImpl);
     Field txfmFnField = SimpleOperatorImpl.class.getDeclaredField("transformFn");
     txfmFnField.setAccessible(true);
     assertEquals(mockTxfmFn, txfmFnField.get(opImpl));
 
     // get sink operator
-    MessageStream.VoidFunction3<MockMessage, MessageCollector, TaskCoordinator> sinkFn = (m, mc, tc) -> {};
-    SinkOperator<MockMessage> sinkOp = mock(SinkOperator.class);
+    MessageStream.VoidFunction3<TestMessage, MessageCollector, TaskCoordinator> sinkFn = (m, mc, tc) -> {};
+    SinkOperator<TestMessage> sinkOp = mock(SinkOperator.class);
     when(sinkOp.getFunction()).thenReturn(sinkFn);
-    factoryEntry = OperatorFactory.<MockMessage, MockOutputMessage>getOperator(sinkOp);
-    opImpl = (OperatorImpl<MockMessage, MockOutputMessage>) factoryEntry.getKey();
+    factoryEntry = OperatorFactory.<TestMessage, TestOutputMessage>getOperator(sinkOp);
+    opImpl = (OperatorImpl<TestMessage, TestOutputMessage>) factoryEntry.getKey();
     assertTrue(opImpl instanceof SinkOperatorImpl);
     Field sinkFnField = SinkOperatorImpl.class.getDeclaredField("sinkFunc");
     sinkFnField.setAccessible(true);
     assertEquals(sinkFn, sinkFnField.get(opImpl));
 
     // get join operator
-    PartialJoinOperator<MockMessage, String, MockMessage, MockOutputMessage> joinOp = mock(PartialJoinOperator.class);
-    MockOutputMessage mockOutput = mock(MockOutputMessage.class);
-    BiFunction<MockMessage, MockMessage, MockOutputMessage> joinFn = (m1, m2) -> mockOutput;
+    PartialJoinOperator<TestMessage, String, TestMessage, TestOutputMessage> joinOp = mock(PartialJoinOperator.class);
+    TestOutputMessage mockOutput = mock(TestOutputMessage.class);
+    BiFunction<TestMessage, TestMessage, TestOutputMessage> joinFn = (m1, m2) -> mockOutput;
     when(joinOp.getFunction()).thenReturn(joinFn);
-    factoryEntry = OperatorFactory.<MockMessage, MockOutputMessage>getOperator(joinOp);
-    opImpl = (OperatorImpl<MockMessage, MockOutputMessage>) factoryEntry.getKey();
+    factoryEntry = OperatorFactory.<TestMessage, TestOutputMessage>getOperator(joinOp);
+    opImpl = (OperatorImpl<TestMessage, TestOutputMessage>) factoryEntry.getKey();
     assertTrue(opImpl instanceof PartialJoinOpImpl);
   }
 

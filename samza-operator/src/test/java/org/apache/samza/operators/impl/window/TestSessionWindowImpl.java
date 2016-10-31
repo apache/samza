@@ -20,33 +20,26 @@ package org.apache.samza.operators.impl.window;
 
 import junit.framework.Assert;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.MockMessage;
+import org.apache.samza.operators.TestMessage;
 import org.apache.samza.operators.TriggerBuilder;
 import org.apache.samza.operators.WindowState;
 import org.apache.samza.operators.Windows;
 import org.apache.samza.operators.impl.ProcessorContext;
 import org.apache.samza.operators.internal.Operators;
-import org.apache.samza.operators.internal.Operators.StoreFunctions;
 import org.apache.samza.operators.internal.Operators.WindowOperator;
 import org.apache.samza.operators.internal.WindowFn;
 import org.apache.samza.operators.internal.WindowOutput;
-import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.ArgumentMatcher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
-import scala.util.parsing.json.JSONObject;
 
 import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static org.junit.Assert.assertEquals;
@@ -66,18 +59,18 @@ public class TestSessionWindowImpl {
 
   @Test public void testConstructor() throws IllegalAccessException, NoSuchFieldException {
     // test constructing a SessionWindowImpl w/ expected mock functions
-    WindowOperator<MockMessage, String, WindowState<Integer>, WindowOutput<String, Integer>> wndOp = mock(WindowOperator.class);
-    SessionWindowImpl<MockMessage, String, WindowState<Integer>, WindowOutput<String, Integer>> sessWnd = new SessionWindowImpl<>(wndOp);
+    WindowOperator<TestMessage, String, WindowState<Integer>, WindowOutput<String, Integer>> wndOp = mock(WindowOperator.class);
+    SessionWindowImpl<TestMessage, String, WindowState<Integer>, WindowOutput<String, Integer>> sessWnd = new SessionWindowImpl<>(wndOp);
     assertEquals(wndOp, sessWndField.get(sessWnd));
   }
 
   @Test
   public void testSessionWindowLogic() throws Exception {
-    Function<MockMessage, String> keyFunction = (m) -> m.getKey();
+    Function<TestMessage, String> keyFunction = (m) -> m.getKey();
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
 
-    final Windows.Window<MockMessage, String, Integer, WindowOutput<String, Integer>> window = Windows.
+    final Windows.Window<TestMessage, String, Integer, WindowOutput<String, Integer>> window = Windows.
         intoSessionCounter(keyFunction)
         .setTriggers(TriggerBuilder.earlyTriggerWhenExceedWndLen(2));
 

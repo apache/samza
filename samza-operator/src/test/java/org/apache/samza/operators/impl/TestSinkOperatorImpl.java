@@ -19,7 +19,7 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.MockOutputMessage;
+import org.apache.samza.operators.TestOutputMessage;
 import org.apache.samza.operators.internal.Operators.SinkOperator;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
@@ -31,12 +31,12 @@ import static org.mockito.Mockito.*;
 public class TestSinkOperatorImpl {
 
   @Test public void testSinkOperator() {
-    SinkOperator<MockOutputMessage> sinkOp = mock(SinkOperator.class);
-    MessageStream.VoidFunction3<MockOutputMessage, MessageCollector, TaskCoordinator> sinkFn = mock(
+    SinkOperator<TestOutputMessage> sinkOp = mock(SinkOperator.class);
+    MessageStream.VoidFunction3<TestOutputMessage, MessageCollector, TaskCoordinator> sinkFn = mock(
         MessageStream.VoidFunction3.class);
     when(sinkOp.getFunction()).thenReturn(sinkFn);
-    SinkOperatorImpl<MockOutputMessage> sinkImpl = new SinkOperatorImpl<>(sinkOp);
-    MockOutputMessage mockMsg = mock(MockOutputMessage.class);
+    SinkOperatorImpl<TestOutputMessage> sinkImpl = new SinkOperatorImpl<>(sinkOp);
+    TestOutputMessage mockMsg = mock(TestOutputMessage.class);
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
 
