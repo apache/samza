@@ -18,14 +18,14 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.api.MessageStream;
-import org.apache.samza.operators.api.TestMessage;
-import org.apache.samza.operators.api.TestOutputMessage;
-import org.apache.samza.operators.api.data.Message;
-import org.apache.samza.operators.api.internal.Operators.PartialJoinOperator;
-import org.apache.samza.operators.api.internal.Operators.SinkOperator;
-import org.apache.samza.operators.api.internal.Operators.StreamOperator;
-import org.apache.samza.operators.api.internal.Operators.WindowOperator;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.TestMessage;
+import org.apache.samza.operators.TestOutputMessage;
+import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.internal.Operators.PartialJoinOperator;
+import org.apache.samza.operators.internal.Operators.SinkOperator;
+import org.apache.samza.operators.internal.Operators.StreamOperator;
+import org.apache.samza.operators.internal.Operators.WindowOperator;
 import org.apache.samza.operators.impl.join.PartialJoinOpImpl;
 import org.apache.samza.operators.impl.window.SessionWindowImpl;
 import org.apache.samza.task.MessageCollector;

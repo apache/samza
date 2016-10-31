@@ -19,11 +19,12 @@
 
 package org.apache.samza.task;
 
-import org.apache.samza.operators.api.MessageStreams.SystemMessageStream;
-import org.apache.samza.operators.api.TriggerBuilder;
-import org.apache.samza.operators.api.Windows;
-import org.apache.samza.operators.api.data.Message;
-import org.apache.samza.operators.api.data.Offset;
+import org.apache.samza.operators.MessageStreams.SystemMessageStream;
+import org.apache.samza.operators.TriggerBuilder;
+import org.apache.samza.operators.Windows;
+import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.Offset;
+import org.apache.samza.operators.task.StreamOperatorTask;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.util.Collection;

@@ -18,19 +18,20 @@
  */
 package org.apache.samza.operators.impl.join;
 
-import org.apache.samza.operators.api.data.Message;
-import org.apache.samza.operators.api.internal.Operators.PartialJoinOperator;
+import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.internal.Operators;
+import org.apache.samza.operators.internal.Operators.PartialJoinOperator;
 import org.apache.samza.operators.impl.OperatorImpl;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * Implementation of a {@link org.apache.samza.operators.api.internal.Operators.PartialJoinOperator}. This class implements function
+ * Implementation of a {@link Operators.PartialJoinOperator}. This class implements function
  * that only takes in one input stream among all inputs to the join and generate the join output.
  *
- * @param <M>  Type of input stream {@link org.apache.samza.operators.api.data.Message}
- * @param <RM>  Type of join output stream {@link org.apache.samza.operators.api.data.Message}
+ * @param <M>  Type of input stream {@link Message}
+ * @param <RM>  Type of join output stream {@link Message}
  */
 public class PartialJoinOpImpl<M extends Message<K, ?>, K, JM extends Message<K, ?>, RM extends Message> extends OperatorImpl<M, RM> {
 

@@ -36,7 +36,7 @@ import static org.mockito.Mockito.when;
 
 
 /**
- * Unit test for {@link StreamOperatorTask}
+ * Unit test for {@link org.apache.samza.operators.task.StreamOperatorTask}
  */
 public class TestStreamOperatorTasks {
 

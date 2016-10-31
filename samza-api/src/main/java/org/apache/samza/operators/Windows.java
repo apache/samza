@@ -16,13 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.api;
+package org.apache.samza.operators;
 
-import org.apache.samza.operators.api.data.Message;
-import org.apache.samza.operators.api.internal.WindowOutput;
-import org.apache.samza.operators.api.internal.Trigger;
-import org.apache.samza.operators.api.internal.Operators;
-import org.apache.samza.operators.api.internal.WindowFn;
+import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.internal.Operators;
+import org.apache.samza.operators.internal.Trigger;
+import org.apache.samza.operators.internal.WindowFn;
+import org.apache.samza.operators.internal.WindowOutput;
 import org.apache.samza.storage.kv.Entry;
 
 import java.util.Collection;
@@ -161,7 +161,10 @@ public final class Windows {
    * @return  the {@link Window} function for the session
    */
   public static <M extends Message, WK> Window<M, WK, Collection<M>, WindowOutput<WK, Collection<M>>> intoSessions(Function<M, WK> sessionKeyFunction) {
-    return new SessionWindow<>(sessionKeyFunction, (m, c) -> { c.add(m); return c; });
+    return new SessionWindow<>(sessionKeyFunction, (m, c) -> {
+      c.add(m);
+      return c;
+    });
   }
 
   /**
@@ -176,8 +179,10 @@ public final class Windows {
    */
   public static <M extends Message, WK, SI> Window<M, WK, Collection<SI>, WindowOutput<WK, Collection<SI>>> intoSessions(Function<M, WK> sessionKeyFunction,
       Function<M, SI> sessionInfoExtractor) {
-    return new SessionWindow<>(sessionKeyFunction,
-        (m, c) -> { c.add(sessionInfoExtractor.apply(m)); return c; } );
+    return new SessionWindow<>(sessionKeyFunction, (m, c) -> {
+      c.add(sessionInfoExtractor.apply(m));
+      return c;
+    });
   }
 
   /**

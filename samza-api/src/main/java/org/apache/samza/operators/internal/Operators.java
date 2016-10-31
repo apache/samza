@@ -17,11 +17,11 @@
  * under the License.
  */
 
-package org.apache.samza.operators.api.internal;
+package org.apache.samza.operators.internal;
 
-import org.apache.samza.operators.api.MessageStream;
-import org.apache.samza.operators.api.WindowState;
-import org.apache.samza.operators.api.data.Message;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.WindowState;
+import org.apache.samza.operators.data.Message;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
@@ -115,7 +115,8 @@ public class Operators {
 
   /**
    * A sink operator function that allows customized code to send the output to external system. This is the terminal
-   * operator that does not have any output {@link MessageStream} that allows further processing in the same {@link org.apache.samza.task.StreamOperatorTask}
+   * operator that does not have any output {@link MessageStream} that allows further processing in the same
+   * {@link org.apache.samza.operators.task.StreamOperatorTask}
    *
    * @param <M>  the type of input {@link Message}
    */
@@ -431,7 +432,7 @@ public class Operators {
    * @return  the {@link WindowOperator}
    */
   public static <M extends Message, WK, WS extends WindowState, WM extends WindowOutput<WK, ?>> WindowOperator<M, WK, WS, WM> getWindowOperator(
-    WindowFn<M, WK, WS, WM> windowFn) {
+      WindowFn<M, WK, WS, WM> windowFn) {
     return new WindowOperator<>(windowFn, Operators.getOperatorId());
   }
 
@@ -447,7 +448,7 @@ public class Operators {
    * @return  the {@link PartialJoinOperator}
    */
   public static <M extends Message<K, ?>, K, JM extends Message<K, ?>, RM extends Message> PartialJoinOperator<M, K, JM, RM> getPartialJoinOperator(
-    BiFunction<M, JM, RM> joiner, MessageStream<RM> joinOutput) {
+      BiFunction<M, JM, RM> joiner, MessageStream<RM> joinOutput) {
     return new PartialJoinOperator<>(joiner, joinOutput, Operators.getOperatorId());
   }
 
@@ -460,9 +461,9 @@ public class Operators {
    */
   public static <M extends Message> StreamOperator<M, M> getMergeOperator(MessageStream<M> mergeOutput) {
     return new StreamOperator<M, M>(t ->
-      new ArrayList<M>() {{
-        this.add(t);
-      }},
+      new ArrayList<M>() { {
+          this.add(t);
+        } },
       mergeOutput);
   }
 }

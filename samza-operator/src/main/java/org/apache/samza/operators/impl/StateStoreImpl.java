@@ -18,8 +18,8 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.api.data.Message;
-import org.apache.samza.operators.api.internal.Operators.StoreFunctions;
+import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.internal.Operators.StoreFunctions;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.TaskContext;

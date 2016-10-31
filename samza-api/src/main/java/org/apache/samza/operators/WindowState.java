@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.api;
+package org.apache.samza.operators;
 
 /**
  * This interface defines the methods a window state class has to implement. The programmers are allowed to implement

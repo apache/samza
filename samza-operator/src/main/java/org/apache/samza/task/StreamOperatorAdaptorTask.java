@@ -19,11 +19,12 @@
 package org.apache.samza.task;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.api.MessageStream;
-import org.apache.samza.operators.api.MessageStreams;
-import org.apache.samza.operators.api.MessageStreams.SystemMessageStream;
-import org.apache.samza.operators.api.data.IncomingSystemMessage;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.MessageStreams;
+import org.apache.samza.operators.MessageStreams.SystemMessageStream;
+import org.apache.samza.operators.data.IncomingSystemMessage;
 import org.apache.samza.operators.impl.ChainedOperators;
+import org.apache.samza.operators.task.StreamOperatorTask;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 
@@ -45,7 +46,7 @@ public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask
   /**
    * Wrapped {@link StreamOperatorTask} class
    */
-  private final StreamOperatorTask  userTask;
+  private final StreamOperatorTask userTask;
 
   /**
    * Constructor that wraps the user-defined {@link StreamOperatorTask}

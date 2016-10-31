@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.api;
+package org.apache.samza.operators;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -36,7 +36,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 
-public class TestTriggerBuilder{
+public class TestTriggerBuilder {
   private Field earlyTriggerField;
   private Field lateTriggerField;
   private Field timerTriggerField;
@@ -179,12 +179,15 @@ public class TestTriggerBuilder{
 
   @Test public void testAddTriggerUpdater() throws IllegalAccessException {
     TriggerBuilder<TestMessage, Collection<TestMessage>> builder = TriggerBuilder.earlyTriggerWhenExceedWndLen(1000);
-    builder.onEarlyTrigger(c -> { c.clear(); return c;} );
-    List<TestMessage> collection = new ArrayList<TestMessage>() {{
-      for(int i = 0; i < 10; i++) {
-        this.add(new TestMessage(String.format("key-%d", i), "string-value", System.nanoTime()));
-      }
-    }};
+    builder.onEarlyTrigger(c -> {
+      c.clear();
+      return c;
+    });
+    List<TestMessage> collection = new ArrayList<TestMessage>() { {
+        for (int i = 0; i < 10; i++) {
+          this.add(new TestMessage(String.format("key-%d", i), "string-value", System.nanoTime()));
+        }
+      } };
     // exam that earlyTriggerUpdater is set up
     Function<WindowState<Collection<TestMessage>>, WindowState<Collection<TestMessage>>> earlyTriggerUpdater =
         (Function<WindowState<Collection<TestMessage>>, WindowState<Collection<TestMessage>>>) this.earlyTriggerUpdater.get(builder);

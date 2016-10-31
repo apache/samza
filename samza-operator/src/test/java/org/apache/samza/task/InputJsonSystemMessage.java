@@ -18,9 +18,9 @@
  */
 package org.apache.samza.task;
 
-import org.apache.samza.operators.api.data.InputSystemMessage;
-import org.apache.samza.operators.api.data.Message;
-import org.apache.samza.operators.api.data.Offset;
+import org.apache.samza.operators.data.InputSystemMessage;
+import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.Offset;
 import org.apache.samza.system.SystemStreamPartition;
 
 

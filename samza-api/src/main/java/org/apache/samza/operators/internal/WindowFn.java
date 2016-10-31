@@ -16,10 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.api.internal;
+package org.apache.samza.operators.internal;
 
-import org.apache.samza.operators.api.WindowState;
-import org.apache.samza.operators.api.data.Message;
+import org.apache.samza.operators.WindowState;
+import org.apache.samza.operators.data.Message;
 import org.apache.samza.storage.kv.Entry;
 
 import java.util.function.BiFunction;

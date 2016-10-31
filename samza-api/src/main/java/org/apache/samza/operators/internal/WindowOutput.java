@@ -16,9 +16,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.api.internal;
+package org.apache.samza.operators.internal;
 
-import org.apache.samza.operators.api.data.Message;
+import org.apache.samza.operators.data.Message;
 
 
 /**

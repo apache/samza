@@ -16,11 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.api;
+package org.apache.samza.operators;
 
-import org.apache.samza.operators.api.Windows.Window;
-import org.apache.samza.operators.api.internal.Trigger;
-import org.apache.samza.operators.api.internal.WindowOutput;
+import org.apache.samza.operators.Windows.Window;
+import org.apache.samza.operators.internal.Trigger;
+import org.apache.samza.operators.internal.WindowOutput;
 import org.junit.Test;
 
 import java.lang.reflect.Field;

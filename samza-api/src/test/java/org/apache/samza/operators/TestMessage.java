@@ -16,20 +16,32 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.api;
+package org.apache.samza.operators;
 
-import org.apache.samza.Partition;
-import org.apache.samza.system.SystemStreamPartition;
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
+import org.apache.samza.operators.data.Message;
 
 
-public class TestMessageStreams {
+public class TestMessage implements Message<String, String> {
 
-  @Test public void testInput() {
-    SystemStreamPartition ssp = new SystemStreamPartition("my-system", "my-stream", new Partition(0));
-    MessageStreams.SystemMessageStream mSysStream = MessageStreams.input(ssp);
-    assertEquals(mSysStream.getSystemStreamPartition(), ssp);
+  private final String key;
+  private final String value;
+  private final long timestamp;
+
+  TestMessage(String key, String value, long timestamp) {
+    this.key = key;
+    this.value = value;
+    this.timestamp = timestamp;
+  }
+
+  @Override public String getMessage() {
+    return this.value;
+  }
+
+  @Override public String getKey() {
+    return this.key;
+  }
+
+  @Override public long getTimestamp() {
+    return this.timestamp;
   }
 }

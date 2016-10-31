@@ -123,9 +123,9 @@ project(':samza-api') {
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
   }
-
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
   }
 }
 
@@ -348,6 +348,8 @@ if (JavaVersion.current().isJava8Compatible()) {
       compile "org.apache.commons:commons-lang3:$commonsLang3Version"
       compile "org.apache.avro:avro:$avroVersion"
       compile "org.reactivestreams:reactive-streams:$reactiveStreamVersion"
+
+      testCompile project(":samza-api").sourceSets.test.output
       testCompile "junit:junit:$junitVersion"
       testCompile "org.mockito:mockito-all:$mockitoVersion"
     }

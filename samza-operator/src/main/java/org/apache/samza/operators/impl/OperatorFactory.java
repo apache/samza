@@ -19,10 +19,10 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.commons.collections.keyvalue.AbstractMapEntry;
-import org.apache.samza.operators.api.WindowState;
-import org.apache.samza.operators.api.data.Message;
-import org.apache.samza.operators.api.internal.Operators.*;
-import org.apache.samza.operators.api.internal.WindowOutput;
+import org.apache.samza.operators.WindowState;
+import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.internal.Operators.*;
+import org.apache.samza.operators.internal.WindowOutput;
 import org.apache.samza.operators.impl.join.PartialJoinOpImpl;
 import org.apache.samza.operators.impl.window.SessionWindowImpl;
 

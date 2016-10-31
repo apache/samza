@@ -18,8 +18,8 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.api.data.Message;
-import org.apache.samza.operators.api.MessageStream;
+import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.MessageStream;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -90,7 +90,7 @@ public abstract class OperatorImpl<M extends Message, RM extends Message>
   protected void init(MessageStream<M> source, TaskContext context) {};
 
   /**
-   * Method to trigger all downstream operators that consumes the output {@link org.apache.samza.operators.api.MessageStream}
+   * Method to trigger all downstream operators that consumes the output {@link MessageStream}
    * from this operator
    *
    * @param omsg  output {@link Message}

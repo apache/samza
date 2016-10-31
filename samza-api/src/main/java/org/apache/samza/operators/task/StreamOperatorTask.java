@@ -16,9 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.task;
+package org.apache.samza.operators.task;
 
-import org.apache.samza.operators.api.MessageStreams.SystemMessageStream;
+import org.apache.samza.operators.MessageStreams.SystemMessageStream;
+
 import java.util.Collection;
 
 /**
@@ -28,12 +29,12 @@ public interface StreamOperatorTask {
 
   /**
    * Defines the method for users to initialize the operator chains consuming from all {@link SystemMessageStream}s.
-   * Users have to implement this function to instantiate {@link org.apache.samza.operators.impl.ChainedOperators} that
-   * will process each incoming {@link SystemMessageStream}.
+   * Users have to implement this function to define their transformation logic on each of the incoming
+   * {@link SystemMessageStream}.
    *
    * Note that each {@link SystemMessageStream} corresponds to an input {@link org.apache.samza.system.SystemStreamPartition}
    *
-   * @param sources  the collection of {@link SystemMessageStream}s that takes {@link org.apache.samza.operators.api.data.IncomingSystemMessage}
+   * @param sources  the collection of {@link SystemMessageStream}s that takes {@link org.apache.samza.operators.data.IncomingSystemMessage}
    *                 from a {@link org.apache.samza.system.SystemStreamPartition}
    */
   void initOperators(Collection<SystemMessageStream> sources);

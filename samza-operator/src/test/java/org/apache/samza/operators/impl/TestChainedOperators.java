@@ -19,10 +19,10 @@
 
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.api.MessageStream;
-import org.apache.samza.operators.api.TestMessage;
-import org.apache.samza.operators.api.TestOutputMessage;
-import org.apache.samza.operators.api.Windows;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.TestMessage;
+import org.apache.samza.operators.TestOutputMessage;
+import org.apache.samza.operators.Windows;
 import org.apache.samza.task.TaskContext;
 import org.junit.Before;
 import org.junit.Test;

@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.api.data;
+package org.apache.samza.operators.data;
 
 import org.junit.Test;
 

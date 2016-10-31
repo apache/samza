@@ -47,12 +47,12 @@ public interface StorageEngineFactory<K, V> {
    * @return The storage engine instance.
    */
   public StorageEngine getStorageEngine(
-    String storeName,
-    File storeDir,
-    Serde<K> keySerde,
-    Serde<V> msgSerde,
-    MessageCollector collector,
-    MetricsRegistry registry,
-    SystemStreamPartition changeLogSystemStreamPartition,
-    SamzaContainerContext containerContext);
+      String storeName,
+      File storeDir,
+      Serde<K> keySerde,
+      Serde<V> msgSerde,
+      MessageCollector collector,
+      MetricsRegistry registry,
+      SystemStreamPartition changeLogSystemStreamPartition,
+      SamzaContainerContext containerContext);
 }

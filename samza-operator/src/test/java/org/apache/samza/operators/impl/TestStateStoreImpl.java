@@ -18,9 +18,9 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.api.TestMessage;
-import org.apache.samza.operators.api.WindowState;
-import org.apache.samza.operators.api.internal.Operators.StoreFunctions;
+import org.apache.samza.operators.TestMessage;
+import org.apache.samza.operators.WindowState;
+import org.apache.samza.operators.internal.Operators.StoreFunctions;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.TaskContext;

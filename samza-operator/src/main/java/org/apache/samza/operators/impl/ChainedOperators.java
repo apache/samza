@@ -19,9 +19,9 @@
 
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.api.MessageStream;
-import org.apache.samza.operators.api.data.Message;
-import org.apache.samza.operators.api.internal.Operators.Operator;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.internal.Operators.Operator;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;

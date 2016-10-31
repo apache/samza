@@ -16,21 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.api.internal;
+package org.apache.samza.operators;
 
+import org.apache.samza.Partition;
+import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 
 
-public class TestWindowOutput {
+public class TestMessageStreams {
 
-  @Test public void testConstructor() {
-    WindowOutput<String, Integer> wndOutput = WindowOutput.of("testMsg", 10);
-    assertEquals(wndOutput.getKey(), "testMsg");
-    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
-    assertFalse(wndOutput.isDelete());
-    assertEquals(wndOutput.getTimestamp(), 0);
+  @Test public void testInput() {
+    SystemStreamPartition ssp = new SystemStreamPartition("my-system", "my-stream", new Partition(0));
+    MessageStreams.SystemMessageStream mSysStream = MessageStreams.input(ssp);
+    assertEquals(mSysStream.getSystemStreamPartition(), ssp);
   }
 }

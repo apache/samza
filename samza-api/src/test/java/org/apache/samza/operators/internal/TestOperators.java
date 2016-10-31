@@ -16,11 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.api.internal;
+package org.apache.samza.operators.internal;
 
-import org.apache.samza.operators.api.MessageStream;
-import org.apache.samza.operators.api.WindowState;
-import org.apache.samza.operators.api.data.Message;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.WindowState;
+import org.apache.samza.operators.data.Message;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
@@ -64,16 +64,16 @@ public class TestOperators {
   }
 
   @Test public void testGetStreamOperator() {
-    Function<Message, Collection<TestMessage>> transformFn = m -> new ArrayList<TestMessage>() {{
-      this.add(new TestMessage(m.getKey().toString(), m.getMessage(), 12345L));
-    }};
+    Function<Message, Collection<TestMessage>> transformFn = m -> new ArrayList<TestMessage>() { {
+        this.add(new TestMessage(m.getKey().toString(), m.getMessage(), 12345L));
+      } };
     Operators.StreamOperator<Message, TestMessage> strmOp = Operators.getStreamOperator(transformFn);
     assertEquals(strmOp.getFunction(), transformFn);
     assertTrue(strmOp.getOutputStream() instanceof MessageStream);
   }
 
   @Test public void testGetSinkOperator() {
-    MessageStream.VoidFunction3<TestMessage, MessageCollector, TaskCoordinator> sinkFn = (m, c, t) -> {};
+    MessageStream.VoidFunction3<TestMessage, MessageCollector, TaskCoordinator> sinkFn = (m, c, t) -> { };
     Operators.SinkOperator<TestMessage> sinkOp = Operators.getSinkOperator(sinkFn);
     assertEquals(sinkOp.getFunction(), sinkFn);
     assertTrue(sinkOp.getOutputStream() == null);
@@ -118,9 +118,9 @@ public class TestOperators {
   @Test public void testGetMergeOperator() {
     MessageStream<TestMessage> output = new MessageStream<>();
     Operators.StreamOperator<TestMessage, TestMessage> mergeOp = Operators.getMergeOperator(output);
-    Function<TestMessage, Collection<TestMessage>> mergeFn = t -> new ArrayList<TestMessage>() {{
-      this.add(t);
-    }};
+    Function<TestMessage, Collection<TestMessage>> mergeFn = t -> new ArrayList<TestMessage>() { {
+        this.add(t);
+      } };
     TestMessage t = mock(TestMessage.class);
     assertEquals(mergeOp.getFunction().apply(t), mergeFn.apply(t));
     assertEquals(mergeOp.getOutputStream(), output);

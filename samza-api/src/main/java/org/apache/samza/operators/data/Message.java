@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.operators.api.data;
+package org.apache.samza.operators.data;
 
 /**
  * This class defines the generic interface of {@link Message}, which is a entry in the input/output stream.
@@ -39,7 +39,9 @@ public interface Message<K, M> {
    *
    * @return A boolean value indicates whether the current message is a delete or insert message
    */
-  default boolean isDelete() { return false; };
+  default boolean isDelete() {
+    return false;
+  };
 
   /**
    * Access method to the key of the message

@@ -18,12 +18,12 @@
  */
 package org.apache.samza.operators.impl.window;
 
-import org.apache.samza.operators.api.MessageStream;
-import org.apache.samza.operators.api.TestMessage;
-import org.apache.samza.operators.api.WindowState;
-import org.apache.samza.operators.api.internal.Operators.StoreFunctions;
-import org.apache.samza.operators.api.internal.Operators.WindowOperator;
-import org.apache.samza.operators.api.internal.WindowOutput;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.TestMessage;
+import org.apache.samza.operators.WindowState;
+import org.apache.samza.operators.internal.Operators.StoreFunctions;
+import org.apache.samza.operators.internal.Operators.WindowOperator;
+import org.apache.samza.operators.internal.WindowOutput;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.MessageCollector;

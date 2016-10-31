@@ -16,9 +16,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.api;
+package org.apache.samza.operators;
 
-import org.apache.samza.operators.api.data.IncomingSystemMessage;
+import org.apache.samza.operators.data.IncomingSystemMessage;
 import org.apache.samza.system.SystemStreamPartition;
 
 

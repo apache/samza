@@ -16,12 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.operators.internal;
 
-package org.apache.samza.operators.api.data;
+import org.junit.Test;
 
-/**
- * A generic interface extending {@link java.lang.Comparable} to be used as {@code Offset} in a stream
- */
-public interface Offset extends Comparable<Offset> {
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
+
+public class TestWindowOutput {
+
+  @Test public void testConstructor() {
+    WindowOutput<String, Integer> wndOutput = WindowOutput.of("testMsg", 10);
+    assertEquals(wndOutput.getKey(), "testMsg");
+    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
+    assertFalse(wndOutput.isDelete());
+    assertEquals(wndOutput.getTimestamp(), 0);
+  }
 }

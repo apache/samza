@@ -20,6 +20,7 @@ package org.apache.samza.task;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.impl.ChainedOperators;
+import org.apache.samza.operators.task.StreamOperatorTask;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.Partition;
 import org.junit.Before;
