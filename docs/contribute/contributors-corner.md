@@ -26,7 +26,7 @@ title: Contributor's Corner
   * [Prepare to merge a Pull Request (PR) by setting up the following:](#prepare-to-merge-a-pull-request--pr--by-setting-up-the-following-)
   * [Merging a Pull Request](#merging-a-pull-request)
 
-Apache Samza is developed by an open and friendly community. Everybody is welcome to contribute and engage with the community. We are happy to accept contributions, be it trivial cleanups or bug-fix or new features. There are many ways to engage with the community and contribute to Apache Samza, including filing bugs, asking questions and joining discussions in our mailing lists, contributing code or documentation, or testing.
+Apache Samza is developed by an open and friendly community. Everybody is welcome to contribute and engage with the community. We are happy to accept contributions, be it trivial cleanups or bug-fixes or new features. There are many ways to engage with the community and contribute to Apache Samza, including filing bugs, asking questions and joining discussions in our mailing lists, contributing code or documentation, or testing.
 
 ## Ask Questions
 Apache Samza community is happy to answer any questions related to the project. We use our [mailing list](/community/mailing-lists.html) for all communications and discussions. You can also interact in StackOverflow under the tag - [#apache-samza](http://stackoverflow.com/questions/tagged/apache-samza)
