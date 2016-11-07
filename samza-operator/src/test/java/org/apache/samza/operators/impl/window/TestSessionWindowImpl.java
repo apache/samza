@@ -80,7 +80,7 @@ public class TestSessionWindowImpl {
     WindowOperator sessionWindow = Operators.getWindowOperator(internalWindowFn);
     SessionWindowImpl windowImpl = new SessionWindowImpl(sessionWindow);
     final AtomicInteger windowTriggerCount = new AtomicInteger(0);
-
+    windowImpl.init(stream, null);
     windowImpl.subscribe(new Subscriber<ProcessorContext>() {
       @Override
       public void onSubscribe(Subscription s) {
@@ -106,11 +106,11 @@ public class TestSessionWindowImpl {
 
       }
     });
+    TestMessage message1 = new TestMessage("key1", "val1", System.nanoTime());
+    windowImpl.onNext(message1, mockCollector, mockCoordinator);
+    windowImpl.onNext(message1, mockCollector, mockCoordinator);
+    windowImpl.onNext(message1, mockCollector, mockCoordinator);
 
-    String jsonString = "{\"userId\":3, \"urlId\":\"google\", \"region\":\"india\"}";
-    ObjectMapper mapper = new ObjectMapper();
-    Map<String,Object> map = mapper.readValue(jsonString, Map.class);
-    System.out.println(map);
   }
 
 

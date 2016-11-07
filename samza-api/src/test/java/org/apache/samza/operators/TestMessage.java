@@ -27,7 +27,7 @@ public class TestMessage implements Message<String, String> {
   private final String value;
   private final long timestamp;
 
-  TestMessage(String key, String value, long timestamp) {
+  public TestMessage(String key, String value, long timestamp) {
     this.key = key;
     this.value = value;
     this.timestamp = timestamp;
