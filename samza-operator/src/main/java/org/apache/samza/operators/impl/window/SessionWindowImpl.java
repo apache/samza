@@ -78,6 +78,7 @@ public class SessionWindowImpl<M extends Message, RK, WS extends WindowState, RM
 
     if ((earlyTrigger!=null && earlyTrigger.apply(inputMessage, windowState)) || (timerTrigger!=null && timerTrigger.apply(windowState))) {
       emitSessionOutput(windowKey, windowState.getOutputValue(), collector, coordinator);
+      // right now, expiration and emission of result are the same. (since, the window is purely based on system time.
       wndStore.delete(windowKey);
     }
   }
