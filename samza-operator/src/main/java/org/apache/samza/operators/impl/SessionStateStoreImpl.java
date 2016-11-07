@@ -33,10 +33,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-
-/**
- * The base class for all state stores
+/*
+ * Implements key value
  */
+
+// TODO: This is modeled after the current StateStoreImpl class that is existing. Could we make it a simple KV store?
+// TODO: Should delete be implemented within the storeUpdateFunction?
+
 public class SessionStateStoreImpl<M extends Message, SK, SS> {
   private final String storeName;
   private final Operators.StoreFunctions<M, SK, SS> storeFunctions;

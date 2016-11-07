@@ -29,6 +29,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * A {@link KeyValueStore} implementation that allows deterministic iteration based on the order in which keys were updated.
+ * The iterator returns elements in the order in which they were updated ie., Keys that were recently updated are
+ * returned prior to keys that have not been touched.
+ *
+ * @param <K>
+ * @param <V>
+ */
 public class OrderPreservingKeyValueStore<K,V> implements KeyValueStore<K,V> {
 
   final LinkedHashMap<K,V> map = new LinkedHashMap<>();
@@ -87,7 +95,7 @@ public class OrderPreservingKeyValueStore<K,V> implements KeyValueStore<K,V> {
     return new KeyValueIterator<K, V>() {
       @Override
       public void close() {
-        //not implemented
+        //not applicable
       }
 
       @Override
@@ -111,11 +119,11 @@ public class OrderPreservingKeyValueStore<K,V> implements KeyValueStore<K,V> {
 
   @Override
   public void close() {
-    //not implemented
+    //not applicable
   }
 
   @Override
   public void flush() {
-    //not implemented
+    //not applicable
   }
 }
