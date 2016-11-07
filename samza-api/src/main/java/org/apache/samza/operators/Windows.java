@@ -274,6 +274,7 @@ public final class Windows {
       return outputValue;
     }
 
+    //TODO: Not sure if we actually need this setter. Can't WindowState be immutable?
     @Override
     public void setOutputValue(WV value) {
       this.outputValue = value;
