@@ -98,7 +98,6 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
   def testOverwriteCheckpoint {
     val toOverwrite = Map(tn0 -> Map(new SystemStreamPartition("test", "foo", p0) -> "42"),
       tn1 -> Map(new SystemStreamPartition("test", "foo", p1) -> "43"))
-    println("YOYO")
     val checkpointTool = CheckpointTool(config, toOverwrite)
     checkpointTool.run
     verify(TestCheckpointTool.checkpointManager)

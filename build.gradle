@@ -133,7 +133,7 @@ project(':samza-api') {
 
 project(":samza-core_$scalaVersion") {
   apply plugin: 'scala'
-  //apply plugin: 'checkstyle'
+  apply plugin: 'checkstyle'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -159,9 +159,9 @@ project(":samza-core_$scalaVersion") {
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
   }
 
-  //checkstyle {
-  //  configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-  //}
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+  }
 }
 
 project(":samza-autoscaling_$scalaVersion") {
@@ -525,7 +525,7 @@ project(":samza-hdfs_$scalaVersion") {
 
 project(":samza-test_$scalaVersion") {
   apply plugin: 'scala'
-  //apply plugin: 'checkstyle'
+  apply plugin: 'checkstyle'
   sourceSets.main.scala.srcDir "src/main/java"
   sourceSets.test.scala.srcDir "src/test/java"
   sourceSets.main.java.srcDirs = []
@@ -571,9 +571,9 @@ project(":samza-test_$scalaVersion") {
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
   }
 
-  //checkstyle {
-  //  configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-  //}
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+  }
 
   tasks.create(name: "releaseTestJobs", dependsOn: configurations.archives.artifacts, type: Tar) {
     description 'Build an integration test tarball'

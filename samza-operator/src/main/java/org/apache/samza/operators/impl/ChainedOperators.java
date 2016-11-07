@@ -84,6 +84,16 @@ public class ChainedOperators<M extends Message> {
     return opImpl;
   }
 
+  /**
+   * Static method to create a {@link ChainedOperators} from the {@code source} stream
+   *
+   * @param source  the input source {@link MessageStream}
+   * @param context  the {@link TaskContext} object used to initialize the {@link StateStoreImpl}
+   * @return a {@link ChainedOperators} object takes the {@code source} as input
+   */
+  public static <M extends Message>  ChainedOperators<M> create(MessageStream<M> source, TaskContext context) {
+    return new ChainedOperators<>(source, context);
+  }
 
   /**
    * Method to navigate the incoming {@code message} through the processing chains
@@ -107,16 +117,6 @@ public class ChainedOperators<M extends Message> {
     this.subscribers.forEach(sub -> sub.onTimer(nanoTime, collector, coordinator));
   }
 
-  /**
-   * Static method to create a {@link ChainedOperators} from the {@code source} stream
-   *
-   * @param source  the input source {@link MessageStream}
-   * @param context  the {@link TaskContext} object used to initialize the {@link StateStoreImpl}
-   * @return a {@link ChainedOperators} object takes the {@code source} as input
-   */
-  public static <M extends Message>  ChainedOperators<M> create(MessageStream<M> source, TaskContext context) {
-    return new ChainedOperators<>(source, context);
-  }
 
 
 }
