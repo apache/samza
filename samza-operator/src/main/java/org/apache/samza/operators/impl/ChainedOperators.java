@@ -21,7 +21,6 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.data.Message;
-import org.apache.samza.operators.internal.OperatorChain;
 import org.apache.samza.operators.internal.Operators.Operator;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
@@ -38,7 +37,7 @@ import java.util.Set;
  *
  * @param <M>  type of message in the input stream {@code source}
  */
-public class ChainedOperators<M extends Message> implements OperatorChain<M> {
+public class ChainedOperators<M extends Message> {
 
   private final Set<OperatorImpl> subscribers = new HashSet<>();
 
@@ -108,8 +107,16 @@ public class ChainedOperators<M extends Message> implements OperatorChain<M> {
     this.subscribers.forEach(sub -> sub.onTimer(nanoTime, collector, coordinator));
   }
 
-  public static <M extends Message> ChainedOperators create(MessageStream<M> source, TaskContext context) {
+  /**
+   * Static method to create a {@link ChainedOperators} from the {@code source} stream
+   *
+   * @param source  the input source {@link MessageStream}
+   * @param context  the {@link TaskContext} object used to initialize the {@link StateStoreImpl}
+   * @return a {@link ChainedOperators} object takes the {@code source} as input
+   */
+  public static <M extends Message>  ChainedOperators<M> create(MessageStream<M> source, TaskContext context) {
     return new ChainedOperators<>(source, context);
   }
+
 
 }

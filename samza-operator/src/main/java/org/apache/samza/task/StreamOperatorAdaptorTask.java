@@ -24,8 +24,6 @@ import org.apache.samza.operators.MessageStreams;
 import org.apache.samza.operators.MessageStreams.SystemMessageStream;
 import org.apache.samza.operators.data.IncomingSystemMessage;
 import org.apache.samza.operators.impl.ChainedOperators;
-import org.apache.samza.operators.internal.OperatorChain;
-import org.apache.samza.operators.internal.OperatorChainSupplier;
 import org.apache.samza.operators.task.StreamOperatorTask;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
@@ -46,7 +44,7 @@ import java.util.Map;
  */
 public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask, WindowableTask {
   /**
-   * A map with entries mapping {@link SystemStreamPartition} to {@link org.apache.samza.operators.internal.OperatorChain} that takes the {@link SystemStreamPartition}
+   * A map with entries mapping {@link SystemStreamPartition} to {@link ChainedOperators} that takes the {@link SystemStreamPartition}
    * as the input stream
    */
   private final Map<SystemStreamPartition, ChainedOperators> operatorChains = new HashMap<>();
@@ -55,16 +53,14 @@ public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask
    * Wrapped {@link StreamOperatorTask} class
    */
   private final StreamOperatorTask  userTask;
-  private final OperatorChainSupplier factory;
 
   /**
    * Constructor that wraps the user-defined {@link StreamOperatorTask}
    *
    * @param userTask  the user-defined {@link StreamOperatorTask}
    */
-  public StreamOperatorAdaptorTask(StreamOperatorTask userTask, OperatorChainSupplier factory) {
+  public StreamOperatorAdaptorTask(StreamOperatorTask userTask) {
     this.userTask = userTask;
-    this.factory = factory;
   }
 
   @Override
@@ -78,7 +74,6 @@ public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask
       sources.put(ssp, ds);
     });
     this.userTask.initOperators(sources.values());
-    //ChainedOperatorsFactory factory = new ChainedOperatorsFactory();
     sources.forEach((ssp, ds) -> operatorChains.put(ssp, ChainedOperators.create(ds, context)));
   }
 

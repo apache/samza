@@ -36,7 +36,6 @@ import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
 import org.apache.samza.task.StreamOperatorAdaptorTask
-import org.apache.samza.operators.internal.OperatorChainSupplier
 import org.apache.samza.operators.task.StreamOperatorTask
 import org.apache.samza.serializers.SerdeFactory
 import org.apache.samza.serializers.SerdeManager
@@ -118,12 +117,11 @@ object SamzaContainer extends Logging {
   }
 
   def createTask(taskClassName: String) : StreamTask = {
-    Util.getObj[StreamTask](taskClassName)
     val task = Util.getObj[Object](taskClassName)
     val isOperatorTask = classOf[StreamOperatorTask].isAssignableFrom(Class.forName(taskClassName))
-    val factory = Util.getObj[OperatorChainSupplier]("org.apache.samza.operators.impl.ChainedOperatorsFactory");
+
     if (isOperatorTask)
-      new StreamOperatorAdaptorTask(task.asInstanceOf[StreamOperatorTask], factory)
+      new StreamOperatorAdaptorTask(task.asInstanceOf[StreamOperatorTask])
     else
       task.asInstanceOf[StreamTask]
   }

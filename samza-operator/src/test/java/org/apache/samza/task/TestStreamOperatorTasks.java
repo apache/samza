@@ -21,8 +21,6 @@ package org.apache.samza.task;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.impl.ChainedOperators;
-import org.apache.samza.operators.impl.ChainedOperatorsFactory;
-import org.apache.samza.operators.internal.OperatorChainSupplier;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Test;
 
@@ -48,8 +46,6 @@ public class TestStreamOperatorTasks {
 
   private final JoinOperatorTask joinTask = new JoinOperatorTask();
 
-  private final OperatorChainSupplier supplier = new ChainedOperatorsFactory();
-
   private final Set<SystemStreamPartition> inputPartitions = new HashSet<SystemStreamPartition>() {{
     for (int i = 0; i < 4; i++) {
       this.add(new SystemStreamPartition("my-system", "my-topic1", new Partition(i)));
@@ -60,7 +56,7 @@ public class TestStreamOperatorTasks {
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
     when(mockContext.getSystemStreamPartitions()).thenReturn(this.inputPartitions);
-    StreamOperatorAdaptorTask adaptorTask = new StreamOperatorAdaptorTask(this.userTask, supplier);
+    StreamOperatorAdaptorTask adaptorTask = new StreamOperatorAdaptorTask(this.userTask);
     Field pipelineMapFld = StreamOperatorAdaptorTask.class.getDeclaredField("operatorChains");
     pipelineMapFld.setAccessible(true);
     Map<SystemStreamPartition, ChainedOperators> pipelineMap =
@@ -77,7 +73,7 @@ public class TestStreamOperatorTasks {
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
     when(mockContext.getSystemStreamPartitions()).thenReturn(this.inputPartitions);
-    StreamOperatorAdaptorTask adaptorTask = new StreamOperatorAdaptorTask(this.splitTask, supplier);
+    StreamOperatorAdaptorTask adaptorTask = new StreamOperatorAdaptorTask(this.splitTask);
     Field pipelineMapFld = StreamOperatorAdaptorTask.class.getDeclaredField("operatorChains");
     pipelineMapFld.setAccessible(true);
     Map<SystemStreamPartition, ChainedOperators> pipelineMap =
@@ -94,7 +90,7 @@ public class TestStreamOperatorTasks {
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
     when(mockContext.getSystemStreamPartitions()).thenReturn(this.inputPartitions);
-    StreamOperatorAdaptorTask adaptorTask = new StreamOperatorAdaptorTask(this.joinTask, supplier);
+    StreamOperatorAdaptorTask adaptorTask = new StreamOperatorAdaptorTask(this.joinTask);
     Field pipelineMapFld = StreamOperatorAdaptorTask.class.getDeclaredField("operatorChains");
     pipelineMapFld.setAccessible(true);
     Map<SystemStreamPartition, ChainedOperators> pipelineMap =
