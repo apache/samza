@@ -52,7 +52,7 @@ public class TestChainedOperators {
     // test creation of empty chain
     MessageStream<TestMessage> testStream = new MessageStream<>();
     TaskContext mockContext = mock(TaskContext.class);
-    ChainedOperators<TestMessage> operatorChain = (ChainedOperators<TestMessage>) ChainedOperators.create(testStream, mockContext);
+    ChainedOperators<TestMessage> operatorChain = ChainedOperators.create(testStream, mockContext);
     assertTrue(operatorChain != null);
   }
 
@@ -61,7 +61,7 @@ public class TestChainedOperators {
     MessageStream<TestMessage> testInput = new MessageStream<>();
     TaskContext mockContext = mock(TaskContext.class);
     testInput.map(m -> m).window(Windows.intoSessionCounter(TestMessage::getKey));
-    ChainedOperators<TestMessage> operatorChain = (ChainedOperators<TestMessage>) ChainedOperators.create(testInput, mockContext);
+    ChainedOperators<TestMessage> operatorChain = ChainedOperators.create(testInput, mockContext);
     Set<OperatorImpl> subsSet = (Set<OperatorImpl>) subsField.get(operatorChain);
     assertEquals(subsSet.size(), 1);
     OperatorImpl<TestMessage, TestMessage> firstOpImpl = subsSet.iterator().next();
@@ -78,7 +78,7 @@ public class TestChainedOperators {
     TaskContext mockContext = mock(TaskContext.class);
     testInput.filter(m -> m.getTimestamp() > 123456L).flatMap(m -> new ArrayList() {{ this.add(m); this.add(m); }});
     testInput.filter(m -> m.getTimestamp() < 123456L).map(m -> m);
-    ChainedOperators<TestMessage> operatorChain = (ChainedOperators<TestMessage>) ChainedOperators.create(testInput, mockContext);
+    ChainedOperators<TestMessage> operatorChain = ChainedOperators.create(testInput, mockContext);
     Set<OperatorImpl> subsSet = (Set<OperatorImpl>) subsField.get(operatorChain);
     assertEquals(subsSet.size(), 2);
     Iterator<OperatorImpl> iter = subsSet.iterator();
@@ -105,8 +105,8 @@ public class TestChainedOperators {
     TaskContext mockContext = mock(TaskContext.class);
     input1.join(input2, (m1, m2) -> new TestOutputMessage(m1.getKey(), m1.getMessage().length() + m2.getMessage().length(), m1.getTimestamp())).map(m -> m);
     // now, we create chained operators from each input sources
-    ChainedOperators<TestMessage> chain1 = (ChainedOperators<TestMessage>) ChainedOperators.create(input1, mockContext);
-    ChainedOperators<TestMessage> chain2 = (ChainedOperators<TestMessage>) ChainedOperators.create(input2, mockContext);
+    ChainedOperators<TestMessage> chain1 = ChainedOperators.create(input1, mockContext);
+    ChainedOperators<TestMessage> chain2 = ChainedOperators.create(input2, mockContext);
     // check that those two chains will merge at map operator
     // first branch of the join
     Set<OperatorImpl> subsSet = (Set<OperatorImpl>) subsField.get(chain1);
@@ -125,9 +125,5 @@ public class TestChainedOperators {
     assertEquals(subsOps.size(), 1);
     // make sure that the map operator is the same
     assertEquals(mapImpl, subsOps.iterator().next());
-  }
-
-  public void test() throws Exception{
-    //Object hey = Class.forName("hey").newInstance();
   }
 }
