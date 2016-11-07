@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.impl.window;
 
+import com.sun.source.tree.AssertTree;
 import junit.framework.Assert;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.TestMessage;
@@ -39,6 +40,7 @@ import org.reactivestreams.Subscription;
 
 import java.lang.reflect.Field;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
@@ -66,6 +68,7 @@ public class TestSessionWindowImpl {
 
   @Test
   public void testSessionWindowLogic() throws Exception {
+
     Function<TestMessage, String> keyFunction = (m) -> m.getKey();
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
@@ -81,6 +84,8 @@ public class TestSessionWindowImpl {
     SessionWindowImpl windowImpl = new SessionWindowImpl(sessionWindow);
     final AtomicInteger windowTriggerCount = new AtomicInteger(0);
     windowImpl.init(stream, null);
+    final AtomicBoolean callbackInvoked = new AtomicBoolean();
+
     windowImpl.subscribe(new Subscriber<ProcessorContext>() {
       @Override
       public void onSubscribe(Subscription s) {
@@ -94,6 +99,7 @@ public class TestSessionWindowImpl {
         Assert.assertEquals(output.getKey(), "key1");
         Integer value = output.getMessage();
         Assert.assertEquals(value.intValue(), 3);
+        callbackInvoked.set(true);
       }
 
       @Override
@@ -110,7 +116,7 @@ public class TestSessionWindowImpl {
     windowImpl.onNext(message1, mockCollector, mockCoordinator);
     windowImpl.onNext(message1, mockCollector, mockCoordinator);
     windowImpl.onNext(message1, mockCollector, mockCoordinator);
-
+    Assert.assertTrue(callbackInvoked.get());
   }
 
 
