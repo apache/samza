@@ -41,7 +41,7 @@ public class TestSimpleOperatorImpl {
 
     SimpleOperatorImpl<TestMessage, TestOutputMessage> opImpl = spy(new SimpleOperatorImpl<>(mockOp));
     TestMessage inMsg = mock(TestMessage.class);
-    TestOutputMessage outMsg = mock(TestOutputMessage.class);
+    final TestOutputMessage outMsg = mock(TestOutputMessage.class);
     Collection<TestOutputMessage> mockOutputs = new ArrayList() {{
       this.add(outMsg);
     }};

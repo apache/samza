@@ -47,7 +47,7 @@ public class ChainedOperators<M extends Message> {
    * @param source  the input source {@link MessageStream}
    * @param context  the {@link TaskContext} object that we need to instantiate the state stores
    */
-  private ChainedOperators(MessageStream<M> source, TaskContext context) {
+  ChainedOperators(MessageStream<M> source, TaskContext context) {
     // create the pipeline/topology starting from source
     source.getSubscribers().forEach(sub -> {
       // pass in the context s.t. stateful stream operators can initialize their stores
@@ -74,6 +74,7 @@ public class ChainedOperators<M extends Message> {
     OperatorImpl<M, ? extends Message> opImpl = factoryEntry.getKey();
     MessageStream outStream = operator.getOutputStream();
     Collection<Operator> subs = outStream.getSubscribers();
+
     subs.forEach(sub -> {
       OperatorImpl subImpl = this.createAndSubscribe(sub, operator.getOutputStream(), context);
       opImpl.subscribe(subImpl);
@@ -88,10 +89,9 @@ public class ChainedOperators<M extends Message> {
    *
    * @param source  the input source {@link MessageStream}
    * @param context  the {@link TaskContext} object used to initialize the {@link StateStoreImpl}
-   * @param <M>  the type of input {@link Message}
    * @return a {@link ChainedOperators} object takes the {@code source} as input
    */
-  public static <M extends Message> ChainedOperators create(MessageStream<M> source, TaskContext context) {
+  public static <M extends Message>  ChainedOperators<M> create(MessageStream<M> source, TaskContext context) {
     return new ChainedOperators<>(source, context);
   }
 
@@ -116,4 +116,7 @@ public class ChainedOperators<M extends Message> {
     long nanoTime = System.nanoTime();
     this.subscribers.forEach(sub -> sub.onTimer(nanoTime, collector, coordinator));
   }
+
+
+
 }

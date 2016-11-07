@@ -163,7 +163,7 @@ public class CoordinatorStreamSystemConsumer {
           }
         }
       }
-      log.debug("Bootstrapped configuration: {}", configMap);
+      log.info("Bootstrapped configuration: {}", configMap);
       isBootstrapped = true;
     } catch (Exception e) {
       throw new SamzaException(e);

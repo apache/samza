@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.data;
 
+
 import org.junit.Test;
 
 import java.lang.reflect.Field;

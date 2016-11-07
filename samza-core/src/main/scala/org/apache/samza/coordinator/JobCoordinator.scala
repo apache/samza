@@ -242,6 +242,7 @@ object JobCoordinator extends Logging {
 
     val containerGrouperFactory = Util.getObj[TaskNameGrouperFactory](config.getTaskNameGrouperFactory)
     val containerGrouper = containerGrouperFactory.build(config)
+
     val containerModels = asScalaSet(containerGrouper.group(setAsJavaSet(taskModels))).map
             { case (containerModel) => Integer.valueOf(containerModel.getContainerId) -> containerModel }.toMap
 

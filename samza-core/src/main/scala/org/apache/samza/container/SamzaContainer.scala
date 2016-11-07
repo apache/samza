@@ -35,6 +35,8 @@ import org.apache.samza.metrics.JvmMetrics
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
+import org.apache.samza.task.StreamOperatorAdaptorTask
+import org.apache.samza.operators.task.StreamOperatorTask
 import org.apache.samza.serializers.SerdeFactory
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.storage.StorageEngineFactory
@@ -112,6 +114,16 @@ object SamzaContainer extends Logging {
           url = new URL(url),
           retryBackoff = new ExponentialSleepStrategy(initialDelayMs = initialDelayMs)),
         classOf[JobModel])
+  }
+
+  def createTask(taskClassName: String) : StreamTask = {
+    val task = Util.getObj[Object](taskClassName)
+    val isOperatorTask = classOf[StreamOperatorTask].isAssignableFrom(Class.forName(taskClassName))
+
+    if (isOperatorTask)
+      new StreamOperatorAdaptorTask(task.asInstanceOf[StreamOperatorTask])
+    else
+      task.asInstanceOf[StreamTask]
   }
 
   def apply(containerModel: ContainerModel, jobModel: JobModel, jmxServer: JmxServer) = {
@@ -396,7 +408,7 @@ object SamzaContainer extends Logging {
 
       val taskName = taskModel.getTaskName
 
-      val task = Util.getObj[StreamTask](taskClassName)
+      val task = createTask(taskClassName)
 
       val taskInstanceMetrics = new TaskInstanceMetrics("TaskName-%s" format taskName)
 

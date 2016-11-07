@@ -183,9 +183,10 @@ public class Operators {
 
     /**
      * Constructor of state store functions.
-     *
+     * @param keyFinder a function to return the key for the store
+     * @param stateUpdater update function for values in the store.
      */
-    private StoreFunctions(Function<M, SK> keyFinder,
+    public StoreFunctions(Function<M, SK> keyFinder,
         BiFunction<M, SS, SS> stateUpdater) {
       this.storeKeyFinder = keyFinder;
       this.stateUpdater = stateUpdater;

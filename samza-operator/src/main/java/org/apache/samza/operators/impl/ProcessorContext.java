@@ -39,7 +39,7 @@ public class ProcessorContext<M extends Message> {
     this.coordinator = coordinator;
   }
 
-  M getMessage() {
+  public M getMessage() {
     return this.message;
   }
 

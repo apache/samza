@@ -92,4 +92,13 @@ public class Trigger<M extends Message, S extends WindowState> {
       Function<S, S> lateTriggerUpdater) {
     return new Trigger(timerTrigger, earlyTrigger, lateTrigger, earlyTriggerUpdater, lateTriggerUpdater);
   }
+
+  public BiFunction<M, S, Boolean> getEarlyTrigger() {
+    return earlyTrigger;
+  }
+
+  public Function<S, Boolean> getTimerTrigger() {
+    return timerTrigger;
+  }
+
 }
