@@ -57,6 +57,9 @@ public class OrderPreservingKeyValueStore<K,V> implements KeyValueStore<K,V> {
 
   @Override
   public void put(K key, V value) {
+    // If value exists, do a delete and a put again. This will cause it to be returned as the first element when
+    // iterator is invoked.
+
     if (!map.containsKey(key)) {
       map.put(key, value);
     } else {
