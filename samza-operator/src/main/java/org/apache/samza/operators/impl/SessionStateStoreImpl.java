@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Map;
 
 /*
- * Implements key value
+ * Implements storage layer for a {@link SessionWindow}
  */
 
 // TODO: This is modeled after the current StateStoreImpl class that is existing. Could we make it a simple KV store?
