@@ -39,7 +39,9 @@ public interface Message<K, M> {
    *
    * @return A boolean value indicates whether the current message is a delete or insert message
    */
-  default boolean isDelete() { return false; };
+  default boolean isDelete() {
+    return false;
+  };
 
   /**
    * Access method to the key of the message

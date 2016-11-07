@@ -19,16 +19,13 @@
 package org.apache.samza.operators;
 
 import org.apache.samza.operators.data.Message;
-import org.apache.samza.operators.internal.WindowOutput;
-import org.apache.samza.operators.internal.Trigger;
 import org.apache.samza.operators.internal.Operators;
+import org.apache.samza.operators.internal.Trigger;
 import org.apache.samza.operators.internal.WindowFn;
+import org.apache.samza.operators.internal.WindowOutput;
 import org.apache.samza.storage.kv.Entry;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -110,7 +107,7 @@ public final class Windows {
     }
 
     private Operators.StoreFunctions<M, WK, WindowState<WV>> getStoreFunctions() {
-      Function<M, WK> storekeyFinder = (inputMessage -> this.wndKeyFunction.apply(inputMessage));
+      Function<M, WK> storekeyFinder = inputMessage -> this.wndKeyFunction.apply(inputMessage);
       BiFunction<M, WindowState<WV>, WindowState<WV>> storeUpdator = (inputMessage, oldWindowState) -> {
         WindowState<WV> newWindowState;
         if (oldWindowState == null) {
@@ -194,7 +191,10 @@ public final class Windows {
    * @return  the {@link Window} function for the session
    */
   public static <M extends Message, WK> Window<M, WK, Collection<M>, WindowOutput<WK, Collection<M>>> intoSessions(Function<M, WK> sessionKeyFunction) {
-    return new SessionWindow<>(sessionKeyFunction, (m, c) -> { if (c == null) return Arrays.asList(m);  c.add(m); return c; });
+    return new SessionWindow<>(sessionKeyFunction, (m, c) -> {
+      c.add(m);
+      return c;
+    });
   }
 
   /**
@@ -209,8 +209,10 @@ public final class Windows {
    */
   public static <M extends Message, WK, SI> Window<M, WK, Collection<SI>, WindowOutput<WK, Collection<SI>>> intoSessions(Function<M, WK> sessionKeyFunction,
       Function<M, SI> sessionInfoExtractor) {
-    return new SessionWindow<>(sessionKeyFunction,
-        (m, c) -> { SI session = sessionInfoExtractor.apply(m); if (c == null) return new ArrayList(Arrays.asList(session)); c.add(session); return c; } );
+    return new SessionWindow<>(sessionKeyFunction, (m, c) -> {
+      c.add(sessionInfoExtractor.apply(m));
+      return c;
+    });
   }
 
   /**
@@ -222,7 +224,13 @@ public final class Windows {
    * @return  the {@link Window} function for the session
    */
   public static <M extends Message, WK> Window<M, WK, Integer, WindowOutput<WK, Integer>> intoSessionCounter(Function<M, WK> sessionKeyFunction) {
-    return new SessionWindow<>(sessionKeyFunction, (m, c) -> { if (c == null) {return 1; } else { return c+1; }});
+    return new SessionWindow<>(sessionKeyFunction, (m, c) -> {
+      if (c == null) {
+        return 1;
+      } else {
+        return c + 1;
+      }
+    });
   }
 
 

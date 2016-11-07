@@ -20,7 +20,7 @@
 package org.apache.samza.operators.data;
 
 /**
- * An implementation of {@link Offset}, w/ {@code long} value as the offset
+ * An implementation of {@link org.apache.samza.operators.data.Offset}, w/ {@code long} value as the offset
  */
 public class LongOffset implements Offset {
 
@@ -53,6 +53,11 @@ public class LongOffset implements Offset {
     }
     LongOffset o = (LongOffset) other;
     return this.offset.equals(o.offset);
+  }
+
+  @Override
+  public int hashCode() {
+    return offset.hashCode();
   }
 
   /**

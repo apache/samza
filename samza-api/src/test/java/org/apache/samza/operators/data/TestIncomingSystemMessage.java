@@ -18,8 +18,6 @@
  */
 package org.apache.samza.operators.data;
 
-import org.apache.samza.operators.data.IncomingSystemMessage;
-import org.apache.samza.operators.data.LongOffset;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Test;

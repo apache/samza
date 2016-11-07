@@ -107,4 +107,9 @@ public class ChainedOperators<M extends Message> implements OperatorChain<M> {
     long nanoTime = System.nanoTime();
     this.subscribers.forEach(sub -> sub.onTimer(nanoTime, collector, coordinator));
   }
+
+  public static <M extends Message> ChainedOperators create(MessageStream<M> source, TaskContext context) {
+    return new ChainedOperators<>(source, context);
+  }
+
 }

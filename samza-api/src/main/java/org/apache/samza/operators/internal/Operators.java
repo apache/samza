@@ -115,7 +115,8 @@ public class Operators {
 
   /**
    * A sink operator function that allows customized code to send the output to external system. This is the terminal
-   * operator that does not have any output {@link MessageStream} that allows further processing in the same {@link org.apache.samza.operators.task.StreamOperatorTask}
+   * operator that does not have any output {@link MessageStream} that allows further processing in the same
+   * {@link org.apache.samza.operators.task.StreamOperatorTask}
    *
    * @param <M>  the type of input {@link Message}
    */
@@ -137,7 +138,7 @@ public class Operators {
 
     @Override
     public MessageStream getOutputStream() {
-      return new MessageStream();
+      return null;
     }
 
     /**
@@ -182,7 +183,8 @@ public class Operators {
 
     /**
      * Constructor of state store functions.
-     *
+     * @param keyFinder a function to return the key for the store
+     * @param stateUpdater update function for values in the store.
      */
     public StoreFunctions(Function<M, SK> keyFinder,
         BiFunction<M, SS, SS> stateUpdater) {
@@ -431,7 +433,7 @@ public class Operators {
    * @return  the {@link WindowOperator}
    */
   public static <M extends Message, WK, WS extends WindowState, WM extends WindowOutput<WK, ?>> WindowOperator<M, WK, WS, WM> getWindowOperator(
-    WindowFn<M, WK, WS, WM> windowFn) {
+      WindowFn<M, WK, WS, WM> windowFn) {
     return new WindowOperator<>(windowFn, Operators.getOperatorId());
   }
 
@@ -447,7 +449,7 @@ public class Operators {
    * @return  the {@link PartialJoinOperator}
    */
   public static <M extends Message<K, ?>, K, JM extends Message<K, ?>, RM extends Message> PartialJoinOperator<M, K, JM, RM> getPartialJoinOperator(
-    BiFunction<M, JM, RM> joiner, MessageStream<RM> joinOutput) {
+      BiFunction<M, JM, RM> joiner, MessageStream<RM> joinOutput) {
     return new PartialJoinOperator<>(joiner, joinOutput, Operators.getOperatorId());
   }
 
@@ -460,9 +462,9 @@ public class Operators {
    */
   public static <M extends Message> StreamOperator<M, M> getMergeOperator(MessageStream<M> mergeOutput) {
     return new StreamOperator<M, M>(t ->
-      new ArrayList<M>() {{
-        this.add(t);
-      }},
+      new ArrayList<M>() { {
+          this.add(t);
+        } },
       mergeOutput);
   }
 }

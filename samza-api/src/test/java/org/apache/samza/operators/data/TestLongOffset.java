@@ -18,8 +18,7 @@
  */
 package org.apache.samza.operators.data;
 
-import org.apache.samza.operators.data.LongOffset;
-import org.apache.samza.operators.data.Offset;
+
 import org.junit.Test;
 
 import java.lang.reflect.Field;

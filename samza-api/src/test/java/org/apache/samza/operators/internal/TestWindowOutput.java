@@ -18,7 +18,6 @@
  */
 package org.apache.samza.operators.internal;
 
-import org.apache.samza.operators.internal.WindowOutput;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;

@@ -20,7 +20,6 @@ package org.apache.samza.operators.internal;
 
 import org.apache.samza.operators.WindowState;
 import org.apache.samza.operators.data.Message;
-import org.apache.samza.operators.internal.Trigger;
 import org.junit.Test;
 
 import java.lang.reflect.Field;
@@ -37,8 +36,14 @@ public class TestTrigger {
     BiFunction<Message<Object, Object>, WindowState<Integer>, Boolean> earlyTrigger = (m, s) -> s.getOutputValue() > 1000;
     BiFunction<Message<Object, Object>, WindowState<Integer>, Boolean> lateTrigger = (m, s) -> s.getOutputValue() > 1000;
     Function<WindowState<Integer>, Boolean> timerTrigger = s -> TimeUnit.NANOSECONDS.toMillis(s.getLastMessageTimeNs()) + 50000 < System.currentTimeMillis();
-    Function<WindowState<Integer>, WindowState<Integer>> earlyTriggerUpdater = s -> { s.setOutputValue(0); return s; };
-    Function<WindowState<Integer>, WindowState<Integer>> lateTriggerUpdater = s -> { s.setOutputValue(1); return s; };
+    Function<WindowState<Integer>, WindowState<Integer>> earlyTriggerUpdater = s -> {
+      s.setOutputValue(0);
+      return s;
+    };
+    Function<WindowState<Integer>, WindowState<Integer>> lateTriggerUpdater = s -> {
+      s.setOutputValue(1);
+      return s;
+    };
 
     Trigger<Message<Object, Object>, WindowState<Integer>> trigger = Trigger.createTrigger(timerTrigger, earlyTrigger, lateTrigger,
         earlyTriggerUpdater, lateTriggerUpdater);

@@ -64,11 +64,11 @@ public class TestMessageStream {
 
   @Test public void testFlatMap() {
     MessageStream<TestMessage> inputStream = new MessageStream<>();
-    Set<TestOutputMessage> flatOuts = new HashSet<TestOutputMessage>() {{
-      this.add(mock(TestOutputMessage.class));
-      this.add(mock(TestOutputMessage.class));
-      this.add(mock(TestOutputMessage.class));
-    }};
+    Set<TestOutputMessage> flatOuts = new HashSet<TestOutputMessage>() { {
+        this.add(mock(TestOutputMessage.class));
+        this.add(mock(TestOutputMessage.class));
+        this.add(mock(TestOutputMessage.class));
+      } };
     Function<TestMessage, Collection<TestOutputMessage>> xFlatMap = m -> flatOuts;
     MessageStream<TestOutputMessage> outputStream = inputStream.flatMap(xFlatMap);
     Collection<Operator> subs = inputStream.getSubscribers();
@@ -156,10 +156,10 @@ public class TestMessageStream {
 
   @Test public void testMerge() {
     MessageStream<TestMessage> merge1 = new MessageStream<>();
-    Collection<MessageStream<TestMessage>> others = new ArrayList<MessageStream<TestMessage>>(){{
-      this.add(new MessageStream<>());
-      this.add(new MessageStream<>());
-    }};
+    Collection<MessageStream<TestMessage>> others = new ArrayList<MessageStream<TestMessage>>() { {
+        this.add(new MessageStream<>());
+        this.add(new MessageStream<>());
+      } };
     MessageStream<TestMessage> mergeOutput = merge1.merge(others);
     validateMergeOperator(merge1, mergeOutput);
 

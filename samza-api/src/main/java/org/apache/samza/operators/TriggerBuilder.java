@@ -27,7 +27,7 @@ import java.util.function.Function;
 
 
 /**
- * This class defines a builder of {@link Trigger} object for a {@link Windows.Window}. The triggers are categorized into
+ * This class defines a builder of {@link org.apache.samza.operators.internal.Trigger} object for a {@link Windows.Window}. The triggers are categorized into
  * three types:
  *
  * <p>
@@ -152,10 +152,10 @@ public final class TriggerBuilder<M extends Message, V> {
   }
 
   /**
-   * Build method that creates an {@link Trigger} object based on the trigger conditions set in {@link TriggerBuilder}
+   * Build method that creates an {@link org.apache.samza.operators.internal.Trigger} object based on the trigger conditions set in {@link TriggerBuilder}
    * This is kept package private and only used by {@link Windows} to convert the mutable {@link TriggerBuilder} object to an immutable {@link Trigger} object
    *
-   * @return  the final {@link Trigger} object
+   * @return  the final {@link org.apache.samza.operators.internal.Trigger} object
    */
   Trigger<M, WindowState<V>> build() {
     return Trigger.createTrigger(this.timerTrigger, this.earlyTrigger, this.lateTrigger, this.earlyTriggerUpdater, this.lateTriggerUpdater);
@@ -174,7 +174,10 @@ public final class TriggerBuilder<M extends Message, V> {
    * @return  the {@link TriggerBuilder} object
    */
   public TriggerBuilder<M, V> onEarlyTrigger(Function<V, V> onTriggerFunc) {
-    this.earlyTriggerUpdater = s -> { s.setOutputValue(onTriggerFunc.apply(s.getOutputValue())); return s; };
+    this.earlyTriggerUpdater = s -> {
+      s.setOutputValue(onTriggerFunc.apply(s.getOutputValue()));
+      return s;
+    };
     return this;
   }
 
@@ -186,7 +189,10 @@ public final class TriggerBuilder<M extends Message, V> {
    * @return  the {@link TriggerBuilder} object
    */
   public TriggerBuilder<M, V> onLateTrigger(Function<V, V> onTriggerFunc) {
-    this.lateTriggerUpdater = s -> { s.setOutputValue(onTriggerFunc.apply(s.getOutputValue())); return s; };
+    this.lateTriggerUpdater = s -> {
+      s.setOutputValue(onTriggerFunc.apply(s.getOutputValue()));
+      return s;
+    };
     return this;
   }
 

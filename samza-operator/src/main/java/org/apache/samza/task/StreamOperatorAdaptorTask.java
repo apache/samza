@@ -16,16 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.task;
+package org.apache.samza.task;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreams;
 import org.apache.samza.operators.MessageStreams.SystemMessageStream;
 import org.apache.samza.operators.data.IncomingSystemMessage;
+import org.apache.samza.operators.impl.ChainedOperators;
 import org.apache.samza.operators.internal.OperatorChain;
 import org.apache.samza.operators.internal.OperatorChainSupplier;
-import org.apache.samza.operators.internal.OperatorChain;
 import org.apache.samza.operators.task.StreamOperatorTask;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
@@ -49,13 +49,14 @@ public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask
    * A map with entries mapping {@link SystemStreamPartition} to {@link org.apache.samza.operators.internal.OperatorChain} that takes the {@link SystemStreamPartition}
    * as the input stream
    */
-  private final Map<SystemStreamPartition, OperatorChain> operatorChains = new HashMap<>();
+  private final Map<SystemStreamPartition, ChainedOperators> operatorChains = new HashMap<>();
 
   /**
    * Wrapped {@link StreamOperatorTask} class
    */
   private final StreamOperatorTask  userTask;
   private final OperatorChainSupplier factory;
+
   /**
    * Constructor that wraps the user-defined {@link StreamOperatorTask}
    *
@@ -78,7 +79,7 @@ public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask
     });
     this.userTask.initOperators(sources.values());
     //ChainedOperatorsFactory factory = new ChainedOperatorsFactory();
-    sources.forEach((ssp, ds) -> operatorChains.put(ssp, factory.create(ds, context)));
+    sources.forEach((ssp, ds) -> operatorChains.put(ssp, ChainedOperators.create(ds, context)));
   }
 
   @Override

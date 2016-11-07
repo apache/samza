@@ -23,7 +23,6 @@ import org.apache.samza.operators.data.Message;
 import org.apache.samza.operators.internal.Operators;
 import org.apache.samza.operators.internal.Operators.Operator;
 import org.apache.samza.operators.internal.WindowOutput;
-import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
@@ -49,7 +48,7 @@ public class MessageStream<M extends Message> {
   /**
    * Helper method to get the corresponding list of subscribers to a specific {@link MessageStream}.
    *
-   * NOTE: This should only be used by implementation of {@link org.apache.samza.operators.internal.OperatorChain}, not directly by programmers.
+   * NOTE: This is purely an internal API and should not be used directly by programmers.
    *
    * @return A unmodifiable set containing all {@link Operator}s that subscribe to this {@link MessageStream} object
    */
@@ -69,7 +68,7 @@ public class MessageStream<M extends Message> {
    * @param <C>  the type of input {@code c}
    */
   @FunctionalInterface
-  public interface VoidFunction3 <A, B, C> {
+  public interface VoidFunction3<A, B, C> {
     public void apply(A a, B b, C c);
   }
 
@@ -81,12 +80,12 @@ public class MessageStream<M extends Message> {
    * @return the output {@link MessageStream} by applying the map function on the input {@link MessageStream}
    */
   public <OM extends Message> MessageStream<OM> map(Function<M, OM> mapper) {
-    Operator<OM> op = Operators.<M, OM>getStreamOperator(m -> new ArrayList<OM>() {{
-      OM r = mapper.apply(m);
-      if (r != null) {
-        this.add(r);
-      }
-    }});
+    Operator<OM> op = Operators.<M, OM>getStreamOperator(m -> new ArrayList<OM>() { {
+        OM r = mapper.apply(m);
+        if (r != null) {
+          this.add(r);
+        }
+      } });
     this.subscribers.add(op);
     return op.getOutputStream();
   }
@@ -111,17 +110,17 @@ public class MessageStream<M extends Message> {
    * @return the output {@link MessageStream} after applying the filter function on the input {@link MessageStream}
    */
   public MessageStream<M> filter(Function<M, Boolean> filter) {
-    Operator<M> op = Operators.<M, M>getStreamOperator(t -> new ArrayList<M>() {{
-      if (filter.apply(t)) {
-        this.add(t);
-      }
-    }});
+    Operator<M> op = Operators.<M, M>getStreamOperator(t -> new ArrayList<M>() { {
+        if (filter.apply(t)) {
+          this.add(t);
+        }
+      } });
     this.subscribers.add(op);
     return op.getOutputStream();
   }
 
   /**
-   * Method to send an input {@link MessageStream} to an output {@link SystemStream}, and allows the output {@link MessageStream}
+   * Method to send an input {@link MessageStream} to an output {@link org.apache.samza.system.SystemStream}, and allows the output {@link MessageStream}
    * to be consumed by downstream stream operators again.
    *
    * @param sink  the user-defined sink function to send the input {@link Message}s to the external output systems
@@ -137,7 +136,7 @@ public class MessageStream<M extends Message> {
    * @param <WK>  the type of key in the output {@link Message} from the {@link Windows.Window} function
    * @param <WV>  the type of output value from
    * @param <WS>  the type of window state kept in the {@link Windows.Window} function
-   * @param <WM>  the type of {@link WindowOutput} message from the {@link Windows.Window} function
+   * @param <WM>  the type of {@link org.apache.samza.operators.internal.WindowOutput} message from the {@link Windows.Window} function
    * @return the output {@link MessageStream} after applying the window function on the input {@link MessageStream}
    */
   public <WK, WV, WS extends WindowState<WV>, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(Windows.Window<M, WK, WV, WM> window) {

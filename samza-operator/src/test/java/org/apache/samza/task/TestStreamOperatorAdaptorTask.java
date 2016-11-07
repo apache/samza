@@ -22,7 +22,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.impl.ChainedOperators;
 import org.apache.samza.operators.impl.ChainedOperatorsFactory;
 import org.apache.samza.operators.internal.OperatorChainSupplier;
-import org.apache.samza.operators.task.StreamOperatorAdaptorTask;
 import org.apache.samza.operators.task.StreamOperatorTask;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.Partition;

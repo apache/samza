@@ -104,12 +104,14 @@ subprojects {
 
   tasks.withType(Test) {
     test {
+
       testLogging {
         showStackTraces = true
         showExceptions = true
         showCauses = true
         displayGranularity = maxGranularity
         exceptionFormat = 'full'
+
       }
     }
   }
@@ -117,12 +119,16 @@ subprojects {
 
 project(':samza-api') {
   apply plugin: 'java'
+  apply plugin: 'checkstyle'
 
   dependencies {
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
   }
-
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
+  }
 }
 
 project(":samza-core_$scalaVersion") {
@@ -142,6 +148,7 @@ project(":samza-core_$scalaVersion") {
 
   dependencies {
     compile project(':samza-api')
+    compile project(':samza-operator')
     compile "org.scala-lang:scala-library:$scalaLibVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
@@ -339,10 +346,12 @@ if (JavaVersion.current().isJava8Compatible()) {
     
     dependencies {
       compile project(':samza-api')
-      compile project(":samza-core_$scalaVersion")
       compile "commons-collections:commons-collections:$commonsCollectionVersion"
       compile "org.apache.commons:commons-lang3:$commonsLang3Version"
-      compile "org.apache.avro:avro:$avroVersion"
+      compile "org.slf4j:slf4j-api:$slf4jVersion"
+      compile("org.apache.avro:avro:$avroVersion") {
+          exclude module: 'servlet-api'
+      }
       compile "org.reactivestreams:reactive-streams:$reactiveStreamVersion"
       testCompile project(":samza-api").sourceSets.test.output
       testCompile "junit:junit:$junitVersion"

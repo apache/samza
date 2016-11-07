@@ -35,8 +35,9 @@ import org.apache.samza.metrics.JvmMetrics
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
+import org.apache.samza.task.StreamOperatorAdaptorTask
 import org.apache.samza.operators.internal.OperatorChainSupplier
-import org.apache.samza.operators.task.{StreamOperatorAdaptorTask, StreamOperatorTask}
+import org.apache.samza.operators.task.StreamOperatorTask
 import org.apache.samza.serializers.SerdeFactory
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.storage.StorageEngineFactory
