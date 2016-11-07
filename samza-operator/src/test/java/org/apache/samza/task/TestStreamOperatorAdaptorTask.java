@@ -40,7 +40,6 @@ import static org.mockito.Mockito.*;
 public class TestStreamOperatorAdaptorTask {
   Field userTaskField = null;
   Field chainedOpsField = null;
-
   @Before public void prep() throws NoSuchFieldException {
     userTaskField = StreamOperatorAdaptorTask.class.getDeclaredField("userTask");
     chainedOpsField = StreamOperatorAdaptorTask.class.getDeclaredField("operatorChains");

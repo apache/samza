@@ -97,9 +97,39 @@ public final class Windows {
     }
 
     private BiFunction<M, Entry<WK, WindowState<WV>>, WindowOutput<WK, WV>> getTransformFunc() {
-      // TODO: actual implementation of the main session window logic, based on the wndKeyFunction, aggregator, and triggers;
-      return null;
+      return (inputMessage, stateEntry) -> {
+
+        WK newKey = this.wndKeyFunction.apply(inputMessage);
+        WV newValue = stateEntry.getValue().getOutputValue();
+
+        return WindowOutput.of(newKey, newValue);
+      };
     }
+
+    private Operators.StoreFunctions<M, WK, WindowState<WV>> getStoreFunctions() {
+      Function<M, WK> storekeyFinder = inputMessage -> this.wndKeyFunction.apply(inputMessage);
+      BiFunction<M, WindowState<WV>, WindowState<WV>> storeUpdator = (inputMessage, oldWindowState) -> {
+        WindowState<WV> newWindowState;
+        if (oldWindowState == null) {
+          long systemTimeNanos = System.nanoTime();
+          long eventTimeNanos = inputMessage.getTimestamp();
+          WV value = this.aggregator.apply(inputMessage, null);
+          newWindowState = new WindowStateImpl<>(systemTimeNanos, systemTimeNanos, eventTimeNanos, eventTimeNanos, 1, value);
+        } else {
+          long firstMessageTimeNs = oldWindowState.getFirstMessageTimeNs();
+          long lastMessageTimeNs = System.nanoTime();
+          long earliestEventTimeNs = Math.min(oldWindowState.getEarliestEventTimeNs(), inputMessage.getTimestamp());
+          long latestEventTimeNs = Math.max(oldWindowState.getLatestEventTimeNs(), inputMessage.getTimestamp());
+          long numMessages = oldWindowState.getNumberMessages() + 1;
+          WV value = this.aggregator.apply(inputMessage, oldWindowState.getOutputValue());
+          newWindowState = new WindowStateImpl<>(firstMessageTimeNs, lastMessageTimeNs, earliestEventTimeNs, latestEventTimeNs, numMessages, value);
+        }
+        return newWindowState;
+      };
+      return new Operators.StoreFunctions<>(storekeyFinder, storeUpdator);
+    }
+
+
 
     private WindowFn<M, WK, WindowState<WV>, WindowOutput<WK, WV>> getInternalWindowFn() {
       return new WindowFn<M, WK, WindowState<WV>, WindowOutput<WK, WV>>() {
@@ -109,7 +139,7 @@ public final class Windows {
         }
 
         @Override public Operators.StoreFunctions<M, WK, WindowState<WV>> getStoreFuncs() {
-          return SessionWindow.this.storeFunctions;
+          return SessionWindow.this.getStoreFunctions();
         }
 
         @Override public Trigger<M, WindowState<WV>> getTrigger() {
@@ -119,7 +149,7 @@ public final class Windows {
     }
   }
 
-  static <M extends Message, WK, WV, WS extends WindowState<WV>, WM extends WindowOutput<WK, WV>> WindowFn<M, WK, WS, WM> getInternalWindowFn(
+  public static <M extends Message, WK, WV, WS extends WindowState<WV>, WM extends WindowOutput<WK, WV>> WindowFn<M, WK, WS, WM> getInternalWindowFn(
       Window<M, WK, WV, WM> window) {
     if (window instanceof SessionWindow) {
       SessionWindow<M, WK, WV> sessionWindow = (SessionWindow<M, WK, WV>) window;
@@ -194,7 +224,82 @@ public final class Windows {
    * @return  the {@link Window} function for the session
    */
   public static <M extends Message, WK> Window<M, WK, Integer, WindowOutput<WK, Integer>> intoSessionCounter(Function<M, WK> sessionKeyFunction) {
-    return new SessionWindow<>(sessionKeyFunction, (m, c) -> c + 1);
+    return new SessionWindow<>(sessionKeyFunction, (m, c) -> {
+      if (c == null) {
+        return 1;
+      } else {
+        return c + 1;
+      }
+    });
+  }
+
+
+  static class WindowStateImpl<WV> implements WindowState<WV> {
+
+    private long firstSystemTimeNanos;
+    private long lastSystemTimeNanos;
+    private long earliestEventTimeNanos;
+    private long latestEventTimeNanos;
+    private long numMessages;
+    private WV outputValue;
+
+
+    @Override
+    public long getFirstMessageTimeNs() {
+      return firstSystemTimeNanos;
+    }
+
+    @Override
+    public long getLastMessageTimeNs() {
+      return lastSystemTimeNanos;
+    }
+
+    @Override
+    public long getEarliestEventTimeNs() {
+      return earliestEventTimeNanos;
+    }
+
+    @Override
+    public long getLatestEventTimeNs() {
+      return latestEventTimeNanos;
+    }
+
+    @Override
+    public long getNumberMessages() {
+      return numMessages;
+    }
+
+    @Override
+    public WV getOutputValue() {
+      return outputValue;
+    }
+
+    //TODO: Not sure if we actually need this setter. Can't WindowState be immutable?
+    @Override
+    public void setOutputValue(WV value) {
+      this.outputValue = value;
+    }
+
+    public WindowStateImpl(long firstSystemTimeNanos, long lastSystemTimeNanos, long earliestEventTimeNanos, long latestEventTimeNanos, long numMessages, WV outputValue) {
+      this.firstSystemTimeNanos = firstSystemTimeNanos;
+      this.lastSystemTimeNanos = lastSystemTimeNanos;
+      this.earliestEventTimeNanos = earliestEventTimeNanos;
+      this.latestEventTimeNanos = latestEventTimeNanos;
+      this.numMessages = numMessages;
+      this.outputValue = outputValue;
+    }
+
+    @Override
+    public String toString() {
+      return "WindowStateImpl{" +
+          "firstSystemTimeNanos=" + firstSystemTimeNanos +
+          ", lastSystemTimeNanos=" + lastSystemTimeNanos +
+          ", earliestEventTimeNanos=" + earliestEventTimeNanos +
+          ", latestEventTimeNanos=" + latestEventTimeNanos +
+          ", numMessages=" + numMessages +
+          ", outputValue=" + outputValue +
+          '}';
+    }
   }
 
 }

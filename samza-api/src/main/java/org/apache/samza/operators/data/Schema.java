@@ -17,28 +17,42 @@
  * under the License.
  */
 
-package org.apache.samza.operators.impl.data.serializers;
+package org.apache.samza.operators.data;
 
-import org.apache.samza.serializers.Serde;
-import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.operators.impl.data.string.StringData;
+import java.util.Map;
 
 
-public class SqlStringSerde implements Serde<StringData> {
+/**
+ * This defines an interface for generic schema access methods
+ */
+public interface Schema {
 
-    private final Serde<String> serde;
+  enum Type {
+    INTEGER,
+    LONG,
+    FLOAT,
+    DOUBLE,
+    BOOLEAN,
+    STRING,
+    BYTES,
+    STRUCT,
+    ARRAY,
+    MAP
+  };
 
-    public SqlStringSerde(String encoding) {
-        this.serde = new StringSerde(encoding);
-    }
+  Type getType();
 
-    @Override
-    public StringData fromBytes(byte[] bytes) {
-          return new StringData(serde.fromBytes(bytes));
-    }
+  Schema getElementType();
 
-    @Override
-    public byte[] toBytes(StringData object) {
-        return serde.toBytes(object.strValue());
-    }
+  Schema getValueType();
+
+  Map<String, Schema> getFields();
+
+  Schema getFieldType(String fldName);
+
+  Data read(Object object);
+
+  Data transform(Data inputData);
+
+  boolean equals(Schema other);
 }

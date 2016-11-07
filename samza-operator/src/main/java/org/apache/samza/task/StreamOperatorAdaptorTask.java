@@ -27,6 +27,12 @@ import org.apache.samza.operators.impl.ChainedOperators;
 import org.apache.samza.operators.task.StreamOperatorTask;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.task.InitableTask;
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.TaskContext;
+import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.task.WindowableTask;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -38,7 +44,7 @@ import java.util.Map;
  */
 public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask, WindowableTask {
   /**
-   * A map with entries mapping {@link SystemStreamPartition} to {@link org.apache.samza.operators.impl.ChainedOperators} that takes the {@link SystemStreamPartition}
+   * A map with entries mapping {@link SystemStreamPartition} to {@link ChainedOperators} that takes the {@link SystemStreamPartition}
    * as the input stream
    */
   private final Map<SystemStreamPartition, ChainedOperators> operatorChains = new HashMap<>();
@@ -46,7 +52,7 @@ public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask
   /**
    * Wrapped {@link StreamOperatorTask} class
    */
-  private final StreamOperatorTask userTask;
+  private final StreamOperatorTask  userTask;
 
   /**
    * Constructor that wraps the user-defined {@link StreamOperatorTask}
@@ -83,4 +89,5 @@ public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask
       ((WindowableTask) this.userTask).window(collector, coordinator);
     }
   }
+
 }

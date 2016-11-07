@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 
 public class SqlAvroSerde implements Serde<AvroData> {
   private static Logger log = LoggerFactory.getLogger(SqlAvroSerde.class);
@@ -105,4 +106,5 @@ public class SqlAvroSerde implements Serde<AvroData> {
         throw new IllegalArgumentException("Avro schema: " + type + " is not supported");
     }
   }
-}
+
+  }
