@@ -28,6 +28,7 @@ import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
+
 public class TestThrottlingExecutor {
   private static final long MAX_NANOS = Long.MAX_VALUE;
 
@@ -44,7 +45,7 @@ public class TestThrottlingExecutor {
   @Before
   public void setUp() {
     clock = Mockito.mock(HighResolutionClock.class);
-    executor = new ThrottlingExecutor(MAX_NANOS, clock);
+    executor = Mockito.spy(new ThrottlingExecutor(MAX_NANOS, clock));
   }
 
   @Test
@@ -85,7 +86,7 @@ public class TestThrottlingExecutor {
     assertEquals(0L, executor.getPendingNanos());
 
     // At 100% work rate sleep should not be called
-    Mockito.verify(clock, Mockito.never()).sleep(Mockito.anyLong());
+    Mockito.verify(executor, Mockito.never()).sleep(Mockito.anyLong());
   }
 
   @Test
@@ -95,7 +96,7 @@ public class TestThrottlingExecutor {
     final long workTimeNanos = TimeUnit.MILLISECONDS.toNanos(5);
     setWorkTime(workTimeNanos);
     // Sleep time is same as work time at 50% work rate
-    setExpectedAndActualSleepTime(workTimeNanos, workTimeNanos);
+    setActualSleepTime(workTimeNanos);
     executor.execute(NO_OP);
 
     verifySleepTime(workTimeNanos);
@@ -114,7 +115,7 @@ public class TestThrottlingExecutor {
     final long delayTimeNanos = (long) (workToDelayFactor * workTimeNanos);
 
     setWorkTime(workTimeNanos);
-    setExpectedAndActualSleepTime(delayTimeNanos, delayTimeNanos);
+    setActualSleepTime(delayTimeNanos);
 
     executor.execute(NO_OP);
 
@@ -131,7 +132,7 @@ public class TestThrottlingExecutor {
     final long actualDelayTimeNanos = TimeUnit.MILLISECONDS.toNanos(6);
 
     setWorkTime(workTimeNanos);
-    setExpectedAndActualSleepTime(expectedDelayNanos, actualDelayTimeNanos);
+    setActualSleepTime(actualDelayTimeNanos);
 
     executor.execute(NO_OP);
 
@@ -148,7 +149,7 @@ public class TestThrottlingExecutor {
     final long actualDelayNanos = TimeUnit.MILLISECONDS.toNanos(4);
 
     setWorkTime(workTimeNanos);
-    setExpectedAndActualSleepTime(expectedDelayNanos, actualDelayNanos);
+    setActualSleepTime(actualDelayNanos);
 
     executor.execute(NO_OP);
 
@@ -167,7 +168,7 @@ public class TestThrottlingExecutor {
 
     // First execution
     setWorkTime(workTimeNanos);
-    setExpectedAndActualSleepTime(workTimeNanos, actualDelayNanos1);
+    setActualSleepTime(actualDelayNanos1);
 
     executor.execute(NO_OP);
 
@@ -177,7 +178,7 @@ public class TestThrottlingExecutor {
 
     // Second execution
     setWorkTime(workTimeNanos);
-    setExpectedAndActualSleepTime(workTimeNanos, actualDelayNanos2);
+    setActualSleepTime(actualDelayNanos2);
 
     executor.execute(NO_OP);
 
@@ -190,12 +191,12 @@ public class TestThrottlingExecutor {
     final long maxDelayMillis = 10;
     final long maxDelayNanos = TimeUnit.MILLISECONDS.toNanos(maxDelayMillis);
 
-    executor = new ThrottlingExecutor(maxDelayMillis, clock);
+    executor = Mockito.spy(new ThrottlingExecutor(maxDelayMillis, clock));
     executor.setWorkFactor(0.5);
 
     // Note work time exceeds maxDelayMillis
     setWorkTime(TimeUnit.MILLISECONDS.toNanos(100));
-    setExpectedAndActualSleepTime(maxDelayNanos, maxDelayNanos);
+    setActualSleepTime(maxDelayNanos);
 
     executor.execute(NO_OP);
 
@@ -221,6 +222,7 @@ public class TestThrottlingExecutor {
     // At a 50% work factor we'd expect work and sleep to match. As they don't, the function will
     // try to increment the pending sleep nanos, which could (but should not) result in overflow.
     setWorkTime(5000);
+    setActualSleepTime(Long.MAX_VALUE);
 
     executor.execute(NO_OP);
 
@@ -241,7 +243,7 @@ public class TestThrottlingExecutor {
     executor.execute(NO_OP);
 
     // Sleep should not be called with negative pending nanos
-    Mockito.verify(clock, Mockito.never()).sleep(Mockito.anyLong());
+    Mockito.verify(executor, Mockito.never()).sleep(Mockito.anyLong());
     assertEquals(-1000 + 500, executor.getPendingNanos());
   }
 
@@ -253,6 +255,7 @@ public class TestThrottlingExecutor {
     assertEquals(-1000, executor.getPendingNanos());
 
     setWorkTime(1250);
+    setActualSleepTime(1250 + startPendingNanos);
 
     executor.execute(NO_OP);
 
@@ -264,12 +267,11 @@ public class TestThrottlingExecutor {
     Mockito.when(clock.nanoTime()).thenReturn(0L).thenReturn(workTimeNanos);
   }
 
-  private void setExpectedAndActualSleepTime(long expectedDelayTimeNanos, long actualDelayTimeNanos) throws InterruptedException {
-    Mockito.when(clock.sleep(expectedDelayTimeNanos))
-        .thenReturn(expectedDelayTimeNanos - actualDelayTimeNanos);
+  private void setActualSleepTime(long actualDelayTimeNanos) throws InterruptedException {
+    Mockito.when(executor.sleep(Mockito.anyLong())).thenAnswer(invocation -> (long) invocation.getArguments()[0] - actualDelayTimeNanos);
   }
 
   private void verifySleepTime(long expectedDelayTimeNanos) throws InterruptedException {
-    Mockito.verify(clock).sleep(expectedDelayTimeNanos);
+    Mockito.verify(executor).sleep(expectedDelayTimeNanos);
   }
 }

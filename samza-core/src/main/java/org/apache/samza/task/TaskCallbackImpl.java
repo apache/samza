@@ -48,13 +48,14 @@ class TaskCallbackImpl implements TaskCallback, Comparable<TaskCallbackImpl> {
       TaskName taskName,
       IncomingMessageEnvelope envelope,
       ReadableCoordinator coordinator,
-      long seqNum) {
+      long seqNum,
+      long timeCreatedNs) {
     this.listener = listener;
     this.taskName = taskName;
     this.envelope = envelope;
     this.coordinator = coordinator;
     this.seqNum = seqNum;
-    this.timeCreatedNs = System.nanoTime();
+    this.timeCreatedNs = timeCreatedNs;
   }
 
   @Override

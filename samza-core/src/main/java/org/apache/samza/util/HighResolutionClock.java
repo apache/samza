@@ -25,7 +25,7 @@ package org.apache.samza.util;
  * <p>
  * Instances of this interface must be thread-safe.
  */
-interface HighResolutionClock {
+public interface HighResolutionClock {
   /**
    * Returns a time point that can be used to calculate the difference in nanoseconds with another
    * time point. Resolution of the timer is platform dependent and not guaranteed to actually
@@ -34,14 +34,4 @@ interface HighResolutionClock {
    * @return current time point in nanoseconds
    */
   long nanoTime();
-
-  /**
-   * Sleeps for a period of time that approximates the requested number of nanoseconds. Actual sleep
-   * time can vary significantly based on the JVM implementation and platform. This function returns
-   * the measured error between expected and actual sleep time.
-   *
-   * @param nanos the number of nanoseconds to sleep.
-   * @throws InterruptedException if the current thread is interrupted while blocked in this method.
-   */
-  long sleep(long nanos) throws InterruptedException;
 }

@@ -48,8 +48,7 @@ public class TestTaskCallbackManager {
       public void onFailure(TaskCallback callback, Throwable t) {
       }
     };
-    callbackManager = new TaskCallbackManager(listener, metrics, null, -1);
-
+    callbackManager = new TaskCallbackManager(listener, null, -1, 2, () -> System.nanoTime());
   }
 
   @Test
@@ -68,15 +67,15 @@ public class TestTaskCallbackManager {
     ReadableCoordinator coordinator = new ReadableCoordinator(taskName);
 
     IncomingMessageEnvelope envelope0 = new IncomingMessageEnvelope(ssp, "0", null, null);
-    TaskCallbackImpl callback0 = new TaskCallbackImpl(listener, taskName, envelope0, coordinator, 0);
-    TaskCallbackImpl callbackToCommit = callbackManager.updateCallback(callback0, true);
+    TaskCallbackImpl callback0 = new TaskCallbackImpl(listener, taskName, envelope0, coordinator, 0, 0);
+    TaskCallbackImpl callbackToCommit = callbackManager.updateCallback(callback0);
     assertTrue(callbackToCommit.matchSeqNum(0));
     assertEquals(ssp, callbackToCommit.envelope.getSystemStreamPartition());
     assertEquals("0", callbackToCommit.envelope.getOffset());
 
     IncomingMessageEnvelope envelope1 = new IncomingMessageEnvelope(ssp, "1", null, null);
-    TaskCallbackImpl callback1 = new TaskCallbackImpl(listener, taskName, envelope1, coordinator, 1);
-    callbackToCommit = callbackManager.updateCallback(callback1, true);
+    TaskCallbackImpl callback1 = new TaskCallbackImpl(listener, taskName, envelope1, coordinator, 1, 0);
+    callbackToCommit = callbackManager.updateCallback(callback1);
     assertTrue(callbackToCommit.matchSeqNum(1));
     assertEquals(ssp, callbackToCommit.envelope.getSystemStreamPartition());
     assertEquals("1", callbackToCommit.envelope.getOffset());
@@ -90,18 +89,18 @@ public class TestTaskCallbackManager {
 
     // simulate out of order
     IncomingMessageEnvelope envelope2 = new IncomingMessageEnvelope(ssp, "2", null, null);
-    TaskCallbackImpl callback2 = new TaskCallbackImpl(listener, taskName, envelope2, coordinator, 2);
-    TaskCallbackImpl callbackToCommit = callbackManager.updateCallback(callback2, true);
+    TaskCallbackImpl callback2 = new TaskCallbackImpl(listener, taskName, envelope2, coordinator, 2, 0);
+    TaskCallbackImpl callbackToCommit = callbackManager.updateCallback(callback2);
     assertNull(callbackToCommit);
 
     IncomingMessageEnvelope envelope1 = new IncomingMessageEnvelope(ssp, "1", null, null);
-    TaskCallbackImpl callback1 = new TaskCallbackImpl(listener, taskName, envelope1, coordinator, 1);
-    callbackToCommit = callbackManager.updateCallback(callback1, true);
+    TaskCallbackImpl callback1 = new TaskCallbackImpl(listener, taskName, envelope1, coordinator, 1, 0);
+    callbackToCommit = callbackManager.updateCallback(callback1);
     assertNull(callbackToCommit);
 
     IncomingMessageEnvelope envelope0 = new IncomingMessageEnvelope(ssp, "0", null, null);
-    TaskCallbackImpl callback0 = new TaskCallbackImpl(listener, taskName, envelope0, coordinator, 0);
-    callbackToCommit = callbackManager.updateCallback(callback0, true);
+    TaskCallbackImpl callback0 = new TaskCallbackImpl(listener, taskName, envelope0, coordinator, 0, 0);
+    callbackToCommit = callbackManager.updateCallback(callback0);
     assertTrue(callbackToCommit.matchSeqNum(2));
     assertEquals(ssp, callbackToCommit.envelope.getSystemStreamPartition());
     assertEquals("2", callbackToCommit.envelope.getOffset());
@@ -117,21 +116,21 @@ public class TestTaskCallbackManager {
     IncomingMessageEnvelope envelope2 = new IncomingMessageEnvelope(ssp, "2", null, null);
     ReadableCoordinator coordinator2 = new ReadableCoordinator(taskName);
     coordinator2.shutdown(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
-    TaskCallbackImpl callback2 = new TaskCallbackImpl(listener, taskName, envelope2, coordinator2, 2);
-    TaskCallbackImpl callbackToCommit = callbackManager.updateCallback(callback2, true);
+    TaskCallbackImpl callback2 = new TaskCallbackImpl(listener, taskName, envelope2, coordinator2, 2, 0);
+    TaskCallbackImpl callbackToCommit = callbackManager.updateCallback(callback2);
     assertNull(callbackToCommit);
 
     IncomingMessageEnvelope envelope1 = new IncomingMessageEnvelope(ssp, "1", null, null);
     ReadableCoordinator coordinator1 = new ReadableCoordinator(taskName);
     coordinator1.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
-    TaskCallbackImpl callback1 = new TaskCallbackImpl(listener, taskName, envelope1, coordinator1, 1);
-    callbackToCommit = callbackManager.updateCallback(callback1, true);
+    TaskCallbackImpl callback1 = new TaskCallbackImpl(listener, taskName, envelope1, coordinator1, 1, 0);
+    callbackToCommit = callbackManager.updateCallback(callback1);
     assertNull(callbackToCommit);
 
     IncomingMessageEnvelope envelope0 = new IncomingMessageEnvelope(ssp, "0", null, null);
     ReadableCoordinator coordinator = new ReadableCoordinator(taskName);
-    TaskCallbackImpl callback0 = new TaskCallbackImpl(listener, taskName, envelope0, coordinator, 0);
-    callbackToCommit = callbackManager.updateCallback(callback0, true);
+    TaskCallbackImpl callback0 = new TaskCallbackImpl(listener, taskName, envelope0, coordinator, 0, 0);
+    callbackToCommit = callbackManager.updateCallback(callback0);
     assertTrue(callbackToCommit.matchSeqNum(1));
     assertEquals(ssp, callbackToCommit.envelope.getSystemStreamPartition());
     assertEquals("1", callbackToCommit.envelope.getOffset());

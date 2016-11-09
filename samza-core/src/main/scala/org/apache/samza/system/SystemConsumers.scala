@@ -62,12 +62,12 @@ class SystemConsumers (
   /**
    * The class that handles deserialization of incoming messages.
    */
-  serdeManager: SerdeManager,
+  serdeManager: SerdeManager = new SerdeManager,
 
   /**
    * A helper class to hold all of SystemConsumers' metrics.
    */
-  metrics: SystemConsumersMetrics,
+  metrics: SystemConsumersMetrics = new SystemConsumersMetrics,
 
   /**
    * If MessageChooser returns null when it's polled, SystemConsumers will
@@ -76,14 +76,14 @@ class SystemConsumers (
    * thread will sit in a tight loop polling every SystemConsumer over and
    * over again if no new messages are available.
    */
-  noNewMessagesTimeout: Int,
+  noNewMessagesTimeout: Int = SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
 
   /**
    * This parameter is to define how to deal with deserialization failure. If
    * set to true, the task will skip the messages when deserialization fails.
    * If set to false, the task will throw SamzaException and fail the container.
    */
-  dropDeserializationError: Boolean,
+  dropDeserializationError: Boolean = SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
 
   /**
    * <p>Defines an upper bound for how long the SystemConsumers will wait
@@ -99,29 +99,13 @@ class SystemConsumers (
    * with no remaining unprocessed messages, the SystemConsumers will poll for
    * it within 50ms of its availability in the stream system.</p>
    */
-  val pollIntervalMs: Int,
+  val pollIntervalMs: Int = SystemConsumers.DEFAULT_POLL_INTERVAL_MS,
 
   /**
    * Clock can be used to inject a custom clock when mocking this class in
    * tests. The default implementation returns the current system clock time.
    */
-  val clock: () => Long) extends Logging with TimerUtils {
-
-  def this(chooser: MessageChooser,
-           consumers: Map[String, SystemConsumer],
-           serdeManager: SerdeManager = new SerdeManager,
-           metrics: SystemConsumersMetrics = new SystemConsumersMetrics,
-           noNewMessagesTimeout: Int = SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
-           dropDeserializationError: Boolean = SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
-           pollIntervalMs: Int = SystemConsumers.DEFAULT_POLL_INTERVAL_MS) =
-    this(chooser,
-         consumers,
-         serdeManager,
-         metrics,
-         noNewMessagesTimeout,
-         dropDeserializationError,
-         pollIntervalMs,
-         () => System.nanoTime())
+  val clock: () => Long = () => System.nanoTime()) extends Logging with TimerUtils {
 
   /**
    * A buffer of incoming messages grouped by SystemStreamPartition. These

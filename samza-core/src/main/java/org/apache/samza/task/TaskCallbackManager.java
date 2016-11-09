@@ -24,10 +24,9 @@ import java.util.Queue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.samza.container.TaskInstanceMetrics;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.util.HighResolutionClock;
 
 
 /**
@@ -86,27 +85,29 @@ class TaskCallbackManager {
   }
 
   private long seqNum = 0L;
-  private final AtomicInteger pendingCount = new AtomicInteger(0);
-  private final TaskCallbacks completeCallbacks = new TaskCallbacks();
-  private final TaskInstanceMetrics metrics;
+  private final TaskCallbacks completedCallbacks = new TaskCallbacks();
   private final ScheduledExecutorService timer;
   private final TaskCallbackListener listener;
-  private long timeout;
+  private final long timeout;
+  private final int maxConcurrency;
+  private final HighResolutionClock clock;
 
-  public TaskCallbackManager(TaskCallbackListener listener, TaskInstanceMetrics metrics, ScheduledExecutorService timer, long timeout) {
+  public TaskCallbackManager(TaskCallbackListener listener,
+      ScheduledExecutorService timer,
+      long timeout,
+      int maxConcurrency,
+      HighResolutionClock clock) {
     this.listener = listener;
-    this.metrics = metrics;
     this.timer = timer;
     this.timeout = timeout;
+    this.maxConcurrency = maxConcurrency;
+    this.clock = clock;
   }
 
   public TaskCallbackImpl createCallback(TaskName taskName,
       IncomingMessageEnvelope envelope,
       ReadableCoordinator coordinator) {
-    final TaskCallbackImpl callback = new TaskCallbackImpl(listener, taskName, envelope, coordinator, seqNum++);
-    int count = pendingCount.incrementAndGet();
-    metrics.messagesInFlight().set(count);
-
+    final TaskCallbackImpl callback = new TaskCallbackImpl(listener, taskName, envelope, coordinator, seqNum++, clock.nanoTime());
     if (timer != null) {
       Runnable timerTask = new Runnable() {
         @Override
@@ -126,16 +127,14 @@ class TaskCallbackManager {
    * Update the task callbacks with the new callback completed.
    * It uses a high-watermark model to roll the callbacks for checkpointing.
    * @param callback new completed callback
-   * @param success callback result status
    * @return the callback for checkpointing
    */
-  public TaskCallbackImpl updateCallback(TaskCallbackImpl callback, boolean success) {
-    TaskCallbackImpl callbackToCommit = null;
-    if (success) {
-      callbackToCommit = completeCallbacks.update(callback);
+  public TaskCallbackImpl updateCallback(TaskCallbackImpl callback) {
+    if (maxConcurrency > 1) {
+      // Use the completedCallbacks queue to handle the out-of-order case when max concurrency is larger than 1
+      return completedCallbacks.update(callback);
+    } else {
+      return callback;
     }
-    int count = pendingCount.decrementAndGet();
-    metrics.messagesInFlight().set(count);
-    return callbackToCommit;
   }
 }

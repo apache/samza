@@ -22,6 +22,7 @@ package org.apache.samza.container;
 import java.util.concurrent.ExecutorService;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.util.HighResolutionClock;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.task.AsyncRunLoop;
 import org.apache.samza.task.AsyncStreamTask;
@@ -29,10 +30,10 @@ import org.apache.samza.task.StreamTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConversions;
+import scala.runtime.AbstractFunction0;
 import scala.runtime.AbstractFunction1;
 
-import static org.apache.samza.util.Utils.defaultClock;
-import static org.apache.samza.util.Utils.defaultValue;
+import static org.apache.samza.util.Util.asScalaClock;
 
 /**
  * Factory class to create runloop for a Samza task, based on the type
@@ -50,7 +51,8 @@ public class RunLoopFactory {
       ExecutorService threadPool,
       long maxThrottlingDelayMs,
       SamzaContainerMetrics containerMetrics,
-      TaskConfig config) {
+      TaskConfig config,
+      HighResolutionClock clock) {
 
     long taskWindowMs = config.getWindowMs().getOrElse(defaultValue(DEFAULT_WINDOW_MS));
 
@@ -83,7 +85,7 @@ public class RunLoopFactory {
         maxThrottlingDelayMs,
         taskWindowMs,
         taskCommitMs,
-        defaultClock());
+        asScalaClock(() -> System.nanoTime()));
     } else {
       Integer taskMaxConcurrency = config.getMaxConcurrency().getOrElse(defaultValue(1));
 
@@ -106,7 +108,23 @@ public class RunLoopFactory {
         taskCommitMs,
         callbackTimeout,
         maxThrottlingDelayMs,
-        containerMetrics);
+        containerMetrics,
+        clock);
     }
+  }
+
+  /**
+   * Returns a default value object for scala option.getOrDefault() to use
+   * @param value default value
+   * @param <T> value type
+   * @return object containing default value
+   */
+  public static <T> AbstractFunction0<T> defaultValue(final T value) {
+    return new AbstractFunction0<T>() {
+      @Override
+      public T apply() {
+        return value;
+      }
+    };
   }
 }

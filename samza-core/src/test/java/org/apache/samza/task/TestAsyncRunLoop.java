@@ -31,7 +31,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.config.Config;
@@ -47,7 +46,6 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.TestSystemConsumers;
-
 import org.junit.Before;
 import org.junit.Test;
 import scala.Option;
@@ -101,7 +99,8 @@ public class TestAsyncRunLoop {
         commitMs,
         callbackTimeoutMs,
         maxThrottlingDelayMs,
-        containerMetrics);
+        containerMetrics,
+        () -> 0L);
   }
 
   TaskInstance<AsyncStreamTask> createTaskInstance(AsyncStreamTask task, TaskName taskName, SystemStreamPartition ssp, OffsetManager manager, SystemConsumers consumers) {
@@ -494,7 +493,8 @@ public class TestAsyncRunLoop {
         commitMs,
         callbackTimeoutMs,
         maxThrottlingDelayMs,
-        containerMetrics);
+        containerMetrics,
+        () -> 0L);
 
     runLoop.run();
     callbackExecutor.awaitTermination(100, TimeUnit.MILLISECONDS);

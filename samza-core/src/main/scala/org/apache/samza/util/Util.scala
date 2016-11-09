@@ -388,4 +388,11 @@ object Util extends Logging {
 
     sum
   }
+
+  /**
+   * Implicitly convert the Java TimerClock to Scala clock function which returns long timestamp.
+   * @param c Java TimeClock
+   * @return Scala clock function
+   */
+  implicit def asScalaClock(c: HighResolutionClock): () => Long = () => c.nanoTime()
 }

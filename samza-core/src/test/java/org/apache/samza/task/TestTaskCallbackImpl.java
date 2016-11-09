@@ -61,7 +61,7 @@ public class TestTaskCallbackImpl {
       }
     };
 
-    callback = new TaskCallbackImpl(listener, null, mock(IncomingMessageEnvelope.class), null, 0);
+    callback = new TaskCallbackImpl(listener, null, mock(IncomingMessageEnvelope.class), null, 0L, 0L);
   }
 
   @Test

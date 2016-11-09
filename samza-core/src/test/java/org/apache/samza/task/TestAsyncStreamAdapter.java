@@ -93,7 +93,7 @@ public class TestAsyncStreamAdapter {
   public void testAdapterWithoutThreadPool() throws Exception {
     taskAdaptor = new AsyncStreamTaskAdapter(task, null);
     TestCallbackListener listener = new TestCallbackListener();
-    TaskCallback callback = new TaskCallbackImpl(listener, null, envelope, null, 0L);
+    TaskCallback callback = new TaskCallbackImpl(listener, null, envelope, null, 0L, 0L);
 
     taskAdaptor.init(null, null);
     assertTrue(task.inited);
@@ -116,10 +116,10 @@ public class TestAsyncStreamAdapter {
   @Test
   public void testAdapterWithThreadPool() throws Exception {
     TestCallbackListener listener1 = new TestCallbackListener();
-    TaskCallback callback1 = new TaskCallbackImpl(listener1, null, envelope, null, 0L);
+    TaskCallback callback1 = new TaskCallbackImpl(listener1, null, envelope, null, 0L, 0L);
 
     TestCallbackListener listener2 = new TestCallbackListener();
-    TaskCallback callback2 = new TaskCallbackImpl(listener2, null, envelope, null, 1L);
+    TaskCallback callback2 = new TaskCallbackImpl(listener2, null, envelope, null, 1L, 0L);
 
     ExecutorService executor = Executors.newFixedThreadPool(2);
     taskAdaptor = new AsyncStreamTaskAdapter(task, executor);

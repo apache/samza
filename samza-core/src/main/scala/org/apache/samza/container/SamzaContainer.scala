@@ -74,7 +74,9 @@ import org.apache.samza.task.AsyncStreamTask
 import org.apache.samza.task.AsyncStreamTaskAdapter
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskInstanceCollector
+import org.apache.samza.util.HighResolutionClock
 import org.apache.samza.util.{ExponentialSleepStrategy, Logging, Throttleable, Util}
+import org.apache.samza.util.Util.asScalaClock
 
 import scala.collection.JavaConversions._
 
@@ -150,6 +152,15 @@ object SamzaContainer extends Logging {
     val systemProducersMetrics = new SystemProducersMetrics(registry)
     val systemConsumersMetrics = new SystemConsumersMetrics(registry)
     val offsetManagerMetrics = new OffsetManagerMetrics(registry)
+    val clock = if (config.getMetricsTimerEnabled) {
+      new HighResolutionClock {
+        override def nanoTime(): Long = System.nanoTime()
+      }
+    } else {
+      new HighResolutionClock {
+        override def nanoTime(): Long = 0L
+      }
+    }
 
     val inputSystemStreamPartitions = containerModel
       .getTasks
@@ -383,7 +394,8 @@ object SamzaContainer extends Logging {
       serdeManager = serdeManager,
       metrics = systemConsumersMetrics,
       dropDeserializationError = dropDeserializationError,
-      pollIntervalMs = pollIntervalMs)
+      pollIntervalMs = pollIntervalMs,
+      clock = clock)
 
     val producerMultiplexer = new SystemProducers(
       producers = producers,
@@ -559,7 +571,8 @@ object SamzaContainer extends Logging {
       taskThreadPool,
       maxThrottlingDelayMs,
       samzaContainerMetrics,
-      config)
+      config,
+      clock)
 
     val memoryStatisticsMonitor : SystemStatisticsMonitor = new StatisticsMonitorImpl()
     memoryStatisticsMonitor.registerListener(new SystemStatisticsMonitor.Listener {

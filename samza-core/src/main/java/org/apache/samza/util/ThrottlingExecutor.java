@@ -74,7 +74,7 @@ public class ThrottlingExecutor implements Throttleable, Executor {
           Util.clampAdd(pendingNanos, (long) (workNanos * currentWorkToIdleFactor)));
       if (pendingNanos > 0) {
         try {
-          pendingNanos = clock.sleep(pendingNanos);
+          pendingNanos = sleep(pendingNanos);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
         }
@@ -121,5 +121,24 @@ public class ThrottlingExecutor implements Throttleable, Executor {
    */
   void setPendingNanos(long pendingNanos) {
     this.pendingNanos = pendingNanos;
+  }
+
+  /**
+   * Sleeps for a period of time that approximates the requested number of nanoseconds. Actual sleep
+   * time can vary significantly based on the JVM implementation and platform. This function returns
+   * the measured error between expected and actual sleep time.
+   *
+   * @param nanos the number of nanoseconds to sleep.
+   * @throws InterruptedException if the current thread is interrupted while blocked in this method.
+   */
+  long sleep(long nanos) throws InterruptedException {
+    if (nanos <= 0) {
+      return nanos;
+    }
+
+    final long start = System.nanoTime();
+    TimeUnit.NANOSECONDS.sleep(nanos);
+
+    return Util.clampAdd(nanos, -(System.nanoTime() - start));
   }
 }

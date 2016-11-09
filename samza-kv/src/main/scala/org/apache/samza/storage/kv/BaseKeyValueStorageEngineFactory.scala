@@ -28,6 +28,9 @@ import org.apache.samza.serializers.Serde
 import org.apache.samza.storage.{StoreProperties, StorageEngine, StorageEngineFactory}
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.MessageCollector
+import org.apache.samza.config.MetricsConfig.Config2Metrics
+import org.apache.samza.util.HighResolutionClock
+import org.apache.samza.util.Util.asScalaClock
 
 /**
  * A key value storage engine factory implementation
@@ -132,7 +135,17 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     // create the storage engine and return
     // TODO: Decide if we should use raw bytes when restoring
     val keyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics(storeName, registry)
-    new KeyValueStorageEngine(storePropertiesBuilder.build(), nullSafeStore, rawStore, keyValueStorageEngineMetrics, batchSize)
+    val clock = if (containerContext.config.getMetricsTimerEnabled) {
+      new HighResolutionClock {
+        override def nanoTime(): Long = System.nanoTime()
+      }
+    } else {
+      new HighResolutionClock {
+        override def nanoTime(): Long = 0L
+      }
+    }
+
+    new KeyValueStorageEngine(storePropertiesBuilder.build(), nullSafeStore, rawStore, keyValueStorageEngineMetrics, batchSize, clock)
   }
 
 }

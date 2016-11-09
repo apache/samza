@@ -19,10 +19,8 @@
 
 package org.apache.samza.task;
 
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
-
+import java.util.concurrent.CopyOnWriteArraySet;
 import org.apache.samza.container.TaskName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,8 +35,8 @@ public class CoordinatorRequests {
   private static final Logger log = LoggerFactory.getLogger(CoordinatorRequests.class);
 
   private final Set<TaskName> taskNames;
-  private final Set<TaskName> taskShutdownRequests = Collections.synchronizedSet(new HashSet<TaskName>());
-  private final Set<TaskName> taskCommitRequests = Collections.synchronizedSet(new HashSet<TaskName>());
+  private final Set<TaskName> taskShutdownRequests = new CopyOnWriteArraySet<>();
+  private final Set<TaskName> taskCommitRequests = new CopyOnWriteArraySet<>();
   volatile private boolean shutdownNow = false;
 
   public CoordinatorRequests(Set<TaskName> taskNames) {
@@ -67,18 +65,18 @@ public class CoordinatorRequests {
    */
   private void checkCoordinator(ReadableCoordinator coordinator) {
     if (coordinator.requestedCommitTask()) {
-      log.info("Task "  + coordinator.taskName() + " requested commit for current task only");
+      log.debug("Task {} requested commit for current task only", coordinator.taskName());
       taskCommitRequests.add(coordinator.taskName());
     }
 
     if (coordinator.requestedCommitAll()) {
-      log.info("Task " + coordinator.taskName() + " requested commit for all tasks in the container");
+      log.debug("Task {} requested commit for all tasks in the container", coordinator.taskName());
       taskCommitRequests.addAll(taskNames);
     }
 
     if (coordinator.requestedShutdownOnConsensus()) {
       taskShutdownRequests.add(coordinator.taskName());
-      log.info("Shutdown has now been requested by tasks " + taskShutdownRequests);
+      log.info("Shutdown has now been requested by tasks {}", taskShutdownRequests);
     }
 
     if (coordinator.requestedShutdownNow() || taskShutdownRequests.size() == taskNames.size()) {

@@ -19,23 +19,9 @@
 
 package org.apache.samza.util;
 
-import java.util.concurrent.TimeUnit;
-
 class SystemHighResolutionClock implements HighResolutionClock {
   @Override
   public long nanoTime() {
     return System.nanoTime();
-  }
-
-  @Override
-  public long sleep(long nanos) throws InterruptedException {
-    if (nanos <= 0) {
-      return nanos;
-    }
-
-    final long start = System.nanoTime();
-    TimeUnit.NANOSECONDS.sleep(nanos);
-
-    return Util.clampAdd(nanos, -(System.nanoTime() - start));
   }
 }
