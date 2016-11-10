@@ -25,6 +25,8 @@ import org.apache.samza.operators.internal.WindowFn;
 import org.apache.samza.operators.internal.WindowOutput;
 import org.apache.samza.storage.kv.Entry;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -192,6 +194,9 @@ public final class Windows {
    */
   public static <M extends Message, WK> Window<M, WK, Collection<M>, WindowOutput<WK, Collection<M>>> intoSessions(Function<M, WK> sessionKeyFunction) {
     return new SessionWindow<>(sessionKeyFunction, (m, c) -> {
+      if (c == null) {
+        return Arrays.asList(m);
+      }
       c.add(m);
       return c;
     });
@@ -210,6 +215,10 @@ public final class Windows {
   public static <M extends Message, WK, SI> Window<M, WK, Collection<SI>, WindowOutput<WK, Collection<SI>>> intoSessions(Function<M, WK> sessionKeyFunction,
       Function<M, SI> sessionInfoExtractor) {
     return new SessionWindow<>(sessionKeyFunction, (m, c) -> {
+      SI session = sessionInfoExtractor.apply(m);
+      if (c == null) {
+        return new ArrayList(Arrays.asList(session));
+      }
       c.add(sessionInfoExtractor.apply(m));
       return c;
     });

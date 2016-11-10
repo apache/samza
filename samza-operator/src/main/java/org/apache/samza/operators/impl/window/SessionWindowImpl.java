@@ -101,7 +101,7 @@ public class SessionWindowImpl<M extends Message, RK, WS extends WindowState, RM
       RK key = openSession.getKey();
       WS state = openSession.getValue();
       Function<WS, Boolean> timerTrigger = sessWnd.getTrigger().getTimerTrigger();
-      if (timerTrigger.apply(state)) {
+      if (timerTrigger != null && timerTrigger.apply(state)) {
         emitSessionOutput(key, state.getOutputValue(), collector, coordinator);
         sessionIterator.remove();
       } else {

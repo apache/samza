@@ -73,6 +73,9 @@ public class ChainedOperators<M extends Message> {
     }
     OperatorImpl<M, ? extends Message> opImpl = factoryEntry.getKey();
     MessageStream outStream = operator.getOutputStream();
+    if (outStream == null) {
+      return opImpl;
+    }
     Collection<Operator> subs = outStream.getSubscribers();
 
     subs.forEach(sub -> {

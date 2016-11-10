@@ -18,7 +18,6 @@
  */
 package org.apache.samza.operators.impl.window;
 
-import com.sun.source.tree.AssertTree;
 import junit.framework.Assert;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.TestMessage;
@@ -32,7 +31,6 @@ import org.apache.samza.operators.internal.WindowFn;
 import org.apache.samza.operators.internal.WindowOutput;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Before;
 import org.junit.Test;
 import org.reactivestreams.Subscriber;

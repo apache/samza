@@ -346,6 +346,7 @@ if (JavaVersion.current().isJava8Compatible()) {
     
     dependencies {
       compile project(':samza-api')
+      compile "log4j:log4j:$log4jVersion"
       compile "commons-collections:commons-collections:$commonsCollectionVersion"
       compile "org.apache.commons:commons-lang3:$commonsLang3Version"
       compile "org.slf4j:slf4j-api:$slf4jVersion"
