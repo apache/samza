@@ -28,9 +28,7 @@ import java.util.concurrent.TimeUnit
 import java.lang.Thread.UncaughtExceptionHandler
 import java.net.{URL, UnknownHostException}
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.CheckpointManagerFactory
-import org.apache.samza.checkpoint.OffsetManager
-import org.apache.samza.checkpoint.OffsetManagerMetrics
+import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.SerializerConfig.Config2Serializer
@@ -369,7 +367,14 @@ object SamzaContainer extends Logging {
     }
     info("Got checkpoint manager: %s" format checkpointManager)
 
-    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, systemAdmins, offsetManagerMetrics)
+    // create a map of consumers with callbacks to pass to the OffsetManager
+    val checkpointListeners = consumers.filter(_._2.isInstanceOf[CheckpointListener])
+      .map { case (system, consumer) => (system, consumer.asInstanceOf[CheckpointListener])}
+
+    info("Got checkpointListeners : %s" format checkpointListeners)
+
+    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager,
+      systemAdmins, checkpointListeners, offsetManagerMetrics)
 
     info("Got offset manager: %s" format offsetManager)
 

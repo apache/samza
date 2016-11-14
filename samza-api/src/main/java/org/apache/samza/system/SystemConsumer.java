@@ -131,6 +131,8 @@ public interface SystemConsumer {
    *          reading messages from. This is an inclusive parameter; if "7" were
    *          specified, the first message for the system/stream/partition to be
    *          consumed and returned would be a message whose offset is "7".
+   *          Note: For broadcast streams, different tasks may checkpoint the same ssp with different values. It
+   *          is the system's responsibility to select the lowest one.
    */
   void register(SystemStreamPartition systemStreamPartition, String offset);
 
