@@ -351,7 +351,8 @@ if (JavaVersion.current().isJava8Compatible()) {
       compile "org.apache.commons:commons-lang3:$commonsLang3Version"
       compile "org.slf4j:slf4j-api:$slf4jVersion"
       compile("org.apache.avro:avro:$avroVersion") {
-          exclude module: 'servlet-api'
+        exclude module: 'servlet-api'
+        exclude module: 'jackson-mapper-asl'
       }
       compile "org.reactivestreams:reactive-streams:$reactiveStreamVersion"
       testCompile project(":samza-api").sourceSets.test.output
