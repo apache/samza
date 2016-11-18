@@ -24,6 +24,7 @@ import org.apache.samza.monitor.SamzaMonitorService;
 import org.apache.samza.monitor.ScheduledExecutorSchedulingProvider;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.NoOpMetricsRegistry;
+import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -143,7 +144,7 @@ public class SamzaRestService {
    */
   public void start()
       throws Exception {
-    log.info("Starting server on port {}", server.getConnectors()[0].getPort());
+    log.info("Starting server on port {}", ((NetworkConnector) server.getConnectors()[0]).getPort());
     server.start();
     log.info("Server is running");
   }
