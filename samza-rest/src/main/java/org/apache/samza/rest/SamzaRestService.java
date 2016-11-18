@@ -30,6 +30,7 @@ import org.apache.samza.monitor.ScheduledExecutorSchedulingProvider;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.MetricsReporterLoader;
 import org.apache.samza.util.Util;
+import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -165,7 +166,7 @@ public class SamzaRestService {
       log.info("Starting the metrics reporter : {}.", reporterName);
       metricsReporter.start();
     });
-    log.info("Starting server on port {}", server.getConnectors()[0].getPort());
+    log.info("Starting server on port {}", ((NetworkConnector) server.getConnectors()[0]).getPort());
     server.start();
     log.info("Server is running");
   }
