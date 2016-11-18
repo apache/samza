@@ -50,6 +50,7 @@ public class LoggingEventJsonSerde implements Serde<LoggingEvent> {
 
   // Have to wrap rather than extend due to type collisions between
   // Serde<LoggingEvent> and Serde<Object>.
+  @SuppressWarnings("rawtypes")
   private final JsonSerde jsonSerde;
 
   /**
@@ -68,15 +69,17 @@ public class LoggingEventJsonSerde implements Serde<LoggingEvent> {
 
   /**
    * Constructs the serde.
-   * 
+   *
    * @param includeLocationInfo
    *          Whether to include location info in the logging event or not.
    */
+  @SuppressWarnings("rawtypes")
   public LoggingEventJsonSerde(boolean includeLocationInfo) {
     this.includeLocationInfo = includeLocationInfo;
     this.jsonSerde = new JsonSerde();
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   public byte[] toBytes(LoggingEvent loggingEvent) {
     Map<String, Object> loggingEventMap = encodeToMap(loggingEvent, includeLocationInfo);

@@ -26,7 +26,7 @@ import org.apache.kafka.clients.producer._
 import java.util
 import org.junit.Assert._
 import org.scalatest.Assertions.intercept
-import org.apache.kafka.common.errors.RecordTooLargeException
+import org.apache.kafka.common.errors.{TimeoutException, RecordTooLargeException}
 import org.apache.samza.SamzaException
 
 
@@ -67,9 +67,10 @@ class TestKafkaSystemProducer {
     val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
 
     val mockProducer = new MockKafkaProducer(1, "test", 1)
+    val producerMetrics = new KafkaSystemProducerMetrics
     val systemProducer = new KafkaSystemProducer(systemName = "test",
                                                  getProducer = () => mockProducer,
-                                                 metrics = new KafkaSystemProducerMetrics)
+                                                 metrics = producerMetrics)
     systemProducer.register("test")
     systemProducer.start()
     systemProducer.send("test", msg1)
@@ -120,7 +121,7 @@ class TestKafkaSystemProducer {
     val mockProducer = new MockKafkaProducer(1, "test", 1)
     val systemProducer = new KafkaSystemProducer(systemName = "test",
                                                  getProducer = () => mockProducer,
-                                                 metrics = new KafkaSystemProducerMetrics)
+                                                 metrics = new KafkaSystemProducerMetrics())
     systemProducer.register("test")
     systemProducer.start()
     systemProducer.send("test", msg1)
@@ -132,26 +133,60 @@ class TestKafkaSystemProducer {
     systemProducer.send("test", msg4)
 
     assertEquals(1, mockProducer.getMsgsSent)
+
     mockProducer.startDelayedSendThread(2000)
     val thrown = intercept[SamzaException] {
       systemProducer.flush("test")
     }
     assertTrue(thrown.isInstanceOf[SamzaException])
-    assertEquals(2, mockProducer.getMsgsSent)
+    assertEquals(3, mockProducer.getMsgsSent) // msg1, msg2 and msg4 will be sent
     systemProducer.stop()
   }
 
   @Test
-  def testKafkaProducerExceptions {
+  def testKafkaProducerWithRetriableException {
     val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a".getBytes)
     val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b".getBytes)
     val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
     val msg4 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "d".getBytes)
 
     val mockProducer = new MockKafkaProducer(1, "test", 1)
+    val producerMetrics = new KafkaSystemProducerMetrics()
+    val producer = new KafkaSystemProducer(systemName =  "test",
+      getProducer = () => mockProducer,
+      metrics = producerMetrics)
+
+    producer.register("test")
+    producer.start()
+    producer.send("test", msg1)
+    producer.send("test", msg2)
+    producer.send("test", msg3)
+    producer.flush("test")
+
+    mockProducer.setErrorNext(true, new TimeoutException())
+
+    producer.send("test", msg4)
+    val thrown = intercept[SamzaException] {
+      producer.flush("test")
+    }
+    assertTrue(thrown.isInstanceOf[SamzaException])
+    assertTrue(thrown.getCause.isInstanceOf[TimeoutException])
+    assertEquals(3, mockProducer.getMsgsSent)
+    producer.stop()
+  }
+
+  @Test
+  def testKafkaProducerWithNonRetriableExceptions {
+    val msg1 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "a".getBytes)
+    val msg2 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "b".getBytes)
+    val msg3 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "c".getBytes)
+    val msg4 = new OutgoingMessageEnvelope(new SystemStream("test", "test"), "d".getBytes)
+    val producerMetrics = new KafkaSystemProducerMetrics()
+
+    val mockProducer = new MockKafkaProducer(1, "test", 1)
     val producer = new KafkaSystemProducer(systemName =  "test",
                                            getProducer = () => mockProducer,
-                                           metrics = new KafkaSystemProducerMetrics)
+                                           metrics = producerMetrics)
     producer.register("test")
     producer.start()
     producer.send("test", msg1)
@@ -159,12 +194,12 @@ class TestKafkaSystemProducer {
     producer.send("test", msg3)
     mockProducer.setErrorNext(true, new RecordTooLargeException())
 
+    producer.send("test", msg4)
     val thrown = intercept[SamzaException] {
-       producer.send("test", msg4)
+       producer.flush("test")
     }
     assertTrue(thrown.isInstanceOf[SamzaException])
     assertTrue(thrown.getCause.isInstanceOf[RecordTooLargeException])
-    assertEquals(true, producer.sendFailed.get())
     assertEquals(3, mockProducer.getMsgsSent)
     producer.stop()
   }

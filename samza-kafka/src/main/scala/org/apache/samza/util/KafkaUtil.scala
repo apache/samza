@@ -45,12 +45,10 @@ object KafkaUtil extends Logging {
     config.getJobId.getOrElse("1"))
 
   def getClientId(id: String, jobName: String, jobId: String): String =
-    "%s-%s-%s-%s-%s" format
+    "%s-%s-%s" format
       (id.replaceAll("[^A-Za-z0-9]", "_"),
         jobName.replaceAll("[^A-Za-z0-9]", "_"),
-        jobId.replaceAll("[^A-Za-z0-9]", "_"),
-        System.currentTimeMillis,
-        counter.getAndIncrement)
+        jobId.replaceAll("[^A-Za-z0-9]", "_"))
 
   private def abs(n: Int) = if (n == Integer.MIN_VALUE) 0 else math.abs(n)
 
@@ -137,11 +135,13 @@ class KafkaUtil(val retryBackoff: ExponentialSleepStrategy = new ExponentialSlee
    * @param systemName  Kafka system to use
    * @param metadataStore Topic Metadata store
    * @param expectedPartitionCount  Expected number of partitions
+   * @param failOnValidation If true - fail the job if the validation fails
    */
   def validateTopicPartitionCount(topicName: String,
                                   systemName: String,
                                   metadataStore: TopicMetadataStore,
-                                  expectedPartitionCount: Int) {
+                                  expectedPartitionCount: Int,
+                                  failOnValidation: Boolean = true) {
     info("Validating topic %s. Expecting partition count: %d" format (topicName, expectedPartitionCount))
     retryBackoff.run(
       loop => {
@@ -150,9 +150,15 @@ class KafkaUtil(val retryBackoff: ExponentialSleepStrategy = new ExponentialSlee
         KafkaUtil.maybeThrowException(topicMetadata.errorCode)
 
         val partitionCount = topicMetadata.partitionsMetadata.length
-        if (partitionCount != expectedPartitionCount) {
-          throw new KafkaUtilException("Validation failed for topic %s because partition count %s did not " +
-            "match expected partition count of %d." format(topicName, partitionCount, expectedPartitionCount))
+        if (partitionCount != expectedPartitionCount)
+        {
+          val msg = "Validation failed for topic %s because partition count %s did not " +
+                  "match expected partition count of %d." format(topicName, partitionCount, expectedPartitionCount)
+          if (failOnValidation) {
+            throw new KafkaUtilException(msg)
+          } else {
+            warn(msg + " Ignoring the failure.")
+          }
         }
 
         info("Successfully validated topic %s." format topicName)

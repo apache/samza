@@ -276,6 +276,9 @@ class SamzaJobYarnDeployer(Deployer):
   def get_logs(self, container_id, logs, directory):
     raise NotImplementedError
 
+  def kill_all_process(self):
+    pass
+
   def _validate_configs(self, configs, config_keys):
     for required_config in config_keys:
       assert configs.get(required_config), 'Required config is undefined: {0}'.format(required_config)

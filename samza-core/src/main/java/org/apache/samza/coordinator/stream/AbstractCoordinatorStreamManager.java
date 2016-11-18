@@ -49,14 +49,18 @@ public abstract class AbstractCoordinatorStreamManager {
    */
   public void start() {
     coordinatorStreamProducer.start();
-    coordinatorStreamConsumer.start();
+    if (coordinatorStreamConsumer != null) {
+      coordinatorStreamConsumer.start();
+    }
   }
 
   /**
    * Stops the underlying coordinator stream producer and consumer.
    */
   public void stop() {
-    coordinatorStreamConsumer.stop();
+    if (coordinatorStreamConsumer != null) {
+      coordinatorStreamConsumer.stop();
+    }
     coordinatorStreamProducer.stop();
   }
 
@@ -74,6 +78,10 @@ public abstract class AbstractCoordinatorStreamManager {
    * @return a set of {@link CoordinatorStreamMessage} if messages exists for the given source, else an empty set
    */
   public Set<CoordinatorStreamMessage> getBootstrappedStream(String source) {
+    if (coordinatorStreamConsumer == null) {
+      throw new UnsupportedOperationException(String.format("CoordinatorStreamConsumer is not initialized in the AbstractCoordinatorStreamManager. "
+          + "manager registered source: %s, input source: %s", this.source, source));
+    }
     return coordinatorStreamConsumer.getBootstrappedStream(source);
   }
 
@@ -101,7 +109,7 @@ public abstract class AbstractCoordinatorStreamManager {
   }
 
   /**
-   * Registers a consumer and a produces. Every subclass should implement it's logic for registration.<br><br>
+   * Registers a consumer and a producer. Every subclass should implement it's logic for registration.<br><br>
    * Registering a single consumer and a single producer can be done with {@link AbstractCoordinatorStreamManager#registerCoordinatorStreamConsumer()}
    * and {@link AbstractCoordinatorStreamManager#registerCoordinatorStreamProducer(String)} methods respectively.<br>
    * These methods can be used in the concrete implementation of this register method.

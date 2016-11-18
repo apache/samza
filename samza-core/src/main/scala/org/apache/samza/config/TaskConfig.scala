@@ -38,6 +38,8 @@ object TaskConfig {
   val DROP_SERIALIZATION_ERROR = "task.drop.serialization.errors" // define whether drop the messages or not when serialization fails
   val IGNORED_EXCEPTIONS = "task.ignored.exceptions" // exceptions to ignore in process and window
   val GROUPER_FACTORY = "task.name.grouper.factory" // class name for task grouper
+  val MAX_CONCURRENCY = "task.max.concurrency" // max number of concurrent process for a AsyncStreamTask
+  val CALLBACK_TIMEOUT_MS = "task.callback.timeout.ms"  // timeout period for triggering a callback
 
   /**
    * Samza's container polls for more messages under two conditions. The first
@@ -94,6 +96,8 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getCommandClass = getOption(TaskConfig.COMMAND_BUILDER)
 
+  def getCommandClass(defaultValue: String) = getOrElse(TaskConfig.COMMAND_BUILDER, defaultValue)
+
   def getCheckpointManagerFactory() = getOption(TaskConfig.CHECKPOINT_MANAGER_FACTORY)
 
   def getMessageChooserClass = getOption(TaskConfig.MESSAGE_CHOOSER_CLASS_NAME)
@@ -115,4 +119,13 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     }
   }
 
+  def getMaxConcurrency: Option[Int] = getOption(TaskConfig.MAX_CONCURRENCY) match {
+    case Some(count) => Some(count.toInt)
+    case _ => None
+  }
+
+  def getCallbackTimeoutMs: Option[Long] = getOption(TaskConfig.CALLBACK_TIMEOUT_MS) match {
+    case Some(ms) => Some(ms.toLong)
+    case _ => None
+  }
 }

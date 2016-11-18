@@ -31,7 +31,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
@@ -117,7 +117,7 @@ public class StorageRecovery extends CommandLine {
    * map
    */
   private void getContainerModels() {
-    JobModel jobModel = JobCoordinator.apply(jobConfig).jobModel();
+    JobModel jobModel = JobModelManager.apply(jobConfig).jobModel();
     containers = jobModel.getContainers();
   }
 
@@ -204,6 +204,7 @@ public class StorageRecovery extends CommandLine {
    * create one TaskStorageManager for each task. Add all of them to the
    * List<TaskStorageManager>
    */
+  @SuppressWarnings({ "unchecked", "rawtypes" })
   private void getTaskStorageManagers() {
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(Util.javaMapAsScalaMap(systemAdmins), 5000, SystemClock.instance());
 

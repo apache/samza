@@ -24,14 +24,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemAdmin;
-import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import org.apache.samza.system.SystemStreamPartition;
@@ -39,21 +37,21 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TestStorageRecovery {
 
-  public static SystemConsumer systemConsumer1 = null;
-  public static SystemConsumer systemConsumer2 = null;
   public static SystemAdmin systemAdmin = null;
-  public static Config config = null;
-  public static SystemStreamMetadata systemStreamMetadata = null;
-  public static SystemStreamMetadata inputSystemStreamMetadata = null;
-  public final static String SYSTEM_STREAM_NAME = "changelog";
-  public final static String INPUT_STREAM = "input";
+  public Config config = null;
+  public SystemStreamMetadata systemStreamMetadata = null;
+  public SystemStreamMetadata inputSystemStreamMetadata = null;
+  private static final String SYSTEM_STREAM_NAME = "changelog";
+  private static final String INPUT_STREAM = "input";
+  private static final String STORE_NAME = "testStore";
   public static SystemStreamPartition ssp = new SystemStreamPartition("mockSystem", SYSTEM_STREAM_NAME, new Partition(0));
-  public static IncomingMessageEnvelope msg = new IncomingMessageEnvelope(TestStorageRecovery.ssp, "0", "test", "test");
+  public static IncomingMessageEnvelope msg = new IncomingMessageEnvelope(ssp, "0", "test", "test");
 
   @Before
   public void setup() throws InterruptedException {
@@ -64,7 +62,7 @@ public class TestStorageRecovery {
 
     Set<String> set1 = new HashSet<String>(Arrays.asList(SYSTEM_STREAM_NAME));
     Set<String> set2 = new HashSet<String>(Arrays.asList(INPUT_STREAM));
-    HashMap<String, SystemStreamMetadata> ssmMap = new HashMap<String, SystemStreamMetadata>();
+    HashMap<String, SystemStreamMetadata> ssmMap = new HashMap<>();
     ssmMap.put(SYSTEM_STREAM_NAME, systemStreamMetadata);
     ssmMap.put(INPUT_STREAM, inputSystemStreamMetadata);
     when(systemAdmin.getSystemStreamMetadata(set1)).thenReturn(ssmMap);
@@ -86,18 +84,20 @@ public class TestStorageRecovery {
 
     // because the stream has two partitions
     assertEquals(2, MockStorageEngine.incomingMessageEnvelopes.size());
-    assertEquals(TestStorageRecovery.msg, MockStorageEngine.incomingMessageEnvelopes.get(0));
-    assertEquals(TestStorageRecovery.msg, MockStorageEngine.incomingMessageEnvelopes.get(1));
+    assertEquals(msg, MockStorageEngine.incomingMessageEnvelopes.get(0));
+    assertEquals(msg, MockStorageEngine.incomingMessageEnvelopes.get(1));
     // correct path is passed to the store engine
-    assertEquals(path + "/state/testStore/Partition_1", MockStorageEngine.storeDir.toString());
+    String expectedStoreDir = String.format("%s/state/%s/Partition_", path, STORE_NAME);
+    String actualStoreDir = MockStorageEngine.storeDir.toString();
+    assertEquals(expectedStoreDir, actualStoreDir.substring(0, actualStoreDir.length() - 1));
   }
 
   private void putConfig() {
     Map<String, String> map = new HashMap<String, String>();
     map.put("job.name", "changelogTest");
     map.put("systems.mockSystem.samza.factory", MockSystemFactory.class.getCanonicalName());
-    map.put("stores.testStore.factory", MockStorageEngineFactory.class.getCanonicalName());
-    map.put("stores.testStore.changelog", "mockSystem." + SYSTEM_STREAM_NAME);
+    map.put(String.format("stores.%s.factory", STORE_NAME), MockStorageEngineFactory.class.getCanonicalName());
+    map.put(String.format("stores.%s.changelog", STORE_NAME), "mockSystem." + SYSTEM_STREAM_NAME);
     map.put("task.inputs", "mockSystem.input");
     map.put("job.coordinator.system", "coordinator");
     map.put("systems.coordinator.samza.factory", MockCoordinatorStreamSystemFactory.class.getCanonicalName());

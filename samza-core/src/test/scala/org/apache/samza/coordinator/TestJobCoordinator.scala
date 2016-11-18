@@ -19,6 +19,13 @@
 
 package org.apache.samza.coordinator
 
+import java.util
+
+import org.apache.samza.checkpoint.TestCheckpointTool.MockCheckpointManagerFactory
+import org.apache.samza.job.MockJobFactory
+import org.apache.samza.job.local.{ProcessJobFactory, ThreadJobFactory}
+import org.apache.samza.serializers.model.SamzaObjectMapper
+import org.apache.samza.util.Util
 import org.junit.{After, Test}
 import org.junit.Assert._
 import scala.collection.JavaConversions._
@@ -28,18 +35,13 @@ import org.apache.samza.config.SystemConfig
 import org.apache.samza.container.{SamzaContainer, TaskName}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.config.Config
-import org.apache.samza.system.SystemFactory
-import org.apache.samza.system.SystemAdmin
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.system.SystemStreamMetadata
+import org.apache.samza.system._
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.Partition
+import org.apache.samza.{SamzaException, Partition}
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.config.JobConfig
-import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.system.SystemConsumer
 import org.apache.samza.coordinator.stream.{MockCoordinatorStreamWrappedConsumer, MockCoordinatorStreamSystemFactory}
 
 class TestJobCoordinator {
@@ -91,22 +93,39 @@ class TestJobCoordinator {
       TaskConfig.INPUT_STREAMS -> "test.stream1",
       SystemConfig.SYSTEM_FACTORY.format("test") -> classOf[MockSystemFactory].getCanonicalName,
       SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
-      TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
+      TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory",
+      JobConfig.MONITOR_PARTITION_CHANGE -> "true",
+      JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> "100"
       )
 
     // We want the mocksystemconsumer to use the same instance across runs
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache()
 
-    val coordinator = JobCoordinator(new MapConfig(config ++ otherConfigs))
+    val coordinator = JobModelManager(new MapConfig(config ++ otherConfigs))
+    val expectedJobModel = new JobModel(new MapConfig(config), containers)
+
+    // Verify that the atomicReference is initialized
+    assertNotNull(JobModelManager.jobModelRef.get())
+    assertEquals(expectedJobModel, JobModelManager.jobModelRef.get())
+
     coordinator.start
-    val jobModel = new JobModel(new MapConfig(config), containers)
     assertEquals(new MapConfig(config), coordinator.jobModel.getConfig)
-    assertEquals(jobModel, coordinator.jobModel)
+    assertEquals(expectedJobModel, coordinator.jobModel)
+
+    // Verify that the JobServlet is serving the correct jobModel
+    val jobModelFromCoordinatorUrl = SamzaObjectMapper.getObjectMapper.readValue(Util.read(coordinator.server.getUrl), classOf[JobModel])
+    assertEquals(expectedJobModel, jobModelFromCoordinatorUrl)
+
+    // Check the status of Stream Partition Count Monitor
+    assertNotNull(coordinator.streamPartitionCountMonitor)
+    assertTrue(coordinator.streamPartitionCountMonitor.isRunning())
+
+    coordinator.stop
+    assertFalse(coordinator.streamPartitionCountMonitor.isRunning())
   }
 
   @Test
   def testJobCoordinatorChangelogPartitionMapping = {
-    System.out.println("test  ")
     val task0Name = new TaskName("Partition 0")
     val ssp0 = Set(new SystemStreamPartition("test", "stream1", new Partition(0)))
     val task1Name = new TaskName("Partition 1")
@@ -148,7 +167,7 @@ class TestJobCoordinator {
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache()
 
     // start the job coordinator and verify if it has all the checkpoints through http port
-    val coordinator = JobCoordinator(new MapConfig(config ++ otherConfigs))
+    val coordinator = JobModelManager(new MapConfig(config ++ otherConfigs))
     coordinator.start
     val url = coordinator.server.getUrl.toString
 
@@ -161,6 +180,95 @@ class TestJobCoordinator {
     assertEquals(expectedChangelogPartitionMapping.get(task2Name), changelogPartitionMapping.get(task2Name))
 
     coordinator.stop
+  }
+
+  /**
+    * Builds a coordinator from config, and then compares it with what was expected.
+    * We initialize with 3 partitions. We use the provided SSP_MATCHER_CLASS and
+    * specify a regex to only allow partitions 1-2 to be assigned to the job.
+    * We expect that the JobModel will only have two SystemStreamPartitions.
+    * Previous test tested without any matcher class. This test is with ThreadJobFactory.
+    */
+  @Test
+  def testWithPartitionAssignmentWithThreadJobFactory {
+    val config = getTestConfig(classOf[ThreadJobFactory])
+    val coordinator = JobModelManager(config)
+
+    // Construct the expected JobModel, so we can compare it to
+    // JobCoordinator's JobModel.
+    val task1Name = new TaskName("Partition 1")
+    val task2Name = new TaskName("Partition 2")
+    val container0Tasks = Map(
+      task1Name -> new TaskModel(task1Name, Set(new SystemStreamPartition("test", "stream1", new Partition(1))), new Partition(0)))
+    val container1Tasks = Map(
+      task2Name -> new TaskModel(task2Name, Set(new SystemStreamPartition("test", "stream1", new Partition(2))), new Partition(5)))
+    val containers = Map(
+      Integer.valueOf(0) -> new ContainerModel(0, container0Tasks))
+    val jobModel = new JobModel(config, containers)
+    assertEquals(config, coordinator.jobModel.getConfig)
+    assertEquals(jobModel, coordinator.jobModel)
+  }
+
+  /**
+    * Tests with ProcessJobFactory.
+    */
+  @Test
+  def testWithPartitionAssignmentWithProcessJobFactory {
+    val config = getTestConfig(classOf[ProcessJobFactory])
+    val coordinator = JobModelManager(config)
+
+    // Construct the expected JobModel, so we can compare it to
+    // JobCoordinator's JobModel.
+    val task1Name = new TaskName("Partition 1")
+
+    val container0Tasks = Map(
+      task1Name -> new TaskModel(task1Name, Set(new SystemStreamPartition("test", "stream1", new Partition(1))), new Partition(0)))
+
+    val containers = Map(
+      Integer.valueOf(0) -> new ContainerModel(0, container0Tasks))
+    val jobModel = new JobModel(config, containers)
+    assertEquals(config, coordinator.jobModel.getConfig)
+    assertEquals(jobModel, coordinator.jobModel)
+  }
+
+  /**
+    * Test with a JobFactory other than ProcessJobFactory or ThreadJobFactory so that
+    * JobConfing.SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX does not match.
+    */
+  @Test
+  def testWithPartitionAssignmentWithMockJobFactory {
+    val config = new SystemConfig(getTestConfig(classOf[MockJobFactory]))
+
+    val systemNames = Set("test")
+
+    // Map the name of each system to the corresponding SystemAdmin
+    val systemAdmins = systemNames.map(systemName => {
+      val systemFactoryClassName = config
+        .getSystemFactory(systemName)
+        .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
+      val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
+      systemName -> systemFactory.getAdmin(systemName, config)
+    }).toMap
+
+    val streamMetadataCache = new StreamMetadataCache(systemAdmins)
+
+    val allSSP = JobModelManager.getInputStreamPartitions(config, streamMetadataCache)
+    val matchedSSP = JobModelManager.getMatchedInputStreamPartitions(config, streamMetadataCache)
+    assertEquals(matchedSSP, allSSP)
+  }
+
+  def getTestConfig(clazz : Class[_]) = {
+    val config = new MapConfig(Map(
+      TaskConfig.CHECKPOINT_MANAGER_FACTORY -> classOf[MockCheckpointManagerFactory].getCanonicalName,
+      TaskConfig.INPUT_STREAMS -> "test.stream1",
+      JobConfig.JOB_COORDINATOR_SYSTEM -> "coordinator",
+      JobConfig.JOB_NAME -> "test",
+      JobConfig.STREAM_JOB_FACTORY_CLASS -> clazz.getCanonicalName,
+      JobConfig.SSP_MATCHER_CLASS -> JobConfig.SSP_MATCHER_CLASS_REGEX,
+      JobConfig.SSP_MATCHER_CONFIG_REGEX -> "[1]",
+      SystemConfig.SYSTEM_FACTORY.format("test") -> classOf[MockSystemFactory].getCanonicalName,
+      SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName))
+    config
   }
 
   def extractChangelogPartitionMapping(url : String) = {
@@ -189,7 +297,7 @@ class MockSystemFactory extends SystemFactory {
   def getAdmin(systemName: String, config: Config) = new MockSystemAdmin
 }
 
-class MockSystemAdmin extends SystemAdmin {
+class MockSystemAdmin extends ExtendedSystemAdmin {
   def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = null
   def getSystemStreamMetadata(streamNames: java.util.Set[String]): java.util.Map[String, SystemStreamMetadata] = {
     assertEquals(1, streamNames.size)
@@ -214,4 +322,23 @@ class MockSystemAdmin extends SystemAdmin {
   }
   
   override def offsetComparator(offset1: String, offset2: String) = null
+
+  override def getSystemStreamPartitionCounts(streamNames: util.Set[String],
+                                              cacheTTL: Long): util.Map[String, SystemStreamMetadata] = {
+    assertEquals(1, streamNames.size())
+    val result = streamNames.map {
+      stream =>
+        val partitionMetadata = Map(
+          new Partition(0) -> new SystemStreamPartitionMetadata("", "", ""),
+          new Partition(1) -> new SystemStreamPartitionMetadata("", "", ""),
+          new Partition(2) -> new SystemStreamPartitionMetadata("", "", "")
+        )
+        stream -> new SystemStreamMetadata(stream, partitionMetadata)
+    }.toMap
+    result
+  }
+
+  override def getNewestOffset(ssp: SystemStreamPartition, maxRetries: Integer) = null
+
+
 }

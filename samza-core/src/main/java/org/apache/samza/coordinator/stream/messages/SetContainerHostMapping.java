@@ -30,7 +30,7 @@ package org.apache.samza.coordinator.stream.messages;
  *     Source: "SamzaContainer-$ContainerId"
  *     MessageMap:
  *     {
- *         hostname: Name of the host
+ *         host: Name of the host
  *         jmx-url: jmxAddressString
  *         jmx-tunneling-url: jmxTunnelingAddressString
  *     }

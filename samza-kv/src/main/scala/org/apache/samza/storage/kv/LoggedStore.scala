@@ -100,11 +100,12 @@ class LoggedStore[K, V](
   }
 
   def flush {
-    trace("Flushing.")
+    trace("Flushing store.")
 
     metrics.flushes.inc
 
     store.flush
+    trace("Flushed store.")
   }
 
   def close {

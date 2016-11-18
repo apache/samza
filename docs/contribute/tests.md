@@ -19,7 +19,7 @@ title: Tests
    limitations under the License.
 -->
 
-Samza's unit tests are written on top of [JUnit](http://junit.org/), and license checking is done with [Apache Rat](http://creadur.apache.org/rat/). Samza's integration tests are written on top of [Zopkio](https://github.com/linkedin/Zopkio).
+Samza's unit tests are written on top of [JUnit](http://junit.org/), and license checking is done with [Apache Rat](http://creadur.apache.org/rat/). Samza's integration tests are written on top of [Zopkio](https://github.com/linkedin/Zopkio). As of Samza 0.10, the integration tests are based on Zopkio 0.1.17.
 
 ### Running Unit Tests Locally
 

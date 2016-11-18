@@ -63,6 +63,12 @@ public class TestAMRMClientImpl extends AMRMClientImpl<ContainerRequest> {
   }
 
   @Override
+  public synchronized void releaseAssignedContainer(ContainerId containerId) {
+    pendingRelease.add(containerId);
+    release.add(containerId);
+  }
+
+  @Override
   public void unregisterApplicationMaster(FinalApplicationStatus appStatus, String appMessage, String appTrackingUrl)
       throws YarnException, IOException { }
 

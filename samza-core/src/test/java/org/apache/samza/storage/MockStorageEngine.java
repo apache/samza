@@ -36,11 +36,13 @@ public class MockStorageEngine implements StorageEngine {
   public static File storeDir;
   public static SystemStreamPartition ssp;
   public static ArrayList<IncomingMessageEnvelope> incomingMessageEnvelopes = new ArrayList<IncomingMessageEnvelope>();
+  public static StoreProperties storeProperties;
 
-  public MockStorageEngine(String storeName, File storeDir, SystemStreamPartition changeLogSystemStreamPartition) {
+  public MockStorageEngine(String storeName, File storeDir, SystemStreamPartition changeLogSystemStreamPartition, StoreProperties properties) {
     MockStorageEngine.storeName = storeName;
     MockStorageEngine.storeDir = storeDir;
     MockStorageEngine.ssp = changeLogSystemStreamPartition;
+    MockStorageEngine.storeProperties = properties;
   }
 
   @Override
@@ -56,5 +58,10 @@ public class MockStorageEngine implements StorageEngine {
 
   @Override
   public void stop() {
+  }
+
+  @Override
+  public StoreProperties getStoreProperties() {
+    return storeProperties;
   }
 }

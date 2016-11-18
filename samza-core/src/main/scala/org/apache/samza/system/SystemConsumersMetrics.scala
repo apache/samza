@@ -32,6 +32,8 @@ class SystemConsumersMetrics(val registry: MetricsRegistry = new MetricsRegistry
   val systemStreamPartitionFetchesPerPoll = scala.collection.mutable.Map[String, Counter]()
   val systemMessagesPerPoll = scala.collection.mutable.Map[String, Counter]()
   val systemStreamMessagesChosen = scala.collection.mutable.Map[SystemStreamPartition, Counter]()
+  val pollNs = newTimer("poll-ns")
+  val deserializationNs = newTimer("deserialization-ns")
 
   def setNeededByChooser(getValue: () => Int) {
     newGauge("ssps-needed-by-chooser", getValue)

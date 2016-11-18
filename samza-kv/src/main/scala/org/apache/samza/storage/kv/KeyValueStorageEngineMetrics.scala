@@ -37,5 +37,12 @@ class KeyValueStorageEngineMetrics(
   val restoredMessages = newCounter("messages-restored")
   val restoredBytes = newCounter("messages-bytes")
 
+  val getNs = newTimer("get-ns")
+  val putNs = newTimer("put-ns")
+  val deleteNs = newTimer("delete-ns")
+  val flushNs = newTimer("flush-ns")
+  val allNs = newTimer("all-ns")
+  val rangeNs = newTimer("range-ns")
+
   override def getPrefix = storeName + "-"
 }

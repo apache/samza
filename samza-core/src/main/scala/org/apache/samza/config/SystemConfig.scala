@@ -36,9 +36,9 @@ object SystemConfig {
 class SystemConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getSystemFactory(name: String) = getOption(SystemConfig.SYSTEM_FACTORY format name)
 
-  def getSystemKeySerde(name: String) = getOption(SystemConfig.KEY_SERDE format name)
+  def getSystemKeySerde(name: String) = getNonEmptyOption(SystemConfig.KEY_SERDE format name)
 
-  def getSystemMsgSerde(name: String) = getOption(SystemConfig.MSG_SERDE format name)
+  def getSystemMsgSerde(name: String) = getNonEmptyOption(SystemConfig.MSG_SERDE format name)
 
   def getDefaultSystemOffset(systemName: String) = getOption(SystemConfig.CONSUMER_OFFSET_DEFAULT format (systemName))
 

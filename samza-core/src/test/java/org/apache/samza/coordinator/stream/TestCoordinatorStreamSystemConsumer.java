@@ -19,18 +19,13 @@
 
 package org.apache.samza.coordinator.stream;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
@@ -43,6 +38,15 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin;
 import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anySet;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TestCoordinatorStreamSystemConsumer {
   @Test
@@ -65,7 +69,6 @@ public class TestCoordinatorStreamSystemConsumer {
       // Expected.
     }
     consumer.bootstrap();
-    assertTrue(testOrder(consumer.getBoostrappedStream()));
     assertEquals(expectedConfig, consumer.getConfig());
     assertFalse(systemConsumer.isStopped());
     consumer.stop();
@@ -89,25 +92,40 @@ public class TestCoordinatorStreamSystemConsumer {
     assertEquals(1, systemConsumer.getRegisterCount());
   }
 
-  private boolean testOrder(Set<CoordinatorStreamMessage> bootstrappedStreamSet) {
-    int initialSize = bootstrappedStreamSet.size();
-    List<CoordinatorStreamMessage> listStreamMessages = new ArrayList<CoordinatorStreamMessage>();
-    listStreamMessages.add(new SetConfig("order1", "job.name.order1", "my-order1-name"));
-    listStreamMessages.add(new SetConfig("order2", "job.name.order2", "my-order2-name"));
-    listStreamMessages.add(new SetConfig("order3", "job.name.order3", "my-order3-name"));
-    bootstrappedStreamSet.addAll(listStreamMessages);
-    Iterator<CoordinatorStreamMessage> iter = bootstrappedStreamSet.iterator();
+  /**
+   * Verify that if a particular key-value is written, then another, then the original again,
+   * that the original occurs last in the set.
+   */
+  @Test
+  public void testOrderKeyRewrite() throws InterruptedException {
+    final SystemStream systemStream = new SystemStream("system", "stream");
+    final SystemStreamPartition ssp = new SystemStreamPartition(systemStream, new Partition(0));
+    final SystemConsumer systemConsumer = mock(SystemConsumer.class);
 
-    for (int i = 0;  i < initialSize; ++i) {
-      iter.next();
-    }
-    int i = 0;
-    while (iter.hasNext()) {
-      if (!iter.next().getKey().equals(listStreamMessages.get(i++).getKey())) {
-        return false;
+    final List<IncomingMessageEnvelope> list = new ArrayList<>();
+    SetConfig setConfig1 = new SetConfig("source", "key1", "value1");
+    SetConfig setConfig2 = new SetConfig("source", "key1", "value2");
+    SetConfig setConfig3 = new SetConfig("source", "key1", "value1");
+    list.add(createIncomingMessageEnvelope(setConfig1, ssp));
+    list.add(createIncomingMessageEnvelope(setConfig2, ssp));
+    list.add(createIncomingMessageEnvelope(setConfig3, ssp));
+    Map<SystemStreamPartition, List<IncomingMessageEnvelope>> messages = new HashMap<SystemStreamPartition, List<IncomingMessageEnvelope>>() {
+      {
+        put(ssp, list);
       }
-    }
-    return true;
+    };
+    when(systemConsumer.poll(anySet(), anyLong())).thenReturn(messages, Collections.<SystemStreamPartition, List<IncomingMessageEnvelope>>emptyMap());
+
+    CoordinatorStreamSystemConsumer consumer = new CoordinatorStreamSystemConsumer(systemStream, systemConsumer, new SinglePartitionWithoutOffsetsSystemAdmin());
+
+    consumer.bootstrap();
+
+    Set<CoordinatorStreamMessage> bootstrappedMessages = consumer.getBoostrappedStream();
+
+    assertEquals(2, bootstrappedMessages.size()); // First message should have been removed as a duplicate
+    CoordinatorStreamMessage[] coordinatorStreamMessages = bootstrappedMessages.toArray(new CoordinatorStreamMessage[2]);
+    assertEquals(setConfig2, coordinatorStreamMessages[0]);
+    assertEquals(setConfig3, coordinatorStreamMessages[1]); //Config 3 MUST be the last message, not config 2
   }
 
   private static class MockSystemConsumer implements SystemConsumer {
@@ -134,7 +152,9 @@ public class TestCoordinatorStreamSystemConsumer {
       assertEquals(expectedSystemStreamPartition, systemStreamPartition);
     }
 
-    public int getRegisterCount() { return registerCount; }
+    public int getRegisterCount() {
+      return registerCount;
+    }
 
     public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Set<SystemStreamPartition> systemStreamPartitions, long timeout) throws InterruptedException {
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> map = new LinkedHashMap<SystemStreamPartition, List<IncomingMessageEnvelope>>();
@@ -170,6 +190,16 @@ public class TestCoordinatorStreamSystemConsumer {
 
     public boolean isStopped() {
       return stopped;
+    }
+  }
+
+  private IncomingMessageEnvelope createIncomingMessageEnvelope(CoordinatorStreamMessage message, SystemStreamPartition ssp) {
+    try {
+      byte[] key = SamzaObjectMapper.getObjectMapper().writeValueAsString(message.getKeyArray()).getBytes("UTF-8");
+      byte[] value = SamzaObjectMapper.getObjectMapper().writeValueAsString(message.getMessageMap()).getBytes("UTF-8");
+      return new IncomingMessageEnvelope(ssp, null, key, value);
+    } catch (Exception e) {
+      return null;
     }
   }
 }

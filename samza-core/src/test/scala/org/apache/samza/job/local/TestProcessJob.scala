@@ -19,7 +19,7 @@
 
 package org.apache.samza.job.local;
 
-import org.apache.samza.coordinator.JobCoordinator
+import org.apache.samza.coordinator.JobModelManager
 import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.job.ApplicationStatus
@@ -33,7 +33,7 @@ class TestProcessJob {
       override def buildCommand = "sleep 1"
       override def buildEnvironment = Map[String, String]()
     }
-    val coordinator = new MockJobCoordinator()
+    val coordinator = new MockJobModelManager()
     val job = new ProcessJob(commandBuilder, coordinator)
     job.submit
     job.waitForFinish(999999)
@@ -45,7 +45,7 @@ class TestProcessJob {
       override def buildCommand = "sleep 999999999"
       override def buildEnvironment = Map[String, String]()
     }
-    val coordinator = new MockJobCoordinator()
+    val coordinator = new MockJobModelManager()
     val job = new ProcessJob(commandBuilder, coordinator)
     job.submit
     job.waitForFinish(500)
@@ -56,7 +56,7 @@ class TestProcessJob {
   }
 }
 
-class MockJobCoordinator extends JobCoordinator(null, null) {
+class MockJobModelManager extends JobModelManager(null, null) {
   var stopped: Boolean = false
 
   override def start: Unit = { }

@@ -53,7 +53,62 @@ stores.LastPageViewPerUser.key.serde=integer
 stores.LastPageViewPerUser.msg.serde=json
 {% endhighlight %}
 
-Each serde is defined with a factory class. Samza comes with several builtin serdes for UTF-8 strings, binary-encoded integers, JSON and more. You can also create your own serializer by implementing the [SerdeFactory](../api/javadocs/org/apache/samza/serializers/SerdeFactory.html) interface.
+Each serde is defined with a factory class. Samza comes with several builtin serdes for UTF-8 strings, binary-encoded integers, JSON and more. The following is a comprehensive list of supported serdes in Samza.
+<style>
+            table th, table td {
+                text-align: left;
+                vertical-align: top;
+                padding: 12px;
+                border-bottom: 1px solid #ccc;
+                border-top: 1px solid #ccc;
+                border-left: 0;
+                border-right: 0;
+            }
+
+            table td.property, table td.default {
+                white-space: nowrap;
+            }
+
+            table th {
+                background-color: #eee;
+            }
+</style>
+<table>
+    <tr>
+        <th> Serde Name</th>
+        <th> Data Handled </th>
+    </tr>
+    <tr>
+        <td> string </td>
+        <td> UTF-8 strings </td>
+    </tr>
+    <tr>
+        <td> integer </td>
+        <td> binary-encoded integers </td>
+    </tr>
+    <tr>
+        <td> serializable </td>
+        <td> Serializable Object Type </td>
+    </tr>
+    <tr>
+        <td> long </td>
+        <td> long data type </td>
+    </tr>
+    <tr>
+        <td> json </td>
+        <td> JSON formatted data </td>
+    </tr>
+    <tr>
+        <td> byte </td>
+        <td> Plain Bytes (effectively no-op) - Useful for Binary Messages </td>
+    </tr>
+    <tr>
+        <td> bytebuffer </td>
+        <td> Byte Buffer </td>
+    </tr>
+</table>
+
+You can also create your own serializer by implementing the [SerdeFactory](../api/javadocs/org/apache/samza/serializers/SerdeFactory.html) interface.
 
 The name you give to a serde (such as "json" and "integer" in the example above) is only for convenience in your job configuration; you can choose whatever name you like. For each stream and each state store, you can use the serde name to declare how messages should be serialized and deserialized.
 

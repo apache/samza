@@ -19,6 +19,7 @@
 
 package org.apache.samza.container;
 
+import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
@@ -36,12 +37,31 @@ import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
  * */
 public class LocalityManager extends AbstractCoordinatorStreamManager {
   private static final Logger log = LoggerFactory.getLogger(LocalityManager.class);
-  private Map<Integer, Map<String, String>> containerToHostMapping;
+  private Map<Integer, Map<String, String>> containerToHostMapping = new HashMap<>();
+  private final TaskAssignmentManager taskAssignmentManager;
+  private final boolean writeOnly;
 
+  /**
+   * Default constructor that creates a read-write manager
+   *
+   * @param coordinatorStreamProducer producer to the coordinator stream
+   * @param coordinatorStreamConsumer consumer for the coordinator stream
+   */
   public LocalityManager(CoordinatorStreamSystemProducer coordinatorStreamProducer,
                          CoordinatorStreamSystemConsumer coordinatorStreamConsumer) {
     super(coordinatorStreamProducer, coordinatorStreamConsumer, "SamzaContainer-");
-    this.containerToHostMapping = new HashMap<>();
+    this.writeOnly = coordinatorStreamConsumer == null;
+    this.taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamProducer, coordinatorStreamConsumer);
+  }
+
+  /**
+   * Special constructor that creates a write-only {@link LocalityManager} that only writes
+   * to coordinator stream in {@link SamzaContainer}
+   *
+   * @param coordinatorStreamSystemProducer producer to the coordinator stream
+   */
+  public LocalityManager(CoordinatorStreamSystemProducer coordinatorStreamSystemProducer) {
+    this(coordinatorStreamSystemProducer, null);
   }
 
   /**
@@ -49,6 +69,7 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
    *
    * @throws UnsupportedOperationException in the case if a {@link TaskName} is passed
    */
+  @Override
   public void register(TaskName taskName) {
     throw new UnsupportedOperationException("TaskName cannot be registered with LocalityManager");
   }
@@ -59,11 +80,23 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
    * @param sourceSuffix the source suffix which is a container id
    */
   public void register(String sourceSuffix) {
-    registerCoordinatorStreamConsumer();
+    if (!this.writeOnly) {
+      registerCoordinatorStreamConsumer();
+    }
     registerCoordinatorStreamProducer(getSource() + sourceSuffix);
   }
 
+  /**
+   * Method to allow read container locality information from coordinator stream. This method is used
+   * in {@link org.apache.samza.coordinator.JobModelManager}.
+   *
+   * @return the map of containerId: (hostname, jmxAddress, jmxTunnelAddress)
+   */
   public Map<Integer, Map<String, String>> readContainerLocality() {
+    if (this.writeOnly) {
+      throw new UnsupportedOperationException("Read container locality function is not supported in write-only LocalityManager");
+    }
+
     Map<Integer, Map<String, String>> allMappings = new HashMap<>();
     for (CoordinatorStreamMessage message: getBootstrappedStream(SetContainerHostMapping.TYPE)) {
       SetContainerHostMapping mapping = new SetContainerHostMapping(message);
@@ -71,13 +104,25 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
       localityMappings.put(SetContainerHostMapping.HOST_KEY, mapping.getHostLocality());
       localityMappings.put(SetContainerHostMapping.JMX_URL_KEY, mapping.getJmxUrl());
       localityMappings.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, mapping.getJmxTunnelingUrl());
-      log.info(String.format("Read locality for container %s: %s", mapping.getKey(), localityMappings));
       allMappings.put(Integer.parseInt(mapping.getKey()), localityMappings);
     }
     containerToHostMapping = Collections.unmodifiableMap(allMappings);
+
+    for (Map.Entry<Integer, Map<String, String>> entry : containerToHostMapping.entrySet()) {
+      log.debug(String.format("Locality for container %s: %s", entry.getKey(), entry.getValue()));
+    }
+
     return allMappings;
   }
 
+  /**
+   * Method to write locality info to coordinator stream. This method is used in {@link SamzaContainer}.
+   *
+   * @param containerId  the {@link SamzaContainer} ID
+   * @param hostName  the hostname
+   * @param jmxAddress  the JMX URL address
+   * @param jmxTunnelingAddress  the JMX Tunnel URL address
+   */
   public void writeContainerToHostMapping(Integer containerId, String hostName, String jmxAddress, String jmxTunnelingAddress) {
     Map<String, String> existingMappings = containerToHostMapping.get(containerId);
     String existingHostMapping = existingMappings != null ? existingMappings.get(SetContainerHostMapping.HOST_KEY) : null;
@@ -86,11 +131,16 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
     } else {
       log.info("Container {} started at {}", containerId, hostName);
     }
-    send(new SetContainerHostMapping(getSource() + containerId, String.valueOf(containerId), hostName, jmxAddress, jmxTunnelingAddress));
+    send(new SetContainerHostMapping(getSource() + containerId, String.valueOf(containerId), hostName, jmxAddress,
+        jmxTunnelingAddress));
     Map<String, String> mappings = new HashMap<>();
     mappings.put(SetContainerHostMapping.HOST_KEY, hostName);
     mappings.put(SetContainerHostMapping.JMX_URL_KEY, jmxAddress);
     mappings.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, jmxTunnelingAddress);
     containerToHostMapping.put(containerId, mappings);
+  }
+
+  public TaskAssignmentManager getTaskAssignmentManager() {
+    return taskAssignmentManager;
   }
 }

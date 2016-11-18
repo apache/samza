@@ -95,7 +95,7 @@ public class TestStreamAppender {
 
   @Test
   public void testSystemProducerAppenderInAM() {
-    System.setProperty("samza.container.name", "samza-application-master");
+    System.setProperty("samza.container.name", "samza-job-coordinator");
 
     MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
     PatternLayout layout = new PatternLayout();

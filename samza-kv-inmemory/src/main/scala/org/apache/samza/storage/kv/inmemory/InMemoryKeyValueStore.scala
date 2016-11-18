@@ -26,14 +26,14 @@ import java.util
 /**
  * In memory implementation of a key value store.
  *
- * This uses a TreeMap to store the keys in order
+ * This uses a ConcurrentSkipListMap to store the keys in order
  *
  * @param metrics A metrics instance to publish key-value store related statistics
  */
 class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStoreMetrics)
   extends KeyValueStore[Array[Byte], Array[Byte]] with Logging {
 
-  val underlying = new util.TreeMap[Array[Byte], Array[Byte]] (UnsignedBytes.lexicographicalComparator())
+  val underlying = new util.concurrent.ConcurrentSkipListMap[Array[Byte], Array[Byte]] (UnsignedBytes.lexicographicalComparator())
 
   override def flush(): Unit = {
     // No-op for In memory store.
@@ -47,7 +47,7 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
 
     override def close(): Unit = Unit
 
-    override def remove(): Unit = iter.remove()
+    override def remove(): Unit = throw new UnsupportedOperationException("InMemoryKeyValueStore iterator doesn't support remove")
 
     override def next(): Entry[Array[Byte], Array[Byte]] = {
       val n = iter.next()

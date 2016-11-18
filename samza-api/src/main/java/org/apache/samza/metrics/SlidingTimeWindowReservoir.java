@@ -31,9 +31,9 @@ import org.apache.samza.util.Clock;
 public class SlidingTimeWindowReservoir implements Reservoir {
 
   /**
-   * Allow this amount of values to have the same updating time.
+   * default collision buffer
    */
-  private static final int TIME_COLLISION_BUFFER = 256;
+  private static final int DEFAULT_TIME_COLLISION_BUFFER = 1;
 
   /**
    * Run {@link #removeExpireValues} once every this amount of {@link #update}s
@@ -46,8 +46,13 @@ public class SlidingTimeWindowReservoir implements Reservoir {
   private static final int DEFAULT_WINDOW_SIZE_MS = 300000;
 
   /**
+   * Allow this amount of values to have the same updating time.
+   */
+  private final int collisionBuffer;
+
+  /**
    * Size of the window. The unit is millisecond. It is as
-   * <code>TIME_COLLISION_BUFFER</code> times big as the original window size.
+   * <code>collisionBuffer</code> times big as the original window size.
    */
   private final long windowMs;
 
@@ -93,11 +98,16 @@ public class SlidingTimeWindowReservoir implements Reservoir {
   }
 
   public SlidingTimeWindowReservoir(long windowMs, Clock clock) {
-    this.windowMs = windowMs * TIME_COLLISION_BUFFER;
+    this(windowMs, DEFAULT_TIME_COLLISION_BUFFER, clock);
+  }
+
+  public SlidingTimeWindowReservoir(long windowMs, int collisionBuffer, Clock clock) {
+    this.windowMs = windowMs * collisionBuffer;
     this.storage = new ConcurrentSkipListMap<Long, Long>();
     this.count = new AtomicLong();
     this.lastUpdatingTime = new AtomicLong();
     this.clock = clock;
+    this.collisionBuffer = collisionBuffer;
   }
 
   @Override
@@ -126,15 +136,19 @@ public class SlidingTimeWindowReservoir implements Reservoir {
    * value's, use the last updating time + 1 as the new updating time. This
    * operation guarantees all the updating times in the <code>storage</code>
    * strictly increment. No override happens before reaching the
-   * <code>TIME_COLLISION_BUFFER</code>.
+   * <code>collisionBuffer</code>.
    *
    * @return the updating time
    */
   private long getUpdatingTime() {
     while (true) {
       long oldTime = lastUpdatingTime.get();
-      long newTime = clock.currentTimeMillis() * TIME_COLLISION_BUFFER;
+      long newTime = clock.currentTimeMillis() * collisionBuffer;
       long updatingTime = newTime > oldTime ? newTime : oldTime + 1;
+      // make sure the updateTime doesn't overflow to the next millisecond
+      if (updatingTime == newTime + collisionBuffer) {
+        --updatingTime;
+      }
       // make sure no other threads modify the lastUpdatingTime
       if (lastUpdatingTime.compareAndSet(oldTime, updatingTime)) {
         return updatingTime;

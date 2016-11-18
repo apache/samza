@@ -19,7 +19,7 @@ title: API Overview
    limitations under the License.
 -->
 
-When writing a stream processor for Samza, you must implement the [StreamTask](javadocs/org/apache/samza/task/StreamTask.html) interface:
+When writing a stream processor for Samza, you must implement either [StreamTask](javadocs/org/apache/samza/task/StreamTask.html) or [AsyncStreamTask](javadocs/org/apache/samza/task/AsyncStreamTask.html) interface. You should implement StreamTask for synchronous process, where the message processing is complete after the *process* method returns. An example of StreamTask is a computation that does not involve remote calls:
 
 {% highlight java %}
 package com.example.samza;
@@ -30,6 +30,23 @@ public class MyTaskClass implements StreamTask {
                       MessageCollector collector,
                       TaskCoordinator coordinator) {
     // process message
+  }
+}
+{% endhighlight %}
+
+The AsyncSteamTask interface, on the other hand, supports asynchronous process, where the message processing may not be complete after the *processAsync* method returns. Various concurrent libraries like Java NIO, ParSeq and Akka can be used here to make asynchronous calls, and the completion is marked by invoking the [TaskCallback](javadocs/org/apache/samza/task/TaskCallback.html). Samza will continue to process next message or shut down the container based on the callback status. An example of AsyncStreamTask is a computation that make remote calls but don't block on the call completion:
+
+{% highlight java %}
+package com.example.samza;
+
+public class MyAsyncTaskClass implements AsyncStreamTask {
+
+  public void processAsync(IncomingMessageEnvelope envelope,
+                           MessageCollector collector,
+                           TaskCoordinator coordinator,
+                           TaskCallback callback) {
+    // process message with asynchronous calls
+    // fire callback upon completion, e.g. invoking callback from asynchronous call completion thread
   }
 }
 {% endhighlight %}
@@ -139,4 +156,5 @@ public class SplitStringIntoWords implements StreamTask {
 }
 {% endhighlight %}
 
+For AsyncStreamTask example, follow the tutorial in [Samza Async API and Multithreading User Guide](../../../tutorials/{{site.version}}/samza-async-user-guide.html). For more details on APIs, please refer to [Configuration](../jobs/configuration-table.html) and [Javadocs](javadocs).
 ## [SamzaContainer &raquo;](../container/samza-container.html)

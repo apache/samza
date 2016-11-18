@@ -86,6 +86,8 @@ public class RocksDbKeyValueReader {
    * the db, it return null.
    *
    * @param key the key of the value you want to get
+   * @return deserialized value for the key
+   *         Returns null, if the value doesn't exist
    */
   public Object get(Object key) {
     byte[] byteKey = keySerde.toBytes(key);

@@ -34,10 +34,10 @@ import java.util.Arrays
  * 2. Range queries require flushing the cache (as the ordering comes from rocksdb)
  *
  * In implementation this cache is just an LRU hash map that discards the oldest entry when full. There is an accompanying "dirty list" that references keys
- * that have not yet been written to disk. All writes go to the dirty list and when the list is long enough we flush out all those values at once. Dirty items
- * that time out of the cache before being written will also trigger a full flush of the dirty list.
+ * that have not yet been written to disk. All writes go to the dirty list and when the list is long enough we call putAll on all those values at once. Dirty items
+ * that time out of the cache before being written will also trigger a putAll of the dirty list.
  *
- * This class is very non-thread safe.
+ * This class is thread safe.
  *
  * @param store The store to cache
  * @param cacheSize The number of entries to hold in the in memory-cache
@@ -59,18 +59,19 @@ class CachedStore[K, V](
   /** the list of items to be written out on flush from newest to oldest */
   private var dirty = new mutable.DoubleLinkedList[K]()
 
-  /** an lru cache of values that holds cacheEntries and calls flush() if necessary when discarding */
+  /** the synchronization lock to protect access to the store from multiple threads **/
+  private val lock = new Object
+
+  /** an lru cache of values that holds cacheEntries and calls putAll() on dirty entries if necessary when discarding */
   private val cache = new java.util.LinkedHashMap[K, CacheEntry[K, V]]((cacheSize * 1.2).toInt, 1.0f, true) {
     override def removeEldestEntry(eldest: java.util.Map.Entry[K, CacheEntry[K, V]]): Boolean = {
       val evict = super.size > cacheSize
-      // We need backwards compatibility with the previous broken flushing behavior for array keys.
-      if (evict || hasArrayKeys) {
+      if (evict) {
         val entry = eldest.getValue
         // if this entry hasn't been written out yet, flush it and all other dirty keys
         if (entry.dirty != null) {
-          debug("Found a dirty entry. Flushing.")
-
-          flush()
+          debug("Found a dirty entry. Calling putAll() on all dirty entries.")
+          putAllDirtyEntries()
         }
       }
       evict
@@ -78,7 +79,7 @@ class CachedStore[K, V](
   }
 
   /** tracks whether an array has been used as a key. since this is dangerous with LinkedHashMap, we want to warn on it. **/
-  private var containsArrayKeys = false
+  @volatile private var containsArrayKeys = false
 
   // Use counters here, rather than directly accessing variables using .size
   // since metrics can be accessed in other threads, and cache.size is not
@@ -87,7 +88,7 @@ class CachedStore[K, V](
   metrics.setDirtyCount(() => dirtyCount)
   metrics.setCacheSize(() => cacheCount)
 
-  override def get(key: K) = {
+  override def get(key: K) = lock.synchronized({
     metrics.gets.inc
 
     val c = cache.get(key)
@@ -100,7 +101,7 @@ class CachedStore[K, V](
       cacheCount = cache.size
       v
     }
-  }
+  })
 
   private class CachedStoreIterator(val iter: KeyValueIterator[K, V])
     extends KeyValueIterator[K, V] {
@@ -109,10 +110,7 @@ class CachedStore[K, V](
 
     override def close(): Unit = iter.close()
 
-    override def remove(): Unit = {
-      iter.remove()
-      delete(last.getKey)
-    }
+    override def remove(): Unit = throw new UnsupportedOperationException("CachedStore iterator doesn't support remove")
 
     override def next() = {
       last = iter.next()
@@ -122,65 +120,87 @@ class CachedStore[K, V](
     override def hasNext: Boolean = iter.hasNext
   }
 
-  override def range(from: K, to: K): KeyValueIterator[K, V] = {
+  override def range(from: K, to: K): KeyValueIterator[K, V] = lock.synchronized({
     metrics.ranges.inc
-    flush()
+    putAllDirtyEntries()
 
     new CachedStoreIterator(store.range(from, to))
-  }
+  })
 
-  override def all(): KeyValueIterator[K, V] = {
+  override def all(): KeyValueIterator[K, V] = lock.synchronized({
     metrics.alls.inc
-    flush()
+    putAllDirtyEntries()
 
     new CachedStoreIterator(store.all())
-  }
+  })
 
   override def put(key: K, value: V) {
-    metrics.puts.inc
+    lock.synchronized({
+      metrics.puts.inc
 
-    checkKeyIsArray(key)
+      checkKeyIsArray(key)
 
-    // Add the key to the front of the dirty list (and remove any prior
-    // occurrences to dedupe).
-    val found = cache.get(key)
-    if (found == null || found.dirty == null) {
-      this.dirtyCount += 1
-    } else {
-      // If we are removing the head of the list, move the head to the next
-      // element. See SAMZA-45 for details.
-      if (found.dirty.prev == null) {
-        this.dirty = found.dirty.next
-        this.dirty.prev = null
+      // Add the key to the front of the dirty list (and remove any prior
+      // occurrences to dedupe).
+      val found = cache.get(key)
+      if (found == null || found.dirty == null) {
+        this.dirtyCount += 1
       } else {
-        found.dirty.remove()
+        // If we are removing the head of the list, move the head to the next
+        // element. See SAMZA-45 for details.
+        if (found.dirty.prev == null) {
+          this.dirty = found.dirty.next
+          this.dirty.prev = null
+        } else {
+          found.dirty.remove()
+        }
       }
-    }
-    this.dirty = new mutable.DoubleLinkedList(key, this.dirty)
+      this.dirty = new mutable.DoubleLinkedList(key, this.dirty)
 
-    // Add the key to the cache (but don't allocate a new cache entry if we
-    // already have one).
-    if (found == null) {
-      cache.put(key, new CacheEntry(value, this.dirty))
-      cacheCount = cache.size
-    } else {
-      found.value = value
-      found.dirty = this.dirty
-    }
+      // Add the key to the cache (but don't allocate a new cache entry if we
+      // already have one).
+      if (found == null) {
+        cache.put(key, new CacheEntry(value, this.dirty))
+        cacheCount = cache.size
+      } else {
+        found.value = value
+        found.dirty = this.dirty
+      }
 
-    // Flush the dirty values if the write list is full.
-    if (dirtyCount >= writeBatchSize) {
-      debug("Dirty count %s >= write batch size %s. Flushing." format (dirtyCount, writeBatchSize))
+      // putAll() dirty values if the write list is full.
+      val purgeNeeded = if (dirtyCount >= writeBatchSize) {
+        debug("Dirty count %s >= write batch size %s. Calling putAll() on all dirty entries." format (dirtyCount, writeBatchSize))
+        true
+      } else if (hasArrayKeys) {
+        // Flush every time to support the following legacy behavior:
+        // If array keys are used with a cached store, get() will always miss the cache because of array equality semantics
+        // However, it will fall back to the underlying store which does support arrays.
+        true
+      } else {
+        false
+      }
 
-      flush()
-    }
+      if (purgeNeeded) {
+        putAllDirtyEntries()
+      }
+    })
   }
 
   override def flush() {
-    trace("Flushing.")
+    trace("Purging dirty entries from CachedStore.")
+    lock.synchronized({
+      metrics.flushes.inc
+      putAllDirtyEntries()
+      store.flush()
+    })
+    trace("Flushed store.")
+  }
 
-    metrics.flushes.inc
-
+  /**
+   * The synchronization lock must be held before calling this method.
+   */
+  private def putAllDirtyEntries() {
+    trace("Calling putAll() on dirty entries.")
     // write out the contents of the dirty list oldest first
     val batch = new Array[Entry[K, V]](this.dirtyCount)
     var pos : Int = this.dirtyCount - 1
@@ -191,70 +211,78 @@ class CachedStore[K, V](
       pos -= 1
     }
     store.putAll(Arrays.asList(batch : _*))
-    store.flush()
-    metrics.flushBatchSize.inc(batch.size)
-
+    metrics.putAllDirtyEntriesBatchSize.inc(batch.size)
     // reset the dirty list
     this.dirty = new mutable.DoubleLinkedList[K]()
     this.dirtyCount = 0
   }
 
   override def putAll(entries: java.util.List[Entry[K, V]]) {
-    val iter = entries.iterator
-    while (iter.hasNext) {
-      val curr = iter.next
-      put(curr.getKey, curr.getValue)
-    }
+    lock.synchronized({
+      val iter = entries.iterator
+      while (iter.hasNext) {
+        val curr = iter.next
+        put(curr.getKey, curr.getValue)
+      }
+    })
   }
 
   override def delete(key: K) {
-    metrics.deletes.inc
-    put(key, null.asInstanceOf[V])
+    lock.synchronized({
+      metrics.deletes.inc
+      put(key, null.asInstanceOf[V])
+    })
   }
 
   override def close() {
-    trace("Closing.")
-    flush()
-    store.close()
+    lock.synchronized({
+      trace("Closing.")
+      flush()
+      store.close()
+    })
   }
 
   override def deleteAll(keys: java.util.List[K]) = {
-    KeyValueStore.Extension.deleteAll(this, keys)
+    lock.synchronized({
+      KeyValueStore.Extension.deleteAll(this, keys)
+    })
   }
 
   private def checkKeyIsArray(key: K) {
     if (!containsArrayKeys && key.isInstanceOf[Array[_]]) {
       // Warn the first time that we see an array key.
-      warn("Using arrays as keys results in unpredictable behavior since cache is implemented with a map. Consider using ByteBuffer, or a different key type.")
+      warn("Using arrays as keys results in unpredictable behavior since cache is implemented with a map. Consider using ByteBuffer, or a different key type, or turn off the cache altogether.")
       containsArrayKeys = true
     }
   }
 
   override def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
-    metrics.gets.inc(keys.size)
-    val returnValue = new java.util.HashMap[K, V](keys.size)
-    val misses = new java.util.ArrayList[K]
-    val keysIterator = keys.iterator
-    while (keysIterator.hasNext) {
-      val key = keysIterator.next
-      val cached = cache.get(key)
-      if (cached != null) {
-        metrics.cacheHits.inc
-        returnValue.put(key, cached.value)
-      } else {
-        misses.add(key)
+    lock.synchronized({
+      metrics.gets.inc(keys.size)
+      val returnValue = new java.util.HashMap[K, V](keys.size)
+      val misses = new java.util.ArrayList[K]
+      val keysIterator = keys.iterator
+      while (keysIterator.hasNext) {
+        val key = keysIterator.next
+        val cached = cache.get(key)
+        if (cached != null) {
+          metrics.cacheHits.inc
+          returnValue.put(key, cached.value)
+        } else {
+          misses.add(key)
+        }
       }
-    }
-    if (!misses.isEmpty) {
-      val entryIterator = store.getAll(misses).entrySet.iterator
-      while (entryIterator.hasNext) {
-        val entry = entryIterator.next
-        returnValue.put(entry.getKey, entry.getValue)
-        cache.put(entry.getKey, new CacheEntry(entry.getValue, null))
+      if (!misses.isEmpty) {
+        val entryIterator = store.getAll(misses).entrySet.iterator
+        while (entryIterator.hasNext) {
+          val entry = entryIterator.next
+          returnValue.put(entry.getKey, entry.getValue)
+          cache.put(entry.getKey, new CacheEntry(entry.getValue, null))
+        }
+        cacheCount = cache.size // update outside the loop since it's used for metrics and not for time-sensitive logic
       }
-      cacheCount = cache.size // update outside the loop since it's used for metrics and not for time-sensitive logic
-    }
-    returnValue
+      returnValue
+    })
   }
 
   def hasArrayKeys = containsArrayKeys

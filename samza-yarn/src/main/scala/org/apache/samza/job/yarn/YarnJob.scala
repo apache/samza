@@ -19,29 +19,15 @@
 
 package org.apache.samza.job.yarn
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
-import org.apache.hadoop.security.UserGroupInformation
-import org.apache.hadoop.yarn.api.records.ApplicationId
 import org.apache.hadoop.yarn.api.ApplicationConstants
-import org.apache.samza.config.Config
-import org.apache.samza.config.JobConfig
-import org.apache.samza.util.Util
-import org.apache.samza.job.ApplicationStatus
-import org.apache.samza.job.ApplicationStatus.Running
-import org.apache.samza.job.StreamJob
-import org.apache.samza.job.ApplicationStatus.SuccessfulFinish
-import org.apache.samza.job.ApplicationStatus.UnsuccessfulFinish
+import org.apache.hadoop.yarn.api.records.ApplicationId
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.YarnConfig
-import org.apache.samza.config.ShellCommandConfig
-import org.apache.samza.SamzaException
+import org.apache.samza.config.{Config, JobConfig, ShellCommandConfig, YarnConfig}
+import org.apache.samza.job.ApplicationStatus.{Running, SuccessfulFinish, UnsuccessfulFinish}
+import org.apache.samza.job.{ApplicationStatus, StreamJob}
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.config.JobConfig.Config2Job
-import scala.collection.JavaConversions._
-import org.apache.samza.config.MapConfig
-import org.apache.samza.config.ConfigException
-import org.apache.samza.config.SystemConfig
-
+import org.apache.samza.util.Util
+import org.slf4j.LoggerFactory
 
 /**
  * Starts the application manager
@@ -51,40 +37,79 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
   val client = new ClientHelper(hadoopConfig)
   var appId: Option[ApplicationId] = None
   val yarnConfig = new YarnConfig(config)
+  val logger = LoggerFactory.getLogger(this.getClass)
 
   def submit: YarnJob = {
-    appId = client.submitApplication(
-      new Path(yarnConfig.getPackagePath),
-      yarnConfig.getAMContainerMaxMemoryMb,
-      1,
-      List(
-        "export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec ./__package/bin/run-am.sh 1>logs/%s 2>logs/%s"
-          format (ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.STDOUT, ApplicationConstants.STDERR)),
-      Some({
-        val coordinatorSystemConfig = Util.buildCoordinatorStreamConfig(config)
-        val envMap = Map(
-          ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG -> Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString(coordinatorSystemConfig)),
-          ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(yarnConfig.getAmOpts))
-        val amJavaHome = yarnConfig.getAMJavaHome
-        val envMapWithJavaHome = if(amJavaHome == null) {
-          envMap
-        } else {
-          envMap + (ShellCommandConfig.ENV_JAVA_HOME -> amJavaHome)
-        }
-        envMapWithJavaHome
-      }),
-      Some("%s_%s" format (config.getName.get, config.getJobId.getOrElse(1)))
-    )
+    try {
+      val cmdExec = buildAmCmd()
+
+      appId = client.submitApplication(
+        config,
+        List(
+          // we need something like this:
+          //"export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec <fwk_path>/bin/run-am.sh 1>logs/%s 2>logs/%s"
+
+          "export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec %s 1>logs/%s 2>logs/%s"
+            format (ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR,
+            cmdExec, ApplicationConstants.STDOUT, ApplicationConstants.STDERR)),
+        Some({
+          val coordinatorSystemConfig = Util.buildCoordinatorStreamConfig(config)
+          val envMap = Map(
+            ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG -> Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString
+            (coordinatorSystemConfig)),
+            ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(yarnConfig.getAmOpts))
+          val amJavaHome = yarnConfig.getAMJavaHome
+          val envMapWithJavaHome = if (amJavaHome == null) {
+            envMap
+          } else {
+            envMap + (ShellCommandConfig.ENV_JAVA_HOME -> amJavaHome)
+          }
+          envMapWithJavaHome
+        }),
+        Some("%s_%s" format(config.getName.get, config.getJobId.getOrElse(1)))
+      )
+    } catch {
+      case e: Throwable =>
+        client.cleanupStagingDir
+        throw e
+    }
+
     this
   }
+
+  def buildAmCmd() =  {
+    // figure out if we have framework is deployed into a separate location
+    val fwkPath = config.get(JobConfig.SAMZA_FWK_PATH, "")
+    var fwkVersion = config.get(JobConfig.SAMZA_FWK_VERSION)
+    if (fwkVersion == null || fwkVersion.isEmpty()) {
+      fwkVersion = "STABLE"
+    }
+    logger.info("Inside YarnJob: fwk_path is %s, ver is %s use it directly " format(fwkPath, fwkVersion))
+
+    var cmdExec = "./__package/bin/run-jc.sh" // default location
+
+    if (!fwkPath.isEmpty()) {
+      // if we have framework installed as a separate package - use it
+      cmdExec = fwkPath + "/" + fwkVersion + "/bin/run-jc.sh"
+
+      logger.info("Using FWK path: " + "export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec %s 1>logs/%s 2>logs/%s".
+             format(ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR, cmdExec,
+                    ApplicationConstants.STDOUT, ApplicationConstants.STDERR))
+
+    }
+    cmdExec
+  }
+
 
   def waitForFinish(timeoutMs: Long): ApplicationStatus = {
     val startTimeMs = System.currentTimeMillis()
 
     while (System.currentTimeMillis() - startTimeMs < timeoutMs) {
       Option(getStatus) match {
-        case Some(s) => if (SuccessfulFinish.equals(s) || UnsuccessfulFinish.equals(s)) return s
-        case None => null
+        case Some(s) => if (SuccessfulFinish.equals(s) || UnsuccessfulFinish.equals(s))
+          client.cleanupStagingDir
+          return s
+        case None =>
       }
 
       Thread.sleep(1000)
@@ -117,8 +142,13 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
 
   def kill: YarnJob = {
     appId match {
-      case Some(appId) => client.kill(appId)
-      case None => None
+      case Some(appId) =>
+        try {
+          client.kill(appId)
+        } finally {
+          client.cleanupStagingDir
+        }
+      case None =>
     }
     this
   }

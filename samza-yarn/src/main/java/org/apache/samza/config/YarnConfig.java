@@ -35,10 +35,20 @@ public class YarnConfig extends MapConfig {
   private static final int DEFAULT_CONTAINER_MEM = 1024;
 
   /**
+   * Name of YARN queue to run jobs on
+   */
+  public static final String QUEUE_NAME = "yarn.queue";
+
+  /**
    * Number of CPU cores to request from YARN per container
    */
   public static final String CONTAINER_MAX_CPU_CORES = "yarn.container.cpu.cores";
   private static final int DEFAULT_CPU_CORES = 1;
+
+  /**
+   * Label to request from YARN for containers
+   */
+  public static final String CONTAINER_LABEL = "yarn.container.label";
 
   /**
    * Maximum number of times the AM tries to restart a failed container
@@ -71,6 +81,17 @@ public class YarnConfig extends MapConfig {
   private static final int DEFAULT_AM_CONTAINER_MAX_MEMORY_MB = 1024;
 
   /**
+   * Label to request from YARN for running the AM
+   */
+  public static final String AM_CONTAINER_LABEL = "yarn.am.container.label";
+
+  /**
+   * Number of CPU cores to request from YARN for running the AM
+   */
+  public static final String AM_CONTAINER_MAX_CPU_CORES = "yarn.am.container.cpu.cores";
+  private static final int DEFAULT_AM_CPU_CORES = 1;
+
+  /**
    * Determines the interval for the Heartbeat between the AM and the Yarn RM
    */
   public static final String AM_POLL_INTERVAL_MS = "yarn.am.poll.interval.ms";
@@ -99,6 +120,31 @@ public class YarnConfig extends MapConfig {
   public static final String HOST_AFFINITY_ENABLED = "yarn.samza.host-affinity.enabled";
   private static final boolean DEFAULT_HOST_AFFINITY_ENABLED = false;
 
+  /**
+   * Principal used to log in on a Kerberized secure cluster
+   */
+  public static final String YARN_KERBEROS_PRINCIPAL = "yarn.kerberos.principal";
+
+  /**
+   * Key tab used to log in on a Kerberized secure cluster
+   */
+  public static final String YARN_KERBEROS_KEYTAB = "yarn.kerberos.keytab";
+
+  /**
+   * Interval in seconds to renew a delegation token in Kerberized secure cluster
+   */
+  public static final String YARN_TOKEN_RENEWAL_INTERVAL_SECONDS = "yarn.token.renewal.interval.seconds";
+  private static final long DEFAULT_YARN_TOKEN_RENEWAL_INTERVAL_SECONDS = 24 * 3600;
+
+  /**
+   * The location on HDFS to store the credentials file
+   */
+  public static final String YARN_CREDENTIALS_FILE = "yarn.credentials.file";
+
+  /**
+   * The staging directory on HDFS for the job
+   */
+  public static final String YARN_JOB_STAGING_DIRECTORY = "yarn.job.staging.directory";
 
   public YarnConfig(Config config) {
     super(config);
@@ -124,6 +170,10 @@ public class YarnConfig extends MapConfig {
     return getInt(CONTAINER_MAX_CPU_CORES, DEFAULT_CPU_CORES);
   }
 
+  public String getContainerLabel() {
+    return get(CONTAINER_LABEL, null);
+  }
+
   public boolean getJmxServerEnabled() {
     return getBoolean(AM_JMX_ENABLED, true);
   }
@@ -140,10 +190,21 @@ public class YarnConfig extends MapConfig {
     return getInt(AM_CONTAINER_MAX_MEMORY_MB, DEFAULT_AM_CONTAINER_MAX_MEMORY_MB);
   }
 
+  public String getAMContainerLabel() {
+    return get(AM_CONTAINER_LABEL, null);
+  }
+
+  public int getAMContainerMaxCpuCores() {
+    return getInt(AM_CONTAINER_MAX_CPU_CORES, DEFAULT_AM_CPU_CORES);
+  }
+
   public String getAmOpts() {
     return get(AM_JVM_OPTIONS, "");
   }
 
+  public String getQueueName() {
+    return get(QUEUE_NAME, null);
+  }
 
   public String getAMJavaHome() {
     return get(AM_JAVA_HOME, null);
@@ -159,5 +220,25 @@ public class YarnConfig extends MapConfig {
 
   public boolean getHostAffinityEnabled() {
     return getBoolean(HOST_AFFINITY_ENABLED, DEFAULT_HOST_AFFINITY_ENABLED);
+  }
+
+  public String getYarnKerberosPrincipal() {
+    return get(YARN_KERBEROS_PRINCIPAL, null);
+  }
+
+  public String getYarnKerberosKeytab() {
+    return get(YARN_KERBEROS_KEYTAB, null);
+  }
+
+  public long getYarnTokenRenewalIntervalSeconds() {
+    return getLong(YARN_TOKEN_RENEWAL_INTERVAL_SECONDS, DEFAULT_YARN_TOKEN_RENEWAL_INTERVAL_SECONDS);
+  }
+
+  public String getYarnCredentialsFile() {
+    return get(YARN_CREDENTIALS_FILE, null);
+  }
+
+  public String getYarnJobStagingDirectory() {
+    return get(YARN_JOB_STAGING_DIRECTORY, null);
   }
 }

@@ -55,6 +55,12 @@ public class MockCoordinatorStreamWrappedConsumer extends BlockingEnvelopeMap {
     this.systemStreamPartition = systemStreamPartition;
   }
 
+  @Override
+  public void register(SystemStreamPartition systemStreamPartition, String offset) {
+    super.register(systemStreamPartition, offset);
+    setIsAtHead(systemStreamPartition, true);
+  }
+
   public void start() {
     convertConfigToCoordinatorMessage(config);
   }
@@ -95,7 +101,7 @@ public class MockCoordinatorStreamWrappedConsumer extends BlockingEnvelopeMap {
 
   @Override
   public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(
-    Set<SystemStreamPartition> systemStreamPartitions, long timeout)
+      Set<SystemStreamPartition> systemStreamPartitions, long timeout)
     throws InterruptedException {
 
     if (blockpollFlag) {

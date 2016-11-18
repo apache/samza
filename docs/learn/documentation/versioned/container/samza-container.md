@@ -104,12 +104,12 @@ There is one caveat in all of this: Samza currently assumes that a stream's part
 
 ### Broadcast Streams
 
-After 0.10.0, Samza supports broadcast streams. You can assign partitions from some streams to all the tasks. For example, you want all the tasks can consume partition 0 and 1 from a stream called global-stream-1, and partition 2 from a stream called global-stream-2. You now can configure:
+After 0.10.0, Samza supports broadcast streams. You can assign partitions from some streams to all the tasks, by appending the hash tag, and the partition number or the partition number range. For example, you want all the tasks can consume partition 0 and 1 from a stream called broadcast-stream-1, and partition 2 from a stream called broadcast-stream-2. You now can configure:
 
 {% highlight jproperties %}
-task.broadcast.inputs=yourSystem.broadcast-stream-1#[0-1], yourSystem.broadcast-stream-2#2 
+task.broadcast.inputs=yourSystem.broadcast-stream-1#[0-1], yourSystem.broadcast-stream-2#2
 {% endhighlight %}
 
-If you use "[]", you are specifying a range.
+If you use "[]", you are specifying a range for partitions.
 
 ## [Streams &raquo;](streams.html)

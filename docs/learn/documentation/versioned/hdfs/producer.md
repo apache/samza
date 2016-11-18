@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Isolation
+title: Writing to HDFS
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,9 +19,8 @@ title: Isolation
    limitations under the License.
 -->
 
-### Writing to HDFS from Samza
-
-The `samza-hdfs` module implements a Samza Producer to write to HDFS. The current implementation includes a ready-to-use `HdfsSystemProducer`, and two `HdfsWriter`s: One that writes messages of raw bytes to a `SequenceFile` of `BytesWritable` keys and values. The other writes UTF-8 `String`s to a `SequenceFile` with `LongWritable` keys and `Text` values.
+The `samza-hdfs` module implements a Samza Producer to write to HDFS. The current implementation includes a ready-to-use `HdfsSystemProducer`, and three `HdfsWriter`s: One that writes messages of raw bytes to a `SequenceFile` of `BytesWritable` keys and values. Another writes UTF-8 `String`s to a `SequenceFile` with `LongWritable` keys and `Text` values.
+The last one writes out Avro data files including the schema automatically reflected from the POJO objects fed to it.
 
 ### Configuring an HdfsSystemProducer
 
@@ -33,17 +32,20 @@ You might configure the system producer for use by your `StreamTasks` like this:
 systems.hdfs-clickstream.samza.factory=org.apache.samza.system.hdfs.HdfsSystemFactory
 
 # define a serializer/deserializer for the hdfs-clickstream system
+# DO NOT define (i.e. comment out) a SerDe when using the AvroDataFileHdfsWriter so it can reflect the schema
 systems.hdfs-clickstream.samza.msg.serde=some-serde-impl
 
-# consumer configs not needed for HDFS system, reader is not implemented yet 
+# consumer configs not needed for HDFS system, reader is not implemented yet
 
 # Assign a Metrics implementation via a label we defined earlier in the props file
 systems.hdfs-clickstream.streams.metrics.samza.msg.serde=some-metrics-impl
 
 # Assign the implementation class for this system's HdfsWriter
 systems.hdfs-clickstream.producer.hdfs.writer.class=org.apache.samza.system.hdfs.writer.TextSequenceFileHdfsWriter
+#systems.hdfs-clickstream.producer.hdfs.writer.class=org.apache.samza.system.hdfs.writer.AvroDataFileHdfsWriter
 
-# Set HDFS SequenceFile compression type. Only BLOCK compression is supported currently
+# Set compression type supported by chosen Writer. Only BLOCK compression is supported currently
+# AvroDataFileHdfsWriter supports snappy, bzip2, deflate or none (null, anything other than the first three)
 systems.hdfs-clickstream.producer.hdfs.compression.type=snappy
 
 # The base dir for HDFS output. The default Bucketer for SequenceFile HdfsWriters
@@ -56,10 +58,13 @@ systems.hdfs-clickstream.producer.hdfs.bucketer.class=org.apache.samza.system.hd
 # Configure the DATE_PATH the Bucketer will set to bucket output files by day for this job run.
 systems.hdfs-clickstream.producer.hdfs.bucketer.date.path.format=yyyy_MM_dd
 
-# Optionally set the max output bytes per file. A new file will be cut and output
-# continued on the next write call each time this many bytes are written.
+# Optionally set the max output bytes (records for AvroDataFileHdfsWriter) per file.
+# A new file will be cut and output continued on the next write call each time this many bytes
+# (records for AvroDataFileHdfsWriter) are written.
 systems.hdfs-clickstream.producer.hdfs.write.batch.size.bytes=134217728
+#systems.hdfs-clickstream.producer.hdfs.write.batch.size.records=10000
 ```
 
 The above configuration assumes a Metrics and Serde implemnetation has been properly configured against the `some-serde-impl` and `some-metrics-impl` labels somewhere else in the same `job.properties` file. Each of these properties has a reasonable default, so you can leave out the ones you don't need to customize for your job run.
 
+## [Security &raquo;](../operations/security.html)

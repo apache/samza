@@ -62,19 +62,38 @@ Likewise, [run-am.sh](packaging.html) sets:
 -Dsamza.container.name=samza-application-master
 {% endhighlight %}
 
-These settings are very useful if you're using a file-based appender. For example, you can use a daily rolling appender by configuring log4j.xml like this:
+These settings are very useful if you're using a file-based appender. For example, you can use a rolling appender to separate log file when it reaches certain size by configuring log4j.xml like this:
 
 {% highlight xml %}
-<appender name="RollingAppender" class="org.apache.log4j.DailyRollingFileAppender">
+<appender name="RollingAppender" class="org.apache.log4j.RollingFileAppender">
    <param name="File" value="${samza.log.dir}/${samza.container.name}.log" />
-   <param name="DatePattern" value="'.'yyyy-MM-dd" />
+   <param name="MaxFileSize" value="256MB" />
+   <param name="MaxBackupIndex" value="20" />
    <layout class="org.apache.log4j.PatternLayout">
-    <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss} %c{1} [%p] %m%n" />
+    <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} [%p] %m%n" />
    </layout>
 </appender>
 {% endhighlight %}
 
 Setting up a file-based appender is recommended as a better alternative to using standard out. Standard out log files (see below) don't roll, and can get quite large if used for logging.
+
+#### Startup logger
+When using a rolling file appender, it is common for a long-running job to exceed the max file size and count. In such cases, the beginning of the logs will be lost. Since the beginning of the logs include some of the most critical information like configuration, it is important to not lose this information. To address this issue, Samza logs this critical information to a "startup logger" in addition to the normal logger. You can write these log messages to a separate, finite file by including the following snippet in your log4j.xml: 
+
+{% highlight xml %}
+<appender name="StartupAppender" class="org.apache.log4j.RollingFileAppender">
+   <param name="File" value="${samza.log.dir}/${samza.container.name}-startup.log" />
+   <param name="MaxFileSize" value="256MB" />
+   <param name="MaxBackupIndex" value="1" />
+   <layout class="org.apache.log4j.PatternLayout">
+    <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} [%p] %m%n" />
+   </layout>
+</appender>
+<logger name="STARTUP_LOGGER" additivity="false">
+   <level value="info" />
+   <appender-ref ref="StartupAppender"/>
+</logger>
+{% endhighlight %}
 
 #### Changing log levels
 
@@ -104,7 +123,7 @@ Samza provides a StreamAppender to publish the logs into a specific system. You 
    <!-- optional -->
    <param name="StreamName" value="EpicStreamName"/>
    <layout class="org.apache.log4j.PatternLayout">
-     <param name="ConversionPattern" value="%X{containerName} %X{jobName} %X{jobId} %d{yyyy-MM-dd HH:mm:ss} %c{1} [%p] %m%n" />
+     <param name="ConversionPattern" value="%X{containerName} %X{jobName} %X{jobId} %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} [%p] %m%n" />
    </layout>
 </appender>
 {% endhighlight %}
