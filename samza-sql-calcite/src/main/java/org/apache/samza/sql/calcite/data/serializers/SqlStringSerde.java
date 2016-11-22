@@ -17,11 +17,11 @@
  * under the License.
  */
 
-package org.apache.samza.operators.impl.data.serializers;
+package org.apache.samza.sql.calcite.data.serializers;
 
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.operators.impl.data.string.StringData;
+import org.apache.samza.sql.calcite.data.string.StringData;
 
 
 public class SqlStringSerde implements Serde<StringData> {

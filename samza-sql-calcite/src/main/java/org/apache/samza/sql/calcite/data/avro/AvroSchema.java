@@ -17,14 +17,14 @@
  * under the License.
  */
 
-package org.apache.samza.operators.impl.data.avro;
+package org.apache.samza.sql.calcite.data.avro;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.avro.Schema.Field;
-import org.apache.samza.operators.api.data.Data;
-import org.apache.samza.operators.api.data.Schema;
+import org.apache.samza.sql.calcite.data.Data;
+import org.apache.samza.sql.calcite.data.Schema;
 
 
 public class AvroSchema implements Schema {

@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.operators.api.data;
+package org.apache.samza.sql.calcite.data;
 
 import java.util.Map;
 

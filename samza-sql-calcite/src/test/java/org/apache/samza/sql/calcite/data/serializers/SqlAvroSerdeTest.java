@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.impl.data.serializers;
+package org.apache.samza.sql.calcite.data.serializers;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -27,7 +27,7 @@ import org.apache.avro.io.DatumWriter;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.operators.impl.data.avro.AvroData;
+import org.apache.samza.sql.calcite.data.avro.AvroData;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -55,10 +55,10 @@ public class SqlAvroSerdeTest {
   public void testSqlAvroSerdeDeserialization() throws IOException {
     AvroData decodedDatum = (AvroData)serde.fromBytes(encodeMessage(sampleOrderRecord(), orderSchema));
 
-    Assert.assertTrue(decodedDatum.schema().getType() == org.apache.samza.operators.api.data.Schema.Type.STRUCT);
-    Assert.assertTrue(decodedDatum.getFieldData("id").schema().getType() == org.apache.samza.operators.api.data.Schema.Type.INTEGER);
-    Assert.assertTrue(decodedDatum.getFieldData("quantity").schema().getType() == org.apache.samza.operators.api.data.Schema.Type.INTEGER);
-    Assert.assertTrue(decodedDatum.getFieldData("product").schema().getType() == org.apache.samza.operators.api.data.Schema.Type.STRING);
+    Assert.assertTrue(decodedDatum.schema().getType() == org.apache.samza.sql.calcite.data.Schema.Type.STRUCT);
+    Assert.assertTrue(decodedDatum.getFieldData("id").schema().getType() == org.apache.samza.sql.calcite.data.Schema.Type.INTEGER);
+    Assert.assertTrue(decodedDatum.getFieldData("quantity").schema().getType() == org.apache.samza.sql.calcite.data.Schema.Type.INTEGER);
+    Assert.assertTrue(decodedDatum.getFieldData("product").schema().getType() == org.apache.samza.sql.calcite.data.Schema.Type.STRING);
   }
 
   @Test
@@ -69,10 +69,10 @@ public class SqlAvroSerdeTest {
 
     AvroData decodedDatum = (AvroData)serde.fromBytes(encodedDatum);
 
-    Assert.assertTrue(decodedDatum.schema().getType() == org.apache.samza.operators.api.data.Schema.Type.STRUCT);
-    Assert.assertTrue(decodedDatum.getFieldData("id").schema().getType() == org.apache.samza.operators.api.data.Schema.Type.INTEGER);
-    Assert.assertTrue(decodedDatum.getFieldData("quantity").schema().getType() == org.apache.samza.operators.api.data.Schema.Type.INTEGER);
-    Assert.assertTrue(decodedDatum.getFieldData("product").schema().getType() == org.apache.samza.operators.api.data.Schema.Type.STRING);
+    Assert.assertTrue(decodedDatum.schema().getType() == org.apache.samza.sql.calcite.data.Schema.Type.STRUCT);
+    Assert.assertTrue(decodedDatum.getFieldData("id").schema().getType() == org.apache.samza.sql.calcite.data.Schema.Type.INTEGER);
+    Assert.assertTrue(decodedDatum.getFieldData("quantity").schema().getType() == org.apache.samza.sql.calcite.data.Schema.Type.INTEGER);
+    Assert.assertTrue(decodedDatum.getFieldData("product").schema().getType() == org.apache.samza.sql.calcite.data.Schema.Type.STRING);
   }
 
   private static Config sqlAvroSerdeTestConfig(){

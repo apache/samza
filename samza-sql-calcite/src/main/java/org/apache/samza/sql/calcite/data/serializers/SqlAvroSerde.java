@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.impl.data.serializers;
+package org.apache.samza.sql.calcite.data.serializers;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
@@ -27,8 +27,8 @@ import org.apache.avro.io.Encoder;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.samza.SamzaException;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.operators.impl.data.avro.AvroData;
-import org.apache.samza.operators.impl.data.avro.AvroSchema;
+import org.apache.samza.sql.calcite.data.avro.AvroData;
+import org.apache.samza.sql.calcite.data.avro.AvroSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
