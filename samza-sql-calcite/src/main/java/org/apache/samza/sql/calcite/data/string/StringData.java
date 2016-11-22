@@ -17,10 +17,10 @@
  * under the License.
  */
 
-package org.apache.samza.operators.impl.data.string;
+package org.apache.samza.sql.calcite.data.string;
 
-import org.apache.samza.operators.api.data.Data;
-import org.apache.samza.operators.api.data.Schema;
+import org.apache.samza.sql.calcite.data.Data;
+import org.apache.samza.sql.calcite.data.Schema;
 
 import java.util.List;
 import java.util.Map;

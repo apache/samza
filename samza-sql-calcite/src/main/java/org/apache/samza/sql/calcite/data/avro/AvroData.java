@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.operators.impl.data.avro;
+package org.apache.samza.sql.calcite.data.avro;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -25,8 +25,8 @@ import java.util.Map;
 
 import org.apache.avro.generic.GenericArray;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.samza.operators.api.data.Data;
-import org.apache.samza.operators.api.data.Schema;
+import org.apache.samza.sql.calcite.data.Data;
+import org.apache.samza.sql.calcite.data.Schema;
 
 
 public class AvroData implements Data {

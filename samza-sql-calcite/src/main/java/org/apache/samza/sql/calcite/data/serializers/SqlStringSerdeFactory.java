@@ -17,41 +17,17 @@
  * under the License.
  */
 
-package org.apache.samza.operators.api.data;
-
-import java.util.List;
-import java.util.Map;
+package org.apache.samza.sql.calcite.data.serializers;
 
 
-/**
- * A generic data interface that allows to implement data access / deserialization w/ {@link Schema}
- */
-public interface Data {
+import org.apache.samza.config.Config;
+import org.apache.samza.serializers.Serde;
+import org.apache.samza.serializers.SerdeFactory;
+import org.apache.samza.sql.calcite.data.string.StringData;
 
-  Schema schema();
-
-  Object value();
-
-  int intValue();
-
-  long longValue();
-
-  float floatValue();
-
-  double doubleValue();
-
-  boolean booleanValue();
-
-  String strValue();
-
-  byte[] bytesValue();
-
-  List<Object> arrayValue();
-
-  Map<Object, Object> mapValue();
-
-  Data getElement(int index);
-
-  Data getFieldData(String fldName);
-
+public class SqlStringSerdeFactory implements SerdeFactory<StringData> {
+    @Override
+    public Serde<StringData> getSerde(String name, Config config) {
+        return new SqlStringSerde(config.get("encoding", "UTF-8"));
+    }
 }

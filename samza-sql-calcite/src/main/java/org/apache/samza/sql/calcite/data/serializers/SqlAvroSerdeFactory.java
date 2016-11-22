@@ -16,14 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.impl.data.serializers;
+package org.apache.samza.sql.calcite.data.serializers;
 
 import org.apache.avro.Schema;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
-import org.apache.samza.operators.impl.data.avro.AvroData;
+import org.apache.samza.sql.calcite.data.avro.AvroData;
 
 public class SqlAvroSerdeFactory implements SerdeFactory<AvroData> {
   public static final String PROP_AVRO_SCHEMA = "serializers.%s.schema";

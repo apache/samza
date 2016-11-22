@@ -19,11 +19,10 @@
 
 package org.apache.samza.task;
 
-import org.apache.avro.generic.GenericRecord;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreams.SystemMessageStream;
-import org.apache.samza.operators.Windows;
 import org.apache.samza.operators.TriggerBuilder;
+import org.apache.samza.operators.Windows;
 import org.apache.samza.operators.data.IncomingSystemMessage;
 import org.apache.samza.operators.data.Offset;
 import org.apache.samza.operators.task.StreamOperatorTask;
@@ -82,16 +81,7 @@ public class BroadcastOperatorTask implements StreamOperatorTask {
   }
 
   JsonMessage getInputMessage(IncomingSystemMessage m1) {
-    return new JsonMessage(
-        m1.getKey().toString(),
-        (MessageType) m1.getMessage(),
-        m1.getOffset(),
-        this.getEventTime((GenericRecord)m1.getMessage()),
-        m1.getSystemStreamPartition());
-  }
-
-  long getEventTime(GenericRecord msg) {
-    return (Long) msg.get("event_time");
+    return (JsonMessage) m1.getMessage();
   }
 
   boolean myFilter1(JsonMessage m1) {
