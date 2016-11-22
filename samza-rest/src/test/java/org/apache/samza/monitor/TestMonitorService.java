@@ -56,7 +56,7 @@ public class TestMonitorService {
                                                         DummyMonitorFactory.class.getCanonicalName());
         Monitor monitor = null;
         try {
-            monitor = MonitorLoader.instantiateMonitor(new MonitorConfig(new MapConfig(configMap)),
+            monitor = MonitorLoader.instantiateMonitor("testMonitor", new MonitorConfig(new MapConfig(configMap)),
                                                        METRICS_REGISTRY);
         } catch (InstantiationException e) {
             fail();

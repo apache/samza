@@ -27,7 +27,7 @@ import org.apache.samza.monitor.MonitorFactory;
 public class DummyMonitorFactory implements MonitorFactory {
 
   @Override
-  public Monitor getMonitorInstance(MonitorConfig config, MetricsRegistry metricsRegistry)
+  public Monitor getMonitorInstance(String monitorName, MonitorConfig config, MetricsRegistry metricsRegistry)
       throws Exception {
     return new DummyMonitor();
   }

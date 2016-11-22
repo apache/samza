@@ -20,22 +20,14 @@
 package org.apache.samza.job.yarn
 
 import org.apache.samza.clustermanager.SamzaApplicationState
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.metrics.JvmMetrics
 import org.apache.samza.config.Config
-import org.apache.samza.task.TaskContext
-import org.apache.samza.Partition
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.MetricsConfig.Config2Metrics
-import org.apache.samza.metrics.MetricsReporterFactory
-import org.apache.samza.util.Util
-import org.apache.samza.metrics.ReadableMetricsRegistry
 import org.apache.samza.util.Logging
-import org.apache.samza.SamzaException
-import java.util.Timer
-import java.util.TimerTask
+import org.apache.samza.util.MetricsReporterLoader
+import org.apache.samza.metrics.ReadableMetricsRegistry
 import org.apache.samza.metrics.MetricsHelper
+
+import scala.collection.JavaConverters._
 
 object SamzaAppMasterMetrics {
   val sourceName = "ApplicationMaster"
@@ -51,19 +43,8 @@ class SamzaAppMasterMetrics(
                              val state: SamzaApplicationState,
                              val registry: ReadableMetricsRegistry) extends MetricsHelper with Logging {
 
-  val reporters = config.getMetricReporterNames.map(reporterName => {
-    val metricsFactoryClassName = config
-      .getMetricsFactoryClass(reporterName)
-      .getOrElse(throw new SamzaException("Metrics reporter %s missing .class config" format reporterName))
-
-    val reporter =
-      Util
-        .getObj[MetricsReporterFactory](metricsFactoryClassName)
-        .getMetricsReporter(reporterName, SamzaAppMasterMetrics.sourceName, config)
-
-    reporter.register(SamzaAppMasterMetrics.sourceName, registry)
-    (reporterName, reporter)
-  }).toMap
+  val reporters = MetricsReporterLoader.getMetricsReporters(config, SamzaAppMasterMetrics.sourceName).asScala
+  reporters.values.foreach(_.register(SamzaAppMasterMetrics.sourceName, registry))
 
   def start() {
     val mRunningContainers = newGauge("running-containers", () => state.runningContainers.size)

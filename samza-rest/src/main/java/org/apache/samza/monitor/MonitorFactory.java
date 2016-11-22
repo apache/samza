@@ -25,13 +25,6 @@ import org.apache.samza.metrics.MetricsRegistry;
  */
 public interface MonitorFactory {
 
-  /**
-   * @param config contains the configuration defined for the monitor.
-   * @param metricsRegistry instance that will allow the monitor
-   *                        implementations to register custom metrics
-   * @return Constructs and returns the monitor instance.
-   * @throws Exception if there was any problem with instantiating the monitor.
-   */
-  Monitor getMonitorInstance(MonitorConfig config, MetricsRegistry metricsRegistry)
+  Monitor getMonitorInstance(String monitorName, MonitorConfig config, MetricsRegistry metricsRegistry)
     throws Exception;
 }

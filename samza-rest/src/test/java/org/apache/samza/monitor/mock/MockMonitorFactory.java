@@ -30,7 +30,7 @@ public class MockMonitorFactory implements MonitorFactory {
   public static final Monitor MOCK_MONITOR = Mockito.mock(Monitor.class);
 
   @Override
-  public Monitor getMonitorInstance(MonitorConfig config, MetricsRegistry metricsRegistry)
+  public Monitor getMonitorInstance(String monitorName, MonitorConfig config, MetricsRegistry metricsRegistry)
       throws Exception {
     Mockito.reset(MOCK_MONITOR);
     return MOCK_MONITOR;

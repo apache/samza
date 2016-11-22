@@ -18,12 +18,18 @@
  */
 package org.apache.samza.rest;
 
+import java.util.Map;
 import joptsimple.OptionSet;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.MetricsConfig;
+import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.metrics.ReadableMetricsRegistry;
 import org.apache.samza.monitor.SamzaMonitorService;
 import org.apache.samza.monitor.ScheduledExecutorSchedulingProvider;
 import org.apache.samza.util.CommandLine;
-import org.apache.samza.util.NoOpMetricsRegistry;
+import org.apache.samza.util.MetricsReporterLoader;
+import org.apache.samza.util.Util;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -49,17 +55,22 @@ import java.util.concurrent.ScheduledExecutorService;
 public class SamzaRestService {
 
   private static final Logger log = LoggerFactory.getLogger(SamzaRestService.class);
+  private static final String METRICS_SOURCE = "SamzaRest";
 
   private final Server server;
   private final ServletContextHandler context;
+  private final ReadableMetricsRegistry metricsRegistry;
+  private final Map<String, MetricsReporter> metricsReporters;
 
-
-  public SamzaRestService(SamzaRestConfig config) {
-    log.info("Creating new SamzaRestService with config: {}", config);
-    server = new Server(config.getPort());
-
-    context = new ServletContextHandler(ServletContextHandler.SESSIONS);
-    context.setContextPath("/");
+  public SamzaRestService(Server server,
+                          ReadableMetricsRegistry metricsRegistry,
+                          Map<String, MetricsReporter> metricsReporters,
+                          ServletContextHandler context) {
+    this.server = server;
+    this.metricsRegistry = metricsRegistry;
+    this.metricsReporters = metricsReporters;
+    this.context = context;
+    this.context.setContextPath("/");
     server.setHandler(context);
   }
 
@@ -74,7 +85,12 @@ public class SamzaRestService {
       throws Exception {
     try {
       SamzaRestConfig config = parseConfig(args);
-      SamzaRestService restService = new SamzaRestService(config);
+      ReadableMetricsRegistry metricsRegistry = new MetricsRegistryMap();
+      log.info("Creating new SamzaRestService with config: {}", config);
+      MetricsConfig metricsConfig = new MetricsConfig(config);
+      Map<String, MetricsReporter> metricsReporters = MetricsReporterLoader.getMetricsReporters(metricsConfig, Util.getLocalHost().getHostName());
+      SamzaRestService restService = new SamzaRestService(new Server(config.getPort()), metricsRegistry, metricsReporters,
+                                                          new ServletContextHandler(ServletContextHandler.SESSIONS));
 
       // Add applications
       SamzaRestApplication samzaRestApplication = new SamzaRestApplication(config);
@@ -85,7 +101,7 @@ public class SamzaRestService {
       ScheduledExecutorService schedulingService = Executors.newScheduledThreadPool(1);
       ScheduledExecutorSchedulingProvider schedulingProvider = new ScheduledExecutorSchedulingProvider(schedulingService);
       SamzaMonitorService monitorService = new SamzaMonitorService(config,
-                                                                   new NoOpMetricsRegistry(),
+                                                                   metricsRegistry,
                                                                    schedulingProvider);
       monitorService.start();
 
@@ -143,6 +159,12 @@ public class SamzaRestService {
    */
   public void start()
       throws Exception {
+    metricsReporters.forEach((reporterName, metricsReporter) -> {
+      log.info("Registering the metrics reporter : {},  with source :  {}.", reporterName, METRICS_SOURCE);
+      metricsReporter.register(METRICS_SOURCE, metricsRegistry);
+      log.info("Starting the metrics reporter : {}.", reporterName);
+      metricsReporter.start();
+    });
     log.info("Starting server on port {}", server.getConnectors()[0].getPort());
     server.start();
     log.info("Server is running");
@@ -155,6 +177,10 @@ public class SamzaRestService {
    */
   public void stop()
       throws Exception {
+    metricsReporters.forEach((reporterName, metricsReporter)  -> {
+      log.info("Stopping the metrics reporter : {}.", reporterName);
+      metricsReporter.stop();
+    });
     log.info("Stopping server");
     server.stop();
     log.info("Server is stopped");

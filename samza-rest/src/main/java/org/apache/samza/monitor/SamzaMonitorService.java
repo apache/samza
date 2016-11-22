@@ -65,7 +65,8 @@ public class SamzaMonitorService {
                     LOGGER.info("Scheduling monitor {} to run every {} ms", monitorName, schedulingIntervalInMs);
                     // MetricsRegistry has been added in the Monitor interface, since it's required in the eventual future to record metrics.
                     // We have plans to record metrics, hence adding this as a placeholder. We just aren't doing it yet.
-                    scheduler.schedule(getRunnable(instantiateMonitor(monitorConfig, metricsRegistry)), schedulingIntervalInMs);
+                    scheduler.schedule(getRunnable(instantiateMonitor(monitorName, monitorConfig, metricsRegistry)),
+                                                   schedulingIntervalInMs);
                 } else {
                   // When MonitorFactoryClass is not defined in the config, ignore the monitor config
                   LOGGER.warn("Not scheduling the monitor: {} to run, since monitor factory class is not set in config.", monitorName);

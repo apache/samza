@@ -92,5 +92,7 @@ Set the config key `monitor.monitorName.scheduling.interval.ms` to the schedulin
 The configuration key `monitor.monitorName.scheduling.interval.ms` defines the periodic scheduling interval of
 the `monitor()` method in milli seconds.
 
+## Reporting metrics from Monitors
+Samza REST service allows the users to create and report metrics from their monitors. Reporting metrics to a metrics system is encapsulated by the metrics reporter, which should be defined in the samza-rest configuration file. Configurations for metrics reporters in Samza REST service are the same as [that of Samza Jobs](../container/metrics.md).
 
 ## [Resource Reference &raquo;](resource-directory.html)

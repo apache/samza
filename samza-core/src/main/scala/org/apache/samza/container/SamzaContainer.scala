@@ -50,7 +50,6 @@ import org.apache.samza.metrics.JmxServer
 import org.apache.samza.metrics.JvmMetrics
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsReporter
-import org.apache.samza.metrics.MetricsReporterFactory
 import org.apache.samza.serializers.SerdeFactory
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.serializers.model.SamzaObjectMapper
@@ -73,7 +72,11 @@ import org.apache.samza.task.AsyncStreamTaskAdapter
 import org.apache.samza.task.StreamTask
 import org.apache.samza.task.TaskInstanceCollector
 import org.apache.samza.util.HighResolutionClock
-import org.apache.samza.util.{ExponentialSleepStrategy, Logging, Throttleable, Util}
+import org.apache.samza.util.ExponentialSleepStrategy
+import org.apache.samza.util.Logging
+import org.apache.samza.util.Throttleable
+import org.apache.samza.util.MetricsReporterLoader
+import org.apache.samza.util.Util
 import org.apache.samza.util.Util.asScalaClock
 
 import scala.collection.JavaConversions._
@@ -333,17 +336,7 @@ object SamzaContainer extends Logging {
 
     info("Setting up metrics reporters.")
 
-    val reporters = config.getMetricReporterNames.map(reporterName => {
-      val metricsFactoryClassName = config
-        .getMetricsFactoryClass(reporterName)
-        .getOrElse(throw new SamzaException("Metrics reporter %s missing .class config" format reporterName))
-
-      val reporter =
-        Util
-          .getObj[MetricsReporterFactory](metricsFactoryClassName)
-          .getMetricsReporter(reporterName, containerName, config)
-      (reporterName, reporter)
-    }).toMap
+    val reporters = MetricsReporterLoader.getMetricsReporters(config, containerName).toMap
 
     info("Got metrics reporters: %s" format reporters.keys)
 

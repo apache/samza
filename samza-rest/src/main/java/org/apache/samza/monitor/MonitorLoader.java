@@ -21,22 +21,17 @@ package org.apache.samza.monitor;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.util.ClassLoaderHelper;
 
-
+/**
+ * Helper class that instantiates the Monitor.
+ */
 public class MonitorLoader {
 
-  /**
-   *
-   * @param monitorConfig contains the configuration defined for a particular monitor.
-   * @param metricsRegistry instance that will be used to register custom metrics.
-   * @return the instantiated monitor object.
-   * @throws InstantiationException when there is a exception instantiating the monitor.
-   */
-  public static Monitor instantiateMonitor(MonitorConfig monitorConfig, MetricsRegistry metricsRegistry)
+  public static Monitor instantiateMonitor(String monitorName, MonitorConfig monitorConfig, MetricsRegistry metricsRegistry)
       throws InstantiationException {
       String factoryClass = monitorConfig.getMonitorFactoryClass();
       try {
         MonitorFactory monitorFactory = ClassLoaderHelper.fromClassName(factoryClass);
-        return monitorFactory.getMonitorInstance(monitorConfig, metricsRegistry);
+        return monitorFactory.getMonitorInstance(monitorName, monitorConfig, metricsRegistry);
       } catch (Exception e) {
         throw (InstantiationException)
             new InstantiationException("Unable to instantiate monitor with factory class " + factoryClass).initCause(e);

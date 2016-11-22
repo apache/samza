@@ -19,11 +19,13 @@
 
 package org.apache.samza.metrics
 
-import org.apache.samza.SamzaException
 import org.apache.samza.clustermanager.SamzaApplicationState
 import org.apache.samza.config.Config
 import org.apache.samza.config.MetricsConfig.Config2Metrics
-import org.apache.samza.util.{Logging, Util}
+import org.apache.samza.util.Logging
+import org.apache.samza.util.MetricsReporterLoader
+
+import scala.collection.JavaConverters._
 
 object ContainerProcessManagerMetrics {
   val sourceName = "ApplicationMaster"
@@ -40,19 +42,8 @@ class ContainerProcessManagerMetrics(
                                       val registry: ReadableMetricsRegistry) extends MetricsHelper  with Logging {
 
   val jvm = new JvmMetrics(registry)
-  val reporters = config.getMetricReporterNames.map(reporterName => {
-    val metricsFactoryClassName = config
-      .getMetricsFactoryClass(reporterName)
-      .getOrElse(throw new SamzaException("Metrics reporter %s missing .class config" format reporterName))
-
-    val reporter =
-      Util
-        .getObj[MetricsReporterFactory](metricsFactoryClassName)
-        .getMetricsReporter(reporterName, ContainerProcessManagerMetrics.sourceName, config)
-
-    reporter.register(ContainerProcessManagerMetrics.sourceName, registry)
-    (reporterName, reporter)
-  }).toMap
+  val reporters = MetricsReporterLoader.getMetricsReporters(config, ContainerProcessManagerMetrics.sourceName).asScala
+  reporters.values.foreach(_.register(ContainerProcessManagerMetrics.sourceName, registry))
 
    def start() {
     val mRunningContainers = newGauge("running-containers", () => state.runningContainers.size)
