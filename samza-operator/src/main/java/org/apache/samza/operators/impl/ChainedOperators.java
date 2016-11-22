@@ -19,6 +19,7 @@
 
 package org.apache.samza.operators.impl;
 
+import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.data.Message;
 import org.apache.samza.operators.internal.Operators.Operator;
@@ -28,7 +29,6 @@ import org.apache.samza.task.TaskCoordinator;
 
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Map.Entry;
 import java.util.Set;
 
 

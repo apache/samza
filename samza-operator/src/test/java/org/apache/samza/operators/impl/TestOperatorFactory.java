@@ -22,25 +22,23 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.TestMessage;
 import org.apache.samza.operators.TestOutputMessage;
 import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.impl.join.PartialJoinOpImpl;
+import org.apache.samza.operators.impl.window.SessionWindowImpl;
 import org.apache.samza.operators.internal.Operators.PartialJoinOperator;
 import org.apache.samza.operators.internal.Operators.SinkOperator;
 import org.apache.samza.operators.internal.Operators.StreamOperator;
 import org.apache.samza.operators.internal.Operators.WindowOperator;
-import org.apache.samza.operators.impl.join.PartialJoinOpImpl;
-import org.apache.samza.operators.impl.window.SessionWindowImpl;
+import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
 
 import java.lang.reflect.Field;
 import java.util.Collection;
-import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -50,7 +48,7 @@ public class TestOperatorFactory {
   @Test public void testGetOperator() throws NoSuchFieldException, IllegalAccessException {
     // get window operator
     WindowOperator mockWnd = mock(WindowOperator.class);
-    Map.Entry<OperatorImpl<TestMessage, ? extends Message>, Boolean>
+    Entry<OperatorImpl<TestMessage, ? extends Message>, Boolean>
         factoryEntry = OperatorFactory.<TestMessage, TestOutputMessage>getOperator(mockWnd);
     assertFalse(factoryEntry.getValue());
     OperatorImpl<TestMessage, TestOutputMessage> opImpl = (OperatorImpl<TestMessage, TestOutputMessage>) factoryEntry.getKey();

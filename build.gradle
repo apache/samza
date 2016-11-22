@@ -379,8 +379,7 @@ project(":samza-operator") {
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
-    compile "commons-collections:commons-collections:$commonsCollectionVersion"
-    compile "org.apache.commons:commons-lang3:$commonsLang3Version"
+    // TODO: remove this dependency after refactoring operator implementation classes
     compile "org.reactivestreams:reactive-streams:$reactiveStreamVersion"
 
     testCompile project(":samza-api").sourceSets.test.output

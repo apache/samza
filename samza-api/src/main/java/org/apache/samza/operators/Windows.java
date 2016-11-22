@@ -143,6 +143,7 @@ public final class Windows {
    * @param <WV>  the type of output value in the {@link WindowOutput}
    * @param <WM>  the type of message in the window output stream
    */
+  @InterfaceStability.Unstable
   public interface Window<M extends Message, WK, WV, WM extends WindowOutput<WK, WV>> {
 
     /**

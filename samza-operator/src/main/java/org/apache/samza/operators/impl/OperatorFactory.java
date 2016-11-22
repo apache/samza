@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.commons.collections.keyvalue.AbstractMapEntry;
+import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.operators.WindowState;
 import org.apache.samza.operators.data.Message;
 import org.apache.samza.operators.internal.Operators.*;
@@ -28,7 +28,6 @@ import org.apache.samza.operators.impl.window.SessionWindowImpl;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.Map.Entry;
 
 
 /**
@@ -77,10 +76,10 @@ public class OperatorFactory {
     if (!OPERATOR_MAP.containsKey(operator)) {
       OperatorImpl<M, ? extends Message> operatorImpl = OperatorFactory.createOperator(operator);
       if (OPERATOR_MAP.putIfAbsent(operator, operatorImpl) == null) {
-        return new AbstractMapEntry(operatorImpl, false) { };
+        return new Entry<OperatorImpl<M, ? extends Message>, Boolean>(operatorImpl, false) { };
       }
     }
-    return new AbstractMapEntry((OperatorImpl<M, ? extends Message>) OPERATOR_MAP.get(operator), true) { };
+    return new Entry<OperatorImpl<M, ? extends Message>, Boolean>((OperatorImpl<M, ? extends Message>) OPERATOR_MAP.get(operator), true) { };
   }
 
 }
