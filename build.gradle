@@ -71,6 +71,7 @@ rat {
     '**/non-responsive.less',
     '**/ropa-sans.css',
     '**/syntax.css',
+    '.idea/**',
     '.reviewboardrc',
     'docs/_site/**',
     'docs/sitemap.xml',
@@ -125,7 +126,6 @@ project(':samza-api') {
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
   }
-
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
     toolVersion = "$checkstyleVersion"
@@ -368,6 +368,29 @@ project(":samza-yarn_$scalaVersion") {
   }
 
   jar.dependsOn("lesscss")
+}
+
+project(":samza-operator") {
+  apply plugin: 'java'
+  apply plugin: 'checkstyle'
+    
+  sourceCompatibility = 1.8
+    
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaVersion")
+    // TODO: remove this dependency after refactoring operator implementation classes
+    compile "org.reactivestreams:reactive-streams:$reactiveStreamVersion"
+
+    testCompile project(":samza-api").sourceSets.test.output
+    testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-all:$mockitoVersion"
+  }
+  
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
+  }
 }
 
 project(":samza-shell") {
