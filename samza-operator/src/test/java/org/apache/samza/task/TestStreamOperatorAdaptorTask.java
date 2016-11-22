@@ -63,10 +63,10 @@ public class TestStreamOperatorAdaptorTask {
     StreamOperatorAdaptorTask adaptorTask = new StreamOperatorAdaptorTask(userTask);
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
-    Set<SystemStreamPartition> testInputs = new HashSet() {{
-      this.add(new SystemStreamPartition("test-sys", "test-strm", new Partition(0)));
-      this.add(new SystemStreamPartition("test-sys", "test-strm", new Partition(1)));
-    }};
+    Set<SystemStreamPartition> testInputs = new HashSet() { {
+        this.add(new SystemStreamPartition("test-sys", "test-strm", new Partition(0)));
+        this.add(new SystemStreamPartition("test-sys", "test-strm", new Partition(1)));
+      } };
     when(mockContext.getSystemStreamPartitions()).thenReturn(testInputs);
     adaptorTask.init(mockConfig, mockContext);
     verify(userTask, times(1)).initOperators(Mockito.anyCollection());

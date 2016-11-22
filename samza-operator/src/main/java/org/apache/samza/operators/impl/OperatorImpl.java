@@ -69,7 +69,7 @@ public abstract class OperatorImpl<M extends Message, RM extends Message>
    * @param coordinator  the {@link TaskCoordinator} in the context
    */
   public void onTimer(long nanoTime, MessageCollector collector, TaskCoordinator coordinator) {
-    this.subscribers.forEach(sub -> ((OperatorImpl)sub).onTimer(nanoTime, collector, coordinator));
+    this.subscribers.forEach(sub -> ((OperatorImpl) sub).onTimer(nanoTime, collector, coordinator));
   }
 
   /**

@@ -50,10 +50,10 @@ public class ChainedOperators<M extends Message> {
   private ChainedOperators(MessageStream<M> source, TaskContext context) {
     // create the pipeline/topology starting from source
     source.getSubscribers().forEach(sub -> {
-      // pass in the context s.t. stateful stream operators can initialize their stores
-      OperatorImpl subImpl = this.createAndSubscribe(sub, source, context);
-      this.subscribers.add(subImpl);
-    });
+        // pass in the context s.t. stateful stream operators can initialize their stores
+        OperatorImpl subImpl = this.createAndSubscribe(sub, source, context);
+        this.subscribers.add(subImpl);
+      });
   }
 
   /**
@@ -75,9 +75,9 @@ public class ChainedOperators<M extends Message> {
     MessageStream outStream = operator.getOutputStream();
     Collection<Operator> subs = outStream.getSubscribers();
     subs.forEach(sub -> {
-      OperatorImpl subImpl = this.createAndSubscribe(sub, operator.getOutputStream(), context);
-      opImpl.subscribe(subImpl);
-    });
+        OperatorImpl subImpl = this.createAndSubscribe(sub, operator.getOutputStream(), context);
+        opImpl.subscribe(subImpl);
+      });
     // initialize the operator's state store
     opImpl.init(source, context);
     return opImpl;

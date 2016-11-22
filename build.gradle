@@ -372,6 +372,7 @@ project(":samza-yarn_$scalaVersion") {
 
 project(":samza-operator") {
   apply plugin: 'java'
+  apply plugin: 'checkstyle'
     
   sourceCompatibility = 1.8
     
@@ -385,6 +386,11 @@ project(":samza-operator") {
     testCompile project(":samza-api").sourceSets.test.output
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
+  }
+  
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
   }
 }
 

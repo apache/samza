@@ -42,9 +42,9 @@ public class TestSimpleOperatorImpl {
     SimpleOperatorImpl<TestMessage, TestOutputMessage> opImpl = spy(new SimpleOperatorImpl<>(mockOp));
     TestMessage inMsg = mock(TestMessage.class);
     TestOutputMessage outMsg = mock(TestOutputMessage.class);
-    Collection<TestOutputMessage> mockOutputs = new ArrayList() {{
-      this.add(outMsg);
-    }};
+    Collection<TestOutputMessage> mockOutputs = new ArrayList() { {
+        this.add(outMsg);
+      } };
     when(txfmFn.apply(inMsg)).thenReturn(mockOutputs);
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);

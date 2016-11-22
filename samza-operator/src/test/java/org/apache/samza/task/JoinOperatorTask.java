@@ -52,18 +52,18 @@ public class JoinOperatorTask implements StreamOperatorTask {
 
   @Override public void initOperators(Collection<SystemMessageStream> sources) {
     sources.forEach(source -> {
-      MessageStream<JsonMessage> newSource = source.map(this::getInputMessage);
-      if (joinOutput == null) {
-        joinOutput = newSource;
-      } else {
-        joinOutput = joinOutput.join(newSource, (m1, m2) -> this.myJoinResult(m1, m2));
-      }
-    });
+        MessageStream<JsonMessage> newSource = source.map(this::getInputMessage);
+        if (joinOutput == null) {
+          joinOutput = newSource;
+        } else {
+          joinOutput = joinOutput.join(newSource, (m1, m2) -> this.myJoinResult(m1, m2));
+        }
+      });
   }
 
   private JsonMessage getInputMessage(IncomingSystemMessage ism) {
     return new JsonMessage(
-        ((MessageType)ism.getMessage()).joinKey,
+        ((MessageType) ism.getMessage()).joinKey,
         (MessageType) ism.getMessage(),
         ism.getOffset(),
         ism.getTimestamp(),

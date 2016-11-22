@@ -76,7 +76,7 @@ public class TestChainedOperators {
     // test creation of broadcast chain
     MessageStream<TestMessage> testInput = new MessageStream<>();
     TaskContext mockContext = mock(TaskContext.class);
-    testInput.filter(m -> m.getTimestamp() > 123456L).flatMap(m -> new ArrayList() {{ this.add(m); this.add(m); }});
+    testInput.filter(m -> m.getTimestamp() > 123456L).flatMap(m -> new ArrayList() { { this.add(m); this.add(m); } });
     testInput.filter(m -> m.getTimestamp() < 123456L).map(m -> m);
     ChainedOperators<TestMessage> operatorChain = ChainedOperators.create(testInput, mockContext);
     Set<OperatorImpl> subsSet = (Set<OperatorImpl>) subsField.get(operatorChain);

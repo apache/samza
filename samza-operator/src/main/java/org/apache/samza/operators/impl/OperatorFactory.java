@@ -39,7 +39,7 @@ public class OperatorFactory {
   /**
    * the static operatorMap that includes all operator implementation instances
    */
-  private static final Map<Operator, OperatorImpl<? extends Message, ? extends Message>> operatorMap = new ConcurrentHashMap<>();
+  private static final Map<Operator, OperatorImpl<? extends Message, ? extends Message>> OPERATOR_MAP = new ConcurrentHashMap<>();
 
   /**
    * The method to actually create the implementation instances of operators
@@ -74,13 +74,13 @@ public class OperatorFactory {
    *          was not created.
    */
   public static <M extends Message, RM extends Message> Entry<OperatorImpl<M, ? extends Message>, Boolean> getOperator(Operator<RM> operator) {
-    if (!operatorMap.containsKey(operator)) {
+    if (!OPERATOR_MAP.containsKey(operator)) {
       OperatorImpl<M, ? extends Message> operatorImpl = OperatorFactory.createOperator(operator);
-      if( operatorMap.putIfAbsent(operator, operatorImpl) == null ) {
-        return new AbstractMapEntry(operatorImpl, false) {};
+      if (OPERATOR_MAP.putIfAbsent(operator, operatorImpl) == null) {
+        return new AbstractMapEntry(operatorImpl, false) { };
       }
     }
-    return new AbstractMapEntry((OperatorImpl<M, ? extends Message>) operatorMap.get(operator), true) {};
+    return new AbstractMapEntry((OperatorImpl<M, ? extends Message>) OPERATOR_MAP.get(operator), true) { };
   }
 
 }

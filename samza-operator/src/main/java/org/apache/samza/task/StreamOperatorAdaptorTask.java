@@ -19,7 +19,6 @@
 package org.apache.samza.task;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreams;
 import org.apache.samza.operators.MessageStreams.SystemMessageStream;
 import org.apache.samza.operators.data.IncomingSystemMessage;
@@ -33,7 +32,7 @@ import java.util.Map;
 
 
 /**
- * An adaptor task class that invoke the user-implemented (@link StreamOperatorTask}s via {@link MessageStream} programming APIs
+ * An adaptor task class that invoke the user-implemented (@link StreamOperatorTask}s via {@link org.apache.samza.operators.MessageStream} programming APIs
  *
  */
 public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask, WindowableTask {
@@ -64,9 +63,9 @@ public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask
     }
     Map<SystemStreamPartition, SystemMessageStream> sources = new HashMap<>();
     context.getSystemStreamPartitions().forEach(ssp -> {
-      SystemMessageStream ds = MessageStreams.input(ssp);
-      sources.put(ssp, ds);
-    });
+        SystemMessageStream ds = MessageStreams.input(ssp);
+        sources.put(ssp, ds);
+      });
     this.userTask.initOperators(sources.values());
     sources.forEach((ssp, ds) -> operatorChains.put(ssp, ChainedOperators.create(ds, context)));
   }
@@ -77,7 +76,7 @@ public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask
   }
 
   @Override
-  public final void window(MessageCollector collector, TaskCoordinator coordinator) throws Exception{
+  public final void window(MessageCollector collector, TaskCoordinator coordinator) throws Exception {
     this.operatorChains.forEach((ssp, chain) -> chain.onTimer(collector, coordinator));
     if (this.userTask instanceof WindowableTask) {
       ((WindowableTask) this.userTask).window(collector, coordinator);

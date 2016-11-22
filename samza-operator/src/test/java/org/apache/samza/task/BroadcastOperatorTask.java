@@ -44,7 +44,9 @@ public class BroadcastOperatorTask implements StreamOperatorTask {
     String parKey;
     private long timestamp;
 
-    public long getTimestamp() { return this.timestamp; }
+    public long getTimestamp() {
+      return this.timestamp;
+    }
   }
 
   class JsonMessage extends InputJsonSystemMessage<MessageType> {
@@ -56,27 +58,27 @@ public class BroadcastOperatorTask implements StreamOperatorTask {
 
   @Override public void initOperators(Collection<SystemMessageStream> sources) {
     sources.forEach(source -> {
-      MessageStream<JsonMessage> inputStream = source.map(this::getInputMessage);
+        MessageStream<JsonMessage> inputStream = source.map(this::getInputMessage);
 
-      inputStream.filter(this::myFilter1).
-        window(Windows.<JsonMessage, String>intoSessionCounter(
-            m -> String.format("%s-%s", m.getMessage().field1, m.getMessage().field2)).
-          setTriggers(TriggerBuilder.<JsonMessage, Integer>earlyTriggerWhenExceedWndLen(100).
-            addLateTriggerOnSizeLimit(10).
-            addTimeoutSinceLastMessage(30000)));
+        inputStream.filter(this::myFilter1).
+          window(Windows.<JsonMessage, String>intoSessionCounter(
+              m -> String.format("%s-%s", m.getMessage().field1, m.getMessage().field2)).
+            setTriggers(TriggerBuilder.<JsonMessage, Integer>earlyTriggerWhenExceedWndLen(100).
+              addLateTriggerOnSizeLimit(10).
+              addTimeoutSinceLastMessage(30000)));
 
-      inputStream.filter(this::myFilter2).
-        window(Windows.<JsonMessage, String>intoSessions(
-            m -> String.format("%s-%s", m.getMessage().field3, m.getMessage().field4)).
-          setTriggers(TriggerBuilder.<JsonMessage, Collection<JsonMessage>>earlyTriggerWhenExceedWndLen(100).
-            addTimeoutSinceLastMessage(30000)));
+        inputStream.filter(this::myFilter2).
+          window(Windows.<JsonMessage, String>intoSessions(
+              m -> String.format("%s-%s", m.getMessage().field3, m.getMessage().field4)).
+            setTriggers(TriggerBuilder.<JsonMessage, Collection<JsonMessage>>earlyTriggerWhenExceedWndLen(100).
+              addTimeoutSinceLastMessage(30000)));
 
-      inputStream.filter(this::myFilter3).
-        window(Windows.<JsonMessage, String, MessageType>intoSessions(
-            m -> String.format("%s-%s", m.getMessage().field3, m.getMessage().field4), m -> m.getMessage()).
-          setTriggers(TriggerBuilder.<JsonMessage, Collection<MessageType>>earlyTriggerOnEventTime(m -> m.getTimestamp(), 30000).
-            addTimeoutSinceFirstMessage(60000)));
-    }
+        inputStream.filter(this::myFilter3).
+          window(Windows.<JsonMessage, String, MessageType>intoSessions(
+              m -> String.format("%s-%s", m.getMessage().field3, m.getMessage().field4), m -> m.getMessage()).
+            setTriggers(TriggerBuilder.<JsonMessage, Collection<MessageType>>earlyTriggerOnEventTime(m -> m.getTimestamp(), 30000).
+              addTimeoutSinceFirstMessage(60000)));
+      }
     );
   }
 

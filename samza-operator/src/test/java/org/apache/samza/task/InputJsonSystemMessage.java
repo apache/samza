@@ -56,8 +56,12 @@ public class InputJsonSystemMessage<T> implements Message<String, T>, InputSyste
     return this.timestamp;
   }
 
-  @Override public Offset getOffset() { return this.offset; }
+  @Override public Offset getOffset() {
+    return this.offset;
+  }
 
-  @Override public SystemStreamPartition getSystemStreamPartition() { return this.partition; }
+  @Override public SystemStreamPartition getSystemStreamPartition() {
+    return this.partition;
+  }
 }
 

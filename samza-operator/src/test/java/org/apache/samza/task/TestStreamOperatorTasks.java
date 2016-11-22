@@ -46,11 +46,11 @@ public class TestStreamOperatorTasks {
 
   private final JoinOperatorTask joinTask = new JoinOperatorTask();
 
-  private final Set<SystemStreamPartition> inputPartitions = new HashSet<SystemStreamPartition>() {{
-    for (int i = 0; i < 4; i++) {
-      this.add(new SystemStreamPartition("my-system", "my-topic1", new Partition(i)));
-    }
-  }};
+  private final Set<SystemStreamPartition> inputPartitions = new HashSet<SystemStreamPartition>() { {
+      for (int i = 0; i < 4; i++) {
+        this.add(new SystemStreamPartition("my-system", "my-topic1", new Partition(i)));
+      }
+    } };
 
   @Test public void testUserTask() throws Exception {
     Config mockConfig = mock(Config.class);
@@ -65,8 +65,8 @@ public class TestStreamOperatorTasks {
     adaptorTask.init(mockConfig, mockContext);
     assertEquals(pipelineMap.size(), 4);
     this.inputPartitions.forEach(partition -> {
-      assertNotNull(pipelineMap.get(partition));
-    });
+        assertNotNull(pipelineMap.get(partition));
+      });
   }
 
   @Test public void testSplitTask() throws Exception {
@@ -82,8 +82,8 @@ public class TestStreamOperatorTasks {
     adaptorTask.init(mockConfig, mockContext);
     assertEquals(pipelineMap.size(), 4);
     this.inputPartitions.forEach(partition -> {
-      assertNotNull(pipelineMap.get(partition));
-    });
+        assertNotNull(pipelineMap.get(partition));
+      });
   }
 
   @Test public void testJoinTask() throws Exception {
@@ -99,7 +99,7 @@ public class TestStreamOperatorTasks {
     adaptorTask.init(mockConfig, mockContext);
     assertEquals(pipelineMap.size(), 4);
     this.inputPartitions.forEach(partition -> {
-      assertNotNull(pipelineMap.get(partition));
-    });
+        assertNotNull(pipelineMap.get(partition));
+      });
   }
 }

@@ -72,7 +72,7 @@ public class TestOperatorFactory {
     assertEquals(mockTxfmFn, txfmFnField.get(opImpl));
 
     // get sink operator
-    MessageStream.VoidFunction3<TestMessage, MessageCollector, TaskCoordinator> sinkFn = (m, mc, tc) -> {};
+    MessageStream.VoidFunction3<TestMessage, MessageCollector, TaskCoordinator> sinkFn = (m, mc, tc) -> { };
     SinkOperator<TestMessage> sinkOp = mock(SinkOperator.class);
     when(sinkOp.getFunction()).thenReturn(sinkFn);
     factoryEntry = OperatorFactory.<TestMessage, TestOutputMessage>getOperator(sinkOp);
