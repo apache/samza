@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.Message;
 import org.apache.samza.operators.internal.Operators;
 import org.apache.samza.operators.internal.Trigger;
@@ -35,6 +36,7 @@ import java.util.function.Function;
  * used by the user (i.e. programmers) to create {@link Window} function directly.
  *
  */
+@InterfaceStability.Unstable
 public final class Windows {
 
   /**

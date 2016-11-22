@@ -19,12 +19,16 @@
 
 package org.apache.samza.operators.data;
 
+import org.apache.samza.annotation.InterfaceStability;
+
+
 /**
  * This class defines the generic interface of {@link Message}, which is a entry in the input/output stream.
  *
  * <p>The {@link Message} models the basic operatible unit in streaming SQL processes in Samza.
  *
  */
+@InterfaceStability.Unstable
 public interface Message<K, M> {
 
   /**

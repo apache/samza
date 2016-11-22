@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.data;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.system.SystemStreamPartition;
 
 
@@ -25,6 +26,7 @@ import org.apache.samza.system.SystemStreamPartition;
  * This interface defines additional methods a message from an system input should implement, including the methods to
  * get {@link SystemStreamPartition} and the {@link Offset} of the input system message.
  */
+@InterfaceStability.Unstable
 public interface InputSystemMessage<O extends Offset> {
 
   /**

@@ -19,6 +19,7 @@
 package org.apache.samza.operators;
 
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.Message;
 import org.apache.samza.operators.internal.Trigger;
 
@@ -45,6 +46,7 @@ import java.util.function.Function;
  * @param <M>  the type of input {@link Message} to the {@link Windows.Window}
  * @param <V>  the type of output value from the {@link Windows.Window}
  */
+@InterfaceStability.Unstable
 public final class TriggerBuilder<M extends Message, V> {
 
   /**

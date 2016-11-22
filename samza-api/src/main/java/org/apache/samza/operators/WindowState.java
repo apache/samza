@@ -18,12 +18,16 @@
  */
 package org.apache.samza.operators;
 
+import org.apache.samza.annotation.InterfaceStability;
+
+
 /**
  * This interface defines the methods a window state class has to implement. The programmers are allowed to implement
  * customized window state to be stored in window state stores by implementing this interface class.
  *
  * @param <WV>  the type for window output value
  */
+@InterfaceStability.Unstable
 public interface WindowState<WV> {
   /**
    * Method to get the system time when the first message in the window is received

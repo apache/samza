@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.task;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.MessageStreams.SystemMessageStream;
 
 import java.util.Collection;
@@ -25,6 +26,7 @@ import java.util.Collection;
 /**
  * This interface defines the methods that user needs to implement via the operator programming APIs.
  */
+@InterfaceStability.Unstable
 public interface StreamOperatorTask {
 
   /**

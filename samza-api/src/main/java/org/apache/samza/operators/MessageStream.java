@@ -19,6 +19,7 @@
 
 package org.apache.samza.operators;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.Message;
 import org.apache.samza.operators.internal.Operators;
 import org.apache.samza.operators.internal.Operators.Operator;
@@ -41,6 +42,7 @@ import java.util.function.Function;
  *
  * @param <M>  Type of message in this stream
  */
+@InterfaceStability.Unstable
 public class MessageStream<M extends Message> {
 
   private final Set<Operator> subscribers = new HashSet<>();

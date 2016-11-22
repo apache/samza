@@ -19,9 +19,13 @@
 
 package org.apache.samza.operators.data;
 
+import org.apache.samza.annotation.InterfaceStability;
+
+
 /**
  * A generic interface extending {@link java.lang.Comparable} to be used as {@code Offset} in a stream
  */
+@InterfaceStability.Unstable
 public interface Offset extends Comparable<Offset> {
 
 }

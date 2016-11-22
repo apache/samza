@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.IncomingSystemMessage;
 import org.apache.samza.system.SystemStreamPartition;
 
@@ -27,7 +28,7 @@ import org.apache.samza.system.SystemStreamPartition;
  * from a specific input source.
  *
  */
-
+@InterfaceStability.Unstable
 public final class MessageStreams {
 
   /**
