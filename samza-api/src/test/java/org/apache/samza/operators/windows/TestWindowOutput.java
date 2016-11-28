@@ -16,35 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.operators.windows;
 
-import org.apache.samza.operators.data.Message;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 
-public class TestOutputMessage implements Message<String, Integer> {
-  private final String key;
-  private final Integer value;
-  private final long timestamp;
+public class TestWindowOutput {
 
-  public TestOutputMessage(String key, Integer value, long timestamp) {
-    this.key = key;
-    this.value = value;
-    this.timestamp = timestamp;
-  }
-
-  @Override
-  public Integer getMessage() {
-    return this.value;
-  }
-
-  @Override
-  public String getKey() {
-    return this.key;
-  }
-
-  @Override
-  public long getReceivedTimeNs() {
-    return this.timestamp;
+  @Test
+  public void testConstructor() {
+    WindowOutput<String, Integer> wndOutput = WindowOutput.of("testMsg", 10);
+    assertEquals(wndOutput.getKey(), "testMsg");
+    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
+    assertFalse(wndOutput.isDelete());
+    assertEquals(wndOutput.getReceivedTimeNs(), 0);
   }
 }
-

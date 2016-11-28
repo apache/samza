@@ -23,54 +23,49 @@ import org.apache.samza.system.SystemStreamPartition;
 
 
 /**
- * This class implements a {@link Message} that encapsulates an {@link IncomingMessageEnvelope} from the system
- *
+ * A {@link Message} implementation that provides additional information about its input {@link SystemStreamPartition}
+ * and its {@link Offset} within the {@link SystemStreamPartition}.
+ * <p>
+ * Note: the {@link Offset} is only unique and comparable within its {@link SystemStreamPartition}.
  */
-public class IncomingSystemMessage implements Message<Object, Object>, InputSystemMessage<Offset> {
-  /**
-   * Incoming message envelope
-   */
-  private final IncomingMessageEnvelope imsg;
+public class IncomingSystemMessage implements Message<Object, Object> {
+
+  private final IncomingMessageEnvelope ime;
+
+  private final long receivedTimeNs;
 
   /**
-   * The receive time of this incoming message
-   */
-  private final long recvTimeNano;
-
-  /**
-   * Ctor to create a {@code IncomingSystemMessage} from {@link IncomingMessageEnvelope}
+   * Creates an {@code IncomingSystemMessage} from the {@link IncomingMessageEnvelope}.
    *
-   * @param imsg The incoming system message
+   * @param ime  the incoming message envelope from the input system.
    */
-  public IncomingSystemMessage(IncomingMessageEnvelope imsg) {
-    this.imsg = imsg;
-    this.recvTimeNano = System.nanoTime();
-  }
-
-  @Override
-  public Object getMessage() {
-    return this.imsg.getMessage();
+  public IncomingSystemMessage(IncomingMessageEnvelope ime) {
+    this.ime = ime;
+    this.receivedTimeNs = System.nanoTime();
   }
 
   @Override
   public Object getKey() {
-    return this.imsg.getKey();
+    return this.ime.getKey();
   }
 
   @Override
-  public long getTimestamp() {
-    return this.recvTimeNano;
+  public Object getMessage() {
+    return this.ime.getMessage();
   }
 
   @Override
+  public long getReceivedTimeNs() {
+    return this.receivedTimeNs;
+  }
+
   public Offset getOffset() {
     // TODO: need to add offset factory to generate different types of offset. This is just a placeholder,
     // assuming incoming message carries long value as offset (i.e. Kafka case)
-    return new LongOffset(this.imsg.getOffset());
+    return new LongOffset(this.ime.getOffset());
   }
 
-  @Override
   public SystemStreamPartition getSystemStreamPartition() {
-    return imsg.getSystemStreamPartition();
+    return this.ime.getSystemStreamPartition();
   }
 }

@@ -16,35 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.operators.functions;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.Message;
 
 
-public class TestOutputMessage implements Message<String, Integer> {
-  private final String key;
-  private final Integer value;
-  private final long timestamp;
+/**
+ * A function that joins {@link Message}s from two {@link org.apache.samza.operators.MessageStream}s and produces
+ * a joined message.
+ * @param <M>  type of the input {@link Message}
+ * @param <JM>  type of the {@link Message} to join with
+ * @param <RM>  type of the joined {@link Message}
+ */
+@InterfaceStability.Unstable
+@FunctionalInterface
+public interface JoinFunction<M extends Message, JM extends Message, RM extends Message> {
 
-  public TestOutputMessage(String key, Integer value, long timestamp) {
-    this.key = key;
-    this.value = value;
-    this.timestamp = timestamp;
-  }
+  /**
+   * Join the provided {@link Message}s and produces the joined {@link Message}.
+   * @param message  the input {@link Message}
+   * @param otherMessage  the {@link Message} to join with
+   * @return  the joined {@link Message}
+   */
+  RM apply(M message, JM otherMessage);
 
-  @Override
-  public Integer getMessage() {
-    return this.value;
-  }
-
-  @Override
-  public String getKey() {
-    return this.key;
-  }
-
-  @Override
-  public long getReceivedTimeNs() {
-    return this.timestamp;
-  }
 }
-

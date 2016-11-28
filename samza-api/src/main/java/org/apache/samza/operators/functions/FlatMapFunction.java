@@ -16,35 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.operators.functions;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.Message;
 
+import java.util.Collection;
 
-public class TestOutputMessage implements Message<String, Integer> {
-  private final String key;
-  private final Integer value;
-  private final long timestamp;
 
-  public TestOutputMessage(String key, Integer value, long timestamp) {
-    this.key = key;
-    this.value = value;
-    this.timestamp = timestamp;
-  }
+/**
+ * A function that transforms a {@link Message} into a collection of 0 or more messages, possibly of a different type.
+ * @param <M>  type of the input {@link Message}
+ * @param <OM>  type of the transformed {@link Message}s
+ */
+@InterfaceStability.Unstable
+@FunctionalInterface
+public interface FlatMapFunction<M extends Message, OM extends Message> {
 
-  @Override
-  public Integer getMessage() {
-    return this.value;
-  }
+  /**
+   * Transforms the provided {@link Message} into a collection of 0 or more messages.
+   * @param message  the message to be transformed
+   * @return  a collection of 0 or more transformed {@link Message}s
+   */
+  Collection<OM> apply(M message);
 
-  @Override
-  public String getKey() {
-    return this.key;
-  }
-
-  @Override
-  public long getReceivedTimeNs() {
-    return this.timestamp;
-  }
 }
-

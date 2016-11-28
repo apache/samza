@@ -16,35 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.operators.spec;
 
+import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.data.Message;
 
 
-public class TestOutputMessage implements Message<String, Integer> {
-  private final String key;
-  private final Integer value;
-  private final long timestamp;
+/**
+ * A stateless serializable stream operator specification that holds all the information required
+ * to transform the input {@link MessageStream} and produce the output {@link MessageStream}.
+ */
+public interface OperatorSpec<OM extends Message> {
 
-  public TestOutputMessage(String key, Integer value, long timestamp) {
-    this.key = key;
-    this.value = value;
-    this.timestamp = timestamp;
-  }
+  /**
+   * Get the output stream containing transformed messages produced by this operator.
+   * @return  the output stream containing transformed messages produced by this operator.
+   */
+  MessageStream<OM> getOutputStream();
 
-  @Override
-  public Integer getMessage() {
-    return this.value;
-  }
-
-  @Override
-  public String getKey() {
-    return this.key;
-  }
-
-  @Override
-  public long getReceivedTimeNs() {
-    return this.timestamp;
-  }
 }
-

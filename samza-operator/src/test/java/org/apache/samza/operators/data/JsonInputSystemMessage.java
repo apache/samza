@@ -16,25 +16,34 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.operators.data;
 
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.system.SystemStreamPartition;
 
 
-public class TestOutputMessage implements Message<String, Integer> {
+/**
+ * Example input message w/ Json message body and string as the key.
+ */
+
+public class JsonInputSystemMessage<T> implements Message<String, T> {
+
   private final String key;
-  private final Integer value;
+  private final T data;
+  private final Offset offset;
   private final long timestamp;
+  private final SystemStreamPartition partition;
 
-  public TestOutputMessage(String key, Integer value, long timestamp) {
+  public JsonInputSystemMessage(String key, T data, Offset offset, long timestamp, SystemStreamPartition partition) {
     this.key = key;
-    this.value = value;
+    this.data = data;
+    this.offset = offset;
     this.timestamp = timestamp;
+    this.partition = partition;
   }
 
   @Override
-  public Integer getMessage() {
-    return this.value;
+  public T getMessage() {
+    return this.data;
   }
 
   @Override
@@ -45,6 +54,14 @@ public class TestOutputMessage implements Message<String, Integer> {
   @Override
   public long getReceivedTimeNs() {
     return this.timestamp;
+  }
+
+  public Offset getOffset() {
+    return this.offset;
+  }
+
+  public SystemStreamPartition getSystemStreamPartition() {
+    return this.partition;
   }
 }
 

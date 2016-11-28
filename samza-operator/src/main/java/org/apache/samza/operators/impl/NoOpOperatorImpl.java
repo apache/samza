@@ -16,35 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.data.Message;
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskCoordinator;
 
 
-public class TestOutputMessage implements Message<String, Integer> {
-  private final String key;
-  private final Integer value;
-  private final long timestamp;
-
-  public TestOutputMessage(String key, Integer value, long timestamp) {
-    this.key = key;
-    this.value = value;
-    this.timestamp = timestamp;
-  }
+/**
+ * A no-op operator implementation that simply forwards the incoming message to all of its subscribers.
+ * @param <M> type of the messages in the input stream.
+ */
+final class NoOpOperatorImpl<M extends Message> extends OperatorImpl<M, M> {
 
   @Override
-  public Integer getMessage() {
-    return this.value;
-  }
-
-  @Override
-  public String getKey() {
-    return this.key;
-  }
-
-  @Override
-  public long getReceivedTimeNs() {
-    return this.timestamp;
+  public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
+    this.propagateResult(message, collector, coordinator);
   }
 }
-

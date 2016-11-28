@@ -18,26 +18,28 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.data.Message;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
+import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * Implementation for {@link SinkOperatorSpec}
+ * Implementation of a {@link PartialJoinOperatorSpec}. This class implements function
+ * that only takes in one input stream among all inputs to the join and generate the join output.
+ *
+ * @param <M>  Type of input stream {@link Message}
+ * @param <RM>  Type of join output stream {@link Message}
  */
-class SinkOperatorImpl<M extends Message> extends OperatorImpl<M, Message> {
+class PartialJoinOperatorImpl<M extends Message<K, ?>, K, JM extends Message<K, ?>, RM extends Message>
+    extends OperatorImpl<M, RM> {
 
-  private final SinkFunction<M> sinkFn;
-
-  SinkOperatorImpl(SinkOperatorSpec<M> sinkOp) {
-    this.sinkFn = sinkOp.getSinkFn();
+  PartialJoinOperatorImpl(PartialJoinOperatorSpec<M, K, JM, RM> joinOp) {
+    // TODO: implement PartialJoinOperatorImpl constructor
   }
 
   @Override
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    this.sinkFn.apply(message, collector, coordinator);
+    // TODO: implement PartialJoinOperatorImpl processing logic
   }
 }

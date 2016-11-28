@@ -23,42 +23,38 @@ import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * This class defines the generic interface of {@link Message}, which is a entry in the input/output stream.
- *
- * <p>The {@link Message} models the basic operatible unit in streaming SQL processes in Samza.
- *
+ * An entry in the input/output {@link org.apache.samza.operators.MessageStream}s.
  */
 @InterfaceStability.Unstable
 public interface Message<K, M> {
 
   /**
-   * Access method to get the corresponding message body in {@link Message}
+   * Get the key for this message.
    *
-   * @return Message object in this {@link Message}
-   */
-  M getMessage();
-
-  /**
-   * Method to indicate whether this {@link Message} indicates deletion of a message w/ the message key
-   *
-   * @return A boolean value indicates whether the current message is a delete or insert message
-   */
-  default boolean isDelete() {
-    return false;
-  };
-
-  /**
-   * Access method to the key of the message
-   *
-   * @return The key of the message
+   * @return  the key for the message
    */
   K getKey();
 
   /**
-   * Get the message creation timestamp of the message.
+   * Get the message in this {@link Message}.
    *
-   * @return The message's timestamp in nano seconds.
+   * @return  the message in this {@link Message}
    */
-  long getTimestamp();
+  M getMessage();
+
+  /**
+   * Whether this {@link Message} indicates deletion of a previous message with this key.
+   *
+   * @return  true if the current message is a delete message, else false.
+   */
+  default boolean isDelete() {
+    return false;
+  }
+
+  /**
+   * Get the time in nanoseconds when this message was received by the container..
+   * @return  the time in nanoseconds when this message was received by the container.
+   */
+  long getReceivedTimeNs();
 
 }

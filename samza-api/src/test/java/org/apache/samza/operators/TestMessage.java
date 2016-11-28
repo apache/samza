@@ -27,21 +27,24 @@ public class TestMessage implements Message<String, String> {
   private final String value;
   private final long timestamp;
 
-  TestMessage(String key, String value, long timestamp) {
+  public TestMessage(String key, String value, long timestamp) {
     this.key = key;
     this.value = value;
     this.timestamp = timestamp;
   }
 
-  @Override public String getMessage() {
+  @Override
+  public String getMessage() {
     return this.value;
   }
 
-  @Override public String getKey() {
+  @Override
+  public String getKey() {
     return this.key;
   }
 
-  @Override public long getTimestamp() {
+  @Override
+  public long getReceivedTimeNs() {
     return this.timestamp;
   }
 }

@@ -16,35 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.operators.functions;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.Message;
 
 
-public class TestOutputMessage implements Message<String, Integer> {
-  private final String key;
-  private final Integer value;
-  private final long timestamp;
+/**
+ * A function that specifies whether a {@link Message} should be retained for further processing or filtered out.
+ * @param <M>  type of the input {@link Message}
+ */
+@InterfaceStability.Unstable
+@FunctionalInterface
+public interface FilterFunction<M extends Message> {
 
-  public TestOutputMessage(String key, Integer value, long timestamp) {
-    this.key = key;
-    this.value = value;
-    this.timestamp = timestamp;
-  }
+  /**
+   * Returns a boolean indicating whether this {@link Message} should be retained or filtered out.
+   * @param message  the message to be checked
+   * @return  true if message should be retained, else false
+   */
+  boolean apply(M message);
 
-  @Override
-  public Integer getMessage() {
-    return this.value;
-  }
-
-  @Override
-  public String getKey() {
-    return this.key;
-  }
-
-  @Override
-  public long getReceivedTimeNs() {
-    return this.timestamp;
-  }
 }
-

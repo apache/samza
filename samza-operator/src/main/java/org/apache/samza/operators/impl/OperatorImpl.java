@@ -18,88 +18,60 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.data.Message;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.data.Message;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
-import org.reactivestreams.Processor;
-import org.reactivestreams.Subscriber;
-import org.reactivestreams.Subscription;
 
 import java.util.HashSet;
 import java.util.Set;
 
 
 /**
- * Abstract base class for all stream operator implementation classes.
+ * Abstract base class for all stream operator implementations.
  */
-public abstract class OperatorImpl<M extends Message, RM extends Message>
-    implements Processor<ProcessorContext<M>, ProcessorContext<RM>> {
+public abstract class OperatorImpl<M extends Message, RM extends Message> {
 
-  private final Set<Subscriber<? super ProcessorContext<RM>>> subscribers = new HashSet<>();
-
-  @Override public void subscribe(Subscriber<? super ProcessorContext<RM>> s) {
-    // Only add once
-    subscribers.add(s);
-  }
-
-  @Override public void onSubscribe(Subscription s) {
-
-  }
-
-  @Override public void onNext(ProcessorContext<M> o) {
-
-    onNext(o.getMessage(), o.getCollector(), o.getCoordinator());
-  }
-
-  @Override public void onError(Throwable t) {
-
-  }
-
-  @Override public void onComplete() {
-
-  }
+  private final Set<OperatorImpl<RM, ? extends Message>> nextOperators = new HashSet<>();
 
   /**
-   * Default method for timer event
-   *
-   * @param nanoTime  the system nano-second when the timer event is triggered
-   * @param collector  the {@link MessageCollector} in the context
-   * @param coordinator  the {@link TaskCoordinator} in the context
+   * Register the next operator in the chain that this operator should propagate its output to.
+   * @param nextOperator  the next operator in the chain.
    */
-  public void onTimer(long nanoTime, MessageCollector collector, TaskCoordinator coordinator) {
-    this.subscribers.forEach(sub -> ((OperatorImpl) sub).onTimer(nanoTime, collector, coordinator));
+  void registerNextOperator(OperatorImpl<RM, ? extends Message> nextOperator) {
+    nextOperators.add(nextOperator);
   }
 
   /**
-   * Each sub-class will implement this method to actually perform the transformation and call the downstream subscribers.
+   * Initialize the initial state for stateful operators.
+   *
+   * @param source  the source that this {@link OperatorImpl} operator is registered with
+   * @param context  the task context to initialize the operator implementation
+   */
+  public void init(MessageStream<M> source, TaskContext context) {}
+
+  /**
+   * Perform the transformation required for this operator and call the downstream operators.
+   *
+   * Must call {@link #propagateResult} to propage the output to registered downstream operators correctly.
    *
    * @param message  the input {@link Message}
    * @param collector  the {@link MessageCollector} in the context
    * @param coordinator  the {@link TaskCoordinator} in the context
    */
-  protected abstract void onNext(M message, MessageCollector collector, TaskCoordinator coordinator);
+  public abstract void onNext(M message, MessageCollector collector, TaskCoordinator coordinator);
 
   /**
-   * Stateful operators will need to override this method to initialize the operators
+   * Helper method to propagate the output of this operator to all registered downstream operators.
    *
-   * @param source  the source that this {@link OperatorImpl} object subscribe to
-   * @param context  the task context to initialize the operators within
-   */
-  protected void init(MessageStream<M> source, TaskContext context) {};
-
-  /**
-   * Method to trigger all downstream operators that consumes the output {@link MessageStream}
-   * from this operator
+   * This method <b>must</b> be called from {@link #onNext} to propagate the operator output correctly.
    *
-   * @param omsg  output {@link Message}
+   * @param outputMessage  output {@link Message}
    * @param collector  the {@link MessageCollector} in the context
    * @param coordinator  the {@link TaskCoordinator} in the context
    */
-  protected void nextProcessors(RM omsg, MessageCollector collector, TaskCoordinator coordinator) {
-    subscribers.forEach(sub ->
-      sub.onNext(new ProcessorContext<>(omsg, collector, coordinator))
-    );
+  void propagateResult(RM outputMessage, MessageCollector collector, TaskCoordinator coordinator) {
+    nextOperators.forEach(sub -> sub.onNext(outputMessage, collector, coordinator));
   }
 }

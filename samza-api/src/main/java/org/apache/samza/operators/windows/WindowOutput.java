@@ -16,35 +16,41 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.operators.windows;
 
 import org.apache.samza.operators.data.Message;
 
 
-public class TestOutputMessage implements Message<String, Integer> {
-  private final String key;
-  private final Integer value;
-  private final long timestamp;
+/**
+ * The type of output messages in a window operator output stream.
+ *
+ * @param <K>  the type of key in the window output
+ * @param <M>  the type of value in the window output
+ */
+public final class WindowOutput<K, M> implements Message<K, M> {
+  private final K key;
+  private final M value;
 
-  public TestOutputMessage(String key, Integer value, long timestamp) {
+  WindowOutput(K key, M value) {
     this.key = key;
     this.value = value;
-    this.timestamp = timestamp;
   }
 
-  @Override
-  public Integer getMessage() {
+  @Override public M getMessage() {
     return this.value;
   }
 
-  @Override
-  public String getKey() {
+  @Override public K getKey() {
     return this.key;
   }
 
-  @Override
-  public long getReceivedTimeNs() {
-    return this.timestamp;
+  @Override public long getReceivedTimeNs() {
+    // TODO MED jvenkataraman: implement.
+    return 0;
+  }
+
+  static public <K, M> WindowOutput<K, M> of(K key, M result) {
+    return new WindowOutput<>(key, result);
   }
 }
 

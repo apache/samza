@@ -20,26 +20,31 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.TestMessage;
 import org.apache.samza.operators.TestOutputMessage;
-import org.apache.samza.operators.internal.Operators.StreamOperator;
+import org.apache.samza.operators.functions.FlatMapFunction;
+import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.function.Function;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 public class TestSimpleOperatorImpl {
 
-  @Test public void testSimpleOperator() {
-    StreamOperator<TestMessage, TestOutputMessage> mockOp = mock(StreamOperator.class);
-    Function<TestMessage, Collection<TestOutputMessage>> txfmFn = mock(Function.class);
-    when(mockOp.getFunction()).thenReturn(txfmFn);
+  @Test
+  public void testSimpleOperator() {
+    StreamOperatorSpec<TestMessage, TestOutputMessage> mockOp = mock(StreamOperatorSpec.class);
+    FlatMapFunction<TestMessage, TestOutputMessage> txfmFn = mock(FlatMapFunction.class);
+    when(mockOp.getTransformFn()).thenReturn(txfmFn);
 
-    SimpleOperatorImpl<TestMessage, TestOutputMessage> opImpl = spy(new SimpleOperatorImpl<>(mockOp));
+    StreamOperatorImpl<TestMessage, TestOutputMessage> opImpl = spy(new StreamOperatorImpl<>(mockOp));
     TestMessage inMsg = mock(TestMessage.class);
     TestOutputMessage outMsg = mock(TestOutputMessage.class);
     Collection<TestOutputMessage> mockOutputs = new ArrayList() { {
@@ -50,6 +55,6 @@ public class TestSimpleOperatorImpl {
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
     opImpl.onNext(inMsg, mockCollector, mockCoordinator);
     verify(txfmFn, times(1)).apply(inMsg);
-    verify(opImpl, times(1)).nextProcessors(outMsg, mockCollector, mockCoordinator);
+    verify(opImpl, times(1)).propagateResult(outMsg, mockCollector, mockCoordinator);
   }
 }
