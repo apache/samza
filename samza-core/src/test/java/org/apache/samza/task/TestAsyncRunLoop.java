@@ -381,7 +381,6 @@ public class TestAsyncRunLoop {
     assertEquals(1, task0.completed.get());
     assertEquals(1, task1.processed);
     assertEquals(1, task1.completed.get());
-
     assertEquals(4L, containerMetrics.envelopes().getCount());
     assertEquals(2L, containerMetrics.processes().getCount());
   }
@@ -437,7 +436,9 @@ public class TestAsyncRunLoop {
         .thenReturn(ssp0EndOfStream)
         .thenReturn(ssp1EndOfStream)
         .thenReturn(null);
+
     runLoop.run();
+
     callbackExecutor.awaitTermination(100, TimeUnit.MILLISECONDS);
     verify(offsetManager).checkpoint(taskName0);
     verify(offsetManager).checkpoint(taskName1);
