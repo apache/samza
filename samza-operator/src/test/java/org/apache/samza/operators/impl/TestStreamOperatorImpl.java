@@ -36,7 +36,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
-public class TestSimpleOperatorImpl {
+public class TestStreamOperatorImpl {
 
   @Test
   public void testSimpleOperator() {

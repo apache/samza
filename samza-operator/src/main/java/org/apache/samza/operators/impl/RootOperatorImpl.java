@@ -18,19 +18,18 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.IncomingSystemMessage;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * A no-op operator implementation that simply forwards the incoming message to all of its subscribers.
- * @param <M> type of the messages in the input stream.
+ * A no-op operator implementation that forwards the {@link IncomingSystemMessage} to all of its subscribers.
  */
-final class NoOpOperatorImpl<M extends Message> extends OperatorImpl<M, M> {
+final class RootOperatorImpl extends OperatorImpl<IncomingSystemMessage, IncomingSystemMessage> {
 
   @Override
-  public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
+  public void onNext(IncomingSystemMessage message, MessageCollector collector, TaskCoordinator coordinator) {
     this.propagateResult(message, collector, coordinator);
   }
 }

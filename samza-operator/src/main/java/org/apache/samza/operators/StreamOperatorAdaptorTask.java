@@ -85,11 +85,8 @@ public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask
     Map<SystemStreamPartition, MessageStream<IncomingSystemMessage>> messageStreams = new HashMap<>();
     context.getSystemStreamPartitions().forEach(ssp -> messageStreams.put(ssp, new MessageStreamImpl<>()));
     this.userTask.transform(messageStreams);
-    messageStreams.forEach((ssp, ms) -> {
-        OperatorImpl<IncomingSystemMessage, ? extends Message> rootOperator =
-            OperatorImpls.createOperatorImpls((MessageStreamImpl<IncomingSystemMessage>) ms, context);
-        operatorChains.put(ssp, rootOperator);
-      });
+    messageStreams.forEach((ssp, ms) ->
+        operatorChains.put(ssp, OperatorImpls.createOperatorImpls((MessageStreamImpl) ms, context)));
   }
 
   @Override

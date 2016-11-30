@@ -21,6 +21,7 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.data.IncomingSystemMessage;
 import org.apache.samza.operators.data.Message;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
@@ -37,7 +38,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
- * Instantiates the DAG of {@link OperatorImpl} implementations corresponding to the {@link OperatorSpec}s.
+ * Instantiates the DAG of {@link OperatorImpl}s corresponding to the {@link OperatorSpec}s for a
+ * {@link MessageStreamImpl} of {@link IncomingSystemMessage}s.
  */
 public class OperatorImpls {
 
@@ -47,22 +49,24 @@ public class OperatorImpls {
   private static final Map<OperatorSpec, OperatorImpl> OPERATOR_IMPLS = new ConcurrentHashMap<>();
 
   /**
-   * Traverses the DAG of {@link OperatorSpec} starting from the provided {@link MessageStreamImpl}, creates the
-   * corresponding DAG of {@link OperatorImpl}s, and returns its root {@link NoOpOperatorImpl} node.
+   * Traverses the DAG of {@link OperatorSpec}s starting from the provided {@link MessageStreamImpl} of
+   * {@link IncomingSystemMessage}s, creates the corresponding DAG of {@link OperatorImpl}s, and returns its root
+   * {@link RootOperatorImpl} node.
    *
-   * @param source  the input {@link MessageStreamImpl} to instantiate {@link OperatorImpl}s for
-   * @param <M>  type of the {@link Message} in the input {@link MessageStreamImpl}
+   * @param source  the input {@link MessageStreamImpl} of {@link IncomingSystemMessage}s to instantiate
+   *                {@link OperatorImpl}s for
    * @param context  the {@link TaskContext} required to instantiate operators
-   * @return  root node for the {@link OperatorImpl} DAG.
+   * @return  root node for the {@link OperatorImpl} DAG
    */
-  public static <M extends Message> NoOpOperatorImpl<M> createOperatorImpls(MessageStreamImpl<M> source, TaskContext context) {
+  public static RootOperatorImpl createOperatorImpls(
+      MessageStreamImpl<IncomingSystemMessage> source, TaskContext context) {
     // since the source message stream might have multiple operator specs registered on it,
     // create a new root node as a single point of entry for the DAG.
-    NoOpOperatorImpl<M> rootOperator = new NoOpOperatorImpl<>();
+    RootOperatorImpl rootOperator = new RootOperatorImpl();
     // create the pipeline/topology starting from the source
     source.getRegisteredOperatorSpecs().forEach(registeredOperator -> {
         // pass in the source and context s.t. stateful stream operators can initialize their stores
-        OperatorImpl<M, ? extends Message> operatorImpl =
+        OperatorImpl<IncomingSystemMessage, ? extends Message> operatorImpl =
             createAndRegisterOperatorImpl(registeredOperator, source, context);
         rootOperator.registerNextOperator(operatorImpl);
       });

@@ -53,12 +53,8 @@ public interface MessageStream<M extends Message> {
   <TM extends Message> MessageStream<TM> map(MapFunction<M, TM> mapFn);
 
   /**
-   * Applies the provided 1:n {@link FlatMapFunction} to {@link Message}s in this {@link MessageStream}, concatenates the
-   * results, and returns the transformed {@link MessageStream}.
-   * <p>
-   * For example, consider a {@link MessageStream} containing 2 {@link Message}s. If the flatMap function
-   * produces a collection of 3 {@link Message}s for each {@link Message}, the resulting {@link MessageStream}
-   * contains the 6 transformed {@link Message}s.
+   * Applies the provided 1:n {@link FlatMapFunction} to transform a {@link Message} in this {@link MessageStream}
+   * to n {@link Message}s in the transformed {@link MessageStream}
    *
    * @param flatMapFn  the function to transform a {@link Message} to zero or more {@link Message}s
    * @param <TM>  the type of {@link Message}s in the transformed {@link MessageStream}
@@ -87,8 +83,9 @@ public interface MessageStream<M extends Message> {
   void sink(SinkFunction<M> sinkFn);
 
   /**
-   * Windows this {@link MessageStream} according to the provided {@link Window} semantics (e.g. tumbling,
-   * sliding or session windows) and returns the transformed {@link MessageStream} of {@link WindowOutput}s.
+   * Groups the {@link Message}s in this {@link MessageStream} according to the provided {@link Window} semantics
+   * (e.g. tumbling, sliding or session windows) and returns the transformed {@link MessageStream} of
+   * {@link WindowOutput}s.
    * <p>
    * Use the {@link org.apache.samza.operators.windows.Windows} helper methods to create the appropriate windows.
    *
@@ -111,7 +108,7 @@ public interface MessageStream<M extends Message> {
    * @param joinFn  the function to join {@link Message}s from this and the other {@link MessageStream}
    * @param <K>  the type of join key
    * @param <OM>  the type of {@link Message}s in the other stream
-   * @param <RM>  the type of {@link Message}s resulting from the join
+   * @param <RM>  the type of {@link Message}s resulting from the {@code joinFn}
    * @return  the joined {@link MessageStream}
    */
   <K, OM extends Message<K, ?>, RM extends Message> MessageStream<RM> join(MessageStream<OM> otherStream,

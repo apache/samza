@@ -34,21 +34,22 @@ import org.apache.samza.operators.windows.WindowState;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.BiFunction;
 
 
 /**
- * The implementation for input/output streams to/from the operators. Users use the {@link MessageStream} API methods
- * to describe and chain the operators specs in the stream.
+ * The implementation for input/output {@link MessageStream}s to/from the operators.
+ * Users use the {@link MessageStream} API methods to describe and chain the operators specs.
  *
- * @param <M>  type of message in this stream
+ * @param <M>  type of {@link Message}s in this {@link MessageStream}
  */
 public class MessageStreamImpl<M extends Message> implements MessageStream<M> {
 
   /**
-   * The set of operators that consume the output from this message stream.
+   * The set of operators that consume the {@link Message}s in this {@link MessageStream}
    */
   private final Set<OperatorSpec> registeredOperatorSpecs = new HashSet<>();
 
@@ -105,9 +106,9 @@ public class MessageStreamImpl<M extends Message> implements MessageStream<M> {
 
     // TODO: need to add default store functions for the two partial join functions
 
-    ((MessageStreamImpl<JM>) otherStream).getRegisteredOperatorSpecs().add(
-        OperatorSpecs.<JM, K, M, RM>createPartialJoinOperator(parJoin2, outputStream));
-    this.getRegisteredOperatorSpecs().add(OperatorSpecs.<M, K, JM, RM>createPartialJoinOperator(parJoin1, outputStream));
+    ((MessageStreamImpl<JM>) otherStream).registeredOperatorSpecs.add(
+        OperatorSpecs.createPartialJoinOperator(parJoin2, outputStream));
+    this.registeredOperatorSpecs.add(OperatorSpecs.createPartialJoinOperator(parJoin1, outputStream));
     return outputStream;
   }
 
@@ -117,9 +118,7 @@ public class MessageStreamImpl<M extends Message> implements MessageStream<M> {
 
     otherStreams.add(this);
     otherStreams.forEach(other ->
-        ((MessageStreamImpl<M>) other)
-            .getRegisteredOperatorSpecs()
-            .add(OperatorSpecs.createMergeOperator(outputStream)));
+        ((MessageStreamImpl<M>) other).registeredOperatorSpecs.add(OperatorSpecs.createMergeOperator(outputStream)));
     return outputStream;
   }
 
@@ -130,6 +129,6 @@ public class MessageStreamImpl<M extends Message> implements MessageStream<M> {
    * @return  a collection containing all {@link OperatorSpec}s that are registered with this MessageStream.
    */
   public Collection<OperatorSpec> getRegisteredOperatorSpecs() {
-    return this.registeredOperatorSpecs;
+    return Collections.unmodifiableSet(this.registeredOperatorSpecs);
   }
 }
