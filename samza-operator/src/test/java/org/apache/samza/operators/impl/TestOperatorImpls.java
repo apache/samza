@@ -21,7 +21,6 @@ package org.apache.samza.operators.impl;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.TestMessage;
 import org.apache.samza.operators.TestOutputMessage;
-import org.apache.samza.operators.data.IncomingSystemMessage;
 import org.apache.samza.operators.data.Message;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
@@ -99,7 +98,7 @@ public class TestOperatorImpls {
   @Test
   public void testEmptyChain() {
     // test creation of empty chain
-    MessageStreamImpl<IncomingSystemMessage> testStream = new MessageStreamImpl<>();
+    MessageStreamImpl<TestMessage> testStream = new MessageStreamImpl<>();
     TaskContext mockContext = mock(TaskContext.class);
     RootOperatorImpl operatorChain = OperatorImpls.createOperatorImpls(testStream, mockContext);
     assertTrue(operatorChain != null);
@@ -108,9 +107,9 @@ public class TestOperatorImpls {
   @Test
   public void testLinearChain() throws IllegalAccessException {
     // test creation of linear chain
-    MessageStreamImpl<IncomingSystemMessage> testInput = new MessageStreamImpl<>();
+    MessageStreamImpl<TestMessage> testInput = new MessageStreamImpl<>();
     TaskContext mockContext = mock(TaskContext.class);
-    testInput.map(m -> m).window(Windows.intoSessionCounter(IncomingSystemMessage::getKey));
+    testInput.map(m -> m).window(Windows.intoSessionCounter(TestMessage::getKey));
     RootOperatorImpl operatorChain = OperatorImpls.createOperatorImpls(testInput, mockContext);
     Set<OperatorImpl> subsSet = (Set<OperatorImpl>) nextOperatorsField.get(operatorChain);
     assertEquals(subsSet.size(), 1);
@@ -125,7 +124,7 @@ public class TestOperatorImpls {
   @Test
   public void testBroadcastChain() throws IllegalAccessException {
     // test creation of broadcast chain
-    MessageStreamImpl<IncomingSystemMessage> testInput = new MessageStreamImpl<>();
+    MessageStreamImpl<TestMessage> testInput = new MessageStreamImpl<>();
     TaskContext mockContext = mock(TaskContext.class);
     testInput.filter(m -> m.getReceivedTimeNs() > 123456L).flatMap(m -> new ArrayList() { { this.add(m); this.add(m); } });
     testInput.filter(m -> m.getReceivedTimeNs() < 123456L).map(m -> m);
@@ -152,13 +151,12 @@ public class TestOperatorImpls {
   @Test
   public void testJoinChain() throws IllegalAccessException {
     // test creation of join chain
-    MessageStreamImpl<IncomingSystemMessage> input1 = new MessageStreamImpl<>();
-    MessageStreamImpl<IncomingSystemMessage> input2 = new MessageStreamImpl<>();
+    MessageStreamImpl<TestMessage> input1 = new MessageStreamImpl<>();
+    MessageStreamImpl<TestMessage> input2 = new MessageStreamImpl<>();
     TaskContext mockContext = mock(TaskContext.class);
     input1
-        .join(input2, (m1, m2) -> new TestOutputMessage(m1.getKey().toString(),
-            m1.getMessage().hashCode() + m2.getMessage().hashCode(),
-            m1.getReceivedTimeNs()))
+        .join(input2, (m1, m2) ->
+            new TestOutputMessage(m1.getKey(), m1.getMessage().length() + m2.getMessage().length(), m1.getReceivedTimeNs()))
         .map(m -> m);
     // now, we create chained operators from each input sources
     RootOperatorImpl chain1 = OperatorImpls.createOperatorImpls(input1, mockContext);
