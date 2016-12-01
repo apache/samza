@@ -16,28 +16,36 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.impl;
+package org.apache.samza.operators.windows;
 
 import org.apache.samza.operators.data.MessageEnvelope;
-import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * Implementation for {@link SinkOperatorSpec}
+ * The type of output {@link MessageEnvelope}s in a window operator output stream.
+ *
+ * @param <K>  the type of key in the window output
+ * @param <M>  the type of value in the window output
  */
-class SinkOperatorImpl<M extends MessageEnvelope> extends OperatorImpl<M, MessageEnvelope> {
+public final class WindowOutput<K, M> implements MessageEnvelope<K, M> {
+  private final K key;
+  private final M value;
 
-  private final SinkFunction<M> sinkFn;
-
-  SinkOperatorImpl(SinkOperatorSpec<M> sinkOp) {
-    this.sinkFn = sinkOp.getSinkFn();
+  WindowOutput(K key, M value) {
+    this.key = key;
+    this.value = value;
   }
 
-  @Override
-  public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    this.sinkFn.apply(message, collector, coordinator);
+  @Override public M getMessage() {
+    return this.value;
+  }
+
+  @Override public K getKey() {
+    return this.key;
+  }
+
+  static public <K, M> WindowOutput<K, M> of(K key, M result) {
+    return new WindowOutput<>(key, result);
   }
 }
+

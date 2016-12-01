@@ -28,7 +28,8 @@ import static org.mockito.Mockito.mock;
 
 public class TestLongOffset {
 
-  @Test public void testConstructor() throws Exception {
+  @Test
+  public void testConstructor() throws Exception {
     LongOffset o1 = new LongOffset("12345");
     Field offsetField = LongOffset.class.getDeclaredField("offset");
     offsetField.setAccessible(true);
@@ -47,7 +48,8 @@ public class TestLongOffset {
     }
   }
 
-  @Test public void testComparator() {
+  @Test
+  public void testComparator() {
     LongOffset o1 = new LongOffset("11111");
     Offset other = mock(Offset.class);
     try {
@@ -65,7 +67,8 @@ public class TestLongOffset {
     assertEquals(o1.compareTo(o4), 0);
   }
 
-  @Test public void testEquals() {
+  @Test
+  public void testEquals() {
     LongOffset o1 = new LongOffset("12345");
     Offset other = mock(Offset.class);
     assertFalse(o1.equals(other));

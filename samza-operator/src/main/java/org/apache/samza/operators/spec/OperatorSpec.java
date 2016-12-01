@@ -16,28 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.impl;
+package org.apache.samza.operators.spec;
 
+import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.data.MessageEnvelope;
-import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * Implementation for {@link SinkOperatorSpec}
+ * A stateless serializable stream operator specification that holds all the information required
+ * to transform the input {@link MessageStream} and produce the output {@link MessageStream}.
  */
-class SinkOperatorImpl<M extends MessageEnvelope> extends OperatorImpl<M, MessageEnvelope> {
+public interface OperatorSpec<OM extends MessageEnvelope> {
 
-  private final SinkFunction<M> sinkFn;
+  /**
+   * Get the output stream containing transformed {@link MessageEnvelope} produced by this operator.
+   * @return  the output stream containing transformed {@link MessageEnvelope} produced by this operator.
+   */
+  MessageStream<OM> getOutputStream();
 
-  SinkOperatorImpl(SinkOperatorSpec<M> sinkOp) {
-    this.sinkFn = sinkOp.getSinkFn();
-  }
-
-  @Override
-  public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    this.sinkFn.apply(message, collector, coordinator);
-  }
 }

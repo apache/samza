@@ -19,25 +19,18 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.data.MessageEnvelope;
-import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * Implementation for {@link SinkOperatorSpec}
+ * A no-op operator implementation that forwards incoming {@link MessageEnvelope}s to all of its subscribers.
+ * @param <M>  type of incoming {@link MessageEnvelope}s
  */
-class SinkOperatorImpl<M extends MessageEnvelope> extends OperatorImpl<M, MessageEnvelope> {
-
-  private final SinkFunction<M> sinkFn;
-
-  SinkOperatorImpl(SinkOperatorSpec<M> sinkOp) {
-    this.sinkFn = sinkOp.getSinkFn();
-  }
+final class RootOperatorImpl<M extends MessageEnvelope> extends OperatorImpl<M, M> {
 
   @Override
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    this.sinkFn.apply(message, collector, coordinator);
+    this.propagateResult(message, collector, coordinator);
   }
 }

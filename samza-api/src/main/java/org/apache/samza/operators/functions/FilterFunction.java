@@ -16,28 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.impl;
+package org.apache.samza.operators.functions;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.MessageEnvelope;
-import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * Implementation for {@link SinkOperatorSpec}
+ * A function that specifies whether a {@link MessageEnvelope} should be retained for further processing or filtered out.
+ * @param <M>  type of the input {@link MessageEnvelope}
  */
-class SinkOperatorImpl<M extends MessageEnvelope> extends OperatorImpl<M, MessageEnvelope> {
+@InterfaceStability.Unstable
+@FunctionalInterface
+public interface FilterFunction<M extends MessageEnvelope> {
 
-  private final SinkFunction<M> sinkFn;
+  /**
+   * Returns a boolean indicating whether this {@link MessageEnvelope} should be retained or filtered out.
+   * @param message  the {@link MessageEnvelope} to be checked
+   * @return  true if {@link MessageEnvelope} should be retained
+   */
+  boolean apply(M message);
 
-  SinkOperatorImpl(SinkOperatorSpec<M> sinkOp) {
-    this.sinkFn = sinkOp.getSinkFn();
-  }
-
-  @Override
-  public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    this.sinkFn.apply(message, collector, coordinator);
-  }
 }

@@ -16,28 +16,39 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.data.MessageEnvelope;
-import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskCoordinator;
+package org.apache.samza.operators.data;
+
+import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * Implementation for {@link SinkOperatorSpec}
+ * An entry in the input/output {@link org.apache.samza.operators.MessageStream}s.
  */
-class SinkOperatorImpl<M extends MessageEnvelope> extends OperatorImpl<M, MessageEnvelope> {
+@InterfaceStability.Unstable
+public interface MessageEnvelope<K, M> {
 
-  private final SinkFunction<M> sinkFn;
+  /**
+   * Get the key for this {@link MessageEnvelope}.
+   *
+   * @return  the key for this {@link MessageEnvelope}
+   */
+  K getKey();
 
-  SinkOperatorImpl(SinkOperatorSpec<M> sinkOp) {
-    this.sinkFn = sinkOp.getSinkFn();
+  /**
+   * Get the message in this {@link MessageEnvelope}.
+   *
+   * @return  the message in this {@link MessageEnvelope}
+   */
+  M getMessage();
+
+  /**
+   * Whether this {@link MessageEnvelope} indicates deletion of a previous message with this key.
+   *
+   * @return  true if the current {@link MessageEnvelope} indicates deletion of a previous message with this key
+   */
+  default boolean isDelete() {
+    return false;
   }
 
-  @Override
-  public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    this.sinkFn.apply(message, collector, coordinator);
-  }
 }

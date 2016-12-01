@@ -19,25 +19,29 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.data.MessageEnvelope;
-import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
+import org.apache.samza.operators.functions.FlatMapFunction;
+import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * Implementation for {@link SinkOperatorSpec}
+ * A StreamOperator that accepts a 1:n transform function and applies it to each incoming {@link MessageEnvelope}.
+ *
+ * @param <M>  type of {@link MessageEnvelope} in the input stream
+ * @param <RM>  type of {@link MessageEnvelope} in the output stream
  */
-class SinkOperatorImpl<M extends MessageEnvelope> extends OperatorImpl<M, MessageEnvelope> {
+class StreamOperatorImpl<M extends MessageEnvelope, RM extends MessageEnvelope> extends OperatorImpl<M, RM> {
 
-  private final SinkFunction<M> sinkFn;
+  private final FlatMapFunction<M, RM> transformFn;
 
-  SinkOperatorImpl(SinkOperatorSpec<M> sinkOp) {
-    this.sinkFn = sinkOp.getSinkFn();
+  StreamOperatorImpl(StreamOperatorSpec<M, RM> streamOperatorSpec) {
+    this.transformFn = streamOperatorSpec.getTransformFn();
   }
 
   @Override
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    this.sinkFn.apply(message, collector, coordinator);
+    // call the transform function and then for each output call propagateResult()
+    this.transformFn.apply(message).forEach(r -> this.propagateResult(r, collector, coordinator));
   }
 }

@@ -30,9 +30,10 @@ import static org.mockito.Mockito.when;
 
 public class TestIncomingSystemMessage {
 
-  @Test public void testConstructor() {
+  @Test
+  public void testConstructor() {
     IncomingMessageEnvelope ime = mock(IncomingMessageEnvelope.class);
-    IncomingSystemMessage ism = new IncomingSystemMessage(ime);
+    IncomingSystemMessageEnvelope ism = new IncomingSystemMessageEnvelope(ime);
 
     Object mockKey = mock(Object.class);
     Object mockValue = mock(Object.class);

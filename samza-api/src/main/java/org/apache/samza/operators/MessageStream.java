@@ -16,173 +16,112 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.operators;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.data.Message;
-import org.apache.samza.operators.internal.Operators;
-import org.apache.samza.operators.internal.Operators.Operator;
-import org.apache.samza.operators.internal.WindowOutput;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.operators.functions.FilterFunction;
+import org.apache.samza.operators.functions.FlatMapFunction;
+import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.windows.Window;
+import org.apache.samza.operators.windows.WindowOutput;
+import org.apache.samza.operators.windows.WindowState;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 
 
 /**
- * This class defines either the input or output streams to/from the operators. Users use the API methods defined here to
- * directly program the stream processing stages that processes a stream and generate another one.
+ * Represents a stream of {@link MessageEnvelope}s.
+ * <p>
+ * A {@link MessageStream} can be transformed into another {@link MessageStream} by applying the transforms in this API.
  *
- * @param <M>  Type of message in this stream
+ * @param <M>  type of {@link MessageEnvelope}s in this stream
  */
 @InterfaceStability.Unstable
-public class MessageStream<M extends Message> {
-
-  private final Set<Operator> subscribers = new HashSet<>();
+public interface MessageStream<M extends MessageEnvelope> {
 
   /**
-   * Helper method to get the corresponding list of subscribers to a specific {@link MessageStream}.
+   * Applies the provided 1:1 {@link MapFunction} to {@link MessageEnvelope}s in this {@link MessageStream} and returns the
+   * transformed {@link MessageStream}.
    *
-   * NOTE: This is purely an internal API and should not be used directly by programmers.
-   *
-   * @return A unmodifiable set containing all {@link Operator}s that subscribe to this {@link MessageStream} object
+   * @param mapFn  the function to transform a {@link MessageEnvelope} to another {@link MessageEnvelope}
+   * @param <TM>  the type of {@link MessageEnvelope}s in the transformed {@link MessageStream}
+   * @return the transformed {@link MessageStream}
    */
-  public Collection<Operator> getSubscribers() {
-    return Collections.unmodifiableSet(this.subscribers);
-  }
+  <TM extends MessageEnvelope> MessageStream<TM> map(MapFunction<M, TM> mapFn);
 
   /**
-   * Public API methods start here
-   */
-
-  /**
-   * Defines a function API that takes three input parameters w/ types {@code A}, {@code B}, and {@code C} and w/o a return value
+   * Applies the provided 1:n {@link FlatMapFunction} to transform a {@link MessageEnvelope} in this {@link MessageStream}
+   * to n {@link MessageEnvelope}s in the transformed {@link MessageStream}
    *
-   * @param <A>  the type of input {@code a}
-   * @param <B>  the type of input {@code b}
-   * @param <C>  the type of input {@code c}
+   * @param flatMapFn  the function to transform a {@link MessageEnvelope} to zero or more {@link MessageEnvelope}s
+   * @param <TM>  the type of {@link MessageEnvelope}s in the transformed {@link MessageStream}
+   * @return the transformed {@link MessageStream}
    */
-  @FunctionalInterface
-  public interface VoidFunction3<A, B, C> {
-    public void apply(A a, B b, C c);
-  }
+  <TM extends MessageEnvelope> MessageStream<TM> flatMap(FlatMapFunction<M, TM> flatMapFn);
 
   /**
-   * Method to apply a map function (1:1) on a {@link MessageStream}
+   * Applies the provided {@link FilterFunction} to {@link MessageEnvelope}s in this {@link MessageStream} and returns the
+   * transformed {@link MessageStream}.
+   * <p>
+   * The {@link FilterFunction} is a predicate which determines whether a {@link MessageEnvelope} in this {@link MessageStream}
+   * should be retained in the transformed {@link MessageStream}.
    *
-   * @param mapper  the mapper function to map one input {@link Message} to one output {@link Message}
-   * @param <OM>  the type of the output {@link Message} in the output {@link MessageStream}
-   * @return the output {@link MessageStream} by applying the map function on the input {@link MessageStream}
+   * @param filterFn  the predicate to filter {@link MessageEnvelope}s from this {@link MessageStream}
+   * @return the transformed {@link MessageStream}
    */
-  public <OM extends Message> MessageStream<OM> map(Function<M, OM> mapper) {
-    Operator<OM> op = Operators.<M, OM>getStreamOperator(m -> new ArrayList<OM>() { {
-        OM r = mapper.apply(m);
-        if (r != null) {
-          this.add(r);
-        }
-      } });
-    this.subscribers.add(op);
-    return op.getOutputStream();
-  }
+  MessageStream<M> filter(FilterFunction<M> filterFn);
 
   /**
-   * Method to apply a flatMap function (1:n) on a {@link MessageStream}
+   * Allows sending {@link MessageEnvelope}s in this {@link MessageStream} to an output
+   * {@link org.apache.samza.system.SystemStream} using the provided {@link SinkFunction}.
    *
-   * @param flatMapper  the flat mapper function to map one input {@link Message} to zero or more output {@link Message}s
-   * @param <OM>  the type of the output {@link Message} in the output {@link MessageStream}
-   * @return the output {@link MessageStream} by applying the map function on the input {@link MessageStream}
+   * @param sinkFn  the function to send {@link MessageEnvelope}s in this stream to output systems
    */
-  public <OM extends Message> MessageStream<OM> flatMap(Function<M, Collection<OM>> flatMapper) {
-    Operator<OM> op = Operators.getStreamOperator(flatMapper);
-    this.subscribers.add(op);
-    return op.getOutputStream();
-  }
+  void sink(SinkFunction<M> sinkFn);
 
   /**
-   * Method to apply a filter function on a {@link MessageStream}
+   * Groups the {@link MessageEnvelope}s in this {@link MessageStream} according to the provided {@link Window} semantics
+   * (e.g. tumbling, sliding or session windows) and returns the transformed {@link MessageStream} of
+   * {@link WindowOutput}s.
+   * <p>
+   * Use the {@link org.apache.samza.operators.windows.Windows} helper methods to create the appropriate windows.
    *
-   * @param filter  the filter function to filter input {@link Message}s from the input {@link MessageStream}
-   * @return the output {@link MessageStream} after applying the filter function on the input {@link MessageStream}
+   * @param window  the {@link Window} to group and process {@link MessageEnvelope}s from this {@link MessageStream}
+   * @param <WK>  the type of key in the {@link WindowOutput} from the {@link Window}
+   * @param <WV>  the type of value in the {@link WindowOutput} from the {@link Window}
+   * @param <WS>  the type of window state kept in the {@link Window}
+   * @param <WM>  the type of {@link WindowOutput} in the transformed {@link MessageStream}
+   * @return  the transformed {@link MessageStream}
    */
-  public MessageStream<M> filter(Function<M, Boolean> filter) {
-    Operator<M> op = Operators.<M, M>getStreamOperator(t -> new ArrayList<M>() { {
-        if (filter.apply(t)) {
-          this.add(t);
-        }
-      } });
-    this.subscribers.add(op);
-    return op.getOutputStream();
-  }
+  <WK, WV, WS extends WindowState<WV>, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(
+      Window<M, WK, WV, WM> window);
 
   /**
-   * Method to send an input {@link MessageStream} to an output {@link org.apache.samza.system.SystemStream}, and allows the output {@link MessageStream}
-   * to be consumed by downstream stream operators again.
+   * Joins this {@link MessageStream} with another {@link MessageStream} using the provided pairwise {@link JoinFunction}.
+   * <p>
+   * We currently only support 2-way joins.
    *
-   * @param sink  the user-defined sink function to send the input {@link Message}s to the external output systems
-   */
-  public void sink(VoidFunction3<M, MessageCollector, TaskCoordinator> sink) {
-    this.subscribers.add(Operators.getSinkOperator(sink));
-  }
-
-  /**
-   * Method to perform a window function (i.e. a group-by, aggregate function) on a {@link MessageStream}
-   *
-   * @param window  the window function to group and aggregate the input {@link Message}s from the input {@link MessageStream}
-   * @param <WK>  the type of key in the output {@link Message} from the {@link Windows.Window} function
-   * @param <WV>  the type of output value from
-   * @param <WS>  the type of window state kept in the {@link Windows.Window} function
-   * @param <WM>  the type of {@link org.apache.samza.operators.internal.WindowOutput} message from the {@link Windows.Window} function
-   * @return the output {@link MessageStream} after applying the window function on the input {@link MessageStream}
-   */
-  public <WK, WV, WS extends WindowState<WV>, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(Windows.Window<M, WK, WV, WM> window) {
-    Operator<WM> wndOp = Operators.getWindowOperator(Windows.getInternalWindowFn(window));
-    this.subscribers.add(wndOp);
-    return wndOp.getOutputStream();
-  }
-
-  /**
-   * Method to add an input {@link MessageStream} to a join function. Note that we currently only support 2-way joins.
-   *
-   * @param other  the other stream to be joined w/
-   * @param merger  the common function to merge messages from this {@link MessageStream} and {@code other}
+   * @param otherStream  the other {@link MessageStream} to be joined with
+   * @param joinFn  the function to join {@link MessageEnvelope}s from this and the other {@link MessageStream}
    * @param <K>  the type of join key
-   * @param <JM>  the type of message in the {@link Message} from the other join stream
-   * @param <RM>  the type of message in the {@link Message} from the join function
-   * @return the output {@link MessageStream} from the join function {@code joiner}
+   * @param <OM>  the type of {@link MessageEnvelope}s in the other stream
+   * @param <RM>  the type of {@link MessageEnvelope}s resulting from the {@code joinFn}
+   * @return  the joined {@link MessageStream}
    */
-  public <K, JM extends Message<K, ?>, RM extends Message> MessageStream<RM> join(MessageStream<JM> other,
-      BiFunction<M, JM, RM> merger) {
-    MessageStream<RM> outputStream = new MessageStream<>();
-
-    BiFunction<M, JM, RM> parJoin1 = merger::apply;
-    BiFunction<JM, M, RM> parJoin2 = (m, t1) -> merger.apply(t1, m);
-
-    // TODO: need to add default store functions for the two partial join functions
-
-    other.subscribers.add(Operators.<JM, K, M, RM>getPartialJoinOperator(parJoin2, outputStream));
-    this.subscribers.add(Operators.<M, K, JM, RM>getPartialJoinOperator(parJoin1, outputStream));
-    return outputStream;
-  }
+  <K, OM extends MessageEnvelope<K, ?>, RM extends MessageEnvelope> MessageStream<RM> join(MessageStream<OM> otherStream,
+      JoinFunction<M, OM, RM> joinFn);
 
   /**
-   * Method to merge all {@code others} streams w/ this {@link MessageStream}. The merging streams must have the same type {@code M}
+   * Merge all {@code otherStreams} with this {@link MessageStream}.
+   * <p>
+   * The merging streams must have the same {@link MessageEnvelope} type {@code M}.
    *
-   * @param others  other streams to be merged w/ this one
-   * @return  the merged output stream
+   * @param otherStreams  other {@link MessageStream}s to be merged with this {@link MessageStream}
+   * @return  the merged {@link MessageStream}
    */
-  public MessageStream<M> merge(Collection<MessageStream<M>> others) {
-    MessageStream<M> outputStream = new MessageStream<>();
-
-    others.add(this);
-    others.forEach(other -> other.subscribers.add(Operators.getMergeOperator(outputStream)));
-    return outputStream;
-  }
-
+  MessageStream<M> merge(Collection<MessageStream<M>> otherStreams);
+  
 }

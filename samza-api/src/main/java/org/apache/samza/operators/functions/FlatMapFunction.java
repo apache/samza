@@ -16,28 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.impl;
+package org.apache.samza.operators.functions;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.MessageEnvelope;
-import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskCoordinator;
+
+import java.util.Collection;
 
 
 /**
- * Implementation for {@link SinkOperatorSpec}
+ * A function that transforms a {@link MessageEnvelope} into a collection of 0 or more {@link MessageEnvelope}s,
+ * possibly of a different type.
+ * @param <M>  type of the input {@link MessageEnvelope}
+ * @param <OM>  type of the transformed {@link MessageEnvelope}s
  */
-class SinkOperatorImpl<M extends MessageEnvelope> extends OperatorImpl<M, MessageEnvelope> {
+@InterfaceStability.Unstable
+@FunctionalInterface
+public interface FlatMapFunction<M extends MessageEnvelope, OM extends MessageEnvelope> {
 
-  private final SinkFunction<M> sinkFn;
+  /**
+   * Transforms the provided {@link MessageEnvelope} into a collection of 0 or more {@link MessageEnvelope}s.
+   * @param message  the {@link MessageEnvelope} to be transformed
+   * @return  a collection of 0 or more transformed {@link MessageEnvelope}s
+   */
+  Collection<OM> apply(M message);
 
-  SinkOperatorImpl(SinkOperatorSpec<M> sinkOp) {
-    this.sinkFn = sinkOp.getSinkFn();
-  }
-
-  @Override
-  public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    this.sinkFn.apply(message, collector, coordinator);
-  }
 }
