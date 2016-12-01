@@ -54,7 +54,8 @@ public class TestMessageStreamImpl {
   @Test
   public void testMap() {
     MessageStreamImpl<TestMessage> inputStream = new MessageStreamImpl<>();
-    MapFunction<TestMessage, TestOutputMessage> xMap = m -> new TestOutputMessage(m.getKey(), m.getMessage().length() + 1, m.getReceivedTimeNs() + 2);
+    MapFunction<TestMessage, TestOutputMessage> xMap =
+        m -> new TestOutputMessage(m.getKey(), m.getMessage().getValue().length() + 1);
     MessageStream<TestOutputMessage> outputStream = inputStream.map(xMap);
     Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
@@ -63,15 +64,16 @@ public class TestMessageStreamImpl {
     assertEquals(mapOp.getOutputStream(), outputStream);
     // assert that the transformation function is what we defined above
     TestMessage xTestMsg = mock(TestMessage.class);
+    TestMessage.MessageType mockInnerTestMessage = mock(TestMessage.MessageType.class);
     when(xTestMsg.getKey()).thenReturn("test-msg-key");
-    when(xTestMsg.getMessage()).thenReturn("123456789");
-    when(xTestMsg.getReceivedTimeNs()).thenReturn(12345L);
+    when(xTestMsg.getMessage()).thenReturn(mockInnerTestMessage);
+    when(mockInnerTestMessage.getValue()).thenReturn("123456789");
+
     Collection<TestOutputMessage> cOutputMsg = ((StreamOperatorSpec<TestMessage, TestOutputMessage>) mapOp).getTransformFn().apply(xTestMsg);
     assertEquals(cOutputMsg.size(), 1);
     TestOutputMessage outputMessage = cOutputMsg.iterator().next();
     assertEquals(outputMessage.getKey(), xTestMsg.getKey());
-    assertEquals(outputMessage.getMessage(), Integer.valueOf(xTestMsg.getMessage().length() + 1));
-    assertEquals(outputMessage.getReceivedTimeNs(), xTestMsg.getReceivedTimeNs() + 2);
+    assertEquals(outputMessage.getMessage(), Integer.valueOf(xTestMsg.getMessage().getValue().length() + 1));
   }
 
   @Test
@@ -96,7 +98,7 @@ public class TestMessageStreamImpl {
   @Test
   public void testFilter() {
     MessageStreamImpl<TestMessage> inputStream = new MessageStreamImpl<>();
-    FilterFunction<TestMessage> xFilter = m -> m.getReceivedTimeNs() > 123456L;
+    FilterFunction<TestMessage> xFilter = m -> m.getMessage().getEventTime() > 123456L;
     MessageStream<TestMessage> outputStream = inputStream.filter(xFilter);
     Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
@@ -106,10 +108,13 @@ public class TestMessageStreamImpl {
     // assert that the transformation function is what we defined above
     FlatMapFunction<TestMessage, TestMessage> txfmFn = ((StreamOperatorSpec<TestMessage, TestMessage>) filterOp).getTransformFn();
     TestMessage mockMsg = mock(TestMessage.class);
-    when(mockMsg.getReceivedTimeNs()).thenReturn(11111L);
+    TestMessage.MessageType mockInnerTestMessage = mock(TestMessage.MessageType.class);
+    when(mockMsg.getMessage()).thenReturn(mockInnerTestMessage);
+    when(mockInnerTestMessage.getEventTime()).thenReturn(11111L);
     Collection<TestMessage> output = txfmFn.apply(mockMsg);
     assertTrue(output.isEmpty());
-    when(mockMsg.getReceivedTimeNs()).thenReturn(999999L);
+    when(mockMsg.getMessage()).thenReturn(mockInnerTestMessage);
+    when(mockInnerTestMessage.getEventTime()).thenReturn(999999L);
     output = txfmFn.apply(mockMsg);
     assertEquals(output.size(), 1);
     assertEquals(output.iterator().next(), mockMsg);
@@ -148,7 +153,8 @@ public class TestMessageStreamImpl {
   public void testJoin() {
     MessageStreamImpl<TestMessage> source1 = new MessageStreamImpl<>();
     MessageStreamImpl<TestMessage> source2 = new MessageStreamImpl<>();
-    JoinFunction<TestMessage, TestMessage, TestOutputMessage> joiner = (m1, m2) -> new TestOutputMessage(m1.getKey(), m1.getMessage().length() + m2.getMessage().length(), m1.getReceivedTimeNs());
+    JoinFunction<TestMessage, TestMessage, TestOutputMessage> joiner =
+        (m1, m2) -> new TestOutputMessage(m1.getKey(), m1.getMessage().getValue().length() + m2.getMessage().getValue().length());
     MessageStream<TestOutputMessage> joinOutput = source1.join(source2, joiner);
     Collection<OperatorSpec> subs = source1.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
@@ -165,11 +171,9 @@ public class TestMessageStreamImpl {
     TestOutputMessage xOut = (TestOutputMessage) ((PartialJoinOperatorSpec) joinOp1).getTransformFn().apply(joinMsg1, joinMsg2);
     assertEquals(xOut.getKey(), "test-join-1");
     assertEquals(xOut.getMessage(), Integer.valueOf(24));
-    assertEquals(xOut.getReceivedTimeNs(), 11111L);
     xOut = (TestOutputMessage) ((PartialJoinOperatorSpec) joinOp2).getTransformFn().apply(joinMsg2, joinMsg1);
     assertEquals(xOut.getKey(), "test-join-1");
     assertEquals(xOut.getMessage(), Integer.valueOf(24));
-    assertEquals(xOut.getReceivedTimeNs(), 11111L);
   }
 
   @Test

@@ -42,8 +42,8 @@ public class WindowTask implements StreamOperatorTask {
 
   class JsonMessage extends JsonInputSystemMessage<MessageType> {
 
-    JsonMessage(String key, MessageType data, Offset offset, long timestamp, SystemStreamPartition partition) {
-      super(key, data, offset, timestamp, partition);
+    JsonMessage(String key, MessageType data, Offset offset, SystemStreamPartition partition) {
+      super(key, data, offset, partition);
     }
   }
 
@@ -54,7 +54,6 @@ public class WindowTask implements StreamOperatorTask {
           this.myMessageKeyFunction(m1),
           (MessageType) m1.getMessage(),
           m1.getOffset(),
-          m1.getReceivedTimeNs(),
           m1.getSystemStreamPartition())).
         window(
           Windows.<JsonMessage, String>intoSessionCounter(

@@ -76,15 +76,22 @@ public class TestTriggerBuilder {
     TestMessage m = mock(TestMessage.class);
     assertTrue(triggerField.apply(m, mockState));
 
-    builder = TriggerBuilder.earlyTriggerOnEventTime(TestMessage::getReceivedTimeNs, 30000L);
+    builder = TriggerBuilder.earlyTriggerOnEventTime(tm -> tm.getMessage().getEventTime(), 30000L);
     triggerField = (BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean>) this.earlyTriggerField.get(builder);
     when(mockState.getEarliestEventTimeNs()).thenReturn(1000000000L);
     when(mockState.getLatestEventTimeNs()).thenReturn(20000000000L);
-    when(m.getReceivedTimeNs()).thenReturn(19999000000L);
+    TestMessage.MessageType mockInnerMessage;
+    mockInnerMessage = mock(TestMessage.MessageType.class);
+    when(mockInnerMessage.getEventTime()).thenReturn(19999000000L);
+    when(m.getMessage()).thenReturn(mockInnerMessage);
     assertFalse(triggerField.apply(m, mockState));
-    when(m.getReceivedTimeNs()).thenReturn(32000000000L);
+    mockInnerMessage = mock(TestMessage.MessageType.class);
+    when(mockInnerMessage.getEventTime()).thenReturn(32000000000L);
+    when(m.getMessage()).thenReturn(mockInnerMessage);
     assertTrue(triggerField.apply(m, mockState));
-    when(m.getReceivedTimeNs()).thenReturn(1001000000L);
+    mockInnerMessage = mock(TestMessage.MessageType.class);
+    when(m.getMessage()).thenReturn(mockInnerMessage);
+    when(mockInnerMessage.getEventTime()).thenReturn(1001000000L);
     when(mockState.getLatestEventTimeNs()).thenReturn(32000000000L);
     assertTrue(triggerField.apply(m, mockState));
 

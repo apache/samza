@@ -57,23 +57,25 @@ public class TestWindows {
 
     // test constructing the session window w/ customized session info
     Window<TestMessage, String, Collection<Character>, WindowOutput<String, Collection<Character>>> testWnd2 = Windows.intoSessions(
-        m -> String.format("key-%d", m.getReceivedTimeNs()), m -> m.getMessage().charAt(0));
+        m -> String.format("key-%d", m.getMessage().getEventTime()), m -> m.getMessage().getValue().charAt(0));
     assertTrue(testWnd2 instanceof SessionWindow);
     wndKeyFunc = (Function<TestMessage, String>) wndKeyFuncField.get(testWnd2);
     aggrFunc = (BiFunction<TestMessage, Collection<TestMessage>, Collection<TestMessage>>) aggregatorField.get(testWnd2);
     assertEquals(wndKeyFunc.apply(new TestMessage("test-key", "test-value", 0)), "key-0");
-    when(mockMsg.getMessage()).thenReturn("x-001");
+    TestMessage.MessageType mockInnerMessage = mock(TestMessage.MessageType.class);
+    when(mockMsg.getMessage()).thenReturn(mockInnerMessage);
+    when(mockInnerMessage.getValue()).thenReturn("x-001");
     collection = aggrFunc.apply(mockMsg, new ArrayList<>());
     assertTrue(collection.size() == 1);
     assertTrue(collection.contains('x'));
 
     // test constructing session window w/ a default counter
     Window<TestMessage, String, Integer, WindowOutput<String, Integer>> testCounter = Windows.intoSessionCounter(
-        m -> String.format("key-%d", m.getReceivedTimeNs()));
+        m -> String.format("key-%d", m.getMessage().getEventTime()));
     assertTrue(testCounter instanceof SessionWindow);
     wndKeyFunc = (Function<TestMessage, String>) wndKeyFuncField.get(testCounter);
     BiFunction<TestMessage, Integer, Integer> counterFn = (BiFunction<TestMessage, Integer, Integer>) aggregatorField.get(testCounter);
-    when(mockMsg.getReceivedTimeNs()).thenReturn(12345L);
+    when(mockMsg.getMessage().getEventTime()).thenReturn(12345L);
     assertEquals(wndKeyFunc.apply(mockMsg), "key-12345");
     assertEquals(counterFn.apply(mockMsg, 1), Integer.valueOf(2));
   }
@@ -81,7 +83,7 @@ public class TestWindows {
   @Test
   public void testSetTriggers() throws NoSuchFieldException, IllegalAccessException {
     Window<TestMessage, String, Integer, WindowOutput<String, Integer>> testCounter = Windows.intoSessionCounter(
-        m -> String.format("key-%d", m.getReceivedTimeNs()));
+        m -> String.format("key-%d", m.getMessage().getEventTime()));
     // test session window w/ a trigger
     TriggerBuilder<TestMessage, Integer> triggerBuilder = TriggerBuilder.earlyTriggerWhenExceedWndLen(1000L);
     testCounter.setTriggers(triggerBuilder);

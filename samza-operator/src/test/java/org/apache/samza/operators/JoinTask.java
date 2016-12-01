@@ -40,8 +40,8 @@ public class JoinTask implements StreamOperatorTask {
   }
 
   class JsonMessage extends JsonInputSystemMessage<MessageType> {
-    JsonMessage(String key, MessageType data, Offset offset, long timestamp, SystemStreamPartition partition) {
-      super(key, data, offset, timestamp, partition);
+    JsonMessage(String key, MessageType data, Offset offset, SystemStreamPartition partition) {
+      super(key, data, offset, partition);
     }
   }
 
@@ -64,7 +64,6 @@ public class JoinTask implements StreamOperatorTask {
         ((MessageType) ism.getMessage()).joinKey,
         (MessageType) ism.getMessage(),
         ism.getOffset(),
-        ism.getReceivedTimeNs(),
         ism.getSystemStreamPartition());
   }
 
@@ -73,6 +72,6 @@ public class JoinTask implements StreamOperatorTask {
     newJoinMsg.joinKey = m1.getKey();
     newJoinMsg.joinFields.addAll(m1.getMessage().joinFields);
     newJoinMsg.joinFields.addAll(m2.getMessage().joinFields);
-    return new JsonMessage(m1.getMessage().joinKey, newJoinMsg, null, m1.getReceivedTimeNs(), null);
+    return new JsonMessage(m1.getMessage().joinKey, newJoinMsg, null, null);
   }
 }

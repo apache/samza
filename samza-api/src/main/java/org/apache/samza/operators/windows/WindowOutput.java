@@ -44,11 +44,6 @@ public final class WindowOutput<K, M> implements Message<K, M> {
     return this.key;
   }
 
-  @Override public long getReceivedTimeNs() {
-    // TODO MED jvenkataraman: implement.
-    return 0;
-  }
-
   static public <K, M> WindowOutput<K, M> of(K key, M result) {
     return new WindowOutput<>(key, result);
   }

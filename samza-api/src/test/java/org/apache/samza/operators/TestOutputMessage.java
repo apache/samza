@@ -24,12 +24,10 @@ import org.apache.samza.operators.data.Message;
 public class TestOutputMessage implements Message<String, Integer> {
   private final String key;
   private final Integer value;
-  private final long timestamp;
 
-  public TestOutputMessage(String key, Integer value, long timestamp) {
+  public TestOutputMessage(String key, Integer value) {
     this.key = key;
     this.value = value;
-    this.timestamp = timestamp;
   }
 
   @Override
@@ -40,11 +38,6 @@ public class TestOutputMessage implements Message<String, Integer> {
   @Override
   public String getKey() {
     return this.key;
-  }
-
-  @Override
-  public long getReceivedTimeNs() {
-    return this.timestamp;
   }
 }
 

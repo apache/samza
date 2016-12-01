@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.spec;
 
+import org.apache.samza.operators.TestMessage;
 import org.apache.samza.operators.data.Message;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
@@ -43,36 +44,10 @@ import static org.mockito.Mockito.when;
 
 
 public class TestOperatorSpecs {
-
-  private class TestMessage implements Message<String, Object> {
-    private final long timestamp;
-    private final String key;
-    private final Object msg;
-
-
-    TestMessage(String key, Object msg, long timestamp) {
-      this.timestamp = timestamp;
-      this.key = key;
-      this.msg = msg;
-    }
-
-    @Override public Object getMessage() {
-      return this.msg;
-    }
-
-    @Override public String getKey() {
-      return this.key;
-    }
-
-    @Override public long getReceivedTimeNs() {
-      return this.timestamp;
-    }
-  }
-
   @Test
   public void testGetStreamOperator() {
     FlatMapFunction<Message, TestMessage> transformFn = m -> new ArrayList<TestMessage>() { {
-        this.add(new TestMessage(m.getKey().toString(), m.getMessage(), 12345L));
+        this.add(new TestMessage(m.getKey().toString(), m.getMessage().toString(), 12345L));
       } };
     StreamOperatorSpec<Message, TestMessage> strmOp = OperatorSpecs.createStreamOperator(transformFn);
     assertEquals(strmOp.getTransformFn(), transformFn);
@@ -110,8 +85,7 @@ public class TestOperatorSpecs {
   @Test
   public void testGetPartialJoinOperator() {
     BiFunction<Message<Object, ?>, Message<Object, ?>, TestMessage> merger =
-        (m1, m2) -> new TestMessage(m1.getKey().toString(), m2.getMessage(),
-            Math.max(m1.getReceivedTimeNs(), m2.getReceivedTimeNs()));
+        (m1, m2) -> new TestMessage(m1.getKey().toString(), m2.getMessage().toString(), System.nanoTime());
     MessageStreamImpl<TestMessage> joinOutput = new MessageStreamImpl<>();
     PartialJoinOperatorSpec<Message<Object, ?>, Object, Message<Object, ?>, TestMessage> partialJoin =
         OperatorSpecs.createPartialJoinOperator(merger, joinOutput);

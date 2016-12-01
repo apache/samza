@@ -32,6 +32,5 @@ public class TestWindowOutput {
     assertEquals(wndOutput.getKey(), "testMsg");
     assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
     assertFalse(wndOutput.isDelete());
-    assertEquals(wndOutput.getReceivedTimeNs(), 0);
   }
 }

@@ -30,14 +30,12 @@ public class JsonInputSystemMessage<T> implements Message<String, T> {
   private final String key;
   private final T data;
   private final Offset offset;
-  private final long timestamp;
   private final SystemStreamPartition partition;
 
-  public JsonInputSystemMessage(String key, T data, Offset offset, long timestamp, SystemStreamPartition partition) {
+  public JsonInputSystemMessage(String key, T data, Offset offset, SystemStreamPartition partition) {
     this.key = key;
     this.data = data;
     this.offset = offset;
-    this.timestamp = timestamp;
     this.partition = partition;
   }
 
@@ -49,11 +47,6 @@ public class JsonInputSystemMessage<T> implements Message<String, T> {
   @Override
   public String getKey() {
     return this.key;
-  }
-
-  @Override
-  public long getReceivedTimeNs() {
-    return this.timestamp;
   }
 
   public Offset getOffset() {

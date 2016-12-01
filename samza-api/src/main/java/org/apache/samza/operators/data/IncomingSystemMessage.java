@@ -32,8 +32,6 @@ public class IncomingSystemMessage implements Message<Object, Object> {
 
   private final IncomingMessageEnvelope ime;
 
-  private final long receivedTimeNs;
-
   /**
    * Creates an {@code IncomingSystemMessage} from the {@link IncomingMessageEnvelope}.
    *
@@ -41,7 +39,6 @@ public class IncomingSystemMessage implements Message<Object, Object> {
    */
   public IncomingSystemMessage(IncomingMessageEnvelope ime) {
     this.ime = ime;
-    this.receivedTimeNs = System.nanoTime();
   }
 
   @Override
@@ -52,11 +49,6 @@ public class IncomingSystemMessage implements Message<Object, Object> {
   @Override
   public Object getMessage() {
     return this.ime.getMessage();
-  }
-
-  @Override
-  public long getReceivedTimeNs() {
-    return this.receivedTimeNs;
   }
 
   public Offset getOffset() {

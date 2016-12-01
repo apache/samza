@@ -126,8 +126,8 @@ public class TestOperatorImpls {
     // test creation of broadcast chain
     MessageStreamImpl<TestMessage> testInput = new MessageStreamImpl<>();
     TaskContext mockContext = mock(TaskContext.class);
-    testInput.filter(m -> m.getReceivedTimeNs() > 123456L).flatMap(m -> new ArrayList() { { this.add(m); this.add(m); } });
-    testInput.filter(m -> m.getReceivedTimeNs() < 123456L).map(m -> m);
+    testInput.filter(m -> m.getMessage().getEventTime() > 123456L).flatMap(m -> new ArrayList() { { this.add(m); this.add(m); } });
+    testInput.filter(m -> m.getMessage().getEventTime() < 123456L).map(m -> m);
     RootOperatorImpl operatorChain = OperatorImpls.createOperatorImpls(testInput, mockContext);
     Set<OperatorImpl> subsSet = (Set<OperatorImpl>) nextOperatorsField.get(operatorChain);
     assertEquals(subsSet.size(), 2);
@@ -156,7 +156,7 @@ public class TestOperatorImpls {
     TaskContext mockContext = mock(TaskContext.class);
     input1
         .join(input2, (m1, m2) ->
-            new TestOutputMessage(m1.getKey(), m1.getMessage().length() + m2.getMessage().length(), m1.getReceivedTimeNs()))
+            new TestOutputMessage(m1.getKey(), m1.getMessage().getValue().length() + m2.getMessage().getValue().length()))
         .map(m -> m);
     // now, we create chained operators from each input sources
     RootOperatorImpl chain1 = OperatorImpls.createOperatorImpls(input1, mockContext);

@@ -50,8 +50,8 @@ public class BroadcastTask implements StreamOperatorTask {
   }
 
   class JsonMessage extends JsonInputSystemMessage<MessageType> {
-    JsonMessage(String key, MessageType data, Offset offset, long timestamp, SystemStreamPartition partition) {
-      super(key, data, offset, timestamp, partition);
+    JsonMessage(String key, MessageType data, Offset offset, SystemStreamPartition partition) {
+      super(key, data, offset, partition);
     }
   }
 
@@ -76,7 +76,7 @@ public class BroadcastTask implements StreamOperatorTask {
         inputStream.filter(this::myFilter3).
           window(Windows.<JsonMessage, String, MessageType>intoSessions(
               m -> String.format("%s-%s", m.getMessage().field3, m.getMessage().field4), m -> m.getMessage()).
-            setTriggers(TriggerBuilder.<JsonMessage, Collection<MessageType>>earlyTriggerOnEventTime(m -> m.getReceivedTimeNs(), 30000).
+            setTriggers(TriggerBuilder.<JsonMessage, Collection<MessageType>>earlyTriggerOnEventTime(m -> m.getMessage().getTimestamp(), 30000).
               addTimeoutSinceFirstMessage(60000)));
       });
   }

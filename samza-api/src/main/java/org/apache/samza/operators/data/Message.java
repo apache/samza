@@ -51,10 +51,4 @@ public interface Message<K, M> {
     return false;
   }
 
-  /**
-   * Get the time in nanoseconds when this message was received by the container..
-   * @return  the time in nanoseconds when this message was received by the container.
-   */
-  long getReceivedTimeNs();
-
 }

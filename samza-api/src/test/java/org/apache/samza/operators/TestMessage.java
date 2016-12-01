@@ -21,20 +21,18 @@ package org.apache.samza.operators;
 import org.apache.samza.operators.data.Message;
 
 
-public class TestMessage implements Message<String, String> {
+public class TestMessage implements Message<String, TestMessage.MessageType> {
 
   private final String key;
-  private final String value;
-  private final long timestamp;
+  private final MessageType value;
 
-  public TestMessage(String key, String value, long timestamp) {
+  public TestMessage(String key, String value, long eventTime) {
     this.key = key;
-    this.value = value;
-    this.timestamp = timestamp;
+    this.value = new MessageType(value, eventTime);
   }
 
   @Override
-  public String getMessage() {
+  public MessageType getMessage() {
     return this.value;
   }
 
@@ -43,8 +41,21 @@ public class TestMessage implements Message<String, String> {
     return this.key;
   }
 
-  @Override
-  public long getReceivedTimeNs() {
-    return this.timestamp;
+  public class MessageType {
+    private final String value;
+    private final long eventTime;
+
+    public MessageType(String value, long eventTime) {
+      this.value = value;
+      this.eventTime = eventTime;
+    }
+
+    public long getEventTime() {
+      return eventTime;
+    }
+
+    public String getValue() {
+      return value;
+    }
   }
 }
