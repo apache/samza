@@ -18,16 +18,16 @@
  */
 package org.apache.samza.operators.windows;
 
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 
 
 /**
- * The type of output messages in a window operator output stream.
+ * The type of output {@link MessageEnvelope}s in a window operator output stream.
  *
  * @param <K>  the type of key in the window output
  * @param <M>  the type of value in the window output
  */
-public final class WindowOutput<K, M> implements Message<K, M> {
+public final class WindowOutput<K, M> implements MessageEnvelope<K, M> {
   private final K key;
   private final M value;
 

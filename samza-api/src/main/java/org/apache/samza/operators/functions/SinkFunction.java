@@ -19,26 +19,26 @@
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * A function that allows sending a {@link Message} to an output system.
- * @param <M>  type of the input {@link Message}
+ * A function that allows sending a {@link MessageEnvelope} to an output system.
+ * @param <M>  type of the input {@link MessageEnvelope}
  */
 @InterfaceStability.Unstable
 @FunctionalInterface
-public interface SinkFunction<M extends Message> {
+public interface SinkFunction<M extends MessageEnvelope> {
 
   /**
-   * Allows sending the provided {@link Message} to an output {@link org.apache.samza.system.SystemStream} using
+   * Allows sending the provided {@link MessageEnvelope} to an output {@link org.apache.samza.system.SystemStream} using
    * the provided {@link MessageCollector}. Also provides access to the {@link TaskCoordinator} to request commits
-   * or shutdown the container.
+   * or shut the container down.
    *
-   * @param message  the message to be sent to an output {@link org.apache.samza.system.SystemStream}
-   * @param messageCollector  the {@link MessageCollector} to use to send the message
+   * @param message  the {@link MessageEnvelope} to be sent to an output {@link org.apache.samza.system.SystemStream}
+   * @param messageCollector  the {@link MessageCollector} to use to send the {@link MessageEnvelope}
    * @param taskCoordinator  the {@link TaskCoordinator} to request commits or shutdown
    */
   void apply(M message, MessageCollector messageCollector, TaskCoordinator taskCoordinator);

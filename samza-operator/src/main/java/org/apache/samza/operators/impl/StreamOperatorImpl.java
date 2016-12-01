@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.task.MessageCollector;
@@ -26,12 +26,12 @@ import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * A StreamOperator that accepts a 1:n transform function and applies it to each incoming message.
+ * A StreamOperator that accepts a 1:n transform function and applies it to each incoming {@link MessageEnvelope}.
  *
- * @param <M>  type of message in the input stream
- * @param <RM>  type of message in the output stream
+ * @param <M>  type of {@link MessageEnvelope} in the input stream
+ * @param <RM>  type of {@link MessageEnvelope} in the output stream
  */
-class StreamOperatorImpl<M extends Message, RM extends Message> extends OperatorImpl<M, RM> {
+class StreamOperatorImpl<M extends MessageEnvelope, RM extends MessageEnvelope> extends OperatorImpl<M, RM> {
 
   private final FlatMapFunction<M, RM> transformFn;
 

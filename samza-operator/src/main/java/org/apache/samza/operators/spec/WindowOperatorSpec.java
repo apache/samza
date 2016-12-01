@@ -19,7 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.windows.StoreFunctions;
 import org.apache.samza.operators.windows.Trigger;
@@ -35,22 +35,22 @@ import java.util.function.BiFunction;
  * Defines a window operator that takes one {@link MessageStreamImpl} as an input, accumulates the window state,
  * and generates an output {@link MessageStreamImpl} with output type {@code WM} which extends {@link WindowOutput}
  *
- * @param <M>  the type of input {@link Message}
- * @param <WK>  the type of key in the output {@link Message} from the {@link WindowOperatorSpec} function
+ * @param <M>  the type of input {@link MessageEnvelope}
+ * @param <WK>  the type of key in the output {@link MessageEnvelope} from the {@link WindowOperatorSpec} function
  * @param <WS>  the type of window state in the {@link WindowOperatorSpec} function
- * @param <WM>  the type of window output {@link Message}
+ * @param <WM>  the type of window output {@link MessageEnvelope}
  */
-public class WindowOperatorSpec<M extends Message, WK, WS extends WindowState, WM extends WindowOutput<WK, ?>> implements
+public class WindowOperatorSpec<M extends MessageEnvelope, WK, WS extends WindowState, WM extends WindowOutput<WK, ?>> implements
     OperatorSpec<WM> {
 
   /**
-   * The output message stream.
+   * The output {@link MessageStream}.
    */
   private final MessageStreamImpl<WM> outputStream;
 
   /**
-   * The window transformation function that takes {@link Message}s from one input stream, aggregates with the window
-   * state(s) from the window state store, and generate output {@link Message}s for the output stream.
+   * The window transformation function that takes {@link MessageEnvelope}s from one input stream, aggregates with the window
+   * state(s) from the window state store, and generate output {@link MessageEnvelope}s for the output stream.
    */
   private final BiFunction<M, Entry<WK, WS>, WM> transformFn;
 

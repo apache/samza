@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.windows;
 
-import org.apache.samza.operators.TestMessage;
+import org.apache.samza.operators.TestMessageEnvelope;
 import org.junit.Test;
 
 import java.lang.reflect.Field;
@@ -38,31 +38,31 @@ public class TestWindows {
   @Test
   public void testSessionWindows() throws NoSuchFieldException, IllegalAccessException {
     // test constructing the default session window
-    Window<TestMessage, String, Collection<TestMessage>, WindowOutput<String, Collection<TestMessage>>> testWnd = Windows
+    Window<TestMessageEnvelope, String, Collection<TestMessageEnvelope>, WindowOutput<String, Collection<TestMessageEnvelope>>> testWnd = Windows
         .intoSessions(
-        TestMessage::getKey);
+        TestMessageEnvelope::getKey);
     assertTrue(testWnd instanceof SessionWindow);
     Field wndKeyFuncField = SessionWindow.class.getDeclaredField("wndKeyFunction");
     Field aggregatorField = SessionWindow.class.getDeclaredField("aggregator");
     wndKeyFuncField.setAccessible(true);
     aggregatorField.setAccessible(true);
-    Function<TestMessage, String> wndKeyFunc = (Function<TestMessage, String>) wndKeyFuncField.get(testWnd);
-    assertEquals(wndKeyFunc.apply(new TestMessage("test-key", "test-value", 0)), "test-key");
-    BiFunction<TestMessage, Collection<TestMessage>, Collection<TestMessage>> aggrFunc =
-        (BiFunction<TestMessage, Collection<TestMessage>, Collection<TestMessage>>) aggregatorField.get(testWnd);
-    TestMessage mockMsg = mock(TestMessage.class);
-    Collection<TestMessage> collection = aggrFunc.apply(mockMsg, new ArrayList<>());
+    Function<TestMessageEnvelope, String> wndKeyFunc = (Function<TestMessageEnvelope, String>) wndKeyFuncField.get(testWnd);
+    assertEquals(wndKeyFunc.apply(new TestMessageEnvelope("test-key", "test-value", 0)), "test-key");
+    BiFunction<TestMessageEnvelope, Collection<TestMessageEnvelope>, Collection<TestMessageEnvelope>> aggrFunc =
+        (BiFunction<TestMessageEnvelope, Collection<TestMessageEnvelope>, Collection<TestMessageEnvelope>>) aggregatorField.get(testWnd);
+    TestMessageEnvelope mockMsg = mock(TestMessageEnvelope.class);
+    Collection<TestMessageEnvelope> collection = aggrFunc.apply(mockMsg, new ArrayList<>());
     assertTrue(collection.size() == 1);
     assertTrue(collection.contains(mockMsg));
 
     // test constructing the session window w/ customized session info
-    Window<TestMessage, String, Collection<Character>, WindowOutput<String, Collection<Character>>> testWnd2 = Windows.intoSessions(
+    Window<TestMessageEnvelope, String, Collection<Character>, WindowOutput<String, Collection<Character>>> testWnd2 = Windows.intoSessions(
         m -> String.format("key-%d", m.getMessage().getEventTime()), m -> m.getMessage().getValue().charAt(0));
     assertTrue(testWnd2 instanceof SessionWindow);
-    wndKeyFunc = (Function<TestMessage, String>) wndKeyFuncField.get(testWnd2);
-    aggrFunc = (BiFunction<TestMessage, Collection<TestMessage>, Collection<TestMessage>>) aggregatorField.get(testWnd2);
-    assertEquals(wndKeyFunc.apply(new TestMessage("test-key", "test-value", 0)), "key-0");
-    TestMessage.MessageType mockInnerMessage = mock(TestMessage.MessageType.class);
+    wndKeyFunc = (Function<TestMessageEnvelope, String>) wndKeyFuncField.get(testWnd2);
+    aggrFunc = (BiFunction<TestMessageEnvelope, Collection<TestMessageEnvelope>, Collection<TestMessageEnvelope>>) aggregatorField.get(testWnd2);
+    assertEquals(wndKeyFunc.apply(new TestMessageEnvelope("test-key", "test-value", 0)), "key-0");
+    TestMessageEnvelope.MessageType mockInnerMessage = mock(TestMessageEnvelope.MessageType.class);
     when(mockMsg.getMessage()).thenReturn(mockInnerMessage);
     when(mockInnerMessage.getValue()).thenReturn("x-001");
     collection = aggrFunc.apply(mockMsg, new ArrayList<>());
@@ -70,11 +70,11 @@ public class TestWindows {
     assertTrue(collection.contains('x'));
 
     // test constructing session window w/ a default counter
-    Window<TestMessage, String, Integer, WindowOutput<String, Integer>> testCounter = Windows.intoSessionCounter(
+    Window<TestMessageEnvelope, String, Integer, WindowOutput<String, Integer>> testCounter = Windows.intoSessionCounter(
         m -> String.format("key-%d", m.getMessage().getEventTime()));
     assertTrue(testCounter instanceof SessionWindow);
-    wndKeyFunc = (Function<TestMessage, String>) wndKeyFuncField.get(testCounter);
-    BiFunction<TestMessage, Integer, Integer> counterFn = (BiFunction<TestMessage, Integer, Integer>) aggregatorField.get(testCounter);
+    wndKeyFunc = (Function<TestMessageEnvelope, String>) wndKeyFuncField.get(testCounter);
+    BiFunction<TestMessageEnvelope, Integer, Integer> counterFn = (BiFunction<TestMessageEnvelope, Integer, Integer>) aggregatorField.get(testCounter);
     when(mockMsg.getMessage().getEventTime()).thenReturn(12345L);
     assertEquals(wndKeyFunc.apply(mockMsg), "key-12345");
     assertEquals(counterFn.apply(mockMsg, 1), Integer.valueOf(2));
@@ -82,13 +82,13 @@ public class TestWindows {
 
   @Test
   public void testSetTriggers() throws NoSuchFieldException, IllegalAccessException {
-    Window<TestMessage, String, Integer, WindowOutput<String, Integer>> testCounter = Windows.intoSessionCounter(
+    Window<TestMessageEnvelope, String, Integer, WindowOutput<String, Integer>> testCounter = Windows.intoSessionCounter(
         m -> String.format("key-%d", m.getMessage().getEventTime()));
     // test session window w/ a trigger
-    TriggerBuilder<TestMessage, Integer> triggerBuilder = TriggerBuilder.earlyTriggerWhenExceedWndLen(1000L);
+    TriggerBuilder<TestMessageEnvelope, Integer> triggerBuilder = TriggerBuilder.earlyTriggerWhenExceedWndLen(1000L);
     testCounter.setTriggers(triggerBuilder);
-    Trigger<TestMessage, WindowState<Integer>> expectedTrigger = triggerBuilder.build();
-    Trigger<TestMessage, WindowState<Integer>> actualTrigger = Windows.getInternalWindowFn(testCounter).getTrigger();
+    Trigger<TestMessageEnvelope, WindowState<Integer>> expectedTrigger = triggerBuilder.build();
+    Trigger<TestMessageEnvelope, WindowState<Integer>> actualTrigger = Windows.getInternalWindowFn(testCounter).getTrigger();
     // examine all trigger fields are expected
     Field earlyTriggerField = Trigger.class.getDeclaredField("earlyTrigger");
     Field lateTriggerField = Trigger.class.getDeclaredField("lateTrigger");

@@ -19,11 +19,11 @@
 
 package org.apache.samza.operators.spec;
 
+import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.windows.WindowState;
-import org.apache.samza.operators.data.Message;
 import org.apache.samza.operators.windows.WindowFn;
 import org.apache.samza.operators.windows.WindowOutput;
 
@@ -48,11 +48,11 @@ public class OperatorSpecs {
    * Creates a {@link StreamOperatorSpec}.
    *
    * @param transformFn  the transformation function
-   * @param <M>  type of input {@link Message}
-   * @param <OM>  type of output {@link Message}
+   * @param <M>  type of input {@link MessageEnvelope}
+   * @param <OM>  type of output {@link MessageEnvelope}
    * @return  the {@link StreamOperatorSpec}
    */
-  public static <M extends Message, OM extends Message> StreamOperatorSpec<M, OM> createStreamOperator(
+  public static <M extends MessageEnvelope, OM extends MessageEnvelope> StreamOperatorSpec<M, OM> createStreamOperator(
       FlatMapFunction<M, OM> transformFn) {
     return new StreamOperatorSpec<>(transformFn);
   }
@@ -61,10 +61,10 @@ public class OperatorSpecs {
    * Creates a {@link SinkOperatorSpec}.
    *
    * @param sinkFn  the sink function
-   * @param <M>  type of input {@link Message}
+   * @param <M>  type of input {@link MessageEnvelope}
    * @return  the {@link SinkOperatorSpec}
    */
-  public static <M extends Message> SinkOperatorSpec<M> createSinkOperator(SinkFunction<M> sinkFn) {
+  public static <M extends MessageEnvelope> SinkOperatorSpec<M> createSinkOperator(SinkFunction<M> sinkFn) {
     return new SinkOperatorSpec<>(sinkFn);
   }
 
@@ -72,13 +72,13 @@ public class OperatorSpecs {
    * Creates a {@link WindowOperatorSpec}.
    *
    * @param windowFn  the {@link WindowFn} function
-   * @param <M>  type of input {@link Message}
+   * @param <M>  type of input {@link MessageEnvelope}
    * @param <WK>  type of window key
    * @param <WS>  type of {@link WindowState}
    * @param <WM>  type of output {@link WindowOutput}
    * @return  the {@link WindowOperatorSpec}
    */
-  public static <M extends Message, WK, WS extends WindowState, WM extends WindowOutput<WK, ?>> WindowOperatorSpec<M, WK, WS, WM> createWindowOperator(
+  public static <M extends MessageEnvelope, WK, WS extends WindowState, WM extends WindowOutput<WK, ?>> WindowOperatorSpec<M, WK, WS, WM> createWindowOperator(
       WindowFn<M, WK, WS, WM> windowFn) {
     return new WindowOperatorSpec<>(windowFn, OperatorSpecs.getOperatorId());
   }
@@ -88,13 +88,13 @@ public class OperatorSpecs {
    *
    * @param partialJoinFn  the join function
    * @param joinOutput  the output {@link MessageStreamImpl}
-   * @param <M>  type of input {@link Message}
+   * @param <M>  type of input {@link MessageEnvelope}
    * @param <K>  type of join key
-   * @param <JM>  the type of {@link Message} in the other join stream
-   * @param <OM>  the type of {@link Message} in the join output
+   * @param <JM>  the type of {@link MessageEnvelope} in the other join stream
+   * @param <OM>  the type of {@link MessageEnvelope} in the join output
    * @return  the {@link PartialJoinOperatorSpec}
    */
-  public static <M extends Message<K, ?>, K, JM extends Message<K, ?>, OM extends Message> PartialJoinOperatorSpec<M, K, JM, OM> createPartialJoinOperator(
+  public static <M extends MessageEnvelope<K, ?>, K, JM extends MessageEnvelope<K, ?>, OM extends MessageEnvelope> PartialJoinOperatorSpec<M, K, JM, OM> createPartialJoinOperator(
       BiFunction<M, JM, OM> partialJoinFn, MessageStreamImpl<OM> joinOutput) {
     return new PartialJoinOperatorSpec<>(partialJoinFn, joinOutput, OperatorSpecs.getOperatorId());
   }
@@ -103,10 +103,10 @@ public class OperatorSpecs {
    * Creates a {@link StreamOperatorSpec} with a merger function.
    *
    * @param mergeOutput  the output {@link MessageStreamImpl} from the merger
-   * @param <M>  the type of input {@link Message}
+   * @param <M>  the type of input {@link MessageEnvelope}
    * @return  the {@link StreamOperatorSpec} for the merge
    */
-  public static <M extends Message> StreamOperatorSpec<M, M> createMergeOperator(MessageStreamImpl<M> mergeOutput) {
+  public static <M extends MessageEnvelope> StreamOperatorSpec<M, M> createMergeOperator(MessageStreamImpl<M> mergeOutput) {
     return new StreamOperatorSpec<M, M>(t ->
       new ArrayList<M>() { {
           this.add(t);

@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.windows;
 
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.storage.kv.Entry;
 
 import java.util.function.BiFunction;
@@ -27,17 +27,17 @@ import java.util.function.BiFunction;
 /**
  * Defines an internal representation of a window function.
  *
- * @param <M>  type of the input {@link Message} for the window
- * @param <WK>  type of the window key in the output {@link Message}
+ * @param <M>  type of the input {@link MessageEnvelope} for the window
+ * @param <WK>  type of the window key in the output {@link MessageEnvelope}
  * @param <WS>  type of the {@link WindowState} in the state store
- * @param <WM>  type of the {@link Message} in the output stream
+ * @param <WM>  type of the {@link MessageEnvelope} in the output stream
  */
-public interface WindowFn<M extends Message, WK, WS extends WindowState, WM extends WindowOutput<WK, ?>> {
+public interface WindowFn<M extends MessageEnvelope, WK, WS extends WindowState, WM extends WindowOutput<WK, ?>> {
 
   /**
    * Get the transformation function of the {@link WindowFn}.
    *
-   * @return  the transformation function which takes a {@link Message} of type {@code M} and its window state entry,
+   * @return  the transformation function which takes a {@link MessageEnvelope} of type {@code M} and its window state entry,
    *          and transforms it to an {@link WindowOutput}
    */
   BiFunction<M, Entry<WK, WS>, WM> getTransformFn();

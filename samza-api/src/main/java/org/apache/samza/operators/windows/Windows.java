@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.windows;
 
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 
 import java.util.Collection;
 import java.util.function.Function;
@@ -36,7 +36,7 @@ public final class Windows {
    */
   private Windows() {}
 
-  static <M extends Message, WK, WV, WS extends WindowState<WV>, WM extends WindowOutput<WK, WV>> WindowFn<M, WK, WS, WM> getInternalWindowFn(
+  static <M extends MessageEnvelope, WK, WV, WS extends WindowState<WV>, WM extends WindowOutput<WK, WV>> WindowFn<M, WK, WS, WM> getInternalWindowFn(
       Window<M, WK, WV, WM> window) {
     if (window instanceof SessionWindow) {
       SessionWindow<M, WK, WV> sessionWindow = (SessionWindow<M, WK, WV>) window;
@@ -51,14 +51,14 @@ public final class Windows {
    */
 
   /**
-   * Static API method to create a {@link SessionWindow} in which the output value is simply the collection of input messages
+   * Static API method to create a {@link SessionWindow} in which the output value is simply the collection of input {@link MessageEnvelope}s
    *
    * @param sessionKeyFunction  function to calculate session window key
-   * @param <M>  type of input {@link Message}
+   * @param <M>  type of input {@link MessageEnvelope}
    * @param <WK>  type of the session window key
    * @return  the {@link Window} function for the session
    */
-  public static <M extends Message, WK> Window<M, WK, Collection<M>, WindowOutput<WK, Collection<M>>> intoSessions(Function<M, WK> sessionKeyFunction) {
+  public static <M extends MessageEnvelope, WK> Window<M, WK, Collection<M>, WindowOutput<WK, Collection<M>>> intoSessions(Function<M, WK> sessionKeyFunction) {
     return new SessionWindow<>(sessionKeyFunction, (m, c) -> {
         c.add(m);
         return c;
@@ -67,16 +67,16 @@ public final class Windows {
   }
 
   /**
-   * Static API method to create a {@link SessionWindow} in which the output value is a collection of {@code SI} from the input messages
+   * Static API method to create a {@link SessionWindow} in which the output value is a collection of {@code SI} from the input {@link MessageEnvelope}s
    *
    * @param sessionKeyFunction  function to calculate session window key
-   * @param sessionInfoExtractor  function to retrieve session info of type {@code SI} from the input message of type {@code M}
-   * @param <M>  type of the input {@link Message}
+   * @param sessionInfoExtractor  function to retrieve session info of type {@code SI} from the input {@link MessageEnvelope} of type {@code M}
+   * @param <M>  type of the input {@link MessageEnvelope}
    * @param <WK>  type of the session window key
-   * @param <SI>  type of the session information retrieved from each input message of type {@code M}
+   * @param <SI>  type of the session information retrieved from each input {@link MessageEnvelope} of type {@code M}
    * @return  the {@link Window} function for the session
    */
-  public static <M extends Message, WK, SI> Window<M, WK, Collection<SI>, WindowOutput<WK, Collection<SI>>> intoSessions(Function<M, WK> sessionKeyFunction,
+  public static <M extends MessageEnvelope, WK, SI> Window<M, WK, Collection<SI>, WindowOutput<WK, Collection<SI>>> intoSessions(Function<M, WK> sessionKeyFunction,
       Function<M, SI> sessionInfoExtractor) {
     return new SessionWindow<>(sessionKeyFunction, (m, c) -> {
         c.add(sessionInfoExtractor.apply(m));
@@ -86,14 +86,14 @@ public final class Windows {
   }
 
   /**
-   * Static API method to create a {@link SessionWindow} as a counter of input messages
+   * Static API method to create a {@link SessionWindow} as a counter of input {@link MessageEnvelope}s
    *
    * @param sessionKeyFunction  function to calculate session window key
-   * @param <M>  type of the input {@link Message}
+   * @param <M>  type of the input {@link MessageEnvelope}
    * @param <WK>  type of the session window key
    * @return  the {@link Window} function for the session
    */
-  public static <M extends Message, WK> Window<M, WK, Integer, WindowOutput<WK, Integer>> intoSessionCounter(Function<M, WK> sessionKeyFunction) {
+  public static <M extends MessageEnvelope, WK> Window<M, WK, Integer, WindowOutput<WK, Integer>> intoSessionCounter(Function<M, WK> sessionKeyFunction) {
     return new SessionWindow<>(sessionKeyFunction, (m, c) -> c + 1);
   }
 

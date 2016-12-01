@@ -19,8 +19,8 @@
 package org.apache.samza.operators;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.data.IncomingSystemMessage;
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.IncomingSystemMessageEnvelope;
+import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.impl.OperatorImpl;
 import org.apache.samza.operators.impl.OperatorImpls;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -37,11 +37,12 @@ import java.util.Map;
 
 
 /**
- * An {@link StreamTask} implementation that receives incoming system messages and propagates them through the
- * user's stream transformations defined in {@link StreamOperatorTask#transform(Map)} using the {@link MessageStream} APIs.
+ * An {@link StreamTask} implementation that receives {@link IncomingSystemMessageEnvelope}s and propagates them
+ * through the user's stream transformations defined in {@link StreamOperatorTask#transform(Map)} using the
+ * {@link MessageStream} APIs.
  * <p>
- * This class brings all the operator API implementation components together and feeds incoming messages into the
- * transformation chains.
+ * This class brings all the operator API implementation components together and feeds the
+ * {@link IncomingSystemMessageEnvelope}s into the transformation chains.
  * <p>
  * It accepts an instance of the user implemented {@link StreamOperatorTask}. When its own {@link #init(Config, TaskContext)}
  * method is called during startup, it creates a {@link MessageStreamImpl} corresponding to each of its input
@@ -59,17 +60,17 @@ import java.util.Map;
  * corresponding to the aforementioned {@link org.apache.samza.operators.spec.OperatorSpec} DAG and returns the
  * root node of the DAG, which this class saves.
  * <p>
- * Now that it has the root for the DAG corresponding to each {@link SystemStreamPartition}, it can pass the messages
- * received in {@link StreamTask#process(IncomingMessageEnvelope, MessageCollector, TaskCoordinator)} along to the
- * appropriate root nodes. From then on, each {@link org.apache.samza.operators.impl.OperatorImpl} propagates its
- * transformed output to the next set of {@link org.apache.samza.operators.impl.OperatorImpl}s.
+ * Now that it has the root for the DAG corresponding to each {@link SystemStreamPartition}, it can pass the message
+ * envelopes received in {@link StreamTask#process(IncomingMessageEnvelope, MessageCollector, TaskCoordinator)} along
+ * to the appropriate root nodes. From then on, each {@link org.apache.samza.operators.impl.OperatorImpl} propagates
+ * its transformed output to the next set of {@link org.apache.samza.operators.impl.OperatorImpl}s.
  */
 public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask, WindowableTask {
 
   /**
    * A mapping from each {@link SystemStreamPartition} to the root node of its operator chain DAG.
    */
-  private final Map<SystemStreamPartition, OperatorImpl<IncomingSystemMessage, ? extends Message>> operatorChains = new HashMap<>();
+  private final Map<SystemStreamPartition, OperatorImpl<IncomingSystemMessageEnvelope, ? extends MessageEnvelope>> operatorChains = new HashMap<>();
 
   private final StreamOperatorTask userTask;
 
@@ -82,17 +83,17 @@ public final class StreamOperatorAdaptorTask implements StreamTask, InitableTask
     if (this.userTask instanceof InitableTask) {
       ((InitableTask) this.userTask).init(config, context);
     }
-    Map<SystemStreamPartition, MessageStream<IncomingSystemMessage>> messageStreams = new HashMap<>();
+    Map<SystemStreamPartition, MessageStream<IncomingSystemMessageEnvelope>> messageStreams = new HashMap<>();
     context.getSystemStreamPartitions().forEach(ssp -> messageStreams.put(ssp, new MessageStreamImpl<>()));
     this.userTask.transform(messageStreams);
     messageStreams.forEach((ssp, ms) ->
-        operatorChains.put(ssp, OperatorImpls.createOperatorImpls((MessageStreamImpl<IncomingSystemMessage>) ms, context)));
+        operatorChains.put(ssp, OperatorImpls.createOperatorImpls((MessageStreamImpl<IncomingSystemMessageEnvelope>) ms, context)));
   }
 
   @Override
   public final void process(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator) {
     this.operatorChains.get(ime.getSystemStreamPartition())
-        .onNext(new IncomingSystemMessage(ime), collector, coordinator);
+        .onNext(new IncomingSystemMessageEnvelope(ime), collector, coordinator);
   }
 
   @Override

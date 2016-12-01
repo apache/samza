@@ -18,37 +18,37 @@
  */
 package org.apache.samza.operators.windows;
 
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * The store functions that are used by window and partial join operators to store and retrieve buffered messages
+ * The store functions that are used by window and partial join operators to store and retrieve buffered {@link MessageEnvelope}s
  * and partial aggregation results.
  *
  * @param <SK>  the type of key used to store the operator state
  * @param <SS>  the type of operator state. E.g. could be the partial aggregation result for a window, or a buffered
- *             input message from the join stream for a join
+ *             input {@link MessageEnvelope} from the join stream for a join
  */
-public class StoreFunctions<M extends Message, SK, SS> {
+public class StoreFunctions<M extends MessageEnvelope, SK, SS> {
   /**
-   * Function that returns the key to query in the operator state store for a particular {@link Message}.
-   * This 1:1 function only returns a single key for the incoming message. This is sufficient to support
+   * Function that returns the key to query in the operator state store for a particular {@link MessageEnvelope}.
+   * This 1:1 function only returns a single key for the incoming {@link MessageEnvelope}. This is sufficient to support
    * non-overlapping windows and unique-key based joins.
    *
    * TODO: for windows that overlaps (i.e. sliding windows and hopping windows) and non-unique-key-based join,
    * the query to the state store is usually a range scan. We need to add a rangeKeyFinder function
-   * (or make this function return a collection) to map from a single input message to a range of keys in the store.
+   * (or make this function return a collection) to map from a single input {@link MessageEnvelope} to a range of keys in the store.
    */
   private final Function<M, SK> storeKeyFn;
 
   /**
-   * Function to update the store entry based on the current operator state and the incoming {@link Message}.
+   * Function to update the store entry based on the current operator state and the incoming {@link MessageEnvelope}.
    *
-   * TODO: this is assuming a 1:1 mapping from the input message to the store entry. When implementing sliding/hopping
+   * TODO: this is assuming a 1:1 mapping from the input {@link MessageEnvelope} to the store entry. When implementing sliding/hopping
    * windows and non-unique-key-based join, we may need to include the corresponding state key in addition to the
-   * state value. Alternatively this can be called once for each store key for the message.
+   * state value. Alternatively this can be called once for each store key for the {@link MessageEnvelope}.
    */
   private final BiFunction<M, SS, SS> stateUpdaterFn;
 

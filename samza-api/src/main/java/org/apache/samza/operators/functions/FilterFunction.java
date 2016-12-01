@@ -19,21 +19,21 @@
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 
 
 /**
- * A function that specifies whether a {@link Message} should be retained for further processing or filtered out.
- * @param <M>  type of the input {@link Message}
+ * A function that specifies whether a {@link MessageEnvelope} should be retained for further processing or filtered out.
+ * @param <M>  type of the input {@link MessageEnvelope}
  */
 @InterfaceStability.Unstable
 @FunctionalInterface
-public interface FilterFunction<M extends Message> {
+public interface FilterFunction<M extends MessageEnvelope> {
 
   /**
-   * Returns a boolean indicating whether this {@link Message} should be retained or filtered out.
-   * @param message  the message to be checked
-   * @return  true if message should be retained, else false
+   * Returns a boolean indicating whether this {@link MessageEnvelope} should be retained or filtered out.
+   * @param message  the {@link MessageEnvelope} to be checked
+   * @return  true if {@link MessageEnvelope} should be retained
    */
   boolean apply(M message);
 

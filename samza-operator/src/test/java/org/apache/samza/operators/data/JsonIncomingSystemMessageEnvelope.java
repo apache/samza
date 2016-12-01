@@ -22,17 +22,17 @@ import org.apache.samza.system.SystemStreamPartition;
 
 
 /**
- * Example input message w/ Json message body and string as the key.
+ * Example input {@link MessageEnvelope} w/ Json message and string as the key.
  */
 
-public class JsonInputSystemMessage<T> implements Message<String, T> {
+public class JsonIncomingSystemMessageEnvelope<T> implements MessageEnvelope<String, T> {
 
   private final String key;
   private final T data;
   private final Offset offset;
   private final SystemStreamPartition partition;
 
-  public JsonInputSystemMessage(String key, T data, Offset offset, SystemStreamPartition partition) {
+  public JsonIncomingSystemMessageEnvelope(String key, T data, Offset offset, SystemStreamPartition partition) {
     this.key = key;
     this.data = data;
     this.offset = offset;

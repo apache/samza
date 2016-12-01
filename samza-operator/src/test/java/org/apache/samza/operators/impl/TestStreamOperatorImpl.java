@@ -18,8 +18,8 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.TestMessage;
-import org.apache.samza.operators.TestOutputMessage;
+import org.apache.samza.operators.TestMessageEnvelope;
+import org.apache.samza.operators.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.task.MessageCollector;
@@ -40,14 +40,14 @@ public class TestStreamOperatorImpl {
 
   @Test
   public void testSimpleOperator() {
-    StreamOperatorSpec<TestMessage, TestOutputMessage> mockOp = mock(StreamOperatorSpec.class);
-    FlatMapFunction<TestMessage, TestOutputMessage> txfmFn = mock(FlatMapFunction.class);
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> mockOp = mock(StreamOperatorSpec.class);
+    FlatMapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> txfmFn = mock(FlatMapFunction.class);
     when(mockOp.getTransformFn()).thenReturn(txfmFn);
 
-    StreamOperatorImpl<TestMessage, TestOutputMessage> opImpl = spy(new StreamOperatorImpl<>(mockOp));
-    TestMessage inMsg = mock(TestMessage.class);
-    TestOutputMessage outMsg = mock(TestOutputMessage.class);
-    Collection<TestOutputMessage> mockOutputs = new ArrayList() { {
+    StreamOperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope> opImpl = spy(new StreamOperatorImpl<>(mockOp));
+    TestMessageEnvelope inMsg = mock(TestMessageEnvelope.class);
+    TestOutputMessageEnvelope outMsg = mock(TestOutputMessageEnvelope.class);
+    Collection<TestOutputMessageEnvelope> mockOutputs = new ArrayList() { {
         this.add(outMsg);
       } };
     when(txfmFn.apply(inMsg)).thenReturn(mockOutputs);

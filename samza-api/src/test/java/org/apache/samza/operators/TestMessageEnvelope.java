@@ -18,20 +18,21 @@
  */
 package org.apache.samza.operators;
 
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 
 
-public class TestOutputMessage implements Message<String, Integer> {
+public class TestMessageEnvelope implements MessageEnvelope<String, TestMessageEnvelope.MessageType> {
+
   private final String key;
-  private final Integer value;
+  private final MessageType value;
 
-  public TestOutputMessage(String key, Integer value) {
+  public TestMessageEnvelope(String key, String value, long eventTime) {
     this.key = key;
-    this.value = value;
+    this.value = new MessageType(value, eventTime);
   }
 
   @Override
-  public Integer getMessage() {
+  public MessageType getMessage() {
     return this.value;
   }
 
@@ -39,5 +40,22 @@ public class TestOutputMessage implements Message<String, Integer> {
   public String getKey() {
     return this.key;
   }
-}
 
+  public class MessageType {
+    private final String value;
+    private final long eventTime;
+
+    public MessageType(String value, long eventTime) {
+      this.value = value;
+      this.eventTime = eventTime;
+    }
+
+    public long getEventTime() {
+      return eventTime;
+    }
+
+    public String getValue() {
+      return value;
+    }
+  }
+}

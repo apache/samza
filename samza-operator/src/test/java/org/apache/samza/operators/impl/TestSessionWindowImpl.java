@@ -19,7 +19,7 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.TestMessage;
+import org.apache.samza.operators.TestMessageEnvelope;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.windows.StoreFunctions;
 import org.apache.samza.operators.windows.WindowOutput;
@@ -59,21 +59,21 @@ public class TestSessionWindowImpl {
   @Test
   public void testConstructor() throws IllegalAccessException, NoSuchFieldException {
     // test constructing a SessionWindowOperatorImpl w/ expected mock functions
-    WindowOperatorSpec<TestMessage, String, WindowState<Integer>, WindowOutput<String, Integer>> wndOp = mock(WindowOperatorSpec.class);
-    SessionWindowOperatorImpl<TestMessage, String, WindowState<Integer>, WindowOutput<String, Integer>> sessWnd = new SessionWindowOperatorImpl<>(wndOp);
+    WindowOperatorSpec<TestMessageEnvelope, String, WindowState<Integer>, WindowOutput<String, Integer>> wndOp = mock(WindowOperatorSpec.class);
+    SessionWindowOperatorImpl<TestMessageEnvelope, String, WindowState<Integer>, WindowOutput<String, Integer>> sessWnd = new SessionWindowOperatorImpl<>(wndOp);
     assertEquals(wndOp, sessWndField.get(sessWnd));
   }
 
   @Test
   public void testInitAndProcess() throws IllegalAccessException {
-    WindowOperatorSpec<TestMessage, String, WindowState<Integer>, WindowOutput<String, Integer>> wndOp = mock(WindowOperatorSpec.class);
-    BiFunction<TestMessage, Entry<String, WindowState<Integer>>, WindowOutput<String, Integer>> mockTxfmFn = mock(BiFunction.class);
-    SessionWindowOperatorImpl<TestMessage, String, WindowState<Integer>, WindowOutput<String, Integer>> sessWnd = new SessionWindowOperatorImpl<>(wndOp);
+    WindowOperatorSpec<TestMessageEnvelope, String, WindowState<Integer>, WindowOutput<String, Integer>> wndOp = mock(WindowOperatorSpec.class);
+    BiFunction<TestMessageEnvelope, Entry<String, WindowState<Integer>>, WindowOutput<String, Integer>> mockTxfmFn = mock(BiFunction.class);
+    SessionWindowOperatorImpl<TestMessageEnvelope, String, WindowState<Integer>, WindowOutput<String, Integer>> sessWnd = new SessionWindowOperatorImpl<>(wndOp);
 
     // construct and init the SessionWindowOperatorImpl object
-    MessageStreamImpl<TestMessage> mockInputStrm = mock(MessageStreamImpl.class);
-    StoreFunctions<TestMessage, String, WindowState<Integer>> mockStoreFns = mock(StoreFunctions.class);
-    Function<TestMessage, String> wndKeyFn = m -> "test-msg-key";
+    MessageStreamImpl<TestMessageEnvelope> mockInputStrm = mock(MessageStreamImpl.class);
+    StoreFunctions<TestMessageEnvelope, String, WindowState<Integer>> mockStoreFns = mock(StoreFunctions.class);
+    Function<TestMessageEnvelope, String> wndKeyFn = m -> "test-msg-key";
     when(mockStoreFns.getStoreKeyFn()).thenReturn(wndKeyFn);
     when(wndOp.getStoreFns()).thenReturn(mockStoreFns);
     when(wndOp.getStoreName(mockInputStrm)).thenReturn("test-wnd-store");
@@ -84,19 +84,19 @@ public class TestSessionWindowImpl {
     sessWnd.init(mockInputStrm, mockContext);
 
     // test onNext() method. Make sure the transformation function and the state update functions are invoked.
-    TestMessage mockMsg = mock(TestMessage.class);
+    TestMessageEnvelope mockMsg = mock(TestMessageEnvelope.class);
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
-    BiFunction<TestMessage, WindowState<Integer>, WindowState<Integer>> stateUpdaterFn = mock(BiFunction.class);
+    BiFunction<TestMessageEnvelope, WindowState<Integer>, WindowState<Integer>> stateUpdaterFn = mock(BiFunction.class);
     when(mockStoreFns.getStateUpdaterFn()).thenReturn(stateUpdaterFn);
     WindowState<Integer> mockNewState = mock(WindowState.class);
     WindowState<Integer> oldState = mock(WindowState.class);
     when(mockKvStore.get("test-msg-key")).thenReturn(oldState);
     when(stateUpdaterFn.apply(mockMsg, oldState)).thenReturn(mockNewState);
     sessWnd.onNext(mockMsg, mockCollector, mockCoordinator);
-    verify(mockTxfmFn, times(1)).apply(argThat(new ArgumentMatcher<TestMessage>() {
+    verify(mockTxfmFn, times(1)).apply(argThat(new ArgumentMatcher<TestMessageEnvelope>() {
       @Override public boolean matches(Object argument) {
-        TestMessage xIn = (TestMessage) argument;
+        TestMessageEnvelope xIn = (TestMessageEnvelope) argument;
         return xIn.equals(mockMsg);
       }
     }), argThat(new ArgumentMatcher<Entry<String, WindowState<Integer>>>() {

@@ -19,9 +19,9 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.TestMessage;
-import org.apache.samza.operators.TestOutputMessage;
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.TestMessageEnvelope;
+import org.apache.samza.operators.TestOutputMessageEnvelope;
+import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
@@ -59,7 +59,7 @@ public class TestOperatorImpls {
   public void testCreateOperator() throws NoSuchFieldException, IllegalAccessException {
     // get window operator
     WindowOperatorSpec mockWnd = mock(WindowOperatorSpec.class);
-    OperatorImpl<TestMessage, ? extends Message> opImpl = OperatorImpls.createOperatorImpl(mockWnd);
+    OperatorImpl<TestMessageEnvelope, ? extends MessageEnvelope> opImpl = OperatorImpls.createOperatorImpl(mockWnd);
     assertTrue(opImpl instanceof SessionWindowOperatorImpl);
     Field sessWndField = SessionWindowOperatorImpl.class.getDeclaredField("windowSpec");
     sessWndField.setAccessible(true);
@@ -67,8 +67,8 @@ public class TestOperatorImpls {
     assertEquals(sessWnd, mockWnd);
 
     // get simple operator
-    StreamOperatorSpec<TestMessage, TestOutputMessage> mockSimpleOp = mock(StreamOperatorSpec.class);
-    FlatMapFunction<TestMessage, TestOutputMessage> mockTxfmFn = mock(FlatMapFunction.class);
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> mockSimpleOp = mock(StreamOperatorSpec.class);
+    FlatMapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> mockTxfmFn = mock(FlatMapFunction.class);
     when(mockSimpleOp.getTransformFn()).thenReturn(mockTxfmFn);
     opImpl = OperatorImpls.createOperatorImpl(mockSimpleOp);
     assertTrue(opImpl instanceof StreamOperatorImpl);
@@ -77,8 +77,8 @@ public class TestOperatorImpls {
     assertEquals(mockTxfmFn, txfmFnField.get(opImpl));
 
     // get sink operator
-    SinkFunction<TestMessage> sinkFn = (m, mc, tc) -> { };
-    SinkOperatorSpec<TestMessage> sinkOp = mock(SinkOperatorSpec.class);
+    SinkFunction<TestMessageEnvelope> sinkFn = (m, mc, tc) -> { };
+    SinkOperatorSpec<TestMessageEnvelope> sinkOp = mock(SinkOperatorSpec.class);
     when(sinkOp.getSinkFn()).thenReturn(sinkFn);
     opImpl = OperatorImpls.createOperatorImpl(sinkOp);
     assertTrue(opImpl instanceof SinkOperatorImpl);
@@ -87,9 +87,9 @@ public class TestOperatorImpls {
     assertEquals(sinkFn, sinkFnField.get(opImpl));
 
     // get join operator
-    PartialJoinOperatorSpec<TestMessage, String, TestMessage, TestOutputMessage> joinOp = mock(PartialJoinOperatorSpec.class);
-    TestOutputMessage mockOutput = mock(TestOutputMessage.class);
-    BiFunction<TestMessage, TestMessage, TestOutputMessage> joinFn = (m1, m2) -> mockOutput;
+    PartialJoinOperatorSpec<TestMessageEnvelope, String, TestMessageEnvelope, TestOutputMessageEnvelope> joinOp = mock(PartialJoinOperatorSpec.class);
+    TestOutputMessageEnvelope mockOutput = mock(TestOutputMessageEnvelope.class);
+    BiFunction<TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> joinFn = (m1, m2) -> mockOutput;
     when(joinOp.getTransformFn()).thenReturn(joinFn);
     opImpl = OperatorImpls.createOperatorImpl(joinOp);
     assertTrue(opImpl instanceof PartialJoinOperatorImpl);
@@ -98,7 +98,7 @@ public class TestOperatorImpls {
   @Test
   public void testEmptyChain() {
     // test creation of empty chain
-    MessageStreamImpl<TestMessage> testStream = new MessageStreamImpl<>();
+    MessageStreamImpl<TestMessageEnvelope> testStream = new MessageStreamImpl<>();
     TaskContext mockContext = mock(TaskContext.class);
     RootOperatorImpl operatorChain = OperatorImpls.createOperatorImpls(testStream, mockContext);
     assertTrue(operatorChain != null);
@@ -107,13 +107,13 @@ public class TestOperatorImpls {
   @Test
   public void testLinearChain() throws IllegalAccessException {
     // test creation of linear chain
-    MessageStreamImpl<TestMessage> testInput = new MessageStreamImpl<>();
+    MessageStreamImpl<TestMessageEnvelope> testInput = new MessageStreamImpl<>();
     TaskContext mockContext = mock(TaskContext.class);
-    testInput.map(m -> m).window(Windows.intoSessionCounter(TestMessage::getKey));
+    testInput.map(m -> m).window(Windows.intoSessionCounter(TestMessageEnvelope::getKey));
     RootOperatorImpl operatorChain = OperatorImpls.createOperatorImpls(testInput, mockContext);
     Set<OperatorImpl> subsSet = (Set<OperatorImpl>) nextOperatorsField.get(operatorChain);
     assertEquals(subsSet.size(), 1);
-    OperatorImpl<TestMessage, TestMessage> firstOpImpl = subsSet.iterator().next();
+    OperatorImpl<TestMessageEnvelope, TestMessageEnvelope> firstOpImpl = subsSet.iterator().next();
     Set<OperatorImpl> subsOps = (Set<OperatorImpl>) nextOperatorsField.get(firstOpImpl);
     assertEquals(subsOps.size(), 1);
     OperatorImpl wndOpImpl = subsOps.iterator().next();
@@ -124,7 +124,7 @@ public class TestOperatorImpls {
   @Test
   public void testBroadcastChain() throws IllegalAccessException {
     // test creation of broadcast chain
-    MessageStreamImpl<TestMessage> testInput = new MessageStreamImpl<>();
+    MessageStreamImpl<TestMessageEnvelope> testInput = new MessageStreamImpl<>();
     TaskContext mockContext = mock(TaskContext.class);
     testInput.filter(m -> m.getMessage().getEventTime() > 123456L).flatMap(m -> new ArrayList() { { this.add(m); this.add(m); } });
     testInput.filter(m -> m.getMessage().getEventTime() < 123456L).map(m -> m);
@@ -133,7 +133,7 @@ public class TestOperatorImpls {
     assertEquals(subsSet.size(), 2);
     Iterator<OperatorImpl> iter = subsSet.iterator();
     // check the first branch w/ flatMap
-    OperatorImpl<TestMessage, TestMessage> opImpl = iter.next();
+    OperatorImpl<TestMessageEnvelope, TestMessageEnvelope> opImpl = iter.next();
     Set<OperatorImpl> subsOps = (Set<OperatorImpl>) nextOperatorsField.get(opImpl);
     assertEquals(subsOps.size(), 1);
     OperatorImpl flatMapImpl = subsOps.iterator().next();
@@ -151,12 +151,12 @@ public class TestOperatorImpls {
   @Test
   public void testJoinChain() throws IllegalAccessException {
     // test creation of join chain
-    MessageStreamImpl<TestMessage> input1 = new MessageStreamImpl<>();
-    MessageStreamImpl<TestMessage> input2 = new MessageStreamImpl<>();
+    MessageStreamImpl<TestMessageEnvelope> input1 = new MessageStreamImpl<>();
+    MessageStreamImpl<TestMessageEnvelope> input2 = new MessageStreamImpl<>();
     TaskContext mockContext = mock(TaskContext.class);
     input1
         .join(input2, (m1, m2) ->
-            new TestOutputMessage(m1.getKey(), m1.getMessage().getValue().length() + m2.getMessage().getValue().length()))
+            new TestOutputMessageEnvelope(m1.getKey(), m1.getMessage().getValue().length() + m2.getMessage().getValue().length()))
         .map(m -> m);
     // now, we create chained operators from each input sources
     RootOperatorImpl chain1 = OperatorImpls.createOperatorImpls(input1, mockContext);
@@ -165,7 +165,7 @@ public class TestOperatorImpls {
     // first branch of the join
     Set<OperatorImpl> subsSet = (Set<OperatorImpl>) nextOperatorsField.get(chain1);
     assertEquals(subsSet.size(), 1);
-    OperatorImpl<TestMessage, TestOutputMessage> joinOp1 = subsSet.iterator().next();
+    OperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope> joinOp1 = subsSet.iterator().next();
     Set<OperatorImpl> subsOps = (Set<OperatorImpl>) nextOperatorsField.get(joinOp1);
     assertEquals(subsOps.size(), 1);
     // the map operator consumes the common join output, where two branches merge
@@ -173,7 +173,7 @@ public class TestOperatorImpls {
     // second branch of the join
     subsSet = (Set<OperatorImpl>) nextOperatorsField.get(chain2);
     assertEquals(subsSet.size(), 1);
-    OperatorImpl<TestMessage, TestOutputMessage> joinOp2 = subsSet.iterator().next();
+    OperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope> joinOp2 = subsSet.iterator().next();
     assertNotSame(joinOp1, joinOp2);
     subsOps = (Set<OperatorImpl>) nextOperatorsField.get(joinOp2);
     assertEquals(subsOps.size(), 1);

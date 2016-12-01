@@ -30,16 +30,20 @@ import org.apache.samza.annotation.InterfaceStability;
 @InterfaceStability.Unstable
 public interface WindowState<WV> {
   /**
-   * Method to get the system time when the first message in the window is received
+   * Method to get the system time when the first {@link org.apache.samza.operators.data.MessageEnvelope}
+   * in the window is received
    *
-   * @return  nano-second of system time for the first message received in the window
+   * @return  nano-second of system time for the first {@link org.apache.samza.operators.data.MessageEnvelope}
+   *          received in the window
    */
   long getFirstMessageTimeNs();
 
   /**
-   * Method to get the system time when the last message in the window is received
+   * Method to get the system time when the last {@link org.apache.samza.operators.data.MessageEnvelope}
+   * in the window is received
    *
-   * @return  nano-second of system time for the last message received in the window
+   * @return  nano-second of system time for the last {@link org.apache.samza.operators.data.MessageEnvelope}
+   *          received in the window
    */
   long getLastMessageTimeNs();
 
@@ -58,9 +62,9 @@ public interface WindowState<WV> {
   long getLatestEventTimeNs();
 
   /**
-   * Method to get the total number of messages received in the window
+   * Method to get the total number of {@link org.apache.samza.operators.data.MessageEnvelope}s received in the window
    *
-   * @return  number of messages in the window
+   * @return  number of {@link org.apache.samza.operators.data.MessageEnvelope}s in the window
    */
   long getNumberMessages();
 

@@ -18,17 +18,17 @@
  */
 package org.apache.samza.operators.windows;
 
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 
 /**
  * The public programming interface class for window function
  *
- * @param <M>  the type of input {@link Message}
+ * @param <M>  the type of input {@link MessageEnvelope}
  * @param <WK>  the type of key to the {@link Window}
  * @param <WV>  the type of output value in the {@link WindowOutput}
- * @param <WM>  the type of message in the window output stream
+ * @param <WM>  the type of {@link MessageEnvelope} in the window output stream
  */
-public interface Window<M extends Message, WK, WV, WM extends WindowOutput<WK, WV>> {
+public interface Window<M extends MessageEnvelope, WK, WV, WM extends WindowOutput<WK, WV>> {
 
   /**
    * Set the triggers for this {@link Window}

@@ -19,9 +19,9 @@
 
 package org.apache.samza.operators;
 
-import org.apache.samza.operators.data.IncomingSystemMessage;
+import org.apache.samza.operators.data.IncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.Offset;
-import org.apache.samza.operators.data.JsonInputSystemMessage;
+import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.util.ArrayList;
@@ -39,18 +39,18 @@ public class JoinTask implements StreamOperatorTask {
     List<String> joinFields = new ArrayList<>();
   }
 
-  class JsonMessage extends JsonInputSystemMessage<MessageType> {
-    JsonMessage(String key, MessageType data, Offset offset, SystemStreamPartition partition) {
+  class JsonMessageEnvelope extends JsonIncomingSystemMessageEnvelope<MessageType> {
+    JsonMessageEnvelope(String key, MessageType data, Offset offset, SystemStreamPartition partition) {
       super(key, data, offset, partition);
     }
   }
 
-  MessageStream<JsonMessage> joinOutput = null;
+  MessageStream<JsonMessageEnvelope> joinOutput = null;
 
   @Override
-  public void transform(Map<SystemStreamPartition, MessageStream<IncomingSystemMessage>> messageStreams) {
+  public void transform(Map<SystemStreamPartition, MessageStream<IncomingSystemMessageEnvelope>> messageStreams) {
     messageStreams.values().forEach(messageStream -> {
-        MessageStream<JsonMessage> newSource = messageStream.map(this::getInputMessage);
+        MessageStream<JsonMessageEnvelope> newSource = messageStream.map(this::getInputMessage);
         if (joinOutput == null) {
           joinOutput = newSource;
         } else {
@@ -59,19 +59,19 @@ public class JoinTask implements StreamOperatorTask {
       });
   }
 
-  private JsonMessage getInputMessage(IncomingSystemMessage ism) {
-    return new JsonMessage(
+  private JsonMessageEnvelope getInputMessage(IncomingSystemMessageEnvelope ism) {
+    return new JsonMessageEnvelope(
         ((MessageType) ism.getMessage()).joinKey,
         (MessageType) ism.getMessage(),
         ism.getOffset(),
         ism.getSystemStreamPartition());
   }
 
-  JsonMessage myJoinResult(JsonMessage m1, JsonMessage m2) {
+  JsonMessageEnvelope myJoinResult(JsonMessageEnvelope m1, JsonMessageEnvelope m2) {
     MessageType newJoinMsg = new MessageType();
     newJoinMsg.joinKey = m1.getKey();
     newJoinMsg.joinFields.addAll(m1.getMessage().joinFields);
     newJoinMsg.joinFields.addAll(m2.getMessage().joinFields);
-    return new JsonMessage(m1.getMessage().joinKey, newJoinMsg, null, null);
+    return new JsonMessageEnvelope(m1.getMessage().joinKey, newJoinMsg, null, null);
   }
 }

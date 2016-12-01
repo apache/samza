@@ -19,18 +19,18 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 
 
 /**
  * A stateless serializable stream operator specification that holds all the information required
  * to transform the input {@link MessageStream} and produce the output {@link MessageStream}.
  */
-public interface OperatorSpec<OM extends Message> {
+public interface OperatorSpec<OM extends MessageEnvelope> {
 
   /**
-   * Get the output stream containing transformed messages produced by this operator.
-   * @return  the output stream containing transformed messages produced by this operator.
+   * Get the output stream containing transformed {@link MessageEnvelope} produced by this operator.
+   * @return  the output stream containing transformed {@link MessageEnvelope} produced by this operator.
    */
   MessageStream<OM> getOutputStream();
 

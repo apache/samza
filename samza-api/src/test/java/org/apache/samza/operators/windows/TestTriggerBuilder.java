@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.windows;
 
-import org.apache.samza.operators.TestMessage;
+import org.apache.samza.operators.TestMessageEnvelope;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -61,48 +61,48 @@ public class TestTriggerBuilder {
 
   @Test
   public void testStaticCreators() throws NoSuchFieldException, IllegalAccessException {
-    TriggerBuilder<TestMessage, Collection<TestMessage>> builder = TriggerBuilder.earlyTriggerWhenExceedWndLen(1000);
-    BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean> triggerField =
-        (BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean>) this.earlyTriggerField.get(builder);
-    WindowState<Collection<TestMessage>> mockState = mock(WindowState.class);
+    TriggerBuilder<TestMessageEnvelope, Collection<TestMessageEnvelope>> builder = TriggerBuilder.earlyTriggerWhenExceedWndLen(1000);
+    BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean> triggerField =
+        (BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean>) this.earlyTriggerField.get(builder);
+    WindowState<Collection<TestMessageEnvelope>> mockState = mock(WindowState.class);
     when(mockState.getNumberMessages()).thenReturn(200L);
     assertFalse(triggerField.apply(null, mockState));
     when(mockState.getNumberMessages()).thenReturn(2000L);
     assertTrue(triggerField.apply(null, mockState));
 
-    Function<TestMessage, Boolean> tokenFunc = m -> true;
+    Function<TestMessageEnvelope, Boolean> tokenFunc = m -> true;
     builder = TriggerBuilder.earlyTriggerOnTokenMsg(tokenFunc);
-    triggerField = (BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean>) this.earlyTriggerField.get(builder);
-    TestMessage m = mock(TestMessage.class);
+    triggerField = (BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean>) this.earlyTriggerField.get(builder);
+    TestMessageEnvelope m = mock(TestMessageEnvelope.class);
     assertTrue(triggerField.apply(m, mockState));
 
     builder = TriggerBuilder.earlyTriggerOnEventTime(tm -> tm.getMessage().getEventTime(), 30000L);
-    triggerField = (BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean>) this.earlyTriggerField.get(builder);
+    triggerField = (BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean>) this.earlyTriggerField.get(builder);
     when(mockState.getEarliestEventTimeNs()).thenReturn(1000000000L);
     when(mockState.getLatestEventTimeNs()).thenReturn(20000000000L);
-    TestMessage.MessageType mockInnerMessage;
-    mockInnerMessage = mock(TestMessage.MessageType.class);
+    TestMessageEnvelope.MessageType mockInnerMessage;
+    mockInnerMessage = mock(TestMessageEnvelope.MessageType.class);
     when(mockInnerMessage.getEventTime()).thenReturn(19999000000L);
     when(m.getMessage()).thenReturn(mockInnerMessage);
     assertFalse(triggerField.apply(m, mockState));
-    mockInnerMessage = mock(TestMessage.MessageType.class);
+    mockInnerMessage = mock(TestMessageEnvelope.MessageType.class);
     when(mockInnerMessage.getEventTime()).thenReturn(32000000000L);
     when(m.getMessage()).thenReturn(mockInnerMessage);
     assertTrue(triggerField.apply(m, mockState));
-    mockInnerMessage = mock(TestMessage.MessageType.class);
+    mockInnerMessage = mock(TestMessageEnvelope.MessageType.class);
     when(m.getMessage()).thenReturn(mockInnerMessage);
     when(mockInnerMessage.getEventTime()).thenReturn(1001000000L);
     when(mockState.getLatestEventTimeNs()).thenReturn(32000000000L);
     assertTrue(triggerField.apply(m, mockState));
 
-    BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean> mockFunc = mock(BiFunction.class);
+    BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean> mockFunc = mock(BiFunction.class);
     builder = TriggerBuilder.earlyTrigger(mockFunc);
-    triggerField = (BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean>) this.earlyTriggerField.get(builder);
+    triggerField = (BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean>) this.earlyTriggerField.get(builder);
     assertEquals(triggerField, mockFunc);
 
     builder = TriggerBuilder.timeoutSinceFirstMessage(10000L);
-    Function<WindowState<Collection<TestMessage>>, Boolean> timerTrigger =
-        (Function<WindowState<Collection<TestMessage>>, Boolean>) this.timerTriggerField.get(builder);
+    Function<WindowState<Collection<TestMessageEnvelope>>, Boolean> timerTrigger =
+        (Function<WindowState<Collection<TestMessageEnvelope>>, Boolean>) this.timerTriggerField.get(builder);
     when(mockState.getFirstMessageTimeNs()).thenReturn(0L);
     assertTrue(timerTrigger.apply(mockState));
     // set the firstMessageTimeNs to 9 second earlier, giving the test 1 second to fire up the timerTrigger before assertion
@@ -110,7 +110,7 @@ public class TestTriggerBuilder {
     assertFalse(timerTrigger.apply(mockState));
 
     builder = TriggerBuilder.timeoutSinceLastMessage(10000L);
-    timerTrigger = (Function<WindowState<Collection<TestMessage>>, Boolean>) this.timerTriggerField.get(builder);
+    timerTrigger = (Function<WindowState<Collection<TestMessageEnvelope>>, Boolean>) this.timerTriggerField.get(builder);
     when(mockState.getLastMessageTimeNs()).thenReturn(0L);
     assertTrue(timerTrigger.apply(mockState));
     // set the lastMessageTimeNs to 9 second earlier, giving the test 1 second to fire up the timerTrigger before assertion
@@ -120,17 +120,17 @@ public class TestTriggerBuilder {
 
   @Test
   public void testAddTimerTriggers() throws IllegalAccessException {
-    TriggerBuilder<TestMessage, Collection<TestMessage>> builder = TriggerBuilder.earlyTriggerWhenExceedWndLen(1000);
+    TriggerBuilder<TestMessageEnvelope, Collection<TestMessageEnvelope>> builder = TriggerBuilder.earlyTriggerWhenExceedWndLen(1000);
     builder.addTimeoutSinceFirstMessage(10000L);
     // exam that both earlyTrigger and timer triggers are set up
-    BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean> triggerField =
-        (BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean>) this.earlyTriggerField.get(builder);
-    WindowState<Collection<TestMessage>> mockState = mock(WindowState.class);
+    BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean> triggerField =
+        (BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean>) this.earlyTriggerField.get(builder);
+    WindowState<Collection<TestMessageEnvelope>> mockState = mock(WindowState.class);
     when(mockState.getNumberMessages()).thenReturn(200L);
     assertFalse(triggerField.apply(null, mockState));
     // check the timer trigger
-    Function<WindowState<Collection<TestMessage>>, Boolean> timerTrigger =
-        (Function<WindowState<Collection<TestMessage>>, Boolean>) this.timerTriggerField.get(builder);
+    Function<WindowState<Collection<TestMessageEnvelope>>, Boolean> timerTrigger =
+        (Function<WindowState<Collection<TestMessageEnvelope>>, Boolean>) this.timerTriggerField.get(builder);
     when(mockState.getFirstMessageTimeNs()).thenReturn(0L);
     assertTrue(timerTrigger.apply(mockState));
     // set the firstMessageTimeNs to 9 second earlier, giving the test 1 second to fire up the timerTrigger before assertion
@@ -139,13 +139,13 @@ public class TestTriggerBuilder {
 
     // exam that both early trigger and timer triggers are set up
     builder = TriggerBuilder.earlyTriggerWhenExceedWndLen(1000);
-    triggerField = (BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean>) this.earlyTriggerField.get(builder);
+    triggerField = (BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean>) this.earlyTriggerField.get(builder);
     mockState = mock(WindowState.class);
     when(mockState.getNumberMessages()).thenReturn(200L);
     assertFalse(triggerField.apply(null, mockState));
     builder.addTimeoutSinceLastMessage(20000L);
     // check the timer trigger
-    timerTrigger = (Function<WindowState<Collection<TestMessage>>, Boolean>) this.timerTriggerField.get(builder);
+    timerTrigger = (Function<WindowState<Collection<TestMessageEnvelope>>, Boolean>) this.timerTriggerField.get(builder);
     when(mockState.getLastMessageTimeNs()).thenReturn(0L);
     assertTrue(timerTrigger.apply(mockState));
     // set the firstMessageTimeNs to 9 second earlier, giving the test 1 second to fire up the timerTrigger before assertion
@@ -155,17 +155,17 @@ public class TestTriggerBuilder {
 
   @Test
   public void testAddLateTriggers() throws IllegalAccessException {
-    TriggerBuilder<TestMessage, Collection<TestMessage>> builder = TriggerBuilder.earlyTriggerWhenExceedWndLen(1000);
+    TriggerBuilder<TestMessageEnvelope, Collection<TestMessageEnvelope>> builder = TriggerBuilder.earlyTriggerWhenExceedWndLen(1000);
     builder.addLateTriggerOnSizeLimit(10000L);
     // exam that both earlyTrigger and lateTriggers are set up
-    BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean> earlyTrigger =
-        (BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean>) this.earlyTriggerField.get(builder);
-    WindowState<Collection<TestMessage>> mockState = mock(WindowState.class);
+    BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean> earlyTrigger =
+        (BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean>) this.earlyTriggerField.get(builder);
+    WindowState<Collection<TestMessageEnvelope>> mockState = mock(WindowState.class);
     when(mockState.getNumberMessages()).thenReturn(200L);
     assertFalse(earlyTrigger.apply(null, mockState));
     // check the late trigger
-    BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean> lateTrigger =
-        (BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean>) this.lateTriggerField.get(builder);
+    BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean> lateTrigger =
+        (BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean>) this.lateTriggerField.get(builder);
     assertFalse(lateTrigger.apply(null, mockState));
     // set the number of messages to 10001 to trigger the late trigger
     when(mockState.getNumberMessages()).thenReturn(10001L);
@@ -174,15 +174,15 @@ public class TestTriggerBuilder {
     builder = TriggerBuilder.earlyTriggerWhenExceedWndLen(1000);
     builder.addLateTrigger((m, s) -> s.getOutputValue().size() > 0);
     // exam that both earlyTrigger and lateTriggers are set up
-    earlyTrigger = (BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean>) this.earlyTriggerField.get(builder);
+    earlyTrigger = (BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean>) this.earlyTriggerField.get(builder);
     mockState = mock(WindowState.class);
     when(mockState.getNumberMessages()).thenReturn(200L);
     assertFalse(earlyTrigger.apply(null, mockState));
     // exam the lateTrigger
     when(mockState.getOutputValue()).thenReturn(new ArrayList<>());
-    lateTrigger = (BiFunction<TestMessage, WindowState<Collection<TestMessage>>, Boolean>) this.lateTriggerField.get(builder);
+    lateTrigger = (BiFunction<TestMessageEnvelope, WindowState<Collection<TestMessageEnvelope>>, Boolean>) this.lateTriggerField.get(builder);
     assertFalse(lateTrigger.apply(null, mockState));
-    List<TestMessage> mockList = mock(ArrayList.class);
+    List<TestMessageEnvelope> mockList = mock(ArrayList.class);
     when(mockList.size()).thenReturn(200);
     when(mockState.getOutputValue()).thenReturn(mockList);
     assertTrue(lateTrigger.apply(null, mockState));
@@ -190,33 +190,33 @@ public class TestTriggerBuilder {
 
   @Test
   public void testAddTriggerUpdater() throws IllegalAccessException {
-    TriggerBuilder<TestMessage, Collection<TestMessage>> builder = TriggerBuilder.earlyTriggerWhenExceedWndLen(1000);
+    TriggerBuilder<TestMessageEnvelope, Collection<TestMessageEnvelope>> builder = TriggerBuilder.earlyTriggerWhenExceedWndLen(1000);
     builder.onEarlyTrigger(c -> {
         c.clear();
         return c;
       });
-    List<TestMessage> collection = new ArrayList<TestMessage>() { {
+    List<TestMessageEnvelope> collection = new ArrayList<TestMessageEnvelope>() { {
         for (int i = 0; i < 10; i++) {
-          this.add(new TestMessage(String.format("key-%d", i), "string-value", System.nanoTime()));
+          this.add(new TestMessageEnvelope(String.format("key-%d", i), "string-value", System.nanoTime()));
         }
       } };
     // exam that earlyTriggerUpdater is set up
-    Function<WindowState<Collection<TestMessage>>, WindowState<Collection<TestMessage>>> earlyTriggerUpdater =
-        (Function<WindowState<Collection<TestMessage>>, WindowState<Collection<TestMessage>>>) this.earlyTriggerUpdater.get(builder);
-    WindowState<Collection<TestMessage>> mockState = mock(WindowState.class);
+    Function<WindowState<Collection<TestMessageEnvelope>>, WindowState<Collection<TestMessageEnvelope>>> earlyTriggerUpdater =
+        (Function<WindowState<Collection<TestMessageEnvelope>>, WindowState<Collection<TestMessageEnvelope>>>) this.earlyTriggerUpdater.get(builder);
+    WindowState<Collection<TestMessageEnvelope>> mockState = mock(WindowState.class);
     when(mockState.getOutputValue()).thenReturn(collection);
     earlyTriggerUpdater.apply(mockState);
     assertTrue(collection.isEmpty());
 
-    collection.add(new TestMessage("key-to-stay", "string-to-stay", System.nanoTime()));
-    collection.add(new TestMessage("key-to-remove", "string-to-remove", System.nanoTime()));
+    collection.add(new TestMessageEnvelope("key-to-stay", "string-to-stay", System.nanoTime()));
+    collection.add(new TestMessageEnvelope("key-to-remove", "string-to-remove", System.nanoTime()));
     builder.onLateTrigger(c -> {
         c.removeIf(t -> t.getKey().equals("key-to-remove"));
         return c;
       });
     // check the late trigger updater
-    Function<WindowState<Collection<TestMessage>>, WindowState<Collection<TestMessage>>> lateTriggerUpdater =
-        (Function<WindowState<Collection<TestMessage>>, WindowState<Collection<TestMessage>>>) this.lateTriggerUpdater.get(builder);
+    Function<WindowState<Collection<TestMessageEnvelope>>, WindowState<Collection<TestMessageEnvelope>>> lateTriggerUpdater =
+        (Function<WindowState<Collection<TestMessageEnvelope>>, WindowState<Collection<TestMessageEnvelope>>>) this.lateTriggerUpdater.get(builder);
     when(mockState.getOutputValue()).thenReturn(collection);
     lateTriggerUpdater.apply(mockState);
     assertTrue(collection.size() == 1);

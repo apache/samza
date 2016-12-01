@@ -19,24 +19,25 @@
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 
 import java.util.Collection;
 
 
 /**
- * A function that transforms a {@link Message} into a collection of 0 or more messages, possibly of a different type.
- * @param <M>  type of the input {@link Message}
- * @param <OM>  type of the transformed {@link Message}s
+ * A function that transforms a {@link MessageEnvelope} into a collection of 0 or more {@link MessageEnvelope}s,
+ * possibly of a different type.
+ * @param <M>  type of the input {@link MessageEnvelope}
+ * @param <OM>  type of the transformed {@link MessageEnvelope}s
  */
 @InterfaceStability.Unstable
 @FunctionalInterface
-public interface FlatMapFunction<M extends Message, OM extends Message> {
+public interface FlatMapFunction<M extends MessageEnvelope, OM extends MessageEnvelope> {
 
   /**
-   * Transforms the provided {@link Message} into a collection of 0 or more messages.
-   * @param message  the message to be transformed
-   * @return  a collection of 0 or more transformed {@link Message}s
+   * Transforms the provided {@link MessageEnvelope} into a collection of 0 or more {@link MessageEnvelope}s.
+   * @param message  the {@link MessageEnvelope} to be transformed
+   * @return  a collection of 0 or more transformed {@link MessageEnvelope}s
    */
   Collection<OM> apply(M message);
 

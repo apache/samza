@@ -19,25 +19,25 @@
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 
 
 /**
- * A function that joins {@link Message}s from two {@link org.apache.samza.operators.MessageStream}s and produces
- * a joined message.
- * @param <M>  type of the input {@link Message}
- * @param <JM>  type of the {@link Message} to join with
- * @param <RM>  type of the joined {@link Message}
+ * A function that joins {@link MessageEnvelope}s from two {@link org.apache.samza.operators.MessageStream}s and produces
+ * a joined {@link MessageEnvelope}.
+ * @param <M>  type of the input {@link MessageEnvelope}
+ * @param <JM>  type of the {@link MessageEnvelope} to join with
+ * @param <RM>  type of the joined {@link MessageEnvelope}
  */
 @InterfaceStability.Unstable
 @FunctionalInterface
-public interface JoinFunction<M extends Message, JM extends Message, RM extends Message> {
+public interface JoinFunction<M extends MessageEnvelope, JM extends MessageEnvelope, RM extends MessageEnvelope> {
 
   /**
-   * Join the provided {@link Message}s and produces the joined {@link Message}.
-   * @param message  the input {@link Message}
-   * @param otherMessage  the {@link Message} to join with
-   * @return  the joined {@link Message}
+   * Join the provided {@link MessageEnvelope}s and produces the joined {@link MessageEnvelope}.
+   * @param message  the input {@link MessageEnvelope}
+   * @param otherMessage  the {@link MessageEnvelope} to join with
+   * @return  the joined {@link MessageEnvelope}
    */
   RM apply(M message, JM otherMessage);
 

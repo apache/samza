@@ -20,9 +20,9 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StateStoreImpl;
+import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.windows.WindowState;
-import org.apache.samza.operators.data.Message;
 import org.apache.samza.operators.windows.WindowOutput;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.task.MessageCollector;
@@ -33,12 +33,12 @@ import org.apache.samza.task.TaskCoordinator;
 /**
  * Default implementation class of a {@link WindowOperatorSpec} for a session window.
  *
- * @param <M>  the type of input {@link Message}
+ * @param <M>  the type of input {@link MessageEnvelope}
  * @param <RK>  the type of window key
  * @param <WS>  the type of window state
  * @param <RM>  the type of aggregated value of the window
  */
-class SessionWindowOperatorImpl<M extends Message, RK, WS extends WindowState, RM extends WindowOutput<RK, ?>>
+class SessionWindowOperatorImpl<M extends MessageEnvelope, RK, WS extends WindowState, RM extends WindowOutput<RK, ?>>
     extends OperatorImpl<M, RM> {
 
   private final WindowOperatorSpec<M, RK, WS, RM> windowSpec;

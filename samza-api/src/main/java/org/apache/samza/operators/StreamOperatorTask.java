@@ -19,7 +19,7 @@
 package org.apache.samza.operators;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.data.IncomingSystemMessage;
+import org.apache.samza.operators.data.IncomingSystemMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.util.Map;
@@ -43,9 +43,9 @@ public interface StreamOperatorTask {
    * {@link MessageStream} APIs. Each {@link MessageStream} corresponds to one {@link SystemStreamPartition}
    * in the input system.
    *
-   * @param messageStreams the {@link MessageStream}s that receive {@link IncomingSystemMessage}s
+   * @param messageStreams the {@link MessageStream}s that receive {@link IncomingSystemMessageEnvelope}s
    *                       from their corresponding {@link org.apache.samza.system.SystemStreamPartition}
    */
-  void transform(Map<SystemStreamPartition, MessageStream<IncomingSystemMessage>> messageStreams);
+  void transform(Map<SystemStreamPartition, MessageStream<IncomingSystemMessageEnvelope>> messageStreams);
 
 }

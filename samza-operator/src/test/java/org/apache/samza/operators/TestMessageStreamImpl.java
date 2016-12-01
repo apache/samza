@@ -53,65 +53,65 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testMap() {
-    MessageStreamImpl<TestMessage> inputStream = new MessageStreamImpl<>();
-    MapFunction<TestMessage, TestOutputMessage> xMap =
-        m -> new TestOutputMessage(m.getKey(), m.getMessage().getValue().length() + 1);
-    MessageStream<TestOutputMessage> outputStream = inputStream.map(xMap);
+    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>();
+    MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> xMap =
+        m -> new TestOutputMessageEnvelope(m.getKey(), m.getMessage().getValue().length() + 1);
+    MessageStream<TestOutputMessageEnvelope> outputStream = inputStream.map(xMap);
     Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
-    OperatorSpec<TestOutputMessage> mapOp = subs.iterator().next();
+    OperatorSpec<TestOutputMessageEnvelope> mapOp = subs.iterator().next();
     assertTrue(mapOp instanceof StreamOperatorSpec);
     assertEquals(mapOp.getOutputStream(), outputStream);
     // assert that the transformation function is what we defined above
-    TestMessage xTestMsg = mock(TestMessage.class);
-    TestMessage.MessageType mockInnerTestMessage = mock(TestMessage.MessageType.class);
+    TestMessageEnvelope xTestMsg = mock(TestMessageEnvelope.class);
+    TestMessageEnvelope.MessageType mockInnerTestMessage = mock(TestMessageEnvelope.MessageType.class);
     when(xTestMsg.getKey()).thenReturn("test-msg-key");
     when(xTestMsg.getMessage()).thenReturn(mockInnerTestMessage);
     when(mockInnerTestMessage.getValue()).thenReturn("123456789");
 
-    Collection<TestOutputMessage> cOutputMsg = ((StreamOperatorSpec<TestMessage, TestOutputMessage>) mapOp).getTransformFn().apply(xTestMsg);
+    Collection<TestOutputMessageEnvelope> cOutputMsg = ((StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) mapOp).getTransformFn().apply(xTestMsg);
     assertEquals(cOutputMsg.size(), 1);
-    TestOutputMessage outputMessage = cOutputMsg.iterator().next();
+    TestOutputMessageEnvelope outputMessage = cOutputMsg.iterator().next();
     assertEquals(outputMessage.getKey(), xTestMsg.getKey());
     assertEquals(outputMessage.getMessage(), Integer.valueOf(xTestMsg.getMessage().getValue().length() + 1));
   }
 
   @Test
   public void testFlatMap() {
-    MessageStreamImpl<TestMessage> inputStream = new MessageStreamImpl<>();
-    Set<TestOutputMessage> flatOuts = new HashSet<TestOutputMessage>() { {
-        this.add(mock(TestOutputMessage.class));
-        this.add(mock(TestOutputMessage.class));
-        this.add(mock(TestOutputMessage.class));
+    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>();
+    Set<TestOutputMessageEnvelope> flatOuts = new HashSet<TestOutputMessageEnvelope>() { {
+        this.add(mock(TestOutputMessageEnvelope.class));
+        this.add(mock(TestOutputMessageEnvelope.class));
+        this.add(mock(TestOutputMessageEnvelope.class));
       } };
-    FlatMapFunction<TestMessage, TestOutputMessage> xFlatMap = m -> flatOuts;
-    MessageStream<TestOutputMessage> outputStream = inputStream.flatMap(xFlatMap);
+    FlatMapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> xFlatMap = m -> flatOuts;
+    MessageStream<TestOutputMessageEnvelope> outputStream = inputStream.flatMap(xFlatMap);
     Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
-    OperatorSpec<TestOutputMessage> flatMapOp = subs.iterator().next();
+    OperatorSpec<TestOutputMessageEnvelope> flatMapOp = subs.iterator().next();
     assertTrue(flatMapOp instanceof StreamOperatorSpec);
     assertEquals(flatMapOp.getOutputStream(), outputStream);
     // assert that the transformation function is what we defined above
-    assertEquals(((StreamOperatorSpec<TestMessage, TestOutputMessage>) flatMapOp).getTransformFn(), xFlatMap);
+    assertEquals(((StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) flatMapOp).getTransformFn(), xFlatMap);
   }
 
   @Test
   public void testFilter() {
-    MessageStreamImpl<TestMessage> inputStream = new MessageStreamImpl<>();
-    FilterFunction<TestMessage> xFilter = m -> m.getMessage().getEventTime() > 123456L;
-    MessageStream<TestMessage> outputStream = inputStream.filter(xFilter);
+    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>();
+    FilterFunction<TestMessageEnvelope> xFilter = m -> m.getMessage().getEventTime() > 123456L;
+    MessageStream<TestMessageEnvelope> outputStream = inputStream.filter(xFilter);
     Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
-    OperatorSpec<TestMessage> filterOp = subs.iterator().next();
+    OperatorSpec<TestMessageEnvelope> filterOp = subs.iterator().next();
     assertTrue(filterOp instanceof StreamOperatorSpec);
     assertEquals(filterOp.getOutputStream(), outputStream);
     // assert that the transformation function is what we defined above
-    FlatMapFunction<TestMessage, TestMessage> txfmFn = ((StreamOperatorSpec<TestMessage, TestMessage>) filterOp).getTransformFn();
-    TestMessage mockMsg = mock(TestMessage.class);
-    TestMessage.MessageType mockInnerTestMessage = mock(TestMessage.MessageType.class);
+    FlatMapFunction<TestMessageEnvelope, TestMessageEnvelope> txfmFn = ((StreamOperatorSpec<TestMessageEnvelope, TestMessageEnvelope>) filterOp).getTransformFn();
+    TestMessageEnvelope mockMsg = mock(TestMessageEnvelope.class);
+    TestMessageEnvelope.MessageType mockInnerTestMessage = mock(TestMessageEnvelope.MessageType.class);
     when(mockMsg.getMessage()).thenReturn(mockInnerTestMessage);
     when(mockInnerTestMessage.getEventTime()).thenReturn(11111L);
-    Collection<TestMessage> output = txfmFn.apply(mockMsg);
+    Collection<TestMessageEnvelope> output = txfmFn.apply(mockMsg);
     assertTrue(output.isEmpty());
     when(mockMsg.getMessage()).thenReturn(mockInnerTestMessage);
     when(mockInnerTestMessage.getEventTime()).thenReturn(999999L);
@@ -122,15 +122,15 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testSink() {
-    MessageStreamImpl<TestMessage> inputStream = new MessageStreamImpl<>();
-    SinkFunction<TestMessage> xSink = (m, mc, tc) -> {
+    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>();
+    SinkFunction<TestMessageEnvelope> xSink = (m, mc, tc) -> {
       mc.send(new OutgoingMessageEnvelope(new SystemStream("test-sys", "test-stream"), m.getMessage()));
       tc.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
     };
     inputStream.sink(xSink);
     Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
-    OperatorSpec<TestMessage> sinkOp = subs.iterator().next();
+    OperatorSpec<TestMessageEnvelope> sinkOp = subs.iterator().next();
     assertTrue(sinkOp instanceof SinkOperatorSpec);
     assertEquals(((SinkOperatorSpec) sinkOp).getSinkFn(), xSink);
     assertNull(((SinkOperatorSpec) sinkOp).getOutputStream());
@@ -138,65 +138,65 @@ public class TestMessageStreamImpl {
 
   @Test
   public void testWindow() {
-    MessageStreamImpl<TestMessage> inputStream = new MessageStreamImpl<>();
-    SessionWindow<TestMessage, String, Integer> window = mock(SessionWindow.class);
+    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>();
+    SessionWindow<TestMessageEnvelope, String, Integer> window = mock(SessionWindow.class);
     doReturn(mock(WindowFn.class)).when(window).getInternalWindowFn();
     MessageStream<WindowOutput<String, Integer>> outStream = inputStream.window(window);
     Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
-    OperatorSpec<TestMessage> wndOp = subs.iterator().next();
+    OperatorSpec<TestMessageEnvelope> wndOp = subs.iterator().next();
     assertTrue(wndOp instanceof WindowOperatorSpec);
     assertEquals(((WindowOperatorSpec) wndOp).getOutputStream(), outStream);
   }
 
   @Test
   public void testJoin() {
-    MessageStreamImpl<TestMessage> source1 = new MessageStreamImpl<>();
-    MessageStreamImpl<TestMessage> source2 = new MessageStreamImpl<>();
-    JoinFunction<TestMessage, TestMessage, TestOutputMessage> joiner =
-        (m1, m2) -> new TestOutputMessage(m1.getKey(), m1.getMessage().getValue().length() + m2.getMessage().getValue().length());
-    MessageStream<TestOutputMessage> joinOutput = source1.join(source2, joiner);
+    MessageStreamImpl<TestMessageEnvelope> source1 = new MessageStreamImpl<>();
+    MessageStreamImpl<TestMessageEnvelope> source2 = new MessageStreamImpl<>();
+    JoinFunction<TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> joiner =
+        (m1, m2) -> new TestOutputMessageEnvelope(m1.getKey(), m1.getMessage().getValue().length() + m2.getMessage().getValue().length());
+    MessageStream<TestOutputMessageEnvelope> joinOutput = source1.join(source2, joiner);
     Collection<OperatorSpec> subs = source1.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
-    OperatorSpec<TestMessage> joinOp1 = subs.iterator().next();
+    OperatorSpec<TestMessageEnvelope> joinOp1 = subs.iterator().next();
     assertTrue(joinOp1 instanceof PartialJoinOperatorSpec);
     assertEquals(((PartialJoinOperatorSpec) joinOp1).getOutputStream(), joinOutput);
     subs = source2.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
-    OperatorSpec<TestMessage> joinOp2 = subs.iterator().next();
+    OperatorSpec<TestMessageEnvelope> joinOp2 = subs.iterator().next();
     assertTrue(joinOp2 instanceof PartialJoinOperatorSpec);
     assertEquals(((PartialJoinOperatorSpec) joinOp2).getOutputStream(), joinOutput);
-    TestMessage joinMsg1 = new TestMessage("test-join-1", "join-msg-001", 11111L);
-    TestMessage joinMsg2 = new TestMessage("test-join-2", "join-msg-002", 22222L);
-    TestOutputMessage xOut = (TestOutputMessage) ((PartialJoinOperatorSpec) joinOp1).getTransformFn().apply(joinMsg1, joinMsg2);
+    TestMessageEnvelope joinMsg1 = new TestMessageEnvelope("test-join-1", "join-msg-001", 11111L);
+    TestMessageEnvelope joinMsg2 = new TestMessageEnvelope("test-join-2", "join-msg-002", 22222L);
+    TestOutputMessageEnvelope xOut = (TestOutputMessageEnvelope) ((PartialJoinOperatorSpec) joinOp1).getTransformFn().apply(joinMsg1, joinMsg2);
     assertEquals(xOut.getKey(), "test-join-1");
     assertEquals(xOut.getMessage(), Integer.valueOf(24));
-    xOut = (TestOutputMessage) ((PartialJoinOperatorSpec) joinOp2).getTransformFn().apply(joinMsg2, joinMsg1);
+    xOut = (TestOutputMessageEnvelope) ((PartialJoinOperatorSpec) joinOp2).getTransformFn().apply(joinMsg2, joinMsg1);
     assertEquals(xOut.getKey(), "test-join-1");
     assertEquals(xOut.getMessage(), Integer.valueOf(24));
   }
 
   @Test
   public void testMerge() {
-    MessageStream<TestMessage> merge1 = new MessageStreamImpl<>();
-    Collection<MessageStream<TestMessage>> others = new ArrayList<MessageStream<TestMessage>>() { {
+    MessageStream<TestMessageEnvelope> merge1 = new MessageStreamImpl<>();
+    Collection<MessageStream<TestMessageEnvelope>> others = new ArrayList<MessageStream<TestMessageEnvelope>>() { {
         this.add(new MessageStreamImpl<>());
         this.add(new MessageStreamImpl<>());
       } };
-    MessageStream<TestMessage> mergeOutput = merge1.merge(others);
+    MessageStream<TestMessageEnvelope> mergeOutput = merge1.merge(others);
     validateMergeOperator(merge1, mergeOutput);
 
     others.forEach(merge -> validateMergeOperator(merge, mergeOutput));
   }
 
-  private void validateMergeOperator(MessageStream<TestMessage> mergeSource, MessageStream<TestMessage> mergeOutput) {
-    Collection<OperatorSpec> subs = ((MessageStreamImpl<TestMessage>) mergeSource).getRegisteredOperatorSpecs();
+  private void validateMergeOperator(MessageStream<TestMessageEnvelope> mergeSource, MessageStream<TestMessageEnvelope> mergeOutput) {
+    Collection<OperatorSpec> subs = ((MessageStreamImpl<TestMessageEnvelope>) mergeSource).getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
-    OperatorSpec<TestMessage> mergeOp = subs.iterator().next();
+    OperatorSpec<TestMessageEnvelope> mergeOp = subs.iterator().next();
     assertTrue(mergeOp instanceof StreamOperatorSpec);
     assertEquals(((StreamOperatorSpec) mergeOp).getOutputStream(), mergeOutput);
-    TestMessage mockMsg = mock(TestMessage.class);
-    Collection<TestMessage> outputs = ((StreamOperatorSpec<TestMessage, TestMessage>) mergeOp).getTransformFn().apply(mockMsg);
+    TestMessageEnvelope mockMsg = mock(TestMessageEnvelope.class);
+    Collection<TestMessageEnvelope> outputs = ((StreamOperatorSpec<TestMessageEnvelope, TestMessageEnvelope>) mergeOp).getTransformFn().apply(mockMsg);
     assertEquals(outputs.size(), 1);
     assertEquals(outputs.iterator().next(), mockMsg);
   }

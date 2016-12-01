@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators;
 
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.windows.StoreFunctions;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
@@ -28,7 +28,7 @@ import org.apache.samza.task.TaskContext;
 /**
  * The base class for all state stores
  */
-public class StateStoreImpl<M extends Message, SK, SS> {
+public class StateStoreImpl<M extends MessageEnvelope, SK, SS> {
   private final String storeName;
   private final StoreFunctions<M, SK, SS> storeFunctions;
   private KeyValueStore<SK, SS> kvStore = null;

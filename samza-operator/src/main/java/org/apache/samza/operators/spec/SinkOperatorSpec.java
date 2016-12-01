@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.MessageStreamImpl;
 
@@ -27,9 +27,9 @@ import org.apache.samza.operators.MessageStreamImpl;
  * The spec for a sink operator that accepts user-defined logic to output a {@link MessageStreamImpl} to an external
  * system. This is a terminal operator and does allows further operator chaining.
  *
- * @param <M>  the type of input {@link Message}
+ * @param <M>  the type of input {@link MessageEnvelope}
  */
-public class SinkOperatorSpec<M extends Message> implements OperatorSpec {
+public class SinkOperatorSpec<M extends MessageEnvelope> implements OperatorSpec {
 
   /**
    * The user-defined sink function
@@ -39,7 +39,7 @@ public class SinkOperatorSpec<M extends Message> implements OperatorSpec {
   /**
    * Default constructor for a {@link SinkOperatorSpec}.
    *
-   * @param sinkFn  a user defined {@link SinkFunction} that will be called with the output message,
+   * @param sinkFn  a user defined {@link SinkFunction} that will be called with the output {@link MessageEnvelope},
    *                the output {@link org.apache.samza.task.MessageCollector} and the
    *                {@link org.apache.samza.task.TaskCoordinator}.
    */

@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.windows;
 
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.storage.kv.Entry;
 
 import java.util.function.BiFunction;
@@ -27,17 +27,17 @@ import java.util.function.Function;
 /**
  * This class defines a session window function class
  *
- * @param <M>  the type of input {@link Message}
+ * @param <M>  the type of input {@link MessageEnvelope}
  * @param <WK>  the type of session key in the session window
  * @param <WV>  the type of output value in each session window
  */
-public class SessionWindow<M extends Message, WK, WV> implements Window<M, WK, WV, WindowOutput<WK, WV>> {
+public class SessionWindow<M extends MessageEnvelope, WK, WV> implements Window<M, WK, WV, WindowOutput<WK, WV>> {
 
   /**
    * Constructor. Made private s.t. it can only be instantiated via the static API methods in {@link Windows}
    *
-   * @param sessionKeyFunction  function to get the session key from the input {@link Message}
-   * @param aggregator  function to calculate the output value based on the input {@link Message} and current output value
+   * @param sessionKeyFunction  function to get the session key from the input {@link MessageEnvelope}
+   * @param aggregator  function to calculate the output value based on the input {@link MessageEnvelope} and current output value
    */
   SessionWindow(Function<M, WK> sessionKeyFunction, BiFunction<M, WV, WV> aggregator) {
     this.wndKeyFunction = sessionKeyFunction;
@@ -45,21 +45,21 @@ public class SessionWindow<M extends Message, WK, WV> implements Window<M, WK, W
   }
 
   /**
-   * function to calculate the window key from input message
+   * function to calculate the window key from input {@link MessageEnvelope}
    */
   private final Function<M, WK> wndKeyFunction;
 
   /**
-   * function to calculate the output value from the input message and the current output value
+   * function to calculate the output value from the input {@link MessageEnvelope} and the current output value
    */
   private final BiFunction<M, WV, WV> aggregator;
 
   /**
-   * trigger condition that determines when to send out the output value in a {@link WindowOutput} message
+   * trigger condition that determines when to send the {@link WindowOutput}
    */
   private Trigger<M, WindowState<WV>> trigger = null;
 
-  //TODO: need to create a set of {@link StoreFunctions} that is default to input {@link Message} type for {@link Window}
+  //TODO: need to create a set of {@link StoreFunctions} that is default to input {@link MessageEnvelope} type for {@link Window}
   private StoreFunctions<M, WK, WindowState<WV>> storeFunctions = null;
 
   /**

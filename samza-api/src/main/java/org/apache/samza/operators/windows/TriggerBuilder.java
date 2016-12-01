@@ -20,7 +20,7 @@ package org.apache.samza.operators.windows;
 
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
@@ -40,11 +40,11 @@ import java.util.function.Function;
  * If multiple conditions are defined for a specific type of trigger, the aggregated trigger is the disjunction
  * of each individual trigger (i.e. OR).
  *
- * @param <M>  the type of input {@link Message} to the {@link Window}
+ * @param <M>  the type of input {@link MessageEnvelope} to the {@link Window}
  * @param <V>  the type of output value from the {@link Window}
  */
 @InterfaceStability.Unstable
-public final class TriggerBuilder<M extends Message, V> {
+public final class TriggerBuilder<M extends MessageEnvelope, V> {
 
   /**
    * Predicate helper to OR multiple trigger conditions
@@ -124,7 +124,7 @@ public final class TriggerBuilder<M extends Message, V> {
   /**
    * Constructor that set the size limit as the early trigger for a window
    *
-   * @param sizeLimit  the number of messages in a window that would trigger the first output
+   * @param sizeLimit  the number of {@link MessageEnvelope}s in a window that would trigger the first output
    */
   private TriggerBuilder(long sizeLimit) {
     this.earlyTrigger = (m, s) -> s.getNumberMessages() > sizeLimit;
@@ -133,7 +133,7 @@ public final class TriggerBuilder<M extends Message, V> {
   /**
    * Constructor that set the event time length as the early trigger
    *
-   * @param eventTimeFunction  the function that calculate the event time in nano-second from the input {@link Message}
+   * @param eventTimeFunction  the function that calculate the event time in nano-second from the input {@link MessageEnvelope}
    * @param wndLenMs  the window length in event time in milli-second
    */
   private TriggerBuilder(Function<M, Long> eventTimeFunction, long wndLenMs) {
@@ -143,9 +143,9 @@ public final class TriggerBuilder<M extends Message, V> {
   }
 
   /**
-   * Constructor that set the special token message as the early trigger
+   * Constructor that set the special token {@link MessageEnvelope} as the early trigger
    *
-   * @param tokenFunc  the function that checks whether an input {@link Message} is a token message that triggers window output
+   * @param tokenFunc  the function that checks whether an input {@link MessageEnvelope} is a token {@link MessageEnvelope} that triggers window output
    */
   private TriggerBuilder(Function<M, Boolean> tokenFunc) {
     this.earlyTrigger = (m, s) -> tokenFunc.apply(m);
@@ -197,9 +197,9 @@ public final class TriggerBuilder<M extends Message, V> {
   }
 
   /**
-   * API method to allow users to add a system timer trigger based on timeout after the last message received in the window
+   * API method to allow users to add a system timer trigger based on timeout after the last {@link MessageEnvelope} received in the window
    *
-   * @param timeoutMs  the timeout in ms after the last message received in the window
+   * @param timeoutMs  the timeout in ms after the last {@link MessageEnvelope} received in the window
    * @return  the {@link TriggerBuilder} object
    */
   public TriggerBuilder<M, V> addTimeoutSinceLastMessage(long timeoutMs) {
@@ -209,9 +209,9 @@ public final class TriggerBuilder<M extends Message, V> {
   }
 
   /**
-   * API method to allow users to add a system timer trigger based on the timeout after the first message received in the window
+   * API method to allow users to add a system timer trigger based on the timeout after the first {@link MessageEnvelope} received in the window
    *
-   * @param timeoutMs  the timeout in ms after the first message received in the window
+   * @param timeoutMs  the timeout in ms after the first {@link MessageEnvelope} received in the window
    * @return  the {@link TriggerBuilder} object
    */
   public TriggerBuilder<M, V> addTimeoutSinceFirstMessage(long timeoutMs) {
@@ -223,7 +223,7 @@ public final class TriggerBuilder<M extends Message, V> {
   /**
    * API method allow users to add a late trigger based on the window size limit
    *
-   * @param sizeLimit  limit on the number of messages in window
+   * @param sizeLimit  limit on the number of {@link MessageEnvelope}s in window
    * @return  the {@link TriggerBuilder} object
    */
   public TriggerBuilder<M, V> addLateTriggerOnSizeLimit(long sizeLimit) {
@@ -232,9 +232,9 @@ public final class TriggerBuilder<M extends Message, V> {
   }
 
   /**
-   * API method to allow users to define a customized late trigger function based on input message and the window state
+   * API method to allow users to define a customized late trigger function based on input {@link MessageEnvelope} and the window state
    *
-   * @param lateTrigger  the late trigger condition based on input {@link Message} and the current {@link WindowState}
+   * @param lateTrigger  the late trigger condition based on input {@link MessageEnvelope} and the current {@link WindowState}
    * @return  the {@link TriggerBuilder} object
    */
   public TriggerBuilder<M, V> addLateTrigger(BiFunction<M, WindowState<V>, Boolean> lateTrigger) {
@@ -246,11 +246,11 @@ public final class TriggerBuilder<M extends Message, V> {
    * Static API method to create a {@link TriggerBuilder} w/ early trigger condition based on window size limit
    *
    * @param sizeLimit  window size limit
-   * @param <M>  the type of input {@link Message}
+   * @param <M>  the type of input {@link MessageEnvelope}
    * @param <V>  the type of {@link Window} output value
    * @return  the {@link TriggerBuilder} object
    */
-  public static <M extends Message, V> TriggerBuilder<M, V> earlyTriggerWhenExceedWndLen(long sizeLimit) {
+  public static <M extends MessageEnvelope, V> TriggerBuilder<M, V> earlyTriggerWhenExceedWndLen(long sizeLimit) {
     return new TriggerBuilder<M, V>(sizeLimit);
   }
 
@@ -258,63 +258,63 @@ public final class TriggerBuilder<M extends Message, V> {
    * Static API method to create a {@link TriggerBuilder} w/ early trigger condition based on event time window
    *
    *
-   * @param eventTimeFunc  the function to get the event time from the input message
+   * @param eventTimeFunc  the function to get the event time from the input {@link MessageEnvelope}
    * @param eventTimeWndSizeMs  the event time window size in Ms
-   * @param <M>  the type of input {@link Message}
+   * @param <M>  the type of input {@link MessageEnvelope}
    * @param <V>  the type of {@link Window} output value
    * @return  the {@link TriggerBuilder} object
    */
-  public static <M extends Message, V> TriggerBuilder<M, V> earlyTriggerOnEventTime(Function<M, Long> eventTimeFunc, long eventTimeWndSizeMs) {
+  public static <M extends MessageEnvelope, V> TriggerBuilder<M, V> earlyTriggerOnEventTime(Function<M, Long> eventTimeFunc, long eventTimeWndSizeMs) {
     return new TriggerBuilder<M, V>(eventTimeFunc, eventTimeWndSizeMs);
   }
 
   /**
-   * Static API method to create a {@link TriggerBuilder} w/ early trigger condition based on token messages
+   * Static API method to create a {@link TriggerBuilder} w/ early trigger condition based on token {@link MessageEnvelope}s
    *
-   * @param tokenFunc  the function to determine whether an input message is a window token or not
-   * @param <M>  the type of input {@link Message}
+   * @param tokenFunc  the function to determine whether an input {@link MessageEnvelope} is a window token or not
+   * @param <M>  the type of input {@link MessageEnvelope}
    * @param <V>  the type of {@link Window} output value
    * @return  the {@link TriggerBuilder} object
    */
-  public static <M extends Message, V> TriggerBuilder<M, V> earlyTriggerOnTokenMsg(Function<M, Boolean> tokenFunc) {
+  public static <M extends MessageEnvelope, V> TriggerBuilder<M, V> earlyTriggerOnTokenMsg(Function<M, Boolean> tokenFunc) {
     return new TriggerBuilder<M, V>(tokenFunc);
   }
 
   /**
-   * Static API method to allow customized early trigger condition based on input {@link Message} and the corresponding {@link WindowState}
+   * Static API method to allow customized early trigger condition based on input {@link MessageEnvelope} and the corresponding {@link WindowState}
    *
    * @param earlyTrigger  the user defined early trigger condition
-   * @param <M>   the input message type
+   * @param <M>   the input {@link MessageEnvelope} type
    * @param <V>   the output value from the window
    * @return   the {@link TriggerBuilder} object
    */
-  public static <M extends Message, V> TriggerBuilder<M, V> earlyTrigger(BiFunction<M, WindowState<V>, Boolean> earlyTrigger) {
+  public static <M extends MessageEnvelope, V> TriggerBuilder<M, V> earlyTrigger(BiFunction<M, WindowState<V>, Boolean> earlyTrigger) {
     TriggerBuilder<M, V> newTriggers =  new TriggerBuilder<M, V>();
     newTriggers.earlyTrigger = newTriggers.addTrigger(newTriggers.earlyTrigger, earlyTrigger);
     return newTriggers;
   }
 
   /**
-   * Static API method to create a {@link TriggerBuilder} w/ system timeout after the last message received in the window
+   * Static API method to create a {@link TriggerBuilder} w/ system timeout after the last {@link MessageEnvelope} received in the window
    *
-   * @param timeoutMs  timeout in ms after the last message received
-   * @param <M>  the type of input {@link Message}
+   * @param timeoutMs  timeout in ms after the last {@link MessageEnvelope} received
+   * @param <M>  the type of input {@link MessageEnvelope}
    * @param <V>  the type of {@link Window} output value
    * @return  the {@link TriggerBuilder} object
    */
-  public static <M extends Message, V> TriggerBuilder<M, V> timeoutSinceLastMessage(long timeoutMs) {
+  public static <M extends MessageEnvelope, V> TriggerBuilder<M, V> timeoutSinceLastMessage(long timeoutMs) {
     return new TriggerBuilder<M, V>().addTimeoutSinceLastMessage(timeoutMs);
   }
 
   /**
-   * Static API method to create a {@link TriggerBuilder} w/ system timeout after the first message received in the window
+   * Static API method to create a {@link TriggerBuilder} w/ system timeout after the first {@link MessageEnvelope} received in the window
    *
-   * @param timeoutMs  timeout in ms after the first message received
-   * @param <M>  the type of input {@link Message}
+   * @param timeoutMs  timeout in ms after the first {@link MessageEnvelope} received
+   * @param <M>  the type of input {@link MessageEnvelope}
    * @param <V>  the type of {@link Window} output value
    * @return  the {@link TriggerBuilder} object
    */
-  public static <M extends Message, V> TriggerBuilder<M, V> timeoutSinceFirstMessage(long timeoutMs) {
+  public static <M extends MessageEnvelope, V> TriggerBuilder<M, V> timeoutSinceFirstMessage(long timeoutMs) {
     return new TriggerBuilder<M, V>().addTimeoutSinceFirstMessage(timeoutMs);
   }
 }

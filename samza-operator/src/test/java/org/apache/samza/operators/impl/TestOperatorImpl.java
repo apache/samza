@@ -18,8 +18,8 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.TestMessage;
-import org.apache.samza.operators.TestOutputMessage;
+import org.apache.samza.operators.TestMessageEnvelope;
+import org.apache.samza.operators.TestOutputMessageEnvelope;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.hamcrest.core.IsEqual;
@@ -34,7 +34,7 @@ import static org.mockito.Mockito.verify;
 
 public class TestOperatorImpl {
 
-  TestMessage curInputMsg;
+  TestMessageEnvelope curInputMsg;
   MessageCollector curCollector;
   TaskCoordinator curCoordinator;
 
@@ -43,9 +43,9 @@ public class TestOperatorImpl {
     this.curInputMsg = null;
     this.curCollector = null;
     this.curCoordinator = null;
-    OperatorImpl<TestMessage, TestOutputMessage> opImpl = new OperatorImpl<TestMessage, TestOutputMessage>() {
+    OperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope> opImpl = new OperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope>() {
       @Override
-      public void onNext(TestMessage message, MessageCollector collector, TaskCoordinator coordinator) {
+      public void onNext(TestMessageEnvelope message, MessageCollector collector, TaskCoordinator coordinator) {
         TestOperatorImpl.this.curInputMsg = message;
         TestOperatorImpl.this.curCollector = collector;
         TestOperatorImpl.this.curCoordinator = coordinator;
@@ -54,7 +54,7 @@ public class TestOperatorImpl {
     // verify registerNextOperator() added the mockSub and propagateResult() invoked the mockSub.onNext()
     OperatorImpl mockSub = mock(OperatorImpl.class);
     opImpl.registerNextOperator(mockSub);
-    TestOutputMessage xOutput = mock(TestOutputMessage.class);
+    TestOutputMessageEnvelope xOutput = mock(TestOutputMessageEnvelope.class);
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
     opImpl.propagateResult(xOutput, mockCollector, mockCoordinator);
@@ -64,7 +64,7 @@ public class TestOperatorImpl {
         argThat(new IsEqual<>(mockCoordinator))
     );
     // verify onNext() is invoked correctly
-    TestMessage mockInput = mock(TestMessage.class);
+    TestMessageEnvelope mockInput = mock(TestMessageEnvelope.class);
     opImpl.onNext(mockInput, mockCollector, mockCoordinator);
     assertEquals(mockInput, this.curInputMsg);
     assertEquals(mockCollector, this.curCollector);

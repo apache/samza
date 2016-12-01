@@ -19,9 +19,9 @@
 
 package org.apache.samza.operators;
 
-import org.apache.samza.operators.data.IncomingSystemMessage;
-import org.apache.samza.operators.data.JsonInputSystemMessage;
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.IncomingSystemMessageEnvelope;
+import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
+import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.data.Offset;
 import org.apache.samza.operators.windows.TriggerBuilder;
 import org.apache.samza.operators.windows.Windows;
@@ -40,30 +40,30 @@ public class WindowTask implements StreamOperatorTask {
     String field2;
   }
 
-  class JsonMessage extends JsonInputSystemMessage<MessageType> {
+  class JsonMessageEnvelope extends JsonIncomingSystemMessageEnvelope<MessageType> {
 
-    JsonMessage(String key, MessageType data, Offset offset, SystemStreamPartition partition) {
+    JsonMessageEnvelope(String key, MessageType data, Offset offset, SystemStreamPartition partition) {
       super(key, data, offset, partition);
     }
   }
 
-  @Override public void transform(Map<SystemStreamPartition, MessageStream<IncomingSystemMessage>> messageStreams) {
+  @Override public void transform(Map<SystemStreamPartition, MessageStream<IncomingSystemMessageEnvelope>> messageStreams) {
     messageStreams.values().forEach(source ->
       source.map(m1 ->
-        new JsonMessage(
+        new JsonMessageEnvelope(
           this.myMessageKeyFunction(m1),
           (MessageType) m1.getMessage(),
           m1.getOffset(),
           m1.getSystemStreamPartition())).
         window(
-          Windows.<JsonMessage, String>intoSessionCounter(
+          Windows.<JsonMessageEnvelope, String>intoSessionCounter(
               m -> String.format("%s-%s", m.getMessage().field1, m.getMessage().field2)).
-            setTriggers(TriggerBuilder.<JsonMessage, Integer>earlyTriggerWhenExceedWndLen(100).
+            setTriggers(TriggerBuilder.<JsonMessageEnvelope, Integer>earlyTriggerWhenExceedWndLen(100).
               addTimeoutSinceLastMessage(30000)))
     );
   }
 
-  String myMessageKeyFunction(Message<Object, Object> m) {
+  String myMessageKeyFunction(MessageEnvelope<Object, Object> m) {
     return m.getKey().toString();
   }
 

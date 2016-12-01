@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.windows;
 
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -26,10 +26,10 @@ import java.util.function.Function;
 /**
  * Defines the trigger functions for the window operator. This class is immutable.
  *
- * @param <M>  the type of message from the input stream
+ * @param <M>  the type of {@link MessageEnvelope} in the input stream
  * @param <S>  the type of state variable in the window's state store
  */
-public class Trigger<M extends Message, S extends WindowState> {
+public class Trigger<M extends MessageEnvelope, S extends WindowState> {
 
   /**
    * System timer based trigger condition. This is the only guarantee that the window operator will proceed forward
@@ -82,11 +82,11 @@ public class Trigger<M extends Message, S extends WindowState> {
    * @param lateTrigger  late trigger condition
    * @param earlyTriggerUpdater  early trigger state updater
    * @param lateTriggerUpdater  late trigger state updater
-   * @param <M>  the type of input {@link Message}
+   * @param <M>  the type of input {@link MessageEnvelope}
    * @param <S>  the type of window state extends {@link WindowState}
    * @return  the {@link Trigger} function
    */
-  public static <M extends Message, S extends WindowState> Trigger<M, S> createTrigger(Function<S, Boolean> timerTrigger,
+  public static <M extends MessageEnvelope, S extends WindowState> Trigger<M, S> createTrigger(Function<S, Boolean> timerTrigger,
       BiFunction<M, S, Boolean> earlyTrigger, BiFunction<M, S, Boolean> lateTrigger, Function<S, S> earlyTriggerUpdater,
       Function<S, S> lateTriggerUpdater) {
     return new Trigger(timerTrigger, earlyTrigger, lateTrigger, earlyTriggerUpdater, lateTriggerUpdater);

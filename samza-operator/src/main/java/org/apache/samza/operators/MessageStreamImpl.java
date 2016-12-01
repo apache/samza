@@ -19,12 +19,12 @@
 
 package org.apache.samza.operators;
 
+import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.data.Message;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.windows.Window;
@@ -44,17 +44,17 @@ import java.util.function.BiFunction;
  * The implementation for input/output {@link MessageStream}s to/from the operators.
  * Users use the {@link MessageStream} API methods to describe and chain the operators specs.
  *
- * @param <M>  type of {@link Message}s in this {@link MessageStream}
+ * @param <M>  type of {@link MessageEnvelope}s in this {@link MessageStream}
  */
-public class MessageStreamImpl<M extends Message> implements MessageStream<M> {
+public class MessageStreamImpl<M extends MessageEnvelope> implements MessageStream<M> {
 
   /**
-   * The set of operators that consume the {@link Message}s in this {@link MessageStream}
+   * The set of operators that consume the {@link MessageEnvelope}s in this {@link MessageStream}
    */
   private final Set<OperatorSpec> registeredOperatorSpecs = new HashSet<>();
 
   @Override
-  public <OM extends Message> MessageStream<OM> map(MapFunction<M, OM> mapFn) {
+  public <OM extends MessageEnvelope> MessageStream<OM> map(MapFunction<M, OM> mapFn) {
     OperatorSpec<OM> op = OperatorSpecs.<M, OM>createStreamOperator(m -> new ArrayList<OM>() { {
         OM r = mapFn.apply(m);
         if (r != null) {
@@ -66,7 +66,7 @@ public class MessageStreamImpl<M extends Message> implements MessageStream<M> {
   }
 
   @Override
-  public <OM extends Message> MessageStream<OM> flatMap(FlatMapFunction<M, OM> flatMapFn) {
+  public <OM extends MessageEnvelope> MessageStream<OM> flatMap(FlatMapFunction<M, OM> flatMapFn) {
     OperatorSpec<OM> op = OperatorSpecs.createStreamOperator(flatMapFn);
     this.registeredOperatorSpecs.add(op);
     return op.getOutputStream();
@@ -97,8 +97,8 @@ public class MessageStreamImpl<M extends Message> implements MessageStream<M> {
   }
 
   @Override
-  public <K, JM extends Message<K, ?>, RM extends Message> MessageStream<RM> join(MessageStream<JM> otherStream,
-      JoinFunction<M, JM, RM> joinFn) {
+  public <K, JM extends MessageEnvelope<K, ?>, RM extends MessageEnvelope> MessageStream<RM> join(
+      MessageStream<JM> otherStream, JoinFunction<M, JM, RM> joinFn) {
     MessageStreamImpl<RM> outputStream = new MessageStreamImpl<>();
 
     BiFunction<M, JM, RM> parJoin1 = joinFn::apply;
@@ -123,10 +123,10 @@ public class MessageStreamImpl<M extends Message> implements MessageStream<M> {
   }
 
   /**
-   * Gets the operator specs registered to consume the ouput of this MessageStream. This is an internal API and
+   * Gets the operator specs registered to consume the output of this {@link MessageStream}. This is an internal API and
    * should not be exposed to users.
    *
-   * @return  a collection containing all {@link OperatorSpec}s that are registered with this MessageStream.
+   * @return  a collection containing all {@link OperatorSpec}s that are registered with this {@link MessageStream}.
    */
   public Collection<OperatorSpec> getRegisteredOperatorSpecs() {
     return Collections.unmodifiableSet(this.registeredOperatorSpecs);

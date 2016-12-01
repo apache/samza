@@ -38,18 +38,18 @@ import static org.mockito.Mockito.when;
 public class TestStateStoreImpl {
   @Test
   public void testStateStoreImpl() {
-    StoreFunctions<TestMessage, String, WindowState> mockStoreFunctions = mock(StoreFunctions.class);
+    StoreFunctions<TestMessageEnvelope, String, WindowState> mockStoreFunctions = mock(StoreFunctions.class);
     // test constructor
-    StateStoreImpl<TestMessage, String, WindowState> storeImpl = new StateStoreImpl<>(mockStoreFunctions, "myStoreName");
+    StateStoreImpl<TestMessageEnvelope, String, WindowState> storeImpl = new StateStoreImpl<>(mockStoreFunctions, "myStoreName");
     TaskContext mockContext = mock(TaskContext.class);
     KeyValueStore<String, WindowState> mockKvStore = mock(KeyValueStore.class);
     when(mockContext.getStore("myStoreName")).thenReturn(mockKvStore);
     // test init()
     storeImpl.init(mockContext);
     verify(mockContext, times(1)).getStore("myStoreName");
-    Function<TestMessage, String> wndKeyFn = mock(Function.class);
+    Function<TestMessageEnvelope, String> wndKeyFn = mock(Function.class);
     when(mockStoreFunctions.getStoreKeyFn()).thenReturn(wndKeyFn);
-    TestMessage mockMsg = mock(TestMessage.class);
+    TestMessageEnvelope mockMsg = mock(TestMessageEnvelope.class);
     when(wndKeyFn.apply(mockMsg)).thenReturn("myKey");
     WindowState mockState = mock(WindowState.class);
     when(mockKvStore.get("myKey")).thenReturn(mockState);
@@ -61,7 +61,7 @@ public class TestStateStoreImpl {
     verify(mockKvStore, times(1)).get("myKey");
     Entry<String, WindowState> oldEntry = new Entry<>("myKey", mockState);
     WindowState mockNewState = mock(WindowState.class);
-    BiFunction<TestMessage, WindowState, WindowState> mockUpdaterFn = mock(BiFunction.class);
+    BiFunction<TestMessageEnvelope, WindowState, WindowState> mockUpdaterFn = mock(BiFunction.class);
     when(mockStoreFunctions.getStateUpdaterFn()).thenReturn(mockUpdaterFn);
     when(mockUpdaterFn.apply(mockMsg, mockState)).thenReturn(mockNewState);
     // test updateState()

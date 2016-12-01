@@ -18,18 +18,18 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.data.Message;
+import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.MessageStreamImpl;
 
 
 /**
- * The spec for a linear stream operator that outputs 0 or more {@link Message}s for each input {@link Message}.
+ * The spec for a linear stream operator that outputs 0 or more {@link MessageEnvelope}s for each input {@link MessageEnvelope}.
  *
- * @param <M>  the type of input {@link Message}
- * @param <OM>  the type of output {@link Message}
+ * @param <M>  the type of input {@link MessageEnvelope}
+ * @param <OM>  the type of output {@link MessageEnvelope}
  */
-public class StreamOperatorSpec<M extends Message, OM extends Message> implements OperatorSpec<OM> {
+public class StreamOperatorSpec<M extends MessageEnvelope, OM extends MessageEnvelope> implements OperatorSpec<OM> {
 
   private final MessageStreamImpl<OM> outputStream;
 
@@ -38,8 +38,8 @@ public class StreamOperatorSpec<M extends Message, OM extends Message> implement
   /**
    * Default constructor for a {@link StreamOperatorSpec}.
    *
-   * @param transformFn  the transformation function that transforms each input {@link Message} into a collection
-   *                     of output {@link Message}s
+   * @param transformFn  the transformation function that transforms each input {@link MessageEnvelope} into a collection
+   *                     of output {@link MessageEnvelope}s
    */
   StreamOperatorSpec(FlatMapFunction<M, OM> transformFn) {
     this(transformFn, new MessageStreamImpl<>());
