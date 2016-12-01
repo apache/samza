@@ -21,7 +21,7 @@
 
 set -e
 
-SCALAs=( "2.10" )
+SCALAs=( "2.10", "2.11" )
 JDKs=( "JAVA7_HOME" "JAVA8_HOME" )
 YARNs=( "2.6.1" "2.7.1" )
 
