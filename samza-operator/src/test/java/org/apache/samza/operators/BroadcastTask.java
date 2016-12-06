@@ -23,12 +23,13 @@ package org.apache.samza.operators;
 import org.apache.samza.operators.data.IncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.Offset;
-import org.apache.samza.operators.windows.TriggerBuilder;
+import org.apache.samza.operators.triggers.Triggers;
+import org.apache.samza.operators.triggers.Duration;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.system.SystemStreamPartition;
 
-import java.util.Collection;
 import java.util.Map;
+import java.util.function.BiFunction;
 
 
 /**
@@ -57,27 +58,21 @@ public class BroadcastTask implements StreamOperatorTask {
 
   @Override
   public void transform(Map<SystemStreamPartition, MessageStream<IncomingSystemMessageEnvelope>> messageStreams) {
+    BiFunction<JsonMessageEnvelope, Integer, Integer> sumAggregator = (m, c) -> c + 1;
     messageStreams.values().forEach(entry -> {
         MessageStream<JsonMessageEnvelope> inputStream = entry.map(this::getInputMessage);
 
-        inputStream.filter(this::myFilter1).
-          window(Windows.<JsonMessageEnvelope, String>intoSessionCounter(
-              m -> String.format("%s-%s", m.getMessage().field1, m.getMessage().field2)).
-            setTriggers(TriggerBuilder.<JsonMessageEnvelope, Integer>earlyTriggerWhenExceedWndLen(100).
-              addLateTriggerOnSizeLimit(10).
-              addTimeoutSinceLastMessage(30000)));
+        inputStream.filter(this::myFilter1)
+          .window(Windows.sessionWindow(Duration.milliseconds(100), sumAggregator)
+            .setLateTrigger(Triggers.or(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.milliseconds(10)))));
 
-        inputStream.filter(this::myFilter2).
-          window(Windows.<JsonMessageEnvelope, String>intoSessions(
-              m -> String.format("%s-%s", m.getMessage().field3, m.getMessage().field4)).
-            setTriggers(TriggerBuilder.<JsonMessageEnvelope, Collection<JsonMessageEnvelope>>earlyTriggerWhenExceedWndLen(100).
-              addTimeoutSinceLastMessage(30000)));
+        inputStream.filter(this::myFilter1)
+          .window(Windows.sessionWindow(Duration.milliseconds(100), sumAggregator)
+            .setLateTrigger(Triggers.or(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.milliseconds(10)))));
 
-        inputStream.filter(this::myFilter3).
-          window(Windows.<JsonMessageEnvelope, String, MessageType>intoSessions(
-              m -> String.format("%s-%s", m.getMessage().field3, m.getMessage().field4), m -> m.getMessage()).
-            setTriggers(TriggerBuilder.<JsonMessageEnvelope, Collection<MessageType>>earlyTriggerOnEventTime(m -> m.getMessage().getTimestamp(), 30000).
-              addTimeoutSinceFirstMessage(60000)));
+        inputStream.filter(this::myFilter1)
+          .window(Windows.sessionWindow(Duration.milliseconds(100), sumAggregator)
+            .setLateTrigger(Triggers.or(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.milliseconds(10)))));
       });
   }
 

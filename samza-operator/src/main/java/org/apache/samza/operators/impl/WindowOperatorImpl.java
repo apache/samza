@@ -16,46 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.operators.impl;
 
-package org.apache.samza.operators.spec;
-
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.windows.WindowOutput;
 import org.apache.samza.operators.windows.BaseWindowFunction;
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskCoordinator;
 
 /**
- *
+ * Implementation of the window operator.
  */
-public class WindowOperatorSpec<M extends MessageEnvelope, K, WK, WV, WM extends WindowOutput<WK, WV>> implements OperatorSpec<WM> {
+public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends WindowOutput<WK, WV>> extends OperatorImpl<M, WM> {
 
-  private final BaseWindowFunction windowFn;
+  private final BaseWindowFunction<M, K, WV> windowFn;
 
-  /**
-   * The output {@link MessageStream}.
-   */
-  private final MessageStreamImpl<WM> outputStream;
-
-  private final String operatorId;
-
-
-  public WindowOperatorSpec(BaseWindowFunction window, String operatorId) {
-    this.windowFn = window;
-    this.outputStream = new MessageStreamImpl<>();
-    this.operatorId = operatorId;
+  public WindowOperatorImpl(WindowOperatorSpec spec) {
+    windowFn = spec.getWindowFn();
   }
 
   @Override
-  public MessageStream<WM> getOutputStream() {
-    return this.outputStream;
-  }
+  public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
 
-  public BaseWindowFunction getWindowFn() {
-    return windowFn;
-  }
-
-  public String getOperatorId() {
-    return operatorId;
   }
 }

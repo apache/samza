@@ -25,9 +25,8 @@ import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.windows.Window;
+import org.apache.samza.operators.windows.WindowFunction;
 import org.apache.samza.operators.windows.WindowOutput;
-import org.apache.samza.operators.windows.WindowState;
 
 import java.util.Collection;
 
@@ -46,8 +45,8 @@ public interface MessageStream<M extends MessageEnvelope> {
    * Applies the provided 1:1 {@link MapFunction} to {@link MessageEnvelope}s in this {@link MessageStream} and returns the
    * transformed {@link MessageStream}.
    *
-   * @param mapFn  the function to transform a {@link MessageEnvelope} to another {@link MessageEnvelope}
-   * @param <TM>  the type of {@link MessageEnvelope}s in the transformed {@link MessageStream}
+   * @param mapFn the function to transform a {@link MessageEnvelope} to another {@link MessageEnvelope}
+   * @param <TM> the type of {@link MessageEnvelope}s in the transformed {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
   <TM extends MessageEnvelope> MessageStream<TM> map(MapFunction<M, TM> mapFn);
@@ -56,8 +55,8 @@ public interface MessageStream<M extends MessageEnvelope> {
    * Applies the provided 1:n {@link FlatMapFunction} to transform a {@link MessageEnvelope} in this {@link MessageStream}
    * to n {@link MessageEnvelope}s in the transformed {@link MessageStream}
    *
-   * @param flatMapFn  the function to transform a {@link MessageEnvelope} to zero or more {@link MessageEnvelope}s
-   * @param <TM>  the type of {@link MessageEnvelope}s in the transformed {@link MessageStream}
+   * @param flatMapFn the function to transform a {@link MessageEnvelope} to zero or more {@link MessageEnvelope}s
+   * @param <TM> the type of {@link MessageEnvelope}s in the transformed {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
   <TM extends MessageEnvelope> MessageStream<TM> flatMap(FlatMapFunction<M, TM> flatMapFn);
@@ -69,7 +68,7 @@ public interface MessageStream<M extends MessageEnvelope> {
    * The {@link FilterFunction} is a predicate which determines whether a {@link MessageEnvelope} in this {@link MessageStream}
    * should be retained in the transformed {@link MessageStream}.
    *
-   * @param filterFn  the predicate to filter {@link MessageEnvelope}s from this {@link MessageStream}
+   * @param filterFn the predicate to filter {@link MessageEnvelope}s from this {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
   MessageStream<M> filter(FilterFunction<M> filterFn);
@@ -78,38 +77,39 @@ public interface MessageStream<M extends MessageEnvelope> {
    * Allows sending {@link MessageEnvelope}s in this {@link MessageStream} to an output
    * {@link org.apache.samza.system.SystemStream} using the provided {@link SinkFunction}.
    *
-   * @param sinkFn  the function to send {@link MessageEnvelope}s in this stream to output systems
+   * @param sinkFn the function to send {@link MessageEnvelope}s in this stream to output systems
    */
   void sink(SinkFunction<M> sinkFn);
 
   /**
-   * Groups the {@link MessageEnvelope}s in this {@link MessageStream} according to the provided {@link Window} semantics
+   * Groups the {@link MessageEnvelope}s in this {@link MessageStream} according to the provided {@link WindowFunction} semantics
    * (e.g. tumbling, sliding or session windows) and returns the transformed {@link MessageStream} of
    * {@link WindowOutput}s.
    * <p>
    * Use the {@link org.apache.samza.operators.windows.Windows} helper methods to create the appropriate windows.
    *
-   * @param window  the {@link Window} to group and process {@link MessageEnvelope}s from this {@link MessageStream}
-   * @param <WK>  the type of key in the {@link WindowOutput} from the {@link Window}
-   * @param <WV>  the type of value in the {@link WindowOutput} from the {@link Window}
-   * @param <WS>  the type of window state kept in the {@link Window}
-   * @param <WM>  the type of {@link WindowOutput} in the transformed {@link MessageStream}
-   * @return  the transformed {@link MessageStream}
+   * @param windowFn the {@link WindowFunction} to group and process {@link MessageEnvelope}s from this {@link MessageStream}
+   * @param <K> type of key in the {@link MessageEnvelope} in this {@link MessageStream}. If a key is specified,
+   *           results are emitted per-key.
+   * @param <WK> the type of key in the {@link WindowOutput} in the transformed {@link MessageStream}
+   * @param <WV> the type of value in the {@link WindowOutput} in the {@link MessageStream}
+   * @param <WM> the type of {@link WindowOutput} in the transformed {@link MessageStream}
+   * @return the transformed {@link MessageStream}
    */
-  <WK, WV, WS extends WindowState<WV>, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(
-      Window<M, WK, WV, WM> window);
+  <K, WK, WV, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(WindowFunction<M, K, WK, WV, WM> windowFn);
+
 
   /**
    * Joins this {@link MessageStream} with another {@link MessageStream} using the provided pairwise {@link JoinFunction}.
    * <p>
    * We currently only support 2-way joins.
    *
-   * @param otherStream  the other {@link MessageStream} to be joined with
-   * @param joinFn  the function to join {@link MessageEnvelope}s from this and the other {@link MessageStream}
-   * @param <K>  the type of join key
-   * @param <OM>  the type of {@link MessageEnvelope}s in the other stream
-   * @param <RM>  the type of {@link MessageEnvelope}s resulting from the {@code joinFn}
-   * @return  the joined {@link MessageStream}
+   * @param otherStream the other {@link MessageStream} to be joined with
+   * @param joinFn the function to join {@link MessageEnvelope}s from this and the other {@link MessageStream}
+   * @param <K> the type of join key
+   * @param <OM> the type of {@link MessageEnvelope}s in the other stream
+   * @param <RM> the type of {@link MessageEnvelope}s resulting from the {@code joinFn}
+   * @return the joined {@link MessageStream}
    */
   <K, OM extends MessageEnvelope<K, ?>, RM extends MessageEnvelope> MessageStream<RM> join(MessageStream<OM> otherStream,
       JoinFunction<M, OM, RM> joinFn);

@@ -23,9 +23,8 @@ import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.windows.WindowState;
-import org.apache.samza.operators.windows.WindowFn;
 import org.apache.samza.operators.windows.WindowOutput;
+import org.apache.samza.operators.windows.BaseWindowFunction;
 
 import java.util.ArrayList;
 import java.util.UUID;
@@ -68,18 +67,21 @@ public class OperatorSpecs {
     return new SinkOperatorSpec<>(sinkFn);
   }
 
+
   /**
    * Creates a {@link WindowOperatorSpec}.
    *
-   * @param windowFn  the {@link WindowFn} function
-   * @param <M>  type of input {@link MessageEnvelope}
-   * @param <WK>  type of window key
-   * @param <WS>  type of {@link WindowState}
-   * @param <WM>  type of output {@link WindowOutput}
+   * @param windowFn the definition for this window that specifies everything about this {@link org.apache.samza.operators.windows.WindowFunction}.
+   * @param <M> the type of input {@link MessageEnvelope}
+   * @param <K> the type of key in the {@link MessageEnvelope} in this {@link org.apache.samza.operators.MessageStream}. If a key is specified,
+   *           results are emitted per-key
+   * @param <WK> the type of key in the {@link WindowOutput}
+   * @param <WV> the type of value in the window
+   * @param <WM> the type of output {@link WindowOutput}
    * @return  the {@link WindowOperatorSpec}
    */
-  public static <M extends MessageEnvelope, WK, WS extends WindowState, WM extends WindowOutput<WK, ?>> WindowOperatorSpec<M, WK, WS, WM> createWindowOperator(
-      WindowFn<M, WK, WS, WM> windowFn) {
+
+  public static <M extends MessageEnvelope, K, WK, WV, WM extends WindowOutput<WK, WV>> WindowOperatorSpec<M, K, WK, WV, WM> createWindowOperator(BaseWindowFunction<M, K, WV> windowFn) {
     return new WindowOperatorSpec<>(windowFn, OperatorSpecs.getOperatorId());
   }
 

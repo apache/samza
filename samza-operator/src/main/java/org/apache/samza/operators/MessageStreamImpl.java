@@ -27,10 +27,9 @@ import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpecs;
-import org.apache.samza.operators.windows.Window;
-import org.apache.samza.operators.windows.WindowFn;
+import org.apache.samza.operators.windows.WindowFunction;
 import org.apache.samza.operators.windows.WindowOutput;
-import org.apache.samza.operators.windows.WindowState;
+import org.apache.samza.operators.windows.BaseWindowFunction;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -89,9 +88,9 @@ public class MessageStreamImpl<M extends MessageEnvelope> implements MessageStre
   }
 
   @Override
-  public <WK, WV, WS extends WindowState<WV>, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(
-      Window<M, WK, WV, WM> window) {
-    OperatorSpec<WM> wndOp = OperatorSpecs.createWindowOperator((WindowFn<M, WK, WS, WM>) window.getInternalWindowFn());
+  public <K, WK, WV, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(
+      WindowFunction<M, K, WK, WV, WM> windowFn) {
+    OperatorSpec<WM> wndOp = OperatorSpecs.createWindowOperator((BaseWindowFunction<MessageEnvelope, K, WV>) windowFn);
     this.registeredOperatorSpecs.add(wndOp);
     return wndOp.getOutputStream();
   }
@@ -106,8 +105,7 @@ public class MessageStreamImpl<M extends MessageEnvelope> implements MessageStre
 
     // TODO: need to add default store functions for the two partial join functions
 
-    ((MessageStreamImpl<JM>) otherStream).registeredOperatorSpecs.add(
-        OperatorSpecs.createPartialJoinOperator(parJoin2, outputStream));
+    ((MessageStreamImpl<JM>) otherStream).registeredOperatorSpecs.add(OperatorSpecs.createPartialJoinOperator(parJoin2, outputStream));
     this.registeredOperatorSpecs.add(OperatorSpecs.createPartialJoinOperator(parJoin1, outputStream));
     return outputStream;
   }

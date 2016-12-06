@@ -23,12 +23,9 @@ import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.windows.StoreFunctions;
-import org.apache.samza.operators.windows.Trigger;
-import org.apache.samza.operators.windows.WindowFn;
+import org.apache.samza.operators.windows.BaseWindowFunction;
+import org.apache.samza.operators.windows.WindowKey;
 import org.apache.samza.operators.windows.WindowOutput;
-import org.apache.samza.operators.windows.WindowState;
-import org.apache.samza.storage.kv.Entry;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -37,10 +34,8 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 
 public class TestOperatorSpecs {
@@ -64,22 +59,14 @@ public class TestOperatorSpecs {
 
   @Test
   public void testGetWindowOperator() {
-    WindowFn<TestMessageEnvelope, String, WindowState<Integer>, WindowOutput<String, Integer>> windowFn = mock(WindowFn.class);
-    BiFunction<TestMessageEnvelope, Entry<String, WindowState<Integer>>, WindowOutput<String, Integer>> xFunction = (m, e) -> null;
-    StoreFunctions<TestMessageEnvelope, String, WindowState<Integer>> storeFns = mock(StoreFunctions.class);
-    Trigger<TestMessageEnvelope, WindowState<Integer>> trigger = mock(Trigger.class);
-    MessageStreamImpl<TestMessageEnvelope> mockInput = mock(MessageStreamImpl.class);
-    when(windowFn.getTransformFn()).thenReturn(xFunction);
-    when(windowFn.getStoreFns()).thenReturn(storeFns);
-    when(windowFn.getTrigger()).thenReturn(trigger);
-    when(mockInput.toString()).thenReturn("mockStream1");
-
-    WindowOperatorSpec<TestMessageEnvelope, String, WindowState<Integer>, WindowOutput<String, Integer>> windowOp = OperatorSpecs
-        .createWindowOperator(windowFn);
-    assertEquals(windowOp.getTransformFn(), xFunction);
-    assertEquals(windowOp.getStoreFns(), storeFns);
-    assertEquals(windowOp.getTrigger(), trigger);
-    assertEquals(windowOp.getStoreName(mockInput), String.format("input-mockStream1-wndop-%s", windowOp.toString()));
+    Function<TestMessageEnvelope, String> keyExtractor = m -> "globalkey";
+    BiFunction<TestMessageEnvelope, Integer, Integer> aggregator = (m, c) -> c + 1;
+    BaseWindowFunction<TestMessageEnvelope, String, Integer> window = new BaseWindowFunction<>(null, aggregator, keyExtractor, null);
+    WindowOperatorSpec spec = OperatorSpecs.<TestMessageEnvelope, String, WindowKey<String>, Integer,
+      WindowOutput<WindowKey<String>, Integer>>createWindowOperator(window);
+    assertEquals(spec.getWindowFn(), window);
+    assertEquals(spec.getWindowFn().getKeyExtractor(), keyExtractor);
+    assertEquals(spec.getWindowFn().getFoldFunction(), aggregator);
   }
 
   @Test
@@ -94,10 +81,6 @@ public class TestOperatorSpecs {
     MessageEnvelope<Object, Object> m = mock(MessageEnvelope.class);
     MessageEnvelope<Object, Object> s = mock(MessageEnvelope.class);
     assertEquals(partialJoin.getTransformFn(), merger);
-    assertEquals(partialJoin.getSelfStoreFns().getStoreKeyFn().apply(m), m.getKey());
-    assertEquals(partialJoin.getSelfStoreFns().getStateUpdaterFn().apply(m, s), m);
-    assertEquals(partialJoin.getJoinStoreFns().getStoreKeyFn().apply(m), m.getKey());
-    assertNull(partialJoin.getJoinStoreFns().getStateUpdaterFn());
   }
 
   @Test

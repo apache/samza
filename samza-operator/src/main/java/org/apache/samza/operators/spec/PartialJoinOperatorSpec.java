@@ -20,7 +20,6 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.windows.StoreFunctions;
 
 import java.util.function.BiFunction;
 
@@ -46,17 +45,6 @@ public class PartialJoinOperatorSpec<M extends MessageEnvelope<K, ?>, K, JM exte
    */
   private final BiFunction<M, JM, RM> transformFn;
 
-  /**
-   * The {@link MessageEnvelope} store functions that read the buffered {@link MessageEnvelope}s from the other
-   * stream in the join.
-   */
-  private final StoreFunctions<JM, K, JM> joinStoreFns;
-
-  /**
-   * The {@link MessageEnvelope} store functions that save the buffered {@link MessageEnvelope} of this
-   * {@link MessageStreamImpl} in the join.
-   */
-  private final StoreFunctions<M, K, M> selfStoreFns;
 
   /**
    * The unique ID for this operator.
@@ -73,10 +61,6 @@ public class PartialJoinOperatorSpec<M extends MessageEnvelope<K, ?>, K, JM exte
   PartialJoinOperatorSpec(BiFunction<M, JM, RM> partialJoinFn, MessageStreamImpl<RM> joinOutput, String operatorId) {
     this.joinOutput = joinOutput;
     this.transformFn = partialJoinFn;
-    // Read-only join store, no creator/updater functions required.
-    this.joinStoreFns = new StoreFunctions<>(m -> m.getKey(), null);
-    // Buffered message envelope store for this input stream.
-    this.selfStoreFns = new StoreFunctions<>(m -> m.getKey(), (m, s1) -> m);
     this.operatorId = operatorId;
   }
 
@@ -88,14 +72,6 @@ public class PartialJoinOperatorSpec<M extends MessageEnvelope<K, ?>, K, JM exte
   @Override
   public MessageStreamImpl<RM> getOutputStream() {
     return this.joinOutput;
-  }
-
-  public StoreFunctions<JM, K, JM> getJoinStoreFns() {
-    return this.joinStoreFns;
-  }
-
-  public StoreFunctions<M, K, M> getSelfStoreFns() {
-    return this.selfStoreFns;
   }
 
   public BiFunction<M, JM, RM> getTransformFn() {
