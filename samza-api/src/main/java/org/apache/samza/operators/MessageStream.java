@@ -99,6 +99,10 @@ public interface MessageStream<M extends MessageEnvelope> {
   <WK, WV, WS extends WindowState<WV>, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(
       Window<M, WK, WV, WM> window);
 
+  <K, WK, WV, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(
+      org.apache.samza.operators.windows.experimental.Window<M, K, WK, WV, WM> window);
+
+
   /**
    * Joins this {@link MessageStream} with another {@link MessageStream} using the provided pairwise {@link JoinFunction}.
    * <p>

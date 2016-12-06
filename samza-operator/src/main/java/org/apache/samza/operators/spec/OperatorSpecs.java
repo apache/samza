@@ -26,6 +26,7 @@ import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.windows.WindowState;
 import org.apache.samza.operators.windows.WindowFn;
 import org.apache.samza.operators.windows.WindowOutput;
+import org.apache.samza.operators.windows.experimental.WindowDefinition;
 
 import java.util.ArrayList;
 import java.util.UUID;
@@ -82,6 +83,23 @@ public class OperatorSpecs {
       WindowFn<M, WK, WS, WM> windowFn) {
     return new WindowOperatorSpec<>(windowFn, OperatorSpecs.getOperatorId());
   }
+
+  /**
+   * Creates a {@link WindowOperatorSpec}.
+   *
+   * @param window  the {@link WindowDefinition} for the window.
+   * @param <M>  type of input {@link MessageEnvelope}
+   * @param <WK>  type of window key
+   * @param <WV>  type of value in the window.
+   * @param <WM>  type of output {@link WindowOutput}
+   * @return  the {@link WindowOperatorSpec}
+   */
+
+  public static <M extends MessageEnvelope, K, WK, WV, WM extends WindowOutput<WK, WV>> ExperimentalWindowOperatorSpec<M, K, WK, WV, WM> createWindowOperator(WindowDefinition<M, K, WV> window) {
+    return new ExperimentalWindowOperatorSpec<>(window, OperatorSpecs.getOperatorId());
+  }
+
+
 
   /**
    * Creates a {@link PartialJoinOperatorSpec}.
