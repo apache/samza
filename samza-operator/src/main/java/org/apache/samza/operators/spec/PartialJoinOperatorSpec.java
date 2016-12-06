@@ -20,7 +20,6 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.windows.StoreFunctions;
 
 import java.util.function.BiFunction;
 

@@ -22,7 +22,7 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StateStoreImpl;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
-import org.apache.samza.operators.windows.WindowState;
+import org.apache.samza.operators.spec.WindowState;
 import org.apache.samza.operators.windows.WindowOutput;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.task.MessageCollector;

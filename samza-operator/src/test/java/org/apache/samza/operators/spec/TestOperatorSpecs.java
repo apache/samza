@@ -23,11 +23,9 @@ import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.windows.StoreFunctions;
 import org.apache.samza.operators.windows.Trigger;
 import org.apache.samza.operators.windows.WindowFn;
 import org.apache.samza.operators.windows.WindowOutput;
-import org.apache.samza.operators.windows.WindowState;
 import org.apache.samza.storage.kv.Entry;
 import org.junit.Test;
 

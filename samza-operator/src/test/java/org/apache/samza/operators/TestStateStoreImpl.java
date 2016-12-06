@@ -18,8 +18,8 @@
  */
 package org.apache.samza.operators;
 
-import org.apache.samza.operators.windows.StoreFunctions;
-import org.apache.samza.operators.windows.WindowState;
+import org.apache.samza.operators.spec.StoreFunctions;
+import org.apache.samza.operators.spec.WindowState;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.TaskContext;

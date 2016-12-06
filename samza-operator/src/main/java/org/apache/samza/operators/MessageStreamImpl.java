@@ -30,7 +30,7 @@ import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowFn;
 import org.apache.samza.operators.windows.WindowOutput;
-import org.apache.samza.operators.windows.WindowState;
+import org.apache.samza.operators.spec.WindowState;
 
 import java.util.ArrayList;
 import java.util.Collection;

@@ -25,9 +25,7 @@ import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowOutput;
-import org.apache.samza.operators.windows.WindowState;
 
 import java.util.Collection;
 
@@ -83,21 +81,19 @@ public interface MessageStream<M extends MessageEnvelope> {
   void sink(SinkFunction<M> sinkFn);
 
   /**
-   * Groups the {@link MessageEnvelope}s in this {@link MessageStream} according to the provided {@link Window} semantics
+   * Groups the {@link MessageEnvelope}s in this {@link MessageStream} according to the provided {@link org.apache.samza.operators.windows.experimental.Window} semantics
    * (e.g. tumbling, sliding or session windows) and returns the transformed {@link MessageStream} of
    * {@link WindowOutput}s.
    * <p>
-   * Use the {@link org.apache.samza.operators.windows.Windows} helper methods to create the appropriate windows.
+   * Use the {@link org.apache.samza.operators.windows.experimental.Windows} helper methods to create the appropriate windows.
    *
-   * @param window  the {@link Window} to group and process {@link MessageEnvelope}s from this {@link MessageStream}
-   * @param <WK>  the type of key in the {@link WindowOutput} from the {@link Window}
-   * @param <WV>  the type of value in the {@link WindowOutput} from the {@link Window}
-   * @param <WS>  the type of window state kept in the {@link Window}
+   * @param window  the {@link org.apache.samza.operators.windows.experimental.Window} to group and process {@link MessageEnvelope}s from this {@link MessageStream}
+   * @param <WK>  the type of key in the {@link WindowOutput} from the {@link org.apache.samza.operators.windows.experimental.Window}
+   * @param <WV>  the type of value in the {@link WindowOutput} from the {@link org.apache.samza.operators.windows.experimental.Window}
+   * @param <WM>  the type of window state kept in the {@link org.apache.samza.operators.windows.experimental.Window}
    * @param <WM>  the type of {@link WindowOutput} in the transformed {@link MessageStream}
    * @return  the transformed {@link MessageStream}
    */
-  <WK, WV, WS extends WindowState<WV>, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(
-      Window<M, WK, WV, WM> window);
 
   <K, WK, WV, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(
       org.apache.samza.operators.windows.experimental.Window<M, K, WK, WV, WM> window);

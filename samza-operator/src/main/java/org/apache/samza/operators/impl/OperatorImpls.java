@@ -28,7 +28,7 @@ import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.windows.WindowOutput;
-import org.apache.samza.operators.windows.WindowState;
+import org.apache.samza.operators.spec.WindowState;
 import org.apache.samza.task.TaskContext;
 
 import java.util.Collection;
