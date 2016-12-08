@@ -22,8 +22,8 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.MessageEnvelope;
 
 /**
- * A {@link Window} transform slices a {@link org.apache.samza.operators.MessageStream} into smaller finite chunks for
- * further processing. Programmers should use the API methods of {@link Windows} to specify their windowing functions.
+ * A {@link Window} transform slices a stream into smaller finite chunks for further processing. Programmers should
+ * use the API methods of {@link Windows} to specify their windowing functions.
  *
  * <p>There are the following aspects to windowing in Samza:
  *
@@ -41,7 +41,7 @@ import org.apache.samza.operators.data.MessageEnvelope;
  * </ul>
  *
  * @param <M> type of input {@link MessageEnvelope}.
- * @param <K> type of key to group by when evaluating a {@link Window}.
+ * @param <K> type of key in the {@link MessageEnvelope} on which the window is computed on.
  * @param <WK> type of key in the {@link Window} output.
  * @param <WV> type of value stored in the {@link Window}.
  * @param <WM> type of the {@link Window} result.

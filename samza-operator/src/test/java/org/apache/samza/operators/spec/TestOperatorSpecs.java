@@ -23,6 +23,9 @@ import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.windows.BaseWindow;
+import org.apache.samza.operators.windows.WindowKey;
+import org.apache.samza.operators.windows.WindowOutput;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -54,26 +57,17 @@ public class TestOperatorSpecs {
     assertTrue(sinkOp.getOutputStream() == null);
   }
 
-  /*
   @Test
   public void testGetWindowOperator() {
-    WindowFn<TestMessageEnvelope, String, WindowState<Integer>, WindowOutput<String, Integer>> windowFn = mock(WindowFn.class);
-    BiFunction<TestMessageEnvelope, Entry<String, WindowState<Integer>>, WindowOutput<String, Integer>> xFunction = (m, e) -> null;
-    StoreFunctions<TestMessageEnvelope, String, WindowState<Integer>> storeFns = mock(StoreFunctions.class);
-    Trigger<TestMessageEnvelope, WindowState<Integer>> trigger = mock(Trigger.class);
-    MessageStreamImpl<TestMessageEnvelope> mockInput = mock(MessageStreamImpl.class);
-    when(windowFn.getTransformFn()).thenReturn(xFunction);
-    when(windowFn.getStoreFns()).thenReturn(storeFns);
-    when(windowFn.getTrigger()).thenReturn(trigger);
-    when(mockInput.toString()).thenReturn("mockStream1");
-
-    WindowOperatorSpec<TestMessageEnvelope, String, WindowState<Integer>, WindowOutput<String, Integer>> windowOp = OperatorSpecs
-        .createWindowOperator(windowFn);
-    assertEquals(windowOp.getTransformFn(), xFunction);
-    assertEquals(windowOp.getStoreFns(), storeFns);
-    assertEquals(windowOp.getTrigger(), trigger);
-    assertEquals(windowOp.getStoreName(mockInput), String.format("input-mockStream1-wndop-%s", windowOp.toString()));
-  }*/
+    Function<TestMessageEnvelope, String> keyExtractor = m -> "globalkey";
+    BiFunction<TestMessageEnvelope, Integer, Integer> aggregator = (m, c) -> c + 1;
+    BaseWindow<TestMessageEnvelope, String, Integer> window = new BaseWindow<>(keyExtractor, aggregator, null, null);
+    WindowOperatorSpec spec = OperatorSpecs.<TestMessageEnvelope, String, WindowKey<String>, Integer,
+      WindowOutput<WindowKey<String>, Integer>>createWindowOperator(window);
+    assertEquals(spec.getWindow(), window);
+    assertEquals(spec.getWindow().getKeyExtractor(), keyExtractor);
+    assertEquals(spec.getWindow().getAggregator(), aggregator);
+  }
 
   @Test
   public void testGetPartialJoinOperator() {
