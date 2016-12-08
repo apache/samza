@@ -23,10 +23,6 @@ import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.windows.Trigger;
-import org.apache.samza.operators.windows.WindowFn;
-import org.apache.samza.operators.windows.WindowOutput;
-import org.apache.samza.storage.kv.Entry;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -35,10 +31,8 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 
 public class TestOperatorSpecs {
@@ -60,6 +54,7 @@ public class TestOperatorSpecs {
     assertTrue(sinkOp.getOutputStream() == null);
   }
 
+  /*
   @Test
   public void testGetWindowOperator() {
     WindowFn<TestMessageEnvelope, String, WindowState<Integer>, WindowOutput<String, Integer>> windowFn = mock(WindowFn.class);
@@ -78,7 +73,7 @@ public class TestOperatorSpecs {
     assertEquals(windowOp.getStoreFns(), storeFns);
     assertEquals(windowOp.getTrigger(), trigger);
     assertEquals(windowOp.getStoreName(mockInput), String.format("input-mockStream1-wndop-%s", windowOp.toString()));
-  }
+  }*/
 
   @Test
   public void testGetPartialJoinOperator() {
@@ -92,10 +87,6 @@ public class TestOperatorSpecs {
     MessageEnvelope<Object, Object> m = mock(MessageEnvelope.class);
     MessageEnvelope<Object, Object> s = mock(MessageEnvelope.class);
     assertEquals(partialJoin.getTransformFn(), merger);
-    assertEquals(partialJoin.getSelfStoreFns().getStoreKeyFn().apply(m), m.getKey());
-    assertEquals(partialJoin.getSelfStoreFns().getStateUpdaterFn().apply(m, s), m);
-    assertEquals(partialJoin.getJoinStoreFns().getStoreKeyFn().apply(m), m.getKey());
-    assertNull(partialJoin.getJoinStoreFns().getStateUpdaterFn());
   }
 
   @Test

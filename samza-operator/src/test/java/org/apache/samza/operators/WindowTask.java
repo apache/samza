@@ -23,11 +23,12 @@ import org.apache.samza.operators.data.IncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.data.Offset;
-import org.apache.samza.operators.windows.TriggerBuilder;
+import org.apache.samza.operators.windows.Time;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.util.Map;
+import java.util.function.BiFunction;
 
 
 /**
@@ -35,6 +36,7 @@ import java.util.Map;
  *
  */
 public class WindowTask implements StreamOperatorTask {
+
   class MessageType {
     String field1;
     String field2;
@@ -48,6 +50,9 @@ public class WindowTask implements StreamOperatorTask {
   }
 
   @Override public void transform(Map<SystemStreamPartition, MessageStream<IncomingSystemMessageEnvelope>> messageStreams) {
+
+    BiFunction<JsonMessageEnvelope, Integer, Integer> maxAggregator = (m, c) -> c + 1;
+
     messageStreams.values().forEach(source ->
       source.map(m1 ->
         new JsonMessageEnvelope(
@@ -55,11 +60,8 @@ public class WindowTask implements StreamOperatorTask {
           (MessageType) m1.getMessage(),
           m1.getOffset(),
           m1.getSystemStreamPartition())).
-        window(
-          Windows.<JsonMessageEnvelope, String>intoSessionCounter(
-              m -> String.format("%s-%s", m.getMessage().field1, m.getMessage().field2)).
-            setTriggers(TriggerBuilder.<JsonMessageEnvelope, Integer>earlyTriggerWhenExceedWndLen(100).
-              addTimeoutSinceLastMessage(30000)))
+        window(Windows.sessionWindow(Time.milliseconds(200), maxAggregator)
+          )
     );
   }
 

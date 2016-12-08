@@ -1,24 +1,40 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.samza.operators.windows.examples;
 
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.data.IncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.MessageEnvelope;
-import org.apache.samza.operators.windows.WindowOutput;
-import org.apache.samza.operators.windows.experimental.TriggersBuilder;
-import org.apache.samza.operators.windows.experimental.WindowKey;
-import org.apache.samza.operators.windows.experimental.Windows;
+import org.apache.samza.operators.windows.*;
 
 import java.util.Collection;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * Examples for programming using the {@link org.apache.samza.operators.windows.experimental.Windows} APIs.
+ * Examples for programming using the {@link Windows} APIs.
  */
 public class WindowingExamples {
 
-  private static final long INTERVAL_MS = 1000;
-  private static final long SESSION_GAP_MS = 2000;
+  private static final Time INTERVAL_MS = Time.milliseconds(1000);
+  private static final Time SESSION_GAP_MS = Time.milliseconds(2000);
 
   private static Integer parseInt(IncomingSystemMessageEnvelope msg) {
     //parse an integer from the message
@@ -56,10 +72,10 @@ public class WindowingExamples {
     //       - Messages have a maximum allowed lateness of 50000ms.
 
     BiFunction<IncomingSystemMessageEnvelope, Integer, Integer> maxAggregator = (m, c)-> Math.max(parseInt(m), c);
-    MessageStream<WindowOutput<WindowKey<Void>, Integer>> window1 = integerStream.window(Windows.tumblingWindow(10000, maxAggregator)
+    MessageStream<WindowOutput<WindowKey<Void>, Integer>> window1 = integerStream.window(Windows.tumblingWindow(INTERVAL_MS, maxAggregator)
         .setTriggers(new TriggersBuilder()
             .withEarlyFiringsAfterCountAtleast(50)
-            .withEarlyFiringsEvery(4000)
+            .withEarlyFiringsEvery(Time.seconds(4))
             .withLateFiringsAfterCountAtleast(20)
             .discardFiredPanes()
             .build()));
@@ -76,7 +92,7 @@ public class WindowingExamples {
     final MessageStream<PercentileMessage> windowedPercentiles = integerStream.window(Windows.keyedSessionWindow(keyExtractor, SESSION_GAP_MS)
           .setTriggers(new TriggersBuilder()
               .withEarlyFiringsAfterCountAtleast(50)
-              .withEarlyFiringsEvery(4000)
+              .withEarlyFiringsEvery(Time.seconds(4))
               .withLateFiringsAfterCountAtleast(20)
               .accumulateFiredPanes()
               .build()))
@@ -100,7 +116,7 @@ public class WindowingExamples {
 
     /*
     //A CUSTOM GLOBAL WINDOW: Demonstrates a window with custom triggering every 500 messages
-    final MessageStream<WindowOutput<GlobalWindowKey, Collection<IncomingSystemMessage>>> customWindow = integerStream.window(Windows.<IncomingSystemMessage>customGlobalWindow().setTriggers(new TriggerSpecBuilder()
+    final MessageStream<WindowOutput<GlobalWindowInfo, Collection<IncomingSystemMessage>>> customWindow = integerStream.window(Windows.<IncomingSystemMessage>customGlobalWindow().setTriggers(new TriggerSpecBuilder()
         .withEarlyFiringsAfterCountAtleast(500)
         .discardFiredPanes()
         .build()));

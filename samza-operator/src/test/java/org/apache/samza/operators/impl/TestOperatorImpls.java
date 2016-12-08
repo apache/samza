@@ -24,10 +24,11 @@ import org.apache.samza.operators.TestOutputMessageEnvelope;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
-import org.apache.samza.operators.spec.WindowOperatorSpec;
+import org.apache.samza.operators.windows.Time;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.task.TaskContext;
 import org.junit.Before;
@@ -60,11 +61,7 @@ public class TestOperatorImpls {
     // get window operator
     WindowOperatorSpec mockWnd = mock(WindowOperatorSpec.class);
     OperatorImpl<TestMessageEnvelope, ? extends MessageEnvelope> opImpl = OperatorImpls.createOperatorImpl(mockWnd);
-    assertTrue(opImpl instanceof SessionWindowOperatorImpl);
-    Field sessWndField = SessionWindowOperatorImpl.class.getDeclaredField("windowSpec");
-    sessWndField.setAccessible(true);
-    WindowOperatorSpec sessWnd = (WindowOperatorSpec) sessWndField.get(opImpl);
-    assertEquals(sessWnd, mockWnd);
+    assertTrue(opImpl instanceof WindowOperatorImpl);
 
     // get simple operator
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> mockSimpleOp = mock(StreamOperatorSpec.class);
@@ -109,7 +106,7 @@ public class TestOperatorImpls {
     // test creation of linear chain
     MessageStreamImpl<TestMessageEnvelope> testInput = new MessageStreamImpl<>();
     TaskContext mockContext = mock(TaskContext.class);
-    testInput.map(m -> m).window(Windows.intoSessionCounter(TestMessageEnvelope::getKey));
+    testInput.map(m -> m).window(Windows.sessionWindow(Time.milliseconds(1000)));
     RootOperatorImpl operatorChain = OperatorImpls.createOperatorImpls(testInput, mockContext);
     Set<OperatorImpl> subsSet = (Set<OperatorImpl>) nextOperatorsField.get(operatorChain);
     assertEquals(subsSet.size(), 1);
