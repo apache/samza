@@ -29,12 +29,26 @@ class TestStorageConfig {
   @Test
   def testIsChangelogSystem {
     val configMap = Map[String, String](
-      FACTORY.format("system1") -> "some.factory.Class",
-      CHANGELOG_STREAM.format("system1") -> "system1.stream1",
-      FACTORY.format("system2") -> "some.factory.Class")
+      FACTORY.format("store1") -> "some.factory.Class",
+      CHANGELOG_STREAM.format("store1") -> "system1.stream1",
+      FACTORY.format("store2") -> "some.factory.Class")
     val config = new MapConfig(configMap)
     assertFalse(config.isChangelogSystem("system3"))
     assertFalse(config.isChangelogSystem("system2"))
+    assertTrue(config.isChangelogSystem("system1"))
+  }
+
+  @Test
+  def testIsChangelogSystemSetting {
+    val configMap = Map[String, String](
+      FACTORY.format("store1") -> "some.factory.Class",
+      CHANGELOG_STREAM.format("store1") -> "system1.stream1",
+      CHANGELOG_SYSTEM -> "system2",
+      CHANGELOG_STREAM.format("store2") -> "stream2",
+      FACTORY.format("store2") -> "some.factory.Class")
+    val config = new MapConfig(configMap)
+    assertFalse(config.isChangelogSystem("system3"))
+    assertTrue(config.isChangelogSystem("system2"))
     assertTrue(config.isChangelogSystem("system1"))
   }
 }
