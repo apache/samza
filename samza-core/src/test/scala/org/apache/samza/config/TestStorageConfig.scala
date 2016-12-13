@@ -19,11 +19,15 @@
 
 package org.apache.samza.config
 
+
+import org.junit.Test
+
 import scala.collection.JavaConversions._
 import org.apache.samza.config.StorageConfig._
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
 
 class TestStorageConfig {
   @Test
@@ -45,10 +49,24 @@ class TestStorageConfig {
       CHANGELOG_STREAM.format("store1") -> "system1.stream1",
       CHANGELOG_SYSTEM -> "system2",
       CHANGELOG_STREAM.format("store2") -> "stream2",
+      CHANGELOG_STREAM.format("store4") -> "stream4",
       FACTORY.format("store2") -> "some.factory.Class")
     val config = new MapConfig(configMap)
     assertFalse(config.isChangelogSystem("system3"))
     assertTrue(config.isChangelogSystem("system2"))
     assertTrue(config.isChangelogSystem("system1"))
+
+    assertEquals("system1.stream1", config.getChangelogStream("store1").getOrElse(""));
+    assertEquals("system2.stream2", config.getChangelogStream("store2").getOrElse(""));
+
+    val configMapErr = Map[String, String](CHANGELOG_STREAM.format("store4")->"stream4")
+    val configErr = new MapConfig(configMapErr)
+
+    try {
+      configErr.getChangelogStream("store4").getOrElse("")
+      fail("store4 has no system defined. Should've failed.");
+    } catch {
+       case e: Exception => // do nothing, it is expected
+    }
   }
 }

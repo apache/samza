@@ -19,6 +19,9 @@
 
 package org.apache.samza.config
 
+
+import org.apache.samza.SamzaException
+
 import scala.collection.JavaConversions._
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
@@ -49,8 +52,11 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
             && ! systemStream.getOrElse("").contains('.') // contains only stream name
             && changelogSystem.isDefined) {
       // get the system name
-      Some(changelogSystem.get + "." + systemStream)
+      Some(changelogSystem.get + "." + systemStream.get)
     } else {
+      if(systemStream.isDefined && ! systemStream.getOrElse("").contains('.') && !changelogSystem.isDefined)
+        throw new SamzaException("changelog system is not defined:" + systemStream.get)
+
       systemStream
     }
     systemStreamRes
