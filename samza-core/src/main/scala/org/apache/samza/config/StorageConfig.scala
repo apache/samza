@@ -48,17 +48,18 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
     // these values will be combined into <asystem>.<astream>
     val systemStream = getOption(CHANGELOG_STREAM format name)
     val changelogSystem = getOption(CHANGELOG_SYSTEM)
-    val systemStreamRes = if ( systemStream.isDefined
-            && ! systemStream.getOrElse("").contains('.') // contains only stream name
-            && changelogSystem.isDefined) {
-      // get the system name
-      Some(changelogSystem.get + "." + systemStream.get)
-    } else {
-      if(systemStream.isDefined && ! systemStream.getOrElse("").contains('.') && !changelogSystem.isDefined)
-        throw new SamzaException("changelog system is not defined:" + systemStream.get)
-
-      systemStream
-    }
+    val systemStreamRes =
+      if ( systemStream.isDefined  && ! systemStream.getOrElse("").contains('.')) {
+        // contains only stream name
+        if (changelogSystem.isDefined) {
+          Some(changelogSystem.get + "." + systemStream.get)
+        }
+        else {
+          throw new SamzaException("changelog system is not defined:" + systemStream.get)
+        }
+      } else {
+        systemStream
+      }
     systemStreamRes
   }
 
