@@ -31,5 +31,8 @@ public class TimeSinceLastMessageTrigger extends Trigger {
     this.timeTrigger = trigger;
   }
 
+  public TimeTrigger getTimeTrigger() {
+    return timeTrigger;
+  }
 }
 

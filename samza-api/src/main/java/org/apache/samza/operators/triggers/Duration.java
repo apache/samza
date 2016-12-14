@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Specifies a time interval for applying a window transform over a {@link org.apache.samza.operators.MessageStream}.
- * Users should rely on the factory methods to create instances of this class.
+ * Use the factory methods to create instances of this class.
  *
  * <pre> {@code
  *  Duration threeDays = Duration.of(3, TimeUnit.DAYS);

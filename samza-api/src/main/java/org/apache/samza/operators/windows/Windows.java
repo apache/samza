@@ -21,11 +21,9 @@ package org.apache.samza.operators.windows;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.data.IncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.triggers.Duration;
 import org.apache.samza.operators.triggers.TimeTrigger;
-import org.apache.samza.operators.triggers.TimeSinceLastMessageTrigger;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
 
@@ -34,7 +32,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * Factory methods for creating a {@link WindowFunction}. Provides APIs for specifying different types of {@link WindowFunction} transforms.
+ * Factory methods for creating a {@link WindowFunction}. Provides APIs for specifying different types of {@link WindowFunction}s.
  *
  */
 @InterfaceStability.Unstable
@@ -161,7 +159,7 @@ public final class Windows {
 
   /**
    * Returns a {@link WindowFunction} that windows values into sessions based on the {@code sessionGap} and aggregates them
-   * applying the provided function. A session captures some period of activity over a {@link MessageStream}.
+   * applying the provided function. A <i>session</i> captures some period of activity over a {@link MessageStream}.
    * The boundary for the session is defined by a {@code sessionGap}. All data that arrives within the gap are
    * grouped into the same session.
    *
@@ -347,7 +345,7 @@ public final class Windows {
    * BiFunction<UserClick, Long, Long> maxAggregator = (m, c)-> Math.max(parseLongField(m), c);
    * Function<UserClick, String> keyFn = ...;
    * MessageStream<WindowOutput<WindowKey<String>, Long>> windowed = stream.window(Windows.keyedGlobalWindow(keyFn, maxAggregator)
-   * .setEarlyTrigger(Triggers.repeat(Triggers.any(Triggers.count(50), Triggers.timeSinceFirstMessage(Duration.seconds(10))))))
+   * .setEarlyTrigger(Triggers.repeat(Triggers.any(Triggers.count(50), Triggers.timeSinceFirstMessage(Duration.minutes(10))))))
    * }
    * </pre>
    *
@@ -368,8 +366,8 @@ public final class Windows {
    * The triggering behavior must be specified by setting early triggers using the {@link org.apache.samza.operators.triggers.Triggers}
    * APIs.
    *
-   * <p> The below example windows the stream per-key into count based windows. The window triggers
-   * every 50 messages or every 10 minutes.
+   * <p> The below example windows the stream per-key into count based windows. The window triggers every 50 messages or
+   * every 10 minutes.
    *
    * <pre> {@code
    * MessageStream<UserClick> stream = ...;

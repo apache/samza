@@ -19,7 +19,7 @@
 package org.apache.samza.operators.triggers;
 
 /**
- * Defines a {@link Trigger} that triggers based on the count of messages in the window pane.
+ * A {@link Trigger} that triggers based on the count of messages in the window pane.
  */
 
 public class CountTrigger extends Trigger {
