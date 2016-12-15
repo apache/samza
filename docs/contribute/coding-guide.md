@@ -22,6 +22,13 @@ title: Coding Guide
 <!-- TODO link to hudson when we have an apache hudson boxes. -->
 
 These guidelines are meant to encourage consistency and best practices amongst people working on the Samza code base. They should be observed unless there is a compelling reason to ignore them.
+In general, patches should include:
+
+* Code change
+* Unit tests
+* Javadocs
+* Metrics
+* Logging
 
 ### Basic Stuff
 
@@ -91,7 +98,7 @@ We are following the style guide given here (though not perfectly). Below are so
 * All configuration names that define a class must end with .class (e.g. task.command.class).
 * All configuration names that define a factory class must end with .factory.class (e.g. systems.kafka.consumer.factory.class).
 * Configuration will always be defined as simple key/value pairs (e.g. a=b).
-* When configuration is related, it must be grouped using the same prefix (e.g. yarn.container.count=1, yarn.container.memory.bytes=1073741824).
+* When configuration is related, it must be grouped using the same prefix (e.g. job.container.count=1, yarn.container.memory.bytes=1073741824).
 * When configuration must be defined multiple times, the key should be parameterized (e.g. systems.kafka.consumer.factory=x, systems.kestrel.consumer.factory=y). *When such configuration must be referred to, its parameter should be used (e.g. foo.bar.system=kafka, foo.bar.system=kestrel).
 * All getter methods must be a camel case match with their configuration names (e.g. yarn.package.uri and getYarnPackageUri).
 * Reading configuration should only be done in factories and main methods. Don't pass Config objects around.

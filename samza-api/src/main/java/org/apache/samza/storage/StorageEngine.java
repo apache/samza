@@ -56,4 +56,8 @@ public interface StorageEngine {
    */
   void stop();
 
+  /**
+   * Get store properties
+   */
+  StoreProperties getStoreProperties();
 }

@@ -19,11 +19,13 @@ title: Event Loop
    limitations under the License.
 -->
 
-The event loop is the [container](samza-container.html)'s single thread that is in charge of [reading and writing messages](streams.html), [flushing metrics](metrics.html), [checkpointing](checkpointing.html), and [windowing](windowing.html).
+The event loop orchestrates [reading and processing messages](streams.html), [checkpointing](checkpointing.html), [windowing](windowing.html) and [flushing metrics](metrics.html) among tasks. 
 
-Samza uses a single thread because every container is designed to use a single CPU core; to get more parallelism, simply run more containers. This uses a bit more memory than multithreaded parallelism, because each JVM has some overhead, but it simplifies resource management and improves isolation between jobs. This helps Samza jobs run reliably on a multitenant cluster, where many different jobs written by different people are running at the same time.
+By default Samza uses a single thread in each [container](samza-container.html) to run the tasks. This fits CPU-bound jobs well; to get more CPU processors, simply add more containers. The single thread execution also simplifies sharing task state and resource management.
 
-You are strongly discouraged from using threads in your job's code. Samza uses multiple threads internally for communicating with input and output streams, but all message processing and user code runs on a single-threaded event loop. In general, Samza is not thread-safe.
+For IO-bound jobs, Samza supports finer-grained parallelism for both synchronous and asynchronous tasks. For synchronous tasks ([StreamTask](../api/javadocs/org/apache/samza/task/StreamTask.html) and [WindowableTask](../api/javadocs/org/apache/samza/task/WindowableTask.html)), you can schedule them to run in parallel by configuring the build-in thread pool [job.container.thread.pool.size](../jobs/configuration-table.html). This fits the blocking-IO task scenario. For asynchronous tasks ([AsyncStreamTask](../api/javadocs/org/apache/samza/task/AsyncStreamTask.html)), you can make async IO calls and trigger callbacks upon completion. The finest degree of parallelism Samza provides is within a task, and is configured by [task.max.concurrency](../jobs/configuration-table.html).
+
+The latest version of Samza is thread-safe. You can safely access your job’s state in [key-value store](state-management.html), write messages and checkpoint offset in the task threads. If you have other data shared among tasks, such as global variables or static data, it is not thread safe if the data can be accessed concurrently by multiple threads, e.g. StreamTask running in the configured thread pool with more than one threads. For states within a task, such as member variables, Samza guarantees the mutual exclusiveness of process, window and commit so there will be no concurrent modifications among these operations and any state change from one operation will be fully visible to the others.     
 
 ### Event Loop Internals
 
@@ -31,18 +33,36 @@ A container may have multiple [SystemConsumers](../api/javadocs/org/apache/samza
 
 The event loop works as follows:
 
-1. Take a message from the incoming message queue;
-2. Give the message to the appropriate [task instance](samza-container.html) by calling process() on it;
-3. Call window() on the task instance if it implements [WindowableTask](../api/javadocs/org/apache/samza/task/WindowableTask.html), and the window time has expired;
+1. Choose a message from the incoming message queue;
+2. Schedule the appropriate [task instance](samza-container.html) to process the message;
+3. Schedule window() on the task instance to run if it implements WindowableTask, and the window timer has been triggered;
 4. Send any output from the process() and window() calls to the appropriate [SystemProducers](../api/javadocs/org/apache/samza/system/SystemProducer.html);
-5. Write checkpoints for any tasks whose [commit interval](checkpointing.html) has elapsed.
+5. Write checkpoints and flush the state stores for any tasks whose [commit interval](checkpointing.html) has elapsed.
+6. Block if all task instances are busy with processing outstanding messages, windowing or checkpointing.
 
-The container does this, in a loop, until it is shut down. Note that although there can be multiple task instances within a container (depending on the number of input stream partitions), their process() and window() methods are all called on the same thread, never concurrently on different threads.
+The container does this, in a loop, until it is shut down.
+
+### Semantics for Synchronous Tasks v.s. Asynchronous Tasks
+
+The semantics of the event loop differs when running synchronous tasks and asynchronous tasks:
+
+* For synchronous tasks (StreamTask and WindowableTask), process() and window() will run on the single main thread by default. You can configure job.container.thread.pool.size to be greater than 1, and event loop will schedule the process() and window() to run in the thread pool.  
+* For Asynchronous tasks (AsyncStreamTask), processAsync() will always be invoked in a single thread, while callbacks can be triggered from a different user thread. 
+
+In both cases, the default concurrency within a task is 1, meaning at most one outstanding message in processing per task. This guarantees in-order message processing in a topic partition. You can further increase it by configuring task.max.concurrency to be greater than 1. This allows multiple outstanding messages to be processed in parallel by a task. This option increases the parallelism within a task, but may result in out-of-order processing and completion.
+
+The following semantics are guaranteed in any of the above cases (for happens-before semantics, see [here](https://docs.oracle.com/javase/tutorial/essential/concurrency/memconsist.html)):
+
+* If task.max.concurrency = 1, each message process completion in a task is guaranteed to happen-before the next invocation of process()/processAsync() of the same task. If task.max.concurrency > 1, there is no such happens-before constraint and user should synchronize access to any shared/global variables in the Task..
+* WindowableTask.window() is called when no invocations to process()/processAsync() are pending and no new process()/processAsync() invocations can be scheduled until it completes. Therefore, a guarantee that all previous process()/processAsync() invocations happen before an invocation of WindowableTask.window(). An invocation to WindowableTask.window() is guaranteed to happen-before any subsequent process()/processAsync() invocations. The Samza engine is responsible for ensuring that window is invoked in a timely manner.
+* Checkpointing is guaranteed to only cover events that are fully processed. It happens only when there are no pending process()/processAsync() or WindowableTask.window() invocations. All preceding invocations happen-before checkpointing and checkpointing happens-before all subsequent invocations.
+
+More details and examples can be found in [Samza Async API and Multithreading User Guide](../../../tutorials/{{site.version}}/samza-async-user-guide.html).
 
 ### Lifecycle
 
-The only way in which a developer can hook into a SamzaContainer's lifecycle is through the standard InitableTask, ClosableTask, StreamTask, and WindowableTask. In cases where pluggable logic needs to be added to wrap a StreamTask, the StreamTask can be wrapped by another StreamTask implementation that handles the custom logic before calling into the wrapped StreamTask.
+The only way in which a developer can hook into a SamzaContainer's lifecycle is through the standard InitableTask, ClosableTask, StreamTask/AsyncStreamTask, and WindowableTask. In cases where pluggable logic needs to be added to wrap a StreamTask, the StreamTask can be wrapped by another StreamTask implementation that handles the custom logic before calling into the wrapped StreamTask.
 
 A concrete example is a set of StreamTasks that all want to share the same try/catch logic in their process() method. A StreamTask can be implemented that wraps the original StreamTasks, and surrounds the original process() call with the appropriate try/catch logic. For more details, see [this discussion](https://issues.apache.org/jira/browse/SAMZA-437).
 
-## [JMX &raquo;](jmx.html)
+## [Metrics &raquo;](metrics.html)

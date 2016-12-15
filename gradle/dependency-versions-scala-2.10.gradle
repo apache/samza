@@ -25,5 +25,5 @@ ext {
   // -language:reflectiveCalls: Allow the automatic use of reflection to access fields without warning or library import
   scalaOptions = "-feature -language:implicitConversions -language:reflectiveCalls"
   scalatraVersion = "2.2.1"
-  jettyVersion = "8.1.8.v20121106"
+  jettyVersion = "9.2.7.v20150116"
 }

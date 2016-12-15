@@ -19,6 +19,7 @@
 
 package org.apache.samza.config;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,12 +31,14 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.collection.JavaConversions;
+
 
 public class TaskConfigJava extends MapConfig {
   // broadcast streams consumed by all tasks. e.g. kafka.foo#1
   public static final String BROADCAST_INPUT_STREAMS = "task.broadcast.inputs";
-  private static final String BROADCAST_STREAM_PATTERN = "[^#\\.]+\\.[^#\\.]+#[\\d]+";
-  private static final String BROADCAST_STREAM_RANGE_PATTERN = "[^#\\.]+\\.[^#\\.]+#\\[[\\d]+\\-[\\d]+\\]+";
+  private static final String BROADCAST_STREAM_PATTERN = "^[\\d]+$";
+  private static final String BROADCAST_STREAM_RANGE_PATTERN = "^\\[[\\d]+\\-[\\d]+\\]$";
   public static final Logger LOGGER = LoggerFactory.getLogger(TaskConfigJava.class);
 
 
@@ -52,33 +55,66 @@ public class TaskConfigJava extends MapConfig {
    */
   public Set<SystemStreamPartition> getBroadcastSystemStreamPartitions() {
     HashSet<SystemStreamPartition> systemStreamPartitionSet = new HashSet<SystemStreamPartition>();
-    List<String> systemStreamPartitions = getList(BROADCAST_INPUT_STREAMS);
+    List<String> systemStreamPartitions = getList(BROADCAST_INPUT_STREAMS, Collections.<String>emptyList());
 
     for (String systemStreamPartition : systemStreamPartitions) {
-      if (Pattern.matches(BROADCAST_STREAM_PATTERN, systemStreamPartition)) {
-
-        int hashPosition = systemStreamPartition.indexOf("#");
-        SystemStream systemStream = Util.getSystemStreamFromNames(systemStreamPartition.substring(0, hashPosition));
-        systemStreamPartitionSet.add(new SystemStreamPartition(systemStream, new Partition(Integer.valueOf(systemStreamPartition.substring(hashPosition + 1)))));
-
-      } else if (Pattern.matches(BROADCAST_STREAM_RANGE_PATTERN, systemStreamPartition)) {
-
-        SystemStream systemStream = Util.getSystemStreamFromNames(systemStreamPartition.substring(0, systemStreamPartition.indexOf("#")));
-
-        int startingPartition = Integer.valueOf(systemStreamPartition.substring(systemStreamPartition.indexOf("[") + 1, systemStreamPartition.lastIndexOf("-")));
-        int endingPartition = Integer.valueOf(systemStreamPartition.substring(systemStreamPartition.lastIndexOf("-") + 1, systemStreamPartition.indexOf("]")));
-
-        if (startingPartition > endingPartition) {
-          LOGGER.warn("The starting partition in stream " + systemStream.toString() + " is bigger than the ending Partition. No partition is added");
-        }
-        for (int i = startingPartition; i <= endingPartition; i++) {
-          systemStreamPartitionSet.add(new SystemStreamPartition(systemStream, new Partition(i)));
-        }
-      } else {
+      int hashPosition = systemStreamPartition.indexOf("#");
+      if (hashPosition == -1) {
         throw new IllegalArgumentException("incorrect format in " + systemStreamPartition
             + ". Broadcast stream names should be in the form 'system.stream#partitionId' or 'system.stream#[partitionN-partitionM]'");
+      } else {
+        String systemStreamName = systemStreamPartition.substring(0, hashPosition);
+        String partitionSegment = systemStreamPartition.substring(hashPosition + 1);
+        SystemStream systemStream = Util.getSystemStreamFromNames(systemStreamName);
+
+        if (Pattern.matches(BROADCAST_STREAM_PATTERN, partitionSegment)) {
+          systemStreamPartitionSet.add(new SystemStreamPartition(systemStream, new Partition(Integer.valueOf(partitionSegment))));
+        } else {
+          if (Pattern.matches(BROADCAST_STREAM_RANGE_PATTERN, partitionSegment)) {
+            int partitionStart = Integer.valueOf(partitionSegment.substring(1, partitionSegment.lastIndexOf("-")));
+            int partitionEnd = Integer.valueOf(partitionSegment.substring(partitionSegment.lastIndexOf("-") + 1, partitionSegment.indexOf("]")));
+            if (partitionStart > partitionEnd) {
+              LOGGER.warn("The starting partition in stream " + systemStream.toString() + " is bigger than the ending Partition. No partition is added");
+            }
+            for (int i = partitionStart; i <= partitionEnd; i++) {
+              systemStreamPartitionSet.add(new SystemStreamPartition(systemStream, new Partition(i)));
+            }
+          } else {
+            throw new IllegalArgumentException("incorrect format in " + systemStreamPartition
+                + ". Broadcast stream names should be in the form 'system.stream#partitionId' or 'system.stream#[partitionN-partitionM]'");
+          }
+        }
       }
     }
     return systemStreamPartitionSet;
+  }
+
+  /**
+   * Get the SystemStreams for the configured broadcast streams.
+   *
+   * @return the set of SystemStreams for which there are broadcast stream SSPs configured.
+   */
+  public Set<SystemStream> getBroadcastSystemStreams() {
+    Set<SystemStream> broadcastSS = new HashSet<>();
+    Set<SystemStreamPartition> broadcastSSPs = getBroadcastSystemStreamPartitions();
+    for (SystemStreamPartition bssp : broadcastSSPs) {
+      broadcastSS.add(bssp.getSystemStream());
+    }
+    return Collections.unmodifiableSet(broadcastSS);
+  }
+
+  /**
+   * Get the SystemStreams for the configured input and broadcast streams.
+   *
+   * @return the set of SystemStreams for both standard inputs and broadcast stream inputs.
+   */
+  public Set<SystemStream> getAllInputStreams() {
+    Set<SystemStream> allInputSS = new HashSet<>();
+
+    TaskConfig taskConfig = TaskConfig.Config2Task(this);
+    allInputSS.addAll(JavaConversions.asJavaSet(taskConfig.getInputStreams()));
+    allInputSS.addAll(getBroadcastSystemStreams());
+
+    return Collections.unmodifiableSet(allInputSS);
   }
 }

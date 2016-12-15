@@ -21,7 +21,7 @@ package org.apache.samza.coordinator.server;
 
 import javax.servlet.Servlet
 import org.apache.samza.SamzaException
-import org.eclipse.jetty.server.Connector
+import org.eclipse.jetty.server.NetworkConnector
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.servlet.DefaultServlet
 import org.eclipse.jetty.servlet.ServletContextHandler
@@ -129,8 +129,9 @@ class HttpServer(
    */
   def getUrl = {
     if (running) {
-      val runningPort = server.getConnectors()(0).asInstanceOf[Connector].getLocalPort()
-      new URL("http://" + Util.getLocalHost.getHostAddress + ":" + runningPort + rootPath)
+      val runningPort = server.getConnectors()(0).asInstanceOf[NetworkConnector].getLocalPort()
+
+      new URL("http://" + Util.getLocalHost.getHostName + ":" + runningPort + rootPath)
     } else {
       throw new SamzaException("HttpServer is not currently running, so URLs are not available for it.")
     }

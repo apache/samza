@@ -62,7 +62,7 @@ task.opts=-agentlib:jdwp=transport=dt_socket,address=localhost:9009,server=y,sus
 
 The [task.opts](../../documentation/{{site.version}}/jobs/configuration-table.html) configuration parameter is a way to override Java parameters at runtime for your Samza containers. In this example, we're setting the agentlib parameter to enable remote debugging on localhost, port 9009. In a more realistic environment, you might also set Java heap settings (-Xmx, -Xms, etc), as well as garbage collection and logging settings.
 
-*NOTE: If you're running multiple Samza containers on the same machine, there is a potential for port collisions. You must configure your task.opts to assign different ports for different Samza jobs. If a Samza job has more than one container (e.g. if you're using YARN with yarn.container.count=2), those containers must be run on different machines.*
+*NOTE: If you're running multiple Samza containers on the same machine, there is a potential for port collisions. You must configure your task.opts to assign different ports for different Samza jobs. If a Samza job has more than one container (e.g. if you're using YARN with job.container.count=2), those containers must be run on different machines.*
 
 ### Start the Grid
 
@@ -83,7 +83,7 @@ Once the grid starts, you can start the wikipedia-feed Samza job.
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-0.9.1-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-0.11.0-dist.tar.gz -C deploy/samza
 deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties
 {% endhighlight %}
 

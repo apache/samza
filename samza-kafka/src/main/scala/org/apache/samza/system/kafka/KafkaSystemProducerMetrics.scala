@@ -29,6 +29,7 @@ class KafkaSystemProducerMetrics(val systemName: String = "unknown", val registr
   /* Tracks how long the flush call takes to complete */
   val flushNs = newTimer("flush-ns")
   /* Tracks the number of times the system producer retries a send request (due to RetriableException) */
+  @Deprecated
   val retries = newCounter("producer-retries")
   /* Tracks the number of times flush operation failed */
   val flushFailed = newCounter("flush-failed")

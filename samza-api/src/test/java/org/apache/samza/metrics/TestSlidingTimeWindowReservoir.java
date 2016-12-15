@@ -34,7 +34,7 @@ public class TestSlidingTimeWindowReservoir {
   @Test
   public void testUpdateSizeSnapshot() {
     SlidingTimeWindowReservoir slidingTimeWindowReservoir =
-        new SlidingTimeWindowReservoir(300, clock);
+        new SlidingTimeWindowReservoir(300, 8, clock);
 
     when(clock.currentTimeMillis()).thenReturn(0L);
     slidingTimeWindowReservoir.update(1L);
@@ -55,20 +55,26 @@ public class TestSlidingTimeWindowReservoir {
   @Test
   public void testDuplicateTime() {
     SlidingTimeWindowReservoir slidingTimeWindowReservoir =
-        new SlidingTimeWindowReservoir(300, clock);
-    when(clock.currentTimeMillis()).thenReturn(0L);
+        new SlidingTimeWindowReservoir(300, 2, clock);
+    when(clock.currentTimeMillis()).thenReturn(1L);
     slidingTimeWindowReservoir.update(1L);
     slidingTimeWindowReservoir.update(2L);
 
     Snapshot snapshot = slidingTimeWindowReservoir.getSnapshot();
     assertTrue(snapshot.getValues().containsAll(Arrays.asList(1L, 2L)));
     assertEquals(2, snapshot.getSize());
+
+    // update causes collision, will override the last update
+    slidingTimeWindowReservoir.update(3L);
+    snapshot = slidingTimeWindowReservoir.getSnapshot();
+    assertTrue(snapshot.getValues().containsAll(Arrays.asList(1L, 3L)));
+    assertEquals(2, snapshot.getSize());
   }
 
   @Test
   public void testRemoveExpiredValues() {
     SlidingTimeWindowReservoir slidingTimeWindowReservoir =
-        new SlidingTimeWindowReservoir(300, clock);
+        new SlidingTimeWindowReservoir(300, 8, clock);
     when(clock.currentTimeMillis()).thenReturn(0L);
     slidingTimeWindowReservoir.update(1L);
 
@@ -85,4 +91,5 @@ public class TestSlidingTimeWindowReservoir {
     assertTrue(snapshot.getValues().containsAll(Arrays.asList(3L, 4L)));
     assertEquals(2, snapshot.getSize());
   }
+
 }

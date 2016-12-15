@@ -53,9 +53,9 @@ The number of partitions in the input streams is determined by the systems from 
 
 If a Samza job has more than one input stream, the number of task instances for the Samza job is the maximum number of partitions across all input streams. For example, if a Samza job is reading from PageViewEvent (12 partitions), and ServiceMetricEvent (14 partitions), then the Samza job would have 14 task instances (numbered 0 through 13). Task instances 12 and 13 only receive events from ServiceMetricEvent, because there is no corresponding PageViewEvent partition.
 
-With this default approach to assigning input streams to task instances, Samza is effectively performing a group-by operation on the input streams with their partitions as the key. Other strategies for grouping input stream partitions are possible by implementing a new [SystemStreamPartitionGrouper](../api/javadocs/org/apache/samza/container/SystemStreamPartitionGrouper.html) and factory, and configuring the job to use it via the job.systemstreampartition.grouper.factory configuration value.
+With this default approach to assigning input streams to task instances, Samza is effectively performing a group-by operation on the input streams with their partitions as the key. Other strategies for grouping input stream partitions are possible by implementing a new [SystemStreamPartitionGrouper](../api/javadocs/org/apache/samza/container/grouper/stream/SystemStreamPartitionGrouper.html) and factory, and configuring the job to use it via the job.systemstreampartition.grouper.factory configuration value.
 
-Samza provides the above-discussed per-partition grouper as well as the [GroupBySystemStreamPartitionGrouper](../api/javadocs/org/apache/samza/container/systemstreampartition/groupers/GroupBySystemStreamPartition), which provides a separate task class instance for every input stream partition, effectively grouping by the input stream itself. This provides maximum scalability in terms of how many containers can be used to process those input streams and is appropriate for very high volume jobs that need no grouping of the input streams.
+Samza provides the above-discussed per-partition grouper as well as the GroupBySystemStreamPartitionGrouper, which provides a separate task class instance for every input stream partition, effectively grouping by the input stream itself. This provides maximum scalability in terms of how many containers can be used to process those input streams and is appropriate for very high volume jobs that need no grouping of the input streams.
 
 Considering the above example of a PageViewEvent partitioned 12 ways and a ServiceMetricEvent partitioned 14 ways, the GroupBySystemStreamPartitionGrouper would create 12 + 14 = 26 task instances, which would then be distributed across the number of containers configured, as discussed below.
 
@@ -104,12 +104,12 @@ There is one caveat in all of this: Samza currently assumes that a stream's part
 
 ### Broadcast Streams
 
-After 0.10.0, Samza supports broadcast streams. You can assign partitions from some streams to all the tasks. For example, you want all the tasks can consume partition 0 and 1 from a stream called global-stream-1, and partition 2 from a stream called global-stream-2. You now can configure:
+After 0.10.0, Samza supports broadcast streams. You can assign partitions from some streams to all the tasks, by appending the hash tag, and the partition number or the partition number range. For example, you want all the tasks can consume partition 0 and 1 from a stream called broadcast-stream-1, and partition 2 from a stream called broadcast-stream-2. You now can configure:
 
 {% highlight jproperties %}
-task.broadcast.inputs=yourSystem.broadcast-stream-1#[0-1], yourSystem.broadcast-stream-2#2 
+task.broadcast.inputs=yourSystem.broadcast-stream-1#[0-1], yourSystem.broadcast-stream-2#2
 {% endhighlight %}
 
-If you use "[]", you are specifying a range.
+If you use "[]", you are specifying a range for partitions.
 
 ## [Streams &raquo;](streams.html)

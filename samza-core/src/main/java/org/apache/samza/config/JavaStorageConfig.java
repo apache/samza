@@ -29,6 +29,10 @@ public class JavaStorageConfig extends MapConfig {
 
   private static final String FACTORY_SUFFIX = ".factory";
   private static final String STORE_PREFIX = "stores.";
+  private static final String FACTORY = "stores.%s.factory";
+  private static final String KEY_SERDE = "stores.%s.key.serde";
+  private static final String MSG_SERDE = "stores.%s.msg.serde";
+  private static final String CHANGELOG_STREAM = "stores.%s.changelog";
 
   public JavaStorageConfig(Config config) {
     super(config);
@@ -46,18 +50,18 @@ public class JavaStorageConfig extends MapConfig {
   }
 
   public String getChangelogStream(String storeName) {
-    return get(String.format(StorageConfig.CHANGELOG_STREAM(), storeName), null);
+    return get(String.format(CHANGELOG_STREAM, storeName), null);
   }
 
   public String getStorageFactoryClassName(String storeName) {
-    return get(String.format(StorageConfig.FACTORY(), storeName), null);
+    return get(String.format(FACTORY, storeName), null);
   }
 
   public String getStorageKeySerde(String storeName) {
-    return get(String.format(StorageConfig.KEY_SERDE(), storeName), null);
+    return get(String.format(KEY_SERDE, storeName), null);
   }
 
   public String getStorageMsgSerde(String storeName) {
-    return get(String.format(StorageConfig.MSG_SERDE(), storeName), null);
+    return get(String.format(MSG_SERDE, storeName), null);
   }
 }

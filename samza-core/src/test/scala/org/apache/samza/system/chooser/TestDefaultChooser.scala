@@ -19,17 +19,13 @@
 
 package org.apache.samza.system.chooser
 
+import org.apache.samza.Partition
+import org.apache.samza.config.{DefaultChooserConfig, MapConfig}
+import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.apache.samza.system.{IncomingMessageEnvelope, SystemStream, SystemStreamMetadata, SystemStreamPartition}
+import org.apache.samza.util.BlockingEnvelopeMap
 import org.junit.Assert._
 import org.junit.Test
-import org.apache.samza.util.BlockingEnvelopeMap
-import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.Partition
-import org.apache.samza.config.MapConfig
-import org.apache.samza.config.DefaultChooserConfig
-import org.apache.samza.system.SystemStream
-import org.apache.samza.system.SystemStreamMetadata
-import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 
 import scala.collection.JavaConversions._
 
@@ -141,11 +137,10 @@ class TestDefaultChooser {
 
   @Test
   def testBootstrapConfig {
-    import DefaultChooserConfig.Config2DefaultChooser
     val configMap = Map(
       "task.inputs" -> "kafka.foo,kafka.bar-baz",
       "systems.kafka.streams.bar-baz.samza.bootstrap" -> "true")
-    val config = new MapConfig(configMap)
+    val config = new DefaultChooserConfig(new MapConfig(configMap))
     val bootstrapStreams = config.getBootstrapStreams
     assertEquals(1, bootstrapStreams.size)
     assertTrue(bootstrapStreams.contains(new SystemStream("kafka", "bar-baz")))
@@ -153,14 +148,50 @@ class TestDefaultChooser {
 
   @Test
   def testPriorityConfig {
-    import DefaultChooserConfig.Config2DefaultChooser
     val configMap = Map(
       "task.inputs" -> "kafka.foo,kafka.bar-baz",
       "systems.kafka.streams.bar-baz.samza.priority" -> "3")
-    val config = new MapConfig(configMap)
+    val config = new DefaultChooserConfig(new MapConfig(configMap))
     val priorityStreams = config.getPriorityStreams
     assertEquals(1, priorityStreams.size)
     assertEquals(3, priorityStreams(new SystemStream("kafka", "bar-baz")))
+  }
+
+  @Test
+  def testBroadcastOnlyConfig {
+    val configMap = Map(
+      "task.broadcast.inputs" -> "kafka.foo#[1-2],kafka.bar-baz#5,kafka.fizz#0",
+      "systems.kafka.streams.bar-baz.samza.priority" -> "3",
+      "systems.kafka.streams.fizz.samza.bootstrap" -> "true")
+    val config = new DefaultChooserConfig(new MapConfig(configMap))
+    val priorityStreams = config.getPriorityStreams
+    assertEquals(1, priorityStreams.size)
+    assertEquals(3, priorityStreams(new SystemStream("kafka", "bar-baz")))
+
+    val bootstrapStreams = config.getBootstrapStreams
+    assertEquals(1, bootstrapStreams.size())
+    assertTrue(bootstrapStreams.contains(new SystemStream("kafka", "fizz")))
+  }
+
+  @Test
+  def testBroadcastAndStandardInputConfig {
+    val configMap = Map(
+      "task.broadcast.inputs" -> "kafka.foo#[1-2],kafka.bar-baz#5,kafka.fizz#0",
+      "task.inputs" -> "kafka.bootstrapTopic,kafka.priorityTopic,kafka.normalTopic",
+      "systems.kafka.streams.priorityTopic.samza.priority" -> "2",
+      "systems.kafka.streams.bar-baz.samza.priority" -> "3",
+      "systems.kafka.streams.bootstrapTopic.samza.bootstrap" -> "true",
+      "systems.kafka.streams.fizz.samza.bootstrap" -> "true")
+    val config = new DefaultChooserConfig(new MapConfig(configMap))
+    val priorityStreams = config.getPriorityStreams
+    assertEquals(2, priorityStreams.size)
+    assertEquals(2, priorityStreams(new SystemStream("kafka", "priorityTopic")))
+    assertEquals(3, priorityStreams(new SystemStream("kafka", "bar-baz")))
+
+    val bootstrapStreams = config.getBootstrapStreams
+    assertEquals(2, bootstrapStreams.size())
+    assertTrue(bootstrapStreams.contains(new SystemStream("kafka", "bootstrapTopic")))
+    assertTrue(bootstrapStreams.contains(new SystemStream("kafka", "fizz")))
   }
 }
 

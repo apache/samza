@@ -19,11 +19,16 @@
 
 package org.apache.samza.storage.kv
 
-import org.junit.Test
+import java.util
+import java.util.Arrays
+
 import org.junit.Assert._
+import org.junit.Test
+import org.mockito.ArgumentCaptor
+import org.mockito.Matchers.anyObject
 import org.mockito.Mockito._
 
-import java.util.Arrays
+import scala.collection.JavaConverters._
 
 class TestCachedStore {
   @Test
@@ -34,6 +39,56 @@ class TestCachedStore {
     assertFalse(store.hasArrayKeys)
     store.put("test1-key".getBytes("UTF-8"), "test1-value".getBytes("UTF-8"))
     assertTrue(store.hasArrayKeys)
+  }
+
+  @Test
+  def testLRUCacheEviction() {
+    val kv = spy(new MockKeyValueStore())
+    val store = new CachedStore[String, String](kv, 2, 2)
+    assertFalse("KV store should be empty", kv.all().hasNext)
+
+    // Below eviction threshold
+    store.put("test1-key", "test1-value")
+    assertFalse("Entries should not have been purged yet", kv.all().hasNext)
+
+    // Batch limit reached
+    store.put("test2-key", "test2-value")
+    assertTrue("Entries should be purged as soon as there are batchSize dirty entries", kv.all().hasNext)
+
+    // kv.putAll() should have been called, verified below.
+
+    // All dirty values should have been added to the underlying store
+    // KV store should have both items
+    val kvItr = kv.all();
+    assertNotNull(kvItr.next())
+    assertNotNull(kvItr.next())
+    assertFalse(kvItr.hasNext)
+
+    // Above eviction threshold but eldest entries are not dirty
+    store.put("test3-key", "test3-value")
+
+    // KV store should not have the 3rd item. We only purge if the batch size is exceeded or if the eldest(expiring) entry is dirty.
+    val kvItr2 = kv.all();
+    assertNotNull(kvItr2.next())
+    assertNotNull(kvItr2.next())
+    assertFalse(kvItr2.hasNext)
+
+    // Force the dirty key to be the eldest by reading a different key
+    store.get("test2-key")
+
+    // Add one more. We should not purge all items again. Only when dirty items exceed the threshold.
+    store.put("test4-key", "test4-value")
+
+    // The eldest item should have been purged along with the just-added item, so the KV store should have all 4 items.
+    val kvItr3 = kv.all();
+    assertNotNull(kvItr3.next())
+    assertNotNull(kvItr3.next())
+    assertNotNull(kvItr3.next())
+    assertNotNull(kvItr3.next())
+    assertFalse(kvItr3.hasNext)
+
+    // There should have been 2 purges; one for exceeding the batch size, and one for expiring a dirty cache entry.
+    verify(kv, times(2)).putAll(anyObject());
   }
 
   @Test
@@ -72,20 +127,36 @@ class TestCachedStore {
     }
     assertFalse(iter.hasNext)
 
-    // test iterator remove
-    iter = store.all()
-    iter.next()
-    iter.remove()
+  }
 
-    assertNull(kv.get(keys.get(0)))
-    assertNull(store.get(keys.get(0)))
+  @Test
+  def testPutAllDirtyEntries() {
+    val kv = mock(classOf[KeyValueStore[String, String]])
+    val store = new CachedStore[String, String](kv, 4, 4)
 
-    iter = store.range(keys.get(1), keys.get(2))
-    iter.next()
-    iter.remove()
+    val keys = Arrays.asList("test1-key",
+      "test2-key",
+      "test3-key",
+      "test4-key")
+    val values = Arrays.asList("test1-value",
+      "test2-value",
+      "test3-value",
+      "test4-value")
 
-    assertFalse(iter.hasNext)
-    assertNull(kv.get(keys.get(1)))
-    assertNull(store.get(keys.get(1)))
+    for (i <- 0 until 3) {
+      store.put(keys.get(i), values.get(i))
+    }
+
+    verify(kv, never()).putAll(anyObject())
+    verify(kv, never()).flush()
+    store.put(keys.get(3), values.get(3))
+
+    val entriesCaptor = ArgumentCaptor.forClass(classOf[util.List[Entry[String, String]]])
+    verify(kv).putAll(entriesCaptor.capture)
+    verify(kv, never()).flush()
+
+    val dirtyEntries = entriesCaptor.getAllValues.get(0).asScala.toSeq
+    assertEquals(dirtyEntries map (_.getKey), Seq("test1-key", "test2-key", "test3-key", "test4-key"))
+    assertEquals(dirtyEntries map (_.getValue), Seq("test1-value", "test2-value", "test3-value", "test4-value"))
   }
 }

@@ -19,13 +19,13 @@
 
 package org.apache.samza.coordinator.stream;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -58,15 +58,16 @@ public class CoordinatorStreamSystemConsumer {
   private final SystemConsumer systemConsumer;
   private final SystemAdmin systemAdmin;
   private final Map<String, String> configMap;
-  private boolean isBootstrapped;
-  private boolean isStarted;
-  private Set<CoordinatorStreamMessage> bootstrappedStreamSet = new LinkedHashSet<CoordinatorStreamMessage>();
+  private volatile boolean isStarted;
+  private volatile boolean isBootstrapped;
+  private final Object bootstrapLock = new Object();
+  private volatile Set<CoordinatorStreamMessage> bootstrappedStreamSet = Collections.emptySet();
 
   public CoordinatorStreamSystemConsumer(SystemStream coordinatorSystemStream, SystemConsumer systemConsumer, SystemAdmin systemAdmin, Serde<List<?>> keySerde, Serde<Map<String, Object>> messageSerde) {
     this.coordinatorSystemStreamPartition = new SystemStreamPartition(coordinatorSystemStream, new Partition(0));
     this.systemConsumer = systemConsumer;
     this.systemAdmin = systemAdmin;
-    this.configMap = new HashMap<String, String>();
+    this.configMap = new HashMap();
     this.isBootstrapped = false;
     this.keySerde = keySerde;
     this.messageSerde = messageSerde;
@@ -81,11 +82,16 @@ public class CoordinatorStreamSystemConsumer {
    * coordinator stream with the SystemConsumer using the earliest offset.
    */
   public void register() {
+    if (isStarted) {
+      log.info("Coordinator stream partition {} has already been registered. Skipping.", coordinatorSystemStreamPartition);
+      return;
+    }
     log.debug("Attempting to register: {}", coordinatorSystemStreamPartition);
     Set<String> streamNames = new HashSet<String>();
     String streamName = coordinatorSystemStreamPartition.getStream();
     streamNames.add(streamName);
     Map<String, SystemStreamMetadata> systemStreamMetadataMap = systemAdmin.getSystemStreamMetadata(streamNames);
+    log.info(String.format("Got metadata %s", systemStreamMetadataMap.toString()));
 
     if (systemStreamMetadataMap == null) {
       throw new SamzaException("Received a null systemStreamMetadataMap from the systemAdmin. This is illegal.");
@@ -127,6 +133,7 @@ public class CoordinatorStreamSystemConsumer {
   public void stop() {
     log.info("Stopping coordinator stream system consumer.");
     systemConsumer.stop();
+    isStarted = false;
   }
 
   /**
@@ -134,34 +141,46 @@ public class CoordinatorStreamSystemConsumer {
    * Currently, this method only pays attention to config messages.
    */
   public void bootstrap() {
-    log.info("Bootstrapping configuration from coordinator stream.");
-    SystemStreamPartitionIterator iterator = new SystemStreamPartitionIterator(systemConsumer, coordinatorSystemStreamPartition);
+    synchronized (bootstrapLock) {
+      // Make a copy so readers aren't affected while we modify the set.
+      final LinkedHashSet<CoordinatorStreamMessage> bootstrappedMessages = new LinkedHashSet<>(bootstrappedStreamSet);
 
-    try {
-      while (iterator.hasNext()) {
-        IncomingMessageEnvelope envelope = iterator.next();
-        Object[] keyArray = keySerde.fromBytes((byte[]) envelope.getKey()).toArray();
-        Map<String, Object> valueMap = null;
-        if (envelope.getMessage() != null) {
-          valueMap = messageSerde.fromBytes((byte[]) envelope.getMessage());
-        }
-        CoordinatorStreamMessage coordinatorStreamMessage = new CoordinatorStreamMessage(keyArray, valueMap);
-        log.debug("Received coordinator stream message: {}", coordinatorStreamMessage);
-        bootstrappedStreamSet.add(coordinatorStreamMessage);
-        if (SetConfig.TYPE.equals(coordinatorStreamMessage.getType())) {
-          String configKey = coordinatorStreamMessage.getKey();
-          if (coordinatorStreamMessage.isDelete()) {
-            configMap.remove(configKey);
-          } else {
-            String configValue = new SetConfig(coordinatorStreamMessage).getConfigValue();
-            configMap.put(configKey, configValue);
+      log.info("Bootstrapping configuration from coordinator stream.");
+      SystemStreamPartitionIterator iterator =
+          new SystemStreamPartitionIterator(systemConsumer, coordinatorSystemStreamPartition);
+
+      try {
+        while (iterator.hasNext()) {
+          IncomingMessageEnvelope envelope = iterator.next();
+          Object[] keyArray = keySerde.fromBytes((byte[]) envelope.getKey()).toArray();
+          Map<String, Object> valueMap = null;
+          if (envelope.getMessage() != null) {
+            valueMap = messageSerde.fromBytes((byte[]) envelope.getMessage());
+          }
+          CoordinatorStreamMessage coordinatorStreamMessage = new CoordinatorStreamMessage(keyArray, valueMap);
+          log.debug("Received coordinator stream message: {}", coordinatorStreamMessage);
+          // Remove any existing entry. Set.add() does not add if the element already exists.
+          if (bootstrappedMessages.remove(coordinatorStreamMessage)) {
+            log.debug("Removed duplicate message: {}", coordinatorStreamMessage);
+          }
+          bootstrappedMessages.add(coordinatorStreamMessage);
+          if (SetConfig.TYPE.equals(coordinatorStreamMessage.getType())) {
+            String configKey = coordinatorStreamMessage.getKey();
+            if (coordinatorStreamMessage.isDelete()) {
+              configMap.remove(configKey);
+            } else {
+              String configValue = new SetConfig(coordinatorStreamMessage).getConfigValue();
+              configMap.put(configKey, configValue);
+            }
           }
         }
+
+        bootstrappedStreamSet = Collections.unmodifiableSet(bootstrappedMessages);
+        log.debug("Bootstrapped configuration: {}", configMap);
+        isBootstrapped = true;
+      } catch (Exception e) {
+        throw new SamzaException(e);
       }
-      log.debug("Bootstrapped configuration: {}", configMap);
-      isBootstrapped = true;
-    } catch (Exception e) {
-      throw new SamzaException(e);
     }
   }
 
@@ -177,7 +196,9 @@ public class CoordinatorStreamSystemConsumer {
     bootstrap();
     LinkedHashSet<CoordinatorStreamMessage> bootstrappedStream = new LinkedHashSet<CoordinatorStreamMessage>();
     for (CoordinatorStreamMessage coordinatorStreamMessage : bootstrappedStreamSet) {
+      log.trace("Considering message: {}", coordinatorStreamMessage);
       if (type.equalsIgnoreCase(coordinatorStreamMessage.getType())) {
+        log.trace("Adding message: {}", coordinatorStreamMessage);
         bootstrappedStream.add(coordinatorStreamMessage);
       }
     }

@@ -23,7 +23,7 @@ set -e
 
 SCALAs=( "2.10" )
 JDKs=( "JAVA7_HOME" "JAVA8_HOME" )
-YARNs=( "2.4.0" "2.5.0" )
+YARNs=( "2.6.1" "2.7.1" )
 
 # get base directory
 home_dir=`pwd`

@@ -292,7 +292,7 @@ public class CoordinatorStreamMessage {
     int result = 1;
     result = prime * result + (isDelete ? 1231 : 1237);
     result = prime * result + Arrays.hashCode(keyArray);
-    result = prime * result + ((messageMap == null) ? 0 : messageMap.hashCode());
+    result = prime * result + ((messageMap == null) ? 0 : getMessageValues() == null ? 0 : getMessageValues().hashCode());
     return result;
   }
 
@@ -302,7 +302,7 @@ public class CoordinatorStreamMessage {
       return true;
     if (obj == null)
       return false;
-    if (getClass() != obj.getClass())
+    if (!(obj instanceof CoordinatorStreamMessage))
       return false;
     CoordinatorStreamMessage other = (CoordinatorStreamMessage) obj;
     if (isDelete != other.isDelete)
@@ -312,7 +312,7 @@ public class CoordinatorStreamMessage {
     if (messageMap == null) {
       if (other.messageMap != null)
         return false;
-    } else if (!messageMap.equals(other.messageMap))
+    } else if (!getMessageValues().equals(other.getMessageValues()))
       return false;
     return true;
   }

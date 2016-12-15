@@ -57,7 +57,6 @@ class TaskInstanceCollector(
   def send(envelope: OutgoingMessageEnvelope) {
     trace("Sending message from source: %s, %s" format (metrics.source, envelope))
     metrics.sends.inc
-    metrics.messagesSent.inc
     producerMultiplexer.send(metrics.source, envelope)
   }
 

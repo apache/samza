@@ -69,4 +69,15 @@ public class TestCoordinatorStreamMessage {
     assertTrue(delete.isDelete());
     assertEquals(CoordinatorStreamMessage.VERSION, delete.getVersion());
   }
+
+  @Test
+  public void testHashCodeAndEquality() {
+    SetConfig message = new SetConfig("source", "key1", "value1");
+    SetConfig message1 = new SetConfig("source", "key1", "value1");
+    SetConfig message2 = new SetConfig("source", "key2", "value1");
+
+    assertEquals(message.hashCode(), message1.hashCode());
+    assertEquals(message, message1);
+    assertTrue(!message.equals(message2));
+  }
 }

@@ -19,15 +19,23 @@
 
 package org.apache.samza.system;
 
+import java.nio.charset.Charset;
+
 /**
- * This class represents a message envelope that is received by a StreamTask for each message that is received from a
+ * This class represents a message entvelope that is received by a StreamTask for each message that is received from a
  * partition of a specific input stream.
  */
 public class IncomingMessageEnvelope {
+
+  //The offset starting with a NUL byte encoded are reserved for end-of-stream.
+  private static final byte[] END_OF_STREAM_BYTES = "\0END_OF_STREAM".getBytes();
+  public static final String END_OF_STREAM_OFFSET = new String(END_OF_STREAM_BYTES, Charset.defaultCharset());
+
   private final SystemStreamPartition systemStreamPartition;
   private final String offset;
   private final Object key;
   private final Object message;
+  private final int size;
 
   /**
    * Constructs a new IncomingMessageEnvelope from specified components.
@@ -38,10 +46,24 @@ public class IncomingMessageEnvelope {
    * @param message A deserialized message received from the partition offset.
    */
   public IncomingMessageEnvelope(SystemStreamPartition systemStreamPartition, String offset, Object key, Object message) {
+    this(systemStreamPartition, offset, key, message, 0);
+  }
+
+  /**
+   * Constructs a new IncomingMessageEnvelope from specified components.
+   * @param systemStreamPartition The aggregate object representing the incoming stream name, the name of the cluster
+   * from which the stream came, and the partition of the stream from which the message was received.
+   * @param offset The offset in the partition that the message was received from.
+   * @param key A deserialized key received from the partition offset.
+   * @param message A deserialized message received from the partition offset.
+   * @param size size of the message and key in bytes.
+   */
+  public IncomingMessageEnvelope(SystemStreamPartition systemStreamPartition, String offset, Object key, Object message, int size) {
     this.systemStreamPartition = systemStreamPartition;
     this.offset = offset;
     this.key = key;
     this.message = message;
+    this.size = size;
   }
 
   public SystemStreamPartition getSystemStreamPartition() {
@@ -58,6 +80,25 @@ public class IncomingMessageEnvelope {
 
   public Object getMessage() {
     return message;
+  }
+
+  public int getSize() {
+    return size;
+  }
+
+  public boolean isEndOfStream() {
+    return END_OF_STREAM_OFFSET.equals(offset);
+  }
+
+  /**
+   * Builds an end-of-stream envelope for an SSP. This is used by a {@link SystemConsumer} implementation to
+   * indicate that it is at end-of-stream. The end-of-stream message should not delivered to the task implementation.
+   *
+   * @param ssp The SSP that is at end-of-stream.
+   * @return an IncomingMessageEnvelope corresponding to end-of-stream for that SSP.
+   */
+  public static IncomingMessageEnvelope buildEndOfStreamEnvelope(SystemStreamPartition ssp) {
+    return new IncomingMessageEnvelope(ssp, END_OF_STREAM_OFFSET, null, null);
   }
 
   @Override

@@ -22,16 +22,26 @@ package org.apache.samza.job
 import java.io.File
 
 import org.apache.samza.config.Config
-import org.junit.Test
+import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
+import org.junit.After
 import org.junit.Assert._
+import org.junit.Test
 
 object TestJobRunner {
   var processCount = 0
 }
 
 class TestJobRunner {
+
+  @After
+  def teardown {
+    MockCoordinatorStreamSystemFactory.disableMockConsumerCache()
+  }
+
   @Test
   def testJobRunnerWorks {
+    MockCoordinatorStreamSystemFactory.enableMockConsumerCache()
+
     JobRunner.main(Array(
       "--config-factory",
       "org.apache.samza.config.factories.PropertiesConfigFactory",

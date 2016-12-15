@@ -29,7 +29,9 @@ title: Tutorials
 
 [Run Hello-samza without Internet](run-hello-samza-without-internet.html)
 
-[Upgrading from 0.7.0 to 0.8.0](upgrading-from-0.7.0-to-0.8.0.html)
+[Getting Started with Samza REST](samza-rest-getting-started.html)
+
+[Samza Async API and Multithreading User Guide](samza-async-user-guide.html)
 
 <!-- TODO a bunch of tutorials
 [Log Walkthrough](log-walkthrough.html)

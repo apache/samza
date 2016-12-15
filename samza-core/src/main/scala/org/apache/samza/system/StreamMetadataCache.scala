@@ -43,13 +43,17 @@ class StreamMetadataCache (
   private case class CacheEntry(metadata: SystemStreamMetadata, lastRefreshMs: Long)
   private var cache = Map[SystemStream, CacheEntry]()
   private val lock = new Object
-
   /**
    * Returns metadata about each of the given streams (such as first offset, newest
    * offset, etc). If the metadata isn't in the cache, it is retrieved from the systems
    * using the given SystemAdmins.
+   *
+   * @param streams Set of SystemStreams for which the metadata is requested
+   * @param partitionsMetadataOnly Flag to indicate that only partition count metadata should be fetched/refreshed
    */
-  def getStreamMetadata(streams: Set[SystemStream]): Map[SystemStream, SystemStreamMetadata] = {
+  def getStreamMetadata(
+    streams: Set[SystemStream],
+    partitionsMetadataOnly: Boolean = false): Map[SystemStream, SystemStreamMetadata] = {
     val time = clock.currentTimeMillis
     val cacheHits = streams.flatMap(stream => getFromCache(stream, time)).toMap
 
@@ -57,21 +61,26 @@ class StreamMetadataCache (
       .groupBy[String](_.getSystem)
       .flatMap {
         case (systemName, systemStreams) =>
-          systemAdmins
+          val systemAdmin = systemAdmins
             .getOrElse(systemName, throw new SamzaException("Cannot get metadata for unknown system: %s" format systemName))
-            .getSystemStreamMetadata(systemStreams.map(_.getStream))
-            .map {
-              case (streamName, metadata) => (new SystemStream(systemName, streamName) -> metadata)
-            }
+          val streamToMetadata = if (partitionsMetadataOnly && systemAdmin.isInstanceOf[ExtendedSystemAdmin]) {
+            systemAdmin.asInstanceOf[ExtendedSystemAdmin].getSystemStreamPartitionCounts(systemStreams.map(_.getStream), cacheTTLms)
+          } else {
+            systemAdmin.getSystemStreamMetadata(systemStreams.map(_.getStream))
+          }
+          streamToMetadata.map {
+            case (streamName, metadata) => (new SystemStream(systemName, streamName) -> metadata)
+          }
       }
-      .toMap
 
     val allResults = cacheHits ++ cacheMisses
     val missing = streams.filter(stream => allResults.getOrElse(stream, null) == null)
     if (!missing.isEmpty) {
       throw new SamzaException("Cannot get metadata for unknown streams: " + missing.mkString(", "))
     }
-    cacheMisses.foreach { case (stream, metadata) => addToCache(stream, metadata, time) }
+    if (!partitionsMetadataOnly) {
+      cacheMisses.foreach { case (stream, metadata) => addToCache(stream, metadata, time) }
+    }
     allResults
   }
 
@@ -83,9 +92,9 @@ class StreamMetadataCache (
     }
   }
 
-  private def addToCache(stream: SystemStream, metadata: SystemStreamMetadata, now: Long) {
+  private def addToCache(systemStream: SystemStream, metadata: SystemStreamMetadata, now: Long) {
     lock synchronized {
-      cache += stream -> CacheEntry(metadata, now)
+      cache += systemStream -> CacheEntry(metadata, now)
     }
   }
 }

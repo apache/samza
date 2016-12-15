@@ -156,6 +156,53 @@
                         others' checkpoints, and perhaps interfere with each other in other ways.
                     </td>
                 </tr>
+                <tr>
+                    <td class="property" id="job-coordinator-system">job.coordinator.system</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required:</strong> The <span class="system">system-name</span> to use for creating and maintaining the <a href="../container/coordinator-stream.html">Coordinator Stream</a>.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job-coordinator-replication-factor">job.coordinator.<br />replication.factor</td>
+                    <td class="default">3</td>
+                    <td class="description">
+                        If you are using Kafka for coordinator stream, this is the number of Kafka nodes to which you want the
+                        coordinator topic replicated for durability.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job-coordinator-segment-bytes">job.coordinator.<br />segment.bytes</td>
+                    <td class="default">26214400</td>
+                    <td class="description">
+                        If you are using a Kafka system for coordinator stream, this is the segment size to be used for the coordinator
+                        topic's log segments. Keeping this number small is useful because it increases the frequency
+                        that Kafka will garbage collect old messages.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job-coordinator-monitor-partition-change">job.coordinator.<br />monitor-partition-change</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        If you are using Kafka for coordinator stream, this configuration enables the Job Coordinator to
+                        detect partition count difference in Kafka input topics. On detection, it updates a Gauge
+                        metric of format <span class="system">system-name</span>.<span class="stream">stream-name</span>.partitionCount,
+                        which indicates the difference in the partition count from the initial state. Please note that currently this
+                        feature only works for Kafka-based systems.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job-coordinator-monitor-partition-change-frequency-ms">job.coordinator.<br />monitor-partition-change.frequency.ms</td>
+                    <td class="default">300000</td>
+                    <td class="description">
+                        The frequency at which the input streams' partition count change should be detected. This check
+                        can be tuned to be pretty low as partition increase is not a common event.
+                    </td>
+                </tr>
 
                 <tr>
                     <td class="property" id="job-config-rewriter-class">job.config.rewriter.<br><span class="rewriter">rewriter-name</span>.class</td>
@@ -207,6 +254,146 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="job-systemstreampartition-matcher-class">job.systemstreampartition.matcher.class</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        If you want to enable static partition assignment, then this is a <strong>required</strong> configuration.
+                        The value of this property is a fully-qualified Java class name that implements the interface
+                        <code>org.apache.samza.system.SystemStreamPartitionMatcher</code>.
+                        Samza ships with two matcher classes:
+                        <dl>
+                            <dt><code>org.apache.samza.system.RangeSystemStreamPartitionMatcher</code></dt>
+                            <dd>This classes uses a comma separated list of range(s) to determine which partition matches,
+                                and thus statically assigned to the Job. For example "2,3,1-2", statically assigns partition
+                                1, 2, and 3 for all the specified system and streams (topics in case of Kafka) to the job.
+                                For config validation each element in the comma separated list much conform to one of the
+                                following regex:
+                                <ul>
+                                    <li><code>"(\\d+)"</code> or </li>
+                                    <li><code>"(\\d+-\\d+)"</code> </li>
+                                </ul>
+                                <code>JobConfig.SSP_MATCHER_CLASS_RANGE</code> constant has the canonical name of this class.
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt><code>org.apache.samza.system.RegexSystemStreamPartitionMatcher</code></dt>
+                            <dd>This classes uses a standard Java supported regex to determine which partition matches,
+                                and thus statically assigned to the Job. For example "[1-2]", statically assigns partition 1 and 2
+                                for all the specified system and streams (topics in case of Kafka) to the job.
+                                <code>JobConfig.SSP_MATCHER_CLASS_REGEX</code> constant has the canonical name of this class.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job_systemstreampartition_matcher_config_range">job.systemstreampartition.matcher.config.range</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        If <code>job.systemstreampartition.matcher.class</code> is specified, and the value of this property is
+                        <code>org.apache.samza.system.RangeSystemStreamPartitionMatcher</code>, then this property is a
+                        <strong>required</strong> configuration. Specify a comma separated list of range(s) to determine which
+                        partition matches, and thus statically assigned to the Job. For example "2,3,11-20", statically assigns
+                        partition 2, 3, and 11 to 20 for all the specified system and streams (topics in case of Kafka) to the job.
+                        A singel configuration value like "19" is valid as well. This statically assigns partition 19.
+                        For config validation each element in the comma separated list much conform to one of the
+                        following regex:
+                        <ul>
+                            <li><code>"(\\d+)"</code> or </li>
+                            <li><code>"(\\d+-\\d+)"</code> </li>
+                        </ul>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job_systemstreampartition_matcher_config_regex">job.systemstreampartition.matcher.config.regex</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        If <code>job.systemstreampartition.matcher.class</code> is specified, and the value of this property is
+                        <code>org.apache.samza.system.RegexSystemStreamPartitionMatcher</code>, then this property is a
+                        <strong>required</strong> configuration. The value should be a valid Java supported regex. For example "[1-2]",
+                        statically assigns partition 1 and 2 for all the specified system and streams (topics in case of Kakfa) to the job.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job_systemstreampartition_matcher_co
+                    nfig_job_factory_regex">job.systemstreampartition.matcher.config.job.factory.regex</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This configuration can be used to specify the Java supported regex to match the <code>StreamJobFactory</code>
+                        for which the static partition assignment should be enabled. This configuration enables the partition
+                        assignment feature to be used for custom <code>StreamJobFactory</code>(ies) as well.
+                        <p>
+                            This config defaults to the following value:
+                            <code>"org\\.apache\\.samza\\.job\\.local(.*ProcessJobFactory|.*ThreadJobFactory)"</code>,
+                            which enables static partition assignment when <code>job.factory.class</code> is set to
+                            <code>org.apache.samza.job.local.ProcessJobFactory</code> or <code>org.apache.samza.job.local.ThreadJobFactory.</code>
+                        </p>
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="property" id="job-checkpoint-validation-enabled">job.checkpoint.<br>validation.enabled</td>
+                    <td class="default">true</td>
+                    <td class="description">
+                        This setting controls if the job should fail(true) or just warn(false) in case the validation of checkpoint partition number fails. <br/> <b>CAUTION</b>: this configuration needs to be used w/ care. It should only be used as a work-around after the checkpoint has been auto-created with wrong number of partitions by mistake.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="job-security-manager-factory">job.security.manager.factory</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This is the factory class used to create the proper <a href="../api/javadocs/org/apache/samza/container/SecurityManager.html">SecurityManager</a> to handle security for Samza containers when running in a secure environment, such as Yarn with Kerberos eanbled.
+                        Samza ships with one security manager by default:
+                        <dl>
+                            <dt><code>org.apache.samza.job.yarn.SamzaYarnSecurityManagerFactory</code></dt>
+                            <dd>Supports Samza containers to run properly in a Kerberos enabled Yarn cluster. Each Samza container, once started, will create a <a href="../api/javadocs/org/apache/samza/job/yarn/SamzaContainerSecurityManager.html">SamzaContainerSecurityManager</a>. SamzaContainerSecurityManager runs on its separate thread and update user's delegation tokens at the interval specified by <a href="#yarn-token-renewal-interval-seconds" class="property">yarn.token.renewal.interval.seconds</a>. See <a href="../yarn/yarn-security.html">Yarn Security</a> for details.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job-container-count">job.container.count</td>
+                    <td class="default">1</td>
+                    <td class="description">
+                        The number of YARN containers to request for running your job. This is the main parameter
+                        for controlling the scale (allocated computing resources) of your job: to increase the
+                        parallelism of processing, you need to increase the number of containers. The minimum is one
+                        container, and the maximum number of containers is the number of task instances (usually the
+                        <a href="../container/samza-container.html#tasks-and-partitions">number of input stream partitions</a>).
+                        Task instances are evenly distributed across the number of containers that you specify.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job-container-single-thread-mode">job.container.single.thread.mode</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        If set to true, samza will fallback to legacy single-threaded event loop. Default is false, which enables the <a href="../container/event-loop.html">multithreading execution</a>.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job-container-thread-pool-size">job.container.thread.pool.size</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        If configured, the container thread pool will be used to run synchronous operations of each task in parallel. The operations include StreamTask.process(), WindowableTask.window(), and internally Task.commit(). Note that the thread pool is not applicable to AsyncStremTask.processAsync(). The size should always be greater than zero. If not configured, all task operations will run in a single thread.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job-host_affinity-enabled">job.host-affinity.enabled</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        This property indicates whether host-affinity is enabled or not. Host-affinity refers to the ability of Samza to request and allocate a container on the same host every time the job is deployed.
+                        When host-affinity is enabled, Samza makes a "best-effort" to honor the host-affinity constraint.
+                        The property <a href="#cluster-manager-container-request-timeout-ms" class="property">cluster-manager.container.request.timeout.ms</a> determines how long to wait before de-prioritizing the host-affinity constraint and assigning the container to any available resource.
+                        <b>Please Note</b>: This feature is tested to work with the FairScheduler in Yarn when continuous-scheduling is enabled.
+                    </td>
+                </tr>
+
+                <tr>
                     <th colspan="3" class="section" id="task"><a href="../api/overview.html">Task configuration</a></th>
                 </tr>
 
@@ -216,7 +403,9 @@
                     <td class="description">
                         <strong>Required:</strong> The fully-qualified name of the Java class which processes
                         incoming messages from input streams. The class must implement
-                        <a href="../api/javadocs/org/apache/samza/task/StreamTask.html">StreamTask</a>, and may optionally implement
+                        <a href="../api/javadocs/org/apache/samza/task/StreamTask.html">StreamTask</a> or
+                        <a href="../api/javadocs/org/apache/samza/task/AsyncStreamTask.html">AsyncStreamTask</a>,
+                        and may optionally implement
                         <a href="../api/javadocs/org/apache/samza/task/InitableTask.html">InitableTask</a>,
                         <a href="../api/javadocs/org/apache/samza/task/ClosableTask.html">ClosableTask</a> and/or
                         <a href="../api/javadocs/org/apache/samza/task/WindowableTask.html">WindowableTask</a>.
@@ -381,9 +570,8 @@
                     <td class="property" id="task-log4j-system">task.log4j.system</td>
                     <td class="default"></td>
                     <td class="description">
-                        Specify the system name for the StreamAppender. If Samza can not find this property and there is
-                        only one system in the config, it will guess to use that system for the log4j appender. If this property
-                        is not specified and there are more than one system in the config, Samza throws exception. (See
+                        Specify the system name for the StreamAppender. If this property is not specified in the config,
+                        Samza throws exception. (See
                         <a href="logging.html#stream-log4j-appender">Stream Log4j Appender</a>)
                         <dl>
                             <dt>Example: <code>task.log4j.system=kafka</code></dt>
@@ -447,7 +635,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="task-global-inputs">task.global.inputs</td>
+                    <td class="property" id="task-broadcast-inputs">task.broadcast.inputs</td>
                     <td class="default"></td>
                     <td class="description">
                        This property specifies the partitions that all tasks should consume. The systemStreamPartitions you put
@@ -457,8 +645,30 @@
                        or <span class="system">system-name</span>.<span class="stream">stream-name</span>#[<i>startingPartitionId</i>-<i>endingPartitionId</i>]</dt>
                        </dl>
                        <dl>
-                            <dt>Example: <code>task.global.inputs=mySystem.globalStream#[1-2], mySystem.anotherGlobalStream#1</code></dt>
+                            <dt>Example: <code>task.broadcast.inputs=mySystem.broadcastStream#[0-2], mySystem.broadcastStream#0</code></dt>
                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="task-max-concurrency">task.max.concurrency</td>
+                    <td class="default">1</td>
+                    <td class="description">
+                        Max number of outstanding messages being processed per task at a time, and it’s applicable to both StreamTask and AsyncStreamTask. The values can be:
+                        <dl>
+                            <dt><code>1</code></dt>
+                            <dd>Each task processes one message at a time. Next message will wait until the current message process completes. This ensures strict in-order processing.</dd>
+                            <dt><code>&gt1</code></dt>
+                            <dd>Multiple outstanding messages are allowed to be processed per task at a time. The completion can be out of order. This option increases the parallelism within a task, but may result in out-of-order processing.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="task-callback-timeout-ms">task.callback.timeout.ms</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This property is for AsyncStreamTask only. It defines the max time interval from processAsync() to callback is fired. When the timeout happens, it will throw a TaskCallbackTimeoutException and shut down the container. Default is no timeout.
                     </td>
                 </tr>
 
@@ -629,6 +839,10 @@
                             <dd>Encodes <code>java.lang.String</code> objects as UTF-8.</dd>
                             <dt><code>org.apache.samza.serializers.JsonSerdeFactory</code></dt>
                             <dd>Encodes nested structures of <code>java.util.Map</code>, <code>java.util.List</code> etc. as JSON.</dd>
+                            <dt><code>org.apache.samza.serializers.LongSerdeFactory</code></dt>
+                            <dd>Encodes <code>java.lang.Long</code> as binary (8 bytes fixed-length big-endian encoding).</dd>
+                            <dt><code>org.apache.samza.serializers.DoubleSerdeFactory</code></dt>
+                            <dd>Encodes <code>java.lang.Double</code> as binray (8 bytes double-precision float point).</dd>
                             <dt><code>org.apache.samza.serializers.MetricsSnapshotSerdeFactory</code></dt>
                             <dd>Encodes <code>org.apache.samza.metrics.reporter.MetricsSnapshot</code> objects (which are
                                 used for <a href="../container/metrics.html">reporting metrics</a>) as JSON.</dd>
@@ -873,6 +1087,31 @@
                         buffered messages falls below that threshold, Samza fetches more messages from the
                         Kafka broker to replenish the buffer. Increasing this parameter can increase a job's
                         processing throughput, but also increases the amount of memory used.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-fetch-threshold-bytes">systems.<span class="system">system-name</span>.<br>samza.fetch.threshold.bytes</td>
+                    <td class="default">-1</td>
+                    <td class="description">
+                        When consuming streams from Kafka, a Samza container maintains an in-memory buffer
+                        for incoming messages in order to increase throughput (the stream task can continue
+                        processing buffered messages while new messages are fetched from Kafka). This
+                        parameter determines the total size of messages we aim to buffer across all stream
+                        partitions consumed by a container based on bytes. Defines how many bytes to use for the buffered
+                        prefetch messages for job as a whole. The bytes for a single system/stream/partition are computed based on this.
+                        This fetches the entire messages, hence this bytes limit is a soft one, and the actual usage can be the bytes
+                        limit + size of max message in the partition for a given stream. If the value of this property is > 0
+                        then this takes precedence over systems.<span class="system">system-name</span>.samza.fetch.threshold.<br>
+                        For example, if fetchThresholdBytes is set to 100000 bytes, and there are 50 SystemStreamPartitions registered,
+                        then the per-partition threshold is (100000 / 2) / 50 = 1000 bytes. As this is a soft limit, the actual usage
+                        can be 1000 bytes + size of max message. As soon as a SystemStreamPartition's buffered messages bytes drops
+                        below 1000, a fetch request will be executed to get more data for it.
+
+                        Increasing this parameter will decrease the latency between when a queue is drained of messages and when new
+                        messages are enqueued, but also leads to an increase in memory usage since more messages will be held in memory.
+
+                        The default value is -1, which means this is not used.
                     </td>
                 </tr>
 
@@ -1171,6 +1410,97 @@
                     </td>
                 </tr>
 
+
+                <tr>
+                    <th colspan="3" class="section" id="cluster-manager">
+                        Running Samza with a cluster manager<br>
+                    </th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="cluster-manager-container-memory-mb">cluster-manager.container.memory.mb</td>
+                    <td class="default">1024</td>
+                    <td class="description">
+                        How much memory, in megabytes, to request from the cluster manager per container of your job. Along with
+                        <a href="#cluster-manager-container-cpu-cores" class="property">cluster-manager.container.cpu.cores</a>, this
+                        property determines how many containers the cluster manager will run on one machine. If the container
+                        exceeds this limit, it will be killed, so it is important that the container's actual
+                        memory use remains below the limit. The amount of memory used is normally the JVM heap
+                        size (configured with <a href="#task-opts" class="property">task.opts</a>), plus the
+                        size of any off-heap memory allocation (for example
+                        <a href="#stores-rocksdb-container-cache-size-bytes" class="property">stores.*.container.cache.size.bytes</a>),
+                        plus a safety margin to allow for JVM overheads.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="cluster-manager-container-cpu-cores">cluster-manager.container.cpu.cores</td>
+                    <td class="default">1</td>
+                    <td class="description">
+                        The number of CPU cores to request per container of your job. Each node in the
+                        cluster has a certain number of CPU cores available, so this number (along with
+                        <a href="#cluster-manager-container-memory-mb" class="property">cluster-manager.container.memory.mb</a>)
+                        determines how many containers can be run on one machine.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="cluster-manager-container-retry-count">cluster-manager.container.<br>retry.count</td>
+                    <td class="default">8</td>
+                    <td class="description">
+                        If a container fails, it is automatically restarted by Samza. However, if a container keeps
+                        failing shortly after startup, that indicates a deeper problem, so we should kill the job
+                        rather than retrying indefinitely. This property determines the maximum number of times we are
+                        willing to restart a failed container in quick succession (the time period is configured with
+                        <a href="#cluster-manager-container-retry-window-ms" class="property">cluster-manager.container.retry.window.ms</a>).
+                        Each container in the job is counted separately. If this property is set to 0, any failed
+                        container immediately causes the whole job to fail. If it is set to a negative number, there
+                        is no limit on the number of retries.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="cluster-manager-container-retry-window-ms">cluster-manager.container.<br>retry.window.ms</td>
+                    <td class="default">300000</td>
+                    <td class="description">
+                        This property determines how frequently a container is allowed to fail before we give up and
+                        fail the job. If the same container has failed more than
+                        <a href="#cluster-manager-container-retry-count" class="property">cluster-manager.container.retry.count</a>
+                        times, and the time between failures was less than this property
+                        <code>cluster-manager.container.retry.window.ms</code> (in milliseconds), then we fail the job.
+                        There is no limit to the number of times we will restart a container if the time between
+                        failures is greater than <code>cluster-manager.container.retry.window.ms</code>.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="cluster-manager-jmx-enabled">cluster-manager.jobcoordinator.jmx.enabled</td>
+                    <td class="default">true</td>
+                    <td class="description">
+                        Determines whether a JMX server should be started on the job's JobCoordinator.
+                        (<code>true</code> or <code>false</code>).
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="cluster-manager-allocator-sleep-ms">cluster-manager.allocator.sleep.ms</td>
+                    <td class="default">3600</td>
+                    <td class="description">
+                        The container allocator thread is responsible for matching requests to allocated containers.
+                        The sleep interval for this thread is configured using this property.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="cluster-manager-container-request-timeout-ms">cluster-manager.container.request.timeout.ms</td>
+                    <td class="default">5000</td>
+                    <td class="description">
+                        The allocator thread periodically checks the state of the container requests and allocated containers to determine the assignment of a container to an allocated resource.
+                        This property determines the number of milliseconds before a container request is considered to have expired / timed-out.
+                        When a request expires, it gets allocated to any available container that was returned by the cluster manager.
+                    </td>
+                </tr>
+
                 <tr>
                     <th colspan="3" class="section" id="yarn">
                         Running your job on a <a href="../jobs/yarn-jobs.html">YARN</a> cluster<br>
@@ -1194,31 +1524,11 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="yarn-container-count">yarn.container.count</td>
-                    <td class="default">1</td>
-                    <td class="description">
-                        The number of YARN containers to request for running your job. This is the main parameter
-                        for controlling the scale (allocated computing resources) of your job: to increase the
-                        parallelism of processing, you need to increase the number of containers. The minimum is one
-                        container, and the maximum number of containers is the number of task instances (usually the
-                        <a href="../container/samza-container.html#tasks-and-partitions">number of input stream partitions</a>).
-                        Task instances are evenly distributed across the number of containers that you specify.
-                    </td>
-                </tr>
-
-                <tr>
                     <td class="property" id="yarn-container-memory-mb">yarn.container.memory.mb</td>
                     <td class="default">1024</td>
                     <td class="description">
-                        How much memory, in megabytes, to request from YARN per container of your job. Along with
-                        <a href="#yarn-container-cpu-cores" class="property">yarn.container.cpu.cores</a>, this
-                        property determines how many containers YARN will run on one machine. If the container
-                        exceeds this limit, YARN will kill it, so it is important that the container's actual
-                        memory use remains below the limit. The amount of memory used is normally the JVM heap
-                        size (configured with <a href="#task-opts" class="property">task.opts</a>), plus the
-                        size of any off-heap memory allocation (for example
-                        <a href="#stores-rocksdb-container-cache-size-bytes" class="property">stores.*.container.cache.size.bytes</a>),
-                        plus a safety margin to allow for JVM overheads.
+                        This is deprecated in favor of
+                        <a href="#cluster-manager-container-memory-mb" class="property">cluster-manager.container.memory.mb</a>
                     </td>
                 </tr>
 
@@ -1226,12 +1536,8 @@
                     <td class="property" id="yarn-container-cpu-cores">yarn.container.cpu.cores</td>
                     <td class="default">1</td>
                     <td class="description">
-                        The number of CPU cores to request from YARN per container of your job. Each node in the
-                        YARN cluster has a certain number of CPU cores available, so this number (along with
-                        <a href="#yarn-container-memory-mb" class="property">yarn.container.memory.mb</a>)
-                        determines how many containers can be run on one machine. Samza is
-                        <a href="../container/event-loop.html">single-threaded</a> and designed to run on one
-                        CPU core, so you shouldn't normally need to change this property.
+                    This is deprecated in favor of
+                    <a href="#cluster-manager-container-cpu-cores" class="property">cluster-manager.container.cpu.cores</a>
                     </td>
                 </tr>
 
@@ -1239,14 +1545,8 @@
                     <td class="property" id="yarn-container-retry-count">yarn.container.<br>retry.count</td>
                     <td class="default">8</td>
                     <td class="description">
-                        If a container fails, it is automatically restarted by YARN. However, if a container keeps
-                        failing shortly after startup, that indicates a deeper problem, so we should kill the job
-                        rather than retrying indefinitely. This property determines the maximum number of times we are
-                        willing to restart a failed container in quick succession (the time period is configured with
-                        <a href="#yarn-container-retry-window-ms" class="property">yarn.container.retry.window.ms</a>).
-                        Each container in the job is counted separately. If this property is set to 0, any failed
-                        container immediately causes the whole job to fail. If it is set to a negative number, there
-                        is no limit on the number of retries.
+                        This is deprecated in favor of
+                        <a href="#cluster-manager-container-retry-count" class="property">cluster-manager.container.retry.count</a>
                     </td>
                 </tr>
 
@@ -1254,13 +1554,8 @@
                     <td class="property" id="yarn-container-retry-window-ms">yarn.container.<br>retry.window.ms</td>
                     <td class="default">300000</td>
                     <td class="description">
-                        This property determines how frequently a container is allowed to fail before we give up and
-                        fail the job. If the same container has failed more than
-                        <a href="#yarn-container-retry-count" class="property">yarn.container.retry.count</a>
-                        times, and the time between failures was less than this property
-                        <code>yarn.container.retry.window.ms</code> (in milliseconds), then we fail the job.
-                        There is no limit to the number of times we will restart a container if the time between
-                        failures is greater than <code>yarn.container.retry.window.ms</code>.
+                        This is deprecated in favor of
+                        <a href="#cluster-manager-container-retry-window-ms" class="property">cluster-manager.container.retry.window.ms</a>
                     </td>
                 </tr>
 
@@ -1268,7 +1563,7 @@
                     <td class="property" id="yarn-am-container-memory-mb">yarn.am.container.<br>memory.mb</td>
                     <td class="default">1024</td>
                     <td class="description">
-                        Each Samza job has one special container, the
+                        Each Samza job when running in Yarn has one special container, the
                         <a href="../yarn/application-master.html">ApplicationMaster</a> (AM), which manages the
                         execution of the job. This property determines how much memory, in megabytes, to request
                         from YARN for running the ApplicationMaster.
@@ -1311,8 +1606,36 @@
                     <td class="property" id="yarn-am-jmx-enabled">yarn.am.jmx.enabled</td>
                     <td class="default">true</td>
                     <td class="description">
-                        Determines whether a JMX server should be started on this job's YARN ApplicationMaster
-                        (<code>true</code> or <code>false</code>).
+                        This is deprecated in favor of
+                        <a href="#cluster-manager-jmx-enabled" class="property">cluster-manager.jobcoordinator.jmx.enabled</a>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-allocator-sleep-ms">yarn.allocator.sleep.ms</td>
+                    <td class="default">3600</td>
+                    <td class="description">
+                        This is deprecated in favor of
+                        <a href="#cluster-manager-allocator-sleep-ms" class="property">cluster-manager.allocator.sleep.ms</a>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-samza-host_affinity-enabled">yarn.samza.host-affinity.enabled</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        This is deprecated in favor of
+                        <a href="#job-host_affinity-enabled" class="property">job.host-affinity.enabled</a>
+
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-container-request-timeout-ms">yarn.container.request.timeout.ms</td>
+                    <td class="default">5000</td>
+                    <td class="description">
+                        This is deprecated in favor of
+                        <a href="#cluster-manager-container-request-timeout-ms" class="property">cluster-manager.container.request.timeout.ms</a>
                     </td>
                 </tr>
 
@@ -1321,6 +1644,32 @@
                     <td class="default"></td>
                     <td class="description">
                         Determines which YARN queue will be used for Samza job.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-kerberos-principal">yarn.kerberos.principal</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        Principal the Samza job uses to authenticate itself into KDC, when running on a Kerberos enabled YARN cluster.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-kerberos-keytab">yarn.kerberos.keytab</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The full path to the file containing keytab for the principal, specified by <a href="#yarn-kerberos-principal" class="property">yarn.kerberos.principal</a>.
+                        The keytab file is uploaded to the staging directory unique to each application on HDFS and the Application Master then uses the keytab and principal to
+                        periodically logs in to recreate the delegation tokens.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-token-renewal-interval-seconds">yarn.token.renewal.interval.seconds</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The time interval by which the Application Master re-authenticates and renew the delegation tokens. This value should be smaller than the length of time a delegation token is valid on hadoop namenodes before expiration.
                     </td>
                 </tr>
 
@@ -1438,9 +1787,37 @@
                     <td class="description">A date format (using Java's SimpleDataFormat syntax) appropriate for use in an HDFS Path, which can configure time-based bucketing of output files.</td>
                 </tr>
                 <tr>
-                  <td class="property" id="hdfs-write-batch-size-bytes">systems.*.producer.write.batch.size.bytes</td>
+                  <td class="property" id="hdfs-write-batch-size-bytes">systems.*.producer.hdfs.write.batch.size.bytes</td>
                   <td class="default">268435456</td>
                   <td class="description">The number of bytes of outgoing messages to write to each HDFS output file before cutting a new file. Defaults to 256MB if not set.</td>
+                </tr>
+                <tr>
+                    <td class="property" id="hdfs-write-batch-size-records">systems.*.producer.hdfs.write.batch.size.records</td>
+                    <td class="default">262144</td>
+                    <td class="description">The number of outgoing messages to write to each HDFS output file before cutting a new file. Defaults to 262144 if not set.</td>
+                </tr>
+
+                <tr>
+                    <th colspan="3" class="section" id="task-migration">
+                        Migrating from Samza 0.9.1 to 0.10.0<br>
+                        <span class="subtitle">
+                            (This section applies if you are upgrading from Samza 0.9.1 to 0.10.0 and have set
+                            <a href="#task-checkpoint-factory" class="property">task.checkpoint.factory</a> to anything <b> other than </b>
+                            <code>org.apache.samza.checkpoint.file.FileSystemCheckpointManagerFactory</code>)
+                        </span>
+                    </th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="task-checkpoint-skip-migration">task.checkpoint.skip-migration</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        When migrating from 0.9.1 to 0.10.0, the taskName-to-changelog partition mapping was moved from the checkpoint stream to the coordinator stream. <br />
+                        If you are using a checkpoint manager other than kafka
+                        (<code>org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory</code>), you have to
+                        manually migrate taskName-to-changelog partition mapping to the coordinator stream. <br />
+                        This can be achieved with the assistance of the <code>checkpoint-tool.sh</code>.
+                    </td>
                 </tr>
             </tbody>
         </table>

@@ -30,7 +30,7 @@ package org.apache.samza.coordinator.stream.messages;
  *     Source: "SamzaContainer-$ContainerId"
  *     MessageMap:
  *     {
- *         ip: InetAddressString,
+ *         host: Name of the host
  *         jmx-url: jmxAddressString
  *         jmx-tunneling-url: jmxTunnelingAddressString
  *     }
@@ -38,7 +38,7 @@ package org.apache.samza.coordinator.stream.messages;
  * */
 public class SetContainerHostMapping extends CoordinatorStreamMessage {
   public static final String TYPE = "set-container-host-assignment";
-  public static final String IP_KEY = "ip";
+  public static final String HOST_KEY = "host";
   public static final String JMX_URL_KEY = "jmx-url";
   public static final String JMX_TUNNELING_URL_KEY = "jmx-tunneling-url";
 
@@ -54,26 +54,21 @@ public class SetContainerHostMapping extends CoordinatorStreamMessage {
    * SteContainerToHostMapping is used to set the container to host mapping information.
    * @param source the source of the message
    * @param key the key which is used to persist the message
-   * @param hostHttpAddress the IP address of the container
+   * @param hostName the hostname of the container
    * @param jmxAddress the JMX address of the container
    * @param jmxTunnelingAddress the JMX tunneling address of the container
    */
-  public SetContainerHostMapping(String source, String key, String hostHttpAddress, String jmxAddress, String jmxTunnelingAddress) {
+  public SetContainerHostMapping(String source, String key, String hostName, String jmxAddress, String jmxTunnelingAddress) {
     super(source);
     setType(TYPE);
     setKey(key);
-    putMessageValue(IP_KEY, hostHttpAddress);
+    putMessageValue(HOST_KEY, hostName);
     putMessageValue(JMX_URL_KEY, jmxAddress);
     putMessageValue(JMX_TUNNELING_URL_KEY, jmxTunnelingAddress);
   }
 
-  /**
-   * Returns the IP address of the container.
-   * @return the container IP address
-   */
   public String getHostLocality() {
-    return getMessageValue(IP_KEY);
-
+    return getMessageValue(HOST_KEY);
   }
 
   /**

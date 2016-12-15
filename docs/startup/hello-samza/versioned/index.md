@@ -50,10 +50,18 @@ Once the grid command completes, you can verify that YARN is up and running by g
 
 Before you can run a Samza job, you need to build a package for it. This package is what YARN uses to deploy your jobs on the grid.
 
+NOTE: if you are building from the latest branch of hello-samza project, make sure that you run the following step from your local Samza project first:
+
+{% highlight bash %}
+./gradlew publishToMavenLocal
+{% endhighlight %}
+
+Then, you can continue w/ the following command in hello-samza project:
+
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-0.10.0-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-0.11.1-SNAPSHOT-dist.tar.gz -C deploy/samza
 {% endhighlight %}
 
 ### Run a Samza Job

@@ -23,14 +23,15 @@ import java.io.{InputStream, OutputStream}
 import java.util.concurrent.CountDownLatch
 
 import org.apache.samza.SamzaException
-import org.apache.samza.coordinator.JobCoordinator
+import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.job.ApplicationStatus.{New, Running, UnsuccessfulFinish}
+import org.apache.samza.job.util.ProcessKiller
 import org.apache.samza.job.{ApplicationStatus, CommandBuilder, StreamJob}
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConversions._
 
-class ProcessJob(commandBuilder: CommandBuilder, jobCoordinator: JobCoordinator) extends StreamJob with Logging {
+class ProcessJob(commandBuilder: CommandBuilder, jobCoordinator: JobModelManager) extends StreamJob with Logging {
   var jobStatus: Option[ApplicationStatus] = None
   var process: Process = null
 
@@ -69,7 +70,7 @@ class ProcessJob(commandBuilder: CommandBuilder, jobCoordinator: JobCoordinator)
   }
 
   def kill: StreamJob = {
-    process.destroy
+    ProcessKiller.destroyForcibly(process)
     jobStatus = Some(UnsuccessfulFinish);
     ProcessJob.this
   }

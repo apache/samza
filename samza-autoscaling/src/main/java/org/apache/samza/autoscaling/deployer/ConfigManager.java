@@ -21,6 +21,7 @@
 package org.apache.samza.autoscaling.deployer;
 
 import joptsimple.OptionSet;
+
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.samza.autoscaling.utils.YarnUtil;
 import org.apache.samza.config.Config;
@@ -67,6 +68,7 @@ public class ConfigManager {
   private SystemStreamPartitionIterator coordinatorStreamIterator;
   private static final Logger log = LoggerFactory.getLogger(ConfigManager.class);
   private final long defaultPollingInterval = 100;
+  private final int defaultReadJobModelDelayMs = 100;
   private final long interval;
   private String coordinatorServerURL = null;
   private final String jobName;
@@ -152,7 +154,6 @@ public class ConfigManager {
     coordinatorStreamConsumer.stop();
     coordinatorServerURL = null;
     yarnUtil.stop();
-
   }
 
   /**
@@ -201,6 +202,7 @@ public class ConfigManager {
    * @param keysToProcess a list of keys to process. Only messages with these keys will call their handler function,
    *                      and other messages will be skipped. If the list is empty all messages will be skipped.
    */
+  @SuppressWarnings("unchecked")
   private void processConfigMessages(List<String> keysToProcess) {
     if (!coordinatorStreamConsumer.hasNewMessages(coordinatorStreamIterator)) {
       return;
@@ -323,7 +325,7 @@ public class ConfigManager {
    */
   public int getCurrentNumTasks() {
     int currentNumTasks = 0;
-    for (ContainerModel containerModel : SamzaContainer.readJobModel(coordinatorServerURL).getContainers().values()) {
+    for (ContainerModel containerModel : SamzaContainer.readJobModel(coordinatorServerURL, defaultReadJobModelDelayMs).getContainers().values()) {
       currentNumTasks += containerModel.getTasks().size();
     }
     return currentNumTasks;
@@ -336,7 +338,7 @@ public class ConfigManager {
    * @return current number of containers in the job
    */
   public int getCurrentNumContainers() {
-    return SamzaContainer.readJobModel(coordinatorServerURL).getContainers().values().size();
+    return SamzaContainer.readJobModel(coordinatorServerURL, defaultReadJobModelDelayMs).getContainers().values().size();
   }
 
 
@@ -360,7 +362,7 @@ public class ConfigManager {
    * To run the code use the following command:
    * {path to samza deployment}/samza/bin/run-config-manager.sh  --config-factory={config-factory} --config-path={path to config file of a job}
    *
-   * @param args
+   * @param args input arguments for running ConfigManager.
    */
   public static void main(String[] args) {
     CommandLine cmdline = new CommandLine();

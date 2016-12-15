@@ -20,9 +20,11 @@
 package org.apache.samza.job.model;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.LocalityManager;
+import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 
 /**
  * <p>
@@ -42,6 +44,7 @@ public class JobModel {
   private final Map<Integer, ContainerModel> containers;
 
   private final LocalityManager localityManager;
+  private Map<Integer, String> localityMappings = new HashMap<Integer, String>();
 
   public int maxChangeLogStreamPartitions;
 
@@ -53,6 +56,15 @@ public class JobModel {
     this.config = config;
     this.containers = Collections.unmodifiableMap(containers);
     this.localityManager = localityManager;
+
+    if (localityManager == null) {
+      for (Integer containerId : containers.keySet()) {
+        localityMappings.put(containerId, null);
+      }
+    } else {
+      populateContainerLocalityMappings();
+    }
+
 
     // Compute the number of change log stream partitions as the maximum partition-id
     // of all total number of tasks of the job; Increment by 1 because partition ids
@@ -91,6 +103,37 @@ public class JobModel {
     return mappings.get(key);
   }
 
+  public Map<Integer, String> getAllContainerToHostValues(String key) {
+    if (localityManager == null) {
+      return Collections.EMPTY_MAP;
+    }
+    Map<Integer, String> allValues = new HashMap<>();
+    for (Map.Entry<Integer, Map<String, String>> entry : localityManager.readContainerLocality().entrySet()) {
+      String value = entry.getValue().get(key);
+      if (value != null) {
+        allValues.put(entry.getKey(), value);
+      }
+    }
+    return allValues;
+  }
+
+  private void populateContainerLocalityMappings() {
+    Map<Integer, Map<String, String>> allMappings = localityManager.readContainerLocality();
+    for (Integer containerId: containers.keySet()) {
+      if (allMappings.containsKey(containerId)) {
+        localityMappings.put(containerId, allMappings.get(containerId).get(SetContainerHostMapping.HOST_KEY));
+      } else {
+        localityMappings.put(containerId, null);
+      }
+    }
+  }
+
+  public Map<Integer, String> getAllContainerLocality() {
+    if (localityManager != null) {
+      populateContainerLocalityMappings();
+    }
+    return localityMappings;
+  }
 
   public Map<Integer, ContainerModel> getContainers() {
     return containers;

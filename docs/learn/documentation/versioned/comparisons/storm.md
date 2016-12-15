@@ -23,7 +23,7 @@ title: Storm
 
 [Storm](http://storm-project.net/) and Samza are fairly similar. Both systems provide many of the same high-level features: a partitioned stream model, a distributed execution environment, an API for stream processing, fault tolerance, Kafka integration, etc.
 
-Storm and Samza use different words for similar concepts: *spouts* in Storm are similar to stream consumers in Samza, *bolts* are similar to tasks, and *tuples* are similar to messages in Samza. Storm also has some additional building blocks which don't have direct equivalents in Samza.
+Storm and Samza use different words for similar concepts: *spouts* in Storm are similar to stream consumers in Samza, *bolts* are similar to tasks, and *tuples* are similar to messages in Samza. Some additional building blocks, such as *trident*, *topology*, etc., don't have direct equivalents in Samza.
 
 ### Ordering and Guarantees
 

@@ -29,7 +29,7 @@ MUPD8 makes no durability or delivery guarantees. Within MUPD8, stream processor
 
 As with durability, developers would ideally like their stream processors to receive messages in exactly the order that they were written.
 
-We don't entirely follow MUPD8's description of their ordering guarantees, but it seems to guarantee that all messages will be processed in the order in which they are written to MUPD8 queues, which is comparable to Kafka and Samza's guarantee.
+Based on the understanding of MUPD8's description of their ordering guarantees, it guarantees that all messages will be processed in the order in which they are written to MUPD8 queues, which is comparable to Kafka and Samza's guarantee.
 
 ### Buffering
 

@@ -74,10 +74,22 @@ class JmxServer(requestedPort: Int) extends Logging {
     updateSystemProperty("com.sun.management.jmxremote.ssl", "false")
     updateSystemProperty("java.rmi.server.hostname", hostname)
 
+    // There's still a race condition in which this port is released and taken by
+    // another process before it is used for our server, but that will be even more
+    // rare than the collisions we experienced when incrementing the registry port.
+    def getEphemeralPort = {
+      val serverSocket = new ServerSocket(0)
+      try {
+        serverSocket.getLocalPort
+      } finally {
+        serverSocket.close()
+      }
+    }
+
     val ssFactory = new UpfrontRMIServerSocketFactory
     LocateRegistry.createRegistry(requestedPort, null, ssFactory)
     val registryPort = ssFactory.lastSS.getLocalPort
-    val serverPort = registryPort + 1 // In comparison to the registry port. Tiny chance of collision.  Sigh.
+    val serverPort = getEphemeralPort
     val mbs = ManagementFactory.getPlatformMBeanServer
     val env = new util.HashMap[String, Object]()
     val url = new JMXServiceURL("service:jmx:rmi://localhost:" + serverPort + "/jndi/rmi://localhost:" + registryPort + "/jmxrmi")
@@ -87,8 +99,8 @@ class JmxServer(requestedPort: Int) extends Logging {
   }
 
   jmxServer.start
-  info("Started " + toString)
-  info("If you are tunneling, you might want to try " + toString.replaceAll("localhost", hostname))
+  startupLog("Started " + toString)
+  startupLog("If you are tunneling, you might want to try " + toString.replaceAll("localhost", hostname))
 
   /**
    * Get RMI registry port

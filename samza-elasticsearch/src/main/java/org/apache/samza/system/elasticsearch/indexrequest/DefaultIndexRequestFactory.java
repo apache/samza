@@ -23,7 +23,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.Requests;
-import org.elasticsearch.common.base.Optional;
+import com.google.common.base.Optional;
 import org.elasticsearch.index.VersionType;
 
 import java.util.Map;

@@ -186,6 +186,8 @@ Additional configuration properties for the key-value store are documented in th
 
 ### Debug Key-value storage
 
+#### Materialize a state store from the changelog
+
 Currently Samza provides a state storage tool which can recover the state store from the changelog stream to user-specified directory for reusing and debugging.
 
 {% highlight bash %}
@@ -193,6 +195,36 @@ samza-example/target/bin/state-storage-tool.sh \
   --config-path=file:///path/to/job/config.properties \
   --path=directory/to/put/state/stores
 {% endhighlight %}
+
+#### Read the value from a running RocksDB
+
+Samza also provides a tool to read the value from a running job's RocksDB.
+
+{% highlight bash %}
+samza-example/target/bin/read-rocksdb-tool.sh \
+  --config-path=file:///path/to/job/config.properties \
+  --db-path=/tmp/nm-local-dir/state/test-state/Partition_0 \
+  --db-name=test-state \
+  --string-key=a,b,c
+{% endhighlight %}
+
+* `--config-path`(required): your job's configuration file
+* `--db-path`(required): the location of your RocksDB. This is convenient if the RocksDB is in the same machine as the tool. E.g. if you are running hello-samza in your local machine, the location maybe in
+_/tmp/hadoop/nm-local-dir/usercache/username/appcache/applicationId/containerId/state/storeName/PartitionNumber_
+* `--db-name`(required): if you only have one state store specified in the config file, you can ignore this one. Otherwise, you need to provide the state store name here.
+* `--string-key`: the key list. This one only works if your keys are string. There are also another two options: `--integer-key`, `--long-key`. They work for integer keys and long keys respectively.
+
+**Limitations**:
+
+* This only works with three kinds of keys: string, integer and long. This is because we can only accept those kinds of keys from the command line (it is really tricky to accept bytes, avro, json, etc from the command line). But it is also easy to use this tool programmatically (The key and value both are deserialized.)
+{% highlight bash %}
+RocksDbKeyValueReader kvReader = new RocksDbKeyValueReader(dbName, pathOfdb, config)
+Object value = kvReader.get(key)
+{% endhighlight %}
+
+
+* Because Samza job has some caches and buffers, you may not be able to see expected values (or even not be able to see any value, if all the data is buffered). Some of the related configuration are `stores.store-name.container.write.buffer.size.bytes`, `stores.store-name.write.batch.size`, `stores.store-name.object.cache.size`. You may want to set them to very small for testing.
+* Since RocksDB memtable is not flushed to disk immediately on every write, you may not be able to see the expected values until it is written to the SST file on disk. For more details on RocksDb, you can refer the docs [here](https://github.com/facebook/rocksdb/wiki/RocksDB-Basics).
 
 #### Known Issues
 
@@ -241,9 +273,9 @@ Implementation: Partition the ad click and ad impression streams by the impressi
 
 ### Other storage engines
 
-Samza's fault-tolerance mechanism (sending a local store's writes to a replicated changelog) is completely decoupled from the storage engine's data structures and query APIs. While a key-value storage engine is good for general-purpose processing, you can easily add your own storage engines for other types of queries by implementing the [StorageEngine](../api/javadocs/org/apache/samza/storage/StorageEngine.html) interface. Samza's model is especially amenable to embedded storage engines, which run as a library in the same process as the stream task. 
+Samza's fault-tolerance mechanism (sending a local store's writes to a replicated changelog) is completely decoupled from the storage engine's data structures and query APIs. While a key-value storage engine is good for general-purpose processing, you can easily add your own storage engines for other types of queries by implementing the [StorageEngine](../api/javadocs/org/apache/samza/storage/StorageEngine.html) interface. Samza's model is especially amenable to embedded storage engines, which run as a library in the same process as the stream task.
 
-Some ideas for other storage engines that could be useful: a persistent heap (for running top-N queries), [approximate algorithms](http://infolab.stanford.edu/~ullman/mmds/ch4.pdf) such as [bloom filters](http://en.wikipedia.org/wiki/Bloom_filter) and [hyperloglog](http://research.google.com/pubs/pub40671.html), or full-text indexes such as [Lucene](http://lucene.apache.org). (Patches accepted!)
+Some ideas for other storage engines that could be useful: a persistent heap (for running top-N queries), [approximate algorithms](http://infolab.stanford.edu/~ullman/mmds/ch4.pdf) such as [bloom filters](http://en.wikipedia.org/wiki/Bloom_filter) and [hyperloglog](http://research.google.com/pubs/pub40671.html), or full-text indexes such as [Lucene](http://lucene.apache.org). (Patches welcome!)
 
 ### Fault tolerance semantics with state
 
@@ -253,4 +285,4 @@ For many of the stateful processing use cases discussed above, this is not a pro
 
 However, for non-idempotent operations such as counting, at-least-once delivery guarantees can give incorrect results. If a Samza task fails and is restarted, it may double-count some messages that were processed shortly before the failure. We are planning to address this limitation in a future release of Samza.
 
-## [Metrics &raquo;](metrics.html)
+## [Windowing &raquo;](windowing.html)

@@ -31,6 +31,9 @@ import org.apache.samza.system.SystemFactory
 import org.apache.samza.config.StorageConfig._
 import org.I0Itec.zkclient.ZkClient
 import kafka.utils.ZKStringSerializer
+import org.apache.samza.system.SystemProducer
+import org.apache.samza.system.SystemAdmin
+import org.apache.samza.system.SystemConsumer
 
 object KafkaSystemFactory extends Logging {
   def getInjectedProducerProperties(systemName: String, config: Config) = if (config.isChangelogSystem(systemName)) {
@@ -42,7 +45,7 @@ object KafkaSystemFactory extends Logging {
 }
 
 class KafkaSystemFactory extends SystemFactory with Logging {
-  def getConsumer(systemName: String, config: Config, registry: MetricsRegistry) = {
+  def getConsumer(systemName: String, config: Config, registry: MetricsRegistry): SystemConsumer = {
     val clientId = KafkaUtil.getClientId("samza-consumer", config)
     val metrics = new KafkaSystemConsumerMetrics(systemName, registry)
 
@@ -59,6 +62,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val autoOffsetResetDefault = consumerConfig.autoOffsetReset
     val autoOffsetResetTopics = config.getAutoOffsetResetTopics(systemName)
     val fetchThreshold = config.getConsumerFetchThreshold(systemName).getOrElse("50000").toInt
+    val fetchThresholdBytes = config.getConsumerFetchThresholdBytes(systemName).getOrElse("-1").toLong
     val offsetGetter = new GetOffset(autoOffsetResetDefault, autoOffsetResetTopics)
     val metadataStore = new ClientUtilTopicMetadataStore(bootstrapServers, clientId, timeout)
 
@@ -74,10 +78,12 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       consumerMinSize = consumerMinSize,
       consumerMaxWait = consumerMaxWait,
       fetchThreshold = fetchThreshold,
+      fetchThresholdBytes = fetchThresholdBytes,
+      fetchLimitByBytesEnabled = config.isConsumerFetchThresholdBytesEnabled(systemName),
       offsetGetter = offsetGetter)
   }
 
-  def getProducer(systemName: String, config: Config, registry: MetricsRegistry) = {
+  def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
     val clientId = KafkaUtil.getClientId("samza-producer", config)
     val injectedProps = KafkaSystemFactory.getInjectedProducerProperties(systemName, config)
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId, injectedProps)
@@ -95,7 +101,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       metrics)
   }
 
-  def getAdmin(systemName: String, config: Config) = {
+  def getAdmin(systemName: String, config: Config): SystemAdmin = {
     val clientId = KafkaUtil.getClientId("samza-admin", config)
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
     val bootstrapServers = producerConfig.bootsrapServers

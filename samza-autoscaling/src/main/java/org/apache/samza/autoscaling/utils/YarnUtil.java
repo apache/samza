@@ -25,9 +25,9 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
@@ -44,13 +44,12 @@ import java.util.Map;
  */
 public class YarnUtil {
   private static final Logger log = LoggerFactory.getLogger(YarnUtil.class);
-  private HttpClient httpclient;
+  private CloseableHttpClient httpclient;
   private HttpHost rmServer;
   private YarnClient yarnClient;
 
   public YarnUtil(String rmAddress, int rmPort) {
-
-    this.httpclient = new DefaultHttpClient();
+    this.httpclient = HttpClientBuilder.create().build();
     this.rmServer = new HttpHost(rmAddress, rmPort, "http");
     log.info("setting rm server to : " + rmServer);
     YarnConfiguration hConfig = new YarnConfiguration();
@@ -75,11 +74,8 @@ public class YarnUtil {
       String applications = EntityUtils.toString(httpResponse.getEntity());
       log.debug("applications: " + applications);
 
-      ObjectMapper mapper = new ObjectMapper();
-      Map<String, Map<String, List<Map<String, String>>>> yarnApplications = mapper.readValue(applications, new TypeReference<Map<String, Map<String, List<Map<String, String>>>>>() {
-      });
+      List<Map<String, String>> applicationList = parseYarnApplications(applications);
       String name = jobName + "_" + jobID;
-      List<Map<String, String>> applicationList = yarnApplications.get("apps").get("app");
       for (Map<String, String> application : applicationList) {
         if (application.containsKey("state") && application.containsKey("name") && application.containsKey("id")) {
           if (application.get("state").toString().equals("RUNNING") && application.get("name").toString().equals(name)) {
@@ -93,6 +89,13 @@ public class YarnUtil {
     }
 
     return null;
+  }
+
+  List<Map<String, String>> parseYarnApplications(String applications) throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    Map<String, Map<String, List<Map<String, String>>>> yarnApplications = mapper.readValue(applications, new TypeReference<Map<String, Map<String, List<Map<String, Object>>>>>() {
+    });
+    return yarnApplications.get("apps").get("app");
   }
 
   /**
@@ -146,7 +149,11 @@ public class YarnUtil {
    * This function stops the YarnUtil by stopping the yarn client and http client.
    */
   public void stop() {
-    httpclient.getConnectionManager().shutdown();
+    try {
+      httpclient.close();
+    } catch (IOException e) {
+      log.error("HTTP Client failed to close.", e);
+    }
     yarnClient.stop();
   }
 

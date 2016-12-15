@@ -19,50 +19,40 @@
 
 package org.apache.samza.system.chooser
 
-import scala.collection.JavaConversions._
 import org.apache.samza.SamzaException
-import org.apache.samza.config.Config
-import org.apache.samza.config.SystemConfig._
-import org.apache.samza.config.DefaultChooserConfig._
-import org.apache.samza.config.TaskConfig._
-import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.system.SystemFactory
-import org.apache.samza.system.SystemStream
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.Util
-import org.apache.samza.system.SystemAdmin
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.system.SystemStreamMetadata
+import org.apache.samza.config.{Config, DefaultChooserConfig, TaskConfigJava}
+import org.apache.samza.metrics.{MetricsRegistry, MetricsRegistryMap}
+import org.apache.samza.system.{IncomingMessageEnvelope, SystemStream, SystemStreamMetadata, SystemStreamPartition}
 import org.apache.samza.util.Logging
+
+import scala.collection.JavaConverters._
+
 
 object DefaultChooser extends Logging {
   def apply(inputStreamMetadata: Map[SystemStream, SystemStreamMetadata], chooserFactory: MessageChooserFactory, config: Config, registry: MetricsRegistry) = {
-    val batchSize = config.getChooserBatchSize match {
-      case Some(batchSize) => Some(batchSize.toInt)
-      case _ => None
-    }
+    val chooserConfig = new DefaultChooserConfig(config)
+    val batchSize = if (chooserConfig.getChooserBatchSize > 0) Some(chooserConfig.getChooserBatchSize) else None
 
     debug("Got batch size: %s" format batchSize)
 
     // Normal streams default to priority 0.
-    val defaultPrioritizedStreams = config
-      .getInputStreams
+    val defaultPrioritizedStreams = new TaskConfigJava(config)
+      .getAllInputStreams.asScala
       .map((_, 0))
       .toMap
 
     debug("Got default priority streams: %s" format defaultPrioritizedStreams)
 
     // Bootstrap streams default to Int.MaxValue priority.
-    val prioritizedBootstrapStreams = config
-      .getBootstrapStreams
+    val prioritizedBootstrapStreams = chooserConfig
+      .getBootstrapStreams.asScala
       .map((_, Int.MaxValue))
       .toMap
 
     debug("Got bootstrap priority streams: %s" format prioritizedBootstrapStreams)
 
     // Explicitly prioritized streams are set to whatever they were configured to.
-    val prioritizedStreams = config.getPriorityStreams
+    val prioritizedStreams = chooserConfig.getPriorityStreams.asScala.mapValues(_.asInstanceOf[Int])
 
     debug("Got prioritized streams: %s" format prioritizedStreams)
 

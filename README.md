@@ -1,4 +1,4 @@
-## What is Samza?
+## What is Samza?  [![Build Status](https://builds.apache.org/view/S-Z/view/Samza/job/samza-freestyle-build/badge/icon)](https://builds.apache.org/view/S-Z/view/Samza/job/samza-freestyle-build/)
 
 [Apache Samza](http://samza.apache.org/) is a distributed stream processing framework. It uses [Apache Kafka](http://kafka.apache.org) for messaging, and [Apache Hadoop YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) to provide fault tolerance, processor isolation, security, and resource management.
 
@@ -28,7 +28,7 @@ After the bootstrap script has completed, the regular gradlew instructions below
 
 #### Scala and YARN
 
-Samza builds with [Scala](http://www.scala-lang.org/) 2.10 and [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) 2.4.0, by default. Use the -PscalaVersion switches to change Scala versions. Samza supports building Scala with 2.10.
+Samza builds with [Scala](http://www.scala-lang.org/) 2.10 and [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) 2.6.1, by default. Use the -PscalaVersion switches to change Scala versions. Samza supports building Scala with 2.10.
 
     ./gradlew -PscalaVersion=2.10 clean build
 

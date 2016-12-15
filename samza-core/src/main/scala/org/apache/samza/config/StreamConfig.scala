@@ -36,10 +36,10 @@ object StreamConfig {
 
 class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getStreamMsgSerde(systemStream: SystemStream) =
-    getOption(StreamConfig.MSG_SERDE format (systemStream.getSystem, systemStream.getStream))
+    getNonEmptyOption(StreamConfig.MSG_SERDE format (systemStream.getSystem, systemStream.getStream))
 
   def getStreamKeySerde(systemStream: SystemStream) =
-    getOption(StreamConfig.KEY_SERDE format (systemStream.getSystem, systemStream.getStream))
+    getNonEmptyOption(StreamConfig.KEY_SERDE format (systemStream.getSystem, systemStream.getStream))
 
   def getResetOffsetMap(systemName: String) = {
     val subConf = config.subset("systems.%s.streams." format systemName, true)

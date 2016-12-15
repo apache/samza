@@ -58,4 +58,4 @@ If you need to send messages to output streams, you can use the [MessageCollecto
 
 Note that Samza uses [single-threaded execution](event-loop.html), so the window() call can never happen concurrently with a process() call. This has the advantage that you don't need to worry about thread safety in your code (no need to synchronize anything), but the downside that the window() call may be delayed if your process() method takes a long time to return.
 
-## [Event Loop &raquo;](event-loop.html)
+## [Coordinator Stream &raquo;](coordinator-stream.html)

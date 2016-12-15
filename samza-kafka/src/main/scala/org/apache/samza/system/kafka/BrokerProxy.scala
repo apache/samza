@@ -214,7 +214,8 @@ class BrokerProxy(
    * TopicAndPartition.
    */
   def abdicateAll {
-    nextOffsets.keySet.foreach(abdicate(_))
+    val immutableNextOffsetsCopy = nextOffsets.toMap
+    immutableNextOffsetsCopy.keySet.foreach(abdicate(_))
   }
 
   def handleErrors(errorResponses: mutable.Set[Entry[TopicAndPartition, FetchResponsePartitionData]], response:FetchResponse) = {
@@ -302,6 +303,11 @@ class BrokerProxy(
 
   def stop {
     info("Shutting down " + toString)
+
+    if (simpleConsumer != null) {
+      info("closing simple consumer...")
+      simpleConsumer.close
+    }
 
     thread.interrupt
     thread.join

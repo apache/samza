@@ -417,4 +417,17 @@ class TestBrokerProxy extends Logging {
     }
     assertEquals(true, caughtError)
   }
+
+  @Test
+	def brokerProxyStopCloseConsumer: Unit = {
+    val mockSimpleConsumer = mock(classOf[DefaultFetchSimpleConsumer])
+    val bp = new BrokerProxy("host", 0, "system", "clientID", new KafkaSystemConsumerMetrics(), null){
+      override def createSimpleConsumer() = {
+        mockSimpleConsumer
+      }
+    }
+    bp.start
+    bp.stop
+    verify(mockSimpleConsumer).close
+  }
 }

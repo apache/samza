@@ -22,13 +22,11 @@ package org.apache.samza.storage.kv
 import java.io.File
 import org.apache.samza.container.SamzaContainerContext
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.storage.kv._
 import org.apache.samza.system.SystemStreamPartition
-import org.rocksdb.WriteOptions
+import org.rocksdb.{FlushOptions, WriteOptions}
 import org.apache.samza.config.StorageConfig._
 
-class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngineFactory[K, V]
-{
+class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngineFactory[K, V] {
   /**
    * Return a KeyValueStore instance for the given store name
    * @param storeName Name of the store
@@ -46,9 +44,18 @@ class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngi
     val storageConfig = containerContext.config.subset("stores." + storeName + ".", true)
     val isLoggedStore = containerContext.config.getChangelogStream(storeName).isDefined
     val rocksDbMetrics = new KeyValueStoreMetrics(storeName, registry)
-    val rocksDbOptions = RocksDbKeyValueStore.options(storageConfig, containerContext)
+    val rocksDbOptions = RocksDbOptionsHelper.options(storageConfig, containerContext)
     val rocksDbWriteOptions = new WriteOptions().setDisableWAL(true)
-    val rocksDb = new RocksDbKeyValueStore(storeDir, rocksDbOptions, storageConfig, isLoggedStore, storeName, rocksDbWriteOptions, rocksDbMetrics)
+    val rocksDbFlushOptions = new FlushOptions().setWaitForFlush(true)
+    val rocksDb = new RocksDbKeyValueStore(
+      storeDir,
+      rocksDbOptions,
+      storageConfig,
+      isLoggedStore,
+      storeName,
+      rocksDbWriteOptions,
+      rocksDbFlushOptions,
+      rocksDbMetrics)
     rocksDb
   }
 }

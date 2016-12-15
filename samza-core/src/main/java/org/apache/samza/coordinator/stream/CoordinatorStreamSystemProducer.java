@@ -91,6 +91,7 @@ public class CoordinatorStreamSystemProducer {
   public void stop() {
     log.info("Stopping coordinator stream producer.");
     systemProducer.stop();
+    isStarted = false;
   }
 
   /**
