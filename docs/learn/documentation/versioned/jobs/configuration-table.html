@@ -399,8 +399,8 @@
                     <td class="description">
                         This property specifies a default system for changelog, which will be used with the stream specified in
                         <a href="#stores-changelog" class="property">stores.store-name.changelog</a> config.
-                        User can overwrite this system by specifying both the system and the stream in
-                        <a href="#stores-changelog" class="property">stores.store-name.changelog</a> setting.
+                        User can override this system by specifying both the system and the stream in
+                        <a href="#stores-changelog" class="property">stores.store-name.changelog</a>.
                     </td>
                 </tr>
                 <tr>
@@ -1287,7 +1287,7 @@
                         this stream, and the store is restored from this stream after a failure. The value
                         of this property is given in the form
                         <span class="system">system-name</span>.<span class="stream">stream-name</span>.
-                        "system-name" part is optional. If it is omitted you must specify the system in
+                        The "system-name" part is optional. If it is omitted you must specify the system in
                         <a href="#job-changelog-system" class="property">job.changelog.system</a> config.
                         Any output stream can be used as changelog, but you must ensure that only one job
                         ever writes to a given changelog stream (each instance of a job and each store
