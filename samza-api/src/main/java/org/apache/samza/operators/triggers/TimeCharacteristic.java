@@ -16,16 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.operators.triggers;
 
-
-import org.apache.samza.operators.data.MessageEnvelope;
-
 /**
- * Marker interface for all triggers. The firing of a trigger indicates the completion of a window pane. Use the
- * {@link Triggers} APIs to build a {@link Trigger}
+ * Determines whether the specified time duration is in event time or processing time.
  */
-public interface Trigger<M extends MessageEnvelope, K, V> {
-
+public enum TimeCharacteristic {
+  PROCESSING_TIME, EVENT_TIME
 }

@@ -19,7 +19,7 @@
 package org.apache.samza.operators.windows;
 
 /**
- * Provides information about every result emitted from a window.
+ * Provides information about results emitted from a {@link Window}.
  *
  * @param <K> the type of the window key. Windows that are not keyed have a {@link Void} key type.
  *
@@ -36,7 +36,7 @@ public class WindowKey<K> {
   /**
    * The end time of this window pane.
    */
-  private final  long windowEnd;
+  private final long windowEnd;
 
   WindowKey(K key, long windowStart, long windowEnd) {
     this.windowStart = windowStart;

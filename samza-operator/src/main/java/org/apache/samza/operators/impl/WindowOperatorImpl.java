@@ -21,16 +21,13 @@ package org.apache.samza.operators.impl;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.windows.WindowOutput;
-import org.apache.samza.operators.windows.BaseWindowFunction;
+import org.apache.samza.operators.windows.WindowInternal;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
-/**
- * Implementation of the window operator.
- */
 public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends WindowOutput<WK, WV>> extends OperatorImpl<M, WM> {
 
-  private final BaseWindowFunction<M, K, WV> windowFn;
+  private final WindowInternal<M, K, WV> windowFn;
 
   public WindowOperatorImpl(WindowOperatorSpec spec) {
     windowFn = spec.getWindowFn();

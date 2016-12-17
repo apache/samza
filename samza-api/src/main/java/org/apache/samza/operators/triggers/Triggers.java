@@ -21,12 +21,13 @@ package org.apache.samza.operators.triggers;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.MessageEnvelope;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 /**
- * API for specifying {@link Trigger}s for a {@link org.apache.samza.operators.windows.WindowFunction}.
+ * API for specifying {@link Trigger}s for a {@link org.apache.samza.operators.windows.Window}.
  *
  * <p> The below example windows an input into tumbling windows of 10s, and emits early results periodically every 4s in
  * processing time, or for every 50 messages. It also specifies that window results are accumulating.
@@ -39,44 +40,54 @@ import java.util.List;
  *   }
  *  </pre>
  *
- * @param <M> type of input {@link MessageEnvelope} in the window
- * @param <K> type of key in {@link MessageEnvelope}
- * @param <V> type of value in the {@link MessageEnvelope}
+ * @param <M> the type of input {@link MessageEnvelope}s in the {@link org.apache.samza.operators.MessageStream}
+ * @param <K> the type of key in {@link MessageEnvelope}
+ * @param <V> the type of value in the {@link MessageEnvelope}
  *
  */
 @InterfaceStability.Unstable
 public final class Triggers<M extends MessageEnvelope, K, V> {
 
+  private Triggers() {
+
+  }
+
+  /**
+   * Creates a trigger that fires based on the count of {@link MessageEnvelope}s in the pane.
+   * @param count the number of elements to fire the trigger
+   * @return the created trigger
+   */
   public static Trigger count(long count) {
     return new CountTrigger(count);
   }
 
   /**
-   * Creates a trigger that emits results after a processing time delay from the first element in the pane.
+   * Creates a trigger that fires after the specified duration has passed since the first {@link MessageEnvelope} in
+   * the pane.
    *
-   * @param gap the gap period since the first element
+   * @param duration the delay period since the first element
    * @return the created trigger
    */
-  public static Trigger timeSinceFirstMessage(Duration gap) {
-    return new TimeSinceFirstMessageTrigger(new TimeTrigger(gap));
+  public static Trigger timeSinceFirstMessage(Duration duration) {
+    return new TimeSinceFirstMessageTrigger(duration);
   }
 
   /**
-   * Creates a trigger that emits results after a processing time delay from the last element in the pane.
+   * Creates a trigger that fires when there is no new {@link MessageEnvelope} for the specified duration in the pane.
    *
-   * @param gap the gap period since the last element
+   * @param duration the delay period since the last element
    * @return the created trigger
    */
-  public static Trigger timeSinceLastMessage(Duration gap) {
-    return new TimeSinceLastMessageTrigger(new TimeTrigger(gap));
+  public static Trigger timeSinceLastMessage(Duration duration) {
+    return new TimeSinceLastMessageTrigger(duration);
   }
 
   /**
-   * Creates a trigger that is the disjunction of the individual triggers.
+   * Creates a trigger that fires when any of the provided triggers fire.
    *
-   * @param <M> type of input {@link MessageEnvelope} in the window
-   * @param <K> type of key in {@link MessageEnvelope}
-   * @param <V> type of value in the {@link MessageEnvelope}
+   * @param <M> the type of input {@link MessageEnvelope} in the window
+   * @param <K> the type of key in {@link MessageEnvelope}
+   * @param <V> the type of value in the {@link MessageEnvelope}
    * @param triggers the individual triggers
    *
    * @return the created trigger
@@ -90,17 +101,19 @@ public final class Triggers<M extends MessageEnvelope, K, V> {
   }
 
   /**
-   * Repeats a trigger forever. Creating a {@link RepeatTrigger} from an {@link AnyTrigger} is equivalent to
-   * creating an {@link AnyTrigger} from its individual {@link RepeatTrigger}s.
+   * Repeats the provided trigger forever.
    *
-   * @param <M> type of input {@link MessageEnvelope} in the window
-   * @param <K> type of key in {@link MessageEnvelope}
-   * @param <V> type of value in the {@link MessageEnvelope}
+   * <p>Creating a {@link RepeatingTrigger} from an {@link AnyTrigger} is equivalent to creating an {@link AnyTrigger} from
+   * its individual {@link RepeatingTrigger}s.
+   *
+   * @param <M> the type of input {@link MessageEnvelope} in the window
+   * @param <K> the type of key in {@link MessageEnvelope}
+   * @param <V> the type of value in the {@link MessageEnvelope}
    * @param trigger the individual trigger to repeat
    *
    * @return the created trigger
    */
   public static <M extends MessageEnvelope, K, V> Trigger repeat(Trigger<M, K, V> trigger) {
-    return new RepeatTrigger<>(trigger);
+    return new RepeatingTrigger<>(trigger);
   }
 }

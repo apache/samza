@@ -28,13 +28,13 @@ import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
-import org.apache.samza.operators.triggers.Duration;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.task.TaskContext;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.lang.reflect.Field;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Set;
@@ -106,7 +106,7 @@ public class TestOperatorImpls {
     // test creation of linear chain
     MessageStreamImpl<TestMessageEnvelope> testInput = new MessageStreamImpl<>();
     TaskContext mockContext = mock(TaskContext.class);
-    testInput.map(m -> m).window(Windows.sessionWindow(Duration.milliseconds(1000)));
+    testInput.map(m -> m).window(Windows.tumblingWindow(Duration.ofMillis(1000)));
     RootOperatorImpl operatorChain = OperatorImpls.createOperatorImpls(testInput, mockContext);
     Set<OperatorImpl> subsSet = (Set<OperatorImpl>) nextOperatorsField.get(operatorChain);
     assertEquals(subsSet.size(), 1);

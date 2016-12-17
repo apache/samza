@@ -23,24 +23,18 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.windows.WindowOutput;
-import org.apache.samza.operators.windows.BaseWindowFunction;
+import org.apache.samza.operators.windows.WindowInternal;
 
-/**
- *
- */
 public class WindowOperatorSpec<M extends MessageEnvelope, K, WK, WV, WM extends WindowOutput<WK, WV>> implements OperatorSpec<WM> {
 
-  private final BaseWindowFunction windowFn;
+  private final WindowInternal windowFn;
 
-  /**
-   * The output {@link MessageStream}.
-   */
   private final MessageStreamImpl<WM> outputStream;
 
   private final String operatorId;
 
 
-  public WindowOperatorSpec(BaseWindowFunction window, String operatorId) {
+  public WindowOperatorSpec(WindowInternal window, String operatorId) {
     this.windowFn = window;
     this.outputStream = new MessageStreamImpl<>();
     this.operatorId = operatorId;
@@ -51,7 +45,7 @@ public class WindowOperatorSpec<M extends MessageEnvelope, K, WK, WV, WM extends
     return this.outputStream;
   }
 
-  public BaseWindowFunction getWindowFn() {
+  public WindowInternal getWindowFn() {
     return windowFn;
   }
 

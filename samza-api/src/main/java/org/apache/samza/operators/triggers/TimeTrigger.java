@@ -19,12 +19,15 @@
 package org.apache.samza.operators.triggers;
 
 /*
- * A {@link Trigger} that triggers based on the specified delay.
+ * A {@link Trigger} that fires based on the specified duration.
  */
 
-public class TimeTrigger extends Trigger {
+import java.time.Duration;
+
+public class TimeTrigger implements Trigger {
 
   private final Duration duration;
+  private final TimeCharacteristic characteristic = TimeCharacteristic.PROCESSING_TIME;
 
   public TimeTrigger(Duration duration) {
     this.duration = duration;

@@ -27,9 +27,9 @@ import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpecs;
-import org.apache.samza.operators.windows.WindowFunction;
+import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowOutput;
-import org.apache.samza.operators.windows.BaseWindowFunction;
+import org.apache.samza.operators.windows.WindowInternal;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -89,8 +89,8 @@ public class MessageStreamImpl<M extends MessageEnvelope> implements MessageStre
 
   @Override
   public <K, WK, WV, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(
-      WindowFunction<M, K, WK, WV, WM> windowFn) {
-    OperatorSpec<WM> wndOp = OperatorSpecs.createWindowOperator((BaseWindowFunction<MessageEnvelope, K, WV>) windowFn);
+      Window<M, K, WK, WV, WM> windowFn) {
+    OperatorSpec<WM> wndOp = OperatorSpecs.createWindowOperator((WindowInternal<MessageEnvelope, K, WV>) windowFn);
     this.registeredOperatorSpecs.add(wndOp);
     return wndOp.getOutputStream();
   }

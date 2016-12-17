@@ -23,10 +23,10 @@ import org.apache.samza.operators.data.IncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.data.Offset;
-import org.apache.samza.operators.triggers.Duration;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.system.SystemStreamPartition;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.function.BiFunction;
 
@@ -57,7 +57,7 @@ public class WindowTask implements StreamOperatorTask {
           (MessageType) m1.getMessage(),
           m1.getOffset(),
           m1.getSystemStreamPartition())).
-        window(Windows.sessionWindow(Duration.milliseconds(200), maxAggregator)
+        window(Windows.tumblingWindow(Duration.ofMillis(200), maxAggregator)
           )
     );
   }

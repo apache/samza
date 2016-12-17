@@ -16,16 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.operators.triggers;
-
 
 import org.apache.samza.operators.data.MessageEnvelope;
 
 /**
- * Marker interface for all triggers. The firing of a trigger indicates the completion of a window pane. Use the
- * {@link Triggers} APIs to build a {@link Trigger}
+ * A {@link Trigger} that repeats its underlying trigger forever.
+ * <pre> {@code
+ *  Trigger repeatingCount = RepeatTrigger.forever(Triggers.count(5));
+ *  }
  */
-public interface Trigger<M extends MessageEnvelope, K, V> {
+class RepeatingTrigger<M extends MessageEnvelope, K, V> implements Trigger<M, K, V> {
 
+  private final Trigger<M, K, V> trigger;
+
+  RepeatingTrigger(Trigger<M, K, V> trigger) {
+    this.trigger = trigger;
+  }
+
+  public static <M extends MessageEnvelope, K, V> Trigger<M, K, V> forever(Trigger<M, K, V> trigger) {
+    return new RepeatingTrigger<>(trigger);
+  }
 }

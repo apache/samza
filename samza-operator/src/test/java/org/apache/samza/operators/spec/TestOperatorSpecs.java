@@ -23,7 +23,7 @@ import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.windows.BaseWindowFunction;
+import org.apache.samza.operators.windows.WindowInternal;
 import org.apache.samza.operators.windows.WindowKey;
 import org.apache.samza.operators.windows.WindowOutput;
 import org.junit.Test;
@@ -61,7 +61,7 @@ public class TestOperatorSpecs {
   public void testGetWindowOperator() {
     Function<TestMessageEnvelope, String> keyExtractor = m -> "globalkey";
     BiFunction<TestMessageEnvelope, Integer, Integer> aggregator = (m, c) -> c + 1;
-    BaseWindowFunction<TestMessageEnvelope, String, Integer> window = new BaseWindowFunction<>(null, aggregator, keyExtractor, null);
+    WindowInternal<TestMessageEnvelope, String, Integer> window = new WindowInternal<>(null, aggregator, keyExtractor, null);
     WindowOperatorSpec spec = OperatorSpecs.<TestMessageEnvelope, String, WindowKey<String>, Integer,
       WindowOutput<WindowKey<String>, Integer>>createWindowOperator(window);
     assertEquals(spec.getWindowFn(), window);

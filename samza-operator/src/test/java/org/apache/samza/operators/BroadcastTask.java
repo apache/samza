@@ -24,10 +24,10 @@ import org.apache.samza.operators.data.IncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.Offset;
 import org.apache.samza.operators.triggers.Triggers;
-import org.apache.samza.operators.triggers.Duration;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.system.SystemStreamPartition;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.function.BiFunction;
 
@@ -63,16 +63,16 @@ public class BroadcastTask implements StreamOperatorTask {
         MessageStream<JsonMessageEnvelope> inputStream = entry.map(this::getInputMessage);
 
         inputStream.filter(this::myFilter1)
-          .window(Windows.sessionWindow(Duration.milliseconds(100), sumAggregator)
-            .setLateTrigger(Triggers.or(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.milliseconds(10)))));
+          .window(Windows.tumblingWindow(Duration.ofMillis(100), sumAggregator)
+            .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.ofMillis(10)))));
 
         inputStream.filter(this::myFilter1)
-          .window(Windows.sessionWindow(Duration.milliseconds(100), sumAggregator)
-            .setLateTrigger(Triggers.or(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.milliseconds(10)))));
+          .window(Windows.tumblingWindow(Duration.ofMillis(100), sumAggregator)
+            .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.ofMillis(10)))));
 
         inputStream.filter(this::myFilter1)
-          .window(Windows.sessionWindow(Duration.milliseconds(100), sumAggregator)
-            .setLateTrigger(Triggers.or(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.milliseconds(10)))));
+          .window(Windows.tumblingWindow(Duration.ofMillis(100), sumAggregator)
+            .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.ofMillis(10)))));
       });
   }
 

@@ -19,20 +19,22 @@
 
 package org.apache.samza.operators.triggers;
 
+import java.time.Duration;
+
 /*
- * A {@link Trigger} that triggers when there is no {@link MessageEnvelope} in a window pane for the duration
- * specified by the {@link TimeTrigger}.
+ * A {@link Trigger} that triggers when there is no new {@link MessageEnvelope} in the window pane for the specified duration.
  */
-public class TimeSinceLastMessageTrigger extends Trigger {
+public class TimeSinceLastMessageTrigger implements Trigger {
 
-  private final TimeTrigger timeTrigger;
+  private final Duration duration;
+  private final TimeCharacteristic characteristic = TimeCharacteristic.PROCESSING_TIME;
 
-  public TimeSinceLastMessageTrigger(TimeTrigger trigger) {
-    this.timeTrigger = trigger;
+  public TimeSinceLastMessageTrigger(Duration duration) {
+    this.duration = duration;
   }
 
-  public TimeTrigger getTimeTrigger() {
-    return timeTrigger;
+  public Duration getDuration() {
+    return duration;
   }
 }
 
