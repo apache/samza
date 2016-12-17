@@ -71,10 +71,10 @@ public class OperatorSpecs {
   /**
    * Creates a {@link WindowOperatorSpec}.
    *
-   * @param windowFn the definition for this window that specifies everything about this {@link org.apache.samza.operators.windows.WindowFunction}.
+   * @param windowFn the {@link org.apache.samza.operators.windows.WindowFunction} that specifies this window.
    * @param <M> the type of input {@link MessageEnvelope}
    * @param <K> the type of key in the {@link MessageEnvelope} in this {@link org.apache.samza.operators.MessageStream}. If a key is specified,
-   *           results are emitted per-key
+   *            results are emitted per-key
    * @param <WK> the type of key in the {@link WindowOutput}
    * @param <WV> the type of value in the window
    * @param <WM> the type of output {@link WindowOutput}

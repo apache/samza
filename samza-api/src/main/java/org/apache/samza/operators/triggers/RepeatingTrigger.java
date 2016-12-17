@@ -16,22 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.operators.triggers;
 
-/*
- * A {@link Trigger} that triggers when there is no new {@link MessageEnvelope} in the window pane for the specified duration.
+import org.apache.samza.operators.data.MessageEnvelope;
+
+/**
+ * A {@link Trigger} that repeats its underlying trigger forever.
+ * <pre> {@code
+ *  Trigger repeatingCount = RepeatTrigger.forever(Triggers.count(5));
+ *  }
  */
-public class TimeSinceLastMessageTrigger implements Trigger {
+class RepeatingTrigger<M extends MessageEnvelope, K, V> implements Trigger<M, K, V> {
 
-  private final Duration duration;
+  private final Trigger<M, K, V> trigger;
 
-  public TimeSinceLastMessageTrigger(Duration duration) {
-    this.duration = duration;
+  RepeatingTrigger(Trigger<M, K, V> trigger) {
+    this.trigger = trigger;
   }
 
-  public Duration getDuration() {
-    return duration;
+  public static <M extends MessageEnvelope, K, V> Trigger<M, K, V> forever(Trigger<M, K, V> trigger) {
+    return new RepeatingTrigger<>(trigger);
   }
 }
-

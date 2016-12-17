@@ -64,15 +64,15 @@ public class BroadcastTask implements StreamOperatorTask {
 
         inputStream.filter(this::myFilter1)
           .window(Windows.sessionWindow(Duration.milliseconds(100), sumAggregator)
-            .setLateTrigger(Triggers.or(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.milliseconds(10)))));
+            .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.milliseconds(10)))));
 
         inputStream.filter(this::myFilter1)
           .window(Windows.sessionWindow(Duration.milliseconds(100), sumAggregator)
-            .setLateTrigger(Triggers.or(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.milliseconds(10)))));
+            .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.milliseconds(10)))));
 
         inputStream.filter(this::myFilter1)
           .window(Windows.sessionWindow(Duration.milliseconds(100), sumAggregator)
-            .setLateTrigger(Triggers.or(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.milliseconds(10)))));
+            .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.milliseconds(10)))));
       });
   }
 

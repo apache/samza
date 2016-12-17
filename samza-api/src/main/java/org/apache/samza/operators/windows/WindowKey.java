@@ -19,7 +19,7 @@
 package org.apache.samza.operators.windows;
 
 /**
- * Provides information about every result emitted from a window.
+ * Provides information about results emitted from a {@link WindowFunction}.
  *
  * @param <K> the type of the window key. Windows that are not keyed have a {@link Void} key type.
  *

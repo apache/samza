@@ -24,19 +24,17 @@ import org.apache.samza.operators.triggers.Trigger;
 
 /**
  * A {@link WindowFunction} slices a {@link org.apache.samza.operators.MessageStream} into smaller finite chunks for
- * further processing. Every result fired from a window is referred to as a pane. A pane has one or more {@link MessageEnvelope}s.
- * Use the {@link Windows} APIs to specify various windowing functions.
+ * further processing.  Use the {@link Windows} APIs to specify various windowing functions.
  *
  * <p> A window has the following aspects:
  * <ul>
- *   <li> Key: A {@link WindowFunction} transform can be evaluated on a "per-key" basis. For instance, A common use-case
- *   is to group a stream based on a specified key over a tumbling time window. In this case, the triggering behavior is
- *   per-key and per-window.
- *   <li> Default Trigger: Every {@link WindowFunction} has a default trigger that specifies when to emit
- *   results for the window.
+ *   <li> Pane: </li>Every result emitted from a window contains one or more {@link MessageEnvelope}s and is referred
+ *   to as a window pane.
+ *   <li> Key: A {@link WindowFunction} can group its results by a key. For instance, A common use-case is to group a
+ *   stream by a specified key over a tumbling time window. In this case, the triggers are evaluated per-key.
  *   <li> Early and Late Triggers: An early trigger allows to emit early, partial window results speculatively. A late trigger
- *   allows to handle arrival of late data. Refer to the {@link org.apache.samza.operators.triggers.Triggers} APIs for
- *   configuring early and late triggers.
+ *   allows handling of late data arrivals. Refer to the {@link org.apache.samza.operators.triggers.Triggers} APIs for
+ *   creating early and late triggers.
  * </ul>
  *
  * @param <M> type of input {@link MessageEnvelope}.
@@ -46,41 +44,42 @@ import org.apache.samza.operators.triggers.Trigger;
  * @param <WV> type of value stored in the {@link WindowFunction}.
  * @param <WM> type of the {@link WindowFunction} result.
  */
-
 @InterfaceStability.Unstable
 public interface WindowFunction<M extends MessageEnvelope, K, WK, WV, WM extends WindowOutput<WK, WV>> {
 
   /**
-   * Set the early triggers for this {@link WindowFunction}. Use the {@link org.apache.samza.operators.triggers.Triggers}
-   * APIs to create instances of {@link Trigger}
+   * Set the early triggers for this {@link WindowFunction}.
+   * <p>Use the {@link org.apache.samza.operators.triggers.Triggers} APIs to create instances of {@link Trigger}
    *
    * @param trigger the early trigger
-   * @return the {@link WindowFunction} function w/ the trigger
+   * @return the {@link WindowFunction} function with the early trigger
    */
   WindowFunction<M, K, WK, WV, WM> setEarlyTrigger(Trigger<M, K, WV> trigger);
 
   /**
-   * Set the late triggers for this {@link WindowFunction}. Use the {@link org.apache.samza.operators.triggers.Triggers}
-   * APIs to create instances of {@link Trigger}
+   * Set the late triggers for this {@link WindowFunction}.
+   * <p>Use the {@link org.apache.samza.operators.triggers.Triggers} APIs to create instances of {@link Trigger}
    *
    * @param trigger the late trigger
-   * @return the {@link WindowFunction} function w/ the trigger
+   * @return the {@link WindowFunction} function with the late trigger
    */
   WindowFunction<M, K, WK, WV, WM> setLateTrigger(Trigger<M, K, WV> trigger);
 
   /**
-   * Specifies that previously fired panes should be discarded. This is applicable when each window pane is
+   * Specifies that results from a pane should be retained after they are emitted. This is applicable when each
+   * window pane accumulates results from previously fired panes.
+   *
+   * @return the {@link WindowFunction} function that accumulates previously emitted results.
+   */
+  WindowFunction<M, K, WK, WV, WM> accumulateFiredPanes();
+
+  /**
+   * Specifies that results from a pane should be discarded once they are emitted. This is applicable when each window pane is
    * independent.
    *
-   * @return the {@link WindowFunction} function that discards previously fired results.
+   * @return the {@link WindowFunction} function that discards previously emitted results.
    */
   WindowFunction<M, K, WK, WV, WM> discardFiredPanes();
 
-  /**
-   * Specifies that results of previously fired panes should be accumulated.
-   *
-   * @return the {@link WindowFunction} function that accumulates previously fired results.
-   */
-  WindowFunction<M, K, WK, WV, WM> accumulateFiredPanes();
 
 }

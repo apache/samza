@@ -23,8 +23,9 @@ package org.apache.samza.operators.triggers;
 import org.apache.samza.operators.data.MessageEnvelope;
 
 /**
- * Base class of all triggers. Use the {@link Triggers} APIs to specify a {@link Trigger}
+ * Marker interface for all triggers. The firing of a trigger indicates the completion of a window pane. Use the
+ * {@link Triggers} APIs to build a {@link Trigger}
  */
-public abstract class Trigger<M extends MessageEnvelope, K, V> {
+public interface Trigger<M extends MessageEnvelope, K, V> {
 
 }

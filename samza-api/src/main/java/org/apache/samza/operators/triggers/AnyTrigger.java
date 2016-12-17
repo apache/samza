@@ -23,10 +23,9 @@ import org.apache.samza.operators.data.MessageEnvelope;
 import java.util.List;
 
 /**
- * A {@link Trigger} that is the disjunction of its individual triggers. This trigger fires when any of its
- * individual triggers has fired.
+ * A {@link Trigger} fires when any of its individual triggers has fired.
  */
-public class AnyTrigger<M extends MessageEnvelope, K, V> extends Trigger {
+public class AnyTrigger<M extends MessageEnvelope, K, V> implements Trigger {
 
   private final List<Trigger> triggerList;
 

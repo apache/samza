@@ -25,9 +25,6 @@ import org.apache.samza.operators.windows.BaseWindowFunction;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
-/**
- * Implementation of the window operator.
- */
 public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends WindowOutput<WK, WV>> extends OperatorImpl<M, WM> {
 
   private final BaseWindowFunction<M, K, WV> windowFn;

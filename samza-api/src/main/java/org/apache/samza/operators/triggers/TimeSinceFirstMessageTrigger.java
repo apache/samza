@@ -19,21 +19,20 @@
 package org.apache.samza.operators.triggers;
 
 /*
- * A {@link Trigger} that triggers when there is no {@link MessageEnvelope} in a window pane for the duration
- * specified by the {@link TimeTrigger}.
+ * A {@link Trigger} that fires after the specified duration has passed since the first {@link MessageEnvelope} in
+ * the window pane.
  */
 
-public class TimeSinceFirstMessageTrigger extends Trigger {
+public class TimeSinceFirstMessageTrigger implements Trigger {
 
-  private final Trigger timeTrigger;
+  private final Duration duration;
 
-  TimeSinceFirstMessageTrigger(TimeTrigger timeTrigger) {
-    this.timeTrigger = timeTrigger;
+  TimeSinceFirstMessageTrigger(Duration duration) {
+    this.duration = duration;
   }
 
-  public Trigger getTimeTrigger() {
-    return timeTrigger;
+  public Duration getDuration() {
+    return duration;
   }
 }
-
 

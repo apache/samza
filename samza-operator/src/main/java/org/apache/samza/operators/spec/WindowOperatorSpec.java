@@ -25,16 +25,10 @@ import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.windows.WindowOutput;
 import org.apache.samza.operators.windows.BaseWindowFunction;
 
-/**
- *
- */
 public class WindowOperatorSpec<M extends MessageEnvelope, K, WK, WV, WM extends WindowOutput<WK, WV>> implements OperatorSpec<WM> {
 
   private final BaseWindowFunction windowFn;
 
-  /**
-   * The output {@link MessageStream}.
-   */
   private final MessageStreamImpl<WM> outputStream;
 
   private final String operatorId;
