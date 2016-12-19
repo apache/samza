@@ -22,7 +22,7 @@ package org.apache.samza.util
 import java.util.Properties
 import java.util.concurrent.atomic.AtomicLong
 import kafka.admin.AdminUtils
-import org.I0Itec.zkclient.ZkClient
+import kafka.utils.ZkUtils
 import org.apache.kafka.clients.producer.{Producer, ProducerRecord}
 import org.apache.kafka.common.PartitionInfo
 import org.apache.samza.config.Config
@@ -86,7 +86,7 @@ object KafkaUtil extends Logging {
 }
 
 class KafkaUtil(val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
-                val connectZk: () => ZkClient) extends Logging {
+                val connectZk: () => ZkUtils) extends Logging {
   /**
    * Common code for creating a topic in Kafka
    *

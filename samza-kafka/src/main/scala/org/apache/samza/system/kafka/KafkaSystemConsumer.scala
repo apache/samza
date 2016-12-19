@@ -24,7 +24,7 @@ import org.apache.samza.util.Logging
 import kafka.message.Message
 import kafka.message.MessageAndOffset
 import org.apache.samza.Partition
-import kafka.utils.Utils
+import org.apache.kafka.common.utils.Utils
 import org.apache.samza.util.Clock
 import java.util.UUID
 import kafka.serializer.DefaultDecoder
@@ -197,13 +197,13 @@ private[kafka] class KafkaSystemConsumer(
         // This avoids trying to re-add the same topic partition repeatedly
         def refresh(tp: List[TopicAndPartition]) = {
           val head :: rest = tpToRefresh
-          // refreshBrokers can be called from abdicate and refreshDropped, 
-          // both of which are triggered from BrokerProxy threads. To prevent 
-          // accidentally creating multiple objects for the same broker, or 
-          // accidentally not updating the topicPartitionsAndOffsets variable, 
-          // we need to lock. 
+          // refreshBrokers can be called from abdicate and refreshDropped,
+          // both of which are triggered from BrokerProxy threads. To prevent
+          // accidentally creating multiple objects for the same broker, or
+          // accidentally not updating the topicPartitionsAndOffsets variable,
+          // we need to lock.
           this.synchronized {
-            // Check if we still need this TopicAndPartition inside the 
+            // Check if we still need this TopicAndPartition inside the
             // critical section. If we don't, then skip it.
             topicPartitionsAndOffsets.get(head) match {
               case Some(nextOffset) =>

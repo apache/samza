@@ -20,6 +20,7 @@
 package org.apache.samza.system.kafka
 
 import java.util.Properties
+import kafka.utils.ZkUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.util.{Logging, KafkaUtil, ExponentialSleepStrategy, ClientUtilTopicMetadataStore}
 import org.apache.samza.config.Config
@@ -29,8 +30,6 @@ import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.system.SystemFactory
 import org.apache.samza.config.StorageConfig._
-import org.I0Itec.zkclient.ZkClient
-import kafka.utils.ZKStringSerializer
 import org.apache.samza.system.SystemProducer
 import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemConsumer
@@ -90,8 +89,8 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val getProducer = () => { new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties) }
     val metrics = new KafkaSystemProducerMetrics(systemName, registry)
 
-    // Unlike consumer, no need to use encoders here, since they come for free 
-    // inside the producer configs. Kafka's producer will handle all of this 
+    // Unlike consumer, no need to use encoders here, since they come for free
+    // inside the producer configs. Kafka's producer will handle all of this
     // for us.
 
     new KafkaSystemProducer(
@@ -111,7 +110,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val zkConnect = Option(consumerConfig.zkConnect)
       .getOrElse(throw new SamzaException("no zookeeper.connect defined in config"))
     val connectZk = () => {
-      new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer)
+      ZkUtils(zkConnect, 6000, 6000, false)
     }
     val coordinatorStreamProperties = getCoordinatorTopicProperties(config)
     val coordinatorStreamReplicationFactor = config.getCoordinatorReplicationFactor.toInt

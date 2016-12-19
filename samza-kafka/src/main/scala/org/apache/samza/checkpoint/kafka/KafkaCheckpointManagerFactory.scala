@@ -21,8 +21,7 @@ package org.apache.samza.checkpoint.kafka
 
 import java.util.Properties
 
-import kafka.utils.ZKStringSerializer
-import org.I0Itec.zkclient.ZkClient
+import kafka.utils.ZkUtils
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointManager, CheckpointManagerFactory}
@@ -40,8 +39,8 @@ object KafkaCheckpointManagerFactory {
     "compression.type" -> "none")
 
   // Set the checkpoint topic configs to have a very small segment size and
-  // enable log compaction. This keeps job startup time small since there 
-  // are fewer useless (overwritten) messages to read from the checkpoint 
+  // enable log compaction. This keeps job startup time small since there
+  // are fewer useless (overwritten) messages to read from the checkpoint
   // topic.
   def getCheckpointTopicProperties(config: Config) = {
     val segmentBytes: Int = if (config == null) {
@@ -79,7 +78,7 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     val zkConnect = Option(consumerConfig.zkConnect)
       .getOrElse(throw new SamzaException("no zookeeper.connect defined in config"))
     val connectZk = () => {
-      new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer)
+      ZkUtils(zkConnect, 6000, 6000, false)
     }
     val socketTimeout = consumerConfig.socketTimeoutMs
 

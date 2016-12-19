@@ -22,17 +22,19 @@ package org.apache.samza.test.integration
 import java.util
 import java.util.Properties
 import java.util.concurrent.{CountDownLatch, TimeUnit}
+import javax.security.auth.login.Configuration
 
 import kafka.admin.AdminUtils
 import kafka.consumer.{Consumer, ConsumerConfig}
 import kafka.message.MessageAndMetadata
 import kafka.server.{KafkaConfig, KafkaServer}
-import kafka.utils.{TestUtils, TestZKUtils, Utils, ZKStringSerializer}
+import kafka.utils.{TestUtils, CoreUtils, ZkUtils}
 import kafka.zk.EmbeddedZookeeper
-import org.I0Itec.zkclient.ZkClient
 import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig, ProducerRecord}
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.Checkpoint
+import org.apache.kafka.common.protocol.SecurityProtocol
+import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.config.{Config, KafkaProducerConfig, MapConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.local.ThreadJobFactory
@@ -44,7 +46,7 @@ import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, TopicMeta
 import org.junit.Assert._
 
 import scala.collection.JavaConversions._
-import scala.collection.mutable.{ArrayBuffer, HashMap, SynchronizedMap}
+import scala.collection.mutable.{ArrayBuffer, Buffer, HashMap, SynchronizedMap}
 
 /*
  * This creates an singleton instance of TestBaseStreamTask and implement the helper functions to
@@ -58,39 +60,19 @@ object StreamTaskTestUtil {
   val TOTAL_TASK_NAMES = 1
   val REPLICATION_FACTOR = 3
 
-  val zkConnect: String = TestZKUtils.zookeeperConnect
-  var zkClient: ZkClient = null
   val zkConnectionTimeout = 6000
   val zkSessionTimeout = 6000
 
-  val brokerId1 = 0
-  val brokerId2 = 1
-  val brokerId3 = 2
-  val ports = TestUtils.choosePorts(3)
-  val (port1, port2, port3) = (ports(0), ports(1), ports(2))
+  var zkUtils: ZkUtils = null
+  var zookeeper: EmbeddedZookeeper = null
+  var brokers: String = null
+  def zkPort: Int = zookeeper.port
+  def zkConnect: String = s"127.0.0.1:$zkPort"
 
-  val props1 = TestUtils.createBrokerConfig(brokerId1, port1)
-  val props2 = TestUtils.createBrokerConfig(brokerId2, port2)
-  val props3 = TestUtils.createBrokerConfig(brokerId3, port3)
-  props1.setProperty("auto.create.topics.enable","false")
-  props2.setProperty("auto.create.topics.enable","false")
-  props3.setProperty("auto.create.topics.enable","false")
-
-  val config = new util.HashMap[String, Object]()
-  val brokers = "localhost:%d,localhost:%d,localhost:%d" format (port1, port2, port3)
-  config.put("bootstrap.servers", brokers)
-  config.put("request.required.acks", "-1")
-  config.put("serializer.class", "kafka.serializer.StringEncoder")
-  config.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "1")
-  config.put(ProducerConfig.RETRIES_CONFIG, (new Integer(Integer.MAX_VALUE-1)).toString())
-  val producerConfig = new KafkaProducerConfig("kafka", "i001", config)
   var producer: Producer[Array[Byte], Array[Byte]] = null
   val cp1 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "123"))
   val cp2 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "12345"))
-  var zookeeper: EmbeddedZookeeper = null
-  var server1: KafkaServer = null
-  var server2: KafkaServer = null
-  var server3: KafkaServer = null
+
   var metadataStore: TopicMetadataStore = null
 
   /*
@@ -107,8 +89,8 @@ object StreamTaskTestUtil {
     "systems.kafka.samza.offset.default" -> "oldest", // applies to a nonempty topic
     "systems.kafka.consumer.auto.offset.reset" -> "smallest", // applies to an empty topic
     "systems.kafka.samza.msg.serde" -> "string",
-    "systems.kafka.consumer.zookeeper.connect" -> zkConnect,
-    "systems.kafka.producer.bootstrap.servers" -> ("localhost:%s" format port1),
+    "systems.kafka.consumer.zookeeper.connect" -> "localhost:2181",
+    "systems.kafka.producer.bootstrap.servers" -> "localhost:9092",
     // Since using state, need a checkpoint manager
     "task.checkpoint.factory" -> "org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory",
     "task.checkpoint.system" -> "kafka",
@@ -122,12 +104,36 @@ object StreamTaskTestUtil {
     TestTask.reset()
   }
 
+  var servers: Buffer[KafkaServer] = null
+
   def beforeSetupServers {
-    zookeeper = new EmbeddedZookeeper(zkConnect)
-    server1 = TestUtils.createServer(new KafkaConfig(props1))
-    server2 = TestUtils.createServer(new KafkaConfig(props2))
-    server3 = TestUtils.createServer(new KafkaConfig(props3))
-    zkClient = new ZkClient(zkConnect + "/", 6000, 6000, ZKStringSerializer)
+    zookeeper = new EmbeddedZookeeper()
+    zkUtils = ZkUtils(zkConnect, zkSessionTimeout, zkConnectionTimeout, JaasUtils.isZkSecurityEnabled())
+
+    val props = TestUtils.createBrokerConfigs(3, zkConnect, true)
+
+    val configs = props.map(p => {
+      p.setProperty("auto.create.topics.enable","false")
+      KafkaConfig.fromProps(p)
+    })
+
+    servers = configs.map(TestUtils.createServer(_)).toBuffer
+
+    val brokerList = TestUtils.getBrokerListStrFromServers(servers, SecurityProtocol.PLAINTEXT)
+    brokers = brokerList.split(",").map(p => "localhost" + p).mkString(",")
+
+    jobConfig ++= Map("systems.kafka.consumer.zookeeper.connect" -> zkConnect,
+      "systems.kafka.producer.bootstrap.servers" -> brokers)
+
+    val config = new util.HashMap[String, Object]()
+
+    config.put("bootstrap.servers", brokers)
+    config.put("request.required.acks", "-1")
+    config.put("serializer.class", "kafka.serializer.StringEncoder")
+    config.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "1")
+    config.put(ProducerConfig.RETRIES_CONFIG, (new Integer(Integer.MAX_VALUE-1)).toString())
+    val producerConfig = new KafkaProducerConfig("kafka", "i001", config)
+
     producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
     metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")
 
@@ -137,7 +143,7 @@ object StreamTaskTestUtil {
 
   def createTopics {
     AdminUtils.createTopic(
-      zkClient,
+      zkUtils,
       INPUT_TOPIC,
       TOTAL_TASK_NAMES,
       REPLICATION_FACTOR)
@@ -174,18 +180,15 @@ object StreamTaskTestUtil {
   }
 
   def afterCleanLogDirs {
-    producer.close()
-    server1.shutdown
-    server1.awaitShutdown()
-    server2.shutdown
-    server2.awaitShutdown()
-    server3.shutdown
-    server3.awaitShutdown()
-    Utils.rm(server1.config.logDirs)
-    Utils.rm(server2.config.logDirs)
-    Utils.rm(server3.config.logDirs)
-    zkClient.close
-    zookeeper.shutdown
+    servers.foreach(_.shutdown())
+    servers.foreach(server => CoreUtils.delete(server.config.logDirs))
+
+    if (zkUtils != null)
+     CoreUtils.swallow(zkUtils.close())
+    if (zookeeper != null)
+      CoreUtils.swallow(zookeeper.shutdown())
+    Configuration.setConfiguration(null)
+
   }
 }
 
