@@ -36,4 +36,3 @@ public class TimeSinceLastMessageTrigger implements Trigger {
     return duration;
   }
 }
-

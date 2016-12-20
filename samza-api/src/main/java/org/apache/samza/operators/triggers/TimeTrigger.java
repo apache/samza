@@ -36,4 +36,3 @@ public class TimeTrigger implements Trigger {
     return duration;
   }
 }
-

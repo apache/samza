@@ -37,4 +37,3 @@ public class TimeSinceFirstMessageTrigger implements Trigger {
     return duration;
   }
 }
-

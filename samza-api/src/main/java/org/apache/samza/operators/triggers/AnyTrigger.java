@@ -19,7 +19,6 @@
 package org.apache.samza.operators.triggers;
 
 import org.apache.samza.operators.data.MessageEnvelope;
-
 import java.util.List;
 
 /**

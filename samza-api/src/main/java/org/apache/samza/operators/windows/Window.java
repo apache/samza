@@ -37,12 +37,12 @@ import org.apache.samza.operators.triggers.Trigger;
  *   creating early and late triggers.
  * </ul>
  *
- * @param <M> type of input {@link MessageEnvelope}.
- * @param <K> type of key in the {@link MessageEnvelope} in this {@link org.apache.samza.operators.MessageStream}. If a key is specified,
+ * @param <M> the type of the input {@link MessageEnvelope}.
+ * @param <K> the type of the key in the {@link MessageEnvelope} in this {@link org.apache.samza.operators.MessageStream}. If a key is specified,
  *           results are emitted per-key.
- * @param <WK> type of key in the {@link Window} output.
- * @param <WV> type of value stored in the {@link Window}.
- * @param <WM> type of the {@link Window} result.
+ * @param <WK> the type of the key in the {@link Window} output.
+ * @param <WV> the type of the value stored in the {@link Window}.
+ * @param <WM> the type of the {@link Window} result.
  */
 @InterfaceStability.Unstable
 public interface Window<M extends MessageEnvelope, K, WK, WV, WM extends WindowOutput<WK, WV>> {
@@ -80,6 +80,5 @@ public interface Window<M extends MessageEnvelope, K, WK, WV, WM extends WindowO
    * @return the {@link Window} function that discards previously emitted results.
    */
   Window<M, K, WK, WV, WM> discardFiredPanes();
-
 
 }
