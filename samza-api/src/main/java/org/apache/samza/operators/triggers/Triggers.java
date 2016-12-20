@@ -27,34 +27,31 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * API for specifying {@link Trigger}s for a {@link org.apache.samza.operators.windows.Window}.
+ * API for creating {@link Trigger} instances to be used with a {@link org.apache.samza.operators.windows.Window}.
  *
- * <p> The below example windows an input into tumbling windows of 10s, and emits early results periodically every 4s in
+ * <p> The below example groups an input into tumbling windows of 10s and emits early results periodically every 4s in
  * processing time, or for every 50 messages. It also specifies that window results are accumulating.
  *
  * <pre> {@code
- * MessageStream<> windowedStream = stream.window(
- *   Windows.tumblingWindow(Duration.of(10, TimeUnit.SECONDS))
+ *   MessageStream<> windowedStream = stream.window(Windows.tumblingWindow(Duration.of(10, TimeUnit.SECONDS))
  *     .setEarlyTrigger(Triggers.repeat(Triggers.any(Triggers.count(50), Triggers.timeSinceFirstMessage(Duration.of(4, TimeUnit.SECONDS))))))
  *     .accumulateFiredPanes());
- *   }
- *  </pre>
+ * }</pre>
  *
  * @param <M> the type of input {@link MessageEnvelope}s in the {@link org.apache.samza.operators.MessageStream}
- * @param <K> the type of key in {@link MessageEnvelope}
+ * @param <K> the type of key in the {@link MessageEnvelope}
  * @param <V> the type of value in the {@link MessageEnvelope}
- *
  */
 @InterfaceStability.Unstable
 public final class Triggers<M extends MessageEnvelope, K, V> {
 
-  private Triggers() {
-
-  }
+  private Triggers() { }
 
   /**
-   * Creates a trigger that fires based on the count of {@link MessageEnvelope}s in the pane.
-   * @param count the number of elements to fire the trigger
+   * Creates a {@link Trigger} that fires when the number of {@link MessageEnvelope}s in the pane
+   * reaches the specified count.
+   *
+   * @param count the number of {@link MessageEnvelope}s to fire the trigger after
    * @return the created trigger
    */
   public static Trigger count(long count) {
@@ -65,7 +62,7 @@ public final class Triggers<M extends MessageEnvelope, K, V> {
    * Creates a trigger that fires after the specified duration has passed since the first {@link MessageEnvelope} in
    * the pane.
    *
-   * @param duration the delay period since the first element
+   * @param duration the duration since the first element
    * @return the created trigger
    */
   public static Trigger timeSinceFirstMessage(Duration duration) {
@@ -75,7 +72,7 @@ public final class Triggers<M extends MessageEnvelope, K, V> {
   /**
    * Creates a trigger that fires when there is no new {@link MessageEnvelope} for the specified duration in the pane.
    *
-   * @param duration the delay period since the last element
+   * @param duration the duration since the last element
    * @return the created trigger
    */
   public static Trigger timeSinceLastMessage(Duration duration) {
@@ -86,7 +83,7 @@ public final class Triggers<M extends MessageEnvelope, K, V> {
    * Creates a trigger that fires when any of the provided triggers fire.
    *
    * @param <M> the type of input {@link MessageEnvelope} in the window
-   * @param <K> the type of key in {@link MessageEnvelope}
+   * @param <K> the type of key in the {@link MessageEnvelope}
    * @param <V> the type of value in the {@link MessageEnvelope}
    * @param triggers the individual triggers
    * @return the created trigger

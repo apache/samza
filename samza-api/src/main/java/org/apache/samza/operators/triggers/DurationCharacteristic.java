@@ -19,8 +19,8 @@
 package org.apache.samza.operators.triggers;
 
 /**
- * Determines whether the specified time duration is in event time or processing time.
+ * Indicates whether the associated time duration is in event time or processing time.
  */
-public enum TimeCharacteristic {
+public enum DurationCharacteristic {
   PROCESSING_TIME, EVENT_TIME
 }

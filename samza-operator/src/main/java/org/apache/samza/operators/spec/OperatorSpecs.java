@@ -23,7 +23,7 @@ import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.windows.WindowOutput;
+import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.WindowInternal;
 
 import java.util.ArrayList;
@@ -51,7 +51,7 @@ public class OperatorSpecs {
    * @param <OM>  type of output {@link MessageEnvelope}
    * @return  the {@link StreamOperatorSpec}
    */
-  public static <M extends MessageEnvelope, OM extends MessageEnvelope> StreamOperatorSpec<M, OM> createStreamOperator(
+  public static <M extends MessageEnvelope, OM extends MessageEnvelope> StreamOperatorSpec<M, OM> createStreamOperatorSpec(
       FlatMapFunction<M, OM> transformFn) {
     return new StreamOperatorSpec<>(transformFn);
   }
@@ -63,25 +63,24 @@ public class OperatorSpecs {
    * @param <M>  type of input {@link MessageEnvelope}
    * @return  the {@link SinkOperatorSpec}
    */
-  public static <M extends MessageEnvelope> SinkOperatorSpec<M> createSinkOperator(SinkFunction<M> sinkFn) {
+  public static <M extends MessageEnvelope> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<M> sinkFn) {
     return new SinkOperatorSpec<>(sinkFn);
   }
-
 
   /**
    * Creates a {@link WindowOperatorSpec}.
    *
-   * @param window the specification of the window.
+   * @param window the description of the window.
    * @param <M> the type of input {@link MessageEnvelope}
    * @param <K> the type of key in the {@link MessageEnvelope} in this {@link org.apache.samza.operators.MessageStream}. If a key is specified,
    *            results are emitted per-key
-   * @param <WK> the type of key in the {@link WindowOutput}
+   * @param <WK> the type of key in the {@link WindowPane}
    * @param <WV> the type of value in the window
-   * @param <WM> the type of output {@link WindowOutput}
+   * @param <WM> the type of output {@link WindowPane}
    * @return  the {@link WindowOperatorSpec}
    */
 
-  public static <M extends MessageEnvelope, K, WK, WV, WM extends WindowOutput<WK, WV>> WindowOperatorSpec<M, K, WK, WV, WM> createWindowOperator(WindowInternal<M, K, WV> window) {
+  public static <M extends MessageEnvelope, K, WK, WV, WM extends WindowPane<WK, WV>> WindowOperatorSpec<M, K, WK, WV, WM> createWindowOperatorSpec(WindowInternal<M, K, WV> window) {
     return new WindowOperatorSpec<>(window, OperatorSpecs.getOperatorId());
   }
 
@@ -96,7 +95,7 @@ public class OperatorSpecs {
    * @param <OM>  the type of {@link MessageEnvelope} in the join output
    * @return  the {@link PartialJoinOperatorSpec}
    */
-  public static <M extends MessageEnvelope<K, ?>, K, JM extends MessageEnvelope<K, ?>, OM extends MessageEnvelope> PartialJoinOperatorSpec<M, K, JM, OM> createPartialJoinOperator(
+  public static <M extends MessageEnvelope<K, ?>, K, JM extends MessageEnvelope<K, ?>, OM extends MessageEnvelope> PartialJoinOperatorSpec<M, K, JM, OM> createPartialJoinOperatorSpec(
       BiFunction<M, JM, OM> partialJoinFn, MessageStreamImpl<OM> joinOutput) {
     return new PartialJoinOperatorSpec<>(partialJoinFn, joinOutput, OperatorSpecs.getOperatorId());
   }
@@ -108,7 +107,7 @@ public class OperatorSpecs {
    * @param <M>  the type of input {@link MessageEnvelope}
    * @return  the {@link StreamOperatorSpec} for the merge
    */
-  public static <M extends MessageEnvelope> StreamOperatorSpec<M, M> createMergeOperator(MessageStreamImpl<M> mergeOutput) {
+  public static <M extends MessageEnvelope> StreamOperatorSpec<M, M> createMergeOperatorSpec(MessageStreamImpl<M> mergeOutput) {
     return new StreamOperatorSpec<M, M>(t ->
       new ArrayList<M>() { {
           this.add(t);

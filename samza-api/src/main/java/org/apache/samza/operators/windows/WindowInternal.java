@@ -26,20 +26,15 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- *  Internal representation of a {@link Window}. This specifies default triggers for the {@link Window}, emission
- *  of early or late results and whether to accumulate or discard previous results.
+ *  Internal representation of a {@link Window}. This specifies default, early and late triggers for the {@link Window}
+ *  and whether to accumulate or discard previously emitted panes.
  */
-
 @InterfaceStability.Unstable
-public class WindowInternal<M extends MessageEnvelope, K, WV> implements Window<M, K, WindowKey<K>, WV, WindowOutput<WindowKey<K>, WV>> {
+public final class WindowInternal<M extends MessageEnvelope, K, WV> implements Window<M, K, WindowKey<K>, WV, WindowPane<WindowKey<K>, WV>> {
 
   public enum AccumulationMode { ACCUMULATING, DISCARDING }
 
   private final Trigger defaultTrigger;
-
-  private Trigger earlyTrigger;
-
-  private Trigger lateTrigger;
 
   /*
    * The function that is applied each time a {@link MessageEnvelope} is added to this window.
@@ -56,9 +51,13 @@ public class WindowInternal<M extends MessageEnvelope, K, WV> implements Window<
    */
   private final Function<M, Long> eventTimeExtractor;
 
+  private Trigger earlyTrigger;
+
+  private Trigger lateTrigger;
+
   private AccumulationMode mode;
 
-  public WindowInternal(Trigger defaultTrigger, BiFunction<M, WV, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor) {
+  WindowInternal(Trigger defaultTrigger, BiFunction<M, WV, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor) {
     this.foldFunction = foldFunction;
     this.eventTimeExtractor = eventTimeExtractor;
     this.keyExtractor = keyExtractor;
@@ -66,25 +65,25 @@ public class WindowInternal<M extends MessageEnvelope, K, WV> implements Window<
   }
 
   @Override
-  public Window<M, K, WindowKey<K>, WV, WindowOutput<WindowKey<K>, WV>> setEarlyTrigger(Trigger trigger) {
+  public Window<M, K, WindowKey<K>, WV, WindowPane<WindowKey<K>, WV>> setEarlyTrigger(Trigger trigger) {
     this.earlyTrigger = trigger;
     return this;
   }
 
   @Override
-  public Window<M, K, WindowKey<K>, WV, WindowOutput<WindowKey<K>, WV>> setLateTrigger(Trigger trigger) {
+  public Window<M, K, WindowKey<K>, WV, WindowPane<WindowKey<K>, WV>> setLateTrigger(Trigger trigger) {
     this.lateTrigger = trigger;
     return this;
   }
 
   @Override
-  public Window<M, K, WindowKey<K>, WV, WindowOutput<WindowKey<K>, WV>> discardFiredPanes() {
+  public Window<M, K, WindowKey<K>, WV, WindowPane<WindowKey<K>, WV>> discardFiredPanes() {
     this.mode = AccumulationMode.DISCARDING;
     return this;
   }
 
   @Override
-  public Window<M, K, WindowKey<K>, WV, WindowOutput<WindowKey<K>, WV>> accumulateFiredPanes() {
+  public Window<M, K, WindowKey<K>, WV, WindowPane<WindowKey<K>, WV>> accumulateFiredPanes() {
     this.mode = AccumulationMode.ACCUMULATING;
     return this;
   }
@@ -112,5 +111,4 @@ public class WindowInternal<M extends MessageEnvelope, K, WV> implements Window<
   public Function<M, Long> getEventTimeExtractor() {
     return eventTimeExtractor;
   }
-
 }

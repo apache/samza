@@ -21,12 +21,12 @@ package org.apache.samza.operators.triggers;
 import java.time.Duration;
 
 /*
- * A {@link Trigger} that fires based on the specified duration.
+ * A {@link Trigger} that fires after the specified duration in processing time.
  */
 public class TimeTrigger implements Trigger {
 
   private final Duration duration;
-  private final TimeCharacteristic characteristic = TimeCharacteristic.PROCESSING_TIME;
+  private final DurationCharacteristic characteristic = DurationCharacteristic.PROCESSING_TIME;
 
   public TimeTrigger(Duration duration) {
     this.duration = duration;
@@ -35,5 +35,8 @@ public class TimeTrigger implements Trigger {
   public Duration getDuration() {
     return duration;
   }
-}
 
+  public DurationCharacteristic getCharacteristic() {
+    return characteristic;
+  }
+}

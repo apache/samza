@@ -22,16 +22,16 @@ import org.apache.samza.operators.data.MessageEnvelope;
 
 
 /**
- * The type of output {@link MessageEnvelope}s in a window operator output stream.
+ * Specifies the result emitted from a {@link Window}.
  *
- * @param <K>  the type of key in the window output
- * @param <M>  the type of value in the window output
+ * @param <K>  the type of key in the window pane
+ * @param <M>  the type of value in the window pane.
  */
-public final class WindowOutput<K, M> implements MessageEnvelope<K, M> {
+public final class WindowPane<K, M> implements MessageEnvelope<K, M> {
   private final K key;
   private final M value;
 
-  WindowOutput(K key, M value) {
+  WindowPane(K key, M value) {
     this.key = key;
     this.value = value;
   }
@@ -44,8 +44,9 @@ public final class WindowOutput<K, M> implements MessageEnvelope<K, M> {
     return this.key;
   }
 
-  static public <K, M> WindowOutput<K, M> of(K key, M result) {
-    return new WindowOutput<>(key, result);
+  static public <K, M> WindowPane<K, M> of(K key, M result) {
+    return new WindowPane<>(key, result);
   }
 }
+
 

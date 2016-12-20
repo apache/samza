@@ -19,7 +19,7 @@
 package org.apache.samza.operators.windows;
 
 /**
- * Provides information about results emitted from a {@link Window}.
+ * Provides information about a {@Link WindowPane} emitted from a {@link Window}.
  *
  * @param <K> the type of the window key. Windows that are not keyed have a {@link Void} key type.
  *
@@ -55,6 +55,4 @@ public class WindowKey<K> {
   public long getWindowEnd() {
     return windowEnd;
   }
-
 }
-

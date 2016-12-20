@@ -51,14 +51,8 @@ public class WindowTask implements StreamOperatorTask {
   @Override public void transform(Map<SystemStreamPartition, MessageStream<IncomingSystemMessageEnvelope>> messageStreams) {
     BiFunction<JsonMessageEnvelope, Integer, Integer> maxAggregator = (m, c) -> c + 1;
     messageStreams.values().forEach(source ->
-      source.map(m1 ->
-        new JsonMessageEnvelope(
-          this.myMessageKeyFunction(m1),
-          (MessageType) m1.getMessage(),
-          m1.getOffset(),
-          m1.getSystemStreamPartition())).
-        window(Windows.tumblingWindow(Duration.ofMillis(200), maxAggregator)
-          )
+        source.map(m1 -> new JsonMessageEnvelope(this.myMessageKeyFunction(m1), (MessageType) m1.getMessage(), m1.getOffset(), m1.getSystemStreamPartition()))
+            .window(Windows.tumblingWindow(Duration.ofMillis(200), maxAggregator))
     );
   }
 

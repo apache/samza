@@ -20,17 +20,17 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
-import org.apache.samza.operators.windows.WindowOutput;
+import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.WindowInternal;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
-public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends WindowOutput<WK, WV>> extends OperatorImpl<M, WM> {
+public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends WindowPane<WK, WV>> extends OperatorImpl<M, WM> {
 
-  private final WindowInternal<M, K, WV> windowFn;
+  private final WindowInternal<M, K, WV> window;
 
   public WindowOperatorImpl(WindowOperatorSpec spec) {
-    windowFn = spec.getWindowFn();
+    window = spec.getWindow();
   }
 
   @Override

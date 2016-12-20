@@ -25,7 +25,7 @@ import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.windows.WindowInternal;
 import org.apache.samza.operators.windows.WindowKey;
-import org.apache.samza.operators.windows.WindowOutput;
+import org.apache.samza.operators.windows.WindowPane;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -44,7 +44,7 @@ public class TestOperatorSpecs {
     FlatMapFunction<MessageEnvelope, TestMessageEnvelope> transformFn = m -> new ArrayList<TestMessageEnvelope>() { {
         this.add(new TestMessageEnvelope(m.getKey().toString(), m.getMessage().toString(), 12345L));
       } };
-    StreamOperatorSpec<MessageEnvelope, TestMessageEnvelope> strmOp = OperatorSpecs.createStreamOperator(transformFn);
+    StreamOperatorSpec<MessageEnvelope, TestMessageEnvelope> strmOp = OperatorSpecs.createStreamOperatorSpec(transformFn);
     assertEquals(strmOp.getTransformFn(), transformFn);
     assertTrue(strmOp.getOutputStream() instanceof MessageStreamImpl);
   }
@@ -52,7 +52,7 @@ public class TestOperatorSpecs {
   @Test
   public void testGetSinkOperator() {
     SinkFunction<TestMessageEnvelope> sinkFn = (m, c, t) -> { };
-    SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createSinkOperator(sinkFn);
+    SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createSinkOperatorSpec(sinkFn);
     assertEquals(sinkOp.getSinkFn(), sinkFn);
     assertTrue(sinkOp.getOutputStream() == null);
   }
@@ -63,10 +63,10 @@ public class TestOperatorSpecs {
     BiFunction<TestMessageEnvelope, Integer, Integer> aggregator = (m, c) -> c + 1;
     WindowInternal<TestMessageEnvelope, String, Integer> window = new WindowInternal<>(null, aggregator, keyExtractor, null);
     WindowOperatorSpec spec = OperatorSpecs.<TestMessageEnvelope, String, WindowKey<String>, Integer,
-      WindowOutput<WindowKey<String>, Integer>>createWindowOperator(window);
-    assertEquals(spec.getWindowFn(), window);
-    assertEquals(spec.getWindowFn().getKeyExtractor(), keyExtractor);
-    assertEquals(spec.getWindowFn().getFoldFunction(), aggregator);
+        WindowPane<WindowKey<String>, Integer>>createWindowOperatorSpec(window);
+    assertEquals(spec.getWindow(), window);
+    assertEquals(spec.getWindow().getKeyExtractor(), keyExtractor);
+    assertEquals(spec.getWindow().getFoldFunction(), aggregator);
   }
 
   @Test
@@ -75,7 +75,7 @@ public class TestOperatorSpecs {
         (m1, m2) -> new TestMessageEnvelope(m1.getKey().toString(), m2.getMessage().toString(), System.nanoTime());
     MessageStreamImpl<TestMessageEnvelope> joinOutput = new MessageStreamImpl<>();
     PartialJoinOperatorSpec<MessageEnvelope<Object, ?>, Object, MessageEnvelope<Object, ?>, TestMessageEnvelope> partialJoin =
-        OperatorSpecs.createPartialJoinOperator(merger, joinOutput);
+        OperatorSpecs.createPartialJoinOperatorSpec(merger, joinOutput);
 
     assertEquals(partialJoin.getOutputStream(), joinOutput);
     MessageEnvelope<Object, Object> m = mock(MessageEnvelope.class);
@@ -86,7 +86,7 @@ public class TestOperatorSpecs {
   @Test
   public void testGetMergeOperator() {
     MessageStreamImpl<TestMessageEnvelope> output = new MessageStreamImpl<>();
-    StreamOperatorSpec<TestMessageEnvelope, TestMessageEnvelope> mergeOp = OperatorSpecs.createMergeOperator(output);
+    StreamOperatorSpec<TestMessageEnvelope, TestMessageEnvelope> mergeOp = OperatorSpecs.createMergeOperatorSpec(output);
     Function<TestMessageEnvelope, Collection<TestMessageEnvelope>> mergeFn = t -> new ArrayList<TestMessageEnvelope>() { {
         this.add(t);
       } };

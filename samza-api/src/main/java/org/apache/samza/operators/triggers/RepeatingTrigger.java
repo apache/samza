@@ -22,9 +22,6 @@ import org.apache.samza.operators.data.MessageEnvelope;
 
 /**
  * A {@link Trigger} that repeats its underlying trigger forever.
- * <pre> {@code
- *  Trigger repeatingCount = RepeatTrigger.forever(Triggers.count(5));
- *  }
  */
 class RepeatingTrigger<M extends MessageEnvelope, K, V> implements Trigger<M, K, V> {
 
@@ -33,8 +30,5 @@ class RepeatingTrigger<M extends MessageEnvelope, K, V> implements Trigger<M, K,
   RepeatingTrigger(Trigger<M, K, V> trigger) {
     this.trigger = trigger;
   }
-
-  public static <M extends MessageEnvelope, K, V> Trigger<M, K, V> forever(Trigger<M, K, V> trigger) {
-    return new RepeatingTrigger<>(trigger);
-  }
 }
+
