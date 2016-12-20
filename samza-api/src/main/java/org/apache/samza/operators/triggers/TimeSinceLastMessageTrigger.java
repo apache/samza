@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.operators.triggers;
 
 import java.time.Duration;

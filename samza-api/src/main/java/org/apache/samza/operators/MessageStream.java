@@ -88,7 +88,7 @@ public interface MessageStream<M extends MessageEnvelope> {
    * <p>
    * Use the {@link org.apache.samza.operators.windows.Windows} helper methods to create the appropriate windows.
    *
-   * @param windowFn the function to group and process {@link MessageEnvelope}s from this {@link MessageStream}
+   * @param window the window to group and process {@link MessageEnvelope}s from this {@link MessageStream}
    * @param <K> the type of key in the {@link MessageEnvelope} in this {@link MessageStream}. If a key is specified,
    *            results are emitted per-key.
    * @param <WK> the type of key in the {@link WindowOutput} in the transformed {@link MessageStream}
@@ -96,7 +96,7 @@ public interface MessageStream<M extends MessageEnvelope> {
    * @param <WM> the type of {@link WindowOutput} in the transformed {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  <K, WK, WV, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(Window<M, K, WK, WV, WM> windowFn);
+  <K, WK, WV, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(Window<M, K, WK, WV, WM> window);
 
   /**
    * Joins this {@link MessageStream} with another {@link MessageStream} using the provided pairwise {@link JoinFunction}.

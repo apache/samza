@@ -18,12 +18,11 @@
  */
 package org.apache.samza.operators.triggers;
 
+import java.time.Duration;
+
 /*
  * A {@link Trigger} that fires based on the specified duration.
  */
-
-import java.time.Duration;
-
 public class TimeTrigger implements Trigger {
 
   private final Duration duration;

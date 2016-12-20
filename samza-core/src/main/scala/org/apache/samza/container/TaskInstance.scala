@@ -80,6 +80,8 @@ class TaskInstance[T](
       val startingOffsets = offsetManager.startingOffsets
       offsetManager.startingOffsets += taskName -> (startingOffsets(taskName) + (ssp -> offset))
     }
+
+    //process()/init thread def ctx.triggercallback(runnable, delay) ==> scheduler.triggercallback(runnable, delay, taskName) ==> schedule it at the task layer!!
   }
   // store the (ssp -> if this ssp is catched up) mapping. "catched up"
   // means the same ssp in other taskInstances have the same offset as

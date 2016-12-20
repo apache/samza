@@ -89,7 +89,6 @@ public final class Triggers<M extends MessageEnvelope, K, V> {
    * @param <K> the type of key in {@link MessageEnvelope}
    * @param <V> the type of value in the {@link MessageEnvelope}
    * @param triggers the individual triggers
-   *
    * @return the created trigger
    */
   public static <M extends MessageEnvelope, K, V> Trigger any(Trigger<M, K, V>... triggers) {
@@ -110,7 +109,6 @@ public final class Triggers<M extends MessageEnvelope, K, V> {
    * @param <K> the type of key in {@link MessageEnvelope}
    * @param <V> the type of value in the {@link MessageEnvelope}
    * @param trigger the individual trigger to repeat
-   *
    * @return the created trigger
    */
   public static <M extends MessageEnvelope, K, V> Trigger repeat(Trigger<M, K, V> trigger) {
