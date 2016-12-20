@@ -89,8 +89,8 @@ public class MessageStreamImpl<M extends MessageEnvelope> implements MessageStre
 
   @Override
   public <K, WK, WV, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(
-      Window<M, K, WK, WV, WM> windowFn) {
-    OperatorSpec<WM> wndOp = OperatorSpecs.createWindowOperator((WindowInternal<MessageEnvelope, K, WV>) windowFn);
+      Window<M, K, WK, WV, WM> window) {
+    OperatorSpec<WM> wndOp = OperatorSpecs.createWindowOperator((WindowInternal<MessageEnvelope, K, WV>) window);
     this.registeredOperatorSpecs.add(wndOp);
     return wndOp.getOutputStream();
   }

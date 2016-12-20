@@ -27,8 +27,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -302,7 +304,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     COMMIT,
     PROCESS,
     END_OF_STREAM,
-    NO_OP
+    TIMER, NO_OP
   }
 
   /**
@@ -314,12 +316,17 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     private final TaskCallbackManager callbackManager;
     private volatile AsyncTaskState state;
 
-
     AsyncTaskWorker(TaskInstance<AsyncStreamTask> task) {
       this.task = task;
       this.callbackManager = new TaskCallbackManager(this, callbackTimer, callbackTimeoutMs, maxConcurrency, clock);
       Set<SystemStreamPartition> sspSet = getWorkingSSPSet(task);
       this.state = new AsyncTaskState(task.taskName(), task.metrics(), sspSet);
+    }
+
+    private void scheduleRunnable(Runnable runnable, long delayMillis) {
+      workerTimer.schedule(() -> {
+        state.schedule(runnable);
+      }, delayMillis, TimeUnit.MILLISECONDS);
     }
 
     private void init() {
@@ -366,6 +373,9 @@ public class AsyncRunLoop implements Runnable, Throttleable {
      */
     private void run() {
       switch (state.nextOp()) {
+        case TIMER:
+          timer();
+          break;
         case PROCESS:
           process();
           break;
@@ -403,6 +413,43 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         resume();
       }
 
+    }
+
+    /**
+     * Process asynchronously. The callback needs to be fired once the processing is done.
+     */
+    private void timer() {
+      state.startTimer();
+      Runnable windowWorker = new Runnable() {
+        @Override
+        public void run() {
+          try {
+            containerMetrics.windows().inc();
+
+            ReadableCoordinator coordinator = new ReadableCoordinator(task.taskName());
+            long startTime = clock.nanoTime();
+            task.window(coordinator);
+            containerMetrics.windowNs().update(clock.nanoTime() - startTime);
+            coordinatorRequests.update(coordinator);
+
+            state.doneWindowOrCommit();
+          } catch (Throwable t) {
+            log.error("Task {} window failed", task.taskName(), t);
+            abort(t);
+          } finally {
+            log.trace("Task {} window completed", task.taskName());
+            resume();
+          }
+        }
+      };
+
+      if (threadPool != null) {
+        log.trace("Task {} window on the thread pool", task.taskName());
+        threadPool.submit(windowWorker);
+      } else {
+        log.trace("Task {} window on the run loop thread", task.taskName());
+        windowWorker.run();
+      }
     }
 
     /**
@@ -571,6 +618,8 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     private volatile boolean windowOrCommitInFlight = false;
     private final AtomicInteger messagesInFlight = new AtomicInteger(0);
     private final ArrayDeque<PendingEnvelope> pendingEnvelopeQueue;
+    private final ArrayDeque<Runnable> pendingRunnables = new ArrayDeque<>();
+
     //Set of SSPs that we are currently processing for this task instance
     private final Set<SystemStreamPartition> processingSspSet;
     private final TaskName taskName;
@@ -583,6 +632,9 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       this.processingSspSet = sspSet;
     }
 
+    private void schedule(Runnable r) {
+      pendingRunnables.add(r);
+    }
 
     private boolean checkEndOfStream() {
       if (pendingEnvelopeQueue.size() == 1) {
@@ -608,8 +660,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       if (coordinatorRequests.commitRequests().remove(taskName)) {
         needCommit = true;
       }
-
-      if (needWindow || needCommit || endOfStream) {
+      if (needWindow || needCommit || endOfStream || pendingRunnables.size() != 0) {
         // ready for window or commit only when no messages are in progress and
         // no window/commit in flight
         return messagesInFlight.get() == 0 && !windowOrCommitInFlight;
@@ -628,6 +679,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       if (complete) return WorkerOp.NO_OP;
 
       if (isReady()) {
+        if (pendingRunnables.size() != 0) return WorkerOp.TIMER;
         if (needCommit) return WorkerOp.COMMIT;
         else if (needWindow) return WorkerOp.WINDOW;
         else if (endOfStream) return WorkerOp.END_OF_STREAM;
@@ -646,6 +698,10 @@ public class AsyncRunLoop implements Runnable, Throttleable {
 
     private void startWindow() {
       needWindow = false;
+      windowOrCommitInFlight = true;
+    }
+
+    private void startTimer() {
       windowOrCommitInFlight = true;
     }
 
