@@ -25,7 +25,7 @@ If you just want to play around with Samza for the first time, go to [Hello Samz
 
 ### JDK Notice
 
-Starting in June of 2015, Samza will begin requiring JDK7 or higher. Please see [this mailing list thread](http://mail-archives.apache.org/mod_mbox/samza-dev/201502.mbox/%3CCABYbY7eGFKgSgqAPot1qC8LjKu%3DKGYOLcNg3WuxfYzySAS-d1Q%40mail.gmail.com%3E) for details on this decision.
+Starting from 2016, Samza will begin requiring JDK8 or higher. Please see [this mailing list thread](http://mail-archives.apache.org/mod_mbox/samza-dev/201610.mbox/%3CCAHUevGGnOQD_VmLWEdpFNq3Lv%2B6gQQmw_JKx9jDr5Cw%2BxFfGtQ%40mail.gmail.com%3E) for details on this decision.
 
 ### Source Releases
 
