@@ -191,19 +191,19 @@ class TaskInstance[T](
   }
 
   def commit {
-    trace("Flushing state stores for taskName: %s" format taskName)
-
     metrics.commits.inc
-
-    if (storageManager != null) {
-      storageManager.flush
-    }
 
     trace("Flushing producers for taskName: %s" format taskName)
 
     collector.flush
 
-    trace("Committing offset manager for taskName: %s" format taskName)
+    trace("Flushing state stores for taskName: %s" format taskName)
+
+    if (storageManager != null) {
+      storageManager.flush
+    }
+
+    trace("Checkpointing offsets for taskName: %s" format taskName)
 
     offsetManager.checkpoint(taskName)
   }
