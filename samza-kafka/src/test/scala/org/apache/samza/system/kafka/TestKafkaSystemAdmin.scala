@@ -28,10 +28,11 @@ import kafka.admin.AdminUtils
 import kafka.common.{ErrorMapping, LeaderNotAvailableException}
 import kafka.consumer.{Consumer, ConsumerConfig}
 import kafka.server.{KafkaConfig, KafkaServer}
-import kafka.utils.{TestUtils, TestZKUtils, Utils, ZKStringSerializer}
-import kafka.zk.EmbeddedZookeeper
-import org.I0Itec.zkclient.ZkClient
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import kafka.utils.{TestUtils, ZkUtils}
+import kafka.integration.KafkaServerTestHarness
+import org.apache.kafka.common.security.JaasUtils
+
 import org.apache.samza.Partition
 import org.apache.samza.config.KafkaProducerConfig
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
@@ -42,54 +43,56 @@ import org.junit._
 
 import scala.collection.JavaConversions._
 
-object TestKafkaSystemAdmin {
+
+object TestKafkaSystemAdmin extends KafkaServerTestHarness {
+
   val SYSTEM = "kafka"
   val TOPIC = "input"
   val TOPIC2 = "input2"
   val TOTAL_PARTITIONS = 50
   val REPLICATION_FACTOR = 2
+  val zkSecure = JaasUtils.isZkSecurityEnabled()
 
-  val zkConnect: String = TestZKUtils.zookeeperConnect
-  var zkClient: ZkClient = null
-  val zkConnectionTimeout = 6000
-  val zkSessionTimeout = 6000
-  val brokerId1 = 0
-  val brokerId2 = 1
-  val brokerId3 = 2
-  val ports = TestUtils.choosePorts(3)
-  val (port1, port2, port3) = (ports(0), ports(1), ports(2))
+  protected def numBrokers: Int = 3
 
-  val props1 = TestUtils.createBrokerConfig(brokerId1, port1)
-  val props2 = TestUtils.createBrokerConfig(brokerId2, port2)
-  val props3 = TestUtils.createBrokerConfig(brokerId3, port3)
-
-  val config = new util.HashMap[String, Object]()
-  val brokers = "localhost:%d,localhost:%d,localhost:%d" format (port1, port2, port3)
-  config.put("bootstrap.servers", brokers)
-  config.put("acks", "all")
-  config.put("serializer.class", "kafka.serializer.StringEncoder")
-  val producerConfig = new KafkaProducerConfig("kafka", "i001", config)
   var producer: KafkaProducer[Array[Byte], Array[Byte]] = null
-  var zookeeper: EmbeddedZookeeper = null
-  var server1: KafkaServer = null
-  var server2: KafkaServer = null
-  var server3: KafkaServer = null
   var metadataStore: TopicMetadataStore = null
+  var producerConfig: KafkaProducerConfig = null
+  var brokers: String = null
+
+  def generateConfigs() = {
+    val props = TestUtils.createBrokerConfigs(numBrokers, zkConnect, true)
+    props.map(KafkaConfig.fromProps)
+  }
 
   @BeforeClass
-  def beforeSetupServers {
-    zookeeper = new EmbeddedZookeeper(zkConnect)
-    server1 = TestUtils.createServer(new KafkaConfig(props1))
-    server2 = TestUtils.createServer(new KafkaConfig(props2))
-    server3 = TestUtils.createServer(new KafkaConfig(props3))
-    zkClient = new ZkClient(zkConnect + "/", 6000, 6000, ZKStringSerializer)
+  override def setUp {
+    super.setUp
+
+    val config = new java.util.HashMap[String, Object]()
+
+    brokers = brokerList.split(",").map(p => "localhost" + p).mkString(",")
+
+    config.put("bootstrap.servers", brokers)
+    config.put("acks", "all")
+    config.put("serializer.class", "kafka.serializer.StringEncoder")
+
+    producerConfig = new KafkaProducerConfig("kafka", "i001", config)
+
     producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
     metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")
   }
 
+
+  @AfterClass
+  override def tearDown {
+    super.tearDown
+  }
+
+
   def createTopic(topicName: String, partitionCount: Int) {
     AdminUtils.createTopic(
-      zkClient,
+      zkUtils,
       topicName,
       partitionCount,
       REPLICATION_FACTOR)
@@ -133,21 +136,6 @@ object TestKafkaSystemAdmin {
     Consumer.create(consumerConfig)
   }
 
-  @AfterClass
-  def afterCleanLogDirs {
-    producer.close()
-    server1.shutdown
-    server1.awaitShutdown()
-    server2.shutdown
-    server2.awaitShutdown()
-    server3.shutdown
-    server3.awaitShutdown()
-    Utils.rm(server1.config.logDirs)
-    Utils.rm(server2.config.logDirs)
-    Utils.rm(server3.config.logDirs)
-    zkClient.close
-    zookeeper.shutdown
-  }
 }
 
 /**
@@ -158,7 +146,7 @@ class TestKafkaSystemAdmin {
   import TestKafkaSystemAdmin._
 
   // Provide a random zkAddress, the system admin tries to connect only when a topic is created/validated
-  val systemAdmin = new KafkaSystemAdmin(SYSTEM, brokers, connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer))
+  val systemAdmin = new KafkaSystemAdmin(SYSTEM, brokers, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure))
 
   @Test
   def testShouldAssembleMetadata {
@@ -219,7 +207,7 @@ class TestKafkaSystemAdmin {
     // Empty Kafka topics should have a next offset of 0.
     assertEquals("0", sspMetadata.get(new Partition(0)).getUpcomingOffset)
 
-    // Add a new message to one of the partitions, and verify that it works as 
+    // Add a new message to one of the partitions, and verify that it works as
     // expected.
     producer.send(new ProducerRecord(TOPIC, 48, "key1".getBytes, "val1".getBytes)).get()
     metadata = systemAdmin.getSystemStreamMetadata(Set(TOPIC))
@@ -285,7 +273,8 @@ class TestKafkaSystemAdmin {
   @Test
   def testShouldCreateCoordinatorStream {
     val topic = "test-coordinator-stream"
-    val systemAdmin = new KafkaSystemAdmin(SYSTEM, brokers, () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer), coordinatorStreamReplicationFactor = 3)
+    val systemAdmin = new KafkaSystemAdmin(SYSTEM, brokers, () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamReplicationFactor = 3)
+
     systemAdmin.createCoordinatorStream(topic)
     validateTopic(topic, 1)
     val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topic), "kafka", metadataStore.getTopicInfo)
@@ -296,9 +285,10 @@ class TestKafkaSystemAdmin {
     assertEquals(3, partitionMetadata.replicas.size)
   }
 
-  class KafkaSystemAdminWithTopicMetadataError extends KafkaSystemAdmin(SYSTEM, brokers, () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer)) {
+  class KafkaSystemAdminWithTopicMetadataError extends KafkaSystemAdmin(SYSTEM, brokers, () => ZkUtils(zkConnect, 6000, 6000, zkSecure)) {
     import kafka.api.TopicMetadata
     var metadataCallCount = 0
+
     // Simulate Kafka telling us that the leader for the topic is not available
     override def getTopicMetadata(topics: Set[String]) = {
       metadataCallCount += 1
