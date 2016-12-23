@@ -21,6 +21,8 @@ package org.apache.samza.config;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.samza.SamzaException;
+
 
 /**
  * a java version of the storage config
@@ -33,6 +35,7 @@ public class JavaStorageConfig extends MapConfig {
   private static final String KEY_SERDE = "stores.%s.key.serde";
   private static final String MSG_SERDE = "stores.%s.msg.serde";
   private static final String CHANGELOG_STREAM = "stores.%s.changelog";
+  private static final String CHANGELOG_SYSTEM = "job.changelog.system";
 
   public JavaStorageConfig(Config config) {
     super(config);
@@ -50,7 +53,25 @@ public class JavaStorageConfig extends MapConfig {
   }
 
   public String getChangelogStream(String storeName) {
-    return get(String.format(CHANGELOG_STREAM, storeName), null);
+
+    // If the config specifies 'stores.<storename>.changelog' as '<system>.<stream>' combination - it will take precedence.
+    // If this config only specifies <astream> and there is a value in job.changelog.system=<asystem> -
+    // these values will be combined into <asystem>.<astream>
+    String systemStream = get(String.format(CHANGELOG_STREAM, storeName), null);
+    String changelogSystem = get(CHANGELOG_SYSTEM, null);
+
+    String systemStreamRes;
+    if (systemStream != null  && ! systemStream.contains(".")) {
+      // contains only stream name
+      if (changelogSystem != null) {
+        systemStreamRes = changelogSystem + "." + systemStream;
+      } else {
+        throw new SamzaException("changelog system is not defined:" + systemStream);
+      }
+    } else {
+      systemStreamRes = systemStream;
+    }
+    return systemStreamRes;
   }
 
   public String getStorageFactoryClassName(String storeName) {
