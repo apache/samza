@@ -79,7 +79,7 @@ Build binary artifacts and upload them to the staging repository:
 
     # Set this to the oldest JDK which we are currently supporting for Samza.
     # If it's built with Java 8, the classes won't be readable by Java 7.
-    export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.7.0_51.jdk/Contents/Home
+    export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_20.jdk/Contents/Home
     ./gradlew clean uploadArchives
 
 Go to [repository web interface](https://repository.apache.org/), log in with

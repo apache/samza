@@ -112,7 +112,7 @@ public class TaskConfigJava extends MapConfig {
     Set<SystemStream> allInputSS = new HashSet<>();
 
     TaskConfig taskConfig = TaskConfig.Config2Task(this);
-    allInputSS.addAll(JavaConversions.asJavaSet(taskConfig.getInputStreams()));
+    allInputSS.addAll(JavaConversions.setAsJavaSet(taskConfig.getInputStreams()));
     allInputSS.addAll(getBroadcastSystemStreams());
 
     return Collections.unmodifiableSet(allInputSS);
