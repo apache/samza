@@ -74,21 +74,25 @@ class KafkaSystemProducer(systemName: String,
   }
 
   def stop() {
-    producerLock.synchronized {
-      try {
-        if (producer != null) {
-          producer.close
-          producer = null
-
-          sources.foreach {p =>
-            if (p._2.exceptionInCallback.get() == null) {
-              flush(p._1)
-            }
+    try {
+      val currentProducer = producer
+      if (currentProducer != null) {
+        producerLock.synchronized {
+          if (currentProducer == producer) {
+            // only nullify the member producer if it is still the same object, no point nullifying new producer
+            producer = null
           }
         }
-      } catch {
-        case e: Exception => error(e.getMessage, e)
+        currentProducer.close
+
+        sources.foreach {p =>
+          if (p._2.exceptionInCallback.get() == null) {
+            flush(p._1)
+          }
+        }
       }
+    } catch {
+      case e: Exception => error(e.getMessage, e)
     }
   }
 
