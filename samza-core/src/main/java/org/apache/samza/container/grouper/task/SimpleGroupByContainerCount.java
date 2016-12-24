@@ -13,18 +13,30 @@ import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
 
 
-public class SimpleGroupByContainerCount implements BalancingTaskNameGrouper {
-  private final int containerCount;
+public class SimpleGroupByContainerCount implements TaskNameGrouper {
+  private final int startContainerCount;
   public SimpleGroupByContainerCount() {
-    this.containerCount = 1;
+    this.startContainerCount = 1;
   }
   public SimpleGroupByContainerCount(int containerCount) {
     if (containerCount <= 0) throw new IllegalArgumentException("Must have at least one container");
-    this.containerCount = containerCount;
+    this.startContainerCount = containerCount;
   }
 
   @Override
   public Set<ContainerModel> group(Set<TaskModel> tasks) {
+    List<Integer> containerIds = new ArrayList<>(startContainerCount);
+    for (int i = 0; i < startContainerCount; i++) {
+      containerIds.add(i);
+    }
+    return group(tasks, containerIds);
+  }
+
+  public Set<ContainerModel> group(Set<TaskModel> tasks, List<Integer> containersIds) {
+    if(containersIds == null)
+      return this.group(tasks);
+
+    int containerCount = containersIds.size();
 
     // Sort tasks by taskName.
     List<TaskModel> sortedTasks = new ArrayList<>(tasks);
@@ -43,14 +55,9 @@ public class SimpleGroupByContainerCount implements BalancingTaskNameGrouper {
     // Convert to a Set of ContainerModel
     Set<ContainerModel> containerModels = new HashSet<>();
     for (int i = 0; i < containerCount; i++) {
-      containerModels.add(new ContainerModel(i, taskGroups[i]));
+      containerModels.add(new ContainerModel(containersIds.get(i), taskGroups[i]));
     }
 
     return Collections.unmodifiableSet(containerModels);
-  }
-
-  @Override
-  public Set<ContainerModel> balance(Set<TaskModel> tasks, LocalityManager localityManager) {
-    return null;
   }
 }

@@ -1,8 +1,12 @@
 package org.apache.samza.zk;
 
+import org.apache.samza.SamzaException;
+
+
 public class ZkKeyBuilder {
   private final String pathPrefix;
   public static final String PROCESSORS_PATH = "processors";
+  public static final String PROCESSOR_ID_PREFIX = "processor-";
 
   public static final String JOBMODEL_VERSION_PATH = "jobModelVersion";
 
@@ -19,8 +23,15 @@ public class ZkKeyBuilder {
 
   public static String parseIdFromPath(String path) {
     if (path != null)
-     return path.substring(path.indexOf("processor-"));
+     return path.substring(path.indexOf(PROCESSOR_ID_PREFIX));
     return null;
+  }
+
+  public static String parseContainerIdFromProcessorId(String prId) {
+    if(prId == null)
+      throw new SamzaException("processor id is null");
+
+    return prId.substring(prId.indexOf(PROCESSOR_ID_PREFIX) + PROCESSOR_ID_PREFIX.length());
   }
 
   public String getJobModelVersionPath() {
