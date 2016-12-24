@@ -19,13 +19,15 @@
 
 package org.apache.samza.operators.triggers;
 
+import org.apache.samza.operators.data.MessageEnvelope;
+
 import java.time.Duration;
 
 /*
  * A {@link Trigger} that fires after the specified duration has passed since the first {@link MessageEnvelope} in
  * the window pane.
  */
-public class TimeSinceFirstMessageTrigger implements Trigger {
+public class TimeSinceFirstMessageTrigger<M extends MessageEnvelope> implements Trigger {
 
   private final Duration duration;
   private final DurationCharacteristic characteristic = DurationCharacteristic.PROCESSING_TIME;

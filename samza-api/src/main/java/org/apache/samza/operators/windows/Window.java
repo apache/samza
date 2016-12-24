@@ -23,31 +23,53 @@ import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.triggers.Trigger;
 
 /**
- * A {@link Window} slices a {@link org.apache.samza.operators.MessageStream} into smaller finite chunks for
- * further processing.
+ * Groups {@link MessageEnvelope}s in the {@link org.apache.samza.operators.MessageStream} into finite windows for processing.
  *
- * <p> A window has the following aspects:
- * <ul>
- *   <li> Pane: Every result emitted from a window contains one or more {@link MessageEnvelope}s and is referred
- *   to as a window pane.
- *   <li> Key: A {@link Window} can group its {@link MessageEnvelope}s by a key. If a key is provided, the triggers are fired and
- *   panes are emitted per-key.
- *   <li> Early and Late Triggers: An early trigger allows emitting early, partial window results speculatively. A late trigger
- *   allows handling of late data arrivals.
- * </ul>
+ * <p> Each window is uniquely identified by its {@link WindowKey}. A window can have one or more associated {@link Trigger}s
+ * that determine when results from the {@link Window} are emitted. Each emitted result contains one or more
+ * {@link MessageEnvelope}s in the window and is called a {@link WindowPane}.
  *
- * <p> Use the {@link Windows} APIs to specify various windowing functions and the {@link org.apache.samza.operators.triggers.Triggers}
+ * <p> A {@link Window} is defined as "keyed" when the incoming {@link MessageEnvelope}s are first grouped by the provided key.
+ * Triggers are fired and {@link WindowPane}s are emitted per-key.
+ *
+ * <p> A window can have early triggers that allow emitting {@link WindowPane}s speculatively before all data for the window
+ * has arrived or late triggers that allow handling of late data arrivals.
+ *
+ *                                     window wk1 (with its triggers)
+ *                                      +--------------------------------+
+ *                                      ------------+--------+-----------+
+ *                                      |           |        |           |
+ *                                      | pane 1    |pane2   |   pane3   |
+ *                                      +-----------+--------+-----------+
+ *
+ -----------------------------------
+ *incoming message stream ------+
+ -----------------------------------
+ *                                      window wk2
+ *                                      +---------------------+---------+
+ *                                      |   pane 1|   pane 2  |  pane 3 |
+ *                                      |         |           |         |
+ *                                      +---------+-----------+---------+
+ *
+ *                                      window wk3
+ *                                      +----------+-----------+---------+
+ *                                      |          |           |         |
+ *                                      | pane 1   |  pane 2   |   pane 3|
+ *                                      |          |           |         |
+ *                                      +----------+-----------+---------+
+ *
+ *
+ * <p> Use the {@link Windows} APIs to create various windows and the {@link org.apache.samza.operators.triggers.Triggers}
  * APIs to create triggers.
  *
  * @param <M> the type of the input {@link MessageEnvelope}
  * @param <K> the type of the key in the {@link MessageEnvelope} in this {@link org.apache.samza.operators.MessageStream}. If a key is specified,
  *            panes are emitted per-key
- * @param <WK> the type of the key in the {@link Window} output
- * @param <WV> the type of the value in the {@link Window}
- * @param <WM> the type of the {@link Window} result
+ * @param <WV> the type of the value in the {@link WindowPane}.
+ * @param <WM> the type of the output.
  */
 @InterfaceStability.Unstable
-public interface Window<M extends MessageEnvelope, K, WK, WV, WM extends WindowPane<WK, WV>> {
+public interface Window<M extends MessageEnvelope, K, WV, WM extends WindowPane<K, WV>> {
 
   /**
    * Set the early triggers for this {@link Window}.
@@ -56,7 +78,7 @@ public interface Window<M extends MessageEnvelope, K, WK, WV, WM extends WindowP
    * @param trigger the early trigger
    * @return the {@link Window} function with the early trigger
    */
-  Window<M, K, WK, WV, WM> setEarlyTrigger(Trigger<M, K, WV> trigger);
+  Window<M, K, WV, WM> setEarlyTrigger(Trigger<M> trigger);
 
   /**
    * Set the late triggers for this {@link Window}.
@@ -65,21 +87,22 @@ public interface Window<M extends MessageEnvelope, K, WK, WV, WM extends WindowP
    * @param trigger the late trigger
    * @return the {@link Window} function with the late trigger
    */
-  Window<M, K, WK, WV, WM> setLateTrigger(Trigger<M, K, WV> trigger);
+  Window<M, K, WV, WM> setLateTrigger(Trigger<M> trigger);
 
   /**
-   * Specifies that window panes should include all messages collected for the window (key) so far, even if they were
+   * Specify how a {@link Window} should process its previously emitted {@link WindowPane}s.
+   *
+   * <p> There are two types of {@link AccumulationMode}s:
+   * <ul>
+   *  <li> ACCUMULATING: Specifies that window panes should include all messages collected for the window (key) so far, even if they were
    * included in previously emitted window panes.
-   *
-   * @return the {@link Window} function that accumulates previously emitted panes.
-   */
-  Window<M, K, WK, WV, WM> accumulateFiredPanes();
-
-  /**
-   * Specifies that window panes should only include messages collected for this window (key) since the last emitted
+   *  <li> DISCARDING: Specifies that window panes should only include messages collected for this window (key) since the last emitted
    * window pane.
+   * </ul>
    *
-   * @return the {@link Window} function that discards previously emitted panes.
+   * @param mode the accumulation mode
+   * @return the {@link Window} function with the specified {@link AccumulationMode}.
    */
-  Window<M, K, WK, WV, WM> discardFiredPanes();
+  Window<M, K, WV, WM> setAccumulationMode(AccumulationMode mode);
+
 }

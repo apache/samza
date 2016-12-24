@@ -24,7 +24,7 @@ import java.util.List;
 /**
  * A {@link Trigger} fires as soon as any of its individual triggers has fired.
  */
-public class AnyTrigger<M extends MessageEnvelope, K, V> implements Trigger {
+public class AnyTrigger<M extends MessageEnvelope> implements Trigger {
 
   private final List<Trigger> triggers;
 

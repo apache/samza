@@ -23,11 +23,11 @@ import org.apache.samza.operators.data.MessageEnvelope;
 /**
  * A {@link Trigger} that repeats its underlying trigger forever.
  */
-class RepeatingTrigger<M extends MessageEnvelope, K, V> implements Trigger<M, K, V> {
+class RepeatingTrigger<M extends MessageEnvelope> implements Trigger<M> {
 
-  private final Trigger<M, K, V> trigger;
+  private final Trigger<M> trigger;
 
-  RepeatingTrigger(Trigger<M, K, V> trigger) {
+  RepeatingTrigger(Trigger<M> trigger) {
     this.trigger = trigger;
   }
 }

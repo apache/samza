@@ -31,20 +31,59 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * APIs for specifying different types of {@link Window}s. A {@link Window} can have a specified keyFunction that is
- * used to group {@link MessageEnvelope}s in the {@link Window}. If a key is provided, the triggers are fired and
- * panes are emitted per-key.
+ * APIs for creating different types of {@link Window}s.
+ *
+ * Groups the incoming {@link MessageEnvelope}s in the {@link org.apache.samza.operators.MessageStream} into finite windows for processing.
+ *
+ * <p> Each window is uniquely identified by its {@link WindowKey}. A window can have one or more associated {@link Trigger}s
+ * that determine when results from the {@link Window} are emitted. Each emitted result contains one or more
+ * {@link MessageEnvelope}s in the window and is called a {@link WindowPane}.
+ *
+ * <p> A window can have early triggers that allow emitting {@link WindowPane}s speculatively before all data for the window
+ * has arrived or late triggers that allow handling of late data arrivals.
+ *
+ *                                     window wk1
+ *                                      +--------------------------------+
+ *                                      ------------+--------+-----------+
+ *                                      |           |        |           |
+ *                                      | pane 1    |pane2   |   pane3   |
+ *                                      +-----------+--------+-----------+
+ *
+ -----------------------------------
+ *incoming message stream ------+
+ -----------------------------------
+ *                                      window wk2
+ *                                      +---------------------+---------+
+ *                                      |   pane 1|   pane 2  |  pane 3 |
+ *                                      |         |           |         |
+ *                                      +---------+-----------+---------+
+ *
+ *                                      window wk3
+ *                                      +----------+-----------+---------+
+ *                                      |          |           |         |
+ *                                      | pane 1   |  pane 2   |   pane 3|
+ *                                      |          |           |         |
+ *                                      +----------+-----------+---------+
+ *
  *
  * <p> A {@link Window} can be one of the following types:
  * <ul>
- *  <li>Tumbling Windows: A tumbling window defines a series of non-overlapping, fixed size, contiguous intervals.
- *  <li>Session Windows: A session window groups a {@link org.apache.samza.operators.MessageStream} into sessions.
- *  A <i>session</i> captures some period of activity over a {@link org.apache.samza.operators.MessageStream}.
- *  The boundary for a session is defined by a {@code sessionGap}. All {@link MessageEnvelope}s that that arrive within
- *  the gap are grouped into the same session.
- *  <li>Global Windows: A global window defines a single infinite window over the entire {@link org.apache.samza.operators.MessageStream}.
- *  An early trigger must be specified when defining a global window.
+ *   <li>
+ *     Tumbling Windows: A tumbling window defines a series of non-overlapping, fixed size, contiguous intervals.
+ *   <li>
+ *     Session Windows: A session window groups a {@link org.apache.samza.operators.MessageStream} into sessions.
+ *     A <i>session</i> captures some period of activity over a {@link org.apache.samza.operators.MessageStream}.
+ *     The boundary for a session is defined by a {@code sessionGap}. All {@link MessageEnvelope}s that that arrive within
+ *     the gap are grouped into the same session.
+ *   <li>
+ *     Global Windows: A global window defines a single infinite window over the entire {@link org.apache.samza.operators.MessageStream}.
+ *     An early trigger must be specified when defining a global window.
  * </ul>
+ *
+ * <p> A {@link Window} is defined as "keyed" when the incoming {@link MessageEnvelope}s are first grouped based on their key
+ * and triggers are fired and window panes are emitted per-key. It is possible to construct "keyed" variants of all the above window
+ * types.
+ *
  */
 @InterfaceStability.Unstable
 public final class Windows {
@@ -74,7 +113,7 @@ public final class Windows {
    * @param <K> the type of the key in the {@link Window}
    * @return the created {@link Window} function.
    */
-  public static <M extends MessageEnvelope, K, WV> Window<M, K, WindowKey<K>, WV, WindowPane<WindowKey<K>, WV>>
+  public static <M extends MessageEnvelope, K, WV> Window<M, K, WV, WindowPane<K, WV>>
     keyedTumblingWindow(Function<M, K> keyFn, Duration interval, BiFunction<M, WV, WV> foldFn) {
 
     Trigger defaultTrigger = new TimeTrigger(interval);
@@ -102,7 +141,7 @@ public final class Windows {
    * @param <K> the type of the key in the {@link Window}
    * @return the created {@link Window} function
    */
-  public static <M extends MessageEnvelope, K> Window<M, K, WindowKey<K>, Collection<M>, WindowPane<WindowKey<K>, Collection<M>>>
+  public static <M extends MessageEnvelope, K> Window<M, K, Collection<M>, WindowPane<K, Collection<M>>>
     keyedTumblingWindow(Function<M, K> keyFn, Duration interval) {
     BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
       c.add(m);
@@ -131,7 +170,7 @@ public final class Windows {
    * @param <WV> the type of the {@link WindowPane} output value
    * @return the created {@link Window} function
    */
-  public static <M extends MessageEnvelope, WV> Window<M, Void, WindowKey<Void>, WV, WindowPane<WindowKey<Void>, WV>>
+  public static <M extends MessageEnvelope, WV> Window<M, Void, WV, WindowPane<Void, WV>>
     tumblingWindow(Duration duration, BiFunction<M, WV, WV> foldFn) {
     Trigger defaultTrigger = Triggers.repeat(new TimeTrigger(duration));
     return new WindowInternal<M, Void, WV>(defaultTrigger, foldFn, null, null);
@@ -156,7 +195,7 @@ public final class Windows {
    * @param <M> the type of the input {@link MessageEnvelope}
    * @return the created {@link Window} function
    */
-  public static <M extends MessageEnvelope> Window<M, Void, WindowKey<Void>, Collection<M>, WindowPane<WindowKey<Void>, Collection<M>>> tumblingWindow(Duration duration) {
+  public static <M extends MessageEnvelope> Window<M, Void, Collection<M>, WindowPane<Void, Collection<M>>> tumblingWindow(Duration duration) {
     BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
       c.add(m);
       return c;
@@ -191,7 +230,7 @@ public final class Windows {
    * @param <WV> the type of the output value in the {@link WindowPane}
    * @return the created {@link Window} function
    */
-  public static <M extends MessageEnvelope, K, WV> Window<M, K, WindowKey<K>, WV, WindowPane<WindowKey<K>, WV>> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap, BiFunction<M, WV, WV> foldFn) {
+  public static <M extends MessageEnvelope, K, WV> Window<M, K, WV, WindowPane<K, WV>> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap, BiFunction<M, WV, WV> foldFn) {
     Trigger defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
     return new WindowInternal<M, K, WV>(defaultTrigger, foldFn, keyFn, null);
   }
@@ -220,7 +259,7 @@ public final class Windows {
    * @param <K> the type of the key in the {@link Window}
    * @return the created {@link Window} function
    */
-  public static <M extends MessageEnvelope, K> Window<M, K, WindowKey<K>, Collection<M>, WindowPane<WindowKey<K>, Collection<M>>> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap) {
+  public static <M extends MessageEnvelope, K> Window<M, K, Collection<M>, WindowPane<K, Collection<M>>> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap) {
 
     BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
       c.add(m);
@@ -250,7 +289,7 @@ public final class Windows {
    * @param <WV> type of the output value in the {@link WindowPane}
    * @return the created {@link Window} function.
    */
-  public static <M extends MessageEnvelope, WV> Window<M, Void, WindowKey<Void>, WV, WindowPane<WindowKey<Void>, WV>> globalWindow(BiFunction<M, WV, WV> foldFn) {
+  public static <M extends MessageEnvelope, WV> Window<M, Void, WV, WindowPane<Void, WV>> globalWindow(BiFunction<M, WV, WV> foldFn) {
     return new WindowInternal<M, Void, WV>(null, foldFn, null, null);
   }
 
@@ -269,7 +308,7 @@ public final class Windows {
    * @param <M> the type of {@link MessageEnvelope}
    * @return the created {@link Window} function.
    */
-  public static <M extends MessageEnvelope> Window<M, Void, WindowKey<Void>, Collection<M>, WindowPane<WindowKey<Void>, Collection<M>>> globalWindow() {
+  public static <M extends MessageEnvelope> Window<M, Void, Collection<M>, WindowPane<Void, Collection<M>>> globalWindow() {
     BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
       c.add(m);
       return c;
@@ -301,7 +340,7 @@ public final class Windows {
    * @param <WV> the type of the output value in the {@link WindowPane}
    * @return the created {@link Window} function
    */
-  public static <M extends MessageEnvelope, K, WV> Window<M, K, WindowKey<K>, WV, WindowPane<WindowKey<K>, WV>> keyedGlobalWindow(Function<M, K> keyFn, BiFunction<M, WV, WV> foldFn) {
+  public static <M extends MessageEnvelope, K, WV> Window<M, K, WV, WindowPane<K, WV>> keyedGlobalWindow(Function<M, K> keyFn, BiFunction<M, WV, WV> foldFn) {
     return new WindowInternal<M, K, WV>(null, foldFn, keyFn, null);
   }
 
@@ -325,7 +364,7 @@ public final class Windows {
    * @param <K> the type of the key in the {@link Window}
    * @return the created {@link Window} function
    */
-  public static <M extends MessageEnvelope, K> Window<M, K, WindowKey<K>, Collection<M>, WindowPane<WindowKey<K>, Collection<M>>> keyedGlobalWindow(Function<M, K> keyFn) {
+  public static <M extends MessageEnvelope, K> Window<M, K, Collection<M>, WindowPane<K, Collection<M>>> keyedGlobalWindow(Function<M, K> keyFn) {
     BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
       c.add(m);
       return c;

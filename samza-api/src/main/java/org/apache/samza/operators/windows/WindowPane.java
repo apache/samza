@@ -25,26 +25,28 @@ import org.apache.samza.operators.data.MessageEnvelope;
  * Specifies the result emitted from a {@link Window}.
  *
  * @param <K>  the type of key in the window pane
- * @param <M>  the type of value in the window pane.
+ * @param <V>  the type of value in the window pane.
  */
-public final class WindowPane<K, M> implements MessageEnvelope<K, M> {
-  private final K key;
-  private final M value;
+public final class WindowPane<K, V> implements MessageEnvelope<WindowKey<K>, V> {
 
-  WindowPane(K key, M value) {
+  private final WindowKey<K> key;
+
+  private final V value;
+
+  WindowPane(WindowKey<K> key, V value) {
     this.key = key;
     this.value = value;
   }
 
-  @Override public M getMessage() {
+  @Override public V getMessage() {
     return this.value;
   }
 
-  @Override public K getKey() {
+  @Override public WindowKey<K> getKey() {
     return this.key;
   }
 
-  static public <K, M> WindowPane<K, M> of(K key, M result) {
+  static public <K, M> WindowPane<K, M> of(WindowKey<K> key, M result) {
     return new WindowPane<>(key, result);
   }
 }
