@@ -58,7 +58,7 @@ public class TestJavaStorageConfig {
     assertEquals("system2.stream2", config.getChangelogStream("store2"));
 
     Map<String, String> configMapErr = new HashMap<>();
-    configMapErr.put("stores.store4.changelog","stream4"); // incorrect
+    configMapErr.put("stores.store4.changelog", "stream4"); // incorrect
     JavaStorageConfig configErr = new JavaStorageConfig(new MapConfig(configMapErr));
 
     try {

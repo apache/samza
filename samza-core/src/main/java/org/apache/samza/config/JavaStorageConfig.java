@@ -61,7 +61,7 @@ public class JavaStorageConfig extends MapConfig {
     String changelogSystem = get(CHANGELOG_SYSTEM, null);
 
     String systemStreamRes;
-    if (systemStream != null  && ! systemStream.contains(".")) {
+    if (systemStream != null  && !systemStream.contains(".")) {
       // contains only stream name
       if (changelogSystem != null) {
         systemStreamRes = changelogSystem + "." + systemStream;
