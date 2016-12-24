@@ -185,7 +185,15 @@ public class ZkUtils {
   }
 
   public void close() {
+    try {
+      zkConnnection.close();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
     zkClient.close();
+
+    if(debounceTimer != null)
+      debounceTimer.stopScheduler();
   }
 
   public void deleteRoot() {

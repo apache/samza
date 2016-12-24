@@ -1,5 +1,6 @@
 package org.apache.samza.zk;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -19,7 +20,8 @@ public class ScheduleAfterDebounceTime {
   public static final int DEBOUNCE_TIME_MS = 2000;
 
 
-  private final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
+  private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
+      new ThreadFactoryBuilder().setNameFormat("zk-debounce-thread-%d").setDaemon(true).build());
   private final Map<String, ScheduledFuture> futureHandles = new HashMap<>();
 
   public ScheduleAfterDebounceTime () {

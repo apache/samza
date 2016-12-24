@@ -95,6 +95,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
   @Override
   public void stop() {
     zkController.stop();
+    containerController.shutdown();
   }
 
   @Override

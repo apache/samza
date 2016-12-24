@@ -1,5 +1,6 @@
 package org.apache.samza.processor;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.TaskConfigJava;
@@ -45,8 +46,10 @@ public class SamzaContainerController {
   public SamzaContainerController (
       Object taskFactory,
       long containerShutdownMs,
+      String processorId,
       Map<String, MetricsReporter> metricsReporterMap) {
-    this.executorService = Executors.newSingleThreadExecutor();
+    this.executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
+        .setNameFormat("p" + processorId + "-container-thread-%d").build());
     this.taskFactory = taskFactory;
     this.metricsReporterMap = metricsReporterMap;
     if (containerShutdownMs == -1) {
@@ -73,6 +76,7 @@ public class SamzaContainerController {
     if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {
       localityManager = SamzaContainer$.MODULE$.getLocalityManager(containerModel.getContainerId(), config);
     }
+    log.info("About to create container: " + containerModel.getContainerId());
     container = SamzaContainer$.MODULE$.apply(
         containerModel.getContainerId(),
         containerModel,
@@ -82,6 +86,7 @@ public class SamzaContainerController {
         new JmxServer(),
         Util.<String, MetricsReporter>javaMapAsScalaMap(metricsReporterMap),
         taskFactory);
+    log.info("About to start container: " + containerModel.getContainerId());
     containerFuture = executorService.submit(() -> container.run());
   }
 
@@ -109,7 +114,8 @@ public class SamzaContainerController {
 
     container.shutdown();
     try {
-      containerFuture.get(containerShutdownMs, TimeUnit.MILLISECONDS);
+      if(containerFuture != null)
+        containerFuture.get(containerShutdownMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | ExecutionException e) {
       log.error("Ran into problems while trying to stop the container in the processor!", e);
     } catch (TimeoutException e) {

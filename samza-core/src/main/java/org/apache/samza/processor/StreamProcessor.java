@@ -121,6 +121,7 @@ public class StreamProcessor {
     this.containerController = new SamzaContainerController(
         taskFactory,
         new TaskConfigJava(updatedConfig).getShutdownMs(),
+        String.valueOf(processorId),
         customMetricsReporters);
 
     this.jobCoordinator = Util.
