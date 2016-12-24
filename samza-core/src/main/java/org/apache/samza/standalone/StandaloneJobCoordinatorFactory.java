@@ -16,28 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
- ext {
-  elasticsearchVersion = "1.5.1"
-  jerseyVersion = "2.22.1"
-  jodaTimeVersion = "2.2"
-  joptSimpleVersion = "3.2"
-  jacksonVersion = "1.9.13"
-  junitVersion = "4.8.1"
-  mockitoVersion = "1.8.4"
-  scalaTestVersion = "2.2.4"
-  zkClientVersion = "0.8"
-  zookeeperVersion = "3.4.6"
-  metricsVersion = "2.2.0"
-  kafkaVersion = "0.10.0.1"
-  commonsHttpClientVersion = "3.1"
-  rocksdbVersion = "3.13.1"
-  yarnVersion = "2.6.1"
-  slf4jVersion = "1.6.2"
-  log4jVersion = "1.2.17"
-  guavaVersion = "17.0"
-  commonsCodecVersion = "1.9"
-  commonsCollectionVersion = "3.2.1"
-  httpClientVersion="4.4.1"
-  reactiveStreamVersion="1.0.0"
-  commonsLang3Version="3.4"
+package org.apache.samza.standalone;
+
+import org.apache.samza.config.Config;
+import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.coordinator.JobCoordinatorFactory;
+import org.apache.samza.processor.SamzaContainerController;
+
+public class StandaloneJobCoordinatorFactory  implements JobCoordinatorFactory {
+  @Override
+  public JobCoordinator getJobCoordinator(int processorId, Config config, SamzaContainerController containerController) {
+    return new StandaloneJobCoordinator(processorId, config, containerController);
+  }
 }

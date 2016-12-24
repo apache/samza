@@ -38,7 +38,8 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config): StreamJob = {
     info("Creating a ThreadJob, which is only meant for debugging.")
     val coordinator = JobModelManager(config)
-    val containerModel = coordinator.jobModel.getContainers.get(0)
+    val jobModel = coordinator.jobModel
+    val containerModel = jobModel.getContainers.get(0)
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
     config.getTaskOpts match {
@@ -52,7 +53,13 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         override def run(): Unit = {
           val jmxServer = new JmxServer
           try {
-            SamzaContainer(containerModel, coordinator.jobModel, jmxServer).run()
+            SamzaContainer(
+              containerModel.getContainerId,
+              containerModel,
+              config,
+              jobModel.maxChangeLogStreamPartitions,
+              null,
+              new JmxServer)
           } finally {
             jmxServer.stop
           }

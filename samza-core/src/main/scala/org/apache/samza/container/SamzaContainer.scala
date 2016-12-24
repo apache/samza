@@ -32,7 +32,7 @@ import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.SerializerConfig.Config2Serializer
-import org.apache.samza.config.ShellCommandConfig
+import org.apache.samza.config.{Config, ShellCommandConfig}
 import org.apache.samza.config.StorageConfig.Config2Storage
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System
@@ -112,12 +112,30 @@ object SamzaContainer extends Logging {
 
     try {
       jmxServer = newJmxServer()
-      SamzaContainer(containerModel, jobModel, jmxServer).run
+      val containerModel = jobModel.getContainers.get(containerId.toInt)
+      SamzaContainer(
+        containerId.toInt,
+        containerModel,
+        config,
+        jobModel.maxChangeLogStreamPartitions,
+        getLocalityManager(containerId, config),
+        jmxServer).run
     } finally {
       if (jmxServer != null) {
         jmxServer.stop
       }
     }
+  }
+
+  def getLocalityManager(containerId: Int, config: Config): LocalityManager = {
+    val containerName = getSamzaContainerName(containerId)
+    val registryMap = new MetricsRegistryMap(containerName)
+    val coordinatorSystemProducer =
+      new CoordinatorStreamSystemFactory()
+        .getCoordinatorStreamSystemProducer(
+          config,
+          new SamzaContainerMetrics(containerName, registryMap).registry)
+    new LocalityManager(coordinatorSystemProducer)
   }
 
   /**
@@ -136,10 +154,19 @@ object SamzaContainer extends Logging {
         classOf[JobModel])
   }
 
-  def apply(containerModel: ContainerModel, jobModel: JobModel, jmxServer: JmxServer) = {
-    val config = jobModel.getConfig
-    val containerId = containerModel.getContainerId
-    val containerName = "samza-container-%s" format containerId
+  def getSamzaContainerName(containerId: Int): String = {
+    "samza-container-%d" format containerId
+  }
+
+  def apply(
+    containerId: Int,
+    containerModel: ContainerModel,
+    config: Config,
+    maxChangeLogStreamPartitions: Int,
+    localityManager: LocalityManager,
+    jmxServer: JmxServer,
+    customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter]()) = {
+    val containerName = getSamzaContainerName(containerId)
     val containerPID = Util.getContainerPID
 
     info("Setting up Samza container: %s" format containerName)
@@ -528,7 +555,7 @@ object SamzaContainer extends Logging {
         taskStores = taskStores,
         storeConsumers = storeConsumers,
         changeLogSystemStreams = changeLogSystemStreams,
-        jobModel.maxChangeLogStreamPartitions,
+        maxChangeLogStreamPartitions,
         streamMetadataCache = streamMetadataCache,
         storeBaseDir = defaultStoreBaseDir,
         loggedStoreBaseDir = loggedStorageBaseDir,
