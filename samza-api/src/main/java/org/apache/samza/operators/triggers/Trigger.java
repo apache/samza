@@ -28,9 +28,7 @@ import org.apache.samza.operators.data.MessageEnvelope;
  * <p> Use the {@link Triggers} APIs to create a {@link Trigger}.
  *
  * @param <M> the type of the incoming {@link MessageEnvelope}
- * @param <K> the type of key in {@link MessageEnvelope}
- * @param <V> the type of value in the {@link MessageEnvelope}
  */
-public interface Trigger<M extends MessageEnvelope, K, V> {
+public interface Trigger<M extends MessageEnvelope> {
 
 }

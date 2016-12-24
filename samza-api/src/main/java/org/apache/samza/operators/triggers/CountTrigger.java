@@ -18,11 +18,13 @@
  */
 package org.apache.samza.operators.triggers;
 
+import org.apache.samza.operators.data.MessageEnvelope;
+
 /**
  * A {@link Trigger} that fires when the number of messages in the {@link org.apache.samza.operators.windows.WindowPane}
  * reaches the specified count.
  */
-public class CountTrigger implements Trigger {
+public class CountTrigger<M extends MessageEnvelope> implements Trigger {
 
   private final long count;
 

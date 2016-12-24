@@ -28,6 +28,7 @@ import org.apache.samza.operators.windows.WindowKey;
 import org.apache.samza.operators.windows.WindowPane;
 import org.junit.Test;
 
+import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.function.BiFunction;
@@ -58,10 +59,17 @@ public class TestOperatorSpecs {
   }
 
   @Test
-  public void testGetWindowOperator() {
+  public void testGetWindowOperator() throws Exception {
     Function<TestMessageEnvelope, String> keyExtractor = m -> "globalkey";
     BiFunction<TestMessageEnvelope, Integer, Integer> aggregator = (m, c) -> c + 1;
-    WindowInternal<TestMessageEnvelope, String, Integer> window = new WindowInternal<>(null, aggregator, keyExtractor, null);
+
+    //instantiate a window using reflection
+    Class windowDefinition = Class.forName("org.apache.samza.operators.windows.WindowInternal");
+    Constructor[] constructors = windowDefinition.getDeclaredConstructors();
+    assertEquals(constructors.length, 1);
+    constructors[0].setAccessible(true);
+    WindowInternal window = (WindowInternal) constructors[0].newInstance(null, aggregator, keyExtractor, null);
+
     WindowOperatorSpec spec = OperatorSpecs.<TestMessageEnvelope, String, WindowKey<String>, Integer,
         WindowPane<WindowKey<String>, Integer>>createWindowOperatorSpec(window);
     assertEquals(spec.getWindow(), window);

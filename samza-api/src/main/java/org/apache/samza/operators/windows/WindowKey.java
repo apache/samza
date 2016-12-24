@@ -19,40 +19,28 @@
 package org.apache.samza.operators.windows;
 
 /**
- * Provides information about a {@Link WindowPane} emitted from a {@link Window}.
+ * Key for a {@link WindowPane} emitted from a {@link Window}.
  *
- * @param <K> the type of the window key. Windows that are not keyed have a {@link Void} key type.
+ * @param <K> the type of the key in the incoming {@link org.apache.samza.operators.data.MessageEnvelope}.
+ *            Windows that are not keyed have a {@link Void} key type.
  *
  */
 public class WindowKey<K> {
 
   private final  K key;
 
-  /**
-   * The start time of this window pane.
-   */
-  private final long windowStart;
+  private final String windowId;
 
-  /**
-   * The end time of this window pane.
-   */
-  private final long windowEnd;
-
-  WindowKey(K key, long windowStart, long windowEnd) {
-    this.windowStart = windowStart;
-    this.windowEnd = windowEnd;
+  public WindowKey(K key, String  windowId) {
     this.key = key;
+    this.windowId = windowId;
   }
 
   public K getKey() {
     return key;
   }
 
-  public long getWindowStart() {
-    return windowStart;
-  }
-
-  public long getWindowEnd() {
-    return windowEnd;
+  public String getWindowId() {
+    return windowId;
   }
 }

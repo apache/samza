@@ -16,29 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.triggers;
+package org.apache.samza.operators.windows;
 
-import org.apache.samza.operators.data.MessageEnvelope;
-
-import java.time.Duration;
-
-/*
- * A {@link Trigger} that fires when there are no new {@link MessageEnvelope}s in the window pane for the specified duration.
+/**
+ * Specifies how a {@link Window} should process its previously emitted {@link WindowPane}s.
+ *
+ * <p> There are two types of {@link AccumulationMode}s:
+ * <ul>
+ *   <li> ACCUMULATING: Specifies that window panes should include all messages collected for the window (key) so far, even if they were
+ * included in previously emitted window panes.
+ *   <li> DISCARDING: Specifies that window panes should only include messages collected for this window (key) since the last emitted
+ * window pane.
+ * </ul>
  */
-public class TimeSinceLastMessageTrigger<M extends MessageEnvelope> implements Trigger {
-
-  private final Duration duration;
-  private final DurationCharacteristic characteristic = DurationCharacteristic.PROCESSING_TIME;
-
-  TimeSinceLastMessageTrigger(Duration duration) {
-    this.duration = duration;
-  }
-
-  public Duration getDuration() {
-    return duration;
-  }
-
-  public DurationCharacteristic getCharacteristic() {
-    return characteristic;
-  }
+public enum AccumulationMode {
+  ACCUMULATING, DISCARDING
 }

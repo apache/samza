@@ -39,11 +39,9 @@ import java.util.List;
  * }</pre>
  *
  * @param <M> the type of input {@link MessageEnvelope}s in the {@link org.apache.samza.operators.MessageStream}
- * @param <K> the type of key in the {@link MessageEnvelope}
- * @param <V> the type of value in the {@link MessageEnvelope}
  */
 @InterfaceStability.Unstable
-public final class Triggers<M extends MessageEnvelope, K, V> {
+public final class Triggers<M extends MessageEnvelope> {
 
   private Triggers() { }
 
@@ -83,12 +81,10 @@ public final class Triggers<M extends MessageEnvelope, K, V> {
    * Creates a trigger that fires when any of the provided triggers fire.
    *
    * @param <M> the type of input {@link MessageEnvelope} in the window
-   * @param <K> the type of key in the {@link MessageEnvelope}
-   * @param <V> the type of value in the {@link MessageEnvelope}
    * @param triggers the individual triggers
    * @return the created trigger
    */
-  public static <M extends MessageEnvelope, K, V> Trigger any(Trigger<M, K, V>... triggers) {
+  public static <M extends MessageEnvelope> Trigger any(Trigger<M>... triggers) {
     List<Trigger> triggerList = new ArrayList<>();
     for (Trigger trigger : triggers) {
       triggerList.add(trigger);
@@ -103,12 +99,10 @@ public final class Triggers<M extends MessageEnvelope, K, V> {
    * its individual {@link RepeatingTrigger}s.
    *
    * @param <M> the type of input {@link MessageEnvelope} in the window
-   * @param <K> the type of key in {@link MessageEnvelope}
-   * @param <V> the type of value in the {@link MessageEnvelope}
    * @param trigger the individual trigger to repeat
    * @return the created trigger
    */
-  public static <M extends MessageEnvelope, K, V> Trigger repeat(Trigger<M, K, V> trigger) {
+  public static <M extends MessageEnvelope> Trigger repeat(Trigger<M> trigger) {
     return new RepeatingTrigger<>(trigger);
   }
 }

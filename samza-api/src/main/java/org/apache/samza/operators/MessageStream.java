@@ -91,12 +91,11 @@ public interface MessageStream<M extends MessageEnvelope> {
    * @param window the window to group and process {@link MessageEnvelope}s from this {@link MessageStream}
    * @param <K> the type of key in the {@link MessageEnvelope} in this {@link MessageStream}. If a key is specified,
    *            panes are emitted per-key.
-   * @param <WK> the type of key in the {@link WindowPane} in the transformed {@link MessageStream}
    * @param <WV> the type of value in the {@link WindowPane} in the transformed {@link MessageStream}
    * @param <WM> the type of {@link WindowPane} in the transformed {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  <K, WK, WV, WM extends WindowPane<WK, WV>> MessageStream<WM> window(Window<M, K, WK, WV, WM> window);
+  <K, WV, WM extends WindowPane<K, WV>> MessageStream<WM> window(Window<M, K, WV, WM> window);
 
   /**
    * Joins this {@link MessageStream} with another {@link MessageStream} using the provided pairwise {@link JoinFunction}.
