@@ -67,8 +67,7 @@ import org.apache.samza.operators.triggers.Trigger;
  * APIs to create triggers.
  *
  * @param <M> the type of the input {@link MessageEnvelope}
- * @param <K> the type of the key in the {@link MessageEnvelope} in this {@link org.apache.samza.operators.MessageStream}. If a key is specified,
- *            panes are emitted per-key
+ * @param <K> the type of the key in the {@link MessageEnvelope} in this {@link org.apache.samza.operators.MessageStream}.
  * @param <WV> the type of the value in the {@link WindowPane}.
  * @param <WM> the type of the output.
  */
