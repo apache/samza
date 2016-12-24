@@ -25,6 +25,8 @@ import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.task.AsyncStreamTaskFactory;
+import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,11 +36,11 @@ import java.util.Map;
 
 /**
  * StreamProcessor can be embedded in any application or executed in a distributed environment (aka cluster) as
- * independent processes <br />
+ * independent processes
  * <p>
  * <b>Usage Example:</b>
  * <pre>
- * StreamProcessor processor = new StreamProcessor(1, config); <br />
+ * StreamProcessor processor = new StreamProcessor(1, config);
  * processor.start();
  * try {
  *  boolean status = processor.awaitStart(TIMEOUT_MS);    // Optional - blocking call
@@ -74,7 +76,7 @@ public class StreamProcessor {
    * JobCoordinator controls how the various StreamProcessor instances belonging to a job coordinate. It is also
    * responsible generating and updating JobModel.
    * When StreamProcessor starts, it starts the JobCoordinator and brings up a SamzaContainer based on the JobModel.
-   * SamzaContainer is executed using an ExecutorService. <br />
+   * SamzaContainer is executed using an ExecutorService.
    * <p>
    * <b>Note:</b> Lifecycle of the ExecutorService is fully managed by the StreamProcessor, and NOT exposed to the user
    *
@@ -82,6 +84,25 @@ public class StreamProcessor {
    *                               "containerId" in Samza
    * @param config                 Instance of config object - contains all configuration required for processing
    * @param customMetricsReporters Map of custom MetricReporter instances that are to be injected in the Samza job
+   * @param asyncStreamTaskFactory The {@link AsyncStreamTaskFactory} to be used for creating task instances.
+   */
+  public StreamProcessor(int processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
+                         AsyncStreamTaskFactory asyncStreamTaskFactory) {
+    this(processorId, config, customMetricsReporters, (Object) asyncStreamTaskFactory);
+  }
+
+  /**
+   * Same as {@link #StreamProcessor(int, Config, Map, AsyncStreamTaskFactory)}, except task instances are created
+   * using the provided {@link StreamTaskFactory}.
+   */
+  public StreamProcessor(int processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
+                         StreamTaskFactory streamTaskFactory) {
+    this(processorId, config, customMetricsReporters, (Object) streamTaskFactory);
+  }
+
+  /**
+   * Same as {@link #StreamProcessor(int, Config, Map, AsyncStreamTaskFactory)}, except task instances are created
+   * using the "task.class" configuration instead of a task factory.
    */
   public StreamProcessor(int processorId, Config config, Map<String, MetricsReporter> customMetricsReporters) {
     this(processorId, config, customMetricsReporters, (Object) null);

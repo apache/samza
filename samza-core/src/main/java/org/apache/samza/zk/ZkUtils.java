@@ -157,7 +157,7 @@ public class ZkUtils {
 
   /**
    * subscribe for changes of JobModel version
-   * @param dataListener
+   * @param dataListener describe this
    */
   public void subscribeToJobModelVersionChange(IZkDataListener dataListener) {
     LOG.info("pid=" + processorId + " subscribing for jm version change at:" + keyBuilder.getJobModelVersionPath());

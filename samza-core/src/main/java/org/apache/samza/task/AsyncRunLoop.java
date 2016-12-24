@@ -75,7 +75,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   private volatile Throwable throwable = null;
   private final HighResolutionClock clock;
 
-  public AsyncRunLoop(Map<TaskName, TaskInstance<AsyncStreamTask>> taskInstances,
+  public AsyncRunLoop(Map<TaskName, TaskInstance> taskInstances,
       ExecutorService threadPool,
       SystemConsumers consumerMultiplexer,
       int maxConcurrency,
@@ -100,7 +100,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     this.workerTimer = Executors.newSingleThreadScheduledExecutor();
     this.clock = clock;
     Map<TaskName, AsyncTaskWorker> workers = new HashMap<>();
-    for (TaskInstance<AsyncStreamTask> task : taskInstances.values()) {
+    for (TaskInstance task : taskInstances.values()) {
       workers.put(task.taskName(), new AsyncTaskWorker(task));
     }
     // Partions and tasks assigned to the container will not change during the run loop life time
@@ -112,14 +112,12 @@ public class AsyncRunLoop implements Runnable, Throttleable {
    * Returns mapping of the SystemStreamPartition to the AsyncTaskWorkers to efficiently route the envelopes
    */
   private static Map<SystemStreamPartition, List<AsyncTaskWorker>> getSspToAsyncTaskWorkerMap(
-      Map<TaskName, TaskInstance<AsyncStreamTask>> taskInstances, Map<TaskName, AsyncTaskWorker> taskWorkers) {
+      Map<TaskName, TaskInstance> taskInstances, Map<TaskName, AsyncTaskWorker> taskWorkers) {
     Map<SystemStreamPartition, List<AsyncTaskWorker>> sspToWorkerMap = new HashMap<>();
-    for (TaskInstance<AsyncStreamTask> task : taskInstances.values()) {
+    for (TaskInstance task : taskInstances.values()) {
       Set<SystemStreamPartition> ssps = JavaConversions.setAsJavaSet(task.systemStreamPartitions());
       for (SystemStreamPartition ssp : ssps) {
-        if (sspToWorkerMap.get(ssp) == null) {
-          sspToWorkerMap.put(ssp, new ArrayList<AsyncTaskWorker>());
-        }
+        sspToWorkerMap.putIfAbsent(ssp, new ArrayList<>());
         sspToWorkerMap.get(ssp).add(taskWorkers.get(task.taskName()));
       }
     }
@@ -202,7 +200,8 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   private IncomingMessageEnvelope chooseEnvelope() {
     IncomingMessageEnvelope envelope = consumerMultiplexer.choose(false);
     if (envelope != null) {
-      log.trace("Choose envelope ssp {} offset {} for processing", envelope.getSystemStreamPartition(), envelope.getOffset());
+      log.trace("Choose envelope ssp {} offset {} for processing",
+          envelope.getSystemStreamPartition(), envelope.getOffset());
       containerMetrics.envelopes().inc();
     } else {
       log.trace("No envelope is available");
@@ -310,12 +309,12 @@ public class AsyncRunLoop implements Runnable, Throttleable {
    * will run the task asynchronously. It runs window and commit in the provided thread pool.
    */
   private class AsyncTaskWorker implements TaskCallbackListener {
-    private final TaskInstance<AsyncStreamTask> task;
+    private final TaskInstance task;
     private final TaskCallbackManager callbackManager;
     private volatile AsyncTaskState state;
 
 
-    AsyncTaskWorker(TaskInstance<AsyncStreamTask> task) {
+    AsyncTaskWorker(TaskInstance task) {
       this.task = task;
       this.callbackManager = new TaskCallbackManager(this, callbackTimer, callbackTimeoutMs, maxConcurrency, clock);
       Set<SystemStreamPartition> sspSet = getWorkingSSPSet(task);
@@ -352,12 +351,14 @@ public class AsyncRunLoop implements Runnable, Throttleable {
      * @param task
      * @return a Set of SSPs such that all SSPs are not at end of stream.
      */
-    private Set<SystemStreamPartition> getWorkingSSPSet(TaskInstance<AsyncStreamTask> task) {
+    private Set<SystemStreamPartition> getWorkingSSPSet(TaskInstance task) {
 
       Set<SystemStreamPartition> allPartitions = new HashSet<>(JavaConversions.setAsJavaSet(task.systemStreamPartitions()));
 
       // filter only those SSPs that are not at end of stream.
-      Set<SystemStreamPartition> workingSSPSet = allPartitions.stream().filter(ssp -> !consumerMultiplexer.isEndOfStream(ssp)).collect(Collectors.toSet());
+      Set<SystemStreamPartition> workingSSPSet = allPartitions.stream()
+          .filter(ssp -> !consumerMultiplexer.isEndOfStream(ssp))
+          .collect(Collectors.toSet());
       return workingSSPSet;
     }
 
@@ -512,15 +513,18 @@ public class AsyncRunLoop implements Runnable, Throttleable {
             state.doneProcess();
             TaskCallbackImpl callbackImpl = (TaskCallbackImpl) callback;
             containerMetrics.processNs().update(clock.nanoTime() - callbackImpl.timeCreatedNs);
-            log.trace("Got callback complete for task {}, ssp {}", callbackImpl.taskName, callbackImpl.envelope.getSystemStreamPartition());
+            log.trace("Got callback complete for task {}, ssp {}",
+                callbackImpl.taskName, callbackImpl.envelope.getSystemStreamPartition());
 
             TaskCallbackImpl callbackToUpdate = callbackManager.updateCallback(callbackImpl);
             if (callbackToUpdate != null) {
               IncomingMessageEnvelope envelope = callbackToUpdate.envelope;
-              log.trace("Update offset for ssp {}, offset {}", envelope.getSystemStreamPartition(), envelope.getOffset());
+              log.trace("Update offset for ssp {}, offset {}",
+                  envelope.getSystemStreamPartition(), envelope.getOffset());
 
               // update offset
-              task.offsetManager().update(task.taskName(), envelope.getSystemStreamPartition(), envelope.getOffset());
+              task.offsetManager().update(task.taskName(),
+                  envelope.getSystemStreamPartition(), envelope.getOffset());
 
               // update coordinator
               coordinatorRequests.update(callbackToUpdate.coordinator);
@@ -697,7 +701,8 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       PendingEnvelope pendingEnvelope = pendingEnvelopeQueue.remove();
       int queueSize = pendingEnvelopeQueue.size();
       taskMetrics.pendingMessages().set(queueSize);
-      log.trace("fetch envelope ssp {} offset {} to process.", pendingEnvelope.envelope.getSystemStreamPartition(), pendingEnvelope.envelope.getOffset());
+      log.trace("fetch envelope ssp {} offset {} to process.",
+          pendingEnvelope.envelope.getSystemStreamPartition(), pendingEnvelope.envelope.getOffset());
       log.debug("Task {} pending envelopes count is {} after fetching.", taskName, queueSize);
 
       if (pendingEnvelope.markProcessed()) {

@@ -16,18 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.processor.SamzaContainerController;
+package org.apache.samza.task;
 
-public interface JobCoordinatorFactory {
-  /**
-   * @param processorId Unique identifier for the processor
-   * @param config Configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
-   * @param containerController Controller interface for starting and stopping container. In future, it may simply
-   *                            pause the container and add/remove tasks
-   * @return An instance of IJobCoordinator
-   */
-  JobCoordinator getJobCoordinator(int processorId, Config config, SamzaContainerController containerController);
+/**
+ * Build {@link StreamTask} instances.
+ * Implementations should return a new instance for each {@link #createInstance()} invocation.
+ */
+public interface StreamTaskFactory {
+  StreamTask createInstance();
 }

@@ -49,22 +49,14 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     try {
       coordinator.start
-      new ThreadJob(new Runnable {
-        override def run(): Unit = {
-          val jmxServer = new JmxServer
-          try {
+      new ThreadJob(
             SamzaContainer(
               containerModel.getContainerId,
               containerModel,
               config,
               jobModel.maxChangeLogStreamPartitions,
               null,
-              new JmxServer)
-          } finally {
-            jmxServer.stop
-          }
-        }
-      })
+              new JmxServer))
     } finally {
       coordinator.stop
     }

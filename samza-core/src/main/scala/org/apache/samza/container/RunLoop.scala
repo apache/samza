@@ -22,7 +22,6 @@ package org.apache.samza.container
 import org.apache.samza.task.CoordinatorRequests
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemConsumers, SystemStreamPartition}
 import org.apache.samza.task.ReadableCoordinator
-import org.apache.samza.task.StreamTask
 import org.apache.samza.util.{Logging, Throttleable, ThrottlingExecutor, TimerUtils}
 
 import scala.collection.JavaConversions._
@@ -37,7 +36,7 @@ import scala.collection.JavaConversions._
  * be done when.
  */
 class RunLoop (
-  val taskInstances: Map[TaskName, TaskInstance[StreamTask]],
+  val taskInstances: Map[TaskName, TaskInstance],
   val consumerMultiplexer: SystemConsumers,
   val metrics: SamzaContainerMetrics,
   val maxThrottlingDelayMs: Long,
@@ -57,13 +56,16 @@ class RunLoop (
   // Keep a mapping of SystemStreamPartition to TaskInstance to efficiently route them.
   val systemStreamPartitionToTaskInstances = getSystemStreamPartitionToTaskInstancesMapping
 
-  def getSystemStreamPartitionToTaskInstancesMapping: Map[SystemStreamPartition, List[TaskInstance[StreamTask]]] = {
-    // We could just pass in the SystemStreamPartitionMap during construction, but it's safer and cleaner to derive the information directly
-    def getSystemStreamPartitionToTaskInstance(taskInstance: TaskInstance[StreamTask]) = taskInstance.systemStreamPartitions.map(_ -> taskInstance).toMap
+  def getSystemStreamPartitionToTaskInstancesMapping: Map[SystemStreamPartition, List[TaskInstance]] = {
+    // We could just pass in the SystemStreamPartitionMap during construction,
+    // but it's safer and cleaner to derive the information directly
+    def getSystemStreamPartitionToTaskInstance(taskInstance: TaskInstance) =
+      taskInstance.systemStreamPartitions.map(_ -> taskInstance).toMap
 
-    taskInstances.values.map { getSystemStreamPartitionToTaskInstance }.flatten.groupBy(_._1).map {
-      case (ssp, ssp2taskInstance) => ssp -> ssp2taskInstance.map(_._2).toList
-    }
+    taskInstances.values
+      .flatMap(getSystemStreamPartitionToTaskInstance)
+      .groupBy(_._1)
+      .map { case (ssp, ssp2taskInstance) => ssp -> ssp2taskInstance.map(_._2).toList }
   }
 
   /**
