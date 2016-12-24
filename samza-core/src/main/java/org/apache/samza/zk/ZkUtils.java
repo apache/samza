@@ -1,6 +1,24 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.samza.zk;
 
-import java.io.IOException;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.IZkStateListener;
@@ -17,6 +35,7 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Collections;
@@ -75,8 +94,9 @@ public class ZkUtils {
   public ZkKeyBuilder getKeyBuilder() {
     return keyBuilder;
   }
+
   public void makeSurePersistentPathsExists(String[] paths) {
-    for(String path: paths) {
+    for (String path : paths) {
       if (!zkClient.exists(path)) {
         zkClient.createPersistent(path, true);
       }
@@ -119,13 +139,14 @@ public class ZkUtils {
       throw new SamzaException(e);
     }
   }
+
   public JobModel getJobModel(String jobModelVersion) {
     LOG.info("pid=" + processorId + "read the model ver=" + jobModelVersion + " from " + keyBuilder.getJobModelPath(jobModelVersion));
     Object data = zkClient.readData(keyBuilder.getJobModelPath(jobModelVersion));
     ObjectMapper mmapper = SamzaObjectMapper.getObjectMapper();
     JobModel jm;
     try {
-      jm = mmapper.readValue((String)data, JobModel.class);
+      jm = mmapper.readValue((String) data, JobModel.class);
     } catch (IOException e) {
       throw new SamzaException("failed to read JobModel from ZK", e);
     }
@@ -140,23 +161,24 @@ public class ZkUtils {
 
   public void publishNewJobModelVersion(String oldVersion, String newVersion) {
     Stat stat = new Stat();
-    String currentVersion =  zkClient.<String>readData(keyBuilder.getJobModelVersionPath(), stat);
+    String currentVersion = zkClient.<String>readData(keyBuilder.getJobModelVersionPath(), stat);
     LOG.info("pid=" + processorId + " publishing new version: " + newVersion + "; oldVersion = " + oldVersion + "(" + stat.getVersion() + ")");
-    if(currentVersion != null && !currentVersion.equals(oldVersion)) {
-      throw new SamzaException("Someone change JMVersion while Leader was generating: expected" + oldVersion  + ", got " + currentVersion);
+    if (currentVersion != null && !currentVersion.equals(oldVersion)) {
+      throw new SamzaException("Someone change JMVersion while Leader was generating: expected" + oldVersion + ", got " + currentVersion);
     }
     int dataVersion = stat.getVersion();
     stat = zkClient.writeDataReturnStat(keyBuilder.getJobModelVersionPath(), newVersion, dataVersion);
-    if(stat.getVersion() != dataVersion + 1)
+    if (stat.getVersion() != dataVersion + 1)
       throw new SamzaException("Someone changed data version of the JMVersion while Leader was generating a new one. current= " + dataVersion + ", old version = " + stat.getVersion());
 
     LOG.info("pid=" + processorId +
         " published new version: " + newVersion + "; expected dataVersion = " + dataVersion + "(" + stat.getVersion()
-            + ")");
+        + ")");
   }
 
   /**
    * subscribe for changes of JobModel version
+   *
    * @param dataListener describe this
    */
   public void subscribeToJobModelVersionChange(IZkDataListener dataListener) {
@@ -192,13 +214,13 @@ public class ZkUtils {
     }
     zkClient.close();
 
-    if(debounceTimer != null)
+    if (debounceTimer != null)
       debounceTimer.stopScheduler();
   }
 
   public void deleteRoot() {
     String rootPath = keyBuilder.getRootPath();
-    if(rootPath != null && !rootPath.isEmpty() && zkClient.exists(rootPath)) {
+    if (rootPath != null && !rootPath.isEmpty() && zkClient.exists(rootPath)) {
       LOG.info("pid=" + processorId + " Deleteing root: " + rootPath);
       zkClient.deleteRecursive(rootPath);
     }
@@ -206,6 +228,7 @@ public class ZkUtils {
 
   class ZkStateChangeHandler implements IZkStateListener {
     private final ScheduleAfterDebounceTime debounceTimer;
+
     public ZkStateChangeHandler(ScheduleAfterDebounceTime debounceTimer) {
       this.debounceTimer = debounceTimer;
     }
@@ -217,7 +240,8 @@ public class ZkUtils {
      * @throws Exception On any error.
      */
     @Override
-    public void handleStateChanged(Watcher.Event.KeeperState state) throws Exception {    }
+    public void handleStateChanged(Watcher.Event.KeeperState state) throws Exception {
+    }
 
     /**
      * Called after the zookeeper session has expired and a new session has been created. You would have to re-create

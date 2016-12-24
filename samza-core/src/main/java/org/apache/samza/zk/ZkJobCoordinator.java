@@ -1,17 +1,30 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.samza.zk;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.JobModelManager$;
-import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.processor.SamzaContainerController;
 import org.apache.samza.system.StreamMetadataCache;
@@ -22,7 +35,11 @@ import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * JobCoordinator for stand alone processor managed via Zookeeper.
@@ -60,12 +77,11 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
     barrier = new ZkBarrierForVersionUpgrade(zkUtils, debounceTimer); //should not have any state in it
 
 
-
     // TEMP for model generation
     //////////////////////////////// NEEDS TO BE REPLACED //////////////////////////////////////
     JavaSystemConfig systemConfig = new JavaSystemConfig(this.config);
     Map<String, SystemAdmin> systemAdmins = new HashMap<>();
-    for (String systemName: systemConfig.getSystemNames()) {
+    for (String systemName : systemConfig.getSystemNames()) {
       String systemFactoryClassName = systemConfig.getSystemFactory(systemName);
       if (systemFactoryClassName == null) {
         log.error(String.format("A stream uses system %s, which is missing from the configuration.", systemName));
@@ -75,9 +91,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
       systemAdmins.put(systemName, systemFactory.getAdmin(systemName, this.config));
     }
 
-     streamMetadataCache = new StreamMetadataCache(Util.<String, SystemAdmin>javaMapAsScalaMap(systemAdmins), 5000, SystemClock
+    streamMetadataCache = new StreamMetadataCache(Util.<String, SystemAdmin>javaMapAsScalaMap(systemAdmins), 5000, SystemClock
         .instance());
-
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////
@@ -99,8 +114,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
   }
 
   @Override
-  public int getProcessorId()
-  {
+  public int getProcessorId() {
     return processorId;
   }
 
@@ -125,9 +139,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
     List<String> currentProcessors = zkUtils.getActiveProcessors();
 
     // get the current version
-    String currentJMVersion  = zkUtils.getJobModelVersion();
+    String currentJMVersion = zkUtils.getJobModelVersion();
     String nextJMVersion;
-    if(currentJMVersion == null)
+    if (currentJMVersion == null)
       nextJMVersion = "1";
     else
       nextJMVersion = Integer.toString(Integer.valueOf(currentJMVersion) + 1);
@@ -139,7 +153,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
     //JobModel jobModel = new JobModel(config, containers);
     StringBuilder sb = new StringBuilder();
     List<Integer> containerIds = new ArrayList<>();
-    for(String processor: currentProcessors){
+    for (String processor : currentProcessors) {
       String zkProcessorId = keyBuilder.parseContainerIdFromProcessorId(processor);
       sb.append(zkProcessorId).append(",");
       containerIds.add(Integer.valueOf(zkProcessorId));
@@ -163,7 +177,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
     log.info("pid=" + processorId + "published new JobModel ver=" + nextJMVersion);
   }
 
-   //////////////////////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////////////
   @Override
   public void onProcessorChange(List<String> processorIds) {
     // Reset debounce Timer

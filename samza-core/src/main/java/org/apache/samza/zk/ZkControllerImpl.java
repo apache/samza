@@ -1,3 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.samza.zk;
 
 import org.I0Itec.zkclient.IZkChildListener;
@@ -18,7 +37,7 @@ public class ZkControllerImpl implements ZkController {
   private final ZkLeaderElector leaderElector;
   private final ScheduleAfterDebounceTime debounceTimer;
 
-  public ZkControllerImpl (String processorIdStr, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer, ZkListener zkListener) {
+  public ZkControllerImpl(String processorIdStr, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer, ZkListener zkListener) {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
     this.zkListener = zkListener;
@@ -30,11 +49,10 @@ public class ZkControllerImpl implements ZkController {
 
   @Override
   public void register() {
-
     // TODO - make a loop here with some number of attempts.
     // possibly split into two method - becomeLeader() and becomeParticipant()
     boolean isLeader = leaderElector.tryBecomeLeader();
-    if(isLeader) {
+    if (isLeader) {
       listenToProcessorLiveness();
 
       //      zkUtils.subscribeToProcessorChange(zkProcessorChangeListener);
@@ -49,7 +67,7 @@ public class ZkControllerImpl implements ZkController {
 
   private void init() {
     ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
-    zkUtils.makeSurePersistentPathsExists(new String[] {
+    zkUtils.makeSurePersistentPathsExists(new String[]{
         keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder.getJobModelPathPrefix()});
   }
 
@@ -82,11 +100,13 @@ public class ZkControllerImpl implements ZkController {
   }
 
   // Only by Leader
-  class ZkProcessorChangeHandler  implements IZkChildListener {
+  class ZkProcessorChangeHandler implements IZkChildListener {
     private final ScheduleAfterDebounceTime debounceTimer;
+
     public ZkProcessorChangeHandler(ScheduleAfterDebounceTime debounceTimer) {
       this.debounceTimer = debounceTimer;
     }
+
     /**
      * Called when the children of the given path changed.
      *
@@ -106,11 +126,14 @@ public class ZkControllerImpl implements ZkController {
 
   class ZkJobModelVersionChangeHandler implements IZkDataListener {
     private final ScheduleAfterDebounceTime debounceTimer;
+
     public ZkJobModelVersionChangeHandler(ScheduleAfterDebounceTime debounceTimer) {
       this.debounceTimer = debounceTimer;
     }
+
     /**
      * called when job model version gets updated
+     *
      * @param dataPath
      * @param data
      * @throws Exception
@@ -123,6 +146,7 @@ public class ZkControllerImpl implements ZkController {
       debounceTimer
           .scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, () -> notifyJobModelChange((String) data));
     }
+
     @Override
     public void handleDataDeleted(String dataPath) throws Exception {
       throw new SamzaException("version update path has been deleted!.");
@@ -130,7 +154,7 @@ public class ZkControllerImpl implements ZkController {
   }
 
   public void shutdown() {
-    if(debounceTimer != null)
+    if (debounceTimer != null)
       debounceTimer.stopScheduler();
   }
 }

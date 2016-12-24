@@ -20,7 +20,6 @@ package org.apache.samza.container.grouper.task;
 
 
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 
 
 /**
