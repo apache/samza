@@ -21,7 +21,7 @@ package org.apache.samza.operators.impl;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.windows.WindowPane;
-import org.apache.samza.operators.windows.WindowInternal;
+import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 

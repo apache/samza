@@ -24,7 +24,7 @@ import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.windows.WindowPane;
-import org.apache.samza.operators.windows.WindowInternal;
+import org.apache.samza.operators.windows.internal.WindowInternal;
 
 import java.util.ArrayList;
 import java.util.UUID;

@@ -23,12 +23,11 @@ import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.windows.WindowInternal;
+import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.operators.windows.WindowKey;
 import org.apache.samza.operators.windows.WindowPane;
 import org.junit.Test;
 
-import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.function.BiFunction;
@@ -64,11 +63,7 @@ public class TestOperatorSpecs {
     BiFunction<TestMessageEnvelope, Integer, Integer> aggregator = (m, c) -> c + 1;
 
     //instantiate a window using reflection
-    Class windowDefinition = Class.forName("org.apache.samza.operators.windows.WindowInternal");
-    Constructor[] constructors = windowDefinition.getDeclaredConstructors();
-    assertEquals(constructors.length, 1);
-    constructors[0].setAccessible(true);
-    WindowInternal window = (WindowInternal) constructors[0].newInstance(null, aggregator, keyExtractor, null);
+    WindowInternal window = new WindowInternal(null, aggregator, keyExtractor, null);
 
     WindowOperatorSpec spec = OperatorSpecs.<TestMessageEnvelope, String, WindowKey<String>, Integer,
         WindowPane<WindowKey<String>, Integer>>createWindowOperatorSpec(window);

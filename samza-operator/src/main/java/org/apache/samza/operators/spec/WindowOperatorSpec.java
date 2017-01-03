@@ -23,7 +23,7 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.windows.WindowPane;
-import org.apache.samza.operators.windows.WindowInternal;
+import org.apache.samza.operators.windows.internal.WindowInternal;
 
 public class WindowOperatorSpec<M extends MessageEnvelope, K, WK, WV, WM extends WindowPane<WK, WV>> implements OperatorSpec<WM> {
 

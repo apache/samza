@@ -16,10 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.windows;
+package org.apache.samza.operators.windows.internal;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.triggers.Trigger;
+import org.apache.samza.operators.windows.AccumulationMode;
+import org.apache.samza.operators.windows.Window;
+import org.apache.samza.operators.windows.WindowPane;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -27,6 +30,8 @@ import java.util.function.Function;
 /**
  *  Internal representation of a {@link Window}. This specifies default, early and late triggers for the {@link Window}
  *  and whether to accumulate or discard previously emitted panes.
+ *
+ *  Note: This class is meant to be used internally by Samza, and is not to be instantiated by programmers.
  */
 @InterfaceStability.Unstable
 public final class WindowInternal<M extends MessageEnvelope, K, WV> implements Window<M, K, WV, WindowPane<K, WV>> {
@@ -54,7 +59,7 @@ public final class WindowInternal<M extends MessageEnvelope, K, WV> implements W
 
   private AccumulationMode mode;
 
-  WindowInternal(Trigger defaultTrigger, BiFunction<M, WV, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor) {
+  public WindowInternal(Trigger defaultTrigger, BiFunction<M, WV, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor) {
     this.foldFunction = foldFunction;
     this.eventTimeExtractor = eventTimeExtractor;
     this.keyExtractor = keyExtractor;

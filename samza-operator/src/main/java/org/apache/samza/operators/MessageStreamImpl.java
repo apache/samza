@@ -29,7 +29,7 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
-import org.apache.samza.operators.windows.WindowInternal;
+import org.apache.samza.operators.windows.internal.WindowInternal;
 
 import java.util.ArrayList;
 import java.util.Collection;

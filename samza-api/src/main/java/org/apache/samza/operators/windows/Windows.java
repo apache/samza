@@ -24,6 +24,7 @@ import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.triggers.TimeTrigger;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
+import org.apache.samza.operators.windows.internal.WindowInternal;
 
 import java.time.Duration;
 import java.util.Collection;
