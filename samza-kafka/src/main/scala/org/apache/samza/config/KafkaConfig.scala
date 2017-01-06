@@ -121,14 +121,19 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getKafkaChangelogEnabledStores() = {
     val changelogConfigs = config.regexSubset(KafkaConfig.CHANGELOG_STREAM_NAMES_REGEX).asScala
     var storeToChangelog = Map[String, String]()
-    for((changelogConfig, changelogName) <- changelogConfigs){
+    val storageConfig = new StorageConfig(config)
+    val pattern = Pattern.compile(KafkaConfig.CHANGELOG_STREAM_NAMES_REGEX)
+
+    for((changelogConfig, cn) <- changelogConfigs){
       // Lookup the factory for this particular stream and verify if it's a kafka system
+
+      val matcher = pattern.matcher(changelogConfig)
+      val storeName = if(matcher.find()) matcher.group(1) else throw new SamzaException("Unable to find store name in the changelog configuration: " + changelogConfig + " with SystemStream: " + cn)
+
+      val changelogName = storageConfig.getChangelogStream(storeName).getOrElse(throw new SamzaException("unable to get SystemStream for store:" + changelogConfig));
       val systemStream = Util.getSystemStreamFromNames(changelogName)
       val factoryName = config.getSystemFactory(systemStream.getSystem).getOrElse(new SamzaException("Unable to determine factory for system: " + systemStream.getSystem))
       if(classOf[KafkaSystemFactory].getCanonicalName == factoryName){
-        val pattern = Pattern.compile(KafkaConfig.CHANGELOG_STREAM_NAMES_REGEX)
-        val matcher = pattern.matcher(changelogConfig)
-        val storeName = if(matcher.find()) matcher.group(1) else throw new SamzaException("Unable to find store name in the changelog configuration: " + changelogConfig + " with SystemStream: " + systemStream)
         storeToChangelog += storeName -> systemStream.getStream
       }
     }
