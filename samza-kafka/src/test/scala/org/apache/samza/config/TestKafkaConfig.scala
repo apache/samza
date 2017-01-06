@@ -121,15 +121,19 @@ class TestKafkaConfig {
     props.setProperty("systems." + SYSTEM_NAME + ".samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory")
     props.setProperty("stores.test1.changelog", "kafka.mychangelog1")
     props.setProperty("stores.test2.changelog", "kafka.mychangelog2")
+    props.setProperty("job.changelog.system", "kafka")
+    props.setProperty("stores.test3.changelog", "otherstream")
     props.setProperty("stores.test1.changelog.kafka.cleanup.policy", "delete")
     
     val mapConfig = new MapConfig(props.toMap[String, String])
     val kafkaConfig = new KafkaConfig(mapConfig)
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test1").getProperty("cleanup.policy"), "delete")
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test2").getProperty("cleanup.policy"), "compact")
+    assertEquals(kafkaConfig.getChangelogKafkaProperties("test3").getProperty("cleanup.policy"), "compact")
     val storeToChangelog = kafkaConfig.getKafkaChangelogEnabledStores()
-    assertEquals(storeToChangelog.get("test1").getOrElse(""), "mychangelog1")
-    assertEquals(storeToChangelog.get("test2").getOrElse(""), "mychangelog2")
+    assertEquals("mychangelog1", storeToChangelog.get("test1").getOrElse(""))
+    assertEquals("mychangelog2", storeToChangelog.get("test2").getOrElse(""))
+    assertEquals("otherstream", storeToChangelog.get("test3").getOrElse(""))
   }
   
   @Test
