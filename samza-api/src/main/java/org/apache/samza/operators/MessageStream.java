@@ -27,7 +27,6 @@ import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowOutput;
-import org.apache.samza.operators.windows.WindowState;
 
 import java.util.Collection;
 
@@ -37,7 +36,7 @@ import java.util.Collection;
  * <p>
  * A {@link MessageStream} can be transformed into another {@link MessageStream} by applying the transforms in this API.
  *
- * @param <M>  type of {@link MessageEnvelope}s in this stream
+ * @param <M> type of {@link MessageEnvelope}s in this stream
  */
 @InterfaceStability.Unstable
 public interface MessageStream<M extends MessageEnvelope> {
@@ -90,14 +89,16 @@ public interface MessageStream<M extends MessageEnvelope> {
    * Use the {@link org.apache.samza.operators.windows.Windows} helper methods to create the appropriate windows.
    *
    * @param window  the {@link Window} to group and process {@link MessageEnvelope}s from this {@link MessageStream}
+   * @param <K>  the type of key the {@link Window} is computed on.
    * @param <WK>  the type of key in the {@link WindowOutput} from the {@link Window}
    * @param <WV>  the type of value in the {@link WindowOutput} from the {@link Window}
-   * @param <WS>  the type of window state kept in the {@link Window}
    * @param <WM>  the type of {@link WindowOutput} in the transformed {@link MessageStream}
    * @return  the transformed {@link MessageStream}
    */
-  <WK, WV, WS extends WindowState<WV>, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(
-      Window<M, WK, WV, WM> window);
+
+  <K, WK, WV, WM extends WindowOutput<WK, WV>> MessageStream<WM> window(
+      Window<M, K, WK, WV, WM> window);
+
 
   /**
    * Joins this {@link MessageStream} with another {@link MessageStream} using the provided pairwise {@link JoinFunction}.

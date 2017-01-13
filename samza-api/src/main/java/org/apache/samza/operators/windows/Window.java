@@ -18,32 +18,43 @@
  */
 package org.apache.samza.operators.windows;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.MessageEnvelope;
 
 /**
- * The public programming interface class for window function
+ * A {@link Window} transform slices a stream into smaller finite chunks for further processing. Programmers should
+ * use the API methods of {@link Windows} to specify their windowing functions.
  *
- * @param <M>  the type of input {@link MessageEnvelope}
- * @param <WK>  the type of key to the {@link Window}
- * @param <WV>  the type of output value in the {@link WindowOutput}
- * @param <WM>  the type of {@link MessageEnvelope} in the window output stream
+ * <p>There are the following aspects to windowing in Samza:
+ *
+ * <ul>
+ * <li> Default Trigger: Every {@link Window} has a default trigger that specifies when to emit
+ * results for the window.
+ *
+ * <li>Early and Late Triggers: Users can choose to emit early, partial results speculatively by configuring an early trigger.
+ * Users can choose to handle arrival of late data by configuring a late trigger. Refer to the {@link TriggersBuilder} APIs for
+ * configuring early and late triggers.
+ *
+ * <li>Key: A {@link Window} transform can be evaluated on a "per-key" basis. For instance, A common use-case is to group a
+ * stream based on a specified key over a tumbling time window. In this case, the triggering behavior is per-key and per-window.
+ *
+ * </ul>
+ *
+ * @param <M> type of input {@link MessageEnvelope}.
+ * @param <K> type of key in the {@link MessageEnvelope} on which the window is computed on.
+ * @param <WK> type of key in the {@link Window} output.
+ * @param <WV> type of value stored in the {@link Window}.
+ * @param <WM> type of the {@link Window} result.
  */
-public interface Window<M extends MessageEnvelope, WK, WV, WM extends WindowOutput<WK, WV>> {
+
+@InterfaceStability.Unstable
+public interface Window<M extends MessageEnvelope, K, WK, WV, WM extends WindowOutput<WK, WV>> {
 
   /**
    * Set the triggers for this {@link Window}
    *
-   * @param wndTrigger  trigger conditions set by the programmers
-   * @return  the {@link Window} function w/ the trigger {@code wndTrigger}
+   * @param wndTrigger trigger conditions set by the programmers
+   * @return the {@link Window} function w/ the trigger {@code wndTrigger}
    */
-  Window<M, WK, WV, WM> setTriggers(TriggerBuilder<M, WV> wndTrigger);
-
-  /**
-   * Internal implementation helper to get the functions associated with this Window.
-   *
-   * <b>NOTE:</b> This is purely an internal API and should not be used directly by users.
-   *
-   * @return the functions associated with this Window.
-   */
-  WindowFn<M, WK, WindowState<WV>, WindowOutput<WK, WV>> getInternalWindowFn();
+  Window<M, K, WK, WV, WM> setTriggers(TriggersBuilder.Triggers wndTrigger);
 }

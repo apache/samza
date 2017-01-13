@@ -22,13 +22,8 @@ package org.apache.samza.operators.impl;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.data.MessageEnvelope;
-import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
-import org.apache.samza.operators.spec.StreamOperatorSpec;
-import org.apache.samza.operators.spec.WindowOperatorSpec;
+import org.apache.samza.operators.spec.*;
 import org.apache.samza.operators.windows.WindowOutput;
-import org.apache.samza.operators.windows.WindowState;
 import org.apache.samza.task.TaskContext;
 
 import java.util.Collection;
@@ -62,7 +57,7 @@ public class OperatorImpls {
     RootOperatorImpl<M> rootOperator = new RootOperatorImpl<>();
     // create the pipeline/topology starting from the source
     source.getRegisteredOperatorSpecs().forEach(registeredOperator -> {
-        // pass in the source and context s.t. stateful stream operators can initialize their stores
+      // pass in the source and context s.t. stateful stream operators can initialize their stores
         OperatorImpl<M, ? extends MessageEnvelope> operatorImpl =
             createAndRegisterOperatorImpl(registeredOperator, source, context);
         rootOperator.registerNextOperator(operatorImpl);
@@ -115,7 +110,7 @@ public class OperatorImpls {
     } else if (operatorSpec instanceof SinkOperatorSpec) {
       return new SinkOperatorImpl<>((SinkOperatorSpec<M>) operatorSpec);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
-      return new SessionWindowOperatorImpl<>((WindowOperatorSpec<M, ?, ? extends WindowState, ? extends WindowOutput>) operatorSpec);
+      return new WindowOperatorImpl<>((WindowOperatorSpec<M, ?, ?, ?, ? extends WindowOutput>) operatorSpec);
     } else if (operatorSpec instanceof PartialJoinOperatorSpec) {
       return new PartialJoinOperatorImpl<>((PartialJoinOperatorSpec) operatorSpec);
     }
