@@ -35,11 +35,13 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Test the behavior of {@link HttpFileSystem}
@@ -83,13 +85,18 @@ public class TestHttpFileSystem {
 
           //Hang the connection until the read timeout expires on the client side.
           if (numBytesWritten >= THRESHOLD_BYTES) {
-            serverWaitLatch.await();
+            if(!serverWaitLatch.await(5, TimeUnit.SECONDS)) {
+              throw new IOException("Timed out waiting for latch");
+            }
+            break;
           }
         }
       } catch(Exception e) {
         //Record any exception that may have occurred
         LOG.error("{}", e);
         serverException = e;
+      } finally {
+        in.close();
       }
     }
   }
