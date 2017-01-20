@@ -95,8 +95,6 @@ public class TestHttpFileSystem {
         //Record any exception that may have occurred
         LOG.error("{}", e);
         serverException = e;
-      } finally {
-        in.close();
       }
     }
   }
