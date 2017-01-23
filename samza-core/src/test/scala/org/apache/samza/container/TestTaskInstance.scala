@@ -71,7 +71,7 @@ class TestTaskInstance {
     val taskName = new TaskName("taskName")
     val collector = new TaskInstanceCollector(producerMultiplexer)
     val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
-    val taskInstance: TaskInstance[StreamTask] = new TaskInstance[StreamTask](
+    val taskInstance: TaskInstance = new TaskInstance(
       task,
       taskName,
       config,
@@ -169,7 +169,7 @@ class TestTaskInstance {
 
     val registry = new MetricsRegistryMap
     val taskMetrics = new TaskInstanceMetrics(registry = registry)
-    val taskInstance: TaskInstance[StreamTask] = new TaskInstance[StreamTask](
+    val taskInstance = new TaskInstance(
       task,
       taskName,
       config,
@@ -226,7 +226,7 @@ class TestTaskInstance {
 
     val registry = new MetricsRegistryMap
     val taskMetrics = new TaskInstanceMetrics(registry = registry)
-    val taskInstance: TaskInstance[StreamTask] = new TaskInstance[StreamTask](
+    val taskInstance = new TaskInstance(
       task,
       taskName,
       config,

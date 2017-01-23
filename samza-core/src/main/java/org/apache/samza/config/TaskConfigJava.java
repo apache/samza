@@ -35,6 +35,10 @@ import scala.collection.JavaConversions;
 
 
 public class TaskConfigJava extends MapConfig {
+  // Task Configs
+  private static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
+  public static final long DEFAULT_TASK_SHUTDOWN_MS = 5000L;
+
   // broadcast streams consumed by all tasks. e.g. kafka.foo#1
   public static final String BROADCAST_INPUT_STREAMS = "task.broadcast.inputs";
   private static final String BROADCAST_STREAM_PATTERN = "^[\\d]+$";
@@ -116,5 +120,15 @@ public class TaskConfigJava extends MapConfig {
     allInputSS.addAll(getBroadcastSystemStreams());
 
     return Collections.unmodifiableSet(allInputSS);
+  }
+
+  /**
+   * Returns a value indicating how long to wait for the tasks to shutdown
+   *
+   * @return value indicating how long to wait for the tasks to shutdown
+   */
+  public long getShutdownMs() {
+    if (get(TASK_SHUTDOWN_MS) == null)  return DEFAULT_TASK_SHUTDOWN_MS;
+    return Long.valueOf(get(TASK_SHUTDOWN_MS));
   }
 }

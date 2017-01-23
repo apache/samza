@@ -60,7 +60,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class TestAsyncRunLoop {
-  Map<TaskName, TaskInstance<AsyncStreamTask>> tasks;
+  Map<TaskName, TaskInstance> tasks;
   ExecutorService executor;
   SystemConsumers consumerMultiplexer;
   SamzaContainerMetrics containerMetrics;
@@ -87,8 +87,8 @@ public class TestAsyncRunLoop {
 
   TestTask task0;
   TestTask task1;
-  TaskInstance<AsyncStreamTask> t0;
-  TaskInstance<AsyncStreamTask> t1;
+  TaskInstance t0;
+  TaskInstance t1;
 
   AsyncRunLoop createRunLoop() {
     return new AsyncRunLoop(tasks,
@@ -103,15 +103,15 @@ public class TestAsyncRunLoop {
         () -> 0L);
   }
 
-  TaskInstance<AsyncStreamTask> createTaskInstance(AsyncStreamTask task, TaskName taskName, SystemStreamPartition ssp, OffsetManager manager, SystemConsumers consumers) {
+  TaskInstance createTaskInstance(AsyncStreamTask task, TaskName taskName, SystemStreamPartition ssp, OffsetManager manager, SystemConsumers consumers) {
     TaskInstanceMetrics taskInstanceMetrics = new TaskInstanceMetrics("task", new MetricsRegistryMap());
     scala.collection.immutable.Set<SystemStreamPartition> sspSet = JavaConversions.asScalaSet(Collections.singleton(ssp)).toSet();
-    return new TaskInstance<AsyncStreamTask>(task, taskName, mock(Config.class), taskInstanceMetrics,
+    return new TaskInstance(task, taskName, mock(Config.class), taskInstanceMetrics,
         null, consumers, mock(TaskInstanceCollector.class), mock(SamzaContainerContext.class),
         manager, null, null, sspSet, new TaskInstanceExceptionHandler(taskInstanceMetrics, new scala.collection.immutable.HashSet<String>()));
   }
 
-  TaskInstance<AsyncStreamTask> createTaskInstance(AsyncStreamTask task, TaskName taskName, SystemStreamPartition ssp) {
+  TaskInstance createTaskInstance(AsyncStreamTask task, TaskName taskName, SystemStreamPartition ssp) {
     return createTaskInstance(task, taskName, ssp, offsetManager, consumerMultiplexer);
   }
 
@@ -466,7 +466,7 @@ public class TestAsyncRunLoop {
     sspMap.put(ssp2, messageList);
 
     SystemConsumer mockConsumer = mock(SystemConsumer.class);
-    when(mockConsumer.poll((Set<SystemStreamPartition>) anyObject(), anyLong())).thenReturn(sspMap);
+    when(mockConsumer.poll(anyObject(), anyLong())).thenReturn(sspMap);
 
     HashMap<String, SystemConsumer> systemConsumerMap = new HashMap<>();
     systemConsumerMap.put("system1", mockConsumer);
@@ -485,9 +485,9 @@ public class TestAsyncRunLoop {
     when(offsetManager.getStartingOffset(taskName1, ssp1)).thenReturn(Option.apply(IncomingMessageEnvelope.END_OF_STREAM_OFFSET));
     when(offsetManager.getStartingOffset(taskName2, ssp2)).thenReturn(Option.apply("1"));
 
-    TaskInstance<AsyncStreamTask> taskInstance1 = createTaskInstance(mockStreamTask1, taskName1, ssp1, offsetManager, consumers);
-    TaskInstance<AsyncStreamTask> taskInstance2 = createTaskInstance(mockStreamTask2, taskName2, ssp2, offsetManager, consumers);
-    Map<TaskName, TaskInstance<AsyncStreamTask>> tasks = new HashMap<>();
+    TaskInstance taskInstance1 = createTaskInstance(mockStreamTask1, taskName1, ssp1, offsetManager, consumers);
+    TaskInstance taskInstance2 = createTaskInstance(mockStreamTask2, taskName2, ssp2, offsetManager, consumers);
+    Map<TaskName, TaskInstance> tasks = new HashMap<>();
     tasks.put(taskName1, taskInstance1);
     tasks.put(taskName2, taskInstance2);
 

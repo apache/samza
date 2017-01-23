@@ -31,7 +31,6 @@ import org.apache.samza.system.SystemConsumers
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.TaskCoordinator.RequestScope
 import org.apache.samza.task.ReadableCoordinator
-import org.apache.samza.task.StreamTask
 import org.apache.samza.util.Clock
 import org.junit.Assert._
 import org.junit.Test
@@ -55,12 +54,12 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
   val envelope0 = new IncomingMessageEnvelope(ssp0, "0", "key0", "value0")
   val envelope1 = new IncomingMessageEnvelope(ssp1, "1", "key1", "value1")
 
-  def getMockTaskInstances: Map[TaskName, TaskInstance[StreamTask]] = {
-    val ti0 = mock[TaskInstance[StreamTask]]
+  def getMockTaskInstances: Map[TaskName, TaskInstance] = {
+    val ti0 = mock[TaskInstance]
     when(ti0.systemStreamPartitions).thenReturn(Set(ssp0))
     when(ti0.taskName).thenReturn(taskName0)
 
-    val ti1 = mock[TaskInstance[StreamTask]]
+    val ti1 = mock[TaskInstance]
     when(ti1.systemStreamPartitions).thenReturn(Set(ssp1))
     when(ti1.taskName).thenReturn(taskName1)
 
@@ -183,7 +182,7 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
   def anyObject[T] = Matchers.anyObject.asInstanceOf[T]
 
   // Stub out TaskInstance.process. Mockito really doesn't make this easy. :(
-  def stubProcess(taskInstance: TaskInstance[StreamTask], process: (IncomingMessageEnvelope, ReadableCoordinator) => Unit) {
+  def stubProcess(taskInstance: TaskInstance, process: (IncomingMessageEnvelope, ReadableCoordinator) => Unit) {
     when(taskInstance.process(anyObject, anyObject, anyObject)).thenAnswer(new Answer[Unit]() {
       override def answer(invocation: InvocationOnMock) {
         val envelope = invocation.getArguments()(0).asInstanceOf[IncomingMessageEnvelope]
@@ -276,9 +275,9 @@ class TestRunLoop extends AssertionsForJUnit with MockitoSugar with ScalaTestMat
 
   @Test
   def testGetSystemStreamPartitionToTaskInstancesMapping {
-    val ti0 = mock[TaskInstance[StreamTask]]
-    val ti1 = mock[TaskInstance[StreamTask]]
-    val ti2 = mock[TaskInstance[StreamTask]]
+    val ti0 = mock[TaskInstance]
+    val ti1 = mock[TaskInstance]
+    val ti2 = mock[TaskInstance]
     when(ti0.systemStreamPartitions).thenReturn(Set(ssp0))
     when(ti1.systemStreamPartitions).thenReturn(Set(ssp1))
     when(ti2.systemStreamPartitions).thenReturn(Set(ssp1))
