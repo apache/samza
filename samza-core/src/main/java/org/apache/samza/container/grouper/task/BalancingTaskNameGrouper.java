@@ -18,6 +18,7 @@
  */
 package org.apache.samza.container.grouper.task;
 
+import java.util.Collections;
 import java.util.Set;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.job.model.ContainerModel;
@@ -54,5 +55,11 @@ public interface BalancingTaskNameGrouper extends TaskNameGrouper {
    * @param localityManager provides a persisted task to container map to use as a baseline
    * @return                the grouped tasks in the form of ContainerModels
    */
-  Set<ContainerModel> balance(Set<TaskModel> tasks, LocalityManager localityManager);
+  default Set<ContainerModel> balance(Set<TaskModel> tasks, LocalityManager localityManager) {
+    return Collections.<ContainerModel>emptySet();
+  }
+
+  default Set<ContainerModel> balance(Set<Integer> containerIds, Set<TaskModel> tasks, LocalityManager localityManager) {
+    return Collections.<ContainerModel>emptySet();
+  }
 }
