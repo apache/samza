@@ -78,7 +78,7 @@ public class StandaloneJobCoordinator implements JobCoordinator {
         log.error(String.format("A stream uses system %s, which is missing from the configuration.", systemName));
         throw new SamzaException(String.format("A stream uses system %s, which is missing from the configuration.", systemName));
       }
-      SystemFactory systemFactory = Util.getObj(systemFactoryClassName);
+      SystemFactory systemFactory = Util.<SystemFactory>getObj(systemFactoryClassName);
       systemAdmins.put(systemName, systemFactory.getAdmin(systemName, this.config));
     }
 

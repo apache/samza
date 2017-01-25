@@ -210,7 +210,9 @@ object JobModelManager extends Logging {
     // We don't need to start() localityManager as they share the same instances with checkpoint and changelog managers.
     // TODO: This code will go away with refactoring - SAMZA-678
 
-    localityManager.start()
+    if (localityManager != null) {
+      localityManager.start()
+    }
 
     // Generate the jobModel
     def jobModelGenerator(): JobModel = refreshJobModel(config,

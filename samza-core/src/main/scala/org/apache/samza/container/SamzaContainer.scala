@@ -369,8 +369,6 @@ object SamzaContainer extends Logging {
     }
     info("Got security manager: %s" format securityManager)
 
-    val coordinatorSystemProducer = new CoordinatorStreamSystemFactory().getCoordinatorStreamSystemProducer(config, samzaContainerMetrics.registry)
-    val localityManager = new LocalityManager(coordinatorSystemProducer)
     val checkpointManager = config.getCheckpointManagerFactory()
       .filterNot(_.isEmpty)
       .map(Util.getObj[CheckpointManagerFactory](_).getCheckpointManager(config, samzaContainerMetrics.registry))
