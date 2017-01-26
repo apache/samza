@@ -106,7 +106,7 @@ object JobModelManager extends Logging {
       }
     }
 
-    val jobCoordinator = getJobCoordinator(config, changelogManager, localityManager, streamMetadataCache, streamPartitionCountMonitor, null)
+    val jobCoordinator = getJobCoordinator(config, changelogManager, localityManager, streamMetadataCache, streamPartitionCountMonitor)
     createChangeLogStreams(config, jobCoordinator.jobModel.maxChangeLogStreamPartitions)
 
     jobCoordinator
@@ -121,9 +121,8 @@ object JobModelManager extends Logging {
                         changelogManager: ChangelogPartitionManager,
                         localityManager: LocalityManager,
                         streamMetadataCache: StreamMetadataCache,
-                        streamPartitionCountMonitor: StreamPartitionCountMonitor,
-                        containerIds: java.util.List[Integer]) = {
-    val jobModel: JobModel = initializeJobModel(config, changelogManager, localityManager, streamMetadataCache, containerIds)
+                        streamPartitionCountMonitor: StreamPartitionCountMonitor) = {
+    val jobModel: JobModel = initializeJobModel(config, changelogManager, localityManager, streamMetadataCache)
     jobModelRef.set(jobModel)
 
     val server = new HttpServer
@@ -189,8 +188,7 @@ object JobModelManager extends Logging {
   private def initializeJobModel(config: Config,
                                  changelogManager: ChangelogPartitionManager,
                                  localityManager: LocalityManager,
-                                 streamMetadataCache: StreamMetadataCache,
-                                 containerIds: java.util.List[Integer]): JobModel = {
+                                 streamMetadataCache: StreamMetadataCache): JobModel = {
     // Do grouping to fetch TaskName to SSP mapping
     val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache)
     val grouper = getSystemStreamPartitionGrouper(config)
@@ -219,8 +217,7 @@ object JobModelManager extends Logging {
                                                         allSystemStreamPartitions,
                                                         groups,
                                                         previousChangelogMapping,
-                                                        localityManager,
-                                                        containerIds)
+                                                        localityManager)
 
     val jobModel = jobModelGenerator()
 
@@ -253,8 +250,7 @@ object JobModelManager extends Logging {
                               allSystemStreamPartitions: util.Set[SystemStreamPartition],
                               groups: util.Map[TaskName, util.Set[SystemStreamPartition]],
                               previousChangelogMapping: util.Map[TaskName, Integer],
-                              localityManager: LocalityManager,
-                              containerIds: java.util.List[Integer]): JobModel = {
+                              localityManager: LocalityManager): JobModel = {
 
     // If no mappings are present(first time the job is running) we return -1, this will allow 0 to be the first change
     // mapping.

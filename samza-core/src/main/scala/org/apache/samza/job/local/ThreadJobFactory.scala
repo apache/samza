@@ -40,6 +40,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val coordinator = JobModelManager(config)
     val jobModel = coordinator.jobModel
     val containerModel = jobModel.getContainers.get(0)
+    val jmxServer = new JmxServer
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
     config.getTaskOpts match {
@@ -56,9 +57,10 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
               config,
               jobModel.maxChangeLogStreamPartitions,
               null,
-              new JmxServer))
+              jmxServer))
     } finally {
       coordinator.stop
+      jmxServer.stop
     }
   }
 }
