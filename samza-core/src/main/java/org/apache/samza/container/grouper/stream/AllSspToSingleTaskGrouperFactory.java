@@ -17,13 +17,12 @@
  * under the License.
  */
 
-package org.apache.samza.test.processor;
+package org.apache.samza.container.grouper.stream;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper;
-import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.util.Collections;
@@ -63,10 +62,8 @@ class AllSspToSingleTaskGrouper implements SystemStreamPartitionGrouper {
 }
 
 public class AllSspToSingleTaskGrouperFactory implements SystemStreamPartitionGrouperFactory {
-  private static final String PROCESSOR_ID = "processor.id";
-
   @Override
   public SystemStreamPartitionGrouper getSystemStreamPartitionGrouper(Config config) {
-    return new AllSspToSingleTaskGrouper(config.getInt(PROCESSOR_ID));
+    return new AllSspToSingleTaskGrouper(config.getInt(JobConfig.PROCESSOR_ID()));
   }
 }

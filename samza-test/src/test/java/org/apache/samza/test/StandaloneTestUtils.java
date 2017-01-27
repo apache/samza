@@ -19,18 +19,19 @@
 
 package org.apache.samza.test;
 
+import org.apache.samza.config.JobCoordinatorConfig;
+
 import java.util.HashMap;
 import java.util.Map;
 
 public class StandaloneTestUtils {
   private static final String STANDALONE_JOB_COORDINATOR_FACTORY = "org.apache.samza.standalone.StandaloneJobCoordinatorFactory";
-  private static final String STANDALONE_SSP_GROUPER_FACTORY = "org.apache.samza.test.processor.AllSspToSingleTaskGrouperFactory";
-  private static final String STANDALONE_TASK_NAME_GROUPER_FACTORY = "org.apache.samza.test.processor.SingleContainerGrouperFactory";
+  private static final String STANDALONE_SSP_GROUPER_FACTORY = "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory";
+  private static final String STANDALONE_TASK_NAME_GROUPER_FACTORY = "org.apache.samza.container.grouper.task.SingleContainerGrouperFactory";
   private static final String KAFKA_SYSTEM_FACTORY = "org.apache.samza.system.kafka.KafkaSystemFactory";
 
   public static final String JOB_NAME = "job.name";
   private static final String TASK_CLASS = "task.class";
-  private static final String JOB_COORDINATOR_FACTORY = "job.coordinator.factory";
   private static final String TASK_NAME_GROUPER_FACTORY = "task.name.grouper.factory";
   private static final String SSP_GROUPER_FACTORY = "job.systemstreampartition.grouper.factory";
 
@@ -54,7 +55,7 @@ public class StandaloneTestUtils {
       {
         put(JOB_NAME, jobName);
         put(TASK_CLASS, taskClass);
-        put(JOB_COORDINATOR_FACTORY, STANDALONE_JOB_COORDINATOR_FACTORY);
+        put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, STANDALONE_JOB_COORDINATOR_FACTORY);
         put(SSP_GROUPER_FACTORY, STANDALONE_SSP_GROUPER_FACTORY);
         put(TASK_NAME_GROUPER_FACTORY, STANDALONE_TASK_NAME_GROUPER_FACTORY);
       }

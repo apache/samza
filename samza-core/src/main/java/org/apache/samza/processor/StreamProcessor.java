@@ -36,8 +36,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * StreamProcessor can be embedded in any application or executed in a distributed environment (aka cluster) as
- * independent processes
+ * StreamProcessor can be embedded in any application or executed in a distributed environment (aka cluster) as an
+ * independent process.
  * <p>
  * <b>Usage Example:</b>
  * <pre>
@@ -55,6 +55,8 @@ import java.util.Map;
  *   processor.stop();
  * }
  * </pre>
+ * Note: A single JVM can create multiple StreamProcessor instances. It is safe to create StreamProcessor instances in
+ * multiple threads.
  */
 @InterfaceStability.Evolving
 public class StreamProcessor {
@@ -70,7 +72,6 @@ public class StreamProcessor {
   private static final String PROCESSOR_ID = "processor.id";
   private final int processorId;
   private final JobCoordinator jobCoordinator;
-  private final SamzaContainerController containerController;
 
   /**
    * Create an instance of StreamProcessor that encapsulates a JobCoordinator and Samza Container
@@ -120,7 +121,7 @@ public class StreamProcessor {
     Config updatedConfig = new MapConfig(updatedConfigMap);
 
 
-    this.containerController = new SamzaContainerController(
+    SamzaContainerController containerController = new SamzaContainerController(
         taskFactory,
         new TaskConfigJava(updatedConfig).getShutdownMs(),
         String.valueOf(processorId),
@@ -130,14 +131,14 @@ public class StreamProcessor {
         <JobCoordinatorFactory>getObj(
             new JobCoordinatorConfig(updatedConfig)
                 .getJobCoordinatorFactoryClassName())
-        .getJobCoordinator(processorId, updatedConfig, this.containerController);
+        .getJobCoordinator(processorId, updatedConfig, containerController);
   }
 
   /**
    * StreamProcessor Lifecycle: start()
    * <ul>
    * <li>Starts the JobCoordinator and fetches the JobModel</li>
-   * <li>Starts the container using ContainerModel based on the processorId </li>
+   * <li>jobCoordinator.start returns after starting the container using ContainerModel </li>
    * </ul>
    * When start() returns, it only guarantees that the container is initialized and submitted by the controller to
    * execute
@@ -156,7 +157,7 @@ public class StreamProcessor {
    * @throws InterruptedException if the current thread is interrupted while waiting for container to start-up
    */
   public boolean awaitStart(long timeoutMs) throws InterruptedException {
-    return containerController.awaitStart(timeoutMs); // TODO: Should awaitStart be part of the JC interface, instead of directly using container controller
+    return jobCoordinator.awaitStart(timeoutMs);
   }
 
   /**

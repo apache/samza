@@ -128,7 +128,8 @@ public class TaskConfigJava extends MapConfig {
    * @return value indicating how long to wait for the tasks to shutdown
    */
   public long getShutdownMs() {
-    if (get(TASK_SHUTDOWN_MS) == null)  return DEFAULT_TASK_SHUTDOWN_MS;
-    return Long.valueOf(get(TASK_SHUTDOWN_MS));
+    String shutdownMs = get(TASK_SHUTDOWN_MS);
+    if (shutdownMs == null)  return DEFAULT_TASK_SHUTDOWN_MS;
+    return Long.parseLong(shutdownMs);
   }
 }

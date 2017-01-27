@@ -37,14 +37,27 @@ public interface JobCoordinator {
 
   /**
    * Cleanly shutting down the JobCoordinator involves:
+   * * Shutting down the Container
    * * Shutting down the LeaderElection module (TBD: details depending on leader or not)
-   * * TBD
    */
   void stop();
 
   /**
+   * Waits for a specified amount of time for the JobCoordinator to fully start-up, which means it should be ready to
+   * process messages.
+   * In a Standalone use-case, it may be sufficient to wait for the container to start-up.
+   * In a ZK based Standalone use-case, it also includes registration with ZK, initialization of the
+   * leader elector module, container start-up etc.
+   *
+   * @param timeoutMs Maximum time to wait, in milliseconds
+   * @return {@code true}, if the JobCoordinator is started within the specified wait time and {@code false} if the
+   * waiting time elapsed
+   * @throws InterruptedException if the current thread is interrupted while waiting for the JobCoordinator to start-up
+   */
+  boolean awaitStart(long timeoutMs) throws InterruptedException;
+  /**
    * Returns the logical ID assigned to the processor
-   * It is upto the user to ensure that different instances of StreamProcessor within a job have unique processor ID.
+   * It is up to the user to ensure that different instances of StreamProcessor within a job have unique processor ID.
    * @return integer representing the logical processor ID
    */
   int getProcessorId();
