@@ -42,9 +42,24 @@ import java.util.Map;
  * Standalone Job Coordinator does not implement any leader elector module or cluster manager
  *
  * It generates the JobModel using the Config passed into the constructor.
- * Since the standalone JobCoordinator does not perform partition management, it allows two kinds of partition
- * distribution mechanism - consumer-managed partition distribution and user-defined fixed partition distribution.
  *
+ * Since the standalone JobCoordinator does not perform partition management, it allows two kinds of partition
+ * distribution mechanism:
+ * <ul>
+ *   <li>
+ *     Consumer-managed Partition Distribution - For example, using the kafka consumer which also handles partition
+ *   load balancing across its consumers. In such a case, all input SystemStreamPartition(s) can be grouped to the same
+ *   task instance using {@link org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory} and the
+ *   task can be added to a single container using
+ *   {@link org.apache.samza.container.grouper.task.SingleContainerGrouperFactory}.
+ *   </li>
+ *   <li>
+ *     User-defined Fixed Partition Distribution - For example, the application may always run a fixed number of
+ *   processors and use a static distribution of partitions that doesn't change. This can be achieved by adding custom
+ *   {@link org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper} and
+ *   {@link org.apache.samza.container.grouper.task.TaskNameGrouper}.
+ *   </li>
+ * </ul>
  * */
 public class StandaloneJobCoordinator implements JobCoordinator {
   private static final Logger log = LoggerFactory.getLogger(StandaloneJobCoordinator.class);
