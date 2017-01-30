@@ -67,4 +67,4 @@ systems.hdfs-clickstream.producer.hdfs.write.batch.size.bytes=134217728
 
 The above configuration assumes a Metrics and Serde implemnetation has been properly configured against the `some-serde-impl` and `some-metrics-impl` labels somewhere else in the same `job.properties` file. Each of these properties has a reasonable default, so you can leave out the ones you don't need to customize for your job run.
 
-## [Security &raquo;](../operations/security.html)
+## [Reading from HDFS &raquo;](../hdfs/consumer.html)

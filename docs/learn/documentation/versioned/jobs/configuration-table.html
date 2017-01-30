@@ -1810,6 +1810,46 @@
                 </tr>
 
                 <tr>
+                    <th colspan="3" class="section" id="hdfs-system-consumer"><a href="../hdfs/consumer.html">Reading from HDFS</a></th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="hdfs-consumer-buffer-capacity">systems.*.consumer.bufferCapacity</td>
+                    <td class="default">10</td>
+                    <td class="description">Capacity of the hdfs consumer buffer - the blocking queue used for storing messages. Larger buffer capacity typically leads to better throughput but consumes more memory.</td>
+                </tr>
+                <tr>
+                    <td class="property" id="hdfs-consumer-numMaxRetries">systems.*.consumer.numMaxRetries</td>
+                    <td class="default">10</td>
+                    <td class="description">The number of retry attempts when there is a failure to fetch messages from HDFS, before the container fails.</td>
+                </tr>
+                <tr>
+                    <td class="property" id="hdfs-partitioner-whitelist">systems.*.partitioner.defaultPartitioner.whitelist</td>
+                    <td class="default">.*</td>
+                    <td class="description">White list used by directory partitioner to select files in a hdfs directory, in Java Pattern style.</td>
+                </tr>
+                <tr>
+                    <td class="property" id="hdfs-partitioner-blacklist">systems.*.partitioner.defaultPartitioner.blacklist</td>
+                    <td class="default"></td>
+                    <td class="description">Black list used by directory partitioner to filter out unwanted files in a hdfs directory, in Java Pattern style.</td>
+                </tr>
+                <tr>
+                    <td class="property" id="hdfs-partitioner-group-pattern">systems.*.partitioner.defaultPartitioner.groupPattern</td>
+                    <td class="default"></td>
+                    <td class="description">Group pattern used by directory partitioner for advanced partitioning. The advanced partitioning goes beyond the basic assumption that each file is a partition. With advanced partitioning you can group files into partitions arbitrarily. For example, if you have a set of files as [part-01-a.avro, part-01-b.avro, part-02-a.avro, part-02-b.avro, part-03-a.avro], and you want to organize the partitions as (part-01-a.avro, part-01-b.avro), (part-02-a.avro, part-02-b.avro), (part-03-a.avro), where the numbers in the middle act as a "group identifier", you can then set this property to be "part-[id]-.*" (note that "[id]" is a reserved term here, i.e. you have to literally put it as "[id]"). The partitioner will apply this pattern to all file names and extract the "group identifier" ("[id]" in the pattern), then use the "group identifier" to group files into partitions. See more details in <a href="https://issues.apache.org/jira/secure/attachment/12827670/HDFSSystemConsumer.pdf">HdfsSystemConsumer design doc</a> </td>
+                </tr>
+                <tr>
+                    <td class="property" id="hdfs-consumer-reader-type">systems.*.consumer.reader</td>
+                    <td class="default">avro</td>
+                    <td class="description">Type of the file reader for different event formats (avro, plain, json, etc.). "avro" is only type supported for now.</td>
+                </tr>
+                <tr>
+                    <td class="property" id="hdfs-staging-directory">systems.*.stagingDirectory</td>
+                    <td class="default"></td>
+                    <td class="description">Staging directory for storing partition description. By default (if not set by users) the value is inherited from "yarn.job.staging.directory" internally. The default value is typically good enough unless you want explicitly use a separate location.</td>
+                </tr>
+
+                <tr>
                     <th colspan="3" class="section" id="task-migration">
                         Migrating from Samza 0.9.1 to 0.10.0<br>
                         <span class="subtitle">
