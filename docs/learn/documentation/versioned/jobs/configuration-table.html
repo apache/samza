@@ -1422,6 +1422,21 @@
                     </td>
                 </tr>
 
+                <tr>
+                    <td class="property" id="stores-rocksdb-log-file-size">stores.<span class="store">store-name</span>.<br>rocksdb.max.log.file.size.bytes</td>
+                    <td class="default">67108864</td>
+                    <td class="description">
+                        The maximum size in bytes of the RocksDB LOG file before it is rotated.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="stores-rocksdb-num-log-files">stores.<span class="store">store-name</span>.<br>rocksdb.keep.log.file.num</td>
+                    <td class="default">2</td>
+                    <td class="description">
+                        The number of RocksDB LOG files (including rotated LOG.old.* files) to keep.
+                    </td>
+                </tr>
 
                 <tr>
                     <th colspan="3" class="section" id="cluster-manager">
