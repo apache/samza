@@ -124,12 +124,22 @@ public class TaskConfigJava extends MapConfig {
 
   /**
    * Returns a value indicating how long to wait for the tasks to shutdown
+   * If the value is not defined in the config or if does not parse correctly, we return the default value -
+   * {@value #DEFAULT_TASK_SHUTDOWN_MS}
    *
-   * @return value indicating how long to wait for the tasks to shutdown
+   * @return Long value indicating how long to wait for all the tasks to shutdown
    */
   public long getShutdownMs() {
     String shutdownMs = get(TASK_SHUTDOWN_MS);
-    if (shutdownMs == null)  return DEFAULT_TASK_SHUTDOWN_MS;
-    return Long.parseLong(shutdownMs);
+    try {
+      return Long.parseLong(shutdownMs);
+    } catch (NumberFormatException nfe) {
+      LOGGER.warn(String.format(
+          "Unable to parse user-configure value for %s - %s. Using default value %d",
+          TASK_SHUTDOWN_MS,
+          shutdownMs,
+          DEFAULT_TASK_SHUTDOWN_MS));
+      return DEFAULT_TASK_SHUTDOWN_MS;
+    }
   }
 }

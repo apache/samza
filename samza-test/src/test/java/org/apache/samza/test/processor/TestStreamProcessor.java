@@ -34,9 +34,7 @@ import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Collections;
@@ -53,20 +51,6 @@ import java.util.concurrent.TimeUnit;
 import static org.apache.samza.test.processor.IdentityStreamTask.endLatch;
 
 public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
-  @Before
-  @Override
-  public void setUp() {
-    // needs to be called once per class instead of once per method, else fails with a ZK timeout error.
-    super.setUp();
-  }
-
-  @After
-  @Override
-  public void tearDown() {
-    // needs to be called once per class instead of once per method, else fails with a ZK timeout error.
-    super.tearDown();
-  }
-
   /**
    * Testing a basic identity stream task - reads data from a topic and writes it to another topic
    * (without any modifications)
