@@ -18,18 +18,17 @@
  */
 package org.apache.samza.operators.windows;
 
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-
-
-public class TestWindowOutput {
-  @Test
-  public void testConstructor() {
-    WindowPane<String, Integer> wndOutput = WindowPane.of(new WindowKey("testMsg", null), 10);
-    assertEquals(wndOutput.getKey().getKey(), "testMsg");
-    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
-    assertFalse(wndOutput.isDelete());
-  }
+/**
+ * Specifies how a {@link Window} should process its previously emitted {@link WindowPane}s.
+ *
+ * <p> There are two types of {@link AccumulationMode}s:
+ * <ul>
+ *   <li> ACCUMULATING: Specifies that window panes should include all messages collected for the window (key) so far, even if they were
+ * included in previously emitted window panes.
+ *   <li> DISCARDING: Specifies that window panes should only include messages collected for this window (key) since the last emitted
+ * window pane.
+ * </ul>
+ */
+public enum AccumulationMode {
+  ACCUMULATING, DISCARDING
 }

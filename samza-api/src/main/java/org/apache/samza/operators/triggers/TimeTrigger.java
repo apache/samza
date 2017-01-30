@@ -16,20 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.windows;
+package org.apache.samza.operators.triggers;
 
-import org.junit.Test;
+import org.apache.samza.operators.data.MessageEnvelope;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import java.time.Duration;
 
+/*
+ * A {@link Trigger} that fires after the specified duration in processing time.
+ */
+public class TimeTrigger<M extends MessageEnvelope> implements Trigger {
 
-public class TestWindowOutput {
-  @Test
-  public void testConstructor() {
-    WindowPane<String, Integer> wndOutput = WindowPane.of(new WindowKey("testMsg", null), 10);
-    assertEquals(wndOutput.getKey().getKey(), "testMsg");
-    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
-    assertFalse(wndOutput.isDelete());
+  private final Duration duration;
+  private final DurationCharacteristic characteristic = DurationCharacteristic.PROCESSING_TIME;
+
+  public TimeTrigger(Duration duration) {
+    this.duration = duration;
+  }
+
+  public Duration getDuration() {
+    return duration;
+  }
+
+  public DurationCharacteristic getCharacteristic() {
+    return characteristic;
   }
 }

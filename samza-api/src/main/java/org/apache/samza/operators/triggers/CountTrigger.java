@@ -16,20 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.windows;
+package org.apache.samza.operators.triggers;
 
-import org.junit.Test;
+import org.apache.samza.operators.data.MessageEnvelope;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+/**
+ * A {@link Trigger} that fires when the number of messages in the {@link org.apache.samza.operators.windows.WindowPane}
+ * reaches the specified count.
+ */
+public class CountTrigger<M extends MessageEnvelope> implements Trigger {
 
+  private final long count;
 
-public class TestWindowOutput {
-  @Test
-  public void testConstructor() {
-    WindowPane<String, Integer> wndOutput = WindowPane.of(new WindowKey("testMsg", null), 10);
-    assertEquals(wndOutput.getKey().getKey(), "testMsg");
-    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
-    assertFalse(wndOutput.isDelete());
+  CountTrigger(long count) {
+    this.count = count;
+  }
+
+  public long getCount() {
+    return count;
   }
 }

@@ -16,20 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.windows;
 
-import org.junit.Test;
+package org.apache.samza.operators.triggers;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import org.apache.samza.operators.data.MessageEnvelope;
 
+import java.time.Duration;
 
-public class TestWindowOutput {
-  @Test
-  public void testConstructor() {
-    WindowPane<String, Integer> wndOutput = WindowPane.of(new WindowKey("testMsg", null), 10);
-    assertEquals(wndOutput.getKey().getKey(), "testMsg");
-    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
-    assertFalse(wndOutput.isDelete());
+/*
+ * A {@link Trigger} that fires after the specified duration has passed since the first {@link MessageEnvelope} in
+ * the window pane.
+ */
+public class TimeSinceFirstMessageTrigger<M extends MessageEnvelope> implements Trigger {
+
+  private final Duration duration;
+  private final DurationCharacteristic characteristic = DurationCharacteristic.PROCESSING_TIME;
+
+  TimeSinceFirstMessageTrigger(Duration duration) {
+    this.duration = duration;
+  }
+
+  public Duration getDuration() {
+    return duration;
+  }
+
+  public DurationCharacteristic getCharacteristic() {
+    return characteristic;
   }
 }

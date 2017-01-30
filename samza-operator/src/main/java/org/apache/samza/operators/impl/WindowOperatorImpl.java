@@ -16,20 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.windows;
+package org.apache.samza.operators.impl;
 
-import org.junit.Test;
+import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.operators.spec.WindowOperatorSpec;
+import org.apache.samza.operators.windows.WindowPane;
+import org.apache.samza.operators.windows.internal.WindowInternal;
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskCoordinator;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends WindowPane<WK, WV>> extends OperatorImpl<M, WM> {
 
+  private final WindowInternal<M, K, WV> window;
 
-public class TestWindowOutput {
-  @Test
-  public void testConstructor() {
-    WindowPane<String, Integer> wndOutput = WindowPane.of(new WindowKey("testMsg", null), 10);
-    assertEquals(wndOutput.getKey().getKey(), "testMsg");
-    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
-    assertFalse(wndOutput.isDelete());
+  public WindowOperatorImpl(WindowOperatorSpec spec) {
+    window = spec.getWindow();
+  }
+
+  @Override
+  public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
+
   }
 }

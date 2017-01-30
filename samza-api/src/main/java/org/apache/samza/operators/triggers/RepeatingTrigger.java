@@ -16,20 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.windows;
+package org.apache.samza.operators.triggers;
 
-import org.junit.Test;
+import org.apache.samza.operators.data.MessageEnvelope;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+/**
+ * A {@link Trigger} that repeats its underlying trigger forever.
+ */
+class RepeatingTrigger<M extends MessageEnvelope> implements Trigger<M> {
 
+  private final Trigger<M> trigger;
 
-public class TestWindowOutput {
-  @Test
-  public void testConstructor() {
-    WindowPane<String, Integer> wndOutput = WindowPane.of(new WindowKey("testMsg", null), 10);
-    assertEquals(wndOutput.getKey().getKey(), "testMsg");
-    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
-    assertFalse(wndOutput.isDelete());
+  RepeatingTrigger(Trigger<M> trigger) {
+    this.trigger = trigger;
   }
 }
+

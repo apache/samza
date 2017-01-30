@@ -18,18 +18,29 @@
  */
 package org.apache.samza.operators.windows;
 
-import org.junit.Test;
+/**
+ * Key for a {@link WindowPane} emitted from a {@link Window}.
+ *
+ * @param <K> the type of the key in the incoming {@link org.apache.samza.operators.data.MessageEnvelope}.
+ *            Windows that are not keyed have a {@link Void} key type.
+ *
+ */
+public class WindowKey<K> {
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+  private final  K key;
 
+  private final String windowId;
 
-public class TestWindowOutput {
-  @Test
-  public void testConstructor() {
-    WindowPane<String, Integer> wndOutput = WindowPane.of(new WindowKey("testMsg", null), 10);
-    assertEquals(wndOutput.getKey().getKey(), "testMsg");
-    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
-    assertFalse(wndOutput.isDelete());
+  public WindowKey(K key, String  windowId) {
+    this.key = key;
+    this.windowId = windowId;
+  }
+
+  public K getKey() {
+    return key;
+  }
+
+  public String getWindowId() {
+    return windowId;
   }
 }

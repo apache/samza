@@ -18,32 +18,94 @@
  */
 package org.apache.samza.operators.windows;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.operators.triggers.Trigger;
 
 /**
- * The public programming interface class for window function
+ * Groups incoming {@link MessageEnvelope}s in the {@link org.apache.samza.operators.MessageStream} into finite
+ * windows for processing.
  *
- * @param <M>  the type of input {@link MessageEnvelope}
- * @param <WK>  the type of key to the {@link Window}
- * @param <WV>  the type of output value in the {@link WindowOutput}
- * @param <WM>  the type of {@link MessageEnvelope} in the window output stream
+ * <p> A window is uniquely identified by its {@link WindowKey}. A window can have one or more associated {@link Trigger}s
+ * that determine when results from the {@link Window} are emitted.
+ *
+ * <p> Each emitted result contains one or more {@link MessageEnvelope}s in the window and is called a {@link WindowPane}.
+ * A pane can include all {@link MessageEnvelope}s collected for the window so far or only the new {@link MessageEnvelope}s
+ * since the last emitted pane. (as determined by the {@link AccumulationMode})
+ *
+ * <p> A window can have early triggers that allow emitting {@link WindowPane}s speculatively before all data for the window
+ * has arrived or late triggers that allow handling of late data arrivals.
+ *
+ * <p> A {@link Window} is defined as "keyed" when the incoming {@link org.apache.samza.operators.MessageStream} is first
+ * partitioned based on the provided key, and windowing is applied on the partitioned stream.
+ *
+ *                                     window wk1 (with its triggers)
+ *                                      +--------------------------------+
+ *                                      ------------+--------+-----------+
+ *                                      |           |        |           |
+ *                                      | pane 1    |pane2   |   pane3   |
+ *                                      +-----------+--------+-----------+
+ *
+ -----------------------------------
+ *incoming message stream ------+
+ -----------------------------------
+ *                                      window wk2
+ *                                      +---------------------+---------+
+ *                                      |   pane 1|   pane 2  |  pane 3 |
+ *                                      |         |           |         |
+ *                                      +---------+-----------+---------+
+ *
+ *                                      window wk3
+ *                                      +----------+-----------+---------+
+ *                                      |          |           |         |
+ *                                      | pane 1   |  pane 2   |   pane 3|
+ *                                      |          |           |         |
+ *                                      +----------+-----------+---------+
+ *
+ *
+ * <p> Use the {@link Windows} APIs to create various windows and the {@link org.apache.samza.operators.triggers.Triggers}
+ * APIs to create triggers.
+ *
+ * @param <M> the type of the input {@link MessageEnvelope}
+ * @param <K> the type of the key in the {@link MessageEnvelope} in this {@link org.apache.samza.operators.MessageStream}.
+ * @param <WV> the type of the value in the {@link WindowPane}.
+ * @param <WM> the type of the output.
  */
-public interface Window<M extends MessageEnvelope, WK, WV, WM extends WindowOutput<WK, WV>> {
+@InterfaceStability.Unstable
+public interface Window<M extends MessageEnvelope, K, WV, WM extends WindowPane<K, WV>> {
 
   /**
-   * Set the triggers for this {@link Window}
+   * Set the early triggers for this {@link Window}.
+   * <p>Use the {@link org.apache.samza.operators.triggers.Triggers} APIs to create instances of {@link Trigger}
    *
-   * @param wndTrigger  trigger conditions set by the programmers
-   * @return  the {@link Window} function w/ the trigger {@code wndTrigger}
+   * @param trigger the early trigger
+   * @return the {@link Window} function with the early trigger
    */
-  Window<M, WK, WV, WM> setTriggers(TriggerBuilder<M, WV> wndTrigger);
+  Window<M, K, WV, WM> setEarlyTrigger(Trigger<M> trigger);
 
   /**
-   * Internal implementation helper to get the functions associated with this Window.
+   * Set the late triggers for this {@link Window}.
+   * <p>Use the {@link org.apache.samza.operators.triggers.Triggers} APIs to create instances of {@link Trigger}
    *
-   * <b>NOTE:</b> This is purely an internal API and should not be used directly by users.
-   *
-   * @return the functions associated with this Window.
+   * @param trigger the late trigger
+   * @return the {@link Window} function with the late trigger
    */
-  WindowFn<M, WK, WindowState<WV>, WindowOutput<WK, WV>> getInternalWindowFn();
+  Window<M, K, WV, WM> setLateTrigger(Trigger<M> trigger);
+
+  /**
+   * Specify how a {@link Window} should process its previously emitted {@link WindowPane}s.
+   *
+   * <p> There are two types of {@link AccumulationMode}s:
+   * <ul>
+   *  <li> ACCUMULATING: Specifies that window panes should include all messages collected for the window (key) so far, even if they were
+   * included in previously emitted window panes.
+   *  <li> DISCARDING: Specifies that window panes should only include messages collected for this window (key) since the last emitted
+   * window pane.
+   * </ul>
+   *
+   * @param mode the accumulation mode
+   * @return the {@link Window} function with the specified {@link AccumulationMode}.
+   */
+  Window<M, K, WV, WM> setAccumulationMode(AccumulationMode mode);
+
 }

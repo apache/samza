@@ -18,18 +18,40 @@
  */
 package org.apache.samza.operators.windows;
 
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import org.apache.samza.operators.data.MessageEnvelope;
 
 
-public class TestWindowOutput {
-  @Test
-  public void testConstructor() {
-    WindowPane<String, Integer> wndOutput = WindowPane.of(new WindowKey("testMsg", null), 10);
-    assertEquals(wndOutput.getKey().getKey(), "testMsg");
-    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
-    assertFalse(wndOutput.isDelete());
+/**
+ * Specifies the result emitted from a {@link Window}.
+ *
+ * @param <K>  the type of key in the window pane
+ * @param <V>  the type of value in the window pane.
+ */
+public final class WindowPane<K, V> implements MessageEnvelope<WindowKey<K>, V> {
+
+  private final WindowKey<K> key;
+
+  private final V value;
+
+  private final AccumulationMode mode;
+
+  WindowPane(WindowKey<K> key, V value, AccumulationMode mode) {
+    this.key = key;
+    this.value = value;
+    this.mode = mode;
+  }
+
+  @Override public V getMessage() {
+    return this.value;
+  }
+
+  @Override public WindowKey<K> getKey() {
+    return this.key;
+  }
+
+  static public <K, M> WindowPane<K, M> of(WindowKey<K> key, M result) {
+    return new WindowPane<>(key, result, AccumulationMode.DISCARDING);
   }
 }
+
+

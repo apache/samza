@@ -314,7 +314,6 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     private final TaskCallbackManager callbackManager;
     private volatile AsyncTaskState state;
 
-
     AsyncTaskWorker(TaskInstance<AsyncStreamTask> task) {
       this.task = task;
       this.callbackManager = new TaskCallbackManager(this, callbackTimer, callbackTimeoutMs, maxConcurrency, clock);
@@ -571,6 +570,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     private volatile boolean windowOrCommitInFlight = false;
     private final AtomicInteger messagesInFlight = new AtomicInteger(0);
     private final ArrayDeque<PendingEnvelope> pendingEnvelopeQueue;
+
     //Set of SSPs that we are currently processing for this task instance
     private final Set<SystemStreamPartition> processingSspSet;
     private final TaskName taskName;
@@ -582,7 +582,6 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       this.pendingEnvelopeQueue = new ArrayDeque<>();
       this.processingSspSet = sspSet;
     }
-
 
     private boolean checkEndOfStream() {
       if (pendingEnvelopeQueue.size() == 1) {
@@ -608,7 +607,6 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       if (coordinatorRequests.commitRequests().remove(taskName)) {
         needCommit = true;
       }
-
       if (needWindow || needCommit || endOfStream) {
         // ready for window or commit only when no messages are in progress and
         // no window/commit in flight

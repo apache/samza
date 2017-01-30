@@ -16,20 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.windows;
 
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+package org.apache.samza.operators.triggers;
 
 
-public class TestWindowOutput {
-  @Test
-  public void testConstructor() {
-    WindowPane<String, Integer> wndOutput = WindowPane.of(new WindowKey("testMsg", null), 10);
-    assertEquals(wndOutput.getKey().getKey(), "testMsg");
-    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
-    assertFalse(wndOutput.isDelete());
-  }
+import org.apache.samza.operators.data.MessageEnvelope;
+
+/**
+ * Marker interface for all triggers. The firing of a trigger indicates the completion of a window pane.
+ *
+ * <p> Use the {@link Triggers} APIs to create a {@link Trigger}.
+ *
+ * @param <M> the type of the incoming {@link MessageEnvelope}
+ */
+public interface Trigger<M extends MessageEnvelope> {
+
 }
