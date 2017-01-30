@@ -668,8 +668,8 @@ class SamzaContainer(
       addShutdownHook
       runLoop.run
     } catch {
-      case e: Exception =>
-        error("Caught exception in process loop.", e)
+      case e: Throwable =>
+        error("Caught exception/error in process loop.", e)
         throw e
     } finally {
       info("Shutting down.")
