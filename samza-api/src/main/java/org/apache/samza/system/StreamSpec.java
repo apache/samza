@@ -20,7 +20,6 @@
 package org.apache.samza.system;
 
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -29,90 +28,77 @@ import java.util.concurrent.TimeUnit;
  * Also includes a set of system-specific properties.
  */
 public class StreamSpec {
+
   /**
-   * Unique, user-defined identifier for the stream. Can be used to bind to config.
+   * Unique, user-defined identifier for the stream in Samza.
+   * This identifier is used to set stream properties in
+   * config and to distinguish between streams in a graph.
    */
   private final String id;
 
   /**
-   * The name of the stream.
+   * The system on which this stream exists or will exist.
    */
-  private final String name;
+  private final String system;
 
   /**
-   * The number of partitions in the stream.
-   * Use 1 for unpartitioned streams and a negative number to set the
-   * initial value for dynamic partitioning.
+   * Identifier for the stream in the external system (if applicable). e.g. in Kafka
+   * this would be the topic physicalName, whereas for HDFS it might be the file URN.
+   */
+  private String physicalName;
+
+  /**
+   * The number of partitions for the stream.
    */
   private int partitionCount = 1;
-
-  /**
-   * The number of replicas for stream durability.
-   */
-  private int replicationFactor = 2;
-
-  /**
-   * Not currently used because we need to do 2-phase deprecation of methods to create changelog/coordinator stream.
-   * Then we can update the code to request streams with these abstract properties and have the system interpret them,
-   * rather than expecting the system to know what properties are expected of a coordinator stream, for example.
-   *
-   * Indicates whether the stream is to be treated as a table
-   */
-  private boolean deduplicated = false;
-
-  /**
-   * Not currently used because we need to do 2-phase deprecation of methods to create changelog/coordinator stream.
-   * Then we can update the code to request streams with these abstract properties and have the system interpret them,
-   * rather than expecting the system to know what properties are expected of a coordinator stream, for example.
-   *
-   * Expected size of the stream in bytes or -1 for unknown. Enables optimizations in some systems.
-   * For streams with time retention, calculate the expected retained size.
-   *
-   * For chkpt, it depends on the tasks & inputs and frequency, but avg around 2MB over 1hr
-   * Coord also depends on size, but tends to be around 800KB over 2 days (infrequent restarts)
-   */
-  private long sizeBytes = -1;
-
-  /**
-   * Not currently used because we need to do 2-phase deprecation of methods to create changelog/coordinator stream.
-   * Then we can update the code to request streams with these abstract properties and have the system interpret them,
-   * rather than expecting the system to know what properties are expected of a coordinator stream, for example.
-   *
-   * If the stream retains tombstones for deletions, this defines the ttl for those tombstones.
-   */
-  private long tombstoneTtlMs = TimeUnit.DAYS.toMillis(1);
 
   /**
    * A set of all system-specific properties for the stream.
    */
   private final Properties properties = new Properties();
 
-  public StreamSpec(String id) {
-    this(id, id);
-  }
+  public StreamSpec(String id, String system, Properties properties) {
+    if (id == null) {
+      throw new NullPointerException("Parameter 'id' must not be null");
+    }
 
-  public StreamSpec(String id, String streamName) {
-    if (streamName == null) {
-      throw new NullPointerException("Parameter 'streamName' must not be null");
+    if (system == null) {
+      throw new NullPointerException("Parameter 'system' must not be null");
     }
 
     this.id = id;
-    this.name = streamName;
+    this.system = system;
+
+    if (properties != null) {
+      this.properties.putAll(properties);
+    }
   }
 
-  public StreamSpec(String id, String streamName, int partitionCount, int replicationFactor, Properties properties) {
-    this(id, streamName);
+  public StreamSpec(String id, String system, String physicalName, Properties properties) {
+    this(id, system, properties);
+    this.physicalName = physicalName;
+  }
+
+  public StreamSpec(String id, String system, String physicalName, int partitionCount, Properties properties) {
+    this(id, system, physicalName, properties);
     this.partitionCount = partitionCount;
-    this.replicationFactor = replicationFactor;
-    this.properties.putAll(properties);
   }
 
   public String getId() {
     return id;
   }
 
-  public String getName() {
-    return name;
+
+  public String getSystem() {
+    return system;
+  }
+
+  public String getPhysicalName() {
+    return physicalName;
+  }
+
+  public void setPhysicalName(String physicalName) {
+    this.physicalName = physicalName;
   }
 
   public int getPartitionCount() {
@@ -123,38 +109,6 @@ public class StreamSpec {
     this.partitionCount = partitionCount;
   }
 
-  public int getReplicationFactor() {
-    return replicationFactor;
-  }
-
-  public void setReplicationFactor(int replicationFactor) {
-    this.replicationFactor = replicationFactor;
-  }
-
-  public long getSizeBytes() {
-    return sizeBytes;
-  }
-
-  public void setSizeBytes(long sizeBytes) {
-    this.sizeBytes = sizeBytes;
-  }
-
-  public long getTombstoneTtlMs() {
-    return tombstoneTtlMs;
-  }
-
-  public void setTombstoneTtlMs(long tombstoneTtlMs) {
-    this.tombstoneTtlMs = tombstoneTtlMs;
-  }
-
-  public boolean isDeduplicated() {
-    return deduplicated;
-  }
-
-  public void setDeduplicated(boolean deduplicated) {
-    this.deduplicated = deduplicated;
-  }
-
   public Properties getProperties() {
     return properties;
   }
@@ -163,8 +117,11 @@ public class StreamSpec {
     return properties.getProperty(propertyName);
   }
 
+  public String getOrDefault(String propertyName, String defaultValue) {
+    return properties.getProperty(propertyName, defaultValue);
+  }
+
   public Object set(String propertyName, String propertyValue) {
     return properties.setProperty(propertyName, propertyValue);
   }
-
 }

@@ -24,27 +24,33 @@ import java.util.regex.Pattern
 
 import org.apache.samza.util.Util
 import org.apache.samza.util.Logging
+
 import scala.collection.JavaConversions._
 import kafka.consumer.ConsumerConfig
 import java.util.{Properties, UUID}
+
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.samza.SamzaException
 import java.util
+
 import scala.collection.JavaConverters._
 import org.apache.samza.system.kafka.KafkaSystemFactory
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.kafka.common.serialization.ByteArraySerializer
 
 object KafkaConfig {
+  val TOPIC_REPLICATION_FACTOR = "replication.factor"
+  val TOPIC_DEFAULT_REPLICATION_FACTOR = "2"
+
   val REGEX_RESOLVED_STREAMS = "job.config.rewriter.%s.regex"
   val REGEX_RESOLVED_SYSTEM = "job.config.rewriter.%s.system"
   val REGEX_INHERITED_CONFIG = "job.config.rewriter.%s.config"
 
   val CHECKPOINT_SYSTEM = "task.checkpoint.system"
-  val CHECKPOINT_REPLICATION_FACTOR = "task.checkpoint.replication.factor"
+  val CHECKPOINT_REPLICATION_FACTOR = "task.checkpoint." + TOPIC_REPLICATION_FACTOR
   val CHECKPOINT_SEGMENT_BYTES = "task.checkpoint.segment.bytes"
 
-  val CHANGELOG_STREAM_REPLICATION_FACTOR = "stores.%s.changelog.replication.factor"
+  val CHANGELOG_STREAM_REPLICATION_FACTOR = "stores.%s.changelog." + TOPIC_REPLICATION_FACTOR
   val CHANGELOG_STREAM_KAFKA_SETTINGS = "stores.%s.changelog.kafka."
   // The default segment size to use for changelog topics
   val CHANGELOG_DEFAULT_SEGMENT_SIZE = "536870912"
@@ -90,11 +96,11 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getFetchMessageMaxBytesTopics(systemName: String) = {
     val subConf = config.subset("systems.%s.streams." format systemName, true)
     subConf
-      .filterKeys(k => k.endsWith(".consumer.fetch.message.max.bytes"))
-      .map {
-        case (fetchMessageMaxBytes, fetchSizeValue) =>
-          (fetchMessageMaxBytes.replace(".consumer.fetch.message.max.bytes", ""), fetchSizeValue.toInt)
-      }.toMap
+            .filterKeys(k => k.endsWith(".consumer.fetch.message.max.bytes"))
+            .map {
+                   case (fetchMessageMaxBytes, fetchSizeValue) =>
+                     (fetchMessageMaxBytes.replace(".consumer.fetch.message.max.bytes", ""), fetchSizeValue.toInt)
+                 }.toMap
   }
 
   /**
@@ -104,11 +110,11 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getAutoOffsetResetTopics(systemName: String) = {
     val subConf = config.subset("systems.%s.streams." format systemName, true)
     subConf
-      .filterKeys(k => k.endsWith(".consumer.auto.offset.reset"))
-      .map {
-        case (topicAutoOffsetReset, resetValue) =>
-          (topicAutoOffsetReset.replace(".consumer.auto.offset.reset", ""), resetValue)
-      }.toMap
+            .filterKeys(k => k.endsWith(".consumer.auto.offset.reset"))
+            .map {
+                   case (topicAutoOffsetReset, resetValue) =>
+                     (topicAutoOffsetReset.replace(".consumer.auto.offset.reset", ""), resetValue)
+                 }.toMap
   }
 
   // regex resolver
@@ -150,12 +156,19 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     kafkaChangeLogProperties
   }
 
+  def getTopicKafkaProperties(systemName: String, streamName: String) = {
+    val filteredConfigs = config.subset(StreamConfig.STREAM_PREFIX format (systemName, streamName), true) // TODO: no dep on PipelineRunner
+    val topicProperties = new Properties
+    filteredConfigs.foreach{kv => topicProperties.setProperty(kv._1, kv._2)}
+    topicProperties
+  }
+
   // kafka config
   def getKafkaSystemConsumerConfig(
-    systemName: String,
-    clientId: String,
-    groupId: String = "undefined-samza-consumer-group-%s" format UUID.randomUUID.toString,
-    injectedProps: Map[String, String] = Map()) = {
+                                          systemName: String,
+                                          clientId: String,
+                                          groupId: String = "undefined-samza-consumer-group-%s" format UUID.randomUUID.toString,
+                                          injectedProps: Map[String, String] = Map()) = {
 
     val subConf = config.subset("systems.%s.consumer." format systemName, true)
     val consumerProps = new Properties()
@@ -167,9 +180,9 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   }
 
   def getKafkaSystemProducerConfig(
-    systemName: String,
-    clientId: String,
-    injectedProps: Map[String, String] = Map()) = {
+                                          systemName: String,
+                                          clientId: String,
+                                          injectedProps: Map[String, String] = Map()) = {
 
     val subConf = config.subset("systems.%s.producer." format systemName, true)
     val producerProps = new util.HashMap[String, Object]()
@@ -207,22 +220,22 @@ class KafkaProducerConfig(val systemName: String,
     }
 
     if(producerProperties.containsKey(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION)
-        && producerProperties.get(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION).asInstanceOf[String].toInt > MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT) {
-      warn("Setting '%s' to a value other than %d does not guarantee message ordering because new messages will be sent without waiting for previous ones to be acknowledged." 
-          format (ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT))
+            && producerProperties.get(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION).asInstanceOf[String].toInt > MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT) {
+      warn("Setting '%s' to a value other than %d does not guarantee message ordering because new messages will be sent without waiting for previous ones to be acknowledged."
+                   format (ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT))
     } else {
       producerProperties.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT)
     }
 
-    if(producerProperties.containsKey(ProducerConfig.RETRIES_CONFIG) 
-        && producerProperties.get(ProducerConfig.RETRIES_CONFIG).asInstanceOf[String].toInt < RETRIES_DEFAULT) {
-        warn("Samza does not provide producer failure handling. Consider setting '%s' to a large value, like Int.MAX." format ProducerConfig.RETRIES_CONFIG)
+    if(producerProperties.containsKey(ProducerConfig.RETRIES_CONFIG)
+            && producerProperties.get(ProducerConfig.RETRIES_CONFIG).asInstanceOf[String].toInt < RETRIES_DEFAULT) {
+      warn("Samza does not provide producer failure handling. Consider setting '%s' to a large value, like Int.MAX." format ProducerConfig.RETRIES_CONFIG)
     } else {
       // Retries config is set to Max so that when all attempts fail, Samza also fails the send. We do not have any special handler
       // for producer failure
       producerProperties.put(ProducerConfig.RETRIES_CONFIG, RETRIES_DEFAULT)
     }
-    
+
     producerProperties
   }
 
@@ -232,7 +245,7 @@ class KafkaProducerConfig(val systemName: String,
   val bootsrapServers = {
     if(properties.containsKey("metadata.broker.list"))
       warn("Kafka producer configuration contains 'metadata.broker.list'. This configuration is deprecated . Samza has been upgraded " +
-             "to use Kafka's new producer API. Please update your configurations based on the documentation at http://kafka.apache.org/documentation.html#newproducerconfigs")
+                   "to use Kafka's new producer API. Please update your configurations based on the documentation at http://kafka.apache.org/documentation.html#newproducerconfigs")
     Option(properties.get("bootstrap.servers"))
             .getOrElse(throw new SamzaException("No bootstrap servers defined in config for %s." format systemName))
             .asInstanceOf[String]

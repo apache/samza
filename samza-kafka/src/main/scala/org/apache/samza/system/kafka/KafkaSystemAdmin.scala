@@ -27,6 +27,7 @@ import kafka.api._
 import kafka.common.{TopicAndPartition, TopicExistsException}
 import kafka.consumer.{ConsumerConfig, SimpleConsumer}
 import kafka.utils.ZkUtils
+import org.apache.samza.config.KafkaConfig
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system.{ExtendedSystemAdmin, StreamSpec, SystemStreamMetadata, SystemStreamPartition}
 import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, KafkaUtil, Logging}
@@ -266,12 +267,12 @@ class KafkaSystemAdmin(
   }
 
   /**
-    * Returns the newest offset for the specified SSP.
-    * This method is fast and targeted. It minimizes the number of kafka requests.
-    * It does not retry indefinitely if there is any failure.
-    * It returns null if the topic is empty. To get the offsets for *all*
-    * partitions, it would be more efficient to call getSystemStreamMetadata
-    */
+   * Returns the newest offset for the specified SSP.
+   * This method is fast and targeted. It minimizes the number of kafka requests.
+   * It does not retry indefinitely if there is any failure.
+   * It returns null if the topic is empty. To get the offsets for *all*
+   * partitions, it would be more efficient to call getSystemStreamMetadata
+   */
   override def getNewestOffset(ssp: SystemStreamPartition, maxRetries: Integer) = {
     debug("Fetching newest offset for: %s" format ssp)
     var offset: String = null
@@ -332,7 +333,7 @@ class KafkaSystemAdmin(
   override def createCoordinatorStream(streamName: String) {
     info("Attempting to create coordinator stream %s." format streamName)
 
-    val streamSpec = new StreamSpec(streamName, streamName, 1, coordinatorStreamReplicationFactor, coordinatorStreamProperties)
+    val streamSpec = new KafkaStreamSpec(streamName, systemName, streamName, 1, coordinatorStreamReplicationFactor, coordinatorStreamProperties)
 
     if (createStream(streamSpec)) {
       info("Created coordinator stream %s." format streamName)
@@ -419,9 +420,16 @@ class KafkaSystemAdmin(
     def this(s: String) = this(s, null)
   }
 
+  /**
+    * Exception to be thrown when the topic validation has failed
+    */
+  class KafkaTopicValidationException(s: String, t: Throwable) extends SamzaException(s, t) {
+    def this(s: String) = this(s, null)
+  }
+
   override def createChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
     val topicMeta = topicMetaInformation.getOrElse(topicName, throw new KafkaChangelogException("Unable to find topic information for topic " + topicName))
-    val spec = new StreamSpec(topicName, topicName, numKafkaChangelogPartitions, topicMeta.replicationFactor, topicMeta.kafkaProps)
+    val spec = new KafkaStreamSpec(topicName, systemName, topicName, numKafkaChangelogPartitions, topicMeta.replicationFactor, topicMeta.kafkaProps)
 
     if (createStream(spec)) {
       info("Created stream %s." format topicName)
@@ -438,15 +446,14 @@ class KafkaSystemAdmin(
    * will auto-create a new topic.
    */
   override def validateChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
-    val spec = new StreamSpec(topicName)
-    spec.setPartitionCount(numKafkaChangelogPartitions)
-    validateStream(spec)
+    validateStream(new KafkaStreamSpec(topicName, systemName, numKafkaChangelogPartitions))
   }
 
   /**
    * @inheritdoc
    */
   override def createStream(spec: StreamSpec): Boolean = {
+    val kSpec = KafkaStreamSpec.fromSpec(spec);
     var streamCreated = false
 
     new ExponentialSleepStrategy(initialDelayMs = 500).run(
@@ -455,10 +462,10 @@ class KafkaSystemAdmin(
         try {
           AdminUtils.createTopic(
             zkClient,
-            spec.getName,
-            spec.getPartitionCount,
-            spec.getReplicationFactor,
-            spec.getProperties)
+            kSpec.getPhysicalName,
+            kSpec.getPartitionCount,
+            kSpec.getReplicationFactor,
+            kSpec.getProperties)
         } finally {
           zkClient.close
         }
@@ -473,7 +480,7 @@ class KafkaSystemAdmin(
             streamCreated = false
             loop.done
           case e: Exception =>
-            warn("Failed to create topic %s: %s. Retrying." format (spec.getName, e))
+            warn("Failed to create topic %s: %s. Retrying." format (spec.getPhysicalName, e))
             debug("Exception detail:", e)
         }
       })
@@ -489,11 +496,10 @@ class KafkaSystemAdmin(
     * is not read-only and will auto-create a new topic.
     */
   override def validateStream(spec: StreamSpec): Unit = {
-    val topicName = spec.getName
+    val topicName = spec.getPhysicalName
     info("Validating topic %s." format topicName)
 
     val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy
-    info("Validating changelog topic %s." format topicName)
     var metadataTTL = Long.MaxValue // Trust the cache until we get an exception
     retryBackoff.run(
       loop => {
@@ -503,8 +509,8 @@ class KafkaSystemAdmin(
         KafkaUtil.maybeThrowException(topicMetadata.errorCode)
 
         val partitionCount = topicMetadata.partitionsMetadata.length
-        if (partitionCount < spec.getPartitionCount) {
-          throw new KafkaChangelogException("Topic validation failed for topic %s because partition count %s did not match expected partition count of %d" format (topicName, topicMetadata.partitionsMetadata.length, spec.getPartitionCount))
+        if (partitionCount != spec.getPartitionCount) {
+          throw new KafkaTopicValidationException("Topic validation failed for topic %s because partition count %s did not match expected partition count of %d" format (topicName, topicMetadata.partitionsMetadata.length, spec.getPartitionCount))
         }
 
         info("Successfully validated topic %s." format topicName)
@@ -513,7 +519,7 @@ class KafkaSystemAdmin(
 
       (exception, loop) => {
         exception match {
-          case e: KafkaChangelogException => throw e
+          case e: KafkaTopicValidationException => throw e
           case e: Exception =>
             warn("While trying to validate topic %s: %s. Retrying." format (topicName, e))
             debug("Exception detail:", e)

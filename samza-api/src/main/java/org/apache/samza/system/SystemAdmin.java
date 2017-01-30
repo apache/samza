@@ -112,6 +112,6 @@ public interface SystemAdmin {
    *          The spec, or blueprint for the physical stream on the system.
    */
   default void validateStream(StreamSpec streamSpec) {
-    validateChangelogStream(streamSpec.getName(), streamSpec.getPartitionCount());
+    throw new UnsupportedOperationException();
   }
 }
