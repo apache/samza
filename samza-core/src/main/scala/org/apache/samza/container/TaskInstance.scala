@@ -43,8 +43,8 @@ import org.apache.samza.util.Logging
 
 import scala.collection.JavaConversions._
 
-class TaskInstance[T](
-  task: T,
+class TaskInstance(
+  task: Any,
   val taskName: TaskName,
   config: Config,
   val metrics: TaskInstanceMetrics,
@@ -84,7 +84,8 @@ class TaskInstance[T](
   // store the (ssp -> if this ssp is catched up) mapping. "catched up"
   // means the same ssp in other taskInstances have the same offset as
   // the one here.
-  var ssp2catchedupMapping: scala.collection.mutable.Map[SystemStreamPartition, Boolean] = scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
+  var ssp2catchedupMapping: scala.collection.mutable.Map[SystemStreamPartition, Boolean] =
+    scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2catchedupMapping += _ -> false)
 
   def registerMetrics {
@@ -140,7 +141,8 @@ class TaskInstance[T](
     })
   }
 
-  def process(envelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator, callbackFactory: TaskCallbackFactory = null) {
+  def process(envelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator,
+    callbackFactory: TaskCallbackFactory = null) {
     metrics.processes.inc
 
     if (!ssp2catchedupMapping.getOrElse(envelope.getSystemStreamPartition,
@@ -151,7 +153,8 @@ class TaskInstance[T](
     if (ssp2catchedupMapping(envelope.getSystemStreamPartition)) {
       metrics.messagesActuallyProcessed.inc
 
-      trace("Processing incoming message envelope for taskName and SSP: %s, %s" format (taskName, envelope.getSystemStreamPartition))
+      trace("Processing incoming message envelope for taskName and SSP: %s, %s"
+        format (taskName, envelope.getSystemStreamPartition))
 
       if (isAsyncTask) {
         exceptionHandler.maybeHandle {
@@ -163,7 +166,8 @@ class TaskInstance[T](
          task.asInstanceOf[StreamTask].process(envelope, collector, coordinator)
         }
 
-        trace("Updating offset map for taskName, SSP and offset: %s, %s, %s" format (taskName, envelope.getSystemStreamPartition, envelope.getOffset))
+        trace("Updating offset map for taskName, SSP and offset: %s, %s, %s"
+          format (taskName, envelope.getSystemStreamPartition, envelope.getOffset))
 
         offsetManager.update(taskName, envelope.getSystemStreamPartition, envelope.getOffset)
       }
@@ -173,7 +177,7 @@ class TaskInstance[T](
   def endOfStream(coordinator: ReadableCoordinator): Unit = {
     if (isEndOfStreamListenerTask) {
       exceptionHandler.maybeHandle {
-        task.asInstanceOf[EndOfStreamListenerTask].onEndOfStream(collector, coordinator);
+        task.asInstanceOf[EndOfStreamListenerTask].onEndOfStream(collector, coordinator)
       }
     }
   }
@@ -230,7 +234,8 @@ class TaskInstance[T](
 
   override def toString() = "TaskInstance for class %s and taskName %s." format (task.getClass.getName, taskName)
 
-  def toDetailedString() = "TaskInstance [taskName = %s, windowable=%s, closable=%s endofstreamlistener=%s]" format (taskName, isWindowableTask, isClosableTask, isEndOfStreamListenerTask)
+  def toDetailedString() = "TaskInstance [taskName = %s, windowable=%s, closable=%s endofstreamlistener=%s]" format
+    (taskName, isWindowableTask, isClosableTask, isEndOfStreamListenerTask)
 
   /**
    * From the envelope, check if this SSP has catched up with the starting offset of the SSP
