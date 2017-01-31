@@ -57,17 +57,4 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
    */
   def bootstrapServers(): String = super.bootstrapUrl
 
-  /**
-   * This method should be defined as @BeforeMethod.
-   */
-  override def setUp() {
-    super.setUp()
-  }
-
-  /**
-   * This method should be defined as @AfterMethod.
-   */
-  override def tearDown() {
-    super.tearDown()
-  }
 }
