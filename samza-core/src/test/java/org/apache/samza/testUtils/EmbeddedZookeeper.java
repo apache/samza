@@ -92,7 +92,7 @@ public class EmbeddedZookeeper {
     zk.setup();
     System.out.println("Zk Server Started!!");
     try {
-      Thread.sleep(86400);
+      Thread.sleep(10000);
     } catch (InterruptedException e) {
       e.printStackTrace();
     }
