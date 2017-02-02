@@ -34,7 +34,6 @@ import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class ZkUtils {
   private static final Logger LOG = LoggerFactory.getLogger(ZkUtils.class);
