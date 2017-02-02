@@ -19,7 +19,7 @@ title: Reading from HDFS
    limitations under the License.
 -->
 
-You can configure your Samza job to read from HDFS files. The [HdfsSystemConsumer](javadocs/org/apache/samza/system/hdfs/HdfsSystemConsumer.html) can read from HDFS files. Avro encoded records are supported out of the box and it is easy to extend to support other formats (plain text, csv, json etc). See `Event format` section below.
+You can configure your Samza job to read from HDFS files. The [HdfsSystemConsumer](https://github.com/apache/samza/blob/master/samza-hdfs/src/main/java/org/apache/samza/system/hdfs/HdfsSystemConsumer.java) can read from HDFS files. Avro encoded records are supported out of the box and it is easy to extend to support other formats (plain text, csv, json etc). See `Event format` section below.
 
 ### Environment
 
@@ -31,18 +31,19 @@ Partitioning works at the level of individual HDFS files. Each file is treated a
 
 ### Event format
 
-[HdfsSystemConsumer](javadocs/org/apache/samza/system/hdfs/HdfsSystemConsumer.html) currently supports reading from avro files. The received [IncomingMessageEnvelope](javadocs/org/apache/samza/system/IncomingMessageEnvelope.html) contains three significant fields: 
+[HdfsSystemConsumer](https://github.com/apache/samza/blob/master/samza-hdfs/src/main/java/org/apache/samza/system/hdfs/HdfsSystemConsumer.java) currently supports reading from avro files. The received [IncomingMessageEnvelope](../api/javadocs/org/apache/samza/system/IncomingMessageEnvelope.html) contains three significant fields:
+
 1. The key which is empty
 2. The message which is set to the avro [GenericRecord](https://avro.apache.org/docs/1.7.6/api/java/org/apache/avro/generic/GenericRecord.html)
 3. The stream partition which is set to the name of the HDFS file
 
-To extend the support beyond avro files (e.g. json, csv, etc.), you can implement the interface [SingleFileHdfsReader](javadocs/org/apache/samza/system/hdfs/reader/SingleFileHdfsReader.html) (take a look at the implementation of [AvroFileHdfsReader](javadocs/org/apache/samza/system/hdfs/reader/AvroFileHdfsReader) as a sample).
+To extend the support beyond avro files (e.g. json, csv, etc.), you can implement the interface [SingleFileHdfsReader](https://github.com/apache/samza/blob/master/samza-hdfs/src/main/java/org/apache/samza/system/hdfs/reader/SingleFileHdfsReader.java) (take a look at the implementation of [AvroFileHdfsReader](https://github.com/apache/samza/blob/master/samza-hdfs/src/main/java/org/apache/samza/system/hdfs/reader/AvroFileHdfsReader.java) as a sample).
 
 ### End of stream support
 
 One major difference between HDFS data and Kafka data is that while a kafka topic has an unbounded stream of messages, HDFS files are bounded and have a notion of EOF.
 
-You can choose to implement [EndOfStreamListenerTask](javadocs/org/apache/samza/task/EndOfStreamListenerTask.html) to receive a callback when all partitions are at end of stream. When all partitions being processed by the task are at end of stream (i.e. EOF has been reached for all files), the Samza job exits automatically.
+You can choose to implement [EndOfStreamListenerTask](../api/javadocs/org/apache/samza/task/EndOfStreamListenerTask.html) to receive a callback when all partitions are at end of stream. When all partitions being processed by the task are at end of stream (i.e. EOF has been reached for all files), the Samza job exits automatically.
 
 ### Basic Configuration
 
