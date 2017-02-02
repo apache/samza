@@ -19,6 +19,9 @@
 
 package org.apache.samza.zk;
 
+import com.google.common.base.Strings;
+import org.apache.samza.SamzaException;
+
 /**
  * The following ZK hierarchy is maintained for Standalone jobs:
  * <pre>
@@ -40,11 +43,14 @@ public class ZkKeyBuilder {
    */
   private final String pathPrefix;
 
-  public static final String PROCESSORS_PATH = "processors";
+  static final String PROCESSORS_PATH = "processors";
   public static final String PROCESSOR_ID_PREFIX = "processor-";
 
   public ZkKeyBuilder(String pathPrefix) {
-    this.pathPrefix = pathPrefix;
+    if (Strings.isNullOrEmpty(pathPrefix)) {
+      throw new SamzaException("Zk PathPrefix cannot be null or empty!");
+    }
+    this.pathPrefix = pathPrefix.trim();
   }
 
   public String getProcessorsPath() {
@@ -61,7 +67,7 @@ public class ZkKeyBuilder {
    * @return String representing the processor ID
    */
   public static String parseIdFromPath(String path) {
-    if (path != null)
+    if (!Strings.isNullOrEmpty(path))
       return path.substring(path.indexOf(PROCESSOR_ID_PREFIX));
     return null;
   }
