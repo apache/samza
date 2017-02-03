@@ -25,15 +25,18 @@ import org.apache.samza.coordinator.leaderelection.LeaderElector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
 public class ZkLeaderElector implements LeaderElector {
-  public static final Logger log = LoggerFactory.getLogger(ZkLeaderElector.class);
+  public static final Logger LOGGER = LoggerFactory.getLogger(ZkLeaderElector.class);
   private final ZkUtils zkUtils;
   private final String processorIdStr;
   private final ZkKeyBuilder keyBuilder;
+  private final String hostName;
 
   private String leaderId = null;
   private final ZkLeaderListener zkLeaderListener = new ZkLeaderListener();
@@ -44,14 +47,23 @@ public class ZkLeaderElector implements LeaderElector {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
     this.keyBuilder = this.zkUtils.getKeyBuilder();
+    this.hostName = getHostName();
   }
 
+  private String getHostName() {
+    try {
+      return InetAddress.getLocalHost().getHostName();
+    } catch (UnknownHostException e) {
+      LOGGER.error("Failed to fetch hostname of the processor", e);
+      throw new SamzaException(e);
+    }
+  }
   @Override
   public boolean tryBecomeLeader() {
     String currentPath = zkUtils.getEphemeralPath();
 
     if (currentPath == null || currentPath.isEmpty()) {
-      zkUtils.registerProcessorAndGetId();
+      zkUtils.registerProcessorAndGetId(hostName);
       currentPath = zkUtils.getEphemeralPath();
     }
 
@@ -64,12 +76,12 @@ public class ZkLeaderElector implements LeaderElector {
     }
 
     if (index == 0) {
-      log.info("pid=" + processorIdStr + " Eligible to be the leader!");
+      LOGGER.info("pid=" + processorIdStr + " Eligible to be the leader!");
       leaderId = ZkKeyBuilder.parseIdFromPath(currentPath);
       return true;
     }
 
-    log.info("pid=" + processorIdStr + ";index=" + index + ";children=" + Arrays.toString(children.toArray()) + " Not eligible to be a leader yet!");
+    LOGGER.info("pid=" + processorIdStr + ";index=" + index + ";children=" + Arrays.toString(children.toArray()) + " Not eligible to be a leader yet!");
     leaderId = ZkKeyBuilder.parseIdFromPath(children.get(0));
     String prevCandidate = children.get(index - 1);
     if (!prevCandidate.equals(currentSubscription)) {
@@ -77,14 +89,14 @@ public class ZkLeaderElector implements LeaderElector {
         zkUtils.unsubscribeDataChanges(keyBuilder.getProcessorsPath() + "/" + currentSubscription, zkLeaderListener);
       }
       currentSubscription = prevCandidate;
-      log.info("pid=" + processorIdStr + "Subscribing to " + prevCandidate);
+      LOGGER.info("pid=" + processorIdStr + "Subscribing to " + prevCandidate);
       zkUtils.subscribeDataChanges(keyBuilder.getProcessorsPath() + "/" + currentSubscription, zkLeaderListener);
     }
 
     // Double check that the previous candidate still exists
     boolean prevCandidateExists = zkUtils.exists(keyBuilder.getProcessorsPath() + "/" + currentSubscription);
     if (prevCandidateExists) {
-      log.info("pid=" + processorIdStr + "Previous candidate still exists. Continuing as non-leader");
+      LOGGER.info("pid=" + processorIdStr + "Previous candidate still exists. Continuing as non-leader");
     } else {
       // TODO - what actually happens here..
       try {
@@ -92,7 +104,7 @@ public class ZkLeaderElector implements LeaderElector {
       } catch (InterruptedException e) {
         Thread.interrupted();
       }
-      log.info("pid=" + processorIdStr + "Previous candidate doesn't exist anymore. Trying to become leader again...");
+      LOGGER.info("pid=" + processorIdStr + "Previous candidate doesn't exist anymore. Trying to become leader again...");
       return tryBecomeLeader();
     }
     return false;
@@ -115,12 +127,12 @@ public class ZkLeaderElector implements LeaderElector {
 
     @Override
     public void handleDataChange(String dataPath, Object data) throws Exception {
-      log.debug("ZkLeaderListener::handleDataChange on path " + dataPath + " Data: " + data);
+      LOGGER.debug("ZkLeaderListener::handleDataChange on path " + dataPath + " Data: " + data);
     }
 
     @Override
     public void handleDataDeleted(String dataPath) throws Exception {
-      log.info("ZkLeaderListener::handleDataDeleted on path " + dataPath);
+      LOGGER.info("ZkLeaderListener::handleDataDeleted on path " + dataPath);
       tryBecomeLeader();
     }
   }

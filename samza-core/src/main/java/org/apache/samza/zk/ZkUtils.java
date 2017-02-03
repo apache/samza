@@ -38,7 +38,6 @@ import java.util.concurrent.TimeUnit;
 public class ZkUtils {
   private static final Logger LOG = LoggerFactory.getLogger(ZkUtils.class);
 
-  private final ZkStateChangeHandler zkStateChangeHandler;
   private final ZkClient zkClient;
   private final ZkConnection zkConnnection;
   private volatile String ephemeralPath = null;
@@ -46,12 +45,11 @@ public class ZkUtils {
   private final int connectionTimeoutMs;
   private final String processorId;
 
-  public ZkUtils(ZkKeyBuilder zkKeyBuilder, String zkConnectString, String processorId, int sessionTimeoutMs, int connectionTimeoutMs) {
+  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkConnection zkConnection, ZkClient zkClient, String processorId, int connectionTimeoutMs) {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
-    this.zkConnnection = new ZkConnection(zkConnectString, sessionTimeoutMs);
-    this.zkClient = new ZkClient(zkConnnection, this.connectionTimeoutMs);
-    this.zkStateChangeHandler = new ZkStateChangeHandler();
+    this.zkConnnection = zkConnection;
+    this.zkClient = zkClient;
     this.processorId = processorId;
   }
 
@@ -59,9 +57,15 @@ public class ZkUtils {
     boolean isConnected = zkClient.waitUntilConnected(connectionTimeoutMs, TimeUnit.MILLISECONDS);
     if (!isConnected) {
       throw new RuntimeException("Unable to connect to Zookeeper within connectionTimeout " + connectionTimeoutMs + "ms. Shutting down!");
-    } else {
-      zkClient.subscribeStateChanges(zkStateChangeHandler);
     }
+  }
+
+  public static ZkConnection createZkConnection(String zkConnectString, int sessionTimeoutMs) {
+    return new ZkConnection(zkConnectString, sessionTimeoutMs);
+  }
+
+  public static ZkClient createZkClient(ZkConnection zkConnection, int connectionTimeoutMs) {
+    return new ZkClient(zkConnection, connectionTimeoutMs);
   }
 
   public ZkClient getZkClient() {
@@ -84,14 +88,23 @@ public class ZkUtils {
     }
   }
 
-  public synchronized String registerProcessorAndGetId() {
-    try {
-      // TODO: Data should be more than just the hostname. Use Json serialized data
-      ephemeralPath =
-          zkClient.createEphemeralSequential(keyBuilder.getProcessorsPath() + "/processor-", InetAddress.getLocalHost().getHostName());
+  /**
+   * Returns a ZK generated identifier for this client.
+   * If the current client is registering for the first time, it creates an ephemeral sequential node in the ZK tree
+   * If the current client has already registered and is still within the same session, it returns the already existing
+   * value for the ephemeralPath
+   *
+   * @param data Object that should be written as data in the registered ephemeral ZK node
+   * @return String representing the absolute ephemeralPath of this client in the current session
+   */
+  public synchronized String registerProcessorAndGetId(final Object data) {
+    if (ephemeralPath == null) {
+        // TODO: Data should be more than just the hostname. Use Json serialized data
+        ephemeralPath =
+            zkClient.createEphemeralSequential(keyBuilder.getProcessorsPath() + "/processor-", data);
+        return ephemeralPath;
+    } else {
       return ephemeralPath;
-    } catch (UnknownHostException e) {
-      throw new RuntimeException("Failed to register as worker. Aborting...");
     }
   }
 
@@ -99,11 +112,17 @@ public class ZkUtils {
     return ephemeralPath;
   }
 
+  /**
+   * Method is used to get the list of currently active/registered processors
+   *
+   * @return List of absolute ZK node paths
+   */
   public List<String> getActiveProcessors() {
     List<String> children = zkClient.getChildren(keyBuilder.getProcessorsPath());
-    assert children.size() > 0;
-    Collections.sort(children);
-    LOG.info("Found these children - " + children);
+    if (children.size() > 0) {
+      Collections.sort(children);
+      LOG.info("Found these children - " + children);
+    }
     return children;
   }
 
@@ -134,43 +153,5 @@ public class ZkUtils {
       e.printStackTrace();
     }
     zkClient.close();
-  }
-
-  class ZkStateChangeHandler implements IZkStateListener {
-    public ZkStateChangeHandler() {
-    }
-
-    /**
-     * Called when the zookeeper connection state has changed.
-     *
-     * @param state The new state.
-     * @throws Exception On any error.
-     */
-    @Override
-    public void handleStateChanged(Watcher.Event.KeeperState state) throws Exception {
-    }
-
-    /**
-     * Called after the zookeeper session has expired and a new session has been created. You would have to re-create
-     * any ephemeral nodes here.
-     *
-     * @throws Exception On any error.
-     */
-    @Override
-    public void handleNewSession() throws Exception {
-
-    }
-
-    /**
-     * Called when a session cannot be re-established. This should be used to implement connection
-     * failure handling e.g. retry to connect or pass the error up
-     *
-     * @param error The error that prevents a session from being established
-     * @throws Exception On any error.
-     */
-    @Override
-    public void handleSessionEstablishmentError(Throwable error) throws Exception {
-
-    }
   }
 }
