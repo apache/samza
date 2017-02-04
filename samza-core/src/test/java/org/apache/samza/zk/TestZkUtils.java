@@ -22,7 +22,6 @@ import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
-import org.apache.zookeeper.Watcher;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -30,11 +29,9 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.util.concurrent.TimeUnit;
-
 public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
-  private static final ZkKeyBuilder keyBuilder = new ZkKeyBuilder("test");
+  private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
   private ZkConnection zkConnection = null;
   private ZkClient zkClient = null;
   private static final int SESSION_TIMEOUT_MS = 20000;
@@ -55,7 +52,7 @@ public class TestZkUtils {
       Assert.fail("Client connection setup failed. Aborting tests..");
     }
     try {
-      zkClient.createPersistent(keyBuilder.getProcessorsPath(), true);
+      zkClient.createPersistent(KEY_BUILDER.getProcessorsPath(), true);
     } catch (ZkNodeExistsException e) {
       // Do nothing
     }
@@ -75,14 +72,13 @@ public class TestZkUtils {
   @Test
   public void testRegisterProcessorId() {
     ZkUtils utils = new ZkUtils(
-        keyBuilder,
+        KEY_BUILDER,
         zkConnection,
         zkClient,
-        "1",
         SESSION_TIMEOUT_MS);
     utils.connect();
     String assignedPath = utils.registerProcessorAndGetId("0.0.0.0");
-    Assert.assertTrue(assignedPath.startsWith(keyBuilder.getProcessorsPath() + "/processor-"));
+    Assert.assertTrue(assignedPath.startsWith(KEY_BUILDER.getProcessorsPath() + "/processor-"));
 
     // Calling registerProcessorId again should return the same ephemeralPath as long as the session is valid
     Assert.assertTrue(utils.registerProcessorAndGetId("0.0.0.0").equals(assignedPath));
@@ -93,10 +89,9 @@ public class TestZkUtils {
   @Test
   public void testGetActiveProcessors() {
     ZkUtils utils = new ZkUtils(
-        keyBuilder,
+        KEY_BUILDER,
         zkConnection,
         zkClient,
-        "1",
         SESSION_TIMEOUT_MS);
     utils.connect();
 
@@ -107,4 +102,5 @@ public class TestZkUtils {
 
     utils.close();
   }
+
 }
