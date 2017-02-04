@@ -19,22 +19,38 @@
 
 package org.apache.samza.zk;
 
-import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
-import org.I0Itec.zkclient.IZkStateListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
-import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Util class to help manage Zk connection and ZkClient.
+ * It also provides additional utility methods for read/write/subscribe/unsubscribe access to the ZK tree.
+ *
+ * <p>
+ *  <b>Note on ZkClient:</b>
+ *  {@link ZkClient} consists of two threads - I/O thread and Event thread.
+ *  I/O thread manages heartbeats to the Zookeeper server in the ensemble and handles responses to synchronous methods
+ *  in Zookeeper API.
+ *  Event thread typically receives all the Watcher events and delivers to registered listeners. It, also, handles
+ *  responses to asynchronous methods in Zookeeper API.
+ * </p>
+ *
+ * <p>
+ *   <b>Note on Session Management:</b>
+ *   Session management, if needed, should be handled by the caller. This can be done by implementing
+ *   {@link org.I0Itec.zkclient.IZkStateListener} and subscribing this listener to the current ZkClient. Note: The connection state change
+ *   callbacks are invoked in the context of the Event thread of the ZkClient. So, it is advised to do non-blocking
+ *   processing in the callbacks.
+ * </p>
+ */
 public class ZkUtils {
   private static final Logger LOG = LoggerFactory.getLogger(ZkUtils.class);
 
@@ -43,14 +59,12 @@ public class ZkUtils {
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
-  private final String processorId;
 
-  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkConnection zkConnection, ZkClient zkClient, String processorId, int connectionTimeoutMs) {
+  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkConnection zkConnection, ZkClient zkClient, int connectionTimeoutMs) {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkConnnection = zkConnection;
     this.zkClient = zkClient;
-    this.processorId = processorId;
   }
 
   public void connect() throws ZkInterruptedException {
@@ -68,24 +82,16 @@ public class ZkUtils {
     return new ZkClient(zkConnection, connectionTimeoutMs);
   }
 
-  public ZkClient getZkClient() {
-    return zkClient;
+  ZkConnection getZkConnnection() {
+    return zkConnnection;
   }
 
-  public ZkConnection getZkConnnection() {
-    return zkConnnection;
+  ZkClient getZkClient() {
+    return zkClient;
   }
 
   public ZkKeyBuilder getKeyBuilder() {
     return keyBuilder;
-  }
-
-  public void makeSurePersistentPathsExists(String[] paths) {
-    for (String path : paths) {
-      if (!zkClient.exists(path)) {
-        zkClient.createPersistent(path, true);
-      }
-    }
   }
 
   /**
@@ -99,10 +105,10 @@ public class ZkUtils {
    */
   public synchronized String registerProcessorAndGetId(final Object data) {
     if (ephemeralPath == null) {
-        // TODO: Data should be more than just the hostname. Use Json serialized data
-        ephemeralPath =
-            zkClient.createEphemeralSequential(keyBuilder.getProcessorsPath() + "/processor-", data);
-        return ephemeralPath;
+      // TODO: Data should be more than just the hostname. Use Json serialized data
+      ephemeralPath =
+          zkClient.createEphemeralSequential(keyBuilder.getProcessorsPath() + "/processor-", data);
+      return ephemeralPath;
     } else {
       return ephemeralPath;
     }
@@ -113,7 +119,7 @@ public class ZkUtils {
   }
 
   /**
-   * Method is used to get the list of currently active/registered processors
+   * Method is used to get the <i>sorted</i> list of currently active/registered processors
    *
    * @return List of absolute ZK node paths
    */
@@ -126,19 +132,12 @@ public class ZkUtils {
     return children;
   }
 
-  public void subscribeToProcessorChange(IZkChildListener listener) {
-    LOG.info("pid=" + processorId + " subscribing for child change at:" + keyBuilder.getProcessorsPath());
-    zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
-  }
-
   /* Wrapper for standard I0Itec methods */
   public void unsubscribeDataChanges(String path, IZkDataListener dataListener) {
-    LOG.info("pid=" + processorId + " unsubscribing for data change at:" + path);
     zkClient.unsubscribeDataChanges(path, dataListener);
   }
 
   public void subscribeDataChanges(String path, IZkDataListener dataListener) {
-    LOG.info("pid=" + processorId + " subscribing for data change at:" + path);
     zkClient.subscribeDataChanges(path, dataListener);
   }
 
@@ -150,6 +149,7 @@ public class ZkUtils {
     try {
       zkConnnection.close();
     } catch (InterruptedException e) {
+      System.out.println(e.getMessage());
       e.printStackTrace();
     }
     zkClient.close();
