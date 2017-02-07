@@ -180,7 +180,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       new SerdeManager)
     val collector = new TaskInstanceCollector(producerMultiplexer)
     val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
-    val taskInstance: TaskInstance[StreamTask] = new TaskInstance[StreamTask](
+    val taskInstance: TaskInstance = new TaskInstance(
       task,
       taskName,
       config,
@@ -238,6 +238,65 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   }
 
   @Test
+  def testErrorInTaskInitShutsDownTask {
+    val task = new StreamTask with InitableTask with ClosableTask {
+      var wasShutdown = false
+
+      def init(config: Config, context: TaskContext) {
+        throw new NoSuchMethodError("Trigger a shutdown, please.")
+      }
+
+      def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
+      }
+
+      def close {
+        wasShutdown = true
+      }
+    }
+    val config = new MapConfig
+    val taskName = new TaskName("taskName")
+    val consumerMultiplexer = new SystemConsumers(
+      new RoundRobinChooser,
+      Map[String, SystemConsumer]())
+    val producerMultiplexer = new SystemProducers(
+      Map[String, SystemProducer](),
+      new SerdeManager)
+    val collector = new TaskInstanceCollector(producerMultiplexer)
+    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
+    val taskInstance: TaskInstance = new TaskInstance(
+      task,
+      taskName,
+      config,
+      new TaskInstanceMetrics,
+      null,
+      consumerMultiplexer,
+      collector,
+      containerContext
+    )
+    val runLoop = new RunLoop(
+      taskInstances = Map(taskName -> taskInstance),
+      consumerMultiplexer = consumerMultiplexer,
+      metrics = new SamzaContainerMetrics,
+      maxThrottlingDelayMs = TimeUnit.SECONDS.toMillis(1))
+    val container = new SamzaContainer(
+      containerContext = containerContext,
+      taskInstances = Map(taskName -> taskInstance),
+      runLoop = runLoop,
+      consumerMultiplexer = consumerMultiplexer,
+      producerMultiplexer = producerMultiplexer,
+      metrics = new SamzaContainerMetrics,
+      jmxServer = null
+    )
+    try {
+      container.run
+      fail("Expected error to be thrown in run method.")
+    } catch {
+      case e: Throwable => // Expected
+    }
+    assertTrue(task.wasShutdown)
+  }
+
+  @Test
   def testStartStoresIncrementsCounter {
     val task = new StreamTask {
       def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
@@ -262,7 +321,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       }
     })
 
-    val taskInstance: TaskInstance[StreamTask] = new TaskInstance[StreamTask](
+    val taskInstance: TaskInstance = new TaskInstance(
       task,
       taskName,
       config,

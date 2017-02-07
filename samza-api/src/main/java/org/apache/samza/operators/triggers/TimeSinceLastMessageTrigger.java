@@ -16,36 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.windows;
+package org.apache.samza.operators.triggers;
 
 import org.apache.samza.operators.data.MessageEnvelope;
 
+import java.time.Duration;
 
-/**
- * The type of output {@link MessageEnvelope}s in a window operator output stream.
- *
- * @param <K>  the type of key in the window output
- * @param <M>  the type of value in the window output
+/*
+ * A {@link Trigger} that fires when there are no new {@link MessageEnvelope}s in the window pane for the specified duration.
  */
-public final class WindowOutput<K, M> implements MessageEnvelope<K, M> {
-  private final K key;
-  private final M value;
+public class TimeSinceLastMessageTrigger<M extends MessageEnvelope> implements Trigger {
 
-  WindowOutput(K key, M value) {
-    this.key = key;
-    this.value = value;
+  private final Duration duration;
+  private final DurationCharacteristic characteristic = DurationCharacteristic.PROCESSING_TIME;
+
+  TimeSinceLastMessageTrigger(Duration duration) {
+    this.duration = duration;
   }
 
-  @Override public M getMessage() {
-    return this.value;
+  public Duration getDuration() {
+    return duration;
   }
 
-  @Override public K getKey() {
-    return this.key;
-  }
-
-  static public <K, M> WindowOutput<K, M> of(K key, M result) {
-    return new WindowOutput<>(key, result);
+  public DurationCharacteristic getCharacteristic() {
+    return characteristic;
   }
 }
-

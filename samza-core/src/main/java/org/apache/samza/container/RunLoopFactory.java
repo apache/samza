@@ -19,19 +19,18 @@
 
 package org.apache.samza.container;
 
-import java.util.concurrent.ExecutorService;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.util.HighResolutionClock;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.task.AsyncRunLoop;
-import org.apache.samza.task.AsyncStreamTask;
-import org.apache.samza.task.StreamTask;
+import org.apache.samza.util.HighResolutionClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConversions;
 import scala.runtime.AbstractFunction0;
 import scala.runtime.AbstractFunction1;
+
+import java.util.concurrent.ExecutorService;
 
 import static org.apache.samza.util.Util.asScalaClock;
 
@@ -46,7 +45,7 @@ public class RunLoopFactory {
   private static final long DEFAULT_COMMIT_MS = 60000L;
   private static final long DEFAULT_CALLBACK_TIMEOUT_MS = -1L;
 
-  public static Runnable createRunLoop(scala.collection.immutable.Map<TaskName, TaskInstance<?>> taskInstances,
+  public static Runnable createRunLoop(scala.collection.immutable.Map<TaskName, TaskInstance> taskInstances,
       SystemConsumers consumerMultiplexer,
       ExecutorService threadPool,
       long maxThrottlingDelayMs,
@@ -62,9 +61,9 @@ public class RunLoopFactory {
 
     log.info("Got commit milliseconds: " + taskCommitMs);
 
-    int asyncTaskCount = taskInstances.values().count(new AbstractFunction1<TaskInstance<?>, Object>() {
+    int asyncTaskCount = taskInstances.values().count(new AbstractFunction1<TaskInstance, Object>() {
       @Override
-      public Boolean apply(TaskInstance<?> t) {
+      public Boolean apply(TaskInstance t) {
         return t.isAsyncTask();
       }
     });
@@ -77,9 +76,8 @@ public class RunLoopFactory {
     if (asyncTaskCount == 0) {
       log.info("Run loop in single thread mode.");
 
-      scala.collection.immutable.Map<TaskName, TaskInstance<StreamTask>> streamTaskInstances = (scala.collection.immutable.Map) taskInstances;
       return new RunLoop(
-        streamTaskInstances,
+        taskInstances,
         consumerMultiplexer,
         containerMetrics,
         maxThrottlingDelayMs,
@@ -95,12 +93,10 @@ public class RunLoopFactory {
 
       log.info("Got callback timeout: " + callbackTimeout);
 
-      scala.collection.immutable.Map<TaskName, TaskInstance<AsyncStreamTask>> asyncStreamTaskInstances = (scala.collection.immutable.Map) taskInstances;
-
       log.info("Run loop in asynchronous mode.");
 
       return new AsyncRunLoop(
-        JavaConversions.mapAsJavaMap(asyncStreamTaskInstances),
+        JavaConversions.mapAsJavaMap(taskInstances),
         threadPool,
         consumerMultiplexer,
         taskMaxConcurrency,

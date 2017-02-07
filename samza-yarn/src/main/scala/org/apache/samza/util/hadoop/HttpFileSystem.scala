@@ -37,20 +37,29 @@ import org.apache.hadoop.util.Progressable
 import org.apache.samza.util.Logging
 
 class HttpFileSystem extends FileSystem with Logging {
-  val DEFAULT_BLOCK_SIZE = 4 * 1024;
+  val DEFAULT_BLOCK_SIZE = 4 * 1024
   var uri: URI = null
+  var connectionTimeoutMs = 5 * 60 * 1000
+  var socketReadTimeoutMs = 5 * 60 * 1000
+
+  def setConnectionTimeoutMs(timeout: Int): Unit = connectionTimeoutMs = timeout
+
+  def setSocketReadTimeoutMs(timeout: Int): Unit = socketReadTimeoutMs = timeout
 
   override def initialize(uri: URI, conf: Configuration) {
     super.initialize(uri, conf)
-    debug("init uri %s" format (uri))
+    info("init uri %s" format (uri))
     this.uri = uri
   }
 
   override def getUri = uri
 
   override def open(f: Path, bufferSize: Int): FSDataInputStream = {
-    debug("open http file %s" format (f))
+    info("open http file %s" format (f))
     val client = new HttpClient
+    client.getHttpConnectionManager.getParams.setConnectionTimeout(connectionTimeoutMs)
+    client.getHttpConnectionManager.getParams.setSoTimeout(socketReadTimeoutMs)
+
     val method = new GetMethod(f.toUri.toString)
     val statusCode = client.executeMethod(method)
 
