@@ -73,7 +73,6 @@ public class TestZkUtils {
   public void testRegisterProcessorId() {
     ZkUtils utils = new ZkUtils(
         KEY_BUILDER,
-        zkConnection,
         zkClient,
         SESSION_TIMEOUT_MS);
     utils.connect();
@@ -90,7 +89,6 @@ public class TestZkUtils {
   public void testGetActiveProcessors() {
     ZkUtils utils = new ZkUtils(
         KEY_BUILDER,
-        zkConnection,
         zkClient,
         SESSION_TIMEOUT_MS);
     utils.connect();
