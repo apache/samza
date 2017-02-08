@@ -142,4 +142,12 @@ public class ZkUtils {
   public void close() throws ZkInterruptedException {
     zkClient.close();
   }
+
+  public void deleteRoot() {
+    String rootPath = keyBuilder.getProcessorsPath();
+    if(rootPath != null && !rootPath.isEmpty() && zkClient.exists(rootPath)) {
+      LOG.info("Deleting root: " + rootPath);
+      zkClient.deleteRecursive(rootPath);
+    }
+  }
 }

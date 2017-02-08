@@ -8,6 +8,8 @@ import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaJobConfig;
 import org.apache.samza.config.MapConfig;
@@ -83,13 +85,13 @@ public class TestZkStreamProcessor {
     // start internal zookeeper
     Thread zkThread = startZookeeper();
 
+    ZkConnection zkConnection = ZkUtils.createZkConnection(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs());
+    ZkClient zkClient = ZkUtils.createZkClient(zkConnection, zkConfig.getZkConnectionTimeoutMs());
     ZkUtils zkUtils = new ZkUtils(
         new ZkKeyBuilder(groupName),
-        zkConfig.getZkConnect(),
-        debounceTimer,
-        "NONE",
-        zkConfig.getZkSessionTimeoutMs(),
-        zkConfig.getZkConnectionTimeoutMs());
+        zkClient,
+        zkConfig.getZkConnectionTimeoutMs()
+        );
 
     zkUtils.deleteRoot();
     zkUtils.close();
