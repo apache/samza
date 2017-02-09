@@ -74,6 +74,11 @@ public class ZkKeyBuilder {
     return null;
   }
 
+  public String getJobModelVersionBarrierPrefix() {
+    return String.format("/%s/versionBarriers", pathPrefix);
+  }
+
+
   public String getJobModelVersionPath() {
     return String.format("/%s/%s", pathPrefix, JOBMODEL_VERSION_PATH);
   }
