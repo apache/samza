@@ -18,11 +18,9 @@
  */
 package org.apache.samza.operators.windows.internal;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.Window;
-import org.apache.samza.operators.windows.WindowPane;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -32,9 +30,13 @@ import java.util.function.Function;
  *  and whether to accumulate or discard previously emitted panes.
  *
  *  Note: This class is meant to be used internally by Samza, and is not to be instantiated by programmers.
+ *
+ * @param <M>  the type of input message
+ * @param <K>  the type of key for the window
+ * @param <WV>  the type of aggregated value in the window output
  */
 @InterfaceStability.Unstable
-public final class WindowInternal<M extends MessageEnvelope, K, WV> implements Window<M, K, WV, WindowPane<K, WV>> {
+public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
 
   private final Trigger defaultTrigger;
 
@@ -67,19 +69,19 @@ public final class WindowInternal<M extends MessageEnvelope, K, WV> implements W
   }
 
   @Override
-  public Window<M, K, WV, WindowPane<K, WV>> setEarlyTrigger(Trigger trigger) {
+  public Window<M, K, WV> setEarlyTrigger(Trigger trigger) {
     this.earlyTrigger = trigger;
     return this;
   }
 
   @Override
-  public Window<M, K, WV, WindowPane<K, WV>> setLateTrigger(Trigger trigger) {
+  public Window<M, K, WV> setLateTrigger(Trigger trigger) {
     this.lateTrigger = trigger;
     return this;
   }
 
   @Override
-  public Window<M, K, WV, WindowPane<K, WV>> setAccumulationMode(AccumulationMode mode) {
+  public Window<M, K, WV> setAccumulationMode(AccumulationMode mode) {
     this.mode = mode;
     return this;
   }

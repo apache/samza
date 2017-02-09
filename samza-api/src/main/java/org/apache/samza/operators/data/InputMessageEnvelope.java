@@ -28,16 +28,16 @@ import org.apache.samza.system.SystemStreamPartition;
  * <p>
  * Note: the {@link Offset} is only unique and comparable within its {@link SystemStreamPartition}.
  */
-public class IncomingSystemMessageEnvelope implements MessageEnvelope<Object, Object> {
+public class InputMessageEnvelope implements MessageEnvelope<Object, Object> {
 
   private final IncomingMessageEnvelope ime;
 
   /**
-   * Creates an {@code IncomingSystemMessageEnvelope} from the {@link IncomingMessageEnvelope}.
+   * Creates an {@code InputMessageEnvelope} from the {@link IncomingMessageEnvelope}.
    *
    * @param ime  the {@link IncomingMessageEnvelope} from the input system.
    */
-  public IncomingSystemMessageEnvelope(IncomingMessageEnvelope ime) {
+  public InputMessageEnvelope(IncomingMessageEnvelope ime) {
     this.ime = ime;
   }
 

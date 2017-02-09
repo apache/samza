@@ -19,16 +19,21 @@
 
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.data.MessageEnvelope;
-import org.apache.samza.operators.functions.FlatMapFunction;
-import org.apache.samza.operators.functions.SinkFunction;
+import java.util.Collection;
+import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.functions.FilterFunction;
+import org.apache.samza.operators.functions.FlatMapFunction;
+import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.functions.PartialJoinFunction;
+import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 
 import java.util.ArrayList;
-import java.util.UUID;
-import java.util.function.BiFunction;
+import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -38,80 +43,168 @@ public class OperatorSpecs {
 
   private OperatorSpecs() {}
 
-  private static String getOperatorId() {
-    // TODO: need to change the IDs to be a consistent, durable IDs that can be recovered across container and job restarts
-    return UUID.randomUUID().toString();
+  /**
+   * Creates a {@link StreamOperatorSpec} for {@link MapFunction}
+   *
+   * @param mapFn  the map function
+   * @param graph  the {@link StreamGraphImpl} object
+   * @param output  the output {@link MessageStreamImpl} object
+   * @param <M>  type of input message
+   * @param <OM>  type of output message
+   * @return  the {@link StreamOperatorSpec}
+   */
+  public static <M, OM> StreamOperatorSpec<M, OM> createMapOperatorSpec(MapFunction<M, OM> mapFn, StreamGraphImpl graph, MessageStreamImpl<OM> output) {
+    return new StreamOperatorSpec<>(new FlatMapFunction<M, OM>() {
+      @Override
+      public Collection<OM> apply(M message) {
+        return new ArrayList<OM>() {
+          {
+            OM r = mapFn.apply(message);
+            if (r != null) {
+              this.add(r);
+            }
+          }
+        };
+      }
+
+      @Override
+      public void init(Config config, TaskContext context) {
+        mapFn.init(config, context);
+      }
+    }, output, OperatorSpec.OpCode.MAP, graph.getNextOpId());
+  }
+
+  /**
+   * Creates a {@link StreamOperatorSpec} for {@link FilterFunction}
+   *
+   * @param filterFn  the transformation function
+   * @param graph  the {@link StreamGraphImpl} object
+   * @param output  the output {@link MessageStreamImpl} object
+   * @param <M>  type of input message
+   * @return  the {@link StreamOperatorSpec}
+   */
+  public static <M> StreamOperatorSpec<M, M> createFilterOperatorSpec(FilterFunction<M> filterFn, StreamGraphImpl graph, MessageStreamImpl<M> output) {
+    return new StreamOperatorSpec<>(new FlatMapFunction<M, M>() {
+      @Override
+      public Collection<M> apply(M message) {
+        return new ArrayList<M>() {
+          {
+            if (filterFn.apply(message)) {
+              this.add(message);
+            }
+          }
+        };
+      }
+
+      @Override
+      public void init(Config config, TaskContext context) {
+        filterFn.init(config, context);
+      }
+    }, output, OperatorSpec.OpCode.FILTER, graph.getNextOpId());
   }
 
   /**
    * Creates a {@link StreamOperatorSpec}.
    *
    * @param transformFn  the transformation function
-   * @param <M>  type of input {@link MessageEnvelope}
-   * @param <OM>  type of output {@link MessageEnvelope}
+   * @param graph  the {@link StreamGraphImpl} object
+   * @param output  the output {@link MessageStreamImpl} object
+   * @param <M>  type of input message
+   * @param <OM>  type of output message
    * @return  the {@link StreamOperatorSpec}
    */
-  public static <M extends MessageEnvelope, OM extends MessageEnvelope> StreamOperatorSpec<M, OM> createStreamOperatorSpec(
-      FlatMapFunction<M, OM> transformFn) {
-    return new StreamOperatorSpec<>(transformFn);
+  public static <M, OM> StreamOperatorSpec<M, OM> createStreamOperatorSpec(
+      FlatMapFunction<M, OM> transformFn, StreamGraphImpl graph, MessageStreamImpl<OM> output) {
+    return new StreamOperatorSpec<>(transformFn, output, OperatorSpec.OpCode.FLAT_MAP, graph.getNextOpId());
   }
 
   /**
    * Creates a {@link SinkOperatorSpec}.
    *
    * @param sinkFn  the sink function
-   * @param <M>  type of input {@link MessageEnvelope}
+   * @param <M>  type of input message
+   * @param graph  the {@link StreamGraphImpl} object
    * @return  the {@link SinkOperatorSpec}
    */
-  public static <M extends MessageEnvelope> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<M> sinkFn) {
-    return new SinkOperatorSpec<>(sinkFn);
+  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<M> sinkFn, StreamGraphImpl graph) {
+    return new SinkOperatorSpec<>(sinkFn, OperatorSpec.OpCode.SINK, graph.getNextOpId());
+  }
+
+  /**
+   * Creates a {@link SinkOperatorSpec}.
+   *
+   * @param sinkFn  the sink function
+   * @param graph  the {@link StreamGraphImpl} object
+   * @param stream  the {@link OutputStream} where the message is sent to
+   * @param <M>  type of input message
+   * @return  the {@link SinkOperatorSpec}
+   */
+  public static <M> SinkOperatorSpec<M> createSendToOperatorSpec(SinkFunction<M> sinkFn, StreamGraphImpl graph, OutputStream<M> stream) {
+    return new SinkOperatorSpec<>(sinkFn, OperatorSpec.OpCode.SEND_TO, graph.getNextOpId(), stream);
+  }
+
+  /**
+   * Creates a {@link SinkOperatorSpec}.
+   *
+   * @param sinkFn  the sink function
+   * @param graph  the {@link StreamGraphImpl} object
+   * @param stream  the {@link OutputStream} where the message is sent to
+   * @param <M>  type of input message
+   * @return  the {@link SinkOperatorSpec}
+   */
+  public static <M> SinkOperatorSpec<M> createPartitionOperatorSpec(SinkFunction<M> sinkFn, StreamGraphImpl graph, OutputStream<M> stream) {
+    return new SinkOperatorSpec<>(sinkFn, OperatorSpec.OpCode.PARTITION_BY, graph.getNextOpId(), stream);
   }
 
   /**
    * Creates a {@link WindowOperatorSpec}.
    *
    * @param window the description of the window.
-   * @param <M> the type of input {@link MessageEnvelope}
-   * @param <K> the type of key in the {@link MessageEnvelope} in this {@link org.apache.samza.operators.MessageStream}. If a key is specified,
-   *            results are emitted per-key
+   * @param graph  the {@link StreamGraphImpl} object
+   * @param wndOutput  the window output {@link MessageStreamImpl} object
+   * @param <M> the type of input message
    * @param <WK> the type of key in the {@link WindowPane}
    * @param <WV> the type of value in the window
-   * @param <WM> the type of output {@link WindowPane}
    * @return  the {@link WindowOperatorSpec}
    */
 
-  public static <M extends MessageEnvelope, K, WK, WV, WM extends WindowPane<WK, WV>> WindowOperatorSpec<M, K, WK, WV, WM> createWindowOperatorSpec(WindowInternal<M, K, WV> window) {
-    return new WindowOperatorSpec<>(window, OperatorSpecs.getOperatorId());
+  public static <M, WK, WV> WindowOperatorSpec<M, WK, WV> createWindowOperatorSpec(
+      WindowInternal<M, WK, WV> window, StreamGraphImpl graph, MessageStreamImpl<WindowPane<WK, WV>> wndOutput) {
+    return new WindowOperatorSpec<>(window, wndOutput, graph.getNextOpId());
   }
 
   /**
    * Creates a {@link PartialJoinOperatorSpec}.
    *
    * @param partialJoinFn  the join function
+   * @param graph  the {@link StreamGraphImpl} object
    * @param joinOutput  the output {@link MessageStreamImpl}
-   * @param <M>  type of input {@link MessageEnvelope}
+   * @param <M>  type of input message
    * @param <K>  type of join key
-   * @param <JM>  the type of {@link MessageEnvelope} in the other join stream
-   * @param <OM>  the type of {@link MessageEnvelope} in the join output
+   * @param <JM>  the type of message in the other join stream
+   * @param <OM>  the type of message in the join output
    * @return  the {@link PartialJoinOperatorSpec}
    */
-  public static <M extends MessageEnvelope<K, ?>, K, JM extends MessageEnvelope<K, ?>, OM extends MessageEnvelope> PartialJoinOperatorSpec<M, K, JM, OM> createPartialJoinOperatorSpec(
-      BiFunction<M, JM, OM> partialJoinFn, MessageStreamImpl<OM> joinOutput) {
-    return new PartialJoinOperatorSpec<>(partialJoinFn, joinOutput, OperatorSpecs.getOperatorId());
+  public static <M, K, JM, OM> PartialJoinOperatorSpec<M, K, JM, OM> createPartialJoinOperatorSpec(
+      PartialJoinFunction<K, M, JM, OM> partialJoinFn, StreamGraphImpl graph, MessageStreamImpl<OM> joinOutput) {
+    return new PartialJoinOperatorSpec<>(partialJoinFn, joinOutput, graph.getNextOpId());
   }
 
   /**
    * Creates a {@link StreamOperatorSpec} with a merger function.
    *
+   * @param graph  the {@link StreamGraphImpl} object
    * @param mergeOutput  the output {@link MessageStreamImpl} from the merger
-   * @param <M>  the type of input {@link MessageEnvelope}
+   * @param <M>  the type of input message
    * @return  the {@link StreamOperatorSpec} for the merge
    */
-  public static <M extends MessageEnvelope> StreamOperatorSpec<M, M> createMergeOperatorSpec(MessageStreamImpl<M> mergeOutput) {
-    return new StreamOperatorSpec<M, M>(t ->
-      new ArrayList<M>() { {
-          this.add(t);
-        } },
-      mergeOutput);
+  public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(StreamGraphImpl graph, MessageStreamImpl<M> mergeOutput) {
+    return new StreamOperatorSpec<M, M>(message ->
+        new ArrayList<M>() {
+          {
+            this.add(message);
+          }
+        },
+        mergeOutput, OperatorSpec.OpCode.MERGE, graph.getNextOpId());
   }
 }

@@ -19,29 +19,42 @@
 
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 
-public class WindowOperatorSpec<M extends MessageEnvelope, K, WK, WV, WM extends WindowPane<WK, WV>> implements OperatorSpec<WM> {
 
-  private final WindowInternal window;
+/**
+ * Default window operator spec object
+ *
+ * @param <M>  the type of input message to the window
+ * @param <WK>  the type of key of the window
+ * @param <WV>  the type of aggregated value in the window output {@link WindowPane}
+ */
+public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK, WV>> {
 
-  private final MessageStreamImpl<WM> outputStream;
+  private final WindowInternal<M, WK, WV> window;
 
-  private final String operatorId;
+  private final MessageStreamImpl<WindowPane<WK, WV>> outputStream;
+
+  private final int opId;
 
 
-  public WindowOperatorSpec(WindowInternal window, String operatorId) {
+  /**
+   * Constructor for {@link WindowOperatorSpec}.
+   *
+   * @param window  the window function
+   * @param outputStream  the output {@link MessageStreamImpl} from this {@link WindowOperatorSpec}
+   * @param opId  auto-generated unique ID of this operator
+   */
+  WindowOperatorSpec(WindowInternal<M, WK, WV> window, MessageStreamImpl<WindowPane<WK, WV>> outputStream, int opId) {
+    this.outputStream = outputStream;
     this.window = window;
-    this.outputStream = new MessageStreamImpl<>();
-    this.operatorId = operatorId;
+    this.opId = opId;
   }
 
   @Override
-  public MessageStream<WM> getOutputStream() {
+  public MessageStreamImpl<WindowPane<WK, WV>> getNextStream() {
     return this.outputStream;
   }
 
@@ -49,7 +62,11 @@ public class WindowOperatorSpec<M extends MessageEnvelope, K, WK, WV, WM extends
     return window;
   }
 
-  public String getOperatorId() {
-    return operatorId;
+  public OpCode getOpCode() {
+    return OpCode.WINDOW;
+  }
+
+  public int getOpId() {
+    return this.opId;
   }
 }
