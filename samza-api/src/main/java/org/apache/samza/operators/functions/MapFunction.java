@@ -19,23 +19,30 @@
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.config.Config;
+import org.apache.samza.task.TaskContext;
 
 
 /**
- * A function that transforms a {@link MessageEnvelope} into another {@link MessageEnvelope}, possibly of a different type.
- * @param <M>  type of the input {@link MessageEnvelope}
- * @param <OM>  type of the transformed {@link MessageEnvelope}
+ * A function that transforms an input message into another message, possibly of a different type.
+ * @param <M>  type of the input message
+ * @param <OM>  type of the transformed message
  */
 @InterfaceStability.Unstable
-@FunctionalInterface
-public interface MapFunction<M extends MessageEnvelope, OM extends MessageEnvelope> {
+public interface MapFunction<M, OM>  extends InitFunction {
 
   /**
-   * Transforms the provided {@link MessageEnvelope} into another {@link MessageEnvelope}
-   * @param message  the {@link MessageEnvelope} to be transformed
-   * @return  the transformed {@link MessageEnvelope}
+   * Transforms the provided message into another message
+   * @param message  the input message to be transformed
+   * @return  the transformed message
    */
   OM apply(M message);
 
+  /**
+   * Init method to initialize the context for this {@link MapFunction}. The default implementation is NO-OP.
+   *
+   * @param config  the {@link Config} object for this task
+   * @param context  the {@link TaskContext} object for this task
+   */
+  default void init(Config config, TaskContext context) { }
 }

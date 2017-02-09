@@ -17,26 +17,40 @@
  * under the License.
  */
 
-package org.apache.samza.operators;
+package org.apache.samza.example;
 
-
-import org.apache.samza.operators.data.IncomingSystemMessageEnvelope;
+import org.apache.samza.config.Config;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.StreamGraphFactory;
+import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.StreamSpec;
+import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.Offset;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.time.Duration;
-import java.util.Map;
 import java.util.function.BiFunction;
+import java.util.Properties;
+import java.util.Set;
 
 
 /**
  * Example implementation of split stream tasks
  *
  */
-public class BroadcastTask implements StreamOperatorTask {
+public class BroadcastGraph implements StreamGraphFactory {
+
+  private final Set<SystemStreamPartition> inputs;
+
+  BroadcastGraph(Set<SystemStreamPartition> inputs) {
+    this.inputs = inputs;
+  }
+
   class MessageType {
     String field1;
     String field2;
@@ -57,26 +71,36 @@ public class BroadcastTask implements StreamOperatorTask {
   }
 
   @Override
-  public void transform(Map<SystemStreamPartition, MessageStream<IncomingSystemMessageEnvelope>> messageStreams) {
+  public StreamGraph create(Config config) {
+    StreamGraphImpl graph = new StreamGraphImpl();
+
     BiFunction<JsonMessageEnvelope, Integer, Integer> sumAggregator = (m, c) -> c + 1;
-    messageStreams.values().forEach(entry -> {
-        MessageStream<JsonMessageEnvelope> inputStream = entry.map(this::getInputMessage);
+    inputs.forEach(entry -> {
+        MessageStream<JsonMessageEnvelope> inputStream = graph.<Object, Object, InputMessageEnvelope>createInStream(new StreamSpec() {
+          @Override public SystemStream getSystemStream() {
+            return entry.getSystemStream();
+          }
 
-        inputStream.filter(this::myFilter1)
-          .window(Windows.tumblingWindow(Duration.ofMillis(100), sumAggregator)
+          @Override public Properties getProperties() {
+            return null;
+          }
+        }, null, null).
+            map(this::getInputMessage);
+
+        inputStream.filter(this::myFilter1).window(Windows.tumblingWindow(Duration.ofMillis(100), sumAggregator)
             .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.ofMillis(10)))));
 
-        inputStream.filter(this::myFilter1)
-          .window(Windows.tumblingWindow(Duration.ofMillis(100), sumAggregator)
+        inputStream.filter(this::myFilter2).window(Windows.tumblingWindow(Duration.ofMillis(100), sumAggregator)
             .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.ofMillis(10)))));
 
-        inputStream.filter(this::myFilter1)
-          .window(Windows.tumblingWindow(Duration.ofMillis(100), sumAggregator)
+        inputStream.filter(this::myFilter3).window(Windows.tumblingWindow(Duration.ofMillis(100), sumAggregator)
             .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.ofMillis(10)))));
+
       });
+    return graph;
   }
 
-  JsonMessageEnvelope getInputMessage(IncomingSystemMessageEnvelope m1) {
+  JsonMessageEnvelope getInputMessage(InputMessageEnvelope m1) {
     return (JsonMessageEnvelope) m1.getMessage();
   }
 
@@ -93,4 +117,5 @@ public class BroadcastTask implements StreamOperatorTask {
   boolean myFilter3(JsonMessageEnvelope m1) {
     return m1.getMessage().parKey.equals("key3");
   }
+
 }

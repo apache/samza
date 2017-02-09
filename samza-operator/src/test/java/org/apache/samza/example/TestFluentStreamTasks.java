@@ -16,25 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.example;
 
+import java.lang.reflect.Field;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
-
-import org.apache.samza.operators.impl.OperatorImpl;
+import org.apache.samza.operators.impl.OperatorGraph;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.task.StreamOperatorTask;
 import org.apache.samza.task.TaskContext;
 import org.junit.Test;
 
-import java.lang.reflect.Field;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 
 /**
@@ -42,15 +39,9 @@ import static org.mockito.Mockito.when;
  */
 public class TestFluentStreamTasks {
 
-  private final WindowTask userTask = new WindowTask();
-
-  private final BroadcastTask splitTask = new BroadcastTask();
-
-  private final JoinTask joinTask = new JoinTask();
-
   private final Set<SystemStreamPartition> inputPartitions = new HashSet<SystemStreamPartition>() { {
       for (int i = 0; i < 4; i++) {
-        this.add(new SystemStreamPartition("my-system", "my-topic1", new Partition(i)));
+        this.add(new SystemStreamPartition("my-system", String.format("my-topic%d", i), new Partition(i)));
       }
     } };
 
@@ -59,16 +50,15 @@ public class TestFluentStreamTasks {
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
     when(mockContext.getSystemStreamPartitions()).thenReturn(this.inputPartitions);
-    StreamOperatorAdaptorTask adaptorTask = new StreamOperatorAdaptorTask(this.userTask);
-    Field pipelineMapFld = StreamOperatorAdaptorTask.class.getDeclaredField("operatorChains");
+    WindowGraph userTask = new WindowGraph(this.inputPartitions);
+    StreamOperatorTask adaptorTask = new StreamOperatorTask(userTask);
+    Field pipelineMapFld = StreamOperatorTask.class.getDeclaredField("operatorGraph");
     pipelineMapFld.setAccessible(true);
-    Map<SystemStreamPartition, OperatorImpl> pipelineMap =
-        (Map<SystemStreamPartition, OperatorImpl>) pipelineMapFld.get(adaptorTask);
+    OperatorGraph opGraph = (OperatorGraph) pipelineMapFld.get(adaptorTask);
 
     adaptorTask.init(mockConfig, mockContext);
-    assertEquals(pipelineMap.size(), 4);
     this.inputPartitions.forEach(partition -> {
-        assertNotNull(pipelineMap.get(partition));
+        assertNotNull(opGraph.get(partition.getSystemStream()));
       });
   }
 
@@ -77,16 +67,15 @@ public class TestFluentStreamTasks {
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
     when(mockContext.getSystemStreamPartitions()).thenReturn(this.inputPartitions);
-    StreamOperatorAdaptorTask adaptorTask = new StreamOperatorAdaptorTask(this.splitTask);
-    Field pipelineMapFld = StreamOperatorAdaptorTask.class.getDeclaredField("operatorChains");
+    BroadcastGraph splitTask = new BroadcastGraph(this.inputPartitions);
+    StreamOperatorTask adaptorTask = new StreamOperatorTask(splitTask);
+    Field pipelineMapFld = StreamOperatorTask.class.getDeclaredField("operatorGraph");
     pipelineMapFld.setAccessible(true);
-    Map<SystemStreamPartition, OperatorImpl> pipelineMap =
-        (Map<SystemStreamPartition, OperatorImpl>) pipelineMapFld.get(adaptorTask);
+    OperatorGraph opGraph = (OperatorGraph) pipelineMapFld.get(adaptorTask);
 
     adaptorTask.init(mockConfig, mockContext);
-    assertEquals(pipelineMap.size(), 4);
     this.inputPartitions.forEach(partition -> {
-        assertNotNull(pipelineMap.get(partition));
+        assertNotNull(opGraph.get(partition.getSystemStream()));
       });
   }
 
@@ -95,18 +84,16 @@ public class TestFluentStreamTasks {
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
     when(mockContext.getSystemStreamPartitions()).thenReturn(this.inputPartitions);
-    StreamOperatorAdaptorTask adaptorTask = new StreamOperatorAdaptorTask(this.joinTask);
-    Field pipelineMapFld = StreamOperatorAdaptorTask.class.getDeclaredField("operatorChains");
+    JoinGraph joinTask = new JoinGraph(this.inputPartitions);
+    StreamOperatorTask adaptorTask = new StreamOperatorTask(joinTask);
+    Field pipelineMapFld = StreamOperatorTask.class.getDeclaredField("operatorGraph");
     pipelineMapFld.setAccessible(true);
-    Map<SystemStreamPartition, OperatorImpl> pipelineMap =
-        (Map<SystemStreamPartition, OperatorImpl>) pipelineMapFld.get(adaptorTask);
+    OperatorGraph opGraph = (OperatorGraph) pipelineMapFld.get(adaptorTask);
 
     adaptorTask.init(mockConfig, mockContext);
-    assertEquals(pipelineMap.size(), 4);
     this.inputPartitions.forEach(partition -> {
-        assertNotNull(pipelineMap.get(partition));
+        assertNotNull(opGraph.get(partition.getSystemStream()));
       });
   }
-
 
 }

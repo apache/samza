@@ -20,15 +20,16 @@
 package org.apache.samza.operators.triggers;
 
 
-import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.annotation.InterfaceStability;
 
 /**
  * Marker interface for all triggers. The firing of a trigger indicates the completion of a window pane.
  *
  * <p> Use the {@link Triggers} APIs to create a {@link Trigger}.
  *
- * @param <M> the type of the incoming {@link MessageEnvelope}
+ * @param <M> the type of the incoming message
  */
-public interface Trigger<M extends MessageEnvelope> {
+@InterfaceStability.Unstable
+public interface Trigger<M> {
 
 }

@@ -17,28 +17,41 @@
  * under the License.
  */
 
-package org.apache.samza.operators;
+package org.apache.samza.example;
 
-import org.apache.samza.operators.data.IncomingSystemMessageEnvelope;
+import org.apache.samza.config.Config;
+import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.StreamGraphFactory;
+import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.StreamSpec;
+import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.data.Offset;
 import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.time.Duration;
-import java.util.Map;
 import java.util.function.BiFunction;
+import java.util.Properties;
+import java.util.Set;
 
 
 /**
  * Example implementation of a simple user-defined tasks w/ window operators
  *
  */
-public class WindowTask implements StreamOperatorTask {
+public class WindowGraph implements StreamGraphFactory {
   class MessageType {
     String field1;
     String field2;
+  }
+
+  private final Set<SystemStreamPartition> inputs;
+
+  WindowGraph(Set<SystemStreamPartition> inputs) {
+    this.inputs = inputs;
   }
 
   class JsonMessageEnvelope extends JsonIncomingSystemMessageEnvelope<MessageType> {
@@ -48,12 +61,23 @@ public class WindowTask implements StreamOperatorTask {
     }
   }
 
-  @Override public void transform(Map<SystemStreamPartition, MessageStream<IncomingSystemMessageEnvelope>> messageStreams) {
+  @Override
+  public StreamGraph create(Config config) {
+    StreamGraphImpl graph = new StreamGraphImpl();
     BiFunction<JsonMessageEnvelope, Integer, Integer> maxAggregator = (m, c) -> c + 1;
-    messageStreams.values().forEach(source ->
-        source.map(m1 -> new JsonMessageEnvelope(this.myMessageKeyFunction(m1), (MessageType) m1.getMessage(), m1.getOffset(), m1.getSystemStreamPartition()))
-            .window(Windows.tumblingWindow(Duration.ofMillis(200), maxAggregator))
-    );
+    inputs.forEach(source -> graph.<Object, Object, InputMessageEnvelope>createInStream(new StreamSpec() {
+      @Override public SystemStream getSystemStream() {
+        return source.getSystemStream();
+      }
+
+      @Override public Properties getProperties() {
+        return null;
+      }
+    }, null, null).
+        map(m1 -> new JsonMessageEnvelope(this.myMessageKeyFunction(m1), (MessageType) m1.getMessage(), m1.getOffset(),
+            m1.getSystemStreamPartition())).window(Windows.tumblingWindow(Duration.ofMillis(200), maxAggregator)));
+
+    return graph;
   }
 
   String myMessageKeyFunction(MessageEnvelope<Object, Object> m) {
