@@ -41,7 +41,7 @@ public class ZkControllerImpl implements ZkController {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
     this.zkListener = zkListener;
-    this.leaderElector = new ZkLeaderElector(this.processorIdStr, this.zkUtils, this.zkListener);
+    this.leaderElector = new ZkLeaderElector(this.processorIdStr, this.zkUtils);
     this.debounceTimer = debounceTimer;
 
     init();
@@ -56,10 +56,10 @@ public class ZkControllerImpl implements ZkController {
     if(isLeader) {
       listenToProcessorLiveness();
 
-      //      zkUtils.subscribeToProcessorChange(zkProcessorChangeListener);
+      // register the debounce call under the same action name as processor change, to make sure it will get cancelled
+      // if more processors join before the time is up. They both use the same action - onBecomeLeader()
       debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-          ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> zkListener.onBecomeLeader());   // RECONSIDER MAKING THIS SYNC CALL
-
+        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> zkListener.onBecomeLeader());   // RECONSIDER MAKING THIS SYNC CALL
     }
 
     // subscribe to JobModel version updates
