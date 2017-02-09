@@ -151,5 +151,8 @@ public class ZkControllerImpl implements ZkController {
   public void shutdown() {
     if(debounceTimer != null)
       debounceTimer.stopScheduler();
+
+    if(zkUtils != null)
+      zkUtils.close();
   }
 }

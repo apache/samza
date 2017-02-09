@@ -45,6 +45,8 @@ public class ZkKeyBuilder {
 
   static final String PROCESSORS_PATH = "processors";
   public static final String PROCESSOR_ID_PREFIX = "processor-";
+  public static final String JOBMODEL_VERSION_PATH = "jobModelVersion";
+
 
   public ZkKeyBuilder(String pathPrefix) {
     if (Strings.isNullOrEmpty(pathPrefix)) {
@@ -71,4 +73,13 @@ public class ZkKeyBuilder {
       return path.substring(path.indexOf(PROCESSOR_ID_PREFIX));
     return null;
   }
+
+  public String getJobModelVersionPath() {
+    return String.format("/%s/%s", pathPrefix, JOBMODEL_VERSION_PATH);
+  }
+
+  public String getJobModelPathPrefix() {
+    return String.format("/%s/jobModels", pathPrefix);
+  }
+
 }
