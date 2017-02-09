@@ -19,6 +19,7 @@
 
 package org.apache.samza.zk;
 
+import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
@@ -58,11 +59,13 @@ public class ZkUtils {
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
+  private final String processorId;
 
-  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs) {
+  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs, String processorId) {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkClient = zkClient;
+    this.processorId = processorId;
   }
 
   public void connect() throws ZkInterruptedException {
@@ -124,6 +127,33 @@ public class ZkUtils {
       LOG.info("Found these children - " + children);
     }
     return children;
+  }
+
+  public String getJobModelVersion() {
+   return zkClient.<String>readData(keyBuilder.getJobModelVersionPath());
+  }
+
+  public void makeSurePersistentPathsExists(String[] paths) {
+    for (String path : paths) {
+      if (!zkClient.exists(path)) {
+        zkClient.createPersistent(path, true);
+      }
+    }
+  }
+
+  /**
+    * subscribe for changes of JobModel version
+    *
+    * @param dataListener describe this
+    */
+  public void subscribeToJobModelVersionChange(IZkDataListener dataListener) {
+    LOG.info("pid=" + processorId + " subscribing for jm version change at:" + keyBuilder.getJobModelVersionPath());
+    zkClient.subscribeDataChanges(keyBuilder.getJobModelVersionPath(), dataListener);
+  }
+
+  public void subscribeToProcessorChange(IZkChildListener listener) {
+    LOG.info("pid=" + processorId + " subscribing for child change at:" + keyBuilder.getProcessorsPath());
+    zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
   }
 
   /* Wrapper for standard I0Itec methods */
