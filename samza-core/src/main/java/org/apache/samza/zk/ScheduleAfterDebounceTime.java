@@ -31,13 +31,20 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
+/**
+ * This class allows scheduling a Runnable actions after some debounce time
+ * Actions are keyed by names
+ */
 public class ScheduleAfterDebounceTime {
   public static final Logger LOG = LoggerFactory.getLogger(ScheduleAfterDebounceTime.class);
-  public static final long TIMEOUT_MS = 1000 * 10;
+  public static final long TIMEOUT_MS = 1000 * 10; // timeout to wait for a task to complete
 
+  //Names of actions
   public static final String JOB_MODEL_VERSION_CHANGE = "JobModelVersionChange";
   public static final String ON_PROCESSOR_CHANGE = "OnProcessorChange";
   public static final String ON_DATA_CHANGE_ON = "OnDataChanteOn";
+
   public static final int DEBOUNCE_TIME_MS = 2000;
 
 
@@ -66,7 +73,7 @@ public class ScheduleAfterDebounceTime {
     }
     // schedule a new task
     sf = scheduledExecutorService.schedule(runnable, debounceTimeMs, TimeUnit.MILLISECONDS);
-    LOG.info(">>>>>>>>>>>DEBOUNCE: scheduled " + actionName + " in " + debounceTimeMs);
+    LOG.info("DEBOUNCE: scheduled " + actionName + " in " + debounceTimeMs);
     futureHandles.put(actionName, sf);
   }
 
@@ -74,5 +81,4 @@ public class ScheduleAfterDebounceTime {
     // shutdown executor service
     scheduledExecutorService.shutdown();
   }
-
 }

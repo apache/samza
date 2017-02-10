@@ -90,8 +90,8 @@ public class TestZkStreamProcessor {
     ZkUtils zkUtils = new ZkUtils(
         new ZkKeyBuilder(groupName),
         zkClient,
-        zkConfig.getZkConnectionTimeoutMs()
-        );
+        zkConfig.getZkConnectionTimeoutMs(),
+        "0");
 
     zkUtils.deleteRoot();
     zkUtils.close();
