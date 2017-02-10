@@ -101,7 +101,8 @@ public class ZkUtils {
     if (ephemeralPath == null) {
       // TODO: Data should be more than just the hostname. Use Json serialized data
       ephemeralPath =
-          zkClient.createEphemeralSequential(keyBuilder.getProcessorsPath() + "/processor-", data);
+          zkClient.createEphemeralSequential(
+              keyBuilder.getProcessorsPath() + "/", data);
       return ephemeralPath;
     } else {
       return ephemeralPath;
@@ -117,7 +118,7 @@ public class ZkUtils {
    *
    * @return List of absolute ZK node paths
    */
-  public List<String> getActiveProcessors() {
+  public List<String> getSortedActiveProcessors() {
     List<String> children = zkClient.getChildren(keyBuilder.getProcessorsPath());
     if (children.size() > 0) {
       Collections.sort(children);
