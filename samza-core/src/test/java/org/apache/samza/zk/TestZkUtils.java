@@ -74,7 +74,8 @@ public class TestZkUtils {
     ZkUtils utils = new ZkUtils(
         KEY_BUILDER,
         zkClient,
-        SESSION_TIMEOUT_MS);
+        SESSION_TIMEOUT_MS,
+        "0");
     utils.connect();
     String assignedPath = utils.registerProcessorAndGetId("0.0.0.0");
     Assert.assertTrue(assignedPath.startsWith(KEY_BUILDER.getProcessorsPath() + "/processor-"));
@@ -90,7 +91,8 @@ public class TestZkUtils {
     ZkUtils utils = new ZkUtils(
         KEY_BUILDER,
         zkClient,
-        SESSION_TIMEOUT_MS);
+        SESSION_TIMEOUT_MS,
+        "0");
     utils.connect();
 
     Assert.assertEquals(0, utils.getActiveProcessors().size());

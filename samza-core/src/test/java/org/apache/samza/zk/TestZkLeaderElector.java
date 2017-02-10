@@ -401,6 +401,8 @@ public class TestZkLeaderElector {
     return new ZkUtils(
         KEY_BUILDER,
         ZkUtils.createZkClient(zkConnection, CONNECTION_TIMEOUT_MS),
-        CONNECTION_TIMEOUT_MS);
+        CONNECTION_TIMEOUT_MS,
+        "0"
+        );
   }
 }

@@ -74,6 +74,13 @@ public class ZkKeyBuilder {
     return null;
   }
 
+  public static String parseContainerIdFromProcessorId(String prId) {
+    if (prId == null)
+      throw new SamzaException("processor id is null");
+
+    return prId.substring(prId.indexOf(PROCESSOR_ID_PREFIX) + PROCESSOR_ID_PREFIX.length());
+  }
+
   public String getJobModelVersionBarrierPrefix() {
     return String.format("/%s/versionBarriers", pathPrefix);
   }
@@ -83,8 +90,13 @@ public class ZkKeyBuilder {
     return String.format("/%s/%s", pathPrefix, JOBMODEL_VERSION_PATH);
   }
 
+
   public String getJobModelPathPrefix() {
     return String.format("/%s/jobModels", pathPrefix);
+  }
+
+  public String getJobModelPath(String jobModelVersion) {
+    return String.format("%s/%s", getJobModelPathPrefix(), jobModelVersion);
   }
 
 }

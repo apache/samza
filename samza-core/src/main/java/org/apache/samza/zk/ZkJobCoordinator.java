@@ -1,5 +1,6 @@
 package org.apache.samza.zk;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -8,6 +9,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.coordinator.JobModelManager;
+import org.apache.samza.coordinator.JobModelManager$;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.processor.SamzaContainerController;
@@ -41,7 +44,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
   private Config config;
   private ZkKeyBuilder keyBuilder;
   private final ScheduleAfterDebounceTime debounceTimer;
-  //JobModelManager jobModelManager;
+  private JobModelManager jobModelManager;
+  private final StreamMetadataCache  streamMetadataCache;
 
   public ZkJobCoordinator(int processorId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils, SamzaContainerController containerController) {
     this.zkUtils = zkUtils;
@@ -54,8 +58,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
 
 
     barrier = new ZkBarrierForVersionUpgrade(zkUtils, debounceTimer); //should not have any state in it
-
-
 
     // TEMP for model generation
     //////////////////////////////// NEEDS TO BE REPLACED //////////////////////////////////////
@@ -71,13 +73,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
       systemAdmins.put(systemName, systemFactory.getAdmin(systemName, this.config));
     }
 
-    StreamMetadataCache
-        streamMetadataCache = new StreamMetadataCache(Util.<String, SystemAdmin>javaMapAsScalaMap(systemAdmins), 5000, SystemClock
-        .instance());
-
-    //jobModelManager = //JobModelManager$.MODULE$.getJobCoordinator(this.config, null, null, streamMetadataCache, null);
-
-    ////////////////////////////////////////////////////////////////////////////////////////////
+    streamMetadataCache = new StreamMetadataCache(Util.<String, SystemAdmin>javaMapAsScalaMap(systemAdmins), 5000, SystemClock.instance());
   }
 
   @Override
@@ -135,10 +131,18 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
       nextJMVersion = Integer.toString(Integer.valueOf(currentJMVersion) + 1);
     log.info("pid=" + processorId + "generating new model. Version = " + nextJMVersion);
 
-    Map<String, String> configMap = new HashMap<>();
-    Map<Integer, ContainerModel> containers = new HashMap<>();
-    MapConfig config = new MapConfig(configMap);
-    JobModel jobModel = new JobModel(config, containers);
+    StringBuilder sb = new StringBuilder();
+    List<Integer> containerIds = new ArrayList<>();
+    for (String processor : currentProcessors) {
+      String zkProcessorId = keyBuilder.parseContainerIdFromProcessorId(processor);
+      sb.append(zkProcessorId).append(",");
+      containerIds.add(Integer.valueOf(zkProcessorId));
+    }
+    log.info("generate new job model: processorsIds: " + sb.toString());
+
+    jobModelManager = JobModelManager$.MODULE$.getJobCoordinator(this.config, null, null, streamMetadataCache, null,
+        containerIds);
+    JobModel jobModel = jobModelManager.jobModel();
 
     log.info("pid=" + processorId + "Generated jobModel: " + jobModel);
 

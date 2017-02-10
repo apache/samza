@@ -19,11 +19,17 @@
 
 package org.apache.samza.zk;
 
+import java.io.IOException;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
+import org.apache.samza.SamzaException;
+import org.apache.samza.job.model.JobModel;
+import org.apache.samza.serializers.model.SamzaObjectMapper;
+import org.apache.zookeeper.data.Stat;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -139,6 +145,63 @@ public class ZkUtils {
         zkClient.createPersistent(path, true);
       }
     }
+  }
+
+  /**
+   *  convert the model into JSON and store in the ZK
+   * @param jobModelVersion
+   * @param jobModel
+   */
+  public void publishNewJobModel(String jobModelVersion, JobModel jobModel) {
+    try {
+      // We assume (needs to be verified) that this call will FAIL if the node already exists!!!!!!!!
+      ObjectMapper mmapper = SamzaObjectMapper.getObjectMapper();
+      String jobModelStr = mmapper.writerWithDefaultPrettyPrinter().writeValueAsString(jobModel);
+      LOG.info("pid=" + processorId + " jobModelAsString=" + jobModelStr);
+      zkClient.createPersistent(keyBuilder.getJobModelPath(jobModelVersion), jobModelStr);
+      LOG.info("wrote jobModel path =" + keyBuilder.getJobModelPath(jobModelVersion));
+    } catch (Exception e) {
+       throw new SamzaException(e);
+    }
+  }
+
+  /**
+   * read the job model from the ZK
+   * @param jobModelVersion
+   * @return
+   */
+  public JobModel getJobModel(String jobModelVersion) {
+    LOG.info("pid=" + processorId + "read the model ver=" + jobModelVersion + " from " + keyBuilder.getJobModelPath(jobModelVersion));
+    Object data = zkClient.readData(keyBuilder.getJobModelPath(jobModelVersion));
+    ObjectMapper mmapper = SamzaObjectMapper.getObjectMapper();
+    JobModel jm;
+    try {
+      jm = mmapper.readValue((String) data, JobModel.class);
+    } catch (IOException e) {
+      throw new SamzaException("failed to read JobModel from ZK", e);
+    }
+    return jm;
+  }
+
+  /**
+   * public new job model's version. Make sure new job model has not been published by someone else
+   * @param oldVersion
+   * @param newVersion
+   */
+  public void publishNewJobModelVersion(String oldVersion, String newVersion) {
+    Stat stat = new Stat();
+    String currentVersion = zkClient.<String>readData(keyBuilder.getJobModelVersionPath(), stat);
+    LOG.info("pid=" + processorId + " publishing new version: " + newVersion + "; oldVersion = " + oldVersion + "(" + stat.getVersion() + ")");
+    if (currentVersion != null && !currentVersion.equals(oldVersion)) {
+      throw new SamzaException("Someone change JMVersion while Leader was generating: expected" + oldVersion + ", got " + currentVersion);
+    }
+    int dataVersion = stat.getVersion();
+    stat = zkClient.writeDataReturnStat(keyBuilder.getJobModelVersionPath(), newVersion, dataVersion);
+    if (stat.getVersion() != dataVersion + 1)
+      throw new SamzaException("Someone changed data version of the JMVersion while Leader was generating a new one. current= " + dataVersion + ", old version = " + stat.getVersion());
+
+    LOG.info("pid=" + processorId +
+      " published new version: " + newVersion + "; expected dataVersion = " + dataVersion + "(" + stat.getVersion() + ")");
   }
 
   /**
