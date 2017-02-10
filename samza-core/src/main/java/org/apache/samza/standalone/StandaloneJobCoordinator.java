@@ -105,7 +105,7 @@ public class StandaloneJobCoordinator implements JobCoordinator {
      * TaskNameGrouper with the LocalityManager! Hence, groupers should be a property of the jobcoordinator
      * (job.coordinator.task.grouper, instead of task.systemstreampartition.grouper)
      */
-    this.jobModelManager = JobModelManager$.MODULE$.getJobCoordinator(this.config, null, null, streamMetadataCache, null);
+    this.jobModelManager = JobModelManager$.MODULE$.getJobCoordinator(this.config, null, null, streamMetadataCache, null, null);
   }
 
   @Override
