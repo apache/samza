@@ -150,6 +150,7 @@ public class TestZkLeaderElector {
     zkUtils3.close();
 
     Assert.assertEquals(new ArrayList<String>(), testZkUtils.getSortedActiveProcessors());
+
   }
 
   /**

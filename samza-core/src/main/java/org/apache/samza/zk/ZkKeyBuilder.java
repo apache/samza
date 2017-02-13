@@ -28,13 +28,8 @@ import org.apache.samza.SamzaException;
  *   - /
  *      |- jobName-jobId/
  *          |- processors/
-<<<<<<< HEAD
- *              |- processor-00000001
- *              |- processor-00000002
-=======
  *              |- 00000001
  *              |- 00000002
->>>>>>> master
  *              |- ...
  * </pre>
  * Note: ZK Node levels without an ending forward slash ('/') represent a leaf node and non-leaf node, otherwise.
