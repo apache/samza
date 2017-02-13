@@ -85,16 +85,14 @@ public class TestZkLeaderElector {
   public void testLeaderElectionRegistersProcessor() {
     List<String> activeProcessors = new ArrayList<String>() {
       {
-        add("processor-0000000000");
+        add("0000000000");
       }
     };
 
     ZkUtils mockZkUtils = mock(ZkUtils.class);
-
-    when(mockZkUtils.getEphemeralPath()).thenReturn(null);
     when(mockZkUtils.registerProcessorAndGetId(any())).
-        thenReturn(KEY_BUILDER.getProcessorsPath() + "/processor-0000000000");
-    when(mockZkUtils.getActiveProcessors()).thenReturn(activeProcessors);
+        thenReturn(KEY_BUILDER.getProcessorsPath() + "/0000000000");
+    when(mockZkUtils.getSortedActiveProcessors()).thenReturn(activeProcessors);
 
     ZkLeaderElector leaderElector = new ZkLeaderElector("1", mockZkUtils);
     Assert.assertTrue(leaderElector.tryBecomeLeader());
@@ -104,8 +102,7 @@ public class TestZkLeaderElector {
   public void testUnregisteredProcessorInLeaderElection() {
     String processorId = "1";
     ZkUtils mockZkUtils = mock(ZkUtils.class);
-    when(mockZkUtils.getEphemeralPath()).thenReturn("/test/processors/processor-dummy");
-    when(mockZkUtils.getActiveProcessors()).thenReturn(new ArrayList<String>());
+    when(mockZkUtils.getSortedActiveProcessors()).thenReturn(new ArrayList<String>());
 
     ZkLeaderElector leaderElector = new ZkLeaderElector(processorId, mockZkUtils);
     try {
@@ -139,20 +136,20 @@ public class TestZkLeaderElector {
         "3",
         zkUtils3);
 
-    Assert.assertEquals(0, testZkUtils.getActiveProcessors().size());
+    Assert.assertEquals(0, testZkUtils.getSortedActiveProcessors().size());
 
     Assert.assertTrue(leaderElector1.tryBecomeLeader());
     Assert.assertFalse(leaderElector2.tryBecomeLeader());
     Assert.assertFalse(leaderElector3.tryBecomeLeader());
 
-    Assert.assertEquals(3, testZkUtils.getActiveProcessors().size());
+    Assert.assertEquals(3, testZkUtils.getSortedActiveProcessors().size());
 
     // Clean up
     zkUtils1.close();
     zkUtils2.close();
     zkUtils3.close();
 
-    Assert.assertEquals(new ArrayList<String>(), testZkUtils.getActiveProcessors());
+    Assert.assertEquals(new ArrayList<String>(), testZkUtils.getSortedActiveProcessors());
 
   }
 
@@ -202,10 +199,10 @@ public class TestZkLeaderElector {
 
           @Override
           public void handleDataDeleted(String dataPath) throws Exception {
-            String registeredIdStr = path2.substring(path2.indexOf("-") + 1);
+            String registeredIdStr = ZkKeyBuilder.parseIdFromPath(path2);
             Assert.assertNotNull(registeredIdStr);
 
-            String predecessorIdStr = dataPath.substring(dataPath.indexOf("-") + 1);
+            String predecessorIdStr = ZkKeyBuilder.parseIdFromPath(dataPath);
             Assert.assertNotNull(predecessorIdStr);
 
             try {
@@ -243,8 +240,11 @@ public class TestZkLeaderElector {
     Assert.assertFalse(leaderElector2.tryBecomeLeader());
     Assert.assertFalse(leaderElector3.tryBecomeLeader());
 
-    List<String> currentActiveProcessors = testZkUtils.getActiveProcessors();
-    System.out.println(currentActiveProcessors);
+    Assert.assertTrue(leaderElector1.amILeader());
+    Assert.assertFalse(leaderElector2.amILeader());
+    Assert.assertFalse(leaderElector3.amILeader());
+
+    List<String> currentActiveProcessors = testZkUtils.getSortedActiveProcessors();
     Assert.assertEquals(3, currentActiveProcessors.size());
 
     // Leader Failure
@@ -258,7 +258,7 @@ public class TestZkLeaderElector {
     }
 
     Assert.assertEquals(1, count.get());
-    Assert.assertEquals(currentActiveProcessors, testZkUtils.getActiveProcessors());
+    Assert.assertEquals(currentActiveProcessors, testZkUtils.getSortedActiveProcessors());
 
     // Clean up
     zkUtils2.close();
@@ -328,10 +328,10 @@ public class TestZkLeaderElector {
 
           @Override
           public void handleDataDeleted(String dataPath) throws Exception {
-            String registeredIdStr = path3.substring(path3.indexOf("-") + 1);
+            String registeredIdStr = ZkKeyBuilder.parseIdFromPath(path3);
             Assert.assertNotNull(registeredIdStr);
 
-            String predecessorIdStr = dataPath.substring(dataPath.indexOf("-") + 1);
+            String predecessorIdStr = ZkKeyBuilder.parseIdFromPath(dataPath);
             Assert.assertNotNull(predecessorIdStr);
 
             try {
@@ -339,7 +339,7 @@ public class TestZkLeaderElector {
               int predecessorId = Integer.parseInt(predecessorIdStr);
               Assert.assertEquals(1, selfId - predecessorId);
             } catch (Exception e) {
-              System.out.println(e.getMessage());
+              Assert.fail("Exception in LeaderElectionListener!");
             }
             count.incrementAndGet();
             electionLatch.countDown();
@@ -351,7 +351,7 @@ public class TestZkLeaderElector {
     Assert.assertFalse(leaderElector2.tryBecomeLeader());
     Assert.assertFalse(leaderElector3.tryBecomeLeader());
 
-    List<String> currentActiveProcessors = testZkUtils.getActiveProcessors();
+    List<String> currentActiveProcessors = testZkUtils.getSortedActiveProcessors();
     Assert.assertEquals(3, currentActiveProcessors.size());
 
     zkUtils2.close();
@@ -364,7 +364,7 @@ public class TestZkLeaderElector {
     }
 
     Assert.assertEquals(1, count.get());
-    Assert.assertEquals(currentActiveProcessors, testZkUtils.getActiveProcessors());
+    Assert.assertEquals(currentActiveProcessors, testZkUtils.getSortedActiveProcessors());
 
     // Clean up
     zkUtils1.close();
@@ -373,7 +373,6 @@ public class TestZkLeaderElector {
 
   @Test
   public void testAmILeader() {
-    String zkConnectionString = "localhost:" + zkServer.getPort();
     // Processor-1
     ZkLeaderElector leaderElector1 = new ZkLeaderElector(
         "1",

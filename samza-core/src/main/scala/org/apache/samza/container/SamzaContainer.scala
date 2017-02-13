@@ -30,7 +30,7 @@ import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.SerializerConfig.Config2Serializer
-import org.apache.samza.config.{Config, ShellCommandConfig}
+import org.apache.samza.config.{Config, ShellCommandConfig, StorageConfig}
 import org.apache.samza.config.StorageConfig.Config2Storage
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System
@@ -76,6 +76,8 @@ import org.apache.samza.util.ExponentialSleepStrategy
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Throttleable
 import org.apache.samza.util.MetricsReporterLoader
+import org.apache.samza.util.ThrottlingExecutor
+import org.apache.samza.util.SystemClock
 import org.apache.samza.util.Util
 import org.apache.samza.util.Util.asScalaClock
 
@@ -582,7 +584,9 @@ object SamzaContainer extends Logging {
         storeBaseDir = defaultStoreBaseDir,
         loggedStoreBaseDir = loggedStorageBaseDir,
         partition = taskModel.getChangelogPartition,
-        systemAdmins = systemAdmins)
+        systemAdmins = systemAdmins,
+        new StorageConfig(config).getChangeLogDeleteRetentionsInMs,
+        new SystemClock)
 
       val systemStreamPartitions = taskModel
         .getSystemStreamPartitions

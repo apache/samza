@@ -45,9 +45,10 @@ public class TestZkUtils {
 
   @Before
   public void testSetup() {
-    zkConnection = new ZkConnection("localhost:" + zkServer.getPort(), SESSION_TIMEOUT_MS);
     try {
-      zkClient = new ZkClient(zkConnection, CONNECTION_TIMEOUT_MS);
+      zkClient = new ZkClient(
+          new ZkConnection("localhost:" + zkServer.getPort(), SESSION_TIMEOUT_MS),
+          CONNECTION_TIMEOUT_MS);
     } catch (Exception e) {
       Assert.fail("Client connection setup failed. Aborting tests..");
     }
@@ -77,7 +78,7 @@ public class TestZkUtils {
         SESSION_TIMEOUT_MS);
     utils.connect();
     String assignedPath = utils.registerProcessorAndGetId("0.0.0.0");
-    Assert.assertTrue(assignedPath.startsWith(KEY_BUILDER.getProcessorsPath() + "/processor-"));
+    Assert.assertTrue(assignedPath.startsWith(KEY_BUILDER.getProcessorsPath()));
 
     // Calling registerProcessorId again should return the same ephemeralPath as long as the session is valid
     Assert.assertTrue(utils.registerProcessorAndGetId("0.0.0.0").equals(assignedPath));
@@ -93,10 +94,10 @@ public class TestZkUtils {
         SESSION_TIMEOUT_MS);
     utils.connect();
 
-    Assert.assertEquals(0, utils.getActiveProcessors().size());
+    Assert.assertEquals(0, utils.getSortedActiveProcessors().size());
     utils.registerProcessorAndGetId("processorData");
 
-    Assert.assertEquals(1, utils.getActiveProcessors().size());
+    Assert.assertEquals(1, utils.getSortedActiveProcessors().size());
 
     utils.close();
   }
