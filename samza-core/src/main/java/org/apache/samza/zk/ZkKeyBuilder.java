@@ -28,8 +28,8 @@ import org.apache.samza.SamzaException;
  *   - /
  *      |- jobName-jobId/
  *          |- processors/
- *              |- processor-00000001
- *              |- processor-00000002
+ *              |- 00000001
+ *              |- 00000002
  *              |- ...
  * </pre>
  * Note: ZK Node levels without an ending forward slash ('/') represent a leaf node and non-leaf node, otherwise.
@@ -44,9 +44,7 @@ public class ZkKeyBuilder {
   private final String pathPrefix;
 
   static final String PROCESSORS_PATH = "processors";
-  public static final String PROCESSOR_ID_PREFIX = "processor-";
-  public static final String JOBMODEL_VERSION_PATH = "jobModelVersion";
-
+  static final String PROCESSOR_ID_PREFIX = "processor-";
 
   public ZkKeyBuilder(String pathPrefix) {
     if (Strings.isNullOrEmpty(pathPrefix)) {
@@ -70,21 +68,7 @@ public class ZkKeyBuilder {
    */
   public static String parseIdFromPath(String path) {
     if (!Strings.isNullOrEmpty(path))
-      return path.substring(path.indexOf(PROCESSOR_ID_PREFIX));
+      return path.substring(path.lastIndexOf("/") + 1);
     return null;
   }
-
-  public String getJobModelVersionBarrierPrefix() {
-    return String.format("/%s/versionBarriers", pathPrefix);
-  }
-
-
-  public String getJobModelVersionPath() {
-    return String.format("/%s/%s", pathPrefix, JOBMODEL_VERSION_PATH);
-  }
-
-  public String getJobModelPathPrefix() {
-    return String.format("/%s/jobModels", pathPrefix);
-  }
-
 }
