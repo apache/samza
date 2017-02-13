@@ -216,7 +216,6 @@ object JobModelManager extends Logging {
 
     // Generate the jobModel
     def jobModelGenerator(): JobModel = refreshJobModel(config,
-                                                        allSystemStreamPartitions,
                                                         groups,
                                                         previousChangelogMapping,
                                                         localityManager,
@@ -250,7 +249,6 @@ object JobModelManager extends Logging {
    * refresh. Hence, there is no need for synchronization as before.
    */
   private def refreshJobModel(config: Config,
-                              allSystemStreamPartitions: util.Set[SystemStreamPartition],
                               groups: util.Map[TaskName, util.Set[SystemStreamPartition]],
                               previousChangelogMapping: util.Map[TaskName, Integer],
                               localityManager: LocalityManager,

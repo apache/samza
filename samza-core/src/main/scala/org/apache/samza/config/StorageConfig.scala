@@ -20,8 +20,8 @@
 package org.apache.samza.config
 
 
+import java.util.concurrent.TimeUnit
 import org.apache.samza.SamzaException
-
 import scala.collection.JavaConversions._
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
@@ -33,6 +33,8 @@ object StorageConfig {
   val MSG_SERDE = "stores.%s.msg.serde"
   val CHANGELOG_STREAM = "stores.%s.changelog"
   val CHANGELOG_SYSTEM = "job.changelog.system"
+  val CHANGELOG_DELETE_RETENTION_MS = "stores.%s.changelog.delete.retention.ms"
+  val DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1)
 
   implicit def Config2Storage(config: Config) = new StorageConfig(config)
 }
@@ -42,6 +44,7 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
   def getStorageFactoryClassName(name: String) = getOption(FACTORY.format(name))
   def getStorageKeySerde(name: String) = getOption(StorageConfig.KEY_SERDE format name)
   def getStorageMsgSerde(name: String) = getOption(StorageConfig.MSG_SERDE format name)
+
   def getChangelogStream(name: String) = {
     // If the config specifies 'stores.<storename>.changelog' as '<system>.<stream>' combination - it will take precedence.
     // If this config only specifies <astream> and there is a value in job.changelog.system=<asystem> -
@@ -63,9 +66,21 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
     systemStreamRes
   }
 
+  def getChangeLogDeleteRetentionInMs(storeName: String) = {
+    getLong(CHANGELOG_DELETE_RETENTION_MS format storeName, DEFAULT_CHANGELOG_DELETE_RETENTION_MS)
+  }
+
   def getStoreNames: Seq[String] = {
     val conf = config.subset("stores.", true)
     conf.keys.filter(k => k.endsWith(".factory")).map(k => k.substring(0, k.length - ".factory".length)).toSeq
+  }
+
+  /**
+    * Build a map of storeName to changeLogDeleteRetention for all of the stores.
+    * @return a map from storeName to the changeLogDeleteRetention of the store in ms.
+    */
+  def getChangeLogDeleteRetentionsInMs: Map[String, Long] = {
+    Map(getStoreNames map {storeName => (storeName, getChangeLogDeleteRetentionInMs(storeName))} : _*)
   }
 
   /**
