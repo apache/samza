@@ -55,15 +55,13 @@ public class ZkUtils {
   private static final Logger LOG = LoggerFactory.getLogger(ZkUtils.class);
 
   private final ZkClient zkClient;
-  private final ZkConnection zkConnnection;
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
 
-  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkConnection zkConnection, ZkClient zkClient, int connectionTimeoutMs) {
+  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs) {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
-    this.zkConnnection = zkConnection;
     this.zkClient = zkClient;
   }
 
@@ -80,10 +78,6 @@ public class ZkUtils {
 
   public static ZkClient createZkClient(ZkConnection zkConnection, int connectionTimeoutMs) {
     return new ZkClient(zkConnection, connectionTimeoutMs);
-  }
-
-  ZkConnection getZkConnnection() {
-    return zkConnnection;
   }
 
   ZkClient getZkClient() {
@@ -107,7 +101,8 @@ public class ZkUtils {
     if (ephemeralPath == null) {
       // TODO: Data should be more than just the hostname. Use Json serialized data
       ephemeralPath =
-          zkClient.createEphemeralSequential(keyBuilder.getProcessorsPath() + "/processor-", data);
+          zkClient.createEphemeralSequential(
+              keyBuilder.getProcessorsPath() + "/", data);
       return ephemeralPath;
     } else {
       return ephemeralPath;
@@ -123,7 +118,7 @@ public class ZkUtils {
    *
    * @return List of absolute ZK node paths
    */
-  public List<String> getActiveProcessors() {
+  public List<String> getSortedActiveProcessors() {
     List<String> children = zkClient.getChildren(keyBuilder.getProcessorsPath());
     if (children.size() > 0) {
       Collections.sort(children);
@@ -145,13 +140,7 @@ public class ZkUtils {
     return zkClient.exists(path);
   }
 
-  public void close() {
-    try {
-      zkConnnection.close();
-    } catch (InterruptedException e) {
-      System.out.println(e.getMessage());
-      e.printStackTrace();
-    }
+  public void close() throws ZkInterruptedException {
     zkClient.close();
   }
 }

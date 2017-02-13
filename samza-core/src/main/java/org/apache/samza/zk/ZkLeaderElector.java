@@ -30,6 +30,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * <p>
@@ -48,7 +49,7 @@ public class ZkLeaderElector implements LeaderElector {
   private final ZkKeyBuilder keyBuilder;
   private final String hostName;
 
-  private String leaderId = null;
+  private AtomicBoolean isLeader = new AtomicBoolean(false);
   private final IZkDataListener zkLeaderElectionListener;
   private String currentSubscription = null;
   private final Random random = new Random();
@@ -82,13 +83,9 @@ public class ZkLeaderElector implements LeaderElector {
 
   @Override
   public boolean tryBecomeLeader() {
-    String currentPath = zkUtils.getEphemeralPath();
+    String currentPath = zkUtils.registerProcessorAndGetId(hostName);
 
-    if (currentPath == null || currentPath.isEmpty()) {
-      currentPath = zkUtils.registerProcessorAndGetId(hostName);
-    }
-
-    List<String> children = zkUtils.getActiveProcessors();
+    List<String> children = zkUtils.getSortedActiveProcessors();
     LOGGER.debug(zLog("Current active processors - " + children));
     int index = children.indexOf(ZkKeyBuilder.parseIdFromPath(currentPath));
 
@@ -96,12 +93,13 @@ public class ZkLeaderElector implements LeaderElector {
       throw new SamzaException("Looks like we are no longer connected to Zk. Need to reconnect!");
     }
 
-    leaderId = ZkKeyBuilder.parseIdFromPath(children.get(0));
     if (index == 0) {
+      isLeader.getAndSet(true);
       LOGGER.info(zLog("Eligible to become the leader!"));
       return true;
     }
 
+    isLeader.getAndSet(false);
     LOGGER.info("Index = " + index + " Not eligible to be a leader yet!");
     String predecessor = children.get(index - 1);
     if (!predecessor.equals(currentSubscription)) {
@@ -135,20 +133,18 @@ public class ZkLeaderElector implements LeaderElector {
 
   @Override
   public void resignLeadership() {
-
+    isLeader.compareAndSet(true, false);
   }
 
   @Override
   public boolean amILeader() {
-    String ephemeralPath = zkUtils.getEphemeralPath();
-    return ephemeralPath != null
-        && leaderId != null
-        && leaderId.equals(ZkKeyBuilder.parseIdFromPath(ephemeralPath));
+    return isLeader.get();
   }
 
   private String zLog(String logMessage) {
     return String.format("[Processor-%s] %s", processorIdStr, logMessage);
   }
+
   // Only by non-leaders
   class ZkLeaderElectionListener implements IZkDataListener {
 

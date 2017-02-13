@@ -23,7 +23,7 @@ public class ZkConfig extends MapConfig {
   // Connection string for ZK, format: :<hostname>:<port>,..."
   public static final String ZK_CONNECT = "coordinator.zk.connect";
   public static final String ZK_SESSION_TIMEOUT_MS = "coordinator.zk.session-timeout-ms";
-  public static final String ZK_CONNECTION_TIMEOUT_MS = "coordinator.zk.session-timeout-ms";
+  public static final String ZK_CONNECTION_TIMEOUT_MS = "coordinator.zk.connection-timeout-ms";
 
   public static final int DEFAULT_CONNECTION_TIMEOUT_MS = 60000;
   public static final int DEFAULT_SESSION_TIMEOUT_MS = 30000;
