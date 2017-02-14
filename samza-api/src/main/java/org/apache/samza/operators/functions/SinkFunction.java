@@ -19,9 +19,7 @@
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 
 
@@ -30,7 +28,8 @@ import org.apache.samza.task.TaskCoordinator;
  * @param <M>  type of the input message
  */
 @InterfaceStability.Unstable
-public interface SinkFunction<M>  extends InitFunction {
+@FunctionalInterface
+public interface SinkFunction<M>  extends InitableFunction {
 
   /**
    * Allows sending the provided message to an output {@link org.apache.samza.system.SystemStream} using
@@ -38,16 +37,9 @@ public interface SinkFunction<M>  extends InitFunction {
    * or shut the container down.
    *
    * @param message  the input message to be sent to an output {@link org.apache.samza.system.SystemStream}
-   * @param messageCollector  the {@link MessageCollector} to use to send the {@link org.apache.samza.operators.data.MessageEnvelope}
+   * @param messageCollector  the {@link MessageCollector} to send the {@link org.apache.samza.operators.data.MessageEnvelope}
    * @param taskCoordinator  the {@link TaskCoordinator} to request commits or shutdown
    */
   void apply(M message, MessageCollector messageCollector, TaskCoordinator taskCoordinator);
 
-  /**
-   * Init method to initialize the context for this {@link MapFunction}. The default implementation is NO-OP.
-   *
-   * @param config  the {@link Config} object for this task
-   * @param context  the {@link TaskContext} object for this task
-   */
-  default void init(Config config, TaskContext context) { }
 }

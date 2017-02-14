@@ -22,13 +22,11 @@ package org.apache.samza.example;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamGraphFactory;
-import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.StreamSpec;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.Offset;
-import org.apache.samza.operators.functions.KeyValueJoinFunction;
+import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.SystemStream;
@@ -44,11 +42,10 @@ import java.util.Set;
  * Example implementation of unique key-based stream-stream join tasks
  *
  */
-public class JoinGraph implements StreamGraphFactory {
-  private final Set<SystemStreamPartition> inputs;
+public class TestJoinExample  extends TestExampleBase {
 
-  JoinGraph(Set<SystemStreamPartition> inputs) {
-    this.inputs = inputs;
+  TestJoinExample(Set<SystemStreamPartition> inputs) {
+    super(inputs);
   }
 
   class MessageType {
@@ -65,14 +62,13 @@ public class JoinGraph implements StreamGraphFactory {
   MessageStream<JsonMessageEnvelope> joinOutput = null;
 
   @Override
-  public StreamGraph create(Config config) {
-    StreamGraphImpl graph = new StreamGraphImpl();
+  public void init(StreamGraph graph, Config config) {
 
-    for (SystemStreamPartition input : inputs) {
+    for (SystemStream input : inputs.keySet()) {
       MessageStream<JsonMessageEnvelope> newSource = graph.<Object, Object, InputMessageEnvelope>createInStream(
           new StreamSpec() {
             @Override public SystemStream getSystemStream() {
-              return input.getSystemStream();
+              return input;
             }
 
             @Override public Properties getProperties() {
@@ -82,8 +78,7 @@ public class JoinGraph implements StreamGraphFactory {
       if (joinOutput == null) {
         joinOutput = newSource;
       } else {
-        joinOutput = joinOutput.join(newSource,
-            (KeyValueJoinFunction<String, JsonMessageEnvelope, JsonMessageEnvelope, JsonMessageEnvelope>) this::myJoinResult);
+        joinOutput = joinOutput.join(newSource, new MyJoinFunction());
       }
     }
 
@@ -97,7 +92,6 @@ public class JoinGraph implements StreamGraphFactory {
       }
     }, new StringSerde("UTF-8"), new JsonSerde<>()));
 
-    return graph;
   }
 
   private JsonMessageEnvelope getInputMessage(InputMessageEnvelope ism) {
@@ -108,11 +102,28 @@ public class JoinGraph implements StreamGraphFactory {
         ism.getSystemStreamPartition());
   }
 
-  JsonMessageEnvelope myJoinResult(JsonMessageEnvelope m1, JsonMessageEnvelope m2) {
-    MessageType newJoinMsg = new MessageType();
-    newJoinMsg.joinKey = m1.getKey();
-    newJoinMsg.joinFields.addAll(m1.getMessage().joinFields);
-    newJoinMsg.joinFields.addAll(m2.getMessage().joinFields);
-    return new JsonMessageEnvelope(m1.getMessage().joinKey, newJoinMsg, null, null);
+  class MyJoinFunction implements JoinFunction<String, JsonMessageEnvelope, JsonMessageEnvelope, JsonMessageEnvelope> {
+    JsonMessageEnvelope myJoinResult(JsonMessageEnvelope m1, JsonMessageEnvelope m2) {
+      MessageType newJoinMsg = new MessageType();
+      newJoinMsg.joinKey = m1.getKey();
+      newJoinMsg.joinFields.addAll(m1.getMessage().joinFields);
+      newJoinMsg.joinFields.addAll(m2.getMessage().joinFields);
+      return new JsonMessageEnvelope(m1.getMessage().joinKey, newJoinMsg, null, null);
+    }
+
+    @Override
+    public JsonMessageEnvelope apply(JsonMessageEnvelope message, JsonMessageEnvelope otherMessage) {
+      return this.myJoinResult(message, otherMessage);
+    }
+
+    @Override
+    public String getFirstKey(JsonMessageEnvelope message) {
+      return message.getKey();
+    }
+
+    @Override
+    public String getSecondKey(JsonMessageEnvelope message) {
+      return message.getKey();
+    }
   }
 }

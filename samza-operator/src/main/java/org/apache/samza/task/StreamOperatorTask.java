@@ -21,7 +21,7 @@ package org.apache.samza.task;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.StreamGraphFactory;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.impl.OperatorGraph;
@@ -43,9 +43,9 @@ import java.util.Map;
  * This class brings all the operator API implementation components together and feeds the
  * {@link InputMessageEnvelope}s into the transformation chains.
  * <p>
- * It accepts an instance of the user implemented factory {@link StreamGraphFactory} as input parameter of the constructor.
+ * It accepts an instance of the user implemented factory {@link StreamGraphBuilder} as input parameter of the constructor.
  * When its own {@link #init(Config, TaskContext)} method is called during startup, it instantiate a user-defined {@link StreamGraphImpl}
- * from the {@link StreamGraphFactory}, calls {@link StreamGraphImpl#getContextManager()} to initialize the task-wide context
+ * from the {@link StreamGraphBuilder}, calls {@link StreamGraphImpl#getContextManager()} to initialize the task-wide context
  * for the graph, and creates a {@link MessageStreamImpl} corresponding to each of its input
  * {@link org.apache.samza.system.SystemStreamPartition}s. Each input {@link MessageStreamImpl}
  * will be corresponding to either an input stream or intermediate stream in {@link StreamGraphImpl}.
@@ -67,27 +67,30 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
    */
   private final OperatorGraph operatorGraph = new OperatorGraph();
 
-  private final StreamGraphFactory graphFactory;
+  private final StreamGraphBuilder graphBuilder;
 
-  private ContextManager taskManager;
+  private ContextManager contextManager;
 
-  public StreamOperatorTask(StreamGraphFactory graphFactory) {
-    this.graphFactory = graphFactory;
+  public StreamOperatorTask(StreamGraphBuilder graphBuilder) {
+    this.graphBuilder = graphBuilder;
   }
 
   @Override
   public final void init(Config config, TaskContext context) throws Exception {
     // create the MessageStreamsImpl object and initialize app-specific logic DAG within the task
-    StreamGraphImpl streams = (StreamGraphImpl) this.graphFactory.create(config);
-    this.taskManager = streams.getContextManager();
+    StreamGraphImpl streams = new StreamGraphImpl();
+    this.graphBuilder.init(streams, config);
+    // get the context manager of the {@link StreamGraph} and initialize the task-specific context
+    this.contextManager = streams.getContextManager();
 
     Map<SystemStream, MessageStreamImpl> inputBySystemStream = new HashMap<>();
     context.getSystemStreamPartitions().forEach(ssp -> {
         if (!inputBySystemStream.containsKey(ssp.getSystemStream())) {
+          // create mapping from the physical input {@link SystemStream} to the logic {@link MessageStream}
           inputBySystemStream.putIfAbsent(ssp.getSystemStream(), streams.getInputStream(ssp.getSystemStream()));
         }
       });
-    operatorGraph.init(inputBySystemStream, config, this.taskManager.initTaskContext(config, context));
+    operatorGraph.init(inputBySystemStream, config, this.contextManager.initTaskContext(config, context));
   }
 
   @Override
@@ -103,6 +106,6 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   @Override
   public void close() throws Exception {
-    this.taskManager.finalizeTaskContext();
+    this.contextManager.finalizeTaskContext();
   }
 }

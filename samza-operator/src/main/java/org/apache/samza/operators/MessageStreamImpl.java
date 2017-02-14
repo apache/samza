@@ -93,11 +93,6 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     this.registeredOperatorSpecs.add(OperatorSpecs.createSendToOperatorSpec(stream.getSinkFunction(), this.graph, stream));
   }
 
-  @Override public MessageStream<M> sendThrough(OutputStream<M> stream) {
-    this.sendTo(stream);
-    return this.graph.getIntStream(stream);
-  }
-
   @Override
   public <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window) {
     OperatorSpec<WindowPane<K, WV>> wndOp = OperatorSpecs.createWindowOperatorSpec((WindowInternal<M, K, WV>) window,

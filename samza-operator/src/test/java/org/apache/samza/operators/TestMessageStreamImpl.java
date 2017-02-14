@@ -21,7 +21,6 @@ package org.apache.samza.operators;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.operators.functions.KeyValueJoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -140,8 +139,22 @@ public class TestMessageStreamImpl {
     MessageStreamImpl<TestMessageEnvelope> source1 = new MessageStreamImpl<>(mockGraph);
     MessageStreamImpl<TestMessageEnvelope> source2 = new MessageStreamImpl<>(mockGraph);
     JoinFunction<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> joiner =
-        (KeyValueJoinFunction<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope>)
-            (m1, m2) -> new TestOutputMessageEnvelope(m1.getKey(), m1.getMessage().getValue().length() + m2.getMessage().getValue().length());
+      new JoinFunction<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope>() {
+        @Override
+        public TestOutputMessageEnvelope apply(TestMessageEnvelope m1, TestMessageEnvelope m2) {
+          return new TestOutputMessageEnvelope(m1.getKey(), m1.getMessage().getValue().length() + m2.getMessage().getValue().length());
+        }
+
+        @Override
+        public String getFirstKey(TestMessageEnvelope message) {
+          return message.getKey();
+        }
+
+        @Override
+        public String getSecondKey(TestMessageEnvelope message) {
+          return message.getKey();
+        }
+      };
 
     MessageStream<TestOutputMessageEnvelope> joinOutput = source1.join(source2, joiner);
     Collection<OperatorSpec> subs = source1.getRegisteredOperatorSpecs();

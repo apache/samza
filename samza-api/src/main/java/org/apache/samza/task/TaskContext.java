@@ -61,7 +61,7 @@ public interface TaskContext {
    * @param <T>  the type of user-defined task context
    * @return  user-defined task context object
    */
-  default <T extends TaskContext> T getUserDefinedContext() {
+  default <T> T getUserDefinedContext() {
     return null;
   };
 }

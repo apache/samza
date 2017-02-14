@@ -22,8 +22,6 @@ package org.apache.samza.example;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamGraphFactory;
-import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.StreamSpec;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
@@ -43,12 +41,10 @@ import java.util.Set;
  * Example implementation of split stream tasks
  *
  */
-public class BroadcastGraph implements StreamGraphFactory {
+public class TestBroadcastExample extends TestExampleBase {
 
-  private final Set<SystemStreamPartition> inputs;
-
-  BroadcastGraph(Set<SystemStreamPartition> inputs) {
-    this.inputs = inputs;
+  TestBroadcastExample(Set<SystemStreamPartition> inputs) {
+    super(inputs);
   }
 
   class MessageType {
@@ -71,21 +67,18 @@ public class BroadcastGraph implements StreamGraphFactory {
   }
 
   @Override
-  public StreamGraph create(Config config) {
-    StreamGraphImpl graph = new StreamGraphImpl();
-
+  public void init(StreamGraph graph, Config config) {
     BiFunction<JsonMessageEnvelope, Integer, Integer> sumAggregator = (m, c) -> c + 1;
-    inputs.forEach(entry -> {
+    inputs.keySet().forEach(entry -> {
         MessageStream<JsonMessageEnvelope> inputStream = graph.<Object, Object, InputMessageEnvelope>createInStream(new StreamSpec() {
           @Override public SystemStream getSystemStream() {
-            return entry.getSystemStream();
+            return entry;
           }
 
           @Override public Properties getProperties() {
             return null;
           }
-        }, null, null).
-            map(this::getInputMessage);
+        }, null, null).map(this::getInputMessage);
 
         inputStream.filter(this::myFilter1).window(Windows.tumblingWindow(Duration.ofMillis(100), sumAggregator)
             .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.ofMillis(10)))));
@@ -97,7 +90,6 @@ public class BroadcastGraph implements StreamGraphFactory {
             .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceFirstMessage(Duration.ofMillis(10)))));
 
       });
-    return graph;
   }
 
   JsonMessageEnvelope getInputMessage(InputMessageEnvelope m1) {

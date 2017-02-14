@@ -19,8 +19,6 @@
 package org.apache.samza.operators;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.serializers.Serde;
 
@@ -93,26 +91,4 @@ public interface StreamGraph {
    */
   StreamGraph withContextManager(ContextManager manager);
 
-  String GRAPH_CONFIG = "job.stream.graph.impl.class";
-  String DEFAULT_GRAPH_IMPL_CLASS = "org.apache.samza.operators.StreamGraphImpl";
-
-  /**
-   * Static method to instantiate the implementation class of {@link StreamGraph}.
-   *
-   * @param config  the {@link Config} object for this job
-   * @return  the {@link StreamGraph} object created
-   */
-  static StreamGraph fromConfig(Config config) {
-
-    try {
-      if (StreamGraph.class.isAssignableFrom(Class.forName(config.get(GRAPH_CONFIG, DEFAULT_GRAPH_IMPL_CLASS)))) {
-        return (StreamGraph) Class.forName(config.get(GRAPH_CONFIG, DEFAULT_GRAPH_IMPL_CLASS)).newInstance();
-      }
-    } catch (Exception e) {
-      throw new ConfigException(String.format("Problem in loading StreamGraphImpl class %s", config.get(GRAPH_CONFIG)), e);
-    }
-    throw new ConfigException(String.format(
-        "Class %s does not implement interface StreamGraphBuilder properly",
-        config.get(GRAPH_CONFIG)));
-  }
 }

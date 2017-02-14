@@ -19,8 +19,6 @@
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.task.TaskContext;
 
 import java.util.Collection;
 
@@ -32,7 +30,8 @@ import java.util.Collection;
  * @param <OM>  type of the transformed messages
  */
 @InterfaceStability.Unstable
-public interface FlatMapFunction<M, OM>  extends InitFunction {
+@FunctionalInterface
+public interface FlatMapFunction<M, OM>  extends InitableFunction {
 
   /**
    * Transforms the provided message into a collection of 0 or more messages.
@@ -41,11 +40,4 @@ public interface FlatMapFunction<M, OM>  extends InitFunction {
    */
   Collection<OM> apply(M message);
 
-  /**
-   * Init method to initialize the context for this {@link FlatMapFunction}. The default implementation is NO-OP.
-   *
-   * @param config  the {@link Config} object for this task
-   * @param context  the {@link TaskContext} object for this task
-   */
-  default void init(Config config, TaskContext context) { };
 }

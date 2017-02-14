@@ -29,7 +29,7 @@ import org.apache.samza.operators.triggers.Trigger;
  * that determine when results from the {@link Window} are emitted.
  *
  * <p> Each emitted result contains one or more messages in the window and is called a {@link WindowPane}.
- * A pane can include all messagess collected for the window so far or only the new messages
+ * A pane can include all messages collected for the window so far or only the new messages
  * since the last emitted pane. (as determined by the {@link AccumulationMode})
  *
  * <p> A window can have early triggers that allow emitting {@link WindowPane}s speculatively before all data for the window
