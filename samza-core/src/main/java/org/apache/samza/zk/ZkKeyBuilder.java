@@ -54,6 +54,10 @@ public class ZkKeyBuilder {
     this.pathPrefix = pathPrefix.trim();
   }
 
+  public String getRootPath() {
+    return "/" + pathPrefix;
+  }
+
   public String getProcessorsPath() {
     return String.format("/%s/%s", pathPrefix, PROCESSORS_PATH);
   }

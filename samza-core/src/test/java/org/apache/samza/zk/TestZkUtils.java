@@ -18,10 +18,15 @@
  */
 package org.apache.samza.zk;
 
+import java.util.concurrent.TimeoutException;
+import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
+import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
+import org.apache.samza.util.TestUtil;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -36,6 +41,7 @@ public class TestZkUtils {
   private ZkClient zkClient = null;
   private static final int SESSION_TIMEOUT_MS = 20000;
   private static final int CONNECTION_TIMEOUT_MS = 10000;
+  private ZkUtils zkUtils;
 
   @BeforeClass
   public static void setup() throws InterruptedException {
@@ -57,11 +63,21 @@ public class TestZkUtils {
     } catch (ZkNodeExistsException e) {
       // Do nothing
     }
+
+
+    zkUtils = new ZkUtils(
+        KEY_BUILDER,
+        zkClient,
+        SESSION_TIMEOUT_MS);
+
+    zkUtils.connect();
+
   }
 
 
   @After
   public void testTeardown() {
+    zkUtils.close();
     zkClient.close();
   }
 
@@ -72,34 +88,87 @@ public class TestZkUtils {
 
   @Test
   public void testRegisterProcessorId() {
-    ZkUtils utils = new ZkUtils(
-        KEY_BUILDER,
-        zkClient,
-        SESSION_TIMEOUT_MS);
-    utils.connect();
-    String assignedPath = utils.registerProcessorAndGetId("0.0.0.0");
+    String assignedPath = zkUtils.registerProcessorAndGetId("0.0.0.0");
     Assert.assertTrue(assignedPath.startsWith(KEY_BUILDER.getProcessorsPath()));
 
     // Calling registerProcessorId again should return the same ephemeralPath as long as the session is valid
-    Assert.assertTrue(utils.registerProcessorAndGetId("0.0.0.0").equals(assignedPath));
+    Assert.assertTrue(zkUtils.registerProcessorAndGetId("0.0.0.0").equals(assignedPath));
 
-    utils.close();
   }
 
   @Test
   public void testGetActiveProcessors() {
-    ZkUtils utils = new ZkUtils(
-        KEY_BUILDER,
-        zkClient,
-        SESSION_TIMEOUT_MS);
-    utils.connect();
+    Assert.assertEquals(0, zkUtils.getSortedActiveProcessors().size());
+    zkUtils.registerProcessorAndGetId("processorData");
 
-    Assert.assertEquals(0, utils.getSortedActiveProcessors().size());
-    utils.registerProcessorAndGetId("processorData");
+    Assert.assertEquals(1, zkUtils.getSortedActiveProcessors().size());
 
-    Assert.assertEquals(1, utils.getSortedActiveProcessors().size());
-
-    utils.close();
   }
 
+  @Test
+  public void testSubscribeToJobModelVersionChange() {
+
+    ZkKeyBuilder keyBuilder = new ZkKeyBuilder("test");
+    String root = keyBuilder.getRootPath();
+    zkClient.deleteRecursive(root);
+
+    class Result {
+      String res = "";
+      public String getRes() {
+        return res;
+      }
+      public void updateRes(String newRes) {
+        res = newRes;
+      }
+    }
+
+    Assert.assertFalse(zkUtils.exists(root));
+
+    // create the paths
+    zkUtils.makeSurePersistentPathsExists(
+        new String[]{root, keyBuilder.getJobModelVersionPath(), keyBuilder.getProcessorsPath()});
+    Assert.assertTrue(zkUtils.exists(root));
+    Assert.assertTrue(zkUtils.exists(keyBuilder.getJobModelVersionPath()));
+    Assert.assertTrue(zkUtils.exists(keyBuilder.getProcessorsPath()));
+
+    final Result res = new Result();
+    // define the callback
+    IZkDataListener dataListener = new IZkDataListener() {
+      @Override
+      public void handleDataChange(String dataPath, Object data)
+          throws Exception {
+        res.updateRes((String)data);
+      }
+
+      @Override
+      public void handleDataDeleted(String dataPath)
+          throws Exception {
+        Assert.fail("Data wasn't deleted;");
+      }
+    };
+    // subscribe
+    zkClient.subscribeDataChanges(keyBuilder.getJobModelVersionPath(), dataListener);
+    zkClient.subscribeDataChanges(keyBuilder.getProcessorsPath(), dataListener);
+    // update
+    zkClient.writeData(keyBuilder.getJobModelVersionPath(), "newVersion");
+
+    // verify
+    Assert.assertTrue(testWithDelayBackOff(() -> "newVersion".equals(res.getRes()), 2, 1000));
+
+    // update again
+    zkClient.writeData(keyBuilder.getProcessorsPath(), "newProcessor");
+
+    Assert.assertTrue(testWithDelayBackOff(() -> "newProcessor".equals(res.getRes()), 2, 1000));
+  }
+
+  public boolean testWithDelayBackOff(BooleanSupplier cond, long startDelayMs, long maxDelayMs) {
+    long delay = startDelayMs;
+    while(delay < maxDelayMs) {
+      if(cond.getAsBoolean())
+        return true;
+      try { Thread.sleep(delay); } catch (InterruptedException e) { return false ;}
+      delay *= 2;
+    }
+    return false;
+  }
 }
