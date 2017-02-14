@@ -31,16 +31,17 @@ import java.util.List;
 public class ZkControllerImpl implements ZkController {
   private static final Logger LOG = LoggerFactory.getLogger(ZkControllerImpl.class);
 
-  private String processorIdStr;
+  private final String processorIdStr;
   private final ZkUtils zkUtils;
-  private final ZkControllerListener _zkControllerListener;
+  private final ZkControllerListener zkControllerListener;
   private final ZkLeaderElector leaderElector;
   private final ScheduleAfterDebounceTime debounceTimer;
 
-  public ZkControllerImpl (String processorIdStr, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer, ZkControllerListener zkControllerListener) {
+  public ZkControllerImpl (String processorIdStr, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer,
+      ZkControllerListener zkControllerListener) {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
-    this._zkControllerListener = zkControllerListener;
+    this.zkControllerListener = zkControllerListener;
     this.leaderElector = new ZkLeaderElector(this.processorIdStr, this.zkUtils);
     this.debounceTimer = debounceTimer;
 
@@ -59,7 +60,7 @@ public class ZkControllerImpl implements ZkController {
       // register the debounce call under the same action name as processor change, to make sure it will get cancelled
       // if more processors join before the time is up. They both use the same action - onBecomeLeader()
       debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> _zkControllerListener.onBecomeLeader());   // RECONSIDER MAKING THIS SYNC CALL
+        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> zkControllerListener.onBecomeLeader());   // RECONSIDER MAKING THIS SYNC CALL
     }
 
     // subscribe to JobModel version updates
@@ -79,7 +80,7 @@ public class ZkControllerImpl implements ZkController {
 
   @Override
   public void notifyJobModelChange(String version) {
-    _zkControllerListener.onNewJobModelAvailable(version);
+    zkControllerListener.onNewJobModelAvailable(version);
   }
 
   @Override
@@ -119,7 +120,7 @@ public class ZkControllerImpl implements ZkController {
           "ZkControllerImpl::ZkProcessorChangeHandler::handleChildChange - Path: " + parentPath + "  Current Children: "
               + currentChilds);
       debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-          ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> _zkControllerListener.onProcessorChange(currentChilds));
+          ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> zkControllerListener.onProcessorChange(currentChilds));
     }
   }
 

@@ -20,7 +20,9 @@
 
 package org.apache.samza.zk;
 
-
+/**
+ * Api to the functionality provided by ZK
+ */
 public interface ZkController {
   void register ();
   boolean isLeader();
