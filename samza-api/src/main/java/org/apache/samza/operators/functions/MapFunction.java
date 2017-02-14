@@ -19,8 +19,6 @@
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -29,7 +27,8 @@ import org.apache.samza.task.TaskContext;
  * @param <OM>  type of the transformed message
  */
 @InterfaceStability.Unstable
-public interface MapFunction<M, OM>  extends InitFunction {
+@FunctionalInterface
+public interface MapFunction<M, OM>  extends InitableFunction {
 
   /**
    * Transforms the provided message into another message
@@ -38,11 +37,4 @@ public interface MapFunction<M, OM>  extends InitFunction {
    */
   OM apply(M message);
 
-  /**
-   * Init method to initialize the context for this {@link MapFunction}. The default implementation is NO-OP.
-   *
-   * @param config  the {@link Config} object for this task
-   * @param context  the {@link TaskContext} object for this task
-   */
-  default void init(Config config, TaskContext context) { }
 }

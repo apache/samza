@@ -20,7 +20,7 @@ package org.apache.samza.example;
 
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphFactory;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamSpec;
@@ -38,7 +38,7 @@ import java.util.Properties;
 /**
  * Simple 2-way stream-to-stream join example
  */
-public class OrderShipmentJoinExample implements StreamGraphFactory {
+public class OrderShipmentJoinExample implements StreamGraphBuilder {
 
   /**
    * used by remote execution environment to launch the job in remote program. The remote program should follow the similar
@@ -53,8 +53,7 @@ public class OrderShipmentJoinExample implements StreamGraphFactory {
    *   }
    *
    */
-  @Override public StreamGraph create(Config config) {
-    StreamGraph graph = StreamGraph.fromConfig(config);
+  @Override public void init(StreamGraph graph, Config config) {
 
     MessageStream<OrderRecord> orders = graph.createInStream(input1, new StringSerde("UTF-8"), new JsonSerde<>());
     MessageStream<ShipmentRecord> shipments = graph.createInStream(input2, new StringSerde("UTF-8"), new JsonSerde<>());
@@ -62,7 +61,6 @@ public class OrderShipmentJoinExample implements StreamGraphFactory {
 
     orders.join(shipments, new MyJoinFunction()).sendTo(fulfilledOrders);
 
-    return graph;
   }
 
   // standalone local program model

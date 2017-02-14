@@ -20,7 +20,7 @@ package org.apache.samza.system;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.operators.StreamGraphFactory;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.config.Config;
 
 
@@ -65,9 +65,9 @@ public interface ExecutionEnvironment {
   /**
    * Method to be invoked to deploy and run the actual Samza jobs to execute {@link org.apache.samza.operators.StreamGraph}
    *
-   * @param graphFactory  the user-defined {@link StreamGraphFactory} object
+   * @param graphBuilder  the user-defined {@link StreamGraphBuilder} object
    * @param config  the {@link Config} object for this job
    */
-  void run(StreamGraphFactory graphFactory, Config config);
+  void run(StreamGraphBuilder graphBuilder, Config config);
 
 }

@@ -21,8 +21,6 @@ package org.apache.samza.example;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamGraphFactory;
-import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.StreamSpec;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
@@ -42,16 +40,14 @@ import java.util.Set;
  * Example implementation of a simple user-defined tasks w/ window operators
  *
  */
-public class WindowGraph implements StreamGraphFactory {
+public class TestWindowExample extends TestExampleBase {
   class MessageType {
     String field1;
     String field2;
   }
 
-  private final Set<SystemStreamPartition> inputs;
-
-  WindowGraph(Set<SystemStreamPartition> inputs) {
-    this.inputs = inputs;
+  TestWindowExample(Set<SystemStreamPartition> inputs) {
+    super(inputs);
   }
 
   class JsonMessageEnvelope extends JsonIncomingSystemMessageEnvelope<MessageType> {
@@ -62,12 +58,11 @@ public class WindowGraph implements StreamGraphFactory {
   }
 
   @Override
-  public StreamGraph create(Config config) {
-    StreamGraphImpl graph = new StreamGraphImpl();
+  public void init(StreamGraph graph, Config config) {
     BiFunction<JsonMessageEnvelope, Integer, Integer> maxAggregator = (m, c) -> c + 1;
-    inputs.forEach(source -> graph.<Object, Object, InputMessageEnvelope>createInStream(new StreamSpec() {
+    inputs.keySet().forEach(source -> graph.<Object, Object, InputMessageEnvelope>createInStream(new StreamSpec() {
       @Override public SystemStream getSystemStream() {
-        return source.getSystemStream();
+        return source;
       }
 
       @Override public Properties getProperties() {
@@ -77,7 +72,6 @@ public class WindowGraph implements StreamGraphFactory {
         map(m1 -> new JsonMessageEnvelope(this.myMessageKeyFunction(m1), (MessageType) m1.getMessage(), m1.getOffset(),
             m1.getSystemStreamPartition())).window(Windows.tumblingWindow(Duration.ofMillis(200), maxAggregator)));
 
-    return graph;
   }
 
   String myMessageKeyFunction(MessageEnvelope<Object, Object> m) {

@@ -37,7 +37,7 @@ import static org.mockito.Mockito.*;
 /**
  * Unit test for {@link StreamOperatorTask}
  */
-public class TestFluentStreamTasks {
+public class TestBasicStreamGraphs {
 
   private final Set<SystemStreamPartition> inputPartitions = new HashSet<SystemStreamPartition>() { {
       for (int i = 0; i < 4; i++) {
@@ -50,7 +50,7 @@ public class TestFluentStreamTasks {
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
     when(mockContext.getSystemStreamPartitions()).thenReturn(this.inputPartitions);
-    WindowGraph userTask = new WindowGraph(this.inputPartitions);
+    TestWindowExample userTask = new TestWindowExample(this.inputPartitions);
     StreamOperatorTask adaptorTask = new StreamOperatorTask(userTask);
     Field pipelineMapFld = StreamOperatorTask.class.getDeclaredField("operatorGraph");
     pipelineMapFld.setAccessible(true);
@@ -67,7 +67,7 @@ public class TestFluentStreamTasks {
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
     when(mockContext.getSystemStreamPartitions()).thenReturn(this.inputPartitions);
-    BroadcastGraph splitTask = new BroadcastGraph(this.inputPartitions);
+    TestBroadcastExample splitTask = new TestBroadcastExample(this.inputPartitions);
     StreamOperatorTask adaptorTask = new StreamOperatorTask(splitTask);
     Field pipelineMapFld = StreamOperatorTask.class.getDeclaredField("operatorGraph");
     pipelineMapFld.setAccessible(true);
@@ -84,7 +84,7 @@ public class TestFluentStreamTasks {
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
     when(mockContext.getSystemStreamPartitions()).thenReturn(this.inputPartitions);
-    JoinGraph joinTask = new JoinGraph(this.inputPartitions);
+    TestJoinExample joinTask = new TestJoinExample(this.inputPartitions);
     StreamOperatorTask adaptorTask = new StreamOperatorTask(joinTask);
     Field pipelineMapFld = StreamOperatorTask.class.getDeclaredField("operatorGraph");
     pipelineMapFld.setAccessible(true);

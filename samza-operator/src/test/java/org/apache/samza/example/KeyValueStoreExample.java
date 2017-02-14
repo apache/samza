@@ -22,12 +22,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphFactory;
+
+import org.apache.samza.operators.*;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamSpec;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.serializers.JsonSerde;
@@ -44,7 +42,7 @@ import java.util.Properties;
 /**
  * Example code using {@link KeyValueStore} to implement event-time window
  */
-public class KeyValueStoreExample implements StreamGraphFactory {
+public class KeyValueStoreExample implements StreamGraphBuilder {
 
   /**
    * used by remote execution environment to launch the job in remote program. The remote program should follow the similar
@@ -59,8 +57,7 @@ public class KeyValueStoreExample implements StreamGraphFactory {
    *   }
    *
    */
-  @Override public StreamGraph create(Config config) {
-    StreamGraph graph = StreamGraph.fromConfig(config);
+  @Override public void init(StreamGraph graph, Config config) {
 
     MessageStream<PageViewEvent> pageViewEvents = graph.createInStream(input1, new StringSerde("UTF-8"), new JsonSerde<>());
     OutputStream<StatsOutput> pageViewPerMemberCounters = graph.createOutStream(output, new StringSerde("UTF-8"), new JsonSerde<StatsOutput>());
@@ -70,7 +67,6 @@ public class KeyValueStoreExample implements StreamGraphFactory {
         flatMap(new MyStatsCounter()).
         sendTo(pageViewPerMemberCounters);
 
-    return graph;
   }
 
   // standalone local program model

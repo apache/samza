@@ -16,23 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.functions;
+package org.apache.samza.system;
 
-import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.config.Config;
-import org.apache.samza.task.TaskContext;
-
 
 /**
- * interface defined to initalize the context of message transformation functions
+ * This class implements the {@link ExecutionEnvironment} that runs the applications in YARN environment
  */
-@InterfaceStability.Unstable
-public interface InitFunction {
-  /**
-   * Interface method to initialize the context for a specific message transformation function.
-   *
-   * @param config  the {@link Config} object for this task
-   * @param context  the {@link TaskContext} object for this task
-   */
-  void init(Config config, TaskContext context);
+public class RemoteExecutionEnvironment implements ExecutionEnvironment {
+
+  @Override public void run(StreamGraphBuilder app, Config config) {
+    // TODO: add description of ProcessContext that is going to create a sub-DAG of the {@code graph}
+    // TODO: actually instantiate the tasks and run the job, i.e.
+    // 1. create all input/output/intermediate topics
+    // 2. create the single job configuration
+    // 3. execute JobRunner to submit the single job for the whole graph
+  }
+
 }

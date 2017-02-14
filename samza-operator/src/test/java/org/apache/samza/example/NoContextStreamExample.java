@@ -18,12 +18,9 @@
  */
 package org.apache.samza.example;
 
-import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphFactory;
+import org.apache.samza.operators.*;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamSpec;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.Offset;
@@ -41,9 +38,9 @@ import java.util.Properties;
 
 
 /**
- * Example {@link StreamGraphFactory} code to test the API methods
+ * Example {@link StreamGraphBuilder} code to test the API methods
  */
-public class NoContextStreamExample implements StreamGraphFactory {
+public class NoContextStreamExample implements StreamGraphBuilder {
 
   StreamSpec input1 = new StreamSpec() {
     @Override public SystemStream getSystemStream() {
@@ -129,8 +126,7 @@ public class NoContextStreamExample implements StreamGraphFactory {
    *   }
    *
    */
-  @Override public StreamGraph create(Config config) {
-    StreamGraph graph = StreamGraph.fromConfig(config);
+  @Override public void init(StreamGraph graph, Config config) {
     MessageStream<InputMessageEnvelope> inputSource1 = graph.<Object, Object, InputMessageEnvelope>createInStream(
         input1, null, null);
     MessageStream<InputMessageEnvelope> inputSource2 = graph.<Object, Object, InputMessageEnvelope>createInStream(
@@ -142,7 +138,6 @@ public class NoContextStreamExample implements StreamGraphFactory {
         join(inputSource2.map(this::getInputMessage), new MyJoinFunction()).
         sendTo(outStream);
 
-    return graph;
   }
 
   // standalone local program model

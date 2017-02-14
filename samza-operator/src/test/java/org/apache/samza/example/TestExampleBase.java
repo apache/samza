@@ -16,23 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.example;
 
-import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
+import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamPartition;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
- * This interface defines a factory class that user will implement to create user-defined operator DAG in a {@link StreamGraph} object.
+ * Base class for test examples
+ *
  */
-@InterfaceStability.Unstable
-public interface StreamGraphFactory {
-  /**
-   * Users are required to implement this abstract method to initialize the processing logic of the application, in terms
-   * of a DAG of {@link org.apache.samza.operators.MessageStream}s and operators
-   *
-   * @param config  the {@link Config} of the application
-   * @return  the {@link StreamGraph} object which contains user-defined processing logic of the application
-   */
-  StreamGraph create(Config config);
+public abstract class TestExampleBase implements StreamGraphBuilder {
+
+  protected final Map<SystemStream, Set<SystemStreamPartition>> inputs;
+
+  TestExampleBase(Set<SystemStreamPartition> inputs) {
+    this.inputs = new HashMap<>();
+    for (SystemStreamPartition input : inputs) {
+      this.inputs.putIfAbsent(input.getSystemStream(), new HashSet<>());
+      this.inputs.get(input.getSystemStream()).add(input);
+    }
+  }
+
 }

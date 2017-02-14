@@ -18,12 +18,9 @@
  */
 package org.apache.samza.example;
 
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphFactory;
+import org.apache.samza.operators.*;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamSpec;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
@@ -38,9 +35,9 @@ import java.util.*;
 
 
 /**
- * Example {@link StreamGraphFactory} code to test the API methods with re-partition operator
+ * Example {@link StreamGraphBuilder} code to test the API methods with re-partition operator
  */
-public class RepartitionExample implements StreamGraphFactory {
+public class RepartitionExample implements StreamGraphBuilder {
 
   /**
    * used by remote execution environment to launch the job in remote program. The remote program should follow the similar
@@ -54,8 +51,7 @@ public class RepartitionExample implements StreamGraphFactory {
    *   }
    *
    */
-  @Override public StreamGraph create(Config config) {
-    StreamGraph graph = StreamGraph.fromConfig(config);
+  @Override public void init(StreamGraph graph, Config config) {
 
     MessageStream<PageViewEvent> pageViewEvents = graph.createInStream(input1, new StringSerde("UTF-8"), new JsonSerde<>());
     OutputStream<MyStreamOutput> pageViewPerMemberCounters = graph.createOutStream(output, new StringSerde("UTF-8"), new JsonSerde<>());
@@ -67,7 +63,6 @@ public class RepartitionExample implements StreamGraphFactory {
         map(MyStreamOutput::new).
         sendTo(pageViewPerMemberCounters);
 
-    return graph;
   }
 
   // standalone local program model

@@ -16,29 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.functions;
+package org.apache.samza.operators;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.config.Config;
+
 
 /**
- * A specific {@link JoinFunction} that joins {@link MessageEnvelope}s from two {@link org.apache.samza.operators.MessageStream}s and produces
- * a joined message.
- *
- * @param <K>  type of the join key
- * @param <M>  type of the input {@link MessageEnvelope}
- * @param <JM>  type of the {@link MessageEnvelope} to join with
- * @param <RM>  type of the joined message
+ * This interface defines a factory class that user will implement to create user-defined operator DAG in a {@link StreamGraph} object.
  */
 @InterfaceStability.Unstable
-@FunctionalInterface
-public interface KeyValueJoinFunction<K, M extends MessageEnvelope<K, ?>, JM extends MessageEnvelope<K, ?>, RM> extends JoinFunction<K, M, JM, RM> {
-
-  default K getFirstKey(M message) {
-    return message.getKey();
-  }
-
-  default K getSecondKey(JM message) {
-    return message.getKey();
-  }
+public interface StreamGraphBuilder {
+  /**
+   * Users are required to implement this abstract method to initialize the processing logic of the application, in terms
+   * of a DAG of {@link org.apache.samza.operators.MessageStream}s and operators
+   *
+   * @param graph  an empty {@link StreamGraph} object to be initialized
+   * @param config  the {@link Config} of the application
+   */
+  void init(StreamGraph graph, Config config);
 }

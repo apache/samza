@@ -19,8 +19,6 @@
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -28,7 +26,8 @@ import org.apache.samza.task.TaskContext;
  * @param <M>  type of the input message
  */
 @InterfaceStability.Unstable
-public interface FilterFunction<M> extends InitFunction {
+@FunctionalInterface
+public interface FilterFunction<M> extends InitableFunction {
 
   /**
    * Returns a boolean indicating whether this message should be retained or filtered out.
@@ -37,11 +36,4 @@ public interface FilterFunction<M> extends InitFunction {
    */
   boolean apply(M message);
 
-  /**
-   * Init method to initialize the context for this {@link FilterFunction}. The default implementation is NO-OP.
-   *
-   * @param config  the {@link Config} object for this task
-   * @param context  the {@link TaskContext} object for this task
-   */
-  default void init(Config config, TaskContext context) { }
 }

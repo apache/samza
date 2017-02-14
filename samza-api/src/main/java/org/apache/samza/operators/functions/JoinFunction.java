@@ -19,8 +19,6 @@
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -32,7 +30,7 @@ import org.apache.samza.task.TaskContext;
  * @param <RM>  type of the joined message
  */
 @InterfaceStability.Unstable
-public interface JoinFunction<K, M, JM, RM>  extends InitFunction {
+public interface JoinFunction<K, M, JM, RM>  extends InitableFunction {
 
   /**
    * Join the provided input messages and produces the joined messages.
@@ -58,11 +56,4 @@ public interface JoinFunction<K, M, JM, RM>  extends InitFunction {
    */
   K getSecondKey(JM message);
 
-  /**
-   * Init method to initialize the context for this {@link JoinFunction}. The default implementation is NO-OP.
-   *
-   * @param config  the {@link Config} object for this task
-   * @param context  the {@link TaskContext} object for this task
-   */
-  default void init(Config config, TaskContext context) { }
 }

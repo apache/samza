@@ -18,12 +18,9 @@
  */
 package org.apache.samza.example;
 
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphFactory;
+import org.apache.samza.operators.*;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamSpec;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
@@ -42,10 +39,9 @@ import java.util.Properties;
 /**
  * Example code to implement window-based counter
  */
-public class PageViewCounterExample implements StreamGraphFactory {
+public class PageViewCounterExample implements StreamGraphBuilder {
 
-  @Override public StreamGraph create(Config config) {
-    StreamGraph graph = StreamGraph.fromConfig(config);
+  @Override public void init(StreamGraph graph, Config config) {
 
     MessageStream<PageViewEvent> pageViewEvents = graph.createInStream(input1, new StringSerde("UTF-8"), new JsonSerde<>());
     OutputStream<MyStreamOutput> pageViewPerMemberCounters = graph.createOutStream(output, new StringSerde("UTF-8"), new JsonSerde<>());
@@ -56,7 +52,7 @@ public class PageViewCounterExample implements StreamGraphFactory {
             setAccumulationMode(AccumulationMode.DISCARDING)).
         map(MyStreamOutput::new).
         sendTo(pageViewPerMemberCounters);
-    return graph;
+
   }
 
   public static void main(String[] args) {

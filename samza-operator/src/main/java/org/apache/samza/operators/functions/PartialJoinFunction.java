@@ -19,8 +19,6 @@
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -28,7 +26,7 @@ import org.apache.samza.task.TaskContext;
  * {@link org.apache.samza.operators.MessageStream}s and merge them into a single output joined message in the join output
  */
 @InterfaceStability.Unstable
-public interface PartialJoinFunction<K, M, OM, RM> extends InitFunction {
+public interface PartialJoinFunction<K, M, OM, RM> extends InitableFunction {
 
   /**
    * Method to perform join method on the two input messages
@@ -55,11 +53,4 @@ public interface PartialJoinFunction<K, M, OM, RM> extends InitFunction {
    */
   K getOtherKey(OM message);
 
-  /**
-   * Init method to initialize the context for this {@link PartialJoinFunction}. The default implementation is NO-OP.
-   *
-   * @param config  the {@link Config} object for this task
-   * @param context  the {@link TaskContext} object for this task
-   */
-  default void init(Config config, TaskContext context) { }
 }

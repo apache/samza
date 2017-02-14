@@ -42,7 +42,7 @@ import java.util.function.Function;
 public interface MessageStream<M> {
 
   /**
-   * Applies the provided 1:1 {@link Function} to messages in this {@link MessageStream} and returns the
+   * Applies the provided 1:1 function to messages in this {@link MessageStream} and returns the
    * transformed {@link MessageStream}.
    *
    * @param mapFn the function to transform a message to another message
@@ -52,7 +52,7 @@ public interface MessageStream<M> {
   <TM> MessageStream<TM> map(MapFunction<M, TM> mapFn);
 
   /**
-   * Applies the provided 1:n {@link Function} to transform a message in this {@link MessageStream}
+   * Applies the provided 1:n function to transform a message in this {@link MessageStream}
    * to n messages in the transformed {@link MessageStream}
    *
    * @param flatMapFn the function to transform a message to zero or more messages
@@ -62,7 +62,7 @@ public interface MessageStream<M> {
   <TM> MessageStream<TM> flatMap(FlatMapFunction<M, TM> flatMapFn);
 
   /**
-   * Applies the provided {@link Function} to messages in this {@link MessageStream} and returns the
+   * Applies the provided function to messages in this {@link MessageStream} and returns the
    * transformed {@link MessageStream}.
    * <p>
    * The {@link Function} is a predicate which determines whether a message in this {@link MessageStream}
@@ -90,16 +90,6 @@ public interface MessageStream<M> {
    * @param stream  the output {@link MessageStream}
    */
   void sendTo(OutputStream<M> stream);
-
-  /**
-   * Allows sending messages to an intermediate {@link MessageStream}.
-   *
-   * NOTE: the {@code stream} has to be a {@link MessageStream}.
-   *
-   * @param stream  the intermediate {@link MessageStream} to send the message to
-   * @return  the intermediate {@link MessageStream} to consume the messages sent
-   */
-  MessageStream<M> sendThrough(OutputStream<M> stream);
 
   /**
    * Groups the messages in this {@link MessageStream} according to the provided {@link Window} semantics
