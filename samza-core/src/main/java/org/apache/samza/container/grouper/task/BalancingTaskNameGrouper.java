@@ -58,8 +58,4 @@ public interface BalancingTaskNameGrouper extends TaskNameGrouper {
   default Set<ContainerModel> balance(Set<TaskModel> tasks, LocalityManager localityManager) {
     return Collections.<ContainerModel>emptySet();
   }
-  default Set<ContainerModel> balance(Set<Integer> containerIds, Set<TaskModel> tasks, LocalityManager localityManager) {
-    return Collections.<ContainerModel>emptySet();
-  }
-
 }
