@@ -124,7 +124,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
 
   private void generateNewJobModel() {
     // get the current list of processors
-    List<String> currentProcessors = zkUtils.getActiveProcessors();
+    List<String> currentProcessors = zkUtils.getSortedActiveProcessors();
 
     // get the current version
     String currentJMVersion  = zkUtils.getJobModelVersion();
