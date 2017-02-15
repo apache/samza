@@ -34,8 +34,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
         new ZkUtils(
             new ZkKeyBuilder(groupName),
             zkClient,
-            zkConfig.getZkConnectionTimeoutMs(),
-            String.valueOf(processorId)
+            zkConfig.getZkConnectionTimeoutMs()
         ),
         containerController);
   }

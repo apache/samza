@@ -120,7 +120,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
 
   private void generateNewJobModel() {
     // get the current list of processors
-    List<String> currentProcessors = zkUtils.getActiveProcessors();
+    List<String> currentProcessors = zkUtils.getSortedActiveProcessors();
 
     // get the current version
     String currentJMVersion  = zkUtils.getJobModelVersion();
@@ -134,7 +134,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
     StringBuilder sb = new StringBuilder();
     List<Integer> containerIds = new ArrayList<>();
     for (String processor : currentProcessors) {
-      String zkProcessorId = keyBuilder.parseContainerIdFromProcessorId(processor);
+      String zkProcessorId = keyBuilder.parseIdFromPath(processor);
       sb.append(zkProcessorId).append(",");
       containerIds.add(Integer.valueOf(zkProcessorId));
     }
