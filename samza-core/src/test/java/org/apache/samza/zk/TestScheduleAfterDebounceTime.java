@@ -37,7 +37,7 @@ public class TestScheduleAfterDebounceTime {
       i++;
     }
     public void setTo(int val) {
-      i=val;
+      i = val;
     }
     public void doNothing() {
 
@@ -48,13 +48,19 @@ public class TestScheduleAfterDebounceTime {
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
 
     final TestObj testObj = new TestScheduleAfterDebounceTime.TestObj();
-    debounceTimer.scheduleAfterDebounceTime("TEST1", DEBOUNCE_TIME, () -> {
-      testObj.inc();
-    });
+    debounceTimer.scheduleAfterDebounceTime("TEST1", DEBOUNCE_TIME, () ->
+      {
+        testObj.inc();
+      }
+    );
     // action is delayed
     Assert.assertEquals(0, i);
 
-    try { Thread.sleep(DEBOUNCE_TIME + 10); } catch (InterruptedException e) {Assert.fail("Sleep was interrupted");}
+    try {
+      Thread.sleep(DEBOUNCE_TIME + 10);
+    } catch (InterruptedException e) {
+      Assert.fail("Sleep was interrupted");
+    }
 
     // debounce time passed
     Assert.assertEquals(1, i);
@@ -65,26 +71,40 @@ public class TestScheduleAfterDebounceTime {
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
 
     final TestObj testObj = new TestScheduleAfterDebounceTime.TestObj();
-    debounceTimer.scheduleAfterDebounceTime("TEST1", DEBOUNCE_TIME, () -> {
-      testObj.inc();
-    });
+    debounceTimer.scheduleAfterDebounceTime("TEST1", DEBOUNCE_TIME, () ->
+      {
+        testObj.inc();
+      }
+    );
     Assert.assertEquals(0, i);
 
     // next schedule should cancel the previous one with the same name
-    debounceTimer.scheduleAfterDebounceTime("TEST1", 2*DEBOUNCE_TIME, () -> {
-      testObj.setTo(100);
-    });
+    debounceTimer.scheduleAfterDebounceTime("TEST1", 2 * DEBOUNCE_TIME, () ->
+      {
+        testObj.setTo(100);
+      }
+    );
 
-    try { Thread.sleep(DEBOUNCE_TIME + 10); } catch (InterruptedException e) {Assert.fail("Sleep was interrupted");}
-    // still the old value
+    try {
+      Thread.sleep(DEBOUNCE_TIME + 10);
+    } catch (InterruptedException e) {
+      Assert.fail("Sleep was interrupted");
+    }
+    // still should be the old value
     Assert.assertEquals(0, i);
 
     // this schedule should not cancel the previous one, because it has different name
-    debounceTimer.scheduleAfterDebounceTime("TEST2", DEBOUNCE_TIME, () -> {
-      testObj.doNothing();
-    });
+    debounceTimer.scheduleAfterDebounceTime("TEST2", DEBOUNCE_TIME, () ->
+      {
+        testObj.doNothing();
+      }
+    );
 
-    try { Thread.sleep(3*DEBOUNCE_TIME + 10); } catch (InterruptedException e) {Assert.fail("Sleep was interrupted");}
+    try {
+      Thread.sleep(3 * DEBOUNCE_TIME + 10);
+    } catch (InterruptedException e) {
+      Assert.fail("Sleep was interrupted");
+    }
     Assert.assertEquals(100, i);
   }
 }

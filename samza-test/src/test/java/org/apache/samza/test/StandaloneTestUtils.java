@@ -108,4 +108,7 @@ public class StandaloneTestUtils {
     return result;
   }
 
+  public static void sleep() {
+
+  }
 }
