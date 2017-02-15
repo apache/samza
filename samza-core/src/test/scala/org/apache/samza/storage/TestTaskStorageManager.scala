@@ -24,10 +24,13 @@ import java.io.File
 import java.util
 
 import org.apache.samza.Partition
+import org.apache.samza.config.MapConfig
+import org.apache.samza.config.StorageConfig
 import org.apache.samza.container.TaskName
 import org.apache.samza.storage.StoreProperties.StorePropertiesBuilder
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system._
+import org.apache.samza.util.SystemClock
 import org.apache.samza.util.Util
 import org.junit.Assert._
 import org.junit.{After, Before, Test}
@@ -307,6 +310,29 @@ class TestTaskStorageManager extends MockitoSugar {
   }
 
   @Test
+  def testStoreDeletedWhenOffsetFileOlderThanDeleteRetention() {
+    // This test ensures that store gets deleted when lastModifiedTime of the offset file
+    // is older than deletionRetention of the changeLog.
+    val storeDirectory = TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName)
+    val offsetFile = new File(storeDirectory, "OFFSET")
+    offsetFile.createNewFile()
+    Util.writeDataToFile(offsetFile, "Test Offset Data")
+    offsetFile.setLastModified(0)
+    val taskStorageManager = new TaskStorageManagerBuilder().addStore(store, false)
+      .addStore(loggedStore, true)
+      .build
+
+    val cleanDirMethod = taskStorageManager.getClass
+      .getDeclaredMethod("cleanBaseDirs",
+        new Array[java.lang.Class[_]](0):_*)
+    cleanDirMethod.setAccessible(true)
+    cleanDirMethod.invoke(taskStorageManager, new Array[Object](0):_*)
+
+    assertTrue("Offset file was found in store partition directory. Clean up failed!", !offsetFile.exists())
+    assertTrue("Store directory exists. Clean up failed!", !storeDirectory.exists())
+  }
+
+  @Test
   def testOffsetFileIsRemovedInCleanBaseDirsForInMemoryLoggedStore() {
     val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName), "OFFSET")
     Util.writeDataToFile(offsetFilePath, "100")
@@ -556,7 +582,9 @@ class TaskStorageManagerBuilder extends MockitoSugar {
       storeBaseDir = storeBaseDir,
       loggedStoreBaseDir = loggedStoreBaseDir,
       partition = partition,
-      systemAdmins = systemAdmins
+      systemAdmins = systemAdmins,
+      new StorageConfig(new MapConfig()).getChangeLogDeleteRetentionsInMs,
+      SystemClock.instance
     )
   }
 }

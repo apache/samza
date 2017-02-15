@@ -28,8 +28,8 @@ import org.apache.samza.SamzaException;
  *   - /
  *      |- jobName-jobId/
  *          |- processors/
- *              |- processor-00000001
- *              |- processor-00000002
+ *              |- 00000001
+ *              |- 00000002
  *              |- ...
  * </pre>
  * Note: ZK Node levels without an ending forward slash ('/') represent a leaf node and non-leaf node, otherwise.
@@ -44,15 +44,18 @@ public class ZkKeyBuilder {
   private final String pathPrefix;
 
   static final String PROCESSORS_PATH = "processors";
-  public static final String PROCESSOR_ID_PREFIX = "processor-";
+  static final String PROCESSOR_ID_PREFIX = "processor-";
   public static final String JOBMODEL_VERSION_PATH = "jobModelVersion";
-
 
   public ZkKeyBuilder(String pathPrefix) {
     if (Strings.isNullOrEmpty(pathPrefix)) {
       throw new SamzaException("Zk PathPrefix cannot be null or empty!");
     }
     this.pathPrefix = pathPrefix.trim();
+  }
+
+  public String getRootPath() {
+    return "/" + pathPrefix;
   }
 
   public String getProcessorsPath() {
@@ -70,26 +73,13 @@ public class ZkKeyBuilder {
    */
   public static String parseIdFromPath(String path) {
     if (!Strings.isNullOrEmpty(path))
-      return path.substring(path.indexOf(PROCESSOR_ID_PREFIX));
+      return path.substring(path.lastIndexOf("/") + 1);
     return null;
   }
-
-  public static String parseContainerIdFromProcessorId(String prId) {
-    if (prId == null)
-      throw new SamzaException("processor id is null");
-
-    return prId.substring(prId.indexOf(PROCESSOR_ID_PREFIX) + PROCESSOR_ID_PREFIX.length());
-  }
-
-  public String getJobModelVersionBarrierPrefix() {
-    return String.format("/%s/versionBarriers", pathPrefix);
-  }
-
 
   public String getJobModelVersionPath() {
     return String.format("/%s/%s", pathPrefix, JOBMODEL_VERSION_PATH);
   }
-
 
   public String getJobModelPathPrefix() {
     return String.format("/%s/jobModels", pathPrefix);
@@ -98,5 +88,6 @@ public class ZkKeyBuilder {
   public String getJobModelPath(String jobModelVersion) {
     return String.format("%s/%s", getJobModelPathPrefix(), jobModelVersion);
   }
+
 
 }
