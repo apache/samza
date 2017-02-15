@@ -25,11 +25,10 @@ import static org.junit.Assert.assertFalse;
 
 
 public class TestWindowOutput {
-
   @Test
   public void testConstructor() {
-    WindowOutput<String, Integer> wndOutput = WindowOutput.of("testMsg", 10);
-    assertEquals(wndOutput.getKey(), "testMsg");
+    WindowPane<String, Integer> wndOutput = WindowPane.of(new WindowKey("testMsg", null), 10);
+    assertEquals(wndOutput.getKey().getKey(), "testMsg");
     assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
     assertFalse(wndOutput.isDelete());
   }

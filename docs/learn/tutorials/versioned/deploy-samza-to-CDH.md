@@ -26,7 +26,7 @@ The tutorial assumes you have successfully run [hello-samza](../../../startup/he
 We need to use a specific compile option to build hello-samza package for CDH 5.4.0
 
 {% highlight bash %}
-mvn clean package -Denv=cdh5.4.0
+mvn clean package -Dhadoop.version=cdh5.4.0
 {% endhighlight %}
 
 ### Upload Package to Cluster
@@ -37,7 +37,7 @@ There are a few ways of uploading the package to the cluster's HDFS. If you do n
 hadoop fs -put path/to/hello-samza-0.11.0-dist.tar.gz /path/for/tgz
 {% endhighlight %}
 
-### Get Deloying Scripts
+### Get Deploying Scripts
 
 Untar the job package (assume you will run from the current directory)
 

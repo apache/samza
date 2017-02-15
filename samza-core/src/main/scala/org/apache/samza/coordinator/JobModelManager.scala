@@ -208,11 +208,12 @@ object JobModelManager extends Logging {
     // We don't need to start() localityManager as they share the same instances with checkpoint and changelog managers.
     // TODO: This code will go away with refactoring - SAMZA-678
 
-    localityManager.start()
+    if (localityManager != null) {
+      localityManager.start()
+    }
 
     // Generate the jobModel
     def jobModelGenerator(): JobModel = refreshJobModel(config,
-                                                        allSystemStreamPartitions,
                                                         groups,
                                                         previousChangelogMapping,
                                                         localityManager)
@@ -245,7 +246,6 @@ object JobModelManager extends Logging {
    * refresh. Hence, there is no need for synchronization as before.
    */
   private def refreshJobModel(config: Config,
-                              allSystemStreamPartitions: util.Set[SystemStreamPartition],
                               groups: util.Map[TaskName, util.Set[SystemStreamPartition]],
                               previousChangelogMapping: util.Map[TaskName, Integer],
                               localityManager: LocalityManager): JobModel = {

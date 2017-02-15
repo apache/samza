@@ -27,10 +27,6 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
-import org.apache.samza.operators.spec.WindowOperatorSpec;
-import org.apache.samza.operators.windows.SessionWindow;
-import org.apache.samza.operators.windows.WindowFn;
-import org.apache.samza.operators.windows.WindowOutput;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.TaskCoordinator;
@@ -44,7 +40,6 @@ import java.util.Set;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -134,19 +129,6 @@ public class TestMessageStreamImpl {
     assertTrue(sinkOp instanceof SinkOperatorSpec);
     assertEquals(((SinkOperatorSpec) sinkOp).getSinkFn(), xSink);
     assertNull(((SinkOperatorSpec) sinkOp).getOutputStream());
-  }
-
-  @Test
-  public void testWindow() {
-    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>();
-    SessionWindow<TestMessageEnvelope, String, Integer> window = mock(SessionWindow.class);
-    doReturn(mock(WindowFn.class)).when(window).getInternalWindowFn();
-    MessageStream<WindowOutput<String, Integer>> outStream = inputStream.window(window);
-    Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
-    assertEquals(subs.size(), 1);
-    OperatorSpec<TestMessageEnvelope> wndOp = subs.iterator().next();
-    assertTrue(wndOp instanceof WindowOperatorSpec);
-    assertEquals(((WindowOperatorSpec) wndOp).getOutputStream(), outStream);
   }
 
   @Test

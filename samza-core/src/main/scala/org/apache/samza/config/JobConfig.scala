@@ -75,6 +75,9 @@ object JobConfig {
   val DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS = 300000
   val JOB_SECURITY_MANAGER_FACTORY = "job.security.manager.factory"
 
+  // Processor Config Constants
+  val PROCESSOR_ID = "processor.id"
+
   implicit def Config2Job(config: Config) = new JobConfig(config)
 
   /**
