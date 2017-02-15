@@ -53,6 +53,6 @@ public interface TaskNameGrouper {
   Set<ContainerModel> group(Set<TaskModel> tasks);
 
   default Set<ContainerModel> group(Set<TaskModel> tasks, List<Integer> containersIds) {
-    return null;
+    return group(tasks);
   }
 }
