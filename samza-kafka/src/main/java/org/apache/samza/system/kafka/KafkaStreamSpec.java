@@ -36,30 +36,57 @@ public class KafkaStreamSpec extends StreamSpec {
    */
   private final int replicationFactor;
 
-  public static KafkaStreamSpec fromSpec(StreamSpec other) {
-    if (other instanceof KafkaStreamSpec) {
-      return ((KafkaStreamSpec) other);
+  /**
+   * Converts any StreamSpec to a KafkaStreamSpec.
+   * If the original spec already is a KafkaStreamSpec, it is simply returned.
+   *
+   * @param originalSpec  the StreamSpec instance to convert to KafkaStreamSpec.
+   * @return              a KafkaStreamSpec instance.
+   */
+  public static KafkaStreamSpec fromSpec(StreamSpec originalSpec) {
+    if (originalSpec instanceof KafkaStreamSpec) {
+      return ((KafkaStreamSpec) originalSpec);
     }
 
-    int replicationFactor = Integer.parseInt(other.getOrDefault(KafkaConfig.TOPIC_REPLICATION_FACTOR(), KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR()));
-    return new KafkaStreamSpec(other.getId(), other.getSystem(), other.getPhysicalName(), other.getPartitionCount(), replicationFactor, other.getProperties());
+    int replicationFactor = Integer.parseInt(originalSpec.getOrDefault(KafkaConfig.TOPIC_REPLICATION_FACTOR(), KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR()));
+    return new KafkaStreamSpec(originalSpec.getId(), originalSpec.getPhysicalName(), originalSpec.getSystemName(),
+        originalSpec.getPartitionCount(), replicationFactor, originalSpec.getProperties());
   }
 
-  public KafkaStreamSpec(String id, String system, String topicName) {
-    this(id, system, topicName, DEFAULT_PARTITION_COUNT, DEFAULT_REPLICATION_FACTOR);
+  /**
+   * Convenience constructor to create a KafkaStreamSpec with just a topicName, systemName, and partitionCount.
+   *
+   * @param topicName       The name of the topic.
+   * @param systemName      The name of the System. See {@link org.apache.samza.system.SystemFactory}
+   * @param partitionCount  The number of partitions.
+   */
+  public KafkaStreamSpec(String topicName, String systemName, int partitionCount) {
+    this(topicName, topicName, systemName, partitionCount, DEFAULT_REPLICATION_FACTOR, new Properties());
   }
 
-  public KafkaStreamSpec(String topicName, String system, int partitionCount) {
-    this(topicName, system, topicName, partitionCount, DEFAULT_REPLICATION_FACTOR);
-  }
-
-  public KafkaStreamSpec(String id, String system, String topicName, int partitionCount, int replicationFactor) {
-    this(id, system, topicName, partitionCount, replicationFactor, new Properties());
-  }
-
-  public KafkaStreamSpec(String id, String system, String topicName, int partitionCount, int replicationFactor,
+  /**
+   * Constructs a StreamSpec with a replication factor.
+   *
+   * @param id                The application-unique logical identifier for the stream. It is used to distinguish between
+   *                          streams in a Samza application so it must be unique in the context of one deployable unit.
+   *                          It does not need to be globally unique or unique with respect to a host.
+   *
+   * @param topicName         The physical identifier for the stream. This is the identifier that will be used in remote
+   *                          systems to identify the stream. In Kafka this would be the topic name whereas in HDFS it
+   *                          might be a file URN.
+   *
+   * @param systemName        The System name on which this stream will exist. Corresponds to a named implementation of the
+   *                          Samza System abstraction. See {@link org.apache.samza.system.SystemFactory}
+   *
+   * @param partitionCount    The number of partitionts for the stream. A value of {@code 1} indicates unpartitioned.
+   *
+   * @param replicationFactor The number of topic replicas in the Kafka cluster for durability.
+   *
+   * @param properties        A set of properties for the stream. These may be System-specfic.
+   */
+  public KafkaStreamSpec(String id, String topicName, String systemName, int partitionCount, int replicationFactor,
       Properties properties) {
-    super(id, system, topicName, partitionCount, properties);
+    super(id, topicName, systemName, partitionCount, properties);
 
     if (replicationFactor <= 0) {
       throw new IllegalArgumentException(

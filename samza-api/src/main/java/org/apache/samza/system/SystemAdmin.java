@@ -96,9 +96,8 @@ public interface SystemAdmin {
    * Create a stream described by the spec. If the stream already exists, this
    * call should simply return.
    *
-   * @param streamSpec
-   *          The spec, or blueprint from which the physical stream will be created on the system.
-   * @return {@code true} if the stream was actually created and not pre-existing. {@code false} otherwise.
+   * @param streamSpec  The spec, or blueprint from which the physical stream will be created on the system.
+   * @return            {@code true} if the stream was actually created and not pre-existing. {@code false} otherwise.
    */
   default boolean createStream(StreamSpec streamSpec) {
     throw new UnsupportedOperationException();
@@ -108,8 +107,7 @@ public interface SystemAdmin {
    * Validates the stream described by the streamSpec on the system.
    * An exception should be thrown for any validation error.
    *
-   * @param streamSpec
-   *          The spec, or blueprint for the physical stream on the system.
+   * @param streamSpec  The spec, or blueprint for the physical stream on the system.
    */
   default void validateStream(StreamSpec streamSpec) {
     throw new UnsupportedOperationException();

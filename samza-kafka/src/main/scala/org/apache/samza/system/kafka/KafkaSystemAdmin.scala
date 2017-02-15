@@ -333,7 +333,7 @@ class KafkaSystemAdmin(
   override def createCoordinatorStream(streamName: String) {
     info("Attempting to create coordinator stream %s." format streamName)
 
-    val streamSpec = new KafkaStreamSpec(streamName, systemName, streamName, 1, coordinatorStreamReplicationFactor, coordinatorStreamProperties)
+    val streamSpec = new KafkaStreamSpec(streamName, streamName, systemName, 1, coordinatorStreamReplicationFactor, coordinatorStreamProperties)
 
     if (createStream(streamSpec)) {
       info("Created coordinator stream %s." format streamName)
@@ -414,39 +414,10 @@ class KafkaSystemAdmin(
   }
 
   /**
-   * Exception to be thrown when the change log stream creation or validation has failed
-   */
-  class KafkaChangelogException(s: String, t: Throwable) extends SamzaException(s, t) {
-    def this(s: String) = this(s, null)
-  }
-
-  /**
     * Exception to be thrown when the topic validation has failed
     */
   class KafkaTopicValidationException(s: String, t: Throwable) extends SamzaException(s, t) {
     def this(s: String) = this(s, null)
-  }
-
-  override def createChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
-    val topicMeta = topicMetaInformation.getOrElse(topicName, throw new KafkaChangelogException("Unable to find topic information for topic " + topicName))
-    val spec = new KafkaStreamSpec(topicName, systemName, topicName, numKafkaChangelogPartitions, topicMeta.replicationFactor, topicMeta.kafkaProps)
-
-    if (createStream(spec)) {
-      info("Created stream %s." format topicName)
-    } else {
-      info("Changelog stream %s already exists." format topicName)
-    }
-
-    validateStream(spec)
-  }
-
-  /**
-   * Validates a stream in Kafka. Should not be called before createStream(),
-   * since ClientUtils.fetchTopicMetadata(), used by different Kafka clients, is not read-only and
-   * will auto-create a new topic.
-   */
-  override def validateChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
-    validateStream(new KafkaStreamSpec(topicName, systemName, numKafkaChangelogPartitions))
   }
 
   /**
@@ -526,6 +497,35 @@ class KafkaSystemAdmin(
             metadataTTL = 5000L // Revert to the default value
         }
       })
+  }
+
+  /**
+    * Exception to be thrown when the change log stream creation or validation has failed
+    */
+  class KafkaChangelogException(s: String, t: Throwable) extends SamzaException(s, t) {
+    def this(s: String) = this(s, null)
+  }
+
+  override def createChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
+    val topicMeta = topicMetaInformation.getOrElse(topicName, throw new KafkaChangelogException("Unable to find topic information for topic " + topicName))
+    val spec = new KafkaStreamSpec(topicName, topicName, systemName, numKafkaChangelogPartitions, topicMeta.replicationFactor, topicMeta.kafkaProps)
+
+    if (createStream(spec)) {
+      info("Created stream %s." format topicName)
+    } else {
+      info("Changelog stream %s already exists." format topicName)
+    }
+
+    validateStream(spec)
+  }
+
+  /**
+    * Validates a stream in Kafka. Should not be called before createStream(),
+    * since ClientUtils.fetchTopicMetadata(), used by different Kafka clients, is not read-only and
+    * will auto-create a new topic.
+    */
+  override def validateChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
+    validateStream(new KafkaStreamSpec(topicName, systemName, numKafkaChangelogPartitions))
   }
 
   /**

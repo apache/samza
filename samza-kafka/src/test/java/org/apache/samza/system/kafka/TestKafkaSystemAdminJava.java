@@ -41,7 +41,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   public void testCreateCoordinatorStreamDelegatesToCreateStream() {
     KafkaSystemAdmin systemAdmin = createSystemAdmin();//coordProps, 3, new scala.collection.immutable.HashMap<>(), 1000);
     SystemAdmin admin = Mockito.spy(systemAdmin);
-    StreamSpec spec = new StreamSpec("testId", "testSystem", "testCoordinatorStream", 1, new Properties());
+    StreamSpec spec = new StreamSpec("testId", "testCoordinatorStream", "testSystem", 1, new Properties());
 
     admin.createCoordinatorStream(spec.getPhysicalName());
     admin.validateStream(spec);
@@ -63,7 +63,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     changeLogMap.put(STREAM, new ChangelogInfo(REP_FACTOR, changeLogProps));
 
     SystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 3, Util.javaMapAsScalaMap(changeLogMap)));
-    StreamSpec spec = new StreamSpec(STREAM, SYSTEM(), STREAM, PARTITIONS, new Properties());
+    StreamSpec spec = new StreamSpec(STREAM, STREAM, SYSTEM(), PARTITIONS, new Properties());
     admin.createChangelogStream(STREAM, PARTITIONS);
     admin.validateStream(spec);
 
@@ -73,7 +73,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     StreamSpec internalSpec = specCaptor.getValue();
     assertTrue(internalSpec instanceof KafkaStreamSpec);  // KafkaStreamSpec is used to carry replication factor
     assertEquals(STREAM, internalSpec.getId());
-    assertEquals(SYSTEM(), internalSpec.getSystem());
+    assertEquals(SYSTEM(), internalSpec.getSystemName());
     assertEquals(STREAM, internalSpec.getPhysicalName());
     assertEquals(REP_FACTOR, ((KafkaStreamSpec) internalSpec).getReplicationFactor());
     assertEquals(PARTITIONS, internalSpec.getPartitionCount());
@@ -89,7 +89,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
 
     KafkaSystemAdmin systemAdmin = createSystemAdmin(coordProps, 3, Util.javaMapAsScalaMap(changeLogMap));
     SystemAdmin admin = Mockito.spy(systemAdmin);
-    StreamSpec spec = new StreamSpec("testId", "testSystem", STREAM, 12, new Properties());
+    StreamSpec spec = new StreamSpec("testId", STREAM, "testSystem", 12, new Properties());
 
     admin.createChangelogStream(spec.getPhysicalName(), spec.getPartitionCount());
     admin.validateStream(spec);
@@ -102,7 +102,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   @Test
   public void testCreateStream() {
     SystemAdmin admin = this.basicSystemAdmin;
-    StreamSpec spec = new StreamSpec("testId", "testSystem", "testStream", 8, new Properties());
+    StreamSpec spec = new StreamSpec("testId", "testStream", "testSystem", 8, new Properties());
 
     assertTrue("createStream should return true if the stream does not exist and then is created.", admin.createStream(spec));
     admin.validateStream(spec);
@@ -114,7 +114,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   public void testValidateStreamDoesNotExist() {
     SystemAdmin admin = this.basicSystemAdmin;
 
-    StreamSpec spec = new StreamSpec("testId", "testSystem", "testStreamNameExist", 8, new Properties());
+    StreamSpec spec = new StreamSpec("testId", "testStreamNameExist", "testSystem", 8, new Properties());
 
     admin.validateStream(spec);
   }
@@ -122,8 +122,8 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   @Test(expected = KafkaSystemAdmin.KafkaTopicValidationException.class)
   public void testValidateStreamWrongPartitionCount() {
     SystemAdmin admin = this.basicSystemAdmin;
-    StreamSpec spec1 = new StreamSpec("testId", "testSystem", "testStreamPartition", 8, new Properties());
-    StreamSpec spec2 = new StreamSpec("testId", "testSystem", "testStreamPartition", 4, new Properties());
+    StreamSpec spec1 = new StreamSpec("testId", "testStreamPartition", "testSystem", 8, new Properties());
+    StreamSpec spec2 = new StreamSpec("testId", "testStreamPartition", "testSystem", 4, new Properties());
 
     assertTrue("createStream should return true if the stream does not exist and then is created.", admin.createStream(spec1));
 
@@ -133,8 +133,8 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   @Test(expected = KafkaSystemAdmin.KafkaTopicValidationException.class)
   public void testValidateStreamWrongName() {
     SystemAdmin admin = this.basicSystemAdmin;
-    StreamSpec spec1 = new StreamSpec("testId", "testSystem", "testStreamName1", 8, new Properties());
-    StreamSpec spec2 = new StreamSpec("testId", "testSystem", "testStreamName2", 8, new Properties());
+    StreamSpec spec1 = new StreamSpec("testId", "testStreamName1", "testSystem", 8, new Properties());
+    StreamSpec spec2 = new StreamSpec("testId", "testStreamName2", "testSystem", 8, new Properties());
 
     assertTrue("createStream should return true if the stream does not exist and then is created.", admin.createStream(spec1));
 
