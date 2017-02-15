@@ -51,10 +51,10 @@ public class SimpleGroupByContainerCount implements TaskNameGrouper {
 
   @Override
   public Set<ContainerModel> group(Set<TaskModel> tasks) {
-    if(tasks.isEmpty())
+    if (tasks.isEmpty())
       throw new IllegalArgumentException("cannot group an empty set");
 
-    if(startContainerCount > tasks.size())
+    if (startContainerCount > tasks.size())
       throw new IllegalArgumentException("number of containers="  + startContainerCount + " is bigger than number of tasks=" + tasks.size());
 
     List<Integer> containerIds = new ArrayList<>(startContainerCount);
@@ -65,11 +65,11 @@ public class SimpleGroupByContainerCount implements TaskNameGrouper {
   }
 
   public Set<ContainerModel> group(Set<TaskModel> tasks, List<Integer> containersIds) {
-    if(tasks.isEmpty())
+    if (tasks.isEmpty())
       throw new IllegalArgumentException("cannot group an empty set. containersIds=" + Arrays
           .toString(containersIds.toArray()));
 
-    if(containersIds.size() > tasks.size())
+    if (containersIds.size() > tasks.size())
       throw new IllegalArgumentException("number of containers "  + containersIds.size() + " is bigger than number of tasks " + tasks.size());
 
     if (containersIds == null)
