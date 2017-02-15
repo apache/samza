@@ -69,7 +69,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
     // TopicExistsException since StreamProcessor auto-creates them.
     createTopics(inputTopic, outputTopic);
-    final StreamProcessor processor = new StreamProcessor(1, new MapConfig(configs), new HashMap<>());
+    final StreamProcessor processor = new StreamProcessor(1, new MapConfig(configs), null, new HashMap<>());
 
     produceMessages(inputTopic, messageCount);
     run(processor, endLatch);
@@ -89,7 +89,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     final Config configs = new MapConfig(createConfigs(testSystem, inputTopic, outputTopic, messageCount));
     createTopics(inputTopic, outputTopic);
     final StreamTaskFactory stf = IdentityStreamTask::new;
-    final StreamProcessor processor = new StreamProcessor(1, configs, new HashMap<>(), stf);
+    final StreamProcessor processor = new StreamProcessor(1, configs, null, new HashMap<>(), stf);
 
     produceMessages(inputTopic, messageCount);
     run(processor, endLatch);
@@ -110,7 +110,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     final ExecutorService executorService = Executors.newSingleThreadExecutor();
     createTopics(inputTopic, outputTopic);
     final AsyncStreamTaskFactory stf = () -> new AsyncStreamTaskAdapter(new IdentityStreamTask(), executorService);
-    final StreamProcessor processor = new StreamProcessor(1, configs, new HashMap<>(), stf);
+    final StreamProcessor processor = new StreamProcessor(1, configs, null, new HashMap<>(), stf);
 
     produceMessages(inputTopic, messageCount);
     run(processor, endLatch);
@@ -132,7 +132,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     configMap.remove("task.class");
     final Config configs = new MapConfig(configMap);
 
-    StreamProcessor processor = new StreamProcessor(1, configs, new HashMap<>());
+    StreamProcessor processor = new StreamProcessor(1, configs, null, new HashMap<>());
     run(processor, endLatch);
   }
 

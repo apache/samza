@@ -49,6 +49,7 @@ public class SamzaContainerController {
   private final Map<String, MetricsReporter> metricsReporterMap;
   private final Object taskFactory;
   private final long containerShutdownMs;
+  private final ProcessorLifecycleCallback errorHandler;
 
   // Internal Member Variables
   private Future containerFuture;
@@ -67,6 +68,7 @@ public class SamzaContainerController {
       Object taskFactory,
       long containerShutdownMs,
       String processorId,
+      ProcessorLifecycleCallback errorHandler,
       Map<String, MetricsReporter> metricsReporterMap) {
     this.executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
         .setNameFormat("p" + processorId + "-container-thread-%d").build());
@@ -77,6 +79,7 @@ public class SamzaContainerController {
     } else {
       this.containerShutdownMs = containerShutdownMs;
     }
+    this.errorHandler = errorHandler;
   }
 
   /**
@@ -109,7 +112,17 @@ public class SamzaContainerController {
         // TODO: need to use the correct local ApplicationRunner here
         null);
     log.info("About to start container: " + containerModel.getContainerId());
-    containerFuture = executorService.submit(() -> container.run());
+    containerFuture = executorService.submit(() -> {
+        try {
+          container.run();
+        } catch (Throwable t) {
+          if (errorHandler != null) {
+            errorHandler.onProcessorError(t);
+          } else {
+            throw t;
+          }
+        }
+      });
   }
 
   /**

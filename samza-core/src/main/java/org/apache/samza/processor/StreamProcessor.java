@@ -29,8 +29,6 @@ import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.util.Util;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -60,7 +58,6 @@ import java.util.Map;
  */
 @InterfaceStability.Evolving
 public class StreamProcessor {
-  private static final Logger log = LoggerFactory.getLogger(StreamProcessor.class);
   /**
    * processor.id is equivalent to containerId in samza. It is a logical identifier used by Samza for a processor.
    * In a distributed environment, this logical identifier is mapped to a physical identifier of the resource. For
@@ -70,7 +67,6 @@ public class StreamProcessor {
    * <b>Note:</b>This identifier has to be unique across the instances of StreamProcessors.
    */
   private static final String PROCESSOR_ID = "processor.id";
-  private final int processorId;
   private final JobCoordinator jobCoordinator;
 
   /**
@@ -89,43 +85,41 @@ public class StreamProcessor {
    * @param customMetricsReporters Map of custom MetricReporter instances that are to be injected in the Samza job
    * @param asyncStreamTaskFactory The {@link AsyncStreamTaskFactory} to be used for creating task instances.
    */
-  public StreamProcessor(int processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
+  public StreamProcessor(int processorId, Config config, ProcessorLifecycleCallback lifecycleCallback, Map<String, MetricsReporter> customMetricsReporters,
                          AsyncStreamTaskFactory asyncStreamTaskFactory) {
-    this(processorId, config, customMetricsReporters, (Object) asyncStreamTaskFactory);
+    this(processorId, config, lifecycleCallback, customMetricsReporters, (Object) asyncStreamTaskFactory);
   }
 
 
   /**
-   *Same as {@link #StreamProcessor(int, Config, Map, AsyncStreamTaskFactory)}, except task instances are created
+   * Same as {@link #StreamProcessor(int, Config, ProcessorLifecycleCallback, Map, AsyncStreamTaskFactory)}, except task instances are created
    * using the provided {@link StreamTaskFactory}.
    * @param processorId - this processor Id
    * @param config - config
    * @param customMetricsReporters metric Reporter
    * @param streamTaskFactory task factory to instantiate the Task
    */
-  public StreamProcessor(int processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
+  public StreamProcessor(int processorId, Config config, ProcessorLifecycleCallback lifecycleCallback, Map<String, MetricsReporter> customMetricsReporters,
                          StreamTaskFactory streamTaskFactory) {
-    this(processorId, config, customMetricsReporters, (Object) streamTaskFactory);
+    this(processorId, config, lifecycleCallback, customMetricsReporters, (Object) streamTaskFactory);
   }
 
   /**
-   * Same as {@link #StreamProcessor(int, Config, Map, AsyncStreamTaskFactory)}, except task instances are created
+   * Same as {@link #StreamProcessor(int, Config, ProcessorLifecycleCallback, Map, AsyncStreamTaskFactory)}, except task instances are created
    * using the "task.class" configuration instead of a task factory.
    * @param processorId - this processor Id
    * @param config - config
    * @param customMetricsReporters metrics
    */
-  public StreamProcessor(int processorId, Config config, Map<String, MetricsReporter> customMetricsReporters) {
-    this(processorId, config, customMetricsReporters, (Object) null);
+  public StreamProcessor(int processorId, Config config, ProcessorLifecycleCallback lifecycleCallback, Map<String, MetricsReporter> customMetricsReporters) {
+    this(processorId, config, lifecycleCallback, customMetricsReporters, (Object) null);
   }
 
-  private StreamProcessor(int processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
+  private StreamProcessor(int processorId, Config config, ProcessorLifecycleCallback lifecycleCallback, Map<String, MetricsReporter> customMetricsReporters,
                           Object taskFactory) {
-    this.processorId = processorId;
-
     Map<String, String> updatedConfigMap = new HashMap<>();
     updatedConfigMap.putAll(config);
-    updatedConfigMap.put(PROCESSOR_ID, String.valueOf(this.processorId));
+    updatedConfigMap.put(PROCESSOR_ID, String.valueOf(processorId));
     Config updatedConfig = new MapConfig(updatedConfigMap);
 
 
@@ -133,6 +127,7 @@ public class StreamProcessor {
         taskFactory,
         new TaskConfigJava(updatedConfig).getShutdownMs(),
         String.valueOf(processorId),
+        lifecycleCallback,
         customMetricsReporters);
 
     this.jobCoordinator = Util.
