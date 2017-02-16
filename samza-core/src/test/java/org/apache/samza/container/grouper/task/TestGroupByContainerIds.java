@@ -43,7 +43,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 
-public class TestSimpleGroupByContainerCount {
+public class TestGroupByContainerIds {
   private TaskAssignmentManager taskAssignmentManager;
   private LocalityManager localityManager;
 
@@ -66,7 +66,7 @@ public class TestSimpleGroupByContainerCount {
     return buildSimpleGrouper(1);
   }
   private TaskNameGrouper buildSimpleGrouper(int containerCount) {
-    return new SimpleGroupByContainerCountFactory().build(buildConfigForContainerCount(containerCount));
+    return new GroupByContainerIdsFactory().build(buildConfigForContainerCount(containerCount));
   }
 
   @Test(expected = IllegalArgumentException.class)
