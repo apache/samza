@@ -18,63 +18,69 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
-
-import java.util.function.BiFunction;
+import org.apache.samza.operators.functions.PartialJoinFunction;
+import org.apache.samza.task.TaskContext;
 
 
 /**
- * Spec for the partial join operator that takes {@link MessageEnvelope}s from one input stream, joins with buffered
- * {@link MessageEnvelope}s from another stream, and produces join results to an output {@link MessageStreamImpl}.
+ * Spec for the partial join operator that takes messages from one input stream, joins with buffered
+ * messages from another stream, and produces join results to an output {@link MessageStreamImpl}.
  *
- * @param <M>  the type of input {@link MessageEnvelope}
+ * @param <M>  the type of input message
  * @param <K>  the type of join key
- * @param <JM>  the type of {@link MessageEnvelope} in the other join stream
- * @param <RM>  the type of {@link MessageEnvelope} in the join output stream
+ * @param <JM>  the type of message in the other join stream
+ * @param <RM>  the type of message in the join output stream
  */
-public class PartialJoinOperatorSpec<M extends MessageEnvelope<K, ?>, K, JM extends MessageEnvelope<K, ?>, RM extends MessageEnvelope>
-    implements OperatorSpec<RM> {
+public class PartialJoinOperatorSpec<M, K, JM, RM> implements OperatorSpec<RM> {
 
   private final MessageStreamImpl<RM> joinOutput;
 
   /**
-   * The transformation function of {@link PartialJoinOperatorSpec} that takes an input {@link MessageEnvelope} of
-   * type {@code M}, joins with a stream of buffered {@link MessageEnvelope}s of type {@code JM} from another stream,
-   * and generates a joined result {@link MessageEnvelope} of type {@code RM}.
+   * The transformation function of {@link PartialJoinOperatorSpec} that takes an input message of
+   * type {@code M}, joins with a stream of buffered messages of type {@code JM} from another stream,
+   * and generates a joined result message of type {@code RM}.
    */
-  private final BiFunction<M, JM, RM> transformFn;
+  private final PartialJoinFunction<K, M, JM, RM> transformFn;
 
 
   /**
    * The unique ID for this operator.
    */
-  private final String operatorId;
+  private final int opId;
 
   /**
    * Default constructor for a {@link PartialJoinOperatorSpec}.
    *
-   * @param partialJoinFn  partial join function that take type {@code M} of input {@link MessageEnvelope} and join
-   *                       w/ type {@code JM} of buffered {@link MessageEnvelope} from another stream
+   * @param partialJoinFn  partial join function that take type {@code M} of input message and join
+   *                       w/ type {@code JM} of buffered message from another stream
    * @param joinOutput  the output {@link MessageStreamImpl} of the join results
    */
-  PartialJoinOperatorSpec(BiFunction<M, JM, RM> partialJoinFn, MessageStreamImpl<RM> joinOutput, String operatorId) {
+  PartialJoinOperatorSpec(PartialJoinFunction<K, M, JM, RM> partialJoinFn, MessageStreamImpl<RM> joinOutput, int opId) {
     this.joinOutput = joinOutput;
     this.transformFn = partialJoinFn;
-    this.operatorId = operatorId;
+    this.opId = opId;
   }
 
   @Override
-  public String toString() {
-    return this.operatorId;
-  }
-
-  @Override
-  public MessageStreamImpl<RM> getOutputStream() {
+  public MessageStreamImpl<RM> getNextStream() {
     return this.joinOutput;
   }
 
-  public BiFunction<M, JM, RM> getTransformFn() {
+  public PartialJoinFunction<K, M, JM, RM> getTransformFn() {
     return this.transformFn;
+  }
+
+  public OperatorSpec.OpCode getOpCode() {
+    return OpCode.JOIN;
+  }
+
+  public int getOpId() {
+    return this.opId;
+  }
+
+  @Override public void init(Config config, TaskContext context) {
+    this.transformFn.init(config, context);
   }
 }

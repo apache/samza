@@ -18,14 +18,12 @@
  */
 package org.apache.samza.operators.triggers;
 
-import org.apache.samza.operators.data.MessageEnvelope;
-
 import java.time.Duration;
 
 /*
  * A {@link Trigger} that fires after the specified duration in processing time.
  */
-public class TimeTrigger<M extends MessageEnvelope> implements Trigger {
+public class TimeTrigger<M> implements Trigger {
 
   private final Duration duration;
   private final DurationCharacteristic characteristic = DurationCharacteristic.PROCESSING_TIME;
