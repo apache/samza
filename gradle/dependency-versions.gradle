@@ -38,6 +38,5 @@
   commonsCodecVersion = "1.9"
   commonsCollectionVersion = "3.2.1"
   httpClientVersion="4.4.1"
-  reactiveStreamVersion="1.0.0"
   commonsLang3Version="3.4"
 }
