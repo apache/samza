@@ -25,6 +25,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
@@ -50,24 +52,39 @@ public class TestSimpleGroupByContainerCount {
     taskAssignmentManager = mock(TaskAssignmentManager.class);
     localityManager = mock(LocalityManager.class);
     when(localityManager.getTaskAssignmentManager()).thenReturn(taskAssignmentManager);
+
+
+  }
+
+  private Config buildConfigForContainerCount(int count) {
+    Map<String, String> map = new HashMap<>();
+    map.put("job.container.count", String.valueOf(count));
+    return new MapConfig(map);
+  }
+
+  private TaskNameGrouper buildSimpleGrouper() {
+    return buildSimpleGrouper(1);
+  }
+  private TaskNameGrouper buildSimpleGrouper(int containerCount) {
+    return new SimpleGroupByContainerCountFactory().build(buildConfigForContainerCount(containerCount));
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testGroupEmptyTasks() {
-    new SimpleGroupByContainerCount(1).group(new HashSet());
+    buildSimpleGrouper(1).group(new HashSet());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testGroupFewerTasksThanContainers() {
     Set<TaskModel> taskModels = new HashSet<>();
     taskModels.add(getTaskModel(1));
-    new SimpleGroupByContainerCount(2).group(taskModels);
+    buildSimpleGrouper(2).group(taskModels);
   }
 
   @Test(expected = UnsupportedOperationException.class)
   public void testGrouperResultImmutable() {
     Set<TaskModel> taskModels = generateTaskModels(3);
-    Set<ContainerModel> containers = new SimpleGroupByContainerCount(3).group(taskModels);
+    Set<ContainerModel> containers = buildSimpleGrouper(2).group(taskModels);
     containers.remove(containers.iterator().next());
   }
 
@@ -75,7 +92,7 @@ public class TestSimpleGroupByContainerCount {
   public void testGroupHappyPath() {
     Set<TaskModel> taskModels = generateTaskModels(5);
 
-    Set<ContainerModel> containers = new SimpleGroupByContainerCount(2).group(taskModels);
+    Set<ContainerModel> containers = buildSimpleGrouper(2).group(taskModels);
 
     Map<Integer, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -109,7 +126,7 @@ public class TestSimpleGroupByContainerCount {
       }
     };
 
-    Set<ContainerModel> containers = new SimpleGroupByContainerCount().group(taskModels, containerIds);
+    Set<ContainerModel> containers = buildSimpleGrouper().group(taskModels, containerIds);
 
     Map<Integer, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -145,7 +162,7 @@ public class TestSimpleGroupByContainerCount {
     };
 
 
-    Set<ContainerModel> containers = new SimpleGroupByContainerCount().group(taskModels, containerIds);
+    Set<ContainerModel> containers = buildSimpleGrouper().group(taskModels, containerIds);
 
     Map<Integer, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {

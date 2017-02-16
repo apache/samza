@@ -40,13 +40,8 @@ import java.util.Set;
  */
 public class SimpleGroupByContainerCount implements TaskNameGrouper {
   private final int startContainerCount;
-  public SimpleGroupByContainerCount() {
-    this.startContainerCount = 1;
-  }
-
-  public SimpleGroupByContainerCount(int containerCount) {
-    if (containerCount <= 0) throw new IllegalArgumentException("Must have at least one container");
-    this.startContainerCount = containerCount;
+  public SimpleGroupByContainerCount(int count) {
+    this.startContainerCount = count;
   }
 
   @Override

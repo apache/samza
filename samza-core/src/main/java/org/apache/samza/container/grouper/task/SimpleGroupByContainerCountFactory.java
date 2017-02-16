@@ -20,6 +20,7 @@ package org.apache.samza.container.grouper.task;
 
 
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 
 
 /**
@@ -28,6 +29,6 @@ import org.apache.samza.config.Config;
 public class SimpleGroupByContainerCountFactory implements TaskNameGrouperFactory {
   @Override
   public TaskNameGrouper build(Config config) {
-    return new SimpleGroupByContainerCount();
+    return new SimpleGroupByContainerCount(new JobConfig(config).getContainerCount());
   }
 }
