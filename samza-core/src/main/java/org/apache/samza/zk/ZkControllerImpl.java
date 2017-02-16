@@ -37,7 +37,7 @@ public class ZkControllerImpl implements ZkController {
   private final ZkLeaderElector leaderElector;
   private final ScheduleAfterDebounceTime debounceTimer;
 
-  public ZkControllerImpl (String processorIdStr, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer,
+  public ZkControllerImpl(String processorIdStr, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer,
       ZkControllerListener zkControllerListener) {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
@@ -54,7 +54,7 @@ public class ZkControllerImpl implements ZkController {
     // TODO - make a loop here with some number of attempts.
     // possibly split into two method - becomeLeader() and becomeParticipant()
     boolean isLeader = leaderElector.tryBecomeLeader();
-    if(isLeader) {
+    if (isLeader) {
       listenToProcessorLiveness();
 
       // register the debounce call under the same action name as processor change, to make sure it will get cancelled
@@ -150,10 +150,10 @@ public class ZkControllerImpl implements ZkController {
   }
 
   public void shutdown() {
-    if(debounceTimer != null)
+    if (debounceTimer != null)
       debounceTimer.stopScheduler();
 
-    if(zkUtils != null)
+    if (zkUtils != null)
       zkUtils.close();
   }
 }
