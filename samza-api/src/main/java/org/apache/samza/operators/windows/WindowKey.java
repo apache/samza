@@ -21,7 +21,7 @@ package org.apache.samza.operators.windows;
 /**
  * Key for a {@link WindowPane} emitted from a {@link Window}.
  *
- * @param <K> the type of the key in the incoming {@link org.apache.samza.operators.data.MessageEnvelope}.
+ * @param <K> the type of the key in the incoming message.
  *            Windows that are not keyed have a {@link Void} key type.
  *
  */
@@ -29,18 +29,27 @@ public class WindowKey<K> {
 
   private final  K key;
 
-  private final String windowId;
+  private final String paneId;
 
   public WindowKey(K key, String  windowId) {
     this.key = key;
-    this.windowId = windowId;
+    this.paneId = windowId;
   }
 
   public K getKey() {
     return key;
   }
 
-  public String getWindowId() {
-    return windowId;
+  public String getPaneId() {
+    return paneId;
+  }
+
+  @Override
+  public String toString() {
+    String wndKey = "";
+    if (!(key instanceof Void)) {
+      wndKey = String.format("%s:", key.toString());
+    }
+    return String.format("%s%s", wndKey, paneId);
   }
 }

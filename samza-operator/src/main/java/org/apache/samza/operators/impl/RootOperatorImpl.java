@@ -18,16 +18,15 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * A no-op operator implementation that forwards incoming {@link MessageEnvelope}s to all of its subscribers.
- * @param <M>  type of incoming {@link MessageEnvelope}s
+ * A no-op operator implementation that forwards incoming messages to all of its subscribers.
+ * @param <M>  type of incoming messages
  */
-final class RootOperatorImpl<M extends MessageEnvelope> extends OperatorImpl<M, M> {
+final class RootOperatorImpl<M> extends OperatorImpl<M, M> {
 
   @Override
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {

@@ -16,20 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.windows;
-
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+package org.apache.samza.container.grouper.task;
 
 
-public class TestWindowOutput {
-  @Test
-  public void testConstructor() {
-    WindowPane<String, Integer> wndOutput = WindowPane.of(new WindowKey("testMsg", null), 10);
-    assertEquals(wndOutput.getKey().getKey(), "testMsg");
-    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
-    assertFalse(wndOutput.isDelete());
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+
+
+/**
+ * Factory to build the GroupByContainerCount class.
+ */
+public class GroupByContainerIdsFactory implements TaskNameGrouperFactory {
+  @Override
+  public TaskNameGrouper build(Config config) {
+    return new GroupByContainerIds(new JobConfig(config).getContainerCount());
   }
 }
