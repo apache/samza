@@ -33,8 +33,15 @@ import org.slf4j.LoggerFactory;
 
 
 /**
+<<<<<<< HEAD
  * This class allows scheduling a Runnable actions after some debounce time
  * Actions are keyed by names
+=======
+ * This class allows scheduling a Runnable actions after some debounce time.
+ * When the same action is scheduled it needs to cancel the previous one. To accomplish that we keep the previous
+ * future in a map, keyed by the action name. Here we predefine some actions, which are used in the
+ * ZK based standalone app.
+>>>>>>> master
  */
 public class ScheduleAfterDebounceTime {
   public static final Logger LOG = LoggerFactory.getLogger(ScheduleAfterDebounceTime.class);
@@ -49,7 +56,6 @@ public class ScheduleAfterDebounceTime {
   public static final String ON_DATA_CHANGE_ON = "OnDataChangeOn";
 
   public static final int DEBOUNCE_TIME_MS = 2000;
-
 
   private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setNameFormat("zk-debounce-thread-%d").setDaemon(true).build());

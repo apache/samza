@@ -18,9 +18,11 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.config.Config;
+import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 
 
@@ -28,14 +30,13 @@ import org.apache.samza.task.TaskCoordinator;
  * Implementation of a {@link PartialJoinOperatorSpec}. This class implements function
  * that only takes in one input stream among all inputs to the join and generate the join output.
  *
- * @param <M>  type of {@link MessageEnvelope}s in the input stream
- * @param <JM>  type of {@link MessageEnvelope}s in the stream to join with
- * @param <RM>  type of {@link MessageEnvelope}s in the joined stream
+ * @param <M>  type of messages in the input stream
+ * @param <JM>  type of messages in the stream to join with
+ * @param <RM>  type of messages in the joined stream
  */
-class PartialJoinOperatorImpl<M extends MessageEnvelope<K, ?>, K, JM extends MessageEnvelope<K, ?>, RM extends MessageEnvelope>
-    extends OperatorImpl<M, RM> {
+class PartialJoinOperatorImpl<M, K, JM, RM> extends OperatorImpl<M, RM> {
 
-  PartialJoinOperatorImpl(PartialJoinOperatorSpec<M, K, JM, RM> joinOp) {
+  PartialJoinOperatorImpl(PartialJoinOperatorSpec<M, K, JM, RM> joinOp, MessageStreamImpl<M> source, Config config, TaskContext context) {
     // TODO: implement PartialJoinOperatorImpl constructor
   }
 
