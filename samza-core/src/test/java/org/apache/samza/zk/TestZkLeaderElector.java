@@ -99,12 +99,13 @@ public class TestZkLeaderElector {
 
     BooleanResult isLeader = new BooleanResult();
     ZkLeaderElector leaderElector = new ZkLeaderElector("1", mockZkUtils,
-        new ZkLeaderElector.ZkLeaderElectorListener() {
-      @Override
-      public void onBecomingLeader() {
-        isLeader.res = true;
+      new ZkLeaderElector.ZkLeaderElectorListener() {
+        @Override
+        public void onBecomingLeader() {
+          isLeader.res = true;
+        }
       }
-    });
+    );
     leaderElector.tryBecomeLeader();
     Assert.assertTrue(TestZkUtils.testWithDelayBackOff(()->isLeader.res, 2, 100));
   }

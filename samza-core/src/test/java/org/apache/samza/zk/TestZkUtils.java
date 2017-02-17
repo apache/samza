@@ -133,7 +133,7 @@ public class TestZkUtils {
       @Override
       public void handleDataChange(String dataPath, Object data)
           throws Exception {
-        res.updateRes((String)data);
+        res.updateRes((String) data);
       }
 
       @Override
@@ -159,10 +159,14 @@ public class TestZkUtils {
 
   public static boolean testWithDelayBackOff(BooleanSupplier cond, long startDelayMs, long maxDelayMs) {
     long delay = startDelayMs;
-    while(delay < maxDelayMs) {
-      if(cond.getAsBoolean())
+    while (delay < maxDelayMs) {
+      if (cond.getAsBoolean())
         return true;
-      try { Thread.sleep(delay); } catch (InterruptedException e) { return false ;}
+      try {
+        Thread.sleep(delay);
+      } catch (InterruptedException e) {
+        return false;
+      }
       delay *= 2;
     }
     return false;

@@ -65,7 +65,7 @@ public class ZkLeaderElector implements LeaderElector {
     this.keyBuilder = this.zkUtils.getKeyBuilder();
     this.hostName = getHostName();
     this.zkLeaderElectorExtListener = zkLeaderElectorExtListener; // listener to inform the caller that they have become the leader
-    if(leaderElectionListener == null)
+    if (leaderElectionListener == null)
       this.zkLeaderElectionInternalListener =  new ZkLeaderElectionInternalListener();
     else
       this.zkLeaderElectionInternalListener = leaderElectionListener;
