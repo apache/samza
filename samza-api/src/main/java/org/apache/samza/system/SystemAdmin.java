@@ -93,11 +93,12 @@ public interface SystemAdmin {
   Integer offsetComparator(String offset1, String offset2);
 
   /**
-   * Create a stream described by the spec. If the stream already exists, this
-   * call should simply return.
+   * Create a stream described by the spec.
    *
    * @param streamSpec  The spec, or blueprint from which the physical stream will be created on the system.
-   * @return            {@code true} if the stream was actually created and not pre-existing. {@code false} otherwise.
+   * @return            {@code true} if the stream was actually created and not pre-existing.
+   *                    {@code false} if the stream was pre-existing.
+   *                    A RuntimeException will be thrown if creation fails.
    */
   default boolean createStream(StreamSpec streamSpec) {
     throw new UnsupportedOperationException();
@@ -105,11 +106,12 @@ public interface SystemAdmin {
 
   /**
    * Validates the stream described by the streamSpec on the system.
-   * An exception should be thrown for any validation error.
+   * A {@link StreamValidationException} should be thrown for any validation error.
    *
    * @param streamSpec  The spec, or blueprint for the physical stream on the system.
+   * @throws StreamValidationException if validation fails.
    */
-  default void validateStream(StreamSpec streamSpec) {
+  default void validateStream(StreamSpec streamSpec) throws StreamValidationException {
     throw new UnsupportedOperationException();
   }
 }

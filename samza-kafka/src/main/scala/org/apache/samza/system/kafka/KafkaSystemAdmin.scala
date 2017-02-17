@@ -29,7 +29,7 @@ import kafka.consumer.{ConsumerConfig, SimpleConsumer}
 import kafka.utils.ZkUtils
 import org.apache.samza.config.KafkaConfig
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.system.{ExtendedSystemAdmin, StreamSpec, SystemStreamMetadata, SystemStreamPartition}
+import org.apache.samza.system._
 import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, KafkaUtil, Logging}
 import org.apache.samza.{Partition, SamzaException}
 
@@ -414,13 +414,6 @@ class KafkaSystemAdmin(
   }
 
   /**
-    * Exception to be thrown when the topic validation has failed
-    */
-  class KafkaTopicValidationException(s: String, t: Throwable) extends SamzaException(s, t) {
-    def this(s: String) = this(s, null)
-  }
-
-  /**
    * @inheritdoc
    */
   override def createStream(spec: StreamSpec): Boolean = {
@@ -481,7 +474,7 @@ class KafkaSystemAdmin(
 
         val partitionCount = topicMetadata.partitionsMetadata.length
         if (partitionCount != spec.getPartitionCount) {
-          throw new KafkaTopicValidationException("Topic validation failed for topic %s because partition count %s did not match expected partition count of %d" format (topicName, topicMetadata.partitionsMetadata.length, spec.getPartitionCount))
+          throw new StreamValidationException("Topic validation failed for topic %s because partition count %s did not match expected partition count of %d" format (topicName, topicMetadata.partitionsMetadata.length, spec.getPartitionCount))
         }
 
         info("Successfully validated topic %s." format topicName)
@@ -490,7 +483,7 @@ class KafkaSystemAdmin(
 
       (exception, loop) => {
         exception match {
-          case e: KafkaTopicValidationException => throw e
+          case e: StreamValidationException => throw e
           case e: Exception =>
             warn("While trying to validate topic %s: %s. Retrying." format (topicName, e))
             debug("Exception detail:", e)

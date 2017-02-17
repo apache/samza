@@ -19,6 +19,8 @@
 
 package org.apache.samza.system.kafka;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.system.StreamSpec;
@@ -28,7 +30,6 @@ import org.apache.samza.system.StreamSpec;
  * Extends StreamSpec with the ability to easily get the topic replication factor.
  */
 public class KafkaStreamSpec extends StreamSpec {
-  private static final int DEFAULT_PARTITION_COUNT = 1;
   private static final int DEFAULT_REPLICATION_FACTOR = 2;
 
   /**
@@ -37,20 +38,50 @@ public class KafkaStreamSpec extends StreamSpec {
   private final int replicationFactor;
 
   /**
+   * Convenience method to convert a config map to Properties.
+   * @param map The Map to convert.
+   * @return    The Properties instance.
+   */
+  private static Properties mapToProperties(Map<String, String> map) {
+    Properties props = new Properties();
+    props.putAll(map);
+    return props;
+  }
+
+  /**
+   * Convenience method to convert Properties to a config map.
+   * @param properties  The Properties to convert.
+   * @return            The Map instance.
+   */
+  private static Map<String, String> propertiesToMap(Properties properties) {
+    Map<String, String> map = new HashMap<String, String>();
+    for (final String name: properties.stringPropertyNames()) {
+      map.put(name, properties.getProperty(name));
+    }
+    return map;
+  }
+
+  /**
    * Converts any StreamSpec to a KafkaStreamSpec.
    * If the original spec already is a KafkaStreamSpec, it is simply returned.
    *
-   * @param originalSpec  the StreamSpec instance to convert to KafkaStreamSpec.
-   * @return              a KafkaStreamSpec instance.
+   * @param originalSpec  The StreamSpec instance to convert to KafkaStreamSpec.
+   * @return              A KafkaStreamSpec instance.
    */
   public static KafkaStreamSpec fromSpec(StreamSpec originalSpec) {
     if (originalSpec instanceof KafkaStreamSpec) {
       return ((KafkaStreamSpec) originalSpec);
     }
 
-    int replicationFactor = Integer.parseInt(originalSpec.getOrDefault(KafkaConfig.TOPIC_REPLICATION_FACTOR(), KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR()));
-    return new KafkaStreamSpec(originalSpec.getId(), originalSpec.getPhysicalName(), originalSpec.getSystemName(),
-        originalSpec.getPartitionCount(), replicationFactor, originalSpec.getProperties());
+    int replicationFactor = Integer.parseInt(originalSpec.getOrDefault( KafkaConfig.TOPIC_REPLICATION_FACTOR(),
+                                                                        KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR()));
+
+    return new KafkaStreamSpec( originalSpec.getId(),
+                                originalSpec.getPhysicalName(),
+                                originalSpec.getSystemName(),
+                                originalSpec.getPartitionCount(),
+                                replicationFactor,
+                                mapToProperties(originalSpec.getConfig()));
   }
 
   /**
@@ -86,17 +117,20 @@ public class KafkaStreamSpec extends StreamSpec {
    */
   public KafkaStreamSpec(String id, String topicName, String systemName, int partitionCount, int replicationFactor,
       Properties properties) {
-    super(id, topicName, systemName, partitionCount, properties);
+    super(id, topicName, systemName, partitionCount, propertiesToMap(properties));
 
     if (replicationFactor <= 0) {
       throw new IllegalArgumentException(
           String.format("Replication factor %d must be greater than 0.", replicationFactor));
     }
-
     this.replicationFactor = replicationFactor;
   }
 
   public int getReplicationFactor() {
     return replicationFactor;
+  }
+
+  public Properties getProperties() {
+    return mapToProperties(getConfig());
   }
 }

@@ -19,22 +19,27 @@
 
 package org.apache.samza.system;
 
-import java.util.Properties;
+import java.util.Collections;
+import java.util.Map;
 
 
 /**
  * StreamSpec is a blueprint for creating, validating, or simply describing a stream in the runtime environment.
  *
- * It has specific attributes for common behaviors that samza uses.
+ * It has specific attributes for common behaviors that Samza uses.
  *
- * It also includes a set of properties which may be systemName-specific.
+ * It also includes a map of configurations which may be system-specific.
+ *
+ * It is immutable by design.
  */
 public class StreamSpec {
 
+  private static final int DEFAULT_PARTITION_COUNT = 1;
+
   /**
    * Unique identifier for the stream in a Samza application.
-   * This identifier is used as a key for stream properties in
-   * config and to distinguish between streams in a graph.
+   * This identifier is used as a key for stream properties in the
+   * job config and to distinguish between streams in a graph.
    */
   private final String id;
 
@@ -49,21 +54,19 @@ public class StreamSpec {
    * systems to identify the stream. In Kafka this would be the topic name whereas in HDFS it
    * might be a file URN.
    */
-  private String physicalName;
+  private final String physicalName;
 
   /**
    * The number of partitions for the stream.
    */
-  private int partitionCount = 1;
+  private final int partitionCount;
 
   /**
-   * A set of all systemName-specific properties for the stream.
+   * A set of all systemName-specific configurations for the stream.
    */
-  private final Properties properties = new Properties();
+  private final Map<String, String> config;
 
   /**
-   * Base constructor.
-   *
    *  @param id           The application-unique logical identifier for the stream. It is used to distinguish between
    *                      streams in a Samza application so it must be unique in the context of one deployable unit.
    *                      It does not need to be globally unique or unique with respect to a host.
@@ -73,26 +76,46 @@ public class StreamSpec {
    *                      might be a file URN.
    *
    * @param systemName    The System name on which this stream will exist. Corresponds to a named implementation of the
- *                        Samza System abstraction. See {@link SystemFactory}
-   *
-   * @param properties    A set of properties for the stream. These may be System-specfic.
+   *                      Samza System abstraction. See {@link SystemFactory}
    */
-  public StreamSpec(String id, String physicalName, String systemName, Properties properties) {
-    if (id == null) {
-      throw new NullPointerException("Parameter 'id' must not be null");
-    }
+  public StreamSpec(String id, String physicalName, String systemName) {
+    this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, Collections.emptyMap());
+  }
 
-    if (systemName == null) {
-      throw new NullPointerException("Parameter 'systemName' must not be null");
-    }
+  /**
+   *  @param id           The application-unique logical identifier for the stream. It is used to distinguish between
+   *                      streams in a Samza application so it must be unique in the context of one deployable unit.
+   *                      It does not need to be globally unique or unique with respect to a host.
+   *
+   * @param physicalName  The physical identifier for the stream. This is the identifier that will be used in remote
+   *                      systems to identify the stream. In Kafka this would be the topic name whereas in HDFS it
+   *                      might be a file URN.
+   *
+   * @param systemName    The System name on which this stream will exist. Corresponds to a named implementation of the
+   *                      Samza System abstraction. See {@link SystemFactory}
+   *
+   * @param partitionCount  The number of partitionts for the stream. A value of {@code 1} indicates unpartitioned.
+   */
+  public StreamSpec(String id, String physicalName, String systemName, int partitionCount) {
+    this(id, physicalName, systemName, partitionCount, Collections.emptyMap());
+  }
 
-    this.id = id;
-    this.systemName = systemName;
-    this.physicalName = physicalName;
-
-    if (properties != null) {
-      this.properties.putAll(properties);
-    }
+  /**
+   *  @param id           The application-unique logical identifier for the stream. It is used to distinguish between
+   *                      streams in a Samza application so it must be unique in the context of one deployable unit.
+   *                      It does not need to be globally unique or unique with respect to a host.
+   *
+   * @param physicalName  The physical identifier for the stream. This is the identifier that will be used in remote
+   *                      systems to identify the stream. In Kafka this would be the topic name whereas in HDFS it
+   *                      might be a file URN.
+   *
+   * @param systemName    The System name on which this stream will exist. Corresponds to a named implementation of the
+   *                      Samza System abstraction. See {@link SystemFactory}
+   *
+   * @param config        A map of properties for the stream. These may be System-specfic.
+   */
+  public StreamSpec(String id, String physicalName, String systemName, Map<String, String> config) {
+    this(id, physicalName, systemName, DEFAULT_PARTITION_COUNT, config);
   }
 
   /**
@@ -109,17 +132,44 @@ public class StreamSpec {
    *
    * @param partitionCount  The number of partitionts for the stream. A value of {@code 1} indicates unpartitioned.
    *
-   * @param properties      A set of properties for the stream. These may be System-specfic.
+   * @param config          A map of properties for the stream. These may be System-specfic.
    */
-  public StreamSpec(String id, String physicalName, String systemName, int partitionCount, Properties properties) {
-    this(id, physicalName, systemName, properties);
+  public StreamSpec(String id, String physicalName, String systemName, int partitionCount,  Map<String, String> config) {
+    if (id == null) {
+      throw new NullPointerException("Parameter 'id' must not be null");
+    }
+
+    if (systemName == null) {
+      throw new NullPointerException("Parameter 'systemName' must not be null");
+    }
+
+    this.id = id;
+    this.systemName = systemName;
+    this.physicalName = physicalName;
     this.partitionCount = partitionCount;
+
+    if (config != null) {
+      this.config = Collections.unmodifiableMap(config);
+    } else {
+      this.config = Collections.emptyMap();
+    }
+  }
+
+  /**
+   * Copies this StreamSpec, but applies a new partitionCount.
+   *
+   * This method is not static s.t. subclasses can override it.
+   *
+   * @param partitionCount  The partitionCount for the returned StreamSpec.
+   * @return                A copy of this StreamSpec with the specified partitionCount.
+   */
+  public StreamSpec copyWithPartitionCount(int partitionCount) {
+    return new StreamSpec(id, physicalName, systemName, partitionCount, config);
   }
 
   public String getId() {
     return id;
   }
-
 
   public String getSystemName() {
     return systemName;
@@ -129,31 +179,19 @@ public class StreamSpec {
     return physicalName;
   }
 
-  public void setPhysicalName(String physicalName) {
-    this.physicalName = physicalName;
-  }
-
   public int getPartitionCount() {
     return partitionCount;
   }
 
-  public void setPartitionCount(int partitionCount) {
-    this.partitionCount = partitionCount;
-  }
-
-  public Properties getProperties() {
-    return properties;
+  public Map<String, String> getConfig() {
+    return config;
   }
 
   public String get(String propertyName) {
-    return properties.getProperty(propertyName);
+    return config.get(propertyName);
   }
 
   public String getOrDefault(String propertyName, String defaultValue) {
-    return properties.getProperty(propertyName, defaultValue);
-  }
-
-  public Object set(String propertyName, String propertyValue) {
-    return properties.setProperty(propertyName, propertyValue);
+    return config.getOrDefault(propertyName, defaultValue);
   }
 }
