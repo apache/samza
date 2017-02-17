@@ -20,6 +20,7 @@
 package org.apache.samza.system;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 
@@ -62,7 +63,7 @@ public class StreamSpec {
   private final int partitionCount;
 
   /**
-   * A set of all systemName-specific configurations for the stream.
+   * A set of all system-specific configurations for the stream.
    */
   private final Map<String, String> config;
 
@@ -83,6 +84,7 @@ public class StreamSpec {
   }
 
   /**
+   *
    *  @param id           The application-unique logical identifier for the stream. It is used to distinguish between
    *                      streams in a Samza application so it must be unique in the context of one deployable unit.
    *                      It does not need to be globally unique or unique with respect to a host.
@@ -143,13 +145,17 @@ public class StreamSpec {
       throw new NullPointerException("Parameter 'systemName' must not be null");
     }
 
+    if (partitionCount < 1) {
+      throw new NullPointerException("Parameter 'partitionCount' must not be greater than 0");
+    }
+
     this.id = id;
     this.systemName = systemName;
     this.physicalName = physicalName;
     this.partitionCount = partitionCount;
 
     if (config != null) {
-      this.config = Collections.unmodifiableMap(config);
+      this.config = Collections.unmodifiableMap(new HashMap<>(config));
     } else {
       this.config = Collections.emptyMap();
     }

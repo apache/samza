@@ -126,6 +126,11 @@ public class KafkaStreamSpec extends StreamSpec {
     this.replicationFactor = replicationFactor;
   }
 
+  @Override
+  public StreamSpec copyWithPartitionCount(int partitionCount) {
+    return new KafkaStreamSpec(getId(), getPhysicalName(), getSystemName(), partitionCount, getReplicationFactor(), getProperties());
+  }
+
   public int getReplicationFactor() {
     return replicationFactor;
   }

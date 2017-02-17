@@ -504,7 +504,7 @@ class KafkaSystemAdmin(
     val spec = new KafkaStreamSpec(topicName, topicName, systemName, numKafkaChangelogPartitions, topicMeta.replicationFactor, topicMeta.kafkaProps)
 
     if (createStream(spec)) {
-      info("Created stream %s." format topicName)
+      info("Created changelog stream %s." format topicName)
     } else {
       info("Changelog stream %s already exists." format topicName)
     }
