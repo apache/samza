@@ -21,18 +21,16 @@
 
 package org.apache.samza.system.kafka
 
-import java.util
-import java.util.Properties
+import java.util.{Properties, UUID}
 
 import kafka.admin.AdminUtils
 import kafka.common.{ErrorMapping, LeaderNotAvailableException}
 import kafka.consumer.{Consumer, ConsumerConfig}
-import kafka.server.{KafkaConfig, KafkaServer}
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
-import kafka.utils.{TestUtils, ZkUtils}
 import kafka.integration.KafkaServerTestHarness
+import kafka.server.KafkaConfig
+import kafka.utils.{TestUtils, ZkUtils}
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.security.JaasUtils
-
 import org.apache.samza.Partition
 import org.apache.samza.config.KafkaProducerConfig
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
@@ -43,7 +41,9 @@ import org.junit._
 
 import scala.collection.JavaConversions._
 
-
+/**
+  * README: New tests should be added to the Java tests. See TestKafkaSystemAdminJava
+  */
 object TestKafkaSystemAdmin extends KafkaServerTestHarness {
 
   val SYSTEM = "kafka"
@@ -136,6 +136,14 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     Consumer.create(consumerConfig)
   }
 
+  def createSystemAdmin: KafkaSystemAdmin = {
+    new KafkaSystemAdmin(SYSTEM, brokers, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure))
+  }
+
+  def createSystemAdmin(coordinatorStreamProperties: Properties, coordinatorStreamReplicationFactor: Int, topicMetaInformation: Map[String, ChangelogInfo]): KafkaSystemAdmin = {
+    new KafkaSystemAdmin(SYSTEM, brokers, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamProperties, coordinatorStreamReplicationFactor, 10000, ConsumerConfig.SocketBufferSize, UUID.randomUUID.toString, topicMetaInformation)
+  }
+
 }
 
 /**
@@ -146,7 +154,7 @@ class TestKafkaSystemAdmin {
   import TestKafkaSystemAdmin._
 
   // Provide a random zkAddress, the system admin tries to connect only when a topic is created/validated
-  val systemAdmin = new KafkaSystemAdmin(SYSTEM, brokers, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure))
+  val systemAdmin = createSystemAdmin
 
   @Test
   def testShouldAssembleMetadata {
