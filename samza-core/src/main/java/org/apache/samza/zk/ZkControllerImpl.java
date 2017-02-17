@@ -42,10 +42,33 @@ public class ZkControllerImpl implements ZkController {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
     this.zkControllerListener = zkControllerListener;
-    this.leaderElector = new ZkLeaderElector(this.processorIdStr, this.zkUtils);
+    this.leaderElector = new ZkLeaderElector(processorIdStr, zkUtils,
+        new ZkLeaderElector.ZkLeaderElectorListener() {
+          @Override
+          public void onBecomingLeader() {
+            onBecomeLeader();
+          }
+        }
+    );
     this.debounceTimer = debounceTimer;
 
     init();
+  }
+
+  private void init() {
+    ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
+    zkUtils.makeSurePersistentPathsExists(
+        new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
+            .getJobModelPathPrefix()});
+  }
+
+  private void onBecomeLeader() {
+
+    listenToProcessorLiveness(); // subscribe for adding new processors
+
+    // inform the caller
+    zkControllerListener.onBecomeLeader();
+
   }
 
   @Override
@@ -53,24 +76,10 @@ public class ZkControllerImpl implements ZkController {
 
     // TODO - make a loop here with some number of attempts.
     // possibly split into two method - becomeLeader() and becomeParticipant()
-    boolean isLeader = leaderElector.tryBecomeLeader();
-    if (isLeader) {
-      listenToProcessorLiveness();
-
-      // register the debounce call under the same action name as processor change, to make sure it will get cancelled
-      // if more processors join before the time is up. They both use the same action - onBecomeLeader()
-      debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> zkControllerListener.onBecomeLeader());   // RECONSIDER MAKING THIS SYNC CALL
-    }
+    leaderElector.tryBecomeLeader();
 
     // subscribe to JobModel version updates
     zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(debounceTimer));
-  }
-
-  private void init() {
-    ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
-    zkUtils.makeSurePersistentPathsExists(new String[] {
-        keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder.getJobModelPathPrefix()});
   }
 
   @Override
