@@ -29,5 +29,5 @@ public interface ProcessorLifecycleCallback {
    *
    * @param error Any kind of {@link Throwable} thrown by the container's run loop
    */
-  void onProcessorError(Throwable error);
+  void onError(Throwable error);
 }

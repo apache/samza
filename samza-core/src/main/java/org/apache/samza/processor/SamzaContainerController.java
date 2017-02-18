@@ -117,8 +117,9 @@ public class SamzaContainerController {
           container.run();
         } catch (Throwable t) {
           if (errorHandler != null) {
-            errorHandler.onProcessorError(t);
+            errorHandler.onError(t);
           } else {
+            log.error("Container Run Loop Error", t);
             throw t;
           }
         }
