@@ -146,7 +146,7 @@ public class StreamSpec {
     }
 
     if (partitionCount < 1) {
-      throw new NullPointerException("Parameter 'partitionCount' must not be greater than 0");
+      throw new IllegalArgumentException("Parameter 'partitionCount' must be greater than 0");
     }
 
     this.id = id;
