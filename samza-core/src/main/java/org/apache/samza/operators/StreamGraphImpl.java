@@ -18,12 +18,12 @@
  */
 package org.apache.samza.operators;
 
-import java.util.Properties;
 import java.util.function.Function;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
@@ -234,18 +234,7 @@ public class StreamGraphImpl implements StreamGraph {
    */
   <PK, M> MessageStreamImpl<M> createIntStream(Function<M, PK> parKeyFn) {
     // TODO: placeholder to auto-generate intermediate streams via {@link StreamSpec}
-    StreamSpec streamSpec = new StreamSpec() {
-      @Override
-      public SystemStream getSystemStream() {
-        // TODO: should auto-generate intermedaite stream name here
-        return new SystemStream("intermediate", String.format("par-%d", StreamGraphImpl.this.opId));
-      }
-
-      @Override
-      public Properties getProperties() {
-        return null;
-      }
-    };
+    StreamSpec streamSpec = this.createIntStreamSpec();
 
     if (!this.inStreams.containsKey(streamSpec.getSystemStream())) {
       this.inStreams.putIfAbsent(streamSpec.getSystemStream(), new IntermediateStreamImpl(this, streamSpec, null, null, parKeyFn));
@@ -255,6 +244,11 @@ public class StreamGraphImpl implements StreamGraph {
       this.outStreams.putIfAbsent(streamSpec.getSystemStream(), intStream);
     }
     return intStream;
+  }
+
+  private StreamSpec createIntStreamSpec() {
+    // TODO: placeholder to generate the intermediate stream's {@link StreamSpec} automatically
+    return null;
   }
 
 }

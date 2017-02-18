@@ -200,4 +200,8 @@ public class StreamSpec {
   public String getOrDefault(String propertyName, String defaultValue) {
     return config.getOrDefault(propertyName, defaultValue);
   }
+
+  public SystemStream getSystemStream() {
+    return new SystemStream(systemName, physicalName);
+  }
 }
