@@ -27,7 +27,6 @@ Check out the hello-samza project:
 {% highlight bash %}
 git clone https://git.apache.org/samza-hello-samza.git hello-samza
 cd hello-samza
-git checkout latest
 {% endhighlight %}
 
 This project contains everything you'll need to run your first Samza jobs.
@@ -61,7 +60,7 @@ Then, you can continue w/ the following command in hello-samza project:
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-0.11.1-SNAPSHOT-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-0.13.0-SNAPSHOT-dist.tar.gz -C deploy/samza
 {% endhighlight %}
 
 ### Run a Samza Job
