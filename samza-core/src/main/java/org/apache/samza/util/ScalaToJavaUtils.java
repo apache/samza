@@ -16,25 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.util;
 
-import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-
+import scala.runtime.AbstractFunction0;
 
 /**
- * This interface defines a factory class that user will implement to create user-defined operator DAG in a {@link StreamGraph} object.
+ * Common utils methods that helps to convert or use Scala objects in Java code
  */
-@InterfaceStability.Unstable
-public interface StreamGraphBuilder {
-  static final String BUILDER_CLASS_CONFIG = "job.graph.builder.class";
-
+public class ScalaToJavaUtils {
   /**
-   * Users are required to implement this abstract method to initialize the processing logic of the application, in terms
-   * of a DAG of {@link org.apache.samza.operators.MessageStream}s and operators
-   *
-   * @param graph  an empty {@link StreamGraph} object to be initialized
-   * @param config  the {@link Config} of the application
+   * Returns a default value object for scala option.getOrDefault() to use
+   * @param value default value
+   * @param <T> value type
+   * @return object containing default value
    */
-  void init(StreamGraph graph, Config config);
+  public static <T> AbstractFunction0<T> defaultValue(final T value) {
+    return new AbstractFunction0<T>() {
+      @Override
+      public T apply() {
+        return value;
+      }
+    };
+  }
 }

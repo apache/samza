@@ -47,7 +47,7 @@ public class TestZkUtils {
   public void testSetup() {
     try {
       zkClient = new ZkClient(
-          new ZkConnection("localhost:" + zkServer.getPort(), SESSION_TIMEOUT_MS),
+          new ZkConnection("127.0.0.1:" + zkServer.getPort(), SESSION_TIMEOUT_MS),
           CONNECTION_TIMEOUT_MS);
     } catch (Exception e) {
       Assert.fail("Client connection setup failed. Aborting tests..");
