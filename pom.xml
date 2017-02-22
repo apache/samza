@@ -27,7 +27,7 @@ under the License.
 
   <groupId>org.apache.samza</groupId>
   <artifactId>hello-samza</artifactId>
-  <version>0.11.0</version>
+  <version>0.12.0</version>
   <packaging>jar</packaging>
   <name>Samza Example</name>
   <description>
@@ -43,7 +43,7 @@ under the License.
     </dependency>
     <dependency>
       <groupId>org.apache.samza</groupId>
-      <artifactId>samza-core_2.10</artifactId>
+      <artifactId>samza-core_2.11</artifactId>
       <version>${samza.version}</version>
     </dependency>
     <dependency>
@@ -60,28 +60,28 @@ under the License.
     </dependency>
     <dependency>
       <groupId>org.apache.samza</groupId>
-      <artifactId>samza-yarn_2.10</artifactId>
+      <artifactId>samza-yarn_2.11</artifactId>
       <version>${samza.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.samza</groupId>
-      <artifactId>samza-kv_2.10</artifactId>
+      <artifactId>samza-kv_2.11</artifactId>
       <version>${samza.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.samza</groupId>
-      <artifactId>samza-kv-rocksdb_2.10</artifactId>
+      <artifactId>samza-kv-rocksdb_2.11</artifactId>
       <version>${samza.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.samza</groupId>
-      <artifactId>samza-kafka_2.10</artifactId>
+      <artifactId>samza-kafka_2.11</artifactId>
       <version>${samza.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.kafka</groupId>
-      <artifactId>kafka_2.10</artifactId>
-      <version>0.8.2.1</version>
+      <artifactId>kafka_2.11</artifactId>
+      <version>0.10.0.1</version>
     </dependency>
     <dependency>
       <groupId>org.schwering</groupId>
@@ -143,7 +143,7 @@ under the License.
   <properties>
     <!-- maven specific properties -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <samza.version>0.11.0</samza.version>
+    <samza.version>0.12.0</samza.version>
     <hadoop.version>2.6.1</hadoop.version>
   </properties>
 
