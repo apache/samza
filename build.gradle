@@ -46,17 +46,17 @@ dependencies {
     compile(group: 'org.slf4j', name: 'slf4j-log4j12', version: "$SLF4J_VERSION")
     compile(group: 'org.schwering', name: 'irclib', version: '1.10')
     compile(group: 'org.apache.samza', name: 'samza-api', version: "$SAMZA_VERSION")
-    compile(group: 'org.apache.samza', name: 'samza-kv_2.10', version: "$SAMZA_VERSION")
+    compile(group: 'org.apache.samza', name: 'samza-kv_2.11', version: "$SAMZA_VERSION")
 
     explode (group: 'org.apache.samza', name: 'samza-shell',  ext: 'tgz', classifier: 'dist', version: "$SAMZA_VERSION")
 
-    runtime(group: 'org.apache.samza', name: 'samza-core_2.10', version: "$SAMZA_VERSION")
+    runtime(group: 'org.apache.samza', name: 'samza-core_2.11', version: "$SAMZA_VERSION")
     runtime(group: 'org.apache.samza', name: 'samza-log4j', version: "$SAMZA_VERSION")
     runtime(group: 'org.apache.samza', name: 'samza-shell', version: "$SAMZA_VERSION")
-    runtime(group: 'org.apache.samza', name: 'samza-yarn_2.10', version: "$SAMZA_VERSION")
-    runtime(group: 'org.apache.samza', name: 'samza-kv-rocksdb_2.10', version: "$SAMZA_VERSION")
-    runtime(group: 'org.apache.samza', name: 'samza-kafka_2.10', version: "$SAMZA_VERSION")
-    runtime(group: 'org.apache.kafka', name: 'kafka_2.10', version: "$KAFKA_VERSION")
+    runtime(group: 'org.apache.samza', name: 'samza-yarn_2.11', version: "$SAMZA_VERSION")
+    runtime(group: 'org.apache.samza', name: 'samza-kv-rocksdb_2.11', version: "$SAMZA_VERSION")
+    runtime(group: 'org.apache.samza', name: 'samza-kafka_2.11', version: "$SAMZA_VERSION")
+    runtime(group: 'org.apache.kafka', name: 'kafka_2.11', version: "$KAFKA_VERSION")
     runtime(group: 'org.apache.hadoop', name: 'hadoop-hdfs', version: "$HADOOP_VERSION")
 }
 
