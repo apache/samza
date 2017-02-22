@@ -201,7 +201,4 @@ public class StreamSpec {
     return config.getOrDefault(propertyName, defaultValue);
   }
 
-  public SystemStream getSystemStream() {
-    return new SystemStream(systemName, physicalName);
-  }
 }

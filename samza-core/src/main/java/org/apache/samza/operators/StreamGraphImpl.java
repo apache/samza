@@ -83,7 +83,7 @@ public class StreamGraphImpl implements StreamGraph {
         // TODO: need to find a way to directly pass in the serde class names
         // mc.send(new OutgoingMessageEnvelope(this.spec.getSystemStream(), this.keySerde.getClass().getName(), this.msgSerde.getClass().getName(),
         //    message.getKey(), message.getKey(), message.getMessage()));
-        mc.send(new OutgoingMessageEnvelope(this.spec.getSystemStream(), message.getKey(), message.getMessage()));
+        mc.send(new OutgoingMessageEnvelope(new SystemStream(this.spec.getSystemName(), this.spec.getPhysicalName()), message.getKey(), message.getMessage()));
       };
     }
   }
@@ -112,10 +112,10 @@ public class StreamGraphImpl implements StreamGraph {
         // mc.send(new OutgoingMessageEnvelope(this.spec.getSystemStream(), this.keySerde.getClass().getName(), this.msgSerde.getClass().getName(),
         //    message.getKey(), message.getKey(), message.getMessage()));
         if (this.parKeyFn == null) {
-          mc.send(new OutgoingMessageEnvelope(this.spec.getSystemStream(), message.getKey(), message.getMessage()));
+          mc.send(new OutgoingMessageEnvelope(new SystemStream(this.spec.getSystemName(), this.spec.getPhysicalName()), message.getKey(), message.getMessage()));
         } else {
           // apply partition key function
-          mc.send(new OutgoingMessageEnvelope(this.spec.getSystemStream(), this.parKeyFn.apply(message), message.getKey(), message.getMessage()));
+          mc.send(new OutgoingMessageEnvelope(new SystemStream(this.spec.getSystemName(), this.spec.getPhysicalName()), this.parKeyFn.apply(message), message.getKey(), message.getMessage()));
         }
       };
     }
@@ -124,17 +124,17 @@ public class StreamGraphImpl implements StreamGraph {
   /**
    * Maps keeping all {@link SystemStream}s that are input and output of operators in {@link StreamGraphImpl}
    */
-  private final Map<SystemStream, MessageStream> inStreams = new HashMap<>();
-  private final Map<SystemStream, OutputStream> outStreams = new HashMap<>();
+  private final Map<String, MessageStream> inStreams = new HashMap<>();
+  private final Map<String, OutputStream> outStreams = new HashMap<>();
 
   private ContextManager contextManager = new ContextManager() { };
 
   @Override
   public <K, V, M extends MessageEnvelope<K, V>> MessageStream<M> createInStream(StreamSpec streamSpec, Serde<K> keySerde, Serde<V> msgSerde) {
-    if (!this.inStreams.containsKey(streamSpec.getSystemStream())) {
-      this.inStreams.putIfAbsent(streamSpec.getSystemStream(), new InputStreamImpl<K, V, M>(this, streamSpec, keySerde, msgSerde));
+    if (!this.inStreams.containsKey(streamSpec.getId())) {
+      this.inStreams.putIfAbsent(streamSpec.getId(), new InputStreamImpl<K, V, M>(this, streamSpec, keySerde, msgSerde));
     }
-    return this.inStreams.get(streamSpec.getSystemStream());
+    return this.inStreams.get(streamSpec.getId());
   }
 
   /**
@@ -146,10 +146,10 @@ public class StreamGraphImpl implements StreamGraph {
    */
   @Override
   public <K, V, M extends MessageEnvelope<K, V>> OutputStream<M> createOutStream(StreamSpec streamSpec, Serde<K> keySerde, Serde<V> msgSerde) {
-    if (!this.outStreams.containsKey(streamSpec.getSystemStream())) {
-      this.outStreams.putIfAbsent(streamSpec.getSystemStream(), new OutputStreamImpl<K, V, M>(this, streamSpec, keySerde, msgSerde));
+    if (!this.outStreams.containsKey(streamSpec.getId())) {
+      this.outStreams.putIfAbsent(streamSpec.getId(), new OutputStreamImpl<K, V, M>(this, streamSpec, keySerde, msgSerde));
     }
-    return this.outStreams.get(streamSpec.getSystemStream());
+    return this.outStreams.get(streamSpec.getId());
   }
 
   /**
@@ -161,12 +161,12 @@ public class StreamGraphImpl implements StreamGraph {
    */
   @Override
   public <K, V, M extends MessageEnvelope<K, V>> OutputStream<M> createIntStream(StreamSpec streamSpec, Serde<K> keySerde, Serde<V> msgSerde) {
-    if (!this.inStreams.containsKey(streamSpec.getSystemStream())) {
-      this.inStreams.putIfAbsent(streamSpec.getSystemStream(), new IntermediateStreamImpl<K, K, V, M>(this, streamSpec, keySerde, msgSerde));
+    if (!this.inStreams.containsKey(streamSpec.getId())) {
+      this.inStreams.putIfAbsent(streamSpec.getId(), new IntermediateStreamImpl<K, K, V, M>(this, streamSpec, keySerde, msgSerde));
     }
-    IntermediateStreamImpl<K, K, V, M> intStream = (IntermediateStreamImpl<K, K, V, M>) this.inStreams.get(streamSpec.getSystemStream());
-    if (!this.outStreams.containsKey(streamSpec.getSystemStream())) {
-      this.outStreams.putIfAbsent(streamSpec.getSystemStream(), intStream);
+    IntermediateStreamImpl<K, K, V, M> intStream = (IntermediateStreamImpl<K, K, V, M>) this.inStreams.get(streamSpec.getId());
+    if (!this.outStreams.containsKey(streamSpec.getId())) {
+      this.outStreams.putIfAbsent(streamSpec.getId(), intStream);
     }
     return intStream;
   }
@@ -236,12 +236,12 @@ public class StreamGraphImpl implements StreamGraph {
     // TODO: placeholder to auto-generate intermediate streams via {@link StreamSpec}
     StreamSpec streamSpec = this.createIntStreamSpec();
 
-    if (!this.inStreams.containsKey(streamSpec.getSystemStream())) {
-      this.inStreams.putIfAbsent(streamSpec.getSystemStream(), new IntermediateStreamImpl(this, streamSpec, null, null, parKeyFn));
+    if (!this.inStreams.containsKey(streamSpec.getId())) {
+      this.inStreams.putIfAbsent(streamSpec.getId(), new IntermediateStreamImpl(this, streamSpec, null, null, parKeyFn));
     }
-    IntermediateStreamImpl intStream = (IntermediateStreamImpl) this.inStreams.get(streamSpec.getSystemStream());
-    if (!this.outStreams.containsKey(streamSpec.getSystemStream())) {
-      this.outStreams.putIfAbsent(streamSpec.getSystemStream(), intStream);
+    IntermediateStreamImpl intStream = (IntermediateStreamImpl) this.inStreams.get(streamSpec.getId());
+    if (!this.outStreams.containsKey(streamSpec.getId())) {
+      this.outStreams.putIfAbsent(streamSpec.getId(), intStream);
     }
     return intStream;
   }
