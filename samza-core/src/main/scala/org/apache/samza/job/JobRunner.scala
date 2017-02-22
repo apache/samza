@@ -20,17 +20,22 @@
 package org.apache.samza.job
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{ConfigRewriter, Config}
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
+import org.apache.samza.config.Config
+import org.apache.samza.config.ConfigRewriter
+import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
+import org.apache.samza.coordinator.stream.messages.Delete
+import org.apache.samza.coordinator.stream.messages.SetConfig
 import org.apache.samza.job.ApplicationStatus.Running
+import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.operators.StreamGraphBuilder
+import org.apache.samza.system.ExecutionEnvironment
 import org.apache.samza.util.ClassLoaderHelper
 import org.apache.samza.util.CommandLine
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
+
 import scala.collection.JavaConversions._
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 
 
 object JobRunner extends Logging {
@@ -63,7 +68,21 @@ object JobRunner extends Logging {
     val cmdline = new CommandLine
     val options = cmdline.parser.parse(args: _*)
     val config = cmdline.loadConfig(options)
-    new JobRunner(rewriteConfig(config)).run()
+
+    // start execution env if it's defined
+    val envClass: String = config.getExecutionEnv
+    if (!envClass.isEmpty) {
+      val env: ExecutionEnvironment = ClassLoaderHelper.fromClassName(envClass)
+      val streamGraphBuilderClass: String = config.getStreamGraphBuilder
+      if (!streamGraphBuilderClass.isEmpty) {
+        val streamGraphBuilder: StreamGraphBuilder = ClassLoaderHelper.fromClassName(streamGraphBuilderClass)
+        env.run(streamGraphBuilder, config)
+      } else {
+        throw new SamzaException("No stream graph builder defined")
+      }
+    } else {
+      new JobRunner(rewriteConfig(config)).run()
+    }
   }
 }
 
