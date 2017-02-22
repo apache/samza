@@ -20,6 +20,7 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
@@ -27,21 +28,38 @@ import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * Implementation of a {@link PartialJoinOperatorSpec}. This class implements function
- * that only takes in one input stream among all inputs to the join and generate the join output.
+ * Implementation of a {@link PartialJoinOperatorSpec} that joins messages of type {@code M} in this stream
+ * with buffered messages of type {@code JM} in the other stream.
  *
  * @param <M>  type of messages in the input stream
  * @param <JM>  type of messages in the stream to join with
  * @param <RM>  type of messages in the joined stream
  */
-class PartialJoinOperatorImpl<M, K, JM, RM> extends OperatorImpl<M, RM> {
+class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
 
-  PartialJoinOperatorImpl(PartialJoinOperatorSpec<M, K, JM, RM> joinOp, MessageStreamImpl<M> source, Config config, TaskContext context) {
-    // TODO: implement PartialJoinOperatorImpl constructor
+  private final PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn;
+  private final PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn;
+  private final MessageStreamImpl<M> source;
+  private final Config config;
+  private final TaskContext context;
+
+  PartialJoinOperatorImpl(PartialJoinOperatorSpec<K, M, JM, RM> partialJoinOperatorSpec, MessageStreamImpl<M> source,
+      Config config, TaskContext context) {
+    this.thisPartialJoinFn = partialJoinOperatorSpec.getThisPartialJoinFn();
+    this.otherPartialJoinFn = partialJoinOperatorSpec.getOtherPartialJoinFn();
+    this.source = source;
+    this.config = config;
+    this.context = context;
   }
 
   @Override
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    // TODO: implement PartialJoinOperatorImpl processing logic
+    K key = thisPartialJoinFn.getKey(message);
+    thisPartialJoinFn.put(key, message);
+    JM jm = otherPartialJoinFn.get(key);
+    if (jm != null) {
+      this.propagateResult(thisPartialJoinFn.apply(message, jm), collector, coordinator);
+    }
   }
+
 }

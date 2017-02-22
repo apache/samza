@@ -18,39 +18,43 @@
  */
 package org.apache.samza.operators.functions;
 
-import org.apache.samza.annotation.InterfaceStability;
-
-
 /**
- * This defines the interface function a two-way join functions that takes input messages from two input
- * {@link org.apache.samza.operators.MessageStream}s and merge them into a single output joined message in the join output
+ * An internal function that maintains state and join logic for one side of a two-way join.
  */
-@InterfaceStability.Unstable
-public interface PartialJoinFunction<K, M, OM, RM> extends InitableFunction {
+public interface PartialJoinFunction<K, M, JM, RM> extends InitableFunction {
 
   /**
-   * Method to perform join method on the two input messages
+   * Joins a message in this stream with a message from another stream.
    *
-   * @param m1  message from the first input stream
-   * @param om  message from the second input stream
+   * @param m  message from this input stream
+   * @param jm  message from the other input stream
    * @return  the joined message in the output stream
    */
-  RM apply(M m1, OM om);
+  RM apply(M m, JM jm);
 
   /**
-   * Method to get the key from the input message
+   * Gets the key for the input message.
    *
-   * @param message  the input message from the first strean
+   * @param message  the input message from the first stream
    * @return  the join key in the {@code message}
    */
   K getKey(M message);
 
   /**
-   * Method to get the key from the input message in the other stream
+   * Stores the provided input message in internal state.
    *
-   * @param message  the input message from the other stream
-   * @return  the join key in the {@code message}
+   * @param key key to store the message with
+   * @param message input message to store
+   * @return the previously stored message for key or null
    */
-  K getOtherKey(OM message);
+  M put(K key, M message);
+
+  /**
+   * Gets the stored message for the provided key.
+   *
+   * @param key key to get stored message for
+   * @return the stored message if found or null.
+   */
+  M get(K key);
 
 }

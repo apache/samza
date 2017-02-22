@@ -21,6 +21,8 @@ package org.apache.samza.operators;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.HashSet;
 import java.util.Set;
@@ -101,13 +103,15 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     return wndOp.getNextStream();
   }
 
-  @Override public <K, OM, RM> MessageStream<RM> join(MessageStream<OM> otherStream, JoinFunction<K, M, OM, RM> joinFn) {
+  @Override public <K, JM, RM> MessageStream<RM> join(MessageStream<JM> otherStream, JoinFunction<K, M, JM, RM> joinFn) {
     MessageStreamImpl<RM> outputStream = new MessageStreamImpl<>(this.graph);
 
-    PartialJoinFunction<K, M, OM, RM> parJoin1 = new PartialJoinFunction<K, M, OM, RM>() {
+    PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn = new PartialJoinFunction<K, M, JM, RM>() {
+      Map<K, M> thisStreamState = new HashMap<>();
+
       @Override
-      public RM apply(M m1, OM om) {
-        return joinFn.apply(m1, om);
+      public RM apply(M m, JM jm) {
+        return joinFn.apply(m, jm);
       }
 
       @Override
@@ -116,38 +120,52 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
       }
 
       @Override
-      public K getOtherKey(OM message) {
-        return joinFn.getSecondKey(message);
+      public M put(K key, M message) {
+        return thisStreamState.put(key, message);
+      }
+
+      @Override
+      public M get(K key) {
+        return thisStreamState.get(key);
       }
 
       @Override
       public void init(Config config, TaskContext context) {
+        // joinFn#init() must only be called once, so we do it in this partial join function's #init.
         joinFn.init(config, context);
       }
     };
 
-    PartialJoinFunction<K, OM, M, RM> parJoin2 = new PartialJoinFunction<K, OM, M, RM>() {
+    PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn = new PartialJoinFunction<K, JM, M, RM>() {
+      Map<K, JM> otherStreamState = new HashMap<>();
+
       @Override
-      public RM apply(OM m1, M m) {
-        return joinFn.apply(m, m1);
+      public RM apply(JM om, M m) {
+        return joinFn.apply(m, om);
       }
 
       @Override
-      public K getKey(OM message) {
+      public K getKey(JM message) {
         return joinFn.getSecondKey(message);
       }
 
       @Override
-      public K getOtherKey(M message) {
-        return joinFn.getFirstKey(message);
+      public JM put(K key, JM message) {
+        return otherStreamState.put(getKey(message), message);
+      }
+
+      @Override
+      public JM get(K key) {
+        return otherStreamState.get(key);
       }
     };
 
-    // TODO: need to add default store functions for the two partial join functions
+    this.registeredOperatorSpecs.add(OperatorSpecs.<K, M, JM, RM>createPartialJoinOperatorSpec(
+        thisPartialJoinFn, otherPartialJoinFn, this.graph, outputStream));
 
-    ((MessageStreamImpl<OM>) otherStream).registeredOperatorSpecs.add(
-        OperatorSpecs.<OM, K, M, RM>createPartialJoinOperatorSpec(parJoin2, this.graph, outputStream));
-    this.registeredOperatorSpecs.add(OperatorSpecs.<M, K, OM, RM>createPartialJoinOperatorSpec(parJoin1, this.graph, outputStream));
+    ((MessageStreamImpl<JM>) otherStream).registeredOperatorSpecs.add(OperatorSpecs.<K, JM, M, RM>createPartialJoinOperatorSpec(
+        otherPartialJoinFn, thisPartialJoinFn, this.graph, outputStream));
+
     return outputStream;
   }
 
@@ -169,6 +187,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
         this.graph, outputStream));
     return intStream;
   }
+
   /**
    * Gets the operator specs registered to consume the output of this {@link MessageStream}. This is an internal API and
    * should not be exposed to users.
