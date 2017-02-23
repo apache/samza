@@ -52,7 +52,7 @@ public class ScheduleAfterDebounceTime {
 
   // Action name when the Processor membership changes
   public static final String ON_PROCESSOR_CHANGE = "OnProcessorChange";
-  
+
   public static final int DEBOUNCE_TIME_MS = 2000;
 
   private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
