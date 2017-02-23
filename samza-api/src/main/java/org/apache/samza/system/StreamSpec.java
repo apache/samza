@@ -200,5 +200,4 @@ public class StreamSpec {
   public String getOrDefault(String propertyName, String defaultValue) {
     return config.getOrDefault(propertyName, defaultValue);
   }
-
 }
