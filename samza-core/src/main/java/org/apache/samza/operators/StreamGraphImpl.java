@@ -200,12 +200,15 @@ public class StreamGraphImpl implements StreamGraph {
   /**
    * Helper method to be get the input stream via {@link SystemStream}
    *
-   * @param systemStream  the {@link SystemStream}
+   * @param sstream  the {@link SystemStream}
    * @return  a {@link MessageStreamImpl} object corresponding to the {@code systemStream}
    */
-  public MessageStreamImpl getInputStream(SystemStream systemStream) {
-    if (this.inStreams.containsKey(systemStream)) {
-      return (MessageStreamImpl) this.inStreams.get(systemStream);
+  public MessageStreamImpl getInputStream(SystemStream sstream) {
+    for(MessageStream entry: this.inStreams.values()) {
+      if (((InputStreamImpl) entry).getSpec().getSystemName() == sstream.getSystem() &&
+          ((InputStreamImpl) entry).getSpec().getPhysicalName() == sstream.getStream()) {
+        return (MessageStreamImpl) entry;
+      }
     }
     return null;
   }
@@ -213,13 +216,6 @@ public class StreamGraphImpl implements StreamGraph {
   <M> OutputStream<M> getOutputStream(MessageStreamImpl<M> intStream) {
     if (this.outStreams.containsValue(intStream)) {
       return (OutputStream<M>) intStream;
-    }
-    return null;
-  }
-
-  <M> MessageStream<M> getIntStream(OutputStream<M> outStream) {
-    if (this.inStreams.containsValue(outStream)) {
-      return (MessageStream<M>) outStream;
     }
     return null;
   }
