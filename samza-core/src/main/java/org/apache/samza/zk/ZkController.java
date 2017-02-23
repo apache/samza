@@ -29,5 +29,4 @@ public interface ZkController {
   void notifyJobModelChange(String version);
   void stop();
   void listenToProcessorLiveness();
-  String currentJobModelVersion();
 }

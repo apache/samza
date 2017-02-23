@@ -21,6 +21,10 @@ package org.apache.samza.zk;
 
 import java.util.List;
 
+
+/**
+ * callbacks to the caller of the ZkController
+ */
 public interface ZkControllerListener {
   void onBecomeLeader();
   void onProcessorChange(List<String> processorIds);
