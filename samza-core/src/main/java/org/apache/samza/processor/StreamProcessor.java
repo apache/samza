@@ -94,9 +94,14 @@ public class StreamProcessor {
     this(processorId, config, customMetricsReporters, (Object) asyncStreamTaskFactory);
   }
 
+
   /**
-   * Same as {@link #StreamProcessor(int, Config, Map, AsyncStreamTaskFactory)}, except task instances are created
+   *Same as {@link #StreamProcessor(int, Config, Map, AsyncStreamTaskFactory)}, except task instances are created
    * using the provided {@link StreamTaskFactory}.
+   * @param processorId - this processor Id
+   * @param config - config
+   * @param customMetricsReporters metric Reporter
+   * @param streamTaskFactory task factory to instantiate the Task
    */
   public StreamProcessor(int processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
                          StreamTaskFactory streamTaskFactory) {
@@ -106,6 +111,9 @@ public class StreamProcessor {
   /**
    * Same as {@link #StreamProcessor(int, Config, Map, AsyncStreamTaskFactory)}, except task instances are created
    * using the "task.class" configuration instead of a task factory.
+   * @param processorId - this processor Id
+   * @param config - config
+   * @param customMetricsReporters metrics
    */
   public StreamProcessor(int processorId, Config config, Map<String, MetricsReporter> customMetricsReporters) {
     this(processorId, config, customMetricsReporters, (Object) null);

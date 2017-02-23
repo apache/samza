@@ -45,11 +45,14 @@ public class ScheduleAfterDebounceTime {
   // Names of actions.
   // When the same action is scheduled it needs to cancel the previous one.
   // To accomplish that we keep the previous future in a map, keyed by the action name.
-  // Here we predefine some actions which are used in the ZK based standalone app.
-  public static final String JOB_MODEL_VERSION_CHANGE = "JobModelVersionChange";
-  public static final String ON_PROCESSOR_CHANGE = "OnProcessorChange";
-  public static final String ON_DATA_CHANGE_ON = "OnDataChangeOn";
 
+  // Here we predefine some actions which are used in the ZK based standalone app.
+  // Action name when the JobModel version changes
+  public static final String JOB_MODEL_VERSION_CHANGE = "JobModelVersionChange";
+
+  // Action name when the Processor membership changes
+  public static final String ON_PROCESSOR_CHANGE = "OnProcessorChange";
+  
   public static final int DEBOUNCE_TIME_MS = 2000;
 
   private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(

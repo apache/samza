@@ -31,20 +31,44 @@ import java.util.List;
 public class ZkControllerImpl implements ZkController {
   private static final Logger LOG = LoggerFactory.getLogger(ZkControllerImpl.class);
 
-  private String processorIdStr;
+  private final String processorIdStr;
   private final ZkUtils zkUtils;
-  private final ZkListener zkListener;
+  private final ZkControllerListener zkControllerListener;
   private final ZkLeaderElector leaderElector;
   private final ScheduleAfterDebounceTime debounceTimer;
 
-  public ZkControllerImpl (String processorIdStr, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer, ZkListener zkListener) {
+  public ZkControllerImpl(String processorIdStr, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer,
+      ZkControllerListener zkControllerListener) {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
-    this.zkListener = zkListener;
-    this.leaderElector = new ZkLeaderElector(this.processorIdStr, this.zkUtils);
+    this.zkControllerListener = zkControllerListener;
+    this.leaderElector = new ZkLeaderElector(processorIdStr, zkUtils,
+        new ZkLeaderElector.ZkLeaderElectorListener() {
+          @Override
+          public void onBecomingLeader() {
+            onBecomeLeader();
+          }
+        }
+    );
     this.debounceTimer = debounceTimer;
 
     init();
+  }
+
+  private void init() {
+    ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
+    zkUtils.makeSurePersistentPathsExists(
+        new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
+            .getJobModelPathPrefix()});
+  }
+
+  private void onBecomeLeader() {
+
+    listenToProcessorLiveness(); // subscribe for adding new processors
+
+    // inform the caller
+    zkControllerListener.onBecomeLeader();
+
   }
 
   @Override
@@ -52,24 +76,10 @@ public class ZkControllerImpl implements ZkController {
 
     // TODO - make a loop here with some number of attempts.
     // possibly split into two method - becomeLeader() and becomeParticipant()
-    boolean isLeader = leaderElector.tryBecomeLeader();
-    if(isLeader) {
-      listenToProcessorLiveness();
-
-      // register the debounce call under the same action name as processor change, to make sure it will get cancelled
-      // if more processors join before the time is up. They both use the same action - onBecomeLeader()
-      debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> zkListener.onBecomeLeader());   // RECONSIDER MAKING THIS SYNC CALL
-    }
+    leaderElector.tryBecomeLeader();
 
     // subscribe to JobModel version updates
     zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(debounceTimer));
-  }
-
-  private void init() {
-    ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
-    zkUtils.makeSurePersistentPathsExists(new String[] {
-        keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder.getJobModelPathPrefix()});
   }
 
   @Override
@@ -79,7 +89,7 @@ public class ZkControllerImpl implements ZkController {
 
   @Override
   public void notifyJobModelChange(String version) {
-    zkListener.onNewJobModelAvailable(version);
+    zkControllerListener.onNewJobModelAvailable(version);
   }
 
   @Override
@@ -119,7 +129,7 @@ public class ZkControllerImpl implements ZkController {
           "ZkControllerImpl::ZkProcessorChangeHandler::handleChildChange - Path: " + parentPath + "  Current Children: "
               + currentChilds);
       debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-          ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> zkListener.onProcessorChange(currentChilds));
+          ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> zkControllerListener.onProcessorChange(currentChilds));
     }
   }
 
@@ -144,15 +154,15 @@ public class ZkControllerImpl implements ZkController {
     }
     @Override
     public void handleDataDeleted(String dataPath) throws Exception {
-      throw new SamzaException("version update path has been deleted!.");
+      throw new SamzaException("version update path has been deleted!");
     }
   }
 
   public void shutdown() {
-    if(debounceTimer != null)
+    if (debounceTimer != null)
       debounceTimer.stopScheduler();
 
-    if(zkUtils != null)
+    if (zkUtils != null)
       zkUtils.close();
   }
 }
