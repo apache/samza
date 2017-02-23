@@ -50,7 +50,7 @@ public class ZkLeaderElector implements LeaderElector {
   private final String hostName;
 
   private AtomicBoolean isLeader = new AtomicBoolean(false);
-  private final IZkDataListener PreviousProcessorChangeListener;
+  private final IZkDataListener previousProcessorChangeListener;
   ZkLeaderElectorListener zkLeaderElectorListener;
   private String currentSubscription = null;
   private final Random random = new Random();
@@ -66,9 +66,9 @@ public class ZkLeaderElector implements LeaderElector {
     this.hostName = getHostName();
     this.zkLeaderElectorListener = zkLeaderElectorListener; // listener to inform the caller that they have become the leader
     if (previousProcessorChangeListener == null)
-      this.PreviousProcessorChangeListener =  new PreviousProcessorChangeListener();
+      this.previousProcessorChangeListener =  new PreviousProcessorChangeListener();
     else
-      this.PreviousProcessorChangeListener = previousProcessorChangeListener;
+      this.previousProcessorChangeListener = previousProcessorChangeListener;
   }
 
   public ZkLeaderElector(String processorIdStr, ZkUtils zkUtils, ZkLeaderElectorListener zkLeaderElectorListener) {
@@ -116,12 +116,12 @@ public class ZkLeaderElector implements LeaderElector {
       if (currentSubscription != null) {
         LOGGER.debug(zLog("Unsubscribing data change for " + currentSubscription));
         zkUtils.unsubscribeDataChanges(keyBuilder.getProcessorsPath() + "/" + currentSubscription,
-            PreviousProcessorChangeListener);
+            previousProcessorChangeListener);
       }
       currentSubscription = predecessor;
       LOGGER.info(zLog("Subscribing data change for " + predecessor));
       zkUtils.subscribeDataChanges(keyBuilder.getProcessorsPath() + "/" + currentSubscription,
-          PreviousProcessorChangeListener);
+          previousProcessorChangeListener);
     }
     /**
      * Verify that the predecessor still exists. This step is needed because the ZkClient subscribes for data changes

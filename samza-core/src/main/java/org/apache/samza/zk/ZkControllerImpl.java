@@ -105,11 +105,6 @@ public class ZkControllerImpl implements ZkController {
     zkUtils.subscribeToProcessorChange(new ZkProcessorChangeHandler(debounceTimer));
   }
 
-  @Override
-  public String currentJobModelVersion() {
-    return zkUtils.getJobModelVersion();
-  }
-
   // Only by Leader
   class ZkProcessorChangeHandler  implements IZkChildListener {
     private final ScheduleAfterDebounceTime debounceTimer;
