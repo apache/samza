@@ -20,6 +20,7 @@
 package org.apache.samza.zk;
 
 import org.apache.samza.SamzaException;
+import com.google.common.base.Strings;
 
 /**
  * The following ZK hierarchy is maintained for Standalone jobs:
@@ -90,5 +91,4 @@ public class ZkKeyBuilder {
   public String getJobModelVersionBarrierPrefix() {
     return String.format("/%s/versionBarriers", pathPrefix);
   }
-
 }

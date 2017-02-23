@@ -22,19 +22,18 @@ package org.apache.samza.example;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamSpec;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.Offset;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 import java.util.Set;
 
 
@@ -65,16 +64,9 @@ public class TestJoinExample  extends TestExampleBase {
   public void init(StreamGraph graph, Config config) {
 
     for (SystemStream input : inputs.keySet()) {
+      StreamSpec inputStreamSpec = new StreamSpec(input.toString(), input.getStream(), input.getSystem());
       MessageStream<JsonMessageEnvelope> newSource = graph.<Object, Object, InputMessageEnvelope>createInStream(
-          new StreamSpec() {
-            @Override public SystemStream getSystemStream() {
-              return input;
-            }
-
-            @Override public Properties getProperties() {
-              return null;
-            }
-          }, null, null).map(this::getInputMessage);
+          inputStreamSpec, null, null).map(this::getInputMessage);
       if (joinOutput == null) {
         joinOutput = newSource;
       } else {
@@ -82,15 +74,9 @@ public class TestJoinExample  extends TestExampleBase {
       }
     }
 
-    joinOutput.sendTo(graph.createOutStream(new StreamSpec() {
-      @Override public SystemStream getSystemStream() {
-        return null;
-      }
-
-      @Override public Properties getProperties() {
-        return null;
-      }
-    }, new StringSerde("UTF-8"), new JsonSerde<>()));
+    joinOutput.sendTo(graph.createOutStream(
+            new StreamSpec("joinOutput", "JoinOutputEvent", "kafka"),
+            new StringSerde("UTF-8"), new JsonSerde<>()));
 
   }
 

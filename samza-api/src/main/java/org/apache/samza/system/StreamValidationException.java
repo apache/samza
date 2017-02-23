@@ -16,31 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.system;
 
-import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.system.SystemStream;
-
-import java.util.Properties;
+import org.apache.samza.SamzaException;
 
 
-/**
- * This interface defines the specification of a {@link SystemStream}. It will be used by the {@link org.apache.samza.system.SystemAdmin}
- * to create a {@link SystemStream}
- */
-@InterfaceStability.Unstable
-public interface StreamSpec {
-  /**
-   * Get the {@link SystemStream}
-   *
-   * @return  {@link SystemStream} object
-   */
-  SystemStream getSystemStream();
+public class StreamValidationException extends SamzaException {
+  private static final long serialVersionUID = 1L;
 
-  /**
-   * Get the physical properties of the {@link SystemStream}
-   *
-   * @return  the properties of this stream
-   */
-  Properties getProperties();
+  public StreamValidationException(String s) {
+    super(s);
+  }
 }

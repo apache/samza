@@ -32,11 +32,9 @@ import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.ExecutionEnvironment;
-import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.CommandLine;
-
-import java.util.Properties;
 
 
 /**
@@ -113,25 +111,9 @@ public class KeyValueStoreExample implements StreamGraphBuilder {
     }
   }
 
-  StreamSpec input1 = new StreamSpec() {
-    @Override public SystemStream getSystemStream() {
-      return new SystemStream("kafka", "PageViewEvent");
-    }
+  StreamSpec input1 = new StreamSpec("pageViewEventStream", "PageViewEvent", "kafka");
 
-    @Override public Properties getProperties() {
-      return null;
-    }
-  };
-
-  StreamSpec output = new StreamSpec() {
-    @Override public SystemStream getSystemStream() {
-      return new SystemStream("kafka", "PageViewPerMember5min");
-    }
-
-    @Override public Properties getProperties() {
-      return null;
-    }
-  };
+  StreamSpec output = new StreamSpec("pageViewEventPerMemberStream", "PageViewEventCountByMemberId", "kafka");
 
   class PageViewEvent implements MessageEnvelope<String, PageViewEvent> {
     String pageId;

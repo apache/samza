@@ -31,7 +31,7 @@ Take note of the path where you cloned hello-samza. You will need this to config
 
 
 #### Build the Samza REST Service package
-The source code for Samza REST is in the samza-rest module of the Samza repository. It To build it, execute the following gradle task from the root of the project.
+The source code for Samza REST is in the samza-rest module of the Samza repository. To build it, execute the following gradle task from the root of the project.
 {% highlight bash %}
 ./gradlew samza-rest:clean releaseRestServiceTar
 {% endhighlight %}
@@ -48,7 +48,7 @@ Run the following commands:
 {% highlight bash %}
 cd samza-rest/build/distributions/
 mkdir -p deploy/samza-rest
-tar -xvf ./samza-rest-0.11.1-SNAPSHOT.tgz -C deploy/samza-rest
+tar -xvf ./samza-rest-0.13.0-SNAPSHOT.tgz -C deploy/samza-rest
 {% endhighlight %}
 
 #### Configure the Installations Path
