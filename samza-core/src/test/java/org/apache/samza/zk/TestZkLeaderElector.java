@@ -76,6 +76,7 @@ public class TestZkLeaderElector {
 
   @After
   public void testTeardown() {
+    testZkUtils.deleteRoot();
     testZkUtils.close();
   }
 
@@ -487,10 +488,8 @@ public class TestZkLeaderElector {
         });
 
     // Before Leader Election
-    leaderElector1.amILeader();
-    leaderElector2.amILeader();
-    Assert.assertFalse(TestZkUtils.testWithDelayBackOff(()->isLeader1.res, 2, 100));
-    Assert.assertFalse(TestZkUtils.testWithDelayBackOff(()->isLeader2.res, 2, 100));
+    Assert.assertFalse(leaderElector1.amILeader());
+    Assert.assertFalse(leaderElector2.amILeader());
 
     leaderElector1.tryBecomeLeader();
     leaderElector2.tryBecomeLeader();

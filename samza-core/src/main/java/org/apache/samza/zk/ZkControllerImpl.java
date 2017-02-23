@@ -154,7 +154,7 @@ public class ZkControllerImpl implements ZkController {
     }
     @Override
     public void handleDataDeleted(String dataPath) throws Exception {
-      throw new SamzaException("version update path has been deleted!.");
+      throw new SamzaException("version update path has been deleted!");
     }
   }
 

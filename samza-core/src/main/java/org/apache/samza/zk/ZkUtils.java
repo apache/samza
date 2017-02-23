@@ -184,4 +184,12 @@ public class ZkUtils {
     zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
   }
 
+  public void deleteRoot() {
+    String rootPath = keyBuilder.getRootPath();
+    if (rootPath != null && !rootPath.isEmpty() && zkClient.exists(rootPath)) {
+      LOG.info("pid=" + processorId + " Deleteing root: " + rootPath);
+      zkClient.deleteRecursive(rootPath);
+    }
+  }
+
 }

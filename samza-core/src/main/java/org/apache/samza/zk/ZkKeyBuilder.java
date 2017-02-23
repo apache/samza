@@ -19,7 +19,6 @@
 
 package org.apache.samza.zk;
 
-import com.google.common.base.Strings;
 import org.apache.samza.SamzaException;
 
 /**
@@ -44,11 +43,10 @@ public class ZkKeyBuilder {
   private final String pathPrefix;
 
   static final String PROCESSORS_PATH = "processors";
-  static final String PROCESSOR_ID_PREFIX = "processor-";
   public static final String JOBMODEL_VERSION_PATH = "jobModelVersion";
 
   public ZkKeyBuilder(String pathPrefix) {
-    if (Strings.isNullOrEmpty(pathPrefix)) {
+    if (pathPrefix == null || pathPrefix.isEmpty()) {
       throw new SamzaException("Zk PathPrefix cannot be null or empty!");
     }
     this.pathPrefix = pathPrefix.trim();
@@ -72,7 +70,7 @@ public class ZkKeyBuilder {
    * @return String representing the processor ID
    */
   public static String parseIdFromPath(String path) {
-    if (!Strings.isNullOrEmpty(path))
+    if (path != null && !path.isEmpty())
       return path.substring(path.lastIndexOf("/") + 1);
     return null;
   }
