@@ -37,7 +37,7 @@ import static org.mockito.Mockito.*;
 public class TestStreamOperatorImpl {
 
   @Test
-  @unchecked
+  @SuppressWarnings("unchecked")
   public void testSimpleOperator() {
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> mockOp = mock(StreamOperatorSpec.class);
     FlatMapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> txfmFn = mock(FlatMapFunction.class);
