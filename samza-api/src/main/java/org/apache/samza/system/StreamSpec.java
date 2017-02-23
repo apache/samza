@@ -197,11 +197,6 @@ public class StreamSpec {
   }
 
   private void validateLogicalIdentifier(String identifierName, String identifierValue) {
-    /*if (identifier == null) {
-      throw new NullPointerException();
-    } else if (identifier.isEmpty()) {
-
-    } else*/
     if (!identifierValue.matches("[A-Za-z0-9_-]+")) {
       throw new IllegalArgumentException(String.format("Identifier '%s' must match the expression [A-Za-z0-9_-]+", identifierName));
     }

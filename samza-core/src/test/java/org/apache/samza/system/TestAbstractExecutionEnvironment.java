@@ -233,6 +233,17 @@ public class TestAbstractExecutionEnvironment {
     env.streamFromConfig(STREAM_ID, TEST_PHYSICAL_NAME, TEST_SYSTEM_INVALID);
   }
 
+  // Empty strings are NOT allowed for system name, because it's used as an identifier in the config.
+  @Test(expected = IllegalArgumentException.class)
+  public void testStreamFromConfigSystemNameArgEmpty() {
+    Config config = buildStreamConfig(STREAM_ID,
+        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2,
+        StreamConfig.SYSTEM(), TEST_SYSTEM2);
+
+    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    env.streamFromConfig(STREAM_ID, TEST_PHYSICAL_NAME, "");
+  }
+
   // Null is not allowed for system name.
   @Test(expected = NullPointerException.class)
   public void testStreamFromConfigSystemNameArgNull() {
@@ -252,6 +263,16 @@ public class TestAbstractExecutionEnvironment {
 
     ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     env.streamFromConfig(STREAM_ID_INVALID);
+  }
+
+  // Empty strings are NOT allowed for streamId, because it's used as an identifier in the config.
+  @Test(expected = IllegalArgumentException.class)
+  public void testStreamFromConfigStreamIdEmpty() {
+    Config config = buildStreamConfig("",
+        StreamConfig.SYSTEM(), TEST_SYSTEM);
+
+    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    env.streamFromConfig("");
   }
 
   // Null is not allowed for streamId.
