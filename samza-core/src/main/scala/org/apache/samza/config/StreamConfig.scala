@@ -19,13 +19,23 @@
 
 package org.apache.samza.config
 
-import org.apache.samza.util.Logging
-import scala.collection.JavaConversions._
+import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.system.SystemStream
+import org.apache.samza.util.Logging
+
+import scala.collection.JavaConversions._
 
 object StreamConfig {
   // stream config constants
   val STREAM_PREFIX = "systems.%s.streams.%s."
+
+  val SYSTEM = "system"
+  val PHYSICAL_NAME = "physicalName"
+  val STREAM_PREFIX_BY_ID = "streams.%s."
+  val SYSTEM_FOR_STREAM_ID = STREAM_PREFIX_BY_ID + SYSTEM
+  val PHYSICAL_NAME_FOR_STREAM_ID = STREAM_PREFIX_BY_ID + PHYSICAL_NAME
+  val SAMZA_STREAM_PROPERTIES = Set(StreamConfig.SYSTEM, StreamConfig.PHYSICAL_NAME)
+
   val MSG_SERDE = STREAM_PREFIX + "samza.msg.serde"
   val KEY_SERDE = STREAM_PREFIX + "samza.key.serde"
   val CONSUMER_RESET_OFFSET = STREAM_PREFIX + "samza.reset.offset"
@@ -78,5 +88,66 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
         val streamName = k.substring(0, k.length - 16 /* .samza.XXX.serde length */ )
         new SystemStream(systemName, streamName)
       }).toSet
+  }
+
+  /**
+    * Gets the stream properties from the legacy config style:
+    * systems.{system}.streams.{streams}.*
+    *
+    * @param systemName the system name under which the properties are configured
+    * @param streamName the stream name
+    * @return           the map of properties for the stream
+    */
+  def getSystemStreamProperties(systemName: String, streamName: String) = {
+    config.subset(StreamConfig.STREAM_PREFIX format(systemName, streamName), true)
+  }
+
+  /**
+    * Gets the properties for the specified streamId from the config.
+    * This method supercedes {@link StreamConfig.#getSystemStreamProperties}
+    * It first applies any legacy configs from this config location:
+    * systems.{system}.streams.{stream}.*
+    *
+    * It then overrides them with properties of the new config format:
+    * streams.{streamId}.*
+    *
+    * @param streamId the identifier for the stream in the config.
+    * @return         the merged map of config properties from both the legacy and new config styles
+    */
+  def getStreamProperties(streamId: String) = {
+    val properties = subset(StreamConfig.STREAM_PREFIX_BY_ID format streamId)
+    val inheritedLegacyProperties:java.util.Map[String, String] = getSystemStreamProperties(getSystem(streamId), streamId)
+    val filteredStreamProperties:java.util.Map[String, String] = properties.filterKeys(k => !StreamConfig.SAMZA_STREAM_PROPERTIES.contains(k))
+    new MapConfig(java.util.Arrays.asList(inheritedLegacyProperties, filteredStreamProperties))
+  }
+
+  /**
+    * Gets the System associated with the specified streamId.
+    * It first looks for the property
+    * streams.{streamId}.system
+    *
+    * If no value was provided, it uses
+    * job.default.system
+    *
+    * @param streamId the identifier for the stream in the config.
+    * @return         the system name associated with the stream.
+    */
+  def getSystem(streamId: String) = {
+    getOption(StreamConfig.SYSTEM_FOR_STREAM_ID format streamId) match {
+      case Some(system) => system
+      case _ => config.getDefaultSystem.getOrElse(throw new ConfigException("Missing %s configuration. Cannot bind stream to a system without it."
+        format(StreamConfig.SYSTEM_FOR_STREAM_ID format(streamId))))
+    }
+  }
+
+  /**
+    * Gets the physical name for the specified streamId.
+    *
+    * @param streamId             the identifier for the stream in the config.
+    * @param defaultPhysicalName  the default to use if the physical name is missing.
+    * @return                     the physical identifier for the stream or the default if it is undefined.
+    */
+  def getPhysicalName(streamId: String, defaultPhysicalName: String) = {
+    get(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID format streamId, defaultPhysicalName)
   }
 }

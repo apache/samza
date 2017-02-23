@@ -33,7 +33,11 @@ import org.slf4j.LoggerFactory;
 /**
  * This class implements the {@link ExecutionEnvironment} that runs the applications in YARN environment
  */
-public class RemoteExecutionEnvironment implements ExecutionEnvironment {
+public class RemoteExecutionEnvironment extends AbstractExecutionEnvironment {
+
+  public RemoteExecutionEnvironment(Config config) {
+    super(config);
+  }
   private static final Logger log = LoggerFactory.getLogger(RemoteExecutionEnvironment.class);
 
   @Override public void run(StreamGraphBuilder app, Config config) {

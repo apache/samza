@@ -18,6 +18,7 @@
  */
 package org.apache.samza.system;
 
+import java.lang.reflect.Constructor;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.operators.StreamGraphBuilder;
@@ -28,7 +29,7 @@ import org.apache.samza.config.Config;
  * Interface to be implemented by physical execution engine to deploy the config and jobs to run the {@link org.apache.samza.operators.StreamGraph}
  */
 @InterfaceStability.Unstable
-public interface ExecutionEnvironment {
+public interface ExecutionEnvironment extends StreamProvider {
 
   String ENVIRONMENT_CONFIG = "job.execution.environment.class";
   String DEFAULT_ENVIRONMENT_CLASS = "org.apache.samza.system.StandaloneExecutionEnvironment";
@@ -51,8 +52,10 @@ public interface ExecutionEnvironment {
    */
   static ExecutionEnvironment fromConfig(Config config) {
     try {
-      if (ExecutionEnvironment.class.isAssignableFrom(Class.forName(config.get(ENVIRONMENT_CONFIG, DEFAULT_ENVIRONMENT_CLASS)))) {
-        return (ExecutionEnvironment) Class.forName(config.get(ENVIRONMENT_CONFIG, DEFAULT_ENVIRONMENT_CLASS)).newInstance();
+      Class<?> environmentClass = Class.forName(config.get(ENVIRONMENT_CONFIG, DEFAULT_ENVIRONMENT_CLASS));
+      if (ExecutionEnvironment.class.isAssignableFrom(environmentClass)) {
+        Constructor<?> constructor = environmentClass.getConstructor(Config.class); // *sigh*
+        return (ExecutionEnvironment) constructor.newInstance(config);
       }
     } catch (Exception e) {
       throw new ConfigException(String.format("Problem in loading ExecutionEnvironment class %s", config.get(ENVIRONMENT_CONFIG)), e);
