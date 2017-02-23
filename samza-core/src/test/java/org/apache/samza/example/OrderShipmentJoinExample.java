@@ -23,16 +23,13 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamSpec;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.ExecutionEnvironment;
-import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
-
-import java.util.Properties;
 
 
 /**
@@ -71,35 +68,11 @@ public class OrderShipmentJoinExample implements StreamGraphBuilder {
     standaloneEnv.run(new OrderShipmentJoinExample(), config);
   }
 
-  StreamSpec input1 = new StreamSpec() {
-    @Override public SystemStream getSystemStream() {
-      return new SystemStream("kafka", "Orders");
-    }
+  StreamSpec input1 = new StreamSpec("orderStream", "OrderEvent", "kafka");
 
-    @Override public Properties getProperties() {
-      return null;
-    }
-  };
+  StreamSpec input2 = new StreamSpec("shipmentStream", "ShipmentEvent", "kafka");
 
-  StreamSpec input2 = new StreamSpec() {
-    @Override public SystemStream getSystemStream() {
-      return new SystemStream("kafka", "Shipment");
-    }
-
-    @Override public Properties getProperties() {
-      return null;
-    }
-  };
-
-  StreamSpec output = new StreamSpec() {
-    @Override public SystemStream getSystemStream() {
-      return new SystemStream("kafka", "FulfilledOrders");
-    }
-
-    @Override public Properties getProperties() {
-      return null;
-    }
-  };
+  StreamSpec output = new StreamSpec("joinedOrderShipmentStream", "OrderShipmentJoinEvent", "kafka");
 
   class OrderRecord implements MessageEnvelope<String, OrderRecord> {
     String orderId;

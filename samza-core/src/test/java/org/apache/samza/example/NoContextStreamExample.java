@@ -28,13 +28,12 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.ExecutionEnvironment;
-import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.CommandLine;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 
 
 /**
@@ -42,35 +41,11 @@ import java.util.Properties;
  */
 public class NoContextStreamExample implements StreamGraphBuilder {
 
-  StreamSpec input1 = new StreamSpec() {
-    @Override public SystemStream getSystemStream() {
-      return new SystemStream("kafka", "input1");
-    }
+  StreamSpec input1 = new StreamSpec("inputStreamA", "PageViewEvent", "kafka");
 
-    @Override public Properties getProperties() {
-      return null;
-    }
-  };
+  StreamSpec input2 = new StreamSpec("inputStreamB", "RumLixEvent", "kafka");
 
-  StreamSpec input2 = new StreamSpec() {
-    @Override public SystemStream getSystemStream() {
-      return new SystemStream("kafka", "input2");
-    }
-
-    @Override public Properties getProperties() {
-      return null;
-    }
-  };
-
-  StreamSpec output = new StreamSpec() {
-    @Override public SystemStream getSystemStream() {
-      return new SystemStream("kafka", "output");
-    }
-
-    @Override public Properties getProperties() {
-      return null;
-    }
-  };
+  StreamSpec output = new StreamSpec("joinedPageViewStream", "PageViewJoinRumLix", "kafka");
 
   class MessageType {
     String joinKey;
