@@ -45,8 +45,8 @@ public class TestZkKeyBuilder {
   @Test
   public void testParseIdFromPath() {
     Assert.assertEquals(
-        ZkKeyBuilder.PROCESSOR_ID_PREFIX + "1",
-        ZkKeyBuilder.parseIdFromPath("/test/processors/" + ZkKeyBuilder.PROCESSOR_ID_PREFIX + "1"));
+        "1",
+        ZkKeyBuilder.parseIdFromPath("/test/processors/" + "1"));
     Assert.assertNull(ZkKeyBuilder.parseIdFromPath(null));
     Assert.assertNull(ZkKeyBuilder.parseIdFromPath(""));
   }
