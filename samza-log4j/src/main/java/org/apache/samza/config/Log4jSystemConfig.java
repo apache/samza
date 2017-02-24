@@ -19,6 +19,9 @@
 
 package org.apache.samza.config;
 
+import org.apache.samza.system.SystemStream;
+
+
 /**
  * This class contains the methods for getting properties that are needed by the
  * StreamAppender.
@@ -78,7 +81,8 @@ public class Log4jSystemConfig extends JavaSystemConfig {
   }
 
   public String getStreamSerdeName(String systemName, String streamName) {
-    String streamSerdeNameConfig = String.format(StreamConfig.SYSTEM_STREAM_MSG_SERDE(), systemName, streamName);
-    return get(streamSerdeNameConfig, null);
+    StreamConfig streamConfig =  new StreamConfig(this);
+    scala.Option<String> option = streamConfig.getStreamMsgSerde(new SystemStream(systemName, streamName));
+    return option.isEmpty() ? null : option.get();
   }
 }

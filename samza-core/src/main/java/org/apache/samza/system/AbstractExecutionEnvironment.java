@@ -38,7 +38,6 @@ public abstract class AbstractExecutionEnvironment implements ExecutionEnvironme
   @Override
   public StreamSpec streamFromConfig(String streamId) {
     StreamConfig streamConfig = new StreamConfig(config);
-
     String system = streamConfig.getSystem(streamId);
     String physicalName = streamConfig.getPhysicalName(streamId, streamId);
     Map<String, String> properties = streamConfig.getStreamProperties(streamId);
@@ -49,17 +48,14 @@ public abstract class AbstractExecutionEnvironment implements ExecutionEnvironme
   @Override
   public StreamSpec streamFromConfig(String streamId, String physicalName) {
     StreamConfig streamConfig = new StreamConfig(config);
-
     String system = streamConfig.getSystem(streamId);
-    Map<String, String> properties = streamConfig.getStreamProperties(streamId);
 
-    return new StreamSpec(streamId, physicalName, system, properties);
+    return streamFromConfig(streamId, physicalName, system);
   }
 
   @Override
   public StreamSpec streamFromConfig(String streamId, String physicalName, String system) {
     StreamConfig streamConfig = new StreamConfig(config);
-
     Map<String, String> properties = streamConfig.getStreamProperties(streamId);
 
     return new StreamSpec(streamId, physicalName, system, properties);

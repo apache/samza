@@ -21,7 +21,6 @@ package org.apache.samza.system;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
@@ -116,7 +115,7 @@ public class TestAbstractExecutionEnvironment {
   }
 
   // System is required. Throw if it cannot be determined.
-  @Test(expected = ConfigException.class)
+  @Test(expected = Exception.class)
   public void testStreamFromConfigWithOutSystemInConfig() {
     Config config = buildStreamConfig(STREAM_ID,
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME);
@@ -125,19 +124,18 @@ public class TestAbstractExecutionEnvironment {
     StreamSpec spec = env.streamFromConfig(STREAM_ID);
 
     assertEquals(TEST_SYSTEM, spec.getSystemName());
-
   }
 
   // The properties in the config "streams.{streamId}.*" should be passed through to the spec.
   @Test
   public void testStreamFromConfigPropertiesPassthrough() {
     Config config = buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
-        StreamConfig.SYSTEM(), TEST_SYSTEM,
-        "systemProperty1", "systemValue1",
-        "systemProperty2", "systemValue2",
-        "systemProperty3", "systemValue3");
-    
+                                    StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
+                                    StreamConfig.SYSTEM(), TEST_SYSTEM,
+                                    "systemProperty1", "systemValue1",
+                                    "systemProperty2", "systemValue2",
+                                    "systemProperty3", "systemValue3");
+
     ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     StreamSpec spec = env.streamFromConfig(STREAM_ID);
 
@@ -295,7 +293,7 @@ public class TestAbstractExecutionEnvironment {
   private Config buildStreamConfig(String streamId, String... kvs) {
     // inject streams.x. into each key
     for (int i = 0; i < kvs.length - 1; i += 2) {
-      kvs[i] = String.format(StreamConfig.STREAM_PREFIX_BY_ID(), streamId) + kvs[i];
+      kvs[i] = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId) + kvs[i];
     }
     return buildConfig(kvs);
   }

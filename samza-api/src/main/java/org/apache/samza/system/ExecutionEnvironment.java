@@ -73,4 +73,57 @@ public interface ExecutionEnvironment extends StreamProvider {
    */
   void run(StreamGraphBuilder graphBuilder, Config config);
 
+  /**
+   * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
+   *
+   * The stream configurations are read from the following properties in the config:
+   * {@code streams.{$streamId}.*}
+   * <br>
+   * All properties matching this pattern are assumed to be system-specific with two exceptions. The following two
+   * properties are Samza properties which are used to bind the stream to a system and a physical resource on that system.
+   *
+   * <ul>
+   *   <li>samza.system -         The name of the System on which this stream will be used. If this property isn't defined
+   *                              the stream will be associated with the System defined in {@code job.default.system}</li>
+   *   <li>samza.physical.name -  The system-specific name for this stream. It could be a file URN, topic name, or other identifer.</li>
+   * </ul>
+   *
+   * @param streamId  The logical identifier for the stream in Samza.
+   * @return          The {@link StreamSpec} instance.
+   */
+  StreamSpec streamFromConfig(String streamId);
+
+  /**
+   * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
+   *
+   * The stream configurations are read from the following properties in the config:
+   * {@code streams.{$streamId}.*}
+   * <br>
+   * All properties matching this pattern are assumed to be system-specific with one exception. The following
+   * property is a Samza property which is used to bind the stream to a system.
+   *
+   * <ul>
+   *   <li>samza.system - The name of the System on which this stream will be used. If this property isn't defined
+   *                      the stream will be associated with the System defined in {@code job.default.system}</li>
+   * </ul>
+   *
+   * @param streamId      The logical identifier for the stream in Samza.
+   * @param physicalName  The system-specific name for this stream. It could be a file URN, topic name, or other identifer.
+   * @return              The {@link StreamSpec} instance.
+   */
+  StreamSpec streamFromConfig(String streamId, String physicalName);
+
+  /**
+   * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
+   *
+   * The stream configurations are read from the following properties in the config:
+   * {@code streams.{$streamId}.*}
+   *
+   * @param streamId      The logical identifier for the stream in Samza.
+   * @param physicalName  The system-specific name for this stream. It could be a file URN, topic name, or other identifer.
+   * @param systemName    The name of the System on which this stream will be used.
+   * @return              The {@link StreamSpec} instance.
+   */
+  StreamSpec streamFromConfig(String streamId, String physicalName, String systemName);
+
 }
