@@ -26,29 +26,15 @@ import org.apache.samza.config.ZkConfig;
 
 public class ZkTestUtils {
   private static final String ZK_JOB_COORDINATOR_FACTORY = "org.apache.samza.zk.ZkJobCoordinatorFactory";
-<<<<<<< HEAD
-<<<<<<< HEAD
-//  private static final String STANDALONE_SSP_GROUPER_FACTORY = "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory";
-=======
     private static final String STANDALONE_SSP_GROUPER_FACTORY = "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory";
->>>>>>> JobModelPublish
 //  private static final String STANDALONE_TASK_NAME_GROUPER_FACTORY = "org.apache.samza.container.grouper.task.SingleContainerGrouperFactory";
-=======
->>>>>>> ZkTestUtils
   private static final String KAFKA_SYSTEM_FACTORY = "org.apache.samza.system.kafka.KafkaSystemFactory";
 
   public static final String JOB_NAME = "job.name";
   private static final String TASK_CLASS = "task.class";
-<<<<<<< HEAD
   private static final String JOB_COORDINATOR_FACTORY = "job.coordinator.factory";
-<<<<<<< HEAD
-//  private static final String TASK_NAME_GROUPER_FACTORY = "task.name.grouper.factory";
-=======
   private static final String TASK_NAME_GROUPER_FACTORY = "task.name.grouper.factory";
->>>>>>> JobModelPublish
 //  private static final String SSP_GROUPER_FACTORY = "job.systemstreampartition.grouper.factory";
-=======
->>>>>>> ZkTestUtils
 
   private static final String ZOOKEEPER_CONNECT_FORMAT_STRING = "systems.%s.consumer.zookeeper.connect";
   private static final String BOOTSTRAP_SERVERS_FORMAT_STRING = "systems.%s.producer.bootstrap.servers";
@@ -72,11 +58,6 @@ public class ZkTestUtils {
         put(TASK_CLASS, taskClass);
         put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, ZK_JOB_COORDINATOR_FACTORY);
         put(ZkConfig.ZK_CONNECT, zkConnect);
-<<<<<<< HEAD
-//        put(SSP_GROUPER_FACTORY, STANDALONE_SSP_GROUPER_FACTORY);
-//        put(TASK_NAME_GROUPER_FACTORY, STANDALONE_TASK_NAME_GROUPER_FACTORY);
-=======
->>>>>>> ZkTestUtils
       }
     };
   }
