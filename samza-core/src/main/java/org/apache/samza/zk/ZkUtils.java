@@ -19,6 +19,7 @@
 
 package org.apache.samza.zk;
 
+import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
@@ -58,6 +59,7 @@ public class ZkUtils {
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
+  private final String processorId = "TO BE PASSED IN THE CONSTRUCTOR"; //TODO
 
   public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs) {
     this.keyBuilder = zkKeyBuilder;
@@ -143,4 +145,51 @@ public class ZkUtils {
   public void close() throws ZkInterruptedException {
     zkClient.close();
   }
+
+  /**
+    * subscribe for changes of JobModel version
+    * @param dataListener describe this
+    */
+  public void subscribeToJobModelVersionChange(IZkDataListener dataListener) {
+    LOG.info("pid=" + processorId + " subscribing for jm version change at:" + keyBuilder.getJobModelVersionPath());
+    zkClient.subscribeDataChanges(keyBuilder.getJobModelVersionPath(), dataListener);
+  }
+
+  /**
+   * read the jobmodel version from ZK
+   * @return jobmodel version as a string
+   */
+  public String getJobModelVersion() {
+    return zkClient.<String>readData(keyBuilder.getJobModelVersionPath());
+  }
+
+  /**
+   * verify that given paths exist in ZK
+   * @param paths
+   */
+  public void makeSurePersistentPathsExists(String[] paths) {
+    for (String path : paths) {
+      if (!zkClient.exists(path)) {
+        zkClient.createPersistent(path, true);
+      }
+    }
+  }
+
+  /**
+   * subscribe to the changes in the list of processors in ZK
+   * @param listener
+   */
+  public void subscribeToProcessorChange(IZkChildListener listener) {
+    LOG.info("pid=" + processorId + " subscribing for child change at:" + keyBuilder.getProcessorsPath());
+    zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
+  }
+
+  public void deleteRoot() {
+    String rootPath = keyBuilder.getRootPath();
+    if (rootPath != null && !rootPath.isEmpty() && zkClient.exists(rootPath)) {
+      LOG.info("pid=" + processorId + " Deleteing root: " + rootPath);
+      zkClient.deleteRecursive(rootPath);
+    }
+  }
+
 }
