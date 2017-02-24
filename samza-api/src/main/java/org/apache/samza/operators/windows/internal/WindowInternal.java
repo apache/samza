@@ -55,17 +55,20 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
    */
   private final Function<M, Long> eventTimeExtractor;
 
+  private final WindowType windowType;
+
   private Trigger earlyTrigger;
 
   private Trigger lateTrigger;
 
   private AccumulationMode mode;
 
-  public WindowInternal(Trigger defaultTrigger, BiFunction<M, WV, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor) {
+  public WindowInternal(Trigger defaultTrigger, BiFunction<M, WV, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType) {
     this.foldFunction = foldFunction;
     this.eventTimeExtractor = eventTimeExtractor;
     this.keyExtractor = keyExtractor;
     this.defaultTrigger = defaultTrigger;
+    this.windowType = windowType;
   }
 
   @Override
@@ -109,4 +112,8 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
   public Function<M, Long> getEventTimeExtractor() {
     return eventTimeExtractor;
   }
+
+  public WindowType getWindowType() { return windowType; }
+
+  public AccumulationMode getAccumulationMode() { return mode; }
 }

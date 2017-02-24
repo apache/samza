@@ -154,7 +154,7 @@ public class OperatorGraph {
     } else if (operatorSpec instanceof SinkOperatorSpec) {
       return new SinkOperatorImpl<>((SinkOperatorSpec<M>) operatorSpec, config, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
-      return new WindowOperatorImpl<>((WindowOperatorSpec<M, ?, ?>) operatorSpec, source, config, context);
+      return new WindowOperatorImpl((WindowOperatorSpec<M, ?, ?>) operatorSpec);
     } else if (operatorSpec instanceof PartialJoinOperatorSpec) {
       return new PartialJoinOperatorImpl<>((PartialJoinOperatorSpec) operatorSpec, source, config, context);
     }

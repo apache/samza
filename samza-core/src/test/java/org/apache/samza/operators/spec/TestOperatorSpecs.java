@@ -28,6 +28,7 @@ import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.operators.windows.WindowPane;
+import org.apache.samza.operators.windows.internal.WindowType;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
@@ -71,7 +72,7 @@ public class TestOperatorSpecs {
     BiFunction<TestMessageEnvelope, Integer, Integer> aggregator = (m, c) -> c + 1;
 
     //instantiate a window using reflection
-    WindowInternal window = new WindowInternal(null, aggregator, keyExtractor, null);
+    WindowInternal window = new WindowInternal(null, aggregator, keyExtractor, null, WindowType.TUMBLING);
 
     StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
     MessageStreamImpl<WindowPane<String, Integer>> mockWndOut = mock(MessageStreamImpl.class);

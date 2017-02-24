@@ -24,6 +24,7 @@ import org.apache.samza.operators.triggers.TimeTrigger;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.internal.WindowInternal;
+import org.apache.samza.operators.windows.internal.WindowType;
 
 import java.time.Duration;
 import java.util.Collection;
@@ -117,7 +118,7 @@ public final class Windows {
     keyedTumblingWindow(Function<M, K> keyFn, Duration interval, BiFunction<M, WV, WV> foldFn) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
-    return new WindowInternal<M, K, WV>(defaultTrigger, foldFn, keyFn, null);
+    return new WindowInternal<M, K, WV>(defaultTrigger, foldFn, keyFn, null, WindowType.TUMBLING);
   }
 
 
@@ -172,7 +173,7 @@ public final class Windows {
   public static <M, WV> Window<M, Void, WV>
     tumblingWindow(Duration duration, BiFunction<M, WV, WV> foldFn) {
     Trigger<M> defaultTrigger = Triggers.repeat(new TimeTrigger<>(duration));
-    return new WindowInternal<>(defaultTrigger, foldFn, null, null);
+    return new WindowInternal<>(defaultTrigger, foldFn, null, null, WindowType.TUMBLING);
   }
 
   /**
@@ -231,7 +232,7 @@ public final class Windows {
    */
   public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap, BiFunction<M, WV, WV> foldFn) {
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
-    return new WindowInternal<>(defaultTrigger, foldFn, keyFn, null);
+    return new WindowInternal<>(defaultTrigger, foldFn, keyFn, null, WindowType.SESSION);
   }
 
   /**
@@ -289,7 +290,7 @@ public final class Windows {
    * @return the created {@link Window} function.
    */
   public static <M, WV> Window<M, Void, WV> globalWindow(BiFunction<M, WV, WV> foldFn) {
-    return new WindowInternal<>(null, foldFn, null, null);
+    return new WindowInternal<>(null, foldFn, null, null, null);
   }
 
   /**
@@ -340,7 +341,7 @@ public final class Windows {
    * @return the created {@link Window} function
    */
   public static <M, K, WV> Window<M, K, WV> keyedGlobalWindow(Function<M, K> keyFn, BiFunction<M, WV, WV> foldFn) {
-    return new WindowInternal<M, K, WV>(null, foldFn, keyFn, null);
+    return new WindowInternal<M, K, WV>(null, foldFn, keyFn, null, null);
   }
 
   /**

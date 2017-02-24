@@ -32,7 +32,7 @@ public final class WindowPane<K, V> {
 
   private final AccumulationMode mode;
 
-  WindowPane(WindowKey<K> key, V value, AccumulationMode mode) {
+  public WindowPane(WindowKey<K> key, V value, AccumulationMode mode) {
     this.key = key;
     this.value = value;
     this.mode = mode;
@@ -46,8 +46,8 @@ public final class WindowPane<K, V> {
     return this.key;
   }
 
-  static public <K, M> WindowPane<K, M> of(WindowKey<K> key, M result) {
-    return new WindowPane<>(key, result, AccumulationMode.DISCARDING);
+  static public <K, M> WindowPane<K, M> of(WindowKey<K> key, M result, AccumulationMode mode) {
+    return new WindowPane<>(key, result, mode);
   }
 }
 

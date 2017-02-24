@@ -19,6 +19,7 @@
 package org.apache.samza.operators;
 
 import java.util.function.Function;
+
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.serializers.Serde;
