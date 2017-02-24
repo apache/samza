@@ -23,7 +23,7 @@ import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * An entry in the input/output {@link org.apache.samza.operators.MessageStream}s.
+ * An entry in the input/output {@link org.apache.samza.operators.MessageStream}s
  */
 @InterfaceStability.Unstable
 public interface MessageEnvelope<K, M> {

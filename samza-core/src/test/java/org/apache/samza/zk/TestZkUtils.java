@@ -20,9 +20,7 @@ package org.apache.samza.zk;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
-import java.util.function.Predicate;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
@@ -32,20 +30,18 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
-import org.apache.samza.util.TestUtil;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.mockito.Mock;
+
 
 
 public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
   private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
-  private ZkConnection zkConnection = null;
   private ZkClient zkClient = null;
   private static final int SESSION_TIMEOUT_MS = 20000;
   private static final int CONNECTION_TIMEOUT_MS = 10000;
@@ -72,7 +68,6 @@ public class TestZkUtils {
       // Do nothing
     }
 
-
     zkUtils = new ZkUtils(
         KEY_BUILDER,
         zkClient,
@@ -81,7 +76,6 @@ public class TestZkUtils {
     zkUtils.connect();
 
   }
-
 
   @After
   public void testTeardown() {
@@ -110,11 +104,19 @@ public class TestZkUtils {
     zkUtils.registerProcessorAndGetId("processorData");
 
     Assert.assertEquals(1, zkUtils.getSortedActiveProcessors().size());
-
   }
 
   @Test
   public void testSubscribeToChange() {
+
+    ZkKeyBuilder keyBuilder = new ZkKeyBuilder("test");
+    String root = keyBuilder.getRootPath();
+    zkClient.deleteRecursive(root);
+    Assert.assertEquals(1, zkUtils.getSortedActiveProcessors().size());
+  }
+
+  @Test
+  public void testSubscribeToJobModelVersionChange() {
 
     ZkKeyBuilder keyBuilder = new ZkKeyBuilder("test");
     String root = keyBuilder.getRootPath();
@@ -204,12 +206,17 @@ public class TestZkUtils {
     Assert.assertEquals(jobModel, zkUtils.getJobModel(version));
   }
 
-  public boolean testWithDelayBackOff(BooleanSupplier cond, long startDelayMs, long maxDelayMs) {
+  public static boolean testWithDelayBackOff(BooleanSupplier cond, long startDelayMs, long maxDelayMs) {
     long delay = startDelayMs;
     while(delay < maxDelayMs) {
       if(cond.getAsBoolean())
         return true;
       try { Thread.sleep(delay); } catch (InterruptedException e) { return false ;}
+      try {
+        Thread.sleep(delay);
+      } catch (InterruptedException e) {
+        return false;
+      }
       delay *= 2;
     }
     return false;

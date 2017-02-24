@@ -97,7 +97,7 @@ If you are a committer you need to use https instead of http to check in, otherw
     * Set the `JIRA_USERNAME` and `JIRA_PASSWORD` environment variables with the appropriate credentials for interacting with Jira. This is required to correctly close the JIRA associated with the PR
 2. Setup aliases for the remote repositories:​(Samza Github repo and Apache Samza Repo)
     * Add ASF git repo for committing the PR
-    ```git remote add samza-apache https://git­wip­us.apache.org/repos/asf/samza.git``` 
+    ```git remote add samza-apache https://git-wip-us.apache.org/repos/asf/samza.git```
     * Add Github repo for fetching the patch from the PR
     ```git remote add samza-github https://github.com/apache/samza.git```
 3. Set up API tokens for Git

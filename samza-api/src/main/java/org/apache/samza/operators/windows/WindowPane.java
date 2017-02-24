@@ -18,16 +18,13 @@
  */
 package org.apache.samza.operators.windows;
 
-import org.apache.samza.operators.data.MessageEnvelope;
-
-
 /**
  * Specifies the result emitted from a {@link Window}.
  *
  * @param <K>  the type of key in the window pane
  * @param <V>  the type of value in the window pane.
  */
-public final class WindowPane<K, V> implements MessageEnvelope<WindowKey<K>, V> {
+public final class WindowPane<K, V> {
 
   private final WindowKey<K> key;
 
@@ -41,11 +38,11 @@ public final class WindowPane<K, V> implements MessageEnvelope<WindowKey<K>, V> 
     this.mode = mode;
   }
 
-  @Override public V getMessage() {
+  public V getMessage() {
     return this.value;
   }
 
-  @Override public WindowKey<K> getKey() {
+  public WindowKey<K> getKey() {
     return this.key;
   }
 

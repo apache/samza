@@ -20,23 +20,21 @@
 package org.apache.samza.system.kafka
 
 import java.util
+import java.util.{Properties, UUID}
 
-import org.apache.samza.Partition
-import org.apache.samza.SamzaException
-import org.apache.samza.system.{ExtendedSystemAdmin, SystemStreamMetadata, SystemStreamPartition}
-import org.apache.samza.util.{ ClientUtilTopicMetadataStore, ExponentialSleepStrategy, Logging, KafkaUtil }
+import kafka.admin.AdminUtils
 import kafka.api._
-import kafka.consumer.SimpleConsumer
-import kafka.common.{ TopicExistsException, TopicAndPartition }
-import kafka.consumer.ConsumerConfig
+import kafka.common.{TopicAndPartition, TopicExistsException}
+import kafka.consumer.{ConsumerConfig, SimpleConsumer}
 import kafka.utils.ZkUtils
-import java.util.{ Properties, UUID }
+import org.apache.samza.config.KafkaConfig
+import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.apache.samza.system._
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, KafkaUtil, Logging}
+import org.apache.samza.{Partition, SamzaException}
+
 import scala.collection.JavaConversions
 import scala.collection.JavaConversions._
-import org.apache.samza.system.SystemStreamMetadata.{OffsetType, SystemStreamPartitionMetadata}
-import kafka.consumer.ConsumerConfig
-import kafka.admin.AdminUtils
-import org.apache.samza.util.KafkaUtil
 
 
 object KafkaSystemAdmin extends Logging {
@@ -269,12 +267,12 @@ class KafkaSystemAdmin(
   }
 
   /**
-    * Returns the newest offset for the specified SSP.
-    * This method is fast and targeted. It minimizes the number of kafka requests.
-    * It does not retry indefinitely if there is any failure.
-    * It returns null if the topic is empty. To get the offsets for *all*
-    * partitions, it would be more efficient to call getSystemStreamMetadata
-    */
+   * Returns the newest offset for the specified SSP.
+   * This method is fast and targeted. It minimizes the number of kafka requests.
+   * It does not retry indefinitely if there is any failure.
+   * It returns null if the topic is empty. To get the offsets for *all*
+   * partitions, it would be more efficient to call getSystemStreamMetadata
+   */
   override def getNewestOffset(ssp: SystemStreamPartition, maxRetries: Integer) = {
     debug("Fetching newest offset for: %s" format ssp)
     var offset: String = null
@@ -334,34 +332,14 @@ class KafkaSystemAdmin(
 
   override def createCoordinatorStream(streamName: String) {
     info("Attempting to create coordinator stream %s." format streamName)
-    new ExponentialSleepStrategy(initialDelayMs = 500).run(
-      loop => {
-        val zkClient = connectZk()
-        try {
-          AdminUtils.createTopic(
-            zkClient,
-            streamName,
-            1, // Always one partition for coordinator stream.
-            coordinatorStreamReplicationFactor,
-            coordinatorStreamProperties)
-        } finally {
-          zkClient.close
-        }
 
-        info("Created coordinator stream %s." format streamName)
-        loop.done
-      },
+    val streamSpec = new KafkaStreamSpec(streamName, streamName, systemName, 1, coordinatorStreamReplicationFactor, coordinatorStreamProperties)
 
-      (exception, loop) => {
-        exception match {
-          case e: TopicExistsException =>
-            info("Coordinator stream %s already exists." format streamName)
-            loop.done
-          case e: Exception =>
-            warn("Failed to create topic %s: %s. Retrying." format (streamName, e))
-            debug("Exception detail:", e)
-        }
-      })
+    if (createStream(streamSpec)) {
+      info("Created coordinator stream %s." format streamName)
+    } else {
+      info("Coordinator stream %s already exists." format streamName)
+    }
   }
 
   /**
@@ -435,44 +413,57 @@ class KafkaSystemAdmin(
     offsets
   }
 
-  private def createTopicInKafka(topicName: String, numKafkaChangelogPartitions: Int) {
-    val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy
-    info("Attempting to create change log topic %s." format topicName)
-    info("Using partition count " + numKafkaChangelogPartitions + " for creating change log topic")
-    val topicMetaInfo = topicMetaInformation.getOrElse(topicName, throw new KafkaChangelogException("Unable to find topic information for topic " + topicName))
-    retryBackoff.run(
+  /**
+   * @inheritdoc
+   */
+  override def createStream(spec: StreamSpec): Boolean = {
+    val kSpec = KafkaStreamSpec.fromSpec(spec);
+    var streamCreated = false
+
+    new ExponentialSleepStrategy(initialDelayMs = 500).run(
       loop => {
         val zkClient = connectZk()
         try {
           AdminUtils.createTopic(
             zkClient,
-            topicName,
-            numKafkaChangelogPartitions,
-            topicMetaInfo.replicationFactor,
-            topicMetaInfo.kafkaProps)
+            kSpec.getPhysicalName,
+            kSpec.getPartitionCount,
+            kSpec.getReplicationFactor,
+            kSpec.getProperties)
         } finally {
           zkClient.close
         }
 
-        info("Created changelog topic %s." format topicName)
+        streamCreated = true
         loop.done
       },
 
       (exception, loop) => {
         exception match {
           case e: TopicExistsException =>
-            info("Changelog topic %s already exists." format topicName)
+            streamCreated = false
             loop.done
           case e: Exception =>
-            warn("Failed to create topic %s: %s. Retrying." format (topicName, e))
+            warn("Failed to create topic %s: %s. Retrying." format (spec.getPhysicalName, e))
             debug("Exception detail:", e)
         }
       })
+
+    streamCreated
   }
 
-  private def validateTopicInKafka(topicName: String, numKafkaChangelogPartitions: Int) {
+  /**
+    * @inheritdoc
+    *
+    * Validates a stream in Kafka. Should not be called before createStream(),
+    * since ClientUtils.fetchTopicMetadata(), used by different Kafka clients,
+    * is not read-only and will auto-create a new topic.
+    */
+  override def validateStream(spec: StreamSpec): Unit = {
+    val topicName = spec.getPhysicalName
+    info("Validating topic %s." format topicName)
+
     val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy
-    info("Validating changelog topic %s." format topicName)
     var metadataTTL = Long.MaxValue // Trust the cache until we get an exception
     retryBackoff.run(
       loop => {
@@ -482,17 +473,17 @@ class KafkaSystemAdmin(
         KafkaUtil.maybeThrowException(topicMetadata.errorCode)
 
         val partitionCount = topicMetadata.partitionsMetadata.length
-        if (partitionCount < numKafkaChangelogPartitions) {
-          throw new KafkaChangelogException("Changelog topic validation failed for topic %s because partition count %s did not match expected partition count of %d" format (topicName, topicMetadata.partitionsMetadata.length, numKafkaChangelogPartitions))
+        if (partitionCount != spec.getPartitionCount) {
+          throw new StreamValidationException("Topic validation failed for topic %s because partition count %s did not match expected partition count of %d" format (topicName, topicMetadata.partitionsMetadata.length, spec.getPartitionCount))
         }
 
-        info("Successfully validated changelog topic %s." format topicName)
+        info("Successfully validated topic %s." format topicName)
         loop.done
       },
 
       (exception, loop) => {
         exception match {
-          case e: KafkaChangelogException => throw e
+          case e: StreamValidationException => throw e
           case e: Exception =>
             warn("While trying to validate topic %s: %s. Retrying." format (topicName, e))
             debug("Exception detail:", e)
@@ -502,24 +493,32 @@ class KafkaSystemAdmin(
   }
 
   /**
-   * Exception to be thrown when the change log stream creation or validation has failed
-   */
+    * Exception to be thrown when the change log stream creation or validation has failed
+    */
   class KafkaChangelogException(s: String, t: Throwable) extends SamzaException(s, t) {
     def this(s: String) = this(s, null)
   }
 
   override def createChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
-    createTopicInKafka(topicName, numKafkaChangelogPartitions)
-    validateChangelogStream(topicName, numKafkaChangelogPartitions)
+    val topicMeta = topicMetaInformation.getOrElse(topicName, throw new KafkaChangelogException("Unable to find topic information for topic " + topicName))
+    val spec = new KafkaStreamSpec(topicName, topicName, systemName, numKafkaChangelogPartitions, topicMeta.replicationFactor, topicMeta.kafkaProps)
+
+    if (createStream(spec)) {
+      info("Created changelog stream %s." format topicName)
+    } else {
+      info("Changelog stream %s already exists." format topicName)
+    }
+
+    validateStream(spec)
   }
 
   /**
-   * Validates change log stream in Kafka. Should not be called before createChangelogStream(),
-   * since ClientUtils.fetchTopicMetadata(), used by different Kafka clients, is not read-only and
-   * will auto-create a new topic.
-   */
+    * Validates a stream in Kafka. Should not be called before createStream(),
+    * since ClientUtils.fetchTopicMetadata(), used by different Kafka clients, is not read-only and
+    * will auto-create a new topic.
+    */
   override def validateChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
-    validateTopicInKafka(topicName, numKafkaChangelogPartitions)
+    validateStream(new KafkaStreamSpec(topicName, systemName, numKafkaChangelogPartitions))
   }
 
   /**

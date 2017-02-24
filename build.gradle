@@ -160,6 +160,7 @@ project(":samza-core_$scalaVersion") {
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     compile "org.eclipse.jetty:jetty-webapp:$jettyVersion"
     compile "com.101tec:zkclient:$zkClientVersion"
+    testCompile project(":samza-api").sourceSets.test.output
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
@@ -370,29 +371,6 @@ project(":samza-yarn_$scalaVersion") {
   }
 
   jar.dependsOn("lesscss")
-}
-
-project(":samza-operator") {
-  apply plugin: 'java'
-  apply plugin: 'checkstyle'
-    
-  sourceCompatibility = 1.8
-    
-  dependencies {
-    compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
-    // TODO: remove this dependency after refactoring operator implementation classes
-    compile "org.reactivestreams:reactive-streams:$reactiveStreamVersion"
-
-    testCompile project(":samza-api").sourceSets.test.output
-    testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-all:$mockitoVersion"
-  }
-  
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
-  }
 }
 
 project(":samza-shell") {
