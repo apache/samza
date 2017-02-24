@@ -1,4 +1,4 @@
-package org.apache.samza.operators.impl;
+package org.apache.samza.operators.util;
 
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueIterator;
@@ -6,6 +6,7 @@ import org.apache.samza.storage.kv.KeyValueStore;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -13,10 +14,13 @@ import java.util.Map;
  * Implements a {@link KeyValueStore} using an in-memory Java Map.
  * @param <K>
  * @param <V>
+ *
+ * TODO: Provide a persistent implementation of the KeyValueStore API. Maybe, we don't need this class.
+ *
  */
-public class WindowStoreImpl<K,V> implements KeyValueStore<K,V> {
+public class InternalInMemoryStore<K,V> implements KeyValueStore<K,V> {
 
-  final Map<K,V> map = new HashMap<>();
+  final Map<K,V> map = new LinkedHashMap<>();
 
   @Override
   public V get(K key) {

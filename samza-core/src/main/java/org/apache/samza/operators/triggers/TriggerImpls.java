@@ -19,6 +19,8 @@ public class TriggerImpls {
       return new TimeSinceLastMessageTriggerImpl<>((TimeSinceLastMessageTrigger)trigger, context, handler);
     } else if (trigger instanceof TimeTrigger) {
       return new TimeTriggerImpl((TimeTrigger)trigger, context, handler);
+    } else if (trigger instanceof TimeSinceFirstMessageTrigger) {
+      return new TimeSinceFirstMessageTriggerImpl<>((TimeSinceFirstMessageTrigger)trigger, context, handler);
     }
     return null;
   }

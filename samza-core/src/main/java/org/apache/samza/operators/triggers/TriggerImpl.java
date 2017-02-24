@@ -16,6 +16,8 @@ public abstract class TriggerImpl<M> {
 
   public abstract void onMessage(M message);
 
+  public abstract void onCancel();
+
   public interface TriggerCallbackHandler {
     public void onTrigger(TriggerImpl impl, Object storeKey);
   }

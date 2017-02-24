@@ -25,6 +25,7 @@ import org.apache.samza.operators.triggers.TimeTrigger;
 import org.apache.samza.operators.triggers.TriggerContext;
 import org.apache.samza.operators.triggers.TriggerImpl;
 import org.apache.samza.operators.triggers.TriggerImpls;
+import org.apache.samza.operators.util.InternalInMemoryStore;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowKey;
 import org.apache.samza.operators.windows.WindowPane;
@@ -56,7 +57,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   private MessageCollector recentCollector;
   private TaskCoordinator recentCoordinator;
 
-  private final KeyValueStore<WindowKey<K>, WV> store = new WindowStoreImpl<>();
+  private final KeyValueStore<WindowKey<K>, WV> store = new InternalInMemoryStore<>();
 
   public WindowOperatorImpl(WindowOperatorSpec<M, WK, WV> spec) {
     window = spec.getWindow();

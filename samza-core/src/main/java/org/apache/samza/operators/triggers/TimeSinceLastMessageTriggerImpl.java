@@ -2,9 +2,6 @@ package org.apache.samza.operators.triggers;
 
 import org.apache.samza.operators.data.MessageEnvelope;
 
-/**
- * Created by jvenkatr on 1/31/17.
- */
 public class TimeSinceLastMessageTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
 
   private final TimeSinceLastMessageTrigger trigger;
@@ -35,4 +32,9 @@ public class TimeSinceLastMessageTriggerImpl<M extends MessageEnvelope> extends 
 
     latestFuture = context.scheduleCallback(runnable, callbackTime);
     }
+
+  @Override
+  public void onCancel() {
+    latestFuture.cancel();
   }
+}

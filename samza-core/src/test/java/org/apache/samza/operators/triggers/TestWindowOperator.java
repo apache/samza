@@ -62,8 +62,8 @@ public class TestWindowOperator {
   public void test() throws Exception {
     integers.forEach(n -> task.process(new TestEnvelope(n, n), messageCollector, taskCoordinator));
     Thread.sleep(1000);
-    System.out.println("sleep done");
     task.window(messageCollector, taskCoordinator);
+
     Assert.assertEquals(windowPanes.size(), 5);
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), 1);
     Assert.assertEquals(((Collection)windowPanes.get(0).getMessage()).size(), 2);
@@ -93,7 +93,6 @@ public class TestWindowOperator {
       inStream
         .map(m -> {
           mapOutput.add(m.getKey());
-          System.out.println("through map" + m);
           return m;
         })
         .window(Windows.keyedTumblingWindow(keyFn, Duration.ofSeconds(1)).setEarlyTrigger(Triggers.repeat(Triggers.count(2)))
@@ -103,8 +102,6 @@ public class TestWindowOperator {
           WindowKey<Integer> key = m.getKey();
           Collection<MessageEnvelope<Integer, Integer>> message = m.getMessage();
           ArrayList<MessageEnvelope<Integer, Integer>> list = new ArrayList<MessageEnvelope<Integer, Integer>>(message);
-          System.out.println(list + "is window value");
-          System.out.println(key + " is window key");
           return m;
         });
     }

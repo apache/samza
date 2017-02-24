@@ -4,7 +4,6 @@ import org.apache.samza.operators.data.MessageEnvelope;
 
 
 /**
- * Created by jvenkatr on 2/8/17.
  */
 public class TimeTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
 
@@ -28,4 +27,9 @@ public class TimeTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
       }, callbackTime);
     }
    }
+
+  @Override
+  public void onCancel() {
+    latestFuture.cancel();
   }
+}

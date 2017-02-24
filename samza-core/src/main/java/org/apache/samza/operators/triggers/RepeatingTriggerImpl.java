@@ -11,10 +11,15 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> extends TriggerImpl
 
   private TriggerImpl underlyingTriggerImpl;
 
+  private boolean cancelled = false;
+
   public RepeatingTriggerImpl(RepeatingTrigger<M> repeatingTrigger, TriggerContext tContext, TriggerCallbackHandler handler) {
     super(tContext, handler);
     this.underlyingTrigger = repeatingTrigger.getTrigger();
-    this.underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, context, createNewCallback());
+
+    if (!cancelled) {
+      this.underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, context, createNewCallback());
+    }
   }
 
   private TriggerCallbackHandler createNewCallback() {
@@ -32,4 +37,9 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> extends TriggerImpl
     underlyingTriggerImpl.onMessage(message);
   }
 
+  @Override
+  public void onCancel() {
+    underlyingTriggerImpl.onCancel();
+    cancelled = true;
+  }
 }

@@ -37,8 +37,7 @@ public class TestTriggers {
   public void testAnyTrigger() throws Exception {
     TestTriggerContext context = new TestTriggerContext();
 
-    // expect 2 callbacks, one for the count trigger and one for the timer trigger
-    final int numExpectedCallbacks = 2;
+    final int numExpectedCallbacks = 1;
     final int numMessages = 5;
     Trigger anyTrigger = Triggers.any(Triggers.count(numMessages), new TimeTrigger(Duration.ofMillis(10)));
 
@@ -48,16 +47,12 @@ public class TestTriggers {
     TriggerImpl.TriggerCallbackHandler handler = new TriggerImpl.TriggerCallbackHandler() {
       @Override
       public void onTrigger(TriggerImpl impl, Object storeKey) {
-        if (numCurrentCallbacks.incrementAndGet() <= numExpectedCallbacks) {
           latch.countDown();
-        }
       }
     };
     TriggerImpl impl = TriggerImpls.createTriggerImpl(anyTrigger, context, handler);
 
-    for (int i = 0; i < numMessages; i++) {
-      impl.onMessage(null);
-    }
+    impl.onMessage(null);
     latch.await();
   }
 

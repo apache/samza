@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This class allows scheduling a Runnable actions after some debounce time.
- * When the same action is scheduled it needs to cancel the previous one. To accomplish that we keep the previous
+ * When the same action is scheduled it needs to onCancel the previous one. To accomplish that we keep the previous
  * future in a map, keyed by the action name. Here we predefine some actions, which are used in the
  * ZK based standalone app.
  */
@@ -61,14 +61,14 @@ public class ScheduleAfterDebounceTime {
     // check if this action has been scheduled already
     ScheduledFuture sf = futureHandles.get(actionName);
     if (sf != null && !sf.isDone()) {
-      LOG.info("DEBOUNCE: cancel future for " + actionName);
-      // attempt to cancel
+      LOG.info("DEBOUNCE: onCancel future for " + actionName);
+      // attempt to onCancel
       if (!sf.cancel(false)) {
         try {
           sf.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
           // we ignore the exception
-          LOG.warn("cancel for action " + actionName + " failed with ", e);
+          LOG.warn("onCancel for action " + actionName + " failed with ", e);
         }
       }
       futureHandles.remove(actionName);
