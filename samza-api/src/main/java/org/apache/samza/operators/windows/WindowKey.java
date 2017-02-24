@@ -52,4 +52,24 @@ public class WindowKey<K> {
     }
     return String.format("%s%s", wndKey, paneId);
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    WindowKey<?> windowKey = (WindowKey<?>) o;
+
+    if (!key.equals(windowKey.key)) return false;
+    return paneId.equals(windowKey.paneId);
+
+  }
+
+  @Override
+  public int hashCode() {
+    int result = key.hashCode();
+    result = 31 * result + paneId.hashCode();
+    return result;
+  }
+
 }

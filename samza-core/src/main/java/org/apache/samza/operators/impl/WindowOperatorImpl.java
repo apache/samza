@@ -97,6 +97,26 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     defaultTriggerImpl.onMessage(message);
   }
 
+  @Override
+  public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+    System.out.println("on timer..");
+
+    TriggerTimerState state = pendingCallbacks.peek();
+    if (state == null)
+      return;
+
+    long now = System.currentTimeMillis();
+    long scheduleTimeMs;
+
+    while(state != null && (scheduleTimeMs = state.getScheduleTimeMs()) < now) {
+      pendingCallbacks.remove();
+      System.out.println("callback now");
+      state.getCallback().run();
+      state = pendingCallbacks.peek();
+    }
+    super.propagateTimer(collector, coordinator);
+  }
+
   private WindowKey<K> getStoreKey(M message) {
     Function<M, K> keyExtractor = window.getKeyExtractor();
     K key = null;
@@ -124,6 +144,9 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       public void onTrigger(TriggerImpl impl, Object storeKey) {
         WindowKey<K> windowKey = (WindowKey<K>) storeKey;
         WV wv = store.get(windowKey);
+        if (wv == null) {
+          return;
+        }
         WindowPane<K, WV> paneOutput = new WindowPane<>(windowKey, wv, window.getAccumulationMode());
 
         if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
@@ -167,6 +190,18 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       this.windowKey = windowKey;
       this.callback = callback;
       this.scheduleTimeMs = scheduleTimeMs;
+    }
+
+    public Object getWindowKey() {
+      return windowKey;
+    }
+
+    public Runnable getCallback() {
+      return callback;
+    }
+
+    public long getScheduleTimeMs() {
+      return scheduleTimeMs;
     }
 
     @Override

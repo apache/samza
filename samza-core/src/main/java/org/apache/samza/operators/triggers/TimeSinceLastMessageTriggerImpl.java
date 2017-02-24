@@ -30,7 +30,7 @@ public class TimeSinceLastMessageTriggerImpl<M extends MessageEnvelope> extends 
 
     callbackTime = currTime + durationMs;
     Runnable runnable = () -> {
-      handler.onTrigger(this, context);
+      handler.onTrigger(this, context.getWindowKey());
     };
 
     latestFuture = context.scheduleCallback(runnable, callbackTime);

@@ -27,6 +27,8 @@ import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.operators.windows.internal.WindowType;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -144,7 +146,11 @@ public final class Windows {
    */
   public static <M, K> Window<M, K, Collection<M>> keyedTumblingWindow(Function<M, K> keyFn, Duration interval) {
     BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
+      if (c == null) {
+        return new ArrayList<>(Arrays.asList(m));
+      }
       c.add(m);
+      System.out.println(c.size());
       return c;
     };
     return keyedTumblingWindow(keyFn, interval, aggregator);
@@ -197,6 +203,9 @@ public final class Windows {
    */
   public static <M> Window<M, Void, Collection<M>> tumblingWindow(Duration duration) {
     BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
+      if (c == null) {
+        return Arrays.asList(m);
+      }
       c.add(m);
       return c;
     };
@@ -262,9 +271,13 @@ public final class Windows {
   public static <M, K> Window<M, K, Collection<M>> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap) {
 
     BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
+      if (c == null) {
+        return Arrays.asList(m);
+      }
       c.add(m);
       return c;
     };
+
     return keyedSessionWindow(keyFn, sessionGap, aggregator);
   }
 

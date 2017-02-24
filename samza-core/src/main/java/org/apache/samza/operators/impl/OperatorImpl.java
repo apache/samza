@@ -51,6 +51,10 @@ public abstract class OperatorImpl<M, RM> {
    */
   public abstract void onNext(M message, MessageCollector collector, TaskCoordinator coordinator);
 
+  public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+    propagateTimer(collector, coordinator);
+  }
+
   /**
    * Helper method to propagate the output of this operator to all registered downstream operators.
    *
@@ -64,4 +68,7 @@ public abstract class OperatorImpl<M, RM> {
     nextOperators.forEach(sub -> sub.onNext(outputMessage, collector, coordinator));
   }
 
+  void propagateTimer(MessageCollector collector, TaskCoordinator coordinator) {
+    nextOperators.forEach(sub -> sub.onTimer(collector, coordinator));
+  }
 }

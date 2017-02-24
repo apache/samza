@@ -57,6 +57,11 @@ public class InputMessageEnvelope implements MessageEnvelope<Object, Object> {
     return new LongOffset(this.ime.getOffset());
   }
 
+  @Override
+  public String toString() {
+    return "(key" + ime.getKey() + " msg:" + ime.getMessage() + ")" ;
+  }
+
   public SystemStreamPartition getSystemStreamPartition() {
     return this.ime.getSystemStreamPartition();
   }

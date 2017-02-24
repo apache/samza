@@ -169,6 +169,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
         this.graph, outputStream));
     return intStream;
   }
+
   /**
    * Gets the operator specs registered to consume the output of this {@link MessageStream}. This is an internal API and
    * should not be exposed to users.

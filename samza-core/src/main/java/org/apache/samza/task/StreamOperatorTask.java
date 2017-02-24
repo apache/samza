@@ -25,6 +25,7 @@ import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.impl.OperatorGraph;
+import org.apache.samza.operators.impl.OperatorImpl;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 
@@ -75,6 +76,8 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     this.graphBuilder = graphBuilder;
   }
 
+  private TaskContext context;
+
   @Override
   public final void init(Config config, TaskContext context) throws Exception {
     // create the MessageStreamsImpl object and initialize app-specific logic DAG within the task
@@ -82,7 +85,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     this.graphBuilder.init(streams, config);
     // get the context manager of the {@link StreamGraph} and initialize the task-specific context
     this.contextManager = streams.getContextManager();
-
+    this.context = context;
     Map<SystemStream, MessageStreamImpl> inputBySystemStream = new HashMap<>();
     context.getSystemStreamPartitions().forEach(ssp -> {
         if (!inputBySystemStream.containsKey(ssp.getSystemStream())) {
@@ -100,8 +103,12 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   }
 
   @Override
-  public final void window(MessageCollector collector, TaskCoordinator coordinator) throws Exception {
-    // TODO: invoke timer based triggers
+  public final void window(MessageCollector collector, TaskCoordinator coordinator)  {
+    context.getSystemStreamPartitions().forEach(ssp -> {
+      System.out.println("inside window");
+      OperatorImpl impl = this.operatorGraph.get(ssp.getSystemStream());
+      impl.onTimer(collector, coordinator);
+    });
   }
 
   @Override

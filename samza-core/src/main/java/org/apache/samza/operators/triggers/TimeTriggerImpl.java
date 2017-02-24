@@ -24,7 +24,7 @@ public class TimeTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
 
     if (latestFuture == null) {
       latestFuture =  context.scheduleCallback(() -> {
-        handler.onTrigger(TimeTriggerImpl.this, context);
+        handler.onTrigger(TimeTriggerImpl.this, context.getWindowKey());
       }, callbackTime);
     }
    }

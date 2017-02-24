@@ -19,7 +19,7 @@ public class CountTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> 
   public void onMessage(M message) {
     currentCount++;
     if (currentCount == triggerCount) {
-      handler.onTrigger(this, context);
+      handler.onTrigger(this, context.getWindowKey());
     }
   }
 }
