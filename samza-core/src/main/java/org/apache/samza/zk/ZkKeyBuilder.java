@@ -47,7 +47,7 @@ public class ZkKeyBuilder {
   public static final String JOBMODEL_VERSION_PATH = "jobModelVersion";
 
   public ZkKeyBuilder(String pathPrefix) {
-    if (pathPrefix == null || pathPrefix.isEmpty()) {
+    if (Strings.isNullOrEmpty(pathPrefix)) {
       throw new SamzaException("Zk PathPrefix cannot be null or empty!");
     }
     this.pathPrefix = pathPrefix.trim();
@@ -71,7 +71,7 @@ public class ZkKeyBuilder {
    * @return String representing the processor ID
    */
   public static String parseIdFromPath(String path) {
-    if (path != null && !path.isEmpty())
+    if (!Strings.isNullOrEmpty(path))
       return path.substring(path.lastIndexOf("/") + 1);
     return null;
   }
