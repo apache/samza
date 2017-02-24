@@ -156,11 +156,19 @@
                         others' checkpoints, and perhaps interfere with each other in other ways.
                     </td>
                 </tr>
-                <tr>
+                <tr> <!-- TODO this should probably change to job.metadata.system -->
                     <td class="property" id="job-coordinator-system">job.coordinator.system</td>
                     <td class="default"></td>
                     <td class="description">
                         <strong>Required:</strong> The <span class="system">system-name</span> to use for creating and maintaining the <a href="../container/coordinator-stream.html">Coordinator Stream</a>.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="job-default-system">job.default.system</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The <span class="system">system-name</span> to access any input or output streams for which the system is not explicitly configured.
+                        This property is for input and output streams whereas job.coordinator.system is for samza metadata streams.</a>.
                     </td>
                 </tr>
 
@@ -254,7 +262,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="job-systemstreampartition-matcher-class">job.systemstreampartition.matcher.class</td>
+                    <td class="property" id="job-systemstreampartition-matcher-class">job.systemstreampartition.<br>matcher.class</td>
                     <td class="default"></td>
                     <td class="description">
                         If you want to enable static partition assignment, then this is a <strong>required</strong> configuration.
@@ -286,7 +294,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="job_systemstreampartition_matcher_config_range">job.systemstreampartition.matcher.config.range</td>
+                    <td class="property" id="job_systemstreampartition_matcher_config_range">job.systemstreampartition.<br>matcher.config.range</td>
                     <td class="default"></td>
                     <td class="description">
                         If <code>job.systemstreampartition.matcher.class</code> is specified, and the value of this property is
@@ -305,7 +313,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="job_systemstreampartition_matcher_config_regex">job.systemstreampartition.matcher.config.regex</td>
+                    <td class="property" id="job_systemstreampartition_matcher_config_regex">job.systemstreampartition.<br>matcher.config.regex</td>
                     <td class="default"></td>
                     <td class="description">
                         If <code>job.systemstreampartition.matcher.class</code> is specified, and the value of this property is
@@ -316,8 +324,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="job_systemstreampartition_matcher_co
-                    nfig_job_factory_regex">job.systemstreampartition.matcher.config.job.factory.regex</td>
+                    <td class="property" id="job_systemstreampartition_matcher_config_job_factory_regex">job.systemstreampartition.<br>matcher.config.job.factory.regex</td>
                     <td class="default"></td>
                     <td class="description">
                         This configuration can be used to specify the Java supported regex to match the <code>StreamJobFactory</code>
@@ -682,8 +689,14 @@
                     </td>
                 </tr>
 
+
+
+
+
+
                 <tr>
-                    <th colspan="3" class="section" id="streams"><a href="../container/streams.html">Systems (input and output streams)</a></th>
+                    <!--TODO different doc pages for describing the system abstraction and stream configuration. Decouple them -->
+                    <th colspan="3" class="section" id="systems"><a href="../container/streams.html">Systems (input and output streams)</a></th>
                 </tr>
 
                 <tr>
@@ -775,8 +788,8 @@
 
                 <tr>
                     <td class="property" id="systems-streams-samza-reset-offset">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.reset.offset</td>
-                    <td>false</td>
-                    <td>
+                    <td class="default">false</td>
+                    <td class="description">
                         If set to <code>true</code>, when a Samza container starts up, it ignores any
                         <a href="../container/checkpointing.html">checkpointed offset</a> for this particular input
                         stream. Its behavior is thus determined by the <code>samza.offset.default</code> setting.
@@ -788,8 +801,8 @@
 
                 <tr>
                     <td class="property" id="systems-streams-samza-priority">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.priority</td>
-                    <td>-1</td>
-                    <td>
+                    <td class="default">-1</td>
+                    <td class="description">
                         If one or more streams have a priority set (any positive integer), they will be processed
                         with <a href="../container/streams.html#prioritizing-input-streams">higher priority</a> than the other streams.
                         You can set several streams to the same priority, or define multiple priority levels by
@@ -801,8 +814,8 @@
 
                 <tr>
                     <td class="property" id="systems-streams-samza-bootstrap">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.bootstrap</td>
-                    <td>false</td>
-                    <td>
+                    <td class="default">false</td>
+                    <td class="description">
                         If set to <code>true</code>, this stream will be processed as a
                         <a href="../container/streams.html#bootstrapping">bootstrap stream</a>. This means that every time
                         a Samza container starts up, this stream will be fully consumed before messages from any
@@ -812,12 +825,54 @@
 
                 <tr>
                     <td class="property" id="task-consumer-batch-size">task.consumer.batch.size</td>
-                    <td>1</td>
-                    <td>
+                    <td class="default">1</td>
+                    <td class="description">
                         If set to a positive integer, the task will try to consume
                         <a href="../container/streams.html#batching">batches</a> with the given number of messages
                         from each input stream, rather than consuming round-robin from all the input streams on
                         each individual message. Setting this property can improve performance in some cases.
+                    </td>
+                </tr>
+
+
+
+
+
+
+
+                <tr>
+                    <!--TODO different doc pages for describing the system abstraction and stream configuration. Decouple them -->
+                    <th colspan="3" class="section" id="streams"><a href="../container/streams.html">Streams</a></th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="streams-system">streams.<span class="stream">stream-id</span>.samza.system</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The <span class="system">system-name</span> of the system on which this stream will be accessed.
+                        This property binds the stream to one of the systems defined with the property
+                        systems.<span class="system">system-name</span>.samza.factory. <br>
+                        If this property isn't specified, it is inherited from job.default.system.
+                    </td>
+                </tr>
+
+                <tr>
+                    <!-- TODO no other property uses camel case -->
+                    <td class="property" id="streams-physical-name">streams.<span class="stream">stream-id</span>.samza.physical.name</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The physical name of the stream on the system on which this stream will be accessed.
+                        This is opposed to the stream-id which is the logical name that Samza uses to identify the stream.
+                        A physical name could be a Kafka topic name, an HDFS file URN or any other system-specific identifier.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="streams-properties">streams.<span class="stream">stream-id</span>.*</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        Any properties of the stream. These are typically system-specific and can be used by the system
+                        for stream creation or validation.
                     </td>
                 </tr>
 
@@ -1445,7 +1500,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="cluster-manager-container-memory-mb">cluster-manager.container.memory.mb</td>
+                    <td class="property" id="cluster-manager-container-memory-mb">cluster-manager.container.<br>memory.mb</td>
                     <td class="default">1024</td>
                     <td class="description">
                         How much memory, in megabytes, to request from the cluster manager per container of your job. Along with
@@ -1461,7 +1516,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="cluster-manager-container-cpu-cores">cluster-manager.container.cpu.cores</td>
+                    <td class="property" id="cluster-manager-container-cpu-cores">cluster-manager.container.<br>cpu.cores</td>
                     <td class="default">1</td>
                     <td class="description">
                         The number of CPU cores to request per container of your job. Each node in the
@@ -1501,7 +1556,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="cluster-manager-jmx-enabled">cluster-manager.jobcoordinator.jmx.enabled</td>
+                    <td class="property" id="cluster-manager-jmx-enabled">cluster-manager.jobcoordinator.<br>jmx.enabled</td>
                     <td class="default">true</td>
                     <td class="description">
                         Determines whether a JMX server should be started on the job's JobCoordinator.
@@ -1510,7 +1565,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="cluster-manager-allocator-sleep-ms">cluster-manager.allocator.sleep.ms</td>
+                    <td class="property" id="cluster-manager-allocator-sleep-ms">cluster-manager.allocator.<br>sleep.ms</td>
                     <td class="default">3600</td>
                     <td class="description">
                         The container allocator thread is responsible for matching requests to allocated containers.
@@ -1519,7 +1574,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="cluster-manager-container-request-timeout-ms">cluster-manager.container.request.timeout.ms</td>
+                    <td class="property" id="cluster-manager-container-request-timeout-ms">cluster-manager.container.<br>request.timeout.ms</td>
                     <td class="default">5000</td>
                     <td class="description">
                         The allocator thread periodically checks the state of the container requests and allocated containers to determine the assignment of a container to an allocated resource.
@@ -1789,37 +1844,37 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="hdfs-writer-class">systems.*.producer.hdfs.writer.class</td>
-                    <td class="default">org.apache.samza.system.hdfs.writer.BinarySequenceFileHdfsWriter</td>
+                    <td class="property" id="hdfs-writer-class">systems.<span class="system">system-name</span>.<br>.producer.hdfs.writer.class</td>
+                    <td class="default">org.apache.samza.system.hdfs.<br>writer.BinarySequenceFileHdfsWriter</td>
                     <td class="description">Fully-qualified class name of the HdfsWriter implementation this HDFS Producer system should use</td>
                 </tr>
                 <tr>
-                  <td class="property" id="hdfs-compression-type">systems.*.producer.hdfs.compression.type</td>
+                  <td class="property" id="hdfs-compression-type">systems.<span class="system">system-name</span>.<br>.producer.hdfs.compression.type</td>
                     <td class="default">none</td>
                     <td class="description">A human-readable label for the compression type to use, such as "gzip" "snappy" etc. This label will be interpreted differently (or ignored) depending on the nature of the HdfsWriter implementation.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-base-output-dir">systems.*.producer.hdfs.base.output.dir</td>
+                    <td class="property" id="hdfs-base-output-dir">systems.<span class="system">system-name</span>.<br>.producer.hdfs.base.output.dir</td>
                     <td class="default">/user/USERNAME/SYSTEMNAME</td>
                     <td class="description">The base output directory for HDFS writes. Defaults to the home directory of the user who ran the job, followed by the systemName for this HdfsSystemProducer as defined in the job.properties file.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-bucketer-class">systems.*.producer.hdfs.bucketer.class</td>
-                    <td class="default">org.apache.samza.system.hdfs.writer.JobNameDateTimeBucketer</td>
+                    <td class="property" id="hdfs-bucketer-class">systems.<span class="system">system-name</span>.<br>.producer.hdfs.bucketer.class</td>
+                    <td class="default">org.apache.samza.system.hdfs.<br>writer.JobNameDateTimeBucketer</td>
                     <td class="description">Fully-qualified class name of the Bucketer implementation that will manage HDFS paths and file names. Used to batch writes by time, or other similar partitioning methods.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-bucketer-date-path-format">systems.*.producer.hdfs.bucketer.date.path.format</td>
+                    <td class="property" id="hdfs-bucketer-date-path-format">systems.<span class="system">system-name</span>.<br>.producer.hdfs.bucketer.date.path.format</td>
                     <td class="default"yyyy_MM_dd></td>
                     <td class="description">A date format (using Java's SimpleDataFormat syntax) appropriate for use in an HDFS Path, which can configure time-based bucketing of output files.</td>
                 </tr>
                 <tr>
-                  <td class="property" id="hdfs-write-batch-size-bytes">systems.*.producer.hdfs.write.batch.size.bytes</td>
+                  <td class="property" id="hdfs-write-batch-size-bytes">systems.<span class="system">system-name</span>.<br>.producer.hdfs.write.batch.size.bytes</td>
                   <td class="default">268435456</td>
                   <td class="description">The number of bytes of outgoing messages to write to each HDFS output file before cutting a new file. Defaults to 256MB if not set.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-write-batch-size-records">systems.*.producer.hdfs.write.batch.size.records</td>
+                    <td class="property" id="hdfs-write-batch-size-records">systems.<span class="system">system-name</span>.<br>.producer.hdfs.write.batch.size.records</td>
                     <td class="default">262144</td>
                     <td class="description">The number of outgoing messages to write to each HDFS output file before cutting a new file. Defaults to 262144 if not set.</td>
                 </tr>
@@ -1829,37 +1884,37 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="hdfs-consumer-buffer-capacity">systems.*.consumer.bufferCapacity</td>
+                    <td class="property" id="hdfs-consumer-buffer-capacity">systems.<span class="system">system-name</span>.<br>.consumer.bufferCapacity</td>
                     <td class="default">10</td>
                     <td class="description">Capacity of the hdfs consumer buffer - the blocking queue used for storing messages. Larger buffer capacity typically leads to better throughput but consumes more memory.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-consumer-numMaxRetries">systems.*.consumer.numMaxRetries</td>
+                    <td class="property" id="hdfs-consumer-numMaxRetries">systems.<span class="system">system-name</span>.<br>.consumer.numMaxRetries</td>
                     <td class="default">10</td>
                     <td class="description">The number of retry attempts when there is a failure to fetch messages from HDFS, before the container fails.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-partitioner-whitelist">systems.*.partitioner.defaultPartitioner.whitelist</td>
+                    <td class="property" id="hdfs-partitioner-whitelist">systems.<span class="system">system-name</span>.<br>.partitioner.defaultPartitioner.whitelist</td>
                     <td class="default">.*</td>
                     <td class="description">White list used by directory partitioner to select files in a hdfs directory, in Java Pattern style.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-partitioner-blacklist">systems.*.partitioner.defaultPartitioner.blacklist</td>
+                    <td class="property" id="hdfs-partitioner-blacklist">systems.<span class="system">system-name</span>.<br>.partitioner.defaultPartitioner.blacklist</td>
                     <td class="default"></td>
                     <td class="description">Black list used by directory partitioner to filter out unwanted files in a hdfs directory, in Java Pattern style.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-partitioner-group-pattern">systems.*.partitioner.defaultPartitioner.groupPattern</td>
+                    <td class="property" id="hdfs-partitioner-group-pattern">systems.<span class="system">system-name</span>.<br>.partitioner.defaultPartitioner.groupPattern</td>
                     <td class="default"></td>
                     <td class="description">Group pattern used by directory partitioner for advanced partitioning. The advanced partitioning goes beyond the basic assumption that each file is a partition. With advanced partitioning you can group files into partitions arbitrarily. For example, if you have a set of files as [part-01-a.avro, part-01-b.avro, part-02-a.avro, part-02-b.avro, part-03-a.avro], and you want to organize the partitions as (part-01-a.avro, part-01-b.avro), (part-02-a.avro, part-02-b.avro), (part-03-a.avro), where the numbers in the middle act as a "group identifier", you can then set this property to be "part-[id]-.*" (note that "[id]" is a reserved term here, i.e. you have to literally put it as "[id]"). The partitioner will apply this pattern to all file names and extract the "group identifier" ("[id]" in the pattern), then use the "group identifier" to group files into partitions. See more details in <a href="https://issues.apache.org/jira/secure/attachment/12827670/HDFSSystemConsumer.pdf">HdfsSystemConsumer design doc</a> </td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-consumer-reader-type">systems.*.consumer.reader</td>
+                    <td class="property" id="hdfs-consumer-reader-type">systems.<span class="system">system-name</span>.<br>.consumer.reader</td>
                     <td class="default">avro</td>
                     <td class="description">Type of the file reader for different event formats (avro, plain, json, etc.). "avro" is only type supported for now.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-staging-directory">systems.*.stagingDirectory</td>
+                    <td class="property" id="hdfs-staging-directory">systems.<span class="system">system-name</span>.<br>.stagingDirectory</td>
                     <td class="default"></td>
                     <td class="description">Staging directory for storing partition description. By default (if not set by users) the value is inherited from "yarn.job.staging.directory" internally. The default value is typically good enough unless you want explicitly use a separate location.</td>
                 </tr>
