@@ -19,18 +19,17 @@
 package org.apache.samza.operators.windows;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.triggers.Trigger;
 
 /**
- * Groups incoming {@link MessageEnvelope}s in the {@link org.apache.samza.operators.MessageStream} into finite
+ * Groups incoming messages in the {@link org.apache.samza.operators.MessageStream} into finite
  * windows for processing.
  *
  * <p> A window is uniquely identified by its {@link WindowKey}. A window can have one or more associated {@link Trigger}s
  * that determine when results from the {@link Window} are emitted.
  *
- * <p> Each emitted result contains one or more {@link MessageEnvelope}s in the window and is called a {@link WindowPane}.
- * A pane can include all {@link MessageEnvelope}s collected for the window so far or only the new {@link MessageEnvelope}s
+ * <p> Each emitted result contains one or more messages in the window and is called a {@link WindowPane}.
+ * A pane can include all messages collected for the window so far or only the new messages
  * since the last emitted pane. (as determined by the {@link AccumulationMode})
  *
  * <p> A window can have early triggers that allow emitting {@link WindowPane}s speculatively before all data for the window
@@ -66,13 +65,12 @@ import org.apache.samza.operators.triggers.Trigger;
  * <p> Use the {@link Windows} APIs to create various windows and the {@link org.apache.samza.operators.triggers.Triggers}
  * APIs to create triggers.
  *
- * @param <M> the type of the input {@link MessageEnvelope}
- * @param <K> the type of the key in the {@link MessageEnvelope} in this {@link org.apache.samza.operators.MessageStream}.
+ * @param <M> the type of the input message
+ * @param <K> the type of the key in the message in this {@link org.apache.samza.operators.MessageStream}.
  * @param <WV> the type of the value in the {@link WindowPane}.
- * @param <WM> the type of the output.
  */
 @InterfaceStability.Unstable
-public interface Window<M extends MessageEnvelope, K, WV, WM extends WindowPane<K, WV>> {
+public interface Window<M, K, WV> {
 
   /**
    * Set the early triggers for this {@link Window}.
@@ -81,7 +79,7 @@ public interface Window<M extends MessageEnvelope, K, WV, WM extends WindowPane<
    * @param trigger the early trigger
    * @return the {@link Window} function with the early trigger
    */
-  Window<M, K, WV, WM> setEarlyTrigger(Trigger<M> trigger);
+  Window<M, K, WV> setEarlyTrigger(Trigger<M> trigger);
 
   /**
    * Set the late triggers for this {@link Window}.
@@ -90,7 +88,7 @@ public interface Window<M extends MessageEnvelope, K, WV, WM extends WindowPane<
    * @param trigger the late trigger
    * @return the {@link Window} function with the late trigger
    */
-  Window<M, K, WV, WM> setLateTrigger(Trigger<M> trigger);
+  Window<M, K, WV> setLateTrigger(Trigger<M> trigger);
 
   /**
    * Specify how a {@link Window} should process its previously emitted {@link WindowPane}s.
@@ -106,6 +104,6 @@ public interface Window<M extends MessageEnvelope, K, WV, WM extends WindowPane<
    * @param mode the accumulation mode
    * @return the {@link Window} function with the specified {@link AccumulationMode}.
    */
-  Window<M, K, WV, WM> setAccumulationMode(AccumulationMode mode);
+  Window<M, K, WV> setAccumulationMode(AccumulationMode mode);
 
 }

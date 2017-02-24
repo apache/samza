@@ -19,8 +19,8 @@
 
 package org.apache.samza.zk;
 
-import com.google.common.base.Strings;
 import org.apache.samza.SamzaException;
+import com.google.common.base.Strings;
 
 /**
  * The following ZK hierarchy is maintained for Standalone jobs:
@@ -44,7 +44,6 @@ public class ZkKeyBuilder {
   private final String pathPrefix;
 
   static final String PROCESSORS_PATH = "processors";
-  static final String PROCESSOR_ID_PREFIX = "processor-";
   public static final String JOBMODEL_VERSION_PATH = "jobModelVersion";
 
   public ZkKeyBuilder(String pathPrefix) {
