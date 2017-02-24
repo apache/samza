@@ -38,4 +38,3 @@ class ReadableCoordinator(val taskName: TaskName) extends TaskCoordinator {
   def requestedShutdownOnConsensus = shutdownRequest.isDefined && shutdownRequest.get == RequestScope.CURRENT_TASK
   def requestedShutdownNow         = shutdownRequest.isDefined && shutdownRequest.get == RequestScope.ALL_TASKS_IN_CONTAINER
 }
-

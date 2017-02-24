@@ -161,7 +161,6 @@ public class ZkUtils {
   }
 
   /**
-<<<<<<< HEAD
    * publishes new job model into ZK
    * @param jobModelVersion
    * @param jobModel
@@ -198,7 +197,7 @@ public class ZkUtils {
   }
 
   /**
-   *  read the jobmodel version from ZK
+   * read the jobmodel version from ZK
    * @return jobmodel version as a string
    */
   public String getJobModelVersion() {
