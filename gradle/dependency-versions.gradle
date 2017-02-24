@@ -30,7 +30,7 @@
   jodaTimeVersion = "2.2"
   joptSimpleVersion = "3.2"
   junitVersion = "4.8.1"
-  kafkaVersion = "0.10.1.1"
+  kafkaVersion = "0.10.2.0"
   log4jVersion = "1.2.17"
   metricsVersion = "2.2.0"
   mockitoVersion = "1.10.19"
