@@ -25,6 +25,8 @@ import org.apache.samza.config.TaskConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
+
 public class TaskFactories {
   private static final Logger log = LoggerFactory.getLogger(TaskFactories.class);
 
