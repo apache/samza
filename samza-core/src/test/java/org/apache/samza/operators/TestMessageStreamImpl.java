@@ -156,7 +156,7 @@ public class TestMessageStreamImpl {
         }
       };
 
-    MessageStream<TestOutputMessageEnvelope> joinOutput = source1.join(source2, joiner);
+    MessageStream<TestOutputMessageEnvelope> joinOutput = source1.join(source2, joiner, 1000 * 60);
     Collection<OperatorSpec> subs = source1.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
     OperatorSpec<TestMessageEnvelope> joinOp1 = subs.iterator().next();

@@ -110,7 +110,7 @@ public class NoContextStreamExample implements StreamGraphBuilder {
         new StringSerde("UTF-8"), new JsonSerde<>());
 
     inputSource1.map(this::getInputMessage).
-        join(inputSource2.map(this::getInputMessage), new MyJoinFunction()).
+        join(inputSource2.map(this::getInputMessage), new MyJoinFunction(), 1000 * 60).
         sendTo(outStream);
 
   }

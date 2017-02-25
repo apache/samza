@@ -21,8 +21,6 @@ package org.apache.samza.operators;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Function;
 import java.util.HashSet;
 import java.util.Set;
@@ -35,9 +33,11 @@ import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpecs;
+import org.apache.samza.operators.util.InternalInMemoryStore;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
+import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.TaskContext;
 
 
@@ -67,13 +67,15 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     this.graph = graph;
   }
 
-  @Override public <TM> MessageStream<TM> map(MapFunction<M, TM> mapFn) {
+  @Override
+  public <TM> MessageStream<TM> map(MapFunction<M, TM> mapFn) {
     OperatorSpec<TM> op = OperatorSpecs.<M, TM>createMapOperatorSpec(mapFn, this.graph, new MessageStreamImpl<>(this.graph));
     this.registeredOperatorSpecs.add(op);
     return op.getNextStream();
   }
 
-  @Override public MessageStream<M> filter(FilterFunction<M> filterFn) {
+  @Override
+  public MessageStream<M> filter(FilterFunction<M> filterFn) {
     OperatorSpec<M> op = OperatorSpecs.<M>createFilterOperatorSpec(filterFn, this.graph, new MessageStreamImpl<>(this.graph));
     this.registeredOperatorSpecs.add(op);
     return op.getNextStream();
@@ -91,7 +93,8 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     this.registeredOperatorSpecs.add(OperatorSpecs.createSinkOperatorSpec(sinkFn, this.graph));
   }
 
-  @Override public void sendTo(OutputStream<M> stream) {
+  @Override
+  public void sendTo(OutputStream<M> stream) {
     this.registeredOperatorSpecs.add(OperatorSpecs.createSendToOperatorSpec(stream.getSinkFunction(), this.graph, stream));
   }
 
@@ -103,11 +106,12 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     return wndOp.getNextStream();
   }
 
-  @Override public <K, JM, RM> MessageStream<RM> join(MessageStream<JM> otherStream, JoinFunction<K, M, JM, RM> joinFn) {
+  @Override
+  public <K, JM, RM> MessageStream<RM> join(MessageStream<JM> otherStream, JoinFunction<K, M, JM, RM> joinFn, long ttlMs) {
     MessageStreamImpl<RM> outputStream = new MessageStreamImpl<>(this.graph);
 
     PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn = new PartialJoinFunction<K, M, JM, RM>() {
-      Map<K, M> thisStreamState = new HashMap<>();
+      private KeyValueStore<K, PartialJoinMessage<M>> thisStreamState;
 
       @Override
       public RM apply(M m, JM jm) {
@@ -120,24 +124,21 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
       }
 
       @Override
-      public M put(K key, M message) {
-        return thisStreamState.put(key, message);
-      }
-
-      @Override
-      public M get(K key) {
-        return thisStreamState.get(key);
+      public KeyValueStore<K, PartialJoinMessage<M>> getState() {
+        return thisStreamState;
       }
 
       @Override
       public void init(Config config, TaskContext context) {
         // joinFn#init() must only be called once, so we do it in this partial join function's #init.
         joinFn.init(config, context);
+
+        thisStreamState = new InternalInMemoryStore<>();
       }
     };
 
     PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn = new PartialJoinFunction<K, JM, M, RM>() {
-      Map<K, JM> otherStreamState = new HashMap<>();
+      private KeyValueStore<K, PartialJoinMessage<JM>> otherStreamState;
 
       @Override
       public RM apply(JM om, M m) {
@@ -150,21 +151,21 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
       }
 
       @Override
-      public JM put(K key, JM message) {
-        return otherStreamState.put(getKey(message), message);
+      public KeyValueStore<K, PartialJoinMessage<JM>> getState() {
+        return otherStreamState;
       }
 
       @Override
-      public JM get(K key) {
-        return otherStreamState.get(key);
+      public void init(Config config, TaskContext taskContext) {
+        otherStreamState = new InternalInMemoryStore<>();
       }
     };
 
     this.registeredOperatorSpecs.add(OperatorSpecs.<K, M, JM, RM>createPartialJoinOperatorSpec(
-        thisPartialJoinFn, otherPartialJoinFn, this.graph, outputStream));
+        thisPartialJoinFn, otherPartialJoinFn, ttlMs, this.graph, outputStream));
 
     ((MessageStreamImpl<JM>) otherStream).registeredOperatorSpecs.add(OperatorSpecs.<K, JM, M, RM>createPartialJoinOperatorSpec(
-        otherPartialJoinFn, thisPartialJoinFn, this.graph, outputStream));
+        otherPartialJoinFn, thisPartialJoinFn, ttlMs, this.graph, outputStream));
 
     return outputStream;
   }

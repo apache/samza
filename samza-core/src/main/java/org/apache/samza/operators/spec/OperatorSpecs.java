@@ -178,6 +178,7 @@ public class OperatorSpecs {
    *
    * @param thisPartialJoinFn  the partial join function for this message stream
    * @param otherPartialJoinFn  the partial join function for the other message stream
+   * @param ttlMs  the ttl in ms for retaining messages in each stream
    * @param graph  the {@link StreamGraphImpl} object
    * @param joinOutput  the output {@link MessageStreamImpl}
    * @param <K>  the type of join key
@@ -188,8 +189,8 @@ public class OperatorSpecs {
    */
   public static <K, M, JM, RM> PartialJoinOperatorSpec<K, M, JM, RM> createPartialJoinOperatorSpec(
       PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn, PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn,
-      StreamGraphImpl graph, MessageStreamImpl<RM> joinOutput) {
-    return new PartialJoinOperatorSpec<K, M, JM, RM>(thisPartialJoinFn, otherPartialJoinFn, joinOutput, graph.getNextOpId());
+      long ttlMs, StreamGraphImpl graph, MessageStreamImpl<RM> joinOutput) {
+    return new PartialJoinOperatorSpec<K, M, JM, RM>(thisPartialJoinFn, otherPartialJoinFn, ttlMs, joinOutput, graph.getNextOpId());
   }
 
   /**

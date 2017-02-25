@@ -18,6 +18,8 @@
  */
 package org.apache.samza.operators.functions;
 
+import org.apache.samza.storage.kv.KeyValueStore;
+
 /**
  * An internal function that maintains state and join logic for one side of a two-way join.
  */
@@ -41,20 +43,27 @@ public interface PartialJoinFunction<K, M, JM, RM> extends InitableFunction {
   K getKey(M message);
 
   /**
-   * Stores the provided input message in internal state.
+   * Gets the state associated with this stream.
    *
-   * @param key key to store the message with
-   * @param message input message to store
-   * @return the previously stored message for key or null
+   * @return the key value store containing the state for this stream
    */
-  M put(K key, M message);
+  KeyValueStore<K, PartialJoinMessage<M>> getState();
 
-  /**
-   * Gets the stored message for the provided key.
-   *
-   * @param key key to get stored message for
-   * @return the stored message if found or null.
-   */
-  M get(K key);
+  class PartialJoinMessage<M> {
+    private final M message;
+    private final long timestamp;
 
+    public PartialJoinMessage(M message, long timestamp) {
+      this.message = message;
+      this.timestamp = timestamp;
+    }
+
+    public M getMessage() {
+      return message;
+    }
+
+    public long getTimestamp() {
+      return timestamp;
+    }
+  }
 }

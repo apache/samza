@@ -70,7 +70,7 @@ public class TestJoinExample  extends TestExampleBase {
       if (joinOutput == null) {
         joinOutput = newSource;
       } else {
-        joinOutput = joinOutput.join(newSource, new MyJoinFunction());
+        joinOutput = joinOutput.join(newSource, new MyJoinFunction(), 1000 * 60);
       }
     }
 

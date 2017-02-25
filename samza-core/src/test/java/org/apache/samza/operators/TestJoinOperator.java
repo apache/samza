@@ -170,6 +170,35 @@ public class TestJoinOperator {
     assertEquals(newOutputSum, 110); // should produce the same output as before
   }
 
+  @Test
+  public void joinRemovesExpiredMessages() throws Exception {
+    // push messages to first stream
+    numbers.forEach(n -> sot.process(new FirstStreamIME(n, n), messageCollector, taskCoordinator));
+
+    Thread.sleep(100); // 10 * ttl for join
+    sot.window(messageCollector, taskCoordinator); // should expire first stream messages
+
+    // push messages to second stream with same key
+    numbers.forEach(n -> sot.process(new SecondStreamIME(n, n), messageCollector, taskCoordinator));
+
+    assertTrue(output.isEmpty());
+  }
+
+
+  @Test
+  public void joinRemovesExpiredMessagesReverse() throws Exception {
+    // push messages to second stream
+    numbers.forEach(n -> sot.process(new SecondStreamIME(n, n), messageCollector, taskCoordinator));
+
+    Thread.sleep(100); // 10 * ttl for join
+    sot.window(messageCollector, taskCoordinator); // should expire second stream messages
+
+    // push messages to first stream with same key
+    numbers.forEach(n -> sot.process(new FirstStreamIME(n, n), messageCollector, taskCoordinator));
+
+    assertTrue(output.isEmpty());
+  }
+
   private class TestStreamGraphBuilder implements StreamGraphBuilder {
     StreamSpec inStreamSpec = new StreamSpec() {
       @Override
@@ -201,7 +230,7 @@ public class TestJoinOperator {
       MessageStream<MessageEnvelope<Integer, Integer>> inStream2 = graph.createInStream(inStreamSpec2, null, null);
 
       inStream
-          .join(inStream2, new TestJoinFunction())
+          .join(inStream2, new TestJoinFunction(), 10)
           .map(m -> {
               output.add(m);
               return m;

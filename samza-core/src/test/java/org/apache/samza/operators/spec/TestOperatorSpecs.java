@@ -90,7 +90,7 @@ public class TestOperatorSpecs {
     MessageStreamImpl<TestOutputMessageEnvelope> joinOutput = TestMessageStreamImplUtil.getMessageStreamImpl(mockGraph);
 
     PartialJoinOperatorSpec<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> partialJoinSpec =
-        OperatorSpecs.createPartialJoinOperatorSpec(thisPartialJoinFn, otherPartialJoinFn, mockGraph, joinOutput);
+        OperatorSpecs.createPartialJoinOperatorSpec(thisPartialJoinFn, otherPartialJoinFn, 1000 * 60, mockGraph, joinOutput);
 
     assertEquals(partialJoinSpec.getNextStream(), joinOutput);
     assertEquals(partialJoinSpec.getThisPartialJoinFn(), thisPartialJoinFn);

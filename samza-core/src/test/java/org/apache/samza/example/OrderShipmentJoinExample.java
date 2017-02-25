@@ -56,7 +56,7 @@ public class OrderShipmentJoinExample implements StreamGraphBuilder {
     MessageStream<ShipmentRecord> shipments = graph.createInStream(input2, new StringSerde("UTF-8"), new JsonSerde<>());
     OutputStream<FulFilledOrderRecord> fulfilledOrders = graph.createOutStream(output, new StringSerde("UTF-8"), new JsonSerde<>());
 
-    orders.join(shipments, new MyJoinFunction()).sendTo(fulfilledOrders);
+    orders.join(shipments, new MyJoinFunction(), 1000 * 60).sendTo(fulfilledOrders);
 
   }
 

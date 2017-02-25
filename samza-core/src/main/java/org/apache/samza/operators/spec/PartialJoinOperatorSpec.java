@@ -35,13 +35,11 @@ import org.apache.samza.task.TaskContext;
  */
 public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
 
-  private final MessageStreamImpl<RM> joinOutput;
+
   private final PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn;
   private final PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn;
-
-  /**
-   * The unique ID for this operator.
-   */
+  private final long ttlMs;
+  private final MessageStreamImpl<RM> joinOutput;
   private final int opId;
 
   /**
@@ -51,12 +49,16 @@ public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
    *                           type {@code M} in this stream
    * @param otherPartialJoinFn  partial join function that provides state for input messages of type {@code JM}
    *                            in the other stream
+   * @param ttlMs  the ttl in ms for retaining messages in each stream
    * @param joinOutput  the output {@link MessageStreamImpl} of the join results
+   * @param opId  the unique ID for this operator
    */
   PartialJoinOperatorSpec(PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn,
-      PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn, MessageStreamImpl<RM> joinOutput, int opId) {
+      PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn, long ttlMs,
+      MessageStreamImpl<RM> joinOutput, int opId) {
     this.thisPartialJoinFn = thisPartialJoinFn;
     this.otherPartialJoinFn = otherPartialJoinFn;
+    this.ttlMs = ttlMs;
     this.joinOutput = joinOutput;
     this.opId = opId;
   }
@@ -74,6 +76,10 @@ public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
     return this.otherPartialJoinFn;
   }
 
+  public long getTtlMs() {
+    return ttlMs;
+  }
+
   public OperatorSpec.OpCode getOpCode() {
     return OpCode.JOIN;
   }
@@ -82,7 +88,9 @@ public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
     return this.opId;
   }
 
-  @Override public void init(Config config, TaskContext context) {
+  @Override
+  public void init(Config config, TaskContext context) {
     this.thisPartialJoinFn.init(config, context);
   }
+
 }

@@ -113,12 +113,13 @@ public interface MessageStream<M> {
    *
    * @param otherStream the other {@link MessageStream} to be joined with
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
+   * @param ttlMs the ttl in ms for retaining messages in each stream
    * @param <K> the type of join key
    * @param <OM> the type of messages in the other stream
    * @param <RM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, OM, RM> MessageStream<RM> join(MessageStream<OM> otherStream, JoinFunction<K, M, OM, RM> joinFn);
+  <K, OM, RM> MessageStream<RM> join(MessageStream<OM> otherStream, JoinFunction<K, M, OM, RM> joinFn, long ttlMs);
 
   /**
    * Merge all {@code otherStreams} with this {@link MessageStream}.

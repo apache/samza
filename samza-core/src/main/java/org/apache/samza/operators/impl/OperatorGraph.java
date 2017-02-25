@@ -68,11 +68,19 @@ public class OperatorGraph {
    * Method to get the corresponding {@link RootOperatorImpl}
    *
    * @param ss  input {@link SystemStream}
-   * @param <M>  the type of input message
-   * @return  the {@link OperatorImpl} that starts processing the input message
+   * @return  the {@link RootOperatorImpl} that starts processing the input message
    */
-  public <M> OperatorImpl<M, M> get(SystemStream ss) {
+  public RootOperatorImpl get(SystemStream ss) {
     return this.operatorGraph.get(ss);
+  }
+
+  /**
+   * Method to get the all {@link RootOperatorImpl}s
+   *
+   * @return  all {@link RootOperatorImpl}s for the graph
+   */
+  public Collection<RootOperatorImpl> getAll() {
+    return this.operatorGraph.values();
   }
 
   /**
