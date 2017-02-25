@@ -71,9 +71,9 @@ With this configuration, the job automatically sends several JSON-encoded messag
 }
 {% endhighlight %}
 
-There is a separate message for each task instance, and the header tells you the job name, job ID and partition of the task. The metrics allow you to see how many messages have been processed and sent, the current offset in the input stream partition, and other details. There are additional messages which give you metrics about the JVM (heap size, garbage collection information, threads etc.), internal metrics of the Kafka producers and consumers, and more.
+There is a separate message for each task instance, and the header tells you the job name, job ID and partition of the task. The metrics allow you to see how many messages have been processed and sent, the current offset in the input stream partition, and other details. There are additional messages which give you metrics about the JVM (heap size, garbage collection information, threads etc.), internal metrics of the Kafka producers and consumers, and more. The list of all metrics emitted by samza is shown [here](metrics-table.html).
 
-It's easy to generate custom metrics in your job, if there's some value you want to keep an eye on. You can use Samza's built-in metrics framework, which is similar in design to Coda Hale's [metrics](http://metrics.codahale.com/) library. 
+It's easy to generate custom metrics in your job, if there's some value you want to keep an eye on. You can use Samza's built-in metrics framework, which is similar in design to Coda Hale's [metrics](http://metrics.dropwizard.io/) library.
 
 You can register your custom metrics through a [MetricsRegistry](../api/javadocs/org/apache/samza/metrics/MetricsRegistry.html). Your stream task needs to implement [InitableTask](../api/javadocs/org/apache/samza/task/InitableTask.html), so that you can get the metrics registry from the [TaskContext](../api/javadocs/org/apache/samza/task/TaskContext.html). This simple example shows how to count the number of messages processed by your task:
 
@@ -99,4 +99,4 @@ Samza currently supports three kinds of metrics: [counters](../api/javadocs/org/
 
 If you want to report metrics in some other way, e.g. directly to a graphing system (without going via Kafka), you can implement a [MetricsReporterFactory](../api/javadocs/org/apache/samza/metrics/MetricsReporterFactory.html) and reference it in your job configuration.
 
-## [Windowing &raquo;](windowing.html)
+## [JMX &raquo;](jmx.html)

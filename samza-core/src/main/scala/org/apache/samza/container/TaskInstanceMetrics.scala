@@ -34,7 +34,8 @@ class TaskInstanceMetrics(
   val messagesActuallyProcessed = newCounter("messages-actually-processed")
   val sends = newCounter("send-calls")
   val flushes = newCounter("flush-calls")
-  val messagesSent = newCounter("messages-sent")
+  val pendingMessages = newGauge("pending-messages", 0)
+  val messagesInFlight = newGauge("messages-in-flight", 0)
 
   def addOffsetGauge(systemStreamPartition: SystemStreamPartition, getValue: () => String) {
     newGauge("%s-%s-%d-offset" format (systemStreamPartition.getSystem, systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId), getValue)

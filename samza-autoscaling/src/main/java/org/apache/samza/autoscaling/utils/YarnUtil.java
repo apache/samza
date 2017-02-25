@@ -74,11 +74,8 @@ public class YarnUtil {
       String applications = EntityUtils.toString(httpResponse.getEntity());
       log.debug("applications: " + applications);
 
-      ObjectMapper mapper = new ObjectMapper();
-      Map<String, Map<String, List<Map<String, String>>>> yarnApplications = mapper.readValue(applications, new TypeReference<Map<String, Map<String, List<Map<String, String>>>>>() {
-      });
+      List<Map<String, String>> applicationList = parseYarnApplications(applications);
       String name = jobName + "_" + jobID;
-      List<Map<String, String>> applicationList = yarnApplications.get("apps").get("app");
       for (Map<String, String> application : applicationList) {
         if (application.containsKey("state") && application.containsKey("name") && application.containsKey("id")) {
           if (application.get("state").toString().equals("RUNNING") && application.get("name").toString().equals(name)) {
@@ -92,6 +89,13 @@ public class YarnUtil {
     }
 
     return null;
+  }
+
+  List<Map<String, String>> parseYarnApplications(String applications) throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    Map<String, Map<String, List<Map<String, String>>>> yarnApplications = mapper.readValue(applications, new TypeReference<Map<String, Map<String, List<Map<String, Object>>>>>() {
+    });
+    return yarnApplications.get("apps").get("app");
   }
 
   /**

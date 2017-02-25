@@ -82,6 +82,7 @@ class TestUtil {
     assertEquals(classOf[LongSerdeFactory].getName, defaultSerdeFactoryFromSerdeName("long"))
     assertEquals(classOf[SerializableSerdeFactory[java.io.Serializable@unchecked]].getName, defaultSerdeFactoryFromSerdeName("serializable"))
     assertEquals(classOf[StringSerdeFactory].getName, defaultSerdeFactoryFromSerdeName("string"))
+    assertEquals(classOf[DoubleSerdeFactory].getName, defaultSerdeFactoryFromSerdeName("double"))
 
     // throw SamzaException if can not find the correct serde
     var throwSamzaException = false
@@ -92,5 +93,21 @@ class TestUtil {
       case _: Exception =>
     }
     assertTrue(throwSamzaException)
+  }
+
+  @Test
+  def testClampAdd() {
+    assertEquals(0, Util.clampAdd(0, 0))
+    assertEquals(2, Util.clampAdd(1, 1))
+    assertEquals(-2, Util.clampAdd(-1, -1))
+    assertEquals(Long.MaxValue, Util.clampAdd(Long.MaxValue, 0))
+    assertEquals(Long.MaxValue - 1, Util.clampAdd(Long.MaxValue, -1))
+    assertEquals(Long.MaxValue, Util.clampAdd(Long.MaxValue, 1))
+    assertEquals(Long.MaxValue, Util.clampAdd(Long.MaxValue, Long.MaxValue))
+    assertEquals(Long.MinValue, Util.clampAdd(Long.MinValue, 0))
+    assertEquals(Long.MinValue, Util.clampAdd(Long.MinValue, -1))
+    assertEquals(Long.MinValue + 1, Util.clampAdd(Long.MinValue, 1))
+    assertEquals(Long.MinValue, Util.clampAdd(Long.MinValue, Long.MinValue))
+    assertEquals(-1, Util.clampAdd(Long.MaxValue, Long.MinValue))
   }
 }

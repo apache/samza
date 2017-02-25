@@ -185,7 +185,7 @@ object Util extends Logging {
   /**
    * Generates a coordinator stream name based off of the job name and job id
    * for the jobd. The format is of the stream name will be
-   * __samza_coordinator_&lt;JOBNAME&gt;_&lt;JOBID&gt;.
+   * &#95;&#95;samza_coordinator_&lt;JOBNAME&gt;_&lt;JOBID&gt;.
    */
   def getCoordinatorStreamName(jobName: String, jobId: String) = {
     "__samza_coordinator_%s_%s" format (jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
@@ -208,8 +208,14 @@ object Util extends Logging {
   def buildCoordinatorStreamConfig(config: Config) = {
     val (jobName, jobId) = getJobNameAndId(config)
     // Build a map with just the system config and job.name/job.id. This is what's required to start the JobCoordinator.
-    new MapConfig(config.subset(SystemConfig.SYSTEM_PREFIX format config.getCoordinatorSystemName, false) ++
-      Map[String, String](JobConfig.JOB_NAME -> jobName, JobConfig.JOB_ID -> jobId, JobConfig.JOB_COORDINATOR_SYSTEM -> config.getCoordinatorSystemName))
+    new MapConfig(
+      config.subset(SystemConfig.SYSTEM_PREFIX format config.getCoordinatorSystemName, false) ++
+      Map[String, String](
+        JobConfig.JOB_NAME -> jobName,
+        JobConfig.JOB_ID -> jobId,
+        JobConfig.JOB_COORDINATOR_SYSTEM -> config.getCoordinatorSystemName,
+        JobConfig.MONITOR_PARTITION_CHANGE -> String.valueOf(config.getMonitorPartitionChange),
+        JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> String.valueOf(config.getMonitorPartitionChangeFrequency)))
   }
 
   /**
@@ -324,7 +330,7 @@ object Util extends Logging {
   def getLocalHost: InetAddress = {
     val localHost = InetAddress.getLocalHost
     if (localHost.isLoopbackAddress) {
-      warn("Hostname %s resolves to a loopback address, trying to resolve an external IP address.".format(localHost.getHostName))
+      debug("Hostname %s resolves to a loopback address, trying to resolve an external IP address.".format(localHost.getHostName))
       val networkInterfaces = if (System.getProperty("os.name").startsWith("Windows")) NetworkInterface.getNetworkInterfaces.toList else NetworkInterface.getNetworkInterfaces.toList.reverse
       for (networkInterface <- networkInterfaces) {
         val addresses = networkInterface.getInetAddresses.toList.filterNot(address => address.isLinkLocalAddress || address.isLoopbackAddress)
@@ -353,9 +359,40 @@ object Util extends Logging {
       case "long" => classOf[LongSerdeFactory].getCanonicalName
       case "serializable" => classOf[SerializableSerdeFactory[java.io.Serializable]].getCanonicalName
       case "string" => classOf[StringSerdeFactory].getCanonicalName
-      case _ => throw new SamzaException("No class defined for serde %s" format serdeName)
+      case "double" => classOf[DoubleSerdeFactory].getCanonicalName
+      case _ => throw new SamzaException("defaultSerdeFactoryFromSerdeName: No class defined for serde %s" format serdeName)
     }
     info("use default serde %s for %s" format (serde, serdeName))
     serde
   }
+
+  /**
+   * Add the supplied arguments and handle overflow by clamping the resulting sum to
+   * {@code Long.MinValue} if the sum would have been less than {@code Long.MinValue} or
+   * {@code Long.MaxValue} if the sum would have been greater than {@code Long.MaxValue}.
+   *
+   * @param lhs left hand side of sum
+   * @param rhs right hand side of sum
+   * @return the sum if no overflow occurs, or the clamped extreme if it does.
+   */
+  def clampAdd(lhs: Long, rhs: Long): Long = {
+    val sum = lhs + rhs
+
+    // From "Hacker's Delight", overflow occurs IFF both operands have the same sign and the
+    // sign of the sum differs from the operands. Here we're doing a basic bitwise check that
+    // collapses 6 branches down to 2. The expression {@code lhs ^ rhs} will have the high-order
+    // bit set to true IFF the signs are different.
+    if ((~(lhs ^ rhs) & (lhs ^ sum)) < 0) {
+      return if (lhs >= 0) Long.MaxValue else Long.MinValue
+    }
+
+    sum
+  }
+
+  /**
+   * Implicitly convert the Java TimerClock to Scala clock function which returns long timestamp.
+   * @param c Java TimeClock
+   * @return Scala clock function
+   */
+  implicit def asScalaClock(c: HighResolutionClock): () => Long = () => c.nanoTime()
 }

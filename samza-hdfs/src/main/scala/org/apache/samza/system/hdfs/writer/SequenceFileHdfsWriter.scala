@@ -108,7 +108,7 @@ abstract class SequenceFileHdfsWriter(dfs: FileSystem, systemName: String, confi
     Some(
       SequenceFile.createWriter(
         dfs.getConf,
-        Writer.stream(dfs.create(path)),
+        Writer.file(path),
         Writer.keyClass(keyClass),
         Writer.valueClass(valueClass),
         Writer.compression(

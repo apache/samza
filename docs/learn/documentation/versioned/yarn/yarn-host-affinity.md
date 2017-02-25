@@ -19,9 +19,9 @@ title: Host Affinity & YARN
    limitations under the License.
 -->
 
-In Samza, containers are the units of physical parallelism that runs on a set of machines. Each container is essentially a process that runs one or more stream tasks. Each task instance consumes one or more partitions of the input streams and is associated with its own durable data store. 
+In Samza, containers are the units of physical parallelism that runs on a set of machines. Each container is essentially a process that runs one or more stream tasks. Each task instance consumes one or more partitions of the input streams and is associated with its own durable data store.
 
-We define a *Stateful Samza Job* as the Samza job that uses a key-value store in its implementation, alone with an associated changelog stream. In stateful samza jobs, there is a 1:1 mapping between the task instance and the data store. Since the allocation of containers to machines in the Yarn cluster is completely left to Yarn, Samza does not guarantee that a container (and hence, its associated task(s)) gets deployed on the same machine. Containers can get shuffled in any of the following cases:
+We define a *Stateful Samza Job* as the Samza job that uses a key-value store in its implementation, along with an associated changelog stream. In stateful samza jobs, a task may be configured to use multiple stores. For each store there is a 1:1 mapping between the task instance and the data store. Since the allocation of containers to machines in the Yarn cluster is completely left to Yarn, Samza does not guarantee that a container (and hence, its associated task(s)) gets deployed on the same machine. Containers can get shuffled in any of the following cases:
 
 1. When a job is upgraded by pointing <code>yarn.package.path</code> to the new package path and re-submitted.
 2. When a job is simply restarted by Yarn or the user
@@ -29,7 +29,7 @@ We define a *Stateful Samza Job* as the Samza job that uses a key-value store in
 
 In any of the above cases, the task's co-located data needs to be restored every time a container starts-up. Restoring data each time can be expensive, especially for applications that have a large data set. This behavior slows the start-up time for the job so much that the job is no longer "near realtime". Furthermore, if multiple stateful samza jobs restart around the same time in the cluster and they all share the same changelog system, then it is possible to quickly saturate the changelog system's network and cause a DDoS.
 
-For instance, consider a Samza job performing a Stream-Table join. Typically, such a job requires the dataset to be available on all processors before they begin processing the input stream. The dataset is usually large (order > 1TB) read-only data that will be used to join or add attributes to incoming messages. The job may initialize this cache by populated with data directly from a remote store or changelog stream. This cache initialization happens each time the container is restarted. This causes significant latency during job start-up.
+For instance, consider a Samza job performing a Stream-Table join. Typically, such a job requires the dataset to be available on all processors before they begin processing the input stream. The dataset is usually large (order > 1TB) read-only data that will be used to join or add attributes to incoming messages. The job may initialize this cache by populating it with data directly from a remote store or changelog stream. This cache initialization happens each time the container is restarted. This causes significant latency during job start-up.
 
 The solution, then, is to simply persist the state store on the machine in which the container process is executing and re-allocate the same host for the container each time the job is restarted, in order to re-use the persisted state. Thus, the ability of Samza to allocate a container to the same machine across job restarts is referred to as ***host-affinity***. Samza leverages host-affinity to enhance our support for local state re-use.
 
@@ -47,20 +47,19 @@ This allows the Node Manager's (NM) DeletionService to clean-up the working dire
 
 ![samza-host-affinity](/img/{{site.version}}/learn/documentation/yarn/samza-host-affinity.png)
 
-When a container is *cleanly shutdown*, Samza also writes the last materialized offset from the changelog stream to the checksumed file on disk. Thus, there is an *OFFSET* file associated with each state stores' changelog partitions, that is consumed by the tasks in the container.
+Each time a task commits, Samza writes the last materialized offset from the changelog stream to the checksumed file on disk. This is also done on container shutdown. Thus, there is an *OFFSET* file associated with each state stores' changelog partitions, that is consumed by the tasks in the container.
 
 {% highlight bash %}
 ${LOGGED_STORE_BASE_DIR}/${job.name}-${job.id}/${store.name}/${task.name}/OFFSET
 {% endhighlight %}
 
-Now, when a container restarts on the same machine after a clean shutdown and the OFFSET file exists, the Samza container:
+Now, when a container restarts on the same machine after the OFFSET file exists, the Samza container:
 
 1. Opens the persisted store on disk
 2. Reads the OFFSET file
-3. Deletes the OFFSET file
-4. Restores the state store from the OFFSET value
+3. Restores the state store from the OFFSET value
 
-If the OFFSET file doesn't exist, it creates the state store and consumes from the oldest offset in the changelog to re-create the state. Note that Samza optimistically deletes the OFFSET file in step 3 to prevent data from getting corrupted due to any kind of failure during state restoration. This significantly reduces the state restoration time on container start-up as we no longer consume from the beginning of the changelog stream.
+This significantly reduces the state restoration time on container start-up as we no longer consume from the beginning of the changelog stream. If the OFFSET file doesn't exist, it creates the state store and consumes from the oldest offset in the changelog to re-create the state. Since the OFFSET file is written on each commit after flushing the store, the recorded offset is guaranteed to correspond to the current contents of the store or some older point, but never newer. This gives at least once semantics for state restore. Therefore, the changelog entries must be idempotent.
 
 It is necessary to periodically clean-up unused or orphaned state stores on the machines to manage disk-space. This feature is being worked on in [SAMZA-656](https://issues.apache.org/jira/browse/SAMZA-656).
 
@@ -71,7 +70,7 @@ Note that the Yarn cluster has to be configured to use [Fair Scheduler](https://
 
 ## Configuring YARN cluster to support Host Affinity
 
-1. Enable local state re-use by setting the <code>LOGGED\_STORE\_BASE\_DIR</code> environment variable in yarn-env.sh {% highlight bash %} 
+1. Enable local state re-use by setting the <code>LOGGED\_STORE\_BASE\_DIR</code> environment variable in yarn-env.sh {% highlight bash %}
 export LOGGED_STORE_BASE_DIR=<path-for-state-stores>
 {% endhighlight %} Without this configuration, the state stores are not persisted upon a container shutdown. This will effectively mean you will not re-use local state and hence, host-affinity becomes a moot operation.
 2. Configure Yarn to use Fair Scheduler and enable continuous-scheduling in yarn-site.xml {% highlight xml %}
@@ -86,14 +85,14 @@ export LOGGED_STORE_BASE_DIR=<path-for-state-stores>
     <value>true</value>
 </property>
 <property>
-    <name>yarn.schedular.fair.locality-delay-node-ms</name>
+    <name>yarn.scheduler.fair.locality-delay-node-ms</name>
     <description>Delay time in milliseconds before relaxing locality at node-level</description>
     <value>1000</value>  <!-- Should be tuned per requirement -->
 </property>
 <property>
-    <name>yarn.schedular.fair.locality-delay-rack-ms</name>
+    <name>yarn.scheduler.fair.locality-delay-rack-ms</name>
     <description>Delay time in milliseconds before relaxing locality at rack-level</description>
-    <value>1000*</value> <!-- Should be tuned per requirement -->
+    <value>1000</value> <!-- Should be tuned per requirement -->
 </property>
 {% endhighlight %}
 3. Configure Yarn Node Manager SIGTERM to SIGKILL timeout to be reasonable time s.t. Node Manager will give Samza Container enough time to perform a clean shutdown in yarn-site.xml {% highlight xml %}
@@ -103,11 +102,12 @@ export LOGGED_STORE_BASE_DIR=<path-for-state-stores>
     <value>600000</value> <!-- Set it to 10min to allow enough time for clean shutdown of containers -->
 </property>
 {% endhighlight %}
+4. The Yarn [Rack Awareness](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/RackAwareness.html) feature is not required and does not change the behavior of Samza Host Affinity. However, if Rack Awareness is configured in the cluster, make sure the DNSToSwitchMapping implementation is robust. Any failures could cause container requests to fall back to the defaultRack. This will cause ContainerRequests to not match the preferred host, which will degrade Host Affinity. For details, see [SAMZA-866](https://issues.apache.org/jira/browse/SAMZA-886)
 
 ## Configuring a Samza job to use Host Affinity
-Any stateful Samza job can leverage this feature to reduce the Mean Time To Restore (MTTR) of it's state stores by setting <code>yarn.samza.host-affinity</code> to true.
+Any stateful Samza job can leverage this feature to reduce the Mean Time To Restore (MTTR) of its state stores by setting <code>yarn.samza.host-affinity.enabled</code> to true.
 {% highlight bash %}
-yarn.samza.host-affinity=true  # Default: false
+yarn.samza.host-affinity.enabled=true  # Default: false
 {% endhighlight %}
 
 Enabling this feature for a stateless Samza job should not have any adverse effect on the job.
@@ -116,6 +116,7 @@ Enabling this feature for a stateless Samza job should not have any adverse effe
 ## Host-affinity Guarantees
 As you have observed, host-affinity cannot be guaranteed all the time due to varibale load distribution in the Yarn cluster. Hence, this is a best-effort policy that Samza provides. However, certain scenarios are worth calling out where these guarantees may be hard to achieve or are not applicable.
 
-1. _When the number of containers and/or container-task assignment changes across successive application runs_ - We may be able to re-use local state for a subset of partitions. Currently, there is no logic in the Job Coordinator to handle partitioning of tasks among containers intelligently. Handling this is more involved as relates to [auto-scaling](https://issues.apache.org/jira/browse/SAMZA-336) of the containers.
+1. _When the number of containers and/or container-task assignment changes across successive application runs_ - We may be able to re-use local state for a subset of partitions. Currently, there is no logic in the Job Coordinator to handle partitioning of tasks among containers intelligently. Handling this is more involved as relates to [auto-scaling](https://issues.apache.org/jira/browse/SAMZA-336) of the containers. However, with [task-container mapping](https://issues.apache.org/jira/browse/SAMZA-906), this will work better for typical container count adjustments.
 2. _When SystemStreamPartitionGrouper changes across successive application runs_ - When the grouper logic used to distribute the partitions across containers changes, the data in the Coordinator Stream (for changelog-task partition assignment etc) and the data stores becomes invalid. Thus, to be safe, we should flush out all state-related data from the Coordinator Stream. An alternative is to overwrite the Task-ChangelogPartition assignment message and the Container Locality message in the Coordinator Stream, before starting up the job again.
 
+## [Writing to HDFS &raquo;](../hdfs/producer.html)

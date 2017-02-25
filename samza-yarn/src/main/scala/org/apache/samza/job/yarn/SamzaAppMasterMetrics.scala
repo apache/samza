@@ -18,22 +18,16 @@
  */
 
 package org.apache.samza.job.yarn
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.metrics.JvmMetrics
+
+import org.apache.samza.clustermanager.SamzaApplicationState
 import org.apache.samza.config.Config
-import org.apache.samza.task.TaskContext
-import org.apache.samza.Partition
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.MetricsConfig.Config2Metrics
-import org.apache.samza.metrics.MetricsReporterFactory
-import org.apache.samza.util.Util
-import org.apache.samza.metrics.ReadableMetricsRegistry
 import org.apache.samza.util.Logging
-import org.apache.samza.SamzaException
-import java.util.Timer
-import java.util.TimerTask
+import org.apache.samza.util.MetricsReporterLoader
+import org.apache.samza.metrics.ReadableMetricsRegistry
 import org.apache.samza.metrics.MetricsHelper
+
+import scala.collection.JavaConverters._
 
 object SamzaAppMasterMetrics {
   val sourceName = "ApplicationMaster"
@@ -45,52 +39,26 @@ object SamzaAppMasterMetrics {
  * master state, and converts it to metrics.
  */
 class SamzaAppMasterMetrics(
-  val config: Config,
-  val state: SamzaAppState,
-  val registry: ReadableMetricsRegistry) extends MetricsHelper with YarnAppMasterListener with Logging {
+                             val config: Config,
+                             val state: SamzaApplicationState,
+                             val registry: ReadableMetricsRegistry) extends MetricsHelper with Logging {
 
-  val jvm = new JvmMetrics(registry)
-  val reporters = config.getMetricReporterNames.map(reporterName => {
-    val metricsFactoryClassName = config
-      .getMetricsFactoryClass(reporterName)
-      .getOrElse(throw new SamzaException("Metrics reporter %s missing .class config" format reporterName))
+  val reporters = MetricsReporterLoader.getMetricsReporters(config, SamzaAppMasterMetrics.sourceName).asScala
+  reporters.values.foreach(_.register(SamzaAppMasterMetrics.sourceName, registry))
 
-    val reporter =
-      Util
-        .getObj[MetricsReporterFactory](metricsFactoryClassName)
-        .getMetricsReporter(reporterName, SamzaAppMasterMetrics.sourceName, config)
-
-    reporter.register(SamzaAppMasterMetrics.sourceName, registry)
-    (reporterName, reporter)
-  }).toMap
-
-  override def onInit() {
+  def start() {
     val mRunningContainers = newGauge("running-containers", () => state.runningContainers.size)
     val mNeededContainers = newGauge("needed-containers", () => state.neededContainers.get())
     val mCompletedContainers = newGauge("completed-containers", () => state.completedContainers.get())
     val mFailedContainers = newGauge("failed-containers", () => state.failedContainers.get())
     val mReleasedContainers = newGauge("released-containers", () => state.releasedContainers.get())
     val mContainers = newGauge("container-count", () => state.containerCount)
-    val mHost = newGauge("http-host", () => state.nodeHost)
-    val mTrackingPort = newGauge("http-port", () => state.trackingUrl.getPort)
-    val mRpcPort = newGauge("rpc-port", () => state.rpcUrl.getPort)
-    val mAppAttemptId = newGauge("app-attempt-id", () => state.appAttemptId.toString)
     val mJobHealthy = newGauge("job-healthy", () => if (state.jobHealthy.get()) 1 else 0)
-    val mLocalityMatchedRequests = newGauge(
-      "locality-matched",
-      () => {
-        if (state.containerRequests.get() != 0) {
-          state.matchedContainerRequests.get() / state.containerRequests.get()
-        } else {
-          0L
-        }
-      })
 
-    jvm.start
     reporters.values.foreach(_.start)
   }
 
-  override def onShutdown() {
+  def stop() {
     reporters.values.foreach(_.stop)
   }
 }

@@ -53,18 +53,11 @@
     </module>
     <module name="LocalVariableName"/>
     <module name="LocalFinalVariableName"/>
-    <module name="ClassTypeParameterName"/>
     <module name="MemberName"/>
-    <module name="MethodTypeParameterName"/>
     <module name="PackageName"/>
     <module name="ParameterName"/>
     <module name="StaticVariableName"/>
     <module name="TypeName"/>
-    
-    <!-- dependencies -->
-    <module name="ImportControl">
-      <property name="file" value="${basedir}/checkstyle/import-control.xml"/>
-    </module>
     
     <!-- whitespace -->
     <module name="GenericWhitespace"/>
@@ -80,6 +73,7 @@
       <property name="basicOffset" value="2"/>
       <property name="caseIndent" value="2"/>
       <property name="throwsIndent" value="2"/>
+      <property name="lineWrappingIndentation" value="2"/>
     </module>
     <module name="MethodParamPad"/>
     <module name="ParenPad"/>

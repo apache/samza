@@ -21,13 +21,11 @@ package org.apache.samza.job
 
 import java.io.File
 
-import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
-import org.apache.samza.migration.JobRunnerMigration
-import org.junit.Test
 import org.junit.After
 import org.junit.Assert._
+import org.junit.Test
 
 object TestJobRunner {
   var processCount = 0
@@ -38,22 +36,6 @@ class TestJobRunner {
   @After
   def teardown {
     MockCoordinatorStreamSystemFactory.disableMockConsumerCache()
-  }
-
-  @Test
-  def testJobRunnerMigrationFails {
-    MockCoordinatorStreamSystemFactory.enableMockConsumerCache()
-
-    try {
-      JobRunner.main(Array(
-        "--config-factory",
-        "org.apache.samza.config.factories.PropertiesConfigFactory",
-        "--config-path",
-        "file://%s/src/test/resources/test-migration-fail.properties" format new File(".").getCanonicalPath))
-      fail("Should have failed already.")
-    } catch {
-      case se: SamzaException => assertEquals(se.getMessage, JobRunnerMigration.UNSUPPORTED_ERROR_MSG)
-    }
   }
 
   @Test

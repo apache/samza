@@ -109,7 +109,7 @@ public abstract class AbstractCoordinatorStreamManager {
   }
 
   /**
-   * Registers a consumer and a produces. Every subclass should implement it's logic for registration.<br><br>
+   * Registers a consumer and a producer. Every subclass should implement it's logic for registration.<br><br>
    * Registering a single consumer and a single producer can be done with {@link AbstractCoordinatorStreamManager#registerCoordinatorStreamConsumer()}
    * and {@link AbstractCoordinatorStreamManager#registerCoordinatorStreamProducer(String)} methods respectively.<br>
    * These methods can be used in the concrete implementation of this register method.

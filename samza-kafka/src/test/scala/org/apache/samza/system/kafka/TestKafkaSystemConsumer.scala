@@ -41,11 +41,12 @@ class TestKafkaSystemConsumer {
   private val SSP: SystemStreamPartition = new SystemStreamPartition("test", "test", new Partition(0))
   private val envelope: IncomingMessageEnvelope = new IncomingMessageEnvelope(SSP, null, null, null)
   private val envelopeWithSize: IncomingMessageEnvelope = new IncomingMessageEnvelope(SSP, null, null, null, 100)
+  private val clientId = "TestClientId"
 
   @Test
   def testFetchThresholdShouldDivideEvenlyAmongPartitions {
     val metadataStore = new MockMetadataStore
-    val consumer = new KafkaSystemConsumer("", systemAdmin, new KafkaSystemConsumerMetrics, metadataStore, fetchThreshold = 50000) {
+    val consumer = new KafkaSystemConsumer("", systemAdmin, new KafkaSystemConsumerMetrics, metadataStore, clientId, fetchThreshold = 50000) {
       override def refreshBrokers {
       }
     }
@@ -66,11 +67,11 @@ class TestKafkaSystemConsumer {
     val metrics = new KafkaSystemConsumerMetrics
     // Lie and tell the store that the partition metadata is empty. We can't
     // use partition metadata because it has Broker in its constructor, which
-    // is package private to Kafka. 
+    // is package private to Kafka.
     val metadataStore = new MockMetadataStore(Map(streamName -> TopicMetadata(streamName, Seq.empty, 0)))
     var hosts = List[String]()
     var getHostPortCount = 0
-    val consumer = new KafkaSystemConsumer(systemName, systemAdmin, metrics, metadataStore) {
+    val consumer = new KafkaSystemConsumer(systemName, systemAdmin, metrics, metadataStore, clientId) {
       override def getHostPort(topicMetadata: TopicMetadata, partition: Int): Option[(String, Int)] = {
         // Generate a unique host every time getHostPort is called.
         getHostPortCount += 1
@@ -80,7 +81,7 @@ class TestKafkaSystemConsumer {
       override def createBrokerProxy(host: String, port: Int): BrokerProxy = {
         new BrokerProxy(host, port, systemName, "", metrics, sink) {
           override def addTopicPartition(tp: TopicAndPartition, nextOffset: Option[String]) = {
-            // Skip this since we normally do verification of offsets, which 
+            // Skip this since we normally do verification of offsets, which
             // tries to connect to Kafka. Rather than mock that, just forget it.
             nextOffsets.size
           }
@@ -106,7 +107,7 @@ class TestKafkaSystemConsumer {
     when(systemAdmin.offsetComparator(anyString, anyString)).thenCallRealMethod()
 
     val metadataStore = new MockMetadataStore
-    val consumer = new KafkaSystemConsumer("", systemAdmin, new KafkaSystemConsumerMetrics, metadataStore, fetchThreshold = 50000)
+    val consumer = new KafkaSystemConsumer("", systemAdmin, new KafkaSystemConsumerMetrics, metadataStore, clientId, fetchThreshold = 50000)
     val ssp0 = new SystemStreamPartition("test-system", "test-stream", new Partition(0))
     val ssp1 = new SystemStreamPartition("test-system", "test-stream", new Partition(1))
     val ssp2 = new SystemStreamPartition("test-system", "test-stream", new Partition(2))
@@ -125,7 +126,7 @@ class TestKafkaSystemConsumer {
   @Test
   def testFetchThresholdBytesShouldDivideEvenlyAmongPartitions {
     val metadataStore = new MockMetadataStore
-    val consumer = new KafkaSystemConsumer("", systemAdmin, new KafkaSystemConsumerMetrics, metadataStore,
+    val consumer = new KafkaSystemConsumer("", systemAdmin, new KafkaSystemConsumerMetrics, metadataStore, clientId,
       fetchThreshold = 50000, fetchThresholdBytes = 60000L, fetchLimitByBytesEnabled = true) {
       override def refreshBrokers {
       }
@@ -144,7 +145,7 @@ class TestKafkaSystemConsumer {
   @Test
   def testFetchThresholdBytes {
     val metadataStore = new MockMetadataStore
-    val consumer = new KafkaSystemConsumer("test-system", systemAdmin, new KafkaSystemConsumerMetrics, metadataStore,
+    val consumer = new KafkaSystemConsumer("test-system", systemAdmin, new KafkaSystemConsumerMetrics, metadataStore, clientId,
       fetchThreshold = 50000, fetchThresholdBytes = 60000L, fetchLimitByBytesEnabled = true) {
       override def refreshBrokers {
       }
@@ -158,17 +159,16 @@ class TestKafkaSystemConsumer {
 
     val msg = Array[Byte](5, 112, 9, 126)
     val msgAndOffset: MessageAndOffset = MessageAndOffset(new Message(msg), 887654)
-    // 4 data + 14 Message overhead + 80 IncomingMessageEnvelope overhead
+    // 4 data + 18 Message overhead + 80 IncomingMessageEnvelope overhead
     consumer.sink.addMessage(new TopicAndPartition("test-stream", 0),  msgAndOffset, 887354)
 
-    assertEquals(98, consumer.getMessagesSizeInQueue(new SystemStreamPartition("test-system", "test-stream", new Partition(0))))
+    assertEquals(106, consumer.getMessagesSizeInQueue(new SystemStreamPartition("test-system", "test-stream", new Partition(0))))
   }
-
 
   @Test
   def testFetchThresholdBytesDisabled {
     val metadataStore = new MockMetadataStore
-    val consumer = new KafkaSystemConsumer("", systemAdmin, new KafkaSystemConsumerMetrics, metadataStore,
+    val consumer = new KafkaSystemConsumer("", systemAdmin, new KafkaSystemConsumerMetrics, metadataStore, clientId,
       fetchThreshold = 50000, fetchThresholdBytes = 60000L) {
       override def refreshBrokers {
       }
@@ -189,4 +189,3 @@ class TestKafkaSystemConsumer {
 class MockMetadataStore(var metadata: Map[String, TopicMetadata] = Map()) extends TopicMetadataStore {
   def getTopicInfo(topics: Set[String]): Map[String, TopicMetadata] = metadata
 }
-

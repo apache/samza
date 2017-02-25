@@ -25,6 +25,14 @@ class ScalaMapConfig(config: Config) extends MapConfig(config) {
 
   def getOption(k: String): Option[String] = if (containsKey(k)) Some(config.get(k)) else None
 
+  def getNonEmptyOption(k: String): Option[String] = {
+    getOption(k) match {
+      case Some(v: String) if (!v.isEmpty) => Some(v)
+      case _ => None
+    }
+  }
+
+
   def getExcept(k: String, msg: String = null): String = 
     getOption(k) match {
       case Some(s) => s

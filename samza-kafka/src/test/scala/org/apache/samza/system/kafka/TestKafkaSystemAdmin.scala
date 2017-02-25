@@ -21,82 +21,80 @@
 
 package org.apache.samza.system.kafka
 
-import java.util.Properties
-import kafka.admin.AdminUtils
-import kafka.consumer.Consumer
-import kafka.consumer.ConsumerConfig
-import kafka.server.KafkaConfig
-import kafka.server.KafkaServer
-import kafka.utils.TestUtils
-import kafka.utils.TestZKUtils
-import kafka.utils.Utils
-import kafka.utils.ZKStringSerializer
-import kafka.zk.EmbeddedZookeeper
-import org.I0Itec.zkclient.ZkClient
-import org.apache.samza.Partition
-import org.apache.samza.system.SystemStreamMetadata
-import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.ExponentialSleepStrategy
-import org.apache.samza.util.ClientUtilTopicMetadataStore
-import org.apache.samza.util.TopicMetadataStore
-import org.junit.Assert._
-import org.junit.{Test, BeforeClass, AfterClass}
-import scala.collection.JavaConversions._
-import org.apache.samza.config.KafkaProducerConfig
-import org.apache.kafka.clients.producer.{ProducerRecord, KafkaProducer}
-import java.util
-import kafka.common.ErrorMapping
-import org.apache.samza.util.KafkaUtil
+import java.util.{Properties, UUID}
 
-object TestKafkaSystemAdmin {
+import kafka.admin.AdminUtils
+import kafka.common.{ErrorMapping, LeaderNotAvailableException}
+import kafka.consumer.{Consumer, ConsumerConfig}
+import kafka.integration.KafkaServerTestHarness
+import kafka.server.KafkaConfig
+import kafka.utils.{TestUtils, ZkUtils}
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.apache.kafka.common.security.JaasUtils
+import org.apache.samza.Partition
+import org.apache.samza.config.KafkaProducerConfig
+import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.apache.samza.system.{SystemStreamMetadata, SystemStreamPartition}
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, KafkaUtil, TopicMetadataStore}
+import org.junit.Assert._
+import org.junit._
+
+import scala.collection.JavaConversions._
+
+/**
+  * README: New tests should be added to the Java tests. See TestKafkaSystemAdminJava
+  */
+object TestKafkaSystemAdmin extends KafkaServerTestHarness {
+
+  val SYSTEM = "kafka"
   val TOPIC = "input"
+  val TOPIC2 = "input2"
   val TOTAL_PARTITIONS = 50
   val REPLICATION_FACTOR = 2
+  val zkSecure = JaasUtils.isZkSecurityEnabled()
 
-  val zkConnect: String = TestZKUtils.zookeeperConnect
-  var zkClient: ZkClient = null
-  val zkConnectionTimeout = 6000
-  val zkSessionTimeout = 6000
-  val brokerId1 = 0
-  val brokerId2 = 1
-  val brokerId3 = 2
-  val ports = TestUtils.choosePorts(3)
-  val (port1, port2, port3) = (ports(0), ports(1), ports(2))
+  protected def numBrokers: Int = 3
 
-  val props1 = TestUtils.createBrokerConfig(brokerId1, port1)
-  val props2 = TestUtils.createBrokerConfig(brokerId2, port2)
-  val props3 = TestUtils.createBrokerConfig(brokerId3, port3)
-
-  val config = new util.HashMap[String, Object]()
-  val brokers = "localhost:%d,localhost:%d,localhost:%d" format (port1, port2, port3)
-  config.put("bootstrap.servers", brokers)
-  config.put("request.required.acks", "-1")
-  config.put("serializer.class", "kafka.serializer.StringEncoder")
-  val producerConfig = new KafkaProducerConfig("kafka", "i001", config)
   var producer: KafkaProducer[Array[Byte], Array[Byte]] = null
-  var zookeeper: EmbeddedZookeeper = null
-  var server1: KafkaServer = null
-  var server2: KafkaServer = null
-  var server3: KafkaServer = null
   var metadataStore: TopicMetadataStore = null
+  var producerConfig: KafkaProducerConfig = null
+  var brokers: String = null
+
+  def generateConfigs() = {
+    val props = TestUtils.createBrokerConfigs(numBrokers, zkConnect, true)
+    props.map(KafkaConfig.fromProps)
+  }
 
   @BeforeClass
-  def beforeSetupServers {
-    zookeeper = new EmbeddedZookeeper(zkConnect)
-    server1 = TestUtils.createServer(new KafkaConfig(props1))
-    server2 = TestUtils.createServer(new KafkaConfig(props2))
-    server3 = TestUtils.createServer(new KafkaConfig(props3))
-    zkClient = new ZkClient(zkConnect + "/", 6000, 6000, ZKStringSerializer)
+  override def setUp {
+    super.setUp
+
+    val config = new java.util.HashMap[String, Object]()
+
+    brokers = brokerList.split(",").map(p => "localhost" + p).mkString(",")
+
+    config.put("bootstrap.servers", brokers)
+    config.put("acks", "all")
+    config.put("serializer.class", "kafka.serializer.StringEncoder")
+
+    producerConfig = new KafkaProducerConfig("kafka", "i001", config)
+
     producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
     metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")
   }
 
-  def createTopic {
+
+  @AfterClass
+  override def tearDown {
+    super.tearDown
+  }
+
+
+  def createTopic(topicName: String, partitionCount: Int) {
     AdminUtils.createTopic(
-      zkClient,
-      TOPIC,
-      TOTAL_PARTITIONS,
+      zkUtils,
+      topicName,
+      partitionCount,
       REPLICATION_FACTOR)
   }
 
@@ -107,7 +105,7 @@ object TestKafkaSystemAdmin {
 
     while (!done && retries < maxRetries) {
       try {
-        val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topic), "kafka", metadataStore.getTopicInfo)
+        val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topic), SYSTEM, metadataStore.getTopicInfo)
         val topicMetadata = topicMetadataMap(topic)
         val errorCode = topicMetadata.errorCode
 
@@ -138,21 +136,14 @@ object TestKafkaSystemAdmin {
     Consumer.create(consumerConfig)
   }
 
-  @AfterClass
-  def afterCleanLogDirs {
-    producer.close()
-    server1.shutdown
-    server1.awaitShutdown()
-    server2.shutdown
-    server2.awaitShutdown()
-    server3.shutdown
-    server3.awaitShutdown()
-    Utils.rm(server1.config.logDirs)
-    Utils.rm(server2.config.logDirs)
-    Utils.rm(server3.config.logDirs)
-    zkClient.close
-    zookeeper.shutdown
+  def createSystemAdmin: KafkaSystemAdmin = {
+    new KafkaSystemAdmin(SYSTEM, brokers, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure))
   }
+
+  def createSystemAdmin(coordinatorStreamProperties: Properties, coordinatorStreamReplicationFactor: Int, topicMetaInformation: Map[String, ChangelogInfo]): KafkaSystemAdmin = {
+    new KafkaSystemAdmin(SYSTEM, brokers, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamProperties, coordinatorStreamReplicationFactor, 10000, ConsumerConfig.SocketBufferSize, UUID.randomUUID.toString, topicMetaInformation)
+  }
+
 }
 
 /**
@@ -162,26 +153,26 @@ object TestKafkaSystemAdmin {
 class TestKafkaSystemAdmin {
   import TestKafkaSystemAdmin._
 
-  val systemName = "test"
   // Provide a random zkAddress, the system admin tries to connect only when a topic is created/validated
-  val systemAdmin = new KafkaSystemAdmin(systemName, brokers, connectZk = () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer))
+  val systemAdmin = createSystemAdmin
 
+  @Test
   def testShouldAssembleMetadata {
     val oldestOffsets = Map(
-      new SystemStreamPartition("test", "stream1", new Partition(0)) -> "o1",
-      new SystemStreamPartition("test", "stream2", new Partition(0)) -> "o2",
-      new SystemStreamPartition("test", "stream1", new Partition(1)) -> "o3",
-      new SystemStreamPartition("test", "stream2", new Partition(1)) -> "o4")
+      new SystemStreamPartition(SYSTEM, "stream1", new Partition(0)) -> "o1",
+      new SystemStreamPartition(SYSTEM, "stream2", new Partition(0)) -> "o2",
+      new SystemStreamPartition(SYSTEM, "stream1", new Partition(1)) -> "o3",
+      new SystemStreamPartition(SYSTEM, "stream2", new Partition(1)) -> "o4")
     val newestOffsets = Map(
-      new SystemStreamPartition("test", "stream1", new Partition(0)) -> "n1",
-      new SystemStreamPartition("test", "stream2", new Partition(0)) -> "n2",
-      new SystemStreamPartition("test", "stream1", new Partition(1)) -> "n3",
-      new SystemStreamPartition("test", "stream2", new Partition(1)) -> "n4")
+      new SystemStreamPartition(SYSTEM, "stream1", new Partition(0)) -> "n1",
+      new SystemStreamPartition(SYSTEM, "stream2", new Partition(0)) -> "n2",
+      new SystemStreamPartition(SYSTEM, "stream1", new Partition(1)) -> "n3",
+      new SystemStreamPartition(SYSTEM, "stream2", new Partition(1)) -> "n4")
     val upcomingOffsets = Map(
-      new SystemStreamPartition("test", "stream1", new Partition(0)) -> "u1",
-      new SystemStreamPartition("test", "stream2", new Partition(0)) -> "u2",
-      new SystemStreamPartition("test", "stream1", new Partition(1)) -> "u3",
-      new SystemStreamPartition("test", "stream2", new Partition(1)) -> "u4")
+      new SystemStreamPartition(SYSTEM, "stream1", new Partition(0)) -> "u1",
+      new SystemStreamPartition(SYSTEM, "stream2", new Partition(0)) -> "u2",
+      new SystemStreamPartition(SYSTEM, "stream1", new Partition(1)) -> "u3",
+      new SystemStreamPartition(SYSTEM, "stream2", new Partition(1)) -> "u4")
     val metadata = KafkaSystemAdmin.assembleMetadata(oldestOffsets, newestOffsets, upcomingOffsets)
     assertNotNull(metadata)
     assertEquals(2, metadata.size)
@@ -208,7 +199,7 @@ class TestKafkaSystemAdmin {
   @Test
   def testShouldGetOldestNewestAndNextOffsets {
     // Create an empty topic with 50 partitions, but with no offsets.
-    createTopic
+    createTopic(TOPIC, 50)
     validateTopic(TOPIC, 50)
 
     // Verify the empty topic behaves as expected.
@@ -224,7 +215,7 @@ class TestKafkaSystemAdmin {
     // Empty Kafka topics should have a next offset of 0.
     assertEquals("0", sspMetadata.get(new Partition(0)).getUpcomingOffset)
 
-    // Add a new message to one of the partitions, and verify that it works as 
+    // Add a new message to one of the partitions, and verify that it works as
     // expected.
     producer.send(new ProducerRecord(TOPIC, 48, "key1".getBytes, "val1".getBytes)).get()
     metadata = systemAdmin.getSystemStreamMetadata(Set(TOPIC))
@@ -290,7 +281,8 @@ class TestKafkaSystemAdmin {
   @Test
   def testShouldCreateCoordinatorStream {
     val topic = "test-coordinator-stream"
-    val systemAdmin = new KafkaSystemAdmin("test", brokers, () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer), coordinatorStreamReplicationFactor = 3)
+    val systemAdmin = new KafkaSystemAdmin(SYSTEM, brokers, () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamReplicationFactor = 3)
+
     systemAdmin.createCoordinatorStream(topic)
     validateTopic(topic, 1)
     val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topic), "kafka", metadataStore.getTopicInfo)
@@ -301,11 +293,13 @@ class TestKafkaSystemAdmin {
     assertEquals(3, partitionMetadata.replicas.size)
   }
 
-  class KafkaSystemAdminWithTopicMetadataError extends KafkaSystemAdmin("test", brokers, () => new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer)) {
-    import kafka.api.{ TopicMetadata, TopicMetadataResponse }
+  class KafkaSystemAdminWithTopicMetadataError extends KafkaSystemAdmin(SYSTEM, brokers, () => ZkUtils(zkConnect, 6000, 6000, zkSecure)) {
+    import kafka.api.TopicMetadata
+    var metadataCallCount = 0
 
     // Simulate Kafka telling us that the leader for the topic is not available
     override def getTopicMetadata(topics: Set[String]) = {
+      metadataCallCount += 1
       val topicMetadata = TopicMetadata(topic = "quux", partitionsMetadata = Seq(), errorCode = ErrorMapping.LeaderNotAvailableCode)
       Map("quux" -> topicMetadata)
     }
@@ -320,6 +314,47 @@ class TestKafkaSystemAdmin {
       fail("expected CallLimitReached to be thrown")
     } catch {
       case e: ExponentialSleepStrategy.CallLimitReached => ()
+    }
+  }
+
+  @Test
+  def testGetNewestOffset {
+    createTopic(TOPIC2, 16)
+    validateTopic(TOPIC2, 16)
+
+    val sspUnderTest = new SystemStreamPartition("kafka", TOPIC2, new Partition(4))
+    val otherSsp = new SystemStreamPartition("kafka", TOPIC2, new Partition(13))
+
+    assertNull(systemAdmin.getNewestOffset(sspUnderTest, 3))
+    assertNull(systemAdmin.getNewestOffset(otherSsp, 3))
+
+    // Add a new message to one of the partitions, and verify that it works as expected.
+    assertEquals("0", producer.send(new ProducerRecord(TOPIC2, 4, "key1".getBytes, "val1".getBytes)).get().offset().toString)
+    assertEquals("0", systemAdmin.getNewestOffset(sspUnderTest, 3))
+    assertNull(systemAdmin.getNewestOffset(otherSsp, 3))
+
+    // Again
+    assertEquals("1", producer.send(new ProducerRecord(TOPIC2, 4, "key2".getBytes, "val2".getBytes)).get().offset().toString)
+    assertEquals("1", systemAdmin.getNewestOffset(sspUnderTest, 3))
+    assertNull(systemAdmin.getNewestOffset(otherSsp, 3))
+
+    // Add a message to both partitions
+    assertEquals("2", producer.send(new ProducerRecord(TOPIC2, 4, "key3".getBytes, "val3".getBytes)).get().offset().toString)
+    assertEquals("0", producer.send(new ProducerRecord(TOPIC2, 13, "key4".getBytes, "val4".getBytes)).get().offset().toString)
+    assertEquals("2", systemAdmin.getNewestOffset(sspUnderTest, 0))
+    assertEquals("0", systemAdmin.getNewestOffset(otherSsp, 0))
+  }
+
+  @Test (expected = classOf[LeaderNotAvailableException])
+  def testGetNewestOffsetMaxRetry {
+    val expectedRetryCount = 3
+    val systemAdmin = new KafkaSystemAdminWithTopicMetadataError
+    try {
+      systemAdmin.getNewestOffset(new SystemStreamPartition(SYSTEM, "quux", new Partition(0)), 3)
+    } catch {
+      case e: Exception =>
+        assertEquals(expectedRetryCount + 1, systemAdmin.metadataCallCount)
+        throw e
     }
   }
 }

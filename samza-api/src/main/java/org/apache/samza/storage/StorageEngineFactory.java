@@ -46,7 +46,7 @@ public interface StorageEngineFactory<K, V> {
    * @param containerContext Information about the container in which the task is executing.
    * @return The storage engine instance.
    */
-  public StorageEngine getStorageEngine(
+  StorageEngine getStorageEngine(
     String storeName,
     File storeDir,
     Serde<K> keySerde,

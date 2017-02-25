@@ -23,9 +23,8 @@ import java.io.File
 import org.apache.samza.SamzaException
 import org.apache.samza.util.{ LexicographicComparator, Logging }
 import org.apache.samza.config.Config
-import org.apache.samza.container.SamzaContainerContext
 import org.rocksdb._
-import org.rocksdb.TtlDB;
+import org.rocksdb.TtlDB
 
 object RocksDbKeyValueStore extends Logging {
 
@@ -40,14 +39,19 @@ object RocksDbKeyValueStore extends Logging {
         ttl = storeConfig.getLong("rocksdb.ttl.ms")
 
         // RocksDB accepts TTL in seconds, convert ms to seconds
-        if (ttl < 1000)
-        {
-          warn("The ttl values requested for %s is %d, which is less than 1000 (minimum), using 1000 instead",
-               storeName,
-               ttl)
-          ttl = 1000
+        if(ttl > 0) {
+          if (ttl < 1000)
+          {
+            warn("The ttl values requested for %s is %d, which is less than 1000 (minimum), using 1000 instead",
+              storeName,
+              ttl)
+            ttl = 1000
+          }
+          ttl = ttl / 1000
         }
-        ttl = ttl / 1000
+        else {
+          warn("Non-positive TTL for RocksDB implies infinite TTL for the data. More Info -https://github.com/facebook/rocksdb/wiki/Time-to-Live")
+        }
 
         useTTL = true
         if (isLoggedStore)
@@ -102,7 +106,6 @@ class RocksDbKeyValueStore(
   // after the directories are created, which happens much later from now.
   private lazy val db = RocksDbKeyValueStore.openDB(dir, options, storeConfig, isLoggedStore, storeName)
   private val lexicographic = new LexicographicComparator()
-  private var deletesSinceLastCompaction = 0
 
   def get(key: Array[Byte]): Array[Byte] = {
     metrics.gets.inc
@@ -136,8 +139,7 @@ class RocksDbKeyValueStore(
     metrics.puts.inc
     require(key != null, "Null key not allowed.")
     if (value == null) {
-      db.remove(writeOptions, key)
-      deletesSinceLastCompaction += 1
+      db.delete(writeOptions, key)
     } else {
       metrics.bytesWritten.inc(key.size + value.size)
       db.put(writeOptions, key, value)
@@ -154,7 +156,7 @@ class RocksDbKeyValueStore(
       val curr = iter.next()
       if (curr.getValue == null) {
         deletes += 1
-        db.remove(writeOptions, curr.getKey)
+        db.delete(writeOptions, curr.getKey)
       } else {
         val key = curr.getKey
         val value = curr.getValue
@@ -164,7 +166,6 @@ class RocksDbKeyValueStore(
     }
     metrics.puts.inc(wrote)
     metrics.deletes.inc(deletes)
-    deletesSinceLastCompaction += deletes
   }
 
   def delete(key: Array[Byte]) {
@@ -191,8 +192,9 @@ class RocksDbKeyValueStore(
 
   def flush {
     metrics.flushes.inc
-    trace("Flushing.")
+    trace("Flushing store: %s" format storeName)
     db.flush(flushOptions)
+    trace("Flushed store: %s" format storeName)
   }
 
   def close() {
@@ -202,13 +204,13 @@ class RocksDbKeyValueStore(
 
   class RocksDbIterator(iter: RocksIterator) extends KeyValueIterator[Array[Byte], Array[Byte]] {
     private var open = true
-    private var firstValueAccessed = false;
+    private var firstValueAccessed = false
     def close() = {
       open = false
-      iter.dispose()
+      iter.close()
     }
 
-    def remove() = throw new UnsupportedOperationException("RocksDB iterator doesn't support remove");
+    def remove() = throw new UnsupportedOperationException("RocksDB iterator doesn't support remove")
 
     def hasNext() = iter.isValid
 

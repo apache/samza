@@ -19,16 +19,19 @@
 
 package org.apache.samza.system
 
+
+import java.util.concurrent.TimeUnit
+
 import scala.collection.JavaConversions._
 import org.apache.samza.serializers.SerdeManager
-import org.apache.samza.util.Logging
-import org.apache.samza.system.chooser.MessageChooser
+import org.apache.samza.util.{Logging, TimerUtils}
+import org.apache.samza.system.chooser.{DefaultChooser, MessageChooser}
 import org.apache.samza.SamzaException
-import java.util.HashMap
 import java.util.ArrayDeque
+import java.util.HashSet
+import java.util.HashMap
 import java.util.Queue
 import java.util.Set
-import java.util.HashSet
 
 object SystemConsumers {
   val DEFAULT_POLL_INTERVAL_MS = 50
@@ -44,7 +47,7 @@ object SystemConsumers {
  * messages, poll the MessageChooser for the next message to process, and
  * return that message to the SamzaContainer.
  */
-class SystemConsumers(
+class SystemConsumers (
 
   /**
    * The class that determines the order to process incoming messages.
@@ -96,19 +99,24 @@ class SystemConsumers(
    * with no remaining unprocessed messages, the SystemConsumers will poll for
    * it within 50ms of its availability in the stream system.</p>
    */
-  pollIntervalMs: Int = SystemConsumers.DEFAULT_POLL_INTERVAL_MS,
+  val pollIntervalMs: Int = SystemConsumers.DEFAULT_POLL_INTERVAL_MS,
 
   /**
    * Clock can be used to inject a custom clock when mocking this class in
    * tests. The default implementation returns the current system clock time.
    */
-  clock: () => Long = () => System.currentTimeMillis) extends Logging {
+  val clock: () => Long = () => System.nanoTime()) extends Logging with TimerUtils {
 
   /**
    * A buffer of incoming messages grouped by SystemStreamPartition. These
    * messages are handed out to the MessageChooser as it needs them.
    */
   private val unprocessedMessagesBySSP = new HashMap[SystemStreamPartition, Queue[IncomingMessageEnvelope]]()
+
+  /**
+   * Set of SSPs that are currently at end-of-stream.
+   */
+  private val endOfStreamSSPs = new HashSet[SystemStreamPartition]()
 
   /**
    * A set of SystemStreamPartitions grouped by systemName. This is used as a
@@ -128,7 +136,7 @@ class SystemConsumers(
   /**
    * The last time that systems were polled for new messages.
    */
-  var lastPollMs = 0L
+  var lastPollNs = 0L
 
   /**
    * Total number of unprocessed messages in unprocessedMessagesBySSP.
@@ -144,7 +152,6 @@ class SystemConsumers(
 
   def start {
     debug("Starting consumers.")
-
     emptySystemStreamPartitionsBySystem ++= unprocessedMessagesBySSP
       .keySet
       .groupBy(_.getSystem)
@@ -171,8 +178,16 @@ class SystemConsumers(
     chooser.stop
   }
 
+
   def register(systemStreamPartition: SystemStreamPartition, offset: String) {
     debug("Registering stream: %s, %s" format (systemStreamPartition, offset))
+
+    if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(offset)) {
+      info("Stream : %s is already at end of stream" format (systemStreamPartition))
+      endOfStreamSSPs.add(systemStreamPartition)
+      return;
+    }
+
     metrics.registerSystemStreamPartition(systemStreamPartition)
     unprocessedMessagesBySSP.put(systemStreamPartition, new ArrayDeque[IncomingMessageEnvelope]())
     chooser.register(systemStreamPartition, offset)
@@ -184,31 +199,48 @@ class SystemConsumers(
     }
   }
 
-  def choose: IncomingMessageEnvelope = {
+
+  def isEndOfStream(systemStreamPartition: SystemStreamPartition) = {
+    endOfStreamSSPs.contains(systemStreamPartition)
+  }
+
+  def choose (updateChooser: Boolean = true): IncomingMessageEnvelope = {
     val envelopeFromChooser = chooser.choose
 
-    if (envelopeFromChooser == null) {
-      trace("Chooser returned null.")
+    updateTimer(metrics.deserializationNs) {
+      if (envelopeFromChooser == null) {
+        trace("Chooser returned null.")
 
-      metrics.choseNull.inc
+        metrics.choseNull.inc
 
-      // Sleep for a while so we don't poll in a tight loop.
-      timeout = noNewMessagesTimeout
-    } else {
-      val systemStreamPartition = envelopeFromChooser.getSystemStreamPartition
+        // Sleep for a while so we don't poll in a tight loop.
+        timeout = noNewMessagesTimeout
+      } else {
+        val systemStreamPartition = envelopeFromChooser.getSystemStreamPartition
 
-      trace("Chooser returned an incoming message envelope: %s" format envelopeFromChooser)
+        if (envelopeFromChooser.isEndOfStream) {
+          info("End of stream reached for partition: %s" format systemStreamPartition)
+          endOfStreamSSPs.add(systemStreamPartition)
+        }
 
-      // Ok to give the chooser a new message from this stream.
-      timeout = 0
-      metrics.choseObject.inc
-      metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition).inc
+        trace("Chooser returned an incoming message envelope: %s" format envelopeFromChooser)
 
-      tryUpdate(systemStreamPartition)
+        // Ok to give the chooser a new message from this stream.
+        timeout = 0
+        metrics.choseObject.inc
+        metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition).inc
+
+        if (updateChooser) {
+          trace("Update chooser for " + systemStreamPartition.getPartition)
+          tryUpdate(systemStreamPartition)
+        }
+      }
     }
 
-    if (envelopeFromChooser == null || lastPollMs < clock() - pollIntervalMs) {
-      refresh
+    updateTimer(metrics.pollNs) {
+      if (envelopeFromChooser == null || TimeUnit.NANOSECONDS.toMillis(clock() - lastPollNs) > pollIntervalMs) {
+        refresh
+      }
     }
 
     envelopeFromChooser
@@ -228,7 +260,8 @@ class SystemConsumers(
     val systemFetchSet = emptySystemStreamPartitionsBySystem.get(systemName)
 
     // Poll when at least one SSP in this system needs more messages.
-    if (systemFetchSet.size > 0) {
+
+    if (systemFetchSet != null && systemFetchSet.size > 0) {
       val consumer = consumers(systemName)
 
       trace("Fetching: %s" format systemFetchSet)
@@ -236,7 +269,6 @@ class SystemConsumers(
       metrics.systemStreamPartitionFetchesPerPoll(systemName).inc(systemFetchSet.size)
 
       val systemStreamPartitionEnvelopes = consumer.poll(systemFetchSet, timeout)
-
       trace("Got incoming message envelopes: %s" format systemStreamPartitionEnvelopes)
 
       metrics.systemMessagesPerPoll(systemName).inc
@@ -264,7 +296,7 @@ class SystemConsumers(
     }
   }
 
-  private def tryUpdate(ssp: SystemStreamPartition) {
+  def tryUpdate(ssp: SystemStreamPartition) {
     var updated = false
     try {
       updated = update(ssp)
@@ -280,8 +312,7 @@ class SystemConsumers(
     trace("Refreshing chooser with new messages.")
 
     // Update last poll time so we don't poll too frequently.
-    lastPollMs = clock()
-
+    lastPollNs = clock()
     // Poll every system for new messages.
     consumers.keys.map(poll(_))
   }

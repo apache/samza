@@ -252,3 +252,10 @@ SIL Open Font License (OFT) - http://scripts.sil.org/OFL/
 - Font-awesome font files v4.0.3 (http://fortawesome.github.io/Font-Awesome/)
 - Ropa Sans fonts v1.1 - Copyright (c) 2011, Botjo Nikoltchev, with Reserved Font Name "Ropa Sans"
 
+-----------------------------------------------------------------------
+ The CDDL License
+-----------------------------------------------------------------------
+
+The Apache Samza project bundles the following files under the CDDL License
+
+- Jersey v2.22.1 (https://jersey.java.net/license.html) - Copyright (c) 2010-2015 Oracle Corporation

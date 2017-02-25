@@ -32,15 +32,40 @@ public class TestJavaStorageConfig {
   public void testStorageConfig() {
     Map<String, String> map = new HashMap<String, String>();
     map.put("stores.test.factory", "testFactory");
-    map.put("stores.test.changelog", "testChangelog");
+    map.put("stores.test.changelog", "testSystem.testChangelog");
     map.put("stores.test.key.serde", "string");
     map.put("stores.test.msg.serde", "integer");
     JavaStorageConfig config = new JavaStorageConfig(new MapConfig(map));
 
     assertEquals("testFactory", config.getStorageFactoryClassName("test"));
-    assertEquals("testChangelog", config.getChangelogStream("test"));
+    assertEquals("testSystem.testChangelog", config.getChangelogStream("test"));
     assertEquals("string", config.getStorageKeySerde("test"));
     assertEquals("integer", config.getStorageMsgSerde("test"));
     assertEquals("test", config.getStoreNames().get(0));
+  }
+
+
+  @Test
+  public void testIsChangelogSystemSetting() {
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put("stores.store1.changelog", "system1.stream1");
+    configMap.put("job.changelog.system", "system2");
+    configMap.put("stores.store2.changelog", "stream2");
+
+    JavaStorageConfig config = new JavaStorageConfig(new MapConfig(configMap));
+
+    assertEquals("system1.stream1", config.getChangelogStream("store1"));
+    assertEquals("system2.stream2", config.getChangelogStream("store2"));
+
+    Map<String, String> configMapErr = new HashMap<>();
+    configMapErr.put("stores.store4.changelog", "stream4"); // incorrect
+    JavaStorageConfig configErr = new JavaStorageConfig(new MapConfig(configMapErr));
+
+    try {
+      configErr.getChangelogStream("store4");
+      fail("store4 has no system defined. Should've failed.");
+    } catch (Exception e) {
+       // do nothing, it is expected
+    }
   }
 }

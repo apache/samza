@@ -24,7 +24,7 @@ import org.apache.samza.config.{ConfigRewriter, Config}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
 import org.apache.samza.job.ApplicationStatus.Running
-import org.apache.samza.migration.JobRunnerMigration
+import org.apache.samza.util.ClassLoaderHelper
 import org.apache.samza.util.CommandLine
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
@@ -89,7 +89,7 @@ class JobRunner(config: Config) extends Logging {
       case Some(factoryClass) => factoryClass
       case _ => throw new SamzaException("no job factory class defined")
     }
-    val jobFactory = Class.forName(jobFactoryClass).newInstance.asInstanceOf[StreamJobFactory]
+    val jobFactory = ClassLoaderHelper.fromClassName[StreamJobFactory](jobFactoryClass)
     info("job factory: %s" format (jobFactoryClass))
     val factory = new CoordinatorStreamSystemFactory
     val coordinatorSystemConsumer = factory.getCoordinatorStreamSystemConsumer(config, new MetricsRegistryMap)
@@ -121,9 +121,6 @@ class JobRunner(config: Config) extends Logging {
       })
     }
     coordinatorSystemProducer.stop
-
-    // Perform any migration plan to run in job runner
-    JobRunnerMigration(config)
 
     // Create the actual job, and submit it.
     val job = jobFactory.getJob(config).submit

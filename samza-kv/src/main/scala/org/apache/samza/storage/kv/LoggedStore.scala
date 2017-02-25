@@ -61,8 +61,8 @@ class LoggedStore[K, V](
    */
   def put(key: K, value: V) {
     metrics.puts.inc
-    store.put(key, value)
     collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, key, value))
+    store.put(key, value)
   }
 
   /**
@@ -70,12 +70,12 @@ class LoggedStore[K, V](
    */
   def putAll(entries: java.util.List[Entry[K, V]]) {
     metrics.puts.inc(entries.size)
-    store.putAll(entries)
     val iter = entries.iterator
     while (iter.hasNext) {
       val curr = iter.next
       collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, curr.getKey, curr.getValue))
     }
+    store.putAll(entries)
   }
 
   /**
@@ -83,8 +83,8 @@ class LoggedStore[K, V](
    */
   def delete(key: K) {
     metrics.deletes.inc
-    store.delete(key)
     collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, key, null))
+    store.delete(key)
   }
 
   /**
@@ -92,19 +92,20 @@ class LoggedStore[K, V](
    */
   def deleteAll(keys: java.util.List[K]) = {
     metrics.deletes.inc(keys.size)
-    store.deleteAll(keys)
     val keysIterator = keys.iterator
     while (keysIterator.hasNext) {
       collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, keysIterator.next, null))
     }
+    store.deleteAll(keys)
   }
 
   def flush {
-    trace("Flushing.")
+    trace("Flushing store.")
 
     metrics.flushes.inc
 
     store.flush
+    trace("Flushed store.")
   }
 
   def close {

@@ -33,6 +33,7 @@ import org.apache.samza.metrics.ReadableMetricsRegistry
 import org.apache.samza.metrics.ReadableMetricsRegistryListener
 import scala.collection.JavaConversions._
 import org.apache.samza.metrics.MetricsVisitor
+import org.apache.samza.metrics.JmxUtil._
 
 class JmxReporter(server: MBeanServer) extends MetricsReporter with Logging {
   var sources = Map[ReadableMetricsRegistry, String]()
@@ -83,31 +84,6 @@ class JmxReporter(server: MBeanServer) extends MetricsReporter with Logging {
       registry.unlisten(listener)
     }
   }
-
-  def getObjectName(group: String, name: String, t: String) = {
-    val nameBuilder = new StringBuilder
-    nameBuilder.append(makeNameJmxSafe(group))
-    nameBuilder.append(":type=")
-    nameBuilder.append(makeNameJmxSafe(t))
-    nameBuilder.append(",name=")
-    nameBuilder.append(makeNameJmxSafe(name))
-    val objName = new ObjectName(nameBuilder.toString)
-    debug("Resolved name for %s, %s, %s to: %s" format (group, name, t, objName))
-    objName
-  }
-
-  /*
-   * JMX only has ObjectName.quote, which is pretty nasty looking. This 
-   * function escapes without quoting, using the rules outlined in: 
-   * http://docs.oracle.com/javase/1.5.0/docs/api/javax/management/ObjectName.html
-   */
-  def makeNameJmxSafe(str: String) = str
-    .replace(",", "_")
-    .replace("=", "_")
-    .replace(":", "_")
-    .replace("\"", "_")
-    .replace("*", "_")
-    .replace("?", "_")
 
   def registerBean(bean: MetricMBean) {
     if (!server.isRegistered(bean.objectName)) {

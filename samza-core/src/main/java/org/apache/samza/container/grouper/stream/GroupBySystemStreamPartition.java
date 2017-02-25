@@ -34,12 +34,6 @@ public class GroupBySystemStreamPartition implements SystemStreamPartitionGroupe
   private Set<SystemStreamPartition> broadcastStreams = new HashSet<SystemStreamPartition>();
 
   /**
-   * default constructor
-   */
-  public GroupBySystemStreamPartition() {
-  }
-
-  /**
    * A constructor that accepts job config as the parameter
    *
    * @param config job config

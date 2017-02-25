@@ -19,11 +19,18 @@
 
 package org.apache.samza.system;
 
+import java.nio.charset.Charset;
+
 /**
- * This class represents a message envelope that is received by a StreamTask for each message that is received from a
+ * This class represents a message entvelope that is received by a StreamTask for each message that is received from a
  * partition of a specific input stream.
  */
 public class IncomingMessageEnvelope {
+
+  //The offset starting with a NUL byte encoded are reserved for end-of-stream.
+  private static final byte[] END_OF_STREAM_BYTES = "\0END_OF_STREAM".getBytes();
+  public static final String END_OF_STREAM_OFFSET = new String(END_OF_STREAM_BYTES, Charset.defaultCharset());
+
   private final SystemStreamPartition systemStreamPartition;
   private final String offset;
   private final Object key;
@@ -77,6 +84,21 @@ public class IncomingMessageEnvelope {
 
   public int getSize() {
     return size;
+  }
+
+  public boolean isEndOfStream() {
+    return END_OF_STREAM_OFFSET.equals(offset);
+  }
+
+  /**
+   * Builds an end-of-stream envelope for an SSP. This is used by a {@link SystemConsumer} implementation to
+   * indicate that it is at end-of-stream. The end-of-stream message should not delivered to the task implementation.
+   *
+   * @param ssp The SSP that is at end-of-stream.
+   * @return an IncomingMessageEnvelope corresponding to end-of-stream for that SSP.
+   */
+  public static IncomingMessageEnvelope buildEndOfStreamEnvelope(SystemStreamPartition ssp) {
+    return new IncomingMessageEnvelope(ssp, END_OF_STREAM_OFFSET, null, null);
   }
 
   @Override

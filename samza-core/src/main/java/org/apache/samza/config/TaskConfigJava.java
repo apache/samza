@@ -19,6 +19,7 @@
 
 package org.apache.samza.config;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,8 +31,14 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.collection.JavaConversions;
+
 
 public class TaskConfigJava extends MapConfig {
+  // Task Configs
+  private static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
+  public static final long DEFAULT_TASK_SHUTDOWN_MS = 5000L;
+
   // broadcast streams consumed by all tasks. e.g. kafka.foo#1
   public static final String BROADCAST_INPUT_STREAMS = "task.broadcast.inputs";
   private static final String BROADCAST_STREAM_PATTERN = "^[\\d]+$";
@@ -52,7 +59,7 @@ public class TaskConfigJava extends MapConfig {
    */
   public Set<SystemStreamPartition> getBroadcastSystemStreamPartitions() {
     HashSet<SystemStreamPartition> systemStreamPartitionSet = new HashSet<SystemStreamPartition>();
-    List<String> systemStreamPartitions = getList(BROADCAST_INPUT_STREAMS);
+    List<String> systemStreamPartitions = getList(BROADCAST_INPUT_STREAMS, Collections.<String>emptyList());
 
     for (String systemStreamPartition : systemStreamPartitions) {
       int hashPosition = systemStreamPartition.indexOf("#");
@@ -84,5 +91,55 @@ public class TaskConfigJava extends MapConfig {
       }
     }
     return systemStreamPartitionSet;
+  }
+
+  /**
+   * Get the SystemStreams for the configured broadcast streams.
+   *
+   * @return the set of SystemStreams for which there are broadcast stream SSPs configured.
+   */
+  public Set<SystemStream> getBroadcastSystemStreams() {
+    Set<SystemStream> broadcastSS = new HashSet<>();
+    Set<SystemStreamPartition> broadcastSSPs = getBroadcastSystemStreamPartitions();
+    for (SystemStreamPartition bssp : broadcastSSPs) {
+      broadcastSS.add(bssp.getSystemStream());
+    }
+    return Collections.unmodifiableSet(broadcastSS);
+  }
+
+  /**
+   * Get the SystemStreams for the configured input and broadcast streams.
+   *
+   * @return the set of SystemStreams for both standard inputs and broadcast stream inputs.
+   */
+  public Set<SystemStream> getAllInputStreams() {
+    Set<SystemStream> allInputSS = new HashSet<>();
+
+    TaskConfig taskConfig = TaskConfig.Config2Task(this);
+    allInputSS.addAll(JavaConversions.setAsJavaSet(taskConfig.getInputStreams()));
+    allInputSS.addAll(getBroadcastSystemStreams());
+
+    return Collections.unmodifiableSet(allInputSS);
+  }
+
+  /**
+   * Returns a value indicating how long to wait for the tasks to shutdown
+   * If the value is not defined in the config or if does not parse correctly, we return the default value -
+   * {@value #DEFAULT_TASK_SHUTDOWN_MS}
+   *
+   * @return Long value indicating how long to wait for all the tasks to shutdown
+   */
+  public long getShutdownMs() {
+    String shutdownMs = get(TASK_SHUTDOWN_MS);
+    try {
+      return Long.parseLong(shutdownMs);
+    } catch (NumberFormatException nfe) {
+      LOGGER.warn(String.format(
+          "Unable to parse user-configure value for %s - %s. Using default value %d",
+          TASK_SHUTDOWN_MS,
+          shutdownMs,
+          DEFAULT_TASK_SHUTDOWN_MS));
+      return DEFAULT_TASK_SHUTDOWN_MS;
+    }
   }
 }

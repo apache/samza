@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Samza Metrics Reference</title>
+    <style type="text/css">
+        body {
+        font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+        font-size: 14px;
+        line-height: 22px;
+        color: #333;
+        background-color: #fff;
+        }
+
+        table {
+        border-collapse: collapse;
+        margin: 1em 0;
+        }
+
+        table th, table td {
+        text-align: left;
+        vertical-align: top;
+        padding: 12px;
+        border-bottom: 1px solid #ccc;
+        border-top: 1px solid #ccc;
+        border-left: 0;
+        border-right: 0;
+        }
+
+        table td.property, table td.default {
+        white-space: nowrap;
+        }
+
+        table th.section {
+        background-color: #eee;
+        }
+
+        table th.section .subtitle {
+        font-weight: normal;
+        }
+        code, a.property {
+        font-family: monospace;
+        }
+        code {
+        font-family: 'DejaVu Sans Mono', monospace;
+        font-size: 14px;
+        padding-top: 4px;
+        margin-top: 8px;
+        line-height: 1.4em;
+        background-color: rgba(220,220,220,0.4);
+        font-weight: lighter;
+        }
+        span.system, span.stream, span.topic, span.partition, span.source, span.host, span.port, span.store, span.task {
+        padding: 1px;
+        margin: 1px;
+        border-width: 1px;
+        border-style: solid;
+        border-radius: 4px;
+        }
+
+        span.system {
+        background-color: #ddf;
+        border-color: #bbd;
+        }
+
+        span.stream, span.topic {
+        background-color: #dfd;
+        border-color: #bdb;
+        }
+
+        span.partition {
+        background-color: #dff;
+        border-color: #bdd;
+        }
+
+        span.source {
+        background-color: #fdd;
+        border-color: #dbb;
+        }
+
+        span.host {
+        background-color: #bfd;
+        border-color: #adc;
+        }
+
+        span.port {
+        background-color: #bfb;
+        border-color: #ada;
+        }
+
+        span.store {
+        background-color: #fdf;
+        border-color: #dbd;
+        }
+
+        span.task {
+        background-color: #fbd;
+        border-color: #d9b;
+        }
+    </style>
+</head>
+
+<body>
+<h1>Samza Metrics Reference</h1>
+<p>The following table lists all the metrics emited by Samza.</p>
+<p>Metrics are grouped by group names usually representing classes that are adding their own metrics to the registry. Those are the following:</p>
+<ul>
+    <li><a href="#samza-container-metrics">SamzaContainerMetrics</a></li>
+    <li><a href="#job-coordinator">job-coordinator</a></li>
+    <li><a href="#task-instance-metrics">TaskInstanceMetrics</a></li>
+    <li><a href="#offset-manager-metrics">OffsetManagerMetrics</a></li>
+    <li><a href="#jvm-metrics">JvmMetrics</a></li>
+    <li><a href="#system-consumers-metrics">SystemConsumersMetrics</a></li>
+    <li><a href="#system-producers-metrics">SystemProducersMetrics</a></li>
+    <li><a href="#container-process-manager-metrics">ContainerProcessManagerMetrics</a></li>
+    <li><a href="#samza-app-master-metrics">SamzaAppMasterMetrics</a></li>
+    <li><a href="#kafka-system-consumer-metrics">KafkaSystemConsumerMetrics</a></li>
+    <li><a href="#kafka-system-producer-metrics">KafkaSystemProducerMetrics</a></li>
+    <li><a href="#key-value-storage-engine-metrics">KeyValueStorageEngineMetrics</a></li>
+    <li><a href="#key-value-store-metrics">KeyValueStoreMetrics</a></li>
+    <li><a href="#logged-store-metrics">LoggedStoreMetrics</a></li>
+    <li><a href="#serialized-key-value-store-metrics">SerializedKeyValueStoreMetrics</a></li>
+    <li><a href="#cached-store-metrics">CachedStoreMetrics</a></li>
+    <li><a href="#round-robin-chooser-metrics">RoundRobinChooserMetrics</a></li>
+    <li><a href="#batching-chooser-metrics">BatchingChooserMetrics</a></li>
+    <li><a href="#bootstrapping-chooser-metrics">BootstrappingChooserMetrics</a></li>
+    <li><a href="#hdfs-system-producer-metrics">HdfsSystemProducerMetrics</a></li>
+    <li><a href="#elasticsearch-system-producer-metrics">ElasticsearchSystemProducerMetrics</a></li>
+</ul>
+<p>Words highlighted like <span class="system">this</span> are placeholders for your own variable names defined in configuration file or system variables defined while starting the job.</p>
+<p id="average-time" style="color: #00a">Note: Average time is calculated for the current time window (set to 300 seconds)</p>
+<table>
+    <tbody>
+    <tr><th>Name</th><th>Description</th></tr>
+    <tr>
+        <th colspan="2" class="section" id="samza-container-metrics">org.apache.samza.container.SamzaContainerMetrics</th>
+    </tr>
+    <tr>
+        <td>process-calls</td>
+        <td>Number of times process method is called</td>
+    </tr>
+    <tr>
+        <td>process-ns</td>
+        <td><a href="#average-time">Average time</a> spent for processing messages</td>
+    </tr>
+    <tr>
+        <td>process-envelopes</td>
+        <td>Number of message envelopes processed</td>
+    </tr>
+    <tr>
+        <td>process-null-envelopes</td>
+        <td>Number of times no message envelope was available</td>
+    </tr>
+    <tr>
+        <td>choose-ns</td>
+        <td><a href="#average-time">Average time</a> spent for choosing the envelope to process</td>
+    </tr>
+    <tr>
+        <td>commit-calls</td>
+        <td>Number of commit method calls</td>
+    </tr>
+    <tr>
+        <td>commit-ns</td>
+        <td><a href="#average-time">Average time</a> spent for commiting tasks states.</td>
+    </tr>
+    <tr>
+        <td>event-loop-utilization</td>
+        <td>Number representing duty-cycle (active time in event loop divided by the total time spent in the event loop)</td>
+    </tr>
+    <tr>
+        <td>window-calls</td>
+        <td>Number of window method calls</td>
+    </tr>
+    <tr>
+        <td>window-ns</td>
+        <td><a href="#average-time">Average time</a> spent for windowing tasks</td>
+    </tr>
+    <tr>
+        <td>block-ns</td>
+        <td><a href="#average-time">Average time</a> run loop was blocked (for multithreaded processing)</td>
+    </tr>
+    <tr>
+        <td><span class="task">task-name</span>-<span class="store">store-name</span>-restore-time</td>
+        <td>Time taken to restore task stores (per task store)</td>
+    </tr>
+    <tr>
+        <td>disk-usage-bytes</td>
+        <td>Total disk space size used by key-value stores (in bytes)</td>
+    </tr>
+    <tr>
+        <td>disk-quota-bytes</td>
+        <td>Disk memory usage quota for key-value stores (in bytes)</td>
+    </tr>
+    <tr>
+        <td>executor-work-factor</td>
+        <td>Current work factor in use</td>
+    </tr>
+    <tr>
+        <td>physical-memory-mb</td>
+        <td>The physical memory used by the Samza container process (native + on heap) (in megabytes)</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="job-coordinator">job-coordinator</th>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="stream">stream</span>-partitionCount</td>
+        <td>The difference in the partition count from the initial state for a particular system and stream (enabled if job.coordinator.monitor-partition-change configured to true)</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="task-instance-metrics">org.apache.samza.container.TaskInstanceMetrics<br/><span style="font-weight: normal;margin-left:40px;  color : #f00">- Following metrics apply to each TaskInstance</span></th>
+    </tr>
+    <tr>
+        <td>commit-calls</td>
+        <td>Number of commit method calls</td>
+    </tr>
+    <tr>
+        <td>flush-calls</td>
+        <td>Number of times underlying SystemProducers were flushed</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="stream">stream</span>-<span class="partition">partition</span>-offset</td>
+        <td>Latest offsets for each SystemStreamPartition of the task instance</td>
+    </tr>
+    <tr>
+        <td>messages-actually-processed</td>
+        <td>Number of messages actually processed by a task</td>
+    </tr>
+    <tr>
+        <td>process-calls</td>
+        <td>Number of proccess method calls</td>
+    </tr>
+    <tr>
+        <td>send-calls</td>
+        <td>Number of send method calls (representing number of messages that were sent to the underlying SystemProducers)</td>
+    </tr>
+    <tr>
+        <td>window-calls</td>
+        <td>Number of times windowing the task</td>
+    </tr>
+    <tr>
+        <td>pending-messages</td>
+        <td>Current number of pending messages in a queue (for multithreaded processing)</td>
+    </tr>
+    <tr>
+        <td>messages-in-flight</td>
+        <td>Number of messages in processing (for multithreaded processing)</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="offset-manager-metrics">org.apache.samza.checkpoint.OffsetManagerMetrics</th>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="stream">stream</span>-<span class="partition">partition</span>-checkpointed-offset</td>
+        <td>Latest checkpointed offsets for each SystemStreamPartition of the task instance</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="jvm-metrics">org.apache.samza.metrics.JvmMetrics</th>
+    </tr>
+    <tr>
+        <td>gc-count</td>
+        <td>Number of GC calls</td>
+    </tr>
+    <tr>
+        <td>gc-time-millis</td>
+        <td>Total time spent in GC (in milliseconds)</td>
+    </tr>
+    <tr>
+        <td>mem-heap-comitted-mb</td>
+        <td>Size of comitted heap memory (in megabytes)</td>
+    </tr>
+    <tr>
+        <td>mem-heap-max-mb</td>
+        <td>Size of maximum heap memory (in megabytes)</td>
+    </tr>
+    <tr>
+        <td>mem-heap-used-mb</td>
+        <td>Size of used heap memory (in megabytes)</td>
+    </tr>
+    <tr>
+        <td>mem-non-heap-commited-mb</td>
+        <td>Size of comitted non-heap memory (in megabytes)</td>
+    </tr>
+    <tr>
+        <td>mem-non-heap-max-mb</td>
+        <td>Size of maximum non-heap memory (in megabytes)</td>
+    </tr>
+    <tr>
+        <td>mem-non-heap-used-mb</td>
+        <td>Size of used non-heap memory (in megabytes)</td>
+    </tr>
+    <tr>
+        <td><span class="task">gc-name</span>-gc-count</td>
+        <td>Number of garbage collection calls (for each garbage collector)</td>
+    </tr>
+    <tr>
+        <td><span class="task">gc-name</span>-gc-time-millis</td>
+        <td>Total time spent in garbage collection (for each garbage collector) (in milliseconds)</td>
+    </tr>
+    <tr>
+        <td>threads-new</td>
+        <td>Current number of threads not started yet</td>
+    </tr>
+    <tr>
+        <td>threads-runnable</td>
+        <td>Current number of running threads</td>
+    </tr>
+    <tr>
+        <td>threads-timed-waiting</td>
+        <td>Current number of timed-waiting threads</td>
+    </tr>
+    <tr>
+        <td>threads-waiting</td>
+        <td>Current number of waiting threads</td>
+    </tr>
+    <tr>
+        <td>threads-blocked</td>
+        <td>Current number of blocked threads</td>
+    </tr>
+    <tr>
+        <td>threads-terminated</td>
+        <td>Current number of terminated threads</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="system-consumers-metrics">org.apache.samza.system.SystemConsumersMetrics</th>
+    </tr>
+    <tr>
+        <td>chose-null</td>
+        <td>Number of times message chooser returned null message envelope</td>
+    </tr>
+    <tr>
+        <td>chose-object</td>
+        <td>Number of times message chooser returned an incoming message envelope</td>
+    </tr>
+    <tr>
+        <td>deserialization error</td>
+        <td>Number of times an incoming message was not deserialized successfully</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-polls</td>
+        <td>Number of times the poll method for particular system was called</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-ssp-fetches-per-poll</td>
+        <td>Number representing how many partitions of a particular system were provided to the SystemConsumer to get new messages</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-messages-per-poll</td>
+        <td>Number of times the SystemConsumer for underlying system was actually polled to get new messages</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="stream">stream</span>-<span class="partition">partition</span>-messages-chosen</td>
+        <td>Number of messages that were chosen by the MessageChooser for particular system stream partition.</td>
+    </tr>
+    <tr>
+        <td>poll-ns</td>
+        <td><a href="#average-time">Average time</a> spent polling all underlying systems for new messages (in nanoseconds)</td>
+    </tr>
+    <tr>
+        <td>deserialization-ns</td>
+        <td><a href="#average-time">Average time</a> spent deserializing incoming messages (in nanoseconds)</td>
+    </tr>
+    <tr>
+        <td>ssps-needed-by-chooser</td>
+        <td>Current number of empty system stream partitions</td>
+    </tr>
+    <tr>
+        <td>poll-timeout</td>
+        <td>Current poll timeout</td>
+    </tr>
+    <tr>
+        <td>unprocessed-messages</td>
+        <td>Current number of unprocessed messages in buffer of incoming messages that are eligible for choosing</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="system-producers-metrics">org.apache.samza.system.SystemProducersMetrics</th>
+    </tr>
+    <tr>
+        <td>sends</td>
+        <td>Number of send method calls. Representing total number of sent messages</td>
+    </tr>
+    <tr>
+        <td>flushes</td>
+        <td>Number of flush method calls. Flush method flushes messages for all registered producers</td>
+    </tr>
+    <tr>
+        <td><span class="source">source</span>-sends</td>
+        <td>Number of sent messages for particular source (task instance)</td>
+    </tr>
+    <tr>
+        <td><span class="source">source</span>-flushes</td>
+        <td>Number of flushes for particular source (task instance)</td>
+    </tr>
+    <tr>
+        <td>serialization error</td>
+        <td>Number of errors occured while serializing envelopes before sending</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="container-process-manager-metrics">org.apache.samza.metrics.ContainerProcessManagerMetrics</th>
+    </tr>
+    <tr>
+        <td>running-containers</td>
+        <td>Number of running containers</td>
+    </tr>
+    <tr>
+        <td>needed-containers</td>
+        <td>Number of containers needed for the job to be declared healthy</td>
+    </tr>
+    <tr>
+        <td>completed-containers</td>
+        <td>Number of containers that have completed their execution and exited successfully</td>
+    </tr>
+    <tr>
+        <td>failed-containers</td>
+        <td>Number of failed containers</td>
+    </tr>
+    <tr>
+        <td>released-containers</td>
+        <td>Number of containers released due to extra allocation returned by the RM</td>
+    </tr>
+    <tr>
+        <td>container-count</td>
+        <td>Number of containers configured for the job</td>
+    </tr>
+    <tr>
+        <td>job-healthy</td>
+        <td>State indicating whether the job is healthy or not</td>
+    </tr>
+    <tr>
+        <td>locality-matched</td>
+        <td>Ratio beetwen number of container assigned to the prefered host and total number of container allocation requests</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="samza-app-master-metrics">org.apache.samza.job.yarn.SamzaAppMasterMetrics <span style="color: #f00">(Deprecated)</span><br/><span style="font-weight: normal;margin-left:40px;  color : #f00">- After deprecation, all the following metrics will be under new group <a href="#container-process-manager-metrics">"org.apache.samza.metrics.ContainerProcessManagerMetrics"</a> mentioned above</span></th>
+    </tr>
+    <tr>
+        <td>running-containers</td>
+        <td>Number of running containers</td>
+    </tr>
+    <tr>
+        <td>needed-containers</td>
+        <td>Number of containers needed for the job to be declared healthy</td>
+    </tr>
+    <tr>
+        <td>completed-containers</td>
+        <td>Number of containers that have completed their execution and exited successfully</td>
+    </tr>
+    <tr>
+        <td>failed-containers</td>
+        <td>Number of failed containers</td>
+    </tr>
+    <tr>
+        <td>released-containers</td>
+        <td>Number of containers released due to extra allocation returned by the RM</td>
+    </tr>
+    <tr>
+        <td>container-count</td>
+        <td>Number of containers configured for the job</td>
+    </tr>
+    <tr>
+        <td>job-healthy</td>
+        <td>State indicating whether the job is healthy or not</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="kafka-system-consumer-metrics">org.apache.samza.system.kafka.KafkaSystemConsumerMetrics</th>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="topic">topic</span>-<span class="partition">partition</span>-offset-change</td>
+        <td>The next offset to be read for a topic partition</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="topic">topic</span>-<span class="partition">partition</span>-bytes-read</td>
+        <td>Total size of all messages read for a topic partition (payload + key size)</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="topic">topic</span>-<span class="partition">partition</span>-messages-read</td>
+        <td>Number of messages read for a topic partition</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="topic">topic</span>-<span class="partition">partition</span>-high-watermark</td>
+        <td>Offset of the last committed message in kafka's topic partition</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="topic">topic</span>-<span class="partition">partition</span>-messages-behind-high-watermark</td>
+        <td>Number of messages that are not fetched yet (difference beetwen high watermark and next offset)</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="host">host</span>-<span class="port">port</span>-reconnects</td>
+        <td>Number of reconnects to broker on particular host and port.</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="host">host</span>-<span class="port">port</span>-bytes-read</td>
+        <td>Total size of all messages read from a broker on particular host and port</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="host">host</span>-<span class="port">port</span>-messages-read</td>
+        <td>Number of times consumer fetched a broker on a particular host and port to get new messages</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="host">host</span>-<span class="port">port</span>-skipped-fetch-requests</td>
+        <td>Number of times fetchMessage method is called but no topic/partitions needed new messages</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="host">host</span>-<span class="port">port</span>-topic-partitions</td>
+        <td>Number of broker's topic partitions which are being consumed</td>
+    </tr>
+    <tr>
+        <td>poll-count</td>
+        <td>Number of polling the KafkaSystemConsumer to get any available messages</td>
+    </tr>
+    <tr>
+        <td>no-more-messages-SystemStreamPartition [<span class="system">system</span>, <span class="stream">stream</span>, <span class="partition">partition</span>]</td>
+        <td>Indicates if kafka consumer is at head for particular partition</td>
+    </tr>
+    <tr>
+        <td>blocking-poll-count-SystemStreamPartition [<span class="system">system</span>, <span class="stream">stream</span>, <span class="partition">partition</span>]</td>
+        <td>Number that represents how many times blocking poll is executed (polling until we get at least one message, or until we catch up to the head of the stream) (per partition)</td>
+    </tr>
+    <tr>
+        <td>blocking-poll-timeout-count-SystemStreamPartition [<span class="system">system</span>, <span class="stream">stream</span>, <span class="partition">partition</span>]</td>
+        <td>Number that represents how many times timed blocking poll is executed (polling until we get at least one message within a timeout period) (per partition)</td>
+    </tr>
+    <tr>
+        <td>buffered-message-count-SystemStreamPartition [<span class="system">system</span>, <span class="stream">stream</span>, <span class="partition">partition</span>]</td>
+        <td>Current number of messages in queue (per partition)</td>
+    </tr>
+    <tr>
+        <td>buffered-message-size-SystemStreamPartition [<span class="system">system</span>, <span class="stream">stream</span>, <span class="partition">partition</span>]</td>
+        <td>Current size of messages in queue (if systems.<span class="system">system</span>.samza.fetch.threshold.bytes is defined) (per partition)</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="kafka-system-producer-metrics">org.apache.samza.system.kafka.KafkaSystemProducerMetrics</th>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-producer-sends</td>
+        <td>Number of calls made to send in KafkaSystemProducer</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-producer-send-success</td>
+        <td>Number of send requests that was successfully completed by the KafkaSystemProducer</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-producer-send-failed</td>
+        <td>Number of send requests that was failed by the KafkaSystemProducer (due to unrecoverable errors)</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-producer-retries <span style="color: #f00">(Deprecated)</span></td>
+        <td>Number of times the system producer retries a send request (due to RetriableException)</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-flushes</td>
+        <td>Number of calls made to flush in KafkaSystemProducer</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-flush-ns</td>
+        <td>Represents <a href="#average-time">average time</a> the flush call takes to complete (in nanoseconds)
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-flush-failed</td>
+        <td>Number of times flush operation failed</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="key-value-storage-engine-metrics">org.apache.samza.storage.kv.KeyValueStorageEngineMetrics</th>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-puts</td>
+        <td>Total number of updating the mapping of the specified key-value pair in the engine's key value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-put-ns</td>
+        <td><a href="#average-time">Average duration</a> of updating the mapping of the key-value pairs in the engine's key value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-gets</td>
+        <td>Total number of looking for the <code>value</code> associated with the specified <code>key</code> in the engine's key value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-get-ns</td>
+        <td><a href="#average-time">Average duration</a> of looking for the <code>value</code> associated with the specified <code>key</code> in the engine's key value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-alls</td>
+        <td>Total number of accessing the iterator for all entries in engine's key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-all-ns</td>
+        <td><a href="#average-time">Average duration</a> of accessing the iterator for all entries in engine's key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-ranges</td>
+        <td>Total number of accessing the iterator for a sorted range of entries in engine's key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-range-ns</td>
+        <td><a href="#average-time">Average duration</a> of accessing the iterator for a sorted range of entries in engine's key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-deletes</td>
+        <td>Total number of deleting the mapping for the specified <code>key</code> from engine's key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-delete-ns</td>
+        <td><a href="#average-time">Average duration</a> of deleting mappings for the specifide <code>key</code> from engine's key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-flushes</td>
+        <td>Total number of flushing engine's key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-flush-ns</td>
+        <td><a href="#average-time">Average duration</a> of flushing engine's key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-messages-restored</td>
+        <td>Number of restored messages (key-value pairs) from the change log</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-message-bytes</td>
+        <td>Total amount of bytes (key and value size) restored from the change log</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="key-value-store-metrics">org.apache.samza.storage.kv.KeyValueStoreMetrics</th>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-puts</td>
+        <td>Total number of updating the mapping of the specified key-value pair. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#put-K-V-"><code>put</code></a> method</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-gets</td>
+        <td>Total number of looking for the <code>value</code> associated with the specified <code>key</code>. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#get-K-"><code>get</code></a> method</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-getalls</td>
+        <td>Total number of looking for <code>values</code> associated with the specified <code>keys</code>. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#getAll-java.util.List-"><code>getAll</code></a> method</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-alls</td>
+        <td>Total number of accessing the iterator for all entries in this key-value store. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#all--"><code>all</code></a> method</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-ranges</td>
+        <td>Total number of accessing the iterator for a sorted range of entries. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#range-K-K-"><code>range</code></a> method</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-bytes-written</td>
+        <td>Total amount of bytes that are written to the key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-bytes-read</td>
+        <td>Total amount of bytes that are read from the key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-flushes</td>
+        <td>Total number of key-value store flushes. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#flush--"><code>flush</code></a> method</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-deletes</td>
+        <td>Total number of deleting the mapping for the specified <code>key</code> from the key-value store. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#delete-K-"><code>delete</code></a> method</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-deletealls</td>
+        <td>Total number of deleting the mappings for the specified <code>keys</code> from this key-value store. Representing total number of calls to the <a href="../api/javadocs/org/apache/samza/storage/kv/KeyValueStore.html#deleteAll-java.util.List-"><code>deleteAll</code></a> method</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="logged-store-metrics">org.apache.samza.storage.kv.LoggedStoreMetrics</th>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-puts</td>
+        <td>Total number of updating the mapping of the specified key-value pair in the underlying key-value store and logging it out to the changelog</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-gets</td>
+        <td>Total number of looking for the <code>value</code> associated with the specified <code>key</code> from the underlying key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-alls</td>
+        <td>Total number of accessing the iterator for all entries in the underlying key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-ranges</td>
+        <td>Total number of accessing the iterator for a sorted range of entries in the underlying key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-deletes</td>
+        <td>Total number of deleting the mapping for the specified <code>key</code> from the underlying key-value store and logging it out to the changelog as a null value</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-flushes</td>
+        <td>Total number of flushing the underlying key-value store</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="serialized-key-value-store-metrics">org.apache.samza.storage.kv.SerializedKeyValueStoreMetrics</th>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-puts</td>
+        <td>Total number of updating the mapping of the specified key-value pair in the underlying key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-gets</td>
+        <td>Total number of looking for the <code>value</code> associated with the specified <code>key</code></td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-alls</td>
+        <td>Total number of accessing the iterator for all entries in the underlying key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-ranges</td>
+        <td>Total number of accessing the iterator for a sorted range of entries in the underlying key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-bytes-serialized</td>
+        <td>Total amount of bytes serialized while writing mappings to the underlying key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-bytes-deserialized</td>
+        <td>Total amount of bytes deserialized while reading mappings from the underlying key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-deletes</td>
+        <td>Total number of deleting the mapping for the specified <code>key</code> from the underlying key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-flushes</td>
+        <td>Total number of flushing the underlying key-value store</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="cached-store-metrics">org.apache.samza.storage.kv.CachedStoreMetrics</th>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-puts</td>
+        <td>Total number of updating the mapping of the specified key-value pair in the cached store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-put-all-dirty-entires-batch-size</td>
+        <td>Total number of dirty mappings that have been written to the underlying store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-gets</td>
+        <td>Total number of looking for the <code>value</code> associated with the specified <code>key</code> in the cached storage</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-alls</td>
+        <td>Total number of accessing the iterator for all entries in the underlying key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-ranges</td>
+        <td>Total number of accessing the iterator for a sorted range of entries in the underlying key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-flushes</td>
+        <td>Total number of purging dirty entries in the cache and flushing underlying key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-deletes</td>
+        <td>Total number of deleting the mapping for the specified <code>key</code> from the cache storage</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-cache-hits</td>
+        <td>Total number of times the item in the cache storage is read</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-cache-size</td>
+        <td>The number of items currently in the cache</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-dirty-count</td>
+        <td>The number of items currently in the dirty list</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="round-robin-chooser-metrics">org.apache.samza.system.chooser.RoundRobinChooserMetrics</th>
+    </tr>
+    <tr>
+        <td>buffered-messages</td>
+        <td>Size of the queue with potential messages to process</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="batching-chooser-metrics">org.apache.samza.system.chooser.BatchingChooserMetrics</th>
+    </tr>
+    <tr>
+        <td>batch-resets</td>
+        <td>The number of batch resets due to exceeding max batch size limit</td>
+    </tr>
+    <tr>
+        <td>batched-envelopes</td>
+        <td>The number of envelopes in the current batch</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="bootstrapping-chooser-metrics">org.apache.samza.system.chooser.BootstrappingChooserMetrics</th>
+    </tr>
+    <tr>
+        <td>lagging-batch-streams</td>
+        <td>The number of bootstrapping streams that are lagging</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-<span class="stream">stream</span>-lagging-partitions</td>
+        <td>The number of lagging partitions in the stream (for each stream marked as bootstrapping stream)</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="hdfs-system-producer-metrics">org.apache.samza.system.hdfs.HdfsSystemProducerMetrics</th>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-producer-sends</td>
+        <td>Total number of attempts to write to the HDFS</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-send-success</td>
+        <td>Total number of successful writes to the HDFS</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-send-failed</td>
+        <td>Total number of failures while sending envelopes to the HDFS</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-send-ms</td>
+        <td><a href="#average-time">Average time</a> spent for writing messages to the HDFS (in milliseconds)</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-flushes</td>
+        <td>Total number of attempts to flush data to the file system</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-flush-success</td>
+        <td>Total number of successfully flushed all written data to the file system</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-flush-failed</td>
+        <td>Total number of failures while flushing data to the file system</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-flush-ms</td>
+        <td><a href="#average-time">Average time</a> spent for flushing messages to the HDFS (in milliseconds)</td>
+    </tr>
+
+    <tr>
+        <th colspan="2" class="section" id="elasticsearch-system-producer-metrics">org.apache.samza.system.elasticsearch.ElasticsearchSystemProducerMetrics</th>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-bulk-send-success</td>
+        <td>Total number of successfully sent bulk requests</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-docs-inserted</td>
+        <td>Total number of created documents</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-docs-updated</td>
+        <td>Total number of document updates</td>
+    </tr>
+    <tr>
+        <td><span class="system">system</span>-version-conflicts</td>
+        <td>Number of times the request could not be completed due to a conflict with the current state of the document</td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>

@@ -19,6 +19,9 @@
 
 package org.apache.samza.checkpoint
 
+
+import java.util.concurrent.ConcurrentHashMap
+
 import org.apache.samza.system.SystemStream
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.SystemStreamMetadata
@@ -72,6 +75,7 @@ object OffsetManager extends Logging {
     config: Config,
     checkpointManager: CheckpointManager = null,
     systemAdmins: Map[String, SystemAdmin] = Map(),
+    checkpointListeners: Map[String, CheckpointListener] = Map(),
     offsetManagerMetrics: OffsetManagerMetrics = new OffsetManagerMetrics) = {
     debug("Building offset manager for %s." format systemStreamMetadata)
 
@@ -98,7 +102,7 @@ object OffsetManager extends Logging {
           // Build OffsetSetting so we can create a map for OffsetManager.
           (systemStream, OffsetSetting(systemStreamMetadata, defaultOffsetType, resetOffset))
       }.toMap
-    new OffsetManager(offsetSettings, checkpointManager, systemAdmins, offsetManagerMetrics)
+    new OffsetManager(offsetSettings, checkpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
   }
 }
 
@@ -139,6 +143,12 @@ class OffsetManager(
   val systemAdmins: Map[String, SystemAdmin] = Map(),
 
   /**
+   * Map of checkpointListeners for the systems that chose to provide one.
+   * OffsetManager will call the listeners on each checkpoint.
+   */
+  checkpointListeners: Map[String, CheckpointListener] = Map(),
+
+  /**
    * offsetManagerMetrics for keeping track of checkpointed offsets of each SystemStreamPartition.
    */
   val offsetManagerMetrics: OffsetManagerMetrics = new OffsetManagerMetrics) extends Logging {
@@ -146,7 +156,7 @@ class OffsetManager(
   /**
    * Last offsets processed for each SystemStreamPartition.
    */
-  var lastProcessedOffsets = Map[TaskName, Map[SystemStreamPartition, String]]()
+  val lastProcessedOffsets = new ConcurrentHashMap[TaskName, ConcurrentHashMap[SystemStreamPartition, String]]()
 
   /**
    * Offsets to start reading from for each SystemStreamPartition. This
@@ -182,20 +192,17 @@ class OffsetManager(
    * Set the last processed offset for a given SystemStreamPartition.
    */
   def update(taskName: TaskName, systemStreamPartition: SystemStreamPartition, offset: String) {
-    lastProcessedOffsets.get(taskName) match {
-      case Some(sspToOffsets) => lastProcessedOffsets += taskName -> (sspToOffsets + (systemStreamPartition -> offset))
-      case None => lastProcessedOffsets += (taskName -> Map(systemStreamPartition -> offset))
+    lastProcessedOffsets.putIfAbsent(taskName, new ConcurrentHashMap[SystemStreamPartition, String]())
+    if (offset != null) {
+      lastProcessedOffsets.get(taskName).put(systemStreamPartition, offset)
     }
   }
 
   /**
    * Get the last processed offset for a SystemStreamPartition.
    */
-  def getLastProcessedOffset(taskName: TaskName, systemStreamPartition: SystemStreamPartition) = {
-    lastProcessedOffsets.get(taskName) match {
-      case Some(sspToOffsets) => sspToOffsets.get(systemStreamPartition)
-      case None => None
-    }
+  def getLastProcessedOffset(taskName: TaskName, systemStreamPartition: SystemStreamPartition): Option[String] = {
+    Option(lastProcessedOffsets.get(taskName)).map(_.get(systemStreamPartition))
   }
 
   /**
@@ -213,25 +220,39 @@ class OffsetManager(
    * Checkpoint all offsets for a given TaskName using the CheckpointManager.
    */
   def checkpoint(taskName: TaskName) {
-    if (checkpointManager != null) {
+    if (checkpointManager != null || checkpointListeners.nonEmpty) {
       debug("Checkpointing offsets for taskName %s." format taskName)
 
       val sspsForTaskName = systemStreamPartitions.getOrElse(taskName, throw new SamzaException("No such SystemStreamPartition set " + taskName + " registered for this checkpointmanager")).toSet
-      val partitionOffsets = lastProcessedOffsets.get(taskName) match {
-        case Some(sspToOffsets) => sspToOffsets.filterKeys(sspsForTaskName.contains(_))
-        case None => {
-          warn(taskName + " is not found... ")
-          Map[SystemStreamPartition, String]()
+      val sspToOffsets = lastProcessedOffsets.getOrElse(taskName, null)
+      val partitionOffsets = if(sspToOffsets != null) {
+        sspToOffsets.filterKeys(sspsForTaskName.contains(_))
+      } else {
+        warn(taskName + " is not found... ")
+        Map[SystemStreamPartition, String]()
+      }
+
+      val checkpoint = new Checkpoint(partitionOffsets)
+
+      if(checkpointManager != null) {
+        checkpointManager.writeCheckpoint(taskName, checkpoint)
+        if(sspToOffsets != null) {
+          sspToOffsets.foreach {
+            case (ssp, cp) => offsetManagerMetrics.checkpointedOffsets(ssp).set(cp)
+          }
         }
       }
 
-      checkpointManager.writeCheckpoint(taskName, new Checkpoint(partitionOffsets))
-      lastProcessedOffsets.get(taskName) match {
-        case Some(sspToOffsets) => sspToOffsets.foreach { case (ssp, checkpoint) => offsetManagerMetrics.checkpointedOffsets(ssp).set(checkpoint) }
-        case None =>
+      // invoke checkpoint listeners
+      //partitionOffsets.groupBy(_._1.getSystem).foreach {
+      partitionOffsets.groupBy { case (ssp, _) => ssp.getSystem }.foreach {
+        case (systemName:String, offsets: Map[SystemStreamPartition, String]) => {
+          // Option is empty if there is no checkpointListener for this systemName
+          checkpointListeners.get(systemName).foreach(_.onCheckpoint(offsets))
+        }
       }
     } else {
-      debug("Skipping checkpointing for taskName %s because no checkpoint manager is defined." format taskName)
+      debug("Skipping checkpointing for taskName %s because no checkpoint manager/callback is defined." format taskName)
     }
   }
 
@@ -270,9 +291,8 @@ class OffsetManager(
         .keys
         .flatMap(restoreOffsetsFromCheckpoint(_))
         .toMap
-      lastProcessedOffsets ++= result.map {
-        case (taskName, sspToOffset) => {
-          taskName -> sspToOffset.filter {
+      result.map { case (taskName, sspToOffset) => {
+          lastProcessedOffsets.put(taskName, new ConcurrentHashMap[SystemStreamPartition, String](sspToOffset.filter {
             case (systemStreamPartition, offset) =>
               val shouldKeep = offsetSettings.contains(systemStreamPartition.getSystemStream)
               if (!shouldKeep) {
@@ -280,7 +300,7 @@ class OffsetManager(
               }
               info("Checkpointed offset is currently %s for %s" format (offset, systemStreamPartition))
               shouldKeep
-          }
+          }))
         }
       }
     } else {
@@ -324,17 +344,15 @@ class OffsetManager(
       }
     }
 
-    lastProcessedOffsets = lastProcessedOffsets.map {
-      case (taskName, sspToOffsets) => {
-        taskName -> (sspToOffsets -- systemStreamPartitionsToReset(taskName))
-      }
+    lastProcessedOffsets.keys().foreach { taskName =>
+      lastProcessedOffsets.get(taskName).keySet().removeAll(systemStreamPartitionsToReset(taskName))
     }
   }
 
   /**
    * Returns a map of all SystemStreamPartitions in lastProcessedOffsets that need to be reset
    */
-  private def getSystemStreamPartitionsToReset(taskNameTosystemStreamPartitions: Map[TaskName, Map[SystemStreamPartition, String]]): Map[TaskName, Set[SystemStreamPartition]] = {
+  private def getSystemStreamPartitionsToReset(taskNameTosystemStreamPartitions: ConcurrentHashMap[TaskName, ConcurrentHashMap[SystemStreamPartition, String]]): Map[TaskName, Set[SystemStreamPartition]] = {
     taskNameTosystemStreamPartitions.map {
       case (taskName, sspToOffsets) => {
         taskName -> (sspToOffsets.filter {

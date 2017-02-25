@@ -121,4 +121,22 @@ samza-example/target/bin/checkpoint-tool.sh \
 
 Note that Samza only reads checkpoints on container startup. In order for your checkpoint change to take effect, you need to first stop the job, then save the modified offsets, and then start the job again. If you write a checkpoint while the job is running, it will most likely have no effect.
 
+### Checkpoint Callbacks
+Currently Samza takes care of checkpointing for all the systems. But there are some use-cases when we may need to inform the Consumer about each checkpoint we make.
+Here are few examples:
+
+* Samza cannot do checkpointing correctly or efficiently. One such case is when Samza is not doing the partitioning. In this case the container doesn’t know which SSPs it is responsible for, and thus cannot checkpoint them. An actual example could be a system which relies on an auto-balanced High Level Kafka Consumer for partitioning.
+* Systems in which the consumer itself needs to control the checkpointed offset. Some systems do not support seek() operation (are not replayable), but they rely on ACKs for the delivered messages. Example could be a Kinesis consumer. Kinesis library provides a checkpoint callback in the* process() *call (push system). This callback needs to be invoked after the records are processed. This can only be done by the consumer itself.
+* Systems that use checkpoint/offset information for some maintenance actions. This information may be used to implement a smart retention policy (deleting all the data after it has been consumed).
+
+In order to use the checkpoint callback a SystemConsumer needs to implement the CheckpointListener interface:
+{% highlight java %}
+public interface CheckpointListener {
+  void onCheckpoint(Map<SystemStreamPartition, String> offsets);
+}
+{% endhighlight %}
+For the SystemConsumers which implement this interface Samza will invoke onCheckpoint() callback every time OffsetManager checkpoints. Checkpoints are done per task, and 'offsets' are all the offsets Samza checkpoints for a task,
+and these are the offsets which will be passed to the consumer on restart.
+Note that the callback will happen after the checkpoint and is **not** atomic.
+
 ## [State Management &raquo;](state-management.html)

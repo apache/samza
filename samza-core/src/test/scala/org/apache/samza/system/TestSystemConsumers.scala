@@ -39,7 +39,11 @@ class TestSystemConsumers {
     val envelope = new IncomingMessageEnvelope(systemStreamPartition0, "1", "k", "v")
     val consumer = new CustomPollResponseSystemConsumer(envelope)
     var now = 0L
-    val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer), clock = () => now)
+    val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer),
+                                        new SerdeManager, new SystemConsumersMetrics,
+                                        SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
+                                        SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
+                                        SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => now)
 
     consumers.register(systemStreamPartition0, "0")
     consumers.register(systemStreamPartition1, "1234")
@@ -50,14 +54,14 @@ class TestSystemConsumers {
     consumer.setResponseSizes(numEnvelopes)
 
     // Choose to trigger a refresh with data.
-    assertNull(consumers.choose)
+    assertNull(consumers.choose())
     // 2: First on start, second on choose.
     assertEquals(2, consumer.polls)
     assertEquals(2, consumer.lastPoll.size)
     assertTrue(consumer.lastPoll.contains(systemStreamPartition0))
     assertTrue(consumer.lastPoll.contains(systemStreamPartition1))
-    assertEquals(envelope, consumers.choose)
-    assertEquals(envelope, consumers.choose)
+    assertEquals(envelope, consumers.choose())
+    assertEquals(envelope, consumers.choose())
     // We aren't polling because we're getting non-null envelopes.
     assertEquals(2, consumer.polls)
 
@@ -65,7 +69,7 @@ class TestSystemConsumers {
     // messages.
     now = SystemConsumers.DEFAULT_POLL_INTERVAL_MS
 
-    assertEquals(envelope, consumers.choose)
+    assertEquals(envelope, consumers.choose())
 
     // We polled even though there are still 997 messages in the unprocessed
     // message buffer.
@@ -78,11 +82,11 @@ class TestSystemConsumers {
     // Now drain all messages for SSP0. There should be exactly 997 messages,
     // since we have chosen 3 already, and we started with 1000.
     (0 until (numEnvelopes - 3)).foreach { i =>
-      assertEquals(envelope, consumers.choose)
+      assertEquals(envelope, consumers.choose())
     }
 
     // Nothing left. Should trigger a poll here.
-    assertNull(consumers.choose)
+    assertNull(consumers.choose())
     assertEquals(4, consumer.polls)
     assertEquals(2, consumer.lastPoll.size)
 
@@ -97,7 +101,11 @@ class TestSystemConsumers {
     val envelope = new IncomingMessageEnvelope(systemStreamPartition, "1", "k", "v")
     val consumer = new CustomPollResponseSystemConsumer(envelope)
     var now = 0
-    val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer), clock = () => now)
+    val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer),
+                                        new SerdeManager, new SystemConsumersMetrics,
+                                        SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
+                                        SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
+                                        SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => now)
 
     consumers.register(systemStreamPartition, "0")
     consumers.start
@@ -109,31 +117,31 @@ class TestSystemConsumers {
     consumer.setResponseSizes(1)
 
     // Choose to trigger a refresh with data.
-    assertNull(consumers.choose)
+    assertNull(consumers.choose())
 
     // Choose should have triggered a second poll, since no messages are available.
     assertEquals(2, consumer.polls)
 
     // Choose a few times. This time there is no data.
-    assertEquals(envelope, consumers.choose)
-    assertNull(consumers.choose)
-    assertNull(consumers.choose)
+    assertEquals(envelope, consumers.choose())
+    assertNull(consumers.choose())
+    assertNull(consumers.choose())
 
     // Return more than one message this time.
     consumer.setResponseSizes(2)
 
     // Choose to trigger a refresh with data.
-    assertNull(consumers.choose)
+    assertNull(consumers.choose())
 
     // Increase clock interval.
     now = SystemConsumers.DEFAULT_POLL_INTERVAL_MS
 
     // We get two messages now.
-    assertEquals(envelope, consumers.choose)
+    assertEquals(envelope, consumers.choose())
     // Should not poll even though clock interval increases past interval threshold.
     assertEquals(2, consumer.polls)
-    assertEquals(envelope, consumers.choose)
-    assertNull(consumers.choose)
+    assertEquals(envelope, consumers.choose())
+    assertNull(consumers.choose())
   }
 
   @Test
@@ -230,7 +238,7 @@ class TestSystemConsumers {
 
     var caughtRightException = false
     try {
-      consumers.choose
+      consumers.choose()
     } catch {
       case e: SystemConsumersException => caughtRightException = true
       case _: Throwable => caughtRightException = false
@@ -248,13 +256,13 @@ class TestSystemConsumers {
 
     var notThrowException = true;
     try {
-      consumers2.choose
+      consumers2.choose()
     } catch {
       case e: Throwable => notThrowException = false
     }
     assertTrue("it should not throw any exception", notThrowException)
 
-    var msgEnvelope = Some(consumers2.choose)
+    var msgEnvelope = Some(consumers2.choose())
     assertTrue("Consumer did not succeed in receiving the second message after Serde exception in choose", msgEnvelope.get != null)
     consumers2.stop
 
@@ -271,7 +279,7 @@ class TestSystemConsumers {
     assertTrue("SystemConsumer start should not throw any Serde exception", notThrowException)
 
     msgEnvelope = null
-    msgEnvelope = Some(consumers2.choose)
+    msgEnvelope = Some(consumers2.choose())
     assertTrue("Consumer did not succeed in receiving the second message after Serde exception in poll", msgEnvelope.get != null)
     consumers2.stop
 
@@ -317,5 +325,11 @@ class TestSystemConsumers {
     def start {}
     def stop {}
     def register { super.register(systemStreamPartition, "0") }
+  }
+}
+
+object TestSystemConsumers {
+  def getSystemConsumers(consumers: java.util.Map[String, SystemConsumer]) : SystemConsumers = {
+    new SystemConsumers(new DefaultChooser, consumers.toMap)
   }
 }

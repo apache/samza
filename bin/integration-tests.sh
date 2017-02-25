@@ -51,7 +51,7 @@ cp ./samza-test/build/distributions/samza-test*.tgz $ABS_TEST_DIR
 cd $ABS_TEST_DIR
 
 # setup virtualenv locally if it's not already there
-VIRTUAL_ENV=virtualenv-12.0.2
+VIRTUAL_ENV=virtualenv-15.0.1
 if [[ ! -d "${ABS_TEST_DIR}/${VIRTUAL_ENV}" ]] ; then
   curl -O https://pypi.python.org/packages/source/v/virtualenv/$VIRTUAL_ENV.tar.gz
   tar xvfz $VIRTUAL_ENV.tar.gz

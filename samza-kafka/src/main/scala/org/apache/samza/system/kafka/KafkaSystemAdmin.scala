@@ -19,22 +19,23 @@
 
 package org.apache.samza.system.kafka
 
-import org.I0Itec.zkclient.ZkClient
-import org.apache.samza.Partition
-import org.apache.samza.SamzaException
-import org.apache.samza.system.SystemAdmin
-import org.apache.samza.system.SystemStreamMetadata
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.{ ClientUtilTopicMetadataStore, ExponentialSleepStrategy, Logging }
-import kafka.api._
-import kafka.consumer.SimpleConsumer
-import kafka.common.{ TopicExistsException, TopicAndPartition }
-import java.util.{ Properties, UUID }
-import scala.collection.JavaConversions._
-import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import kafka.consumer.ConsumerConfig
+import java.util
+import java.util.{Properties, UUID}
+
 import kafka.admin.AdminUtils
-import org.apache.samza.util.KafkaUtil
+import kafka.api._
+import kafka.common.{TopicAndPartition, TopicExistsException}
+import kafka.consumer.{ConsumerConfig, SimpleConsumer}
+import kafka.utils.ZkUtils
+import org.apache.samza.config.KafkaConfig
+import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.apache.samza.system._
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, KafkaUtil, Logging}
+import org.apache.samza.{Partition, SamzaException}
+
+import scala.collection.JavaConversions
+import scala.collection.JavaConversions._
+
 
 object KafkaSystemAdmin extends Logging {
   /**
@@ -50,7 +51,7 @@ object KafkaSystemAdmin extends Logging {
           val streamPartitionMetadata = systemStreamPartitions
             .map(systemStreamPartition => {
               val partitionMetadata = new SystemStreamPartitionMetadata(
-                // If the topic/partition is empty then oldest and newest will 
+                // If the topic/partition is empty then oldest and newest will
                 // be stripped of their offsets, so default to null.
                 oldestOffsets.getOrElse(systemStreamPartition, null),
                 newestOffsets.getOrElse(systemStreamPartition, null),
@@ -63,7 +64,8 @@ object KafkaSystemAdmin extends Logging {
       }
       .toMap
 
-    info("Got metadata: %s" format allMetadata)
+    // This is typically printed downstream and it can be spammy, so debug level here.
+    debug("Got metadata: %s" format allMetadata)
 
     allMetadata
   }
@@ -71,6 +73,7 @@ object KafkaSystemAdmin extends Logging {
 
 /**
  * A helper class that is used to construct the changelog stream specific information
+ *
  * @param replicationFactor The number of replicas for the changelog stream
  * @param kafkaProps The kafka specific properties that need to be used for changelog stream creation
  */
@@ -94,10 +97,10 @@ class KafkaSystemAdmin(
   brokerListString: String,
 
   /**
-   * A method that returns a ZkClient for the Kafka system. This is invoked
+   * A method that returns a ZkUtils for the Kafka system. This is invoked
    * when the system admin is attempting to create a coordinator stream.
    */
-  connectZk: () => ZkClient,
+  connectZk: () => ZkUtils,
 
   /**
    * Custom properties to use when the system admin tries to create a new
@@ -134,22 +137,61 @@ class KafkaSystemAdmin(
    * Replication factor for the Changelog topic in kafka
    * Kafka properties to be used during the Changelog topic creation
    */
-  topicMetaInformation: Map[String, ChangelogInfo] = Map[String, ChangelogInfo]()) extends SystemAdmin with Logging {
+  topicMetaInformation: Map[String, ChangelogInfo] = Map[String, ChangelogInfo]()) extends ExtendedSystemAdmin with Logging {
 
   import KafkaSystemAdmin._
+
+  override def getSystemStreamPartitionCounts(streams: util.Set[String], cacheTTL: Long): util.Map[String, SystemStreamMetadata] = {
+    getSystemStreamPartitionCounts(streams, new ExponentialSleepStrategy(initialDelayMs = 500), cacheTTL)
+  }
+
+  def getSystemStreamPartitionCounts(streams: util.Set[String], retryBackoff: ExponentialSleepStrategy, cacheTTL: Long = Long.MaxValue): util.Map[String, SystemStreamMetadata] = {
+    debug("Fetching system stream partition count for: %s" format streams)
+    var metadataTTL = cacheTTL
+    retryBackoff.run(
+      loop => {
+        val metadata = TopicMetadataCache.getTopicMetadata(
+          streams.toSet,
+          systemName,
+          getTopicMetadata,
+          metadataTTL)
+        val result = metadata.map {
+          case (topic, topicMetadata) => {
+            KafkaUtil.maybeThrowException(topicMetadata.errorCode)
+            val partitionsMap = topicMetadata.partitionsMetadata.map {
+              pm =>
+                new Partition(pm.partitionId) -> new SystemStreamPartitionMetadata("", "", "")
+            }.toMap[Partition, SystemStreamPartitionMetadata]
+            (topic -> new SystemStreamMetadata(topic, partitionsMap))
+          }
+        }
+        loop.done
+        JavaConversions.mapAsJavaMap(result)
+      },
+
+      (exception, loop) => {
+        warn("Unable to fetch last offsets for streams %s due to %s. Retrying." format (streams, exception))
+        debug("Exception detail:", exception)
+        if (metadataTTL == Long.MaxValue) {
+          metadataTTL = 5000 // Revert to the default cache expiration
+        }
+      }
+    ).getOrElse(throw new SamzaException("Failed to get system stream metadata"))
+  }
 
   /**
    * Returns the offset for the message after the specified offset for each
    * SystemStreamPartition that was passed in.
    */
-  def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = {
-    // This is safe to do with Kafka, even if a topic is key-deduped. If the 
-    // offset doesn't exist on a compacted topic, Kafka will return the first 
+
+  override def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = {
+    // This is safe to do with Kafka, even if a topic is key-deduped. If the
+    // offset doesn't exist on a compacted topic, Kafka will return the first
     // message AFTER the offset that was specified in the fetch request.
     offsets.mapValues(offset => (offset.toLong + 1).toString)
   }
 
-  def getSystemStreamMetadata(streams: java.util.Set[String]) =
+  override def getSystemStreamMetadata(streams: java.util.Set[String]) =
     getSystemStreamMetadata(streams, new ExponentialSleepStrategy(initialDelayMs = 500))
 
   /**
@@ -161,17 +203,18 @@ class KafkaSystemAdmin(
    */
   def getSystemStreamMetadata(streams: java.util.Set[String], retryBackoff: ExponentialSleepStrategy) = {
     debug("Fetching system stream metadata for: %s" format streams)
+    var metadataTTL = Long.MaxValue // Trust the cache until we get an exception
     retryBackoff.run(
       loop => {
         val metadata = TopicMetadataCache.getTopicMetadata(
           streams.toSet,
           systemName,
-          getTopicMetadata)
+          getTopicMetadata,
+          metadataTTL)
 
         debug("Got metadata for streams: %s" format metadata)
 
         val brokersToTopicPartitions = getTopicsAndPartitionsByBroker(metadata)
-        var partitions = Map[String, Set[Partition]]()
         var oldestOffsets = Map[SystemStreamPartition, String]()
         var newestOffsets = Map[SystemStreamPartition, String]()
         var upcomingOffsets = Map[SystemStreamPartition, String]()
@@ -182,8 +225,9 @@ class KafkaSystemAdmin(
 
           val consumer = new SimpleConsumer(broker.host, broker.port, timeout, bufferSize, clientId)
           try {
-            oldestOffsets ++= getOffsets(consumer, topicsAndPartitions, OffsetRequest.EarliestTime)
             upcomingOffsets ++= getOffsets(consumer, topicsAndPartitions, OffsetRequest.LatestTime)
+            oldestOffsets ++= getOffsets(consumer, topicsAndPartitions, OffsetRequest.EarliestTime)
+
             // Kafka's "latest" offset is always last message in stream's offset +
             // 1, so get newest message in stream by subtracting one. this is safe
             // even for key-deduplicated streams, since the last message will
@@ -218,39 +262,84 @@ class KafkaSystemAdmin(
       (exception, loop) => {
         warn("Unable to fetch last offsets for streams %s due to %s. Retrying." format (streams, exception))
         debug("Exception detail:", exception)
+        metadataTTL = 5000 // Revert to the default cache expiration
       }).getOrElse(throw new SamzaException("Failed to get system stream metadata"))
   }
 
-  def createCoordinatorStream(streamName: String) {
-    info("Attempting to create coordinator stream %s." format streamName)
-    new ExponentialSleepStrategy(initialDelayMs = 500).run(
+  /**
+   * Returns the newest offset for the specified SSP.
+   * This method is fast and targeted. It minimizes the number of kafka requests.
+   * It does not retry indefinitely if there is any failure.
+   * It returns null if the topic is empty. To get the offsets for *all*
+   * partitions, it would be more efficient to call getSystemStreamMetadata
+   */
+  override def getNewestOffset(ssp: SystemStreamPartition, maxRetries: Integer) = {
+    debug("Fetching newest offset for: %s" format ssp)
+    var offset: String = null
+    var metadataTTL = Long.MaxValue // Trust the cache until we get an exception
+    var retries = maxRetries
+    new ExponentialSleepStrategy().run(
       loop => {
-        val zkClient = connectZk()
+        val metadata = TopicMetadataCache.getTopicMetadata(
+          Set(ssp.getStream),
+          systemName,
+          getTopicMetadata,
+          metadataTTL)
+        debug("Got metadata for streams: %s" format metadata)
+
+        val brokersToTopicPartitions = getTopicsAndPartitionsByBroker(metadata)
+        val topicAndPartition = new TopicAndPartition(ssp.getStream, ssp.getPartition.getPartitionId)
+        val broker = brokersToTopicPartitions.filter((e) => e._2.contains(topicAndPartition)).head._1
+
+        // Get oldest, newest, and upcoming offsets for each topic and partition.
+        debug("Fetching offset for %s:%s: %s" format (broker.host, broker.port, topicAndPartition))
+        val consumer = new SimpleConsumer(broker.host, broker.port, timeout, bufferSize, clientId)
         try {
-          AdminUtils.createTopic(
-            zkClient,
-            streamName,
-            1, // Always one partition for coordinator stream.
-            coordinatorStreamReplicationFactor,
-            coordinatorStreamProperties)
+          offset = getOffsets(consumer, Set(topicAndPartition), OffsetRequest.LatestTime).head._2
+
+          // Kafka's "latest" offset is always last message in stream's offset +
+          // 1, so get newest message in stream by subtracting one. this is safe
+          // even for key-deduplicated streams, since the last message will
+          // never be deduplicated.
+          if (offset.toLong <= 0) {
+            debug("Stripping newest offsets for %s because the topic appears empty." format topicAndPartition)
+            offset = null
+          } else {
+            offset = (offset.toLong - 1).toString
+          }
         } finally {
-          zkClient.close
+          consumer.close
         }
 
-        info("Created coordinator stream %s." format streamName)
+        debug("Got offset %s for %s." format(offset, ssp))
         loop.done
       },
 
       (exception, loop) => {
-        exception match {
-          case e: TopicExistsException =>
-            info("Coordinator stream %s already exists." format streamName)
-            loop.done
-          case e: Exception =>
-            warn("Failed to create topic %s: %s. Retrying." format (streamName, e))
-            debug("Exception detail:", e)
+        if (retries > 0) {
+          warn("Exception while trying to get offset for %s: %s. Retrying." format(ssp, exception))
+          metadataTTL = 0L // Force metadata refresh
+          retries -= 1
+        } else {
+          warn("Exception while trying to get offset for %s" format(ssp), exception)
+          loop.done
+          throw exception
         }
       })
+
+     offset
+  }
+
+  override def createCoordinatorStream(streamName: String) {
+    info("Attempting to create coordinator stream %s." format streamName)
+
+    val streamSpec = new KafkaStreamSpec(streamName, streamName, systemName, 1, coordinatorStreamReplicationFactor, coordinatorStreamProperties)
+
+    if (createStream(streamSpec)) {
+      info("Created coordinator stream %s." format streamName)
+    } else {
+      info("Coordinator stream %s already exists." format streamName)
+    }
   }
 
   /**
@@ -269,7 +358,7 @@ class KafkaSystemAdmin(
   private def getTopicsAndPartitionsByBroker(metadata: Map[String, TopicMetadata]) = {
     val brokersToTopicPartitions = metadata
       .values
-      // Convert the topic metadata to a Seq[(Broker, TopicAndPartition)] 
+      // Convert the topic metadata to a Seq[(Broker, TopicAndPartition)]
       .flatMap(topicMetadata => {
         KafkaUtil.maybeThrowException(topicMetadata.errorCode)
         topicMetadata
@@ -324,89 +413,112 @@ class KafkaSystemAdmin(
     offsets
   }
 
-  private def createTopicInKafka(topicName: String, numKafkaChangelogPartitions: Int) {
-    val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy
-    info("Attempting to create change log topic %s." format topicName)
-    info("Using partition count " + numKafkaChangelogPartitions + " for creating change log topic")
-    val topicMetaInfo = topicMetaInformation.getOrElse(topicName, throw new KafkaChangelogException("Unable to find topic information for topic " + topicName))
-    retryBackoff.run(
+  /**
+   * @inheritdoc
+   */
+  override def createStream(spec: StreamSpec): Boolean = {
+    val kSpec = KafkaStreamSpec.fromSpec(spec);
+    var streamCreated = false
+
+    new ExponentialSleepStrategy(initialDelayMs = 500).run(
       loop => {
         val zkClient = connectZk()
         try {
           AdminUtils.createTopic(
             zkClient,
-            topicName,
-            numKafkaChangelogPartitions,
-            topicMetaInfo.replicationFactor,
-            topicMetaInfo.kafkaProps)
+            kSpec.getPhysicalName,
+            kSpec.getPartitionCount,
+            kSpec.getReplicationFactor,
+            kSpec.getProperties)
         } finally {
           zkClient.close
         }
 
-        info("Created changelog topic %s." format topicName)
+        streamCreated = true
         loop.done
       },
 
       (exception, loop) => {
         exception match {
           case e: TopicExistsException =>
-            info("Changelog topic %s already exists." format topicName)
+            streamCreated = false
             loop.done
           case e: Exception =>
-            warn("Failed to create topic %s: %s. Retrying." format (topicName, e))
+            warn("Failed to create topic %s: %s. Retrying." format (spec.getPhysicalName, e))
             debug("Exception detail:", e)
         }
       })
+
+    streamCreated
   }
 
-  private def validateTopicInKafka(topicName: String, numKafkaChangelogPartitions: Int) {
+  /**
+    * @inheritdoc
+    *
+    * Validates a stream in Kafka. Should not be called before createStream(),
+    * since ClientUtils.fetchTopicMetadata(), used by different Kafka clients,
+    * is not read-only and will auto-create a new topic.
+    */
+  override def validateStream(spec: StreamSpec): Unit = {
+    val topicName = spec.getPhysicalName
+    info("Validating topic %s." format topicName)
+
     val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy
-    info("Validating changelog topic %s." format topicName)
+    var metadataTTL = Long.MaxValue // Trust the cache until we get an exception
     retryBackoff.run(
       loop => {
         val metadataStore = new ClientUtilTopicMetadataStore(brokerListString, clientId, timeout)
-        val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topicName), systemName, metadataStore.getTopicInfo)
+        val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topicName), systemName, metadataStore.getTopicInfo, metadataTTL)
         val topicMetadata = topicMetadataMap(topicName)
         KafkaUtil.maybeThrowException(topicMetadata.errorCode)
 
         val partitionCount = topicMetadata.partitionsMetadata.length
-        if (partitionCount < numKafkaChangelogPartitions) {
-          throw new KafkaChangelogException("Changelog topic validation failed for topic %s because partition count %s did not match expected partition count of %d" format (topicName, topicMetadata.partitionsMetadata.length, numKafkaChangelogPartitions))
+        if (partitionCount != spec.getPartitionCount) {
+          throw new StreamValidationException("Topic validation failed for topic %s because partition count %s did not match expected partition count of %d" format (topicName, topicMetadata.partitionsMetadata.length, spec.getPartitionCount))
         }
 
-        info("Successfully validated changelog topic %s." format topicName)
+        info("Successfully validated topic %s." format topicName)
         loop.done
       },
 
       (exception, loop) => {
         exception match {
-          case e: KafkaChangelogException => throw e
+          case e: StreamValidationException => throw e
           case e: Exception =>
             warn("While trying to validate topic %s: %s. Retrying." format (topicName, e))
             debug("Exception detail:", e)
+            metadataTTL = 5000L // Revert to the default value
         }
       })
   }
 
   /**
-   * Exception to be thrown when the change log stream creation or validation has failed
-   */
+    * Exception to be thrown when the change log stream creation or validation has failed
+    */
   class KafkaChangelogException(s: String, t: Throwable) extends SamzaException(s, t) {
     def this(s: String) = this(s, null)
   }
 
   override def createChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
-    createTopicInKafka(topicName, numKafkaChangelogPartitions)
-    validateChangelogStream(topicName, numKafkaChangelogPartitions)
+    val topicMeta = topicMetaInformation.getOrElse(topicName, throw new KafkaChangelogException("Unable to find topic information for topic " + topicName))
+    val spec = new KafkaStreamSpec(topicName, topicName, systemName, numKafkaChangelogPartitions, topicMeta.replicationFactor, topicMeta.kafkaProps)
+
+    if (createStream(spec)) {
+      info("Created changelog stream %s." format topicName)
+    } else {
+      info("Changelog stream %s already exists." format topicName)
+    }
+
+    validateStream(spec)
   }
 
   /**
-   * Validates change log stream in Kafka. Should not be called before createChangelogStream(),
-   * since ClientUtils.fetchTopicMetadata(), used by different Kafka clients, is not read-only and
-   * will auto-create a new topic.
-   */
+    * Validates a stream in Kafka. Should not be called before createStream(),
+    * since ClientUtils.fetchTopicMetadata(), used by different Kafka clients, is not read-only and
+    * will auto-create a new topic.
+    */
   override def validateChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
-    validateTopicInKafka(topicName, numKafkaChangelogPartitions)
+    validateStream(new KafkaStreamSpec(topicName, systemName, numKafkaChangelogPartitions))
   }
 
   /**

@@ -19,62 +19,130 @@
 
 package org.apache.samza.job.yarn.util;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.apache.hadoop.yarn.api.records.Container;
 
 import static org.junit.Assert.assertTrue;
 
 public class MockContainerListener {
-  private static final int NUM_CONDITIONS = 2;
-  private boolean allContainersAdded = false;
-  private boolean allContainersReleased = false;
-  private final int numExpectedContainersAdded;
-  private final int numExpectedContainersReleased;
-  private final Runnable addContainerAssertions;
-  private final Runnable releaseContainerAssertions;
+  private final CountDownLatch conditionLatch;
+
+
+  private final AsyncCountableCondition containersAdded;
+  private final AsyncCountableCondition containersReleased;
+  private final AsyncCountableCondition containersAssigned;
+  private final AsyncCountableCondition containersRunning;
+
+  private final AsyncCountableCondition[] allConditions;
 
   public MockContainerListener(int numExpectedContainersAdded,
       int numExpectedContainersReleased,
+      int numExpectedContainersAssigned,
+      int numExpectedContainersRunning,
       Runnable addContainerAssertions,
-      Runnable releaseContainerAssertions) {
-    this.numExpectedContainersAdded = numExpectedContainersAdded;
-    this.numExpectedContainersReleased = numExpectedContainersReleased;
-    this.addContainerAssertions = addContainerAssertions;
-    this.releaseContainerAssertions = releaseContainerAssertions;
-  }
+      Runnable releaseContainerAssertions,
+      Runnable assignContainerAssertions,
+      Runnable runContainerAssertions) {
+    containersAdded = new AsyncCountableCondition("containers added", numExpectedContainersAdded, addContainerAssertions);
+    containersReleased = new AsyncCountableCondition("containers released", numExpectedContainersReleased, releaseContainerAssertions);
+    containersAssigned = new AsyncCountableCondition("containers assigned", numExpectedContainersAssigned, assignContainerAssertions);
+    containersRunning = new AsyncCountableCondition("containers running", numExpectedContainersRunning, runContainerAssertions);
 
-  public synchronized void postAddContainer(Container container, int totalAddedContainers) {
-    if (totalAddedContainers == numExpectedContainersAdded) {
-      if (addContainerAssertions != null) {
-        addContainerAssertions.run();
-      }
+    allConditions = new AsyncCountableCondition[] {containersAdded, containersReleased, containersAssigned, containersRunning};
 
-      allContainersAdded = true;
-      this.notifyAll();
-    }
-  }
-
-  public synchronized void postReleaseContainers(int totalReleasedContainers) {
-    if (totalReleasedContainers == numExpectedContainersReleased) {
-      if (releaseContainerAssertions != null) {
-        releaseContainerAssertions.run();
-      }
-
-      allContainersReleased = true;
-      this.notifyAll();
-    }
-  }
-
-  public synchronized void verify() {
-    // There could be 1 notifyAll() for each condition, so we must wait up to that many times
-    for (int i = 0; i < NUM_CONDITIONS && !(allContainersAdded && allContainersReleased); i++) {
-      try {
-        this.wait(5000);
-      } catch (InterruptedException e) {
-        // Do nothing
+    int unsatisfiedConditions = 0;
+    for (AsyncCountableCondition condition : allConditions) {
+      if (!condition.isSatisfied()) {
+        unsatisfiedConditions++;
       }
     }
 
-    assertTrue("Not all containers were added.", allContainersAdded);
-    assertTrue("Not all containers were released.", allContainersReleased);
+    conditionLatch = new CountDownLatch(unsatisfiedConditions);
+  }
+
+  public void postAddContainer(int totalAddedContainers) {
+    if (containersAdded.update(totalAddedContainers)) {
+      conditionLatch.countDown();
+    }
+  }
+
+  public void postReleaseContainers(int totalReleasedContainers) {
+    if (containersReleased.update(totalReleasedContainers)) {
+      conditionLatch.countDown();
+    }
+  }
+
+  public void postUpdateRequestStateAfterAssignment(int totalAssignedContainers) {
+    if (containersAssigned.update(totalAssignedContainers)) {
+      conditionLatch.countDown();
+    }
+  }
+
+  public void postRunContainer(int totalRunningContainers) {
+    if (containersRunning.update(totalRunningContainers)) {
+      conditionLatch.countDown();
+    }
+  }
+
+  /**
+   * This method should be called in the main thread. It waits for all the conditions to occur in the other
+   * threads and then verifies that they were in fact satisfied.
+   */
+  public void verify()
+      throws InterruptedException {
+    conditionLatch.await(5, TimeUnit.SECONDS);
+
+    for (AsyncCountableCondition condition : allConditions) {
+      condition.verify();
+    }
+  }
+
+  private static class AsyncCountableCondition {
+    private boolean satisfied = false;
+    private final int expectedCount;
+    private final Runnable postConditionAssertions;
+    private final String name;
+    private AssertionError assertionError = null;
+
+    private AsyncCountableCondition(String name, int expectedCount, Runnable postConditionAssertions) {
+      this.name = name;
+      this.expectedCount = expectedCount;
+      if (expectedCount == 0) satisfied = true;
+      this.postConditionAssertions = postConditionAssertions;
+    }
+
+    public boolean update(int latestCount) {
+      if (!satisfied && latestCount == expectedCount) {
+        if (postConditionAssertions != null) {
+          try {
+            postConditionAssertions.run();
+          } catch (Throwable t) {
+            assertionError = new AssertionError(String.format("Assertion for '%s' failed", name), t);
+          }
+        }
+
+        satisfied = true;
+        return true;
+      }
+      return false;
+    }
+
+    public boolean isSatisfied() {
+      return satisfied;
+    }
+
+    public void verify() {
+      assertTrue(String.format("Condition '%s' was not satisfied", name), isSatisfied());
+
+      if (assertionError != null) {
+        throw assertionError;
+      }
+    }
+
+    @Override
+    public String toString() {
+      return name;
+    }
   }
 }

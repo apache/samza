@@ -19,14 +19,19 @@
 
 package org.apache.samza.job.yarn
 
+import org.apache.hadoop.fs.permission.FsPermission
+import org.apache.samza.config.{JobConfig, Config, YarnConfig}
+import org.apache.samza.coordinator.stream.{CoordinatorStreamWriter}
+import org.apache.samza.coordinator.stream.messages.SetConfig
+
 import scala.collection.JavaConversions._
-import scala.collection.Map
+import scala.collection.{Map}
+import scala.collection.mutable.HashMap
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.security.UserGroupInformation
 import org.apache.hadoop.yarn.api.records.ApplicationId
 import org.apache.hadoop.yarn.api.records.ApplicationReport
-import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
 import org.apache.hadoop.yarn.api.records.LocalResource
@@ -38,6 +43,8 @@ import org.apache.hadoop.yarn.client.api.YarnClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.util.ConverterUtils
 import org.apache.hadoop.yarn.util.Records
+import org.apache.hadoop.io.DataOutputBuffer
+import org.apache.hadoop.fs.FileSystem
 import org.apache.samza.SamzaException
 import org.apache.samza.job.ApplicationStatus
 import org.apache.samza.job.ApplicationStatus.New
@@ -45,10 +52,15 @@ import org.apache.samza.job.ApplicationStatus.Running
 import org.apache.samza.job.ApplicationStatus.SuccessfulFinish
 import org.apache.samza.job.ApplicationStatus.UnsuccessfulFinish
 import org.apache.samza.util.Logging
-import java.util.Collections
+import java.io.IOException
+import java.nio.ByteBuffer
 
 object ClientHelper {
   val applicationType = "Samza"
+
+  val CREDENTIALS_FILE = "credentials"
+
+  val SOURCE = "yarn"
 }
 
 /**
@@ -57,20 +69,32 @@ object ClientHelper {
  * container and its processes.
  */
 class ClientHelper(conf: Configuration) extends Logging {
-  val yarnClient = YarnClient.createYarnClient
-  info("trying to connect to RM %s" format conf.get(YarnConfiguration.RM_ADDRESS, YarnConfiguration.DEFAULT_RM_ADDRESS))
-  yarnClient.init(conf);
-  yarnClient.start
-  var appId: Option[ApplicationId] = None
+  val yarnClient = createYarnClient
+
+  private[yarn] def createYarnClient() = {
+    val yarnClient = YarnClient.createYarnClient
+    info("trying to connect to RM %s" format conf.get(YarnConfiguration.RM_ADDRESS, YarnConfiguration.DEFAULT_RM_ADDRESS))
+    yarnClient.init(conf)
+    yarnClient.start
+    yarnClient
+  }
+
+  var jobContext: JobContext = null
 
   /**
    * Generate an application and submit it to the resource manager to start an application master
    */
-  def submitApplication(packagePath: Path, memoryMb: Int, cpuCore: Int, cmds: List[String], env: Option[Map[String, String]], name: Option[String], queueName: Option[String]): Option[ApplicationId] = {
+  def submitApplication(config: Config, cmds: List[String], env: Option[Map[String, String]], name: Option[String]): Option[ApplicationId] = {
     val app = yarnClient.createApplication
     val newAppResponse = app.getNewApplicationResponse
-    var mem = memoryMb
-    var cpu = cpuCore
+
+    val yarnConfig = new YarnConfig(config)
+
+    val packagePath = new Path(yarnConfig.getPackagePath)
+    val mem = yarnConfig.getAMContainerMaxMemoryMb
+    val cpu = yarnConfig.getAMContainerMaxCpuCores
+    val queueName = Option(yarnConfig.getQueueName)
+    val appMasterLabel = Option(yarnConfig.getAMContainerLabel)
 
     // If we are asking for memory more than the max allowed, shout out
     if (mem > newAppResponse.getMaximumResourceCapability().getMemory()) {
@@ -84,7 +108,9 @@ class ClientHelper(conf: Configuration) extends Logging {
         (cpu, newAppResponse.getMaximumResourceCapability().getVirtualCores()))
     }
 
-    appId = Some(newAppResponse.getApplicationId)
+    jobContext = new JobContext
+    jobContext.setAppId(newAppResponse.getApplicationId)
+    val appId = jobContext.getAppId
 
     info("preparing to request resources for app id %s" format appId.get)
 
@@ -95,15 +121,15 @@ class ClientHelper(conf: Configuration) extends Logging {
 
     name match {
       case Some(name) => { appCtx.setApplicationName(name) }
-      case None => { appCtx.setApplicationName(appId.toString) }
+      case None => { appCtx.setApplicationName(appId.get.toString) }
     }
 
-    env match {
-      case Some(env) => {
-        containerCtx.setEnvironment(env)
-        info("set environment variables to %s for %s" format (env, appId.get))
+    appMasterLabel match {
+      case Some(label) => {
+        appCtx.setNodeLabelExpression(label)
+        info("set yarn node label expression to %s" format queueName)
       }
-      case None => None
+      case None =>
     }
 
     queueName match {
@@ -111,12 +137,13 @@ class ClientHelper(conf: Configuration) extends Logging {
         appCtx.setQueue(queueName)
         info("set yarn queue name to %s" format queueName)
       }
-      case None => None
+      case None =>
     }
 
     // set the local package so that the containers and app master are provisioned with it
     val packageUrl = ConverterUtils.getYarnUrlFromPath(packagePath)
-    val fileStatus = packagePath.getFileSystem(conf).getFileStatus(packagePath)
+    val fs = packagePath.getFileSystem(conf)
+    val fileStatus = fs.getFileStatus(packagePath)
 
     packageResource.setResource(packageUrl)
     info("set package url to %s for %s" format (packageUrl, appId.get))
@@ -133,9 +160,44 @@ class ClientHelper(conf: Configuration) extends Logging {
     appCtx.setResource(resource)
     containerCtx.setCommands(cmds.toList)
     info("set command to %s for %s" format (cmds, appId.get))
-    containerCtx.setLocalResources(Collections.singletonMap("__package", packageResource))
+
     appCtx.setApplicationId(appId.get)
     info("set app ID to %s" format appId.get)
+
+    val localResources: HashMap[String, LocalResource] = HashMap[String, LocalResource]()
+    localResources += "__package" -> packageResource
+
+    if (UserGroupInformation.isSecurityEnabled()) {
+      validateJobConfig(config)
+
+      setupSecurityToken(fs, containerCtx)
+      info("set security token for %s" format appId.get)
+
+      val amLocalResources = setupAMLocalResources(fs, Option(yarnConfig.getYarnKerberosPrincipal), Option(yarnConfig.getYarnKerberosKeytab))
+      localResources ++= amLocalResources
+
+      val securityYarnConfig  = getSecurityYarnConfig
+      val coordinatorStreamWriter: CoordinatorStreamWriter = new CoordinatorStreamWriter(config)
+      coordinatorStreamWriter.start()
+
+      securityYarnConfig.foreach {
+        case (key: String, value: String) =>
+          coordinatorStreamWriter.sendMessage(SetConfig.TYPE, key, value)
+      }
+      coordinatorStreamWriter.stop()
+    }
+
+    containerCtx.setLocalResources(localResources)
+    info("set local resources on application master for %s" format appId.get)
+
+    env match {
+      case Some(env) => {
+        containerCtx.setEnvironment(env)
+        info("set environment variables to %s for %s" format (env, appId.get))
+      }
+      case None =>
+    }
+
     appCtx.setAMContainerSpec(containerCtx)
     appCtx.setApplicationType(ClientHelper.applicationType)
     info("submitting application request for %s" format appId.get)
@@ -177,5 +239,88 @@ class ClientHelper(conf: Configuration) extends Logging {
       case (YarnApplicationState.NEW, _) | (YarnApplicationState.SUBMITTED, _) => Some(New)
       case _ => Some(Running)
     }
+  }
+
+  private[yarn] def validateJobConfig(config: Config) = {
+    import org.apache.samza.config.JobConfig.Config2Job
+
+    if (config.getSecurityManagerFactory.isEmpty) {
+      throw new SamzaException(s"Job config ${JobConfig.JOB_SECURITY_MANAGER_FACTORY} not found. This config must be set for a secure cluster")
+    }
+  }
+
+  private def setupSecurityToken(fs: FileSystem, amContainer: ContainerLaunchContext): Unit = {
+    info("security is enabled")
+    val credentials = UserGroupInformation.getCurrentUser.getCredentials
+    val tokenRenewer = conf.get(YarnConfiguration.RM_PRINCIPAL);
+    if (tokenRenewer == null || tokenRenewer.length() == 0) {
+      throw new IOException(
+        "Can't get Master Kerberos principal for the RM to use as renewer");
+    }
+
+    val tokens =
+      fs.addDelegationTokens(tokenRenewer, credentials)
+    tokens.foreach { token => info("Got dt for " + fs.getUri() + "; " + token) }
+    val dob = new DataOutputBuffer
+    credentials.writeTokenStorageToStream(dob)
+    amContainer.setTokens(ByteBuffer.wrap(dob.getData))
+  }
+
+  private[yarn] def setupAMLocalResources(fs: FileSystem, principal: Option[String], keytab: Option[String]) = {
+    if (principal.isEmpty || keytab.isEmpty) {
+      throw new SamzaException("You need to set both %s and %s on a secure cluster" format(YarnConfig.YARN_KERBEROS_PRINCIPAL, YarnConfig
+        .YARN_KERBEROS_KEYTAB))
+    }
+
+    val localResources = HashMap[String, LocalResource]()
+
+    // create application staging dir
+    val created = YarnJobUtil.createStagingDir(jobContext, fs)
+    created match {
+      case Some(appStagingDir) =>
+        jobContext.setAppStagingDir(appStagingDir)
+        val destFilePath = addLocalFile(fs, keytab.get, appStagingDir)
+        localResources.put(destFilePath.getName(), getLocalResource(fs, destFilePath, LocalResourceType.FILE))
+        localResources.toMap
+      case None => throw new SamzaException(s"Failed to create staging directory for %s" format jobContext.getAppId)
+    }
+  }
+
+  private def addLocalFile(fs: FileSystem, localFile: String, destDirPath: Path) = {
+    val srcFilePath = new Path(localFile)
+    val destFilePath = new Path(destDirPath, srcFilePath.getName)
+    fs.copyFromLocalFile(srcFilePath, destFilePath)
+    val localFilePermission = FsPermission.createImmutable(Integer.parseInt("400", 8).toShort)
+    fs.setPermission(destFilePath, localFilePermission)
+    destFilePath
+  }
+
+  private def getLocalResource(fs: FileSystem, destFilePath: Path, resourceType: LocalResourceType) = {
+    val localResource = Records.newRecord(classOf[LocalResource])
+    val fileStatus = fs.getFileStatus(destFilePath)
+    localResource.setResource(ConverterUtils.getYarnUrlFromPath(destFilePath))
+    localResource.setSize(fileStatus.getLen())
+    localResource.setTimestamp(fileStatus.getModificationTime())
+    localResource.setType(resourceType)
+    localResource.setVisibility(LocalResourceVisibility.APPLICATION)
+    localResource
+  }
+
+  private[yarn] def getSecurityYarnConfig = {
+    val stagingDir = jobContext.getAppStagingDir.get
+    val credentialsFile = new Path(stagingDir, ClientHelper.CREDENTIALS_FILE)
+    val jobConfigs = HashMap[String, String]()
+
+    jobConfigs += YarnConfig.YARN_CREDENTIALS_FILE -> credentialsFile.toString
+    jobConfigs += YarnConfig.YARN_JOB_STAGING_DIRECTORY -> stagingDir.toString
+
+    jobConfigs.toMap
+  }
+
+  /**
+    * Cleanup application staging directory.
+    */
+  def cleanupStagingDir(): Unit = {
+    YarnJobUtil.cleanupStagingDir(jobContext, FileSystem.get(conf))
   }
 }

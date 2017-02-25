@@ -19,6 +19,8 @@
 
 package org.apache.samza.system;
 
+import org.apache.samza.SamzaException;
+
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -27,8 +29,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.Set;
-
-import org.apache.samza.SamzaException;
 
 /**
  * {@link java.util.Iterator} that wraps a
@@ -40,6 +40,7 @@ public class SystemStreamPartitionIterator implements Iterator<IncomingMessageEn
   private final SystemConsumer systemConsumer;
   private final Set<SystemStreamPartition> fetchSet;
   private Queue<IncomingMessageEnvelope> peeks;
+  private boolean endOfStreamReached = false;
 
   public SystemStreamPartitionIterator(SystemConsumer systemConsumer, SystemStreamPartition systemStreamPartition) {
     this(systemConsumer, systemStreamPartition, 1000);
@@ -67,7 +68,13 @@ public class SystemStreamPartitionIterator implements Iterator<IncomingMessageEn
       throw new NoSuchElementException();
     }
 
-    return peeks.poll();
+    IncomingMessageEnvelope envelope = peeks.poll();
+
+    if (envelope.isEndOfStream()) {
+      endOfStreamReached = true;
+    }
+
+    return envelope;
   }
 
   @Override
@@ -75,7 +82,7 @@ public class SystemStreamPartitionIterator implements Iterator<IncomingMessageEn
   }
 
   private void refresh() {
-    if (peeks.size() == 0) {
+    if (peeks.size() == 0 && !endOfStreamReached) {
       try {
         Map<SystemStreamPartition, List<IncomingMessageEnvelope>> envelopes = systemConsumer.poll(fetchSet, SystemConsumer.BLOCK_ON_OUTSTANDING_MESSAGES);
 

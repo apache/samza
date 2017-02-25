@@ -19,12 +19,20 @@
 
 package org.apache.samza.job
 
+
+import java.io.File
+
 import org.apache.samza.config.ShellCommandConfig
 import org.apache.samza.config.ShellCommandConfig.Config2ShellCommand
 import scala.collection.JavaConversions._
 
 class ShellCommandBuilder extends CommandBuilder {
-  def buildCommand() = config.getCommand
+  def buildCommand() = {
+    if(commandPath == null || commandPath.isEmpty())
+      config.getCommand
+    else
+      commandPath + File.separator +  config.getCommand
+  }
 
   def buildEnvironment(): java.util.Map[String, String] = {
     val envMap = Map(

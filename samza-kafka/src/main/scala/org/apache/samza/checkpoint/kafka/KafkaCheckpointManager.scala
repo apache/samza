@@ -27,8 +27,9 @@ import kafka.api._
 import kafka.common.{ErrorMapping, InvalidMessageSizeException, TopicAndPartition, UnknownTopicOrPartitionException}
 import kafka.consumer.SimpleConsumer
 import kafka.message.InvalidMessageException
-import kafka.utils.Utils
-import org.I0Itec.zkclient.ZkClient
+import kafka.utils.ZkUtils
+
+import org.apache.kafka.common.utils.Utils
 import org.apache.kafka.clients.producer.{Producer, ProducerRecord}
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
@@ -56,8 +57,9 @@ class KafkaCheckpointManager(
                               fetchSize: Int,
                               val metadataStore: TopicMetadataStore,
                               connectProducer: () => Producer[Array[Byte], Array[Byte]],
-                              val connectZk: () => ZkClient,
+                              val connectZk: () => ZkUtils,
                               systemStreamPartitionGrouperFactoryString: String,
+                              failOnCheckpointValidation: Boolean,
                               val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
                               serde: CheckpointSerde = new CheckpointSerde,
                               checkpointTopicProperties: Properties = new Properties) extends CheckpointManager with Logging {
@@ -275,7 +277,7 @@ class KafkaCheckpointManager(
 
   def start {
     kafkaUtil.createTopic(checkpointTopic, 1, replicationFactor, checkpointTopicProperties)
-    kafkaUtil.validateTopicPartitionCount(checkpointTopic, systemName, metadataStore, 1)
+    kafkaUtil.validateTopicPartitionCount(checkpointTopic, systemName, metadataStore, 1, failOnCheckpointValidation)
   }
 
   def register(taskName: TaskName) {
@@ -287,28 +289,6 @@ class KafkaCheckpointManager(
     if (producer != null) {
       producer.close
     }
-  }
-
-
-  /**
-   * Read through entire log, discarding checkpoints, finding latest changelogPartitionMapping
-   * To be used for Migration purpose only. In newer version, changelogPartitionMapping will be handled through coordinator stream
-   */
-  @Deprecated
-  def readChangeLogPartitionMapping(): util.Map[TaskName, java.lang.Integer] = {
-    var changelogPartitionMapping: util.Map[TaskName, java.lang.Integer] = new util.HashMap[TaskName, java.lang.Integer]()
-
-    def shouldHandleEntry(key: KafkaCheckpointLogKey) = key.isChangelogPartitionMapping
-
-    def handleCheckpoint(payload: ByteBuffer, checkpointKey:KafkaCheckpointLogKey): Unit = {
-      changelogPartitionMapping = serde.changelogPartitionMappingFromBytes(Utils.readBytes(payload))
-
-      debug("Adding changelog partition mapping" + changelogPartitionMapping)
-    }
-
-    readLog(CHANGELOG_PARTITION_MAPPING_LOG4j, shouldHandleEntry, handleCheckpoint)
-
-    changelogPartitionMapping
   }
 
   override def toString = "KafkaCheckpointManager [systemName=%s, checkpointTopic=%s]" format(systemName, checkpointTopic)

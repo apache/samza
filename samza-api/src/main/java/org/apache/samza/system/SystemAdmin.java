@@ -28,7 +28,6 @@ import java.util.Set;
  * utility methods that Samza needs in order to interact with a system.
  */
 public interface SystemAdmin {
-
   /**
    * Fetches the offsets for the messages immediately after the supplied offsets
    * for a group of SystemStreamPartitions.
@@ -52,11 +51,12 @@ public interface SystemAdmin {
 
   /**
    * An API to create a change log stream
-   * 
+   *
    * @param streamName
    *          The name of the stream to be created in the underlying stream
    * @param numOfPartitions
    *          The number of partitions in the changelog stream
+   * @deprecated since 0.12.1, use {@link #createStream(StreamSpec)}
    */
   void createChangelogStream(String streamName, int numOfPartitions);
 
@@ -67,6 +67,7 @@ public interface SystemAdmin {
    *          The name of the stream to be created in the underlying stream
    * @param numOfPartitions
    *          The number of partitions in the changelog stream
+   * @deprecated since 0.12.1, use {@link #validateStream(StreamSpec)}
    */
   void validateChangelogStream(String streamName, int numOfPartitions);
 
@@ -76,6 +77,7 @@ public interface SystemAdmin {
    *
    * @param streamName
    *          The name of the coordinator stream to create.
+   * @deprecated since 0.12.1, use {@link #createStream(StreamSpec)}
    */
   void createCoordinatorStream(String streamName);
 
@@ -89,4 +91,27 @@ public interface SystemAdmin {
    * @return -1 if offset1 &lt; offset2; 0 if offset1 == offset2; 1 if offset1 &gt; offset2. Null if not comparable
    */
   Integer offsetComparator(String offset1, String offset2);
+
+  /**
+   * Create a stream described by the spec.
+   *
+   * @param streamSpec  The spec, or blueprint from which the physical stream will be created on the system.
+   * @return            {@code true} if the stream was actually created and not pre-existing.
+   *                    {@code false} if the stream was pre-existing.
+   *                    A RuntimeException will be thrown if creation fails.
+   */
+  default boolean createStream(StreamSpec streamSpec) {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Validates the stream described by the streamSpec on the system.
+   * A {@link StreamValidationException} should be thrown for any validation error.
+   *
+   * @param streamSpec  The spec, or blueprint for the physical stream on the system.
+   * @throws StreamValidationException if validation fails.
+   */
+  default void validateStream(StreamSpec streamSpec) throws StreamValidationException {
+    throw new UnsupportedOperationException();
+  }
 }

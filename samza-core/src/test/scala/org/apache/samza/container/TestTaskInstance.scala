@@ -169,7 +169,7 @@ class TestTaskInstance {
 
     val registry = new MetricsRegistryMap
     val taskMetrics = new TaskInstanceMetrics(registry = registry)
-    val taskInstance: TaskInstance = new TaskInstance(
+    val taskInstance = new TaskInstance(
       task,
       taskName,
       config,
@@ -226,7 +226,7 @@ class TestTaskInstance {
 
     val registry = new MetricsRegistryMap
     val taskMetrics = new TaskInstanceMetrics(registry = registry)
-    val taskInstance: TaskInstance = new TaskInstance(
+    val taskInstance = new TaskInstance(
       task,
       taskName,
       config,
