@@ -72,7 +72,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   private final Map<WindowKey<K>, TriggerImpl> earlyTriggers = new HashMap<>();
   private final Map<WindowKey<K>, TriggerImpl> defaultTriggers = new HashMap<>();
 
-  private enum TriggerType {EARLY, DEFAULT, LATE}
+  private enum TriggerType { EARLY, DEFAULT, LATE }
 
   private MessageCollector recentCollector;
   private TaskCoordinator recentCoordinator;
@@ -102,7 +102,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       defaultTriggerImpl = defaultTriggers.get(storeKey);
     } else {
       // lookup and propagate messages to the right triggers.
-      TriggerContext earlyTriggerContext = new TriggerContextImpl(storeKey);;
+      TriggerContext earlyTriggerContext = new TriggerContextImpl(storeKey);
       TriggerImpl.TriggerCallbackHandler earlyTriggerHandler = createTriggerHandler(storeKey, TriggerType.EARLY);
       earlyTriggerImpl = TriggerImpls.createTriggerImpl(window.getEarlyTrigger(), earlyTriggerContext, earlyTriggerHandler);
 
@@ -130,7 +130,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
 
     long now = System.currentTimeMillis();
 
-    while(state != null && state.getScheduleTimeMs() < now) {
+    while (state != null && state.getScheduleTimeMs() < now) {
       pendingCallbacks.remove();
       state.getCallback().run();
       state = pendingCallbacks.peek();
@@ -148,7 +148,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
 
     String windowId = null;
     if (window.getWindowType() == WindowType.TUMBLING) {
-      long triggerDurationMs = ((TimeTrigger)window.getDefaultTrigger()).getDuration().toMillis();
+      long triggerDurationMs = ((TimeTrigger) window.getDefaultTrigger()).getDuration().toMillis();
       final long now = System.currentTimeMillis();
       Long windowBoundary = now - now % triggerDurationMs;
       windowId = windowBoundary.toString();
@@ -181,7 +181,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
         if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
           store.put(windowKey, null);
         }
-        WindowOperatorImpl.super.propagateResult((WM)paneOutput, recentCollector, recentCoordinator);
+        WindowOperatorImpl.super.propagateResult((WM) paneOutput, recentCollector, recentCoordinator);
       }
     };
     return handler;

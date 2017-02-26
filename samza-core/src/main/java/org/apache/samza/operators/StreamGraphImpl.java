@@ -208,7 +208,7 @@ public class StreamGraphImpl implements StreamGraph {
    * @return  a {@link MessageStreamImpl} object corresponding to the {@code systemStream}
    */
   public MessageStreamImpl getInputStream(SystemStream sstream) {
-    for(MessageStream entry: this.inStreams.values()) {
+    for (MessageStream entry: this.inStreams.values()) {
       if (((InputStreamImpl) entry).getSpec().getSystemName() == sstream.getSystem() &&
           ((InputStreamImpl) entry).getSpec().getPhysicalName() == sstream.getStream()) {
         return (MessageStreamImpl) entry;

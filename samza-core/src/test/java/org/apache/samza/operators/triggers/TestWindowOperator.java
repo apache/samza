@@ -1,3 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package org.apache.samza.operators.triggers;
 
 
@@ -30,8 +49,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.function.Function;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -65,19 +82,19 @@ public class TestWindowOperator {
 
     Assert.assertEquals(windowPanes.size(), 5);
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), 1);
-    Assert.assertEquals(((Collection)windowPanes.get(0).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(1).getKey().getKey(), 2);
-    Assert.assertEquals(((Collection)windowPanes.get(1).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection) windowPanes.get(1).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(2).getKey().getKey(), 1);
-    Assert.assertEquals(((Collection)windowPanes.get(2).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection) windowPanes.get(2).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(3).getKey().getKey(), 2);
-    Assert.assertEquals(((Collection)windowPanes.get(3).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection) windowPanes.get(3).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(4).getKey().getKey(), 3);
-    Assert.assertEquals(((Collection)windowPanes.get(4).getMessage()).size(), 1);
+    Assert.assertEquals(((Collection) windowPanes.get(4).getMessage()).size(), 1);
   }
 
 
@@ -91,18 +108,18 @@ public class TestWindowOperator {
 
       inStream
         .map(m -> {
-          mapOutput.add(m.getKey());
-          return m;
-        })
+            mapOutput.add(m.getKey());
+            return m;
+          })
         .window(Windows.keyedTumblingWindow(keyFn, Duration.ofSeconds(1)).setEarlyTrigger(Triggers.repeat(Triggers.count(2)))
           .setAccumulationMode(AccumulationMode.DISCARDING))
         .map(m -> {
-          windowPanes.add(m);
-          WindowKey<Integer> key = m.getKey();
-          Collection<MessageEnvelope<Integer, Integer>> message = m.getMessage();
-          ArrayList<MessageEnvelope<Integer, Integer>> list = new ArrayList<MessageEnvelope<Integer, Integer>>(message);
-          return m;
-        });
+            windowPanes.add(m);
+            WindowKey<Integer> key = m.getKey();
+            Collection<MessageEnvelope<Integer, Integer>> message = m.getMessage();
+            ArrayList<MessageEnvelope<Integer, Integer>> list = new ArrayList<MessageEnvelope<Integer, Integer>>(message);
+            return m;
+          });
     }
   }
 

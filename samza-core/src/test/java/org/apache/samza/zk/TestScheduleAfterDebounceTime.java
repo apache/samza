@@ -78,7 +78,7 @@ public class TestScheduleAfterDebounceTime {
     );
     Assert.assertEquals(0, i);
 
-    // next schedule should onCancel the previous one with the same name
+    // next schedule should cancel the previous one with the same name
     debounceTimer.scheduleAfterDebounceTime("TEST1", 2 * DEBOUNCE_TIME, () ->
       {
         testObj.setTo(100);
@@ -93,7 +93,7 @@ public class TestScheduleAfterDebounceTime {
     // still should be the old value
     Assert.assertEquals(0, i);
 
-    // this schedule should not onCancel the previous one, because it has different name
+    // this schedule should not cancel the previous one, because it has different name
     debounceTimer.scheduleAfterDebounceTime("TEST2", DEBOUNCE_TIME, () ->
       {
         testObj.doNothing();

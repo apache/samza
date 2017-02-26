@@ -113,7 +113,11 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
     return eventTimeExtractor;
   }
 
-  public WindowType getWindowType() { return windowType; }
+  public WindowType getWindowType() {
+    return windowType;
+  }
 
-  public AccumulationMode getAccumulationMode() { return mode; }
+  public AccumulationMode getAccumulationMode() {
+    return mode;
+  }
 }

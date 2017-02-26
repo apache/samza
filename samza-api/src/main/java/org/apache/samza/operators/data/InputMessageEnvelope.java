@@ -59,7 +59,7 @@ public class InputMessageEnvelope implements MessageEnvelope<Object, Object> {
 
   @Override
   public String toString() {
-    return "(key" + ime.getKey() + " msg:" + ime.getMessage() + ")" ;
+    return "(key" + ime.getKey() + " msg:" + ime.getMessage() + ")";
   }
 
   public SystemStreamPartition getSystemStreamPartition() {
