@@ -9,7 +9,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphBuilder;
-import org.apache.samza.operators.TestMessageEnvelope;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowKey;
@@ -60,7 +59,7 @@ public class TestWindowOperator {
 
   @Test
   public void test() throws Exception {
-    integers.forEach(n -> task.process(new TestEnvelope(n, n), messageCollector, taskCoordinator));
+    integers.forEach(n -> task.process(new IntegerMessageEnvelope(n, n), messageCollector, taskCoordinator));
     Thread.sleep(1000);
     task.window(messageCollector, taskCoordinator);
 
@@ -107,8 +106,8 @@ public class TestWindowOperator {
     }
   }
 
-  private class TestEnvelope extends IncomingMessageEnvelope {
-    TestEnvelope(int key, int msg) {
+  private class IntegerMessageEnvelope extends IncomingMessageEnvelope {
+    IntegerMessageEnvelope(int key, int msg) {
       super(new SystemStreamPartition("kafka", "integers", new Partition(0)), "1", key, msg);
     }
   }
