@@ -199,8 +199,8 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     }
 
     @Override
-    public Cancellable scheduleCallback(Runnable runnable, long durationMs) {
-      TriggerTimerState timerState = new TriggerTimerState(windowKey, runnable, durationMs);
+    public Cancellable scheduleCallback(Runnable runnable, long callbackTimeMs) {
+      TriggerTimerState timerState = new TriggerTimerState(windowKey, runnable, callbackTimeMs);
       pendingCallbacks.add(timerState);
       return timerState;
     }
