@@ -3,7 +3,7 @@ package org.apache.samza.operators.triggers;
 import org.apache.samza.operators.data.MessageEnvelope;
 
 /**
- *
+ * Implementation class for a {@link CountTrigger}
  */
 public class CountTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
 

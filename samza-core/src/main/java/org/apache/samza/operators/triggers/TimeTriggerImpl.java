@@ -2,8 +2,8 @@ package org.apache.samza.operators.triggers;
 
 import org.apache.samza.operators.data.MessageEnvelope;
 
-
 /**
+ * Implementation class for a {@link TimeTrigger}
  */
 public class TimeTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
 

@@ -8,7 +8,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * Implementation of an {@link AnyTrigger}
  *
+ * <p>
  */
 public class AnyTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
 

@@ -105,7 +105,6 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   @Override
   public final void window(MessageCollector collector, TaskCoordinator coordinator)  {
     context.getSystemStreamPartitions().forEach(ssp -> {
-      System.out.println("inside window");
       OperatorImpl impl = this.operatorGraph.get(ssp.getSystemStream());
       impl.onTimer(collector, coordinator);
     });

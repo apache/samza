@@ -51,9 +51,14 @@ public abstract class OperatorImpl<M, RM> {
    */
   public abstract void onNext(M message, MessageCollector collector, TaskCoordinator coordinator);
 
-  public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
-    propagateTimer(collector, coordinator);
-  }
+  /**
+   * Invoked at every tick. Implementations must call {@link #propagateTimer} to propagate this callback to downstream
+   * operators and {@link #propagateResult} to propagate any output they want to emit in this tick.
+   *
+   * @param collector
+   * @param coordinator
+   */
+  public abstract void onTimer(MessageCollector collector, TaskCoordinator coordinator);
 
   /**
    * Helper method to propagate the output of this operator to all registered downstream operators.

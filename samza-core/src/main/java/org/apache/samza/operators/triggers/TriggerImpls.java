@@ -3,7 +3,7 @@ package org.apache.samza.operators.triggers;
 import org.apache.samza.operators.data.MessageEnvelope;
 
 /**
- * Created by jvenkatr on 1/31/17.
+ * Factory methods for instantiating {@link TriggerImpl}s from individual {@link Trigger}s.
  */
 public class TriggerImpls {
 

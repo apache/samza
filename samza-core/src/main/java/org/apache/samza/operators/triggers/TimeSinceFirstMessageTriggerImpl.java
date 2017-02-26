@@ -2,6 +2,10 @@ package org.apache.samza.operators.triggers;
 
 import org.apache.samza.operators.data.MessageEnvelope;
 
+/**
+ * Implementation class for a {@link TimeSinceFirstMessageTrigger}
+ * @param <M>
+ */
 public class TimeSinceFirstMessageTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
   private final TimeSinceFirstMessageTrigger<M> trigger;
   private Cancellable latestFuture;

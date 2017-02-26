@@ -44,4 +44,9 @@ class PartialJoinOperatorImpl<M, K, JM, RM> extends OperatorImpl<M, RM> {
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
     // TODO: implement PartialJoinOperatorImpl processing logic
   }
+
+  @Override
+  public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+
+  }
 }

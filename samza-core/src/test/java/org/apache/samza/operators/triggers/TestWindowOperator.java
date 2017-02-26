@@ -83,7 +83,7 @@ public class TestWindowOperator {
 
 
   private class TestStreamGraphBuilder implements StreamGraphBuilder {
-    StreamSpec streamSpec = new StreamSpec("id1", "integers", "kafka");
+    StreamSpec streamSpec = new StreamSpec("integer-stream", "integers", "kafka");
 
     @Override
     public void init(StreamGraph graph, Config config) {
