@@ -196,8 +196,4 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     case Some(mode) => mode.toBoolean
     case _ => false
   }
-
-  def getExecutionEnv = getOrElse(JobConfig.EXECUTION_ENV, "")
-
-  def getStreamGraphBuilder = getOrElse(JobConfig.STREAM_GRAPH_BUILDER, "")
 }

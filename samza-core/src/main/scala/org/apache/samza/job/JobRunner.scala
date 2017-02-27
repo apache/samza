@@ -70,16 +70,11 @@ object JobRunner extends Logging {
     val config = cmdline.loadConfig(options)
 
     // start execution env if it's defined
-    val envClass: String = config.getExecutionEnv
+    val envClass: String = config.get(ExecutionEnvironment.ENVIRONMENT_CONFIG, "")
     if (!envClass.isEmpty) {
       val env: ExecutionEnvironment = ClassLoaderHelper.fromClassName(envClass)
-      val streamGraphBuilderClass: String = config.getStreamGraphBuilder
-      if (!streamGraphBuilderClass.isEmpty) {
-        val streamGraphBuilder: StreamGraphBuilder = ClassLoaderHelper.fromClassName(streamGraphBuilderClass)
-        env.run(streamGraphBuilder, config)
-      } else {
-        throw new SamzaException("No stream graph builder defined")
-      }
+      val graphBuilder: StreamGraphBuilder = Class.forName(config.get(StreamGraphBuilder.BUILDER_CLASS_CONFIG)).newInstance.asInstanceOf[StreamGraphBuilder]
+      env.run(graphBuilder, config)
     } else {
       new JobRunner(rewriteConfig(config)).run()
     }
