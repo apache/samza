@@ -59,7 +59,7 @@ public class ExecutionPlanner {
     ProcessorGraph processorGraph = splitStages(streamGraph);
 
     // figure out the partition for internal streams
-    Multimap<String, StreamSpec> streams = calculatePartitions(processorGraph, sysAdmins);
+    Multimap<String, StreamSpec> streams = calculatePartitions(streamGraph, processorGraph, sysAdmins);
 
     // create the streams
     createStreams(streams, sysAdmins);
@@ -96,9 +96,12 @@ public class ExecutionPlanner {
     return processorGraph;
   }
 
-  private Multimap<String, StreamSpec> calculatePartitions(ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
+  private Multimap<String, StreamSpec> calculatePartitions(StreamGraph streamGraph, ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
     // fetch the external streams partition info
-    getExternalStreamPartitions(processorGraph, sysAdmins);
+    getExistingStreamPartitions(processorGraph, sysAdmins);
+
+    // use BFS to figure out the join partition count
+
 
     // TODO this algorithm assumes only one processor, and it does not consider join
     Multimap<String, StreamSpec> streamsGroupedBySystem = HashMultimap.create();
@@ -112,9 +115,11 @@ public class ExecutionPlanner {
           int partition = Math.max(maxInPartition, maxOutPartition);
 
           outStreams.forEach(streamEdge -> {
-              streamEdge.setPartitions(partition);
-              StreamSpec streamSpec = createStreamSpec(streamEdge);
-              streamsGroupedBySystem.put(streamEdge.getSystemStream().getSystem(), streamSpec);
+              if (streamEdge.getPartitions() == -1) {
+                streamEdge.setPartitions(partition);
+                StreamSpec streamSpec = createStreamSpec(streamEdge);
+                streamsGroupedBySystem.put(streamEdge.getSystemStream().getSystem(), streamSpec);
+              }
             });
         }
       });
@@ -122,16 +127,17 @@ public class ExecutionPlanner {
     return streamsGroupedBySystem;
   }
 
-  private void getExternalStreamPartitions(ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
-    Set<StreamEdge> externalStreams = new HashSet<>();
-    externalStreams.addAll(processorGraph.getSources());
-    externalStreams.addAll(processorGraph.getSinks());
+  private void getExistingStreamPartitions(ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
+    Set<StreamEdge> allStreams = new HashSet<>();
+    allStreams.addAll(processorGraph.getSources());
+    allStreams.addAll(processorGraph.getSinks());
+    allStreams.addAll(processorGraph.getInternalStreams());
 
     Multimap<String, StreamEdge> externalStreamsMap = HashMultimap.create();
-    externalStreams.forEach(streamEdge -> {
-        SystemStream systemStream = streamEdge.getSystemStream();
-        externalStreamsMap.put(systemStream.getSystem(), streamEdge);
-      });
+    allStreams.forEach(streamEdge -> {
+      SystemStream systemStream = streamEdge.getSystemStream();
+      externalStreamsMap.put(systemStream.getSystem(), streamEdge);
+    });
     for (Map.Entry<String, Collection<StreamEdge>> entry : externalStreamsMap.asMap().entrySet()) {
       String systemName = entry.getKey();
       Collection<StreamEdge> streamEdges = entry.getValue();
