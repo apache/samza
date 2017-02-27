@@ -105,16 +105,7 @@ public class TestZkUtils {
 
     Assert.assertEquals(1, zkUtils.getSortedActiveProcessors().size());
   }
-
-  @Test
-  public void testSubscribeToChange() {
-
-    ZkKeyBuilder keyBuilder = new ZkKeyBuilder("test");
-    String root = keyBuilder.getRootPath();
-    zkClient.deleteRecursive(root);
-    Assert.assertEquals(1, zkUtils.getSortedActiveProcessors().size());
-  }
-
+  
   @Test
   public void testSubscribeToJobModelVersionChange() {
 
@@ -147,7 +138,7 @@ public class TestZkUtils {
       @Override
       public void handleDataChange(String dataPath, Object data)
           throws Exception {
-        res.updateRes((String)data);
+        res.updateRes((String) data);
       }
 
       @Override
@@ -208,10 +199,9 @@ public class TestZkUtils {
 
   public static boolean testWithDelayBackOff(BooleanSupplier cond, long startDelayMs, long maxDelayMs) {
     long delay = startDelayMs;
-    while(delay < maxDelayMs) {
-      if(cond.getAsBoolean())
+    while (delay < maxDelayMs) {
+      if (cond.getAsBoolean())
         return true;
-      try { Thread.sleep(delay); } catch (InterruptedException e) { return false ;}
       try {
         Thread.sleep(delay);
       } catch (InterruptedException e) {
