@@ -89,8 +89,6 @@ object StreamTaskTestUtil {
     "systems.kafka.samza.offset.default" -> "oldest", // applies to a nonempty topic
     "systems.kafka.consumer.auto.offset.reset" -> "smallest", // applies to an empty topic
     "systems.kafka.samza.msg.serde" -> "string",
-    "systems.kafka.consumer.zookeeper.connect" -> "localhost:2181",
-    "systems.kafka.producer.bootstrap.servers" -> "localhost:9092",
     // Since using state, need a checkpoint manager
     "task.checkpoint.factory" -> "org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory",
     "task.checkpoint.system" -> "kafka",
@@ -122,6 +120,7 @@ object StreamTaskTestUtil {
     val brokerList = TestUtils.getBrokerListStrFromServers(servers, SecurityProtocol.PLAINTEXT)
     brokers = brokerList.split(",").map(p => "localhost" + p).mkString(",")
 
+    // setup the zookeeper and bootstrap servers for local kafka cluster
     jobConfig ++= Map("systems.kafka.consumer.zookeeper.connect" -> zkConnect,
       "systems.kafka.producer.bootstrap.servers" -> brokers)
 
