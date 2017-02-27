@@ -162,8 +162,8 @@ public class ZkUtils {
 
   /**
    * publishes new job model into ZK
-   * @param jobModelVersion
-   * @param jobModel
+   * @param jobModelVersion  version of the jobModeL to publish
+   * @param jobModel jobModel to publish
    */
   public void publishNewJobModel(String jobModelVersion, JobModel jobModel) {
     try {
@@ -174,13 +174,13 @@ public class ZkUtils {
       zkClient.createPersistent(keyBuilder.getJobModelPath(jobModelVersion), jobModelStr);
       LOG.info("wrote jobModel path =" + keyBuilder.getJobModelPath(jobModelVersion));
     } catch (Exception e) {
-       throw new SamzaException(e);
+      throw new SamzaException(e);
     }
   }
 
   /**
    * get the job model from ZK by version
-   * @param jobModelVersion
+   * @param jobModelVersion jobModel version to get
    * @return job model for this version
    */
   public JobModel getJobModel(String jobModelVersion) {
@@ -190,7 +190,7 @@ public class ZkUtils {
     JobModel jm;
     try {
       jm = mmapper.readValue((String) data, JobModel.class);
-     } catch (IOException e) {
+    } catch (IOException e) {
       throw new SamzaException("failed to read JobModel from ZK", e);
     }
     return jm;
@@ -209,7 +209,7 @@ public class ZkUtils {
     String currentVersion = zkClient.<String>readData(keyBuilder.getJobModelVersionPath(), stat);
     LOG.info("pid=" + processorId + " publishing new version: " + newVersion + "; oldVersion = " + oldVersion + "(" + stat.getVersion() + ")");
     if (currentVersion != null && !currentVersion.equals(oldVersion)) {
-       throw new SamzaException("Someone change JMVersion while Leader was generating: expected" + oldVersion + ", got " + currentVersion);
+      throw new SamzaException("Someone change JMVersion while Leader was generating: expected" + oldVersion + ", got " + currentVersion);
     }
     int dataVersion = stat.getVersion();
     stat = zkClient.writeDataReturnStat(keyBuilder.getJobModelVersionPath(), newVersion, dataVersion);
@@ -224,7 +224,7 @@ public class ZkUtils {
 
   /**
    * verify that given paths exist in ZK
-   * @param paths
+   * @param paths zkPaths to verify
    */
   public void makeSurePersistentPathsExists(String[] paths) {
     for (String path : paths) {
@@ -236,7 +236,7 @@ public class ZkUtils {
 
   /**
    * subscribe to the changes in the list of processors in ZK
-   * @param listener
+   * @param listener to be called in case of the change
    */
   public void subscribeToProcessorChange(IZkChildListener listener) {
     LOG.info("pid=" + processorId + " subscribing for child change at:" + keyBuilder.getProcessorsPath());
