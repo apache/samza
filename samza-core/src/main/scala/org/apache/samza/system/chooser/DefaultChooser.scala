@@ -22,14 +22,14 @@ package org.apache.samza.system.chooser
 import org.apache.samza.SamzaException
 import org.apache.samza.config.{Config, DefaultChooserConfig, TaskConfigJava}
 import org.apache.samza.metrics.{MetricsRegistry, MetricsRegistryMap}
-import org.apache.samza.system.{IncomingMessageEnvelope, SystemStream, SystemStreamMetadata, SystemStreamPartition}
+import org.apache.samza.system.{IncomingMessageEnvelope, SystemAdmin, SystemStream, SystemStreamMetadata, SystemStreamPartition}
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
 
 
 object DefaultChooser extends Logging {
-  def apply(inputStreamMetadata: Map[SystemStream, SystemStreamMetadata], chooserFactory: MessageChooserFactory, config: Config, registry: MetricsRegistry) = {
+  def apply(inputStreamMetadata: Map[SystemStream, SystemStreamMetadata], chooserFactory: MessageChooserFactory, config: Config, registry: MetricsRegistry, systemAdmins: Map[String, SystemAdmin]) = {
     val chooserConfig = new DefaultChooserConfig(config)
     val batchSize = if (chooserConfig.getChooserBatchSize > 0) Some(chooserConfig.getChooserBatchSize) else None
 
@@ -65,8 +65,8 @@ object DefaultChooser extends Logging {
     debug("Got bootstrap stream metadata: %s" format bootstrapStreamMetadata)
 
     val priorities = if (usePriority) {
-      // Ordering is important here. Overrides Int.MaxValue default for 
-      // bootstrap streams with explicitly configured values, in cases where 
+      // Ordering is important here. Overrides Int.MaxValue default for
+      // bootstrap streams with explicitly configured values, in cases where
       // users have defined a bootstrap stream's priority in config.
       defaultPrioritizedStreams ++ prioritizedBootstrapStreams ++ prioritizedStreams
     } else {
@@ -87,7 +87,8 @@ object DefaultChooser extends Logging {
       priorities,
       prioritizedChoosers,
       bootstrapStreamMetadata,
-      registry)
+      registry,
+      systemAdmins)
   }
 }
 
@@ -244,7 +245,13 @@ class DefaultChooser(
   /**
    * Metrics registry to be used when wiring up wrapped choosers.
    */
-  registry: MetricsRegistry = new MetricsRegistryMap) extends MessageChooser with Logging {
+  registry: MetricsRegistry = new MetricsRegistryMap,
+
+  /**
+   * Defines a mapping from SystemStream name to SystemAdmin.
+   * This is useful for determining if a bootstrap SystemStream is caught up.
+   */
+  systemAdmins: Map[String, SystemAdmin] = Map()) extends MessageChooser with Logging {
 
   val chooser = {
     val useBatching = batchSize.isDefined
@@ -256,7 +263,7 @@ class DefaultChooser(
     val maybePrioritized = if (usePriority) {
       new TieredPriorityChooser(prioritizedStreams, prioritizedChoosers, DefaultChooser)
     } else if (DefaultChooser == null) {
-      // Null wrapped chooser without a priority chooser is not allowed 
+      // Null wrapped chooser without a priority chooser is not allowed
       // because DefaultChooser needs an underlying message chooser.
       throw new SamzaException("A null chooser was given to the DefaultChooser. This is not allowed unless you are using prioritized/bootstrap streams, which you're not.")
     } else {
@@ -270,7 +277,7 @@ class DefaultChooser(
     }
 
     if (useBootstrapping) {
-      new BootstrappingChooser(maybeBatching, bootstrapStreamMetadata, new BootstrappingChooserMetrics(registry))
+      new BootstrappingChooser(maybeBatching, bootstrapStreamMetadata, new BootstrappingChooserMetrics(registry), systemAdmins)
     } else {
       maybeBatching
     }
