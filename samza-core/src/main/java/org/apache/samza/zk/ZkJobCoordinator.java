@@ -210,14 +210,13 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public void onNewJobModelConfirmed(String version) {
     log.info("pid=" + processorId + "new version " + version + " of the job model got confirmed");
     // get the new Model
-    // ?????
     JobModel jobModel = getJobModel();
-    log.info("pid=" + processorId + "got the new job model =" + jobModel);
-    /*
+    log.info("pid=" + processorId + "got the new job model in JobModelConfirmed =" + jobModel);
+
+    // start the container with the new model
     containerController.startContainer(
         jobModel.getContainers().get(processorId),
         jobModel.getConfig(),
         jobModel.maxChangeLogStreamPartitions);
-   */
   }
 }
