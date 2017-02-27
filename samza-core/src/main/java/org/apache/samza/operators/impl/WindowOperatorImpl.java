@@ -188,8 +188,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   }
 
   /**
-   * Implementation of the {@link TriggerContext} that schedules and cancel callbacks. A {@link TriggerContext} instance
-   * is
+   * Implementation of the {@link TriggerContext} that allows {@link TriggerImpl}s to schedule and cancel callbacks.
    */
   private class TriggerContextImpl implements TriggerContext {
     private final Object windowKey;
