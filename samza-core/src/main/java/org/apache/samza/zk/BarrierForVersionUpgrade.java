@@ -22,7 +22,25 @@ package org.apache.samza.zk;
 import java.util.List;
 
 
+/**
+ * Interface for a barrier - to allow synchronization between different processors to switch to a newly published
+ * JobModel.
+ */
 public interface BarrierForVersionUpgrade {
+  /**
+   * Barrier is started by the leader.
+   * @param version - for which the barrier is started.
+   * @param processorsNames - list of processors available at the time of the JobModel generation.
+   */
   void leaderStartBarrier(String version,  List<String> processorsNames);
+
+  /**
+   * Called by the processor.
+   * Updates the processor readiness to use the new version and wait on the barrier, until all other processors
+   * joined.
+   * @param version of the jobModel this barrier is protecting.
+   * @param processorsName as it appears in the list of processors.
+   * @param callback  will be invoked, when barrier is reached.
+   */
   void waitForBarrier(String version, String processorsName, Runnable callback);
 }
