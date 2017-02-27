@@ -129,8 +129,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public void onBecomeLeader() {
     log.info("ZkJobCoordinator::onBecomeLeader - I become the leader!");
 
-    // generate JobProcess
-    generateNewJobModel();
+    List<String> emptyList = new ArrayList<> ();
+    debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
+        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> onProcessorChange(emptyList));
   }
 
   private void generateNewJobModel() {
