@@ -21,9 +21,9 @@ package org.apache.samza.operators;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.system.StreamSpec;
 
 import java.util.Map;
-
 
 /**
  * Job-level programming interface to create an operator DAG and run in various different runtime environments.
