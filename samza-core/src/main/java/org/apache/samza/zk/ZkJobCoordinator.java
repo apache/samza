@@ -45,7 +45,7 @@ import java.util.List;
 /**
  * JobCoordinator for stand alone processor managed via Zookeeper.
  */
-public class ZkJobCoordinator implements JobCoordinator, ZkListener {
+public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private static final Logger log = LoggerFactory.getLogger(ZkJobCoordinator.class);
 
   private final ZkUtils zkUtils;
@@ -77,8 +77,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
 
     barrier = new ZkBarrierForVersionUpgrade(zkUtils, debounceTimer); //should not have any state in it
 
-    // TEMP for model generation
-    //////////////////////////////// NEEDS TO BE REPLACED //////////////////////////////////////
+    // model generation - NEEDS TO BE REVIEWED
     JavaSystemConfig systemConfig = new JavaSystemConfig(this.config);
     Map<String, SystemAdmin> systemAdmins = new HashMap<>();
     for (String systemName: systemConfig.getSystemNames()) {
@@ -129,8 +128,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkListener {
   @Override
   public void onBecomeLeader() {
     log.info("ZkJobCoordinator::onBecomeLeader - I become the leader!");
-    //zkController.listenToProcessorLiveness();
-    // Reset debounce Timer
 
     // generate JobProcess
     generateNewJobModel();

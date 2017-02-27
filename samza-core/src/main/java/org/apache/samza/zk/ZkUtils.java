@@ -167,7 +167,7 @@ public class ZkUtils {
    */
   public void publishNewJobModel(String jobModelVersion, JobModel jobModel) {
     try {
-      // We assume (needs to be verified) that this call will FAIL if the node already exists!!!!!!!!
+      // This call should FAIL if the node already exists.
       ObjectMapper mmapper = SamzaObjectMapper.getObjectMapper();
       String jobModelStr = mmapper.writerWithDefaultPrettyPrinter().writeValueAsString(jobModel);
       LOG.info("pid=" + processorId + " jobModelAsString=" + jobModelStr);
