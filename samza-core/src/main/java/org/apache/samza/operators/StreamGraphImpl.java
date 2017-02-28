@@ -208,8 +208,8 @@ public class StreamGraphImpl implements StreamGraph {
    */
   public MessageStreamImpl getInputStream(SystemStream sstream) {
     for(MessageStream entry: this.inStreams.values()) {
-      if (((InputStreamImpl) entry).getSpec().getSystemName() == sstream.getSystem() &&
-          ((InputStreamImpl) entry).getSpec().getPhysicalName() == sstream.getStream()) {
+      if (((InputStreamImpl) entry).getSpec().getSystemName().equals(sstream.getSystem()) &&
+          ((InputStreamImpl) entry).getSpec().getPhysicalName().equals(sstream.getStream())) {
         return (MessageStreamImpl) entry;
       }
     }

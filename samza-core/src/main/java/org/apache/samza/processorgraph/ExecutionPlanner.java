@@ -58,11 +58,13 @@ public class ExecutionPlanner {
     // create physical processors based on stream graph
     ProcessorGraph processorGraph = splitStages(streamGraph);
 
-    // figure out the partition for internal streams
-    Multimap<String, StreamSpec> streams = calculatePartitions(streamGraph, processorGraph, sysAdmins);
+    if(!processorGraph.getInternalStreams().isEmpty()) {
+      // figure out the partition for internal streams
+      Multimap<String, StreamSpec> streams = calculatePartitions(streamGraph, processorGraph, sysAdmins);
 
-    // create the streams
-    createStreams(streams, sysAdmins);
+      // create the streams
+      createStreams(streams, sysAdmins);
+    }
 
     return processorGraph;
   }
@@ -75,8 +77,8 @@ public class ExecutionPlanner {
     ProcessorGraph processorGraph = new ProcessorGraph(config);
 
     // TODO: remote the casting once we have the correct types in StreamGraph
-    Set<StreamSpec> sourceStreams = (Set) streamGraph.getInStreams().keySet();
-    Set<StreamSpec> sinkStreams = (Set) streamGraph.getOutStreams().keySet();
+    Set<StreamSpec> sourceStreams = new HashSet<>(streamGraph.getInStreams().keySet());
+    Set<StreamSpec> sinkStreams = new HashSet<>(streamGraph.getOutStreams().keySet());
     Set<StreamSpec> intStreams = new HashSet<>(sourceStreams);
     intStreams.retainAll(sinkStreams);
     sourceStreams.removeAll(intStreams);
@@ -146,7 +148,9 @@ public class ExecutionPlanner {
       SystemAdmin systemAdmin = sysAdmins.get(systemName);
       Map<String, SystemStreamMetadata> metadata = systemAdmin.getSystemStreamMetadata(streamToEdge.keySet());
       metadata.forEach((stream, data) -> {
-          streamToEdge.get(stream).setPartitions(data.getSystemStreamPartitionMetadata().size());
+          int partitions = data.getSystemStreamPartitionMetadata().size();
+          streamToEdge.get(stream).setPartitions(partitions);
+          log.info("Partition count is {} for stream {}", partitions, stream);
         });
     }
   }

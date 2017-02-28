@@ -72,9 +72,9 @@ object JobRunner extends Logging {
     // start execution env if it's defined
     val envClass: String = config.get(ExecutionEnvironment.ENVIRONMENT_CONFIG, "")
     if (!envClass.isEmpty) {
-      val env: ExecutionEnvironment = ClassLoaderHelper.fromClassName(envClass)
+      val env: ExecutionEnvironment = ExecutionEnvironment.fromConfig(config)
       val graphBuilder: StreamGraphBuilder = Class.forName(config.get(StreamGraphBuilder.BUILDER_CLASS_CONFIG)).newInstance.asInstanceOf[StreamGraphBuilder]
-      env.run(graphBuilder, config)
+      env.run(graphBuilder, rewriteConfig(config))
     } else {
       new JobRunner(rewriteConfig(config)).run()
     }

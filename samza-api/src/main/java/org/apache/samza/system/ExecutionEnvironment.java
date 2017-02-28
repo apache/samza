@@ -32,7 +32,7 @@ import org.apache.samza.config.Config;
 public interface ExecutionEnvironment extends StreamProvider {
 
   String ENVIRONMENT_CONFIG = "job.execution.environment.class";
-  String DEFAULT_ENVIRONMENT_CLASS = "org.apache.samza.system.StandaloneExecutionEnvironment";
+  String DEFAULT_ENVIRONMENT_CLASS = "org.apache.samza.system.AbstractExecutionEnvironment";
 
   /**
    * Static method to load the local standalone environment
