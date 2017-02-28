@@ -50,9 +50,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
     String barrierDonePath = String.format("%s/barrier_done", barrierPath);
     String barrierProcessors = String.format("%s/barrier_processors", barrierPath);
-    String barrier = String.format("%s/%s/barrier", barrierPrefix, version);
 
-    // TODO - do we need a check if it exists - it needs to be deleted?
     zkUtils.makeSurePersistentPathsExists(new String[]{barrierPrefix, barrierPath, barrierProcessors, barrierDonePath});
 
     // callback for when the barrier is reached
@@ -154,9 +152,9 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
       if (done.equals(BARRIER_DONE)) {
         zkUtils.unsubscribeDataChanges(barrierPathDone, this);
         debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, callback);
-      } else {
-        // TODO do we need to resubscribe?
       }
+      // we do not need to resubscribe because, ZkClient library does it for us.
+
     }
 
     @Override
