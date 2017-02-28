@@ -28,11 +28,11 @@ import java.util.List;
  */
 public interface BarrierForVersionUpgrade {
   /**
-   * Barrier is started by the leader.
+   * Barrier is usually started by the leader.
    * @param version - for which the barrier is started.
    * @param processorsNames - list of processors available at the time of the JobModel generation.
    */
-  void leaderStartBarrier(String version,  List<String> processorsNames);
+  void startBarrier(String version,  List<String> processorsNames);
 
   /**
    * Called by the processor.

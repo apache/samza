@@ -46,7 +46,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   }
 
   @Override
-  public void leaderStartBarrier(String version, List<String> processorsNames) {
+  public void startBarrier(String version, List<String> processorsNames) {
     String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
     String barrierDonePath = String.format("%s/barrier_done", barrierPath);
     String barrierProcessors = String.format("%s/barrier_processors", barrierPath);
