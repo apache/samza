@@ -58,7 +58,7 @@ public class ExecutionPlanner {
     // create physical processors based on stream graph
     ProcessorGraph processorGraph = splitStages(streamGraph);
 
-    if(!processorGraph.getInternalStreams().isEmpty()) {
+    if (!processorGraph.getInternalStreams().isEmpty()) {
       // figure out the partition for internal streams
       Multimap<String, StreamSpec> streams = calculatePartitions(streamGraph, processorGraph, sysAdmins);
 
@@ -137,9 +137,9 @@ public class ExecutionPlanner {
 
     Multimap<String, StreamEdge> externalStreamsMap = HashMultimap.create();
     allStreams.forEach(streamEdge -> {
-      SystemStream systemStream = streamEdge.getSystemStream();
-      externalStreamsMap.put(systemStream.getSystem(), streamEdge);
-    });
+        SystemStream systemStream = streamEdge.getSystemStream();
+        externalStreamsMap.put(systemStream.getSystem(), streamEdge);
+      });
     for (Map.Entry<String, Collection<StreamEdge>> entry : externalStreamsMap.asMap().entrySet()) {
       String systemName = entry.getKey();
       Collection<StreamEdge> streamEdges = entry.getValue();
