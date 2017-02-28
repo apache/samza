@@ -214,9 +214,6 @@ public class ZkUtils {
     String currentVersion = zkClient.<String>readData(keyBuilder.getJobModelVersionPath(), stat);
     LOG.info("pid=" + processorId + " publishing new version: " + newVersion + "; oldVersion = " + oldVersion + "(" + stat.getVersion() + ")");
 
-    //if (currentVersion == null)
-     // throw new SamzaException("read data on path " + keyBuilder.getJobModelVersionPath() + " failed.");
-
     if (currentVersion != null && !currentVersion.equals(oldVersion)) {
       throw new SamzaException("Someone change JMVersion while Leader was generating: expected" + oldVersion + ", got " + currentVersion);
     }
