@@ -35,7 +35,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
   private final ScheduleAfterDebounceTime debounceTimer;
 
-  final private String barrierPrefix;
+  private final String barrierPrefix;
 
   public ZkBarrierForVersionUpgrade(ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer) {
     this.zkUtils = zkUtils;
