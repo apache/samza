@@ -20,6 +20,9 @@ package org.apache.samza.zk;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.junit.Assert;
+
+
 import java.util.function.BooleanSupplier;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
@@ -32,7 +35,6 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
 import org.junit.AfterClass;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
