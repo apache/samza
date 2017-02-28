@@ -213,17 +213,21 @@ public class ZkUtils {
     Stat stat = new Stat();
     String currentVersion = zkClient.<String>readData(keyBuilder.getJobModelVersionPath(), stat);
     LOG.info("pid=" + processorId + " publishing new version: " + newVersion + "; oldVersion = " + oldVersion + "(" + stat.getVersion() + ")");
+
+    //if (currentVersion == null)
+     // throw new SamzaException("read data on path " + keyBuilder.getJobModelVersionPath() + " failed.");
+
     if (currentVersion != null && !currentVersion.equals(oldVersion)) {
       throw new SamzaException("Someone change JMVersion while Leader was generating: expected" + oldVersion + ", got " + currentVersion);
     }
     // data version is the ZK version of the data from the ZK.
-    int dataVersion = currentVersion == null ? 0 : stat.getVersion();
+    int dataVersion = stat.getVersion();
     stat = zkClient.writeDataReturnStat(keyBuilder.getJobModelVersionPath(), newVersion, dataVersion);
     if (stat.getVersion() != dataVersion + 1)
       throw new SamzaException("Someone changed data version of the JMVersion while Leader was generating a new one. current= " + dataVersion + ", old version = " + stat.getVersion());
 
     LOG.info("pid=" + processorId +
-             " published new version: " + newVersion + "; expected data version = " + (dataVersion  + 1)+ "(actual data version after update = " + stat.getVersion()
+             " published new version: " + newVersion + "; expected data version = " + (dataVersion  + 1) + "(actual data version after update = " + stat.getVersion()
         +    ")");
   }
 
