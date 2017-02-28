@@ -164,7 +164,7 @@ public class ZkUtils {
 
   /**
    * verify that given paths exist in ZK
-   * @param paths
+   * @param paths - paths to verify or create
    */
   public void makeSurePersistentPathsExists(String[] paths) {
     for (String path : paths) {
@@ -176,7 +176,7 @@ public class ZkUtils {
 
   /**
    * subscribe to the changes in the list of processors in ZK
-   * @param listener
+   * @param listener - will be called when a processor is added or removed.
    */
   public void subscribeToProcessorChange(IZkChildListener listener) {
     LOG.info("pid=" + processorId + " subscribing for child change at:" + keyBuilder.getProcessorsPath());
