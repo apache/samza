@@ -167,7 +167,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     log.info("pid=" + processorId + "published new JobModel ver=" + nextJMVersion + ";jm=" + jobModel);
 
     // start the barrier for the job model update
-    barrier.leaderStartBarrier(nextJMVersion, currentProcessors);
+    barrier.startBarrier(nextJMVersion, currentProcessors);
 
     // publish new JobModel version
     zkUtils.publishNewJobModelVersion(currentJMVersion, nextJMVersion);

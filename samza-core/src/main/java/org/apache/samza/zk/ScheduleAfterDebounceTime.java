@@ -47,7 +47,7 @@ public class ScheduleAfterDebounceTime {
   // To accomplish that we keep the previous future in a map, keyed by the action name.
 
   // Here we predefine some actions which are used in the ZK based standalone app.
-  
+
   // Action name when the JobModel version changes
   public static final String JOB_MODEL_VERSION_CHANGE = "JobModelVersionChange";
 
