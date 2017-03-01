@@ -58,24 +58,27 @@ public class TestWindowOperator {
   private final List<Integer> mapOutput = new ArrayList<>();
   private final List<WindowPane> windowPanes = new ArrayList<>();
   private final List<Integer> integers = ImmutableList.of(1, 2, 1, 2, 1, 2, 1, 2, 3);
-  private StreamOperatorTask task;
+  private Config config;
+  private TaskContext taskContext;
 
   @Before
   public void setup() throws Exception {
     mapOutput.clear();
+    windowPanes.clear();
 
-    Config config = mock(Config.class);
-    TaskContext taskContext = mock(TaskContext.class);
+    config = mock(Config.class);
+    taskContext = mock(TaskContext.class);
     when(taskContext.getSystemStreamPartitions()).thenReturn(ImmutableSet
         .of(new SystemStreamPartition("kafka", "integers", new Partition(0))));
 
-    StreamGraphBuilder sgb = new TestStreamGraphBuilder();
-    task = new StreamOperatorTask(sgb);
-    task.init(config, taskContext);
   }
 
   @Test
-  public void test() throws Exception {
+  public void testTumblingWindowsDiscardingMode() throws Exception {
+    StreamGraphBuilder sgb = new TestStreamGraphBuilder(AccumulationMode.DISCARDING);
+    StreamOperatorTask task = new StreamOperatorTask(sgb);
+    task.init(config, taskContext);
+
     integers.forEach(n -> task.process(new IntegerMessageEnvelope(n, n), messageCollector, taskCoordinator));
     Thread.sleep(1000);
     task.window(messageCollector, taskCoordinator);
@@ -97,9 +100,43 @@ public class TestWindowOperator {
     Assert.assertEquals(((Collection) windowPanes.get(4).getMessage()).size(), 1);
   }
 
+  @Test
+  public void testTumblingWindowsAccumulatingMode() throws Exception {
+    StreamGraphBuilder sgb = new TestStreamGraphBuilder(AccumulationMode.ACCUMULATING);
+    StreamOperatorTask task = new StreamOperatorTask(sgb);
+    task.init(config, taskContext);
+    System.out.println("PRINT ME1");
+
+    integers.forEach(n -> task.process(new IntegerMessageEnvelope(n, n), messageCollector, taskCoordinator));
+    Thread.sleep(1000);
+    task.window(messageCollector, taskCoordinator);
+    System.out.println("PRINT ME2");
+
+    Assert.assertEquals(windowPanes.size(), 7);
+    Assert.assertEquals(windowPanes.get(0).getKey().getKey(), 1);
+    System.out.println("PRINT ME3");
+    System.out.println("Size of " + ((Collection) windowPanes.get(0).getMessage()).size());
+    Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);
+
+    Assert.assertEquals(windowPanes.get(1).getKey().getKey(), 2);
+    Assert.assertEquals(((Collection) windowPanes.get(1).getMessage()).size(), 2);
+
+    Assert.assertEquals(windowPanes.get(2).getKey().getKey(), 1);
+    Assert.assertEquals(((Collection) windowPanes.get(2).getMessage()).size(), 4);
+
+    Assert.assertEquals(windowPanes.get(3).getKey().getKey(), 2);
+    Assert.assertEquals(((Collection) windowPanes.get(3).getMessage()).size(), 4);
+  }
+
 
   private class TestStreamGraphBuilder implements StreamGraphBuilder {
-    StreamSpec streamSpec = new StreamSpec("integer-stream", "integers", "kafka");
+
+    private final StreamSpec streamSpec = new StreamSpec("integer-stream", "integers", "kafka");
+    private final AccumulationMode mode;
+
+    TestStreamGraphBuilder(AccumulationMode mode) {
+      this.mode = mode;
+    }
 
     @Override
     public void init(StreamGraph graph, Config config) {
@@ -112,9 +149,11 @@ public class TestWindowOperator {
             return m;
           })
         .window(Windows.keyedTumblingWindow(keyFn, Duration.ofSeconds(1)).setEarlyTrigger(Triggers.repeat(Triggers.count(2)))
-          .setAccumulationMode(AccumulationMode.DISCARDING))
+          .setAccumulationMode(mode))
         .map(m -> {
+          System.out.println("inside window panes " + m.getKey() + " " + ((Collection)m.getMessage()).size());
             windowPanes.add(m);
+          printWindowPanes();
             WindowKey<Integer> key = m.getKey();
             Collection<MessageEnvelope<Integer, Integer>> message = m.getMessage();
             ArrayList<MessageEnvelope<Integer, Integer>> list = new ArrayList<MessageEnvelope<Integer, Integer>>(message);
@@ -122,7 +161,13 @@ public class TestWindowOperator {
           });
     }
   }
-
+  private void printWindowPanes() {
+    System.out.println("=====");
+    for(WindowPane pane : windowPanes) {
+      System.out.println(pane.getKey() + "  " + ((ArrayList)pane.getMessage()).size() );
+    }
+    System.out.println("=====");
+  }
   private class IntegerMessageEnvelope extends IncomingMessageEnvelope {
     IntegerMessageEnvelope(int key, int msg) {
       super(new SystemStreamPartition("kafka", "integers", new Partition(0)), "1", key, msg);

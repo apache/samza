@@ -147,7 +147,7 @@ public final class Windows {
   public static <M, K> Window<M, K, Collection<M>> keyedTumblingWindow(Function<M, K> keyFn, Duration interval) {
     BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
       if (c == null) {
-        return new ArrayList<>(Arrays.asList(m));
+        c = new ArrayList<>();
       }
       c.add(m);
       return c;
@@ -203,7 +203,7 @@ public final class Windows {
   public static <M> Window<M, Void, Collection<M>> tumblingWindow(Duration duration) {
     BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
       if (c == null) {
-        return new ArrayList<>(Arrays.asList(m));
+        c = new ArrayList<>();
       }
       c.add(m);
       return c;
@@ -271,7 +271,7 @@ public final class Windows {
 
     BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
       if (c == null) {
-        return new ArrayList<>(Arrays.asList(m));
+        c = new ArrayList<>();
       }
       c.add(m);
       return c;

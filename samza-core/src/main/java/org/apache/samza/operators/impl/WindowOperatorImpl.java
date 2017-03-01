@@ -38,6 +38,8 @@ import org.apache.samza.task.TaskCoordinator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.PriorityQueue;
@@ -181,6 +183,13 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
         if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
           store.put(windowKey, null);
         }
+        System.out.println("inside store: " + ((Collection)paneOutput.getMessage()).size());
+
+        if (paneOutput.getMessage() instanceof Collection) {
+          WV valCopy = (WV)new ArrayList<M>((Collection)paneOutput.getMessage());
+          paneOutput = new WindowPane(windowKey, valCopy, window.getAccumulationMode());
+        }
+
         WindowOperatorImpl.super.propagateResult((WM) paneOutput, recentCollector, recentCoordinator);
       }
     };

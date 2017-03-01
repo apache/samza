@@ -58,6 +58,11 @@ public abstract class OperatorImpl<M, RM> {
    * @param collector
    * @param coordinator
    */
+  public final void onTimer1(MessageCollector collector, TaskCoordinator coordinator) {
+    onTimer(collector, coordinator);
+    propagateTimer(collector, coordinator);
+  }
+
   public abstract void onTimer(MessageCollector collector, TaskCoordinator coordinator);
 
   /**
