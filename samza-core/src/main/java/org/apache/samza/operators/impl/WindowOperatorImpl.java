@@ -167,8 +167,12 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
 
         // Remove default triggers and non-repeating early triggers for consideration in future callbacks.
         if (type == TriggerType.DEFAULT) {
+          TriggerImpl defaultTrigger = defaultTriggers.get(key);
+          defaultTrigger.onCancel();
           defaultTriggers.remove(key);
         } else if (type == TriggerType.EARLY && !(impl instanceof RepeatingTriggerImpl)) {
+          TriggerImpl earlyTrigger = earlyTriggers.get(key);
+          earlyTrigger.onCancel();
           earlyTriggers.remove(key);
         }
 
@@ -177,8 +181,8 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
         if (wv == null) {
           return;
         }
-        WindowPane<K, WV> paneOutput = new WindowPane<>(windowKey, wv, window.getAccumulationMode());
 
+        WindowPane<K, WV> paneOutput = new WindowPane<>(windowKey, wv, window.getAccumulationMode());
         // Handle accumulation modes.
         if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
           store.put(windowKey, null);

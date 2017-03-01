@@ -28,7 +28,6 @@ public class CountTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> 
 
   private final long triggerCount;
   private long currentCount;
-  private boolean cancelled = false;
 
   public CountTriggerImpl(CountTrigger<M> triggerCount, TriggerContext context, TriggerCallbackHandler handler) {
     super(context, handler);
@@ -38,7 +37,7 @@ public class CountTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> 
 
   public void onMessage(M message) {
     currentCount++;
-    if (currentCount == triggerCount && !cancelled) {
+    if (currentCount == triggerCount) {
       System.out.println("count trigger fired." + this + " " + this.context.getWindowKey());
       handler.onTrigger(this, context.getWindowKey());
     }
@@ -46,6 +45,6 @@ public class CountTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> 
 
   @Override
   public void onCancel() {
-    cancelled = true;
+    //no-op
   }
 }

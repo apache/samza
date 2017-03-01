@@ -19,6 +19,7 @@
 
 package org.apache.samza.operators.triggers;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.operators.data.MessageEnvelope;
 
 /**
@@ -41,6 +42,7 @@ public class TriggerImpls {
     } else if (trigger instanceof TimeSinceFirstMessageTrigger) {
       return new TimeSinceFirstMessageTriggerImpl<>((TimeSinceFirstMessageTrigger) trigger, context, handler);
     }
-    return null;
+
+    throw new SamzaException("No implementation class defined.");
   }
 }

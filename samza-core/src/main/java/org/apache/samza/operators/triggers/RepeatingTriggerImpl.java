@@ -35,18 +35,17 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> extends TriggerImpl
   public RepeatingTriggerImpl(RepeatingTrigger<M> repeatingTrigger, TriggerContext tContext, TriggerCallbackHandler handler) {
     super(tContext, handler);
     this.underlyingTrigger = repeatingTrigger.getTrigger();
-
-    if (!cancelled) {
-      this.underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, context, createNewCallback());
-    }
+    this.underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, context, createNewCallback());
   }
 
   private TriggerCallbackHandler createNewCallback() {
     return new TriggerCallbackHandler() {
       @Override
       public void onTrigger(TriggerImpl impl, Object storeKey) {
-        underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, context, createNewCallback());
-        handler.onTrigger(RepeatingTriggerImpl.this, storeKey);
+        if(!cancelled) {
+          underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, context, createNewCallback());
+          handler.onTrigger(RepeatingTriggerImpl.this, storeKey);
+        }
       }
     };
   }
