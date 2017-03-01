@@ -37,7 +37,6 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-
 public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
   private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
@@ -172,15 +171,15 @@ public class TestZkUtils {
     zkUtils.makeSurePersistentPathsExists(
         new String[]{root, keyBuilder.getJobModelPathPrefix(), keyBuilder.getJobModelVersionPath()});
 
-    zkUtils.publishNewJobModelVersion(oldVersion, version);
+    zkUtils.publishJobModelVersion(oldVersion, version);
     Assert.assertEquals(version, zkUtils.getJobModelVersion());
 
     String newerVersion = Long.toString(Long.valueOf(version) + 1);
-    zkUtils.publishNewJobModelVersion(version, newerVersion);
+    zkUtils.publishJobModelVersion(version, newerVersion);
     Assert.assertEquals(newerVersion, zkUtils.getJobModelVersion());
 
     try {
-      zkUtils.publishNewJobModelVersion(oldVersion, "10"); //invalid new version
+      zkUtils.publishJobModelVersion(oldVersion, "10"); //invalid new version
       Assert.fail("publish invalid version should've failed");
     } catch (SamzaException e) {
       // expected
@@ -192,7 +191,7 @@ public class TestZkUtils {
     MapConfig config = new MapConfig(configMap);
     JobModel jobModel = new JobModel(config, containers);
 
-    zkUtils.publishNewJobModel(version, jobModel);
+    zkUtils.publishJobModel(version, jobModel);
     Assert.assertEquals(jobModel, zkUtils.getJobModel(version));
   }
 
