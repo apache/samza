@@ -18,11 +18,17 @@
  */
 package org.apache.samza.zk;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.BooleanSupplier;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -60,7 +66,6 @@ public class TestZkUtils {
       // Do nothing
     }
 
-
     zkUtils = new ZkUtils(
         KEY_BUILDER,
         zkClient,
@@ -96,11 +101,9 @@ public class TestZkUtils {
   public void testGetActiveProcessors() {
     Assert.assertEquals(0, zkUtils.getSortedActiveProcessors().size());
     zkUtils.registerProcessorAndGetId("processorData");
-
     Assert.assertEquals(1, zkUtils.getSortedActiveProcessors().size());
-
   }
-
+  
   @Test
   public void testSubscribeToJobModelVersionChange() {
 
@@ -155,6 +158,41 @@ public class TestZkUtils {
     zkClient.writeData(keyBuilder.getProcessorsPath(), "newProcessor");
 
     Assert.assertTrue(testWithDelayBackOff(() -> "newProcessor".equals(res.getRes()), 2, 1000));
+  }
+
+  @Test
+  public void testPublishNewJobModel() {
+    ZkKeyBuilder keyBuilder = new ZkKeyBuilder("test");
+    String root = keyBuilder.getRootPath();
+    zkClient.deleteRecursive(root);
+    String version = "1";
+    String oldVersion = "0";
+
+    zkUtils.makeSurePersistentPathsExists(
+        new String[]{root, keyBuilder.getJobModelPathPrefix(), keyBuilder.getJobModelVersionPath()});
+
+    zkUtils.publishJobModelVersion(oldVersion, version);
+    Assert.assertEquals(version, zkUtils.getJobModelVersion());
+
+    String newerVersion = Long.toString(Long.valueOf(version) + 1);
+    zkUtils.publishJobModelVersion(version, newerVersion);
+    Assert.assertEquals(newerVersion, zkUtils.getJobModelVersion());
+
+    try {
+      zkUtils.publishJobModelVersion(oldVersion, "10"); //invalid new version
+      Assert.fail("publish invalid version should've failed");
+    } catch (SamzaException e) {
+      // expected
+    }
+
+    // create job model
+    Map<String, String> configMap = new HashMap<>();
+    Map<Integer, ContainerModel> containers = new HashMap<>();
+    MapConfig config = new MapConfig(configMap);
+    JobModel jobModel = new JobModel(config, containers);
+
+    zkUtils.publishJobModel(version, jobModel);
+    Assert.assertEquals(jobModel, zkUtils.getJobModel(version));
   }
 
   public static boolean testWithDelayBackOff(BooleanSupplier cond, long startDelayMs, long maxDelayMs) {
