@@ -68,6 +68,7 @@ public class ZkControllerImpl implements ZkController {
 
     // inform the caller
     zkControllerListener.onBecomeLeader();
+
   }
 
   @Override

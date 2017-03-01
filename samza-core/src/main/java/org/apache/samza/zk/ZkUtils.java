@@ -206,24 +206,6 @@ public class ZkUtils {
     return zkClient.<String>readData(keyBuilder.getJobModelVersionPath());
   }
 
-  public void publishNewJobModelVersion(String oldVersion, String newVersion) {
-    Stat stat = new Stat();
-    String currentVersion = zkClient.<String>readData(keyBuilder.getJobModelVersionPath(), stat);
-    LOG.info("pid=" + processorId + " publishing new version: " + newVersion + "; oldVersion = " + oldVersion + "(" + stat.getVersion() + ")");
-    if (currentVersion != null && !currentVersion.equals(oldVersion)) {
-      throw new SamzaException("Someone change JMVersion while Leader was generating: expected" + oldVersion + ", got " + currentVersion);
-    }
-    int dataVersion = stat.getVersion();
-    stat = zkClient.writeDataReturnStat(keyBuilder.getJobModelVersionPath(), newVersion, dataVersion);
-    if (stat.getVersion() != dataVersion + 1)
-      throw new SamzaException("Someone changed data version of the JMVersion while Leader was generating a new one. current= " + dataVersion + ", old version = " + stat.getVersion());
-
-    LOG.info("pid=" + processorId +
-             " published new version: " + newVersion + "; expected data version = " + dataVersion + "(" + stat.getVersion()
-        +    ")");
-  }
-
-
   /**
    * publish the version number of the next JobModel
    * @param oldVersion - used to validate, that no one has changed the version in the meanwhile.

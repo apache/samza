@@ -37,8 +37,6 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-
-
 public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
   private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
@@ -76,6 +74,7 @@ public class TestZkUtils {
     zkUtils.connect();
 
   }
+
 
   @After
   public void testTeardown() {
