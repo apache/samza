@@ -19,10 +19,7 @@
 
 package org.apache.samza.zk;
 
-<<<<<<< HEAD
 import java.io.IOException;
-=======
->>>>>>> master
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
