@@ -215,7 +215,7 @@ public class ZkUtils {
     Stat stat = new Stat();
     String currentVersion = zkClient.<String>readData(keyBuilder.getJobModelVersionPath(), stat);
     LOG.info("pid=" + processorId + " publishing new version: " + newVersion + "; oldVersion = " + oldVersion + "(" + stat
-            .getVersion() + ")");
+        .getVersion() + ")");
 
     if (currentVersion != null && !currentVersion.equals(oldVersion)) {
       throw new SamzaException(
@@ -226,10 +226,12 @@ public class ZkUtils {
     try {
       stat = zkClient.writeDataReturnStat(keyBuilder.getJobModelVersionPath(), newVersion, dataVersion);
     } catch (Exception e) {
-      LOG.error("publish job model version failed for new version = " + newVersion + "; old version = " + oldVersion, e);
+      String msg = "publish job model version failed for new version = " + newVersion + "; old version = " + oldVersion;
+      LOG.error(msg, e);
+      throw new SamzaException(msg);
     }
     LOG.info("pid=" + processorId +
-             " published new version: " + newVersion + "; expected data version = " + (dataVersion  + 1) + "(actual data version after update = " + stat.getVersion()
+        " published new version: " + newVersion + "; expected data version = " + (dataVersion  + 1) + "(actual data version after update = " + stat.getVersion()
         +    ")");
   }
 
