@@ -50,4 +50,16 @@ public class TestZkKeyBuilder {
     Assert.assertNull(ZkKeyBuilder.parseIdFromPath(null));
     Assert.assertNull(ZkKeyBuilder.parseIdFromPath(""));
   }
+
+  @Test
+  public void testJobModelPath() {
+
+    ZkKeyBuilder builder = new ZkKeyBuilder("test");
+
+    Assert.assertEquals("/test/" + ZkKeyBuilder.JOBMODEL_VERSION_PATH, builder.getJobModelVersionPath());
+    Assert.assertEquals("/test/jobModels", builder.getJobModelPathPrefix());
+    String version = "2";
+    Assert.assertEquals("/test/jobModels/" + version, builder.getJobModelPath(version));
+    Assert.assertEquals("/test/versionBarriers", builder.getJobModelVersionBarrierPrefix());
+  }
 }
