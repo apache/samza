@@ -67,7 +67,7 @@ public class ZkControllerImpl implements ZkController {
     listenToProcessorLiveness(); // subscribe for adding new processors
 
     // inform the caller
-    zkControllerListener.onBecomeLeader()
+    zkControllerListener.onBecomeLeader();
   }
 
   @Override
