@@ -60,9 +60,9 @@ fi
 if [ -e "${base_dir}/gradlew" ]; then
   gradle_file="${base_dir}/gradlew"
 else
-  gradle_base_file=$(which gradle)
+  gradle_base_file=$(which gradle) && chk_gradle=$? || chk_gradle=$?
 
-  if [ -f "${gradle_base_file}" ]; then
+  if [[ -f "${gradle_base_file}" && $chk_gradle -eq 0 ]]; then
     gradle_file="${gradle_base_file}"
     echo "Gradlew is not found. Using currently installed gradle, found on: ${gradle_file}."
   else
