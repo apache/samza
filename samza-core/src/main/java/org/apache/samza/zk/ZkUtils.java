@@ -19,7 +19,10 @@
 
 package org.apache.samza.zk;
 
+<<<<<<< HEAD
 import java.io.IOException;
+=======
+>>>>>>> master
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -231,7 +234,7 @@ public class ZkUtils {
 
   /**
    * verify that given paths exist in ZK
-   * @param paths zkPaths to verify
+   * @param paths - paths to verify or create
    */
   public void makeSurePersistentPathsExists(String[] paths) {
     for (String path : paths) {
@@ -243,7 +246,7 @@ public class ZkUtils {
 
   /**
    * subscribe to the changes in the list of processors in ZK
-   * @param listener to be called in case of the change
+   * @param listener - will be called when a processor is added or removed.
    */
   public void subscribeToProcessorChange(IZkChildListener listener) {
     LOG.info("pid=" + processorId + " subscribing for child change at:" + keyBuilder.getProcessorsPath());
