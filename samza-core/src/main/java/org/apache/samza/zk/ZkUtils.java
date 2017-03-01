@@ -20,14 +20,12 @@
 package org.apache.samza.zk;
 
 import java.io.IOException;
-import org.I0Itec.zkclient.ZkClient;
-
-
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
+import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.SamzaException;
