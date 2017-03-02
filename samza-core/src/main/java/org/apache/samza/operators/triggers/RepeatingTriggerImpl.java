@@ -41,7 +41,7 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
     return new TriggerCallbackHandler() {
       @Override
       public void onTrigger() {
-        if(!cancelled) {
+        if (!cancelled) {
           //re-schedule the underlying trigger for execution again.
           underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger);
           handler.onTrigger();

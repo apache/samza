@@ -41,9 +41,8 @@ public class TimeTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M
 
     if (latestFuture == null) {
       latestFuture =  context.scheduleCallback(() -> {
-        handler.onTrigger();
-
-      }, callbackTime);
+          handler.onTrigger();
+        }, callbackTime);
     }
   }
 

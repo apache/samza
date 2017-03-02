@@ -210,7 +210,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
         }
 
         if (paneOutput.getMessage() instanceof Collection) {
-          WV valCopy = (WV)new ArrayList<M>((Collection)paneOutput.getMessage());
+          WV valCopy = (WV) new ArrayList<M>((Collection) paneOutput.getMessage());
           paneOutput = new WindowPane(windowKey, valCopy, window.getAccumulationMode());
         }
 

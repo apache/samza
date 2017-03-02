@@ -20,7 +20,6 @@
 package org.apache.samza.operators.triggers;
 
 import org.apache.samza.operators.data.MessageEnvelope;
-import org.apache.samza.operators.impl.WindowOperatorImpl;
 
 /**
  * Implementation class for a {@link CountTrigger}

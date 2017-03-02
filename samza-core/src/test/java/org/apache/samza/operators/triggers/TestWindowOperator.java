@@ -30,7 +30,6 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.windows.AccumulationMode;
-import org.apache.samza.operators.windows.WindowKey;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -172,7 +171,7 @@ public class TestWindowOperator {
   }
 
 
-    private class KeyedTumblingWindowStreamGraphBuilder implements StreamGraphBuilder {
+  private class KeyedTumblingWindowStreamGraphBuilder implements StreamGraphBuilder {
 
     private final StreamSpec streamSpec = new StreamSpec("integer-stream", "integers", "kafka");
     private final AccumulationMode mode;
@@ -216,15 +215,15 @@ public class TestWindowOperator {
 
       inStream
           .map(m -> {
-            mapOutput.add(m.getKey());
-            return m;
-          })
+              mapOutput.add(m.getKey());
+              return m;
+            })
           .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(1))
               .setAccumulationMode(mode))
           .map(m -> {
-            windowPanes.add(m);
-            return m;
-          });
+              windowPanes.add(m);
+              return m;
+            });
     }
   }
 
