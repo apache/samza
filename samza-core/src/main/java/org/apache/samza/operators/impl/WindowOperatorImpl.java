@@ -107,7 +107,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     TriggerImplWrapper defaultTriggerWrapper = defaultTriggers.get(storeKey);
 
     // lookup and propagate messages to the right triggers.
-    if (earlyTriggerWrapper == null && window.getEarlyTrigger() != null) {
+    if (!earlyTriggers.containsKey(storeKey) && window.getEarlyTrigger() != null) {
       TriggerContext earlyTriggerContext = new TriggerContextImpl(storeKey);
       TriggerImpl.TriggerCallbackHandler earlyTriggerHandler = createTriggerHandler(TriggerType.EARLY);
       earlyTriggerImpl = TriggerImpls.createTriggerImpl(window.getEarlyTrigger());
@@ -116,7 +116,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       handlers.put(earlyTriggerHandler, earlyTriggerWrapper);
     }
 
-    if (defaultTriggerWrapper == null && window.getDefaultTrigger() != null) {
+    if (!defaultTriggers.containsKey(storeKey) && window.getDefaultTrigger() != null) {
       TriggerContext defaultTriggerContext = new TriggerContextImpl(storeKey);
       TriggerImpl.TriggerCallbackHandler defaultTriggerHandler = createTriggerHandler(TriggerType.DEFAULT);
       defaultTriggerImpl = TriggerImpls.createTriggerImpl(window.getDefaultTrigger());

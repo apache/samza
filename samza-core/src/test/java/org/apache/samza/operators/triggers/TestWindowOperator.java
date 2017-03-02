@@ -129,18 +129,52 @@ public class TestWindowOperator {
   }
 
   @Test
+  public void testSessionWindowsDiscardingMode() throws Exception {
+    StreamGraphBuilder sgb = new KeyedSessionWindowStreamGraphBuilder(AccumulationMode.DISCARDING);
+    StreamOperatorTask task = new StreamOperatorTask(sgb);
+    task.init(config, taskContext);
+
+    task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
+
+    task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
+
+    task.process(new IntegerMessageEnvelope(3, 3), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(3, 3), messageCollector, taskCoordinator);
+
+    Thread.sleep(1000);
+    task.window(messageCollector, taskCoordinator);
+    Assert.assertEquals(windowPanes.size(), 3);
+    Assert.assertEquals(((Collection) windowPanes.get(2).getMessage()).size(), 2);
+  }
+
+  @Test
   public void testSessionWindowsAccumulatingMode() throws Exception {
     StreamGraphBuilder sgb = new KeyedSessionWindowStreamGraphBuilder(AccumulationMode.DISCARDING);
     StreamOperatorTask task = new StreamOperatorTask(sgb);
     task.init(config, taskContext);
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
+    Thread.sleep(1000);
+
     task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
-    task.process(new IntegerMessageEnvelope(3, 3), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
+
+    task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
+
     Thread.sleep(1000);
     task.window(messageCollector, taskCoordinator);
-    Assert.assertEquals(windowPanes.size(), 3);
+    Assert.assertEquals(windowPanes.size(), 2);
+    Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);
+    Assert.assertEquals(windowPanes.get(0).getKey().getKey(), 1);
+    Assert.assertEquals(windowPanes.get(1).getKey().getKey(), 2);
+    Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection) windowPanes.get(1).getMessage()).size(), 4);
   }
+
 
     private class KeyedTumblingWindowStreamGraphBuilder implements StreamGraphBuilder {
 
