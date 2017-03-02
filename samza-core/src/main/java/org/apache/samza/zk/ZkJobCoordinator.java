@@ -81,7 +81,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       String systemFactoryClassName = systemConfig.getSystemFactory(systemName);
       if (systemFactoryClassName == null) {
         String msg = String.format("A stream uses system %s, which is missing from the configuration.", systemName);
-        log.error(String.format(msg);
+        log.error(String.format(msg));
         throw new SamzaException(msg);
       }
       SystemFactory systemFactory = Util.getObj(systemFactoryClassName);
