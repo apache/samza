@@ -105,17 +105,13 @@ public class TestWindowOperator {
     StreamGraphBuilder sgb = new KeyedTumblingWindowStreamGraphBuilder(AccumulationMode.ACCUMULATING);
     StreamOperatorTask task = new StreamOperatorTask(sgb);
     task.init(config, taskContext);
-    System.out.println("PRINT ME1");
 
     integers.forEach(n -> task.process(new IntegerMessageEnvelope(n, n), messageCollector, taskCoordinator));
     Thread.sleep(1000);
     task.window(messageCollector, taskCoordinator);
-    System.out.println("PRINT ME2");
 
     Assert.assertEquals(windowPanes.size(), 7);
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), 1);
-    System.out.println("PRINT ME3");
-    System.out.println("Size of " + ((Collection) windowPanes.get(0).getMessage()).size());
     Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(1).getKey().getKey(), 2);
@@ -198,9 +194,7 @@ public class TestWindowOperator {
         .window(Windows.keyedTumblingWindow(keyFn, Duration.ofSeconds(1)).setEarlyTrigger(Triggers.repeat(Triggers.count(2)))
           .setAccumulationMode(mode))
         .map(m -> {
-          System.out.println("inside window panes " + m.getKey() + " " + ((Collection)m.getMessage()).size());
             windowPanes.add(m);
-          printWindowPanes();
             WindowKey<Integer> key = m.getKey();
             Collection<MessageEnvelope<Integer, Integer>> message = m.getMessage();
             ArrayList<MessageEnvelope<Integer, Integer>> list = new ArrayList<MessageEnvelope<Integer, Integer>>(message);
@@ -231,9 +225,7 @@ public class TestWindowOperator {
           .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(1))
               .setAccumulationMode(mode))
           .map(m -> {
-            System.out.println("inside window panes " + m.getKey() + " " + ((Collection)m.getMessage()).size());
             windowPanes.add(m);
-            printWindowPanes();
             WindowKey<Integer> key = m.getKey();
             Collection<MessageEnvelope<Integer, Integer>> message = m.getMessage();
             ArrayList<MessageEnvelope<Integer, Integer>> list = new ArrayList<MessageEnvelope<Integer, Integer>>(message);
@@ -242,15 +234,6 @@ public class TestWindowOperator {
     }
   }
 
-
-
-  private void printWindowPanes() {
-    System.out.println("=====");
-    for(WindowPane pane : windowPanes) {
-      System.out.println(pane.getKey() + "  " + ((ArrayList)pane.getMessage()).size() );
-    }
-    System.out.println("=====");
-  }
   private class IntegerMessageEnvelope extends IncomingMessageEnvelope {
     IntegerMessageEnvelope(int key, int msg) {
       super(new SystemStreamPartition("kafka", "integers", new Partition(0)), "1", key, msg);

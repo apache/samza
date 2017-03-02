@@ -95,7 +95,6 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     this.recentCoordinator = coordinator;
 
     WindowKey<K> storeKey =  getStoreKey(message);
-    System.out.println("processing store key " + storeKey);
     BiFunction<M, WV, WV> foldFunction = window.getFoldFunction();
     WV wv = store.get(storeKey);
     WV newVal = foldFunction.apply(message, wv);
@@ -196,6 +195,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
 
         WindowKey<K> windowKey = (WindowKey<K>) key;
         WV wv = store.get(windowKey);
+
         if (wv == null) {
           return;
         }
@@ -205,7 +205,6 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
         if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
           store.put(windowKey, null);
         }
-        System.out.println("inside store: " + ((Collection)paneOutput.getMessage()).size());
 
         if (paneOutput.getMessage() instanceof Collection) {
           WV valCopy = (WV)new ArrayList<M>((Collection)paneOutput.getMessage());
@@ -291,6 +290,4 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       return handler;
     }
   }
-
-
 }
