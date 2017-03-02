@@ -49,6 +49,5 @@ class StreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
 
   @Override
   public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
-    this.propagateTimer(collector, coordinator);
   }
 }

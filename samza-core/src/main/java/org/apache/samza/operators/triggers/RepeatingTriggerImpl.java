@@ -56,8 +56,8 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
   }
 
   @Override
-  public void onCancel() {
-    underlyingTriggerImpl.onCancel();
+  public void cancel() {
+    underlyingTriggerImpl.cancel();
     cancelled = true;
   }
 }

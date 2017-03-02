@@ -39,7 +39,7 @@ import java.util.Map;
  */
 public class InternalInMemoryStore<K, V> implements KeyValueStore<K, V> {
 
-  final Map<K, V> map = new LinkedHashMap<>();
+  private final Map<K, V> map = new LinkedHashMap<>();
 
   @Override
   public V get(K key) {

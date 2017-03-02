@@ -46,7 +46,7 @@ public class TimeSinceFirstMessageTriggerImpl<M extends MessageEnvelope> impleme
   }
 
   @Override
-  public void onCancel() {
+  public void cancel() {
     latestFuture.cancel();
   }
 }

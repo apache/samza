@@ -47,9 +47,10 @@ public interface TriggerImpl<M> {
 
   /**
    * Invoked when the execution of this {@link TriggerImpl} is canceled by an up-stream {@link TriggerImpl}.
-   * No call to #onMessage() is delivered after cancellation.
+   *
+   * {@link #onMessage(Object, TriggerContext, TriggerCallbackHandler)}  is guaranteed to not be invoked after this call.
    */
-  public void onCancel();
+  public void cancel();
 
   public interface TriggerCallbackHandler {
     public void onTrigger();

@@ -43,7 +43,7 @@ public class CountTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<
   }
 
   @Override
-  public void onCancel() {
+  public void cancel() {
     //no-op
   }
 }

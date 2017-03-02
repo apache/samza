@@ -23,7 +23,6 @@ import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.triggers.Cancellable;
 import org.apache.samza.operators.triggers.RepeatingTriggerImpl;
 import org.apache.samza.operators.triggers.TimeTrigger;
-import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.TriggerContext;
 import org.apache.samza.operators.triggers.TriggerImpl;
 import org.apache.samza.operators.triggers.TriggerImpls;
@@ -156,7 +155,6 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       state.getCallback().run();
       state = pendingCallbacks.peek();
     }
-    super.propagateTimer(collector, coordinator);
   }
 
   private WindowKey<K> getStoreKey(M message) {
@@ -188,12 +186,12 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
         // Remove default triggers and non-repeating early triggers for consideration in future callbacks.
         if (type == TriggerType.DEFAULT) {
           TriggerImpl defaultTrigger = defaultTriggers.get(key).getImpl();
-          defaultTrigger.onCancel();
+          defaultTrigger.cancel();
           defaultTriggers.remove(key);
           handlers.remove(this);
         } else if (type == TriggerType.EARLY && !(impl instanceof RepeatingTriggerImpl)) {
           TriggerImpl earlyTrigger = earlyTriggers.get(key).getImpl();
-          earlyTrigger.onCancel();
+          earlyTrigger.cancel();
           earlyTriggers.remove(key);
           handlers.remove(this);
         }

@@ -50,10 +50,10 @@ public class AnyTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M>
     }
   }
 
-  public void onCancel() {
+  public void cancel() {
     for (Iterator<Map.Entry<TriggerImpl, Boolean>> it = triggerImpls.entrySet().iterator(); it.hasNext(); ) {
       TriggerImpl impl = it.next().getKey();
-      impl.onCancel();
+      impl.cancel();
       it.remove();
     }
   }

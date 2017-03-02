@@ -52,17 +52,23 @@ public abstract class OperatorImpl<M, RM> {
   public abstract void onNext(M message, MessageCollector collector, TaskCoordinator coordinator);
 
   /**
-   * Invoked at every tick. Implementations must call {@link #propagateTimer} to propagate this callback to downstream
-   * operators and {@link #propagateResult} to propagate any output they want to emit in this tick.
+   * Invoked at every tick. This method delegates to {@link #onTimer(MessageCollector, TaskCoordinator)}
    *
    * @param collector
    * @param coordinator
    */
-  public final void onTimer1(MessageCollector collector, TaskCoordinator coordinator) {
+  public final void onTick(MessageCollector collector, TaskCoordinator coordinator) {
     onTimer(collector, coordinator);
     propagateTimer(collector, coordinator);
   }
 
+  /**
+   * Invoked at every tick. Implementations may call {@link #propagateResult} if they wish to propagate the output to registered
+   * downstream operators.
+   *
+   * @param collector
+   * @param coordinator
+   */
   public abstract void onTimer(MessageCollector collector, TaskCoordinator coordinator);
 
   /**
@@ -78,7 +84,7 @@ public abstract class OperatorImpl<M, RM> {
     nextOperators.forEach(sub -> sub.onNext(outputMessage, collector, coordinator));
   }
 
-  void propagateTimer(MessageCollector collector, TaskCoordinator coordinator) {
-    nextOperators.forEach(sub -> sub.onTimer(collector, coordinator));
+  private void propagateTimer(MessageCollector collector, TaskCoordinator coordinator) {
+    nextOperators.forEach(sub -> sub.onTick(collector, coordinator));
   }
 }

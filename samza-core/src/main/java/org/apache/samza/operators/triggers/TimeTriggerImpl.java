@@ -48,7 +48,7 @@ public class TimeTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M
   }
 
   @Override
-  public void onCancel() {
+  public void cancel() {
     latestFuture.cancel();
   }
 }

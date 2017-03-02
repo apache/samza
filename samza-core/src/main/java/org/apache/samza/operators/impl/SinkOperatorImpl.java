@@ -44,6 +44,5 @@ class SinkOperatorImpl<M> extends OperatorImpl<M, M> {
 
   @Override
   public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
-    this.propagateTimer(collector, coordinator);
   }
 }
