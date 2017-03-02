@@ -32,6 +32,7 @@ import org.apache.samza.system.SystemStreamPartition;
 import java.time.Duration;
 import java.util.function.BiFunction;
 import java.util.Set;
+import java.util.function.Supplier;
 
 
 /**
@@ -58,10 +59,11 @@ public class TestWindowExample extends TestExampleBase {
   @Override
   public void init(StreamGraph graph, Config config) {
     BiFunction<JsonMessageEnvelope, Integer, Integer> maxAggregator = (m, c) -> c + 1;
+    Supplier<Integer> initialValue = () -> 0;
     inputs.keySet().forEach(source -> graph.<Object, Object, InputMessageEnvelope>createInStream(
             new StreamSpec(source.toString(), source.getStream(), source.getSystem()), null, null).
         map(m1 -> new JsonMessageEnvelope(this.myMessageKeyFunction(m1), (MessageType) m1.getMessage(), m1.getOffset(),
-            m1.getSystemStreamPartition())).window(Windows.tumblingWindow(Duration.ofMillis(200), maxAggregator)));
+            m1.getSystemStreamPartition())).window(Windows.tumblingWindow(Duration.ofMillis(200), initialValue, maxAggregator)));
 
   }
 

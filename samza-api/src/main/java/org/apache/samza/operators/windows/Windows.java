@@ -28,10 +28,10 @@ import org.apache.samza.operators.windows.internal.WindowType;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * APIs for creating different types of {@link Window}s.
@@ -117,10 +117,10 @@ public final class Windows {
    * @return the created {@link Window} function.
    */
   public static <M, K, WV> Window<M, K, WV>
-    keyedTumblingWindow(Function<M, K> keyFn, Duration interval, BiFunction<M, WV, WV> foldFn) {
+    keyedTumblingWindow(Function<M, K> keyFn, Duration interval, Supplier<WV> initialValue, BiFunction<M, WV, WV> foldFn) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
-    return new WindowInternal<M, K, WV>(defaultTrigger, foldFn, keyFn, null, WindowType.TUMBLING);
+    return new WindowInternal<M, K, WV>(defaultTrigger, initialValue, foldFn, keyFn, null, WindowType.TUMBLING);
   }
 
 
@@ -146,13 +146,14 @@ public final class Windows {
    */
   public static <M, K> Window<M, K, Collection<M>> keyedTumblingWindow(Function<M, K> keyFn, Duration interval) {
     BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
-      if (c == null) {
-        c = new ArrayList<>();
-      }
       c.add(m);
       return c;
     };
-    return keyedTumblingWindow(keyFn, interval, aggregator);
+
+    Supplier<Collection<M>> supplier = () -> {
+      return new ArrayList<>();
+    };
+    return keyedTumblingWindow(keyFn, interval, supplier, aggregator);
   }
 
   /**
@@ -176,9 +177,9 @@ public final class Windows {
    * @return the created {@link Window} function
    */
   public static <M, WV> Window<M, Void, WV>
-    tumblingWindow(Duration duration, BiFunction<M, WV, WV> foldFn) {
+    tumblingWindow(Duration duration, Supplier<WV> initialValue, BiFunction<M, WV, WV> foldFn) {
     Trigger<M> defaultTrigger = Triggers.repeat(new TimeTrigger<>(duration));
-    return new WindowInternal<>(defaultTrigger, foldFn, null, null, WindowType.TUMBLING);
+    return new WindowInternal<>(defaultTrigger, initialValue, foldFn, null, null, WindowType.TUMBLING);
   }
 
   /**
@@ -202,13 +203,14 @@ public final class Windows {
    */
   public static <M> Window<M, Void, Collection<M>> tumblingWindow(Duration duration) {
     BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
-      if (c == null) {
-        c = new ArrayList<>();
-      }
       c.add(m);
       return c;
     };
-    return tumblingWindow(duration, aggregator);
+
+    Supplier<Collection<M>> initialValue = () -> {
+      return new ArrayList<>();
+    };
+    return tumblingWindow(duration, initialValue, aggregator);
   }
 
   /**
@@ -238,9 +240,9 @@ public final class Windows {
    * @param <WV> the type of the output value in the {@link WindowPane}
    * @return the created {@link Window} function
    */
-  public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap, BiFunction<M, WV, WV> foldFn) {
+  public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap, Supplier<WV> initialValue, BiFunction<M, WV, WV> foldFn) {
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
-    return new WindowInternal<>(defaultTrigger, foldFn, keyFn, null, WindowType.SESSION);
+    return new WindowInternal<>(defaultTrigger, initialValue, foldFn, keyFn, null, WindowType.SESSION);
   }
 
   /**
@@ -270,117 +272,15 @@ public final class Windows {
   public static <M, K> Window<M, K, Collection<M>> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap) {
 
     BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
-      if (c == null) {
-        c = new ArrayList<>();
-      }
       c.add(m);
       return c;
     };
 
-    return keyedSessionWindow(keyFn, sessionGap, aggregator);
-  }
-
-
-  /**
-   * Creates a {@link Window} that groups incoming messages into a single global window. This window does not have a
-   * default trigger. The triggering behavior must be specified by setting an early trigger.
-   *
-   * <p>The below example computes the maximum value over a count based window. The window emits {@link WindowPane}s when
-   * there are either 50 messages in the window pane or when 10 seconds have passed since the first message in the pane.
-   *
-   * <pre> {@code
-   *    MessageStream<Long> stream = ...;
-   *    BiFunction<Long, Long, Long> maxAggregator = (m, c)-> Math.max(m, c);
-   *    MessageStream<WindowPane<Void, Long>> windowedStream = stream.window(Windows.globalWindow(maxAggregator)
-   *      .setEarlyTriggers(Triggers.repeat(Triggers.any(Triggers.count(50), Triggers.timeSinceFirstMessage(Duration.ofSeconds(10))))))
-   * }
-   * </pre>
-   *
-   * @param foldFn the function to aggregate messages in the {@link WindowPane}
-   * @param <M> the type of message
-   * @param <WV> type of the output value in the {@link WindowPane}
-   * @return the created {@link Window} function.
-   */
-  public static <M, WV> Window<M, Void, WV> globalWindow(BiFunction<M, WV, WV> foldFn) {
-    return new WindowInternal<>(null, foldFn, null, null, null);
-  }
-
-  /**
-   * Creates a {@link Window} that groups incoming messages into a single global window. This window does not have a
-   * default trigger. The triggering behavior must be specified by setting an early trigger.
-   *
-   * The below example groups the stream into count based windows that trigger every 50 messages or every 10 minutes.
-   * <pre> {@code
-   *    MessageStream<Long> stream = ...;
-   *    MessageStream<WindowPane<Void, Collection<Long>> windowedStream = stream.window(Windows.globalWindow()
-   *      .setEarlyTrigger(Triggers.repeat(Triggers.any(Triggers.count(50), Triggers.timeSinceFirstMessage(Duration.ofSeconds(10))))))
-   * }
-   * </pre>
-   *
-   * @param <M> the type of message
-   * @return the created {@link Window} function.
-   */
-  public static <M> Window<M, Void, Collection<M>> globalWindow() {
-    BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
-      c.add(m);
-      return c;
+    Supplier<Collection<M>> initialValue = () -> {
+      return new ArrayList<>();
     };
-    return globalWindow(aggregator);
+
+    return keyedSessionWindow(keyFn, sessionGap, initialValue, aggregator);
   }
 
-  /**
-   * Returns a global {@link Window} that groups incoming messages using the provided keyFn.
-   * The window does not have a default trigger. The triggering behavior must be specified by setting an early
-   * trigger.
-   *
-   * <p> The below example groups the stream into count based windows. The window triggers every 50 messages or every
-   * 10 minutes.
-   *
-   * <pre> {@code
-   *    MessageStream<UserClick> stream = ...;
-   *    BiFunction<UserClick, Long, Long> maxAggregator = (m, c)-> Math.max(parseLongField(m), c);
-   *    Function<UserClick, String> keyFn = ...;
-   *    MessageStream<WindowPane<String, Long>> windowedStream = stream.window(Windows.keyedGlobalWindow(keyFn, maxAggregator)
-   *      .setEarlyTrigger(Triggers.repeat(Triggers.any(Triggers.count(50), Triggers.timeSinceFirstMessage(Duration.minutes(10))))))
-   * }
-   * </pre>
-   *
-   * @param keyFn the function to extract the window key from a message
-   * @param foldFn the function to aggregate messages in the {@link WindowPane}
-   * @param <M> the type of message
-   * @param <K> type of the key in the {@link Window}
-   * @param <WV> the type of the output value in the {@link WindowPane}
-   * @return the created {@link Window} function
-   */
-  public static <M, K, WV> Window<M, K, WV> keyedGlobalWindow(Function<M, K> keyFn, BiFunction<M, WV, WV> foldFn) {
-    return new WindowInternal<M, K, WV>(null, foldFn, keyFn, null, null);
-  }
-
-  /**
-   * Returns a global {@link Window} that groups incoming messages using the provided keyFn.
-   * The window does not have a default trigger. The triggering behavior must be specified by setting an early trigger.
-   *
-   * <p> The below example groups the stream per-key into count based windows. The window triggers every 50 messages or
-   * every 10 minutes.
-   *
-   * <pre> {@code
-   *    MessageStream<UserClick> stream = ...;
-   *    Function<UserClick, String> keyFn = ...;
-   *    MessageStream<WindowPane<String, Collection<UserClick>> windowedStream = stream.window(Windows.keyedGlobalWindow(keyFn)
-   *      .setEarlyTrigger(Triggers.repeat(Triggers.any(Triggers.count(50), Triggers.timeSinceFirstMessage(Duration.minutes(10))))))
-   * }
-   * </pre>
-   *
-   * @param keyFn the function to extract the window key from a message
-   * @param <M> the type of message
-   * @param <K> the type of the key in the {@link Window}
-   * @return the created {@link Window} function
-   */
-  public static <M, K> Window<M, K, Collection<M>> keyedGlobalWindow(Function<M, K> keyFn) {
-    BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
-      c.add(m);
-      return c;
-    };
-    return keyedGlobalWindow(keyFn, aggregator);
-  }
 }

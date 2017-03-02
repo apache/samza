@@ -24,6 +24,7 @@ import org.apache.samza.operators.windows.Window;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  *  Internal representation of a {@link Window}. This specifies default, early and late triggers for the {@link Window}
@@ -57,18 +58,21 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
 
   private final WindowType windowType;
 
+  private final Supplier<WV> initializer;
+
   private Trigger earlyTrigger;
 
   private Trigger lateTrigger;
 
   private AccumulationMode mode;
 
-  public WindowInternal(Trigger defaultTrigger, BiFunction<M, WV, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType) {
+  public WindowInternal(Trigger defaultTrigger, Supplier<WV> initialValue, BiFunction<M, WV, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType) {
     this.foldFunction = foldFunction;
     this.eventTimeExtractor = eventTimeExtractor;
     this.keyExtractor = keyExtractor;
     this.defaultTrigger = defaultTrigger;
     this.windowType = windowType;
+    this.initializer = initialValue;
   }
 
   @Override
@@ -99,6 +103,10 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
 
   public Trigger getLateTrigger() {
     return lateTrigger;
+  }
+
+  public Supplier<WV> getInitializer() {
+    return initializer;
   }
 
   public BiFunction<M, WV, WV> getFoldFunction() {

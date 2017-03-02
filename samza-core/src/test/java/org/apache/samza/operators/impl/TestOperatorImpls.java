@@ -78,7 +78,7 @@ public class TestOperatorImpls {
   public void testCreateOperator() throws NoSuchFieldException, IllegalAccessException, InvocationTargetException {
     // get window operator
     WindowOperatorSpec mockWnd = mock(WindowOperatorSpec.class);
-    WindowInternal<TestMessageEnvelope, String, Integer> windowInternal = new WindowInternal<>(null, null, null, null, WindowType.TUMBLING);
+    WindowInternal<TestMessageEnvelope, String, Integer> windowInternal = new WindowInternal<>(null, null, null, null, null, WindowType.TUMBLING);
     when(mockWnd.getWindow()).thenReturn(windowInternal);
     MessageStreamImpl<TestMessageEnvelope> mockStream = mock(MessageStreamImpl.class);
     Config mockConfig = mock(Config.class);

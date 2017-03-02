@@ -45,10 +45,6 @@ public final class WindowPane<K, V> {
   public WindowKey<K> getKey() {
     return this.key;
   }
-
-  static public <K, M> WindowPane<K, M> of(WindowKey<K> key, M result, AccumulationMode mode) {
-    return new WindowPane<>(key, result, mode);
-  }
 }
 
 

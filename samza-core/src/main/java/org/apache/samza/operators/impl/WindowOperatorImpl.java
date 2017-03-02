@@ -97,6 +97,11 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     WindowKey<K> storeKey =  getStoreKey(message);
     BiFunction<M, WV, WV> foldFunction = window.getFoldFunction();
     WV wv = store.get(storeKey);
+
+    if (wv == null) {
+      wv = window.getInitializer().get();
+    }
+
     WV newVal = foldFunction.apply(message, wv);
     store.put(storeKey, newVal);
 

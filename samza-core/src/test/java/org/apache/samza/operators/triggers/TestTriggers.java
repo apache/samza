@@ -26,8 +26,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TestTriggers {
-
-
   @Test
   public void testRepeatingTimerTriggers() throws Exception {
     TestTriggerContext context = new TestTriggerContext();

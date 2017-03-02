@@ -195,9 +195,6 @@ public class TestWindowOperator {
           .setAccumulationMode(mode))
         .map(m -> {
             windowPanes.add(m);
-            WindowKey<Integer> key = m.getKey();
-            Collection<MessageEnvelope<Integer, Integer>> message = m.getMessage();
-            ArrayList<MessageEnvelope<Integer, Integer>> list = new ArrayList<MessageEnvelope<Integer, Integer>>(message);
             return m;
           });
     }
@@ -226,9 +223,6 @@ public class TestWindowOperator {
               .setAccumulationMode(mode))
           .map(m -> {
             windowPanes.add(m);
-            WindowKey<Integer> key = m.getKey();
-            Collection<MessageEnvelope<Integer, Integer>> message = m.getMessage();
-            ArrayList<MessageEnvelope<Integer, Integer>> list = new ArrayList<MessageEnvelope<Integer, Integer>>(message);
             return m;
           });
     }
