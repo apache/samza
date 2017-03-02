@@ -27,22 +27,22 @@ import org.apache.samza.operators.data.MessageEnvelope;
  */
 public class TriggerImpls {
 
-  public static <M extends MessageEnvelope> TriggerImpl<M> createTriggerImpl(Trigger<M> trigger, TriggerContext context, TriggerImpl.TriggerCallbackHandler handler) {
+  public static <M extends MessageEnvelope> TriggerImpl<M> createTriggerImpl(Trigger<M> trigger) {
 
     if (trigger instanceof CountTrigger) {
-      return new CountTriggerImpl<>((CountTrigger) trigger, context, handler);
+      return new CountTriggerImpl<>((CountTrigger) trigger);
     } else if (trigger instanceof RepeatingTrigger) {
-      return new RepeatingTriggerImpl<>((RepeatingTrigger) trigger, context, handler);
+      return new RepeatingTriggerImpl<>((RepeatingTrigger) trigger);
     } else if (trigger instanceof AnyTrigger) {
-      return new AnyTriggerImpl<>((AnyTrigger) trigger, context, handler);
+      return new AnyTriggerImpl<>((AnyTrigger) trigger);
     } else if (trigger instanceof TimeSinceLastMessageTrigger) {
-      return new TimeSinceLastMessageTriggerImpl<>((TimeSinceLastMessageTrigger) trigger, context, handler);
+      return new TimeSinceLastMessageTriggerImpl<>((TimeSinceLastMessageTrigger) trigger);
     } else if (trigger instanceof TimeTrigger) {
-      return new TimeTriggerImpl((TimeTrigger) trigger, context, handler);
+      return new TimeTriggerImpl((TimeTrigger) trigger);
     } else if (trigger instanceof TimeSinceFirstMessageTrigger) {
-      return new TimeSinceFirstMessageTriggerImpl<>((TimeSinceFirstMessageTrigger) trigger, context, handler);
+      return new TimeSinceFirstMessageTriggerImpl<>((TimeSinceFirstMessageTrigger) trigger);
     }
 
-    throw new SamzaException("No implementation class defined.");
+    throw new SamzaException("No implementation class defined. " + trigger);
   }
 }

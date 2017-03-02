@@ -24,7 +24,7 @@ import org.apache.samza.operators.data.MessageEnvelope;
 /**
  * Implementation class for a {@link RepeatingTrigger}
  */
-public class RepeatingTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
+public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
 
   private final Trigger underlyingTrigger;
 
@@ -32,27 +32,27 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> extends TriggerImpl
 
   private boolean cancelled = false;
 
-  public RepeatingTriggerImpl(RepeatingTrigger<M> repeatingTrigger, TriggerContext tContext, TriggerCallbackHandler handler) {
-    super(tContext, handler);
+  public RepeatingTriggerImpl(RepeatingTrigger<M> repeatingTrigger) {
     this.underlyingTrigger = repeatingTrigger.getTrigger();
-    this.underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, context, createNewCallback());
+    this.underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger);
   }
 
-  private TriggerCallbackHandler createNewCallback() {
+  private TriggerCallbackHandler createNewHandler(TriggerCallbackHandler handler) {
     return new TriggerCallbackHandler() {
       @Override
-      public void onTrigger(TriggerImpl impl, Object storeKey) {
+      public void onTrigger() {
         if(!cancelled) {
-          underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, context, createNewCallback());
-          handler.onTrigger(RepeatingTriggerImpl.this, storeKey);
+          //re-schedule the underlying trigger for execution again.
+          underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger);
+          handler.onTrigger();
         }
       }
     };
   }
 
   @Override
-  public void onMessage(M message) {
-    underlyingTriggerImpl.onMessage(message);
+  public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
+    underlyingTriggerImpl.onMessage(message, context, createNewHandler(handler));
   }
 
   @Override

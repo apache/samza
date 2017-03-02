@@ -52,11 +52,6 @@ public class TestTriggerContext implements TriggerContext {
     return impl;
   }
 
-  @Override
-  public Object getWindowKey() {
-    return null;
-  }
-
   private class CancellableImpl implements Cancellable {
     @Override
     public boolean cancel() {

@@ -24,17 +24,16 @@ import org.apache.samza.operators.data.MessageEnvelope;
 /**
  * Implementation class for a {@link TimeTrigger}
  */
-public class TimeTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
+public class TimeTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
 
   private final TimeTrigger<M> trigger;
   private Cancellable latestFuture;
 
-  public TimeTriggerImpl(TimeTrigger<M> trigger, TriggerContext context, TriggerCallbackHandler handler) {
-    super(context, handler);
+  public TimeTriggerImpl(TimeTrigger<M> trigger) {
     this.trigger = trigger;
   }
 
-  public void onMessage(M message) {
+  public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
 
     final long now = System.currentTimeMillis();
     long triggerDurationMs = trigger.getDuration().toMillis();
@@ -42,8 +41,8 @@ public class TimeTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
 
     if (latestFuture == null) {
       latestFuture =  context.scheduleCallback(() -> {
-        System.out.println("time trigger fired." + this + " " + this.context.getWindowKey());
-        handler.onTrigger(TimeTriggerImpl.this, context.getWindowKey());
+        System.out.println("time trigger fired." + this + " " );
+        handler.onTrigger();
 
       }, callbackTime);
     }

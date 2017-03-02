@@ -24,22 +24,21 @@ import org.apache.samza.operators.data.MessageEnvelope;
  * Implementation class for a {@link TimeSinceLastMessageTrigger}
  * @param <M>
  */
-public class TimeSinceLastMessageTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
+public class TimeSinceLastMessageTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
 
   private final TimeSinceLastMessageTrigger trigger;
   private final long durationMs;
   private long callbackTime = Integer.MIN_VALUE;
   private Cancellable latestFuture = null;
 
-  public TimeSinceLastMessageTriggerImpl(TimeSinceLastMessageTrigger<M> trigger, TriggerContext context, TriggerCallbackHandler handler) {
-    super(context, handler);
+  public TimeSinceLastMessageTriggerImpl(TimeSinceLastMessageTrigger<M> trigger) {
     this.trigger = trigger;
     this.durationMs = trigger.getDuration().toMillis();
   }
 
 
   @Override
-  public void onMessage(M message) {
+  public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
 
     long currTime = System.currentTimeMillis();
 
@@ -49,7 +48,7 @@ public class TimeSinceLastMessageTriggerImpl<M extends MessageEnvelope> extends 
 
     callbackTime = currTime + durationMs;
     Runnable runnable = () -> {
-      handler.onTrigger(this, context.getWindowKey());
+      handler.onTrigger();
     };
 
     latestFuture = context.scheduleCallback(runnable, callbackTime);

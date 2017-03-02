@@ -75,7 +75,7 @@ public class TestWindowOperator {
 
   @Test
   public void testTumblingWindowsDiscardingMode() throws Exception {
-    StreamGraphBuilder sgb = new TestStreamGraphBuilder(AccumulationMode.DISCARDING);
+    StreamGraphBuilder sgb = new KeyedTumblingWindowStreamGraphBuilder(AccumulationMode.DISCARDING);
     StreamOperatorTask task = new StreamOperatorTask(sgb);
     task.init(config, taskContext);
 
@@ -102,7 +102,7 @@ public class TestWindowOperator {
 
   @Test
   public void testTumblingWindowsAccumulatingMode() throws Exception {
-    StreamGraphBuilder sgb = new TestStreamGraphBuilder(AccumulationMode.ACCUMULATING);
+    StreamGraphBuilder sgb = new KeyedTumblingWindowStreamGraphBuilder(AccumulationMode.ACCUMULATING);
     StreamOperatorTask task = new StreamOperatorTask(sgb);
     task.init(config, taskContext);
     System.out.println("PRINT ME1");
@@ -128,13 +128,26 @@ public class TestWindowOperator {
     Assert.assertEquals(((Collection) windowPanes.get(3).getMessage()).size(), 4);
   }
 
+  @Test
+  public void testSessionWindowsAccumulatingMode() throws Exception {
+    StreamGraphBuilder sgb = new KeyedSessionWindowStreamGraphBuilder(AccumulationMode.DISCARDING);
+    StreamOperatorTask task = new StreamOperatorTask(sgb);
+    task.init(config, taskContext);
 
-  private class TestStreamGraphBuilder implements StreamGraphBuilder {
+    task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(3, 3), messageCollector, taskCoordinator);
+    Thread.sleep(1000);
+    task.window(messageCollector, taskCoordinator);
+    Assert.assertEquals(windowPanes.size(), 3);
+  }
+
+    private class KeyedTumblingWindowStreamGraphBuilder implements StreamGraphBuilder {
 
     private final StreamSpec streamSpec = new StreamSpec("integer-stream", "integers", "kafka");
     private final AccumulationMode mode;
 
-    TestStreamGraphBuilder(AccumulationMode mode) {
+    KeyedTumblingWindowStreamGraphBuilder(AccumulationMode mode) {
       this.mode = mode;
     }
 
@@ -161,6 +174,42 @@ public class TestWindowOperator {
           });
     }
   }
+
+  private class KeyedSessionWindowStreamGraphBuilder implements StreamGraphBuilder {
+
+    private final StreamSpec streamSpec = new StreamSpec("integer-stream", "integers", "kafka");
+    private final AccumulationMode mode;
+
+    KeyedSessionWindowStreamGraphBuilder(AccumulationMode mode) {
+      this.mode = mode;
+    }
+
+    @Override
+    public void init(StreamGraph graph, Config config) {
+      MessageStream<MessageEnvelope<Integer, Integer>> inStream = graph.createInStream(streamSpec, null, null);
+      Function<MessageEnvelope<Integer, Integer>, Integer> keyFn = m -> m.getKey();
+
+      inStream
+          .map(m -> {
+            mapOutput.add(m.getKey());
+            return m;
+          })
+          .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(1))
+              .setAccumulationMode(mode))
+          .map(m -> {
+            System.out.println("inside window panes " + m.getKey() + " " + ((Collection)m.getMessage()).size());
+            windowPanes.add(m);
+            printWindowPanes();
+            WindowKey<Integer> key = m.getKey();
+            Collection<MessageEnvelope<Integer, Integer>> message = m.getMessage();
+            ArrayList<MessageEnvelope<Integer, Integer>> list = new ArrayList<MessageEnvelope<Integer, Integer>>(message);
+            return m;
+          });
+    }
+  }
+
+
+
   private void printWindowPanes() {
     System.out.println("=====");
     for(WindowPane pane : windowPanes) {

@@ -68,7 +68,7 @@ public class WindowKey<K> {
   @Override
   public int hashCode() {
     int result = key.hashCode();
-    result = 31 * result + paneId.hashCode();
+    result = 31 * result + (paneId != null? paneId.hashCode(): 0);
     return result;
   }
 

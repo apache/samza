@@ -19,6 +19,7 @@
 
 package org.apache.samza.operators.triggers;
 
+
 /**
  * Implementation class for a {@link Trigger}. A {@link TriggerImpl} is used with a {@link TriggerCallbackHandler}
  * which is invoked when the trigger fires.
@@ -36,29 +37,21 @@ package org.apache.samza.operators.triggers;
  * New instances of {@link TriggerImpl} are created on a re-start.
  *
  */
-public abstract class TriggerImpl<M> {
-
-  protected final TriggerCallbackHandler handler;
-
-  protected final TriggerContext context;
-
-  public TriggerImpl(TriggerContext context, TriggerCallbackHandler handler) {
-    this.handler = handler;
-    this.context = context;
-  }
+public interface TriggerImpl<M> {
 
   /**
    * Invoked when a MessageEnvelope added to the window corresponding to this {@link TriggerImpl}.
    * @param message the incoming MessageEnvelope
    */
-  public abstract void onMessage(M message);
+  public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler);
 
   /**
    * Invoked when the execution of this {@link TriggerImpl} is canceled by an up-stream {@link TriggerImpl}.
+   * No call to #onMessage() is delivered after cancellation.
    */
-  public abstract void onCancel();
+  public void onCancel();
 
   public interface TriggerCallbackHandler {
-    public void onTrigger(TriggerImpl impl, Object storeKey);
+    public void onTrigger();
   }
 }

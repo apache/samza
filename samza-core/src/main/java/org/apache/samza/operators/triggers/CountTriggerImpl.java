@@ -20,26 +20,27 @@
 package org.apache.samza.operators.triggers;
 
 import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.operators.impl.WindowOperatorImpl;
 
 /**
  * Implementation class for a {@link CountTrigger}
  */
-public class CountTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
+public class CountTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
 
   private final long triggerCount;
   private long currentCount;
 
-  public CountTriggerImpl(CountTrigger<M> triggerCount, TriggerContext context, TriggerCallbackHandler handler) {
-    super(context, handler);
+  public CountTriggerImpl(CountTrigger<M> triggerCount) {
     this.triggerCount = triggerCount.getCount();
     this.currentCount = 0;
   }
 
-  public void onMessage(M message) {
+  public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
     currentCount++;
+    System.out.println("current count: " + currentCount + " " + ((WindowOperatorImpl.TriggerContextImpl)context).windowKey);
     if (currentCount == triggerCount) {
-      System.out.println("count trigger fired." + this + " " + this.context.getWindowKey());
-      handler.onTrigger(this, context.getWindowKey());
+      System.out.println("count trigger fired." + this + " " + context);
+      handler.onTrigger();
     }
   }
 

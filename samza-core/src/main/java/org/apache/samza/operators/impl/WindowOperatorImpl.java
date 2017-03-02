@@ -23,6 +23,7 @@ import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.triggers.Cancellable;
 import org.apache.samza.operators.triggers.RepeatingTriggerImpl;
 import org.apache.samza.operators.triggers.TimeTrigger;
+import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.TriggerContext;
 import org.apache.samza.operators.triggers.TriggerImpl;
 import org.apache.samza.operators.triggers.TriggerImpls;
@@ -71,8 +72,11 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   private final WindowInternal<M, K, WV> window;
   private final KeyValueStore<WindowKey<K>, WV> store = new InternalInMemoryStore<>();
 
-  private final Map<WindowKey<K>, TriggerImpl> earlyTriggers = new HashMap<>();
-  private final Map<WindowKey<K>, TriggerImpl> defaultTriggers = new HashMap<>();
+  private final Map<WindowKey<K>, TriggerImplWrapper> earlyTriggers = new HashMap<>();
+  private final Map<WindowKey<K>, TriggerImplWrapper> defaultTriggers = new HashMap<>();
+
+  private final Map<TriggerImpl.TriggerCallbackHandler, TriggerImplWrapper> handlers = new HashMap<>();
+
 
   private enum TriggerType { EARLY, DEFAULT, LATE }
 
@@ -91,6 +95,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     this.recentCoordinator = coordinator;
 
     WindowKey<K> storeKey =  getStoreKey(message);
+    System.out.println("processing store key " + storeKey);
     BiFunction<M, WV, WV> foldFunction = window.getFoldFunction();
     WV wv = store.get(storeKey);
     WV newVal = foldFunction.apply(message, wv);
@@ -98,26 +103,36 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
 
     TriggerImpl earlyTriggerImpl = null;
     TriggerImpl defaultTriggerImpl = null;
+    TriggerImplWrapper earlyTriggerWrapper = earlyTriggers.get(storeKey);
+    TriggerImplWrapper defaultTriggerWrapper = defaultTriggers.get(storeKey);
 
-    if (earlyTriggers.containsKey(storeKey)) {
-      earlyTriggerImpl = earlyTriggers.get(storeKey);
-      defaultTriggerImpl = defaultTriggers.get(storeKey);
-    } else {
-      // lookup and propagate messages to the right triggers.
+    // lookup and propagate messages to the right triggers.
+    if (earlyTriggerWrapper == null && window.getEarlyTrigger() != null) {
       TriggerContext earlyTriggerContext = new TriggerContextImpl(storeKey);
-      TriggerImpl.TriggerCallbackHandler earlyTriggerHandler = createTriggerHandler(storeKey, TriggerType.EARLY);
-      earlyTriggerImpl = TriggerImpls.createTriggerImpl(window.getEarlyTrigger(), earlyTriggerContext, earlyTriggerHandler);
-
-      TriggerContext defaultTriggerContext = new TriggerContextImpl(storeKey);
-      TriggerImpl.TriggerCallbackHandler defaultTriggerHandler = createTriggerHandler(storeKey, TriggerType.DEFAULT);
-      defaultTriggerImpl = TriggerImpls.createTriggerImpl(window.getDefaultTrigger(), defaultTriggerContext, defaultTriggerHandler);
-
-      earlyTriggers.put(storeKey, earlyTriggerImpl);
-      defaultTriggers.put(storeKey, defaultTriggerImpl);
+      TriggerImpl.TriggerCallbackHandler earlyTriggerHandler = createTriggerHandler(TriggerType.EARLY);
+      earlyTriggerImpl = TriggerImpls.createTriggerImpl(window.getEarlyTrigger());
+      earlyTriggerWrapper = new TriggerImplWrapper(earlyTriggerImpl, earlyTriggerContext, earlyTriggerHandler);
+      earlyTriggers.put(storeKey, earlyTriggerWrapper);
+      handlers.put(earlyTriggerHandler, earlyTriggerWrapper);
     }
 
-    earlyTriggerImpl.onMessage(message);
-    defaultTriggerImpl.onMessage(message);
+    if (defaultTriggerWrapper == null && window.getDefaultTrigger() != null) {
+      TriggerContext defaultTriggerContext = new TriggerContextImpl(storeKey);
+      TriggerImpl.TriggerCallbackHandler defaultTriggerHandler = createTriggerHandler(TriggerType.DEFAULT);
+      defaultTriggerImpl = TriggerImpls.createTriggerImpl(window.getDefaultTrigger());
+      defaultTriggerWrapper = new TriggerImplWrapper(defaultTriggerImpl, defaultTriggerContext, defaultTriggerHandler);
+      defaultTriggers.put(storeKey, defaultTriggerWrapper);
+      handlers.put(defaultTriggerHandler, defaultTriggerWrapper);
+    }
+
+    if (defaultTriggerWrapper != null) {
+      defaultTriggerWrapper.getImpl().onMessage(message, defaultTriggerWrapper.getContext(), defaultTriggerWrapper.getHandler());
+    }
+    if (earlyTriggerWrapper != null) {
+      earlyTriggerWrapper.getImpl().onMessage(message, earlyTriggerWrapper.getContext(), earlyTriggerWrapper.getHandler());
+    }
+
+
   }
 
   @Override
@@ -160,20 +175,23 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     return windowKey;
   }
 
-  private TriggerImpl.TriggerCallbackHandler createTriggerHandler(WindowKey<K> key, TriggerType type) {
+  private TriggerImpl.TriggerCallbackHandler createTriggerHandler(TriggerType type) {
     TriggerImpl.TriggerCallbackHandler handler = new TriggerImpl.TriggerCallbackHandler() {
       @Override
-      public void onTrigger(TriggerImpl impl, Object key) {
-
+      public void onTrigger() {
+        Object key = ((TriggerContextImpl) handlers.get(this).getContext()).windowKey;
+        TriggerImpl impl = handlers.get(this).getImpl();
         // Remove default triggers and non-repeating early triggers for consideration in future callbacks.
         if (type == TriggerType.DEFAULT) {
-          TriggerImpl defaultTrigger = defaultTriggers.get(key);
+          TriggerImpl defaultTrigger = defaultTriggers.get(key).getImpl();
           defaultTrigger.onCancel();
           defaultTriggers.remove(key);
+          handlers.remove(this);
         } else if (type == TriggerType.EARLY && !(impl instanceof RepeatingTriggerImpl)) {
-          TriggerImpl earlyTrigger = earlyTriggers.get(key);
+          TriggerImpl earlyTrigger = earlyTriggers.get(key).getImpl();
           earlyTrigger.onCancel();
           earlyTriggers.remove(key);
+          handlers.remove(this);
         }
 
         WindowKey<K> windowKey = (WindowKey<K>) key;
@@ -203,8 +221,8 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   /**
    * Implementation of the {@link TriggerContext} that allows {@link TriggerImpl}s to schedule and cancel callbacks.
    */
-  private class TriggerContextImpl implements TriggerContext {
-    private final Object windowKey;
+  public class TriggerContextImpl implements TriggerContext {
+    public final Object windowKey;
 
     public TriggerContextImpl(Object windowKey) {
       this.windowKey = windowKey;
@@ -215,11 +233,6 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       TriggerTimerState timerState = new TriggerTimerState(windowKey, runnable, callbackTimeMs);
       pendingCallbacks.add(timerState);
       return timerState;
-    }
-
-    @Override
-    public Object getWindowKey() {
-      return windowKey;
     }
   }
 
@@ -234,10 +247,6 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       this.windowKey = windowKey;
       this.callback = callback;
       this.scheduleTimeMs = scheduleTimeMs;
-    }
-
-    private Object getWindowKey() {
-      return windowKey;
     }
 
     private Runnable getCallback() {
@@ -258,4 +267,30 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       return pendingCallbacks.remove(this);
     }
   }
+
+  private class TriggerImplWrapper {
+    private final TriggerImpl impl;
+    private final TriggerContext context;
+    private final TriggerImpl.TriggerCallbackHandler handler;
+
+    public TriggerImplWrapper(TriggerImpl impl, TriggerContext context, TriggerImpl.TriggerCallbackHandler handler) {
+      this.impl = impl;
+      this.context = context;
+      this.handler = handler;
+    }
+
+    public TriggerImpl getImpl() {
+      return impl;
+    }
+
+    public TriggerContext getContext() {
+      return context;
+    }
+
+    public TriggerImpl.TriggerCallbackHandler getHandler() {
+      return handler;
+    }
+  }
+
+
 }

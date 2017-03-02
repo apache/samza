@@ -31,6 +31,4 @@ public interface TriggerContext {
    * @return a {@link Cancellable} instance which can be used to cancel the execution of this runnable.
    */
   public Cancellable scheduleCallback(Runnable runnable, long callbackTimeMs);
-
-  public Object getWindowKey();
 }

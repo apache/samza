@@ -25,23 +25,22 @@ import org.apache.samza.operators.data.MessageEnvelope;
  * Implementation class for a {@link TimeSinceFirstMessageTrigger}
  * @param <M>
  */
-public class TimeSinceFirstMessageTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
+public class TimeSinceFirstMessageTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
   private final TimeSinceFirstMessageTrigger<M> trigger;
   private Cancellable latestFuture;
 
-  public TimeSinceFirstMessageTriggerImpl(TimeSinceFirstMessageTrigger<M> trigger, TriggerContext context, TriggerCallbackHandler handler) {
-    super(context, handler);
+  public TimeSinceFirstMessageTriggerImpl(TimeSinceFirstMessageTrigger<M> trigger) {
     this.trigger = trigger;
   }
 
-  public void onMessage(M message) {
+  public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
     if (latestFuture == null) {
       final long now = System.currentTimeMillis();
       long triggerDurationMs = trigger.getDuration().toMillis();
       Long callbackTime = now + triggerDurationMs;
 
       latestFuture =  context.scheduleCallback(() -> {
-          handler.onTrigger(TimeSinceFirstMessageTriggerImpl.this, context.getWindowKey());
+          handler.onTrigger();
         }, callbackTime);
     }
   }

@@ -29,35 +29,24 @@ import java.util.Map;
  * Implementation of an {@link AnyTrigger}
  *
  */
-public class AnyTriggerImpl<M extends MessageEnvelope> extends TriggerImpl<M> {
+public class AnyTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
 
   private final List<Trigger> triggerList;
 
   private final Map<TriggerImpl, Boolean> triggerImpls = new HashMap<>();
 
-  public AnyTriggerImpl(AnyTrigger<M> anyTrigger, TriggerContext context, TriggerCallbackHandler handler) {
-    super(context, handler);
+  public AnyTriggerImpl(AnyTrigger<M> anyTrigger) {
     this.triggerList = anyTrigger.getTriggers();
 
     for (Trigger trigger : triggerList) {
-      triggerImpls.put(TriggerImpls.createTriggerImpl(trigger, context, createHandler()), false);
+      triggerImpls.put(TriggerImpls.createTriggerImpl(trigger), false);
     }
   }
 
-  private TriggerCallbackHandler createHandler() {
-    return new TriggerCallbackHandler() {
-      @Override
-      public void onTrigger(TriggerImpl trigger, Object storeKey) {
-        handler.onTrigger(AnyTriggerImpl.this, storeKey);
-        onCancel();
-      }
-    };
-  }
-
   @Override
-  public void onMessage(M message) {
+  public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
     for (TriggerImpl triggerImpl : triggerImpls.keySet()) {
-      triggerImpl.onMessage(message);
+      triggerImpl.onMessage(message, context, handler);
     }
   }
 

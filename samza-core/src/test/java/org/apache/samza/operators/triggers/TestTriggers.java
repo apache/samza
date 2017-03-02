@@ -27,29 +27,32 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class TestTriggers {
 
+
   @Test
   public void testRepeatingTimerTriggers() throws Exception {
     TestTriggerContext context = new TestTriggerContext();
     final AtomicInteger numCurrentCallbacks = new AtomicInteger(0);
-    final int numExpectedCallbacks = 5;
+    final int numExpectedCallbacks = 2;
     final CountDownLatch latch = new CountDownLatch(numExpectedCallbacks);
-
+    final int timeDurationMs = 200;
     TriggerImpl.TriggerCallbackHandler handler = new TriggerImpl.TriggerCallbackHandler() {
       @Override
-      public void onTrigger(TriggerImpl trigger, Object storeKey) {
+      public void onTrigger() {
         if (numCurrentCallbacks.incrementAndGet() <= numExpectedCallbacks) {
           //simulate a new message every duration.
-          trigger.onMessage(null);
           latch.countDown();
         }
       }
     };
 
-    Trigger repeatTrigger = Triggers.repeat(new TimeTrigger<>(Duration.ofMillis(200)));
-    TriggerImpl<?> impl = TriggerImpls.createTriggerImpl(repeatTrigger, context, handler);
-    impl.onMessage(null);
+    Trigger repeatTrigger = Triggers.repeat(new TimeTrigger<>(Duration.ofMillis(timeDurationMs)));
+    TriggerImpl<?> impl = TriggerImpls.createTriggerImpl(repeatTrigger);
+    impl.onMessage(null, context, handler);
+    Thread.sleep(timeDurationMs * 2);
+    impl.onMessage(null, context, handler);
     latch.await();
   }
+
 
   @Test
   public void testAnyTrigger() throws Exception {
@@ -64,13 +67,13 @@ public class TestTriggers {
 
     TriggerImpl.TriggerCallbackHandler handler = new TriggerImpl.TriggerCallbackHandler() {
       @Override
-      public void onTrigger(TriggerImpl impl, Object storeKey) {
+      public void onTrigger() {
           latch.countDown();
       }
     };
-    TriggerImpl impl = TriggerImpls.createTriggerImpl(anyTrigger, context, handler);
+    TriggerImpl impl = TriggerImpls.createTriggerImpl(anyTrigger);
 
-    impl.onMessage(null);
+    impl.onMessage(null, context, handler);
     latch.await();
   }
 
@@ -83,16 +86,16 @@ public class TestTriggers {
 
     TriggerImpl.TriggerCallbackHandler handler = new TriggerImpl.TriggerCallbackHandler() {
       @Override
-      public void onTrigger(TriggerImpl impl, Object storeKey) {
+      public void onTrigger() {
         latch.countDown();
       }
     };
 
-    TriggerImpl impl = TriggerImpls.createTriggerImpl(sinceLastMessage, context, handler);
+    TriggerImpl impl = TriggerImpls.createTriggerImpl(sinceLastMessage);
 
     //pass in 5 messages in quick succession
     for (int i = 0; i < 5; i++) {
-      impl.onMessage(null);
+      impl.onMessage(null, context, handler);
     }
 
     long beforeTime = System.currentTimeMillis();
