@@ -88,7 +88,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       systemAdmins.put(systemName, systemFactory.getAdmin(systemName, this.config));
     }
 
-     return new StreamMetadataCache(Util.<String, SystemAdmin>javaMapAsScalaMap(systemAdmins), 5000, SystemClock.instance());
+    return new StreamMetadataCache(Util.<String, SystemAdmin>javaMapAsScalaMap(systemAdmins), 5000, SystemClock.instance());
   }
 
   @Override
