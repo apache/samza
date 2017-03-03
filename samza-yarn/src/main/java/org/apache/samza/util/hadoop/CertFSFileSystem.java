@@ -108,7 +108,6 @@ public abstract class CertFSFileSystem extends FileSystem {
 
   /**
    * Return the protocol scheme for the FileSystem.
-   * <p/>
    *
    * @return <code>certfs</code>
    */
@@ -122,7 +121,13 @@ public abstract class CertFSFileSystem extends FileSystem {
     return _uri;
   }
 
-
+  /**
+   * convert certfs URI to https URI
+   * @param certFsUri certFS URI where the CSR should be sent to
+   * @param excludesQuery whether or not to exclude the query params
+   * @return https URI
+   * @throws CertFSException when cannot construct https URI
+   */
   private URI createHttpsUri(final URI certFsUri, final boolean excludesQuery) throws CertFSException{
     String certFsScheme = certFsUri.getScheme();
     if (!CertFSConstants.CERTFS_URI_SCHEME.equalsIgnoreCase(certFsScheme)) {
@@ -148,9 +153,9 @@ public abstract class CertFSFileSystem extends FileSystem {
 
   /**
    * get bcstyle x500name from config and replace the placeholder (such as __HOSTNAME__) if needed
-   * @return
-   * @throws CertFSException
-   * @throws IOException
+   * @return bcstyle X500Name in the format of string, e.g. "CN=myhost.com, OU=Security, O=LinkedIn, L=Mountain View, ST=California, C=US"
+   * @throws CertFSException when no valid bcstyle X500Name
+   * @throws IOException when generating hostname for bcstyle x500Name
    */
   private String getBcstyleX500Name() throws CertFSException, IOException {
     // sample of raw bcstyle x500name
@@ -171,9 +176,9 @@ public abstract class CertFSFileSystem extends FileSystem {
   /**
    * create the certificate signing request with the giving {@link BCStyle} {@link X500Name}
    * @param bcstyleX500Name in String format, e.g."CN=hostname.com, OU=Security, O=LinkedIn, L=Mountain View, ST=California, C=US"
-   * @return String
-   * @throws CertFSException
-   * @throws IOException
+   * @return Certificate signing request in string format
+   * @throws CertFSException certificate local signing issue
+   * @throws IOException reader/writer related exception
    */
   private String createCSR(final String bcstyleX500Name) throws CertFSException, IOException {
     X500Name name = new X500Name(bcstyleX500Name);
@@ -217,7 +222,7 @@ public abstract class CertFSFileSystem extends FileSystem {
   /**
    * get https client based on the configuration settings
    * @return HttpClient
-   * @throws CertFSException
+   * @throws CertFSException when there is any exception when creating httpClient for SSL
    */
   private HttpClient getHttpsClient() throws CertFSException {
     String trustStoreType = getConf().get(CertFSConstants.TRUSTSTORE_TYPE, "JKS");
@@ -255,9 +260,9 @@ public abstract class CertFSFileSystem extends FileSystem {
 
   /**
    * send https POST request to URI
-   * @param httpsUri: https uri the request is sent to
-   * @param payloadStr: payload json in the https body
-   * @return String
+   * @param httpsUri https uri the request is sent to
+   * @param payloadStr payload json in the https body
+   * @return response entity from the URI service
    * @throws CertFSException
    * @throws IOException
    */
@@ -279,8 +284,8 @@ public abstract class CertFSFileSystem extends FileSystem {
 
   /**
    * get the current host name
-   * @return
-   * @throws IOException
+   * @return hostname in format of string
+   * @throws IOException when the hostname is unknown
    */
   private String getHostName() throws IOException {
     String host = "";
@@ -297,10 +302,10 @@ public abstract class CertFSFileSystem extends FileSystem {
 
   /**
    * get the certificate from the certfs path
-   * @param f
-   * @return
-   * @throws CertFSException
-   * @throws IOException
+   * @param f the certfs path for sending the certificate signing request (CSR)
+   * @return the response as a string from the CSR service
+   * @throws CertFSException certfs related exception
+   * @throws IOException https related exception
    */
   public String getCertificate(final Path f) throws CertFSException, IOException {
 
@@ -324,7 +329,6 @@ public abstract class CertFSFileSystem extends FileSystem {
       throw new CertFSException("cert request path is not existing as httpsUri");
     }
 
-
     String bcstyleX500Name = getBcstyleX500Name();
 
     String csr = createCSR(bcstyleX500Name);
@@ -343,19 +347,19 @@ public abstract class CertFSFileSystem extends FileSystem {
   /**
    * Construct the http request post body payload for CSR request
    * This method can be overriden for customized payload construction
-   * @param params
-   * @param csr
-   * @return
-   * @throws IOException
+   * @param params addtional params put into the payload
+   * @param csr certificate signing request
+   * @return payload used for https post body
+   * @throws IOException https related exception
    */
   public abstract String constructRequestPayload(final List<NameValuePair> params, final String csr) throws IOException;
 
   /**
-   * Parse the response of the CSR request from CA server
+   * Parse the response of the CSR request from the server
    * This method can be overriden for customized response parsing
-   * @param response
-   * @return
-   * @throws IOException
+   * @param response https response from server
+   * @return the cert part from the response
+   * @throws IOException https related exception
    */
   public abstract String parseResponseForCert(final String response) throws IOException;
 

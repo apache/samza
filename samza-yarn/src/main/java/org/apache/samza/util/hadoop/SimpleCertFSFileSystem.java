@@ -35,10 +35,10 @@ public class SimpleCertFSFileSystem extends CertFSFileSystem {
   /**
    * Construct the http request post body payload for CSR request
    * This method can be overriden for customized payload construction
-   * @param params
-   * @param csr
-   * @return
-   * @throws IOException
+   * @param params addtional params put into the payload
+   * @param csr certificate signing request
+   * @return payload used for https post body
+   * @throws IOException https related exception
    */
   @Override
   public String constructRequestPayload(final List<NameValuePair> params, final String csr) throws IOException {
@@ -53,11 +53,11 @@ public class SimpleCertFSFileSystem extends CertFSFileSystem {
   }
 
   /**
-   * Parse the response of the CSR request from CA server
+   * Parse the response of the CSR request from the server
    * This method can be overriden for customized response parsing
-   * @param response
-   * @return
-   * @throws IOException
+   * @param response https response from server
+   * @return the cert part from the response
+   * @throws IOException https related exception
    */
   @Override
   public String parseResponseForCert(final String response) throws IOException {
