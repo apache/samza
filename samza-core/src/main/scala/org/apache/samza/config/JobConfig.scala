@@ -45,6 +45,7 @@ object JobConfig {
   val JOB_COORDINATOR_SYSTEM = "job.coordinator.system"
   val JOB_METADATA_DEFAULT_SYSTEM = "job.metadata.system"
   val JOB_DEFAULT_SYSTEM = "job.default.system"
+  val JOB_DEFAULT_PARTITIONS = "job.default.partitions"
   val JOB_CONTAINER_COUNT = "job.container.count"
   val jOB_CONTAINER_THREAD_POOL_SIZE = "job.container.thread.pool.size"
   val JOB_CONTAINER_SINGLE_THREAD_MODE = "job.container.single.thread.mode"

@@ -20,12 +20,14 @@ package org.apache.samza.system;
 
 import java.util.Map;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StreamConfig;
 
 
 public abstract class AbstractExecutionEnvironment implements ExecutionEnvironment {
 
   private final Config config;
+  private final String streamPrefix;
 
   public AbstractExecutionEnvironment(Config config) {
     if (config == null) {
@@ -33,6 +35,7 @@ public abstract class AbstractExecutionEnvironment implements ExecutionEnvironme
     }
 
     this.config = config;
+    this.streamPrefix = String.format("%s-%s", config.get(JobConfig.JOB_NAME()), config.get(JobConfig.JOB_ID(), "1"));
   }
 
   @Override
@@ -40,7 +43,7 @@ public abstract class AbstractExecutionEnvironment implements ExecutionEnvironme
     StreamConfig streamConfig = new StreamConfig(config);
 
     String system = streamConfig.getSystem(streamId);
-    String physicalName = streamConfig.getPhysicalName(streamId, streamId);
+    String physicalName = streamConfig.getPhysicalName(streamId, String.format("%s-%s", streamPrefix, streamId));
     Map<String, String> properties = streamConfig.getStreamProperties(streamId);
 
     return new StreamSpec(streamId, physicalName, system, properties);

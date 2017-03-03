@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.util.ConfigInheritence;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -35,8 +36,9 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * The ProcessorNode represents a Samza processor.
- * It contains the input/output, and the config to run the processor.
+ * A ProcessorNode is a physical execution unit. In RemoteExecutionEnvironment, it's a job that will be submitted
+ * to remote cluster. In LocalExecutionEnvironment, it's a set of StreamProcessors for local execution.
+ * A ProcessorNode contains the input/output, and the configs for physical execution.
  */
 public class ProcessorNode {
   private static final Logger log = LoggerFactory.getLogger(ProcessorNode.class);
@@ -73,31 +75,15 @@ public class ProcessorNode {
   }
 
   public Config generateConfig() {
-    String configPrefix = String.format(CONFIG_PROCESSOR_PREFIX, id);
-    // TODO: Disallow user specifying processor inputs/outputs. This info comes strictly from the pipeline.
-    return Util.rewriteConfig(ConfigInheritence.extractScopedConfig(config, generateProcessorConfig(), configPrefix));
-  }
-
-  private Config generateProcessorConfig() {
     Map<String, String> configs = new HashMap<>();
-    List<String> inputs = inEdges.stream().map(edge -> edge.getFormattedSystemStream()).collect(Collectors.toList());
-
-    // TODO temp logs for debugging
-    log.info("Processor {} has formatted inputs {}", id, inputs);
-
-    // TODO hack alert: hard coded string literals!
-    configs.put("task.inputs", Joiner.on(',').join(inputs));
-
-    // TODO: DISCUSS how does the processor know it's output names?
-    outEdges.forEach(edge -> {
-        if (!edge.getName().isEmpty()) {
-          configs.put(String.format("task.outputs.%s.stream", edge.getName()), edge.getFormattedSystemStream());
-        }
-      });
-
     configs.put(JobConfig.JOB_NAME(), id);
 
+    List<String> inputs = inEdges.stream().map(edge -> edge.getFormattedSystemStream()).collect(Collectors.toList());
+    configs.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
     log.info("Processor {} has generated configs {}", id, configs);
-    return new MapConfig(configs);
+
+    String configPrefix = String.format(CONFIG_PROCESSOR_PREFIX, id);
+    // TODO: Disallow user specifying processor inputs/outputs. This info comes strictly from the pipeline.
+    return Util.rewriteConfig(ConfigInheritence.extractScopedConfig(config, new MapConfig(configs), configPrefix));
   }
 }

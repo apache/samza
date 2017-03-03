@@ -37,12 +37,9 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * The ProcessorGraph represents the multi-stage Samza processors of a pipeline on the physical execution layer.
- * High level APIs are transformed into ProcessorGraph for future plan, validation and execution.
- *
- * <p>The ProcessorGraph is a graph of source/sink/intermediate streams and processors are connected together. Each
- * ProcessorNode contains the config which is required to run the processor.
- *
+ * The ProcessorGraph is the physical execution graph for a multi-stage Samza application.
+ * It contains the topology of execution processors connected by source/sink/intermediate streams.
+ * High level APIs are transformed into ProcessorGraph for planing, validation and execution.
  */
 public class ProcessorGraph {
   private static final Logger log = LoggerFactory.getLogger(ProcessorGraph.class);
@@ -64,8 +61,6 @@ public class ProcessorGraph {
     edge.addTargetNode(node);
     node.addInEdge(edge);
     sources.add(edge);
-
-    log.info(edge.toString());
   }
 
   void addSink(StreamSpec output, String sourceProcessorId) {
@@ -74,8 +69,6 @@ public class ProcessorGraph {
     edge.addSourceNode(node);
     node.addOutEdge(edge);
     sinks.add(edge);
-
-    log.info(edge.toString());
   }
 
   void addEdge(StreamSpec streamSpec, String sourceProcessorId, String targetProcessorId) {
@@ -87,8 +80,6 @@ public class ProcessorGraph {
     sourceNode.addOutEdge(edge);
     targetNode.addInEdge(edge);
     internalStreams.add(edge);
-
-    log.info(edge.toString());
   }
 
   ProcessorNode getNode(String processorId) {
@@ -242,18 +233,22 @@ public class ProcessorGraph {
     Collection<ProcessorNode> pnodes = nodes.values();
     Queue<ProcessorNode> q = new ArrayDeque<>();
     Map<String, Long> indegree = new HashMap<>();
+    Set<ProcessorNode> visited = new HashSet<>();
     pnodes.forEach(node -> {
         String nid = node.getId();
+        //only count the degrees of intermediate streams since sources have degree 0
         long degree = node.getInEdges().stream().filter(e -> !sources.contains(e)).count();
         indegree.put(nid, degree);
 
         if (degree == 0L) {
+          // start from the nodes that only consume from sources
           q.add(node);
+          visited.add(node);
         }
       });
 
     List<ProcessorNode> sortedNodes = new ArrayList<>();
-    Set<ProcessorNode> visited = new HashSet<>();
+    Set<ProcessorNode> reachable = new HashSet<>();
     while (sortedNodes.size() < pnodes.size()) {
       while (!q.isEmpty()) {
         ProcessorNode node = q.poll();
@@ -264,28 +259,38 @@ public class ProcessorGraph {
             indegree.put(nid, degree);
             if (degree == 0L && !visited.contains(n)) {
               q.add(n);
+              visited.add(n);
             }
-            visited.add(n);
+            reachable.add(n);
           });
       }
 
       if (sortedNodes.size() < pnodes.size()) {
         // The remaining nodes have circles
-        // use the following simple approach to break the circles
-        // start from the node that have been seen
-        visited.removeAll(sortedNodes);
-        //find out the nodes with minimal input edge
-        long min = Long.MAX_VALUE;
-        ProcessorNode minNode = null;
-        for (ProcessorNode node : visited) {
-          Long degree = indegree.get(node.getId());
-          if (degree < min) {
-            min = degree;
-            minNode = node;
+        // use the following approach to break the circles
+        // start from the nodes that are reachable from previous traverse
+        reachable.removeAll(sortedNodes);
+        if (!reachable.isEmpty()) {
+          //find out the nodes with minimal input edge
+          long min = Long.MAX_VALUE;
+          ProcessorNode minNode = null;
+          for (ProcessorNode node : reachable) {
+            Long degree = indegree.get(node.getId());
+            if (degree < min) {
+              min = degree;
+              minNode = node;
+            }
           }
+          // start from the node with minimal input edge again
+          q.add(minNode);
+        } else {
+          // all the remaining nodes should be reachable from sources
+          // start from sources again to find the next node that hasn't been visited
+          ProcessorNode nextNode = sources.stream().flatMap(source -> source.getTargetNodes().stream())
+              .filter(node -> !visited.contains(node))
+              .findAny().get();
+          q.add(nextNode);
         }
-        // start from the node with minimal input edge again
-        q.add(minNode);
       }
     }
 

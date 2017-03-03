@@ -24,15 +24,20 @@ import com.google.common.collect.Multimap;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
@@ -43,6 +48,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * The ExecutionPlanner creates the physical execution graph for the StreamGraph, and
+ * the intermediate topics needed for the execution.
+ */
 public class ExecutionPlanner {
   private static final Logger log = LoggerFactory.getLogger(ExecutionPlanner.class);
 
@@ -56,27 +65,28 @@ public class ExecutionPlanner {
     Map<String, SystemAdmin> sysAdmins = getSystemAdmins(config);
 
     // create physical processors based on stream graph
-    ProcessorGraph processorGraph = splitStages(streamGraph);
+    ProcessorGraph processorGraph = createProcessorGraph(streamGraph);
 
     if (!processorGraph.getInternalStreams().isEmpty()) {
-      // figure out the partition for internal streams
-      Multimap<String, StreamSpec> streams = calculatePartitions(streamGraph, processorGraph, sysAdmins);
+      // figure out the partitions for internal streams
+      calculatePartitions(streamGraph, processorGraph, sysAdmins);
 
       // create the streams
-      createStreams(streams, sysAdmins);
+      createStreams(processorGraph, sysAdmins);
     }
 
     return processorGraph;
   }
 
-  public ProcessorGraph splitStages(StreamGraph streamGraph) throws Exception {
-    String pipelineId = String.format("%s-%s", config.get(JobConfig.JOB_NAME()), config.getOrDefault(JobConfig.JOB_ID(), "1"));
-    // For this phase, we are going to create a processor with the whole dag
-    String processorId = pipelineId; // only one processor, name it the same as pipeline itself
+  /**
+   * Create the physical graph from StreamGraph
+   * Package private for testing
+   */
+  ProcessorGraph createProcessorGraph(StreamGraph streamGraph) {
+    // For this phase, we are going to create a processor for the whole dag
+    String processorId = config.get(JobConfig.JOB_NAME()); // only one processor, use the job name
 
     ProcessorGraph processorGraph = new ProcessorGraph(config);
-
-    // TODO: remote the casting once we have the correct types in StreamGraph
     Set<StreamSpec> sourceStreams = new HashSet<>(streamGraph.getInStreams().keySet());
     Set<StreamSpec> sinkStreams = new HashSet<>(streamGraph.getOutStreams().keySet());
     Set<StreamSpec> intStreams = new HashSet<>(sourceStreams);
@@ -98,49 +108,32 @@ public class ExecutionPlanner {
     return processorGraph;
   }
 
-  private Multimap<String, StreamSpec> calculatePartitions(StreamGraph streamGraph, ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
+  /**
+   * Figure out the number of partitions of intermediate streams
+   * Package private for testing
+   */
+  void calculatePartitions(StreamGraph streamGraph, ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
     // fetch the external streams partition info
-    getExistingStreamPartitions(processorGraph, sysAdmins);
+    fetchExistingStreamPartitions(processorGraph, sysAdmins);
 
-    // use BFS to figure out the join partition count
+    // calculate the partitions for the input streams of join operators
+    calculateJoinInputPartitions(streamGraph, processorGraph);
 
-
-    // TODO this algorithm assumes only one processor, and it does not consider join
-    Multimap<String, StreamSpec> streamsGroupedBySystem = HashMultimap.create();
-    List<ProcessorNode> processors = processorGraph.topologicalSort();
-    processors.forEach(processor -> {
-        Set<StreamEdge> outStreams = new HashSet<>(processor.getOutEdges());
-        outStreams.retainAll(processorGraph.getInternalStreams());
-        if (!outStreams.isEmpty()) {
-          int maxInPartition = maxPartition(processor.getInEdges());
-          int maxOutPartition = maxPartition(processor.getOutEdges());
-          int partition = Math.max(maxInPartition, maxOutPartition);
-
-          outStreams.forEach(streamEdge -> {
-              if (streamEdge.getPartitions() == -1) {
-                streamEdge.setPartitions(partition);
-                StreamSpec streamSpec = createStreamSpec(streamEdge);
-                streamsGroupedBySystem.put(streamEdge.getSystemStream().getSystem(), streamSpec);
-              }
-            });
-        }
-      });
-
-    return streamsGroupedBySystem;
+    // calculate the partitions for the rest of intermediate streams
+    calculateIntStreamPartitions(processorGraph, config);
   }
 
-  private void getExistingStreamPartitions(ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
-    Set<StreamEdge> allStreams = new HashSet<>();
-    allStreams.addAll(processorGraph.getSources());
-    allStreams.addAll(processorGraph.getSinks());
-    allStreams.addAll(processorGraph.getInternalStreams());
+  static void fetchExistingStreamPartitions(ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
+    Set<StreamEdge> existingStreams = new HashSet<>();
+    existingStreams.addAll(processorGraph.getSources());
+    existingStreams.addAll(processorGraph.getSinks());
 
-    Multimap<String, StreamEdge> externalStreamsMap = HashMultimap.create();
-    allStreams.forEach(streamEdge -> {
+    Multimap<String, StreamEdge> existingStreamsMap = HashMultimap.create();
+    existingStreams.forEach(streamEdge -> {
         SystemStream systemStream = streamEdge.getSystemStream();
-        externalStreamsMap.put(systemStream.getSystem(), streamEdge);
+        existingStreamsMap.put(systemStream.getSystem(), streamEdge);
       });
-    for (Map.Entry<String, Collection<StreamEdge>> entry : externalStreamsMap.asMap().entrySet()) {
+    for (Map.Entry<String, Collection<StreamEdge>> entry : existingStreamsMap.asMap().entrySet()) {
       String systemName = entry.getKey();
       Collection<StreamEdge> streamEdges = entry.getValue();
       Map<String, StreamEdge> streamToEdge = new HashMap<>();
@@ -150,18 +143,136 @@ public class ExecutionPlanner {
       metadata.forEach((stream, data) -> {
           int partitions = data.getSystemStreamPartitionMetadata().size();
           streamToEdge.get(stream).setPartitions(partitions);
-          log.info("Partition count is {} for stream {}", partitions, stream);
+          log.debug("Partition count is {} for stream {}", partitions, stream);
         });
     }
   }
 
-  private void createStreams(Multimap<String, StreamSpec> streams, Map<String, SystemAdmin> sysAdmins) {
-    for (Map.Entry<String, Collection<StreamSpec>> entry : streams.asMap().entrySet()) {
+  /**
+   * Calculate the partitions for the input streams of join operators
+   * Package private for testing
+   */
+  static void calculateJoinInputPartitions(StreamGraph streamGraph, ProcessorGraph processorGraph) {
+    // get join operators with input streams
+    Multimap<OperatorSpec, StreamEdge> joinToStreamMap = HashMultimap.create();
+    Multimap<StreamEdge, OperatorSpec> streamToJoinMap = HashMultimap.create();
+    Map<MessageStream, OperatorSpec> outputToJoinMap = new HashMap<>();
+    Queue<OperatorSpec> joinQ = new LinkedList<>(); // a queue of joins with known input partitions
+    Set<OperatorSpec> visited = new HashSet<>();
+    streamGraph.getInStreams().entrySet().forEach(entry -> {
+        StreamEdge streamEdge = processorGraph.getEdge(entry.getKey());
+        getJoins(entry.getValue(), streamEdge, joinToStreamMap, streamToJoinMap, outputToJoinMap, joinQ, visited);
+      });
+    // calculate join input partition count
+    while (!joinQ.isEmpty()) {
+      OperatorSpec join = joinQ.poll();
+      int partitions = -1;
+      // loop through the input streams to the join and find the partition count
+      for (StreamEdge edge : joinToStreamMap.get(join)) {
+        int edgePartitions = edge.getPartitions();
+        if (edgePartitions != -1) {
+          if (partitions == -1) {
+            //if the partition is not assigned
+            partitions = edgePartitions;
+          } else if (partitions != edgePartitions) {
+            throw  new SamzaException(String.format("Unable to resolve input partitions of stream %s for join",
+                edge.getSystemStream().toString()));
+          }
+        }
+      }
+      // assign the partition count
+      for (StreamEdge edge : joinToStreamMap.get(join)) {
+        if (edge.getPartitions() <= 0) {
+          edge.setPartitions(partitions);
+
+          // find other joins can be inferred by setting this edge
+          for (OperatorSpec op : streamToJoinMap.get(edge)) {
+            if (!visited.contains(op)) {
+              joinQ.add(op);
+              visited.add(op);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * This function
+   * @param messageStream
+   * @param streamEdge
+   * @param joinToStreamMap
+   * @param streamToJoinMap
+   * @param outputToJoinMap
+   * @param joinQ
+   * @param visited
+   */
+  static void getJoins(MessageStream messageStream,
+      StreamEdge streamEdge,
+      Multimap<OperatorSpec, StreamEdge> joinToStreamMap,
+      Multimap<StreamEdge, OperatorSpec> streamToJoinMap,
+      Map<MessageStream, OperatorSpec> outputToJoinMap,
+      Queue<OperatorSpec> joinQ,
+      Set<OperatorSpec> visited) {
+    Collection<OperatorSpec> specs = ((MessageStreamImpl) messageStream).getRegisteredOperatorSpecs();
+    for (OperatorSpec spec : specs) {
+      if (spec instanceof PartialJoinOperatorSpec) {
+        // every join will have two partial join operators
+        // we will choose one of them in order to consolidate the inputs
+        // the first one who registered with the outputToJoinMap will win
+        MessageStream output = spec.getNextStream();
+        OperatorSpec joinSpec = outputToJoinMap.get(output);
+        if (joinSpec == null) {
+          joinSpec = spec;
+          outputToJoinMap.put(output, joinSpec);
+        }
+
+        joinToStreamMap.put(joinSpec, streamEdge);
+        streamToJoinMap.put(streamEdge, joinSpec);
+
+        if (!visited.contains(joinSpec) && streamEdge.getPartitions() > 0) {
+          // put the joins with known input partitions into the queue
+          joinQ.add(joinSpec);
+          visited.add(joinSpec);
+        }
+      }
+
+      if (spec.getNextStream() != null) {
+        getJoins(spec.getNextStream(), streamEdge, joinToStreamMap, streamToJoinMap, outputToJoinMap, joinQ, visited);
+      }
+    }
+  }
+
+  static void calculateIntStreamPartitions(ProcessorGraph processorGraph, Config config) {
+    int partitions = config.getInt(JobConfig.JOB_DEFAULT_PARTITIONS(), -1);
+    if (partitions < 0) {
+      // use the following simple algo to figure out the partitions
+      // partition = MAX(MAX(Input topic partitions), MAX(Output topic partitions))
+      int maxInPartitions = maxPartition(processorGraph.getSources());
+      int maxOutPartitions = maxPartition(processorGraph.getSinks());
+      partitions = Math.max(maxInPartitions, maxOutPartitions);
+    }
+    for (StreamEdge edge : processorGraph.getInternalStreams()) {
+      if (edge.getPartitions() <= 0) {
+        edge.setPartitions(partitions);
+      }
+    }
+  }
+
+  private static void createStreams(ProcessorGraph graph, Map<String, SystemAdmin> sysAdmins) {
+    Multimap<String, StreamSpec> streamsToCreate = HashMultimap.create();
+    graph.getInternalStreams().forEach(edge -> {
+        StreamSpec streamSpec = createStreamSpec(edge);
+        streamsToCreate.put(edge.getSystemStream().getSystem(), streamSpec);
+      });
+
+    for (Map.Entry<String, Collection<StreamSpec>> entry : streamsToCreate.asMap().entrySet()) {
       String systemName = entry.getKey();
       SystemAdmin systemAdmin = sysAdmins.get(systemName);
 
       for (StreamSpec stream : entry.getValue()) {
-        log.info("Creating stream {} on system {}", stream.getPhysicalName(), systemName);
+        log.info("Creating stream {} with partitions {} on system {}",
+            new Object[]{stream.getPhysicalName(), stream.getPartitionCount(), systemName});
         systemAdmin.createStream(stream);
       }
     }

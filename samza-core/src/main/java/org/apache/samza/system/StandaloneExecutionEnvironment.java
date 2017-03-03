@@ -36,7 +36,7 @@ public class StandaloneExecutionEnvironment extends AbstractExecutionEnvironment
 
   // TODO: may want to move this to a common base class for all {@link ExecutionEnvironment}
   StreamGraph createGraph(StreamGraphBuilder app, Config config) {
-    StreamGraphImpl graph = new StreamGraphImpl();
+    StreamGraphImpl graph = new StreamGraphImpl(this);
     app.init(graph, config);
     return graph;
   }

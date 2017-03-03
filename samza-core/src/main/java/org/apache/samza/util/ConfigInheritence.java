@@ -32,8 +32,8 @@ public class ConfigInheritence {
 
   public static Config extractScopedConfig(Config fullConfig, Config generatedConfig, String configPrefix) {
     Config scopedConfig = fullConfig.subset(configPrefix);
-    log.info("Prefix '{}' has extracted config {}", configPrefix, scopedConfig);
-    log.info("Prefix '{}' has generated config {}", configPrefix, generatedConfig);
+    log.debug("Prefix '{}' has extracted config {}", configPrefix, scopedConfig);
+    log.debug("Prefix '{}' has generated config {}", configPrefix, generatedConfig);
 
     Config[] configPrecedence;
     if (INHERIT_ROOT_CONFIGS) {
@@ -53,7 +53,7 @@ public class ConfigInheritence {
       }
     }
     scopedConfig = new MapConfig(mergedConfig);
-    log.info("Prefix '{}' has merged config {}", configPrefix, scopedConfig);
+    log.debug("Prefix '{}' has merged config {}", configPrefix, scopedConfig);
 
     return scopedConfig;
   }

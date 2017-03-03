@@ -19,10 +19,8 @@
 
 package org.apache.samza.processorgraph;
 
-import com.google.common.base.Joiner;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
@@ -91,18 +89,5 @@ public class StreamEdge {
 
   void setName(String name) {
     this.name = name;
-  }
-
-  @Override
-  public String toString() {
-    StringBuilder builder = new StringBuilder("StreamEdge ");
-    builder.append(getSystemStream().toString()).append(": (");
-    List<String> sourceIds = sourceNodes.stream().map(node -> node.getId()).collect(Collectors.toList());
-    String sources = Joiner.on(',').join(sourceIds);
-    builder.append(sources).append(") -> (");
-    List<String> targetIds = targetNodes.stream().map(node -> node.getId()).collect(Collectors.toList());
-    String targets = Joiner.on(',').join(targetIds);
-    builder.append(targets).append(")");
-    return builder.toString();
   }
 }

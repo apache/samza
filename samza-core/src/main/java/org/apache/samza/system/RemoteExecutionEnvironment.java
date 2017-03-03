@@ -46,7 +46,7 @@ public class RemoteExecutionEnvironment extends AbstractExecutionEnvironment {
     // TODO: actually instantiate the tasks and run the job, i.e.
     try {
       // 1. build stream graph
-      StreamGraph streamGraph = new StreamGraphImpl();
+      StreamGraph streamGraph = new StreamGraphImpl(this);
       app.init(streamGraph, config);
 
       // 2. create the physical execution plan
