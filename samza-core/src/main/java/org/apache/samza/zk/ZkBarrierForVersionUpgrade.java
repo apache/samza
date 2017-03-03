@@ -46,7 +46,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   }
 
   @Override
-  public void startBarrier(String version, List<String> processorsNames) {
+  public void start(String version, List<String> processorsNames) {
     String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
     String barrierDonePath = String.format("%s/barrier_done", barrierPath);
     String barrierProcessors = String.format("%s/barrier_processors", barrierPath);
@@ -54,7 +54,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     zkUtils.makeSurePersistentPathsExists(new String[]{barrierPrefix, barrierPath, barrierProcessors, barrierDonePath});
 
     // callback for when the barrier is reached
-    Runnable callback = new Runnable() {
+    final Runnable callback = new Runnable() {
       @Override
       public void run() {
         LOG.info("Writing BARRIER DONE to " + barrierDonePath);
@@ -88,8 +88,8 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
    * listener for the subscription.
    */
   class ZkBarrierChangeHandler implements IZkChildListener {
-    Runnable callback;
-    List<String> names;
+    private final Runnable callback;
+    private final List<String> names;
 
     public ZkBarrierChangeHandler(Runnable callback, List<String> names) {
       this.callback = callback;

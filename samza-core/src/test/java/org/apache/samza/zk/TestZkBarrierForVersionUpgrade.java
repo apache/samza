@@ -81,7 +81,7 @@ public class TestZkBarrierForVersionUpgrade {
     }
     final Status s = new Status();
 
-    barrier.startBarrier(ver, processors);
+    barrier.start(ver, processors);
 
     barrier.waitForBarrier(ver, "p1", new Runnable() {
       @Override
@@ -117,7 +117,7 @@ public class TestZkBarrierForVersionUpgrade {
     }
     final Status s = new Status();
 
-    barrier.startBarrier(ver, processors);
+    barrier.start(ver, processors);
 
     barrier.waitForBarrier(ver, "p1", new Runnable() {
       @Override
