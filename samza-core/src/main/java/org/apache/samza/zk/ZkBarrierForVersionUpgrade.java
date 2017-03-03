@@ -19,6 +19,7 @@
 
 package org.apache.samza.zk;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.I0Itec.zkclient.IZkChildListener;
@@ -47,34 +48,25 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
   @Override
   public void start(String version, List<String> processorsNames) {
-    String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
-    String barrierDonePath = String.format("%s/barrier_done", barrierPath);
-    String barrierProcessors = String.format("%s/barrier_processors", barrierPath);
+    final String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
+    final String barrierDonePath = String.format("%s/barrier_done", barrierPath);
+    final String barrierProcessors = String.format("%s/barrier_processors", barrierPath);
 
     zkUtils.makeSurePersistentPathsExists(new String[]{barrierPrefix, barrierPath, barrierProcessors, barrierDonePath});
 
-    // callback for when the barrier is reached
-    final Runnable callback = new Runnable() {
-      @Override
-      public void run() {
-        LOG.info("Writing BARRIER DONE to " + barrierDonePath);
-        zkUtils.getZkClient().writeData(barrierDonePath, BARRIER_DONE);
-      }
-    };
     // subscribe for processor's list changes
     LOG.info("Subscribing for child changes at " + barrierProcessors);
     zkUtils.getZkClient().subscribeChildChanges(barrierProcessors,
-        new ZkBarrierChangeHandler(callback, processorsNames));
+        new ZkBarrierChangeHandler(version, processorsNames));
   }
 
   @Override
   public void waitForBarrier(String version, String processorsName, Runnable callback) {
     // if participant makes this call it means it has already stopped the old container and got the new job model.
-    String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
-    String barrierDonePath = String.format("%s/barrier_done", barrierPath);
-    String barrierProcessors = String.format("%s/barrier_processors", barrierPath);
-    String barrierProcessorThis = String.format("%s/%s", barrierProcessors, processorsName);
-
+    final String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
+    final String barrierDonePath = String.format("%s/barrier_done", barrierPath);
+    final String barrierProcessors = String.format("%s/barrier_processors", barrierPath);
+    final String barrierProcessorThis = String.format("%s/%s", barrierProcessors, processorsName);
 
     // update the barrier for this processor
     LOG.info("Creating a child for barrier at " + barrierProcessorThis);
@@ -88,11 +80,11 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
    * listener for the subscription.
    */
   class ZkBarrierChangeHandler implements IZkChildListener {
-    private final Runnable callback;
+    private final String version;
     private final List<String> names;
 
-    public ZkBarrierChangeHandler(Runnable callback, List<String> names) {
-      this.callback = callback;
+    public ZkBarrierChangeHandler(String version, List<String> names) {
+      this.version = version;
       this.names = names;
     }
 
@@ -105,30 +97,24 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
         LOG.info("Got handleChildChange with null currentChildren");
         return;
       }
-      // debug
-      StringBuilder sb = new StringBuilder();
-      for (String child : currentChildren) {
-        sb.append(child).append(",");
-      }
-      LOG.info("list of children in the barrier = " + parentPath + ":" + sb.toString());
-      sb = new StringBuilder();
-      for (String child : names) {
-        sb.append(child).append(",");
-      }
-      LOG.info("list of children to compare against = " + parentPath + ":" + sb.toString());
 
+      LOG.info("list of children in the barrier = " + parentPath + ":" + Arrays.toString(currentChildren.toArray()));
+      LOG.info("list of children to compare against = " + parentPath + ":" + Arrays.toString(names.toArray()));
 
       // check if all the names are in
-      for (String n : names) {
-        if (!currentChildren.contains(n)) {
-          LOG.info("node " + n + " is still not in the list ");
+      for (String name : names) {
+        if (!currentChildren.contains(name)) {
+          LOG.info("node " + name + " is still not in the list ");
           allIn = false;
           break;
         }
       }
       if (allIn) {
         LOG.info("ALl nodes reached the barrier");
-        callback.run(); // all the names have registered
+        final String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
+        final String barrierDonePath = String.format("%s/barrier_done", barrierPath);
+        LOG.info("Writing BARRIER DONE to " + barrierDonePath);
+        zkUtils.getZkClient().writeData(barrierDonePath, BARRIER_DONE);
       }
     }
   }
