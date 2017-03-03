@@ -48,6 +48,8 @@ object JobConfig {
   val JOB_CONTAINER_SINGLE_THREAD_MODE = "job.container.single.thread.mode"
   val JOB_REPLICATION_FACTOR = "job.coordinator.replication.factor"
   val JOB_SEGMENT_BYTES = "job.coordinator.segment.bytes"
+  val JOB_DEFAULT_PARTITIONS = "job.default.partitions"
+
   val SSP_GROUPER_FACTORY = "job.systemstreampartition.grouper.factory"
 
   val SSP_MATCHER_CLASS = "job.systemstreampartition.matcher.class";
