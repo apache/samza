@@ -55,7 +55,7 @@ public class TestAbstractExecutionEnvironment {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
                                       StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     StreamSpec spec = env.streamFromConfig(STREAM_ID);
 
     assertEquals(TEST_PHYSICAL_NAME, spec.getPhysicalName());
@@ -68,7 +68,7 @@ public class TestAbstractExecutionEnvironment {
     Config config = buildStreamConfig(STREAM_ID,
                                       StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     StreamSpec spec = env.streamFromConfig(STREAM_ID);
 
     assertEquals(STREAM_ID, spec.getPhysicalName());
@@ -81,7 +81,7 @@ public class TestAbstractExecutionEnvironment {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
                                       StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     StreamSpec spec = env.streamFromConfig(STREAM_ID);
 
     assertEquals(TEST_SYSTEM, spec.getSystemName());
@@ -94,7 +94,7 @@ public class TestAbstractExecutionEnvironment {
                                                   StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME),
                                 JobConfig.JOB_DEFAULT_SYSTEM(), TEST_DEFAULT_SYSTEM);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     StreamSpec spec = env.streamFromConfig(STREAM_ID);
 
     assertEquals(TEST_DEFAULT_SYSTEM, spec.getSystemName());
@@ -108,7 +108,7 @@ public class TestAbstractExecutionEnvironment {
                                                 StreamConfig.SYSTEM(), TEST_SYSTEM),
                                 JobConfig.JOB_DEFAULT_SYSTEM(), TEST_DEFAULT_SYSTEM);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     StreamSpec spec = env.streamFromConfig(STREAM_ID);
 
     assertEquals(TEST_SYSTEM, spec.getSystemName());
@@ -120,7 +120,7 @@ public class TestAbstractExecutionEnvironment {
     Config config = buildStreamConfig(STREAM_ID,
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     StreamSpec spec = env.streamFromConfig(STREAM_ID);
 
     assertEquals(TEST_SYSTEM, spec.getSystemName());
@@ -136,7 +136,7 @@ public class TestAbstractExecutionEnvironment {
                                     "systemProperty2", "systemValue2",
                                     "systemProperty3", "systemValue3");
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     StreamSpec spec = env.streamFromConfig(STREAM_ID);
 
     Map<String, String> properties = spec.getConfig();
@@ -159,7 +159,7 @@ public class TestAbstractExecutionEnvironment {
                                     "systemProperty2", "systemValue2",
                                     "systemProperty3", "systemValue3");
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     StreamSpec spec = env.streamFromConfig(STREAM_ID);
 
     Map<String, String> properties = spec.getConfig();
@@ -177,7 +177,7 @@ public class TestAbstractExecutionEnvironment {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2, // This should be ignored because of the explicit arg
                                       StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     StreamSpec spec = env.streamFromConfig(STREAM_ID, TEST_PHYSICAL_NAME);
 
     assertEquals(STREAM_ID, spec.getId());
@@ -192,7 +192,7 @@ public class TestAbstractExecutionEnvironment {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2,
                                       StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     StreamSpec spec = env.streamFromConfig(STREAM_ID, TEST_PHYSICAL_NAME_SPECIAL_CHARS);
     assertEquals(TEST_PHYSICAL_NAME_SPECIAL_CHARS, spec.getPhysicalName());
   }
@@ -204,7 +204,7 @@ public class TestAbstractExecutionEnvironment {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2,
                                       StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     StreamSpec spec = env.streamFromConfig(STREAM_ID, null);
     assertNull(spec.getPhysicalName());
   }
@@ -216,7 +216,7 @@ public class TestAbstractExecutionEnvironment {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2, // This should be ignored because of the explicit arg
                                       StreamConfig.SYSTEM(), TEST_SYSTEM2);              // This too
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     StreamSpec spec = env.streamFromConfig(STREAM_ID, TEST_PHYSICAL_NAME, TEST_SYSTEM);
 
     assertEquals(STREAM_ID, spec.getId());
@@ -231,7 +231,7 @@ public class TestAbstractExecutionEnvironment {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2,
                                       StreamConfig.SYSTEM(), TEST_SYSTEM2);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     env.streamFromConfig(STREAM_ID, TEST_PHYSICAL_NAME, TEST_SYSTEM_INVALID);
   }
 
@@ -242,7 +242,7 @@ public class TestAbstractExecutionEnvironment {
         StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2,
         StreamConfig.SYSTEM(), TEST_SYSTEM2);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     env.streamFromConfig(STREAM_ID, TEST_PHYSICAL_NAME, "");
   }
 
@@ -253,7 +253,7 @@ public class TestAbstractExecutionEnvironment {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2,
                                       StreamConfig.SYSTEM(), TEST_SYSTEM2);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     env.streamFromConfig(STREAM_ID, TEST_PHYSICAL_NAME, null);
   }
 
@@ -263,7 +263,7 @@ public class TestAbstractExecutionEnvironment {
     Config config = buildStreamConfig(STREAM_ID_INVALID,
         StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     env.streamFromConfig(STREAM_ID_INVALID);
   }
 
@@ -273,7 +273,7 @@ public class TestAbstractExecutionEnvironment {
     Config config = buildStreamConfig("",
         StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     env.streamFromConfig("");
   }
 
@@ -283,7 +283,7 @@ public class TestAbstractExecutionEnvironment {
     Config config = buildStreamConfig(null,
         StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    ExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
+    AbstractExecutionEnvironment env = new TestAbstractExecutionEnvironmentImpl(config);
     env.streamFromConfig(null);
   }
 

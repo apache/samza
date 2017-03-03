@@ -38,23 +38,48 @@ public abstract class AbstractExecutionEnvironment implements ExecutionEnvironme
   @Override
   public StreamSpec streamFromConfig(String streamId) {
     StreamConfig streamConfig = new StreamConfig(config);
-    String system = streamConfig.getSystem(streamId);
     String physicalName = streamConfig.getPhysicalName(streamId, streamId);
-    Map<String, String> properties = streamConfig.getStreamProperties(streamId);
 
-    return new StreamSpec(streamId, physicalName, system, properties);
+    return streamFromConfig(streamId, physicalName);
   }
 
-  @Override
-  public StreamSpec streamFromConfig(String streamId, String physicalName) {
+  /**
+   * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
+   *
+   * The stream configurations are read from the following properties in the config:
+   * {@code streams.{$streamId}.*}
+   * <br>
+   * All properties matching this pattern are assumed to be system-specific with one exception. The following
+   * property is a Samza property which is used to bind the stream to a system.
+   *
+   * <ul>
+   *   <li>samza.system - The name of the System on which this stream will be used. If this property isn't defined
+   *                      the stream will be associated with the System defined in {@code job.default.system}</li>
+   * </ul>
+   *
+   * @param streamId      The logical identifier for the stream in Samza.
+   * @param physicalName  The system-specific name for this stream. It could be a file URN, topic name, or other identifer.
+   * @return              The {@link StreamSpec} instance.
+   */
+  /*package private*/ StreamSpec streamFromConfig(String streamId, String physicalName) {
     StreamConfig streamConfig = new StreamConfig(config);
     String system = streamConfig.getSystem(streamId);
 
     return streamFromConfig(streamId, physicalName, system);
   }
 
-  @Override
-  public StreamSpec streamFromConfig(String streamId, String physicalName, String system) {
+  /**
+   * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
+   *
+   * The stream configurations are read from the following properties in the config:
+   * {@code streams.{$streamId}.*}
+   *
+   * @param streamId      The logical identifier for the stream in Samza.
+   * @param physicalName  The system-specific name for this stream. It could be a file URN, topic name, or other identifer.
+   * @param system        The name of the System on which this stream will be used.
+   * @return              The {@link StreamSpec} instance.
+   */
+  /*package private*/ StreamSpec streamFromConfig(String streamId, String physicalName, String system) {
     StreamConfig streamConfig = new StreamConfig(config);
     Map<String, String> properties = streamConfig.getStreamProperties(streamId);
 
