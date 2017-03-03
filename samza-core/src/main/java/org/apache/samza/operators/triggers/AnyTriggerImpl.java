@@ -31,28 +31,28 @@ import java.util.Map;
  */
 public class AnyTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
 
-  private final List<Trigger> triggerList;
+  private final List<Trigger<M>> triggerList;
 
-  private final Map<TriggerImpl, Boolean> triggerImpls = new HashMap<>();
+  private final Map<TriggerImpl<M>, Boolean> triggerImpls = new HashMap<>();
 
   public AnyTriggerImpl(AnyTrigger<M> anyTrigger) {
     this.triggerList = anyTrigger.getTriggers();
 
-    for (Trigger trigger : triggerList) {
+    for (Trigger<M> trigger : triggerList) {
       triggerImpls.put(TriggerImpls.createTriggerImpl(trigger), false);
     }
   }
 
   @Override
   public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
-    for (TriggerImpl triggerImpl : triggerImpls.keySet()) {
+    for (TriggerImpl<M> triggerImpl : triggerImpls.keySet()) {
       triggerImpl.onMessage(message, context, handler);
     }
   }
 
   public void cancel() {
-    for (Iterator<Map.Entry<TriggerImpl, Boolean>> it = triggerImpls.entrySet().iterator(); it.hasNext(); ) {
-      TriggerImpl impl = it.next().getKey();
+    for (Iterator<Map.Entry<TriggerImpl<M>, Boolean>> it = triggerImpls.entrySet().iterator(); it.hasNext(); ) {
+      TriggerImpl<M> impl = it.next().getKey();
       impl.cancel();
       it.remove();
     }

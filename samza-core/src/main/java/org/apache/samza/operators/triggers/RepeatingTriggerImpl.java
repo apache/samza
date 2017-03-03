@@ -26,9 +26,9 @@ import org.apache.samza.operators.data.MessageEnvelope;
  */
 public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
 
-  private final Trigger underlyingTrigger;
+  private final Trigger<M> underlyingTrigger;
 
-  private TriggerImpl underlyingTriggerImpl;
+  private TriggerImpl<M> underlyingTriggerImpl;
 
   private boolean cancelled = false;
 

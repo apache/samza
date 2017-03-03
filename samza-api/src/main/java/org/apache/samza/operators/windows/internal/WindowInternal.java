@@ -39,7 +39,7 @@ import java.util.function.Supplier;
 @InterfaceStability.Unstable
 public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
 
-  private final Trigger defaultTrigger;
+  private final Trigger<M> defaultTrigger;
 
   /*
    * The function that is applied each time a {@link MessageEnvelope} is added to this window.
@@ -60,13 +60,13 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
 
   private final Supplier<WV> initializer;
 
-  private Trigger earlyTrigger;
+  private Trigger<M> earlyTrigger;
 
-  private Trigger lateTrigger;
+  private Trigger<M> lateTrigger;
 
   private AccumulationMode mode;
 
-  public WindowInternal(Trigger defaultTrigger, Supplier<WV> initialValue, BiFunction<M, WV, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType) {
+  public WindowInternal(Trigger<M> defaultTrigger, Supplier<WV> initialValue, BiFunction<M, WV, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType) {
     this.foldFunction = foldFunction;
     this.eventTimeExtractor = eventTimeExtractor;
     this.keyExtractor = keyExtractor;
@@ -93,11 +93,11 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
     return this;
   }
 
-  public Trigger getDefaultTrigger() {
+  public Trigger<M> getDefaultTrigger() {
     return defaultTrigger;
   }
 
-  public Trigger getEarlyTrigger() {
+  public Trigger<M> getEarlyTrigger() {
     return earlyTrigger;
   }
 

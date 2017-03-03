@@ -30,17 +30,17 @@ public class TriggerImpls {
   public static <M extends MessageEnvelope> TriggerImpl<M> createTriggerImpl(Trigger<M> trigger) {
 
     if (trigger instanceof CountTrigger) {
-      return new CountTriggerImpl<>((CountTrigger) trigger);
+      return new CountTriggerImpl<>((CountTrigger<M>) trigger);
     } else if (trigger instanceof RepeatingTrigger) {
-      return new RepeatingTriggerImpl<>((RepeatingTrigger) trigger);
+      return new RepeatingTriggerImpl<>((RepeatingTrigger<M>) trigger);
     } else if (trigger instanceof AnyTrigger) {
-      return new AnyTriggerImpl<>((AnyTrigger) trigger);
+      return new AnyTriggerImpl<>((AnyTrigger<M>) trigger);
     } else if (trigger instanceof TimeSinceLastMessageTrigger) {
-      return new TimeSinceLastMessageTriggerImpl<>((TimeSinceLastMessageTrigger) trigger);
+      return new TimeSinceLastMessageTriggerImpl<>((TimeSinceLastMessageTrigger<M>) trigger);
     } else if (trigger instanceof TimeTrigger) {
-      return new TimeTriggerImpl((TimeTrigger) trigger);
+      return new TimeTriggerImpl((TimeTrigger<M>) trigger);
     } else if (trigger instanceof TimeSinceFirstMessageTrigger) {
-      return new TimeSinceFirstMessageTriggerImpl<>((TimeSinceFirstMessageTrigger) trigger);
+      return new TimeSinceFirstMessageTriggerImpl<>((TimeSinceFirstMessageTrigger<M>) trigger);
     }
 
     throw new SamzaException("No implementation class defined. " + trigger);

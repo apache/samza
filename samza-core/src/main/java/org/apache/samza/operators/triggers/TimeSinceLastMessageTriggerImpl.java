@@ -26,7 +26,7 @@ import org.apache.samza.operators.data.MessageEnvelope;
  */
 public class TimeSinceLastMessageTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
 
-  private final TimeSinceLastMessageTrigger trigger;
+  private final TimeSinceLastMessageTrigger<M> trigger;
   private final long durationMs;
   private long callbackTime = Integer.MIN_VALUE;
   private Cancellable latestFuture = null;
