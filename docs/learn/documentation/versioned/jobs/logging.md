@@ -139,6 +139,11 @@ to log4j.xml and define the system name by specifying the config:
 task.log4j.system="<system-name>"
 {% endhighlight %}
 
+The default stream name for logger is generated using the following convention, though you can override it using the `StreamName` property in the log4j.xml as shown above.
+```java
+"__samza_%s_%s_logs" format (jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
+```
+
 Configuring the StreamAppender will automatically encode messages using logstash's [Log4J JSON format](https://github.com/logstash/log4j-jsonevent-layout). Samza also supports pluggable serialization for those that prefer non-JSON logging events. This can be configured the same way other stream serializers are defined:
 
 {% highlight jproperties %}

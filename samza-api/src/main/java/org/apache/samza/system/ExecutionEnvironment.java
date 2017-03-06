@@ -18,6 +18,7 @@
  */
 package org.apache.samza.system;
 
+import java.lang.reflect.Constructor;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.operators.StreamGraphBuilder;
@@ -26,6 +27,9 @@ import org.apache.samza.config.Config;
 
 /**
  * Interface to be implemented by physical execution engine to deploy the config and jobs to run the {@link org.apache.samza.operators.StreamGraph}
+ *
+ * Implementations of this interface must define a constructor with a single {@link Config} as the argument in order
+ * to support the {@link ExecutionEnvironment#fromConfig(Config)} static constructor.
  */
 @InterfaceStability.Unstable
 public interface ExecutionEnvironment {
@@ -46,13 +50,17 @@ public interface ExecutionEnvironment {
   /**
    * Static method to load the non-standalone environment.
    *
+   * Requires the implementation class to define a constructor with a single {@link Config} as the argument.
+   *
    * @param config  configuration passed in to initialize the Samza processes
    * @return  the configure-driven {@link ExecutionEnvironment} to run the user-defined stream applications
    */
   static ExecutionEnvironment fromConfig(Config config) {
     try {
-      if (ExecutionEnvironment.class.isAssignableFrom(Class.forName(config.get(ENVIRONMENT_CONFIG, DEFAULT_ENVIRONMENT_CLASS)))) {
-        return (ExecutionEnvironment) Class.forName(config.get(ENVIRONMENT_CONFIG, DEFAULT_ENVIRONMENT_CLASS)).newInstance();
+      Class<?> environmentClass = Class.forName(config.get(ENVIRONMENT_CONFIG, DEFAULT_ENVIRONMENT_CLASS));
+      if (ExecutionEnvironment.class.isAssignableFrom(environmentClass)) {
+        Constructor<?> constructor = environmentClass.getConstructor(Config.class); // *sigh*
+        return (ExecutionEnvironment) constructor.newInstance(config);
       }
     } catch (Exception e) {
       throw new ConfigException(String.format("Problem in loading ExecutionEnvironment class %s", config.get(ENVIRONMENT_CONFIG)), e);
@@ -70,4 +78,24 @@ public interface ExecutionEnvironment {
    */
   void run(StreamGraphBuilder graphBuilder, Config config);
 
+  /**
+   * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
+   *
+   * The stream configurations are read from the following properties in the config:
+   * {@code streams.{$streamId}.*}
+   * <br>
+   * All properties matching this pattern are assumed to be system-specific with two exceptions. The following two
+   * properties are Samza properties which are used to bind the stream to a system and a physical resource on that system.
+   *
+   * <ul>
+   *   <li>samza.system -         The name of the System on which this stream will be used. If this property isn't defined
+   *                              the stream will be associated with the System defined in {@code job.default.system}</li>
+   *   <li>samza.physical.name -  The system-specific name for this stream. It could be a file URN, topic name, or other identifer.
+   *                              If this property isn't defined the physical.name will be set to the streamId</li>
+   * </ul>
+   *
+   * @param streamId  The logical identifier for the stream in Samza.
+   * @return          The {@link StreamSpec} instance.
+   */
+  StreamSpec streamFromConfig(String streamId);
 }
