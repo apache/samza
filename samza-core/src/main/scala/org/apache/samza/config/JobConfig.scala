@@ -43,7 +43,6 @@ object JobConfig {
   val SAMZA_FWK_PATH = "samza.fwk.path"
   val SAMZA_FWK_VERSION = "samza.fwk.version"
   val JOB_COORDINATOR_SYSTEM = "job.coordinator.system"
-  val JOB_METADATA_DEFAULT_SYSTEM = "job.metadata.system"
   val JOB_DEFAULT_SYSTEM = "job.default.system"
   val JOB_DEFAULT_PARTITIONS = "job.default.partitions"
   val JOB_CONTAINER_COUNT = "job.container.count"
@@ -110,13 +109,6 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getCoordinatorSystemName = getOption(JobConfig.JOB_COORDINATOR_SYSTEM).getOrElse(
       throw new ConfigException("Missing job.coordinator.system configuration. Cannot proceed with job execution."))
-
-  def getMetadataSystemName = {
-    getOption(JobConfig.JOB_METADATA_DEFAULT_SYSTEM) match {
-      case Some(system) =>  Some(system)
-      case _ => getDefaultSystem
-    }
-  }
 
   def getDefaultSystem = getOption(JobConfig.JOB_DEFAULT_SYSTEM)
 

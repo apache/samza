@@ -19,8 +19,8 @@
 
 package org.apache.samza.zk;
 
-import com.google.common.base.Strings;
 import org.apache.samza.SamzaException;
+import com.google.common.base.Strings;
 
 /**
  * The following ZK hierarchy is maintained for Standalone jobs:
@@ -44,13 +44,17 @@ public class ZkKeyBuilder {
   private final String pathPrefix;
 
   static final String PROCESSORS_PATH = "processors";
-  static final String PROCESSOR_ID_PREFIX = "processor-";
+  public static final String JOBMODEL_VERSION_PATH = "jobModelVersion";
 
   public ZkKeyBuilder(String pathPrefix) {
     if (Strings.isNullOrEmpty(pathPrefix)) {
       throw new SamzaException("Zk PathPrefix cannot be null or empty!");
     }
     this.pathPrefix = pathPrefix.trim();
+  }
+
+  public String getRootPath() {
+    return "/" + pathPrefix;
   }
 
   public String getProcessorsPath() {
@@ -70,5 +74,21 @@ public class ZkKeyBuilder {
     if (!Strings.isNullOrEmpty(path))
       return path.substring(path.lastIndexOf("/") + 1);
     return null;
+  }
+
+  public String getJobModelVersionPath() {
+    return String.format("/%s/%s", pathPrefix, JOBMODEL_VERSION_PATH);
+  }
+
+  public String getJobModelPathPrefix() {
+    return String.format("/%s/jobModels", pathPrefix);
+  }
+
+  public String getJobModelPath(String jobModelVersion) {
+    return String.format("%s/%s", getJobModelPathPrefix(), jobModelVersion);
+  }
+
+  public String getJobModelVersionBarrierPrefix() {
+    return String.format("/%s/versionBarriers", pathPrefix);
   }
 }
