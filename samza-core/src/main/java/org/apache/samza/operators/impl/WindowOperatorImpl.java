@@ -83,9 +83,6 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   @Override
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
     WindowKey<K> storeKey =  getStoreKey(message);
-    System.out.println("===========================");
-    System.out.println("processing message " + storeKey);
-
     BiFunction<M, WV, WV> foldFunction = window.getFoldFunction();
     WV wv = store.get(storeKey);
 
@@ -117,8 +114,6 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       pendingCallbacks.remove();
       state.getCallback().run();
 
-      // TODO: we should probably clear out associated callbacks eagerly -
-      // I don't think we're currently doing that.
       TriggerImplWrapper wrapper = triggers.get(state.triggerKey);
       if (wrapper != null) {
         wrapper.onTimer(collector, coordinator);
@@ -148,10 +143,8 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   private TriggerImplWrapper getOrCreateTriggerWrapper(TriggerKey<K> triggerKey, Trigger<M> trigger) {
     TriggerImplWrapper wrapper = triggers.get(triggerKey);
     if (wrapper != null) {
-      System.out.println("FOUND returning : " + wrapper.impl + " " + wrapper + " " + triggerKey + " " + triggerKey.getKey() + " " + triggerKey.getType());
       return wrapper;
     }
-    System.out.println("CREATE new returning : " + " " + wrapper + " " + triggerKey + " " + triggerKey.getKey() + " " + triggerKey.getType());
 
     TriggerHandlerImpl triggerHandler = new TriggerHandlerImpl();
     TriggerImpl<M> triggerImpl = TriggerImpls.createTriggerImpl(trigger);
@@ -165,13 +158,15 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   private void handleTrigger(TriggerKey<K> triggerKey, MessageCollector collector, TaskCoordinator coordinator) {
     TriggerImplWrapper wrapper = triggers.get(triggerKey);
 
-    if (!(wrapper.impl instanceof RepeatingTriggerImpl) || triggerKey.getType() == TriggerType.DEFAULT) {
+    // Cancel all early triggers too when the default trigger fires.
+    if (triggerKey.getType() == TriggerType.DEFAULT) {
       cancelTrigger(triggerKey);
-      // for default trigger, also cancel the corresponding early trigger for the key.
-      if (triggerKey.getType() == TriggerType.DEFAULT) {
-        TriggerKey<K> earlyTriggerKey = new TriggerKey<>(TriggerType.EARLY, triggerKey.getKey());
-        cancelTrigger(earlyTriggerKey);
-      }
+      cancelTrigger(new TriggerKey(TriggerType.EARLY, triggerKey.getKey()));
+    }
+
+    // Cancel non-repeating early triggers.
+    if (triggerKey.getType() == TriggerType.EARLY && !wrapper.isRepeating()) {
+      cancelTrigger(triggerKey);
     }
 
     WindowKey<K> windowKey = triggerKey.key;
@@ -221,6 +216,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   }
 
   private static class TriggerHandlerImpl implements TriggerImpl.TriggerCallbackHandler {
+
     private boolean triggered;
 
     @Override
@@ -232,10 +228,13 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       return triggered;
     }
 
-    public void clearTrigger() { triggered = false; }
+    public void clearTrigger() {
+      triggered = false;
+    }
   }
 
   private class TriggerTimerState implements Comparable<TriggerTimerState>, Cancellable {
+
     private final TriggerKey<K> triggerKey;
     private final Runnable callback;
 
@@ -295,6 +294,10 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
         handler.clearTrigger();
         handleTrigger(triggerKey, collector, coordinator);
       }
+    }
+
+    public boolean isRepeating() {
+      return this.impl instanceof RepeatingTriggerImpl;
     }
   }
 

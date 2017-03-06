@@ -30,7 +30,6 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.windows.AccumulationMode;
-import org.apache.samza.operators.windows.WindowKey;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -82,7 +81,6 @@ public class TestWindowOperator {
     integers.forEach(n -> task.process(new IntegerMessageEnvelope(n, n), messageCollector, taskCoordinator));
     Thread.sleep(1000);
     task.window(messageCollector, taskCoordinator);
-    System.out.println(windowPanes.size());
     Assert.assertEquals(windowPanes.size(), 5);
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
     Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);

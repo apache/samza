@@ -30,8 +30,6 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
 
   private TriggerImpl<M> underlyingTriggerImpl;
 
-  private boolean cancelled = false;
-
   public RepeatingTriggerImpl(RepeatingTrigger<M> repeatingTrigger) {
     this.underlyingTrigger = repeatingTrigger.getTrigger();
     this.underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger);
@@ -41,12 +39,9 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
     return new TriggerCallbackHandler() {
       @Override
       public void onTrigger() {
-        if (!cancelled) {
           //re-schedule the underlying trigger for execution again.
           underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger);
-          System.out.println("triggering repeat trigger " + this);
           handler.onTrigger();
-        }
       }
     };
   }
@@ -59,6 +54,5 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
   @Override
   public void cancel() {
     underlyingTriggerImpl.cancel();
-    cancelled = true;
   }
 }
