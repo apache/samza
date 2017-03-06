@@ -19,18 +19,19 @@
 
 package org.apache.samza.system.chooser
 
+import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemStream
+import org.apache.samza.system.SystemStreamMetadata
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.IncomingMessageEnvelope
+import org.apache.samza.SamzaException
 import org.apache.samza.util.Logging
 import org.apache.samza.metrics.MetricsHelper
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.system.SystemStreamMetadata
-
-import scala.collection.JavaConversions._
 import org.apache.samza.system.SystemStreamMetadata.OffsetType
 
+import scala.collection.JavaConversions._
 import scala.collection.mutable
 
 /**
@@ -76,7 +77,7 @@ class BootstrappingChooser(
    * A map from system stream name to SystemAdmin that is used for
    * offset comparisons.
    */
-  systemAdmins: mutable.Map[String, SystemAdmin] = mutable.Map()) extends MessageChooser with Logging {
+  systemAdmins: Map[String, SystemAdmin] = Map()) extends MessageChooser with Logging {
 
   /**
    * The number of lagging partitions for each SystemStream that's behind.
@@ -98,9 +99,10 @@ class BootstrappingChooser(
     .toSet
 
   /**
-   * Store all the systemStreamPartitions registered
+   * Mapping from the systemStreamPartition to the lowest registered offset.
+   * When multiple offsets are registered for a system stream partition, lowest offset is chosen.
    */
-  var registeredSystemStreamPartitions: mutable.Map[SystemStreamPartition, String] = mutable.Map[SystemStreamPartition, String]()
+  var registeredSystemStreamPartitions = mutable.Map[SystemStreamPartition, String]()
 
   /**
    * The number of lagging partitions that the underlying wrapped chooser has
@@ -137,9 +139,8 @@ class BootstrappingChooser(
 
     wrapped.register(systemStreamPartition, offset)
 
-    val systemStream = systemStreamPartition.getSystem
-    val systemAdmin: SystemAdmin = systemAdmins.getOrElse(systemStream,
-                                                          throw new SamzaException("SystemAdmin is undefined for SystemStream: %s" format systemStream))
+    val system = systemStreamPartition.getSystem
+    val systemAdmin = systemAdmins.getOrElse(system, throw new SamzaException("SystemAdmin is undefined for System: %s" format system))
     /**
      * SAMZA-1100: When a input SystemStream is consumed as both bootstrap and broadcast
      * BootstrappingChooser should record the lowest offset for each registered SystemStreamPartition.
@@ -149,8 +150,11 @@ class BootstrappingChooser(
     if (!registeredSystemStreamPartitions.contains(systemStreamPartition)) {
       registeredSystemStreamPartitions += systemStreamPartition -> offset
     } else if (offset != null) {
-      val comparatorResult: Integer = systemAdmin.offsetComparator(registeredSystemStreamPartitions(systemStreamPartition), offset)
-      if (comparatorResult != null && comparatorResult > 0) {
+      val existingOffset = registeredSystemStreamPartitions(systemStreamPartition)
+      val comparatorResult: Integer = systemAdmin.offsetComparator(existingOffset, offset)
+      if (comparatorResult == null) {
+        warn("Existing offset: %s and incoming offset: %s of system stream partition: %s are not comparable." format (existingOffset, offset, systemStreamPartition))
+      } else if (comparatorResult > 0) {
         registeredSystemStreamPartitions += systemStreamPartition -> offset
       }
     }
