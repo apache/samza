@@ -74,13 +74,15 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
       .keys
       .filter(k => k.endsWith(StreamConfig.MSG_SERDE) || k.endsWith(StreamConfig.KEY_SERDE))
       .map(k => {
-        val streamName = k.substring(0, k.length - 15 /* samza.XXX.serde length */ )
+        val streamName = k.substring(0, k.length - 16 /* .samza.XXX.serde length */ )
         new SystemStream(systemName, streamName)
       }).toSet
 
-    val systemStreams = subset(StreamConfig.STREAMS_PREFIX).keys.filter(k => k.endsWith(StreamConfig.MSG_SERDE) || k.endsWith(StreamConfig.KEY_SERDE))
+    val systemStreams = subset(StreamConfig.STREAMS_PREFIX)
+      .keys
+      .filter(k => k.endsWith(StreamConfig.MSG_SERDE) || k.endsWith(StreamConfig.KEY_SERDE))
       .map(k => {
-        val streamId = k.substring(0, k.length - 15 /* samza.XXX.serde length */ )
+        val streamId = k.substring(0, k.length - 16 /* .samza.XXX.serde length */ )
         streamIdToSystemStream(streamId)
       }).toSet
 
