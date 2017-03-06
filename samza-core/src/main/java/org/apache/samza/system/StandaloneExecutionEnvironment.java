@@ -28,7 +28,11 @@ import org.apache.samza.operators.StreamGraphImpl;
 /**
  * This class implements the {@link ExecutionEnvironment} that runs the applications in standalone environment
  */
-public class StandaloneExecutionEnvironment implements ExecutionEnvironment {
+public class StandaloneExecutionEnvironment extends AbstractExecutionEnvironment {
+
+  public StandaloneExecutionEnvironment(Config config) {
+    super(config);
+  }
 
   // TODO: may want to move this to a common base class for all {@link ExecutionEnvironment}
   StreamGraph createGraph(StreamGraphBuilder app, Config config) {
