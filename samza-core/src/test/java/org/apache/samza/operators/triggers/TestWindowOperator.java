@@ -30,6 +30,7 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.windows.AccumulationMode;
+import org.apache.samza.operators.windows.WindowKey;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -55,7 +56,7 @@ public class TestWindowOperator {
   private final MessageCollector messageCollector = mock(MessageCollector.class);
   private final TaskCoordinator taskCoordinator = mock(TaskCoordinator.class);
   private final List<Integer> mapOutput = new ArrayList<>();
-  private final List<WindowPane> windowPanes = new ArrayList<>();
+  private final List<WindowPane<Integer, Collection<MessageEnvelope<Integer, Integer>>>> windowPanes = new ArrayList<>();
   private final List<Integer> integers = ImmutableList.of(1, 2, 1, 2, 1, 2, 1, 2, 3);
   private Config config;
   private TaskContext taskContext;
@@ -81,21 +82,21 @@ public class TestWindowOperator {
     integers.forEach(n -> task.process(new IntegerMessageEnvelope(n, n), messageCollector, taskCoordinator));
     Thread.sleep(1000);
     task.window(messageCollector, taskCoordinator);
-
+    System.out.println(windowPanes.size());
     Assert.assertEquals(windowPanes.size(), 5);
-    Assert.assertEquals(windowPanes.get(0).getKey().getKey(), 1);
+    Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
     Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);
 
-    Assert.assertEquals(windowPanes.get(1).getKey().getKey(), 2);
+    Assert.assertEquals(windowPanes.get(1).getKey().getKey(), new Integer(2));
     Assert.assertEquals(((Collection) windowPanes.get(1).getMessage()).size(), 2);
 
-    Assert.assertEquals(windowPanes.get(2).getKey().getKey(), 1);
+    Assert.assertEquals(windowPanes.get(2).getKey().getKey(), new Integer(1));
     Assert.assertEquals(((Collection) windowPanes.get(2).getMessage()).size(), 2);
 
-    Assert.assertEquals(windowPanes.get(3).getKey().getKey(), 2);
+    Assert.assertEquals(windowPanes.get(3).getKey().getKey(), new Integer(2));
     Assert.assertEquals(((Collection) windowPanes.get(3).getMessage()).size(), 2);
 
-    Assert.assertEquals(windowPanes.get(4).getKey().getKey(), 3);
+    Assert.assertEquals(windowPanes.get(4).getKey().getKey(), new Integer(3));
     Assert.assertEquals(((Collection) windowPanes.get(4).getMessage()).size(), 1);
   }
 
@@ -110,16 +111,16 @@ public class TestWindowOperator {
     task.window(messageCollector, taskCoordinator);
 
     Assert.assertEquals(windowPanes.size(), 7);
-    Assert.assertEquals(windowPanes.get(0).getKey().getKey(), 1);
+    Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
     Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);
 
-    Assert.assertEquals(windowPanes.get(1).getKey().getKey(), 2);
+    Assert.assertEquals(windowPanes.get(1).getKey().getKey(), new Integer(2));
     Assert.assertEquals(((Collection) windowPanes.get(1).getMessage()).size(), 2);
 
-    Assert.assertEquals(windowPanes.get(2).getKey().getKey(), 1);
+    Assert.assertEquals(windowPanes.get(2).getKey().getKey(), new Integer(1));
     Assert.assertEquals(((Collection) windowPanes.get(2).getMessage()).size(), 4);
 
-    Assert.assertEquals(windowPanes.get(3).getKey().getKey(), 2);
+    Assert.assertEquals(windowPanes.get(3).getKey().getKey(), new Integer(2));
     Assert.assertEquals(((Collection) windowPanes.get(3).getMessage()).size(), 4);
   }
 
@@ -164,8 +165,8 @@ public class TestWindowOperator {
     task.window(messageCollector, taskCoordinator);
     Assert.assertEquals(windowPanes.size(), 2);
     Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);
-    Assert.assertEquals(windowPanes.get(0).getKey().getKey(), 1);
-    Assert.assertEquals(windowPanes.get(1).getKey().getKey(), 2);
+    Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
+    Assert.assertEquals(windowPanes.get(1).getKey().getKey(), new Integer(2));
     Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);
     Assert.assertEquals(((Collection) windowPanes.get(1).getMessage()).size(), 4);
   }
@@ -218,7 +219,7 @@ public class TestWindowOperator {
               mapOutput.add(m.getKey());
               return m;
             })
-          .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(1))
+          .window(Windows.keyedSessionWindow(keyFn, Duration.ofMillis(500))
               .setAccumulationMode(mode))
           .map(m -> {
               windowPanes.add(m);

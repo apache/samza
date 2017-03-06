@@ -44,6 +44,7 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
         if (!cancelled) {
           //re-schedule the underlying trigger for execution again.
           underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger);
+          System.out.println("triggering repeat trigger " + this);
           handler.onTrigger();
         }
       }

@@ -21,6 +21,7 @@ package org.apache.samza.operators.impl;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.triggers.Cancellable;
+import org.apache.samza.operators.triggers.RepeatingTriggerImpl;
 import org.apache.samza.operators.triggers.TimeTrigger;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.TriggerContext;
@@ -82,6 +83,9 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   @Override
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
     WindowKey<K> storeKey =  getStoreKey(message);
+    System.out.println("===========================");
+    System.out.println("processing message " + storeKey);
+
     BiFunction<M, WV, WV> foldFunction = window.getFoldFunction();
     WV wv = store.get(storeKey);
 
@@ -144,8 +148,10 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   private TriggerImplWrapper getOrCreateTriggerWrapper(TriggerKey<K> triggerKey, Trigger<M> trigger) {
     TriggerImplWrapper wrapper = triggers.get(triggerKey);
     if (wrapper != null) {
+      System.out.println("FOUND returning : " + wrapper.impl + " " + wrapper + " " + triggerKey + " " + triggerKey.getKey() + " " + triggerKey.getType());
       return wrapper;
     }
+    System.out.println("CREATE new returning : " + " " + wrapper + " " + triggerKey + " " + triggerKey.getKey() + " " + triggerKey.getType());
 
     TriggerHandlerImpl triggerHandler = new TriggerHandlerImpl();
     TriggerImpl<M> triggerImpl = TriggerImpls.createTriggerImpl(trigger);
@@ -157,12 +163,20 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   }
 
   private void handleTrigger(TriggerKey<K> triggerKey, MessageCollector collector, TaskCoordinator coordinator) {
-    TriggerImplWrapper wrapper = triggers.remove(triggerKey);
-    TriggerImpl<M> impl = wrapper.impl;
-    impl.cancel();
+    TriggerImplWrapper wrapper = triggers.get(triggerKey);
+
+    if (!(wrapper.impl instanceof RepeatingTriggerImpl) || triggerKey.getType() == TriggerType.DEFAULT) {
+      cancelTrigger(triggerKey);
+      // for default trigger, also cancel the corresponding early trigger for the key.
+      if (triggerKey.getType() == TriggerType.DEFAULT) {
+        TriggerKey<K> earlyTriggerKey = new TriggerKey<>(TriggerType.EARLY, triggerKey.getKey());
+        cancelTrigger(earlyTriggerKey);
+      }
+    }
 
     WindowKey<K> windowKey = triggerKey.key;
     WV wv = store.get(windowKey);
+
     if (wv == null) {
       return;
     }
@@ -179,6 +193,13 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     }
 
     WindowOperatorImpl.super.propagateResult((WM) paneOutput, collector, coordinator);
+  }
+
+  private void cancelTrigger(TriggerKey<K> triggerKey) {
+    TriggerImplWrapper wrapper = triggers.remove(triggerKey);
+    if (wrapper != null) {
+      wrapper.impl.cancel();
+    }
   }
 
   /**
@@ -210,6 +231,8 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     public boolean isTriggered() {
       return triggered;
     }
+
+    public void clearTrigger() { triggered = false; }
   }
 
   private class TriggerTimerState implements Comparable<TriggerTimerState>, Cancellable {
@@ -260,12 +283,16 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     public void onMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
       impl.onMessage(message, context, handler);
       if (handler.isTriggered()) {
+        //repeating trigger can trigger multiple times, So, clear the handler to allow future triggerings.
+        handler.clearTrigger();
         handleTrigger(triggerKey, collector, coordinator);
       }
     }
 
     public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
       if (handler.isTriggered()) {
+        //repeating trigger can trigger multiple times, So, clear the handler to allow future triggerings.
+        handler.clearTrigger();
         handleTrigger(triggerKey, collector, coordinator);
       }
     }
@@ -274,6 +301,10 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   private static class TriggerKey<T> {
     private final TriggerType type;
     private final WindowKey<T> key;
+
+    public WindowKey<T> getKey() {
+      return key;
+    }
 
     public TriggerKey(TriggerType type, WindowKey<T> key) {
       assert type != null;
@@ -297,6 +328,10 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       int result = type.hashCode();
       result = 31 * result + key.hashCode();
       return result;
+    }
+
+    public TriggerType getType() {
+      return type;
     }
   }
 }
