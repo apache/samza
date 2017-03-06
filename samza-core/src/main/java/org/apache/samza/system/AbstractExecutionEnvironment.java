@@ -29,7 +29,7 @@ public abstract class AbstractExecutionEnvironment implements ExecutionEnvironme
 
   public AbstractExecutionEnvironment(Config config) {
     if (config == null) {
-      throw new NullPointerException();
+      throw new NullPointerException("Parameter 'config' cannot be null.");
     }
 
     this.config = config;
