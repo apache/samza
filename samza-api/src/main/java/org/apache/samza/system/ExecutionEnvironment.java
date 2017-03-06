@@ -27,6 +27,9 @@ import org.apache.samza.config.Config;
 
 /**
  * Interface to be implemented by physical execution engine to deploy the config and jobs to run the {@link org.apache.samza.operators.StreamGraph}
+ *
+ * Implementations of this interface must define a constructor with a single {@link Config} as the argument in order
+ * to support the {@link ExecutionEnvironment#fromConfig(Config)} static constructor.
  */
 @InterfaceStability.Unstable
 public interface ExecutionEnvironment {
@@ -46,6 +49,8 @@ public interface ExecutionEnvironment {
 
   /**
    * Static method to load the non-standalone environment.
+   *
+   * Requires the implementation class to define a constructor with a single {@link Config} as the argument.
    *
    * @param config  configuration passed in to initialize the Samza processes
    * @return  the configure-driven {@link ExecutionEnvironment} to run the user-defined stream applications
