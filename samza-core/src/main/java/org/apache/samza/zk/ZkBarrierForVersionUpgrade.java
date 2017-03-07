@@ -20,6 +20,7 @@
 package org.apache.samza.zk;
 
 import java.util.Arrays;
+import org.apache.commons.collections4.CollectionUtils;
 import java.util.List;
 
 import org.I0Itec.zkclient.IZkChildListener;
@@ -56,8 +57,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
     // subscribe for processor's list changes
     LOG.info("Subscribing for child changes at " + barrierProcessors);
-    zkUtils.getZkClient().subscribeChildChanges(barrierProcessors,
-        new ZkBarrierChangeHandler(version, processorsNames));
+    zkUtils.getZkClient().subscribeChildChanges(barrierProcessors, new ZkBarrierChangeHandler(version, processorsNames));
   }
 
   @Override
@@ -90,8 +90,6 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
     @Override
     public void handleChildChange(String parentPath, List<String> currentChildren) throws Exception {
-      // Find out the event & Log
-      boolean allIn = true;
 
       if (currentChildren == null) {
         LOG.info("Got handleChildChange with null currentChildren");
@@ -102,14 +100,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
       LOG.info("list of children to compare against = " + parentPath + ":" + Arrays.toString(names.toArray()));
 
       // check if all the names are in
-      for (String name : names) {
-        if (!currentChildren.contains(name)) {
-          LOG.info("node " + name + " is still not in the list ");
-          allIn = false;
-          break;
-        }
-      }
-      if (allIn) {
+      if (CollectionUtils.containsAll(names, currentChildren)) {
         LOG.info("ALl nodes reached the barrier");
         final String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
         final String barrierDonePath = String.format("%s/barrier_done", barrierPath);
