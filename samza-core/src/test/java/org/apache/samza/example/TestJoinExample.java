@@ -32,6 +32,7 @@ import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -70,7 +71,7 @@ public class TestJoinExample  extends TestExampleBase {
       if (joinOutput == null) {
         joinOutput = newSource;
       } else {
-        joinOutput = joinOutput.join(newSource, new MyJoinFunction(), 1000 * 60);
+        joinOutput = joinOutput.join(newSource, new MyJoinFunction(), Duration.ofMinutes(1));
       }
     }
 

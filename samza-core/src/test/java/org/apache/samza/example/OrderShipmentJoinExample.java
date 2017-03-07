@@ -18,11 +18,11 @@
  */
 package org.apache.samza.example;
 
+import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphBuilder;
-import org.apache.samza.config.Config;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.serializers.JsonSerde;
@@ -31,6 +31,7 @@ import org.apache.samza.system.ExecutionEnvironment;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
+import java.time.Duration;
 
 /**
  * Simple 2-way stream-to-stream join example
@@ -56,7 +57,7 @@ public class OrderShipmentJoinExample implements StreamGraphBuilder {
     MessageStream<ShipmentRecord> shipments = graph.createInStream(input2, new StringSerde("UTF-8"), new JsonSerde<>());
     OutputStream<FulFilledOrderRecord> fulfilledOrders = graph.createOutStream(output, new StringSerde("UTF-8"), new JsonSerde<>());
 
-    orders.join(shipments, new MyJoinFunction(), 1000 * 60).sendTo(fulfilledOrders);
+    orders.join(shipments, new MyJoinFunction(), Duration.ofMinutes(1)).sendTo(fulfilledOrders);
 
   }
 

@@ -32,6 +32,7 @@ import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.CommandLine;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -110,7 +111,7 @@ public class NoContextStreamExample implements StreamGraphBuilder {
         new StringSerde("UTF-8"), new JsonSerde<>());
 
     inputSource1.map(this::getInputMessage).
-        join(inputSource2.map(this::getInputMessage), new MyJoinFunction(), 1000 * 60).
+        join(inputSource2.map(this::getInputMessage), new MyJoinFunction(), Duration.ofMinutes(1)).
         sendTo(outStream);
 
   }

@@ -205,7 +205,7 @@ public class TestOperatorImpls {
               public String getSecondKey(TestMessageEnvelope message) {
                 return message.getKey();
               }
-            }, 1000 * 60)
+            }, Duration.ofMinutes(1))
         .map(m -> m);
     OperatorGraph opGraph = new OperatorGraph();
     // now, we create chained operators from each input sources

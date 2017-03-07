@@ -27,6 +27,7 @@ import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.function.Function;
 
@@ -109,17 +110,18 @@ public interface MessageStream<M> {
   /**
    * Joins this {@link MessageStream} with another {@link MessageStream} using the provided pairwise {@link JoinFunction}.
    * <p>
-   * We currently only support 2-way joins.
+   * Messages in each stream are retained (currently, in memory) for the provided {@code ttl} and join results are
+   * emitted as matches are found.
    *
    * @param otherStream the other {@link MessageStream} to be joined with
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
-   * @param ttlMs the ttl in ms for retaining messages in each stream
+   * @param ttl the ttl for messages in each stream
    * @param <K> the type of join key
    * @param <OM> the type of messages in the other stream
    * @param <RM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, OM, RM> MessageStream<RM> join(MessageStream<OM> otherStream, JoinFunction<K, M, OM, RM> joinFn, long ttlMs);
+  <K, OM, RM> MessageStream<RM> join(MessageStream<OM> otherStream, JoinFunction<K, M, OM, RM> joinFn, Duration ttl);
 
   /**
    * Merge all {@code otherStreams} with this {@link MessageStream}.

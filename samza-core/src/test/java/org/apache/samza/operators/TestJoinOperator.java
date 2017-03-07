@@ -24,7 +24,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamOperatorTask;
@@ -33,9 +33,9 @@ import org.apache.samza.task.TaskCoordinator;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
@@ -200,29 +200,8 @@ public class TestJoinOperator {
   }
 
   private class TestStreamGraphBuilder implements StreamGraphBuilder {
-    StreamSpec inStreamSpec = new StreamSpec() {
-      @Override
-      public SystemStream getSystemStream() {
-        return new SystemStream("insystem", "instream");
-      }
-
-      @Override
-      public Properties getProperties() {
-        return null;
-      }
-    };
-
-    StreamSpec inStreamSpec2 = new StreamSpec() {
-      @Override
-      public SystemStream getSystemStream() {
-        return new SystemStream("insystem2", "instream2");
-      }
-
-      @Override
-      public Properties getProperties() {
-        return null;
-      }
-    };
+    StreamSpec inStreamSpec = new StreamSpec("instream", "instream", "insystem");
+    StreamSpec inStreamSpec2 = new StreamSpec("instream2", "instream2", "insystem2");
 
     @Override
     public void init(StreamGraph graph, Config config) {
@@ -230,7 +209,7 @@ public class TestJoinOperator {
       MessageStream<MessageEnvelope<Integer, Integer>> inStream2 = graph.createInStream(inStreamSpec2, null, null);
 
       inStream
-          .join(inStream2, new TestJoinFunction(), 10)
+          .join(inStream2, new TestJoinFunction(), Duration.ofMillis(10))
           .map(m -> {
               output.add(m);
               return m;

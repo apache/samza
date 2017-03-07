@@ -19,11 +19,6 @@
 
 package org.apache.samza.operators;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.function.Function;
-import java.util.HashSet;
-import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -39,6 +34,13 @@ import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.TaskContext;
+
+import java.time.Duration;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.function.Function;
 
 
 /**
@@ -107,7 +109,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, JM, RM> MessageStream<RM> join(MessageStream<JM> otherStream, JoinFunction<K, M, JM, RM> joinFn, long ttlMs) {
+  public <K, JM, RM> MessageStream<RM> join(MessageStream<JM> otherStream, JoinFunction<K, M, JM, RM> joinFn, Duration ttl) {
     MessageStreamImpl<RM> outputStream = new MessageStreamImpl<>(this.graph);
 
     PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn = new PartialJoinFunction<K, M, JM, RM>() {
@@ -162,10 +164,10 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     };
 
     this.registeredOperatorSpecs.add(OperatorSpecs.<K, M, JM, RM>createPartialJoinOperatorSpec(
-        thisPartialJoinFn, otherPartialJoinFn, ttlMs, this.graph, outputStream));
+        thisPartialJoinFn, otherPartialJoinFn, ttl.toMillis(), this.graph, outputStream));
 
     ((MessageStreamImpl<JM>) otherStream).registeredOperatorSpecs.add(OperatorSpecs.<K, JM, M, RM>createPartialJoinOperatorSpec(
-        otherPartialJoinFn, thisPartialJoinFn, ttlMs, this.graph, outputStream));
+        otherPartialJoinFn, thisPartialJoinFn, ttl.toMillis(), this.graph, outputStream));
 
     return outputStream;
   }
