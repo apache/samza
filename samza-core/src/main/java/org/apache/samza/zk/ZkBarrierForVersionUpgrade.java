@@ -34,7 +34,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final ZkKeyBuilder keyBuilder;
   private final static String BARRIER_DONE = "done";
   private final static String BARRIER_TIMED_OUT = "TIMED_OUT";
-  private final static long BARRIER_TIMED_OUT_MS = 60*1000;
+  private final static long BARRIER_TIMED_OUT_MS = 60 * 1000;
   private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
 
   private final ScheduleAfterDebounceTime debounceTimer;
@@ -68,10 +68,10 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     final String barrierDonePath = String.format("%s/barrier_done", barrierPath);
     Stat stat = new Stat();
     String done = zkUtils.getZkClient().<String>readData(barrierDonePath, stat);
-    if(done != null && done.equals(BARRIER_DONE))
+    if (done != null && done.equals(BARRIER_DONE))
       return; //nothing to do
 
-    while(true) {
+    while (true) {
       try {
         // write a new value if no one else did, if the value was changed since previous reading - retry
         zkUtils.getZkClient().writeData(barrierDonePath, "TIMED_OUT", stat.getVersion());
@@ -80,7 +80,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
         // failed to write, try read/write again
         LOG.info("Barrier timeout write failed");
         done = zkUtils.getZkClient().<String>readData(barrierDonePath, stat);
-        if(done.equals(BARRIER_DONE))
+        if (done.equals(BARRIER_DONE))
           return; //nothing to do
       }
     }
@@ -171,7 +171,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
       if (done.equals(BARRIER_DONE)) {
         zkUtils.unsubscribeDataChanges(barrierPathDone, this);
         debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, callback);
-      } else if(done.equals(BARRIER_TIMED_OUT)) {
+      } else if (done.equals(BARRIER_TIMED_OUT)) {
         // timed out
         LOG.error("Barrier for " + dataPath + " timed out");
         System.out.println("Barrier for " + dataPath + " timed out");

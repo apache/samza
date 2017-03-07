@@ -211,7 +211,7 @@ public class TestZkUtils {
     return false;
   }
 
-  public static void sleepMs (long delay) {
+  public static void sleepMs (long delay){
     try {
       Thread.sleep(delay);
     } catch (InterruptedException e) {

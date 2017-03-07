@@ -49,8 +49,8 @@ public class TestScheduleAfterDebounceTime {
 
     final TestObj testObj = new TestScheduleAfterDebounceTime.TestObj();
     debounceTimer.scheduleAfterDebounceTime("TEST1", DEBOUNCE_TIME, () -> {
-          testObj.inc();
-        });
+        testObj.inc();
+      });
     // action is delayed
     Assert.assertEquals(0, i);
 
