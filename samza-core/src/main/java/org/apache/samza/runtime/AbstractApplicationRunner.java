@@ -16,19 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.system;
+package org.apache.samza.runtime;
 
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StreamConfig;
+import org.apache.samza.system.StreamSpec;
 
 
-public abstract class AbstractExecutionEnvironment implements ExecutionEnvironment {
+public abstract class AbstractApplicationRunner implements ApplicationRunner {
 
   private final Config config;
 
-  public AbstractExecutionEnvironment(Config config) {
+  public AbstractApplicationRunner(Config config) {
     if (config == null) {
       throw new NullPointerException("Parameter 'config' cannot be null.");
     }

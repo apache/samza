@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.system;
+package org.apache.samza.runtime;
 
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphBuilder;
@@ -26,11 +26,11 @@ import org.apache.samza.operators.StreamGraphImpl;
 
 
 /**
- * This class implements the {@link ExecutionEnvironment} that runs the applications in standalone environment
+ * This class implements the {@link ApplicationRunner} that runs the applications in standalone environment
  */
-public class StandaloneExecutionEnvironment extends AbstractExecutionEnvironment {
+public class LocalApplicationRunner extends AbstractApplicationRunner {
 
-  public StandaloneExecutionEnvironment(Config config) {
+  public LocalApplicationRunner(Config config) {
     super(config);
   }
 
