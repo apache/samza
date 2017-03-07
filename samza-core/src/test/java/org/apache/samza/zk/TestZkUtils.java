@@ -215,7 +215,7 @@ public class TestZkUtils {
     try {
       Thread.sleep(delay);
     } catch (InterruptedException e) {
-      // nothing
+      Assert.fail("Sleep was interrupted");
     }
   }
 }
