@@ -27,7 +27,7 @@ import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.ExecutionEnvironment;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
@@ -38,15 +38,14 @@ import org.apache.samza.util.CommandLine;
 public class OrderShipmentJoinExample implements StreamGraphBuilder {
 
   /**
-   * used by remote execution environment to launch the job in remote program. The remote program should follow the similar
-   * invoking context as in standalone:
+   * used by remote application runner to launch the job in remote program. The remote program should follow the similar
+   * invoking context as in local runner:
    *
    *   public static void main(String args[]) throws Exception {
    *     CommandLine cmdLine = new CommandLine();
    *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-   *     ExecutionEnvironment remoteEnv = ExecutionEnvironment.getRemoteEnvironment(config);
-   *     UserMainExample runnableApp = new UserMainExample();
-   *     runnableApp.run(remoteEnv, config);
+   *     ApplicationRunner runner = ApplicationRunner.fromConfig(config);
+   *     runner.run(new UserMainExample(), config);
    *   }
    *
    */
@@ -64,8 +63,8 @@ public class OrderShipmentJoinExample implements StreamGraphBuilder {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ExecutionEnvironment standaloneEnv = ExecutionEnvironment.getLocalEnvironment(config);
-    standaloneEnv.run(new OrderShipmentJoinExample(), config);
+    ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
+    localRunner.run(new OrderShipmentJoinExample(), config);
   }
 
   StreamSpec input1 = new StreamSpec("orderStream", "OrderEvent", "kafka");

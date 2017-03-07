@@ -16,17 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.system;
+package org.apache.samza.runtime;
 
 import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.config.Config;
 
-/**
- * This class implements the {@link ExecutionEnvironment} that runs the applications in YARN environment
- */
-public class RemoteExecutionEnvironment extends AbstractExecutionEnvironment {
 
-  public RemoteExecutionEnvironment(Config config) {
+/**
+ * This class implements the {@link ApplicationRunner} that runs the applications in a remote cluster
+ */
+public class RemoteApplicationRunner extends AbstractApplicationRunner {
+
+  public RemoteApplicationRunner(Config config) {
     super(config);
   }
 
