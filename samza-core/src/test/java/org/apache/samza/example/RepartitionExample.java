@@ -26,7 +26,7 @@ import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.ExecutionEnvironment;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
@@ -68,7 +68,7 @@ public class RepartitionExample implements StreamGraphBuilder {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ExecutionEnvironment standaloneEnv = ExecutionEnvironment.getLocalEnvironment(config);
+    ApplicationRunner standaloneEnv = ApplicationRunner.getLocalRunner(config);
     standaloneEnv.run(new RepartitionExample(), config);
   }
 
