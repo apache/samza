@@ -25,6 +25,7 @@ import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.impl.OperatorGraph;
+import org.apache.samza.system.ExecutionEnvironment;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 
@@ -77,8 +78,11 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   @Override
   public final void init(Config config, TaskContext context) throws Exception {
+    // for now, we need to create the execution env again
+    // in the future if we decide to serialize the dag, this can be clean up
+    ExecutionEnvironment executionEnvironment = ExecutionEnvironment.fromConfig(config);
     // create the MessageStreamsImpl object and initialize app-specific logic DAG within the task
-    StreamGraphImpl streams = new StreamGraphImpl();
+    StreamGraphImpl streams = new StreamGraphImpl(executionEnvironment);
     this.graphBuilder.init(streams, config);
     // get the context manager of the {@link StreamGraph} and initialize the task-specific context
     this.contextManager = streams.getContextManager();
