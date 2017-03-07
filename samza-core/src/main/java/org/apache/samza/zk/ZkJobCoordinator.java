@@ -184,10 +184,12 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     // get the current version
     String currentJMVersion  = zkUtils.getJobModelVersion();
     String nextJMVersion;
-    if (currentJMVersion == null)
+    if (currentJMVersion == null) {
+      log.info("pid=" + processorId + "generating first version of the model");
       nextJMVersion = "1";
-    else
+    } else {
       nextJMVersion = Integer.toString(Integer.valueOf(currentJMVersion) + 1);
+    }
     log.info("pid=" + processorId + "generating new model. Version = " + nextJMVersion);
 
     StringBuilder sb = new StringBuilder();

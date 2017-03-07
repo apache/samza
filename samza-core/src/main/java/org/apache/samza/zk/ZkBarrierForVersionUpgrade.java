@@ -21,10 +21,9 @@ package org.apache.samza.zk;
 
 import java.util.Arrays;
 import java.util.List;
-
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
-import org.apache.zookeeper.KeeperException;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +56,10 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
    */
   public void setTimer(String version, long timeout) {
     debounceTimer.scheduleAfterDebounceTime("VersionUpgradeTimeout", timeout, ()->timerOff(version));
+  }
+
+  protected long getBarrierTimeOutMs() {
+    return BARRIER_TIMED_OUT_MS;
   }
 
   private void timerOff(String version) {
@@ -96,7 +99,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     zkUtils.getZkClient().subscribeChildChanges(barrierProcessors,
         new ZkBarrierChangeHandler(version, processorsNames));
 
-    setTimer(version, BARRIER_TIMED_OUT_MS);
+    setTimer(version, getBarrierTimeOutMs());
   }
 
   @Override
@@ -129,8 +132,6 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
     @Override
     public void handleChildChange(String parentPath, List<String> currentChildren) throws Exception {
-      // Find out the event & Log
-      boolean allIn = true;
 
       if (currentChildren == null) {
         LOG.info("Got handleChildChange with null currentChildren");
@@ -141,14 +142,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
       LOG.info("list of children to compare against = " + parentPath + ":" + Arrays.toString(names.toArray()));
 
       // check if all the names are in
-      for (String name : names) {
-        if (!currentChildren.contains(name)) {
-          LOG.info("node " + name + " is still not in the list ");
-          allIn = false;
-          break;
-        }
-      }
-      if (allIn) {
+      if (CollectionUtils.containsAll(names, currentChildren)) {
         LOG.info("ALl nodes reached the barrier");
         final String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
         final String barrierDonePath = String.format("%s/barrier_done", barrierPath);

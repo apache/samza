@@ -35,12 +35,7 @@ public class JavaJobConfig extends MapConfig {
     return get(JOB_NAME);
   }
 
-  public String getJobName(String defaultValue) {
-    return get(JOB_NAME, defaultValue);
-  }
-
   public String getJobId() {
     return get(JOB_ID, DEFAULT_JOB_ID);
   }
-
 }
