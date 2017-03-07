@@ -134,10 +134,8 @@ public class TestZkBarrierForVersionUpgrade {
     });
 
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> s.p1 && s.p2 && s.p3, 2, 100));
-
   }
-
-
+  
   private ZkUtils getZkUtilsWithNewClient() {
     ZkConnection zkConnection = ZkUtils.createZkConnection(testZkConnectionString, SESSION_TIMEOUT_MS);
     return new ZkUtils(
