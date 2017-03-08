@@ -24,8 +24,8 @@ import java.util.Map;
 import java.util.function.Function;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.ExecutionEnvironment;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
@@ -129,12 +129,12 @@ public class StreamGraphImpl implements StreamGraph {
    */
   private final Map<String, MessageStream> inStreams = new HashMap<>();
   private final Map<String, OutputStream> outStreams = new HashMap<>();
-  private final ExecutionEnvironment executionEnvironment;
+  private final ApplicationRunner runner;
 
   private ContextManager contextManager = new ContextManager() { };
 
-  public StreamGraphImpl(ExecutionEnvironment executionEnvironment) {
-    this.executionEnvironment = executionEnvironment;
+  public StreamGraphImpl(ApplicationRunner runner) {
+    this.runner = runner;
   }
 
   @Override
@@ -218,8 +218,8 @@ public class StreamGraphImpl implements StreamGraph {
    */
   public MessageStreamImpl getInputStream(SystemStream sstream) {
     for (MessageStream entry: this.inStreams.values()) {
-      if (((InputStreamImpl) entry).getSpec().getSystemName() == sstream.getSystem() &&
-          ((InputStreamImpl) entry).getSpec().getPhysicalName() == sstream.getStream()) {
+      if (((InputStreamImpl) entry).getSpec().getSystemName().equals(sstream.getSystem()) &&
+          ((InputStreamImpl) entry).getSpec().getPhysicalName().equals(sstream.getStream())) {
         return (MessageStreamImpl) entry;
       }
     }
@@ -242,7 +242,7 @@ public class StreamGraphImpl implements StreamGraph {
    * @return  the {@link OutputStream} object for the re-partitioned stream
    */
   <PK, M> MessageStreamImpl<M> createIntStream(String streamId, Function<M, PK> parKeyFn) {
-    StreamSpec streamSpec = executionEnvironment.streamFromConfig(streamId);
+    StreamSpec streamSpec = runner.streamFromConfig(streamId);
 
     if (!this.inStreams.containsKey(streamSpec.getId())) {
       this.inStreams.putIfAbsent(streamSpec.getId(), new IntermediateStreamImpl(this, streamSpec, null, null, parKeyFn));

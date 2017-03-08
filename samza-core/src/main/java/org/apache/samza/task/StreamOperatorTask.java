@@ -18,6 +18,8 @@
  */
 package org.apache.samza.task;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.MessageStreamImpl;
@@ -25,12 +27,9 @@ import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.impl.OperatorGraph;
-import org.apache.samza.system.ExecutionEnvironment;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
-
-import java.util.HashMap;
-import java.util.Map;
 
 
 /**
@@ -78,11 +77,9 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   @Override
   public final void init(Config config, TaskContext context) throws Exception {
-    // for now, we need to create the execution env again
-    // in the future if we decide to serialize the dag, this can be clean up
-    ExecutionEnvironment executionEnvironment = ExecutionEnvironment.fromConfig(config);
+    ApplicationRunner runner = ApplicationRunner.fromConfig(config);
     // create the MessageStreamsImpl object and initialize app-specific logic DAG within the task
-    StreamGraphImpl streams = new StreamGraphImpl(executionEnvironment);
+    StreamGraphImpl streams = new StreamGraphImpl(runner);
     this.graphBuilder.init(streams, config);
     // get the context manager of the {@link StreamGraph} and initialize the task-specific context
     this.contextManager = streams.getContextManager();

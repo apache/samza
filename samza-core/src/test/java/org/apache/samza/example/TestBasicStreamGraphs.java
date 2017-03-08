@@ -21,6 +21,7 @@ package org.apache.samza.example;
 import java.lang.reflect.Field;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.impl.OperatorGraph;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.StreamOperatorTask;
@@ -47,7 +48,7 @@ public class TestBasicStreamGraphs {
 
   @Test
   public void testUserTask() throws Exception {
-    Config mockConfig = mock(Config.class);
+    Config config = new MapConfig();
     TaskContext mockContext = mock(TaskContext.class);
     when(mockContext.getSystemStreamPartitions()).thenReturn(this.inputPartitions);
     TestWindowExample userTask = new TestWindowExample(this.inputPartitions);
@@ -56,7 +57,7 @@ public class TestBasicStreamGraphs {
     pipelineMapFld.setAccessible(true);
     OperatorGraph opGraph = (OperatorGraph) pipelineMapFld.get(adaptorTask);
 
-    adaptorTask.init(mockConfig, mockContext);
+    adaptorTask.init(config, mockContext);
     this.inputPartitions.forEach(partition -> {
         assertNotNull(opGraph.get(partition.getSystemStream()));
       });
@@ -64,7 +65,7 @@ public class TestBasicStreamGraphs {
 
   @Test
   public void testSplitTask() throws Exception {
-    Config mockConfig = mock(Config.class);
+    Config config = new MapConfig();
     TaskContext mockContext = mock(TaskContext.class);
     when(mockContext.getSystemStreamPartitions()).thenReturn(this.inputPartitions);
     TestBroadcastExample splitTask = new TestBroadcastExample(this.inputPartitions);
@@ -73,7 +74,7 @@ public class TestBasicStreamGraphs {
     pipelineMapFld.setAccessible(true);
     OperatorGraph opGraph = (OperatorGraph) pipelineMapFld.get(adaptorTask);
 
-    adaptorTask.init(mockConfig, mockContext);
+    adaptorTask.init(config, mockContext);
     this.inputPartitions.forEach(partition -> {
         assertNotNull(opGraph.get(partition.getSystemStream()));
       });
@@ -81,7 +82,7 @@ public class TestBasicStreamGraphs {
 
   @Test
   public void testJoinTask() throws Exception {
-    Config mockConfig = mock(Config.class);
+    Config config = new MapConfig();
     TaskContext mockContext = mock(TaskContext.class);
     when(mockContext.getSystemStreamPartitions()).thenReturn(this.inputPartitions);
     TestJoinExample joinTask = new TestJoinExample(this.inputPartitions);
@@ -90,7 +91,7 @@ public class TestBasicStreamGraphs {
     pipelineMapFld.setAccessible(true);
     OperatorGraph opGraph = (OperatorGraph) pipelineMapFld.get(adaptorTask);
 
-    adaptorTask.init(mockConfig, mockContext);
+    adaptorTask.init(config, mockContext);
     this.inputPartitions.forEach(partition -> {
         assertNotNull(opGraph.get(partition.getSystemStream()));
       });
