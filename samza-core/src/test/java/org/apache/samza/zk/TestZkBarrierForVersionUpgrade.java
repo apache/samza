@@ -81,7 +81,7 @@ public class TestZkBarrierForVersionUpgrade {
     }
     final Status s = new Status();
 
-    barrier.startBarrier(ver, processors);
+    barrier.start(ver, processors);
 
     barrier.waitForBarrier(ver, "p1", new Runnable() {
       @Override
@@ -117,7 +117,7 @@ public class TestZkBarrierForVersionUpgrade {
     }
     final Status s = new Status();
 
-    barrier.startBarrier(ver, processors);
+    barrier.start(ver, processors);
 
     barrier.waitForBarrier(ver, "p1", new Runnable() {
       @Override
@@ -134,13 +134,12 @@ public class TestZkBarrierForVersionUpgrade {
     });
 
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> s.p1 && s.p2 && s.p3, 2, 100));
-
   }
-
-
+  
   private ZkUtils getZkUtilsWithNewClient() {
     ZkConnection zkConnection = ZkUtils.createZkConnection(testZkConnectionString, SESSION_TIMEOUT_MS);
     return new ZkUtils(
+        "1",
         KEY_BUILDER,
         ZkUtils.createZkClient(zkConnection, CONNECTION_TIMEOUT_MS),
         CONNECTION_TIMEOUT_MS);
