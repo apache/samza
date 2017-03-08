@@ -19,6 +19,7 @@
 package org.apache.samza.operators.triggers;
 
 import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.util.Clock;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -34,12 +35,13 @@ public class AnyTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M>
   private final List<Trigger<M>> triggerList;
 
   private final Map<TriggerImpl<M>, Boolean> triggerImpls = new HashMap<>();
+  private final Clock clock;
 
-  public AnyTriggerImpl(AnyTrigger<M> anyTrigger) {
+  public AnyTriggerImpl(AnyTrigger<M> anyTrigger, Clock clock) {
     this.triggerList = anyTrigger.getTriggers();
-
+    this.clock = clock;
     for (Trigger<M> trigger : triggerList) {
-      triggerImpls.put(TriggerImpls.createTriggerImpl(trigger), false);
+      triggerImpls.put(TriggerImpls.createTriggerImpl(trigger, clock), false);
     }
   }
 

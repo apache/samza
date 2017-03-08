@@ -27,6 +27,8 @@ import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.TaskContext;
+import org.apache.samza.util.Clock;
+import org.apache.samza.util.SystemClock;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -50,6 +52,16 @@ public class OperatorGraph {
    * This {@link Map} describes the DAG of {@link OperatorImpl} that are chained together to process the input messages.
    */
   private final Map<SystemStream, RootOperatorImpl> operatorGraph = new HashMap<>();
+
+  private final Clock clock;
+
+  public OperatorGraph(Clock clock) {
+    this.clock = clock;
+  }
+
+  public OperatorGraph() {
+    this(SystemClock.instance());
+  }
 
   /**
    * Initialize the whole DAG of {@link OperatorImpl}s, based on the input {@link MessageStreamImpl} from the {@link org.apache.samza.operators.StreamGraph}.
@@ -147,14 +159,14 @@ public class OperatorGraph {
    * @param context  the {@link TaskContext} required to instantiate operators
    * @return  the {@link OperatorImpl} implementation instance
    */
-  private static <M> OperatorImpl<M, ?> createOperatorImpl(MessageStreamImpl<M> source, OperatorSpec operatorSpec, Config config, TaskContext context) {
+  private <M> OperatorImpl<M, ?> createOperatorImpl(MessageStreamImpl<M> source, OperatorSpec operatorSpec, Config config, TaskContext context) {
     if (operatorSpec instanceof StreamOperatorSpec) {
       StreamOperatorSpec<M, ?> streamOpSpec = (StreamOperatorSpec<M, ?>) operatorSpec;
       return new StreamOperatorImpl<>(streamOpSpec, source, config, context);
     } else if (operatorSpec instanceof SinkOperatorSpec) {
       return new SinkOperatorImpl<>((SinkOperatorSpec<M>) operatorSpec, config, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
-      return new WindowOperatorImpl((WindowOperatorSpec<M, ?, ?>) operatorSpec);
+      return new WindowOperatorImpl((WindowOperatorSpec<M, ?, ?>) operatorSpec, clock);
     } else if (operatorSpec instanceof PartialJoinOperatorSpec) {
       return new PartialJoinOperatorImpl<>((PartialJoinOperatorSpec) operatorSpec, source, config, context);
     }

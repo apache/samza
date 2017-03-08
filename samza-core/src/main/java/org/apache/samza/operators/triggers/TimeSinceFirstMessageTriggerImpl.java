@@ -20,6 +20,7 @@
 package org.apache.samza.operators.triggers;
 
 import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.util.Clock;
 
 /**
  * Implementation class for a {@link TimeSinceFirstMessageTrigger}
@@ -27,15 +28,17 @@ import org.apache.samza.operators.data.MessageEnvelope;
  */
 public class TimeSinceFirstMessageTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
   private final TimeSinceFirstMessageTrigger<M> trigger;
+  private final Clock clock;
   private Cancellable latestFuture;
 
-  public TimeSinceFirstMessageTriggerImpl(TimeSinceFirstMessageTrigger<M> trigger) {
+  public TimeSinceFirstMessageTriggerImpl(TimeSinceFirstMessageTrigger<M> trigger, Clock clock) {
     this.trigger = trigger;
+    this.clock = clock;
   }
 
   public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
     if (latestFuture == null) {
-      final long now = System.currentTimeMillis();
+      final long now = clock.currentTimeMillis();
       long triggerDurationMs = trigger.getDuration().toMillis();
       Long callbackTime = now + triggerDurationMs;
 

@@ -21,28 +21,34 @@ package org.apache.samza.operators.triggers;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.util.Clock;
+import org.apache.samza.util.SystemClock;
 
 /**
  * Factory methods for instantiating {@link TriggerImpl}s from individual {@link Trigger}s.
  */
 public class TriggerImpls {
 
-  public static <M extends MessageEnvelope> TriggerImpl<M> createTriggerImpl(Trigger<M> trigger) {
+  public static <M extends MessageEnvelope> TriggerImpl<M> createTriggerImpl(Trigger<M> trigger, Clock clock) {
+
+    if (trigger == null) {
+      throw new SamzaException("Null trigger passed in");
+    }
 
     if (trigger instanceof CountTrigger) {
       return new CountTriggerImpl<>((CountTrigger<M>) trigger);
     } else if (trigger instanceof RepeatingTrigger) {
-      return new RepeatingTriggerImpl<>((RepeatingTrigger<M>) trigger);
+      return new RepeatingTriggerImpl<>((RepeatingTrigger<M>) trigger, clock);
     } else if (trigger instanceof AnyTrigger) {
-      return new AnyTriggerImpl<>((AnyTrigger<M>) trigger);
+      return new AnyTriggerImpl<>((AnyTrigger<M>) trigger, clock);
     } else if (trigger instanceof TimeSinceLastMessageTrigger) {
-      return new TimeSinceLastMessageTriggerImpl<>((TimeSinceLastMessageTrigger<M>) trigger);
+      return new TimeSinceLastMessageTriggerImpl<>((TimeSinceLastMessageTrigger<M>) trigger, clock);
     } else if (trigger instanceof TimeTrigger) {
-      return new TimeTriggerImpl((TimeTrigger<M>) trigger);
+      return new TimeTriggerImpl((TimeTrigger<M>) trigger, clock);
     } else if (trigger instanceof TimeSinceFirstMessageTrigger) {
-      return new TimeSinceFirstMessageTriggerImpl<>((TimeSinceFirstMessageTrigger<M>) trigger);
+      return new TimeSinceFirstMessageTriggerImpl<>((TimeSinceFirstMessageTrigger<M>) trigger, clock);
     }
 
-    throw new SamzaException("No implementation class defined. " + trigger);
+    throw new SamzaException("No implementation class defined for the trigger  " + trigger.getClass().getCanonicalName());
   }
 }

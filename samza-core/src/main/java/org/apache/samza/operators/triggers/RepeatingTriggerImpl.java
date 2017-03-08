@@ -20,6 +20,7 @@
 package org.apache.samza.operators.triggers;
 
 import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.util.Clock;
 
 /**
  * Implementation class for a {@link RepeatingTrigger}
@@ -27,12 +28,14 @@ import org.apache.samza.operators.data.MessageEnvelope;
 public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
 
   private final Trigger<M> underlyingTrigger;
+  private final Clock clock;
 
   private TriggerImpl<M> underlyingTriggerImpl;
 
-  public RepeatingTriggerImpl(RepeatingTrigger<M> repeatingTrigger) {
+  public RepeatingTriggerImpl(RepeatingTrigger<M> repeatingTrigger, Clock clock) {
     this.underlyingTrigger = repeatingTrigger.getTrigger();
-    this.underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger);
+    this.clock = clock;
+    this.underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, clock);
   }
 
   private TriggerCallbackHandler createNewHandler(TriggerCallbackHandler handler) {
@@ -40,7 +43,7 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
       @Override
       public void onTrigger() {
           //re-schedule the underlying trigger for execution again.
-          underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger);
+          underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, clock);
           handler.onTrigger();
       }
     };

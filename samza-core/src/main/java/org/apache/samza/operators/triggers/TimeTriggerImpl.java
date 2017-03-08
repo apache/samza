@@ -20,6 +20,7 @@
 package org.apache.samza.operators.triggers;
 
 import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.util.Clock;
 
 /**
  * Implementation class for a {@link TimeTrigger}
@@ -28,14 +29,16 @@ public class TimeTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M
 
   private final TimeTrigger<M> trigger;
   private Cancellable latestFuture;
+  private final Clock clock;
 
-  public TimeTriggerImpl(TimeTrigger<M> trigger) {
+  public TimeTriggerImpl(TimeTrigger<M> trigger, Clock clock) {
     this.trigger = trigger;
+    this.clock = clock;
   }
 
   public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
 
-    final long now = System.currentTimeMillis();
+    final long now = clock.currentTimeMillis();
     long triggerDurationMs = trigger.getDuration().toMillis();
     Long callbackTime = (now - now % triggerDurationMs) + triggerDurationMs;
 

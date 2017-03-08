@@ -43,6 +43,9 @@ public class InternalInMemoryStore<K, V> implements KeyValueStore<K, V> {
 
   @Override
   public V get(K key) {
+    if (key == null) {
+      throw new NullPointerException("Null key provided");
+    }
     return map.get(key);
   }
 
@@ -57,6 +60,9 @@ public class InternalInMemoryStore<K, V> implements KeyValueStore<K, V> {
 
   @Override
   public void put(K key, V value) {
+    if (key == null) {
+      throw new NullPointerException("Null key provided");
+    }
     map.put(key, value);
   }
 
@@ -69,6 +75,9 @@ public class InternalInMemoryStore<K, V> implements KeyValueStore<K, V> {
 
   @Override
   public void delete(K key) {
+    if (key == null) {
+      throw new NullPointerException("Null key provided");
+    }
     map.remove(key);
   }
 

@@ -63,8 +63,8 @@ public abstract class OperatorImpl<M, RM> {
   }
 
   /**
-   * Invoked at every tick. Implementations may call {@link #propagateResult} if they wish to propagate the output to registered
-   * downstream operators.
+   * Invoked at every tick. Implementations must call {@link #propagateResult} to propagate any generated output
+   * to registered downstream operators.
    *
    * @param collector
    * @param coordinator
@@ -74,7 +74,8 @@ public abstract class OperatorImpl<M, RM> {
   /**
    * Helper method to propagate the output of this operator to all registered downstream operators.
    *
-   * This method <b>must</b> be called from {@link #onNext} to propagate the operator output correctly.
+   * This method <b>must</b> be called from {@link #onNext} and {@link #onTimer}
+   * to propagate the operator output correctly.
    *
    * @param outputMessage  output message
    * @param collector  the {@link MessageCollector} in the context

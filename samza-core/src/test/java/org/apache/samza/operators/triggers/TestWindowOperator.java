@@ -39,6 +39,8 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamOperatorTask;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.util.Clock;
+import org.apache.samza.util.SystemClock;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -54,15 +56,14 @@ import static org.mockito.Mockito.when;
 public class TestWindowOperator {
   private final MessageCollector messageCollector = mock(MessageCollector.class);
   private final TaskCoordinator taskCoordinator = mock(TaskCoordinator.class);
-  private final List<Integer> mapOutput = new ArrayList<>();
   private final List<WindowPane<Integer, Collection<MessageEnvelope<Integer, Integer>>>> windowPanes = new ArrayList<>();
   private final List<Integer> integers = ImmutableList.of(1, 2, 1, 2, 1, 2, 1, 2, 3);
   private Config config;
   private TaskContext taskContext;
+  private static final Clock CLOCK = SystemClock.instance();
 
   @Before
   public void setup() throws Exception {
-    mapOutput.clear();
     windowPanes.clear();
 
     config = mock(Config.class);
@@ -74,12 +75,15 @@ public class TestWindowOperator {
 
   @Test
   public void testTumblingWindowsDiscardingMode() throws Exception {
-    StreamGraphBuilder sgb = new KeyedTumblingWindowStreamGraphBuilder(AccumulationMode.DISCARDING);
-    StreamOperatorTask task = new StreamOperatorTask(sgb);
+
+    StreamGraphBuilder sgb = new KeyedTumblingWindowStreamGraphBuilder(AccumulationMode.DISCARDING, Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
+    TestClock testClock = new TestClock();
+    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
     task.init(config, taskContext);
 
     integers.forEach(n -> task.process(new IntegerMessageEnvelope(n, n), messageCollector, taskCoordinator));
-    Thread.sleep(1000);
+    testClock.advanceTime(Duration.ofSeconds(1));
+
     task.window(messageCollector, taskCoordinator);
     Assert.assertEquals(windowPanes.size(), 5);
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
@@ -100,12 +104,13 @@ public class TestWindowOperator {
 
   @Test
   public void testTumblingWindowsAccumulatingMode() throws Exception {
-    StreamGraphBuilder sgb = new KeyedTumblingWindowStreamGraphBuilder(AccumulationMode.ACCUMULATING);
-    StreamOperatorTask task = new StreamOperatorTask(sgb);
+    StreamGraphBuilder sgb = new KeyedTumblingWindowStreamGraphBuilder(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
+    TestClock testClock = new TestClock();
+    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
     task.init(config, taskContext);
 
     integers.forEach(n -> task.process(new IntegerMessageEnvelope(n, n), messageCollector, taskCoordinator));
-    Thread.sleep(1000);
+    testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
 
     Assert.assertEquals(windowPanes.size(), 7);
@@ -124,8 +129,9 @@ public class TestWindowOperator {
 
   @Test
   public void testSessionWindowsDiscardingMode() throws Exception {
-    StreamGraphBuilder sgb = new KeyedSessionWindowStreamGraphBuilder(AccumulationMode.DISCARDING);
-    StreamOperatorTask task = new StreamOperatorTask(sgb);
+    StreamGraphBuilder sgb = new KeyedSessionWindowStreamGraphBuilder(AccumulationMode.DISCARDING, Duration.ofMillis(500));
+    TestClock testClock = new TestClock();
+    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
     task.init(config, taskContext);
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
@@ -137,7 +143,7 @@ public class TestWindowOperator {
     task.process(new IntegerMessageEnvelope(3, 3), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(3, 3), messageCollector, taskCoordinator);
 
-    Thread.sleep(1000);
+    testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
     Assert.assertEquals(windowPanes.size(), 3);
     Assert.assertEquals(((Collection) windowPanes.get(2).getMessage()).size(), 2);
@@ -145,13 +151,14 @@ public class TestWindowOperator {
 
   @Test
   public void testSessionWindowsAccumulatingMode() throws Exception {
-    StreamGraphBuilder sgb = new KeyedSessionWindowStreamGraphBuilder(AccumulationMode.DISCARDING);
-    StreamOperatorTask task = new StreamOperatorTask(sgb);
+    StreamGraphBuilder sgb = new KeyedSessionWindowStreamGraphBuilder(AccumulationMode.DISCARDING, Duration.ofMillis(500));
+    TestClock testClock = new TestClock();
+    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
     task.init(config, taskContext);
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
-    Thread.sleep(1000);
+    testClock.advanceTime(Duration.ofSeconds(1));
 
     task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
@@ -159,7 +166,7 @@ public class TestWindowOperator {
     task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
 
-    Thread.sleep(1000);
+    testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
     Assert.assertEquals(windowPanes.size(), 2);
     Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);
@@ -169,27 +176,31 @@ public class TestWindowOperator {
     Assert.assertEquals(((Collection) windowPanes.get(1).getMessage()).size(), 4);
   }
 
+  @Test
+  public void testTriggers() throws Exception {
+  }
 
   private class KeyedTumblingWindowStreamGraphBuilder implements StreamGraphBuilder {
 
     private final StreamSpec streamSpec = new StreamSpec("integer-stream", "integers", "kafka");
     private final AccumulationMode mode;
+    private final Duration duration;
+    private final Trigger<MessageEnvelope<Integer, Integer>> earlyTrigger;
 
-    KeyedTumblingWindowStreamGraphBuilder(AccumulationMode mode) {
+    KeyedTumblingWindowStreamGraphBuilder(AccumulationMode mode, Duration timeDuration, Trigger<MessageEnvelope<Integer, Integer>> earlyTrigger) {
       this.mode = mode;
+      this.duration = timeDuration;
+      this.earlyTrigger = earlyTrigger;
     }
 
     @Override
     public void init(StreamGraph graph, Config config) {
       MessageStream<MessageEnvelope<Integer, Integer>> inStream = graph.createInStream(streamSpec, null, null);
       Function<MessageEnvelope<Integer, Integer>, Integer> keyFn = m -> m.getKey();
-
+      Triggers.repeat(Triggers.count(2));
       inStream
-        .map(m -> {
-            mapOutput.add(m.getKey());
-            return m;
-          })
-        .window(Windows.keyedTumblingWindow(keyFn, Duration.ofSeconds(1)).setEarlyTrigger(Triggers.repeat(Triggers.count(2)))
+        .map(m -> (m))
+        .window(Windows.keyedTumblingWindow(keyFn, duration).setEarlyTrigger(earlyTrigger)
           .setAccumulationMode(mode))
         .map(m -> {
             windowPanes.add(m);
@@ -202,9 +213,11 @@ public class TestWindowOperator {
 
     private final StreamSpec streamSpec = new StreamSpec("integer-stream", "integers", "kafka");
     private final AccumulationMode mode;
+    private final Duration duration;
 
-    KeyedSessionWindowStreamGraphBuilder(AccumulationMode mode) {
+    KeyedSessionWindowStreamGraphBuilder(AccumulationMode mode, Duration duration) {
       this.mode = mode;
+      this.duration = duration;
     }
 
     @Override
@@ -213,11 +226,8 @@ public class TestWindowOperator {
       Function<MessageEnvelope<Integer, Integer>, Integer> keyFn = m -> m.getKey();
 
       inStream
-          .map(m -> {
-              mapOutput.add(m.getKey());
-              return m;
-            })
-          .window(Windows.keyedSessionWindow(keyFn, Duration.ofMillis(500))
+          .map(m -> m)
+          .window(Windows.keyedSessionWindow(keyFn, duration)
               .setAccumulationMode(mode))
           .map(m -> {
               windowPanes.add(m);

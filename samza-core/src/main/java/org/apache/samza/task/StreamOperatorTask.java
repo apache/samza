@@ -28,6 +28,8 @@ import org.apache.samza.operators.impl.OperatorGraph;
 import org.apache.samza.operators.impl.OperatorImpl;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.util.Clock;
+import org.apache.samza.util.SystemClock;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -66,15 +68,25 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   /**
    * A mapping from each {@link SystemStream} to the root node of its operator chain DAG.
    */
-  private final OperatorGraph operatorGraph = new OperatorGraph();
+  private final OperatorGraph operatorGraph;
 
   private final StreamGraphBuilder graphBuilder;
+
+  private final Clock clock;
 
   private ContextManager contextManager;
 
   public StreamOperatorTask(StreamGraphBuilder graphBuilder) {
-    this.graphBuilder = graphBuilder;
+    this(graphBuilder, SystemClock.instance());
   }
+
+  // purely for testing.
+  public StreamOperatorTask(StreamGraphBuilder graphBuilder, Clock clock) {
+    this.graphBuilder = graphBuilder;
+    this.operatorGraph = new OperatorGraph(clock);
+    this.clock = clock;
+  }
+
 
   private TaskContext context;
 

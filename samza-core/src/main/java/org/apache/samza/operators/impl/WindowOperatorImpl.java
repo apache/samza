@@ -36,6 +36,7 @@ import org.apache.samza.operators.windows.internal.WindowType;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,11 +74,12 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   private final KeyValueStore<WindowKey<K>, WV> store = new InternalInMemoryStore<>();
 
   private final Map<TriggerKey<K>, TriggerImplWrapper> triggers = new HashMap<>();
-
+  private final Clock clock;
   private enum TriggerType { EARLY, DEFAULT, LATE }
 
-  public WindowOperatorImpl(WindowOperatorSpec<M, WK, WV> spec) {
-    window = spec.getWindow();
+  public WindowOperatorImpl(WindowOperatorSpec<M, WK, WV> spec, Clock clock) {
+    this.clock = clock;
+    this.window = spec.getWindow();
   }
 
   @Override
@@ -108,7 +110,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
 
   @Override
   public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
-    long now = System.currentTimeMillis();
+    long now = clock.currentTimeMillis();
     TriggerTimerState state;
     while ((state = pendingCallbacks.peek()) != null && state.getScheduleTimeMs() < now) {
       pendingCallbacks.remove();
@@ -132,7 +134,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     String windowId = null;
     if (window.getWindowType() == WindowType.TUMBLING) {
       long triggerDurationMs = ((TimeTrigger<M>) window.getDefaultTrigger()).getDuration().toMillis();
-      final long now = System.currentTimeMillis();
+      final long now = clock.currentTimeMillis();
       Long windowBoundary = now - now % triggerDurationMs;
       windowId = windowBoundary.toString();
     }
@@ -147,7 +149,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     }
 
     TriggerHandlerImpl triggerHandler = new TriggerHandlerImpl();
-    TriggerImpl<M> triggerImpl = TriggerImpls.createTriggerImpl(trigger);
+    TriggerImpl<M> triggerImpl = TriggerImpls.createTriggerImpl(trigger, clock);
     TriggerContextImpl triggerContext = new TriggerContextImpl(triggerKey);
     wrapper = new TriggerImplWrapper(triggerKey, triggerImpl, triggerContext, triggerHandler);
     triggers.put(triggerKey, wrapper);
