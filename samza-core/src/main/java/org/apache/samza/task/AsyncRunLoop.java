@@ -74,6 +74,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   private volatile boolean shutdownNow = false;
   private volatile Throwable throwable = null;
   private final HighResolutionClock clock;
+  private final boolean isAsyncCommitEnabled;
 
   public AsyncRunLoop(Map<TaskName, TaskInstance> taskInstances,
       ExecutorService threadPool,
@@ -84,7 +85,8 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       long callbackTimeoutMs,
       long maxThrottlingDelayMs,
       SamzaContainerMetrics containerMetrics,
-      HighResolutionClock clock) {
+      HighResolutionClock clock,
+      boolean isAsyncCommitEnabled) {
 
     this.threadPool = threadPool;
     this.consumerMultiplexer = consumerMultiplexer;
@@ -106,6 +108,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     // Partions and tasks assigned to the container will not change during the run loop life time
     this.sspToTaskWorkerMapping = Collections.unmodifiableMap(getSspToAsyncTaskWorkerMap(taskInstances, workers));
     this.taskWorkers = Collections.unmodifiableList(new ArrayList<>(workers.values()));
+    this.isAsyncCommitEnabled = isAsyncCommitEnabled;
   }
 
   /**
@@ -442,7 +445,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
             containerMetrics.windowNs().update(clock.nanoTime() - startTime);
             coordinatorRequests.update(coordinator);
 
-            state.doneWindowOrCommit();
+            state.doneWindow();
           } catch (Throwable t) {
             log.error("Task {} window failed", task.taskName(), t);
             abort(t);
@@ -477,7 +480,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
             task.commit();
             containerMetrics.commitNs().update(clock.nanoTime() - startTime);
 
-            state.doneWindowOrCommit();
+            state.doneCommit();
           } catch (Throwable t) {
             log.error("Task {} commit failed", task.taskName(), t);
             abort(t);
@@ -571,7 +574,8 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     private volatile boolean needCommit = false;
     private volatile boolean complete = false;
     private volatile boolean endOfStream = false;
-    private volatile boolean windowOrCommitInFlight = false;
+    private volatile boolean windowInFlight = false;
+    private volatile boolean commitInFlight = false;
     private final AtomicInteger messagesInFlight = new AtomicInteger(0);
     private final ArrayDeque<PendingEnvelope> pendingEnvelopeQueue;
 
@@ -603,6 +607,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
 
     /**
      * Returns whether the task is ready to do process/window/commit.
+     *
      */
     private boolean isReady() {
       if (checkEndOfStream()) {
@@ -611,14 +616,30 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       if (coordinatorRequests.commitRequests().remove(taskName)) {
         needCommit = true;
       }
-      if (needWindow || needCommit || endOfStream) {
-        // ready for window or commit only when no messages are in progress and
-        // no window/commit in flight
+
+      boolean windowOrCommitInFlight = windowInFlight || commitInFlight;
+      /*
+       * A task is ready to commit, when task.commit(needCommit) is requested either by user or commit thread
+       * and either of the following conditions are true.
+       * a) When process, window, commit are not in progress.
+       * b) When task.async.commit is true and window, commit are not in progress.
+       */
+      if (needCommit) {
+        return (messagesInFlight.get() == 0 || isAsyncCommitEnabled) && !windowOrCommitInFlight;
+      } else if (needWindow || endOfStream) {
+        /*
+         * A task is ready for window operation, when task.window(needWindow) is requested by either user or window thread
+         * and window, commit are not in progress.
+         */
         return messagesInFlight.get() == 0 && !windowOrCommitInFlight;
       } else {
-        // ready for process only when the inflight message count does not exceed threshold
-        // and no window/commit in flight
-        return messagesInFlight.get() < maxConcurrency && !windowOrCommitInFlight;
+        /*
+         * A task is ready to process new message, when number of task.process calls in progress < task.max.concurrency
+         * and either of the following conditions are true.
+         * a) When window, commit are not in progress.
+         * b) When task.async.commit is true and window is not in progress.
+         */
+        return messagesInFlight.get() < maxConcurrency && !windowInFlight && (isAsyncCommitEnabled || !commitInFlight);
       }
     }
 
@@ -648,12 +669,12 @@ public class AsyncRunLoop implements Runnable, Throttleable {
 
     private void startWindow() {
       needWindow = false;
-      windowOrCommitInFlight = true;
+      windowInFlight = true;
     }
 
     private void startCommit() {
       needCommit = false;
-      windowOrCommitInFlight = true;
+      commitInFlight = true;
     }
 
     private void startProcess() {
@@ -661,8 +682,12 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       taskMetrics.messagesInFlight().set(count);
     }
 
-    private void doneWindowOrCommit() {
-      windowOrCommitInFlight = false;
+    private void doneCommit() {
+      commitInFlight = false;
+    }
+
+    private void doneWindow() {
+      windowInFlight = false;
     }
 
     private void doneProcess() {
