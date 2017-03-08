@@ -97,6 +97,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
 
     if (window.getEarlyTrigger() != null) {
       TriggerKey<K> triggerKey = new TriggerKey<>(TriggerType.EARLY, storeKey);
+
       getOrCreateTriggerWrapper(triggerKey, window.getEarlyTrigger())
           .onMessage(message, collector, coordinator);
     }
@@ -162,13 +163,13 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
 
     // Cancel all early triggers too when the default trigger fires.
     if (triggerKey.getType() == TriggerType.DEFAULT) {
-      cancelTrigger(triggerKey);
-      cancelTrigger(new TriggerKey(TriggerType.EARLY, triggerKey.getKey()));
+      cancelTrigger(triggerKey, true);
+      cancelTrigger(new TriggerKey(TriggerType.EARLY, triggerKey.getKey()), true);
     }
 
     // Cancel non-repeating early triggers.
     if (triggerKey.getType() == TriggerType.EARLY && !wrapper.isRepeating()) {
-      cancelTrigger(triggerKey);
+      cancelTrigger(triggerKey, false);
     }
 
     WindowKey<K> windowKey = triggerKey.key;
@@ -192,10 +193,13 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     WindowOperatorImpl.super.propagateResult((WM) paneOutput, collector, coordinator);
   }
 
-  private void cancelTrigger(TriggerKey<K> triggerKey) {
-    TriggerImplWrapper wrapper = triggers.remove(triggerKey);
+  private void cancelTrigger(TriggerKey<K> triggerKey, boolean shouldRemove) {
+    TriggerImplWrapper wrapper = triggers.get(triggerKey);
     if (wrapper != null) {
-      wrapper.impl.cancel();
+      wrapper.cancel();
+    }
+    if(shouldRemove && triggerKey != null) {
+      triggers.remove(triggerKey);
     }
   }
 
@@ -273,6 +277,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     private final TriggerImpl<M> impl;
     private final TriggerContext context;
     private final TriggerHandlerImpl handler;
+    private boolean isCancelled = false;
 
     public TriggerImplWrapper(TriggerKey<K> triggerKey, TriggerImpl<M> impl, TriggerContext context, TriggerHandlerImpl handler) {
       this.triggerKey = triggerKey;
@@ -282,20 +287,28 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     }
 
     public void onMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
-      impl.onMessage(message, context, handler);
-      if (handler.isTriggered()) {
+      if (!isCancelled) {
+        impl.onMessage(message, context, handler);
+
+        if (handler.isTriggered()) {
+          //repeating trigger can trigger multiple times, So, clear the handler to allow future triggerings.
+          handler.clearTrigger();
+          handleTrigger(triggerKey, collector, coordinator);
+        }
+      }
+    }
+
+    public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+      if (handler.isTriggered() && !isCancelled) {
         //repeating trigger can trigger multiple times, So, clear the handler to allow future triggerings.
         handler.clearTrigger();
         handleTrigger(triggerKey, collector, coordinator);
       }
     }
 
-    public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
-      if (handler.isTriggered()) {
-        //repeating trigger can trigger multiple times, So, clear the handler to allow future triggerings.
-        handler.clearTrigger();
-        handleTrigger(triggerKey, collector, coordinator);
-      }
+    public void cancel() {
+      impl.cancel();
+      isCancelled = true;
     }
 
     public boolean isRepeating() {

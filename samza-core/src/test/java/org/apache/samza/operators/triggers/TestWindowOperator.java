@@ -177,8 +177,50 @@ public class TestWindowOperator {
   }
 
   @Test
-  public void testTriggers() throws Exception {
+  public void testCancelationOfOnceTrigger() throws Exception {
+    StreamGraphBuilder sgb = new KeyedTumblingWindowStreamGraphBuilder(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1), Triggers.count(2));
+    TestClock testClock = new TestClock();
+    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    task.init(config, taskContext);
+
+    task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(1, 2), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(1, 3), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(1, 4), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(1, 5), messageCollector, taskCoordinator);
+
+    testClock.advanceTime(Duration.ofSeconds(1));
+    task.window(messageCollector, taskCoordinator);
+    Assert.assertEquals(windowPanes.size(), 2);
   }
+
+  @Test
+  public void testCancelationOfAnyTrigger() throws Exception {
+    StreamGraphBuilder sgb = new KeyedTumblingWindowStreamGraphBuilder(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
+        Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500))));
+    TestClock testClock = new TestClock();
+    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    task.init(config, taskContext);
+
+    task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(1, 2), messageCollector, taskCoordinator);
+    //assert that the count trigger fired
+    Assert.assertEquals(windowPanes.size(), 1);
+    //advance the timer to enable the triggering of the inner timeSinceFirstMessage trigger
+    testClock.advanceTime(Duration.ofMillis(500));
+    //assert that the triggering of the count trigger cancelled the inner timeSinceFirstMessage trigger
+    Assert.assertEquals(windowPanes.size(), 1);
+
+    task.process(new IntegerMessageEnvelope(1, 3), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(1, 4), messageCollector, taskCoordinator);
+    task.process(new IntegerMessageEnvelope(1, 5), messageCollector, taskCoordinator);
+    //advance timer by 500 more millis to enable the default trigger
+    testClock.advanceTime(Duration.ofMillis(500));
+    task.window(messageCollector, taskCoordinator);
+    //assert that the default trigger fired
+    Assert.assertEquals(windowPanes.size(), 2);
+  }
+
 
   private class KeyedTumblingWindowStreamGraphBuilder implements StreamGraphBuilder {
 
@@ -197,7 +239,6 @@ public class TestWindowOperator {
     public void init(StreamGraph graph, Config config) {
       MessageStream<MessageEnvelope<Integer, Integer>> inStream = graph.createInStream(streamSpec, null, null);
       Function<MessageEnvelope<Integer, Integer>, Integer> keyFn = m -> m.getKey();
-      Triggers.repeat(Triggers.count(2));
       inStream
         .map(m -> (m))
         .window(Windows.keyedTumblingWindow(keyFn, duration).setEarlyTrigger(earlyTrigger)
