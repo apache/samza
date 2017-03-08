@@ -21,7 +21,7 @@ package org.apache.samza.zk;
 
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaJobConfig;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
@@ -37,8 +37,8 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
    */
   @Override
   public JobCoordinator getJobCoordinator(int processorId, Config config, SamzaContainerController containerController) {
-    JavaJobConfig jobConfig = new JavaJobConfig(config);
-    String groupName = String.format("%s-%s", jobConfig.getJobName(), jobConfig.getJobId());
+    JobConfig jobConfig = new JobConfig(config);
+    String groupName = String.format("%s-%s", jobConfig.getName(), jobConfig.getJobId());
     ZkConfig zkConfig = new ZkConfig(config);
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
     ZkClient zkClient = new ZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
