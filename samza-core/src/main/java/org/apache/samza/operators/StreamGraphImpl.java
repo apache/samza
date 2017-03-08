@@ -24,8 +24,9 @@ import java.util.Map;
 import java.util.function.Function;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.ExecutionEnvironment;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
@@ -129,12 +130,12 @@ public class StreamGraphImpl implements StreamGraph {
    */
   private final Map<String, MessageStream> inStreams = new HashMap<>();
   private final Map<String, OutputStream> outStreams = new HashMap<>();
-  private final ExecutionEnvironment executionEnvironment;
+  private final ApplicationRunner runner;
 
   private ContextManager contextManager = new ContextManager() { };
 
-  public StreamGraphImpl(ExecutionEnvironment executionEnvironment) {
-    this.executionEnvironment = executionEnvironment;
+  public StreamGraphImpl(ApplicationRunner runner) {
+    this.runner = runner;
   }
 
   @Override
@@ -168,7 +169,8 @@ public class StreamGraphImpl implements StreamGraph {
    * @return  the {@link MessageStreamImpl} object
    */
   @Override
-  public <K, V, M extends MessageEnvelope<K, V>> OutputStream<M> createIntStream(StreamSpec streamSpec, Serde<K> keySerde, Serde<V> msgSerde) {
+  public <K, V, M extends MessageEnvelope<K, V>> OutputStream<M> createIntStream(StreamSpec streamSpec,
+      Serde<K> keySerde, Serde<V> msgSerde) {
     if (!this.inStreams.containsKey(streamSpec.getId())) {
       this.inStreams.putIfAbsent(streamSpec.getId(), new IntermediateStreamImpl<K, K, V, M>(this, streamSpec, keySerde, msgSerde));
     }
@@ -218,8 +220,8 @@ public class StreamGraphImpl implements StreamGraph {
    */
   public MessageStreamImpl getInputStream(SystemStream sstream) {
     for (MessageStream entry: this.inStreams.values()) {
-      if (((InputStreamImpl) entry).getSpec().getSystemName() == sstream.getSystem() &&
-          ((InputStreamImpl) entry).getSpec().getPhysicalName() == sstream.getStream()) {
+      if (((InputStreamImpl) entry).getSpec().getSystemName().equals(sstream.getSystem()) &&
+          ((InputStreamImpl) entry).getSpec().getPhysicalName().equals(sstream.getStream())) {
         return (MessageStreamImpl) entry;
       }
     }
@@ -234,15 +236,17 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   /**
-   * Method to create intermediate topics for {@link MessageStreamImpl#partitionBy(Function)} method.
+   * Method to generate intermediate stream from an operator ID.
    *
+   * @param opId  operator ID
    * @param parKeyFn  the function to extract the partition key from the input message
    * @param <PK>  the type of partition key
    * @param <M>  the type of input message
    * @return  the {@link OutputStream} object for the re-partitioned stream
    */
-  <PK, M> MessageStreamImpl<M> createIntStream(String streamId, Function<M, PK> parKeyFn) {
-    StreamSpec streamSpec = executionEnvironment.streamFromConfig(streamId);
+  <PK, M> MessageStreamImpl<M> generateIntStreamFromOpId(int opId, Function<M, PK> parKeyFn) {
+    String streamId = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
+    StreamSpec streamSpec = runner.streamFromConfig(streamId);
 
     if (!this.inStreams.containsKey(streamSpec.getId())) {
       this.inStreams.putIfAbsent(streamSpec.getId(), new IntermediateStreamImpl(this, streamSpec, null, null, parKeyFn));

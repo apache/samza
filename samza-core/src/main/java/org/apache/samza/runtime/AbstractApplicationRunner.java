@@ -20,7 +20,6 @@ package org.apache.samza.runtime;
 
 import java.util.Map;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.system.StreamSpec;
 
@@ -40,9 +39,7 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
   @Override
   public StreamSpec streamFromConfig(String streamId) {
     StreamConfig streamConfig = new StreamConfig(config);
-    String defaultPhysicalName = String.format("%s-%s-%s", config.get(JobConfig.JOB_NAME()), config.get(JobConfig.JOB_ID(), "1"), streamId);
-    String physicalName = streamConfig.getPhysicalName(streamId, defaultPhysicalName);
-
+    String physicalName = streamConfig.getPhysicalName(streamId);
     return streamFromConfig(streamId, physicalName);
   }
 

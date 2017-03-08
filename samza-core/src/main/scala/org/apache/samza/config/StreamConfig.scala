@@ -119,7 +119,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     val allProperties = subset(StreamConfig.STREAM_ID_PREFIX format streamId)
     val samzaProperties = allProperties.subset(StreamConfig.SAMZA_PROPERTY, false)
     val filteredStreamProperties:java.util.Map[String, String] = allProperties.filterKeys(k => !samzaProperties.containsKey(k))
-    val inheritedLegacyProperties:java.util.Map[String, String] = getSystemStreamProperties(getSystem(streamId), getPhysicalName(streamId, streamId))
+    val inheritedLegacyProperties:java.util.Map[String, String] = getSystemStreamProperties(getSystem(streamId), getPhysicalName(streamId))
     new MapConfig(java.util.Arrays.asList(inheritedLegacyProperties, filteredStreamProperties))
   }
 
@@ -145,10 +145,14 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     * Gets the physical name for the specified streamId.
     *
     * @param streamId             the identifier for the stream in the config.
-    * @param defaultPhysicalName  the default to use if the physical name is missing.
     * @return                     the physical identifier for the stream or the default if it is undefined.
     */
-  def getPhysicalName(streamId: String, defaultPhysicalName: String) = {
+  def getPhysicalName(streamId: String) = {
+    // Add prefix to default so the physical name is unique per job
+    val defaultPhysicalName = String.format("%s-%s-%s",
+                                                    config.get(JobConfig.JOB_NAME),
+                                                    config.get(JobConfig.JOB_ID, "1"),
+                                                    streamId)
     get(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID format streamId, defaultPhysicalName)
   }
 
@@ -177,7 +181,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   }
 
   private def systemStreamToStreamId(systemStream: SystemStream): String = {
-   val streamIds = getStreamIdsForSystem(systemStream.getSystem).filter(streamId => systemStream.getStream().equals(getPhysicalName(streamId, streamId)))
+   val streamIds = getStreamIdsForSystem(systemStream.getSystem).filter(streamId => systemStream.getStream().equals(getPhysicalName(streamId)))
     if (streamIds.size > 1) {
       throw new IllegalStateException("There was more than one stream found for system stream %s" format(systemStream))
     }
@@ -194,7 +198,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     * will use the streamId as the stream name if the physicalName doesn't exist.
     */
   private def streamIdToSystemStream(streamId: String): SystemStream = {
-    new SystemStream(getSystem(streamId), getPhysicalName(streamId, streamId))
+    new SystemStream(getSystem(streamId), getPhysicalName(streamId))
   }
 
   private def nonEmptyOption(value: String): Option[String] = {
