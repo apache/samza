@@ -70,10 +70,10 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
 
     barrier = new ZkBarrierForVersionUpgrade(zkUtils, debounceTimer);
-    streamMetadataCache = initJobModelGeneration();
+    streamMetadataCache = getStreamMetadataCache();
   }
 
-  private StreamMetadataCache initJobModelGeneration() {
+  private StreamMetadataCache getStreamMetadataCache() {
     // model generation - NEEDS TO BE REVIEWED
     JavaSystemConfig systemConfig = new JavaSystemConfig(this.config);
     Map<String, SystemAdmin> systemAdmins = new HashMap<>();
