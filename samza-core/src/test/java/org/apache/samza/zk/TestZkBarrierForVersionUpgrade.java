@@ -81,7 +81,7 @@ public class TestZkBarrierForVersionUpgrade {
     }
     final Status s = new Status();
 
-    barrier.startBarrier(ver, processors);
+    barrier.start(ver, processors);
 
     barrier.waitForBarrier(ver, "p1", new Runnable() {
       @Override
@@ -117,7 +117,7 @@ public class TestZkBarrierForVersionUpgrade {
     }
     final Status s = new Status();
 
-    barrier.startBarrier(ver, processors);
+    barrier.start(ver, processors);
 
     barrier.waitForBarrier(ver, "p1", new Runnable() {
       @Override
@@ -134,13 +134,62 @@ public class TestZkBarrierForVersionUpgrade {
     });
 
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> s.p1 && s.p2 && s.p3, 2, 100));
+  }
 
+  @Test
+  public void testZkBarrierForVersionUpgradeWithTimeOut() {
+    ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
+    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(testZkUtils, debounceTimer) {
+      @Override
+      protected long getBarrierTimeOutMs() {
+        return 200;
+      }
+    };
+    String ver = "1";
+    List<String> processors = new ArrayList<String>();
+    processors.add("p1");
+    processors.add("p2");
+    processors.add("p3");
+
+    class Status {
+      boolean p1 = false;
+      boolean p2 = false;
+      boolean p3 = false;
+    }
+    final Status s = new Status();
+
+    barrier.start(ver, processors);
+
+    barrier.waitForBarrier(ver, "p1", new Runnable() {
+      @Override
+      public void run() {
+        s.p1 = true;
+      }
+    });
+
+    barrier.waitForBarrier(ver, "p2", new Runnable() {
+      @Override
+      public void run() {
+        s.p2 = true;
+      }
+    });
+
+    // this node will join "too late"
+    barrier.waitForBarrier(ver, "p3", new Runnable() {
+      @Override
+      public void run() {
+        TestZkUtils.sleepMs(300);
+        s.p3 = true;
+      }
+    });
+    Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> s.p1 && s.p2 && s.p3, 2, 400));
   }
 
 
   private ZkUtils getZkUtilsWithNewClient() {
     ZkConnection zkConnection = ZkUtils.createZkConnection(testZkConnectionString, SESSION_TIMEOUT_MS);
     return new ZkUtils(
+        "1",
         KEY_BUILDER,
         ZkUtils.createZkClient(zkConnection, CONNECTION_TIMEOUT_MS),
         CONNECTION_TIMEOUT_MS);
