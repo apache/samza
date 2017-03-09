@@ -48,19 +48,13 @@ public class TestScheduleAfterDebounceTime {
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
 
     final TestObj testObj = new TestScheduleAfterDebounceTime.TestObj();
-    debounceTimer.scheduleAfterDebounceTime("TEST1", DEBOUNCE_TIME, () ->
-      {
+    debounceTimer.scheduleAfterDebounceTime("TEST1", DEBOUNCE_TIME, () -> {
         testObj.inc();
-      }
-    );
+      });
     // action is delayed
     Assert.assertEquals(0, i);
 
-    try {
-      Thread.sleep(DEBOUNCE_TIME + 10);
-    } catch (InterruptedException e) {
-      Assert.fail("Sleep was interrupted");
-    }
+    TestZkUtils.sleepMs(DEBOUNCE_TIME + 10);
 
     // debounce time passed
     Assert.assertEquals(1, i);
@@ -85,11 +79,8 @@ public class TestScheduleAfterDebounceTime {
       }
     );
 
-    try {
-      Thread.sleep(DEBOUNCE_TIME + 10);
-    } catch (InterruptedException e) {
-      Assert.fail("Sleep was interrupted");
-    }
+    TestZkUtils.sleepMs(DEBOUNCE_TIME + 10);
+
     // still should be the old value
     Assert.assertEquals(0, i);
 
@@ -100,11 +91,8 @@ public class TestScheduleAfterDebounceTime {
       }
     );
 
-    try {
-      Thread.sleep(3 * DEBOUNCE_TIME + 10);
-    } catch (InterruptedException e) {
-      Assert.fail("Sleep was interrupted");
-    }
+    TestZkUtils.sleepMs(3 * DEBOUNCE_TIME + 10);
+
     Assert.assertEquals(100, i);
   }
 }
