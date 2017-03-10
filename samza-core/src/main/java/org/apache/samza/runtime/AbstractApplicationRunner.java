@@ -39,8 +39,7 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
   @Override
   public StreamSpec streamFromConfig(String streamId) {
     StreamConfig streamConfig = new StreamConfig(config);
-    String physicalName = streamConfig.getPhysicalName(streamId, streamId);
-
+    String physicalName = streamConfig.getPhysicalName(streamId);
     return streamFromConfig(streamId, physicalName);
   }
 

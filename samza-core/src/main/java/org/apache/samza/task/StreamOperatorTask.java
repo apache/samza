@@ -18,6 +18,8 @@
  */
 package org.apache.samza.task;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.MessageStreamImpl;
@@ -25,11 +27,9 @@ import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.impl.OperatorGraph;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
-
-import java.util.HashMap;
-import java.util.Map;
 
 
 /**
@@ -69,25 +69,28 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   private final StreamGraphBuilder graphBuilder;
 
+  private final ApplicationRunner runner;
+
   private ContextManager contextManager;
 
-  public StreamOperatorTask(StreamGraphBuilder graphBuilder) {
+  public StreamOperatorTask(StreamGraphBuilder graphBuilder, ApplicationRunner runner) {
     this.graphBuilder = graphBuilder;
+    this.runner = runner;
   }
 
   @Override
   public final void init(Config config, TaskContext context) throws Exception {
     // create the MessageStreamsImpl object and initialize app-specific logic DAG within the task
-    StreamGraphImpl streams = new StreamGraphImpl();
-    this.graphBuilder.init(streams, config);
+    StreamGraphImpl streamGraph = new StreamGraphImpl(this.runner, config);
+    this.graphBuilder.init(streamGraph, config);
     // get the context manager of the {@link StreamGraph} and initialize the task-specific context
-    this.contextManager = streams.getContextManager();
+    this.contextManager = streamGraph.getContextManager();
 
     Map<SystemStream, MessageStreamImpl> inputBySystemStream = new HashMap<>();
     context.getSystemStreamPartitions().forEach(ssp -> {
         if (!inputBySystemStream.containsKey(ssp.getSystemStream())) {
           // create mapping from the physical input {@link SystemStream} to the logic {@link MessageStream}
-          inputBySystemStream.putIfAbsent(ssp.getSystemStream(), streams.getInputStream(ssp.getSystemStream()));
+          inputBySystemStream.putIfAbsent(ssp.getSystemStream(), streamGraph.getInputStream(ssp.getSystemStream()));
         }
       });
     operatorGraph.init(inputBySystemStream, config, this.contextManager.initTaskContext(config, context));

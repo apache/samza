@@ -35,7 +35,7 @@ import org.apache.samza.system.StreamSpec;
 @InterfaceStability.Unstable
 public interface ApplicationRunner {
 
-  String RUNNER_CONFIG = "job.runner.class";
+  String RUNNER_CONFIG = "app.runner.class";
   String DEFAULT_RUNNER_CLASS = "org.apache.samza.runtime.RemoteApplicationRunner";
 
   /**

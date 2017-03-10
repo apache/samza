@@ -163,10 +163,10 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public <K> MessageStream<M> partitionBy(Function<M, K> parKeyExtractor) {
-    MessageStreamImpl<M> intStream = this.graph.createIntStream(parKeyExtractor);
+    int opId = graph.getNextOpId();
+    MessageStreamImpl<M> intStream = this.graph.generateIntStreamFromOpId(opId, parKeyExtractor);
     OutputStream<M> outputStream = this.graph.getOutputStream(intStream);
-    this.registeredOperatorSpecs.add(OperatorSpecs.createPartitionOperatorSpec(outputStream.getSinkFunction(),
-        this.graph, outputStream));
+    this.registeredOperatorSpecs.add(OperatorSpecs.createPartitionOperatorSpec(outputStream.getSinkFunction(), outputStream, opId));
     return intStream;
   }
   /**
