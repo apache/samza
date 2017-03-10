@@ -19,9 +19,6 @@
 
 package org.apache.samza.zk;
 
-import java.util.List;
-
-
 /**
  * Interface for a barrier - to allow synchronization between different processors to switch to a newly published
  * JobModel.
