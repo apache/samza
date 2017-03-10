@@ -28,9 +28,12 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.runtime.AbstractApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -57,6 +60,8 @@ public class TestExecutionPlanner {
   private StreamSpec output2;
 
   private Map<String, SystemAdmin> systemAdmins;
+
+  private ApplicationRunner runner;
 
   private JoinFunction createJoin() {
     return new JoinFunction() {
@@ -135,7 +140,7 @@ public class TestExecutionPlanner {
      * input1 -> partitionBy -> map -> output1
      *
      */
-    StreamGraph streamGraph = new StreamGraphImpl();
+    StreamGraph streamGraph = new StreamGraphImpl(runner, config);
     streamGraph.createInStream(input1, null, null).partitionBy(m -> "yes!!!").map(m -> m).sendTo(streamGraph.createOutStream(output1, null, null));
     return streamGraph;
   }
@@ -152,7 +157,7 @@ public class TestExecutionPlanner {
      *
      */
 
-    StreamGraph streamGraph = new StreamGraphImpl();
+    StreamGraph streamGraph = new StreamGraphImpl(runner, config);
     MessageStream m1 = streamGraph.createInStream(input1, null, null).map(m -> m);
     MessageStream m2 = streamGraph.createInStream(input2, null, null).partitionBy(m -> "haha").filter(m -> true);
     MessageStream m3 = streamGraph.createInStream(input3, null, null).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
@@ -192,6 +197,12 @@ public class TestExecutionPlanner {
     systemAdmins = new HashMap<>();
     systemAdmins.put("system1", systemAdmin1);
     systemAdmins.put("system2", systemAdmin2);
+
+    runner = new AbstractApplicationRunner(config) {
+      @Override
+      public void run(StreamGraphBuilder graphBuilder, Config config) {
+      }
+    };
   }
 
   @Test
@@ -219,8 +230,8 @@ public class TestExecutionPlanner {
     assertTrue(processorGraph.getOrCreateEdge(output2).getPartitions() == 16);
 
     processorGraph.getIntermediateStreams().forEach(edge -> {
-      assertTrue(edge.getPartitions() == -1);
-    });
+        assertTrue(edge.getPartitions() == -1);
+      });
   }
 
   @Test
@@ -234,8 +245,8 @@ public class TestExecutionPlanner {
 
     // the partitions should be the same as input1
     processorGraph.getIntermediateStreams().forEach(edge -> {
-      assertTrue(edge.getPartitions() == 64);
-    });
+        assertTrue(edge.getPartitions() == 64);
+      });
   }
 
   @Test
@@ -251,8 +262,8 @@ public class TestExecutionPlanner {
 
     // the partitions should be the same as input1
     processorGraph.getIntermediateStreams().forEach(edge -> {
-      assertTrue(edge.getPartitions() == DEFAULT_PARTITIONS);
-    });
+        assertTrue(edge.getPartitions() == DEFAULT_PARTITIONS);
+      });
   }
 
   @Test
@@ -264,7 +275,7 @@ public class TestExecutionPlanner {
 
     // the partitions should be the same as input1
     processorGraph.getIntermediateStreams().forEach(edge -> {
-      assertTrue(edge.getPartitions() == 64); // max of input1 and output1
-    });
+        assertTrue(edge.getPartitions() == 64); // max of input1 and output1
+      });
   }
 }

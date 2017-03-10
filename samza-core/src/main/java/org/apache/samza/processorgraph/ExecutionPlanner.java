@@ -129,8 +129,7 @@ public class ExecutionPlanner {
    * @param processorGraph ProcessorGraph
    * @param sysAdmins mapping from system name to the {@link SystemAdmin}
    */
-  /* package private for testing */ static void updateExistingPartitions(ProcessorGraph processorGraph,
-      Map<String, SystemAdmin> sysAdmins) {
+  /* package private for testing */ static void updateExistingPartitions(ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
     Set<StreamEdge> existingStreams = new HashSet<>();
     existingStreams.addAll(processorGraph.getSources());
     existingStreams.addAll(processorGraph.getSinks());
@@ -138,9 +137,9 @@ public class ExecutionPlanner {
     Multimap<String, StreamEdge> systemToStreamEdges = HashMultimap.create();
     // group the StreamEdge(s) based on the system name
     existingStreams.forEach(streamEdge -> {
-      SystemStream systemStream = streamEdge.getSystemStream();
-      systemToStreamEdges.put(systemStream.getSystem(), streamEdge);
-    });
+        SystemStream systemStream = streamEdge.getSystemStream();
+        systemToStreamEdges.put(systemStream.getSystem(), streamEdge);
+      });
     for (Map.Entry<String, Collection<StreamEdge>> entry : systemToStreamEdges.asMap().entrySet()) {
       String systemName = entry.getKey();
       Collection<StreamEdge> streamEdges = entry.getValue();
@@ -152,10 +151,10 @@ public class ExecutionPlanner {
       Map<String, SystemStreamMetadata> streamToMetadata = systemAdmin.getSystemStreamMetadata(streamToStreamEdge.keySet());
       // set the paritions of a stream to its StreamEdge
       streamToMetadata.forEach((stream, data) -> {
-        int partitions = data.getSystemStreamPartitionMetadata().size();
-        streamToStreamEdge.get(stream).setPartitions(partitions);
-        log.debug("Partition count is {} for stream {}", partitions, stream);
-      });
+          int partitions = data.getSystemStreamPartitionMetadata().size();
+          streamToStreamEdge.get(stream).setPartitions(partitions);
+          log.debug("Partition count is {} for stream {}", partitions, stream);
+        });
     }
   }
 
@@ -178,11 +177,11 @@ public class ExecutionPlanner {
     Set<OperatorSpec> visited = new HashSet<>();
 
     streamGraph.getInStreams().entrySet().forEach(entry -> {
-      StreamEdge streamEdge = processorGraph.getOrCreateEdge(entry.getKey());
-      // Traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
-      findReachableJoins(entry.getValue(), streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs,
-          outputStreamToJoinSpec, joinQ, visited);
-    });
+        StreamEdge streamEdge = processorGraph.getOrCreateEdge(entry.getKey());
+        // Traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
+        findReachableJoins(entry.getValue(), streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs,
+            outputStreamToJoinSpec, joinQ, visited);
+      });
 
     // At this point, joinQ contains joinSpecs where at least one of the input stream edge partitions is known.
     while (!joinQ.isEmpty()) {
@@ -278,7 +277,7 @@ public class ExecutionPlanner {
   }
 
   private static void validatePartitions(ProcessorGraph processorGraph) {
-    for(StreamEdge edge : processorGraph.getIntermediateStreams()) {
+    for (StreamEdge edge : processorGraph.getIntermediateStreams()) {
       if (edge.getPartitions() <= 0) {
         throw new SamzaException(String.format("Failure to assign the partitions to Stream %s", edge.getFormattedSystemStream()));
       }
