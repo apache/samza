@@ -36,6 +36,7 @@ import java.util
 import scala.collection.JavaConverters._
 import org.apache.samza.system.kafka.KafkaSystemFactory
 import org.apache.samza.config.SystemConfig.Config2System
+import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.kafka.common.serialization.ByteArraySerializer
 
 object KafkaConfig {
@@ -163,13 +164,6 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     kafkaChangeLogProperties.setProperty("delete.retention.ms", String.valueOf(new StorageConfig(config).getChangeLogDeleteRetentionInMs(name)))
     filteredConfigs.foreach { kv => kafkaChangeLogProperties.setProperty(kv._1, kv._2) }
     kafkaChangeLogProperties
-  }
-
-  def getTopicKafkaProperties(systemName: String, streamName: String) = {
-    val filteredConfigs = config.subset(StreamConfig.STREAM_PREFIX format(systemName, streamName), true)
-    val topicProperties = new Properties
-    filteredConfigs.foreach { kv => topicProperties.setProperty(kv._1, kv._2) }
-    topicProperties
   }
 
   // kafka config

@@ -501,6 +501,7 @@ public class TestZkLeaderElector {
   private ZkUtils getZkUtilsWithNewClient() {
     ZkConnection zkConnection = ZkUtils.createZkConnection(testZkConnectionString, SESSION_TIMEOUT_MS);
     return new ZkUtils(
+        "processorId1",
         KEY_BUILDER,
         ZkUtils.createZkClient(zkConnection, CONNECTION_TIMEOUT_MS),
         CONNECTION_TIMEOUT_MS);
