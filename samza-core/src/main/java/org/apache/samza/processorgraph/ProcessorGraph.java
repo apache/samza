@@ -40,6 +40,9 @@ import org.slf4j.LoggerFactory;
  * The ProcessorGraph is the physical execution graph for a multi-stage Samza application.
  * It contains the topology of execution processors connected with source/sink/intermediate streams.
  * High level APIs are transformed into ProcessorGraph for planing, validation and execution.
+ * Source/sink streams are external streams while intermediate streams are created and managed by Samza.
+ * Note that intermediate streams can be both the input and output of a ProcessorNode in ProcessorGraph.
+ * So the graph may have cycles and it's not a DAG.
  */
 public class ProcessorGraph {
   private static final Logger log = LoggerFactory.getLogger(ProcessorGraph.class);
@@ -48,41 +51,66 @@ public class ProcessorGraph {
   private final Map<String, StreamEdge> edges = new HashMap<>();
   private final Set<StreamEdge> sources = new HashSet<>();
   private final Set<StreamEdge> sinks = new HashSet<>();
-  private final Set<StreamEdge> internalStreams = new HashSet<>();
+  private final Set<StreamEdge> intermediateStreams = new HashSet<>();
   private final Config config;
 
-  ProcessorGraph(Config config) {
+  /**
+   * The ProcessorGraph is only constructed by the {@link ExecutionPlanner}.
+   * @param config Config
+   */
+  /* package private */ ProcessorGraph(Config config) {
     this.config = config;
   }
 
-  void addSource(StreamSpec input, String targetProcessorId) {
-    ProcessorNode node = getNode(targetProcessorId);
-    StreamEdge edge = getEdge(input);
+  /**
+   * Add a source stream to a {@link ProcessorNode}
+   * @param input source stream
+   * @param targetProcessorId id of the {@link ProcessorNode}
+   */
+  /* package private */ void addSource(StreamSpec input, String targetProcessorId) {
+    ProcessorNode node = getOrCreateProcessor(targetProcessorId);
+    StreamEdge edge = getOrCreateEdge(input);
     edge.addTargetNode(node);
     node.addInEdge(edge);
     sources.add(edge);
   }
 
-  void addSink(StreamSpec output, String sourceProcessorId) {
-    ProcessorNode node = getNode(sourceProcessorId);
-    StreamEdge edge = getEdge(output);
+  /**
+   * Add a sink stream to a {@link ProcessorNode}
+   * @param output sink stream
+   * @param sourceProcessorId id of the {@link ProcessorNode}
+   */
+  /* package private */ void addSink(StreamSpec output, String sourceProcessorId) {
+    ProcessorNode node = getOrCreateProcessor(sourceProcessorId);
+    StreamEdge edge = getOrCreateEdge(output);
     edge.addSourceNode(node);
     node.addOutEdge(edge);
     sinks.add(edge);
   }
 
-  void addEdge(StreamSpec streamSpec, String sourceProcessorId, String targetProcessorId) {
-    ProcessorNode sourceNode = getNode(sourceProcessorId);
-    ProcessorNode targetNode = getNode(targetProcessorId);
-    StreamEdge edge = getEdge(streamSpec);
+  /**
+   * Add an intermediate stream from source to target {@link ProcessorNode}
+   * @param streamSpec intermediate stream
+   * @param sourceProcessorId id of the source {@link ProcessorNode}
+   * @param targetProcessorId id of the target {@link ProcessorNode}
+   */
+  /* package private */ void addIntermediateStream(StreamSpec streamSpec, String sourceProcessorId, String targetProcessorId) {
+    ProcessorNode sourceNode = getOrCreateProcessor(sourceProcessorId);
+    ProcessorNode targetNode = getOrCreateProcessor(targetProcessorId);
+    StreamEdge edge = getOrCreateEdge(streamSpec);
     edge.addSourceNode(sourceNode);
     edge.addTargetNode(targetNode);
     sourceNode.addOutEdge(edge);
     targetNode.addInEdge(edge);
-    internalStreams.add(edge);
+    intermediateStreams.add(edge);
   }
 
-  ProcessorNode getNode(String processorId) {
+  /**
+   * Get the {@link ProcessorNode} for an id. Create one if it does not exist.
+   * @param processorId id of the processor
+   * @return processor node
+   */
+  /* package private */ProcessorNode getOrCreateProcessor(String processorId) {
     ProcessorNode node = nodes.get(processorId);
     if (node == null) {
       node = new ProcessorNode(processorId, config);
@@ -91,7 +119,12 @@ public class ProcessorGraph {
     return node;
   }
 
-  StreamEdge getEdge(StreamSpec streamSpec) {
+  /**
+   * Get the {@link StreamEdge} for a {@link StreamSpec}. Create one if it does not exist.
+   * @param streamSpec spec of the StreamEdge
+   * @return stream edge
+   */
+  /* package private */StreamEdge getOrCreateEdge(StreamSpec streamSpec) {
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
@@ -102,29 +135,43 @@ public class ProcessorGraph {
   }
 
   /**
-   * Returns the processor with configs to be executed in the topological order
-   * @return list of ProcessorConfig
+   * Returns the processors to be executed in the topological order
+   * @return list of {@link ProcessorNode}
    */
   public List<ProcessorNode> getProcessors() {
     List<ProcessorNode> sortedNodes = topologicalSort();
     return Collections.unmodifiableList(sortedNodes);
   }
 
+  /**
+   * Returns the source streams in the graph
+   * @return set of {@link StreamEdge}
+   */
   public Set<StreamEdge> getSources() {
     return Collections.unmodifiableSet(sources);
   }
 
+  /**
+   * Return the sink streams in the graph
+   * @return set of {@link StreamEdge}
+   */
   public Set<StreamEdge> getSinks() {
     return Collections.unmodifiableSet(sinks);
   }
 
-  public Set<StreamEdge> getInternalStreams() {
-    return Collections.unmodifiableSet(internalStreams);
+  /**
+   * Return the intermediate streams in the graph
+   * @return set of {@link StreamEdge}
+   */
+  public Set<StreamEdge> getIntermediateStreams() {
+    return Collections.unmodifiableSet(intermediateStreams);
   }
 
 
   /**
-   * Validate the graph
+   * Validate the graph has the correct topology, meaning the sources are coming from external streams,
+   * sinks are going to external streams, and the nodes are connected with intermediate streams.
+   * Also validate all the nodes are reachable from the sources.
    */
   public void validate() {
     validateSources();
@@ -197,10 +244,9 @@ public class ProcessorGraph {
 
   /**
    * Find the reachable set of nodes using BFS.
-   * Package private for test.
-   * @return reachable set of nodes
+   * @return reachable set of {@link ProcessorNode}
    */
-  Set<ProcessorNode> findReachable() {
+  /* package private for testing */ Set<ProcessorNode> findReachable() {
     Queue<ProcessorNode> queue = new ArrayDeque<>();
     Set<ProcessorNode> visited = new HashSet<>();
 
@@ -226,22 +272,21 @@ public class ProcessorGraph {
   /**
    * An variation of Kahn's algorithm of topological sorting.
    * This algorithm also takes account of the simple loops in the graph
-   * Package private for test.
-   * @return topologically sorted ProcessorNode(s)
+   * @return topologically sorted {@link ProcessorNode}s
    */
-  List<ProcessorNode> topologicalSort() {
+  /* package private for testing */ List<ProcessorNode> topologicalSort() {
     Collection<ProcessorNode> pnodes = nodes.values();
     Queue<ProcessorNode> q = new ArrayDeque<>();
     Map<String, Long> indegree = new HashMap<>();
     Set<ProcessorNode> visited = new HashSet<>();
     pnodes.forEach(node -> {
         String nid = node.getId();
-        //only count the degrees of intermediate streams since sources have degree 0
+        //only count the degrees of intermediate streams
         long degree = node.getInEdges().stream().filter(e -> !sources.contains(e)).count();
         indegree.put(nid, degree);
 
         if (degree == 0L) {
-          // start from the nodes that only consume from sources
+          // start from the nodes that has no intermediate input streams, so it only consumes from sources
           q.add(node);
           visited.add(node);
         }
@@ -250,6 +295,15 @@ public class ProcessorGraph {
     List<ProcessorNode> sortedNodes = new ArrayList<>();
     Set<ProcessorNode> reachable = new HashSet<>();
     while (sortedNodes.size() < pnodes.size()) {
+      // Here we use indegree-based approach to implment Kahn's algorithm for topological sort
+      // This approach will not change the graph itself during computation.
+      //
+      // The algorithm works as:
+      // 1. start with nodes with no incoming edges (in degree being 0) and inserted into the list
+      // 2. remove the edge from any node in the list to its connected nodes by changing the indegree of the connected nodes.
+      // 3. add any new nodes with ingree being 0
+      // 4. loop 1-3 until no more nodes with indegree 0
+      //
       while (!q.isEmpty()) {
         ProcessorNode node = q.poll();
         sortedNodes.add(node);
@@ -266,8 +320,8 @@ public class ProcessorGraph {
       }
 
       if (sortedNodes.size() < pnodes.size()) {
-        // The remaining nodes have circles
-        // use the following approach to break the circles
+        // The remaining nodes have cycles
+        // use the following approach to break the cycles
         // start from the nodes that are reachable from previous traverse
         reachable.removeAll(sortedNodes);
         if (!reachable.isEmpty()) {
