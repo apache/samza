@@ -147,12 +147,11 @@ public class OperatorSpecs {
    * Creates a {@link SinkOperatorSpec}.
    *
    * @param sinkFn  the sink function
-   * @param graph  the {@link StreamGraphImpl} object
    * @param stream  the {@link OutputStream} where the message is sent to
    * @param <M>  type of input message
    * @return  the {@link SinkOperatorSpec}
    */
-  public static <M> SinkOperatorSpec<M> createPartitionOperatorSpec(SinkFunction<M> sinkFn, StreamGraphImpl graph, OutputStream<M> stream, int opId) {
+  public static <M> SinkOperatorSpec<M> createPartitionOperatorSpec(SinkFunction<M> sinkFn, OutputStream<M> stream, int opId) {
     return new SinkOperatorSpec<>(sinkFn, OperatorSpec.OpCode.PARTITION_BY, opId, stream);
   }
 

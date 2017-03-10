@@ -166,8 +166,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     int opId = graph.getNextOpId();
     MessageStreamImpl<M> intStream = this.graph.generateIntStreamFromOpId(opId, parKeyExtractor);
     OutputStream<M> outputStream = this.graph.getOutputStream(intStream);
-    this.registeredOperatorSpecs.add(OperatorSpecs.createPartitionOperatorSpec(outputStream.getSinkFunction(),
-        this.graph, outputStream, opId));
+    this.registeredOperatorSpecs.add(OperatorSpecs.createPartitionOperatorSpec(outputStream.getSinkFunction(), outputStream, opId));
     return intStream;
   }
   /**

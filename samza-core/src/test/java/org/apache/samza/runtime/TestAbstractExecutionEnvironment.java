@@ -44,8 +44,6 @@ public class TestAbstractExecutionEnvironment {
 
   private static final String TEST_DEFAULT_SYSTEM = "testDefaultSystemName";
 
-  private static final String TEST_JOB_NAME = "testjob";
-  private static final String TEST_JOB_ID = "001";
 
   @Test(expected = NullPointerException.class)
   public void testConfigValidation() {
@@ -75,7 +73,7 @@ public class TestAbstractExecutionEnvironment {
     AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
     StreamSpec spec = env.streamFromConfig(STREAM_ID);
 
-    assertEquals(TEST_JOB_NAME + "-" + TEST_JOB_ID + "-" + STREAM_ID, spec.getPhysicalName());
+    assertEquals(STREAM_ID, spec.getPhysicalName());
   }
 
   // If the system is specified at the stream scope, use it
@@ -308,9 +306,6 @@ public class TestAbstractExecutionEnvironment {
     }
 
     Map<String, String> configMap = new HashMap<>();
-    configMap.put(JobConfig.JOB_NAME(), TEST_JOB_NAME);
-    configMap.put(JobConfig.JOB_ID(), TEST_JOB_ID);
-
     for (int i = 0; i < kvs.length - 1; i += 2) {
       configMap.put(kvs[i], kvs[i + 1]);
     }

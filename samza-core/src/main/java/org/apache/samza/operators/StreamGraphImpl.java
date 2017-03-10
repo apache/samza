@@ -22,6 +22,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -131,11 +133,13 @@ public class StreamGraphImpl implements StreamGraph {
   private final Map<String, MessageStream> inStreams = new HashMap<>();
   private final Map<String, OutputStream> outStreams = new HashMap<>();
   private final ApplicationRunner runner;
+  private final Config config;
 
   private ContextManager contextManager = new ContextManager() { };
 
-  public StreamGraphImpl(ApplicationRunner runner) {
+  public StreamGraphImpl(ApplicationRunner runner, Config config) {
     this.runner = runner;
+    this.config = config;
   }
 
   @Override
@@ -245,16 +249,16 @@ public class StreamGraphImpl implements StreamGraph {
    * @return  the {@link OutputStream} object for the re-partitioned stream
    */
   <PK, M> MessageStreamImpl<M> generateIntStreamFromOpId(int opId, Function<M, PK> parKeyFn) {
-    String streamId = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
+    String opNameWithId = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
+    String streamId = String.format("%s-%s-%s",
+        config.get(JobConfig.JOB_NAME()),
+        config.get(JobConfig.JOB_ID(), "1"),
+        opNameWithId);
     StreamSpec streamSpec = runner.streamFromConfig(streamId);
 
-    if (!this.inStreams.containsKey(streamSpec.getId())) {
-      this.inStreams.putIfAbsent(streamSpec.getId(), new IntermediateStreamImpl(this, streamSpec, null, null, parKeyFn));
-    }
+    this.inStreams.putIfAbsent(streamSpec.getId(), new IntermediateStreamImpl(this, streamSpec, null, null, parKeyFn));
     IntermediateStreamImpl intStream = (IntermediateStreamImpl) this.inStreams.get(streamSpec.getId());
-    if (!this.outStreams.containsKey(streamSpec.getId())) {
-      this.outStreams.putIfAbsent(streamSpec.getId(), intStream);
-    }
+    this.outStreams.putIfAbsent(streamSpec.getId(), intStream);
     return intStream;
   }
 }

@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.functions.FilterFunction;
@@ -212,8 +213,9 @@ public class TestMessageStreamImpl {
   public void testPartitionBy() {
     Map<String, String> map = new HashMap<>();
     map.put(JobConfig.JOB_DEFAULT_SYSTEM(), "testsystem");
-    ApplicationRunner runner = ApplicationRunner.fromConfig(new MapConfig(map));
-    StreamGraphImpl streamGraph = new StreamGraphImpl(runner);
+    Config config = new MapConfig(map);
+    ApplicationRunner runner = ApplicationRunner.fromConfig(config);
+    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
     MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(streamGraph);
     Function<TestMessageEnvelope, String> keyExtractorFunc = m -> "222";
     inputStream.partitionBy(keyExtractorFunc);
