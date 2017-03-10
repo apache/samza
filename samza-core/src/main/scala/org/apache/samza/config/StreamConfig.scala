@@ -150,9 +150,9 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getPhysicalName(streamId: String) = {
     // Add prefix to default so the physical name is unique per job
     val defaultPhysicalName = String.format("%s-%s-%s",
-                                                    config.get(JobConfig.JOB_NAME),
-                                                    config.get(JobConfig.JOB_ID, "1"),
-                                                    streamId)
+                                            config.get(JobConfig.JOB_NAME),
+                                            config.get(JobConfig.JOB_ID, "1"),
+                                            streamId)
     get(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID format streamId, defaultPhysicalName)
   }
 
