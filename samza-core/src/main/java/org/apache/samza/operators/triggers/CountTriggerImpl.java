@@ -35,6 +35,7 @@ public class CountTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<
   }
 
   public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
+    System.out.println("inside count trigger on msg");
     currentCount++;
     if (currentCount == triggerCount) {
       handler.onTrigger();

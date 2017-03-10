@@ -18,6 +18,7 @@ public class TestClock implements Clock {
 
   @Override
   public long currentTimeMillis() {
+    System.out.println(currentTime);
     return currentTime;
   }
 }

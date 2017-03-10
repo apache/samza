@@ -84,6 +84,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
 
   @Override
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
+    System.out.println("pending callbacks" + pendingCallbacks.size());
     WindowKey<K> storeKey =  getStoreKey(message);
     BiFunction<M, WV, WV> foldFunction = window.getFoldFunction();
     WV wv = store.get(storeKey);
@@ -111,9 +112,11 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
 
   @Override
   public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+    System.out.println("pending callbacks" + pendingCallbacks.size());
+
     long now = clock.currentTimeMillis();
     TriggerTimerState state;
-    while ((state = pendingCallbacks.peek()) != null && state.getScheduleTimeMs() < now) {
+    while ((state = pendingCallbacks.peek()) != null && state.getScheduleTimeMs() <= now) {
       pendingCallbacks.remove();
       state.getCallback().run();
 

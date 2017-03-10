@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Implementation of an {@link AnyTrigger}
@@ -34,7 +35,7 @@ public class AnyTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M>
 
   private final List<Trigger<M>> triggerList;
 
-  private final Map<TriggerImpl<M>, Boolean> triggerImpls = new HashMap<>();
+  private final Map<TriggerImpl<M>, Boolean> triggerImpls = new ConcurrentHashMap<>();
   private final Clock clock;
 
   public AnyTriggerImpl(AnyTrigger<M> anyTrigger, Clock clock) {
@@ -47,12 +48,15 @@ public class AnyTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M>
 
   @Override
   public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
-    for (TriggerImpl<M> triggerImpl : triggerImpls.keySet()) {
-      triggerImpl.onMessage(message, context, handler);
-    }
+    System.out.println("inside anytrigger on message " + message.getKey() + " " + message.getMessage() + " " + this + " " + triggerImpls.size());
+    triggerImpls.keySet().stream().forEach(m -> {
+      m.onMessage(message, context, handler);
+    });
+    System.out.println("ended on message " + message.getKey() + " " + message.getMessage() + " " + this);
   }
 
   public void cancel() {
+    System.out.println("canceling anytrigger");
     for (Iterator<Map.Entry<TriggerImpl<M>, Boolean>> it = triggerImpls.entrySet().iterator(); it.hasNext(); ) {
       TriggerImpl<M> impl = it.next().getKey();
       impl.cancel();

@@ -43,14 +43,18 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
       @Override
       public void onTrigger() {
           //re-schedule the underlying trigger for execution again.
+        System.out.println("canceling repeat trigger");
+          cancel();
           underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, clock);
           handler.onTrigger();
+        System.out.println("canceling repeat trigger end");
       }
     };
   }
 
   @Override
   public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
+    System.out.println("inside repeating trigger onmessage" + message.getKey() + " " + message.getMessage());
     underlyingTriggerImpl.onMessage(message, context, createNewHandler(handler));
   }
 
