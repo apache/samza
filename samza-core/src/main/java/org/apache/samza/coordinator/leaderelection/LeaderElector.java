@@ -20,6 +20,8 @@
 package org.apache.samza.coordinator.leaderelection;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.coordinator.LeaderElectorListener;
+
 
 @InterfaceStability.Evolving
 public interface LeaderElector {
@@ -28,7 +30,7 @@ public interface LeaderElector {
    *
    * @return True, if caller is chosen as a leader through the leader election process. False, otherwise.
    */
-  boolean tryBecomeLeader();
+  boolean tryBecomeLeader(LeaderElectorListener leaderElectorListener);
 
   /**
    * Method that allows a caller to resign from leadership role. Caller can resign from leadership due to various

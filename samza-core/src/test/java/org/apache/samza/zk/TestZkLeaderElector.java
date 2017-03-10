@@ -27,6 +27,7 @@ import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 import org.apache.samza.SamzaException;
+import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -98,16 +99,15 @@ public class TestZkLeaderElector {
     when(mockZkUtils.getSortedActiveProcessors()).thenReturn(activeProcessors);
 
     BooleanResult isLeader = new BooleanResult();
-    ZkLeaderElector leaderElector = new ZkLeaderElector("1", mockZkUtils,
-      new ZkLeaderElector.ZkLeaderElectorListener() {
-        @Override
-        public void onBecomingLeader() {
-          isLeader.res = true;
-        }
+    ZkLeaderElector leaderElector = new ZkLeaderElector("1", mockZkUtils);
+
+    leaderElector.tryBecomeLeader(new LeaderElectorListener() {
+      @Override
+      public void onBecomingLeader() {
+        isLeader.res = true;
       }
-    );
-    leaderElector.tryBecomeLeader();
-    Assert.assertTrue(TestZkUtils.testWithDelayBackOff(()->isLeader.res, 2, 100));
+    });
+    Assert.assertTrue(TestZkUtils.testWithDelayBackOff(() -> isLeader.res, 2, 100));
   }
 
   @Test
@@ -116,15 +116,13 @@ public class TestZkLeaderElector {
     ZkUtils mockZkUtils = mock(ZkUtils.class);
     when(mockZkUtils.getSortedActiveProcessors()).thenReturn(new ArrayList<String>());
 
-    ZkLeaderElector leaderElector = new ZkLeaderElector(processorId, mockZkUtils,
-        new ZkLeaderElector.ZkLeaderElectorListener() {
-          @Override
-          public void onBecomingLeader() {
-          }
-        }
-    );
+    ZkLeaderElector leaderElector = new ZkLeaderElector(processorId, mockZkUtils);
     try {
-      leaderElector.tryBecomeLeader();
+      leaderElector.tryBecomeLeader(new LeaderElectorListener() {
+        @Override
+        public void onBecomingLeader() {
+        }
+      });
       Assert.fail("Was expecting leader election to fail!");
     } catch (SamzaException e) {
       // No-op Expected
@@ -139,43 +137,39 @@ public class TestZkLeaderElector {
     BooleanResult isLeader1 = new BooleanResult();
     BooleanResult isLeader2 = new BooleanResult();
     BooleanResult isLeader3 = new BooleanResult();
+
     // Processor-1
     ZkUtils zkUtils1 = getZkUtilsWithNewClient();
-    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1,
-      new ZkLeaderElector.ZkLeaderElectorListener() {
-        @Override
-        public void onBecomingLeader() {
-          isLeader1.res = true;
-        }
-      }
-    );
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1);
 
     // Processor-2
     ZkUtils zkUtils2 = getZkUtilsWithNewClient();
-    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2,
-        new ZkLeaderElector.ZkLeaderElectorListener() {
-          @Override
-          public void onBecomingLeader() {
-            isLeader2.res = true;
-          }
-        }
-    );
+    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2);
 
     // Processor-3
     ZkUtils zkUtils3  = getZkUtilsWithNewClient();
-    ZkLeaderElector leaderElector3 = new ZkLeaderElector("3", zkUtils3,
-        new ZkLeaderElector.ZkLeaderElectorListener() {
-          @Override
-          public void onBecomingLeader() {
-            isLeader3.res = true;
-          }
-        });
+    ZkLeaderElector leaderElector3 = new ZkLeaderElector("3", zkUtils3);
 
     Assert.assertEquals(0, testZkUtils.getSortedActiveProcessors().size());
 
-    leaderElector1.tryBecomeLeader();
-    leaderElector2.tryBecomeLeader();
-    leaderElector3.tryBecomeLeader();
+    leaderElector1.tryBecomeLeader(new LeaderElectorListener() {
+      @Override
+      public void onBecomingLeader() {
+        isLeader1.res = true;
+      }
+    });
+    leaderElector2.tryBecomeLeader(new LeaderElectorListener() {
+      @Override
+      public void onBecomingLeader() {
+        isLeader2.res = true;
+      }
+    });
+    leaderElector3.tryBecomeLeader(new LeaderElectorListener() {
+      @Override
+      public void onBecomingLeader() {
+        isLeader3.res = true;
+      }
+    });
 
     Assert.assertTrue(TestZkUtils.testWithDelayBackOff(()->isLeader1.res, 2, 100));
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(()->isLeader2.res, 2, 100));
@@ -213,93 +207,90 @@ public class TestZkLeaderElector {
     // Processor-1
     ZkUtils zkUtils1 = getZkUtilsWithNewClient();
     zkUtils1.registerProcessorAndGetId("processor1");
-    ZkLeaderElector leaderElector1 = new ZkLeaderElector(
-        "1",
-        zkUtils1,
-        new ZkLeaderElector.ZkLeaderElectorListener() {
-          @Override
-          public void onBecomingLeader() {
-            isLeader1.res = true;
-          }
-        },
-        new IZkDataListener() {
-          @Override
-          public void handleDataChange(String dataPath, Object data) throws Exception {
-          }
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1",zkUtils1);
 
-          @Override
-          public void handleDataDeleted(String dataPath) throws Exception {
-            count.incrementAndGet();
-          }
-        });
+    leaderElector1.setPreviousProcessorChangeListener(new IZkDataListener() {
+      @Override
+      public void handleDataChange(String dataPath, Object data)
+          throws Exception {
+      }
 
+      @Override
+      public void handleDataDeleted(String dataPath)
+          throws Exception {
+        count.incrementAndGet();
+      }
+    });
 
     // Processor-2
     ZkUtils zkUtils2 = getZkUtilsWithNewClient();
     final String path2 = zkUtils2.registerProcessorAndGetId("processor2");
-    ZkLeaderElector leaderElector2 = new ZkLeaderElector(
-        "2",
-        zkUtils2,
-        new ZkLeaderElector.ZkLeaderElectorListener() {
-          @Override
-          public void onBecomingLeader() {
-            isLeader2.res = true;
-          }
-        },
-        new IZkDataListener() {
-          @Override
-          public void handleDataChange(String dataPath, Object data) throws Exception {
+    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2);
 
-          }
+    leaderElector2.setPreviousProcessorChangeListener(new IZkDataListener() {
+      @Override
+      public void handleDataChange(String dataPath, Object data)
+          throws Exception {
+      }
 
-          @Override
-          public void handleDataDeleted(String dataPath) throws Exception {
-            String registeredIdStr = ZkKeyBuilder.parseIdFromPath(path2);
-            Assert.assertNotNull(registeredIdStr);
+      @Override
+      public void handleDataDeleted(String dataPath)
+          throws Exception {
+        String registeredIdStr = ZkKeyBuilder.parseIdFromPath(path2);
+        Assert.assertNotNull(registeredIdStr);
 
-            String predecessorIdStr = ZkKeyBuilder.parseIdFromPath(dataPath);
-            Assert.assertNotNull(predecessorIdStr);
+        String predecessorIdStr = ZkKeyBuilder.parseIdFromPath(dataPath);
+        Assert.assertNotNull(predecessorIdStr);
 
-            try {
-              int selfId = Integer.parseInt(registeredIdStr);
-              int predecessorId = Integer.parseInt(predecessorIdStr);
-              Assert.assertEquals(1, selfId - predecessorId);
-            } catch (Exception e) {
-              System.out.println(e.getMessage());
-            }
-            count.incrementAndGet();
-            electionLatch.countDown();
-          }
-        });
+        try {
+          int selfId = Integer.parseInt(registeredIdStr);
+          int predecessorId = Integer.parseInt(predecessorIdStr);
+          Assert.assertEquals(1, selfId - predecessorId);
+        } catch (Exception e) {
+          System.out.println(e.getMessage());
+        }
+        count.incrementAndGet();
+        electionLatch.countDown();
+      }
+    });
 
     // Processor-3
     ZkUtils zkUtils3  = getZkUtilsWithNewClient();
     zkUtils3.registerProcessorAndGetId("processor3");
-    ZkLeaderElector leaderElector3 = new ZkLeaderElector(
-        "3",
-        zkUtils3,
-        new ZkLeaderElector.ZkLeaderElectorListener() {
-          @Override
-          public void onBecomingLeader() {
-            isLeader3.res = true;
-          }
-        },
-        new IZkDataListener() {
-          @Override
-          public void handleDataChange(String dataPath, Object data) throws Exception {
+    ZkLeaderElector leaderElector3 = new ZkLeaderElector("3", zkUtils3);
+    leaderElector3.setPreviousProcessorChangeListener(new IZkDataListener() {
+      @Override
+      public void handleDataChange(String dataPath, Object data)
+          throws Exception {
+      }
 
-          }
-
-          @Override
-          public void handleDataDeleted(String dataPath) throws Exception {
-            count.incrementAndGet();
-          }
-        });
+      @Override
+      public void handleDataDeleted(String dataPath)
+          throws Exception {
+        count.incrementAndGet();
+      }
+    });
 
     // Join Leader Election
-    leaderElector1.tryBecomeLeader();
-    leaderElector2.tryBecomeLeader();
-    leaderElector3.tryBecomeLeader();
+    leaderElector1.tryBecomeLeader(new LeaderElectorListener() {
+      @Override
+      public void onBecomingLeader() {
+        isLeader1.res = true;
+      }
+    });
+    leaderElector2.tryBecomeLeader(new LeaderElectorListener() {
+      @Override
+      public void onBecomingLeader() {
+        isLeader2.res = true;
+      }
+    });
+    leaderElector3.tryBecomeLeader(new LeaderElectorListener() {
+      @Override
+      public void onBecomingLeader() {
+        isLeader3.res = true;
+      }
+    });
+
     Assert.assertTrue(TestZkUtils.testWithDelayBackOff(()->isLeader1.res, 2, 100));
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(()->isLeader2.res, 2, 100));
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(()->isLeader3.res, 2, 100));
@@ -349,96 +340,96 @@ public class TestZkLeaderElector {
     // Processor-1
     ZkUtils zkUtils1 = getZkUtilsWithNewClient();
     zkUtils1.registerProcessorAndGetId("processor1");
-    ZkLeaderElector leaderElector1 = new ZkLeaderElector(
-        "1",
-        zkUtils1,
-        new ZkLeaderElector.ZkLeaderElectorListener() {
-          @Override
-          public void onBecomingLeader() {
-            isLeader1.res = true;
-          }
-        },
-        new IZkDataListener() {
-          @Override
-          public void handleDataChange(String dataPath, Object data) throws Exception {
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1);
+    leaderElector1.setPreviousProcessorChangeListener(new IZkDataListener() {
+      @Override
+      public void handleDataChange(String dataPath, Object data)
+          throws Exception {
 
-          }
+      }
 
-          @Override
-          public void handleDataDeleted(String dataPath) throws Exception {
-            count.incrementAndGet();
-          }
-        });
+      @Override
+      public void handleDataDeleted(String dataPath)
+          throws Exception {
+        count.incrementAndGet();
+      }
+    });
+
 
     // Processor-2
     ZkUtils zkUtils2 = getZkUtilsWithNewClient();
     zkUtils2.registerProcessorAndGetId("processor2");
-    ZkLeaderElector leaderElector2 = new ZkLeaderElector(
-        "2",
-        zkUtils2,
-        new ZkLeaderElector.ZkLeaderElectorListener() {
-          @Override
-          public void onBecomingLeader() {
-            isLeader2.res = true;
-          }
-        },
-        new IZkDataListener() {
-          @Override
-          public void handleDataChange(String dataPath, Object data) throws Exception {
+    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2);
+    leaderElector2.setPreviousProcessorChangeListener(new IZkDataListener() {
+      @Override
+      public void handleDataChange(String dataPath, Object data)
+          throws Exception {
 
-          }
+      }
 
-          @Override
-          public void handleDataDeleted(String dataPath) throws Exception {
-            count.incrementAndGet();
-          }
-        });
+      @Override
+      public void handleDataDeleted(String dataPath)
+          throws Exception {
+        count.incrementAndGet();
+      }
+    });
 
     // Processor-3
     ZkUtils zkUtils3  = getZkUtilsWithNewClient();
     final String path3 = zkUtils3.registerProcessorAndGetId("processor3");
     ZkLeaderElector leaderElector3 = new ZkLeaderElector(
         "3",
-        zkUtils3,
-        new ZkLeaderElector.ZkLeaderElectorListener() {
-          @Override
-          public void onBecomingLeader() {
-            isLeader3.res = true;
-          }
-        },
-        new IZkDataListener() {
-          @Override
-          public void handleDataChange(String dataPath, Object data) throws Exception {
+        zkUtils3);
+    leaderElector3.setPreviousProcessorChangeListener(new IZkDataListener() {
+      @Override
+      public void handleDataChange(String dataPath, Object data)
+          throws Exception {
 
-          }
+      }
 
-          @Override
-          public void handleDataDeleted(String dataPath) throws Exception {
-            String registeredIdStr = ZkKeyBuilder.parseIdFromPath(path3);
-            Assert.assertNotNull(registeredIdStr);
+      @Override
+      public void handleDataDeleted(String dataPath)
+          throws Exception {
+        String registeredIdStr = ZkKeyBuilder.parseIdFromPath(path3);
+        Assert.assertNotNull(registeredIdStr);
 
-            String predecessorIdStr = ZkKeyBuilder.parseIdFromPath(dataPath);
-            Assert.assertNotNull(predecessorIdStr);
+        String predecessorIdStr = ZkKeyBuilder.parseIdFromPath(dataPath);
+        Assert.assertNotNull(predecessorIdStr);
 
-            try {
-              int selfId = Integer.parseInt(registeredIdStr);
-              int predecessorId = Integer.parseInt(predecessorIdStr);
-              Assert.assertEquals(1, selfId - predecessorId);
-            } catch (Exception e) {
-              Assert.fail("Exception in LeaderElectionListener!");
-            }
-            count.incrementAndGet();
-            electionLatch.countDown();
-          }
-        });
+        try {
+          int selfId = Integer.parseInt(registeredIdStr);
+          int predecessorId = Integer.parseInt(predecessorIdStr);
+          Assert.assertEquals(1, selfId - predecessorId);
+        } catch (Exception e) {
+          Assert.fail("Exception in LeaderElectionListener!");
+        }
+        count.incrementAndGet();
+        electionLatch.countDown();
+      }
+    });
 
     // Join Leader Election
-    leaderElector1.tryBecomeLeader();
-    leaderElector2.tryBecomeLeader();
-    leaderElector3.tryBecomeLeader();
-    Assert.assertTrue(TestZkUtils.testWithDelayBackOff(()->isLeader1.res, 2, 100));
-    Assert.assertFalse(TestZkUtils.testWithDelayBackOff(()->isLeader2.res, 2, 100));
-    Assert.assertFalse(TestZkUtils.testWithDelayBackOff(()->isLeader3.res, 2, 100));
+    leaderElector1.tryBecomeLeader(new LeaderElectorListener() {
+      @Override
+      public void onBecomingLeader() {
+        isLeader1.res = true;
+      }
+    });
+    leaderElector2.tryBecomeLeader(new LeaderElectorListener() {
+      @Override
+      public void onBecomingLeader() {
+        isLeader2.res = true;
+      }
+    });
+    leaderElector3.tryBecomeLeader(new LeaderElectorListener() {
+      @Override
+      public void onBecomingLeader() {
+        isLeader3.res = true;
+      }
+    });
+    Assert.assertTrue(TestZkUtils.testWithDelayBackOff(() -> isLeader1.res, 2, 100));
+    Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> isLeader2.res, 2, 100));
+    Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> isLeader3.res, 2, 100));
 
     List<String> currentActiveProcessors = testZkUtils.getSortedActiveProcessors();
     Assert.assertEquals(3, currentActiveProcessors.size());
@@ -465,33 +456,27 @@ public class TestZkLeaderElector {
     BooleanResult isLeader1 = new BooleanResult();
     BooleanResult isLeader2 = new BooleanResult();
     // Processor-1
-    ZkLeaderElector leaderElector1 = new ZkLeaderElector(
-        "1",
-        getZkUtilsWithNewClient(),
-        new ZkLeaderElector.ZkLeaderElectorListener() {
-          @Override
-          public void onBecomingLeader() {
-            isLeader1.res = true;
-          }
-        });
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", getZkUtilsWithNewClient());
 
     // Processor-2
-    ZkLeaderElector leaderElector2 = new ZkLeaderElector(
-        "2",
-        getZkUtilsWithNewClient(),
-        new ZkLeaderElector.ZkLeaderElectorListener() {
-          @Override
-          public void onBecomingLeader() {
-            isLeader2.res = true;
-          }
-        });
+    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", getZkUtilsWithNewClient());
 
     // Before Leader Election
     Assert.assertFalse(leaderElector1.amILeader());
     Assert.assertFalse(leaderElector2.amILeader());
 
-    leaderElector1.tryBecomeLeader();
-    leaderElector2.tryBecomeLeader();
+    leaderElector1.tryBecomeLeader(new LeaderElectorListener() {
+      @Override
+      public void onBecomingLeader() {
+        isLeader1.res = true;
+      }
+    });
+    leaderElector2.tryBecomeLeader(new LeaderElectorListener() {
+      @Override
+      public void onBecomingLeader() {
+        isLeader2.res = true;
+      }
+    });
 
     // After Leader Election
     Assert.assertTrue(leaderElector1.amILeader());

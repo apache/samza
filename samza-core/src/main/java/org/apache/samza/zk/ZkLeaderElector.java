@@ -20,17 +20,17 @@
 package org.apache.samza.zk;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.I0Itec.zkclient.IZkDataListener;
-import org.apache.samza.SamzaException;
-import org.apache.samza.coordinator.leaderelection.LeaderElector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.I0Itec.zkclient.IZkDataListener;
+import org.apache.samza.SamzaException;
+import org.apache.samza.coordinator.LeaderElectorListener;
+import org.apache.samza.coordinator.leaderelection.LeaderElector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>
@@ -50,30 +50,20 @@ public class ZkLeaderElector implements LeaderElector {
   private final String hostName;
 
   private AtomicBoolean isLeader = new AtomicBoolean(false);
-  private final IZkDataListener previousProcessorChangeListener;
-  ZkLeaderElectorListener zkLeaderElectorListener;
+  private IZkDataListener previousProcessorChangeListener;
   private String currentSubscription = null;
   private final Random random = new Random();
 
   @VisibleForTesting
-  ZkLeaderElector(String processorIdStr,
-      ZkUtils zkUtils,
-      ZkLeaderElectorListener zkLeaderElectorListener,
-      IZkDataListener previousProcessorChangeListener) {
+  public void setPreviousProcessorChangeListener(IZkDataListener previousProcessorChangeListener) {
+    this.previousProcessorChangeListener = previousProcessorChangeListener;
+  }
+
+  public ZkLeaderElector(String processorIdStr, ZkUtils zkUtils) {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
     this.keyBuilder = this.zkUtils.getKeyBuilder();
     this.hostName = getHostName();
-    this.zkLeaderElectorListener = zkLeaderElectorListener; // listener to inform the caller that they have become the leader
-    if (previousProcessorChangeListener == null)
-      this.previousProcessorChangeListener =  new PreviousProcessorChangeListener();
-    else
-      this.previousProcessorChangeListener = previousProcessorChangeListener;
-  }
-
-  public ZkLeaderElector(String processorIdStr, ZkUtils zkUtils, ZkLeaderElectorListener zkLeaderElectorListener) {
-    this(processorIdStr, zkUtils, zkLeaderElectorListener, null);
-
   }
 
   // TODO: This should go away once we integrate with Zk based Job Coordinator
@@ -86,12 +76,8 @@ public class ZkLeaderElector implements LeaderElector {
     }
   }
 
-  public interface ZkLeaderElectorListener {
-    void onBecomingLeader();
-  }
-
   @Override
-  public boolean tryBecomeLeader() {
+  public boolean tryBecomeLeader(LeaderElectorListener leaderElectorListener) {
     String currentPath = zkUtils.registerProcessorAndGetId(hostName);
 
     List<String> children = zkUtils.getSortedActiveProcessors();
@@ -105,7 +91,7 @@ public class ZkLeaderElector implements LeaderElector {
     if (index == 0) {
       isLeader.getAndSet(true);
       LOGGER.info(zLog("Eligible to become the leader!"));
-      zkLeaderElectorListener.onBecomingLeader(); // inform the caller
+      leaderElectorListener.onBecomingLeader(); // inform the caller
       return true;
     }
 
@@ -114,6 +100,11 @@ public class ZkLeaderElector implements LeaderElector {
     String predecessor = children.get(index - 1);
     if (!predecessor.equals(currentSubscription)) {
       if (currentSubscription != null) {
+
+        // callback in case if the previous node gets deleted (when previous processor dies)
+        if(previousProcessorChangeListener == null)
+          previousProcessorChangeListener =  new PreviousProcessorChangeListener(leaderElectorListener);
+
         LOGGER.debug(zLog("Unsubscribing data change for " + currentSubscription));
         zkUtils.unsubscribeDataChanges(keyBuilder.getProcessorsPath() + "/" + currentSubscription,
             previousProcessorChangeListener);
@@ -138,7 +129,7 @@ public class ZkLeaderElector implements LeaderElector {
         Thread.interrupted();
       }
       LOGGER.info(zLog("Predecessor doesn't exist anymore. Trying to become leader again..."));
-      return tryBecomeLeader();
+      return tryBecomeLeader(leaderElectorListener);
     }
     return false;
   }
@@ -159,6 +150,10 @@ public class ZkLeaderElector implements LeaderElector {
 
   // Only by non-leaders
   class PreviousProcessorChangeListener implements IZkDataListener {
+    private final LeaderElectorListener leaderElectorListener;
+    PreviousProcessorChangeListener(LeaderElectorListener leaderElectorListener) {
+      this.leaderElectorListener = leaderElectorListener;
+    }
 
     @Override
     public void handleDataChange(String dataPath, Object data) throws Exception {
@@ -168,7 +163,7 @@ public class ZkLeaderElector implements LeaderElector {
     @Override
     public void handleDataDeleted(String dataPath) throws Exception {
       LOGGER.info(zLog("Data deleted on path " + dataPath + ". Predecessor went away. So, trying to become leader again..."));
-      tryBecomeLeader();
+      tryBecomeLeader(leaderElectorListener);
     }
   }
 }
