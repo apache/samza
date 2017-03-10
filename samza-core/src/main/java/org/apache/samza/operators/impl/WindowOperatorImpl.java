@@ -20,6 +20,7 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
+import org.apache.samza.operators.WindowState;
 import org.apache.samza.operators.triggers.Cancellable;
 import org.apache.samza.operators.triggers.RepeatingTriggerImpl;
 import org.apache.samza.operators.triggers.TimeTrigger;
@@ -71,7 +72,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
 
   private final PriorityQueue<TriggerTimerState> pendingCallbacks = new PriorityQueue<>();
   private final WindowInternal<M, K, WV> window;
-  private final KeyValueStore<WindowKey<K>, WV> store = new InternalInMemoryStore<>();
+  private final KeyValueStore<WindowKey<K>, WindowState<WV>> store = new InternalInMemoryStore<>();
 
   private final Map<TriggerKey<K>, TriggerImplWrapper> triggers = new HashMap<>();
   private final Clock clock;
@@ -87,14 +88,23 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     System.out.println("pending callbacks" + pendingCallbacks.size());
     WindowKey<K> storeKey =  getStoreKey(message);
     BiFunction<M, WV, WV> foldFunction = window.getFoldFunction();
-    WV wv = store.get(storeKey);
 
-    if (wv == null) {
+    WindowState<WV> existingState = store.get(storeKey);
+
+    WV wv;
+    long earliestTimeStamp;
+
+    if (existingState == null) {
       wv = window.getInitializer().get();
+      earliestTimeStamp = clock.currentTimeMillis();
+    } else {
+      wv = existingState.getWv();
+      earliestTimeStamp = existingState.getEarliestTime();
     }
 
     WV newVal = foldFunction.apply(message, wv);
-    store.put(storeKey, newVal);
+    WindowState<WV> newState = new WindowState(newVal, earliestTimeStamp);
+    store.put(storeKey, newState);
 
     if (window.getEarlyTrigger() != null) {
       TriggerKey<K> triggerKey = new TriggerKey<>(TriggerType.EARLY, storeKey);
@@ -164,28 +174,21 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   private void handleTrigger(TriggerKey<K> triggerKey, MessageCollector collector, TaskCoordinator coordinator) {
     TriggerImplWrapper wrapper = triggers.get(triggerKey);
 
-    // Cancel all early triggers too when the default trigger fires.
-    if (triggerKey.getType() == TriggerType.DEFAULT) {
-      cancelTrigger(triggerKey, true);
-      cancelTrigger(new TriggerKey(TriggerType.EARLY, triggerKey.getKey()), true);
-    }
-
-    // Cancel non-repeating early triggers.
-    if (triggerKey.getType() == TriggerType.EARLY && !wrapper.isRepeating()) {
-      cancelTrigger(triggerKey, false);
-    }
-
     WindowKey<K> windowKey = triggerKey.key;
-    WV wv = store.get(windowKey);
+    WindowState<WV> state = store.get(windowKey);
 
-    if (wv == null) {
+    if (state == null) {
       return;
     }
 
-    WindowPane<K, WV> paneOutput = new WindowPane<>(windowKey, wv, window.getAccumulationMode());
+    WindowPane<K, WV> paneOutput = new WindowPane<>(windowKey, state.getWv(), window.getAccumulationMode());
     // Handle accumulation modes.
     if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
       store.put(windowKey, null);
+    }
+
+    if (window.getWindowType() == WindowType.SESSION) {
+      windowKey = new WindowKey<>(windowKey.getKey(), Long.toString(state.getEarliestTime()));
     }
 
     if (paneOutput.getMessage() instanceof Collection) {
@@ -194,6 +197,21 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     }
 
     WindowOperatorImpl.super.propagateResult((WM) paneOutput, collector, coordinator);
+
+    // Cancel all early triggers too when the default trigger fires.
+    if (triggerKey.getType() == TriggerType.DEFAULT) {
+      cancelTrigger(triggerKey, true);
+      cancelTrigger(new TriggerKey(TriggerType.EARLY, triggerKey.getKey()), true);
+      WindowKey<K> key = triggerKey.key;
+      store.delete(key);
+    }
+
+    // Cancel non-repeating early triggers.
+    if (triggerKey.getType() == TriggerType.EARLY && !wrapper.isRepeating()) {
+      cancelTrigger(triggerKey, false);
+    }
+
+
   }
 
   private void cancelTrigger(TriggerKey<K> triggerKey, boolean shouldRemove) {

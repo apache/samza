@@ -38,15 +38,15 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
     this.underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, clock);
   }
 
-  private TriggerCallbackHandler createNewHandler(TriggerCallbackHandler handler) {
+  private TriggerCallbackHandler createWrappedHandler(TriggerCallbackHandler handler) {
     return new TriggerCallbackHandler() {
       @Override
       public void onTrigger() {
           //re-schedule the underlying trigger for execution again.
         System.out.println("canceling repeat trigger");
-          cancel();
-          underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, clock);
-          handler.onTrigger();
+        underlyingTriggerImpl.cancel();
+        underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, clock);
+        handler.onTrigger();
         System.out.println("canceling repeat trigger end");
       }
     };
@@ -55,7 +55,7 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
   @Override
   public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
     System.out.println("inside repeating trigger onmessage" + message.getKey() + " " + message.getMessage());
-    underlyingTriggerImpl.onMessage(message, context, createNewHandler(handler));
+    underlyingTriggerImpl.onMessage(message, context, createWrappedHandler(handler));
   }
 
   @Override
