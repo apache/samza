@@ -29,6 +29,8 @@ import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +44,8 @@ import java.util.List;
  * @param <RM>  type of messages in the joined stream
  */
 class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(PartialJoinOperatorImpl.class);
 
   private final PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn;
   private final PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn;
@@ -59,7 +63,8 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
     K key = thisPartialJoinFn.getKey(message);
     thisPartialJoinFn.getState().put(key, new PartialJoinMessage<>(message, System.currentTimeMillis()));
     PartialJoinMessage<JM> otherMessage = otherPartialJoinFn.getState().get(key);
-    if (otherMessage != null) {
+    long now = System.currentTimeMillis();
+    if (otherMessage != null && otherMessage.getReceivedAt() > now - ttlMs) {
       RM joinResult = thisPartialJoinFn.apply(message, otherMessage.getMessage());
       this.propagateResult(joinResult, collector, coordinator);
     }
@@ -67,22 +72,25 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
 
   @Override
   public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+    long now = System.currentTimeMillis();
+
     KeyValueStore<K, PartialJoinMessage<M>> thisState = thisPartialJoinFn.getState();
     KeyValueIterator<K, PartialJoinMessage<M>> iterator = thisState.all();
     List<K> keysToRemove = new ArrayList<>();
-    long now = System.currentTimeMillis();
 
     while (iterator.hasNext()) {
       Entry<K, PartialJoinMessage<M>> entry = iterator.next();
-      if (entry.getValue().getTimestamp() < now - ttlMs) {
+      if (entry.getValue().getReceivedAt() < now - ttlMs) {
         keysToRemove.add(entry.getKey());
       } else {
         break;
       }
     }
 
+    iterator.close();
     thisState.deleteAll(keysToRemove);
 
+    LOGGER.debug("onTimer self time: {} ms", System.currentTimeMillis() - now);
     this.propagateTimer(collector, coordinator);
   }
 

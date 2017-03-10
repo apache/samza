@@ -29,6 +29,7 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.TaskContext;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -65,7 +66,7 @@ public class OperatorGraph {
   }
 
   /**
-   * Method to get the corresponding {@link RootOperatorImpl}
+   * Get the {@link RootOperatorImpl} corresponding to the provided {@code ss}.
    *
    * @param ss  input {@link SystemStream}
    * @return  the {@link RootOperatorImpl} that starts processing the input message
@@ -75,12 +76,12 @@ public class OperatorGraph {
   }
 
   /**
-   * Method to get the all {@link RootOperatorImpl}s
+   * Get all {@link RootOperatorImpl}s for the graph.
    *
-   * @return  all {@link RootOperatorImpl}s for the graph
+   * @return  an immutable view of all {@link RootOperatorImpl}s for the graph
    */
   public Collection<RootOperatorImpl> getAll() {
-    return this.operatorGraph.values();
+    return Collections.unmodifiableCollection(this.operatorGraph.values());
   }
 
   /**
