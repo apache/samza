@@ -29,6 +29,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * This class creates a barrier for version upgrade.
+ * Leader should call barrier.start() - this will create barrier_${VERSION}, barrier_processors and barrier_done nodes in ZK,
+ * and will create a listener on any changes to barrier_processors. start() will also store the list of the processors expected
+ * to join the barrier.
+ * Each participant will register its name under barrier_processor and subscribe to the changes of barrier_done.
+ * The callback (subscribed by start()) will evaluate the current list under barrier_processors and compare it to the list
+ * of expected processors. When the lists match it means that the barrier has been reached. It will change the value of
+ * the barrier_done node to "DONE". This will inform all the subscribed processors that they may continue with the new version.
+ *
+ * start() also starts a timer for a time-out. If the timer fires before the barrier is reached, it will put "TIME_OUT" value
+ * into the barrier_done, which, in turn, will cause all the processors to be notified and unsubscribe from the barrier.
+ * This barrier becomes invalid.
+ */
 public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final ZkUtils zkUtils;
   private final ZkKeyBuilder keyBuilder;
