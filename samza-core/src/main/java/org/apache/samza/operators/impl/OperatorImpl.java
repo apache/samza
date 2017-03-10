@@ -69,7 +69,7 @@ public abstract class OperatorImpl<M, RM> {
    * @param collector
    * @param coordinator
    */
-  public abstract void onTimer(MessageCollector collector, TaskCoordinator coordinator);
+  public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {};
 
   /**
    * Helper method to propagate the output of this operator to all registered downstream operators.

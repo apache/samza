@@ -41,8 +41,4 @@ class SinkOperatorImpl<M> extends OperatorImpl<M, M> {
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
     this.sinkFn.apply(message, collector, coordinator);
   }
-
-  @Override
-  public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
-  }
 }

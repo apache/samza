@@ -24,6 +24,7 @@ import org.apache.samza.operators.TestMessageEnvelope;
 import org.apache.samza.operators.TestMessageStreamImplUtil;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
+import org.apache.samza.operators.functions.FoldFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.windows.internal.WindowInternal;
@@ -70,7 +71,7 @@ public class TestOperatorSpecs {
   @Test
   public void testGetWindowOperator() throws Exception {
     Function<TestMessageEnvelope, String> keyExtractor = m -> "globalkey";
-    BiFunction<TestMessageEnvelope, Integer, Integer> aggregator = (m, c) -> c + 1;
+    FoldFunction<TestMessageEnvelope, Integer> aggregator = (m, c) -> c + 1;
     Supplier<Integer> initialValue = () -> 0;
     //instantiate a window using reflection
     WindowInternal window = new WindowInternal(null, initialValue, aggregator, keyExtractor, null, WindowType.TUMBLING);

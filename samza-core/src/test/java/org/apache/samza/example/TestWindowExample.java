@@ -25,6 +25,7 @@ import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.data.Offset;
+import org.apache.samza.operators.functions.FoldFunction;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStreamPartition;
@@ -58,7 +59,7 @@ public class TestWindowExample extends TestExampleBase {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    BiFunction<JsonMessageEnvelope, Integer, Integer> maxAggregator = (m, c) -> c + 1;
+    FoldFunction<JsonMessageEnvelope, Integer> maxAggregator = (m, c) -> c + 1;
     Supplier<Integer> initialValue = () -> 0;
     inputs.keySet().forEach(source -> graph.<Object, Object, InputMessageEnvelope>createInStream(
             new StreamSpec(source.toString(), source.getStream(), source.getSystem()), null, null).

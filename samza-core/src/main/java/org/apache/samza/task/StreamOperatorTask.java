@@ -28,11 +28,13 @@ import org.apache.samza.operators.impl.OperatorGraph;
 import org.apache.samza.operators.impl.OperatorImpl;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 
 /**
@@ -88,7 +90,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   }
 
 
-  private TaskContext context;
+  private Set<SystemStreamPartition> systemStreamPartitions;
 
   @Override
   public final void init(Config config, TaskContext context) throws Exception {
@@ -97,9 +99,9 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     this.graphBuilder.init(streams, config);
     // get the context manager of the {@link StreamGraph} and initialize the task-specific context
     this.contextManager = streams.getContextManager();
-    this.context = context;
+    this.systemStreamPartitions = context.getSystemStreamPartitions();
     Map<SystemStream, MessageStreamImpl> inputBySystemStream = new HashMap<>();
-    context.getSystemStreamPartitions().forEach(ssp -> {
+    systemStreamPartitions.forEach(ssp -> {
         if (!inputBySystemStream.containsKey(ssp.getSystemStream())) {
           // create mapping from the physical input {@link SystemStream} to the logic {@link MessageStream}
           inputBySystemStream.putIfAbsent(ssp.getSystemStream(), streams.getInputStream(ssp.getSystemStream()));
@@ -116,9 +118,9 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   @Override
   public final void window(MessageCollector collector, TaskCoordinator coordinator)  {
-    context.getSystemStreamPartitions().forEach(ssp -> {
-        OperatorImpl impl = this.operatorGraph.get(ssp.getSystemStream());
-        impl.onTick(collector, coordinator);
+    systemStreamPartitions.forEach(ssp -> {
+        this.operatorGraph.get(ssp.getSystemStream())
+          .onTick(collector, coordinator);
       });
   }
 

@@ -20,6 +20,7 @@
 package org.apache.samza.operators.windows;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.functions.FoldFunction;
 import org.apache.samza.operators.triggers.TimeTrigger;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
@@ -72,7 +73,8 @@ import java.util.function.Supplier;
  * <p> A {@link Window} can be one of the following types:
  * <ul>
  *   <li>
- *     Tumbling Windows: A tumbling window defines a series of non-overlapping, fixed size, contiguous intervals.
+ *     Tumbling Windows: A tumbling window defines a series of non-overlapping, fixed size, contiguous intervals. Time
+ *     intervals are always calculated at the granularity of milliseconds.
  *   <li>
  *     Session Windows: A session window groups a {@link org.apache.samza.operators.MessageStream} into sessions.
  *     A <i>session</i> captures some period of activity over a {@link org.apache.samza.operators.MessageStream}.
@@ -117,7 +119,7 @@ public final class Windows {
    * @return the created {@link Window} function.
    */
   public static <M, K, WV> Window<M, K, WV>
-    keyedTumblingWindow(Function<M, K> keyFn, Duration interval, Supplier<WV> initialValue, BiFunction<M, WV, WV> foldFn) {
+    keyedTumblingWindow(Function<M, K> keyFn, Duration interval, Supplier<WV> initialValue, FoldFunction<M, WV> foldFn) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
     return new WindowInternal<M, K, WV>(defaultTrigger, initialValue, foldFn, keyFn, null, WindowType.TUMBLING);
@@ -145,10 +147,7 @@ public final class Windows {
    * @return the created {@link Window} function
    */
   public static <M, K> Window<M, K, Collection<M>> keyedTumblingWindow(Function<M, K> keyFn, Duration interval) {
-    BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
-      c.add(m);
-      return c;
-    };
+    FoldFunction<M, Collection<M>> aggregator = createAggregator();
 
     Supplier<Collection<M>> supplier = () -> {
       return new ArrayList<>();
@@ -177,7 +176,7 @@ public final class Windows {
    * @return the created {@link Window} function
    */
   public static <M, WV> Window<M, Void, WV>
-    tumblingWindow(Duration duration, Supplier<WV> initialValue, BiFunction<M, WV, WV> foldFn) {
+    tumblingWindow(Duration duration, Supplier<WV> initialValue, FoldFunction<M, WV> foldFn) {
     Trigger<M> defaultTrigger = Triggers.repeat(new TimeTrigger<>(duration));
     return new WindowInternal<>(defaultTrigger, initialValue, foldFn, null, null, WindowType.TUMBLING);
   }
@@ -202,14 +201,9 @@ public final class Windows {
    * @return the created {@link Window} function
    */
   public static <M> Window<M, Void, Collection<M>> tumblingWindow(Duration duration) {
-    BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
-      c.add(m);
-      return c;
-    };
+    FoldFunction<M, Collection<M>> aggregator = createAggregator();
 
-    Supplier<Collection<M>> initialValue = () -> {
-      return new ArrayList<>();
-    };
+    Supplier<Collection<M>> initialValue = () -> new ArrayList<>();
     return tumblingWindow(duration, initialValue, aggregator);
   }
 
@@ -240,7 +234,7 @@ public final class Windows {
    * @param <WV> the type of the output value in the {@link WindowPane}
    * @return the created {@link Window} function
    */
-  public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap, Supplier<WV> initialValue, BiFunction<M, WV, WV> foldFn) {
+  public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap, Supplier<WV> initialValue, FoldFunction<M, WV> foldFn) {
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
     return new WindowInternal<>(defaultTrigger, initialValue, foldFn, keyFn, null, WindowType.SESSION);
   }
@@ -271,16 +265,18 @@ public final class Windows {
    */
   public static <M, K> Window<M, K, Collection<M>> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap) {
 
-    BiFunction<M, Collection<M>, Collection<M>> aggregator = (m, c) -> {
+    FoldFunction<M, Collection<M>> aggregator = createAggregator();
+
+    Supplier<Collection<M>> initialValue = () -> new ArrayList<>();
+    return keyedSessionWindow(keyFn, sessionGap, initialValue, aggregator);
+  }
+
+
+  private static <M> FoldFunction<M, Collection<M>> createAggregator() {
+    return (m, c) -> {
       c.add(m);
       return c;
     };
-
-    Supplier<Collection<M>> initialValue = () -> {
-      return new ArrayList<>();
-    };
-
-    return keyedSessionWindow(keyFn, sessionGap, initialValue, aggregator);
   }
 
 }

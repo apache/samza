@@ -25,6 +25,7 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.Offset;
+import org.apache.samza.operators.functions.FoldFunction;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.system.StreamSpec;
@@ -67,7 +68,7 @@ public class TestBroadcastExample extends TestExampleBase {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    BiFunction<JsonMessageEnvelope, Integer, Integer> sumAggregator = (m, c) -> c + 1;
+    FoldFunction<JsonMessageEnvelope, Integer> sumAggregator = (m, c) -> c + 1;
     Supplier<Integer> initialValue = () -> 0;
 
     inputs.keySet().forEach(entry -> {

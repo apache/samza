@@ -46,8 +46,4 @@ class StreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
     // call the transform function and then for each output call propagateResult()
     this.transformFn.apply(message).forEach(r -> this.propagateResult(r, collector, coordinator));
   }
-
-  @Override
-  public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
-  }
 }

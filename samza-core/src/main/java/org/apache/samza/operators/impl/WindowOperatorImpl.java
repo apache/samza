@@ -46,36 +46,51 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.PriorityQueue;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
  * Implementation of a window operator that groups messages into finite windows for processing.
  *
- * <p>Notes:
  * This class implements the processing logic for various types of windows and triggers. It tracks and manages state for
  * all open windows, the active triggers that correspond to each of the windows and the pending callbacks. It provides
  * an implementation of {@link TriggerContext} that {@link TriggerImpl}s can use to schedule and cancel callbacks. It
  * also orchestrates the flow of messages through the various {@link TriggerImpl}s.
  *
+ * <p> An instance of a {@link TriggerImpl} is created corresponding to each {@link Trigger} configured for a window. For every
+ * MessageEnvelope added to the window, this class invokes {@link TriggerImpl#onMessage(Object, TriggerContext,
+ * TriggerImpl.TriggerCallbackHandler)} on its corresponding {@link TriggerImpl}s. A {@link TriggerImpl} instance is scoped
+ * to a window and its firing determines when results for its window are emitted. When a {@link TriggerImpl} determines
+ * that it's ready to fire, it invokes the passed-in {@link TriggerHandlerImpl#onTrigger()}. The {@link WindowOperatorImpl}
+ * checks if the handler fired, and looks up the {@link TriggerImplState} corresponding to that firing. It then, propagates
+ * the result of the firing to its downstream operators.
+ *
  * @param <M>  the type of the incoming {@link MessageEnvelope}
  * @param <K>  the type of the key in this {@link org.apache.samza.operators.MessageStream}
  * @param <WK> the type of the key in the emitted window pane
  * @param <WV> the type of the value in the emitted window pane
- * @param <WM> the type of the emitted window pane
  *
  * TODO: Implement expiration of entries and triggers
  */
-public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends WindowPane<K, WV>> extends OperatorImpl<M, WM> {
+public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV> extends OperatorImpl<M, WindowPane<K, WV>> {
 
   private static final Logger LOG = LoggerFactory.getLogger(WindowOperatorImpl.class);
 
-  private final PriorityQueue<TriggerTimerState> pendingCallbacks = new PriorityQueue<>();
+  /**
+   * Queue of pending callbacks. Callbacks are evaluated at every tick.
+   */
+  private final PriorityQueue<TriggerCallbackState> pendingCallbacks = new PriorityQueue<>();
   private final WindowInternal<M, K, WV> window;
   private final KeyValueStore<WindowKey<K>, WindowState<WV>> store = new InternalInMemoryStore<>();
-
-  private final Map<TriggerKey<K>, TriggerImplWrapper> triggers = new HashMap<>();
+  /**
+   * For each {@link TriggerKey} store the corresponding {@link TriggerImplState}. The state contains the handler and
+   * the {@link TriggerContext} instance.
+   */
+  private final Map<TriggerKey<K>, TriggerImplState> triggers = new HashMap<>();
   private final Clock clock;
+
+  /**
+   * Trigger firings can be either early or late or default
+   */
   private enum TriggerType { EARLY, DEFAULT, LATE }
 
   public WindowOperatorImpl(WindowOperatorSpec<M, WK, WV> spec, Clock clock) {
@@ -87,23 +102,10 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
     System.out.println("pending callbacks" + pendingCallbacks.size());
     WindowKey<K> storeKey =  getStoreKey(message);
-    BiFunction<M, WV, WV> foldFunction = window.getFoldFunction();
 
     WindowState<WV> existingState = store.get(storeKey);
+    WindowState<WV> newState = applyFoldFunction(existingState, message);
 
-    WV wv;
-    long earliestTimeStamp;
-
-    if (existingState == null) {
-      wv = window.getInitializer().get();
-      earliestTimeStamp = clock.currentTimeMillis();
-    } else {
-      wv = existingState.getWv();
-      earliestTimeStamp = existingState.getEarliestTime();
-    }
-
-    WV newVal = foldFunction.apply(message, wv);
-    WindowState<WV> newState = new WindowState(newVal, earliestTimeStamp);
     store.put(storeKey, newState);
 
     if (window.getEarlyTrigger() != null) {
@@ -125,18 +127,21 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     System.out.println("pending callbacks" + pendingCallbacks.size());
 
     long now = clock.currentTimeMillis();
-    TriggerTimerState state;
+    TriggerCallbackState state;
     while ((state = pendingCallbacks.peek()) != null && state.getScheduleTimeMs() <= now) {
       pendingCallbacks.remove();
       state.getCallback().run();
 
-      TriggerImplWrapper wrapper = triggers.get(state.triggerKey);
-      if (wrapper != null) {
-        wrapper.onTimer(collector, coordinator);
+      TriggerImplState triggerImplState = triggers.get(state.triggerKey);
+      if (triggerImplState != null) {
+        triggerImplState.onTimer(collector, coordinator);
       }
     }
   }
 
+  /**
+   * Get the key to be used for lookups in the store for this message.
+   */
   private WindowKey<K> getStoreKey(M message) {
     Function<M, K> keyExtractor = window.getKeyExtractor();
     K key = null;
@@ -145,19 +150,38 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       key = keyExtractor.apply(message);
     }
 
-    String windowId = null;
+    String paneId = null;
+
     if (window.getWindowType() == WindowType.TUMBLING) {
       long triggerDurationMs = ((TimeTrigger<M>) window.getDefaultTrigger()).getDuration().toMillis();
       final long now = clock.currentTimeMillis();
       Long windowBoundary = now - now % triggerDurationMs;
-      windowId = windowBoundary.toString();
+      paneId = windowBoundary.toString();
     }
 
-    return new WindowKey<>(key, windowId);
+    return new WindowKey<>(key, paneId);
   }
 
-  private TriggerImplWrapper getOrCreateTriggerWrapper(TriggerKey<K> triggerKey, Trigger<M> trigger) {
-    TriggerImplWrapper wrapper = triggers.get(triggerKey);
+  private WindowState<WV> applyFoldFunction(WindowState<WV> existingState, M message) {
+    WV wv;
+    long earliestTimeStamp;
+
+    if (existingState == null) {
+      wv = window.getInitializer().get();
+      earliestTimeStamp = clock.currentTimeMillis();
+    } else {
+      wv = existingState.getWindowValue();
+      earliestTimeStamp = existingState.getEarliestTime();
+    }
+
+    WV newVal = window.getFoldFunction().apply(message, wv);
+    WindowState<WV> newState = new WindowState(newVal, earliestTimeStamp);
+
+    return newState;
+  }
+
+  private TriggerImplState getOrCreateTriggerWrapper(TriggerKey<K> triggerKey, Trigger<M> trigger) {
+    TriggerImplState wrapper = triggers.get(triggerKey);
     if (wrapper != null) {
       return wrapper;
     }
@@ -165,14 +189,17 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     TriggerHandlerImpl triggerHandler = new TriggerHandlerImpl();
     TriggerImpl<M> triggerImpl = TriggerImpls.createTriggerImpl(trigger, clock);
     TriggerContextImpl triggerContext = new TriggerContextImpl(triggerKey);
-    wrapper = new TriggerImplWrapper(triggerKey, triggerImpl, triggerContext, triggerHandler);
+    wrapper = new TriggerImplState(triggerKey, triggerImpl, triggerContext, triggerHandler);
     triggers.put(triggerKey, wrapper);
 
     return wrapper;
   }
 
-  private void handleTrigger(TriggerKey<K> triggerKey, MessageCollector collector, TaskCoordinator coordinator) {
-    TriggerImplWrapper wrapper = triggers.get(triggerKey);
+  /**
+   * Handles trigger firings, and propagates results to downstream operators.
+   */
+  private void onFireTrigger(TriggerKey<K> triggerKey, MessageCollector collector, TaskCoordinator coordinator) {
+    TriggerImplState wrapper = triggers.get(triggerKey);
 
     WindowKey<K> windowKey = triggerKey.key;
     WindowState<WV> state = store.get(windowKey);
@@ -181,24 +208,16 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       return;
     }
 
-    WindowPane<K, WV> paneOutput = new WindowPane<>(windowKey, state.getWv(), window.getAccumulationMode());
+    WindowPane<K, WV> paneOutput = computePaneOutput(triggerKey, state);
+    super.propagateResult(paneOutput, collector, coordinator);
+
     // Handle accumulation modes.
     if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
       store.put(windowKey, null);
     }
 
-    if (window.getWindowType() == WindowType.SESSION) {
-      windowKey = new WindowKey<>(windowKey.getKey(), Long.toString(state.getEarliestTime()));
-    }
-
-    if (paneOutput.getMessage() instanceof Collection) {
-      WV valCopy = (WV) new ArrayList<>((Collection<WV>) paneOutput.getMessage());
-      paneOutput = new WindowPane(windowKey, valCopy, window.getAccumulationMode());
-    }
-
-    WindowOperatorImpl.super.propagateResult((WM) paneOutput, collector, coordinator);
-
-    // Cancel all early triggers too when the default trigger fires.
+    // Cancel all early triggers too when the default trigger fires. Also, clean all state for the key.
+    // note: We don't handle late arrivals yet, So, all arrivals are either early or on-time.
     if (triggerKey.getType() == TriggerType.DEFAULT) {
       cancelTrigger(triggerKey, true);
       cancelTrigger(new TriggerKey(TriggerType.EARLY, triggerKey.getKey()), true);
@@ -210,12 +229,35 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     if (triggerKey.getType() == TriggerType.EARLY && !wrapper.isRepeating()) {
       cancelTrigger(triggerKey, false);
     }
-
-
   }
 
+  /**
+   * Computes the pane output corresponding to a {@link TriggerKey} that fired.
+   */
+  private WindowPane<K,WV> computePaneOutput(TriggerKey<K> triggerKey, WindowState<WV> state) {
+    WindowKey<K> windowKey = triggerKey.key;
+    WV val = state.getWindowValue();
+
+    //For session windows, we will create a new window key by using the time of the first message in the window as
+    //the paneId.
+    if (window.getWindowType() == WindowType.SESSION) {
+      windowKey = new WindowKey<>(windowKey.getKey(), Long.toString(state.getEarliestTime()));
+    }
+
+    //Make a defensive copy so that we are immune to further mutations on the collection
+    if (val instanceof Collection) {
+      val = (WV) new ArrayList<>((Collection<WV>) val);
+    }
+
+    WindowPane<K, WV> paneOutput = new WindowPane<>(windowKey, val, window.getAccumulationMode());
+    return paneOutput;
+  }
+
+  /**
+   * Cancels the firing of the {@link TriggerImpl} identified by this {@link TriggerKey} and optionally removes it.
+   */
   private void cancelTrigger(TriggerKey<K> triggerKey, boolean shouldRemove) {
-    TriggerImplWrapper wrapper = triggers.get(triggerKey);
+    TriggerImplState wrapper = triggers.get(triggerKey);
     if (wrapper != null) {
       wrapper.cancel();
     }
@@ -236,12 +278,19 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
 
     @Override
     public Cancellable scheduleCallback(Runnable runnable, long callbackTimeMs) {
-      TriggerTimerState timerState = new TriggerTimerState(triggerKey, runnable, callbackTimeMs);
+      TriggerCallbackState timerState = new TriggerCallbackState(triggerKey, runnable, callbackTimeMs);
       pendingCallbacks.add(timerState);
       return timerState;
     }
   }
 
+  /**
+   * Implementation of the {@link org.apache.samza.operators.triggers.TriggerImpl.TriggerCallbackHandler}.
+   * Invoked when a {@link TriggerImpl} is ready to fire.
+   *
+   * Notes:
+   * The window polls all the handlers, to determine which one of them fired, and propagates results.
+   */
   private static class TriggerHandlerImpl implements TriggerImpl.TriggerCallbackHandler {
 
     private boolean triggered;
@@ -260,7 +309,10 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     }
   }
 
-  private class TriggerTimerState implements Comparable<TriggerTimerState>, Cancellable {
+  /**
+   * State corresponding to pending timer callbacks scheduled by various {@link TriggerImpl}s.
+   */
+  private class TriggerCallbackState implements Comparable<TriggerCallbackState>, Cancellable {
 
     private final TriggerKey<K> triggerKey;
     private final Runnable callback;
@@ -268,7 +320,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     //the time in milliseconds at which the callback should trigger
     private final long scheduleTimeMs;
 
-    private TriggerTimerState(TriggerKey<K> triggerKey, Runnable callback, long scheduleTimeMs) {
+    private TriggerCallbackState(TriggerKey<K> triggerKey, Runnable callback, long scheduleTimeMs) {
       this.triggerKey = triggerKey;
       this.callback = callback;
       this.scheduleTimeMs = scheduleTimeMs;
@@ -283,7 +335,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     }
 
     @Override
-    public int compareTo(TriggerTimerState other) {
+    public int compareTo(TriggerCallbackState other) {
       return Long.compare(this.scheduleTimeMs, other.scheduleTimeMs);
     }
 
@@ -293,14 +345,18 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
     }
   }
 
-  private class TriggerImplWrapper {
+  /**
+   * State corresponding to a created {@link TriggerImpl} instance.
+   */
+  private class TriggerImplState {
     private final TriggerKey<K> triggerKey;
+    // The handler, context, and the {@link TriggerImpl} instance corresponding to this triggerKey
     private final TriggerImpl<M> impl;
     private final TriggerContext context;
     private final TriggerHandlerImpl handler;
     private boolean isCancelled = false;
 
-    public TriggerImplWrapper(TriggerKey<K> triggerKey, TriggerImpl<M> impl, TriggerContext context, TriggerHandlerImpl handler) {
+    public TriggerImplState(TriggerKey<K> triggerKey, TriggerImpl<M> impl, TriggerContext context, TriggerHandlerImpl handler) {
       this.triggerKey = triggerKey;
       this.impl = impl;
       this.context = context;
@@ -314,7 +370,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
         if (handler.isTriggered()) {
           //repeating trigger can trigger multiple times, So, clear the handler to allow future triggerings.
           handler.clearTrigger();
-          handleTrigger(triggerKey, collector, coordinator);
+          onFireTrigger(triggerKey, collector, coordinator);
         }
       }
     }
@@ -323,7 +379,7 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       if (handler.isTriggered() && !isCancelled) {
         //repeating trigger can trigger multiple times, So, clear the handler to allow future triggerings.
         handler.clearTrigger();
-        handleTrigger(triggerKey, collector, coordinator);
+        onFireTrigger(triggerKey, collector, coordinator);
       }
     }
 
@@ -353,6 +409,9 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
       this.key = key;
     }
 
+    /**
+     * Equality is determined by both the type, and the window key
+     */
     @Override
     public boolean equals(Object o) {
       if (this == o) return true;
@@ -362,6 +421,9 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV, WM extends
 
     }
 
+    /**
+     * Equality is determined by both the type, and the window key
+     */
     @Override
     public int hashCode() {
       int result = type.hashCode();

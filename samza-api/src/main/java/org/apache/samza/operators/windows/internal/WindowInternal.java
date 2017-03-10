@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.windows.internal;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.functions.FoldFunction;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.Window;
@@ -41,10 +42,15 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
 
   private final Trigger<M> defaultTrigger;
 
+  /**
+   * The supplier of initial value to be used for windowed aggregations
+   */
+  private final Supplier<WV> initializer;
+
   /*
    * The function that is applied each time a {@link MessageEnvelope} is added to this window.
    */
-  private final BiFunction<M, WV, WV> foldFunction;
+  private final FoldFunction<M, WV> foldFunction;
 
   /*
    * The function that extracts the key from a {@link MessageEnvelope}
@@ -56,9 +62,10 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
    */
   private final Function<M, Long> eventTimeExtractor;
 
+  /**
+   * The type of this window. Tumbling and Session windows are supported for now.
+   */
   private final WindowType windowType;
-
-  private final Supplier<WV> initializer;
 
   private Trigger<M> earlyTrigger;
 
@@ -66,7 +73,7 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
 
   private AccumulationMode mode;
 
-  public WindowInternal(Trigger<M> defaultTrigger, Supplier<WV> initialValue, BiFunction<M, WV, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType) {
+  public WindowInternal(Trigger<M> defaultTrigger, Supplier<WV> initialValue, FoldFunction<M, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType) {
     this.foldFunction = foldFunction;
     this.eventTimeExtractor = eventTimeExtractor;
     this.keyExtractor = keyExtractor;
@@ -76,13 +83,13 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
   }
 
   @Override
-  public Window<M, K, WV> setEarlyTrigger(Trigger trigger) {
+  public Window<M, K, WV> setEarlyTrigger(Trigger<M> trigger) {
     this.earlyTrigger = trigger;
     return this;
   }
 
   @Override
-  public Window<M, K, WV> setLateTrigger(Trigger trigger) {
+  public Window<M, K, WV> setLateTrigger(Trigger<M> trigger) {
     this.lateTrigger = trigger;
     return this;
   }
@@ -101,7 +108,7 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
     return earlyTrigger;
   }
 
-  public Trigger getLateTrigger() {
+  public Trigger<M> getLateTrigger() {
     return lateTrigger;
   }
 
@@ -109,7 +116,7 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
     return initializer;
   }
 
-  public BiFunction<M, WV, WV> getFoldFunction() {
+  public FoldFunction<M, WV> getFoldFunction() {
     return foldFunction;
   }
 
