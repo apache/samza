@@ -29,7 +29,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.util.ConfigInheritance;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +42,7 @@ import org.slf4j.LoggerFactory;
 public class ProcessorNode {
   private static final Logger log = LoggerFactory.getLogger(ProcessorNode.class);
   private static final String CONFIG_PROCESSOR_PREFIX = "processors.%s.";
+  private static final boolean INHERIT_ROOT_CONFIGS = true;
 
   private final String id;
   private final List<StreamEdge> inEdges = new ArrayList<>();
@@ -84,6 +84,40 @@ public class ProcessorNode {
 
     String configPrefix = String.format(CONFIG_PROCESSOR_PREFIX, id);
     // TODO: Disallow user specifying processor inputs/outputs. This info comes strictly from the pipeline.
-    return Util.rewriteConfig(ConfigInheritance.extractScopedConfig(config, new MapConfig(configs), configPrefix));
+    return Util.rewriteConfig(extractScopedConfig(config, new MapConfig(configs), configPrefix));
+  }
+
+  /**
+   * This function extract the subset of configs from the full config, and use it to override the generated configs
+   * from the processor.
+   * @param fullConfig full config
+   * @param generatedConfig config generated from the processor
+   * @param configPrefix prefix to extract the subset of the config overrides
+   * @return config that merges the generated configs and overrides
+   */
+  private static Config extractScopedConfig(Config fullConfig, Config generatedConfig, String configPrefix) {
+    Config scopedConfig = fullConfig.subset(configPrefix);
+
+    Config[] configPrecedence;
+    if (INHERIT_ROOT_CONFIGS) {
+      configPrecedence = new Config[] {fullConfig, generatedConfig, scopedConfig};
+    } else {
+      configPrecedence = new Config[] {generatedConfig, scopedConfig};
+    }
+
+    // Strip empty configs so they don't override the configs before them.
+    Map<String, String> mergedConfig = new HashMap<>();
+    for (Map<String, String> config : configPrecedence) {
+      for (Map.Entry<String, String> property : config.entrySet()) {
+        String value = property.getValue();
+        if (!(value == null || value.isEmpty())) {
+          mergedConfig.put(property.getKey(), property.getValue());
+        }
+      }
+    }
+    scopedConfig = new MapConfig(mergedConfig);
+    log.debug("Prefix '{}' has merged config {}", configPrefix, scopedConfig);
+
+    return scopedConfig;
   }
 }

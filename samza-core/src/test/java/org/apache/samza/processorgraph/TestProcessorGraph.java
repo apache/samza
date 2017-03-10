@@ -60,14 +60,14 @@ public class TestProcessorGraph {
     graph1.addSource(genStream(), "5");
     graph1.addSource(genStream(), "7");
     graph1.addSource(genStream(), "3");
-    graph1.addEdge(genStream(), "5", "11");
-    graph1.addEdge(genStream(), "7", "11");
-    graph1.addEdge(genStream(), "7", "8");
-    graph1.addEdge(genStream(), "3", "8");
-    graph1.addEdge(genStream(), "11", "2");
-    graph1.addEdge(genStream(), "11", "9");
-    graph1.addEdge(genStream(), "8", "9");
-    graph1.addEdge(genStream(), "11", "10");
+    graph1.addIntermediateStream(genStream(), "5", "11");
+    graph1.addIntermediateStream(genStream(), "7", "11");
+    graph1.addIntermediateStream(genStream(), "7", "8");
+    graph1.addIntermediateStream(genStream(), "3", "8");
+    graph1.addIntermediateStream(genStream(), "11", "2");
+    graph1.addIntermediateStream(genStream(), "11", "9");
+    graph1.addIntermediateStream(genStream(), "8", "9");
+    graph1.addIntermediateStream(genStream(), "11", "10");
     graph1.addSink(genStream(), "2");
     graph1.addSink(genStream(), "9");
     graph1.addSink(genStream(), "10");
@@ -79,14 +79,14 @@ public class TestProcessorGraph {
      */
     graph2 = new ProcessorGraph(null);
     graph2.addSource(genStream(), "1");
-    graph2.addEdge(genStream(), "1", "2");
-    graph2.addEdge(genStream(), "2", "3");
-    graph2.addEdge(genStream(), "3", "4");
-    graph2.addEdge(genStream(), "4", "5");
-    graph2.addEdge(genStream(), "4", "6");
-    graph2.addEdge(genStream(), "6", "2");
-    graph2.addEdge(genStream(), "5", "5");
-    graph2.addEdge(genStream(), "5", "7");
+    graph2.addIntermediateStream(genStream(), "1", "2");
+    graph2.addIntermediateStream(genStream(), "2", "3");
+    graph2.addIntermediateStream(genStream(), "3", "4");
+    graph2.addIntermediateStream(genStream(), "4", "5");
+    graph2.addIntermediateStream(genStream(), "4", "6");
+    graph2.addIntermediateStream(genStream(), "6", "2");
+    graph2.addIntermediateStream(genStream(), "5", "5");
+    graph2.addIntermediateStream(genStream(), "5", "7");
     graph2.addSink(genStream(), "7");
   }
 
@@ -111,16 +111,16 @@ public class TestProcessorGraph {
 
     assertTrue(graph.getSources().size() == 3);
 
-    assertTrue(graph.getNode("1").getInEdges().size() == 2);
-    assertTrue(graph.getNode("2").getInEdges().size() == 1);
-    assertTrue(graph.getNode("3").getInEdges().size() == 1);
+    assertTrue(graph.getOrCreateProcessor("1").getInEdges().size() == 2);
+    assertTrue(graph.getOrCreateProcessor("2").getInEdges().size() == 1);
+    assertTrue(graph.getOrCreateProcessor("3").getInEdges().size() == 1);
 
-    assertTrue(graph.getEdge(s1).getSourceNodes().size() == 0);
-    assertTrue(graph.getEdge(s1).getTargetNodes().size() == 1);
-    assertTrue(graph.getEdge(s2).getSourceNodes().size() == 0);
-    assertTrue(graph.getEdge(s2).getTargetNodes().size() == 1);
-    assertTrue(graph.getEdge(s3).getSourceNodes().size() == 0);
-    assertTrue(graph.getEdge(s3).getTargetNodes().size() == 2);
+    assertTrue(graph.getOrCreateEdge(s1).getSourceNodes().size() == 0);
+    assertTrue(graph.getOrCreateEdge(s1).getTargetNodes().size() == 1);
+    assertTrue(graph.getOrCreateEdge(s2).getSourceNodes().size() == 0);
+    assertTrue(graph.getOrCreateEdge(s2).getTargetNodes().size() == 1);
+    assertTrue(graph.getOrCreateEdge(s3).getSourceNodes().size() == 0);
+    assertTrue(graph.getOrCreateEdge(s3).getTargetNodes().size() == 2);
   }
 
   @Test
@@ -139,15 +139,15 @@ public class TestProcessorGraph {
     graph.addSink(s3, "2");
 
     assertTrue(graph.getSinks().size() == 3);
-    assertTrue(graph.getNode("1").getOutEdges().size() == 1);
-    assertTrue(graph.getNode("2").getOutEdges().size() == 2);
+    assertTrue(graph.getOrCreateProcessor("1").getOutEdges().size() == 1);
+    assertTrue(graph.getOrCreateProcessor("2").getOutEdges().size() == 2);
 
-    assertTrue(graph.getEdge(s1).getSourceNodes().size() == 1);
-    assertTrue(graph.getEdge(s1).getTargetNodes().size() == 0);
-    assertTrue(graph.getEdge(s2).getSourceNodes().size() == 1);
-    assertTrue(graph.getEdge(s2).getTargetNodes().size() == 0);
-    assertTrue(graph.getEdge(s3).getSourceNodes().size() == 1);
-    assertTrue(graph.getEdge(s3).getTargetNodes().size() == 0);
+    assertTrue(graph.getOrCreateEdge(s1).getSourceNodes().size() == 1);
+    assertTrue(graph.getOrCreateEdge(s1).getTargetNodes().size() == 0);
+    assertTrue(graph.getOrCreateEdge(s2).getSourceNodes().size() == 1);
+    assertTrue(graph.getOrCreateEdge(s2).getTargetNodes().size() == 0);
+    assertTrue(graph.getOrCreateEdge(s3).getSourceNodes().size() == 1);
+    assertTrue(graph.getOrCreateEdge(s3).getTargetNodes().size() == 0);
   }
 
   @Test
