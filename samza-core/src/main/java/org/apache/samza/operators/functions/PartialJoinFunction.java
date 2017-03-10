@@ -51,19 +51,19 @@ public interface PartialJoinFunction<K, M, JM, RM> extends InitableFunction {
 
   class PartialJoinMessage<M> {
     private final M message;
-    private final long receivedAt;
+    private final long receivedTimeMs;
 
-    public PartialJoinMessage(M message, long receivedAt) {
+    public PartialJoinMessage(M message, long receivedTimeMs) {
       this.message = message;
-      this.receivedAt = receivedAt;
+      this.receivedTimeMs = receivedTimeMs;
     }
 
     public M getMessage() {
       return message;
     }
 
-    public long getReceivedAt() {
-      return receivedAt;
+    public long getReceivedTimeMs() {
+      return receivedTimeMs;
     }
   }
 }

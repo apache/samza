@@ -50,12 +50,14 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
   private final PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn;
   private final PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn;
   private final long ttlMs;
+  private final int opId;
 
   PartialJoinOperatorImpl(PartialJoinOperatorSpec<K, M, JM, RM> partialJoinOperatorSpec, MessageStreamImpl<M> source,
       Config config, TaskContext context) {
     this.thisPartialJoinFn = partialJoinOperatorSpec.getThisPartialJoinFn();
     this.otherPartialJoinFn = partialJoinOperatorSpec.getOtherPartialJoinFn();
     this.ttlMs = partialJoinOperatorSpec.getTtlMs();
+    this.opId = partialJoinOperatorSpec.getOpId();
   }
 
   @Override
@@ -64,7 +66,7 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
     thisPartialJoinFn.getState().put(key, new PartialJoinMessage<>(message, System.currentTimeMillis()));
     PartialJoinMessage<JM> otherMessage = otherPartialJoinFn.getState().get(key);
     long now = System.currentTimeMillis();
-    if (otherMessage != null && otherMessage.getReceivedAt() > now - ttlMs) {
+    if (otherMessage != null && otherMessage.getReceivedTimeMs() > now - ttlMs) {
       RM joinResult = thisPartialJoinFn.apply(message, otherMessage.getMessage());
       this.propagateResult(joinResult, collector, coordinator);
     }
@@ -80,7 +82,7 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
 
     while (iterator.hasNext()) {
       Entry<K, PartialJoinMessage<M>> entry = iterator.next();
-      if (entry.getValue().getReceivedAt() < now - ttlMs) {
+      if (entry.getValue().getReceivedTimeMs() < now - ttlMs) {
         keysToRemove.add(entry.getKey());
       } else {
         break;
@@ -90,7 +92,7 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
     iterator.close();
     thisState.deleteAll(keysToRemove);
 
-    LOGGER.debug("onTimer self time: {} ms", System.currentTimeMillis() - now);
+    LOGGER.info("Operator ID {} onTimer self time: {} ms", opId, System.currentTimeMillis() - now);
     this.propagateTimer(collector, coordinator);
   }
 
