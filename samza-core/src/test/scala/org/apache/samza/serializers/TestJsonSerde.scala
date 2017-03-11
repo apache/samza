@@ -23,18 +23,18 @@ package org.apache.samza.serializers
 import org.junit.Assert._
 import org.junit.Test
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 
 class TestJsonSerde {
   @Test
   def testJsonSerdeShouldWork {
     val serde = new JsonSerde[java.util.HashMap[String, Object]]
-    val obj = new java.util.HashMap[String, Object](Map[String, Object]("hi" -> "bye", "why" -> new java.lang.Integer(2)))
+    val obj = new java.util.HashMap[String, Object](Map[String, Object]("hi" -> "bye", "why" -> new java.lang.Integer(2)).asJava)
     val bytes = serde.toBytes(obj)
     assertEquals(obj, serde.fromBytes(bytes))
     val serdeHashMapEntry = new JsonSerde[java.util.Map.Entry[String, Object]]
-    obj.entrySet().foreach(entry => {
+    obj.entrySet().asScala.foreach(entry => {
       try {
         val entryBytes = serdeHashMapEntry.toBytes(entry)
       } catch {

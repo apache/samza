@@ -36,7 +36,7 @@ import org.apache.samza.config.SystemConfig
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.SystemConfig.Config2System
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import java.io.InputStreamReader
 
 
@@ -213,14 +213,14 @@ object Util extends Logging {
   def buildCoordinatorStreamConfig(config: Config) = {
     val (jobName, jobId) = getJobNameAndId(config)
     // Build a map with just the system config and job.name/job.id. This is what's required to start the JobCoordinator.
-    new MapConfig(
-      config.subset(SystemConfig.SYSTEM_PREFIX format config.getCoordinatorSystemName, false) ++
+    val map = config.subset(SystemConfig.SYSTEM_PREFIX format config.getCoordinatorSystemName, false).asScala ++
       Map[String, String](
         JobConfig.JOB_NAME -> jobName,
         JobConfig.JOB_ID -> jobId,
         JobConfig.JOB_COORDINATOR_SYSTEM -> config.getCoordinatorSystemName,
         JobConfig.MONITOR_PARTITION_CHANGE -> String.valueOf(config.getMonitorPartitionChange),
-        JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> String.valueOf(config.getMonitorPartitionChangeFrequency)))
+        JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> String.valueOf(config.getMonitorPartitionChangeFrequency))
+    new MapConfig(map.asJava)
   }
 
   /**
@@ -324,21 +324,21 @@ object Util extends Logging {
    * Convert a java map to a Scala map
    * */
   def javaMapAsScalaMap[T, K](javaMap: java.util.Map[T, K]): Map[T, K] = {
-    javaMap.toMap
+    javaMap.asScala.toMap
   }
 
   /**
    * Returns the the first host address which is not the loopback address, or {@link java.net.InetAddress#getLocalHost InetAddress.getLocalhost()} as a fallback
    *
-   * @return the {@link java.net.InetAddress InetAddress} which represents the localhost
+   * @return the {java.net.InetAddress InetAddress} which represents the localhost
    */
   def getLocalHost: InetAddress = {
     val localHost = InetAddress.getLocalHost
     if (localHost.isLoopbackAddress) {
       debug("Hostname %s resolves to a loopback address, trying to resolve an external IP address.".format(localHost.getHostName))
-      val networkInterfaces = if (System.getProperty("os.name").startsWith("Windows")) NetworkInterface.getNetworkInterfaces.toList else NetworkInterface.getNetworkInterfaces.toList.reverse
+      val networkInterfaces = if (System.getProperty("os.name").startsWith("Windows")) NetworkInterface.getNetworkInterfaces.asScala.toList else NetworkInterface.getNetworkInterfaces.asScala.toList.reverse
       for (networkInterface <- networkInterfaces) {
-        val addresses = networkInterface.getInetAddresses.toList.filterNot(address => address.isLinkLocalAddress || address.isLoopbackAddress)
+        val addresses = networkInterface.getInetAddresses.asScala.toList.filterNot(address => address.isLinkLocalAddress || address.isLoopbackAddress)
         if (addresses.nonEmpty) {
           val address = addresses.find(_.isInstanceOf[Inet4Address]).getOrElse(addresses.head)
           debug("Found an external IP address %s which represents the localhost.".format(address.getHostAddress))

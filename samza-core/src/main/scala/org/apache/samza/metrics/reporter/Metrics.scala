@@ -22,7 +22,7 @@ package org.apache.samza.metrics.reporter
 import java.util.Collections
 import java.util.HashMap
 import java.util.Map
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 object Metrics {
   def fromMap(map: Map[String, Map[String, Object]]): Metrics = {
@@ -36,14 +36,14 @@ object Metrics {
 class Metrics(metrics: Map[String, Map[String, Object]]) {
   val immutableMetrics = new HashMap[String, Map[String, Object]]
 
-  for (groupEntry <- metrics.entrySet) {
+  for ((groupKey, groupValue) <- metrics.asScala) {
     val immutableMetricGroup = new HashMap[String, Object]
 
-    for (metricEntry <- groupEntry.getValue.asInstanceOf[Map[String, Object]].entrySet) {
-      immutableMetricGroup.put(metricEntry.getKey, metricEntry.getValue)
+    for ((metricKey, metricValue) <- groupValue.asScala) {
+      immutableMetricGroup.put(metricKey, metricValue)
     }
 
-    immutableMetrics.put(groupEntry.getKey, Collections.unmodifiableMap(immutableMetricGroup))
+    immutableMetrics.put(groupKey, Collections.unmodifiableMap(immutableMetricGroup))
   }
 
   def get[T](group: String, metricName: String) =

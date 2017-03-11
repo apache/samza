@@ -21,8 +21,8 @@ package org.apache.samza.job.yarn
 
 import org.apache.samza.Partition
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.system.{SystemStreamMetadata, SystemStreamPartition, SystemAdmin, SystemFactory}
-import scala.collection.JavaConversions._
+import org.apache.samza.system.{SystemStreamMetadata, SystemStreamPartition, SystemAdmin}
+import scala.collection.JavaConverters._
 
 /**
  * A mock implementation class that returns metadata for each stream that contains numTasks partitions in it.
@@ -30,12 +30,12 @@ import scala.collection.JavaConversions._
 class MockSystemAdmin(numTasks: Int) extends SystemAdmin {
   def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = null
   def getSystemStreamMetadata(streamNames: java.util.Set[String]) = {
-    streamNames.map(streamName => {
-      var partitionMetadata = (0 until numTasks).map(partitionId => {
+    streamNames.asScala.map(streamName => {
+      val partitionMetadata = (0 until numTasks).map(partitionId => {
         new Partition(partitionId) -> new SystemStreamPartitionMetadata(null, null, null)
       }).toMap
-      streamName -> new SystemStreamMetadata(streamName, partitionMetadata)
-    }).toMap[String, SystemStreamMetadata]
+      streamName -> new SystemStreamMetadata(streamName, partitionMetadata.asJava)
+    }).toMap.asJava
   }
 
   override def createChangelogStream(topicName: String, numOfChangeLogPartitions: Int) {

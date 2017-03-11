@@ -26,16 +26,13 @@ import org.apache.samza.checkpoint.CheckpointTool.TaskNameToCheckpointMap
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.{JobConfig, ConfigRewriter, Config, StreamConfig}
 import org.apache.samza.container.TaskName
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 import org.apache.samza.job.JobRunner._
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.{Util, CommandLine, Logging}
 import org.apache.samza.{Partition, SamzaException}
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import org.apache.samza.coordinator.JobModelManager
-
-import scala.collection.immutable.HashMap
 
 
 /**
@@ -83,18 +80,18 @@ object CheckpointTool {
     var newOffsets: TaskNameToCheckpointMap = null
 
     def parseOffsets(propertiesFile: Config): TaskNameToCheckpointMap = {
-      val taskNameSSPPairs = propertiesFile.entrySet.flatMap(entry => {
-        val matcher = SSP_REGEX.matcher(entry.getKey)
+      val taskNameSSPPairs = propertiesFile.asScala.flatMap { case (key, value) => {
+        val matcher = SSP_REGEX.matcher(key)
         if (matcher.matches) {
           val taskname = new TaskName(matcher.group(1))
           val partition = new Partition(Integer.parseInt(matcher.group(4)))
           val ssp = new SystemStreamPartition(matcher.group(2), matcher.group(3), partition)
-          Some(taskname -> Map(ssp -> entry.getValue))
+          Some(taskname -> Map(ssp -> value))
         } else {
-          warn("Warning: ignoring unrecognised property: %s = %s" format (entry.getKey, entry.getValue))
+          warn("Warning: ignoring unrecognised property: %s = %s" format (key, value))
           None
         }
-      }).toList
+      }}.toList
 
       if(taskNameSSPPairs.isEmpty) {
         return null
@@ -165,7 +162,8 @@ class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap, manage
       .jobModel
       .getContainers
       .values
-      .flatMap(_.getTasks.keys)
+      .asScala
+      .flatMap(_.getTasks.asScala.keys)
       .toSet
 
     taskNames.foreach(manager.register)
@@ -189,8 +187,9 @@ class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap, manage
   /** Load the most recent checkpoint state for all a specified TaskName. */
   def readLastCheckpoint(taskName:TaskName): Map[SystemStreamPartition, String] = {
     Option(manager.readLastCheckpoint(taskName))
-            .getOrElse(new Checkpoint(new HashMap[SystemStreamPartition, String]()))
+            .getOrElse(new Checkpoint(new java.util.HashMap[SystemStreamPartition, String]()))
             .getOffsets
+            .asScala
             .toMap
   }
 
@@ -199,7 +198,7 @@ class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap, manage
    * checkpoint for that TaskName
    */
   def writeNewCheckpoint(tn: TaskName, newOffsets: Map[SystemStreamPartition, String]) {
-    val checkpoint = new Checkpoint(newOffsets)
+    val checkpoint = new Checkpoint(newOffsets.asJava)
     manager.writeCheckpoint(tn, checkpoint)
   }
 

@@ -26,7 +26,7 @@ import org.apache.samza.task.{MessageCollector, TaskContext, TaskCoordinator}
 import org.junit.Assert._
 import org.junit.{AfterClass, BeforeClass, Test}
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 object TestShutdownStatefulTask {
   val STORE_NAME = "loggedstore"
@@ -119,7 +119,7 @@ class ShutdownStateStoreTask extends TestTask {
       .getStore(TestShutdownStatefulTask.STORE_NAME)
       .asInstanceOf[KeyValueStore[String, String]]
     val iter = store.all
-    iter.foreach( p => restored += (p.getKey -> p.getValue))
+    iter.asScala.foreach( p => restored += (p.getKey -> p.getValue))
     System.err.println("ShutdownStateStoreTask.init(): %s" format restored)
     iter.close
   }

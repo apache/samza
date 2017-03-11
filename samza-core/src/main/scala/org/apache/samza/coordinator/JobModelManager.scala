@@ -53,7 +53,6 @@ import org.apache.samza.util.Util
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 
-import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
 /**
@@ -110,22 +109,21 @@ object JobModelManager extends Logging {
       // Map the name of each system to the corresponding SystemAdmin
       val systemAdmins = getSystemAdmins(config)
 
-      val streamMetadataCache = new StreamMetadataCache(systemAdmins = systemAdmins, cacheTTLms = 0)
-      var streamPartitionCountMonitor: StreamPartitionCountMonitor = null
-      if (config.getMonitorPartitionChange) {
-        val extendedSystemAdmins = systemAdmins.filter{
-          case (systemName, systemAdmin) => systemAdmin.isInstanceOf[ExtendedSystemAdmin]
-        }
-        val inputStreamsToMonitor = config.getInputStreams.filter(systemStream => extendedSystemAdmins.containsKey(systemStream.getSystem))
-        if (inputStreamsToMonitor.nonEmpty) {
-          streamPartitionCountMonitor = new StreamPartitionCountMonitor(
-            setAsJavaSet(inputStreamsToMonitor),
-            streamMetadataCache,
-            metricsRegistryMap,
-            config.getMonitorPartitionChangeFrequency)
-        }
+    val streamMetadataCache = new StreamMetadataCache(systemAdmins = systemAdmins, cacheTTLms = 0)
+    var streamPartitionCountMonitor: StreamPartitionCountMonitor = null
+    if (config.getMonitorPartitionChange) {
+      val extendedSystemAdmins = systemAdmins.filter{
+                                                      case (systemName, systemAdmin) => systemAdmin.isInstanceOf[ExtendedSystemAdmin]
+                                                    }
+      val inputStreamsToMonitor = config.getInputStreams.filter(systemStream => extendedSystemAdmins.contains(systemStream.getSystem))
+      if (inputStreamsToMonitor.nonEmpty) {
+        streamPartitionCountMonitor = new StreamPartitionCountMonitor(
+          inputStreamsToMonitor.asJava,
+          streamMetadataCache,
+          metricsRegistryMap,
+          config.getMonitorPartitionChangeFrequency)
       }
-      val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
+    }val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
       val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, localityManager, streamMetadataCache, streamPartitionCountMonitor, null)
       val jobModel = jobModelManager.jobModel
       // Save the changelog mapping back to the ChangelogPartitionmanager
@@ -186,7 +184,7 @@ object JobModelManager extends Logging {
       .flatMap {
         case (systemStream, metadata) =>
           metadata
-            .getSystemStreamPartitionMetadata
+            .getSystemStreamPartitionMetadata.asScala
             .keys
             .map(new SystemStreamPartition(systemStream, _))
       }.toSet
@@ -201,7 +199,7 @@ object JobModelManager extends Logging {
           case Some(jfr(_*)) => {
             info("before match: allSystemStreamPartitions.size = %s" format (allSystemStreamPartitions.size))
             val sspMatcher = Util.getObj[SystemStreamPartitionMatcher](s)
-            val matchedPartitions = sspMatcher.filter(allSystemStreamPartitions, config).asScala.toSet
+            val matchedPartitions = sspMatcher.filter(allSystemStreamPartitions.asJava, config).asScala.toSet
             // Usually a small set hence ok to log at info level
             info("after match: matchedPartitions = %s" format (matchedPartitions))
             matchedPartitions
@@ -234,18 +232,18 @@ object JobModelManager extends Logging {
     // Do grouping to fetch TaskName to SSP mapping
     val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache)
     val grouper = getSystemStreamPartitionGrouper(config)
-    val groups = grouper.group(allSystemStreamPartitions)
+    val groups = grouper.group(allSystemStreamPartitions.asJava)
     info("SystemStreamPartitionGrouper %s has grouped the SystemStreamPartitions into %d tasks with the following taskNames: %s" format(grouper, groups.size(), groups.keySet()))
 
     // If no mappings are present(first time the job is running) we return -1, this will allow 0 to be the first change
     // mapping.
-    var maxChangelogPartitionId = changeLogPartitionMapping.values.map(_.toInt).toList.sorted.lastOption.getOrElse(-1)
+    var maxChangelogPartitionId = changeLogPartitionMapping.values.asScala.map(_.toInt).toList.sorted.lastOption.getOrElse(-1)
     // Sort the groups prior to assigning the changelog mapping so that the mapping is reproducible and intuitive
     val sortedGroups = new util.TreeMap[TaskName, util.Set[SystemStreamPartition]](groups)
 
     // Assign all SystemStreamPartitions to TaskNames.
     val taskModels = {
-      sortedGroups.map { case (taskName, systemStreamPartitions) =>
+      sortedGroups.asScala.map { case (taskName, systemStreamPartitions) =>
         val changelogPartition = Option(changeLogPartitionMapping.get(taskName)) match {
           case Some(changelogPartitionId) => new Partition(changelogPartitionId)
           case _ =>
@@ -265,13 +263,13 @@ object JobModelManager extends Logging {
     val containerGrouper = containerGrouperFactory.build(config)
     val containerModels = {
       if (containerGrouper.isInstanceOf[BalancingTaskNameGrouper])
-        containerGrouper.asInstanceOf[BalancingTaskNameGrouper].balance(taskModels, localityManager)
+        containerGrouper.asInstanceOf[BalancingTaskNameGrouper].balance(taskModels.asJava, localityManager)
       else
-        containerGrouper.group(taskModels, containerIds)
+        containerGrouper.group(taskModels.asJava, containerIds)
     }
-    val containerMap = asScalaSet(containerModels).map { case (containerModel) => Integer.valueOf(containerModel.getContainerId) -> containerModel }.toMap
+    val containerMap = containerModels.asScala.map { case (containerModel) => Integer.valueOf(containerModel.getContainerId) -> containerModel }.toMap
 
-    new JobModel(config, containerMap, localityManager)
+    new JobModel(config, containerMap.asJava, localityManager)
   }
 
   /**

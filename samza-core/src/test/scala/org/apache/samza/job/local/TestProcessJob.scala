@@ -17,21 +17,21 @@
  * under the License.
  */
 
-package org.apache.samza.job.local;
+package org.apache.samza.job.local
 
 import org.apache.samza.coordinator.JobModelManager
 import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.job.ApplicationStatus
 import org.apache.samza.job.CommandBuilder
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 class TestProcessJob {
   @Test
   def testProcessJobShouldFinishOnItsOwn {
     val commandBuilder = new CommandBuilder {
       override def buildCommand = "sleep 1"
-      override def buildEnvironment = Map[String, String]()
+      override def buildEnvironment = Map[String, String]().asJava
     }
     val coordinator = new MockJobModelManager()
     val job = new ProcessJob(commandBuilder, coordinator)
@@ -43,7 +43,7 @@ class TestProcessJob {
   def testProcessJobKillShouldWork {
     val commandBuilder = new CommandBuilder {
       override def buildCommand = "sleep 999999999"
-      override def buildEnvironment = Map[String, String]()
+      override def buildEnvironment = Map[String, String]().asJava
     }
     val coordinator = new MockJobModelManager()
     val job = new ProcessJob(commandBuilder, coordinator)

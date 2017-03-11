@@ -36,7 +36,7 @@ import org.apache.samza.util.KafkaUtil
 import org.apache.samza.util.Logging
 import org.apache.samza.util.TimerUtils
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 class KafkaSystemProducer(systemName: String,
                           retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
@@ -85,7 +85,7 @@ class KafkaSystemProducer(systemName: String,
         }
         currentProducer.close
 
-        sources.foreach {p =>
+        sources.asScala.foreach {p =>
           if (p._2.exceptionInCallback.get() == null) {
             flush(p._1)
           }

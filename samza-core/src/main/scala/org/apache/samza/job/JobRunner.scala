@@ -28,7 +28,7 @@ import org.apache.samza.util.ClassLoaderHelper
 import org.apache.samza.util.CommandLine
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory
 
@@ -92,8 +92,8 @@ class JobRunner(config: Config) extends Logging {
 
     val oldConfig = coordinatorSystemConsumer.getConfig()
     if (resetJobConfig) {
-      info("Deleting old configs that are no longer defined: %s".format(oldConfig.keySet -- config.keySet))
-      (oldConfig.keySet -- config.keySet).foreach(key => {
+      info("Deleting old configs that are no longer defined: %s".format(oldConfig.keySet.asScala -- config.keySet.asScala))
+      (oldConfig.keySet.asScala -- config.keySet.asScala).foreach(key => {
         coordinatorSystemProducer.send(new Delete(JobRunner.SOURCE, key, SetConfig.TYPE))
       })
     }

@@ -19,19 +19,12 @@
 
 package org.apache.samza.system.chooser
 
-import org.apache.samza.system.SystemAdmin
-import org.apache.samza.system.SystemStream
-import org.apache.samza.system.SystemStreamMetadata
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.SamzaException
-import org.apache.samza.util.Logging
-import org.apache.samza.metrics.MetricsHelper
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.metrics.{MetricsHelper, MetricsRegistry, MetricsRegistryMap}
 import org.apache.samza.system.SystemStreamMetadata.OffsetType
-
-import scala.collection.JavaConversions._
+import org.apache.samza.system._
+import org.apache.samza.util.Logging
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 /**
@@ -92,7 +85,7 @@ class BootstrappingChooser(
     .flatMap {
       case (systemStream, metadata) =>
         metadata
-          .getSystemStreamPartitionMetadata
+          .getSystemStreamPartitionMetadata.asScala
           .keys
           .map(new SystemStreamPartition(systemStream, _))
     }
@@ -120,7 +113,7 @@ class BootstrappingChooser(
     }
 
     // remove the systemStreamPartitions not registered.
-    laggingSystemStreamPartitions = laggingSystemStreamPartitions.filter(registeredSystemStreamPartitions.keys.contains(_))
+    laggingSystemStreamPartitions = laggingSystemStreamPartitions.filter(registeredSystemStreamPartitions.contains(_))
     systemStreamLagCounts = laggingSystemStreamPartitions.groupBy(_.getSystemStream).map {case (systemStream, ssps) => systemStream -> ssps.size}
 
     debug("Starting bootstrapping chooser with bootstrap metadata: %s" format bootstrapStreamMetadata)

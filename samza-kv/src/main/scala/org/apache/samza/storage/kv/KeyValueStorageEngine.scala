@@ -24,7 +24,7 @@ import org.apache.samza.storage.{StoreProperties, StorageEngine}
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.util.TimerUtils
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 /**
  * A key value store.
@@ -101,7 +101,7 @@ class KeyValueStorageEngine[K, V](
   def restore(envelopes: java.util.Iterator[IncomingMessageEnvelope]) {
     val batch = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](batchSize)
 
-    for (envelope <- envelopes) {
+    for (envelope <- envelopes.asScala) {
       val keyBytes = envelope.getKey.asInstanceOf[Array[Byte]]
       val valBytes = envelope.getMessage.asInstanceOf[Array[Byte]]
 

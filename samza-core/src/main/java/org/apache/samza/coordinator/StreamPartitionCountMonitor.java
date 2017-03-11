@@ -34,7 +34,7 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.collection.JavaConversions;
+import scala.collection.JavaConverters;
 
 
 /**
@@ -72,8 +72,13 @@ public class StreamPartitionCountMonitor {
    */
   private static Map<SystemStream, SystemStreamMetadata> getMetadata(Set<SystemStream> streamsToMonitor,
       StreamMetadataCache metadataCache) {
-    return JavaConversions
-        .mapAsJavaMap(metadataCache.getStreamMetadata(JavaConversions.asScalaSet(streamsToMonitor).<SystemStream>toSet(), true));
+    return JavaConverters
+        .mapAsJavaMapConverter(
+            metadataCache.getStreamMetadata(
+                JavaConverters.asScalaSetConverter(streamsToMonitor).asScala().toSet(),
+                true
+            )
+        ).asJava();
   }
 
   /**

@@ -23,7 +23,7 @@ import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.system.SystemStream
 import org.apache.samza.util.Logging
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 object StreamConfig {
   // Samza configs for streams
@@ -83,6 +83,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getSerdeStreams(systemName: String) = {
     val subConf = config.subset("systems.%s.streams." format systemName, true)
     val legacySystemStreams = subConf
+      .asScala
       .keys
       .filter(k => k.endsWith(StreamConfig.MSG_SERDE) || k.endsWith(StreamConfig.KEY_SERDE))
       .map(k => {
@@ -91,6 +92,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
       }).toSet
 
     val systemStreams = subset(StreamConfig.STREAMS_PREFIX)
+      .asScala
       .keys
       .filter(k => k.endsWith(StreamConfig.MSG_SERDE) || k.endsWith(StreamConfig.KEY_SERDE))
       .map(k => k.substring(0, k.length - 16 /* .samza.XXX.serde length */ ))
@@ -116,7 +118,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getStreamProperties(streamId: String) = {
     val allProperties = getAllStreamProperties(streamId)
     val samzaProperties = allProperties.subset(StreamConfig.SAMZA_PROPERTY, false)
-    val filteredStreamProperties:java.util.Map[String, String] = allProperties.filterKeys(k => !samzaProperties.containsKey(k))
+    val filteredStreamProperties:java.util.Map[String, String] = allProperties.asScala.filterKeys(k => !samzaProperties.containsKey(k)).asJava
     new MapConfig(filteredStreamProperties)
   }
 
@@ -243,7 +245,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   private def getStreamIds(): Iterable[String] = {
     // StreamIds are not allowed to have '.' so the first index of '.' marks the end of the streamId.
-    subset(StreamConfig.STREAMS_PREFIX).keys.map(key => key.substring(0, key.indexOf(".")))
+    subset(StreamConfig.STREAMS_PREFIX).asScala.keys.map(key => key.substring(0, key.indexOf(".")))
   }
 
   private def getStreamIdsForSystem(system: String): Iterable[String] = {
