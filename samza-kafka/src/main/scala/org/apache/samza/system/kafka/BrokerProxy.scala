@@ -21,17 +21,20 @@
 
 package org.apache.samza.system.kafka
 
+import java.lang.Thread.UncaughtExceptionHandler
 import java.nio.channels.ClosedByInterruptException
 import java.util.Map.Entry
 import java.util.concurrent.{ConcurrentHashMap, CountDownLatch}
+
 import kafka.api._
-import kafka.common.{NotLeaderForPartitionException, UnknownTopicOrPartitionException, ErrorMapping, TopicAndPartition}
+import kafka.common.{ErrorMapping, NotLeaderForPartitionException, TopicAndPartition, UnknownTopicOrPartitionException}
 import kafka.consumer.ConsumerConfig
 import kafka.message.MessageSet
 import org.apache.samza.SamzaException
 import org.apache.samza.util.ExponentialSleepStrategy
 import org.apache.samza.util.Logging
 import org.apache.samza.util.ThreadNamePrefix.SAMZA_THREAD_NAME_PREFIX
+
 import scala.collection.JavaConversions._
 import scala.collection.concurrent
 import scala.collection.mutable
@@ -198,8 +201,8 @@ class BrokerProxy(
   }
 
   /**
-   * Releases ownership for a single TopicAndPartition. The 
-   * KafkaSystemConsumer will try and find a new broker for the 
+   * Releases ownership for a single TopicAndPartition. The
+   * KafkaSystemConsumer will try and find a new broker for the
    * TopicAndPartition.
    */
   def abdicate(tp: TopicAndPartition) = removeTopicPartition(tp) match {
@@ -209,8 +212,8 @@ class BrokerProxy(
   }
 
   /**
-   * Releases all TopicAndPartition ownership for this BrokerProxy thread. The 
-   * KafkaSystemConsumer will try and find a new broker for the 
+   * Releases all TopicAndPartition ownership for this BrokerProxy thread. The
+   * KafkaSystemConsumer will try and find a new broker for the
    * TopicAndPartition.
    */
   def abdicateAll {
@@ -295,6 +298,9 @@ class BrokerProxy(
       info("Starting " + toString)
       thread.setDaemon(true)
       thread.setName(SAMZA_THREAD_NAME_PREFIX + BrokerProxy.BROKER_PROXY_THREAD_NAME_PREFIX + thread.getName)
+      thread.setUncaughtExceptionHandler(new UncaughtExceptionHandler {
+        override def uncaughtException(t: Thread, e: Throwable) = error("Uncaught exception in broker proxy:", e)
+      })
       thread.start
     } else {
       debug("Tried to start an already started broker proxy (%s). Ignoring." format toString)
