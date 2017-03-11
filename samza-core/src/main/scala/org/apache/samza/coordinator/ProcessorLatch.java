@@ -18,6 +18,10 @@
  */
 package org.apache.samza.coordinator;
 
-public interface CoordinationServiceFactory {
-  CoordinationService getCoordinationService(String groupId);
+import java.util.concurrent.TimeUnit;
+
+
+public interface ProcessorLatch {
+  void await(TimeUnit tu, long timeout);
+  void countDown();
 }
