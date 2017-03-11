@@ -21,6 +21,7 @@ package org.apache.samza.operators.triggers;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.util.Clock;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +37,6 @@ public class AnyTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M>
 
   private final Map<TriggerImpl<M>, Boolean> triggerImpls = new ConcurrentHashMap<>();
   private final Clock clock;
-  private boolean triggered = false;
 
   public AnyTriggerImpl(AnyTrigger<M> anyTrigger, Clock clock) {
     this.triggerList = anyTrigger.getTriggers();
@@ -50,7 +50,8 @@ public class AnyTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M>
     return new TriggerCallbackHandler() {
       @Override
       public void onTrigger() {
-        triggered = true;
+        cancel();
+        wrappedHandler.onTrigger();
       }
     };
   }
@@ -59,9 +60,7 @@ public class AnyTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M>
   public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
     System.out.println("inside anytrigger on message " + message.getKey() + " " + message.getMessage() + " " + this + " " + triggerImpls.size());
     triggerImpls.keySet().stream().forEach(m -> {
-      if (!triggered) {
-        m.onMessage(message, context, handler);
-      }
+        m.onMessage(message, context, createNewHandler(handler));
     });
     System.out.println("ended on message " + message.getKey() + " " + message.getMessage() + " " + this);
   }

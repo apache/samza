@@ -27,15 +27,16 @@ import org.apache.samza.util.Clock;
  */
 public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
 
-  private final Trigger<M> underlyingTrigger;
+  private final Trigger<M> repeatingTrigger;
   private final Clock clock;
 
-  private TriggerImpl<M> underlyingTriggerImpl;
+  private TriggerImpl<M> currentTriggerImpl;
+  private TriggerCallbackHandler currentTriggerHandler;
 
   public RepeatingTriggerImpl(RepeatingTrigger<M> repeatingTrigger, Clock clock) {
-    this.underlyingTrigger = repeatingTrigger.getTrigger();
+    this.repeatingTrigger = repeatingTrigger.getTrigger();
     this.clock = clock;
-    this.underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, clock);
+    this.currentTriggerImpl = TriggerImpls.createTriggerImpl(this.repeatingTrigger, clock);
   }
 
   private TriggerCallbackHandler createWrappedHandler(TriggerCallbackHandler handler) {
@@ -44,8 +45,9 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
       public void onTrigger() {
           //re-schedule the underlying trigger for execution again.
         System.out.println("canceling repeat trigger");
-        underlyingTriggerImpl.cancel();
-        underlyingTriggerImpl = TriggerImpls.createTriggerImpl(underlyingTrigger, clock);
+        cancel();
+        currentTriggerImpl = TriggerImpls.createTriggerImpl(repeatingTrigger, clock);
+        currentTriggerHandler = createWrappedHandler(handler);
         handler.onTrigger();
         System.out.println("canceling repeat trigger end");
       }
@@ -54,14 +56,18 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
 
   @Override
   public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
+    if (currentTriggerHandler == null) {
+      this.currentTriggerHandler = createWrappedHandler(handler);
+    }
+
     System.out.println("inside repeating trigger onmessage" + message.getKey() + " " + message.getMessage());
-    underlyingTriggerImpl.onMessage(message, context, createWrappedHandler(handler));
+    currentTriggerImpl.onMessage(message, context, createWrappedHandler(handler));
     System.out.println("ended repeating trigger onmessage" + message.getKey() + " " + message.getMessage());
 
   }
 
   @Override
   public void cancel() {
-    underlyingTriggerImpl.cancel();
+    currentTriggerImpl.cancel();
   }
 }
