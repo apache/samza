@@ -20,7 +20,6 @@
 package org.apache.samza.operators.triggers;
 
 import org.apache.samza.SamzaException;
-import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.util.Clock;
 
 /**
@@ -28,7 +27,7 @@ import org.apache.samza.util.Clock;
  */
 public class TriggerImpls {
 
-  public static <M extends MessageEnvelope> TriggerImpl<M> createTriggerImpl(Trigger<M> trigger, Clock clock) {
+  public static <M> TriggerImpl<M> createTriggerImpl(Trigger<M> trigger, Clock clock) {
 
     if (trigger == null) {
       throw new SamzaException("Null trigger passed in");

@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.windows;
 
-import org.apache.samza.operators.triggers.TriggerType;
+import org.apache.samza.operators.triggers.FiringType;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -27,7 +27,7 @@ import static org.junit.Assert.assertEquals;
 public class TestWindowPane {
   @Test
   public void testConstructor() {
-    WindowPane<String, Integer> wndOutput = new WindowPane(new WindowKey("testMsg", null), 10, AccumulationMode.DISCARDING, TriggerType.EARLY);
+    WindowPane<String, Integer> wndOutput = new WindowPane(new WindowKey("testMsg", null), 10, AccumulationMode.DISCARDING, FiringType.EARLY);
     assertEquals(wndOutput.getKey().getKey(), "testMsg");
     assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
   }

@@ -26,7 +26,7 @@ import org.apache.samza.util.Clock;
  * Implementation class for a {@link TimeSinceFirstMessageTrigger}
  * @param <M> the type of the incoming {@link MessageEnvelope}
  */
-public class TimeSinceFirstMessageTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
+public class TimeSinceFirstMessageTriggerImpl<M> implements TriggerImpl<M> {
   private final TimeSinceFirstMessageTrigger<M> trigger;
   private final Clock clock;
   private Cancellable cancellable;

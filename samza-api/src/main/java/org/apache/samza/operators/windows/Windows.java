@@ -72,8 +72,7 @@ import java.util.function.Supplier;
  * <p> A {@link Window} can be one of the following types:
  * <ul>
  *   <li>
- *     Tumbling Windows: A tumbling window defines a series of non-overlapping, fixed size, contiguous intervals. Time
- *     intervals are always calculated at the granularity of milliseconds.
+ *     Tumbling Windows: A tumbling window defines a series of non-overlapping, fixed size, contiguous intervals.
  *   <li>
  *     Session Windows: A session window groups a {@link org.apache.samza.operators.MessageStream} into sessions.
  *     A <i>session</i> captures some period of activity over a {@link org.apache.samza.operators.MessageStream}.
@@ -88,6 +87,8 @@ import java.util.function.Supplier;
  * and triggers are fired and window panes are emitted per-key. It is possible to construct "keyed" variants of all the above window
  * types.
  *
+ * <p> Time granularity for windows: Currently, time durations are always measured in milliseconds. Time units of
+ * finer granularity are not supported.
  */
 @InterfaceStability.Unstable
 public final class Windows {
@@ -174,8 +175,8 @@ public final class Windows {
    * @param <WV> the type of the {@link WindowPane} output value
    * @return the created {@link Window} function
    */
-  public static <M, WV> Window<M, Void, WV>
-    tumblingWindow(Duration duration, Supplier<WV> initialValue, FoldFunction<M, WV> foldFn) {
+  public static <M, WV> Window<M, Void, WV> tumblingWindow(Duration duration, Supplier<WV> initialValue,
+                                                           FoldFunction<M, WV> foldFn) {
     Trigger<M> defaultTrigger = Triggers.repeat(new TimeTrigger<>(duration));
     return new WindowInternal<>(defaultTrigger, initialValue, foldFn, null, null, WindowType.TUMBLING);
   }
@@ -234,7 +235,8 @@ public final class Windows {
    * @param <WV> the type of the output value in the {@link WindowPane}
    * @return the created {@link Window} function
    */
-  public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap, Supplier<WV> initialValue, FoldFunction<M, WV> foldFn) {
+  public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap,
+                                                               Supplier<WV> initialValue, FoldFunction<M, WV> foldFn) {
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
     return new WindowInternal<>(defaultTrigger, initialValue, foldFn, keyFn, null, WindowType.SESSION);
   }

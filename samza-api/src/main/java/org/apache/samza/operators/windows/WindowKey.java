@@ -36,9 +36,9 @@ public class WindowKey<K> {
 
   private final String paneId;
 
-  public WindowKey(K key, String  windowId) {
+  public WindowKey(K key, String  paneId) {
     this.key = key;
-    this.paneId = windowId;
+    this.paneId = paneId;
   }
 
   public K getKey() {
@@ -58,10 +58,6 @@ public class WindowKey<K> {
     return String.format("%s%s", wndKey, paneId);
   }
 
-  /**
-   * Implementation notes: Equality is checked based on both the key and paneId. A (key, paneId) tuple
-   * identifies an emission from a window.
-   */
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -79,9 +75,6 @@ public class WindowKey<K> {
 
   }
 
-  /**
-   * Implementation notes: Hashcode is checked based on both the key and paneId.
-   */
   @Override
   public int hashCode() {
     int result = key.hashCode();

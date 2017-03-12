@@ -24,7 +24,7 @@ import org.apache.samza.operators.data.MessageEnvelope;
 /**
  * Implementation class for a {@link CountTrigger}
  */
-public class CountTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
+public class CountTriggerImpl<M> implements TriggerImpl<M> {
 
   private final long triggerCount;
   private long currentCount;

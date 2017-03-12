@@ -45,8 +45,11 @@ import org.junit.Test;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -207,7 +210,7 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.size(), 1);
     Assert.assertEquals(windowPanes.get(0).getKey().getPaneId(), "0");
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
-    Assert.assertEquals(windowPanes.get(0).getType(), TriggerType.EARLY);
+    Assert.assertEquals(windowPanes.get(0).getType(), FiringType.EARLY);
 
     task.process(new IntegerMessageEnvelope(1, 3), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(1, 4), messageCollector, taskCoordinator);
@@ -221,7 +224,7 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.size(), 2);
     Assert.assertEquals(windowPanes.get(0).getKey().getPaneId(), "0");
     Assert.assertEquals(windowPanes.get(1).getKey().getPaneId(), "0");
-    Assert.assertEquals(windowPanes.get(1).getType(), TriggerType.DEFAULT);
+    Assert.assertEquals(windowPanes.get(1).getType(), FiringType.DEFAULT);
 
     task.process(new IntegerMessageEnvelope(3, 6), messageCollector, taskCoordinator);
     testClock.advanceTime(Duration.ofSeconds(1));
@@ -230,7 +233,7 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.size(), 3);
     Assert.assertEquals(windowPanes.get(2).getKey().getKey(), new Integer(3));
     Assert.assertEquals(windowPanes.get(2).getKey().getPaneId(), "1000");
-    Assert.assertEquals(windowPanes.get(2).getType(), TriggerType.DEFAULT);
+    Assert.assertEquals(windowPanes.get(2).getType(), FiringType.DEFAULT);
     Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(2).getMessage()).size(), 1);
 
   }
@@ -264,7 +267,7 @@ public class TestWindowOperator {
 
     //assert that the default trigger fired
     Assert.assertEquals(windowPanes.size(), 2);
-    Assert.assertEquals(windowPanes.get(1).getType(), TriggerType.DEFAULT);
+    Assert.assertEquals(windowPanes.get(1).getType(), FiringType.DEFAULT);
     Assert.assertEquals(windowPanes.get(1).getKey().getKey(), new Integer(1));
     Assert.assertEquals(windowPanes.get(1).getKey().getPaneId(), "0");
     Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(1).getMessage()).size(), 5);
@@ -276,7 +279,7 @@ public class TestWindowOperator {
     task.window(messageCollector, taskCoordinator);
 
     Assert.assertEquals(windowPanes.size(), 3);
-    Assert.assertEquals(windowPanes.get(2).getType(), TriggerType.EARLY);
+    Assert.assertEquals(windowPanes.get(2).getType(), FiringType.EARLY);
     Assert.assertEquals(windowPanes.get(2).getKey().getKey(), new Integer(1));
     Assert.assertEquals(windowPanes.get(2).getKey().getPaneId(), "1000");
 
@@ -284,7 +287,7 @@ public class TestWindowOperator {
     testClock.advanceTime(Duration.ofMillis(900));
     task.window(messageCollector, taskCoordinator);
     Assert.assertEquals(windowPanes.size(), 4);
-    Assert.assertEquals(windowPanes.get(3).getType(), TriggerType.DEFAULT);
+    Assert.assertEquals(windowPanes.get(3).getType(), FiringType.DEFAULT);
     Assert.assertEquals(windowPanes.get(3).getKey().getKey(), new Integer(1));
     Assert.assertEquals(windowPanes.get(3).getKey().getPaneId(), "1000");
   }

@@ -30,7 +30,7 @@ import java.util.Map;
  * Implementation of an {@link AnyTrigger}
  *
  */
-public class AnyTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
+public class AnyTriggerImpl<M> implements TriggerImpl<M> {
 
   private final List<Trigger<M>> triggerList;
 

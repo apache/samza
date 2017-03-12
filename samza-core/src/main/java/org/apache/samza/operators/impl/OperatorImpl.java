@@ -59,7 +59,7 @@ public abstract class OperatorImpl<M, RM> {
    */
   public final void onTick(MessageCollector collector, TaskCoordinator coordinator) {
     onTimer(collector, coordinator);
-    propagateTimer(collector, coordinator);
+    nextOperators.forEach(sub -> sub.onTick(collector, coordinator));
   }
 
   /**
@@ -83,9 +83,5 @@ public abstract class OperatorImpl<M, RM> {
    */
   void propagateResult(RM outputMessage, MessageCollector collector, TaskCoordinator coordinator) {
     nextOperators.forEach(sub -> sub.onNext(outputMessage, collector, coordinator));
-  }
-
-  private void propagateTimer(MessageCollector collector, TaskCoordinator coordinator) {
-    nextOperators.forEach(sub -> sub.onTick(collector, coordinator));
   }
 }

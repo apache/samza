@@ -25,7 +25,7 @@ import org.apache.samza.util.Clock;
 /**
  * Implementation class for a {@link RepeatingTrigger}
  */
-public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
+public class RepeatingTriggerImpl<M> implements TriggerImpl<M> {
 
   private final Trigger<M> repeatingTrigger;
   private final Clock clock;

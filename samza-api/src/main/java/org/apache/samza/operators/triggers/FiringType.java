@@ -22,7 +22,7 @@ package org.apache.samza.operators.triggers;
  * The type of the {@link org.apache.samza.operators.triggers.Trigger} firing.
  * Firings can be either early or late or default. Late triggers are not supported currently.
  */
-public enum TriggerType {
+public enum FiringType {
   EARLY,
   DEFAULT,
   LATE

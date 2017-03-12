@@ -27,18 +27,18 @@ public class WindowState<WV> {
   /**
    * Time of the first message in the window
    */
-  final long earliestTime;
+  final long earliestRecvTime;
 
-  public WindowState(WV wv, long earliestTime) {
+  public WindowState(WV wv, long earliestRecvTime) {
     this.wv = wv;
-    this.earliestTime = earliestTime;
+    this.earliestRecvTime = earliestRecvTime;
   }
 
   public WV getWindowValue() {
     return wv;
   }
 
-  public long getEarliestTime() {
-    return earliestTime;
+  public long getEarliestRecvTime() {
+    return earliestRecvTime;
   }
 }
