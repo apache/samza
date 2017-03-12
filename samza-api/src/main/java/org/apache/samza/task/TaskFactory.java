@@ -16,15 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.task;
 
-import org.apache.samza.annotation.InterfaceStability;
-
 /**
- * Build {@link StreamTask} instances.
  * Implementations should return a new instance for each {@link #createInstance()} invocation.
+ *
+ * @param <T> type of task to be created by the {@link TaskFactory}
  */
-@InterfaceStability.Stable
-public interface StreamTaskFactory extends TaskFactory<StreamTask> {
+public interface TaskFactory<T> {
+
+  /**
+   * Method to create an instance of task class. The task class should either be a sub-class of {@link StreamTask} or {@link AsyncStreamTask}
+   *
+   * @return  the task instance created
+   */
+  T createInstance();
+
 }
