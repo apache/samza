@@ -54,8 +54,8 @@ public abstract class OperatorImpl<M, RM> {
   /**
    * Invoked at every tick. This method delegates to {@link #onTimer(MessageCollector, TaskCoordinator)}
    *
-   * @param collector
-   * @param coordinator
+   * @param collector  the {@link MessageCollector} in the context
+   * @param coordinator  the {@link TaskCoordinator} in the context
    */
   public final void onTick(MessageCollector collector, TaskCoordinator coordinator) {
     onTimer(collector, coordinator);
@@ -66,8 +66,8 @@ public abstract class OperatorImpl<M, RM> {
    * Invoked at every tick. Implementations must call {@link #propagateResult} to propagate any generated output
    * to registered downstream operators.
    *
-   * @param collector
-   * @param coordinator
+   * @param collector  the {@link MessageCollector} in the context
+   * @param coordinator  the {@link TaskCoordinator} in the context
    */
   public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {};
 

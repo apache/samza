@@ -22,6 +22,7 @@ import java.time.Duration;
 
 /*
  * A {@link Trigger} that fires when there are no new {@link MessageEnvelope}s in the window pane for the specified duration.
+ * @param <M> the type of the incoming {@link MessageEnvelope}
  */
 public class TimeSinceLastMessageTrigger<M> implements Trigger {
 

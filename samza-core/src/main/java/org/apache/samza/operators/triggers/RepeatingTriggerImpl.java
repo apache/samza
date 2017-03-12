@@ -41,9 +41,7 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
 
   @Override
   public void onMessage(M message, TriggerContext context) {
-    System.out.println("inside repeating trigger onmessage" + message.getKey() + " " + message.getMessage());
     currentTriggerImpl.onMessage(message, context);
-    System.out.println("ended repeating trigger onmessage" + message.getKey() + " " + message.getMessage());
   }
 
   @Override

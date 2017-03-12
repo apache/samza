@@ -23,7 +23,7 @@ import org.apache.samza.util.Clock;
 
 /**
  * Implementation class for a {@link TimeSinceLastMessageTrigger}
- * @param <M>
+ * @param <M> the type of the incoming {@link MessageEnvelope}
  */
 public class TimeSinceLastMessageTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
 

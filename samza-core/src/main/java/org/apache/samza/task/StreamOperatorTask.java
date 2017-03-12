@@ -25,7 +25,6 @@ import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.impl.OperatorGraph;
-import org.apache.samza.operators.impl.OperatorImpl;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
@@ -78,6 +77,8 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   private ContextManager contextManager;
 
+  private Set<SystemStreamPartition> systemStreamPartitions;
+
   public StreamOperatorTask(StreamGraphBuilder graphBuilder) {
     this(graphBuilder, SystemClock.instance());
   }
@@ -88,9 +89,6 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     this.operatorGraph = new OperatorGraph(clock);
     this.clock = clock;
   }
-
-
-  private Set<SystemStreamPartition> systemStreamPartitions;
 
   @Override
   public final void init(Config config, TaskContext context) throws Exception {

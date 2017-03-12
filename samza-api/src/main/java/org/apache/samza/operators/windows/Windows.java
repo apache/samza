@@ -30,7 +30,6 @@ import org.apache.samza.operators.windows.internal.WindowType;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -112,6 +111,7 @@ public final class Windows {
    *
    * @param keyFn the function to extract the window key from a message
    * @param interval the duration in processing time
+   * @param initialValue the initial value to be used for aggregations
    * @param foldFn the function to aggregate messages in the {@link WindowPane}
    * @param <M> the type of the input message
    * @param <WV> the type of the {@link WindowPane} output value
@@ -149,10 +149,8 @@ public final class Windows {
   public static <M, K> Window<M, K, Collection<M>> keyedTumblingWindow(Function<M, K> keyFn, Duration interval) {
     FoldFunction<M, Collection<M>> aggregator = createAggregator();
 
-    Supplier<Collection<M>> supplier = () -> {
-      return new ArrayList<>();
-    };
-    return keyedTumblingWindow(keyFn, interval, supplier, aggregator);
+    Supplier<Collection<M>> initialValue = () -> new ArrayList<>();
+    return keyedTumblingWindow(keyFn, interval, initialValue, aggregator);
   }
 
   /**
@@ -170,6 +168,7 @@ public final class Windows {
    * </pre>
    *
    * @param duration the duration in processing time
+   * @param initialValue the initial value to be used for aggregations
    * @param foldFn to aggregate messages in the {@link WindowPane}
    * @param <M> the type of the input message
    * @param <WV> the type of the {@link WindowPane} output value
@@ -228,6 +227,7 @@ public final class Windows {
    *
    * @param keyFn the function to extract the window key from a message
    * @param sessionGap the timeout gap for defining the session
+   * @param initialValue the initial value to be used for aggregations
    * @param foldFn the function to aggregate messages in the {@link WindowPane}
    * @param <M> the type of the input message
    * @param <K> the type of the key in the {@link Window}

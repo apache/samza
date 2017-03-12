@@ -31,7 +31,6 @@ import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.time.Duration;
-import java.util.function.BiFunction;
 import java.util.Set;
 import java.util.function.Supplier;
 

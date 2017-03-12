@@ -24,7 +24,7 @@ import org.apache.samza.util.Clock;
 
 /**
  * Implementation class for a {@link TimeSinceFirstMessageTrigger}
- * @param <M>
+ * @param <M> the type of the incoming {@link MessageEnvelope}
  */
 public class TimeSinceFirstMessageTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
   private final TimeSinceFirstMessageTrigger<M> trigger;
@@ -38,12 +38,10 @@ public class TimeSinceFirstMessageTriggerImpl<M extends MessageEnvelope> impleme
   }
 
   public void onMessage(M message, TriggerContext context) {
-    System.out.println("inside time since first trigger on msg");
     if (cancellable == null && !shouldFire) {
       final long now = clock.currentTimeMillis();
       long triggerDurationMs = trigger.getDuration().toMillis();
       Long callbackTime = now + triggerDurationMs;
-      System.out.println("callback time set at " + callbackTime);
       cancellable =  context.scheduleCallback(() -> {
           shouldFire = true;
         }, callbackTime);
@@ -52,11 +50,9 @@ public class TimeSinceFirstMessageTriggerImpl<M extends MessageEnvelope> impleme
 
   @Override
   public void cancel() {
-    System.out.println("canceling callback");
     if (cancellable != null) {
       cancellable.cancel();
     }
-    System.out.println("canceling callback done");
   }
 
   @Override

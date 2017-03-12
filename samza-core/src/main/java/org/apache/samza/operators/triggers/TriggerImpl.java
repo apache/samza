@@ -42,6 +42,7 @@ public interface TriggerImpl<M> {
   /**
    * Invoked when a MessageEnvelope added to the window corresponding to this {@link TriggerImpl}.
    * @param message the incoming MessageEnvelope
+   * @param context the {@link TriggerContext} to schedule and cancel callbacks
    */
   public void onMessage(M message, TriggerContext context);
 

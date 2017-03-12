@@ -23,7 +23,6 @@ import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.Window;
 
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -74,12 +73,12 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
   private AccumulationMode mode;
 
   public WindowInternal(Trigger<M> defaultTrigger, Supplier<WV> initialValue, FoldFunction<M, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType) {
+    this.defaultTrigger = defaultTrigger;
+    this.initializer = initialValue;
     this.foldFunction = foldFunction;
     this.eventTimeExtractor = eventTimeExtractor;
     this.keyExtractor = keyExtractor;
-    this.defaultTrigger = defaultTrigger;
     this.windowType = windowType;
-    this.initializer = initialValue;
   }
 
   @Override

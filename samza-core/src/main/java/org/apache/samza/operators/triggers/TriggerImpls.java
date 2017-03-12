@@ -22,7 +22,6 @@ package org.apache.samza.operators.triggers;
 import org.apache.samza.SamzaException;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.util.Clock;
-import org.apache.samza.util.SystemClock;
 
 /**
  * Factory methods for instantiating {@link TriggerImpl}s from individual {@link Trigger}s.

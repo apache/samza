@@ -31,8 +31,8 @@ import java.util.Map;
 
 /**
  * Implements a {@link KeyValueStore} using an in-memory Java Map.
- * @param <K>
- * @param <V>
+ * @param <K>  the type of key
+ * @param <V>  the type of value
  *
  * TODO: This class is a stop-gap until we implement persistent store creation from TaskContext.
  *

@@ -39,8 +39,6 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamOperatorTask;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
-import org.apache.samza.util.Clock;
-import org.apache.samza.util.SystemClock;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -211,7 +209,6 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
     Assert.assertEquals(windowPanes.get(0).getType(), TriggerType.EARLY);
 
-
     task.process(new IntegerMessageEnvelope(1, 3), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(1, 4), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(1, 5), messageCollector, taskCoordinator);
@@ -220,6 +217,7 @@ public class TestWindowOperator {
 
     testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
+
     Assert.assertEquals(windowPanes.size(), 2);
     Assert.assertEquals(windowPanes.get(0).getKey().getPaneId(), "0");
     Assert.assertEquals(windowPanes.get(1).getKey().getPaneId(), "0");
@@ -228,6 +226,7 @@ public class TestWindowOperator {
     task.process(new IntegerMessageEnvelope(3, 6), messageCollector, taskCoordinator);
     testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
+
     Assert.assertEquals(windowPanes.size(), 3);
     Assert.assertEquals(windowPanes.get(2).getKey().getKey(), new Integer(3));
     Assert.assertEquals(windowPanes.get(2).getKey().getPaneId(), "1000");
@@ -248,17 +247,21 @@ public class TestWindowOperator {
     task.process(new IntegerMessageEnvelope(1, 2), messageCollector, taskCoordinator);
     //assert that the count trigger fired
     Assert.assertEquals(windowPanes.size(), 1);
+
     //advance the timer to enable the triggering of the inner timeSinceFirstMessage trigger
     testClock.advanceTime(Duration.ofMillis(500));
+
     //assert that the triggering of the count trigger cancelled the inner timeSinceFirstMessage trigger
     Assert.assertEquals(windowPanes.size(), 1);
 
     task.process(new IntegerMessageEnvelope(1, 3), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(1, 4), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(1, 5), messageCollector, taskCoordinator);
+
     //advance timer by 500 more millis to enable the default trigger
     testClock.advanceTime(Duration.ofMillis(500));
     task.window(messageCollector, taskCoordinator);
+
     //assert that the default trigger fired
     Assert.assertEquals(windowPanes.size(), 2);
     Assert.assertEquals(windowPanes.get(1).getType(), TriggerType.DEFAULT);
@@ -271,20 +274,19 @@ public class TestWindowOperator {
     //advance timer by 500 millis to enable the inner timeSinceFirstMessage trigger
     testClock.advanceTime(Duration.ofMillis(500));
     task.window(messageCollector, taskCoordinator);
-    Assert.assertEquals(windowPanes.size(), 3);
 
+    Assert.assertEquals(windowPanes.size(), 3);
     Assert.assertEquals(windowPanes.get(2).getType(), TriggerType.EARLY);
     Assert.assertEquals(windowPanes.get(2).getKey().getKey(), new Integer(1));
     Assert.assertEquals(windowPanes.get(2).getKey().getPaneId(), "1000");
 
-    //advance timer by 500 millis to enable the default trigger
-    testClock.advanceTime(Duration.ofMillis(500));
+    //advance timer by > 500 millis to enable the default trigger
+    testClock.advanceTime(Duration.ofMillis(900));
     task.window(messageCollector, taskCoordinator);
     Assert.assertEquals(windowPanes.size(), 4);
     Assert.assertEquals(windowPanes.get(3).getType(), TriggerType.DEFAULT);
     Assert.assertEquals(windowPanes.get(3).getKey().getKey(), new Integer(1));
     Assert.assertEquals(windowPanes.get(3).getKey().getPaneId(), "1000");
-
   }
 
   @Test
@@ -297,13 +299,12 @@ public class TestWindowOperator {
     task.init(config, taskContext);
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
-    System.out.println("process 12");
 
     task.process(new IntegerMessageEnvelope(1, 2), messageCollector, taskCoordinator);
     //assert that the count trigger fired
     Assert.assertEquals(windowPanes.size(), 1);
-    //advance the timer to enable the triggering of the inner timeSinceFirstMessage trigger
-    System.out.println("process 13");
+
+    //advance the timer to enable the potential triggering of the inner timeSinceFirstMessage trigger
     task.process(new IntegerMessageEnvelope(1, 3), messageCollector, taskCoordinator);
     testClock.advanceTime(Duration.ofMillis(500));
     //assert that the triggering of the count trigger cancelled the inner timeSinceFirstMessage trigger
@@ -340,7 +341,7 @@ public class TestWindowOperator {
       MessageStream<MessageEnvelope<Integer, Integer>> inStream = graph.createInStream(streamSpec, null, null);
       Function<MessageEnvelope<Integer, Integer>, Integer> keyFn = m -> m.getKey();
       inStream
-        .map(m -> (m))
+        .map(m -> m)
         .window(Windows.keyedTumblingWindow(keyFn, duration).setEarlyTrigger(earlyTrigger)
           .setAccumulationMode(mode))
         .map(m -> {
