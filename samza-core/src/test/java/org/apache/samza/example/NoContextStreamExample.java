@@ -19,7 +19,7 @@
 package org.apache.samza.example;
 
 import org.apache.samza.operators.*;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
@@ -37,9 +37,9 @@ import java.util.List;
 
 
 /**
- * Example {@link StreamGraphBuilder} code to test the API methods
+ * Example {@link StreamApplication} code to test the API methods
  */
-public class NoContextStreamExample implements StreamGraphBuilder {
+public class NoContextStreamExample implements StreamApplication {
 
   StreamSpec input1 = new StreamSpec("inputStreamA", "PageViewEvent", "kafka");
 

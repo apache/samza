@@ -18,7 +18,7 @@
  */
 package org.apache.samza.example;
 
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 
@@ -31,7 +31,7 @@ import java.util.Set;
  * Base class for test examples
  *
  */
-public abstract class TestExampleBase implements StreamGraphBuilder {
+public abstract class TestExampleBase implements StreamApplication {
 
   protected final Map<SystemStream, Set<SystemStreamPartition>> inputs;
 

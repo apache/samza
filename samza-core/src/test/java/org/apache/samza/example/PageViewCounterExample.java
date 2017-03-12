@@ -19,7 +19,7 @@
 package org.apache.samza.example;
 
 import org.apache.samza.operators.*;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.triggers.Triggers;
@@ -38,7 +38,7 @@ import java.time.Duration;
 /**
  * Example code to implement window-based counter
  */
-public class PageViewCounterExample implements StreamGraphBuilder {
+public class PageViewCounterExample implements StreamApplication {
 
   @Override public void init(StreamGraph graph, Config config) {
 

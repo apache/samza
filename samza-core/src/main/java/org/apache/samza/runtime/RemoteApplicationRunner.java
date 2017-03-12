@@ -18,7 +18,7 @@
  */
 package org.apache.samza.runtime;
 
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 
 
@@ -31,7 +31,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     super(config);
   }
 
-  @Override public void run(StreamGraphBuilder app, Config config) {
+  @Override public void run(StreamApplication app, Config config) {
     // TODO: add description of ProcessContext that is going to create a sub-DAG of the {@code graph}
     // TODO: actually instantiate the tasks and run the job, i.e.
     // 1. create all input/output/intermediate topics

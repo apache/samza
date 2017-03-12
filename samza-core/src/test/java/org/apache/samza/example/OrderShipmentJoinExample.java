@@ -20,7 +20,7 @@ package org.apache.samza.example;
 
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.data.MessageEnvelope;
@@ -35,7 +35,7 @@ import org.apache.samza.util.CommandLine;
 /**
  * Simple 2-way stream-to-stream join example
  */
-public class OrderShipmentJoinExample implements StreamGraphBuilder {
+public class OrderShipmentJoinExample implements StreamApplication {
 
   /**
    * used by remote application runner to launch the job in remote program. The remote program should follow the similar

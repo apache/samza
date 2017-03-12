@@ -21,7 +21,7 @@ package org.apache.samza.task;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.TaskConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,25 +126,25 @@ public class TaskFactoryUtil {
   }
 
   private static StreamTask createStreamOperatorTask(Config config) throws Exception {
-    Class<?> builderClass = Class.forName(config.get(StreamGraphBuilder.BUILDER_CLASS_CONFIG));
-    StreamGraphBuilder graphBuilder = (StreamGraphBuilder) builderClass.newInstance();
+    Class<?> builderClass = Class.forName(config.get(StreamApplication.APP_CLASS_CONFIG));
+    StreamApplication graphBuilder = (StreamApplication) builderClass.newInstance();
     return new StreamOperatorTask(graphBuilder);
   }
 
   private static boolean isStreamOperatorTask(Config config) {
-    if (config.get(StreamGraphBuilder.BUILDER_CLASS_CONFIG) != null && !config.get(StreamGraphBuilder.BUILDER_CLASS_CONFIG).isEmpty()) {
+    if (config.get(StreamApplication.BUILDER_CLASS_CONFIG) != null && !config.get(StreamApplication.BUILDER_CLASS_CONFIG).isEmpty()) {
 
       TaskConfig taskConfig = new TaskConfig(config);
       if (taskConfig.getTaskClass() != null && !taskConfig.getTaskClass().isEmpty()) {
-        throw new ConfigException("High level StreamGraphBuilder API cannot be used together with low-level API using task.class.");
+        throw new ConfigException("High level StreamApplication API cannot be used together with low-level API using task.class.");
       }
 
       try {
-        Class<?> builderClass = Class.forName(config.get(StreamGraphBuilder.BUILDER_CLASS_CONFIG));
-        return StreamGraphBuilder.class.isAssignableFrom(builderClass);
+        Class<?> builderClass = Class.forName(config.get(StreamApplication.BUILDER_CLASS_CONFIG));
+        return StreamApplication.class.isAssignableFrom(builderClass);
       } catch (Throwable t) {
-        log.error("Failed to validate StreamGraphBuilder class from the config. {}={}",
-            StreamGraphBuilder.BUILDER_CLASS_CONFIG, config.get(StreamGraphBuilder.BUILDER_CLASS_CONFIG));
+        log.error("Failed to validate StreamApplication class from the config. {}={}",
+            StreamApplication.BUILDER_CLASS_CONFIG, config.get(StreamApplication.BUILDER_CLASS_CONFIG));
         return false;
       }
     }
