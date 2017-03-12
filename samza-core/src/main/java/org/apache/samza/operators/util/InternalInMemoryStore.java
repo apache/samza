@@ -34,7 +34,7 @@ import java.util.Map;
  * @param <K>
  * @param <V>
  *
- * TODO: Provide a persistent implementation of the KeyValueStore API. Maybe, we don't need this class.
+ * TODO: This class is a stop-gap until we implement persistent store creation from TaskContext.
  *
  */
 public class InternalInMemoryStore<K, V> implements KeyValueStore<K, V> {

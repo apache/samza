@@ -18,6 +18,8 @@
  */
 package org.apache.samza.operators.windows;
 
+import org.apache.samza.operators.triggers.TriggerType;
+
 /**
  * Specifies the result emitted from a {@link Window}.
  *
@@ -32,10 +34,16 @@ public final class WindowPane<K, V> {
 
   private final AccumulationMode mode;
 
-  public WindowPane(WindowKey<K> key, V value, AccumulationMode mode) {
+  /**
+   * The type of the trigger that emitted this result. Results can be emitted from early, late or default triggers.
+   */
+  private final TriggerType type;
+
+  public WindowPane(WindowKey<K> key, V value, AccumulationMode mode, TriggerType type) {
     this.key = key;
     this.value = value;
     this.mode = mode;
+    this.type = type;
   }
 
   public V getMessage() {
@@ -44,6 +52,10 @@ public final class WindowPane<K, V> {
 
   public WindowKey<K> getKey() {
     return this.key;
+  }
+
+  public TriggerType getType() {
+    return type;
   }
 }
 

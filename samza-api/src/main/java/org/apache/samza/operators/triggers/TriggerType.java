@@ -16,19 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.windows;
+package org.apache.samza.operators.triggers;
 
-import org.apache.samza.operators.triggers.TriggerType;
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-
-
-public class TestWindowPane {
-  @Test
-  public void testConstructor() {
-    WindowPane<String, Integer> wndOutput = new WindowPane(new WindowKey("testMsg", null), 10, AccumulationMode.DISCARDING, TriggerType.EARLY);
-    assertEquals(wndOutput.getKey().getKey(), "testMsg");
-    assertEquals(wndOutput.getMessage(), Integer.valueOf(10));
-  }
+/**
+ * The type of the {@link org.apache.samza.operators.triggers.Trigger} firing.
+ * Firings can be either early or late or default. Late triggers are not supported currently.
+ */
+public enum TriggerType {
+  EARLY,
+  DEFAULT,
+  LATE
 }

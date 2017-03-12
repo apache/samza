@@ -28,7 +28,7 @@ import org.apache.samza.util.Clock;
 public class TimeTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
 
   private final TimeTrigger<M> trigger;
-  private Cancellable latestFuture;
+  private Cancellable cancellable;
   private final Clock clock;
   private boolean shouldFire = false;
 
@@ -42,8 +42,8 @@ public class TimeTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M
       long triggerDurationMs = trigger.getDuration().toMillis();
       Long callbackTime = (now - now % triggerDurationMs) + triggerDurationMs;
 
-      if (latestFuture == null) {
-        latestFuture = context.scheduleCallback(() -> {
+      if (cancellable == null) {
+        cancellable = context.scheduleCallback(() -> {
           shouldFire = true;
         }, callbackTime);
       }
@@ -51,7 +51,9 @@ public class TimeTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M
 
   @Override
   public void cancel() {
-    latestFuture.cancel();
+    if (cancellable != null) {
+      cancellable.cancel();
+    }
   }
 
   @Override

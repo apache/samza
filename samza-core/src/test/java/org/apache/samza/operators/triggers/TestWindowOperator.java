@@ -86,19 +86,19 @@ public class TestWindowOperator {
     task.window(messageCollector, taskCoordinator);
     Assert.assertEquals(windowPanes.size(), 5);
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
-    Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(0).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(1).getKey().getKey(), new Integer(2));
-    Assert.assertEquals(((Collection) windowPanes.get(1).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(1).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(2).getKey().getKey(), new Integer(1));
-    Assert.assertEquals(((Collection) windowPanes.get(2).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(2).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(3).getKey().getKey(), new Integer(2));
-    Assert.assertEquals(((Collection) windowPanes.get(3).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(3).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(4).getKey().getKey(), new Integer(3));
-    Assert.assertEquals(((Collection) windowPanes.get(4).getMessage()).size(), 1);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(4).getMessage()).size(), 1);
   }
 
   @Test
@@ -114,16 +114,16 @@ public class TestWindowOperator {
 
     Assert.assertEquals(windowPanes.size(), 7);
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
-    Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(0).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(1).getKey().getKey(), new Integer(2));
-    Assert.assertEquals(((Collection) windowPanes.get(1).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(1).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(2).getKey().getKey(), new Integer(1));
-    Assert.assertEquals(((Collection) windowPanes.get(2).getMessage()).size(), 4);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(2).getMessage()).size(), 4);
 
     Assert.assertEquals(windowPanes.get(3).getKey().getKey(), new Integer(2));
-    Assert.assertEquals(((Collection) windowPanes.get(3).getMessage()).size(), 4);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(3).getMessage()).size(), 4);
   }
 
   @Test
@@ -137,18 +137,26 @@ public class TestWindowOperator {
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
     testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
+
     Assert.assertEquals(windowPanes.size(), 1);
+    Assert.assertEquals(windowPanes.get(0).getKey().getPaneId(), "1");
+    Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
 
     task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
-
     task.process(new IntegerMessageEnvelope(3, 3), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(3, 3), messageCollector, taskCoordinator);
 
     testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
+
     Assert.assertEquals(windowPanes.size(), 3);
+    Assert.assertEquals(windowPanes.get(0).getKey().getPaneId(), "1");
     Assert.assertEquals(windowPanes.get(1).getKey().getPaneId(), "1001");
+    Assert.assertEquals(windowPanes.get(2).getKey().getPaneId(), "1001");
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(0).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(1).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(2).getMessage()).size(), 2);
 
     task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
@@ -158,8 +166,8 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.size(), 4);
     Assert.assertEquals(windowPanes.get(3).getKey().getKey(), new Integer(2));
     Assert.assertEquals(windowPanes.get(3).getKey().getPaneId(), "2001");
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(3).getMessage()).size(), 2);
 
-    Assert.assertEquals(((Collection) windowPanes.get(2).getMessage()).size(), 2);
   }
 
   @Test
@@ -182,11 +190,11 @@ public class TestWindowOperator {
     testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
     Assert.assertEquals(windowPanes.size(), 2);
-    Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(0).getMessage()).size(), 2);
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
     Assert.assertEquals(windowPanes.get(1).getKey().getKey(), new Integer(2));
-    Assert.assertEquals(((Collection) windowPanes.get(0).getMessage()).size(), 2);
-    Assert.assertEquals(((Collection) windowPanes.get(1).getMessage()).size(), 4);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(0).getMessage()).size(), 2);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(1).getMessage()).size(), 4);
   }
 
   @Test
@@ -198,13 +206,34 @@ public class TestWindowOperator {
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(1, 2), messageCollector, taskCoordinator);
+    Assert.assertEquals(windowPanes.size(), 1);
+    Assert.assertEquals(windowPanes.get(0).getKey().getPaneId(), "0");
+    Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
+    Assert.assertEquals(windowPanes.get(0).getType(), TriggerType.EARLY);
+
+
     task.process(new IntegerMessageEnvelope(1, 3), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(1, 4), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(1, 5), messageCollector, taskCoordinator);
 
+    Assert.assertEquals(windowPanes.size(), 1);
+
     testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
     Assert.assertEquals(windowPanes.size(), 2);
+    Assert.assertEquals(windowPanes.get(0).getKey().getPaneId(), "0");
+    Assert.assertEquals(windowPanes.get(1).getKey().getPaneId(), "0");
+    Assert.assertEquals(windowPanes.get(1).getType(), TriggerType.DEFAULT);
+
+    task.process(new IntegerMessageEnvelope(3, 6), messageCollector, taskCoordinator);
+    testClock.advanceTime(Duration.ofSeconds(1));
+    task.window(messageCollector, taskCoordinator);
+    Assert.assertEquals(windowPanes.size(), 3);
+    Assert.assertEquals(windowPanes.get(2).getKey().getKey(), new Integer(3));
+    Assert.assertEquals(windowPanes.get(2).getKey().getPaneId(), "1000");
+    Assert.assertEquals(windowPanes.get(2).getType(), TriggerType.DEFAULT);
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(2).getMessage()).size(), 1);
+
   }
 
   @Test
@@ -232,6 +261,30 @@ public class TestWindowOperator {
     task.window(messageCollector, taskCoordinator);
     //assert that the default trigger fired
     Assert.assertEquals(windowPanes.size(), 2);
+    Assert.assertEquals(windowPanes.get(1).getType(), TriggerType.DEFAULT);
+    Assert.assertEquals(windowPanes.get(1).getKey().getKey(), new Integer(1));
+    Assert.assertEquals(windowPanes.get(1).getKey().getPaneId(), "0");
+    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(1).getMessage()).size(), 5);
+
+    task.process(new IntegerMessageEnvelope(1, 5), messageCollector, taskCoordinator);
+
+    //advance timer by 500 millis to enable the inner timeSinceFirstMessage trigger
+    testClock.advanceTime(Duration.ofMillis(500));
+    task.window(messageCollector, taskCoordinator);
+    Assert.assertEquals(windowPanes.size(), 3);
+
+    Assert.assertEquals(windowPanes.get(2).getType(), TriggerType.EARLY);
+    Assert.assertEquals(windowPanes.get(2).getKey().getKey(), new Integer(1));
+    Assert.assertEquals(windowPanes.get(2).getKey().getPaneId(), "1000");
+
+    //advance timer by 500 millis to enable the default trigger
+    testClock.advanceTime(Duration.ofMillis(500));
+    task.window(messageCollector, taskCoordinator);
+    Assert.assertEquals(windowPanes.size(), 4);
+    Assert.assertEquals(windowPanes.get(3).getType(), TriggerType.DEFAULT);
+    Assert.assertEquals(windowPanes.get(3).getKey().getKey(), new Integer(1));
+    Assert.assertEquals(windowPanes.get(3).getKey().getPaneId(), "1000");
+
   }
 
   @Test
