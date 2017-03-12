@@ -31,7 +31,7 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
   private final Clock clock;
 
   private TriggerImpl<M> currentTriggerImpl;
-  private TriggerCallbackHandler currentTriggerHandler;
+  private boolean shouldFire = false;
 
   public RepeatingTriggerImpl(RepeatingTrigger<M> repeatingTrigger, Clock clock) {
     this.repeatingTrigger = repeatingTrigger.getTrigger();
@@ -39,35 +39,27 @@ public class RepeatingTriggerImpl<M extends MessageEnvelope> implements TriggerI
     this.currentTriggerImpl = TriggerImpls.createTriggerImpl(this.repeatingTrigger, clock);
   }
 
-  private TriggerCallbackHandler createWrappedHandler(TriggerCallbackHandler handler) {
-    return new TriggerCallbackHandler() {
-      @Override
-      public void onTrigger() {
-          //re-schedule the underlying trigger for execution again.
-        System.out.println("canceling repeat trigger");
-        cancel();
-        currentTriggerImpl = TriggerImpls.createTriggerImpl(repeatingTrigger, clock);
-        currentTriggerHandler = createWrappedHandler(handler);
-        handler.onTrigger();
-        System.out.println("canceling repeat trigger end");
-      }
-    };
-  }
-
   @Override
-  public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
-    if (currentTriggerHandler == null) {
-      this.currentTriggerHandler = createWrappedHandler(handler);
-    }
-
+  public void onMessage(M message, TriggerContext context) {
     System.out.println("inside repeating trigger onmessage" + message.getKey() + " " + message.getMessage());
-    currentTriggerImpl.onMessage(message, context, createWrappedHandler(handler));
+    currentTriggerImpl.onMessage(message, context);
     System.out.println("ended repeating trigger onmessage" + message.getKey() + " " + message.getMessage());
-
   }
 
   @Override
   public void cancel() {
     currentTriggerImpl.cancel();
+  }
+
+  @Override
+  public void clear() {
+    currentTriggerImpl.cancel();
+    currentTriggerImpl = TriggerImpls.createTriggerImpl(repeatingTrigger, clock);
+
+  }
+
+  @Override
+  public boolean shouldFire() {
+    return currentTriggerImpl.shouldFire();
   }
 }

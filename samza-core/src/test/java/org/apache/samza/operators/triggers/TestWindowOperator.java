@@ -60,7 +60,6 @@ public class TestWindowOperator {
   private final List<Integer> integers = ImmutableList.of(1, 2, 1, 2, 1, 2, 1, 2, 3);
   private Config config;
   private TaskContext taskContext;
-  private static final Clock CLOCK = SystemClock.instance();
 
   @Before
   public void setup() throws Exception {

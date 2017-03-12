@@ -30,27 +30,32 @@ public class TimeTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M
   private final TimeTrigger<M> trigger;
   private Cancellable latestFuture;
   private final Clock clock;
+  private boolean shouldFire = false;
 
   public TimeTriggerImpl(TimeTrigger<M> trigger, Clock clock) {
     this.trigger = trigger;
     this.clock = clock;
   }
 
-  public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
+  public void onMessage(M message, TriggerContext context) {
+      final long now = clock.currentTimeMillis();
+      long triggerDurationMs = trigger.getDuration().toMillis();
+      Long callbackTime = (now - now % triggerDurationMs) + triggerDurationMs;
 
-    final long now = clock.currentTimeMillis();
-    long triggerDurationMs = trigger.getDuration().toMillis();
-    Long callbackTime = (now - now % triggerDurationMs) + triggerDurationMs;
-
-    if (latestFuture == null) {
-      latestFuture =  context.scheduleCallback(() -> {
-          handler.onTrigger();
+      if (latestFuture == null) {
+        latestFuture = context.scheduleCallback(() -> {
+          shouldFire = true;
         }, callbackTime);
-    }
+      }
   }
 
   @Override
   public void cancel() {
     latestFuture.cancel();
+  }
+
+  @Override
+  public boolean shouldFire() {
+    return shouldFire;
   }
 }

@@ -21,7 +21,7 @@ package org.apache.samza.operators.triggers;
 
 
 /**
- * Implementation class for a {@link Trigger}. A {@link TriggerImpl} is used with a {@link TriggerCallbackHandler}
+ * Implementation class for a {@link Trigger}. A {@link TriggerImpl} is used with a
  * which is invoked when the trigger fires.
  *
  * <p> When MessageEnvelopes arrive in the {@code WindowOperatorImpl}, they are assigned to one or more windows. An
@@ -43,16 +43,27 @@ public interface TriggerImpl<M> {
    * Invoked when a MessageEnvelope added to the window corresponding to this {@link TriggerImpl}.
    * @param message the incoming MessageEnvelope
    */
-  public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler);
+  public void onMessage(M message, TriggerContext context);
+
+  /**
+   * Returns {@code true} if the current state of the trigger indicates that its condition
+   * is satisfied and it is ready to fire.
+   * @return if this trigger should fire.
+   */
+  public boolean shouldFire();
+
+  /**
+   * Reset the firing state of the trigger to be ready for the next firing. For example, a
+   * {@link RepeatingTriggerImpl} trigger can reset its firing state, since it has fired.
+   */
+  public default void clear() {}
 
   /**
    * Invoked when the execution of this {@link TriggerImpl} is canceled by an up-stream {@link TriggerImpl}.
    *
-   * {@link #onMessage(Object, TriggerContext, TriggerCallbackHandler)}  is guaranteed to not be invoked after this call.
+   * No calls to {@link #onMessage(Object, TriggerContext)} or {@link #shouldFire()} or {@link #clear()} will be invoked
+   * after this invocation.
    */
   public void cancel();
 
-  public interface TriggerCallbackHandler {
-    public void onTrigger();
-  }
 }

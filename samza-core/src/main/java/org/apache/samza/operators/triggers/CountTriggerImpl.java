@@ -28,22 +28,28 @@ public class CountTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<
 
   private final long triggerCount;
   private long currentCount;
+  private boolean shouldFire = false;
 
   public CountTriggerImpl(CountTrigger<M> triggerCount) {
     this.triggerCount = triggerCount.getCount();
     this.currentCount = 0;
   }
 
-  public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
-    System.out.println("inside count trigger on msg");
-    currentCount++;
-    if (currentCount == triggerCount) {
-      handler.onTrigger();
-    }
+  public void onMessage(M message, TriggerContext context) {
+      System.out.println("inside count trigger on msg");
+      currentCount++;
+      if (currentCount == triggerCount) {
+        shouldFire = true;
+      }
   }
 
   @Override
   public void cancel() {
     //no-op
+  }
+
+  @Override
+  public boolean shouldFire() {
+    return shouldFire;
   }
 }

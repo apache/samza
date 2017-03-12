@@ -32,6 +32,7 @@ public class TimeSinceLastMessageTriggerImpl<M extends MessageEnvelope> implemen
   private final Clock clock;
   private long callbackTime = Integer.MIN_VALUE;
   private Cancellable latestFuture = null;
+  private boolean shouldFire = false;
 
   public TimeSinceLastMessageTriggerImpl(TimeSinceLastMessageTrigger<M> trigger, Clock clock) {
     this.trigger = trigger;
@@ -41,24 +42,31 @@ public class TimeSinceLastMessageTriggerImpl<M extends MessageEnvelope> implemen
 
 
   @Override
-  public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
+  public void onMessage(M message, TriggerContext context) {
+    if (!shouldFire) {
+      long currTime = clock.currentTimeMillis();
 
-    long currTime = clock.currentTimeMillis();
+      if (currTime < callbackTime && latestFuture != null) {
+        latestFuture.cancel();
+      }
 
-    if (currTime < callbackTime && latestFuture != null) {
-      latestFuture.cancel();
+      callbackTime = currTime + durationMs;
+      Runnable runnable = () -> {
+        shouldFire = true;
+      };
+
+      latestFuture = context.scheduleCallback(runnable, callbackTime);
     }
-
-    callbackTime = currTime + durationMs;
-    Runnable runnable = () -> {
-      handler.onTrigger();
-    };
-
-    latestFuture = context.scheduleCallback(runnable, callbackTime);
   }
 
   @Override
   public void cancel() {
     latestFuture.cancel();
+  }
+
+
+  @Override
+  public boolean shouldFire() {
+    return shouldFire;
   }
 }

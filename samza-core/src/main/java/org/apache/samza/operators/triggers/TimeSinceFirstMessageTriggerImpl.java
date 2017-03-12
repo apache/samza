@@ -30,21 +30,22 @@ public class TimeSinceFirstMessageTriggerImpl<M extends MessageEnvelope> impleme
   private final TimeSinceFirstMessageTrigger<M> trigger;
   private final Clock clock;
   private Cancellable latestFuture;
+  private boolean shouldFire;
 
   public TimeSinceFirstMessageTriggerImpl(TimeSinceFirstMessageTrigger<M> trigger, Clock clock) {
     this.trigger = trigger;
     this.clock = clock;
   }
 
-  public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
+  public void onMessage(M message, TriggerContext context) {
     System.out.println("inside time since first trigger on msg");
-    if (latestFuture == null) {
+    if (latestFuture == null && !shouldFire) {
       final long now = clock.currentTimeMillis();
       long triggerDurationMs = trigger.getDuration().toMillis();
       Long callbackTime = now + triggerDurationMs;
       System.out.println("callback time set at " + callbackTime);
       latestFuture =  context.scheduleCallback(() -> {
-          handler.onTrigger();
+          shouldFire = true;
         }, callbackTime);
     }
   }
@@ -54,5 +55,10 @@ public class TimeSinceFirstMessageTriggerImpl<M extends MessageEnvelope> impleme
     System.out.println("canceling callback");
     latestFuture.cancel();
     System.out.println("canceling callback done");
+  }
+
+  @Override
+  public boolean shouldFire() {
+    return shouldFire;
   }
 }

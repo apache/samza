@@ -37,6 +37,7 @@ public class AnyTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M>
 
   private final Map<TriggerImpl<M>, Boolean> triggerImpls = new ConcurrentHashMap<>();
   private final Clock clock;
+  private boolean shouldFire = false;
 
   public AnyTriggerImpl(AnyTrigger<M> anyTrigger, Clock clock) {
     this.triggerList = anyTrigger.getTriggers();
@@ -46,23 +47,25 @@ public class AnyTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M>
     }
   }
 
-  private TriggerCallbackHandler createNewHandler(TriggerCallbackHandler wrappedHandler) {
-    return new TriggerCallbackHandler() {
-      @Override
-      public void onTrigger() {
-        cancel();
-        wrappedHandler.onTrigger();
-      }
-    };
-  }
-
   @Override
-  public void onMessage(M message, TriggerContext context, TriggerCallbackHandler handler) {
+  public void onMessage(M message, TriggerContext context) {
+    if (!shouldFire) {
     System.out.println("inside anytrigger on message " + message.getKey() + " " + message.getMessage() + " " + this + " " + triggerImpls.size());
-    triggerImpls.keySet().stream().forEach(m -> {
-        m.onMessage(message, context, createNewHandler(handler));
-    });
+
+    for (TriggerImpl<M> impl : triggerImpls.keySet()) {
+      impl.onMessage(message, context);
+      if (impl.shouldFire()) {
+        shouldFire = true;
+        break;
+      }
+    }
+
+    if (shouldFire) {
+      cancel();
+    }
+
     System.out.println("ended on message " + message.getKey() + " " + message.getMessage() + " " + this);
+   }
   }
 
   public void cancel() {
@@ -72,5 +75,15 @@ public class AnyTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M>
       impl.cancel();
       it.remove();
     }
+  }
+
+  @Override
+  public boolean shouldFire() {
+    for (TriggerImpl<M> impl : triggerImpls.keySet()) {
+      if (impl.shouldFire()) {
+        shouldFire = true;
+      }
+    }
+    return shouldFire;
   }
 }

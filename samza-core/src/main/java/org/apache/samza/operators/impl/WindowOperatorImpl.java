@@ -57,12 +57,11 @@ import java.util.function.Function;
  * also orchestrates the flow of messages through the various {@link TriggerImpl}s.
  *
  * <p> An instance of a {@link TriggerImpl} is created corresponding to each {@link Trigger} configured for a window. For every
- * MessageEnvelope added to the window, this class invokes {@link TriggerImpl#onMessage(Object, TriggerContext,
- * TriggerImpl.TriggerCallbackHandler)} on its corresponding {@link TriggerImpl}s. A {@link TriggerImpl} instance is scoped
- * to a window and its firing determines when results for its window are emitted. When a {@link TriggerImpl} determines
- * that it's ready to fire, it invokes the passed-in {@link TriggerHandlerImpl#onTrigger()}. The {@link WindowOperatorImpl}
- * checks if the handler fired, and looks up the {@link TriggerImplState} corresponding to that firing. It then, propagates
- * the result of the firing to its downstream operators.
+ * MessageEnvelope added to the window, this class invokes {@link TriggerImpl#onMessage(Object, TriggerContext)} on its
+ * corresponding {@link TriggerImpl}s. A {@link TriggerImpl} instance is scoped to a window and its firing determines when
+ * results for its window are emitted. The {@link WindowOperatorImpl} checks if the handler fired, and looks
+ * up the {@link TriggerImplState} corresponding to that firing. It then, propagates the result of the firing to its
+ * downstream operators.
  *
  * @param <M>  the type of the incoming {@link MessageEnvelope}
  * @param <K>  the type of the key in this {@link org.apache.samza.operators.MessageStream}
@@ -186,10 +185,9 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV> extends Op
       return wrapper;
     }
 
-    TriggerHandlerImpl triggerHandler = new TriggerHandlerImpl();
     TriggerImpl<M> triggerImpl = TriggerImpls.createTriggerImpl(trigger, clock);
     TriggerContextImpl triggerContext = new TriggerContextImpl(triggerKey);
-    wrapper = new TriggerImplState(triggerKey, triggerImpl, triggerContext, triggerHandler);
+    wrapper = new TriggerImplState(triggerKey, triggerImpl, triggerContext);
     triggers.put(triggerKey, wrapper);
 
     return wrapper;
@@ -200,7 +198,6 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV> extends Op
    */
   private void onFireTrigger(TriggerKey<K> triggerKey, MessageCollector collector, TaskCoordinator coordinator) {
     TriggerImplState wrapper = triggers.get(triggerKey);
-
     WindowKey<K> windowKey = triggerKey.key;
     WindowState<WV> state = store.get(windowKey);
 
@@ -285,31 +282,6 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV> extends Op
   }
 
   /**
-   * Implementation of the {@link org.apache.samza.operators.triggers.TriggerImpl.TriggerCallbackHandler}.
-   * Invoked when a {@link TriggerImpl} is ready to fire.
-   *
-   * Notes:
-   * The window polls all the handlers, to determine which one of them fired, and propagates results.
-   */
-  private static class TriggerHandlerImpl implements TriggerImpl.TriggerCallbackHandler {
-
-    private boolean triggered;
-
-    @Override
-    public void onTrigger() {
-      triggered = true;
-    }
-
-    public boolean isTriggered() {
-      return triggered;
-    }
-
-    public void clearTrigger() {
-      triggered = false;
-    }
-  }
-
-  /**
    * State corresponding to pending timer callbacks scheduled by various {@link TriggerImpl}s.
    */
   private class TriggerCallbackState implements Comparable<TriggerCallbackState>, Cancellable {
@@ -353,32 +325,31 @@ public class WindowOperatorImpl<M extends MessageEnvelope, K, WK, WV> extends Op
     // The handler, context, and the {@link TriggerImpl} instance corresponding to this triggerKey
     private final TriggerImpl<M> impl;
     private final TriggerContext context;
-    private final TriggerHandlerImpl handler;
     private boolean isCancelled = false;
 
-    public TriggerImplState(TriggerKey<K> triggerKey, TriggerImpl<M> impl, TriggerContext context, TriggerHandlerImpl handler) {
+    public TriggerImplState(TriggerKey<K> triggerKey, TriggerImpl<M> impl, TriggerContext context) {
       this.triggerKey = triggerKey;
       this.impl = impl;
       this.context = context;
-      this.handler = handler;
     }
 
     public void onMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
       if (!isCancelled) {
-        impl.onMessage(message, context, handler);
+        impl.onMessage(message, context);
 
-        if (handler.isTriggered()) {
-          //repeating trigger can trigger multiple times, So, clear the handler to allow future triggerings.
-          handler.clearTrigger();
+        if (impl.shouldFire()) {
+          //repeating trigger can trigger multiple times, So, clear the state to allow future triggerings.
+          impl.clear();
           onFireTrigger(triggerKey, collector, coordinator);
         }
       }
     }
 
     public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
-      if (handler.isTriggered() && !isCancelled) {
+      if (impl.shouldFire() && !isCancelled) {
         //repeating trigger can trigger multiple times, So, clear the handler to allow future triggerings.
-        handler.clearTrigger();
+        //handler.clearTrigger();
+        impl.clear();
         onFireTrigger(triggerKey, collector, coordinator);
       }
     }
