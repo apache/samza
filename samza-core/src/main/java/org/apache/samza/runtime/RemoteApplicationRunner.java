@@ -16,15 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.system;
+package org.apache.samza.runtime;
 
 import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.config.Config;
 
+
 /**
- * This class implements the {@link ExecutionEnvironment} that runs the applications in YARN environment
+ * This class implements the {@link ApplicationRunner} that runs the applications in a remote cluster
  */
-public class RemoteExecutionEnvironment implements ExecutionEnvironment {
+public class RemoteApplicationRunner extends AbstractApplicationRunner {
+
+  public RemoteApplicationRunner(Config config) {
+    super(config);
+  }
 
   @Override public void run(StreamGraphBuilder app, Config config) {
     // TODO: add description of ProcessContext that is going to create a sub-DAG of the {@code graph}

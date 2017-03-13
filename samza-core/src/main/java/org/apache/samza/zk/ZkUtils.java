@@ -19,16 +19,22 @@
 
 package org.apache.samza.zk;
 
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
+import org.apache.samza.SamzaException;
+import org.apache.samza.job.model.JobModel;
+import org.apache.samza.serializers.model.SamzaObjectMapper;
+import org.apache.zookeeper.data.Stat;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Util class to help manage Zk connection and ZkClient.
@@ -58,11 +64,13 @@ public class ZkUtils {
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
+  private final String processorId;
 
-  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs) {
+  public ZkUtils(String processorId, ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs) {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkClient = zkClient;
+    this.processorId = processorId;
   }
 
   public void connect() throws ZkInterruptedException {
@@ -142,5 +150,119 @@ public class ZkUtils {
 
   public void close() throws ZkInterruptedException {
     zkClient.close();
+  }
+
+  /**
+    * subscribe for changes of JobModel version
+    * @param dataListener describe this
+    */
+  public void subscribeToJobModelVersionChange(IZkDataListener dataListener) {
+    LOG.info("pid=" + processorId + " subscribing for jm version change at:" + keyBuilder.getJobModelVersionPath());
+    zkClient.subscribeDataChanges(keyBuilder.getJobModelVersionPath(), dataListener);
+  }
+
+  /**
+   * Publishes new job model into ZK.
+   * This call should FAIL if the node already exists.
+   * @param jobModelVersion  version of the jobModeL to publish
+   * @param jobModel jobModel to publish
+   *
+   */
+  public void publishJobModel(String jobModelVersion, JobModel jobModel) {
+    try {
+      ObjectMapper mmapper = SamzaObjectMapper.getObjectMapper();
+      String jobModelStr = mmapper.writerWithDefaultPrettyPrinter().writeValueAsString(jobModel);
+      LOG.info("pid=" + processorId + " jobModelAsString=" + jobModelStr);
+      zkClient.createPersistent(keyBuilder.getJobModelPath(jobModelVersion), jobModelStr);
+      LOG.info("wrote jobModel path =" + keyBuilder.getJobModelPath(jobModelVersion));
+    } catch (Exception e) {
+      LOG.error("JobModel publish failed for version=" + jobModelVersion, e);
+      throw new SamzaException(e);
+    }
+  }
+
+  /**
+   * get the job model from ZK by version
+   * @param jobModelVersion jobModel version to get
+   * @return job model for this version
+   */
+  public JobModel getJobModel(String jobModelVersion) {
+    LOG.info("pid=" + processorId + "read the model ver=" + jobModelVersion + " from " + keyBuilder.getJobModelPath(jobModelVersion));
+    Object data = zkClient.readData(keyBuilder.getJobModelPath(jobModelVersion));
+    ObjectMapper mmapper = SamzaObjectMapper.getObjectMapper();
+    JobModel jm;
+    try {
+      jm = mmapper.readValue((String) data, JobModel.class);
+    } catch (IOException e) {
+      throw new SamzaException("failed to read JobModel from ZK", e);
+    }
+    return jm;
+  }
+
+  /**
+   * read the jobmodel version from ZK
+   * @return jobmodel version as a string
+   */
+  public String getJobModelVersion() {
+    return zkClient.<String>readData(keyBuilder.getJobModelVersionPath());
+  }
+
+  /**
+   * publish the version number of the next JobModel
+   * @param oldVersion - used to validate, that no one has changed the version in the meanwhile.
+   * @param newVersion - new version.
+   */
+  public void publishJobModelVersion(String oldVersion, String newVersion) {
+    Stat stat = new Stat();
+    String currentVersion = zkClient.<String>readData(keyBuilder.getJobModelVersionPath(), stat);
+    LOG.info("pid=" + processorId + " publishing new version: " + newVersion + "; oldVersion = " + oldVersion + "(" + stat
+        .getVersion() + ")");
+
+    if (currentVersion != null && !currentVersion.equals(oldVersion)) {
+      throw new SamzaException(
+          "Someone change JobModelVersion while the leader was generating one: expected" + oldVersion + ", got " + currentVersion);
+    }
+    // data version is the ZK version of the data from the ZK.
+    int dataVersion = stat.getVersion();
+    try {
+      stat = zkClient.writeDataReturnStat(keyBuilder.getJobModelVersionPath(), newVersion, dataVersion);
+    } catch (Exception e) {
+      String msg = "publish job model version failed for new version = " + newVersion + "; old version = " + oldVersion;
+      LOG.error(msg, e);
+      throw new SamzaException(msg);
+    }
+    LOG.info("pid=" + processorId +
+        " published new version: " + newVersion + "; expected data version = " + (dataVersion  + 1) + "(actual data version after update = " + stat.getVersion()
+        +    ")");
+  }
+
+
+  /**
+   * verify that given paths exist in ZK
+   * @param paths - paths to verify or create
+   */
+  public void makeSurePersistentPathsExists(String[] paths) {
+    for (String path : paths) {
+      if (!zkClient.exists(path)) {
+        zkClient.createPersistent(path, true);
+      }
+    }
+  }
+
+  /**
+   * subscribe to the changes in the list of processors in ZK
+   * @param listener - will be called when a processor is added or removed.
+   */
+  public void subscribeToProcessorChange(IZkChildListener listener) {
+    LOG.info("pid=" + processorId + " subscribing for child change at:" + keyBuilder.getProcessorsPath());
+    zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
+  }
+
+  public void deleteRoot() {
+    String rootPath = keyBuilder.getRootPath();
+    if (rootPath != null && !rootPath.isEmpty() && zkClient.exists(rootPath)) {
+      LOG.info("pid=" + processorId + " Deleteing root: " + rootPath);
+      zkClient.deleteRecursive(rootPath);
+    }
   }
 }

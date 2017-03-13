@@ -50,10 +50,10 @@ Each deployment will now consist of two separate packages:<p>
 To run a job in split deployment mode:
 
 1. **Deploy the framework**:
-The Samza framework package should be deployed to ALL the machines of a cluster into a predefined, fixed location. This could be done by merely copying the jars, or creating a meta package that would deploy all of them. Let's assume that 'samza-framework' package is installed into the '/.../samza-fwk/0.11.0' directory.
+The Samza framework package should be deployed to ALL the machines of a cluster into a predefined, fixed location. This could be done by merely copying the jars, or creating a meta package that would deploy all of them. Let's assume that 'samza-framework' package is installed into the '/.../samza-fwk/0.12.0' directory.
 
 2. **Create symbolic link**:
-A symbolic link needs to be created for the **stable** version of the framework to point to the framework location, e.g.: {% highlight bash %} ln -s /.../samza-fwk/0.11.0 /.../samza-fwk/STABLE' {% endhighlight %}
+A symbolic link needs to be created for the **stable** version of the framework to point to the framework location, e.g.: {% highlight bash %} ln -s /.../samza-fwk/0.12.0 /.../samza-fwk/STABLE' {% endhighlight %}
 
 3. **Deploy user job**:
 In the job's config, the following property is required to enable split deployment, e.g. for Samza framework path at '/.../samza-fwk': {% highlight jproperties %} samza.fwk.path=/.../samza-fwk {% endhighlight %} By default Samza will look for the **stable** link inside the folder to find the framework. You can also override the version by configuring: {% highlight jproperties %} samza.fwk.version=0.11.1 {% endhighlight %} In this case Samza will pick '/.../samza-fwk/0.11.1' as the framework location. This way users can perform canary, upgrade and rollback their jobs easily by changing version in the config.

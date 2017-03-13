@@ -17,24 +17,19 @@
  * under the License.
  */
 
-package org.apache.samza.system;
+package org.apache.samza.runtime;
 
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.StreamGraphBuilder;
 
 
 /**
- * This class implements the {@link ExecutionEnvironment} that runs the applications in standalone environment
+ * This class implements the {@link ApplicationRunner} that runs the applications in standalone environment
  */
-public class StandaloneExecutionEnvironment implements ExecutionEnvironment {
+public class LocalApplicationRunner extends AbstractApplicationRunner {
 
-  // TODO: may want to move this to a common base class for all {@link ExecutionEnvironment}
-  StreamGraph createGraph(StreamGraphBuilder app, Config config) {
-    StreamGraphImpl graph = new StreamGraphImpl();
-    app.init(graph, config);
-    return graph;
+  public LocalApplicationRunner(Config config) {
+    super(config);
   }
 
   @Override public void run(StreamGraphBuilder app, Config config) {
@@ -46,5 +41,4 @@ public class StandaloneExecutionEnvironment implements ExecutionEnvironment {
     // 5. create the configuration for StreamProcessor
     // 6. start the StreamProcessor w/ optimized instance of StreamGraphBuilder
   }
-
 }

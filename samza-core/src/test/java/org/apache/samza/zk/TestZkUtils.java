@@ -18,9 +18,17 @@
  */
 package org.apache.samza.zk;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.BooleanSupplier;
+import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -32,10 +40,10 @@ import org.junit.Test;
 public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
   private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
-  private ZkConnection zkConnection = null;
   private ZkClient zkClient = null;
   private static final int SESSION_TIMEOUT_MS = 20000;
   private static final int CONNECTION_TIMEOUT_MS = 10000;
+  private ZkUtils zkUtils;
 
   @BeforeClass
   public static void setup() throws InterruptedException {
@@ -57,11 +65,21 @@ public class TestZkUtils {
     } catch (ZkNodeExistsException e) {
       // Do nothing
     }
+
+    zkUtils = new ZkUtils(
+        "testProcessorId",
+        KEY_BUILDER,
+        zkClient,
+        SESSION_TIMEOUT_MS);
+
+    zkUtils.connect();
+
   }
 
 
   @After
   public void testTeardown() {
+    zkUtils.close();
     zkClient.close();
   }
 
@@ -72,34 +90,132 @@ public class TestZkUtils {
 
   @Test
   public void testRegisterProcessorId() {
-    ZkUtils utils = new ZkUtils(
-        KEY_BUILDER,
-        zkClient,
-        SESSION_TIMEOUT_MS);
-    utils.connect();
-    String assignedPath = utils.registerProcessorAndGetId("0.0.0.0");
+    String assignedPath = zkUtils.registerProcessorAndGetId("0.0.0.0");
     Assert.assertTrue(assignedPath.startsWith(KEY_BUILDER.getProcessorsPath()));
 
     // Calling registerProcessorId again should return the same ephemeralPath as long as the session is valid
-    Assert.assertTrue(utils.registerProcessorAndGetId("0.0.0.0").equals(assignedPath));
+    Assert.assertTrue(zkUtils.registerProcessorAndGetId("0.0.0.0").equals(assignedPath));
 
-    utils.close();
   }
 
   @Test
   public void testGetActiveProcessors() {
-    ZkUtils utils = new ZkUtils(
-        KEY_BUILDER,
-        zkClient,
-        SESSION_TIMEOUT_MS);
-    utils.connect();
+    Assert.assertEquals(0, zkUtils.getSortedActiveProcessors().size());
+    zkUtils.registerProcessorAndGetId("processorData");
+    Assert.assertEquals(1, zkUtils.getSortedActiveProcessors().size());
+  }
+  
+  @Test
+  public void testSubscribeToJobModelVersionChange() {
 
-    Assert.assertEquals(0, utils.getSortedActiveProcessors().size());
-    utils.registerProcessorAndGetId("processorData");
+    ZkKeyBuilder keyBuilder = new ZkKeyBuilder("test");
+    String root = keyBuilder.getRootPath();
+    zkClient.deleteRecursive(root);
 
-    Assert.assertEquals(1, utils.getSortedActiveProcessors().size());
+    class Result {
+      String res = "";
+      public String getRes() {
+        return res;
+      }
+      public void updateRes(String newRes) {
+        res = newRes;
+      }
+    }
 
-    utils.close();
+    Assert.assertFalse(zkUtils.exists(root));
+
+    // create the paths
+    zkUtils.makeSurePersistentPathsExists(
+        new String[]{root, keyBuilder.getJobModelVersionPath(), keyBuilder.getProcessorsPath()});
+    Assert.assertTrue(zkUtils.exists(root));
+    Assert.assertTrue(zkUtils.exists(keyBuilder.getJobModelVersionPath()));
+    Assert.assertTrue(zkUtils.exists(keyBuilder.getProcessorsPath()));
+
+    final Result res = new Result();
+    // define the callback
+    IZkDataListener dataListener = new IZkDataListener() {
+      @Override
+      public void handleDataChange(String dataPath, Object data)
+          throws Exception {
+        res.updateRes((String) data);
+      }
+
+      @Override
+      public void handleDataDeleted(String dataPath)
+          throws Exception {
+        Assert.fail("Data wasn't deleted;");
+      }
+    };
+    // subscribe
+    zkClient.subscribeDataChanges(keyBuilder.getJobModelVersionPath(), dataListener);
+    zkClient.subscribeDataChanges(keyBuilder.getProcessorsPath(), dataListener);
+    // update
+    zkClient.writeData(keyBuilder.getJobModelVersionPath(), "newVersion");
+
+    // verify
+    Assert.assertTrue(testWithDelayBackOff(() -> "newVersion".equals(res.getRes()), 2, 1000));
+
+    // update again
+    zkClient.writeData(keyBuilder.getProcessorsPath(), "newProcessor");
+
+    Assert.assertTrue(testWithDelayBackOff(() -> "newProcessor".equals(res.getRes()), 2, 1000));
   }
 
+  @Test
+  public void testPublishNewJobModel() {
+    ZkKeyBuilder keyBuilder = new ZkKeyBuilder("test");
+    String root = keyBuilder.getRootPath();
+    zkClient.deleteRecursive(root);
+    String version = "1";
+    String oldVersion = "0";
+
+    zkUtils.makeSurePersistentPathsExists(
+        new String[]{root, keyBuilder.getJobModelPathPrefix(), keyBuilder.getJobModelVersionPath()});
+
+    zkUtils.publishJobModelVersion(oldVersion, version);
+    Assert.assertEquals(version, zkUtils.getJobModelVersion());
+
+    String newerVersion = Long.toString(Long.valueOf(version) + 1);
+    zkUtils.publishJobModelVersion(version, newerVersion);
+    Assert.assertEquals(newerVersion, zkUtils.getJobModelVersion());
+
+    try {
+      zkUtils.publishJobModelVersion(oldVersion, "10"); //invalid new version
+      Assert.fail("publish invalid version should've failed");
+    } catch (SamzaException e) {
+      // expected
+    }
+
+    // create job model
+    Map<String, String> configMap = new HashMap<>();
+    Map<Integer, ContainerModel> containers = new HashMap<>();
+    MapConfig config = new MapConfig(configMap);
+    JobModel jobModel = new JobModel(config, containers);
+
+    zkUtils.publishJobModel(version, jobModel);
+    Assert.assertEquals(jobModel, zkUtils.getJobModel(version));
+  }
+
+  public static boolean testWithDelayBackOff(BooleanSupplier cond, long startDelayMs, long maxDelayMs) {
+    long delay = startDelayMs;
+    while (delay < maxDelayMs) {
+      if (cond.getAsBoolean())
+        return true;
+      try {
+        Thread.sleep(delay);
+      } catch (InterruptedException e) {
+        return false;
+      }
+      delay *= 2;
+    }
+    return false;
+  }
+
+  public static void sleepMs(long delay) {
+    try {
+      Thread.sleep(delay);
+    } catch (InterruptedException e) {
+      Assert.fail("Sleep was interrupted");
+    }
+  }
 }

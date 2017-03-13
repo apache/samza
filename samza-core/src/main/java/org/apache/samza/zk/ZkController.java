@@ -16,31 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
 
-import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.system.SystemStream;
 
-import java.util.Properties;
-
+package org.apache.samza.zk;
 
 /**
- * This interface defines the specification of a {@link SystemStream}. It will be used by the {@link org.apache.samza.system.SystemAdmin}
- * to create a {@link SystemStream}
+ * Api to the functionality provided by ZK
  */
-@InterfaceStability.Unstable
-public interface StreamSpec {
-  /**
-   * Get the {@link SystemStream}
-   *
-   * @return  {@link SystemStream} object
-   */
-  SystemStream getSystemStream();
-
-  /**
-   * Get the physical properties of the {@link SystemStream}
-   *
-   * @return  the properties of this stream
-   */
-  Properties getProperties();
+public interface ZkController {
+  void register();
+  boolean isLeader();
+  void notifyJobModelChange(String version);
+  void stop();
+  void listenToProcessorLiveness();
 }

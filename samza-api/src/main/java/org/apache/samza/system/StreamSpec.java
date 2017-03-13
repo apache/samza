@@ -137,16 +137,11 @@ public class StreamSpec {
    * @param config          A map of properties for the stream. These may be System-specfic.
    */
   public StreamSpec(String id, String physicalName, String systemName, int partitionCount,  Map<String, String> config) {
-    if (id == null) {
-      throw new NullPointerException("Parameter 'id' must not be null");
-    }
-
-    if (systemName == null) {
-      throw new NullPointerException("Parameter 'systemName' must not be null");
-    }
+    validateLogicalIdentifier("id", id);
+    validateLogicalIdentifier("systemName", systemName);
 
     if (partitionCount < 1) {
-      throw new NullPointerException("Parameter 'partitionCount' must not be greater than 0");
+      throw new IllegalArgumentException("Parameter 'partitionCount' must be greater than 0");
     }
 
     this.id = id;
@@ -199,5 +194,11 @@ public class StreamSpec {
 
   public String getOrDefault(String propertyName, String defaultValue) {
     return config.getOrDefault(propertyName, defaultValue);
+  }
+
+  private void validateLogicalIdentifier(String identifierName, String identifierValue) {
+    if (!identifierValue.matches("[A-Za-z0-9_-]+")) {
+      throw new IllegalArgumentException(String.format("Identifier '%s' is '%s'. It must match the expression [A-Za-z0-9_-]+", identifierName, identifierValue));
+    }
   }
 }

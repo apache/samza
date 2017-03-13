@@ -26,18 +26,30 @@ import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.ExecutionEnvironment;
-import org.apache.samza.system.SystemStream;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
-import java.util.*;
 
 
 /**
  * Example {@link StreamGraphBuilder} code to test the API methods with re-partition operator
  */
 public class RepartitionExample implements StreamGraphBuilder {
+
+  /**
+   * used by remote application runner to launch the job in remote program. The remote program should follow the similar
+   * invoking context as in local runner:
+   *
+   *   public static void main(String args[]) throws Exception {
+   *     CommandLine cmdLine = new CommandLine();
+   *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+   *     ApplicationRunner runner = ApplicationRunner.fromConfig(config);
+   *     runner.run(new UserMainExample(), config);
+   *   }
+   *
+   */
 
   /**
    * used by remote execution environment to launch the job in remote program. The remote program should follow the similar
@@ -69,29 +81,13 @@ public class RepartitionExample implements StreamGraphBuilder {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ExecutionEnvironment standaloneEnv = ExecutionEnvironment.getLocalEnvironment(config);
-    standaloneEnv.run(new RepartitionExample(), config);
+    ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
+    localRunner.run(new RepartitionExample(), config);
   }
 
-  StreamSpec input1 = new StreamSpec() {
-    @Override public SystemStream getSystemStream() {
-      return new SystemStream("kafka", "PageViewEvent");
-    }
+  StreamSpec input1 = new StreamSpec("pageViewEventStream", "PageViewEvent", "kafka");
 
-    @Override public Properties getProperties() {
-      return null;
-    }
-  };
-
-  StreamSpec output = new StreamSpec() {
-    @Override public SystemStream getSystemStream() {
-      return new SystemStream("kafka", "PageViewPerMember5min");
-    }
-
-    @Override public Properties getProperties() {
-      return null;
-    }
-  };
+  StreamSpec output = new StreamSpec("pageViewEventPerMemberStream", "PageViewEventCountByMemberId", "kafka");
 
   class PageViewEvent implements MessageEnvelope<String, PageViewEvent> {
     String pageId;

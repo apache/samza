@@ -21,18 +21,16 @@ package org.apache.samza.example;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamSpec;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.data.Offset;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.time.Duration;
 import java.util.function.BiFunction;
-import java.util.Properties;
 import java.util.Set;
 
 
@@ -60,15 +58,8 @@ public class TestWindowExample extends TestExampleBase {
   @Override
   public void init(StreamGraph graph, Config config) {
     BiFunction<JsonMessageEnvelope, Integer, Integer> maxAggregator = (m, c) -> c + 1;
-    inputs.keySet().forEach(source -> graph.<Object, Object, InputMessageEnvelope>createInStream(new StreamSpec() {
-      @Override public SystemStream getSystemStream() {
-        return source;
-      }
-
-      @Override public Properties getProperties() {
-        return null;
-      }
-    }, null, null).
+    inputs.keySet().forEach(source -> graph.<Object, Object, InputMessageEnvelope>createInStream(
+            new StreamSpec(source.getSystem() + "-" + source.getStream(), source.getStream(), source.getSystem()), null, null).
         map(m1 -> new JsonMessageEnvelope(this.myMessageKeyFunction(m1), (MessageType) m1.getMessage(), m1.getOffset(),
             m1.getSystemStreamPartition())).window(Windows.tumblingWindow(Duration.ofMillis(200), maxAggregator)));
 
