@@ -23,6 +23,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +34,7 @@ import scala.runtime.AbstractFunction0;
 public class TaskFactoryUtil {
   private static final Logger log = LoggerFactory.getLogger(TaskFactoryUtil.class);
 
-  public static TaskFactory fromTaskClassConfig(Config config) {
+  public static TaskFactory fromTaskClassConfig(Config config, ApplicationRunner runner) {
 
     String taskClassName;
 
@@ -52,24 +53,26 @@ public class TaskFactoryUtil {
 
     log.info("Got task class name: {}", taskClassName);
 
+    boolean isAsyncTaskClass;
     try {
-      boolean isAsyncTaskClass = AsyncStreamTask.class.isAssignableFrom(Class.forName(taskClassName));
-      if (isAsyncTaskClass) {
-        return new AsyncStreamTaskFactory() {
-          @Override
-          public AsyncStreamTask createInstance() {
-            try {
-              return (AsyncStreamTask) Class.forName(taskClassName).newInstance();
-            } catch (Throwable t) {
-              log.error("Error loading AsyncStreamTask class: {}. error: {}", taskClassName, t);
-              throw new SamzaException(String.format("Error loading AsyncStreamTask class: %s", taskClassName), t);
-            }
-          }
-        };
-      }
+      isAsyncTaskClass = AsyncStreamTask.class.isAssignableFrom(Class.forName(taskClassName));
     } catch (Throwable t) {
       log.error("Invalid configuration for AsyncStreamTask class: {}. error: {}", taskClassName, t);
       throw new ConfigException(String.format("Invalid configuration for AsyncStreamTask class: %s", taskClassName), t);
+    }
+
+    if (isAsyncTaskClass) {
+      return new AsyncStreamTaskFactory() {
+        @Override
+        public AsyncStreamTask createInstance() {
+          try {
+            return (AsyncStreamTask) Class.forName(taskClassName).newInstance();
+          } catch (Throwable t) {
+            log.error("Error loading AsyncStreamTask class: {}. error: {}", taskClassName, t);
+            throw new SamzaException(String.format("Error loading AsyncStreamTask class: %s", taskClassName), t);
+          }
+        }
+      };
     }
 
     return new StreamTaskFactory() {
@@ -77,7 +80,7 @@ public class TaskFactoryUtil {
       public StreamTask createInstance() {
         try {
           if (taskClassName.equals(StreamOperatorTask.class.getName())) {
-            return createStreamOperatorTask(config);
+            return createStreamOperatorTask(config, runner);
           }
           return (StreamTask) Class.forName(taskClassName).newInstance();
         } catch (Throwable t) {
@@ -125,14 +128,14 @@ public class TaskFactoryUtil {
     }
   }
 
-  private static StreamTask createStreamOperatorTask(Config config) throws Exception {
+  private static StreamTask createStreamOperatorTask(Config config, ApplicationRunner runner) throws Exception {
     Class<?> builderClass = Class.forName(config.get(StreamApplication.APP_CLASS_CONFIG));
     StreamApplication graphBuilder = (StreamApplication) builderClass.newInstance();
-    return new StreamOperatorTask(graphBuilder);
+    return new StreamOperatorTask(graphBuilder, runner);
   }
 
   private static boolean isStreamOperatorTask(Config config) {
-    if (config.get(StreamApplication.BUILDER_CLASS_CONFIG) != null && !config.get(StreamApplication.BUILDER_CLASS_CONFIG).isEmpty()) {
+    if (config.get(StreamApplication.APP_CLASS_CONFIG) != null && !config.get(StreamApplication.APP_CLASS_CONFIG).isEmpty()) {
 
       TaskConfig taskConfig = new TaskConfig(config);
       if (taskConfig.getTaskClass() != null && !taskConfig.getTaskClass().isEmpty()) {
@@ -140,11 +143,11 @@ public class TaskFactoryUtil {
       }
 
       try {
-        Class<?> builderClass = Class.forName(config.get(StreamApplication.BUILDER_CLASS_CONFIG));
+        Class<?> builderClass = Class.forName(config.get(StreamApplication.APP_CLASS_CONFIG));
         return StreamApplication.class.isAssignableFrom(builderClass);
       } catch (Throwable t) {
         log.error("Failed to validate StreamApplication class from the config. {}={}",
-            StreamApplication.BUILDER_CLASS_CONFIG, config.get(StreamApplication.BUILDER_CLASS_CONFIG));
+            StreamApplication.APP_CLASS_CONFIG, config.get(StreamApplication.APP_CLASS_CONFIG));
         return false;
       }
     }

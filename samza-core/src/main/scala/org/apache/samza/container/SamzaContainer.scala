@@ -49,6 +49,7 @@ import org.apache.samza.metrics.JmxServer
 import org.apache.samza.metrics.JvmMetrics
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsReporter
+import org.apache.samza.runtime.ApplicationRunner
 import org.apache.samza.serializers.SerdeFactory
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.serializers.model.SamzaObjectMapper
@@ -112,6 +113,7 @@ object SamzaContainer extends Logging {
     try {
       jmxServer = newJmxServer()
       val containerModel = jobModel.getContainers.get(containerId.toInt)
+      // TODO: add actual local runner in a container to the parameters
       SamzaContainer(
         containerId.toInt,
         containerModel,
@@ -165,7 +167,9 @@ object SamzaContainer extends Logging {
     localityManager: LocalityManager,
     jmxServer: JmxServer,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
-    taskFactory: Object = null) = {
+    taskFactory: Object = null,
+    // SAMZA-1137: need to instantiate the ApplicationRunner in the container local JVM and pass it in
+    appRunner: ApplicationRunner = null) = {
     val containerName = getSamzaContainerName(containerId)
     val containerPID = Util.getContainerPID
 
@@ -439,7 +443,7 @@ object SamzaContainer extends Logging {
 
     val finalTaskFactory = TaskFactoryUtil.finalizeTaskFactory(
       taskFactory match {
-        case null => TaskFactoryUtil.fromTaskClassConfig(config)
+        case null => TaskFactoryUtil.fromTaskClassConfig(config, appRunner)
         case _ => taskFactory.asInstanceOf[TaskFactory[_]]
       },
       singleThreadMode,
