@@ -103,6 +103,31 @@ public class TestZkProcessorLatch {
     map.put("coordinator.zk.connect", zkConnectionString);
     Config config = new MapConfig(map);
 
+    int latchSize = 1;
+    final CoordinationServiceFactory factory = new ZkCoordinationServiceFactory(groupId, processorId, config);
+
+    Future f1 = pool.submit(() -> {
+      ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
+      latch.countDown();
+      latch.await(TimeUnit.MILLISECONDS, 100000);
+    });
+
+    try {
+      f1.get(300, TimeUnit.MILLISECONDS);
+    } catch (Exception e) {
+      Assert.fail("failed to get", e);
+    }
+  }
+
+  @Test
+  public void testNSizeLatch() {
+    String groupId = "group1";
+    String processorId = "p1";
+    String latchId = "l1";
+    Map<String, String> map = new HashMap<>();
+    map.put("coordinator.zk.connect", zkConnectionString);
+    Config config = new MapConfig(map);
+
     int latchSize = 3;
     final CoordinationServiceFactory factory = new ZkCoordinationServiceFactory(groupId, processorId, config);
 
@@ -129,6 +154,86 @@ public class TestZkProcessorLatch {
       f3.get(300, TimeUnit.MILLISECONDS);
     } catch (Exception e) {
       Assert.fail("failed to get", e);
+    }
+  }
+
+  @Test
+  public void testLatchExpires() {
+    String groupId = "group1";
+    String processorId = "p1";
+    String latchId = "l1";
+    Map<String, String> map = new HashMap<>();
+    map.put("coordinator.zk.connect", zkConnectionString);
+    Config config = new MapConfig(map);
+
+    int latchSize = 3;
+    final CoordinationServiceFactory factory = new ZkCoordinationServiceFactory(groupId, processorId, config);
+
+    Future f1 = pool.submit(() -> {
+      ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
+      latch.countDown();
+      latch.await(TimeUnit.MILLISECONDS, 100000);
+    });
+    Future f2 = pool.submit(() -> {
+      ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
+      latch.countDown();
+      latch.await(TimeUnit.MILLISECONDS, 100000);
+    });
+    Future f3 = pool.submit(() -> {
+      ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
+      // This processor never completes its task
+      //latch.countDown();
+      latch.await(TimeUnit.MILLISECONDS, 100000);
+    });
+
+    try {
+      f1.get(300, TimeUnit.MILLISECONDS);
+      f2.get(300, TimeUnit.MILLISECONDS);
+      f3.get(300, TimeUnit.MILLISECONDS);
+      Assert.fail("Latch should've timeout.");
+    } catch (Exception e) {
+      // expected
+    }
+  }
+
+  @Test
+  public void testSingleCountdown() {
+    String groupId = "group1";
+    String processorId = "p1";
+    String latchId = "l1";
+    Map<String, String> map = new HashMap<>();
+    map.put("coordinator.zk.connect", zkConnectionString);
+    Config config = new MapConfig(map);
+
+    int latchSize = 3;
+    final CoordinationServiceFactory factory = new ZkCoordinationServiceFactory(groupId, processorId, config);
+
+    // Only one thread invokes countDown
+    Future f1 = pool.submit(() -> {
+      ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
+      latch.countDown();
+      TestZkUtils.sleepMs(100);
+      latch.countDown();
+      TestZkUtils.sleepMs(200);
+      latch.countDown();
+      latch.await(TimeUnit.MILLISECONDS, 100000);
+    });
+    Future f2 = pool.submit(() -> {
+      ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
+      latch.await(TimeUnit.MILLISECONDS, 100000);
+    });
+    Future f3 = pool.submit(() -> {
+      ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
+      latch.await(TimeUnit.MILLISECONDS, 100000);
+    });
+
+    try {
+      f1.get(500, TimeUnit.MILLISECONDS);
+      f2.get(500, TimeUnit.MILLISECONDS);
+      f3.get(500, TimeUnit.MILLISECONDS);
+      Assert.fail("Latch should've timeout.");
+    } catch (Exception e) {
+      // expected
     }
   }
 }
