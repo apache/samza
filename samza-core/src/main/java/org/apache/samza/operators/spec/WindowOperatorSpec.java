@@ -30,14 +30,14 @@ import org.apache.samza.task.TaskContext;
  * Default window operator spec object
  *
  * @param <M>  the type of input message to the window
- * @param <K>  the type of key of the window
+ * @param <WK>  the type of key of the window
  * @param <WV>  the type of aggregated value in the window output {@link WindowPane}
  */
-public class WindowOperatorSpec<M, K, WV> implements OperatorSpec<WindowPane<K, WV>> {
+public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK, WV>> {
 
-  private final WindowInternal<M, K, WV> window;
+  private final WindowInternal<M, WK, WV> window;
 
-  private final MessageStreamImpl<WindowPane<K, WV>> outputStream;
+  private final MessageStreamImpl<WindowPane<WK, WV>> outputStream;
 
   private final int opId;
 
@@ -49,7 +49,7 @@ public class WindowOperatorSpec<M, K, WV> implements OperatorSpec<WindowPane<K, 
    * @param outputStream  the output {@link MessageStreamImpl} from this {@link WindowOperatorSpec}
    * @param opId  auto-generated unique ID of this operator
    */
-  WindowOperatorSpec(WindowInternal<M, K, WV> window, MessageStreamImpl<WindowPane<K, WV>> outputStream, int opId) {
+  WindowOperatorSpec(WindowInternal<M, WK, WV> window, MessageStreamImpl<WindowPane<WK, WV>> outputStream, int opId) {
     this.outputStream = outputStream;
     this.window = window;
     this.opId = opId;
@@ -63,11 +63,11 @@ public class WindowOperatorSpec<M, K, WV> implements OperatorSpec<WindowPane<K, 
   }
 
   @Override
-  public MessageStreamImpl<WindowPane<K, WV>> getNextStream() {
+  public MessageStreamImpl<WindowPane<WK, WV>> getNextStream() {
     return this.outputStream;
   }
 
-  public WindowInternal<M, K, WV> getWindow() {
+  public WindowInternal<M, WK, WV> getWindow() {
     return window;
   }
 

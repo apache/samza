@@ -34,6 +34,10 @@ public class TestClock implements Clock {
     currentTime += duration.toMillis();
   }
 
+  public void advanceTime(long millis) {
+    currentTime += millis;
+  }
+
   @Override
   public long currentTimeMillis() {
     return currentTime;

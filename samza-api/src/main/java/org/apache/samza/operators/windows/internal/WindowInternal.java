@@ -33,11 +33,11 @@ import java.util.function.Supplier;
  *  Note: This class is meant to be used internally by Samza, and is not to be instantiated by programmers.
  *
  * @param <M>  the type of input message
- * @param <K>  the type of key for the window
+ * @param <WK>  the type of key for the window
  * @param <WV>  the type of aggregated value in the window output
  */
 @InterfaceStability.Unstable
-public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
+public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
 
   private final Trigger<M> defaultTrigger;
 
@@ -54,7 +54,7 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
   /*
    * The function that extracts the key from a {@link MessageEnvelope}
    */
-  private final Function<M, K> keyExtractor;
+  private final Function<M, WK> keyExtractor;
 
   /*
    * The function that extracts the event time from a {@link MessageEnvelope}
@@ -72,7 +72,7 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
 
   private AccumulationMode mode;
 
-  public WindowInternal(Trigger<M> defaultTrigger, Supplier<WV> initialValue, FoldFunction<M, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType) {
+  public WindowInternal(Trigger<M> defaultTrigger, Supplier<WV> initialValue, FoldFunction<M, WV> foldFunction, Function<M, WK> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType) {
     this.defaultTrigger = defaultTrigger;
     this.initializer = initialValue;
     this.foldFunction = foldFunction;
@@ -82,19 +82,19 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
   }
 
   @Override
-  public Window<M, K, WV> setEarlyTrigger(Trigger<M> trigger) {
+  public Window<M, WK, WV> setEarlyTrigger(Trigger<M> trigger) {
     this.earlyTrigger = trigger;
     return this;
   }
 
   @Override
-  public Window<M, K, WV> setLateTrigger(Trigger<M> trigger) {
+  public Window<M, WK, WV> setLateTrigger(Trigger<M> trigger) {
     this.lateTrigger = trigger;
     return this;
   }
 
   @Override
-  public Window<M, K, WV> setAccumulationMode(AccumulationMode mode) {
+  public Window<M, WK, WV> setAccumulationMode(AccumulationMode mode) {
     this.mode = mode;
     return this;
   }
@@ -119,7 +119,7 @@ public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
     return foldFunction;
   }
 
-  public Function<M, K> getKeyExtractor() {
+  public Function<M, WK> getKeyExtractor() {
     return keyExtractor;
   }
 

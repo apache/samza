@@ -18,12 +18,11 @@
  */
 package org.apache.samza.operators.triggers;
 
-import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.util.Clock;
 
 /**
  * Implementation class for a {@link TimeSinceLastMessageTrigger}
- * @param <M> the type of the incoming {@link MessageEnvelope}
+ * @param <M> the type of the incoming message
  */
 public class TimeSinceLastMessageTriggerImpl<M> implements TriggerImpl<M> {
 
@@ -39,7 +38,6 @@ public class TimeSinceLastMessageTriggerImpl<M> implements TriggerImpl<M> {
     this.durationMs = trigger.getDuration().toMillis();
     this.clock = clock;
   }
-
 
   @Override
   public void onMessage(M message, TriggerContext context) {
@@ -65,7 +63,6 @@ public class TimeSinceLastMessageTriggerImpl<M> implements TriggerImpl<M> {
       cancellable.cancel();
     }
   }
-
 
   @Override
   public boolean shouldFire() {

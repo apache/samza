@@ -18,37 +18,34 @@
  */
 package org.apache.samza.operators.triggers;
 
-import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.util.Clock;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Implementation of an {@link AnyTrigger}
- *
  */
 public class AnyTriggerImpl<M> implements TriggerImpl<M> {
 
-  private final List<Trigger<M>> triggerList;
+  private final List<Trigger<M>> triggers;
 
-  private final Map<TriggerImpl<M>, Boolean> triggerImpls = new HashMap<>();
+  private final List<TriggerImpl<M>> triggerImpls = new ArrayList<>();
   private final Clock clock;
   private boolean shouldFire = false;
 
   public AnyTriggerImpl(AnyTrigger<M> anyTrigger, Clock clock) {
-    this.triggerList = anyTrigger.getTriggers();
+    this.triggers = anyTrigger.getTriggers();
     this.clock = clock;
-    for (Trigger<M> trigger : triggerList) {
-      triggerImpls.put(TriggerImpls.createTriggerImpl(trigger, clock), false);
+    for (Trigger<M> trigger : triggers) {
+      triggerImpls.add(TriggerImpls.createTriggerImpl(trigger, clock));
     }
   }
 
   @Override
   public void onMessage(M message, TriggerContext context) {
-    for (TriggerImpl<M> impl : triggerImpls.keySet()) {
+    for (TriggerImpl<M> impl : triggerImpls) {
       impl.onMessage(message, context);
       if (impl.shouldFire()) {
         shouldFire = true;
@@ -61,8 +58,8 @@ public class AnyTriggerImpl<M> implements TriggerImpl<M> {
   }
 
   public void cancel() {
-    for (Iterator<Map.Entry<TriggerImpl<M>, Boolean>> it = triggerImpls.entrySet().iterator(); it.hasNext(); ) {
-      TriggerImpl<M> impl = it.next().getKey();
+    for (Iterator<TriggerImpl<M>> it = triggerImpls.iterator(); it.hasNext(); ) {
+      TriggerImpl<M> impl = it.next();
       impl.cancel();
       it.remove();
     }
@@ -70,9 +67,10 @@ public class AnyTriggerImpl<M> implements TriggerImpl<M> {
 
   @Override
   public boolean shouldFire() {
-    for (TriggerImpl<M> impl : triggerImpls.keySet()) {
+    for (TriggerImpl<M> impl : triggerImpls) {
       if (impl.shouldFire()) {
         shouldFire = true;
+        break;
       }
     }
     return shouldFire;

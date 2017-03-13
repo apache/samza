@@ -19,7 +19,6 @@
 
 package org.apache.samza.operators.triggers;
 
-import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.util.Clock;
 
 /**
@@ -49,7 +48,6 @@ public class RepeatingTriggerImpl<M> implements TriggerImpl<M> {
     currentTriggerImpl.cancel();
   }
 
-  @Override
   public void clear() {
     currentTriggerImpl.cancel();
     currentTriggerImpl = TriggerImpls.createTriggerImpl(repeatingTrigger, clock);

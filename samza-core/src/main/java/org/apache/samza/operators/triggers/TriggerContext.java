@@ -20,7 +20,7 @@ package org.apache.samza.operators.triggers;
 
 /**
  * Provides convenience methods for use by {@link TriggerImpl}s. This includes scheduling and cancelling
- * callbacks, accessing window keys etc.
+ * callbacks etc.
  */
 public interface TriggerContext {
 

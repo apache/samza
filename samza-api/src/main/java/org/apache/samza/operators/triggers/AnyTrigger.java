@@ -35,4 +35,3 @@ public class AnyTrigger<M> implements Trigger<M> {
     return triggers;
   }
 }
-

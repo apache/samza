@@ -30,7 +30,7 @@ public class TriggerImpls {
   public static <M> TriggerImpl<M> createTriggerImpl(Trigger<M> trigger, Clock clock) {
 
     if (trigger == null) {
-      throw new SamzaException("Null trigger passed in");
+      throw new IllegalArgumentException("Trigger must not be null");
     }
 
     if (trigger instanceof CountTrigger) {

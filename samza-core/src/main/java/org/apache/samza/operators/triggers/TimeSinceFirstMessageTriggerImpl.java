@@ -19,12 +19,11 @@
 
 package org.apache.samza.operators.triggers;
 
-import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.util.Clock;
 
 /**
  * Implementation class for a {@link TimeSinceFirstMessageTrigger}
- * @param <M> the type of the incoming {@link MessageEnvelope}
+ * @param <M> the type of the incoming message
  */
 public class TimeSinceFirstMessageTriggerImpl<M> implements TriggerImpl<M> {
   private final TimeSinceFirstMessageTrigger<M> trigger;

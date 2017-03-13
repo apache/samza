@@ -24,9 +24,9 @@ package org.apache.samza.operators.triggers;
  * Implementation class for a {@link Trigger}. A {@link TriggerImpl} is used with a
  * which is invoked when the trigger fires.
  *
- * <p> When MessageEnvelopes arrive in the {@code WindowOperatorImpl}, they are assigned to one or more windows. An
+ * <p> When messages arrive in the {@code WindowOperatorImpl}, they are assigned to one or more windows. An
  * instance of a {@link TriggerImpl} is created corresponding to each {@link Trigger} configured for a window. For every
- * MessageEnvelope added to the window, the {@code WindowOperatorImpl} invokes the {@link #onMessage} on its corresponding
+ * message added to the window, the {@code WindowOperatorImpl} invokes the {@link #onMessage} on its corresponding
  * {@link TriggerImpl}s. A {@link TriggerImpl} instance is scoped to a window and its firing determines when results for
  * its window are emitted.
  *
@@ -40,8 +40,8 @@ package org.apache.samza.operators.triggers;
 public interface TriggerImpl<M> {
 
   /**
-   * Invoked when a MessageEnvelope added to the window corresponding to this {@link TriggerImpl}.
-   * @param message the incoming MessageEnvelope
+   * Invoked when a message is added to the window corresponding to this {@link TriggerImpl}.
+   * @param message the incoming message
    * @param context the {@link TriggerContext} to schedule and cancel callbacks
    */
   public void onMessage(M message, TriggerContext context);
@@ -54,15 +54,9 @@ public interface TriggerImpl<M> {
   public boolean shouldFire();
 
   /**
-   * Reset the firing state of the trigger to be ready for the next firing. For example, a
-   * {@link RepeatingTriggerImpl} trigger can reset its firing state, since it has fired.
-   */
-  public default void clear() {}
-
-  /**
    * Invoked when the execution of this {@link TriggerImpl} is canceled by an up-stream {@link TriggerImpl}.
    *
-   * No calls to {@link #onMessage(Object, TriggerContext)} or {@link #shouldFire()} or {@link #clear()} will be invoked
+   * No calls to {@link #onMessage(Object, TriggerContext)} or {@link #shouldFire()} will be invoked
    * after this invocation.
    */
   public void cancel();
