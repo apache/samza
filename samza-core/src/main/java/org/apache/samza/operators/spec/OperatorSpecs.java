@@ -148,8 +148,8 @@ public class OperatorSpecs {
    *
    * @param sinkFn  the sink function
    * @param stream  the {@link OutputStream} where the message is sent to
-   * @param <M>  type of input message
    * @param opId operator ID
+   * @param <M>  type of input message
    * @return  the {@link SinkOperatorSpec}
    */
   public static <M> SinkOperatorSpec<M> createPartitionOperatorSpec(SinkFunction<M> sinkFn, OutputStream<M> stream, int opId) {

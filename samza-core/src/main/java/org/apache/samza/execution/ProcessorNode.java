@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.processorgraph;
+package org.apache.samza.execution;
 
 import com.google.common.base.Joiner;
 import java.util.ArrayList;
@@ -42,7 +42,6 @@ import org.slf4j.LoggerFactory;
 public class ProcessorNode {
   private static final Logger log = LoggerFactory.getLogger(ProcessorNode.class);
   private static final String CONFIG_PROCESSOR_PREFIX = "processors.%s.";
-  private static final boolean INHERIT_ROOT_CONFIGS = true;
 
   private final String id;
   private final List<StreamEdge> inEdges = new ArrayList<>();
@@ -98,13 +97,7 @@ public class ProcessorNode {
   private static Config extractScopedConfig(Config fullConfig, Config generatedConfig, String configPrefix) {
     Config scopedConfig = fullConfig.subset(configPrefix);
 
-    Config[] configPrecedence;
-    if (INHERIT_ROOT_CONFIGS) {
-      configPrecedence = new Config[] {fullConfig, generatedConfig, scopedConfig};
-    } else {
-      configPrecedence = new Config[] {generatedConfig, scopedConfig};
-    }
-
+    Config[] configPrecedence = new Config[] {fullConfig, generatedConfig, scopedConfig};
     // Strip empty configs so they don't override the configs before them.
     Map<String, String> mergedConfig = new HashMap<>();
     for (Map<String, String> config : configPrecedence) {

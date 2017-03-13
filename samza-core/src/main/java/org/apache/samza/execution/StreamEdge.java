@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.processorgraph;
+package org.apache.samza.execution;
 
 import java.util.ArrayList;
 import java.util.List;

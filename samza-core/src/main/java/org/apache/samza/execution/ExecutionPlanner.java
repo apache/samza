@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.processorgraph;
+package org.apache.samza.execution;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
@@ -81,7 +81,7 @@ public class ExecutionPlanner {
   /**
    * Create the physical graph from StreamGraph
    */
-  /* package private for testing */ ProcessorGraph createProcessorGraph(StreamGraph streamGraph) {
+  /* package private */ ProcessorGraph createProcessorGraph(StreamGraph streamGraph) {
     // For this phase, we are going to create a processor for the whole dag
     String processorId = config.get(JobConfig.JOB_NAME()); // only one processor, use the job name
 
@@ -108,9 +108,9 @@ public class ExecutionPlanner {
   }
 
   /**
-   * Figure out the number of partitions of intermediate streams
+   * Figure out the number of partitions of all streams
    */
-  /* package private for testing */ void calculatePartitions(StreamGraph streamGraph, ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
+  /* package private */ void calculatePartitions(StreamGraph streamGraph, ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
     // fetch the external streams partition info
     updateExistingPartitions(processorGraph, sysAdmins);
 
@@ -125,11 +125,11 @@ public class ExecutionPlanner {
   }
 
   /**
-   * This method fetches the partitions of source/sink streams and update the StreamEdges.
+   * Fetch the partitions of source/sink streams and update the StreamEdges.
    * @param processorGraph ProcessorGraph
    * @param sysAdmins mapping from system name to the {@link SystemAdmin}
    */
-  /* package private for testing */ static void updateExistingPartitions(ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
+  /* package private */ static void updateExistingPartitions(ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
     Set<StreamEdge> existingStreams = new HashSet<>();
     existingStreams.addAll(processorGraph.getSources());
     existingStreams.addAll(processorGraph.getSinks());
@@ -149,7 +149,7 @@ public class ExecutionPlanner {
       SystemAdmin systemAdmin = sysAdmins.get(systemName);
       // retrieve the metadata for the streams in this system
       Map<String, SystemStreamMetadata> streamToMetadata = systemAdmin.getSystemStreamMetadata(streamToStreamEdge.keySet());
-      // set the paritions of a stream to its StreamEdge
+      // set the partitions of a stream to its StreamEdge
       streamToMetadata.forEach((stream, data) -> {
           int partitions = data.getSystemStreamPartitionMetadata().size();
           streamToStreamEdge.get(stream).setPartitions(partitions);
@@ -161,9 +161,8 @@ public class ExecutionPlanner {
   /**
    * Calculate the partitions for the input streams of join operators
    */
-  /* package private for testing */ static void calculateJoinInputPartitions(StreamGraph streamGraph, ProcessorGraph processorGraph) {
-    // mapping from join spec to its source edges. Consider the path from a source to this join operator in the StreamGraph.
-    // Source is the beginning of this path.
+  /* package private */ static void calculateJoinInputPartitions(StreamGraph streamGraph, ProcessorGraph processorGraph) {
+    // mapping from a source stream to all join specs reachable from it
     Multimap<OperatorSpec, StreamEdge> joinSpecToStreamEdges = HashMultimap.create();
     // reverse mapping of the above
     Multimap<StreamEdge, OperatorSpec> streamEdgeToJoinSpecs = HashMultimap.create();
@@ -220,17 +219,17 @@ public class ExecutionPlanner {
 
   /**
    * This function traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
-   * @param messageStream input {@link MessageStream}
-   * @param streamEdge source {@link StreamEdge}
+   * @param inputMessageStream next input MessageStream to traverse {@link MessageStream}
+   * @param sourceStreamEdge source {@link StreamEdge}
    * @param joinSpecToStreamEdges mapping from join spec to its source {@link StreamEdge}s
    * @param streamEdgeToJoinSpecs mapping from source {@link StreamEdge} to the join specs that consumes it
    * @param outputStreamToJoinSpec mapping from the output stream to the join spec
    * @param joinQ queue that contains joinSpecs where at least one of the input stream edge partitions is known.
    */
-  private static void findReachableJoins(MessageStream messageStream, StreamEdge streamEdge,
+  private static void findReachableJoins(MessageStream inputMessageStream, StreamEdge sourceStreamEdge,
       Multimap<OperatorSpec, StreamEdge> joinSpecToStreamEdges, Multimap<StreamEdge, OperatorSpec> streamEdgeToJoinSpecs,
       Map<MessageStream, OperatorSpec> outputStreamToJoinSpec, Queue<OperatorSpec> joinQ, Set<OperatorSpec> visited) {
-    Collection<OperatorSpec> specs = ((MessageStreamImpl) messageStream).getRegisteredOperatorSpecs();
+    Collection<OperatorSpec> specs = ((MessageStreamImpl) inputMessageStream).getRegisteredOperatorSpecs();
     for (OperatorSpec spec : specs) {
       if (spec instanceof PartialJoinOperatorSpec) {
         // every join will have two partial join operators
@@ -243,10 +242,10 @@ public class ExecutionPlanner {
           outputStreamToJoinSpec.put(output, joinSpec);
         }
 
-        joinSpecToStreamEdges.put(joinSpec, streamEdge);
-        streamEdgeToJoinSpecs.put(streamEdge, joinSpec);
+        joinSpecToStreamEdges.put(joinSpec, sourceStreamEdge);
+        streamEdgeToJoinSpecs.put(sourceStreamEdge, joinSpec);
 
-        if (!visited.contains(joinSpec) && streamEdge.getPartitions() > 0) {
+        if (!visited.contains(joinSpec) && sourceStreamEdge.getPartitions() > 0) {
           // put the joins with known input partitions into the queue
           joinQ.add(joinSpec);
           visited.add(joinSpec);
@@ -254,7 +253,7 @@ public class ExecutionPlanner {
       }
 
       if (spec.getNextStream() != null) {
-        findReachableJoins(spec.getNextStream(), streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs, outputStreamToJoinSpec, joinQ,
+        findReachableJoins(spec.getNextStream(), sourceStreamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs, outputStreamToJoinSpec, joinQ,
             visited);
       }
     }

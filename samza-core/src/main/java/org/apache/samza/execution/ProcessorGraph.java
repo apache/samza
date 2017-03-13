@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.processorgraph;
+package org.apache.samza.execution;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -39,9 +39,9 @@ import org.slf4j.LoggerFactory;
 /**
  * The ProcessorGraph is the physical execution graph for a multi-stage Samza application.
  * It contains the topology of execution processors connected with source/sink/intermediate streams.
- * High level APIs are transformed into ProcessorGraph for planing, validation and execution.
+ * High level APIs are transformed into ProcessorGraph for planning, validation and execution.
  * Source/sink streams are external streams while intermediate streams are created and managed by Samza.
- * Note that intermediate streams can be both the input and output of a ProcessorNode in ProcessorGraph.
+ * Note that intermediate streams are both the input and output of a ProcessorNode in ProcessorGraph.
  * So the graph may have cycles and it's not a DAG.
  */
 public class ProcessorGraph {
@@ -136,7 +136,7 @@ public class ProcessorGraph {
 
   /**
    * Returns the processors to be executed in the topological order
-   * @return list of {@link ProcessorNode}
+   * @return unmodifiable list of {@link ProcessorNode}
    */
   public List<ProcessorNode> getProcessors() {
     List<ProcessorNode> sortedNodes = topologicalSort();
@@ -145,7 +145,7 @@ public class ProcessorGraph {
 
   /**
    * Returns the source streams in the graph
-   * @return set of {@link StreamEdge}
+   * @return unmodifiable set of {@link StreamEdge}
    */
   public Set<StreamEdge> getSources() {
     return Collections.unmodifiableSet(sources);
@@ -153,7 +153,7 @@ public class ProcessorGraph {
 
   /**
    * Return the sink streams in the graph
-   * @return set of {@link StreamEdge}
+   * @return unmodifiable set of {@link StreamEdge}
    */
   public Set<StreamEdge> getSinks() {
     return Collections.unmodifiableSet(sinks);
@@ -161,7 +161,7 @@ public class ProcessorGraph {
 
   /**
    * Return the intermediate streams in the graph
-   * @return set of {@link StreamEdge}
+   * @return unmodifiable set of {@link StreamEdge}
    */
   public Set<StreamEdge> getIntermediateStreams() {
     return Collections.unmodifiableSet(intermediateStreams);
@@ -246,7 +246,7 @@ public class ProcessorGraph {
    * Find the reachable set of nodes using BFS.
    * @return reachable set of {@link ProcessorNode}
    */
-  /* package private for testing */ Set<ProcessorNode> findReachable() {
+  /* package private */ Set<ProcessorNode> findReachable() {
     Queue<ProcessorNode> queue = new ArrayDeque<>();
     Set<ProcessorNode> visited = new HashSet<>();
 
@@ -274,7 +274,7 @@ public class ProcessorGraph {
    * This algorithm also takes account of the simple loops in the graph
    * @return topologically sorted {@link ProcessorNode}s
    */
-  /* package private for testing */ List<ProcessorNode> topologicalSort() {
+  /* package private */ List<ProcessorNode> topologicalSort() {
     Collection<ProcessorNode> pnodes = nodes.values();
     Queue<ProcessorNode> q = new ArrayDeque<>();
     Map<String, Long> indegree = new HashMap<>();
