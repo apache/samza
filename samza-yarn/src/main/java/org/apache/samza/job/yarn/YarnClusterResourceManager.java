@@ -31,6 +31,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.*;
 import org.apache.samza.clustermanager.SamzaApplicationState;
 import org.apache.samza.clustermanager.SamzaContainerLaunchException;
+import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.YarnConfig;
@@ -145,7 +146,14 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     this.service = new SamzaYarnAppMasterService(config, samzaAppState, this.state, registry, hConfig);
 
     log.info("ContainerID str {}, Nodehost  {} , Nodeport  {} , NodeHttpport {}", new Object [] {containerIdStr, nodeHostString, nodePort, nodeHttpPort});
-    this.lifecycle = new SamzaYarnAppMasterLifecycle(yarnConfig.getContainerMaxMemoryMb(), yarnConfig.getContainerMaxCpuCores(), samzaAppState, state, amClient );
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
+    this.lifecycle = new SamzaYarnAppMasterLifecycle(
+        clusterManagerConfig.getContainerMemoryMb(),
+        clusterManagerConfig.getNumCores(),
+        samzaAppState,
+        state,
+        amClient
+    );
 
     yarnContainerRunner = new YarnContainerRunner(config, hConfig);
   }
