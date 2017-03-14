@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.processorgraph;
+package org.apache.samza.execution;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -26,8 +26,6 @@ import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.execution.ExecutionPlanner;
-import org.apache.samza.execution.ProcessorGraph;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphBuilder;
