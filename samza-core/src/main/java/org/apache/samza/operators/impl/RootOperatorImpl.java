@@ -26,7 +26,7 @@ import org.apache.samza.task.TaskCoordinator;
  * A no-op operator implementation that forwards incoming messages to all of its subscribers.
  * @param <M>  type of incoming messages
  */
-final class RootOperatorImpl<M> extends OperatorImpl<M, M> {
+public final class RootOperatorImpl<M> extends OperatorImpl<M, M> {
 
   @Override
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {

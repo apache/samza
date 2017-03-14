@@ -162,7 +162,7 @@ public class TestMessageStreamImpl {
         }
       };
 
-    MessageStream<TestOutputMessageEnvelope> joinOutput = source1.join(source2, joiner);
+    MessageStream<TestOutputMessageEnvelope> joinOutput = source1.join(source2, joiner, Duration.ofMinutes(1));
     Collection<OperatorSpec> subs = source1.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
     OperatorSpec<TestMessageEnvelope> joinOp1 = subs.iterator().next();
@@ -175,10 +175,10 @@ public class TestMessageStreamImpl {
     assertEquals(((PartialJoinOperatorSpec) joinOp2).getNextStream(), joinOutput);
     TestMessageEnvelope joinMsg1 = new TestMessageEnvelope("test-join-1", "join-msg-001", 11111L);
     TestMessageEnvelope joinMsg2 = new TestMessageEnvelope("test-join-2", "join-msg-002", 22222L);
-    TestOutputMessageEnvelope xOut = (TestOutputMessageEnvelope) ((PartialJoinOperatorSpec) joinOp1).getTransformFn().apply(joinMsg1, joinMsg2);
+    TestOutputMessageEnvelope xOut = (TestOutputMessageEnvelope) ((PartialJoinOperatorSpec) joinOp1).getThisPartialJoinFn().apply(joinMsg1, joinMsg2);
     assertEquals(xOut.getKey(), "test-join-1");
     assertEquals(xOut.getMessage(), Integer.valueOf(24));
-    xOut = (TestOutputMessageEnvelope) ((PartialJoinOperatorSpec) joinOp2).getTransformFn().apply(joinMsg2, joinMsg1);
+    xOut = (TestOutputMessageEnvelope) ((PartialJoinOperatorSpec) joinOp2).getThisPartialJoinFn().apply(joinMsg2, joinMsg1);
     assertEquals(xOut.getKey(), "test-join-1");
     assertEquals(xOut.getMessage(), Integer.valueOf(24));
   }

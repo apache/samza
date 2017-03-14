@@ -113,10 +113,8 @@ public class TestOperatorImpls {
     assertEquals(sinkFn, sinkFnField.get(opImpl));
 
     // get join operator
-    PartialJoinOperatorSpec<TestMessageEnvelope, String, TestMessageEnvelope, TestOutputMessageEnvelope> joinOp = mock(PartialJoinOperatorSpec.class);
-    TestOutputMessageEnvelope mockOutput = mock(TestOutputMessageEnvelope.class);
+    PartialJoinOperatorSpec<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> joinOp = mock(PartialJoinOperatorSpec.class);
     PartialJoinFunction<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> joinFn = mock(PartialJoinFunction.class);
-    when(joinOp.getTransformFn()).thenReturn(joinFn);
     opImpl = (OperatorImpl<TestMessageEnvelope, ? extends MessageEnvelope>) createOpMethod.invoke(opGraph, mockStream, joinOp, mockConfig, mockContext);
     assertTrue(opImpl instanceof PartialJoinOperatorImpl);
   }
@@ -207,7 +205,7 @@ public class TestOperatorImpls {
               public String getSecondKey(TestMessageEnvelope message) {
                 return message.getKey();
               }
-            })
+            }, Duration.ofMinutes(1))
         .map(m -> m);
     OperatorGraph opGraph = new OperatorGraph();
     // now, we create chained operators from each input sources
