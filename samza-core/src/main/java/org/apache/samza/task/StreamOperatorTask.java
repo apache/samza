@@ -104,7 +104,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   @Override
   public final void window(MessageCollector collector, TaskCoordinator coordinator) throws Exception {
-    // TODO: invoke timer based triggers
+    this.operatorGraph.getAll().forEach(r -> r.onTimer(collector, coordinator));
   }
 
   @Override
