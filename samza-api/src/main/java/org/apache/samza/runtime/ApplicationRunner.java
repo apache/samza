@@ -16,58 +16,60 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.system;
+package org.apache.samza.runtime;
 
 import java.lang.reflect.Constructor;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.config.Config;
+import org.apache.samza.system.StreamSpec;
 
 
 /**
  * Interface to be implemented by physical execution engine to deploy the config and jobs to run the {@link org.apache.samza.operators.StreamGraph}
  *
  * Implementations of this interface must define a constructor with a single {@link Config} as the argument in order
- * to support the {@link ExecutionEnvironment#fromConfig(Config)} static constructor.
+ * to support the {@link ApplicationRunner#fromConfig(Config)} static constructor.
  */
 @InterfaceStability.Unstable
-public interface ExecutionEnvironment {
+public interface ApplicationRunner {
 
-  String ENVIRONMENT_CONFIG = "job.execution.environment.class";
-  String DEFAULT_ENVIRONMENT_CLASS = "org.apache.samza.system.StandaloneExecutionEnvironment";
+  String RUNNER_CONFIG = "app.runner.class";
+  String DEFAULT_RUNNER_CLASS = "org.apache.samza.runtime.RemoteApplicationRunner";
 
   /**
-   * Static method to load the local standalone environment
+   * Static method to create the local {@link ApplicationRunner}.
    *
-   * @param config  configuration passed in to initialize the Samza standalone process
-   * @return  the standalone {@link ExecutionEnvironment} to run the user-defined stream applications
+   * @param config  configuration passed in to initialize the Samza local process
+   * @return  the local {@link ApplicationRunner} to run the user-defined stream applications
    */
-  static ExecutionEnvironment getLocalEnvironment(Config config) {
+  static ApplicationRunner getLocalRunner(Config config) {
     return null;
   }
 
   /**
-   * Static method to load the non-standalone environment.
+   * Static method to load the {@link ApplicationRunner}
    *
    * Requires the implementation class to define a constructor with a single {@link Config} as the argument.
    *
    * @param config  configuration passed in to initialize the Samza processes
-   * @return  the configure-driven {@link ExecutionEnvironment} to run the user-defined stream applications
+   * @return  the configure-driven {@link ApplicationRunner} to run the user-defined stream applications
    */
-  static ExecutionEnvironment fromConfig(Config config) {
+  static ApplicationRunner fromConfig(Config config) {
     try {
-      Class<?> environmentClass = Class.forName(config.get(ENVIRONMENT_CONFIG, DEFAULT_ENVIRONMENT_CLASS));
-      if (ExecutionEnvironment.class.isAssignableFrom(environmentClass)) {
-        Constructor<?> constructor = environmentClass.getConstructor(Config.class); // *sigh*
-        return (ExecutionEnvironment) constructor.newInstance(config);
+      Class<?> runnerClass = Class.forName(config.get(RUNNER_CONFIG, DEFAULT_RUNNER_CLASS));
+      if (ApplicationRunner.class.isAssignableFrom(runnerClass)) {
+        Constructor<?> constructor = runnerClass.getConstructor(Config.class); // *sigh*
+        return (ApplicationRunner) constructor.newInstance(config);
       }
     } catch (Exception e) {
-      throw new ConfigException(String.format("Problem in loading ExecutionEnvironment class %s", config.get(ENVIRONMENT_CONFIG)), e);
+      throw new ConfigException(String.format("Problem in loading ApplicationRunner class %s", config.get(
+          RUNNER_CONFIG)), e);
     }
     throw new ConfigException(String.format(
-        "Class %s does not implement interface ExecutionEnvironment properly",
-        config.get(ENVIRONMENT_CONFIG)));
+        "Class %s does not implement interface ApplicationRunner properly",
+        config.get(RUNNER_CONFIG)));
   }
 
   /**

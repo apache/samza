@@ -67,6 +67,7 @@ public class TestZkUtils {
     }
 
     zkUtils = new ZkUtils(
+        "testProcessorId",
         KEY_BUILDER,
         zkClient,
         SESSION_TIMEOUT_MS);
@@ -208,5 +209,13 @@ public class TestZkUtils {
       delay *= 2;
     }
     return false;
+  }
+
+  public static void sleepMs(long delay) {
+    try {
+      Thread.sleep(delay);
+    } catch (InterruptedException e) {
+      Assert.fail("Sleep was interrupted");
+    }
   }
 }

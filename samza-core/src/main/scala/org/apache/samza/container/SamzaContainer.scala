@@ -354,7 +354,7 @@ object SamzaContainer extends Logging {
 
     val chooserFactory = Util.getObj[MessageChooserFactory](chooserFactoryClassName)
 
-    val chooser = DefaultChooser(inputStreamMetadata, chooserFactory, config, samzaContainerMetrics.registry)
+    val chooser = DefaultChooser(inputStreamMetadata, chooserFactory, config, samzaContainerMetrics.registry, systemAdmins)
 
     info("Setting up metrics reporters.")
 
