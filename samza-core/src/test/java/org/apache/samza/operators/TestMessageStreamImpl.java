@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
