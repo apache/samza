@@ -20,7 +20,7 @@
 package org.apache.samza.job
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{ConfigRewriter, Config}
+import org.apache.samza.config.{InputStreamAliasConfigRewriter, ConfigRewriter, Config}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
 import org.apache.samza.job.ApplicationStatus.Running
@@ -37,10 +37,8 @@ object JobRunner extends Logging {
   val SOURCE = "job-runner"
 
   /**
-   * Re-writes configuration using a ConfigRewriter, if one is defined. If
-   * there is no ConfigRewriter defined for the job, then this method is a
-   * no-op.
-   *
+   * Re-writes configuration using a ConfigRewriter, if one is defined. InputStreamAliasConfigRewriter
+   * is enabled by default.
    * @param config The config to re-write.
    */
   def rewriteConfig(config: Config): Config = {
@@ -53,10 +51,13 @@ object JobRunner extends Logging {
       rewriter.rewrite(rewriterName, c)
     }
 
-    config.getConfigRewriters match {
+    val rewrittenConfig = config.getConfigRewriters match {
       case Some(rewriters) => rewriters.split(",").foldLeft(config)(rewrite(_, _))
       case _ => config
     }
+    val aliasCfgRewriter = new InputStreamAliasConfigRewriter
+    debug("Rewriting config with InputStreamAliasConfigRewriter")
+    aliasCfgRewriter.rewrite(rewrittenConfig)
   }
 
   def main(args: Array[String]) {

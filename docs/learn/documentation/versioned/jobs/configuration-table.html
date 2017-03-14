@@ -440,6 +440,12 @@
                         For example, if you have one input system called <code>my-kafka</code>, and want to consume two
                         Kafka topics called <code>PageViewEvent</code> and <code>UserActivityEvent</code>, then you would set
                         <code>task.inputs=my-kafka.PageViewEvent, my-kafka.UserActivityEvent</code>.
+                        <p>Additionally you can use aliases for input streams in the following format
+                            "<span class="system">system-name</span>.<span class="stream">stream-name</span> as <span class="stream">alias-name</span>"</p>
+                        <p>Example: <code>task.inputs=my-kafka.PageViewEvent as view-alias, my-kafka.UserActivityEvent as activity-alias</code>. Throughout the
+                        configuration you can use alias-name instead of stream-name. This is especially useful when you
+                        need to change your job's input streams's name. Instead of changing the stream-name everywhere in the
+                        configuration you can change it just in task.inputs leaving alias the same.</p>
                     </td>
                 </tr>
 
