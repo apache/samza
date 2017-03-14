@@ -49,7 +49,7 @@ public class SamzaContainerController {
   private final Map<String, MetricsReporter> metricsReporterMap;
   private final Object taskFactory;
   private final long containerShutdownMs;
-  private final ProcessorLifecycleCallback errorHandler;
+  private final ProcessorLifecycleCallback lifecycleCallback;
 
   // Internal Member Variables
   private Future containerFuture;
@@ -62,13 +62,15 @@ public class SamzaContainerController {
    *                            {@link org.apache.samza.task.AsyncStreamTask}
    * @param containerShutdownMs How long the Samza container should wait for an orderly shutdown of task instances
    * @param processorId         Id of the processor
+   * @param lifecycleCallback   An instance of callback handler for lifecycle events. May be null. If null, the caller
+   *                            will not get notified on the lifecycle events.
    * @param metricsReporterMap  Map of metric reporter name and {@link MetricsReporter} instance
    */
   public SamzaContainerController(
       Object taskFactory,
       long containerShutdownMs,
       String processorId,
-      ProcessorLifecycleCallback errorHandler,
+      ProcessorLifecycleCallback lifecycleCallback,
       Map<String, MetricsReporter> metricsReporterMap) {
     this.executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
         .setNameFormat("p" + processorId + "-container-thread-%d").build());
@@ -79,7 +81,7 @@ public class SamzaContainerController {
     } else {
       this.containerShutdownMs = containerShutdownMs;
     }
-    this.errorHandler = errorHandler;
+    this.lifecycleCallback = lifecycleCallback;
   }
 
   /**
@@ -116,8 +118,8 @@ public class SamzaContainerController {
         try {
           container.run();
         } catch (Throwable t) {
-          if (errorHandler != null) {
-            errorHandler.onError(t);
+          if (lifecycleCallback != null) {
+            lifecycleCallback.onError(t);
           } else {
             log.error("Container Run Loop Error", t);
             throw t;
@@ -156,14 +158,8 @@ public class SamzaContainerController {
       log.error("Ran into problems while trying to stop the container in the processor!", e);
     } catch (TimeoutException e) {
       log.warn("Got Timeout Exception while trying to stop the container in the processor! The processor may not shutdown properly", e);
+    } finally {
+      executorService.shutdown();
     }
-  }
-
-  /**
-   * Shutsdown the controller by first stop any running container and then, shutting down the {@link ExecutorService}
-   */
-  public void shutdown() {
-    stopContainer();
-    executorService.shutdown();
   }
 }

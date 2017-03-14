@@ -120,7 +120,7 @@ public class StandaloneJobCoordinator implements JobCoordinator {
 
   @Override
   public void stop() {
-    containerController.shutdown();
+    containerController.stopContainer();
   }
 
   /**
