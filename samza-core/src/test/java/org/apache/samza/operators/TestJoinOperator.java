@@ -23,6 +23,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStreamPartition;
@@ -50,6 +51,8 @@ public class TestJoinOperator {
 
   private StreamOperatorTask sot;
   private List<Integer> output = new ArrayList<>();
+  private final ApplicationRunner runner = mock(ApplicationRunner.class);
+
 
   @Before
   public void setup() throws Exception {
@@ -62,7 +65,7 @@ public class TestJoinOperator {
     Config config = mock(Config.class);
 
     StreamGraphBuilder sgb = new TestStreamGraphBuilder();
-    sot = new StreamOperatorTask(sgb);
+    sot = new StreamOperatorTask(sgb, runner);
     sot.init(config, taskContext);
   }
 
