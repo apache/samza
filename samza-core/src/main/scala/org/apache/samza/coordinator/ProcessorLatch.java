@@ -19,10 +19,9 @@
 package org.apache.samza.coordinator;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 
 public interface ProcessorLatch {
-  void await(TimeUnit tu, long timeout) throws TimeoutException;
+  void await(TimeUnit tu, long timeout);
   void countDown();
 }
