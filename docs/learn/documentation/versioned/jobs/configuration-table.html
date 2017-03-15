@@ -1272,9 +1272,17 @@
 
                 <tr>
                     <td class="property" id="store-changelog-replication-factor">stores.<span class="store">store-name</span>.changelog.<br>replication.factor</td>
-                    <td class="default">2</td>
+                    <td class="default">stores.default.changelog.replication.factor</td>
                     <td class="description">
                         The property defines the number of replicas to use for the change log stream.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="store-default-changelog-replication-factor">stores.default.changelog.replication.factor</td>
+                    <td class="default">2</td>
+                    <td class="description">
+                        This property defines the default number of replicas to use for the change log stream.
                     </td>
                 </tr>
 
@@ -1343,8 +1351,9 @@
                     <td class="description">
                         This property defines a store, Samza's mechanism for efficient
                         <a href="../container/state-management.html">stateful stream processing</a>. You can give a
-                        store any <span class="store">store-name</span>, and use that name to get a reference to the
-                        store in your stream task (call
+                        store any <span class="store">store-name</span> except <em>default</em> (the <span class="store">store-name</span>
+                        <em>default</em> is reserved for defining default store parameters), and use that name to get a 
+                        reference to the store in your stream task (call
                         <a href="../api/javadocs/org/apache/samza/task/TaskContext.html#getStore(java.lang.String)">TaskContext.getStore()</a>
                         in your task's
                         <a href="../api/javadocs/org/apache/samza/task/InitableTask.html#init(org.apache.samza.config.Config, org.apache.samza.task.TaskContext)">init()</a>
