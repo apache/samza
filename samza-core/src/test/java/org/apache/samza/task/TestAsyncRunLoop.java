@@ -206,7 +206,7 @@ public class TestAsyncRunLoop {
     commitMs = -1;
     maxMessagesInFlight = 1;
     containerMetrics = new SamzaContainerMetrics("container", new MetricsRegistryMap());
-    callbackExecutor = Executors.newFixedThreadPool(2);
+    callbackExecutor = Executors.newFixedThreadPool(4);
     offsetManager = mock(OffsetManager.class);
     shutdownRequest = TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER;
 
@@ -535,18 +535,18 @@ public class TestAsyncRunLoop {
     task0.callbackHandler = callback -> {
       IncomingMessageEnvelope envelope = ((TaskCallbackImpl) callback).envelope;
       try {
-        if (envelope == firstMsg) {
+        if (envelope.equals(firstMsg)) {
           firstMsgCompletionLatch.await();
-        } else if (envelope == secondMsg) {
+        } else if (envelope.equals(secondMsg)) {
           firstMsgCompletionLatch.countDown();
           secondMsgCompletionLatch.await();
-        } else if (envelope == thirdMsg) {
+        } else if (envelope.equals(thirdMsg)) {
+          secondMsgCompletionLatch.countDown();
           // OffsetManager.update with firstMsg offset, task.commit has happened when second message callback has not completed.
           verify(offsetManager).update(taskName0, firstMsg.getSystemStreamPartition(), firstMsg.getOffset());
-          verify(offsetManager).checkpoint(taskName0);
-          secondMsgCompletionLatch.countDown();
+          verify(offsetManager, atLeastOnce()).checkpoint(taskName0);
         }
-      } catch (InterruptedException e) {
+      } catch (Exception e) {
         e.printStackTrace();
       }
     };
@@ -560,10 +560,21 @@ public class TestAsyncRunLoop {
 
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
                                             callbackTimeoutMs, maxThrottlingDelayMs, containerMetrics, () -> 0L, true);
+    // Shutdown runLoop when all tasks are finished.
+    callbackExecutor.execute(() -> {
+        try {
+          firstMsgCompletionLatch.await();
+          secondMsgCompletionLatch.await();
+          Thread.sleep(100);
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+        runLoop.shutdown();
+      });
+
     runLoop.run();
     callbackExecutor.awaitTermination(100, TimeUnit.MILLISECONDS);
 
-    verify(offsetManager).update(taskName0, thirdMsg.getSystemStreamPartition(), thirdMsg.getOffset());
     verify(offsetManager, atLeastOnce()).checkpoint(taskName0);
     assertEquals(3, task0.processed);
     assertEquals(3, task0.committed);
@@ -574,34 +585,49 @@ public class TestAsyncRunLoop {
   @Test
   public void testProcessBehaviourWhenAsyncCommitIsEnabled() throws InterruptedException {
     TestTask task0 = new TestTask(true, true, false);
-    TestTask task1 = new TestTask(true, false, false);
 
     CountDownLatch commitLatch = new CountDownLatch(1);
     task0.commitHandler = callback -> {
-      try {
-        commitLatch.await();
-      } catch (InterruptedException e) {
-        e.printStackTrace();
+      TaskCallbackImpl taskCallback = (TaskCallbackImpl) callback;
+      if (taskCallback.envelope.equals(envelope3)) {
+        try {
+          commitLatch.await();
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
       }
     };
+
     task0.callbackHandler = callback -> {
       TaskCallbackImpl taskCallback = (TaskCallbackImpl) callback;
-      if (taskCallback.envelope == envelope0) {
-        assertEquals(1, task0.processed);
+      if (taskCallback.envelope.equals(envelope0)) {
+        // Both the process call has gone through when the first commit is in progress.
+        assertEquals(2, containerMetrics.processes().getCount());
+        assertEquals(0, containerMetrics.commits().getCount());
         commitLatch.countDown();
       }
     };
     tasks.put(taskName0, createTaskInstance(task0, taskName0, ssp0));
-    tasks.put(taskName1, createTaskInstance(task1, taskName1, ssp0));
     when(consumerMultiplexer.choose(false)).thenReturn(envelope3)
                                            .thenReturn(envelope0)
                                            .thenReturn(ssp0EndOfStream);
 
     AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
                                             callbackTimeoutMs, maxThrottlingDelayMs, containerMetrics, () -> 0L, true);
+
+    // Shutdown runLoop after the commit.
+    callbackExecutor.execute(() -> {
+        try {
+          commitLatch.await();
+          Thread.sleep(100);
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+        runLoop.shutdown();
+      });
+
     runLoop.run();
 
     callbackExecutor.awaitTermination(100, TimeUnit.MILLISECONDS);
-    assertEquals(1, task0.committed);
   }
 }
