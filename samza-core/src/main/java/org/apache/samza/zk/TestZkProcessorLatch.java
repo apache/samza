@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
@@ -109,7 +110,11 @@ public class TestZkProcessorLatch {
     Future f1 = pool.submit(() -> {
       ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
       latch.countDown();
-      latch.await(TimeUnit.MILLISECONDS, 100000);
+      try {
+        latch.await(TimeUnit.MILLISECONDS, 100000);
+      } catch (TimeoutException e) {
+        Assert.fail("await timed out", e);
+      }
     });
 
     try {
@@ -135,17 +140,29 @@ public class TestZkProcessorLatch {
     Future f1 = pool.submit(() -> {
       ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
       latch.countDown();
-      latch.await(TimeUnit.MILLISECONDS, 100000);
+      try {
+        latch.await(TimeUnit.MILLISECONDS, 100000);
+      } catch (TimeoutException e) {
+        Assert.fail("await timed out", e);
+      }
     });
     Future f2 = pool.submit(() -> {
       ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
       latch.countDown();
-      latch.await(TimeUnit.MILLISECONDS, 100000);
+      try {
+        latch.await(TimeUnit.MILLISECONDS, 100000);
+      } catch (TimeoutException e) {
+        Assert.fail("await timed out", e);
+      }
     });
     Future f3 = pool.submit(() -> {
       ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
       latch.countDown();
-      latch.await(TimeUnit.MILLISECONDS, 100000);
+      try {
+        latch.await(TimeUnit.MILLISECONDS, 100000);
+      } catch (TimeoutException e) {
+        Assert.fail("await timed out", e);
+      }
     });
 
     try {
@@ -172,18 +189,30 @@ public class TestZkProcessorLatch {
     Future f1 = pool.submit(() -> {
       ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
       latch.countDown();
-      latch.await(TimeUnit.MILLISECONDS, 100000);
+      try {
+        latch.await(TimeUnit.MILLISECONDS, 100000);
+      } catch (TimeoutException e) {
+        Assert.fail("await timed out", e);
+      }
     });
     Future f2 = pool.submit(() -> {
       ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
       latch.countDown();
-      latch.await(TimeUnit.MILLISECONDS, 100000);
+      try {
+        latch.await(TimeUnit.MILLISECONDS, 100000);
+      } catch (TimeoutException e) {
+        Assert.fail("await timed out", e);
+      }
     });
     Future f3 = pool.submit(() -> {
       ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
       // This processor never completes its task
       //latch.countDown();
-      latch.await(TimeUnit.MILLISECONDS, 100000);
+      try {
+        latch.await(TimeUnit.MILLISECONDS, 100000);
+      } catch (TimeoutException e) {
+        Assert.fail("await timed out", e);
+      }
     });
 
     try {
@@ -216,15 +245,27 @@ public class TestZkProcessorLatch {
       latch.countDown();
       TestZkUtils.sleepMs(200);
       latch.countDown();
-      latch.await(TimeUnit.MILLISECONDS, 100000);
+      try {
+        latch.await(TimeUnit.MILLISECONDS, 100000);
+      } catch (TimeoutException e) {
+        Assert.fail("await timed out", e);
+      }
     });
     Future f2 = pool.submit(() -> {
       ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
-      latch.await(TimeUnit.MILLISECONDS, 100000);
+      try {
+        latch.await(TimeUnit.MILLISECONDS, 100000);
+      } catch (TimeoutException e) {
+        Assert.fail("await timed out", e);
+      }
     });
     Future f3 = pool.submit(() -> {
       ProcessorLatch latch = factory.getCoordinationService(groupId).getLatch(latchSize, latchId);
-      latch.await(TimeUnit.MILLISECONDS, 100000);
+      try {
+        latch.await(TimeUnit.MILLISECONDS, 100000);
+      } catch (TimeoutException e) {
+        Assert.fail("await timed out", e);
+      }
     });
 
     try {
