@@ -19,13 +19,16 @@
 
 package org.apache.samza.operators.triggers;
 
-import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.util.Clock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implementation class for a {@link TimeTrigger}
  */
-public class TimeTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M> {
+public class TimeTriggerImpl<M> implements TriggerImpl<M> {
+
+  private static final Logger LOG = LoggerFactory.getLogger(TimeTriggerImpl.class);
 
   private final TimeTrigger<M> trigger;
   private Cancellable cancellable;
@@ -44,6 +47,7 @@ public class TimeTriggerImpl<M extends MessageEnvelope> implements TriggerImpl<M
 
     if (cancellable == null) {
       cancellable = context.scheduleCallback(() -> {
+          LOG.trace("Time trigger fired");
           shouldFire = true;
         }, callbackTime);
     }

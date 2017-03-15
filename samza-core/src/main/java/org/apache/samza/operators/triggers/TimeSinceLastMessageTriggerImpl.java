@@ -19,6 +19,8 @@
 package org.apache.samza.operators.triggers;
 
 import org.apache.samza.util.Clock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implementation class for a {@link TimeSinceLastMessageTrigger}
@@ -26,6 +28,7 @@ import org.apache.samza.util.Clock;
  */
 public class TimeSinceLastMessageTriggerImpl<M> implements TriggerImpl<M> {
 
+  private static final Logger LOG = LoggerFactory.getLogger(TimeSinceLastMessageTriggerImpl.class);
   private final TimeSinceLastMessageTrigger<M> trigger;
   private final long durationMs;
   private final Clock clock;
@@ -50,6 +53,7 @@ public class TimeSinceLastMessageTriggerImpl<M> implements TriggerImpl<M> {
 
       callbackTime = currTime + durationMs;
       Runnable runnable = () -> {
+        LOG.trace("Time since last message trigger fired");
         shouldFire = true;
       };
 

@@ -38,7 +38,7 @@ public class WindowState<WV> {
     return wv;
   }
 
-  public long getEarliestRecvTime() {
+  public long getEarliestTimestamp() {
     return earliestRecvTime;
   }
 }

@@ -119,8 +119,8 @@ public final class Windows {
    * @param <K> the type of the key in the {@link Window}
    * @return the created {@link Window} function.
    */
-  public static <M, K, WV> Window<M, K, WV>
-    keyedTumblingWindow(Function<M, K> keyFn, Duration interval, Supplier<WV> initialValue, FoldFunction<M, WV> foldFn) {
+  public static <M, K, WV> Window<M, K, WV> keyedTumblingWindow(Function<M, K> keyFn, Duration interval,
+                                                                Supplier<WV> initialValue, FoldFunction<M, WV> foldFn) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
     return new WindowInternal<M, K, WV>(defaultTrigger, initialValue, foldFn, keyFn, null, WindowType.TUMBLING);

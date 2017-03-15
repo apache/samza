@@ -19,10 +19,14 @@
 
 package org.apache.samza.operators.triggers;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Implementation class for a {@link CountTrigger}
  */
 public class CountTriggerImpl<M> implements TriggerImpl<M> {
+  private static final Logger LOG = LoggerFactory.getLogger(CountTriggerImpl.class);
 
   private final long triggerCount;
   private long currentCount;
@@ -36,6 +40,7 @@ public class CountTriggerImpl<M> implements TriggerImpl<M> {
   public void onMessage(M message, TriggerContext context) {
     currentCount++;
     if (currentCount == triggerCount) {
+      LOG.trace("count trigger fired for {}", message);
       shouldFire = true;
     }
   }

@@ -54,7 +54,7 @@ public final class WindowPane<K, V> {
     return this.key;
   }
 
-  public FiringType getType() {
+  public FiringType getFiringType() {
     return type;
   }
 }

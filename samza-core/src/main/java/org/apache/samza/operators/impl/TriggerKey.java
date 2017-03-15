@@ -30,8 +30,14 @@ class TriggerKey<T> {
   private final WindowKey<T> key;
 
   public TriggerKey(FiringType type, WindowKey<T> key) {
-    assert type != null;
-    assert key != null;
+    if (type == null) {
+      throw new IllegalArgumentException("Firing type cannot be null");
+    }
+
+    if (key == null) {
+      throw new IllegalArgumentException("WindowKey cannot be null");
+    }
+
     this.type = type;
     this.key = key;
   }

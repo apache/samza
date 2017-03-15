@@ -63,8 +63,8 @@ import java.util.function.Function;
  * to a window and its firing determines when results for its window are emitted. The {@link WindowOperatorImpl} checks if
  * the trigger fired, and propagates the result of the firing to its downstream operators.
  *
- * @param <M>  the type of the incoming message
- * @param <WK>  the type of the key in this {@link org.apache.samza.operators.MessageStream}
+ * @param <M> the type of the incoming message
+ * @param <WK> the type of the key in this {@link org.apache.samza.operators.MessageStream}
  * @param <WV> the type of the value in the emitted window pane
  *
  */
@@ -88,10 +88,13 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
 
   @Override
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
+    LOG.trace("Processing message envelope: {}", message);
+
     WindowKey<WK> storeKey =  getStoreKey(message);
     WindowState<WV> existingState = store.get(storeKey);
     WindowState<WV> newState = applyFoldFunction(existingState, message);
 
+    LOG.trace("New window value: {}, earliest timestamp: {}", newState.getWindowValue(), newState.getEarliestTimestamp());
     store.put(storeKey, newState);
 
     if (window.getEarlyTrigger() != null) {
@@ -148,18 +151,19 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
 
   private WindowState<WV> applyFoldFunction(WindowState<WV> existingState, M message) {
     WV wv;
-    long earliesttimestamp;
+    long earliestTimestamp;
 
     if (existingState == null) {
+      LOG.trace("No existing state found for key");
       wv = window.getInitializer().get();
-      earliesttimestamp = clock.currentTimeMillis();
+      earliestTimestamp = clock.currentTimeMillis();
     } else {
       wv = existingState.getWindowValue();
-      earliesttimestamp = existingState.getEarliestRecvTime();
+      earliestTimestamp = existingState.getEarliestTimestamp();
     }
 
     WV newVal = window.getFoldFunction().apply(message, wv);
-    WindowState<WV> newState = new WindowState(newVal, earliesttimestamp);
+    WindowState<WV> newState = new WindowState(newVal, earliestTimestamp);
 
     return newState;
   }
@@ -167,8 +171,11 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   private TriggerImplWrapper getOrCreateTriggerImplWrapper(TriggerKey<WK> triggerKey, Trigger<M> trigger) {
     TriggerImplWrapper wrapper = triggers.get(triggerKey);
     if (wrapper != null) {
+      LOG.trace("Returning existing trigger wrapper for {}", triggerKey);
       return wrapper;
     }
+
+    LOG.trace("Creating a new trigger wrapper for {}", triggerKey);
 
     TriggerImpl<M> triggerImpl = TriggerImpls.createTriggerImpl(trigger, clock);
     TriggerContextImpl triggerContext = new TriggerContextImpl(triggerKey);
@@ -182,11 +189,14 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
    * Handles trigger firings, and propagates results to downstream operators.
    */
   private void onTriggerFired(TriggerKey<WK> triggerKey, MessageCollector collector, TaskCoordinator coordinator) {
+    LOG.trace("Trigger key {} fired." , triggerKey);
+
     TriggerImplWrapper wrapper = triggers.get(triggerKey);
     WindowKey<WK> windowKey = triggerKey.getKey();
     WindowState<WV> state = store.get(windowKey);
 
     if (state == null) {
+      LOG.trace("No state found for triggerKey: {}", triggerKey);
       return;
     }
 
@@ -195,19 +205,27 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
 
     // Handle accumulation modes.
     if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
+      LOG.trace("Clearing state for trigger key: {}", triggerKey);
       store.put(windowKey, null);
     }
 
     // Cancel all early triggers too when the default trigger fires. Also, clean all state for the key.
     // note: We don't handle late arrivals yet, So, all arrivals are either early or on-time.
     if (triggerKey.getType() == FiringType.DEFAULT) {
+
+      LOG.trace("Default trigger fired. Canceling triggers for {}", triggerKey);
+
       cancelTrigger(triggerKey, true);
       cancelTrigger(new TriggerKey(FiringType.EARLY, triggerKey.getKey()), true);
       WindowKey<WK> key = triggerKey.getKey();
       store.delete(key);
     }
 
-    // Cancel non-repeating early triggers.
+    // Cancel non-repeating early triggers. All early triggers should be removed from the "triggers" map only after the
+    // firing of their corresponding default trigger. Removing them pre-maturely (immediately after cancellation) will
+    // will create a new {@link TriggerImplWrapper} instance at a future invocation of getOrCreateTriggerWrapper().
+    // This would cause an already canceled trigger to fire again for the window.
+
     if (triggerKey.getType() == FiringType.EARLY && !wrapper.isRepeating()) {
       cancelTrigger(triggerKey, false);
     }
@@ -223,7 +241,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
     // For session windows, we will create a new window key by using the time of the first message in the window as
     //the paneId.
     if (window.getWindowType() == WindowType.SESSION) {
-      windowKey = new WindowKey<>(windowKey.getKey(), Long.toString(state.getEarliestRecvTime()));
+      windowKey = new WindowKey<>(windowKey.getKey(), Long.toString(state.getEarliestTimestamp()));
     }
 
     // Make a defensive copy so that we are immune to further mutations on the collection
@@ -232,6 +250,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
     }
 
     WindowPane<WK, WV> paneOutput = new WindowPane<>(windowKey, windowVal, window.getAccumulationMode(), triggerKey.getType());
+    LOG.trace("Emitting pane output for trigger key {}", triggerKey);
     return paneOutput;
   }
 
@@ -262,6 +281,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
     public Cancellable scheduleCallback(Runnable runnable, long callbackTimeMs) {
       TriggerCallbackState timerState = new TriggerCallbackState(triggerKey, runnable, callbackTimeMs);
       pendingCallbacks.add(timerState);
+      LOG.trace("Scheduled a new callback: {} at {} for triggerKey {}", new Object[] {runnable, callbackTimeMs, triggerKey});
       return timerState;
     }
   }
@@ -298,6 +318,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
 
     @Override
     public boolean cancel() {
+      LOG.trace("Cancelled a callback: {} at {} for triggerKey {}", new Object[] {callback, scheduledTimeMs, triggerKey});
       return pendingCallbacks.remove(this);
     }
   }
@@ -321,6 +342,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
 
     public void onMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
       if (!isCancelled) {
+        LOG.trace("Forwarding callbacks for {}", message);
         impl.onMessage(message, context);
 
         if (impl.shouldFire()) {
@@ -335,6 +357,8 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
 
     public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
       if (impl.shouldFire() && !isCancelled) {
+        LOG.trace("Triggering timer triggers");
+
         // repeating trigger can trigger multiple times, So, clear the trigger to allow future triggerings.
         if (impl instanceof RepeatingTriggerImpl) {
           ((RepeatingTriggerImpl<M>) impl).clear();
@@ -352,6 +376,5 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
       return this.impl instanceof RepeatingTriggerImpl;
     }
   }
-
 
 }

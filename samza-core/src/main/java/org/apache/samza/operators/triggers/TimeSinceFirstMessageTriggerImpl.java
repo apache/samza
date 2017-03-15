@@ -20,16 +20,21 @@
 package org.apache.samza.operators.triggers;
 
 import org.apache.samza.util.Clock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implementation class for a {@link TimeSinceFirstMessageTrigger}
  * @param <M> the type of the incoming message
  */
 public class TimeSinceFirstMessageTriggerImpl<M> implements TriggerImpl<M> {
+
+  private static final Logger LOG = LoggerFactory.getLogger(TimeSinceFirstMessageTriggerImpl.class);
+
   private final TimeSinceFirstMessageTrigger<M> trigger;
   private final Clock clock;
   private Cancellable cancellable;
-  private boolean shouldFire;
+  private boolean shouldFire = false;
 
   public TimeSinceFirstMessageTriggerImpl(TimeSinceFirstMessageTrigger<M> trigger, Clock clock) {
     this.trigger = trigger;
@@ -42,6 +47,7 @@ public class TimeSinceFirstMessageTriggerImpl<M> implements TriggerImpl<M> {
       long triggerDurationMs = trigger.getDuration().toMillis();
       Long callbackTime = now + triggerDurationMs;
       cancellable =  context.scheduleCallback(() -> {
+          LOG.trace("Time since first message trigger fired");
           shouldFire = true;
         }, callbackTime);
     }

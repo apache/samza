@@ -31,7 +31,7 @@ public interface FilterFunction<M> extends InitableFunction {
 
   /**
    * Returns a boolean indicating whether this message should be retained or filtered out.
-   * @param message  the input message to be checked
+   * @param message  the input message to be checked. This object should not be mutated.
    * @return  true if {@code message} should be retained
    */
   boolean apply(M message);

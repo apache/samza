@@ -20,17 +20,19 @@
 package org.apache.samza.operators.triggers;
 
 import org.apache.samza.util.Clock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implementation class for a {@link RepeatingTrigger}
  */
 public class RepeatingTriggerImpl<M> implements TriggerImpl<M> {
+  private static final Logger LOG = LoggerFactory.getLogger(RepeatingTriggerImpl.class);
 
   private final Trigger<M> repeatingTrigger;
   private final Clock clock;
 
   private TriggerImpl<M> currentTriggerImpl;
-  private boolean shouldFire = false;
 
   public RepeatingTriggerImpl(RepeatingTrigger<M> repeatingTrigger, Clock clock) {
     this.repeatingTrigger = repeatingTrigger.getTrigger();
@@ -49,9 +51,9 @@ public class RepeatingTriggerImpl<M> implements TriggerImpl<M> {
   }
 
   public void clear() {
+    LOG.trace("Clearing state for repeating trigger");
     currentTriggerImpl.cancel();
     currentTriggerImpl = TriggerImpls.createTriggerImpl(repeatingTrigger, clock);
-
   }
 
   @Override

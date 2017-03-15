@@ -28,7 +28,7 @@ public interface FoldFunction<M, WV> extends InitableFunction {
    * Incrementally combine and aggregate values for the window. Guaranteed to be invoked for every
    * message added to the window.
    *
-   * @param message the incoming message that is added to the window
+   * @param message the incoming message that is added to the window. This object should not be mutated.
    * @param oldValue the previous value
    * @return the new value
    */
