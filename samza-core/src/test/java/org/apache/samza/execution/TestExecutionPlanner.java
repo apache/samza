@@ -223,14 +223,14 @@ public class TestExecutionPlanner {
     ProcessorGraph processorGraph = planner.createProcessorGraph(streamGraph);
 
     ExecutionPlanner.updateExistingPartitions(processorGraph, systemAdmins);
-    assertTrue(processorGraph.getOrCreateEdge(input1).getPartitions() == 64);
-    assertTrue(processorGraph.getOrCreateEdge(input2).getPartitions() == 16);
-    assertTrue(processorGraph.getOrCreateEdge(input3).getPartitions() == 32);
-    assertTrue(processorGraph.getOrCreateEdge(output1).getPartitions() == 8);
-    assertTrue(processorGraph.getOrCreateEdge(output2).getPartitions() == 16);
+    assertTrue(processorGraph.getOrCreateEdge(input1).getPartitionCount() == 64);
+    assertTrue(processorGraph.getOrCreateEdge(input2).getPartitionCount() == 16);
+    assertTrue(processorGraph.getOrCreateEdge(input3).getPartitionCount() == 32);
+    assertTrue(processorGraph.getOrCreateEdge(output1).getPartitionCount() == 8);
+    assertTrue(processorGraph.getOrCreateEdge(output2).getPartitionCount() == 16);
 
     processorGraph.getIntermediateStreams().forEach(edge -> {
-        assertTrue(edge.getPartitions() == -1);
+        assertTrue(edge.getPartitionCount() == -1);
       });
   }
 
@@ -245,7 +245,7 @@ public class TestExecutionPlanner {
 
     // the partitions should be the same as input1
     processorGraph.getIntermediateStreams().forEach(edge -> {
-        assertTrue(edge.getPartitions() == 64);
+        assertTrue(edge.getPartitionCount() == 64);
       });
   }
 
@@ -262,7 +262,7 @@ public class TestExecutionPlanner {
 
     // the partitions should be the same as input1
     processorGraph.getIntermediateStreams().forEach(edge -> {
-        assertTrue(edge.getPartitions() == DEFAULT_PARTITIONS);
+        assertTrue(edge.getPartitionCount() == DEFAULT_PARTITIONS);
       });
   }
 
@@ -275,7 +275,7 @@ public class TestExecutionPlanner {
 
     // the partitions should be the same as input1
     processorGraph.getIntermediateStreams().forEach(edge -> {
-        assertTrue(edge.getPartitions() == 64); // max of input1 and output1
+        assertTrue(edge.getPartitionCount() == 64); // max of input1 and output1
       });
   }
 }

@@ -152,7 +152,7 @@ public class ExecutionPlanner {
       // set the partitions of a stream to its StreamEdge
       streamToMetadata.forEach((stream, data) -> {
           int partitions = data.getSystemStreamPartitionMetadata().size();
-          streamToStreamEdge.get(stream).setPartitions(partitions);
+          streamToStreamEdge.get(stream).setPartitionCount(partitions);
           log.debug("Partition count is {} for stream {}", partitions, stream);
         });
     }
@@ -185,12 +185,12 @@ public class ExecutionPlanner {
     // At this point, joinQ contains joinSpecs where at least one of the input stream edge partitions is known.
     while (!joinQ.isEmpty()) {
       OperatorSpec join = joinQ.poll();
-      int partitions = -1;
+      int partitions = StreamEdge.PARTITIONS_UNKNOWN;
       // loop through the input streams to the join and find the partition count
       for (StreamEdge edge : joinSpecToStreamEdges.get(join)) {
-        int edgePartitions = edge.getPartitions();
-        if (edgePartitions != -1) {
-          if (partitions == -1) {
+        int edgePartitions = edge.getPartitionCount();
+        if (edgePartitions != StreamEdge.PARTITIONS_UNKNOWN) {
+          if (partitions == StreamEdge.PARTITIONS_UNKNOWN) {
             //if the partition is not assigned
             partitions = edgePartitions;
           } else if (partitions != edgePartitions) {
@@ -200,10 +200,10 @@ public class ExecutionPlanner {
           }
         }
       }
-      // assign the partition count
+      // assign the partition count for intermediate streams
       for (StreamEdge edge : joinSpecToStreamEdges.get(join)) {
-        if (edge.getPartitions() <= 0) {
-          edge.setPartitions(partitions);
+        if (edge.getPartitionCount() <= 0) {
+          edge.setPartitionCount(partitions);
 
           // find other joins can be inferred by setting this edge
           for (OperatorSpec op : streamEdgeToJoinSpecs.get(edge)) {
@@ -245,7 +245,7 @@ public class ExecutionPlanner {
         joinSpecToStreamEdges.put(joinSpec, sourceStreamEdge);
         streamEdgeToJoinSpecs.put(sourceStreamEdge, joinSpec);
 
-        if (!visited.contains(joinSpec) && sourceStreamEdge.getPartitions() > 0) {
+        if (!visited.contains(joinSpec) && sourceStreamEdge.getPartitionCount() > 0) {
           // put the joins with known input partitions into the queue
           joinQ.add(joinSpec);
           visited.add(joinSpec);
@@ -260,7 +260,7 @@ public class ExecutionPlanner {
   }
 
   private static void calculateIntStreamPartitions(ProcessorGraph processorGraph, Config config) {
-    int partitions = config.getInt(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), -1);
+    int partitions = config.getInt(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), StreamEdge.PARTITIONS_UNKNOWN);
     if (partitions < 0) {
       // use the following simple algo to figure out the partitions
       // partition = MAX(MAX(Input topic partitions), MAX(Output topic partitions))
@@ -269,15 +269,15 @@ public class ExecutionPlanner {
       partitions = Math.max(maxInPartitions, maxOutPartitions);
     }
     for (StreamEdge edge : processorGraph.getIntermediateStreams()) {
-      if (edge.getPartitions() <= 0) {
-        edge.setPartitions(partitions);
+      if (edge.getPartitionCount() <= 0) {
+        edge.setPartitionCount(partitions);
       }
     }
   }
 
   private static void validatePartitions(ProcessorGraph processorGraph) {
     for (StreamEdge edge : processorGraph.getIntermediateStreams()) {
-      if (edge.getPartitions() <= 0) {
+      if (edge.getPartitionCount() <= 0) {
         throw new SamzaException(String.format("Failure to assign the partitions to Stream %s", edge.getFormattedSystemStream()));
       }
     }
@@ -303,12 +303,12 @@ public class ExecutionPlanner {
   }
 
   private static int maxPartition(Collection<StreamEdge> edges) {
-    return edges.stream().map(StreamEdge::getPartitions).reduce(Integer::max).get();
+    return edges.stream().map(StreamEdge::getPartitionCount).reduce(Integer::max).get();
   }
 
   private static StreamSpec createStreamSpec(StreamEdge edge) {
     StreamSpec orgSpec = edge.getStreamSpec();
-    return orgSpec.copyWithPartitionCount(edge.getPartitions());
+    return orgSpec.copyWithPartitionCount(edge.getPartitionCount());
   }
 
   private static Map<String, SystemAdmin> getSystemAdmins(Config config) {

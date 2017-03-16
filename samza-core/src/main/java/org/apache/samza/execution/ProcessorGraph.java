@@ -128,7 +128,7 @@ public class ProcessorGraph {
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
-      edge = new StreamEdge(streamSpec, config);
+      edge = new StreamEdge(streamSpec);
       edges.put(streamId, edge);
     }
     return edge;

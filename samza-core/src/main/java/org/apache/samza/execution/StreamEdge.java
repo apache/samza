@@ -21,7 +21,6 @@ package org.apache.samza.execution;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.samza.config.Config;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Util;
@@ -33,17 +32,17 @@ import org.apache.samza.util.Util;
  * If it's a source StreamEdge, the source ProcessorNode is empty.
  */
 public class StreamEdge {
+  public static final int PARTITIONS_UNKNOWN = -1;
+
   private final StreamSpec streamSpec;
   private final List<ProcessorNode> sourceNodes = new ArrayList<>();
   private final List<ProcessorNode> targetNodes = new ArrayList<>();
-  private final Config config;
 
   private String name = "";
-  private int partitions = -1;
+  private int partitions = PARTITIONS_UNKNOWN;
 
-  StreamEdge(StreamSpec streamSpec, Config config) {
+  StreamEdge(StreamSpec streamSpec) {
     this.streamSpec = streamSpec;
-    this.config = config;
     this.name = Util.getNameFromSystemStream(getSystemStream());
   }
 
@@ -75,11 +74,11 @@ public class StreamEdge {
     return targetNodes;
   }
 
-  int getPartitions() {
+  int getPartitionCount() {
     return partitions;
   }
 
-  void setPartitions(int partitions) {
+  void setPartitionCount(int partitions) {
     this.partitions = partitions;
   }
 
