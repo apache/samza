@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.triggers;
 
+import org.apache.samza.operators.impl.TriggerContext;
 import org.apache.samza.util.Clock;
 
 import java.util.ArrayList;
@@ -27,11 +28,11 @@ import java.util.List;
 /**
  * Implementation of an {@link AnyTrigger}
  */
-public class AnyTriggerImpl<M> implements TriggerImpl<M> {
+public class AnyTriggerImpl<M, WK> implements TriggerImpl<M, WK> {
 
   private final List<Trigger<M>> triggers;
 
-  private final List<TriggerImpl<M>> triggerImpls = new ArrayList<>();
+  private final List<TriggerImpl<M, WK>> triggerImpls = new ArrayList<>();
   private final Clock clock;
   private boolean shouldFire = false;
 
@@ -44,8 +45,8 @@ public class AnyTriggerImpl<M> implements TriggerImpl<M> {
   }
 
   @Override
-  public void onMessage(M message, TriggerContext context) {
-    for (TriggerImpl<M> impl : triggerImpls) {
+  public void onMessage(M message, TriggerContext<WK> context) {
+    for (TriggerImpl<M, WK> impl : triggerImpls) {
       impl.onMessage(message, context);
       if (impl.shouldFire()) {
         shouldFire = true;
@@ -58,8 +59,8 @@ public class AnyTriggerImpl<M> implements TriggerImpl<M> {
   }
 
   public void cancel() {
-    for (Iterator<TriggerImpl<M>> it = triggerImpls.iterator(); it.hasNext(); ) {
-      TriggerImpl<M> impl = it.next();
+    for (Iterator<TriggerImpl<M, WK>> it = triggerImpls.iterator(); it.hasNext(); ) {
+      TriggerImpl<M, WK> impl = it.next();
       impl.cancel();
       it.remove();
     }
@@ -67,7 +68,7 @@ public class AnyTriggerImpl<M> implements TriggerImpl<M> {
 
   @Override
   public boolean shouldFire() {
-    for (TriggerImpl<M> impl : triggerImpls) {
+    for (TriggerImpl<M, WK> impl : triggerImpls) {
       if (impl.shouldFire()) {
         shouldFire = true;
         break;

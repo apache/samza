@@ -25,11 +25,11 @@ import org.apache.samza.operators.windows.WindowKey;
 /**
  * Uniquely identifies a trigger firing
  */
-class TriggerKey<T> {
+class TriggerKey<WK> {
   private final FiringType type;
-  private final WindowKey<T> key;
+  private final WindowKey<WK> key;
 
-  public TriggerKey(FiringType type, WindowKey<T> key) {
+  public TriggerKey(FiringType type, WindowKey<WK> key) {
     if (type == null) {
       throw new IllegalArgumentException("Firing type cannot be null");
     }
@@ -49,7 +49,7 @@ class TriggerKey<T> {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    TriggerKey<T> that = (TriggerKey<T>) o;
+    TriggerKey<WK> that = (TriggerKey<WK>) o;
     return type == that.type && key.equals(that.key);
   }
 
@@ -63,7 +63,7 @@ class TriggerKey<T> {
     return result;
   }
 
-  public WindowKey<T> getKey() {
+  public WindowKey<WK> getKey() {
     return key;
   }
 

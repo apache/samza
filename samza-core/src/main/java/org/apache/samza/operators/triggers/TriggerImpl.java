@@ -20,6 +20,8 @@
 package org.apache.samza.operators.triggers;
 
 
+import org.apache.samza.operators.impl.TriggerContext;
+
 /**
  * Implementation class for a {@link Trigger}. A {@link TriggerImpl} is used with a
  * which is invoked when the trigger fires.
@@ -37,14 +39,14 @@ package org.apache.samza.operators.triggers;
  * New instances of {@link TriggerImpl} are created on a re-start.
  *
  */
-public interface TriggerImpl<M> {
+public interface TriggerImpl<M, WK> {
 
   /**
    * Invoked when a message is added to the window corresponding to this {@link TriggerImpl}.
    * @param message the incoming message
    * @param context the {@link TriggerContext} to schedule and cancel callbacks
    */
-  public void onMessage(M message, TriggerContext context);
+  public void onMessage(M message, TriggerContext<WK> context);
 
   /**
    * Returns {@code true} if the current state of the trigger indicates that its condition

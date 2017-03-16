@@ -19,6 +19,7 @@
 
 package org.apache.samza.operators.triggers;
 
+import org.apache.samza.operators.impl.TriggerContext;
 import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +27,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Implementation class for a {@link TimeTrigger}
  */
-public class TimeTriggerImpl<M> implements TriggerImpl<M> {
+public class TimeTriggerImpl<M, WK> implements TriggerImpl<M, WK> {
 
   private static final Logger LOG = LoggerFactory.getLogger(TimeTriggerImpl.class);
 
@@ -40,7 +41,7 @@ public class TimeTriggerImpl<M> implements TriggerImpl<M> {
     this.clock = clock;
   }
 
-  public void onMessage(M message, TriggerContext context) {
+  public void onMessage(M message, TriggerContext<WK> context) {
     final long now = clock.currentTimeMillis();
     long triggerDurationMs = trigger.getDuration().toMillis();
     Long callbackTime = (now - now % triggerDurationMs) + triggerDurationMs;

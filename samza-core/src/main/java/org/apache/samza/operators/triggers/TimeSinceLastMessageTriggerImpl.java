@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.triggers;
 
+import org.apache.samza.operators.impl.TriggerContext;
 import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +27,7 @@ import org.slf4j.LoggerFactory;
  * Implementation class for a {@link TimeSinceLastMessageTrigger}
  * @param <M> the type of the incoming message
  */
-public class TimeSinceLastMessageTriggerImpl<M> implements TriggerImpl<M> {
+public class TimeSinceLastMessageTriggerImpl<M, WK> implements TriggerImpl<M, WK> {
 
   private static final Logger LOG = LoggerFactory.getLogger(TimeSinceLastMessageTriggerImpl.class);
   private final TimeSinceLastMessageTrigger<M> trigger;
@@ -43,7 +44,7 @@ public class TimeSinceLastMessageTriggerImpl<M> implements TriggerImpl<M> {
   }
 
   @Override
-  public void onMessage(M message, TriggerContext context) {
+  public void onMessage(M message, TriggerContext<WK> context) {
     if (!shouldFire) {
       long currTime = clock.currentTimeMillis();
 

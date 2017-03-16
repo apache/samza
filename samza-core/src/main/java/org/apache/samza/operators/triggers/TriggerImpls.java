@@ -27,7 +27,7 @@ import org.apache.samza.util.Clock;
  */
 public class TriggerImpls {
 
-  public static <M> TriggerImpl<M> createTriggerImpl(Trigger<M> trigger, Clock clock) {
+  public static <M, WK> TriggerImpl<M, WK> createTriggerImpl(Trigger<M> trigger, Clock clock) {
 
     if (trigger == null) {
       throw new IllegalArgumentException("Trigger must not be null");

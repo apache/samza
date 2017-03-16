@@ -20,11 +20,9 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.WindowState;
-import org.apache.samza.operators.triggers.Cancellable;
 import org.apache.samza.operators.triggers.RepeatingTriggerImpl;
 import org.apache.samza.operators.triggers.TimeTrigger;
 import org.apache.samza.operators.triggers.Trigger;
-import org.apache.samza.operators.triggers.TriggerContext;
 import org.apache.samza.operators.triggers.TriggerImpl;
 import org.apache.samza.operators.triggers.TriggerImpls;
 import org.apache.samza.operators.triggers.FiringType;
@@ -73,7 +71,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   private static final Logger LOG = LoggerFactory.getLogger(WindowOperatorImpl.class);
 
   // Queue of pending callbacks. Callbacks are evaluated at every tick.
-  private final PriorityQueue<TriggerCallbackState> pendingCallbacks = new PriorityQueue<>();
+  private final PriorityQueue<TriggerContext<WK>.TriggerCallbackState<WK>> pendingCallbacks = new PriorityQueue<>();
   private final WindowInternal<M, WK, WV> window;
   private final KeyValueStore<WindowKey<WK>, WindowState<WV>> store = new InternalInMemoryStore<>();
 
@@ -114,12 +112,12 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   @Override
   public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
     long now = clock.currentTimeMillis();
-    TriggerCallbackState state;
+    TriggerContext<WK>.TriggerCallbackState<WK> state;
     while ((state = pendingCallbacks.peek()) != null && state.getScheduledTimeMs() <= now) {
       pendingCallbacks.remove();
       state.getCallback().run();
 
-      TriggerImplWrapper triggerImplWrapper = triggers.get(state.triggerKey);
+      TriggerImplWrapper triggerImplWrapper = triggers.get(state.getTriggerKey());
       if (triggerImplWrapper != null) {
         triggerImplWrapper.onTimer(collector, coordinator);
       }
@@ -177,8 +175,8 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
 
     LOG.trace("Creating a new trigger wrapper for {}", triggerKey);
 
-    TriggerImpl<M> triggerImpl = TriggerImpls.createTriggerImpl(trigger, clock);
-    TriggerContextImpl triggerContext = new TriggerContextImpl(triggerKey);
+    TriggerImpl<M, WK> triggerImpl = TriggerImpls.createTriggerImpl(trigger, clock);
+    TriggerContext<WK> triggerContext = new TriggerContext(triggerKey, pendingCallbacks);
     wrapper = new TriggerImplWrapper(triggerKey, triggerImpl, triggerContext);
     triggers.put(triggerKey, wrapper);
 
@@ -268,73 +266,17 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   }
 
   /**
-   * Implementation of the {@link TriggerContext} that allows {@link TriggerImpl}s to schedule and cancel callbacks.
-   */
-  public class TriggerContextImpl implements TriggerContext {
-    private final TriggerKey<WK> triggerKey;
-
-    public TriggerContextImpl(TriggerKey<WK> triggerKey) {
-      this.triggerKey = triggerKey;
-    }
-
-    @Override
-    public Cancellable scheduleCallback(Runnable runnable, long callbackTimeMs) {
-      TriggerCallbackState timerState = new TriggerCallbackState(triggerKey, runnable, callbackTimeMs);
-      pendingCallbacks.add(timerState);
-      LOG.trace("Scheduled a new callback: {} at {} for triggerKey {}", new Object[] {runnable, callbackTimeMs, triggerKey});
-      return timerState;
-    }
-  }
-
-  /**
-   * State corresponding to pending timer callbacks scheduled by various {@link TriggerImpl}s.
-   */
-  private class TriggerCallbackState implements Comparable<TriggerCallbackState>, Cancellable {
-
-    private final TriggerKey<WK> triggerKey;
-    private final Runnable callback;
-
-    // the time at which the callback should trigger
-    private final long scheduledTimeMs;
-
-    private TriggerCallbackState(TriggerKey<WK> triggerKey, Runnable callback, long scheduledTimeMs) {
-      this.triggerKey = triggerKey;
-      this.callback = callback;
-      this.scheduledTimeMs = scheduledTimeMs;
-    }
-
-    private Runnable getCallback() {
-      return callback;
-    }
-
-    private long getScheduledTimeMs() {
-      return scheduledTimeMs;
-    }
-
-    @Override
-    public int compareTo(TriggerCallbackState other) {
-      return Long.compare(this.scheduledTimeMs, other.scheduledTimeMs);
-    }
-
-    @Override
-    public boolean cancel() {
-      LOG.trace("Cancelled a callback: {} at {} for triggerKey {}", new Object[] {callback, scheduledTimeMs, triggerKey});
-      return pendingCallbacks.remove(this);
-    }
-  }
-
-  /**
    * State corresponding to a created {@link TriggerImpl} instance.
    */
   private class TriggerImplWrapper {
     private final TriggerKey<WK> key;
     // The context, and the {@link TriggerImpl} instance corresponding to this triggerKey
-    private final TriggerImpl<M> impl;
-    private final TriggerContext context;
+    private final TriggerImpl<M, WK> impl;
+    private final TriggerContext<WK> context;
     // Guard to ensure that we don't invoke onMessage or onTimer on already cancelled triggers
     private boolean isCancelled = false;
 
-    public TriggerImplWrapper(TriggerKey<WK> key, TriggerImpl<M> impl, TriggerContext context) {
+    public TriggerImplWrapper(TriggerKey<WK> key, TriggerImpl<M, WK> impl, TriggerContext<WK> context) {
       this.key = key;
       this.impl = impl;
       this.context = context;
@@ -348,7 +290,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
         if (impl.shouldFire()) {
           // repeating trigger can trigger multiple times, So, clear the state to allow future triggerings.
           if (impl instanceof RepeatingTriggerImpl) {
-            ((RepeatingTriggerImpl<M>) impl).clear();
+            ((RepeatingTriggerImpl<M, WK>) impl).clear();
           }
           onTriggerFired(key, collector, coordinator);
         }
@@ -361,7 +303,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
 
         // repeating trigger can trigger multiple times, So, clear the trigger to allow future triggerings.
         if (impl instanceof RepeatingTriggerImpl) {
-          ((RepeatingTriggerImpl<M>) impl).clear();
+          ((RepeatingTriggerImpl<M, WK>) impl).clear();
         }
         onTriggerFired(key, collector, coordinator);
       }

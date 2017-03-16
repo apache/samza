@@ -19,6 +19,7 @@
 
 package org.apache.samza.operators.triggers;
 
+import org.apache.samza.operators.impl.TriggerContext;
 import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,13 +27,13 @@ import org.slf4j.LoggerFactory;
 /**
  * Implementation class for a {@link RepeatingTrigger}
  */
-public class RepeatingTriggerImpl<M> implements TriggerImpl<M> {
+public class RepeatingTriggerImpl<M, WK> implements TriggerImpl<M, WK> {
   private static final Logger LOG = LoggerFactory.getLogger(RepeatingTriggerImpl.class);
 
   private final Trigger<M> repeatingTrigger;
   private final Clock clock;
 
-  private TriggerImpl<M> currentTriggerImpl;
+  private TriggerImpl<M, WK> currentTriggerImpl;
 
   public RepeatingTriggerImpl(RepeatingTrigger<M> repeatingTrigger, Clock clock) {
     this.repeatingTrigger = repeatingTrigger.getTrigger();
@@ -41,7 +42,7 @@ public class RepeatingTriggerImpl<M> implements TriggerImpl<M> {
   }
 
   @Override
-  public void onMessage(M message, TriggerContext context) {
+  public void onMessage(M message, TriggerContext<WK> context) {
     currentTriggerImpl.onMessage(message, context);
   }
 
