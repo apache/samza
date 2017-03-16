@@ -35,10 +35,12 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
+import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.SamzaContainerLaunchException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.YarnConfig;
+import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.job.CommandBuilder;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -47,6 +49,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A Helper class to run container processes on Yarn. This encapsulates quite a bit of YarnContainer
@@ -112,11 +116,11 @@ public class YarnContainerRunner {
 
     log.info("Samza FWK path: " + command + "; env=" + env);
 
-    Path path = new Path(yarnConfig.getPackagePath());
-    log.info("Starting container ID {} using package path {}", samzaContainerId, path);
+    Path packagePath = new Path(yarnConfig.getPackagePath());
+    log.info("Starting container ID {} using package path {}", samzaContainerId, packagePath);
 
     startContainer(
-        path,
+        packagePath,
         container,
         env,
         getFormattedCommand(
@@ -144,13 +148,15 @@ public class YarnContainerRunner {
    *    Runs a command as a process on the container. All binaries needed by the physical process are packaged in the URL
    *    specified by packagePath.
    */
-  private void startContainer(Path packagePath,
+  private void startContainer(Path packagePath, //keep packagePath out of resourceNamePathMap for backward compatibility purpose
                                 Container container,
                                 Map<String, String> env,
                                 final String cmd) throws SamzaContainerLaunchException {
     log.info("starting container {} {} {} {}",
         new Object[]{packagePath, container, env, cmd});
 
+    // TODO: SAMZA-1144 remove the customized approach for package resource and use the common one.
+    // But keep it now for backward compatibility.
     // set the local package so that the containers and app master are provisioned with it
     LocalResource packageResource = Records.newRecord(LocalResource.class);
     URL packageUrl = ConverterUtils.getYarnUrlFromPath(packagePath);
@@ -163,6 +169,7 @@ public class YarnContainerRunner {
     }
 
     packageResource.setResource(packageUrl);
+    log.info("set package Resource in YarnContainerRunner for {}", packageUrl);
     packageResource.setSize(fileStatus.getLen());
     packageResource.setTimestamp(fileStatus.getModificationTime());
     packageResource.setType(LocalResourceType.ARCHIVE);
@@ -190,13 +197,25 @@ public class YarnContainerRunner {
       throw new SamzaContainerLaunchException("IO Exception when writing credentials to output buffer");
     }
 
+    Map<String, LocalResource> localResourceMap = new HashMap<>();
+    localResourceMap.put("__package", packageResource);
+
+    // include the resources from the universal resource configurations
+    try {
+      LocalizerResourceMapper resourceMapper = new LocalizerResourceMapper(config, yarnConfiguration);
+      resourceMapper.map(); // generate all resources from the universal resource configurations
+      localResourceMap.putAll(resourceMapper.getResourceMap());
+    } catch (LocalizerResourceException e) {
+      throw new SamzaContainerLaunchException("Exception during resource mapping from config. ", e);
+    }
+
     ContainerLaunchContext context = Records.newRecord(ContainerLaunchContext.class);
     context.setEnvironment(env);
     context.setTokens(allTokens.duplicate());
     context.setCommands(new ArrayList<String>() {{add(cmd);}});
-    context.setLocalResources(Collections.singletonMap("__package", packageResource));
+    context.setLocalResources(localResourceMap);
 
-    log.debug("setting package to {}", packageResource);
+    log.debug("setting localResourceMap to {}", localResourceMap);
     log.debug("setting context to {}", context);
 
     StartContainerRequest startContainerRequest = Records.newRecord(StartContainerRequest.class);

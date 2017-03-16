@@ -27,6 +27,13 @@ public class YarnConfig extends MapConfig {
    */
   public static final String PACKAGE_PATH = "yarn.package.path";
 
+  /**
+   * The prefix for defining any optional yarn localizer resource
+   * The key will be localizer.resource.&lt;resourceVisibility&gt;.&lt;resourceType&gt;.&lt;resourceName&gt;
+   * The value corresponding to the key will be the URI.
+   */
+  public static final String LOCALIZER_RESOURCE_PREFIX = "yarn.localizer.resource.";
+
   // Configs related to each yarn container
   /**
    * Memory, in megabytes, to request from YARN per container
@@ -185,6 +192,15 @@ public class YarnConfig extends MapConfig {
     }
     return packagePath;
   }
+
+  public Config getLocalizerResourceConfigs() {
+    Config localizerResourceConfigs = subset(LOCALIZER_RESOURCE_PREFIX, false); // do not strip off the prefix
+    if (localizerResourceConfigs == null || localizerResourceConfigs.isEmpty()) {
+      throw new SamzaException("No Samza app localizer resource path defined in config.");
+    }
+    return localizerResourceConfigs;
+  }
+
 
   public int getAMContainerMaxMemoryMb() {
     return getInt(AM_CONTAINER_MAX_MEMORY_MB, DEFAULT_AM_CONTAINER_MAX_MEMORY_MB);
