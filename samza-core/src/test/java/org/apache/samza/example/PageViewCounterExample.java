@@ -58,7 +58,7 @@ public class PageViewCounterExample implements StreamGraphBuilder {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
-    localRunner.run(new PageViewCounterExample(), config);
+    localRunner.run(new PageViewCounterExample());
   }
 
   StreamSpec input1 = new StreamSpec("pageViewEventStream", "PageViewEvent", "kafka");

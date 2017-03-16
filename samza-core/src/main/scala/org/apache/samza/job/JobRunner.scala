@@ -64,7 +64,7 @@ class JobRunner(config: Config) extends Logging {
     debug("config: %s" format (config))
     val jobFactoryClass = config.getStreamJobFactoryClass match {
       case Some(factoryClass) => factoryClass
-      case _ => throw new SamzaException("no job factory class defined")Str
+      case _ => throw new SamzaException("no job factory class defined")
     }
     val jobFactory = ClassLoaderHelper.fromClassName[StreamJobFactory](jobFactoryClass)
     info("job factory: %s" format (jobFactoryClass))
