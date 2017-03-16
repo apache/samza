@@ -19,6 +19,7 @@
 
 package org.apache.samza.execution;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -162,8 +163,8 @@ public class TestExecutionPlanner {
     MessageStream m2 = streamGraph.createInStream(input2, null, null).partitionBy(m -> "haha").filter(m -> true);
     MessageStream m3 = streamGraph.createInStream(input3, null, null).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
 
-    m1.join(m2, createJoin()).sendTo(streamGraph.createOutStream(output1, null, null));
-    m3.join(m2, createJoin()).sendTo(streamGraph.createOutStream(output2, null, null));
+    m1.join(m2, createJoin(), Duration.ofHours(1)).sendTo(streamGraph.createOutStream(output1, null, null));
+    m3.join(m2, createJoin(), Duration.ofHours(1)).sendTo(streamGraph.createOutStream(output2, null, null));
 
     return streamGraph;
   }
