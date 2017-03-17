@@ -68,8 +68,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     this.zkController = new ZkControllerImpl(String.valueOf(processorId), zkUtils, debounceTimer, this);
     this.config = config;
 
-
-    //barrier = new ZkBarrierForVersionUpgrade(zkUtils, debounceTimer);
     streamMetadataCache = getStreamMetadataCache();
   }
 

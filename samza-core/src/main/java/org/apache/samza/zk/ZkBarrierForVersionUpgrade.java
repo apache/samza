@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
+import org.I0Itec.zkclient.exception.ZkBadVersionException;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.samza.SamzaException;
 import org.apache.zookeeper.data.Stat;
@@ -95,12 +96,12 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     try {
       // write a new value "TIMED_OUT", if the value was changed since previous value, make sure it was changed to "DONE"
       zkUtils.getZkClient().writeData(barrierDonePath, BARRIER_TIMED_OUT, currentStatOfBarrierDone.getVersion());
-    } catch (Exception e) {
+    } catch (ZkBadVersionException badVerE) {
       // failed to write, make sure the value is "DONE"
-      LOG.info("Barrier timeout write failed");
+      LOG.warn("Barrier timeout write failed");
       String done = zkUtils.getZkClient().<String>readData(barrierDonePath);
       if (!done.equals(BARRIER_DONE)) {
-        throw new SamzaException("Failed to write to the barrier_done, version=" + version, e);
+        throw new SamzaException("Failed to write to the barrier_done, version=" + version, badVerE);
       }
     }
   }
