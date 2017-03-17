@@ -26,7 +26,7 @@ import org.apache.samza.system.StreamSpec;
 
 public abstract class AbstractApplicationRunner implements ApplicationRunner {
 
-  private final Config config;
+  protected final Config config;
 
   public AbstractApplicationRunner(Config config) {
     if (config == null) {

@@ -76,9 +76,8 @@ public interface ApplicationRunner {
    * Method to be invoked to deploy and run the actual Samza jobs to execute {@link org.apache.samza.operators.StreamGraph}
    *
    * @param graphBuilder  the user-defined {@link StreamGraphBuilder} object
-   * @param config  the {@link Config} object for this job
    */
-  void run(StreamGraphBuilder graphBuilder, Config config);
+  void run(StreamGraphBuilder graphBuilder);
 
   /**
    * Constructs a {@link StreamSpec} from the configuration for the specified streamId.

@@ -201,7 +201,7 @@ public class TestExecutionPlanner {
 
     runner = new AbstractApplicationRunner(config) {
       @Override
-      public void run(StreamGraphBuilder graphBuilder, Config config) {
+      public void run(StreamGraphBuilder graphBuilder) {
       }
     };
   }
