@@ -1,3 +1,5 @@
+// CHECKSTYLE:OFF
+// Turn off checkstyle for this class because of a checkstyle bug in handling nested typed collections
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
