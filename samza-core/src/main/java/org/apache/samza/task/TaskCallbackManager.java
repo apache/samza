@@ -19,6 +19,9 @@
 
 package org.apache.samza.task;
 
+import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -46,40 +49,22 @@ class TaskCallbackManager {
      * Adding the newly complete callback to the callback queue
      * Move the queue to the last contiguous callback to commit offset
      * @param cb new callback completed
-     * @return callback of highest watermark needed to be committed
+     * @return list of callbacks to be committed
      */
-    TaskCallbackImpl update(TaskCallbackImpl cb) {
+    List<TaskCallbackImpl> update(TaskCallbackImpl cb) {
       synchronized (lock) {
         callbacks.add(cb);
-
-        TaskCallbackImpl callback = null;
-        TaskCallbackImpl callbackToCommit = null;
-        TaskCoordinator.RequestScope shutdownRequest = null;
+        List<TaskCallbackImpl> callbacksToUpdate = new ArrayList<>();
         // look for the last contiguous callback
         while (!callbacks.isEmpty() && callbacks.peek().matchSeqNum(nextSeqNum)) {
           ++nextSeqNum;
-          callback = callbacks.poll();
-
+          TaskCallbackImpl callback = callbacks.poll();
+          callbacksToUpdate.add(callback);
           if (callback.coordinator.commitRequest().isDefined()) {
-            callbackToCommit = callback;
-          }
-
-          if (callback.coordinator.shutdownRequest().isDefined()) {
-            shutdownRequest = callback.coordinator.shutdownRequest().get();
+            break;
           }
         }
-
-        // if there is no manual commit, use the highest contiguous callback message offset
-        if (callbackToCommit == null) {
-          callbackToCommit = callback;
-        }
-
-        // if there is a shutdown request, merge it into the coordinator to commit
-        if (shutdownRequest != null) {
-          callbackToCommit.coordinator.shutdown(shutdownRequest);
-        }
-
-        return callbackToCommit;
+        return callbacksToUpdate;
       }
     }
   }
@@ -127,14 +112,14 @@ class TaskCallbackManager {
    * Update the task callbacks with the new callback completed.
    * It uses a high-watermark model to roll the callbacks for checkpointing.
    * @param callback new completed callback
-   * @return the callback for checkpointing
+   * @return the list of callbacks for checkpointing
    */
-  public TaskCallbackImpl updateCallback(TaskCallbackImpl callback) {
+  public List<TaskCallbackImpl> updateCallback(TaskCallbackImpl callback) {
     if (maxConcurrency > 1) {
       // Use the completedCallbacks queue to handle the out-of-order case when max concurrency is larger than 1
       return completedCallbacks.update(callback);
     } else {
-      return callback;
+      return ImmutableList.of(callback);
     }
   }
 }
