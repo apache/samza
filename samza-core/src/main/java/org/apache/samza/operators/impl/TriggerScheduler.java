@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.PriorityQueue;
 
 /**
- * Allows to schedule and cancel callbacks.
+ * Allows to schedule and cancel callbacks for triggers.
  */
 public class TriggerScheduler<WK> {
 
@@ -47,8 +47,8 @@ public class TriggerScheduler<WK> {
    * Schedule the provided runnable for execution at the specified duration.
    * @param runnable the provided runnable to schedule.
    * @param scheduledTimeMs time at which the runnable must be scheduled for execution
-   * @param triggerKey a {@link Cancellable} instance which can be used to cancel the execution of this runnable.
-   * @return a {@link Cancellable} that can be used to cancel the execution of this callback.
+   * @param triggerKey a key that uniquely identifies the corresponding trigger firing.
+   * @return a {@link Cancellable} that can be used to cancel the execution of this runnable.
    */
   public Cancellable scheduleCallback(Runnable runnable, long scheduledTimeMs, TriggerKey<WK> triggerKey) {
     TriggerCallbackState<WK> timerState = new TriggerCallbackState(triggerKey, runnable, scheduledTimeMs);
@@ -58,10 +58,10 @@ public class TriggerScheduler<WK> {
   }
 
   /**
-   * Run all pending callbacks that are ready to schedule. A callback is defined as "ready" if it's scheduledTime
-   * is less than or equal to clock.currentTimeMillis()
+   * Run all pending callbacks that are ready to be scheduled. A callback is defined as "ready" if it's scheduledTime
+   * is less than or equal to {@link Clock#currentTimeMillis()}
    *
-   * @return the list of TriggerKeys corresponding to those callbacks that were run.
+   * @return the list of {@link TriggerKey}s corresponding to the callbacks that were run.
    */
   public List<TriggerKey<WK>> runPendingCallbacks() {
     TriggerCallbackState<WK> state;
