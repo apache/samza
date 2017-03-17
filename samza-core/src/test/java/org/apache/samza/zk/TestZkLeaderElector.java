@@ -69,7 +69,7 @@ public class TestZkLeaderElector {
     }
   }
 
-  public static class BooleanResult {
+  private static class BooleanResult {
     public boolean res = false;
   }
 
