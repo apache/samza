@@ -38,8 +38,8 @@ public class TriggerScheduler<WK> {
   private final PriorityQueue<TriggerCallbackState<WK>> pendingCallbacks;
   private final Clock clock;
 
-  public TriggerScheduler(PriorityQueue<TriggerCallbackState<WK>> pendingCallbacks, Clock clock) {
-    this.pendingCallbacks = pendingCallbacks;
+  public TriggerScheduler(Clock clock) {
+    this.pendingCallbacks = new PriorityQueue<>();
     this.clock = clock;
   }
 
@@ -80,7 +80,7 @@ public class TriggerScheduler<WK> {
   /**
    * State corresponding to pending timer callbacks scheduled by various triggers.
    */
-  class TriggerCallbackState<WK> implements Comparable<TriggerCallbackState<WK>>, Cancellable {
+  private class TriggerCallbackState<WK> implements Comparable<TriggerCallbackState<WK>>, Cancellable {
 
     private final TriggerKey<WK> triggerKey;
     private final Runnable callback;
@@ -88,21 +88,21 @@ public class TriggerScheduler<WK> {
     // the time at which the callback should trigger
     private final long scheduledTimeMs;
 
-    public TriggerCallbackState(TriggerKey<WK> triggerKey, Runnable callback, long scheduledTimeMs) {
+    private TriggerCallbackState(TriggerKey<WK> triggerKey, Runnable callback, long scheduledTimeMs) {
       this.triggerKey = triggerKey;
       this.callback = callback;
       this.scheduledTimeMs = scheduledTimeMs;
     }
 
-    public Runnable getCallback() {
+    private Runnable getCallback() {
       return callback;
     }
 
-    public long getScheduledTimeMs() {
+    private long getScheduledTimeMs() {
       return scheduledTimeMs;
     }
 
-    public TriggerKey<WK> getTriggerKey() {
+    private TriggerKey<WK> getTriggerKey() {
       return triggerKey;
     }
 

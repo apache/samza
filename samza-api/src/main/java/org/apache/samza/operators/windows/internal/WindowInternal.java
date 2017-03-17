@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.windows.internal;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.functions.FoldFunction;
+import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.Window;
@@ -49,7 +49,7 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
   /*
    * The function that is applied each time a {@link MessageEnvelope} is added to this window.
    */
-  private final FoldFunction<M, WV> foldFunction;
+  private final FoldLeftFunction<M, WV> foldLeftFunction;
 
   /*
    * The function that extracts the key from a {@link MessageEnvelope}
@@ -72,10 +72,10 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
 
   private AccumulationMode mode;
 
-  public WindowInternal(Trigger<M> defaultTrigger, Supplier<WV> initialValue, FoldFunction<M, WV> foldFunction, Function<M, WK> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType) {
+  public WindowInternal(Trigger<M> defaultTrigger, Supplier<WV> initialValue, FoldLeftFunction<M, WV> foldLeftFunction, Function<M, WK> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType) {
     this.defaultTrigger = defaultTrigger;
     this.initializer = initialValue;
-    this.foldFunction = foldFunction;
+    this.foldLeftFunction = foldLeftFunction;
     this.eventTimeExtractor = eventTimeExtractor;
     this.keyExtractor = keyExtractor;
     this.windowType = windowType;
@@ -115,8 +115,8 @@ public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
     return initializer;
   }
 
-  public FoldFunction<M, WV> getFoldFunction() {
-    return foldFunction;
+  public FoldLeftFunction<M, WV> getFoldLeftFunction() {
+    return foldLeftFunction;
   }
 
   public Function<M, WK> getKeyExtractor() {

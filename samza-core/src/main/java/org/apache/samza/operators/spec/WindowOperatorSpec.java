@@ -57,8 +57,8 @@ public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK
 
   @Override
   public void init(Config config, TaskContext context) {
-    if (window.getFoldFunction() != null) {
-      window.getFoldFunction().init(config, context);
+    if (window.getFoldLeftFunction() != null) {
+      window.getFoldLeftFunction().init(config, context);
     }
   }
 
