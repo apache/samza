@@ -43,13 +43,26 @@ public class TriggerScheduler<WK> {
     this.clock = clock;
   }
 
-  public Cancellable scheduleCallback(Runnable runnable, long callbackTimeMs, TriggerKey<WK> triggerKey) {
-    TriggerCallbackState<WK> timerState = new TriggerCallbackState(triggerKey, runnable, callbackTimeMs);
+  /**
+   * Schedule the provided runnable for execution at the specified duration.
+   * @param runnable the provided runnable to schedule.
+   * @param scheduledTimeMs time at which the runnable must be scheduled for execution
+   * @param triggerKey a {@link Cancellable} instance which can be used to cancel the execution of this runnable.
+   * @return a {@link Cancellable} that can be used to cancel the execution of this callback.
+   */
+  public Cancellable scheduleCallback(Runnable runnable, long scheduledTimeMs, TriggerKey<WK> triggerKey) {
+    TriggerCallbackState<WK> timerState = new TriggerCallbackState(triggerKey, runnable, scheduledTimeMs);
     pendingCallbacks.add(timerState);
-    LOG.trace("Scheduled a new callback: {} at {} for triggerKey {}", new Object[] {runnable, callbackTimeMs, triggerKey});
+    LOG.trace("Scheduled a new callback: {} at {} for triggerKey {}", new Object[] {runnable, scheduledTimeMs, triggerKey});
     return timerState;
   }
 
+  /**
+   * Run all pending callbacks that are ready to schedule. A callback is defined as "ready" if it's scheduledTime
+   * is less than or equal to clock.currentTimeMillis()
+   *
+   * @return the list of TriggerKeys corresponding to those callbacks that were run.
+   */
   public List<TriggerKey<WK>> runPendingCallbacks() {
     TriggerCallbackState<WK> state;
     List<TriggerKey<WK>> keys = new ArrayList<>();
