@@ -26,6 +26,9 @@ import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.coordinator.BarrierForVersionUpgrade;
+import org.apache.samza.coordinator.CoordinationService;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.JobModelManager$;
@@ -59,7 +62,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private String newJobModelVersion;  // version published in ZK (by the leader)
   private JobModelManager jobModelManager;
 
-  public ZkJobCoordinator(int processorId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils, SamzaContainerController containerController) {
+  public ZkJobCoordinator(int processorId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
+      SamzaContainerController containerController, CoordinationService coordinationService) {
     this.zkUtils = zkUtils;
     this.keyBuilder = zkUtils.getKeyBuilder();
     this.debounceTimer = debounceTimer;
@@ -67,9 +71,11 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     this.containerController = containerController;
     this.zkController = new ZkControllerImpl(String.valueOf(processorId), zkUtils, debounceTimer, this);
     this.config = config;
+    JobConfig jConfig = new JobConfig(config);
 
 
-    barrier = new ZkBarrierForVersionUpgrade(zkUtils, debounceTimer);
+    //barrier = new ZkBarrierForVersionUpgrade(zkUtils, debounceTimer);
+    barrier = coordinationService.getBarrier(jConfig.getJobId() + "-" + jConfig.getName());
     streamMetadataCache = getStreamMetadataCache();
   }
 

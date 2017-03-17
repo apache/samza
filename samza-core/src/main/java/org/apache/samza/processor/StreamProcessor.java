@@ -23,6 +23,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.coordinator.CoordinationService;
+import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.metrics.MetricsReporter;
@@ -135,11 +137,17 @@ public class StreamProcessor {
         String.valueOf(processorId),
         customMetricsReporters);
 
+    CoordinationService jobCooridanationService = Util.
+        <CoordinationServiceFactory>getObj(
+            new JobCoordinatorConfig(updatedConfig)
+                .getJobCoordinationServiceFactoryClassName())
+        .getCoordinationService("groupId", String.valueOf(processorId), updatedConfig);
+
     this.jobCoordinator = Util.
         <JobCoordinatorFactory>getObj(
             new JobCoordinatorConfig(updatedConfig)
                 .getJobCoordinatorFactoryClassName())
-        .getJobCoordinator(processorId, updatedConfig, containerController);
+        .getJobCoordinator(processorId, updatedConfig, containerController, jobCooridanationService);
   }
 
   /**

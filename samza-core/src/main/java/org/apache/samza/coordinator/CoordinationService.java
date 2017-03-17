@@ -23,12 +23,27 @@ import org.apache.samza.coordinator.leaderelection.LeaderElector;
 
 public interface CoordinationService {
   // life cycle
+
+  /**
+   * start the service
+   */
   void start();
+
+  /**
+   * stop the service
+   */
   void stop();
+
+  /**
+   * reset the internal structure. Does not happen automatically with stop()
+   */
+  void reset();
 
 
   // facilities for group coordination
   LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
+
   ProcessorLatch getLatch(int size, String latchId);
-  //ProcessorBarrier getBarrier(String barrierId);
+
+  BarrierForVersionUpgrade getBarrier(String barrierId);
 }

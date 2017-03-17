@@ -18,6 +18,16 @@
  */
 package org.apache.samza.coordinator;
 
+import org.apache.samza.config.Config;
+
+
 public interface CoordinationServiceFactory {
-  CoordinationService getCoordinationService(String groupId);
+  /**
+   * factory to instantiate a coordination service
+   * @param groupId - unique id to identify the service
+   * @param processorId - used mostly for debug/notification purposes, to identify the processor using the service
+   * @param updatedConfig - configs, to define the details of the service
+   * @return a unique service instance
+   */
+  CoordinationService getCoordinationService(String groupId, String processorId, Config updatedConfig);
 }

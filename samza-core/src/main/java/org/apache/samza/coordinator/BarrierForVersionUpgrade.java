@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.zk;
+package org.apache.samza.coordinator;
 
 import java.util.List;
 

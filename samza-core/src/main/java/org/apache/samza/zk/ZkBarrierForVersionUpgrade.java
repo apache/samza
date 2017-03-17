@@ -24,6 +24,8 @@ import java.util.List;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.samza.config.ZkConfig;
+import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,19 +36,20 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final ZkKeyBuilder keyBuilder;
   private final static String BARRIER_DONE = "done";
   private final static String BARRIER_TIMED_OUT = "TIMED_OUT";
-  private final static long BARRIER_TIMED_OUT_MS = 60 * 1000;
   private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
+  private final ZkConfig zkConfig;
 
   private final ScheduleAfterDebounceTime debounceTimer;
 
   private final String barrierPrefix;
 
-  public ZkBarrierForVersionUpgrade(ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer) {
+  public ZkBarrierForVersionUpgrade(ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer, ZkConfig zkConfig) {
     this.zkUtils = zkUtils;
     keyBuilder = zkUtils.getKeyBuilder();
 
     barrierPrefix = keyBuilder.getJobModelVersionBarrierPrefix();
     this.debounceTimer = debounceTimer;
+    this.zkConfig = zkConfig;
   }
 
   /**
@@ -59,7 +62,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   }
 
   protected long getBarrierTimeOutMs() {
-    return BARRIER_TIMED_OUT_MS;
+    return zkConfig.getZkBarrierTimeoutMs();
   }
 
   private void timerOff(String version) {
@@ -96,8 +99,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
     // subscribe for processor's list changes
     LOG.info("Subscribing for child changes at " + barrierProcessors);
-    zkUtils.getZkClient().subscribeChildChanges(barrierProcessors,
-        new ZkBarrierChangeHandler(version, processorsNames));
+    zkUtils.getZkClient().subscribeChildChanges(barrierProcessors, new ZkBarrierChangeHandler(version, processorsNames));
 
     setTimer(version, getBarrierTimeOutMs());
   }

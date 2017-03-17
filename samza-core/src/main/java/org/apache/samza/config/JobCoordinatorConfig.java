@@ -37,4 +37,14 @@ public class JobCoordinatorConfig extends MapConfig {
 
     return jobCoordinatorFactoryClassName;
   }
+
+  public String getJobCoordinationServiceFactoryClassName() {
+    String jobCooridanationFactoryClassName = "ZkCoordinationServiceFactory";
+    if (Strings.isNullOrEmpty(jobCooridanationFactoryClassName)) {
+      throw new ConfigException(
+          String.format("Missing config - %s. Cannot start StreamProcessor!", JOB_COORDINATOR_FACTORY));
+    }
+
+    return jobCooridanationFactoryClassName;
+  }
 }

@@ -28,19 +28,13 @@ import org.apache.samza.zk.ZkKeyBuilder;
 import org.apache.samza.zk.ZkUtils;
 
 public class ZkCoordinationServiceFactory implements CoordinationServiceFactory {
-  private final ZkConfig zkConfig;
-  private final ZkUtils zkUtils;
-  private final String processorId;
-
-  public ZkCoordinationServiceFactory(String groupId, String processorId, Config config) {
-    zkConfig = new ZkConfig(config);
-    ZkClient zkClient = new ZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
-    zkUtils = new ZkUtils(groupId, new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs());
-    this.processorId = processorId;
-  }
-
   @Override
-  public CoordinationService getCoordinationService(String groupId) {
-    return new ZkCoordinationService(processorId, zkConfig, zkUtils);
+  synchronized public CoordinationService getCoordinationService(String groupId, String processorId, Config config) {
+    ZkConfig zkConfig = new ZkConfig(config);
+    ZkClient zkClient = new ZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
+    ZkUtils zkUtils = new ZkUtils(processorId, new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs());
+    ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
+    return new ZkCoordinationService(processorId, zkConfig, zkUtils, debounceTimer);
   }
+
 }

@@ -19,6 +19,7 @@
 package org.apache.samza.zk;
 
 import org.apache.samza.config.ZkConfig;
+import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationService;
 import org.apache.samza.coordinator.ProcessorLatch;
 import org.apache.samza.coordinator.leaderelection.LeaderElector;
@@ -31,21 +32,28 @@ public class ZkCoordinationService implements CoordinationService {
   public final ZkConfig zkConfig;
   public final ZkUtils zkUtils;
   public final String processorIdStr;
+  public final ScheduleAfterDebounceTime debounceTimer;
 
-  public ZkCoordinationService(String processorId, ZkConfig zkConfig, ZkUtils zkUtils) {
+  public ZkCoordinationService(String processorId, ZkConfig zkConfig, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer) {
     this.zkConfig = zkConfig;
     this.zkUtils = zkUtils;
     this.processorIdStr = processorId;
+    this.debounceTimer = debounceTimer;
   }
 
   @Override
   public void start() {
-
+    zkUtils.connect();
   }
 
   @Override
   public void stop() {
+    zkUtils.close();
+  }
 
+  @Override
+  public void reset() {
+    zkUtils.deleteRoot();
   }
 
   @Override
@@ -56,5 +64,14 @@ public class ZkCoordinationService implements CoordinationService {
   @Override
   public ProcessorLatch getLatch(int size, String latchId) {
     return new ZkProcessorLatch(size, latchId, processorIdStr, zkConfig, zkUtils);
+  }
+
+  @Override
+  public BarrierForVersionUpgrade getBarrier(String barrierId) {
+    return new ZkBarrierForVersionUpgrade(zkUtils, debounceTimer, zkConfig);
+  }
+
+  public ZkUtils getZkUtils() {
+    return zkUtils;
   }
 }

@@ -22,6 +22,7 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.processor.SamzaContainerController;
 
+
 @InterfaceStability.Evolving
 public interface JobCoordinatorFactory {
   /**
@@ -31,5 +32,6 @@ public interface JobCoordinatorFactory {
    *                            pause the container and add/remove tasks
    * @return An instance of IJobCoordinator
    */
-  JobCoordinator getJobCoordinator(int processorId, Config config, SamzaContainerController containerController);
+  JobCoordinator getJobCoordinator(int processorId, Config config,
+      SamzaContainerController containerController, CoordinationService coordinationService);
 }

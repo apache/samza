@@ -19,9 +19,17 @@
 package org.apache.samza.zk;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import junit.framework.Assert;
 import org.I0Itec.zkclient.ZkConnection;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.ZkConfig;
+import org.apache.samza.coordinator.BarrierForVersionUpgrade;
+import org.apache.samza.coordinator.CoordinationService;
+import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -32,34 +40,30 @@ import org.junit.Test;
 
 public class TestZkBarrierForVersionUpgrade {
   private static EmbeddedZookeeper zkServer = null;
-  private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
-  private String testZkConnectionString = null;
-  private ZkUtils testZkUtils = null;
-  private static final int SESSION_TIMEOUT_MS = 20000;
-  private static final int CONNECTION_TIMEOUT_MS = 10000;
+  private static String testZkConnectionString = null;
+
+  private static final CoordinationServiceFactory factory = new ZkCoordinationServiceFactory();
+  private static CoordinationService coordinationService;
+
 
   @BeforeClass
   public static void setup() throws InterruptedException {
     zkServer = new EmbeddedZookeeper();
     zkServer.setup();
-  }
-
-  @Before
-  public void testSetup() {
     testZkConnectionString = "localhost:" + zkServer.getPort();
-    try {
-      testZkUtils = getZkUtilsWithNewClient();
-    } catch (Exception e) {
-      Assert.fail("Client connection setup failed. Aborting tests..");
-    }
+
+    String groupId = "group1";
+    String processorId = "p1";
+    Map<String, String> map = new HashMap<>();
+    map.put(ZkConfig.ZK_CONNECT, testZkConnectionString);
+    map.put(ZkConfig.ZK_BARRIER_TIMEOUT_MS, "200");
+    Config config = new MapConfig(map);
+
+    coordinationService = factory.getCoordinationService(groupId, processorId, config);
+    coordinationService.start();
+    coordinationService.reset();
   }
 
-  @After
-  public void testTeardown() {
-    testZkUtils.deleteRoot();
-    testZkUtils.close();
-    testZkUtils = null;
-  }
 
   @AfterClass
   public static void teardown() {
@@ -68,8 +72,9 @@ public class TestZkBarrierForVersionUpgrade {
 
   @Test
   public void testZkBarrierForVersionUpgrade() {
-    ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
-    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(testZkUtils, debounceTimer);
+    String barrierId = "b1";
+    BarrierForVersionUpgrade barrier = coordinationService.getBarrier(barrierId);
+
     String ver = "1";
     List<String> processors = new ArrayList<String>();
     processors.add("p1");
@@ -102,8 +107,8 @@ public class TestZkBarrierForVersionUpgrade {
 
   @Test
   public void testNegativeZkBarrierForVersionUpgrade() {
-    ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
-    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(testZkUtils, debounceTimer);
+    String barrierId = "b1";
+    BarrierForVersionUpgrade barrier = coordinationService.getBarrier(barrierId);
     String ver = "1";
     List<String> processors = new ArrayList<String>();
     processors.add("p1");
@@ -138,13 +143,8 @@ public class TestZkBarrierForVersionUpgrade {
 
   @Test
   public void testZkBarrierForVersionUpgradeWithTimeOut() {
-    ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
-    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(testZkUtils, debounceTimer) {
-      @Override
-      protected long getBarrierTimeOutMs() {
-        return 200;
-      }
-    };
+    String barrierId = "b1";
+    BarrierForVersionUpgrade barrier = coordinationService.getBarrier(barrierId);
     String ver = "1";
     List<String> processors = new ArrayList<String>();
     processors.add("p1");
@@ -183,15 +183,5 @@ public class TestZkBarrierForVersionUpgrade {
       }
     });
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> s.p1 && s.p2 && s.p3, 2, 400));
-  }
-
-
-  private ZkUtils getZkUtilsWithNewClient() {
-    ZkConnection zkConnection = ZkUtils.createZkConnection(testZkConnectionString, SESSION_TIMEOUT_MS);
-    return new ZkUtils(
-        "1",
-        KEY_BUILDER,
-        ZkUtils.createZkClient(zkConnection, CONNECTION_TIMEOUT_MS),
-        CONNECTION_TIMEOUT_MS);
   }
 }

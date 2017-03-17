@@ -62,8 +62,11 @@ public class ZkLeaderElector implements LeaderElector {
   public ZkLeaderElector(String processorIdStr, ZkUtils zkUtils) {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
-    this.keyBuilder = this.zkUtils.getKeyBuilder();
+    this.keyBuilder = zkUtils.getKeyBuilder();
     this.hostName = getHostName();
+
+    String [] paths = new String[]{keyBuilder.getProcessorsPath()};
+    zkUtils.makeSurePersistentPathsExists(paths);
   }
 
   // TODO: This should go away once we integrate with Zk based Job Coordinator
