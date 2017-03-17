@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.operators.triggers;
+package org.apache.samza.operators;
 
 
 import com.google.common.collect.ImmutableList;
@@ -26,9 +26,10 @@ import junit.framework.Assert;
 import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.operators.triggers.FiringType;
+import org.apache.samza.testUtils.TestClock;
+import org.apache.samza.operators.triggers.Trigger;
+import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
@@ -76,9 +77,10 @@ public class TestWindowOperator {
   @Test
   public void testTumblingWindowsDiscardingMode() throws Exception {
 
-    StreamApplication sgb = new KeyedTumblingWindowStreamApplication(AccumulationMode.DISCARDING, Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
+    StreamApplication sgb = new KeyedTumblingWindowStreamApplication(AccumulationMode.DISCARDING,
+        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock, runner);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
     task.init(config, taskContext);
 
     integers.forEach(n -> task.process(new IntegerMessageEnvelope(n, n), messageCollector, taskCoordinator));
@@ -87,26 +89,27 @@ public class TestWindowOperator {
     task.window(messageCollector, taskCoordinator);
     Assert.assertEquals(windowPanes.size(), 5);
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(0).getMessage()).size(), 2);
+    Assert.assertEquals((windowPanes.get(0).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(1).getKey().getKey(), new Integer(2));
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(1).getMessage()).size(), 2);
+    Assert.assertEquals((windowPanes.get(1).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(2).getKey().getKey(), new Integer(1));
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(2).getMessage()).size(), 2);
+    Assert.assertEquals((windowPanes.get(2).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(3).getKey().getKey(), new Integer(2));
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(3).getMessage()).size(), 2);
+    Assert.assertEquals((windowPanes.get(3).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(4).getKey().getKey(), new Integer(3));
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(4).getMessage()).size(), 1);
+    Assert.assertEquals((windowPanes.get(4).getMessage()).size(), 1);
   }
 
   @Test
   public void testTumblingWindowsAccumulatingMode() throws Exception {
-    StreamApplication sgb = new KeyedTumblingWindowStreamApplication(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
+    StreamApplication sgb = new KeyedTumblingWindowStreamApplication(AccumulationMode.ACCUMULATING,
+        Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock, runner);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
     task.init(config, taskContext);
 
     integers.forEach(n -> task.process(new IntegerMessageEnvelope(n, n), messageCollector, taskCoordinator));
@@ -115,23 +118,23 @@ public class TestWindowOperator {
 
     Assert.assertEquals(windowPanes.size(), 7);
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(0).getMessage()).size(), 2);
+    Assert.assertEquals((windowPanes.get(0).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(1).getKey().getKey(), new Integer(2));
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(1).getMessage()).size(), 2);
+    Assert.assertEquals((windowPanes.get(1).getMessage()).size(), 2);
 
     Assert.assertEquals(windowPanes.get(2).getKey().getKey(), new Integer(1));
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(2).getMessage()).size(), 4);
+    Assert.assertEquals((windowPanes.get(2).getMessage()).size(), 4);
 
     Assert.assertEquals(windowPanes.get(3).getKey().getKey(), new Integer(2));
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(3).getMessage()).size(), 4);
+    Assert.assertEquals((windowPanes.get(3).getMessage()).size(), 4);
   }
 
   @Test
   public void testSessionWindowsDiscardingMode() throws Exception {
     StreamApplication sgb = new KeyedSessionWindowStreamApplication(AccumulationMode.DISCARDING, Duration.ofMillis(500));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock, runner);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
     task.init(config, taskContext);
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
@@ -155,9 +158,9 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.get(0).getKey().getPaneId(), "1");
     Assert.assertEquals(windowPanes.get(1).getKey().getPaneId(), "1001");
     Assert.assertEquals(windowPanes.get(2).getKey().getPaneId(), "1001");
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(0).getMessage()).size(), 2);
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(1).getMessage()).size(), 2);
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(2).getMessage()).size(), 2);
+    Assert.assertEquals((windowPanes.get(0).getMessage()).size(), 2);
+    Assert.assertEquals((windowPanes.get(1).getMessage()).size(), 2);
+    Assert.assertEquals((windowPanes.get(2).getMessage()).size(), 2);
 
     task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
     task.process(new IntegerMessageEnvelope(2, 2), messageCollector, taskCoordinator);
@@ -167,15 +170,16 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.size(), 4);
     Assert.assertEquals(windowPanes.get(3).getKey().getKey(), new Integer(2));
     Assert.assertEquals(windowPanes.get(3).getKey().getPaneId(), "2001");
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(3).getMessage()).size(), 2);
+    Assert.assertEquals((windowPanes.get(3).getMessage()).size(), 2);
 
   }
 
   @Test
   public void testSessionWindowsAccumulatingMode() throws Exception {
-    StreamApplication sgb = new KeyedSessionWindowStreamApplication(AccumulationMode.DISCARDING, Duration.ofMillis(500));
+    StreamApplication sgb = new KeyedSessionWindowStreamApplication(AccumulationMode.DISCARDING,
+        Duration.ofMillis(500));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock, runner);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
     task.init(config, taskContext);
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
@@ -191,18 +195,19 @@ public class TestWindowOperator {
     testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
     Assert.assertEquals(windowPanes.size(), 2);
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(0).getMessage()).size(), 2);
+    Assert.assertEquals((windowPanes.get(0).getMessage()).size(), 2);
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
     Assert.assertEquals(windowPanes.get(1).getKey().getKey(), new Integer(2));
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(0).getMessage()).size(), 2);
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(1).getMessage()).size(), 4);
+    Assert.assertEquals((windowPanes.get(0).getMessage()).size(), 2);
+    Assert.assertEquals((windowPanes.get(1).getMessage()).size(), 4);
   }
 
   @Test
-  public void testCancelationOfOnceTrigger() throws Exception {
-    StreamApplication sgb = new KeyedTumblingWindowStreamApplication(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1), Triggers.count(2));
+  public void testCancellationOfOnceTrigger() throws Exception {
+    StreamApplication sgb = new KeyedTumblingWindowStreamApplication(AccumulationMode.ACCUMULATING,
+        Duration.ofSeconds(1), Triggers.count(2));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock, runner);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
     task.init(config, taskContext);
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
@@ -234,16 +239,16 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.get(2).getKey().getKey(), new Integer(3));
     Assert.assertEquals(windowPanes.get(2).getKey().getPaneId(), "1000");
     Assert.assertEquals(windowPanes.get(2).getFiringType(), FiringType.DEFAULT);
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(2).getMessage()).size(), 1);
+    Assert.assertEquals((windowPanes.get(2).getMessage()).size(), 1);
 
   }
 
   @Test
-  public void testCancelationOfAnyTrigger() throws Exception {
+  public void testCancellationOfAnyTrigger() throws Exception {
     StreamApplication sgb = new KeyedTumblingWindowStreamApplication(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
         Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500))));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock, runner);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
     task.init(config, taskContext);
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
@@ -270,7 +275,7 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.get(1).getFiringType(), FiringType.DEFAULT);
     Assert.assertEquals(windowPanes.get(1).getKey().getKey(), new Integer(1));
     Assert.assertEquals(windowPanes.get(1).getKey().getPaneId(), "0");
-    Assert.assertEquals(((Collection<MessageEnvelope<Integer, Integer>>) windowPanes.get(1).getMessage()).size(), 5);
+    Assert.assertEquals((windowPanes.get(1).getMessage()).size(), 5);
 
     task.process(new IntegerMessageEnvelope(1, 5), messageCollector, taskCoordinator);
 
@@ -298,7 +303,7 @@ public class TestWindowOperator {
     StreamApplication sgb = new KeyedTumblingWindowStreamApplication(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
         Triggers.repeat(Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500)))));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock, runner);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, runner, testClock);
     task.init(config, taskContext);
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
@@ -333,7 +338,8 @@ public class TestWindowOperator {
     private final Duration duration;
     private final Trigger<MessageEnvelope<Integer, Integer>> earlyTrigger;
 
-    KeyedTumblingWindowStreamApplication(AccumulationMode mode, Duration timeDuration, Trigger<MessageEnvelope<Integer, Integer>> earlyTrigger) {
+    KeyedTumblingWindowStreamApplication(AccumulationMode mode,
+        Duration timeDuration, Trigger<MessageEnvelope<Integer, Integer>> earlyTrigger) {
       this.mode = mode;
       this.duration = timeDuration;
       this.earlyTrigger = earlyTrigger;
@@ -341,7 +347,8 @@ public class TestWindowOperator {
 
     @Override
     public void init(StreamGraph graph, Config config) {
-      MessageStream<MessageEnvelope<Integer, Integer>> inStream = graph.createInStream(streamSpec, null, null);
+      MessageStream<MessageEnvelope<Integer, Integer>> inStream = graph.createInStream(streamSpec,
+          (k, m) -> new MessageEnvelope(k, m), null, null);
       Function<MessageEnvelope<Integer, Integer>, Integer> keyFn = m -> m.getKey();
       inStream
         .map(m -> m)
@@ -367,7 +374,8 @@ public class TestWindowOperator {
 
     @Override
     public void init(StreamGraph graph, Config config) {
-      MessageStream<MessageEnvelope<Integer, Integer>> inStream = graph.createInStream(streamSpec, null, null);
+      MessageStream<MessageEnvelope<Integer, Integer>> inStream = graph.createInStream(streamSpec,
+          (k, m) -> new MessageEnvelope(k, m), null, null);
       Function<MessageEnvelope<Integer, Integer>, Integer> keyFn = m -> m.getKey();
 
       inStream
@@ -384,6 +392,24 @@ public class TestWindowOperator {
   private class IntegerMessageEnvelope extends IncomingMessageEnvelope {
     IntegerMessageEnvelope(int key, int msg) {
       super(new SystemStreamPartition("kafka", "integers", new Partition(0)), "1", key, msg);
+    }
+  }
+
+  private class MessageEnvelope<K, V> {
+    private final K key;
+    private final V value;
+
+    MessageEnvelope(K key, V value) {
+      this.key = key;
+      this.value = value;
+    }
+
+    public K getKey() {
+      return key;
+    }
+
+    public V getValue() {
+      return value;
     }
   }
 }

@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -244,8 +243,10 @@ public class TestJoinOperator {
 
     @Override
     public void init(StreamGraph graph, Config config) {
-      MessageStream<MessageEnvelope<Integer, Integer>> inStream = graph.createInStream(inStreamSpec, null, null);
-      MessageStream<MessageEnvelope<Integer, Integer>> inStream2 = graph.createInStream(inStreamSpec2, null, null);
+      MessageStream<FirstStreamIME> inStream =
+          graph.createInStream(inStreamSpec, FirstStreamIME::new, null, null);
+      MessageStream<SecondStreamIME> inStream2 =
+          graph.createInStream(inStreamSpec2, SecondStreamIME::new, null, null);
 
       SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
       inStream
@@ -256,22 +257,20 @@ public class TestJoinOperator {
     }
   }
 
-  private class TestJoinFunction
-      implements JoinFunction<Integer, MessageEnvelope<Integer, Integer>, MessageEnvelope<Integer, Integer>, Integer> {
+  private class TestJoinFunction implements JoinFunction<Integer, FirstStreamIME, SecondStreamIME, Integer> {
     @Override
-    public Integer apply(MessageEnvelope<Integer, Integer> message,
-        MessageEnvelope<Integer, Integer> otherMessage) {
-      return message.getMessage() + otherMessage.getMessage();
+    public Integer apply(FirstStreamIME message, SecondStreamIME otherMessage) {
+      return (Integer) message.getMessage() + (Integer) otherMessage.getMessage();
     }
 
     @Override
-    public Integer getFirstKey(MessageEnvelope<Integer, Integer> message) {
-      return message.getKey();
+    public Integer getFirstKey(FirstStreamIME message) {
+      return (Integer) message.getKey();
     }
 
     @Override
-    public Integer getSecondKey(MessageEnvelope<Integer, Integer> message) {
-      return message.getKey();
+    public Integer getSecondKey(SecondStreamIME message) {
+      return (Integer) message.getKey();
     }
   }
 

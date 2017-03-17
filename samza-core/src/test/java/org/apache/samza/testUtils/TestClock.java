@@ -16,39 +16,30 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.testUtils;
 
-package org.apache.samza.operators.data;
+import org.apache.samza.util.Clock;
 
-import org.apache.samza.annotation.InterfaceStability;
-
+import java.time.Duration;
 
 /**
- * An entry in the input/output {@link org.apache.samza.operators.MessageStream}s
+ * An implementation of {@link Clock} that allows to advance the time by an arbitrary duration.
+ * Used for testing.
  */
-@InterfaceStability.Unstable
-public interface MessageEnvelope<K, M> {
+public class TestClock implements Clock {
 
-  /**
-   * Get the key for this {@link MessageEnvelope}.
-   *
-   * @return  the key for this {@link MessageEnvelope}
-   */
-  K getKey();
+  long currentTime = 1;
 
-  /**
-   * Get the message in this {@link MessageEnvelope}.
-   *
-   * @return  the message in this {@link MessageEnvelope}
-   */
-  M getMessage();
-
-  /**
-   * Whether this {@link MessageEnvelope} indicates deletion of a previous message with this key.
-   *
-   * @return  true if the current {@link MessageEnvelope} indicates deletion of a previous message with this key
-   */
-  default boolean isDelete() {
-    return false;
+  public void advanceTime(Duration duration) {
+    currentTime += duration.toMillis();
   }
 
+  public void advanceTime(long millis) {
+    currentTime += millis;
+  }
+
+  @Override
+  public long currentTimeMillis() {
+    return currentTime;
+  }
 }

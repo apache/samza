@@ -18,17 +18,13 @@
  */
 package org.apache.samza.task;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.impl.OperatorGraph;
+import org.apache.samza.operators.stream.InputStreamImpl;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
@@ -36,17 +32,21 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
 
 /**
  * Execution of the logic sub-DAG
  *
  *
- * An {@link StreamTask} implementation that receives {@link InputMessageEnvelope}s and propagates them
+ * An {@link StreamTask} implementation that receives input messages and propagates them
  * through the user's stream transformations defined in {@link StreamGraphImpl} using the
  * {@link org.apache.samza.operators.MessageStream} APIs.
  * <p>
  * This class brings all the operator API implementation components together and feeds the
- * {@link InputMessageEnvelope}s into the transformation chains.
+ * input messages into the transformation chains.
  * <p>
  * It accepts an instance of the user implemented factory {@link StreamApplication} as input parameter of the constructor.
  * When its own {@link #init(Config, TaskContext)} method is called during startup, it instantiate a user-defined {@link StreamGraphImpl}
@@ -71,34 +71,29 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
    * A mapping from each {@link SystemStream} to the root node of its operator chain DAG.
    */
   private final OperatorGraph operatorGraph;
-
-  private final StreamApplication graphBuilder;
-
+  private final StreamApplication streamApplication;
   private final ApplicationRunner runner;
 
-  private final Clock clock;
-
   private ContextManager contextManager;
-
+  private StreamGraphImpl streamGraph;
   private Set<SystemStreamPartition> systemStreamPartitions;
 
-  public StreamOperatorTask(StreamApplication graphBuilder, ApplicationRunner runner) {
-    this(graphBuilder, SystemClock.instance(), runner);
+  public StreamOperatorTask(StreamApplication application, ApplicationRunner runner) {
+    this(application, runner, SystemClock.instance());
   }
 
-  // purely for testing.
-  public StreamOperatorTask(StreamApplication graphBuilder, Clock clock, ApplicationRunner runner) {
-    this.graphBuilder = graphBuilder;
+  // for testing.
+  public StreamOperatorTask(StreamApplication streamApplication, ApplicationRunner runner, Clock clock) {
+    this.streamApplication = streamApplication;
     this.operatorGraph = new OperatorGraph(clock);
-    this.clock = clock;
     this.runner = runner;
   }
 
   @Override
   public final void init(Config config, TaskContext context) throws Exception {
+    streamGraph = new StreamGraphImpl(this.runner, config);
     // create the MessageStreamsImpl object and initialize app-specific logic DAG within the task
-    StreamGraphImpl streamGraph = new StreamGraphImpl(this.runner, config);
-    this.graphBuilder.init(streamGraph, config);
+    this.streamApplication.init(streamGraph, config);
     // get the context manager of the {@link StreamGraph} and initialize the task-specific context
     this.contextManager = streamGraph.getContextManager();
     this.systemStreamPartitions = context.getSystemStreamPartitions();
@@ -115,8 +110,11 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   @Override
   public final void process(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator) {
+    InputStreamImpl inputStream =
+        (InputStreamImpl) streamGraph.getInputStream(ime.getSystemStreamPartition().getSystemStream());
+    // TODO: SAMZA-1148 - Cast to appropriate input (key, msg) types based on the serde before applying the msgBuilder.
     this.operatorGraph.get(ime.getSystemStreamPartition().getSystemStream())
-        .onNext(new InputMessageEnvelope(ime), collector, coordinator);
+        .onNext(inputStream.getMsgBuilder().apply(ime.getKey(), ime.getMessage()), collector, coordinator);
   }
 
   @Override

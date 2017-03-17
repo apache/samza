@@ -16,26 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.operators.stream;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.serializers.Serde;
+import org.apache.samza.system.StreamSpec;
 
+import java.util.function.BiFunction;
 
 /**
- * The interface class defining the specific {@link SinkFunction} for a system {@link OutputStream}.
+ * The interface for an input stream.
  *
- * @param <M>  The type of message to be send to this output stream
+ * @param <M> the type of messages in the input stream
  */
 @InterfaceStability.Unstable
-public interface OutputStream<M> {
+public interface InputStream<K, V, M> extends MessageStream<M> {
 
-  /**
-   * Returns the specific {@link SinkFunction} for this output stream. The {@link OutputStream} is created
-   * via {@link StreamGraph#createOutStream(StreamSpec, Serde, Serde)} or {@link StreamGraph#createIntStream(StreamSpec, Serde, Serde)}.
-   * Hence, the proper types of serdes for key and value are instantiated and are used in the {@link SinkFunction} returned.
-   *
-   * @return  The pre-defined {@link SinkFunction} to apply proper serdes before sending the message to the output stream.
-   */
-  SinkFunction<M> getSinkFunction();
+  StreamSpec getStreamSpec();
+
+  Serde<K> getKeySerde();
+
+  Serde<V> getMsgSerde();
+
+  BiFunction<K, V, M> getMsgBuilder();
+
 }

@@ -33,7 +33,6 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.SinkFunction;
@@ -139,19 +138,21 @@ public class TestExecutionPlanner {
     };
   }
 
-  private StreamGraph createSimpleGraph() {
+  private StreamGraphImpl createSimpleGraph() {
     /**
      * a simple graph of partitionBy and map
      *
      * input1 -> partitionBy -> map -> output1
      *
      */
-    StreamGraph streamGraph = new StreamGraphImpl(runner, config);
-    streamGraph.createInStream(input1, null, null).partitionBy(m -> "yes!!!").map(m -> m).sendTo(streamGraph.createOutStream(output1, null, null));
+    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    streamGraph.createInStream(input1, null, null, null)
+        .partitionBy(m -> "yes!!!").map(m -> m)
+        .sendTo(streamGraph.createOutStream(output1, null, null, null, null));
     return streamGraph;
   }
 
-  private StreamGraph createStreamGraphWithJoin() {
+  private StreamGraphImpl createStreamGraphWithJoin() {
 
     /** the graph looks like the following
      *
@@ -163,13 +164,13 @@ public class TestExecutionPlanner {
      *
      */
 
-    StreamGraph streamGraph = new StreamGraphImpl(runner, config);
-    MessageStream m1 = streamGraph.createInStream(input1, null, null).map(m -> m);
-    MessageStream m2 = streamGraph.createInStream(input2, null, null).partitionBy(m -> "haha").filter(m -> true);
-    MessageStream m3 = streamGraph.createInStream(input3, null, null).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
+    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    MessageStream m1 = streamGraph.createInStream(input1, null, null, null).map(m -> m);
+    MessageStream m2 = streamGraph.createInStream(input2, null, null, null).partitionBy(m -> "haha").filter(m -> true);
+    MessageStream m3 = streamGraph.createInStream(input3, null, null, null).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
 
-    m1.join(m2, createJoin(), Duration.ofHours(1)).sendTo(streamGraph.createOutStream(output1, null, null));
-    m3.join(m2, createJoin(), Duration.ofHours(1)).sendTo(streamGraph.createOutStream(output2, null, null));
+    m1.join(m2, createJoin(), Duration.ofHours(1)).sendTo(streamGraph.createOutStream(output1, null, null, null, null));
+    m3.join(m2, createJoin(), Duration.ofHours(1)).sendTo(streamGraph.createOutStream(output2, null, null, null, null));
 
     return streamGraph;
   }
@@ -225,7 +226,7 @@ public class TestExecutionPlanner {
   @Test
   public void testCreateProcessorGraph() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamGraph streamGraph = createStreamGraphWithJoin();
+    StreamGraphImpl streamGraph = createStreamGraphWithJoin();
 
     JobGraph jobGraph = planner.createJobGraph(streamGraph);
     assertTrue(jobGraph.getSources().size() == 3);
@@ -236,7 +237,7 @@ public class TestExecutionPlanner {
   @Test
   public void testFetchExistingStreamPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamGraph streamGraph = createStreamGraphWithJoin();
+    StreamGraphImpl streamGraph = createStreamGraphWithJoin();
     JobGraph jobGraph = planner.createJobGraph(streamGraph);
 
     ExecutionPlanner.updateExistingPartitions(jobGraph, streamManager);
@@ -254,7 +255,7 @@ public class TestExecutionPlanner {
   @Test
   public void testCalculateJoinInputPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamGraph streamGraph = createStreamGraphWithJoin();
+    StreamGraphImpl streamGraph = createStreamGraphWithJoin();
     JobGraph jobGraph = planner.createJobGraph(streamGraph);
 
     ExecutionPlanner.updateExistingPartitions(jobGraph, streamManager);
@@ -273,7 +274,7 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamGraph streamGraph = createSimpleGraph();
+    StreamGraphImpl streamGraph = createSimpleGraph();
     JobGraph jobGraph = planner.createJobGraph(streamGraph);
     planner.calculatePartitions(streamGraph, jobGraph);
 
@@ -286,7 +287,7 @@ public class TestExecutionPlanner {
   @Test
   public void testCalculateIntStreamPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamGraph streamGraph = createSimpleGraph();
+    StreamGraphImpl streamGraph = createSimpleGraph();
     JobGraph jobGraph = planner.createJobGraph(streamGraph);
     planner.calculatePartitions(streamGraph, jobGraph);
 

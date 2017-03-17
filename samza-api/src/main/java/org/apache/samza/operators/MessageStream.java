@@ -77,20 +77,18 @@ public interface MessageStream<M> {
   /**
    * Allows sending messages in this {@link MessageStream} to an output using the provided {@link SinkFunction}.
    *
-   * NOTE: the output may not be a {@link org.apache.samza.system.SystemStream}. It can be an external database, etc.
+   * NOTE: The output <b>must not</b> be a {@link org.apache.samza.system.SystemStream}. It can be an external database, etc.
    *
-   * @param sinkFn  the function to send messages in this stream to output
+   * @param sinkFn  the function to send messages in this stream to an output
    */
   void sink(SinkFunction<M> sinkFn);
 
   /**
    * Allows sending messages in this {@link MessageStream} to an output {@link MessageStream}.
    *
-   * NOTE: the {@code stream} has to be a {@link MessageStream}.
-   *
    * @param stream  the output {@link MessageStream}
    */
-  void sendTo(OutputStream<M> stream);
+  void sendTo(MessageStream<M> stream);
 
   /**
    * Groups the messages in this {@link MessageStream} according to the provided {@link Window} semantics
@@ -134,13 +132,13 @@ public interface MessageStream<M> {
   MessageStream<M> merge(Collection<MessageStream<M>> otherStreams);
 
   /**
-   * Send the input message to an output {@link org.apache.samza.system.SystemStream} and consume it as input {@link MessageStream} again.
+   * Repartition the messages in this {@link MessageStream}, send it to an output stream and consume it as
+   * the input {@link MessageStream} again.
    *
-   * Note: this is an transform function only used in logic DAG. In a physical DAG, this is either translated to a NOOP function, or a {@code MessageStream#sendThrough} function.
-   *
-   * @param parKeyExtractor  a {@link Function} that extract the partition key from a message in this {@link MessageStream}
-   * @param <K>  the type of partition key
-   * @return  a {@link MessageStream} object after the re-partition
+   * @param parKeyExtractor the {@link Function} to extract the output partition key from the input message
+   * @param <K> the type of partition key
+   * @return the repartitioned {@link MessageStream}
    */
   <K> MessageStream<M> partitionBy(Function<M, K> parKeyExtractor);
+
 }

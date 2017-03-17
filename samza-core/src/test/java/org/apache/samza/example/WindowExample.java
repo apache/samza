@@ -16,13 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.windows.WindowPane;
+import org.apache.samza.operators.data.JsonMessage;
+import org.apache.samza.operators.functions.FoldLeftFunction;
+import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.JsonSerde;
@@ -35,26 +38,24 @@ import java.util.function.Supplier;
 
 
 /**
- * Example {@link StreamApplication} code to test the API methods with re-partition operator
+ * Example implementation of a simple user-defined tasks w/ window operators
+ *
  */
-public class RepartitionExample implements StreamApplication {
+public class WindowExample implements StreamApplication {
+  private final StreamSpec inputStreamSpec = new StreamSpec("inputStream", "inputStream", "inputSystem");
 
-  private final StreamSpec inputStreamSpec = new StreamSpec("pageViewEventStream", "PageViewEvent", "kafka");
-  private final StreamSpec outputStreamSpec = new StreamSpec("pageViewEventPerMemberStream", "PageViewEventCountByMemberId", "kafka");
-
-  @Override public void init(StreamGraph graph, Config config) {
+  @Override
+  public void init(StreamGraph graph, Config config) {
     Supplier<Integer> initialValue = () -> 0;
-    MessageStream<PageViewEvent> pageViewEvents = graph.createInStream(inputStreamSpec, (k, m) -> m,
-        new StringSerde("UTF-8"), new JsonSerde<PageViewEvent>());
-    MessageStream<MyStreamOutput> pageViewPerMemberCounters =
-        graph.createOutStream(outputStreamSpec, m -> m.memberId, m -> m,
-            new StringSerde("UTF-8"), new JsonSerde<MyStreamOutput>());
+    FoldLeftFunction<JsonMessage<PageViewEvent>, Integer> counter = (m, c) -> c == null ? 1 : c + 1;
+    MessageStream<JsonMessage<PageViewEvent>> inputStream = graph.createInStream(inputStreamSpec, (k, m) -> m,
+        new StringSerde("UTF-8"), new JsonSerde<JsonMessage<PageViewEvent>>());
 
-    pageViewEvents
-        .partitionBy(m -> m.memberId)
-        .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofMinutes(5), initialValue, (m, c) -> c + 1))
-        .map(MyStreamOutput::new)
-        .sendTo(pageViewPerMemberCounters);
+    // create a tumbling window that outputs the number of message collected every 10 minutes.
+    // also emit early results if either the number of messages collected reaches 30000, or if no new messages arrive
+    // for 1 minute.
+    inputStream.window(Windows.tumblingWindow(Duration.ofMinutes(10), initialValue, counter)
+            .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))));
   }
 
   // local execution mode
@@ -63,30 +64,16 @@ public class RepartitionExample implements StreamApplication {
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     // for remote execution: ApplicationRunner runner = ApplicationRunner.getRemoteRunner(config);
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
-    localRunner.run(new RepartitionExample());
+    localRunner.run(new WindowExample());
   }
 
   class PageViewEvent {
-    String pageId;
-    String memberId;
+    String key;
     long timestamp;
 
-    PageViewEvent(String pageId, String memberId, long timestamp) {
-      this.pageId = pageId;
-      this.memberId = memberId;
+    public PageViewEvent(String key, long timestamp) {
+      this.key = key;
       this.timestamp = timestamp;
-    }
-  }
-
-  class MyStreamOutput {
-    String memberId;
-    long timestamp;
-    int count;
-
-    MyStreamOutput(WindowPane<String, Integer> m) {
-      this.memberId = m.getKey().getKey();
-      this.timestamp = Long.valueOf(m.getKey().getPaneId());
-      this.count = m.getMessage();
     }
   }
 

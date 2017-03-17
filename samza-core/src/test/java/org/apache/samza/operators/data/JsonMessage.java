@@ -16,30 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.triggers;
-
-import org.apache.samza.util.Clock;
-
-import java.time.Duration;
+package org.apache.samza.operators.data;
 
 /**
- * An implementation of {@link Clock} that allows to advance the time by an arbitrary duration.
- * Used for testing.
+ * An input/output message w/ Json payload and a String key.
  */
-public class TestClock implements Clock {
 
-  long currentTime = 1;
+public class JsonMessage<T> {
 
-  public void advanceTime(Duration duration) {
-    currentTime += duration.toMillis();
+  private final String key;
+  private final T data;
+
+  public JsonMessage(String key, T data) {
+    this.key = key;
+    this.data = data;
   }
 
-  public void advanceTime(long millis) {
-    currentTime += millis;
+  public T getData() {
+    return this.data;
   }
 
-  @Override
-  public long currentTimeMillis() {
-    return currentTime;
+  public String getKey() {
+    return this.key;
   }
+
 }

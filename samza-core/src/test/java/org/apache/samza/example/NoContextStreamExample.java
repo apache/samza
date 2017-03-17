@@ -18,18 +18,16 @@
  */
 package org.apache.samza.example;
 
-import org.apache.samza.operators.*;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.data.InputMessageEnvelope;
-import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
-import org.apache.samza.operators.data.Offset;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.data.JsonMessage;
 import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -42,87 +40,55 @@ import java.util.List;
  */
 public class NoContextStreamExample implements StreamApplication {
 
-  StreamSpec input1 = new StreamSpec("inputStreamA", "PageViewEvent", "kafka");
+  private final StreamSpec inputSpec1 = new StreamSpec("inputStreamA", "PageViewEvent", "kafka");
+  private final StreamSpec inputSpec2 = new StreamSpec("inputStreamB", "RumLixEvent", "kafka");
+  private final StreamSpec outputSpec = new StreamSpec("joinedPageViewStream", "PageViewJoinRumLix", "kafka");
 
-  StreamSpec input2 = new StreamSpec("inputStreamB", "RumLixEvent", "kafka");
-
-  StreamSpec output = new StreamSpec("joinedPageViewStream", "PageViewJoinRumLix", "kafka");
-
-  class MessageType {
-    String joinKey;
-    List<String> joinFields = new ArrayList<>();
-  }
-
-  class JsonMessageEnvelope extends JsonIncomingSystemMessageEnvelope<MessageType> {
-    JsonMessageEnvelope(String key, MessageType data, Offset offset, SystemStreamPartition partition) {
-      super(key, data, offset, partition);
-    }
-  }
-
-  private JsonMessageEnvelope getInputMessage(InputMessageEnvelope ism) {
-    return new JsonMessageEnvelope(
-        ((MessageType) ism.getMessage()).joinKey,
-        (MessageType) ism.getMessage(),
-        ism.getOffset(),
-        ism.getSystemStreamPartition());
-  }
-
-  class MyJoinFunction implements JoinFunction<String, JsonMessageEnvelope, JsonMessageEnvelope, JsonIncomingSystemMessageEnvelope<MessageType>> {
-
-    @Override
-    public JsonIncomingSystemMessageEnvelope<MessageType> apply(JsonMessageEnvelope m1,
-        JsonMessageEnvelope m2) {
-      MessageType newJoinMsg = new MessageType();
-      newJoinMsg.joinKey = m1.getKey();
-      newJoinMsg.joinFields.addAll(m1.getMessage().joinFields);
-      newJoinMsg.joinFields.addAll(m2.getMessage().joinFields);
-      return new JsonMessageEnvelope(m1.getMessage().joinKey, newJoinMsg, null, null);
-    }
-
-    @Override
-    public String getFirstKey(JsonMessageEnvelope message) {
-      return message.getKey();
-    }
-
-    @Override
-    public String getSecondKey(JsonMessageEnvelope message) {
-      return message.getKey();
-    }
-  }
-
-
-  /**
-   * used by remote application runner to launch the job in remote program. The remote program should follow the similar
-   * invoking context as in local:
-   *
-   *   public static void main(String args[]) throws Exception {
-   *     CommandLine cmdLine = new CommandLine();
-   *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-   *     ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-   *     runner.run(new NoContextStreamExample(), config);
-   *   }
-   *
-   */
   @Override public void init(StreamGraph graph, Config config) {
-    MessageStream<InputMessageEnvelope> inputSource1 = graph.<Object, Object, InputMessageEnvelope>createInStream(
-        input1, null, null);
-    MessageStream<InputMessageEnvelope> inputSource2 = graph.<Object, Object, InputMessageEnvelope>createInStream(
-        input2, null, null);
-    OutputStream<JsonIncomingSystemMessageEnvelope<MessageType>> outStream = graph.createOutStream(output,
-        new StringSerde("UTF-8"), new JsonSerde<>());
+    MessageStream<JsonMessage<PageViewEvent>> inputStream1 = graph.createInStream(inputSpec1, null, null, null);
+    MessageStream<JsonMessage<PageViewEvent>> inputStream2 = graph.createInStream(inputSpec2, null, null, null);
 
-    inputSource1.map(this::getInputMessage).
-        join(inputSource2.map(this::getInputMessage), new MyJoinFunction(), Duration.ofMinutes(1)).
-        sendTo(outStream);
+    MessageStream<JsonMessage<PageViewEvent>> outStream =
+        graph.createOutStream(outputSpec, null, null, new StringSerde("UTF-8"), new JsonSerde<>());
 
+    inputStream1
+        .join(inputStream2, new MyJoinFunction(), Duration.ofMinutes(1))
+        .sendTo(outStream);
   }
 
-  // standalone local program model
+  // local execution mode
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+    // for remote execution: ApplicationRunner runner = ApplicationRunner.getRemoteRunner(config);
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
     localRunner.run(new NoContextStreamExample());
+  }
+
+  class MyJoinFunction implements JoinFunction<String, JsonMessage<PageViewEvent>, JsonMessage<PageViewEvent>, JsonMessage<PageViewEvent>> {
+    @Override
+    public JsonMessage<PageViewEvent> apply(JsonMessage<PageViewEvent> m1, JsonMessage<PageViewEvent> m2) {
+      PageViewEvent newJoinMsg = new PageViewEvent();
+      newJoinMsg.joinKey = m1.getKey();
+      newJoinMsg.joinFields.addAll(m1.getData().joinFields);
+      newJoinMsg.joinFields.addAll(m2.getData().joinFields);
+      return new JsonMessage<PageViewEvent>(m1.getData().joinKey, newJoinMsg);
+    }
+
+    @Override
+    public String getFirstKey(JsonMessage<PageViewEvent> message) {
+      return message.getKey();
+    }
+
+    @Override
+    public String getSecondKey(JsonMessage<PageViewEvent> message) {
+      return message.getKey();
+    }
+  }
+
+  class PageViewEvent {
+    String joinKey;
+    List<String> joinFields = new ArrayList<>();
   }
 
 }
