@@ -25,7 +25,7 @@ import org.apache.samza.operators.windows.WindowKey;
 /**
  * Uniquely identifies a trigger firing
  */
-class TriggerKey<WK> {
+public class TriggerKey<WK> {
   private final FiringType type;
   private final WindowKey<WK> key;
 

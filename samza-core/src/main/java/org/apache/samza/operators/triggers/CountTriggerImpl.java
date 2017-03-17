@@ -19,7 +19,8 @@
 
 package org.apache.samza.operators.triggers;
 
-import org.apache.samza.operators.impl.TriggerContext;
+import org.apache.samza.operators.impl.TriggerKey;
+import org.apache.samza.operators.impl.TriggerScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,15 +31,17 @@ public class CountTriggerImpl<M, WK> implements TriggerImpl<M, WK> {
   private static final Logger LOG = LoggerFactory.getLogger(CountTriggerImpl.class);
 
   private final long triggerCount;
+  private final TriggerKey<WK> triggerKey;
   private long currentCount;
   private boolean shouldFire = false;
 
-  public CountTriggerImpl(CountTrigger<M> triggerCount) {
+  public CountTriggerImpl(CountTrigger<M> triggerCount, TriggerKey<WK> triggerKey) {
     this.triggerCount = triggerCount.getCount();
     this.currentCount = 0;
+    this.triggerKey = triggerKey;
   }
 
-  public void onMessage(M message, TriggerContext<WK> context) {
+  public void onMessage(M message, TriggerScheduler<WK> context) {
     currentCount++;
     if (currentCount == triggerCount) {
       LOG.trace("count trigger fired for {}", message);

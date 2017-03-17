@@ -18,7 +18,8 @@
  */
 package org.apache.samza.operators.triggers;
 
-import org.apache.samza.operators.impl.TriggerContext;
+import org.apache.samza.operators.impl.TriggerKey;
+import org.apache.samza.operators.impl.TriggerScheduler;
 import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,18 +34,20 @@ public class TimeSinceLastMessageTriggerImpl<M, WK> implements TriggerImpl<M, WK
   private final TimeSinceLastMessageTrigger<M> trigger;
   private final long durationMs;
   private final Clock clock;
+  private final TriggerKey<WK> triggerKey;
   private long callbackTime = Integer.MIN_VALUE;
   private Cancellable cancellable = null;
   private boolean shouldFire = false;
 
-  public TimeSinceLastMessageTriggerImpl(TimeSinceLastMessageTrigger<M> trigger, Clock clock) {
+  public TimeSinceLastMessageTriggerImpl(TimeSinceLastMessageTrigger<M> trigger, Clock clock, TriggerKey<WK> key) {
     this.trigger = trigger;
     this.durationMs = trigger.getDuration().toMillis();
     this.clock = clock;
+    this.triggerKey = key;
   }
 
   @Override
-  public void onMessage(M message, TriggerContext<WK> context) {
+  public void onMessage(M message, TriggerScheduler<WK> context) {
     if (!shouldFire) {
       long currTime = clock.currentTimeMillis();
 
@@ -58,7 +61,7 @@ public class TimeSinceLastMessageTriggerImpl<M, WK> implements TriggerImpl<M, WK
         shouldFire = true;
       };
 
-      cancellable = context.scheduleCallback(runnable, callbackTime);
+      cancellable = context.scheduleCallback(runnable, callbackTime, triggerKey);
     }
   }
 

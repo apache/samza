@@ -19,7 +19,8 @@
 
 package org.apache.samza.operators.triggers;
 
-import org.apache.samza.operators.impl.TriggerContext;
+import org.apache.samza.operators.impl.TriggerKey;
+import org.apache.samza.operators.impl.TriggerScheduler;
 import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,16 +33,18 @@ public class TimeTriggerImpl<M, WK> implements TriggerImpl<M, WK> {
   private static final Logger LOG = LoggerFactory.getLogger(TimeTriggerImpl.class);
 
   private final TimeTrigger<M> trigger;
+  private final TriggerKey<WK> triggerKey;
   private Cancellable cancellable;
   private final Clock clock;
   private boolean shouldFire = false;
 
-  public TimeTriggerImpl(TimeTrigger<M> trigger, Clock clock) {
+  public TimeTriggerImpl(TimeTrigger<M> trigger, Clock clock, TriggerKey<WK> key) {
     this.trigger = trigger;
     this.clock = clock;
+    this.triggerKey = key;
   }
 
-  public void onMessage(M message, TriggerContext<WK> context) {
+  public void onMessage(M message, TriggerScheduler<WK> context) {
     final long now = clock.currentTimeMillis();
     long triggerDurationMs = trigger.getDuration().toMillis();
     Long callbackTime = (now - now % triggerDurationMs) + triggerDurationMs;
@@ -50,7 +53,7 @@ public class TimeTriggerImpl<M, WK> implements TriggerImpl<M, WK> {
       cancellable = context.scheduleCallback(() -> {
           LOG.trace("Time trigger fired");
           shouldFire = true;
-        }, callbackTime);
+        }, callbackTime, triggerKey);
     }
   }
 

@@ -53,7 +53,7 @@ import java.util.function.Function;
  *
  * This class implements the processing logic for various types of windows and triggers. It tracks and manages state for
  * all open windows, the active triggers that correspond to each of the windows and the pending callbacks. It provides
- * an implementation of {@link TriggerContext} that {@link TriggerImpl}s can use to schedule and cancel callbacks. It
+ * an implementation of {@link TriggerScheduler} that {@link TriggerImpl}s can use to schedule and cancel callbacks. It
  * also orchestrates the flow of messages through the various {@link TriggerImpl}s.
  *
  * <p> An instance of a {@link TriggerImplWrapper} is created corresponding to each {@link Trigger} configured for a
@@ -73,9 +73,10 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   private static final Logger LOG = LoggerFactory.getLogger(WindowOperatorImpl.class);
 
   // Queue of pending callbacks. Callbacks are evaluated at every tick.
-  private final PriorityQueue<TriggerContext<WK>.TriggerCallbackState<WK>> pendingCallbacks = new PriorityQueue<>();
+  private final PriorityQueue<TriggerScheduler<WK>.TriggerCallbackState<WK>> pendingCallbacks = new PriorityQueue<>();
   private final WindowInternal<M, WK, WV> window;
   private final KeyValueStore<WindowKey<WK>, WindowState<WV>> store = new InternalInMemoryStore<>();
+  TriggerScheduler<WK> triggerScheduler = new TriggerScheduler(pendingCallbacks);
 
   // The trigger state corresponding to each {@link TriggerKey}.
   private final Map<TriggerKey<WK>, TriggerImplWrapper> triggers = new HashMap<>();
@@ -114,7 +115,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   @Override
   public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
     long now = clock.currentTimeMillis();
-    TriggerContext<WK>.TriggerCallbackState<WK> state;
+    TriggerScheduler<WK>.TriggerCallbackState<WK> state;
     while ((state = pendingCallbacks.peek()) != null && state.getScheduledTimeMs() <= now) {
       pendingCallbacks.remove();
       state.getCallback().run();
@@ -177,9 +178,8 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
 
     LOG.trace("Creating a new trigger wrapper for {}", triggerKey);
 
-    TriggerImpl<M, WK> triggerImpl = TriggerImpls.createTriggerImpl(trigger, clock);
-    TriggerContext<WK> triggerContext = new TriggerContext(triggerKey, pendingCallbacks);
-    wrapper = new TriggerImplWrapper(triggerKey, triggerImpl, triggerContext);
+    TriggerImpl<M, WK> triggerImpl = TriggerImpls.createTriggerImpl(trigger, clock, triggerKey);
+    wrapper = new TriggerImplWrapper(triggerKey, triggerImpl);
     triggers.put(triggerKey, wrapper);
 
     return wrapper;
@@ -274,20 +274,18 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
     private final TriggerKey<WK> key;
     // The context, and the {@link TriggerImpl} instance corresponding to this triggerKey
     private final TriggerImpl<M, WK> impl;
-    private final TriggerContext<WK> context;
     // Guard to ensure that we don't invoke onMessage or onTimer on already cancelled triggers
     private boolean isCancelled = false;
 
-    public TriggerImplWrapper(TriggerKey<WK> key, TriggerImpl<M, WK> impl, TriggerContext<WK> context) {
+    public TriggerImplWrapper(TriggerKey<WK> key, TriggerImpl<M, WK> impl) {
       this.key = key;
       this.impl = impl;
-      this.context = context;
     }
 
     public void onMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
       if (!isCancelled) {
         LOG.trace("Forwarding callbacks for {}", message);
-        impl.onMessage(message, context);
+        impl.onMessage(message, triggerScheduler);
 
         if (impl.shouldFire()) {
           // repeating trigger can trigger multiple times, So, clear the state to allow future triggerings.

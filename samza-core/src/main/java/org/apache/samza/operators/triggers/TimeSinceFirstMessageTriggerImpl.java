@@ -19,7 +19,8 @@
 
 package org.apache.samza.operators.triggers;
 
-import org.apache.samza.operators.impl.TriggerContext;
+import org.apache.samza.operators.impl.TriggerKey;
+import org.apache.samza.operators.impl.TriggerScheduler;
 import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,15 +35,17 @@ public class TimeSinceFirstMessageTriggerImpl<M, WK> implements TriggerImpl<M, W
 
   private final TimeSinceFirstMessageTrigger<M> trigger;
   private final Clock clock;
+  private final TriggerKey<WK> triggerKey;
   private Cancellable cancellable;
   private boolean shouldFire = false;
 
-  public TimeSinceFirstMessageTriggerImpl(TimeSinceFirstMessageTrigger<M> trigger, Clock clock) {
+  public TimeSinceFirstMessageTriggerImpl(TimeSinceFirstMessageTrigger<M> trigger, Clock clock, TriggerKey<WK> key) {
     this.trigger = trigger;
     this.clock = clock;
+    this.triggerKey = key;
   }
 
-  public void onMessage(M message, TriggerContext<WK> context) {
+  public void onMessage(M message, TriggerScheduler<WK> context) {
     if (cancellable == null && !shouldFire) {
       final long now = clock.currentTimeMillis();
       long triggerDurationMs = trigger.getDuration().toMillis();
@@ -50,7 +53,7 @@ public class TimeSinceFirstMessageTriggerImpl<M, WK> implements TriggerImpl<M, W
       cancellable =  context.scheduleCallback(() -> {
           LOG.trace("Time since first message trigger fired");
           shouldFire = true;
-        }, callbackTime);
+        }, callbackTime, triggerKey);
     }
   }
 

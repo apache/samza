@@ -20,7 +20,7 @@
 package org.apache.samza.operators.triggers;
 
 
-import org.apache.samza.operators.impl.TriggerContext;
+import org.apache.samza.operators.impl.TriggerScheduler;
 
 /**
  * Implementation class for a {@link Trigger}. A {@link TriggerImpl} is used with a
@@ -32,7 +32,7 @@ import org.apache.samza.operators.impl.TriggerContext;
  * {@link TriggerImpl}s. A {@link TriggerImpl} instance is scoped to a window and its firing determines when results for
  * its window are emitted.
  *
- * {@link TriggerImpl}s can use the {@link TriggerContext} to schedule and cancel callbacks (for example, implementations
+ * {@link TriggerImpl}s can use the {@link TriggerScheduler} to schedule and cancel callbacks (for example, implementations
  * of time-based triggers).
  *
  * <p> State management: The state maintained by {@link TriggerImpl}s is not durable across re-starts and is transient.
@@ -44,9 +44,9 @@ public interface TriggerImpl<M, WK> {
   /**
    * Invoked when a message is added to the window corresponding to this {@link TriggerImpl}.
    * @param message the incoming message
-   * @param context the {@link TriggerContext} to schedule and cancel callbacks
+   * @param context the {@link TriggerScheduler} to schedule and cancel callbacks
    */
-  public void onMessage(M message, TriggerContext<WK> context);
+  public void onMessage(M message, TriggerScheduler<WK> context);
 
   /**
    * Returns {@code true} if the current state of the trigger indicates that its condition
@@ -58,7 +58,7 @@ public interface TriggerImpl<M, WK> {
   /**
    * Invoked when the execution of this {@link TriggerImpl} is canceled by an up-stream {@link TriggerImpl}.
    *
-   * No calls to {@link #onMessage(Object, TriggerContext)} or {@link #shouldFire()} will be invoked
+   * No calls to {@link #onMessage(Object, TriggerScheduler)} or {@link #shouldFire()} will be invoked
    * after this invocation.
    */
   public void cancel();

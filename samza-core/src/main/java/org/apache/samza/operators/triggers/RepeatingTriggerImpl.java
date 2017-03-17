@@ -19,7 +19,8 @@
 
 package org.apache.samza.operators.triggers;
 
-import org.apache.samza.operators.impl.TriggerContext;
+import org.apache.samza.operators.impl.TriggerKey;
+import org.apache.samza.operators.impl.TriggerScheduler;
 import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,17 +33,19 @@ public class RepeatingTriggerImpl<M, WK> implements TriggerImpl<M, WK> {
 
   private final Trigger<M> repeatingTrigger;
   private final Clock clock;
+  private final TriggerKey<WK> triggerKey;
 
   private TriggerImpl<M, WK> currentTriggerImpl;
 
-  public RepeatingTriggerImpl(RepeatingTrigger<M> repeatingTrigger, Clock clock) {
+  public RepeatingTriggerImpl(RepeatingTrigger<M> repeatingTrigger, Clock clock, TriggerKey<WK> key) {
     this.repeatingTrigger = repeatingTrigger.getTrigger();
     this.clock = clock;
-    this.currentTriggerImpl = TriggerImpls.createTriggerImpl(this.repeatingTrigger, clock);
+    this.triggerKey = key;
+    this.currentTriggerImpl = TriggerImpls.createTriggerImpl(this.repeatingTrigger, clock, triggerKey);
   }
 
   @Override
-  public void onMessage(M message, TriggerContext<WK> context) {
+  public void onMessage(M message, TriggerScheduler<WK> context) {
     currentTriggerImpl.onMessage(message, context);
   }
 
@@ -54,7 +57,7 @@ public class RepeatingTriggerImpl<M, WK> implements TriggerImpl<M, WK> {
   public void clear() {
     LOG.trace("Clearing state for repeating trigger");
     currentTriggerImpl.cancel();
-    currentTriggerImpl = TriggerImpls.createTriggerImpl(repeatingTrigger, clock);
+    currentTriggerImpl = TriggerImpls.createTriggerImpl(repeatingTrigger, clock, triggerKey);
   }
 
   @Override

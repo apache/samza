@@ -20,6 +20,7 @@
 package org.apache.samza.operators.triggers;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.operators.impl.TriggerKey;
 import org.apache.samza.util.Clock;
 
 /**
@@ -27,24 +28,24 @@ import org.apache.samza.util.Clock;
  */
 public class TriggerImpls {
 
-  public static <M, WK> TriggerImpl<M, WK> createTriggerImpl(Trigger<M> trigger, Clock clock) {
+  public static <M, WK> TriggerImpl<M, WK> createTriggerImpl(Trigger<M> trigger, Clock clock, TriggerKey<WK> triggerKey) {
 
     if (trigger == null) {
       throw new IllegalArgumentException("Trigger must not be null");
     }
 
     if (trigger instanceof CountTrigger) {
-      return new CountTriggerImpl<>((CountTrigger<M>) trigger);
+      return new CountTriggerImpl<>((CountTrigger<M>) trigger, triggerKey);
     } else if (trigger instanceof RepeatingTrigger) {
-      return new RepeatingTriggerImpl<>((RepeatingTrigger<M>) trigger, clock);
+      return new RepeatingTriggerImpl<>((RepeatingTrigger<M>) trigger, clock, triggerKey);
     } else if (trigger instanceof AnyTrigger) {
-      return new AnyTriggerImpl<>((AnyTrigger<M>) trigger, clock);
+      return new AnyTriggerImpl<>((AnyTrigger<M>) trigger, clock, triggerKey);
     } else if (trigger instanceof TimeSinceLastMessageTrigger) {
-      return new TimeSinceLastMessageTriggerImpl<>((TimeSinceLastMessageTrigger<M>) trigger, clock);
+      return new TimeSinceLastMessageTriggerImpl<>((TimeSinceLastMessageTrigger<M>) trigger, clock, triggerKey);
     } else if (trigger instanceof TimeTrigger) {
-      return new TimeTriggerImpl((TimeTrigger<M>) trigger, clock);
+      return new TimeTriggerImpl((TimeTrigger<M>) trigger, clock, triggerKey);
     } else if (trigger instanceof TimeSinceFirstMessageTrigger) {
-      return new TimeSinceFirstMessageTriggerImpl<>((TimeSinceFirstMessageTrigger<M>) trigger, clock);
+      return new TimeSinceFirstMessageTriggerImpl<>((TimeSinceFirstMessageTrigger<M>) trigger, clock, triggerKey);
     }
 
     throw new SamzaException("No implementation class defined for the trigger  " + trigger.getClass().getCanonicalName());

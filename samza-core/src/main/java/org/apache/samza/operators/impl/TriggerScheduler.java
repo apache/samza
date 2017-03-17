@@ -28,19 +28,17 @@ import java.util.PriorityQueue;
 /**
  * Allows to schedule and cancel callbacks.
  */
-public class TriggerContext<WK> {
+public class TriggerScheduler<WK> {
 
-  private static final Logger LOG = LoggerFactory.getLogger(TriggerContext.class);
+  private static final Logger LOG = LoggerFactory.getLogger(TriggerScheduler.class);
 
-  private final TriggerKey<WK> triggerKey;
   private final PriorityQueue<TriggerCallbackState<WK>> pendingCallbacks;
 
-  public TriggerContext(TriggerKey<WK> triggerKey, PriorityQueue<TriggerCallbackState<WK>> pendingCallbacks) {
-    this.triggerKey = triggerKey;
+  public TriggerScheduler(PriorityQueue<TriggerCallbackState<WK>> pendingCallbacks) {
     this.pendingCallbacks = pendingCallbacks;
   }
 
-  public Cancellable scheduleCallback(Runnable runnable, long callbackTimeMs) {
+  public Cancellable scheduleCallback(Runnable runnable, long callbackTimeMs, TriggerKey<WK> triggerKey) {
     TriggerCallbackState<WK> timerState = new TriggerCallbackState(triggerKey, runnable, callbackTimeMs);
     pendingCallbacks.add(timerState);
     LOG.trace("Scheduled a new callback: {} at {} for triggerKey {}", new Object[] {runnable, callbackTimeMs, triggerKey});

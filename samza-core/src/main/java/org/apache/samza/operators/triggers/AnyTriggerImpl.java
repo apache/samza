@@ -18,7 +18,8 @@
  */
 package org.apache.samza.operators.triggers;
 
-import org.apache.samza.operators.impl.TriggerContext;
+import org.apache.samza.operators.impl.TriggerKey;
+import org.apache.samza.operators.impl.TriggerScheduler;
 import org.apache.samza.util.Clock;
 
 import java.util.ArrayList;
@@ -36,16 +37,16 @@ public class AnyTriggerImpl<M, WK> implements TriggerImpl<M, WK> {
   private final Clock clock;
   private boolean shouldFire = false;
 
-  public AnyTriggerImpl(AnyTrigger<M> anyTrigger, Clock clock) {
+  public AnyTriggerImpl(AnyTrigger<M> anyTrigger, Clock clock, TriggerKey<WK> triggerKey) {
     this.triggers = anyTrigger.getTriggers();
     this.clock = clock;
     for (Trigger<M> trigger : triggers) {
-      triggerImpls.add(TriggerImpls.createTriggerImpl(trigger, clock));
+      triggerImpls.add(TriggerImpls.createTriggerImpl(trigger, clock, triggerKey));
     }
   }
 
   @Override
-  public void onMessage(M message, TriggerContext<WK> context) {
+  public void onMessage(M message, TriggerScheduler<WK> context) {
     for (TriggerImpl<M, WK> impl : triggerImpls) {
       impl.onMessage(message, context);
       if (impl.shouldFire()) {
