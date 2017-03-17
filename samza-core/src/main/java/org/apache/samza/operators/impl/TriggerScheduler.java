@@ -58,10 +58,10 @@ public class TriggerScheduler<WK> {
   }
 
   /**
-   * Run all pending callbacks that are ready to schedule. A callback is defined as "ready" if it's scheduledTime
-   * is less than or equal to clock.currentTimeMillis()
+   * Run all pending callbacks that are ready to be scheduled. A callback is defined as "ready" if it's scheduledTime
+   * is less than or equal to {@link Clock#currentTimeMillis()}
    *
-   * @return the list of TriggerKeys corresponding to those callbacks that were run.
+   * @return the list of {@link TriggerKey}s corresponding to the callbacks that were run.
    */
   public List<TriggerKey<WK>> runPendingCallbacks() {
     TriggerCallbackState<WK> state;

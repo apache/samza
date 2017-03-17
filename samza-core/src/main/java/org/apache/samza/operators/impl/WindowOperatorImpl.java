@@ -46,7 +46,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
 import java.util.function.Function;
 
 /**
@@ -59,10 +58,12 @@ import java.util.function.Function;
  *
  * <p> An instance of a {@link TriggerImplWrapper} is created corresponding to each {@link Trigger} configured for a
  * particular window. For every message added to the window, this class looks up the corresponding {@link TriggerImplWrapper}
- * for the trigger and invokes {@link TriggerImplWrapper#onNext(Object, MessageCollector, TaskCoordinator)}. The
- * {@link TriggerImplWrapper} forwards the callback to its {@link TriggerImpl} instance. A {@link TriggerImpl} instance is scoped
- * to a window and its firing determines when results for its window are emitted. The {@link WindowOperatorImpl} checks if
- * the trigger fired, and propagates the result of the firing to its downstream operators.
+ * for the trigger and invokes {@link TriggerImplWrapper#onMessage(TriggerKey, Object, MessageCollector, TaskCoordinator)}.
+ * The {@link TriggerImplWrapper} maintains the {@link TriggerImpl} instance along with whether it has been canceled yet
+ * or not. Then, the {@link TriggerImplWrapper} invokes onMessage on underlying its {@link TriggerImpl} instance. A
+ * {@link TriggerImpl} instance is scoped to a window and its firing determines when results for its window are emitted. The
+ * {@link WindowOperatorImpl} checks if the trigger fired, and propagates the result of the firing to its downstream
+ * operators.
  *
  * @param <M> the type of the incoming message
  * @param <WK> the type of the key in this {@link org.apache.samza.operators.MessageStream}
@@ -102,25 +103,24 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
       TriggerKey<WK> triggerKey = new TriggerKey<>(FiringType.EARLY, storeKey);
 
       getOrCreateTriggerImplWrapper(triggerKey, window.getEarlyTrigger())
-          .onMessage(message, collector, coordinator);
+          .onMessage(triggerKey, message, collector, coordinator);
     }
 
     if (window.getDefaultTrigger() != null) {
       TriggerKey<WK> triggerKey = new TriggerKey<>(FiringType.DEFAULT, storeKey);
       getOrCreateTriggerImplWrapper(triggerKey, window.getDefaultTrigger())
-          .onMessage(message, collector, coordinator);
+          .onMessage(triggerKey, message, collector, coordinator);
     }
   }
 
   @Override
   public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
-    long now = clock.currentTimeMillis();
     List<TriggerKey<WK>> keys = triggerScheduler.runPendingCallbacks();
 
     for (TriggerKey<WK> key : keys) {
       TriggerImplWrapper triggerImplWrapper = triggers.get(key);
       if (triggerImplWrapper != null) {
-        triggerImplWrapper.onTimer(collector, coordinator);
+        triggerImplWrapper.onTimer(key, collector, coordinator);
       }
     }
 
@@ -270,18 +270,16 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
    * State corresponding to a created {@link TriggerImpl} instance.
    */
   private class TriggerImplWrapper {
-    private final TriggerKey<WK> key;
     // The context, and the {@link TriggerImpl} instance corresponding to this triggerKey
     private final TriggerImpl<M, WK> impl;
     // Guard to ensure that we don't invoke onMessage or onTimer on already cancelled triggers
     private boolean isCancelled = false;
 
     public TriggerImplWrapper(TriggerKey<WK> key, TriggerImpl<M, WK> impl) {
-      this.key = key;
       this.impl = impl;
     }
 
-    public void onMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+    public void onMessage(TriggerKey<WK> triggerKey, M message, MessageCollector collector, TaskCoordinator coordinator) {
       if (!isCancelled) {
         LOG.trace("Forwarding callbacks for {}", message);
         impl.onMessage(message, triggerScheduler);
@@ -291,12 +289,12 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
           if (impl instanceof RepeatingTriggerImpl) {
             ((RepeatingTriggerImpl<M, WK>) impl).clear();
           }
-          onTriggerFired(key, collector, coordinator);
+          onTriggerFired(triggerKey, collector, coordinator);
         }
       }
     }
 
-    public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+    public void onTimer(TriggerKey<WK> key, MessageCollector collector, TaskCoordinator coordinator) {
       if (impl.shouldFire() && !isCancelled) {
         LOG.trace("Triggering timer triggers");
 
