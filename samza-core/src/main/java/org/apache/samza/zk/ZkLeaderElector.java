@@ -22,6 +22,7 @@ package org.apache.samza.zk;
 import com.google.common.annotations.VisibleForTesting;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -65,8 +66,8 @@ public class ZkLeaderElector implements LeaderElector {
     this.keyBuilder = zkUtils.getKeyBuilder();
     this.hostName = getHostName();
 
-    String [] paths = new String[]{keyBuilder.getProcessorsPath()};
-    zkUtils.makeSurePersistentPathsExists(paths);
+//    String [] paths = new String[]{keyBuilder.getProcessorsPath()};
+//    zkUtils.makeSurePersistentPathsExists(paths);
   }
 
   // TODO: This should go away once we integrate with Zk based Job Coordinator
@@ -87,6 +88,7 @@ public class ZkLeaderElector implements LeaderElector {
     LOGGER.debug(zLog("Current active processors - " + children));
     int index = children.indexOf(ZkKeyBuilder.parseIdFromPath(currentPath));
 
+    System.out.println("index = " + index + " for path=" + currentPath + " out of " + Arrays.toString(children.toArray()));
     if (children.size() == 0 || index == -1) {
       throw new SamzaException("Looks like we are no longer connected to Zk. Need to reconnect!");
     }
