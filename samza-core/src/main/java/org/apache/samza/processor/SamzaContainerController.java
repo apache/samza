@@ -29,7 +29,6 @@ import org.apache.samza.container.SamzaContainer$;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsReporter;
-import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,7 +107,7 @@ public class SamzaContainerController {
         Util.<String, MetricsReporter>javaMapAsScalaMap(metricsReporterMap),
         taskFactory,
         // TODO: need to use the correct local ApplicationRunner here
-        ApplicationRunner.getLocalRunner(config));
+        null);
     log.info("About to start container: " + containerModel.getContainerId());
     containerFuture = executorService.submit(() -> container.run());
   }

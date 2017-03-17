@@ -23,5 +23,6 @@ package org.apache.samza.task;
  * Build {@link AsyncStreamTask} instances.
  * Implementations should return a new instance for each {@link #createInstance()} invocation.
  */
-public interface AsyncStreamTaskFactory extends TaskFactory<AsyncStreamTask> {
+public interface AsyncStreamTaskFactory {
+  AsyncStreamTask createInstance();
 }

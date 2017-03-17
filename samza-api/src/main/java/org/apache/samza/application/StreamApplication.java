@@ -24,7 +24,7 @@ import org.apache.samza.operators.StreamGraph;
 
 
 /**
- * This interface defines a factory class that user will implement to create user-defined operator DAG in a {@link StreamGraph} object.
+ * This interface defines a template for stream application that user will implement to create operator DAG in {@link StreamGraph}.
  */
 @InterfaceStability.Unstable
 public interface StreamApplication {

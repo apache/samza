@@ -66,10 +66,7 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.chooser.DefaultChooser
 import org.apache.samza.system.chooser.MessageChooserFactory
 import org.apache.samza.system.chooser.RoundRobinChooserFactory
-import org.apache.samza.task.AsyncRunLoop
-import org.apache.samza.task.TaskFactory
-import org.apache.samza.task.TaskFactoryUtil
-import org.apache.samza.task.TaskInstanceCollector
+import org.apache.samza.task._
 import org.apache.samza.util.HighResolutionClock
 import org.apache.samza.util.ExponentialSleepStrategy
 import org.apache.samza.util.Logging
@@ -441,11 +438,11 @@ object SamzaContainer extends Logging {
     else
       null
 
+    val taskFactoryInstance = Option(taskFactory)
+      .getOrElse(TaskFactoryUtil.fromTaskClassConfig(config, appRunner))
+
     val finalTaskFactory = TaskFactoryUtil.finalizeTaskFactory(
-      taskFactory match {
-        case null => TaskFactoryUtil.fromTaskClassConfig(config, appRunner)
-        case _ => taskFactory.asInstanceOf[TaskFactory[_]]
-      },
+      taskFactoryInstance,
       singleThreadMode,
       taskThreadPool)
 
@@ -470,8 +467,10 @@ object SamzaContainer extends Logging {
 
       val taskName = taskModel.getTaskName
 
-      debug("Using task factory to create task instance")
-      val task = finalTaskFactory.createInstance()
+      val task = finalTaskFactory match {
+        case tf: AsyncStreamTaskFactory => tf.asInstanceOf[AsyncStreamTaskFactory].createInstance()
+        case tf: StreamTaskFactory => tf.asInstanceOf[StreamTaskFactory].createInstance()
+      }
 
       val taskInstanceMetrics = new TaskInstanceMetrics("TaskName-%s" format taskName)
 

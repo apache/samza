@@ -51,7 +51,7 @@ public class TestTaskFactoryUtil {
         this.put("task.class", "org.apache.samza.testUtils.TestStreamTask");
       }
     });
-    TaskFactory retFactory = TaskFactoryUtil.fromTaskClassConfig(config, mockRunner);
+    Object retFactory = TaskFactoryUtil.fromTaskClassConfig(config, mockRunner);
     assertTrue(retFactory instanceof StreamTaskFactory);
     assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof TestStreamTask);
 
@@ -131,7 +131,7 @@ public class TestTaskFactoryUtil {
         this.put(StreamApplication.APP_CLASS_CONFIG, "org.apache.samza.testUtils.TestStreamApplication");
       }
     });
-    TaskFactory retFactory = TaskFactoryUtil.fromTaskClassConfig(config, mockRunner);
+    Object retFactory = TaskFactoryUtil.fromTaskClassConfig(config, mockRunner);
     assertTrue(retFactory instanceof StreamTaskFactory);
     assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof StreamOperatorTask);
 
@@ -183,7 +183,7 @@ public class TestTaskFactoryUtil {
         this.put(StreamApplication.APP_CLASS_CONFIG, "");
       }
     });
-    TaskFactory retFactory = TaskFactoryUtil.fromTaskClassConfig(config, mockRunner);
+    Object retFactory = TaskFactoryUtil.fromTaskClassConfig(config, mockRunner);
     assertTrue(retFactory instanceof StreamTaskFactory);
     assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof TestStreamTask);
 
@@ -208,7 +208,7 @@ public class TestTaskFactoryUtil {
         this.put("task.class", "org.apache.samza.testUtils.TestAsyncStreamTask");
       }
     });
-    TaskFactory retFactory = TaskFactoryUtil.fromTaskClassConfig(config, mockRunner);
+    Object retFactory = TaskFactoryUtil.fromTaskClassConfig(config, mockRunner);
     assertTrue(retFactory instanceof AsyncStreamTaskFactory);
     assertTrue(((AsyncStreamTaskFactory) retFactory).createInstance() instanceof TestAsyncStreamTask);
 
@@ -246,7 +246,7 @@ public class TestTaskFactoryUtil {
         this.put(StreamApplication.APP_CLASS_CONFIG, "");
       }
     });
-    TaskFactory retFactory = TaskFactoryUtil.fromTaskClassConfig(config, mockRunner);
+    Object retFactory = TaskFactoryUtil.fromTaskClassConfig(config, mockRunner);
     assertTrue(retFactory instanceof AsyncStreamTaskFactory);
     assertTrue(((AsyncStreamTaskFactory) retFactory).createInstance() instanceof TestAsyncStreamTask);
 
@@ -263,7 +263,7 @@ public class TestTaskFactoryUtil {
 
   @Test
   public void testFinalizeTaskFactory() throws NoSuchFieldException, IllegalAccessException {
-    TaskFactory<Object> mockFactory = mock(TaskFactory.class);
+    Object mockFactory = mock(Object.class);
     try {
       TaskFactoryUtil.finalizeTaskFactory(mockFactory, true, null);
       fail("Should have failed with validation");
@@ -271,14 +271,14 @@ public class TestTaskFactoryUtil {
       // expected
     }
     StreamTaskFactory mockStreamFactory = mock(StreamTaskFactory.class);
-    TaskFactory retFactory = TaskFactoryUtil.finalizeTaskFactory(mockStreamFactory, true, null);
+    Object retFactory = TaskFactoryUtil.finalizeTaskFactory(mockStreamFactory, true, null);
     assertEquals(retFactory, mockStreamFactory);
 
     ExecutorService mockThreadPool = mock(ExecutorService.class);
     retFactory = TaskFactoryUtil.finalizeTaskFactory(mockStreamFactory, false, mockThreadPool);
     assertTrue(retFactory instanceof AsyncStreamTaskFactory);
-    assertTrue(retFactory.createInstance() instanceof AsyncStreamTaskAdapter);
-    AsyncStreamTaskAdapter taskAdapter = (AsyncStreamTaskAdapter) retFactory.createInstance();
+    assertTrue(((AsyncStreamTaskFactory) retFactory).createInstance() instanceof AsyncStreamTaskAdapter);
+    AsyncStreamTaskAdapter taskAdapter = (AsyncStreamTaskAdapter) ((AsyncStreamTaskFactory) retFactory).createInstance();
     Field executorSrvFld = AsyncStreamTaskAdapter.class.getDeclaredField("executor");
     executorSrvFld.setAccessible(true);
     ExecutorService executor = (ExecutorService) executorSrvFld.get(taskAdapter);

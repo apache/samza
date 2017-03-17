@@ -34,7 +34,7 @@ import scala.runtime.AbstractFunction0;
 public class TaskFactoryUtil {
   private static final Logger log = LoggerFactory.getLogger(TaskFactoryUtil.class);
 
-  public static TaskFactory fromTaskClassConfig(Config config, ApplicationRunner runner) {
+  public static Object fromTaskClassConfig(Config config, ApplicationRunner runner) {
 
     String taskClassName;
 
@@ -57,7 +57,6 @@ public class TaskFactoryUtil {
     try {
       isAsyncTaskClass = AsyncStreamTask.class.isAssignableFrom(Class.forName(taskClassName));
     } catch (Throwable t) {
-      log.error("Invalid configuration for AsyncStreamTask class: {}. error: {}", taskClassName, t);
       throw new ConfigException(String.format("Invalid configuration for AsyncStreamTask class: %s", taskClassName), t);
     }
 
@@ -91,7 +90,7 @@ public class TaskFactoryUtil {
     };
   }
 
-  public static TaskFactory finalizeTaskFactory(TaskFactory factory, boolean singleThreadMode, ExecutorService taskThreadPool) {
+  public static Object finalizeTaskFactory(Object factory, boolean singleThreadMode, ExecutorService taskThreadPool) {
 
     validateFactory(factory);
 
@@ -109,7 +108,7 @@ public class TaskFactoryUtil {
       return new AsyncStreamTaskFactory() {
         @Override
         public AsyncStreamTask createInstance() {
-          return new AsyncStreamTaskAdapter((StreamTask) factory.createInstance(), taskThreadPool);
+          return new AsyncStreamTaskAdapter(((StreamTaskFactory) factory).createInstance(), taskThreadPool);
         }
       };
     }
@@ -117,7 +116,7 @@ public class TaskFactoryUtil {
     return factory;
   }
 
-  private static void validateFactory(TaskFactory factory) {
+  private static void validateFactory(Object factory) {
     if (factory == null) {
       throw new SamzaException("Either the task class name or the task factory instance is required.");
     }
