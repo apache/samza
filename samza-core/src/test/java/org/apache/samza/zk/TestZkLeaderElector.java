@@ -52,7 +52,7 @@ public class TestZkLeaderElector {
 
   private static EmbeddedZookeeper zkServer = null;
   private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
-  private static String testZkConnectionString = null;
+  private String testZkConnectionString = null;
   private ZkUtils testZkUtils = null;
   private static final int SESSION_TIMEOUT_MS = 20000;
   private static final int CONNECTION_TIMEOUT_MS = 10000;
@@ -62,12 +62,11 @@ public class TestZkLeaderElector {
   public static void setup() throws InterruptedException {
     zkServer = new EmbeddedZookeeper();
     zkServer.setup();
-    testZkConnectionString = "localhost:" + zkServer.getPort();
   }
 
   @Before
   public void testSetup() {
-
+    testZkConnectionString = "localhost:" + zkServer.getPort();
     try {
       testZkUtils = getZkUtilsWithNewClient();
     } catch (Exception e) {
@@ -174,23 +173,19 @@ public class TestZkLeaderElector {
 
 
     // Processor-1
-    //ZkUtils zkUtils1 = getZkUtilsWithNewClient();
-    //ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1);
-    String groupId = "group1";
-    ZkCoordinationService coordServ1 = (ZkCoordinationService)getZkCoordinationService(groupId, "1");
-    ZkLeaderElector leaderElector1 = (ZkLeaderElector)coordServ1.getLeaderElector();
+    ZkUtils zkUtils1 = getZkUtilsWithNewClient();
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1);
 
     // Processor-2
-    ZkCoordinationService coordServ2 = (ZkCoordinationService)getZkCoordinationService(groupId, "2");
-    ZkLeaderElector leaderElector2 = (ZkLeaderElector)coordServ2.getLeaderElector();
+    ZkUtils zkUtils2 = getZkUtilsWithNewClient();
+    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2);
+
 
     // Processor-3
-    ZkCoordinationService coordServ3 = (ZkCoordinationService)getZkCoordinationService(groupId, "3");
-    ZkLeaderElector leaderElector3 = (ZkLeaderElector)coordServ3.getLeaderElector();
+    ZkUtils zkUtils3 = getZkUtilsWithNewClient();
+    ZkLeaderElector leaderElector3 = new ZkLeaderElector("3", zkUtils3);
 
-    ZkUtils zkUtils = coordServ1.getZkUtils();
-
-    Assert.assertEquals(0, zkUtils.getSortedActiveProcessors().size());
+    Assert.assertEquals(0, testZkUtils.getSortedActiveProcessors().size());
 
     leaderElector1.tryBecomeLeader(new LeaderElectorListener() {
       @Override
@@ -215,16 +210,15 @@ public class TestZkLeaderElector {
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> isLeader2.res, 2, 100));
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> isLeader3.res, 2, 100));
 
-    Assert.assertEquals(3, zkUtils.getSortedActiveProcessors().size());
+    Assert.assertEquals(3, testZkUtils.getSortedActiveProcessors().size());
 
-    //coordServ1.reset();
-    //Assert.assertEquals(new ArrayList<String>(), zkUtils.getSortedActiveProcessors());
 
     // Clean up
-    coordServ1.stop();
-    coordServ1.stop();
-    coordServ1.stop();
+    zkUtils1.close();
+    zkUtils2.close();
+    zkUtils3.close();
 
+    Assert.assertEquals(new ArrayList<String>(), testZkUtils.getSortedActiveProcessors());
 
   }
 
@@ -247,14 +241,9 @@ public class TestZkLeaderElector {
 
 
     // Processor-1
-    //ZkUtils zkUtils1 = getZkUtilsWithNewClient();
-    //ZkLeaderElector leaderElector1 = new ZkLeaderElector("1",zkUtils1);
-    String groupId = "group1";
-    ZkCoordinationService coordServ1 = (ZkCoordinationService)getZkCoordinationService(groupId, "1");
-    ZkUtils zkUtils1 = coordServ1.getZkUtils();
-    ZkLeaderElector leaderElector1 = (ZkLeaderElector)coordServ1.getLeaderElector();
+    ZkUtils zkUtils1 = getZkUtilsWithNewClient();
     zkUtils1.registerProcessorAndGetId("processor1");
-
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1",zkUtils1);
 
     leaderElector1.setPreviousProcessorChangeListener(new IZkDataListener() {
       @Override
@@ -270,12 +259,9 @@ public class TestZkLeaderElector {
     });
 
     // Processor-2
-    //ZkUtils zkUtils2 = getZkUtilsWithNewClient();
-    //ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2);
-    ZkCoordinationService coordServ2 = (ZkCoordinationService)getZkCoordinationService(groupId, "2");
-    ZkUtils zkUtils2 = coordServ2.getZkUtils();
-    ZkLeaderElector leaderElector2 = (ZkLeaderElector)coordServ2.getLeaderElector();
+    ZkUtils zkUtils2 = getZkUtilsWithNewClient();
     final String path2 = zkUtils2.registerProcessorAndGetId("processor2");
+    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2);
 
     leaderElector2.setPreviousProcessorChangeListener(new IZkDataListener() {
       @Override
@@ -305,13 +291,9 @@ public class TestZkLeaderElector {
     });
 
     // Processor-3
-    //ZkUtils zkUtils3  = getZkUtilsWithNewClient();
-    //ZkLeaderElector leaderElector3 = new ZkLeaderElector("3", zkUtils3);
-    ZkCoordinationService coordServ3 = (ZkCoordinationService)getZkCoordinationService(groupId, "3");
-    ZkLeaderElector leaderElector3 = (ZkLeaderElector)coordServ3.getLeaderElector();
-    ZkUtils zkUtils3 = coordServ3.getZkUtils();
+    ZkUtils zkUtils3  = getZkUtilsWithNewClient();
     zkUtils3.registerProcessorAndGetId("processor3");
-
+    ZkLeaderElector leaderElector3 = new ZkLeaderElector("3", zkUtils3);
 
     leaderElector3.setPreviousProcessorChangeListener(new IZkDataListener() {
       @Override
@@ -394,15 +376,9 @@ public class TestZkLeaderElector {
     BooleanResult isLeader3 = new BooleanResult();
 
     // Processor-1
-    //ZkUtils zkUtils1 = getZkUtilsWithNewClient();
-    //zkUtils1.registerProcessorAndGetId("processor1");
-    //ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1);
-
-    String groupId = "group1";
-    ZkCoordinationService coordServ1 = (ZkCoordinationService)getZkCoordinationService(groupId, "1");
-    ZkLeaderElector leaderElector1 = (ZkLeaderElector)coordServ1.getLeaderElector();
-    ZkUtils zkUtils1 = coordServ1.getZkUtils();
+    ZkUtils zkUtils1 = getZkUtilsWithNewClient();
     zkUtils1.registerProcessorAndGetId("processor1");
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1);
 
     leaderElector1.setPreviousProcessorChangeListener(new IZkDataListener() {
       @Override
@@ -420,10 +396,9 @@ public class TestZkLeaderElector {
 
 
     // Processor-2
-    ZkCoordinationService coordServ2 = (ZkCoordinationService)getZkCoordinationService(groupId, "2");
-    ZkLeaderElector leaderElector2 = (ZkLeaderElector)coordServ2.getLeaderElector();
-    ZkUtils zkUtils2 = coordServ2.getZkUtils();
+    ZkUtils zkUtils2 = getZkUtilsWithNewClient();
     zkUtils2.registerProcessorAndGetId("processor2");
+    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils1);
 
     leaderElector2.setPreviousProcessorChangeListener(new IZkDataListener() {
       @Override
@@ -440,14 +415,9 @@ public class TestZkLeaderElector {
     });
 
     // Processor-3
-    //ZkUtils zkUtils3  = getZkUtilsWithNewClient();
-    //final String path3 = zkUtils3.registerProcessorAndGetId("processor3");
-    //ZkLeaderElector leaderElector3 = new ZkLeaderElector("3", zkUtils3);
-
-    ZkCoordinationService coordServ3 = (ZkCoordinationService)getZkCoordinationService(groupId, "3");
-    ZkLeaderElector leaderElector3 = (ZkLeaderElector)coordServ3.getLeaderElector();
-    ZkUtils zkUtils3 = coordServ3.getZkUtils();
+    ZkUtils zkUtils3  = getZkUtilsWithNewClient();
     final String path3 = zkUtils3.registerProcessorAndGetId("processor3");
+    ZkLeaderElector leaderElector3 = new ZkLeaderElector("3", zkUtils3);
 
     leaderElector3.setPreviousProcessorChangeListener(new IZkDataListener() {
       @Override
@@ -500,7 +470,6 @@ public class TestZkLeaderElector {
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> isLeader2.res, 2, 100));
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> isLeader3.res, 2, 100));
 
-    ZkUtils zkutils1 = coordServ1.getZkUtils();
     List<String> currentActiveProcessors = zkUtils1.getSortedActiveProcessors();
     Assert.assertEquals(3, currentActiveProcessors.size());
 
@@ -526,13 +495,13 @@ public class TestZkLeaderElector {
     BooleanResult isLeader1 = new BooleanResult();
     BooleanResult isLeader2 = new BooleanResult();
     // Processor-1
-    String groupId = "group1";
-    ZkCoordinationService coordServ1 = (ZkCoordinationService)getZkCoordinationService(groupId, "1");
-    ZkLeaderElector leaderElector1 = (ZkLeaderElector)coordServ1.getLeaderElector();
+
+    ZkUtils zkUtils1 = getZkUtilsWithNewClient();
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1);
 
     // Processor-2
-    ZkCoordinationService coordServ2 = (ZkCoordinationService)getZkCoordinationService(groupId, "2");
-    ZkLeaderElector leaderElector2 = (ZkLeaderElector)coordServ2.getLeaderElector();
+    ZkUtils zkUtils2 = getZkUtilsWithNewClient();
+    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2);
 
     // Before Leader Election
     Assert.assertFalse(leaderElector1.amILeader());
@@ -555,8 +524,8 @@ public class TestZkLeaderElector {
     Assert.assertTrue(leaderElector1.amILeader());
     Assert.assertFalse(leaderElector2.amILeader());
 
-    coordServ1.getZkUtils().close();
-    coordServ2.getZkUtils().close();
+    zkUtils1.close();
+    zkUtils2.close();
   }
 
   private ZkUtils getZkUtilsWithNewClient() {
