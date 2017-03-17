@@ -28,7 +28,7 @@ import org.apache.samza.util.Util;
 
 
 /**
- * This is the main() entry point to run a Samza application.
+ * This class contains the main() method used by run-app.sh.
  * For a StreamApplication, it creates the {@link ApplicationRunner} based on the config, and then run the application.
  * For a Samza job using low level task API, it will create the JobRunner to run it.
  */
