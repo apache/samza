@@ -20,9 +20,12 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.operators.triggers.Cancellable;
+import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.PriorityQueue;
 
 /**
@@ -33,9 +36,11 @@ public class TriggerScheduler<WK> {
   private static final Logger LOG = LoggerFactory.getLogger(TriggerScheduler.class);
 
   private final PriorityQueue<TriggerCallbackState<WK>> pendingCallbacks;
+  private final Clock clock;
 
-  public TriggerScheduler(PriorityQueue<TriggerCallbackState<WK>> pendingCallbacks) {
+  public TriggerScheduler(PriorityQueue<TriggerCallbackState<WK>> pendingCallbacks, Clock clock) {
     this.pendingCallbacks = pendingCallbacks;
+    this.clock = clock;
   }
 
   public Cancellable scheduleCallback(Runnable runnable, long callbackTimeMs, TriggerKey<WK> triggerKey) {
@@ -43,6 +48,20 @@ public class TriggerScheduler<WK> {
     pendingCallbacks.add(timerState);
     LOG.trace("Scheduled a new callback: {} at {} for triggerKey {}", new Object[] {runnable, callbackTimeMs, triggerKey});
     return timerState;
+  }
+
+  public List<TriggerKey<WK>> runPendingCallbacks() {
+    TriggerCallbackState<WK> state;
+    List<TriggerKey<WK>> keys = new ArrayList<>();
+    long now = clock.currentTimeMillis();
+
+    while ((state = pendingCallbacks.peek()) != null && state.getScheduledTimeMs() <= now) {
+      pendingCallbacks.remove();
+      state.getCallback().run();
+      TriggerKey<WK> key = state.getTriggerKey();
+      keys.add(key);
+    }
+    return keys;
   }
 
   /**

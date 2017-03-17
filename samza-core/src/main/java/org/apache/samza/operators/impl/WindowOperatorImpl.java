@@ -44,6 +44,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.function.Function;
@@ -76,7 +77,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   private final PriorityQueue<TriggerScheduler<WK>.TriggerCallbackState<WK>> pendingCallbacks = new PriorityQueue<>();
   private final WindowInternal<M, WK, WV> window;
   private final KeyValueStore<WindowKey<WK>, WindowState<WV>> store = new InternalInMemoryStore<>();
-  TriggerScheduler<WK> triggerScheduler = new TriggerScheduler(pendingCallbacks);
+  TriggerScheduler<WK> triggerScheduler ;
 
   // The trigger state corresponding to each {@link TriggerKey}.
   private final Map<TriggerKey<WK>, TriggerImplWrapper> triggers = new HashMap<>();
@@ -85,6 +86,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   public WindowOperatorImpl(WindowOperatorSpec<M, WK, WV> spec, Clock clock) {
     this.clock = clock;
     this.window = spec.getWindow();
+    this.triggerScheduler= new TriggerScheduler(pendingCallbacks, clock);
   }
 
   @Override
@@ -116,15 +118,15 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
     long now = clock.currentTimeMillis();
     TriggerScheduler<WK>.TriggerCallbackState<WK> state;
-    while ((state = pendingCallbacks.peek()) != null && state.getScheduledTimeMs() <= now) {
-      pendingCallbacks.remove();
-      state.getCallback().run();
+    List<TriggerKey<WK>> keys = triggerScheduler.runPendingCallbacks();
 
-      TriggerImplWrapper triggerImplWrapper = triggers.get(state.getTriggerKey());
+    for (TriggerKey<WK> key : keys) {
+      TriggerImplWrapper triggerImplWrapper = triggers.get(key);
       if (triggerImplWrapper != null) {
         triggerImplWrapper.onTimer(collector, coordinator);
       }
     }
+
   }
 
   /**
