@@ -68,7 +68,7 @@ public class TestZkLeaderElector {
       // Do nothing
     }
   }
-
+  // used in the callbacks
   private static class BooleanResult {
     public boolean res = false;
   }
