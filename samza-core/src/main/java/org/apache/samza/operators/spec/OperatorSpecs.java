@@ -148,7 +148,7 @@ public class OperatorSpecs {
    *
    * @param sinkFn  the sink function
    * @param stream  the {@link OutputStream} where the message is sent to
-   * @param opId  the operator ID for the partition operator
+   * @param opId operator ID
    * @param <M>  type of input message
    * @return  the {@link SinkOperatorSpec}
    */
