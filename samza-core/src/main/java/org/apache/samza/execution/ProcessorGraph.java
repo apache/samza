@@ -138,7 +138,7 @@ public class ProcessorGraph {
    * Returns the processors to be executed in the topological order
    * @return unmodifiable list of {@link ProcessorNode}
    */
-  public List<ProcessorNode> getProcessors() {
+  public List<ProcessorNode> getProcessorNodes() {
     List<ProcessorNode> sortedNodes = topologicalSort();
     return Collections.unmodifiableList(sortedNodes);
   }
