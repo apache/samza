@@ -71,7 +71,7 @@ public class KeyValueStoreExample implements StreamApplication {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
-    localRunner.run(new KeyValueStoreExample(), config);
+    localRunner.run(new KeyValueStoreExample());
   }
 
   class MyStatsCounter implements FlatMapFunction<PageViewEvent, StatsOutput> {

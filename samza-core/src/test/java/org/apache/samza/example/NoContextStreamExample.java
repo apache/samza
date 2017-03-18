@@ -122,7 +122,7 @@ public class NoContextStreamExample implements StreamApplication {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
-    localRunner.run(new NoContextStreamExample(), config);
+    localRunner.run(new NoContextStreamExample());
   }
 
 }

@@ -65,7 +65,7 @@ public class OrderShipmentJoinExample implements StreamApplication {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
-    localRunner.run(new OrderShipmentJoinExample(), config);
+    localRunner.run(new OrderShipmentJoinExample());
   }
 
   StreamSpec input1 = new StreamSpec("orderStream", "OrderEvent", "kafka");

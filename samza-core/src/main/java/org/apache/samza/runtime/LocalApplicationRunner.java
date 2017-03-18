@@ -32,7 +32,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     super(config);
   }
 
-  @Override public void run(StreamApplication app, Config config) {
+  @Override public void run(StreamApplication app) {
     // 1. get logic graph for optimization
     // StreamGraph logicGraph = this.createGraph(app, config);
     // 2. potential optimization....
