@@ -31,9 +31,20 @@ import java.util.concurrent.ExecutorService;
 
 import scala.runtime.AbstractFunction0;
 
+/**
+ * This class provides utility functions to load task factory classes based on config, and to wrap {@link StreamTaskFactory} in {@link AsyncStreamTaskFactory}
+ * when running {@link StreamTask}s in multi-thread mode
+ */
 public class TaskFactoryUtil {
   private static final Logger log = LoggerFactory.getLogger(TaskFactoryUtil.class);
 
+  /**
+   * This method loads a task factory class based on the configuration
+   *
+   * @param config  the {@link Config} for this job
+   * @param runner  the {@link ApplicationRunner} to run this job
+   * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
+   */
   public static Object fromTaskClassConfig(Config config, ApplicationRunner runner) {
 
     String taskClassName;
@@ -90,6 +101,15 @@ public class TaskFactoryUtil {
     };
   }
 
+  /**
+   * Optionally wrap the {@link StreamTaskFactory} in a {@link AsyncStreamTaskFactory}, when running {@link StreamTask}
+   * in multi-thread mode.
+   *
+   * @param factory  the task factory instance loaded according to the task class
+   * @param singleThreadMode  the flag indicating whether the job is running in single thread mode or not
+   * @param taskThreadPool  the thread pool to run the {@link AsyncStreamTaskAdapter} tasks
+   * @return  the finalized task factory object
+   */
   public static Object finalizeTaskFactory(Object factory, boolean singleThreadMode, ExecutorService taskThreadPool) {
 
     validateFactory(factory);
