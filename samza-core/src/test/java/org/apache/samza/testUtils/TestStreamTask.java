@@ -16,31 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.example;
+package org.apache.samza.testUtils;
 
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.SystemStreamPartition;
-
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.TaskCoordinator;
 
 /**
- * Base class for test examples
- *
+ * Test implementation class for {@link StreamTask}
  */
-public abstract class TestExampleBase implements StreamApplication {
+public class TestStreamTask implements StreamTask {
+  @Override
+  public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) throws Exception {
 
-  protected final Map<SystemStream, Set<SystemStreamPartition>> inputs;
-
-  TestExampleBase(Set<SystemStreamPartition> inputs) {
-    this.inputs = new HashMap<>();
-    for (SystemStreamPartition input : inputs) {
-      this.inputs.putIfAbsent(input.getSystemStream(), new HashSet<>());
-      this.inputs.get(input.getSystemStream()).add(input);
-    }
   }
-
 }

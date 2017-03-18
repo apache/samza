@@ -24,12 +24,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.SinkFunction;
@@ -201,7 +201,7 @@ public class TestExecutionPlanner {
 
     runner = new AbstractApplicationRunner(config) {
       @Override
-      public void run(StreamGraphBuilder graphBuilder) {
+      public void run(StreamApplication streamApp) {
       }
     };
   }

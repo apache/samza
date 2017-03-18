@@ -20,6 +20,7 @@ package org.apache.samza.operators;
 
 import com.google.common.collect.ImmutableSet;
 import org.apache.samza.Partition;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -64,7 +65,7 @@ public class TestJoinOperator {
             new SystemStreamPartition("insystem2", "instream2", new Partition(0))));
     Config config = mock(Config.class);
 
-    StreamGraphBuilder sgb = new TestStreamGraphBuilder();
+    StreamApplication sgb = new TestStreamApplication();
     sot = new StreamOperatorTask(sgb, runner);
     sot.init(config, taskContext);
   }
@@ -202,7 +203,7 @@ public class TestJoinOperator {
     assertTrue(output.isEmpty());
   }
 
-  private class TestStreamGraphBuilder implements StreamGraphBuilder {
+  private class TestStreamApplication implements StreamApplication {
     StreamSpec inStreamSpec = new StreamSpec("instream", "instream", "insystem");
     StreamSpec inStreamSpec2 = new StreamSpec("instream2", "instream2", "insystem2");
 

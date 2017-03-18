@@ -24,7 +24,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 
@@ -326,7 +326,7 @@ public class TestAbstractApplicationRunner {
     }
 
     @Override
-    public void run(StreamGraphBuilder graphBuilder) {
+    public void run(StreamApplication streamApp) {
       // do nothing
     }
   }

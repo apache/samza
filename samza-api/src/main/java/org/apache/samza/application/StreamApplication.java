@@ -16,29 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.application;
 
-package org.apache.samza.runtime;
-
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.operators.StreamGraph;
 
 
 /**
- * This class implements the {@link ApplicationRunner} that runs the applications in standalone environment
+ * This interface defines a template for stream application that user will implement to create operator DAG in {@link StreamGraph}.
  */
-public class LocalApplicationRunner extends AbstractApplicationRunner {
+@InterfaceStability.Unstable
+public interface StreamApplication {
+  static final String APP_CLASS_CONFIG = "app.class";
 
-  public LocalApplicationRunner(Config config) {
-    super(config);
-  }
-
-  @Override public void run(StreamApplication app) {
-    // 1. get logic graph for optimization
-    // StreamGraph logicGraph = this.createGraph(app, config);
-    // 2. potential optimization....
-    // 3. create new instance of StreamApplication that would generate the optimized graph
-    // 4. create all input/output/intermediate topics
-    // 5. create the configuration for StreamProcessor
-    // 6. start the StreamProcessor w/ optimized instance of StreamApplication
-  }
+  /**
+   * Users are required to implement this abstract method to initialize the processing logic of the application, in terms
+   * of a DAG of {@link org.apache.samza.operators.MessageStream}s and operators
+   *
+   * @param graph  an empty {@link StreamGraph} object to be initialized
+   * @param config  the {@link Config} of the application
+   */
+  void init(StreamGraph graph, Config config);
 }

@@ -16,29 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
-package org.apache.samza.runtime;
+package org.apache.samza.testUtils;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.application.StreamApplication;
 
-
 /**
- * This class implements the {@link ApplicationRunner} that runs the applications in standalone environment
+ * Test implementation class for {@link StreamApplication}
  */
-public class LocalApplicationRunner extends AbstractApplicationRunner {
+public class TestStreamApplication implements StreamApplication {
+  @Override
+  public void init(StreamGraph graph, Config config) {
 
-  public LocalApplicationRunner(Config config) {
-    super(config);
-  }
-
-  @Override public void run(StreamApplication app) {
-    // 1. get logic graph for optimization
-    // StreamGraph logicGraph = this.createGraph(app, config);
-    // 2. potential optimization....
-    // 3. create new instance of StreamApplication that would generate the optimized graph
-    // 4. create all input/output/intermediate topics
-    // 5. create the configuration for StreamProcessor
-    // 6. start the StreamProcessor w/ optimized instance of StreamApplication
   }
 }

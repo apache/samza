@@ -19,12 +19,12 @@
 
 package org.apache.samza.runtime;
 
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.SamzaException;
 import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.ProcessorGraph;
 import org.apache.samza.job.JobRunner;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.slf4j.Logger;
@@ -43,11 +43,10 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   }
 
   /**
-   * Run the {@link StreamGraphBuilder} on the remote cluster
+   * Run the {@link StreamApplication} on the remote cluster
    * @param app a StreamApplication
    */
-  @Override
-  public void run(StreamGraphBuilder app) {
+  @Override public void run(StreamApplication app) {
     try {
       // 1. build stream graph
       StreamGraph streamGraph = new StreamGraphImpl(this, config);

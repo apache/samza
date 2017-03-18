@@ -523,8 +523,8 @@ public class TestAsyncRunLoop {
   public void testCommitBehaviourWhenAsyncCommitIsEnabled() throws InterruptedException {
     commitRequest = TaskCoordinator.RequestScope.CURRENT_TASK;
     maxMessagesInFlight = 2;
-    TestTask task0 = new TestTask(true, true, false);
-    TestTask task1 = new TestTask(true, false, false);
+    task0 = new TestTask(true, true, false);
+    task1 = new TestTask(true, false, false);
 
     IncomingMessageEnvelope firstMsg = new IncomingMessageEnvelope(ssp0, "0", "key0", "value0");
     IncomingMessageEnvelope secondMsg = new IncomingMessageEnvelope(ssp0, "1", "key1", "value1");

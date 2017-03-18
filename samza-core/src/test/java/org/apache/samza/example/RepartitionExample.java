@@ -19,7 +19,7 @@
 package org.apache.samza.example;
 
 import org.apache.samza.operators.*;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.windows.WindowPane;
@@ -34,9 +34,9 @@ import java.time.Duration;
 
 
 /**
- * Example {@link StreamGraphBuilder} code to test the API methods with re-partition operator
+ * Example {@link StreamApplication} code to test the API methods with re-partition operator
  */
-public class RepartitionExample implements StreamGraphBuilder {
+public class RepartitionExample implements StreamApplication {
 
   /**
    * used by remote application runner to launch the job in remote program. The remote program should follow the similar

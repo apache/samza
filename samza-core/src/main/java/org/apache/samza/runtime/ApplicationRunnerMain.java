@@ -20,9 +20,9 @@
 package org.apache.samza.runtime;
 
 import joptsimple.OptionSet;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.JobRunner;
-import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.Util;
 
@@ -34,7 +34,7 @@ import org.apache.samza.util.Util;
  */
 public class ApplicationRunnerMain {
   // TODO: have the app configs consolidated in one place
-  private static final String STREAM_APPLICATION_CLASS_CONFIG = "'app.class";
+  private static final String STREAM_APPLICATION_CLASS_CONFIG = "app.class";
 
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
@@ -43,7 +43,7 @@ public class ApplicationRunnerMain {
 
     if (config.containsKey(STREAM_APPLICATION_CLASS_CONFIG)) {
       ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-      StreamGraphBuilder app = (StreamGraphBuilder) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).newInstance();
+      StreamApplication app = (StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).newInstance();
       runner.run(app);
     } else {
       new JobRunner(Util.rewriteConfig(config)).run(true);

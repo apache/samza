@@ -21,7 +21,7 @@ package org.apache.samza.runtime;
 import java.lang.reflect.Constructor;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.StreamSpec;
 
@@ -73,11 +73,11 @@ public interface ApplicationRunner {
   }
 
   /**
-   * Method to be invoked to deploy and run the actual Samza jobs to execute {@link org.apache.samza.operators.StreamGraph}
+   * Method to be invoked to deploy and run the actual Samza jobs to execute {@link StreamApplication}
    *
-   * @param graphBuilder  the user-defined {@link StreamGraphBuilder} object
+   * @param streamApp  the user-defined {@link StreamApplication} object
    */
-  void run(StreamGraphBuilder graphBuilder);
+  void run(StreamApplication streamApp);
 
   /**
    * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
