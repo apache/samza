@@ -16,24 +16,30 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.functions;
+package org.apache.samza.operators.triggers;
 
-import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.util.Clock;
 
+import java.time.Duration;
 
 /**
- * A function that specifies whether a message should be retained for further processing or filtered out.
- * @param <M>  type of the input message
+ * An implementation of {@link Clock} that allows to advance the time by an arbitrary duration.
+ * Used for testing.
  */
-@InterfaceStability.Unstable
-@FunctionalInterface
-public interface FilterFunction<M> extends InitableFunction {
+public class TestClock implements Clock {
 
-  /**
-   * Returns a boolean indicating whether this message should be retained or filtered out.
-   * @param message  the input message to be checked. This object should not be mutated.
-   * @return  true if {@code message} should be retained
-   */
-  boolean apply(M message);
+  long currentTime = 1;
 
+  public void advanceTime(Duration duration) {
+    currentTime += duration.toMillis();
+  }
+
+  public void advanceTime(long millis) {
+    currentTime += millis;
+  }
+
+  @Override
+  public long currentTimeMillis() {
+    return currentTime;
+  }
 }

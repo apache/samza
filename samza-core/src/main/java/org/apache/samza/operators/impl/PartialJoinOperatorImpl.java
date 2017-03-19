@@ -93,7 +93,6 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
     thisState.deleteAll(keysToRemove);
 
     LOGGER.info("Operator ID {} onTimer self time: {} ms", opId, System.currentTimeMillis() - now);
-    this.propagateTimer(collector, coordinator);
   }
 
 }

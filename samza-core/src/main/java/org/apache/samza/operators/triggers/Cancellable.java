@@ -16,24 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.functions;
 
-import org.apache.samza.annotation.InterfaceStability;
-
+package org.apache.samza.operators.triggers;
 
 /**
- * A function that specifies whether a message should be retained for further processing or filtered out.
- * @param <M>  type of the input message
+ * Represents a task or an operation whose execution can be cancelled.
  */
-@InterfaceStability.Unstable
-@FunctionalInterface
-public interface FilterFunction<M> extends InitableFunction {
+public interface Cancellable {
 
   /**
-   * Returns a boolean indicating whether this message should be retained or filtered out.
-   * @param message  the input message to be checked. This object should not be mutated.
-   * @return  true if {@code message} should be retained
+   * Cancel the execution of this operation (if it is not scheduled for execution yet). If the operation is in progress,
+   * it is not interrupted / cancelled.
+   *
+   * @return the result of the cancelation
    */
-  boolean apply(M message);
-
+  public boolean cancel();
 }

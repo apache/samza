@@ -16,24 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.functions;
-
-import org.apache.samza.annotation.InterfaceStability;
-
+package org.apache.samza.operators.triggers;
 
 /**
- * A function that specifies whether a message should be retained for further processing or filtered out.
- * @param <M>  type of the input message
+ * The type of the {@link org.apache.samza.operators.triggers.Trigger} firing.
+ * Firings can be either early or late or default. Late triggers are not supported currently.
  */
-@InterfaceStability.Unstable
-@FunctionalInterface
-public interface FilterFunction<M> extends InitableFunction {
-
-  /**
-   * Returns a boolean indicating whether this message should be retained or filtered out.
-   * @param message  the input message to be checked. This object should not be mutated.
-   * @return  true if {@code message} should be retained
-   */
-  boolean apply(M message);
-
+public enum FiringType {
+  EARLY,
+  DEFAULT,
+  LATE
 }

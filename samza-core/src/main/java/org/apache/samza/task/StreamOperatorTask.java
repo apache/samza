@@ -20,6 +20,8 @@ package org.apache.samza.task;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.MessageStreamImpl;
@@ -30,6 +32,9 @@ import org.apache.samza.operators.impl.OperatorGraph;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.Clock;
+import org.apache.samza.util.SystemClock;
 
 
 /**
@@ -65,16 +70,27 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   /**
    * A mapping from each {@link SystemStream} to the root node of its operator chain DAG.
    */
-  private final OperatorGraph operatorGraph = new OperatorGraph();
+  private final OperatorGraph operatorGraph;
 
   private final StreamApplication graphBuilder;
 
   private final ApplicationRunner runner;
 
+  private final Clock clock;
+
   private ContextManager contextManager;
 
+  private Set<SystemStreamPartition> systemStreamPartitions;
+
   public StreamOperatorTask(StreamApplication graphBuilder, ApplicationRunner runner) {
+    this(graphBuilder, SystemClock.instance(), runner);
+  }
+
+  // purely for testing.
+  public StreamOperatorTask(StreamApplication graphBuilder, Clock clock, ApplicationRunner runner) {
     this.graphBuilder = graphBuilder;
+    this.operatorGraph = new OperatorGraph(clock);
+    this.clock = clock;
     this.runner = runner;
   }
 
@@ -85,9 +101,10 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     this.graphBuilder.init(streamGraph, config);
     // get the context manager of the {@link StreamGraph} and initialize the task-specific context
     this.contextManager = streamGraph.getContextManager();
+    this.systemStreamPartitions = context.getSystemStreamPartitions();
 
     Map<SystemStream, MessageStreamImpl> inputBySystemStream = new HashMap<>();
-    context.getSystemStreamPartitions().forEach(ssp -> {
+    systemStreamPartitions.forEach(ssp -> {
         if (!inputBySystemStream.containsKey(ssp.getSystemStream())) {
           // create mapping from the physical input {@link SystemStream} to the logic {@link MessageStream}
           inputBySystemStream.putIfAbsent(ssp.getSystemStream(), streamGraph.getInputStream(ssp.getSystemStream()));
@@ -103,8 +120,11 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   }
 
   @Override
-  public final void window(MessageCollector collector, TaskCoordinator coordinator) throws Exception {
-    this.operatorGraph.getAll().forEach(r -> r.onTimer(collector, coordinator));
+  public final void window(MessageCollector collector, TaskCoordinator coordinator)  {
+    systemStreamPartitions.forEach(ssp -> {
+        this.operatorGraph.get(ssp.getSystemStream())
+          .onTick(collector, coordinator);
+      });
   }
 
   @Override

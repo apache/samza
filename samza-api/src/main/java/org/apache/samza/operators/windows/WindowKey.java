@@ -26,14 +26,19 @@ package org.apache.samza.operators.windows;
  *
  */
 public class WindowKey<K> {
-
+  /**
+   * A (key,paneId) tuple uniquely identifies an emission from a window. For instance, in case of keyed-tumbling time windows,
+   * the key is provided by the keyExtractor function, and the paneId is the start of the time window boundary. In case
+   * of session windows, the key is provided by the keyExtractor function, and the paneId is the time at which the earliest
+   * message in the window arrived.
+   */
   private final  K key;
 
   private final String paneId;
 
-  public WindowKey(K key, String  windowId) {
+  public WindowKey(K key, String  paneId) {
     this.key = key;
-    this.paneId = windowId;
+    this.paneId = paneId;
   }
 
   public K getKey() {
@@ -52,4 +57,29 @@ public class WindowKey<K> {
     }
     return String.format("%s%s", wndKey, paneId);
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    WindowKey<?> windowKey = (WindowKey<?>) o;
+
+    if (!key.equals(windowKey.key)) return false;
+
+    if (paneId == null) {
+      return windowKey.paneId == null;
+    }
+
+    return paneId.equals(windowKey.paneId);
+
+  }
+
+  @Override
+  public int hashCode() {
+    int result = key.hashCode();
+    result = 31 * result + (paneId != null ? paneId.hashCode() : 0);
+    return result;
+  }
+
 }

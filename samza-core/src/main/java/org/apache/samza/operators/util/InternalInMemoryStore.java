@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.operators.util;
 
 import org.apache.samza.storage.kv.Entry;
@@ -30,24 +31,28 @@ import java.util.Map;
 
 /**
  * Implements a {@link KeyValueStore} using an in-memory Java Map.
- * @param <K>  the type of the key in the store
- * @param <V>  the type of the value in the store
+ * @param <K>  the type of key
+ * @param <V>  the type of value
  *
- * TODO HIGH prateekm: Remove when we switch to an persistent implementation for KeyValueStore API.
+ * TODO: This class is a stop-gap until we implement persistent store creation from TaskContext.
+ *
  */
 public class InternalInMemoryStore<K, V> implements KeyValueStore<K, V> {
 
-  final Map<K, V> map = new LinkedHashMap<>();
+  private final Map<K, V> map = new LinkedHashMap<>();
 
   @Override
   public V get(K key) {
+    if (key == null) {
+      throw new NullPointerException("Null key provided");
+    }
     return map.get(key);
   }
 
   @Override
   public Map<K, V> getAll(List<K> keys) {
     Map<K, V> values = new HashMap<>();
-    for (K key: keys) {
+    for (K key : keys) {
       values.put(key, map.get(key));
     }
     return values;
@@ -55,18 +60,24 @@ public class InternalInMemoryStore<K, V> implements KeyValueStore<K, V> {
 
   @Override
   public void put(K key, V value) {
+    if (key == null) {
+      throw new NullPointerException("Null key provided");
+    }
     map.put(key, value);
   }
 
   @Override
   public void putAll(List<Entry<K, V>> entries) {
-    for (Entry<K, V> entry: entries) {
+    for (Entry<K, V> entry : entries) {
       put(entry.getKey(), entry.getValue());
     }
   }
 
   @Override
   public void delete(K key) {
+    if (key == null) {
+      throw new NullPointerException("Null key provided");
+    }
     map.remove(key);
   }
 

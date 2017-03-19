@@ -16,24 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.operators.functions;
 
-import org.apache.samza.annotation.InterfaceStability;
-
-
 /**
- * A function that specifies whether a message should be retained for further processing or filtered out.
- * @param <M>  type of the input message
+ * A fold function that incrementally combines and aggregates values for a window.
  */
-@InterfaceStability.Unstable
-@FunctionalInterface
-public interface FilterFunction<M> extends InitableFunction {
+public interface FoldLeftFunction<M, WV> extends InitableFunction {
 
   /**
-   * Returns a boolean indicating whether this message should be retained or filtered out.
-   * @param message  the input message to be checked. This object should not be mutated.
-   * @return  true if {@code message} should be retained
+   * Incrementally combine and aggregate values for the window. Guaranteed to be invoked for every
+   * message added to the window.
+   *
+   * @param message the incoming message that is added to the window. This object should not be mutated.
+   * @param oldValue the previous value
+   * @return the new value
    */
-  boolean apply(M message);
-
+  WV apply(M message, WV oldValue);
 }

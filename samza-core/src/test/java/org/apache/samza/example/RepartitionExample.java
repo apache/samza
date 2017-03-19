@@ -31,6 +31,7 @@ import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
+import java.util.function.Supplier;
 
 
 /**
@@ -67,11 +68,12 @@ public class RepartitionExample implements StreamApplication {
 
     MessageStream<PageViewEvent> pageViewEvents = graph.createInStream(input1, new StringSerde("UTF-8"), new JsonSerde<>());
     OutputStream<MyStreamOutput> pageViewPerMemberCounters = graph.createOutStream(output, new StringSerde("UTF-8"), new JsonSerde<>());
+    Supplier<Integer> initialValue = () -> 0;
 
     pageViewEvents.
         partitionBy(m -> m.getMessage().memberId).
         window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(
-            msg -> msg.getMessage().memberId, Duration.ofMinutes(5), (m, c) -> c + 1)).
+            msg -> msg.getMessage().memberId, Duration.ofMinutes(5), initialValue, (m, c) -> c + 1)).
         map(MyStreamOutput::new).
         sendTo(pageViewPerMemberCounters);
 

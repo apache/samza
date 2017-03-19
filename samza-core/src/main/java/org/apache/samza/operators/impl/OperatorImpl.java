@@ -52,22 +52,31 @@ public abstract class OperatorImpl<M, RM> {
   public abstract void onNext(M message, MessageCollector collector, TaskCoordinator coordinator);
 
   /**
-   * Perform the actions required on a timer tick and call the downstream operators.
+   * Invoked at every tick. This method delegates to {@link #onTimer(MessageCollector, TaskCoordinator)}
    *
-   * Overriding implementations must call {@link #propagateTimer} to propagate the timer tick to registered
-   * downstream operators correctly.
+   * @param collector  the {@link MessageCollector} in the context
+   * @param coordinator  the {@link TaskCoordinator} in the context
+   */
+  public final void onTick(MessageCollector collector, TaskCoordinator coordinator) {
+    onTimer(collector, coordinator);
+    nextOperators.forEach(sub -> sub.onTick(collector, coordinator));
+  }
+
+  /**
+   * Invoked at every tick. Implementations must call {@link #propagateResult} to propagate any generated output
+   * to registered downstream operators.
    *
    * @param collector  the {@link MessageCollector} in the context
    * @param coordinator  the {@link TaskCoordinator} in the context
    */
   public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
-    propagateTimer(collector, coordinator);
   }
 
   /**
    * Helper method to propagate the output of this operator to all registered downstream operators.
    *
-   * This method <b>must</b> be called from {@link #onNext} to propagate the operator output correctly.
+   * This method <b>must</b> be called from {@link #onNext} and {@link #onTimer}
+   * to propagate the operator output correctly.
    *
    * @param outputMessage  output message
    * @param collector  the {@link MessageCollector} in the context
@@ -76,17 +85,4 @@ public abstract class OperatorImpl<M, RM> {
   void propagateResult(RM outputMessage, MessageCollector collector, TaskCoordinator coordinator) {
     nextOperators.forEach(sub -> sub.onNext(outputMessage, collector, coordinator));
   }
-
-  /**
-   * Helper method to propagate the timer tick to all registered downstream operators.
-   *
-   * This method <b>must</b> be called from {@link #onTimer} to propagate the timer tick correctly.
-   *
-   * @param collector  the {@link MessageCollector} in the context
-   * @param coordinator  the {@link TaskCoordinator} in the context
-   */
-  void propagateTimer(MessageCollector collector, TaskCoordinator coordinator) {
-    nextOperators.forEach(sub -> sub.onTimer(collector, coordinator));
-  }
-
 }

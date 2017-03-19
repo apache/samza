@@ -16,24 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.functions;
-
-import org.apache.samza.annotation.InterfaceStability;
-
+package org.apache.samza.operators;
 
 /**
- * A function that specifies whether a message should be retained for further processing or filtered out.
- * @param <M>  type of the input message
+ * Wraps the value stored for a particular {@link org.apache.samza.operators.windows.WindowKey} with additional metadata.
  */
-@InterfaceStability.Unstable
-@FunctionalInterface
-public interface FilterFunction<M> extends InitableFunction {
+public class WindowState<WV> {
 
+  final WV wv;
   /**
-   * Returns a boolean indicating whether this message should be retained or filtered out.
-   * @param message  the input message to be checked. This object should not be mutated.
-   * @return  true if {@code message} should be retained
+   * Time of the first message in the window
    */
-  boolean apply(M message);
+  final long earliestRecvTime;
 
+  public WindowState(WV wv, long earliestRecvTime) {
+    this.wv = wv;
+    this.earliestRecvTime = earliestRecvTime;
+  }
+
+  public WV getWindowValue() {
+    return wv;
+  }
+
+  public long getEarliestTimestamp() {
+    return earliestRecvTime;
+  }
 }
