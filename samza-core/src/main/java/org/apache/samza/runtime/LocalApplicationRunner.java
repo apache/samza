@@ -17,34 +17,28 @@
  * under the License.
  */
 
-package org.apache.samza.system;
+package org.apache.samza.runtime;
 
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.application.StreamApplication;
 
 
 /**
- * This class implements the {@link ExecutionEnvironment} that runs the applications in standalone environment
+ * This class implements the {@link ApplicationRunner} that runs the applications in standalone environment
  */
-public class StandaloneExecutionEnvironment implements ExecutionEnvironment {
+public class LocalApplicationRunner extends AbstractApplicationRunner {
 
-  // TODO: may want to move this to a common base class for all {@link ExecutionEnvironment}
-  StreamGraph createGraph(StreamGraphBuilder app, Config config) {
-    StreamGraphImpl graph = new StreamGraphImpl();
-    app.init(graph, config);
-    return graph;
+  public LocalApplicationRunner(Config config) {
+    super(config);
   }
 
-  @Override public void run(StreamGraphBuilder app, Config config) {
+  @Override public void run(StreamApplication app) {
     // 1. get logic graph for optimization
     // StreamGraph logicGraph = this.createGraph(app, config);
     // 2. potential optimization....
-    // 3. create new instance of StreamGraphBuilder that would generate the optimized graph
+    // 3. create new instance of StreamApplication that would generate the optimized graph
     // 4. create all input/output/intermediate topics
     // 5. create the configuration for StreamProcessor
-    // 6. start the StreamProcessor w/ optimized instance of StreamGraphBuilder
+    // 6. start the StreamProcessor w/ optimized instance of StreamApplication
   }
-
 }

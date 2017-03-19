@@ -16,22 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.system;
+package org.apache.samza.util;
 
-import org.apache.samza.operators.StreamGraphBuilder;
-import org.apache.samza.config.Config;
+import scala.runtime.AbstractFunction0;
 
 /**
- * This class implements the {@link ExecutionEnvironment} that runs the applications in YARN environment
+ * Common utils methods that helps to convert or use Scala objects in Java code
  */
-public class RemoteExecutionEnvironment implements ExecutionEnvironment {
-
-  @Override public void run(StreamGraphBuilder app, Config config) {
-    // TODO: add description of ProcessContext that is going to create a sub-DAG of the {@code graph}
-    // TODO: actually instantiate the tasks and run the job, i.e.
-    // 1. create all input/output/intermediate topics
-    // 2. create the single job configuration
-    // 3. execute JobRunner to submit the single job for the whole graph
+public class ScalaToJavaUtils {
+  /**
+   * Returns a default value object for scala option.getOrDefault() to use
+   * @param value default value
+   * @param <T> value type
+   * @return object containing default value
+   */
+  public static <T> AbstractFunction0<T> defaultValue(final T value) {
+    return new AbstractFunction0<T>() {
+      @Override
+      public T apply() {
+        return value;
+      }
+    };
   }
-
 }

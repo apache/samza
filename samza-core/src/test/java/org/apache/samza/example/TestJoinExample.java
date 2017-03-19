@@ -32,6 +32,7 @@ import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -64,13 +65,13 @@ public class TestJoinExample  extends TestExampleBase {
   public void init(StreamGraph graph, Config config) {
 
     for (SystemStream input : inputs.keySet()) {
-      StreamSpec inputStreamSpec = new StreamSpec(input.toString(), input.getStream(), input.getSystem());
+      StreamSpec inputStreamSpec = new StreamSpec(input.getSystem() + "-" + input.getStream(), input.getStream(), input.getSystem());
       MessageStream<JsonMessageEnvelope> newSource = graph.<Object, Object, InputMessageEnvelope>createInStream(
           inputStreamSpec, null, null).map(this::getInputMessage);
       if (joinOutput == null) {
         joinOutput = newSource;
       } else {
-        joinOutput = joinOutput.join(newSource, new MyJoinFunction());
+        joinOutput = joinOutput.join(newSource, new MyJoinFunction(), Duration.ofMinutes(1));
       }
     }
 

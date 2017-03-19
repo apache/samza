@@ -156,11 +156,18 @@
                         others' checkpoints, and perhaps interfere with each other in other ways.
                     </td>
                 </tr>
-                <tr>
                     <td class="property" id="job-coordinator-system">job.coordinator.system</td>
                     <td class="default"></td>
                     <td class="description">
                         <strong>Required:</strong> The <span class="system">system-name</span> to use for creating and maintaining the <a href="../container/coordinator-stream.html">Coordinator Stream</a>.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="job-default-system">job.default.system</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The <span class="system">system-name</span> to access any input or output streams for which the system is not explicitly configured.
+                        This property is for input and output streams whereas job.coordinator.system is for samza metadata streams.</a>.
                     </td>
                 </tr>
 
@@ -254,7 +261,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="job-systemstreampartition-matcher-class">job.systemstreampartition.matcher.class</td>
+                    <td class="property" id="job-systemstreampartition-matcher-class">job.systemstreampartition.<br>matcher.class</td>
                     <td class="default"></td>
                     <td class="description">
                         If you want to enable static partition assignment, then this is a <strong>required</strong> configuration.
@@ -286,7 +293,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="job_systemstreampartition_matcher_config_range">job.systemstreampartition.matcher.config.range</td>
+                    <td class="property" id="job_systemstreampartition_matcher_config_range">job.systemstreampartition.<br>matcher.config.range</td>
                     <td class="default"></td>
                     <td class="description">
                         If <code>job.systemstreampartition.matcher.class</code> is specified, and the value of this property is
@@ -305,7 +312,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="job_systemstreampartition_matcher_config_regex">job.systemstreampartition.matcher.config.regex</td>
+                    <td class="property" id="job_systemstreampartition_matcher_config_regex">job.systemstreampartition.<br>matcher.config.regex</td>
                     <td class="default"></td>
                     <td class="description">
                         If <code>job.systemstreampartition.matcher.class</code> is specified, and the value of this property is
@@ -316,8 +323,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="job_systemstreampartition_matcher_co
-                    nfig_job_factory_regex">job.systemstreampartition.matcher.config.job.factory.regex</td>
+                    <td class="property" id="job_systemstreampartition_matcher_config_job_factory_regex">job.systemstreampartition.<br>matcher.config.job.factory.regex</td>
                     <td class="default"></td>
                     <td class="description">
                         This configuration can be used to specify the Java supported regex to match the <code>StreamJobFactory</code>
@@ -683,7 +689,7 @@
                 </tr>
 
                 <tr>
-                    <th colspan="3" class="section" id="streams"><a href="../container/streams.html">Systems (input and output streams)</a></th>
+                    <th colspan="3" class="section" id="systems">Systems</th>
                 </tr>
 
                 <tr>
@@ -716,11 +722,12 @@
                 <tr>
                     <td class="property" id="systems-samza-key-serde">systems.<span class="system">system-name</span>.<br>samza.key.serde</td>
                     <td class="default" rowspan="2"></td>
-                    <td class="description" rowspan="2">
+                    <td class="description">
                         The <a href="../container/serialization.html">serde</a> which will be used to deserialize the
                         <em>key</em> of messages on input streams, and to serialize the <em>key</em> of messages on
-                        output streams. This property can be defined either for an individual stream, or for all
-                        streams within a system (if both are defined, the stream-level definition takes precedence).
+                        output streams. This property defines the serde for an for all streams in the system. See the
+                        <a href="#streams-samza-key-serde">stream-scoped property</a> to define the serde for an
+                        individual stream. If both are defined, the stream-level definition takes precedence.
                         The value of this property must be a <span class="serde">serde-name</span> that is registered
                         with <a href="#serializers-registry-class" class="property">serializers.registry.*.class</a>.
                         If this property is not set, messages are passed unmodified between the input stream consumer,
@@ -729,16 +736,21 @@
                 </tr>
                 <tr>
                     <td class="property">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.key.serde</td>
+                    <td class="description">
+                        This is deprecated in favor of <a href="#streams-samza-key-serde" class="property">
+                        streams.<span class="stream">stream-id</span>.samza.key.serde</a>.
+                    </td>
                 </tr>
 
                 <tr>
                     <td class="property" id="systems-samza-msg-serde">systems.<span class="system">system-name</span>.<br>samza.msg.serde</td>
                     <td class="default" rowspan="2"></td>
-                    <td class="description" rowspan="2">
+                    <td class="description">
                         The <a href="../container/serialization.html">serde</a> which will be used to deserialize the
                         <em>value</em> of messages on input streams, and to serialize the <em>value</em> of messages on
-                        output streams. This property can be defined either for an individual stream, or for all
-                        streams within a system (if both are defined, the stream-level definition takes precedence).
+                        output streams. This property defines the serde for an for all streams in the system. See the
+                        <a href="#streams-samza-msg-serde">stream-scoped property</a> to define the serde for an
+                        individual stream. If both are defined, the stream-level definition takes precedence.
                         The value of this property must be a <span class="serde">serde-name</span> that is registered
                         with <a href="#serializers-registry-class" class="property">serializers.registry.*.class</a>.
                         If this property is not set, messages are passed unmodified between the input stream consumer,
@@ -747,12 +759,16 @@
                 </tr>
                 <tr>
                     <td class="property">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.msg.serde</td>
+                    <td class="description">
+                        This is deprecated in favor of <a href="#streams-samza-msg-serde" class="property">
+                        streams.<span class="stream">stream-id</span>.samza.msg.serde</a>.
+                    </td>
                 </tr>
 
                 <tr>
                     <td class="property" id="systems-samza-offset-default">systems.<span class="system">system-name</span>.<br>samza.offset.default</td>
                     <td class="default" rowspan="2">upcoming</td>
-                    <td class="description" rowspan="2">
+                    <td class="description">
                         If a container starts up without a <a href="../container/checkpointing.html">checkpoint</a>,
                         this property determines where in the input stream we should start consuming. The value must be an
                         <a href="../api/javadocs/org/apache/samza/system/SystemStreamMetadata.OffsetType.html">OffsetType</a>,
@@ -765,18 +781,113 @@
                             <dd>Start processing at the oldest available message in the system, and
                                 <a href="reprocessing.html">reprocess</a> the entire available message history.</dd>
                         </dl>
-                        This property can be defined either for an individual stream, or for all streams within a system
-                        (if both are defined, the stream-level definition takes precedence).
+                        This property is for all streams within a system. To set it for an individual stream, see
+                        <a href="#streams-samza-offset-default">streams.<span class="stream">stream-id</span>.<br>samza.offset.default</a>
+                        If both are defined, the stream-level definition takes precedence.
                     </td>
                 </tr>
                 <tr>
                     <td class="property">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.offset.default</td>
+                    <td class="description">
+                        This is deprecated in favor of <a href="#streams-samza-offset-default" class="property">
+                        streams.<span class="stream">stream-id</span>.samza.offset.default</a>.
+                    </td>
                 </tr>
 
                 <tr>
-                    <td class="property" id="systems-streams-samza-reset-offset">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.reset.offset</td>
-                    <td>false</td>
-                    <td>
+                    <td class="property" id="task-consumer-batch-size">task.consumer.batch.size</td>
+                    <td class="default">1</td>
+                    <td class="description">
+                        If set to a positive integer, the task will try to consume
+                        <a href="../container/streams.html#batching">batches</a> with the given number of messages
+                        from each input stream, rather than consuming round-robin from all the input streams on
+                        each individual message. Setting this property can improve performance in some cases.
+                    </td>
+                </tr>
+
+                <tr>
+                    <th colspan="3" class="section" id="streams"><a href="../container/streams.html">Streams</a></th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="streams-system">streams.<span class="stream">stream-id</span>.<br>samza.system</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The <span class="system">system-name</span> of the system on which this stream will be accessed.
+                        This property binds the stream to one of the systems defined with the property
+                        systems.<span class="system">system-name</span>.samza.factory. <br>
+                        If this property isn't specified, it is inherited from job.default.system.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="streams-physical-name">streams.<span class="stream">stream-id</span>.<br>samza.physical.name</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The physical name of the stream on the system on which this stream will be accessed.
+                        This is opposed to the stream-id which is the logical name that Samza uses to identify the stream.
+                        A physical name could be a Kafka topic name, an HDFS file URN or any other system-specific identifier.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="streams-samza-key-serde">streams.<span class="stream">stream-id</span>.<br>samza.key.serde</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The <a href="../container/serialization.html">serde</a> which will be used to deserialize the
+                        <em>key</em> of messages on input streams, and to serialize the <em>key</em> of messages on
+                        output streams. This property defines the serde for an individual stream. See the
+                        <a href="#systems-samza-key-serde">system-scoped property</a> to define the serde for all
+                        streams within a system. If both are defined, the stream-level definition takes precedence.
+                        The value of this property must be a <span class="serde">serde-name</span> that is registered
+                        with <a href="#serializers-registry-class" class="property">serializers.registry.*.class</a>.
+                        If this property is not set, messages are passed unmodified between the input stream consumer,
+                        the task and the output stream producer.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="streams-samza-msg-serde">streams.<span class="stream">stream-id</span>.<br>samza.msg.serde</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The <a href="../container/serialization.html">serde</a> which will be used to deserialize the
+                        <em>value</em> of messages on input streams, and to serialize the <em>value</em> of messages on
+                        output streams. This property defines the serde for an individual stream. See the
+                        <a href="#systems-samza-msg-serde">system-scoped property</a> to define the serde for all
+                        streams within a system. If both are defined, the stream-level definition takes precedence.
+                        The value of this property must be a <span class="serde">serde-name</span> that is registered
+                        with <a href="#serializers-registry-class" class="property">serializers.registry.*.class</a>.
+                        If this property is not set, messages are passed unmodified between the input stream consumer,
+                        the task and the output stream producer.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="streams-samza-offset-default">streams.<span class="stream">stream-id</span>.<br>samza.offset.default</td>
+                    <td class="default">upcoming</td>
+                    <td class="description">
+                        If a container starts up without a <a href="../container/checkpointing.html">checkpoint</a>,
+                        this property determines where in the input stream we should start consuming. The value must be an
+                        <a href="../api/javadocs/org/apache/samza/system/SystemStreamMetadata.OffsetType.html">OffsetType</a>,
+                        one of the following:
+                        <dl>
+                            <dt><code>upcoming</code></dt>
+                            <dd>Start processing messages that are published after the job starts. Any messages published while
+                                the job was not running are not processed.</dd>
+                            <dt><code>oldest</code></dt>
+                            <dd>Start processing at the oldest available message in the system, and
+                                <a href="reprocessing.html">reprocess</a> the entire available message history.</dd>
+                        </dl>
+                        This property is for an individual stream. To set it for all streams within a system, see
+                        <a href="#systems-samza-offset-default">systems.<span class="system">system-name</span>.<br>samza.offset.default</a>
+                        If both are defined, the stream-level definition takes precedence.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="streams-streams-samza-reset-offset">streams.<span class="stream">stream-id</span>.<br>samza.reset.offset</td>
+                    <td class="default">false</td>
+                    <td class="description">
                         If set to <code>true</code>, when a Samza container starts up, it ignores any
                         <a href="../container/checkpointing.html">checkpointed offset</a> for this particular input
                         stream. Its behavior is thus determined by the <code>samza.offset.default</code> setting.
@@ -787,9 +898,9 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="systems-streams-samza-priority">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.priority</td>
-                    <td>-1</td>
-                    <td>
+                    <td class="property" id="streams-streams-samza-priority">streams.<span class="stream">stream-id</span>.<br>samza.priority</td>
+                    <td class="default">-1</td>
+                    <td class="description">
                         If one or more streams have a priority set (any positive integer), they will be processed
                         with <a href="../container/streams.html#prioritizing-input-streams">higher priority</a> than the other streams.
                         You can set several streams to the same priority, or define multiple priority levels by
@@ -800,9 +911,9 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="systems-streams-samza-bootstrap">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.bootstrap</td>
-                    <td>false</td>
-                    <td>
+                    <td class="property" id="streams-streams-samza-bootstrap">streams.<span class="stream">stream-id</span>.<br>samza.bootstrap</td>
+                    <td class="default">false</td>
+                    <td class="description">
                         If set to <code>true</code>, this stream will be processed as a
                         <a href="../container/streams.html#bootstrapping">bootstrap stream</a>. This means that every time
                         a Samza container starts up, this stream will be fully consumed before messages from any
@@ -811,13 +922,12 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="task-consumer-batch-size">task.consumer.batch.size</td>
-                    <td>1</td>
-                    <td>
-                        If set to a positive integer, the task will try to consume
-                        <a href="../container/streams.html#batching">batches</a> with the given number of messages
-                        from each input stream, rather than consuming round-robin from all the input streams on
-                        each individual message. Setting this property can improve performance in some cases.
+                    <td class="property" id="streams-properties">streams.<span class="stream">stream-id</span>.*</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        Any properties of the stream. These are typically system-specific and can be used by the system
+                        for stream creation or validation. Note that the other properties are prefixed with <em>samza.</em>
+                        which distinguishes them as Samza properties that are not system-specific.
                     </td>
                 </tr>
 
@@ -835,6 +945,8 @@
                         <span class="serde">serde-name</span> you want, and reference that name in properties like
                         <a href="#systems-samza-key-serde" class="property">systems.*.samza.key.serde</a>,
                         <a href="#systems-samza-msg-serde" class="property">systems.*.samza.msg.serde</a>,
+                        <a href="#streams-samza-key-serde" class="property">streams.*.samza.key.serde</a>,
+                        <a href="#streams-samza-msg-serde" class="property">streams.*.samza.msg.serde</a>,
                         <a href="#stores-key-serde" class="property">stores.*.key.serde</a> and
                         <a href="#stores-msg-serde" class="property">stores.*.msg.serde</a>.
                         The value of this property is the fully-qualified name of a Java class that implements
@@ -1445,7 +1557,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="cluster-manager-container-memory-mb">cluster-manager.container.memory.mb</td>
+                    <td class="property" id="cluster-manager-container-memory-mb">cluster-manager.container.<br>memory.mb</td>
                     <td class="default">1024</td>
                     <td class="description">
                         How much memory, in megabytes, to request from the cluster manager per container of your job. Along with
@@ -1461,7 +1573,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="cluster-manager-container-cpu-cores">cluster-manager.container.cpu.cores</td>
+                    <td class="property" id="cluster-manager-container-cpu-cores">cluster-manager.container.<br>cpu.cores</td>
                     <td class="default">1</td>
                     <td class="description">
                         The number of CPU cores to request per container of your job. Each node in the
@@ -1501,7 +1613,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="cluster-manager-jmx-enabled">cluster-manager.jobcoordinator.jmx.enabled</td>
+                    <td class="property" id="cluster-manager-jmx-enabled">cluster-manager.jobcoordinator.<br>jmx.enabled</td>
                     <td class="default">true</td>
                     <td class="description">
                         Determines whether a JMX server should be started on the job's JobCoordinator.
@@ -1510,7 +1622,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="cluster-manager-allocator-sleep-ms">cluster-manager.allocator.sleep.ms</td>
+                    <td class="property" id="cluster-manager-allocator-sleep-ms">cluster-manager.allocator.<br>sleep.ms</td>
                     <td class="default">3600</td>
                     <td class="description">
                         The container allocator thread is responsible for matching requests to allocated containers.
@@ -1519,7 +1631,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="cluster-manager-container-request-timeout-ms">cluster-manager.container.request.timeout.ms</td>
+                    <td class="property" id="cluster-manager-container-request-timeout-ms">cluster-manager.container.<br>request.timeout.ms</td>
                     <td class="default">5000</td>
                     <td class="description">
                         The allocator thread periodically checks the state of the container requests and allocated containers to determine the assignment of a container to an allocated resource.
@@ -1758,10 +1870,9 @@
                         <a href="../container/metrics.html">JSON encoding</a> for metrics; in order to use this
                         encoding, you also need to configure a serde for the metrics stream:
                         <ul>
-                            <li><a href="#systems-samza-msg-serde" class="property">systems.*.streams.*.samza.msg.serde</a>
-                                <code>= metrics-serde</code> (replacing the asterisks with the
-                                <span class="system">system-name</span> and <span class="stream">stream-name</span>
-                                of the metrics stream)</li>
+                            <li><a href="#systems-samza-msg-serde" class="property">streams.*.samza.msg.serde</a>
+                                <code>= metrics-serde</code> (replacing the asterisk with the
+                                <span class="stream">stream-name</span> of the metrics stream)</li>
                             <li><a href="#serializers-registry-class" class="property">serializers.registry.metrics-serde.class</a>
                                 <code>= org.apache.samza.serializers.MetricsSnapshotSerdeFactory</code>
                                 (registering the serde under a <span class="serde">serde-name</span> of
@@ -1789,37 +1900,37 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="hdfs-writer-class">systems.*.producer.hdfs.writer.class</td>
-                    <td class="default">org.apache.samza.system.hdfs.writer.BinarySequenceFileHdfsWriter</td>
+                    <td class="property" id="hdfs-writer-class">systems.<span class="system">system-name</span>.<br>.producer.hdfs.writer.class</td>
+                    <td class="default">org.apache.samza.system.hdfs.<br>writer.BinarySequenceFileHdfsWriter</td>
                     <td class="description">Fully-qualified class name of the HdfsWriter implementation this HDFS Producer system should use</td>
                 </tr>
                 <tr>
-                  <td class="property" id="hdfs-compression-type">systems.*.producer.hdfs.compression.type</td>
+                  <td class="property" id="hdfs-compression-type">systems.<span class="system">system-name</span>.<br>.producer.hdfs.compression.type</td>
                     <td class="default">none</td>
                     <td class="description">A human-readable label for the compression type to use, such as "gzip" "snappy" etc. This label will be interpreted differently (or ignored) depending on the nature of the HdfsWriter implementation.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-base-output-dir">systems.*.producer.hdfs.base.output.dir</td>
+                    <td class="property" id="hdfs-base-output-dir">systems.<span class="system">system-name</span>.<br>.producer.hdfs.base.output.dir</td>
                     <td class="default">/user/USERNAME/SYSTEMNAME</td>
                     <td class="description">The base output directory for HDFS writes. Defaults to the home directory of the user who ran the job, followed by the systemName for this HdfsSystemProducer as defined in the job.properties file.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-bucketer-class">systems.*.producer.hdfs.bucketer.class</td>
-                    <td class="default">org.apache.samza.system.hdfs.writer.JobNameDateTimeBucketer</td>
+                    <td class="property" id="hdfs-bucketer-class">systems.<span class="system">system-name</span>.<br>.producer.hdfs.bucketer.class</td>
+                    <td class="default">org.apache.samza.system.hdfs.<br>writer.JobNameDateTimeBucketer</td>
                     <td class="description">Fully-qualified class name of the Bucketer implementation that will manage HDFS paths and file names. Used to batch writes by time, or other similar partitioning methods.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-bucketer-date-path-format">systems.*.producer.hdfs.bucketer.date.path.format</td>
+                    <td class="property" id="hdfs-bucketer-date-path-format">systems.<span class="system">system-name</span>.<br>.producer.hdfs.bucketer.date.path.format</td>
                     <td class="default"yyyy_MM_dd></td>
                     <td class="description">A date format (using Java's SimpleDataFormat syntax) appropriate for use in an HDFS Path, which can configure time-based bucketing of output files.</td>
                 </tr>
                 <tr>
-                  <td class="property" id="hdfs-write-batch-size-bytes">systems.*.producer.hdfs.write.batch.size.bytes</td>
+                  <td class="property" id="hdfs-write-batch-size-bytes">systems.<span class="system">system-name</span>.<br>.producer.hdfs.write.batch.size.bytes</td>
                   <td class="default">268435456</td>
                   <td class="description">The number of bytes of outgoing messages to write to each HDFS output file before cutting a new file. Defaults to 256MB if not set.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-write-batch-size-records">systems.*.producer.hdfs.write.batch.size.records</td>
+                    <td class="property" id="hdfs-write-batch-size-records">systems.<span class="system">system-name</span>.<br>.producer.hdfs.write.batch.size.records</td>
                     <td class="default">262144</td>
                     <td class="description">The number of outgoing messages to write to each HDFS output file before cutting a new file. Defaults to 262144 if not set.</td>
                 </tr>
@@ -1829,37 +1940,37 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="hdfs-consumer-buffer-capacity">systems.*.consumer.bufferCapacity</td>
+                    <td class="property" id="hdfs-consumer-buffer-capacity">systems.<span class="system">system-name</span>.<br>.consumer.bufferCapacity</td>
                     <td class="default">10</td>
                     <td class="description">Capacity of the hdfs consumer buffer - the blocking queue used for storing messages. Larger buffer capacity typically leads to better throughput but consumes more memory.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-consumer-numMaxRetries">systems.*.consumer.numMaxRetries</td>
+                    <td class="property" id="hdfs-consumer-numMaxRetries">systems.<span class="system">system-name</span>.<br>.consumer.numMaxRetries</td>
                     <td class="default">10</td>
                     <td class="description">The number of retry attempts when there is a failure to fetch messages from HDFS, before the container fails.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-partitioner-whitelist">systems.*.partitioner.defaultPartitioner.whitelist</td>
+                    <td class="property" id="hdfs-partitioner-whitelist">systems.<span class="system">system-name</span>.<br>.partitioner.defaultPartitioner.whitelist</td>
                     <td class="default">.*</td>
                     <td class="description">White list used by directory partitioner to select files in a hdfs directory, in Java Pattern style.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-partitioner-blacklist">systems.*.partitioner.defaultPartitioner.blacklist</td>
+                    <td class="property" id="hdfs-partitioner-blacklist">systems.<span class="system">system-name</span>.<br>.partitioner.defaultPartitioner.blacklist</td>
                     <td class="default"></td>
                     <td class="description">Black list used by directory partitioner to filter out unwanted files in a hdfs directory, in Java Pattern style.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-partitioner-group-pattern">systems.*.partitioner.defaultPartitioner.groupPattern</td>
+                    <td class="property" id="hdfs-partitioner-group-pattern">systems.<span class="system">system-name</span>.<br>.partitioner.defaultPartitioner.groupPattern</td>
                     <td class="default"></td>
                     <td class="description">Group pattern used by directory partitioner for advanced partitioning. The advanced partitioning goes beyond the basic assumption that each file is a partition. With advanced partitioning you can group files into partitions arbitrarily. For example, if you have a set of files as [part-01-a.avro, part-01-b.avro, part-02-a.avro, part-02-b.avro, part-03-a.avro], and you want to organize the partitions as (part-01-a.avro, part-01-b.avro), (part-02-a.avro, part-02-b.avro), (part-03-a.avro), where the numbers in the middle act as a "group identifier", you can then set this property to be "part-[id]-.*" (note that "[id]" is a reserved term here, i.e. you have to literally put it as "[id]"). The partitioner will apply this pattern to all file names and extract the "group identifier" ("[id]" in the pattern), then use the "group identifier" to group files into partitions. See more details in <a href="https://issues.apache.org/jira/secure/attachment/12827670/HDFSSystemConsumer.pdf">HdfsSystemConsumer design doc</a> </td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-consumer-reader-type">systems.*.consumer.reader</td>
+                    <td class="property" id="hdfs-consumer-reader-type">systems.<span class="system">system-name</span>.<br>.consumer.reader</td>
                     <td class="default">avro</td>
                     <td class="description">Type of the file reader for different event formats (avro, plain, json, etc.). "avro" is only type supported for now.</td>
                 </tr>
                 <tr>
-                    <td class="property" id="hdfs-staging-directory">systems.*.stagingDirectory</td>
+                    <td class="property" id="hdfs-staging-directory">systems.<span class="system">system-name</span>.<br>.stagingDirectory</td>
                     <td class="default"></td>
                     <td class="description">Staging directory for storing partition description. By default (if not set by users) the value is inherited from "yarn.job.staging.directory" internally. The default value is typically good enough unless you want explicitly use a separate location.</td>
                 </tr>

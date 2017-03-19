@@ -24,14 +24,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import junit.framework.Assert;
 import org.apache.samza.Partition;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamGraphBuilder;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStreamPartition;
@@ -58,6 +59,7 @@ public class TestWindowOperator {
   private final List<Integer> integers = ImmutableList.of(1, 2, 1, 2, 1, 2, 1, 2, 3);
   private Config config;
   private TaskContext taskContext;
+  private ApplicationRunner runner;
 
   @Before
   public void setup() throws Exception {
@@ -65,6 +67,7 @@ public class TestWindowOperator {
 
     config = mock(Config.class);
     taskContext = mock(TaskContext.class);
+    runner = mock(ApplicationRunner.class);
     when(taskContext.getSystemStreamPartitions()).thenReturn(ImmutableSet
         .of(new SystemStreamPartition("kafka", "integers", new Partition(0))));
 
@@ -73,9 +76,9 @@ public class TestWindowOperator {
   @Test
   public void testTumblingWindowsDiscardingMode() throws Exception {
 
-    StreamGraphBuilder sgb = new KeyedTumblingWindowStreamGraphBuilder(AccumulationMode.DISCARDING, Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
+    StreamApplication sgb = new KeyedTumblingWindowStreamApplication(AccumulationMode.DISCARDING, Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock, runner);
     task.init(config, taskContext);
 
     integers.forEach(n -> task.process(new IntegerMessageEnvelope(n, n), messageCollector, taskCoordinator));
@@ -101,9 +104,9 @@ public class TestWindowOperator {
 
   @Test
   public void testTumblingWindowsAccumulatingMode() throws Exception {
-    StreamGraphBuilder sgb = new KeyedTumblingWindowStreamGraphBuilder(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
+    StreamApplication sgb = new KeyedTumblingWindowStreamApplication(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1), Triggers.repeat(Triggers.count(2)));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock, runner);
     task.init(config, taskContext);
 
     integers.forEach(n -> task.process(new IntegerMessageEnvelope(n, n), messageCollector, taskCoordinator));
@@ -126,9 +129,9 @@ public class TestWindowOperator {
 
   @Test
   public void testSessionWindowsDiscardingMode() throws Exception {
-    StreamGraphBuilder sgb = new KeyedSessionWindowStreamGraphBuilder(AccumulationMode.DISCARDING, Duration.ofMillis(500));
+    StreamApplication sgb = new KeyedSessionWindowStreamApplication(AccumulationMode.DISCARDING, Duration.ofMillis(500));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock, runner);
     task.init(config, taskContext);
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
@@ -170,9 +173,9 @@ public class TestWindowOperator {
 
   @Test
   public void testSessionWindowsAccumulatingMode() throws Exception {
-    StreamGraphBuilder sgb = new KeyedSessionWindowStreamGraphBuilder(AccumulationMode.DISCARDING, Duration.ofMillis(500));
+    StreamApplication sgb = new KeyedSessionWindowStreamApplication(AccumulationMode.DISCARDING, Duration.ofMillis(500));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock, runner);
     task.init(config, taskContext);
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
@@ -197,9 +200,9 @@ public class TestWindowOperator {
 
   @Test
   public void testCancelationOfOnceTrigger() throws Exception {
-    StreamGraphBuilder sgb = new KeyedTumblingWindowStreamGraphBuilder(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1), Triggers.count(2));
+    StreamApplication sgb = new KeyedTumblingWindowStreamApplication(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1), Triggers.count(2));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock, runner);
     task.init(config, taskContext);
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
@@ -237,10 +240,10 @@ public class TestWindowOperator {
 
   @Test
   public void testCancelationOfAnyTrigger() throws Exception {
-    StreamGraphBuilder sgb = new KeyedTumblingWindowStreamGraphBuilder(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
+    StreamApplication sgb = new KeyedTumblingWindowStreamApplication(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
         Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500))));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock, runner);
     task.init(config, taskContext);
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
@@ -292,10 +295,10 @@ public class TestWindowOperator {
   @Test
   public void testCancelationOfRepeatingNestedTriggers() throws Exception {
 
-    StreamGraphBuilder sgb = new KeyedTumblingWindowStreamGraphBuilder(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
+    StreamApplication sgb = new KeyedTumblingWindowStreamApplication(AccumulationMode.ACCUMULATING, Duration.ofSeconds(1),
         Triggers.repeat(Triggers.any(Triggers.count(2), Triggers.timeSinceFirstMessage(Duration.ofMillis(500)))));
     TestClock testClock = new TestClock();
-    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
+    StreamOperatorTask task = new StreamOperatorTask(sgb, testClock, runner);
     task.init(config, taskContext);
 
     task.process(new IntegerMessageEnvelope(1, 1), messageCollector, taskCoordinator);
@@ -323,14 +326,14 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.size(), 4);
   }
 
-  private class KeyedTumblingWindowStreamGraphBuilder implements StreamGraphBuilder {
+  private class KeyedTumblingWindowStreamApplication implements StreamApplication {
 
     private final StreamSpec streamSpec = new StreamSpec("integer-stream", "integers", "kafka");
     private final AccumulationMode mode;
     private final Duration duration;
     private final Trigger<MessageEnvelope<Integer, Integer>> earlyTrigger;
 
-    KeyedTumblingWindowStreamGraphBuilder(AccumulationMode mode, Duration timeDuration, Trigger<MessageEnvelope<Integer, Integer>> earlyTrigger) {
+    KeyedTumblingWindowStreamApplication(AccumulationMode mode, Duration timeDuration, Trigger<MessageEnvelope<Integer, Integer>> earlyTrigger) {
       this.mode = mode;
       this.duration = timeDuration;
       this.earlyTrigger = earlyTrigger;
@@ -351,13 +354,13 @@ public class TestWindowOperator {
     }
   }
 
-  private class KeyedSessionWindowStreamGraphBuilder implements StreamGraphBuilder {
+  private class KeyedSessionWindowStreamApplication implements StreamApplication {
 
     private final StreamSpec streamSpec = new StreamSpec("integer-stream", "integers", "kafka");
     private final AccumulationMode mode;
     private final Duration duration;
 
-    KeyedSessionWindowStreamGraphBuilder(AccumulationMode mode, Duration duration) {
+    KeyedSessionWindowStreamApplication(AccumulationMode mode, Duration duration) {
       this.mode = mode;
       this.duration = duration;
     }

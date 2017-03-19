@@ -28,38 +28,38 @@ import org.apache.samza.task.TaskContext;
  * Spec for the partial join operator that takes messages from one input stream, joins with buffered
  * messages from another stream, and produces join results to an output {@link MessageStreamImpl}.
  *
- * @param <M>  the type of input message
  * @param <K>  the type of join key
+ * @param <M>  the type of input message
  * @param <JM>  the type of message in the other join stream
  * @param <RM>  the type of message in the join output stream
  */
-public class PartialJoinOperatorSpec<M, K, JM, RM> implements OperatorSpec<RM> {
+public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
 
+
+  private final PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn;
+  private final PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn;
+  private final long ttlMs;
   private final MessageStreamImpl<RM> joinOutput;
-
-  /**
-   * The transformation function of {@link PartialJoinOperatorSpec} that takes an input message of
-   * type {@code M}, joins with a stream of buffered messages of type {@code JM} from another stream,
-   * and generates a joined result message of type {@code RM}.
-   */
-  private final PartialJoinFunction<K, M, JM, RM> transformFn;
-
-
-  /**
-   * The unique ID for this operator.
-   */
   private final int opId;
 
   /**
    * Default constructor for a {@link PartialJoinOperatorSpec}.
    *
-   * @param partialJoinFn  partial join function that take type {@code M} of input message and join
-   *                       w/ type {@code JM} of buffered message from another stream
+   * @param thisPartialJoinFn  partial join function that provides state and the join logic for input messages of
+   *                           type {@code M} in this stream
+   * @param otherPartialJoinFn  partial join function that provides state for input messages of type {@code JM}
+   *                            in the other stream
+   * @param ttlMs  the ttl in ms for retaining messages in each stream
    * @param joinOutput  the output {@link MessageStreamImpl} of the join results
+   * @param opId  the unique ID for this operator
    */
-  PartialJoinOperatorSpec(PartialJoinFunction<K, M, JM, RM> partialJoinFn, MessageStreamImpl<RM> joinOutput, int opId) {
+  PartialJoinOperatorSpec(PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn,
+      PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn, long ttlMs,
+      MessageStreamImpl<RM> joinOutput, int opId) {
+    this.thisPartialJoinFn = thisPartialJoinFn;
+    this.otherPartialJoinFn = otherPartialJoinFn;
+    this.ttlMs = ttlMs;
     this.joinOutput = joinOutput;
-    this.transformFn = partialJoinFn;
     this.opId = opId;
   }
 
@@ -68,8 +68,16 @@ public class PartialJoinOperatorSpec<M, K, JM, RM> implements OperatorSpec<RM> {
     return this.joinOutput;
   }
 
-  public PartialJoinFunction<K, M, JM, RM> getTransformFn() {
-    return this.transformFn;
+  public PartialJoinFunction<K, M, JM, RM> getThisPartialJoinFn() {
+    return this.thisPartialJoinFn;
+  }
+
+  public PartialJoinFunction<K, JM, M, RM> getOtherPartialJoinFn() {
+    return this.otherPartialJoinFn;
+  }
+
+  public long getTtlMs() {
+    return ttlMs;
   }
 
   public OperatorSpec.OpCode getOpCode() {
@@ -80,7 +88,9 @@ public class PartialJoinOperatorSpec<M, K, JM, RM> implements OperatorSpec<RM> {
     return this.opId;
   }
 
-  @Override public void init(Config config, TaskContext context) {
-    this.transformFn.init(config, context);
+  @Override
+  public void init(Config config, TaskContext context) {
+    this.thisPartialJoinFn.init(config, context);
   }
+
 }

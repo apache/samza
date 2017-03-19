@@ -56,11 +56,11 @@ import java.util.function.Function;
  * an implementation of {@link TriggerScheduler} that {@link TriggerImpl}s can use to schedule and cancel callbacks. It
  * also orchestrates the flow of messages through the various {@link TriggerImpl}s.
  *
- * <p> An instance of a {@link TriggerImplWrapper} is created corresponding to each {@link Trigger} configured for a
- * particular window. For every message added to the window, this class looks up the corresponding {@link TriggerImplWrapper}
- * for the trigger and invokes {@link TriggerImplWrapper#onMessage(TriggerKey, Object, MessageCollector, TaskCoordinator)}.
- * The {@link TriggerImplWrapper} maintains the {@link TriggerImpl} instance along with whether it has been canceled yet
- * or not. Then, the {@link TriggerImplWrapper} invokes onMessage on underlying its {@link TriggerImpl} instance. A
+ * <p> An instance of a {@link TriggerImplHandler} is created corresponding to each {@link Trigger} configured for a
+ * particular window. For every message added to the window, this class looks up the corresponding {@link TriggerImplHandler}
+ * for the trigger and invokes {@link TriggerImplHandler#onMessage(TriggerKey, Object, MessageCollector, TaskCoordinator)}.
+ * The {@link TriggerImplHandler} maintains the {@link TriggerImpl} instance along with whether it has been canceled yet
+ * or not. Then, the {@link TriggerImplHandler} invokes onMessage on underlying its {@link TriggerImpl} instance. A
  * {@link TriggerImpl} instance is scoped to a window and its firing determines when results for its window are emitted. The
  * {@link WindowOperatorImpl} checks if the trigger fired, and propagates the result of the firing to its downstream
  * operators.
@@ -79,7 +79,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   TriggerScheduler<WK> triggerScheduler ;
 
   // The trigger state corresponding to each {@link TriggerKey}.
-  private final Map<TriggerKey<WK>, TriggerImplWrapper> triggers = new HashMap<>();
+  private final Map<TriggerKey<WK>, TriggerImplHandler> triggers = new HashMap<>();
   private final Clock clock;
 
   public WindowOperatorImpl(WindowOperatorSpec<M, WK, WV> spec, Clock clock) {
@@ -118,9 +118,9 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
     List<TriggerKey<WK>> keys = triggerScheduler.runPendingCallbacks();
 
     for (TriggerKey<WK> key : keys) {
-      TriggerImplWrapper triggerImplWrapper = triggers.get(key);
-      if (triggerImplWrapper != null) {
-        triggerImplWrapper.onTimer(key, collector, coordinator);
+      TriggerImplHandler triggerImplHandler = triggers.get(key);
+      if (triggerImplHandler != null) {
+        triggerImplHandler.onTimer(key, collector, coordinator);
       }
     }
 
@@ -168,8 +168,8 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
     return newState;
   }
 
-  private TriggerImplWrapper getOrCreateTriggerImplWrapper(TriggerKey<WK> triggerKey, Trigger<M> trigger) {
-    TriggerImplWrapper wrapper = triggers.get(triggerKey);
+  private TriggerImplHandler getOrCreateTriggerImplWrapper(TriggerKey<WK> triggerKey, Trigger<M> trigger) {
+    TriggerImplHandler wrapper = triggers.get(triggerKey);
     if (wrapper != null) {
       LOG.trace("Returning existing trigger wrapper for {}", triggerKey);
       return wrapper;
@@ -178,7 +178,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
     LOG.trace("Creating a new trigger wrapper for {}", triggerKey);
 
     TriggerImpl<M, WK> triggerImpl = TriggerImpls.createTriggerImpl(trigger, clock, triggerKey);
-    wrapper = new TriggerImplWrapper(triggerKey, triggerImpl);
+    wrapper = new TriggerImplHandler(triggerKey, triggerImpl);
     triggers.put(triggerKey, wrapper);
 
     return wrapper;
@@ -190,7 +190,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   private void onTriggerFired(TriggerKey<WK> triggerKey, MessageCollector collector, TaskCoordinator coordinator) {
     LOG.trace("Trigger key {} fired." , triggerKey);
 
-    TriggerImplWrapper wrapper = triggers.get(triggerKey);
+    TriggerImplHandler wrapper = triggers.get(triggerKey);
     WindowKey<WK> windowKey = triggerKey.getKey();
     WindowState<WV> state = store.get(windowKey);
 
@@ -257,9 +257,9 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
    * Cancels the firing of the {@link TriggerImpl} identified by this {@link TriggerKey} and optionally removes it.
    */
   private void cancelTrigger(TriggerKey<WK> triggerKey, boolean shouldRemove) {
-    TriggerImplWrapper wrapper = triggers.get(triggerKey);
-    if (wrapper != null) {
-      wrapper.cancel();
+    TriggerImplHandler triggerImplHandler = triggers.get(triggerKey);
+    if (triggerImplHandler != null) {
+      triggerImplHandler.cancel();
     }
     if (shouldRemove && triggerKey != null) {
       triggers.remove(triggerKey);
@@ -269,13 +269,13 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   /**
    * State corresponding to a created {@link TriggerImpl} instance.
    */
-  private class TriggerImplWrapper {
+  private class TriggerImplHandler {
     // The context, and the {@link TriggerImpl} instance corresponding to this triggerKey
     private final TriggerImpl<M, WK> impl;
     // Guard to ensure that we don't invoke onMessage or onTimer on already cancelled triggers
     private boolean isCancelled = false;
 
-    public TriggerImplWrapper(TriggerKey<WK> key, TriggerImpl<M, WK> impl) {
+    public TriggerImplHandler(TriggerKey<WK> key, TriggerImpl<M, WK> impl) {
       this.impl = impl;
     }
 

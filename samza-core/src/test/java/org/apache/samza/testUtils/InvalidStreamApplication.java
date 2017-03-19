@@ -16,23 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
-
-import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-
+package org.apache.samza.testUtils;
 
 /**
- * This interface defines a factory class that user will implement to create user-defined operator DAG in a {@link StreamGraph} object.
+ * Test class. Invalid class to implement {@link org.apache.samza.application.StreamApplication}
  */
-@InterfaceStability.Unstable
-public interface StreamGraphBuilder {
-  /**
-   * Users are required to implement this abstract method to initialize the processing logic of the application, in terms
-   * of a DAG of {@link org.apache.samza.operators.MessageStream}s and operators
-   *
-   * @param graph  an empty {@link StreamGraph} object to be initialized
-   * @param config  the {@link Config} of the application
-   */
-  void init(StreamGraph graph, Config config);
+public class InvalidStreamApplication {
 }

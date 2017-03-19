@@ -43,7 +43,7 @@ public abstract class OperatorImpl<M, RM> {
   /**
    * Perform the transformation required for this operator and call the downstream operators.
    *
-   * Must call {@link #propagateResult} to propage the output to registered downstream operators correctly.
+   * Must call {@link #propagateResult} to propagate the output to registered downstream operators correctly.
    *
    * @param message  the input message
    * @param collector  the {@link MessageCollector} in the context
@@ -69,7 +69,8 @@ public abstract class OperatorImpl<M, RM> {
    * @param collector  the {@link MessageCollector} in the context
    * @param coordinator  the {@link TaskCoordinator} in the context
    */
-  public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {};
+  public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+  }
 
   /**
    * Helper method to propagate the output of this operator to all registered downstream operators.

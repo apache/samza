@@ -18,6 +18,17 @@
  */
 package org.apache.samza.operators;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -27,16 +38,12 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -156,7 +163,7 @@ public class TestMessageStreamImpl {
         }
       };
 
-    MessageStream<TestOutputMessageEnvelope> joinOutput = source1.join(source2, joiner);
+    MessageStream<TestOutputMessageEnvelope> joinOutput = source1.join(source2, joiner, Duration.ofMinutes(1));
     Collection<OperatorSpec> subs = source1.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
     OperatorSpec<TestMessageEnvelope> joinOp1 = subs.iterator().next();
@@ -169,10 +176,10 @@ public class TestMessageStreamImpl {
     assertEquals(((PartialJoinOperatorSpec) joinOp2).getNextStream(), joinOutput);
     TestMessageEnvelope joinMsg1 = new TestMessageEnvelope("test-join-1", "join-msg-001", 11111L);
     TestMessageEnvelope joinMsg2 = new TestMessageEnvelope("test-join-2", "join-msg-002", 22222L);
-    TestOutputMessageEnvelope xOut = (TestOutputMessageEnvelope) ((PartialJoinOperatorSpec) joinOp1).getTransformFn().apply(joinMsg1, joinMsg2);
+    TestOutputMessageEnvelope xOut = (TestOutputMessageEnvelope) ((PartialJoinOperatorSpec) joinOp1).getThisPartialJoinFn().apply(joinMsg1, joinMsg2);
     assertEquals(xOut.getKey(), "test-join-1");
     assertEquals(xOut.getMessage(), Integer.valueOf(24));
-    xOut = (TestOutputMessageEnvelope) ((PartialJoinOperatorSpec) joinOp2).getTransformFn().apply(joinMsg2, joinMsg1);
+    xOut = (TestOutputMessageEnvelope) ((PartialJoinOperatorSpec) joinOp2).getThisPartialJoinFn().apply(joinMsg2, joinMsg1);
     assertEquals(xOut.getKey(), "test-join-1");
     assertEquals(xOut.getMessage(), Integer.valueOf(24));
   }
@@ -197,8 +204,36 @@ public class TestMessageStreamImpl {
     assertTrue(mergeOp instanceof StreamOperatorSpec);
     assertEquals(((StreamOperatorSpec) mergeOp).getNextStream(), mergeOutput);
     TestMessageEnvelope mockMsg = mock(TestMessageEnvelope.class);
-    Collection<TestMessageEnvelope> outputs = ((StreamOperatorSpec<TestMessageEnvelope, TestMessageEnvelope>) mergeOp).getTransformFn().apply(mockMsg);
+    Collection<TestMessageEnvelope> outputs = ((StreamOperatorSpec<TestMessageEnvelope, TestMessageEnvelope>) mergeOp).getTransformFn().apply(
+        mockMsg);
     assertEquals(outputs.size(), 1);
     assertEquals(outputs.iterator().next(), mockMsg);
+  }
+
+  @Test
+  public void testPartitionBy() {
+    Map<String, String> map = new HashMap<>();
+    map.put(JobConfig.JOB_DEFAULT_SYSTEM(), "testsystem");
+    Config config = new MapConfig(map);
+    ApplicationRunner runner = ApplicationRunner.fromConfig(config);
+    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(streamGraph);
+    Function<TestMessageEnvelope, String> keyExtractorFunc = m -> "222";
+    inputStream.partitionBy(keyExtractorFunc);
+    assertTrue(streamGraph.getInStreams().size() == 1);
+    assertTrue(streamGraph.getOutStreams().size() == 1);
+
+    Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
+    assertEquals(subs.size(), 1);
+    OperatorSpec<TestMessageEnvelope> partitionByOp = subs.iterator().next();
+    assertTrue(partitionByOp instanceof SinkOperatorSpec);
+    assertNull(partitionByOp.getNextStream());
+
+    ((SinkOperatorSpec) partitionByOp).getSinkFn().apply(new TestMessageEnvelope("111", "test", 1000), new MessageCollector() {
+      @Override
+      public void send(OutgoingMessageEnvelope envelope) {
+        assertTrue(envelope.getPartitionKey().equals("222"));
+      }
+    }, null);
   }
 }
