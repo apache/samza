@@ -57,8 +57,8 @@ public class TestAbstractApplicationRunner {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
                                       StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    StreamSpec spec = env.getStream(STREAM_ID);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    StreamSpec spec = runner.getStream(STREAM_ID);
 
     assertEquals(TEST_PHYSICAL_NAME, spec.getPhysicalName());
   }
@@ -70,8 +70,8 @@ public class TestAbstractApplicationRunner {
     Config config = buildStreamConfig(STREAM_ID,
                                       StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    StreamSpec spec = env.getStream(STREAM_ID);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    StreamSpec spec = runner.getStream(STREAM_ID);
 
     assertEquals(STREAM_ID, spec.getPhysicalName());
   }
@@ -83,8 +83,8 @@ public class TestAbstractApplicationRunner {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
                                       StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    StreamSpec spec = env.getStream(STREAM_ID);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    StreamSpec spec = runner.getStream(STREAM_ID);
 
     assertEquals(TEST_SYSTEM, spec.getSystemName());
   }
@@ -96,8 +96,8 @@ public class TestAbstractApplicationRunner {
                                                   StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME),
                                 JobConfig.JOB_DEFAULT_SYSTEM(), TEST_DEFAULT_SYSTEM);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    StreamSpec spec = env.getStream(STREAM_ID);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    StreamSpec spec = runner.getStream(STREAM_ID);
 
     assertEquals(TEST_DEFAULT_SYSTEM, spec.getSystemName());
   }
@@ -110,8 +110,8 @@ public class TestAbstractApplicationRunner {
                                                 StreamConfig.SYSTEM(), TEST_SYSTEM),
                                 JobConfig.JOB_DEFAULT_SYSTEM(), TEST_DEFAULT_SYSTEM);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    StreamSpec spec = env.getStream(STREAM_ID);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    StreamSpec spec = runner.getStream(STREAM_ID);
 
     assertEquals(TEST_SYSTEM, spec.getSystemName());
   }
@@ -122,8 +122,8 @@ public class TestAbstractApplicationRunner {
     Config config = buildStreamConfig(STREAM_ID,
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    StreamSpec spec = env.getStream(STREAM_ID);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    StreamSpec spec = runner.getStream(STREAM_ID);
 
     assertEquals(TEST_SYSTEM, spec.getSystemName());
   }
@@ -138,8 +138,8 @@ public class TestAbstractApplicationRunner {
                                     "systemProperty2", "systemValue2",
                                     "systemProperty3", "systemValue3");
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    StreamSpec spec = env.getStream(STREAM_ID);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    StreamSpec spec = runner.getStream(STREAM_ID);
 
     Map<String, String> properties = spec.getConfig();
     assertEquals(3, properties.size());
@@ -161,8 +161,8 @@ public class TestAbstractApplicationRunner {
                                     "systemProperty2", "systemValue2",
                                     "systemProperty3", "systemValue3");
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    StreamSpec spec = env.getStream(STREAM_ID);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    StreamSpec spec = runner.getStream(STREAM_ID);
 
     Map<String, String> properties = spec.getConfig();
     assertEquals(3, properties.size());
@@ -179,8 +179,8 @@ public class TestAbstractApplicationRunner {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2, // This should be ignored because of the explicit arg
                                       StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    StreamSpec spec = env.getStream(STREAM_ID, TEST_PHYSICAL_NAME);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    StreamSpec spec = runner.getStream(STREAM_ID, TEST_PHYSICAL_NAME);
 
     assertEquals(STREAM_ID, spec.getId());
     assertEquals(TEST_PHYSICAL_NAME, spec.getPhysicalName());
@@ -194,8 +194,8 @@ public class TestAbstractApplicationRunner {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2,
                                       StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    StreamSpec spec = env.getStream(STREAM_ID, TEST_PHYSICAL_NAME_SPECIAL_CHARS);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    StreamSpec spec = runner.getStream(STREAM_ID, TEST_PHYSICAL_NAME_SPECIAL_CHARS);
     assertEquals(TEST_PHYSICAL_NAME_SPECIAL_CHARS, spec.getPhysicalName());
   }
 
@@ -206,8 +206,8 @@ public class TestAbstractApplicationRunner {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2,
                                       StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    StreamSpec spec = env.getStream(STREAM_ID, null);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    StreamSpec spec = runner.getStream(STREAM_ID, null);
     assertNull(spec.getPhysicalName());
   }
 
@@ -218,8 +218,8 @@ public class TestAbstractApplicationRunner {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2, // This should be ignored because of the explicit arg
                                       StreamConfig.SYSTEM(), TEST_SYSTEM2);              // This too
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    StreamSpec spec = env.getStream(STREAM_ID, TEST_PHYSICAL_NAME, TEST_SYSTEM);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    StreamSpec spec = runner.getStream(STREAM_ID, TEST_PHYSICAL_NAME, TEST_SYSTEM);
 
     assertEquals(STREAM_ID, spec.getId());
     assertEquals(TEST_PHYSICAL_NAME, spec.getPhysicalName());
@@ -233,8 +233,8 @@ public class TestAbstractApplicationRunner {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2,
                                       StreamConfig.SYSTEM(), TEST_SYSTEM2);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    env.getStream(STREAM_ID, TEST_PHYSICAL_NAME, TEST_SYSTEM_INVALID);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    runner.getStream(STREAM_ID, TEST_PHYSICAL_NAME, TEST_SYSTEM_INVALID);
   }
 
   // Empty strings are NOT allowed for system name, because it's used as an identifier in the config.
@@ -244,8 +244,8 @@ public class TestAbstractApplicationRunner {
         StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2,
         StreamConfig.SYSTEM(), TEST_SYSTEM2);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    env.getStream(STREAM_ID, TEST_PHYSICAL_NAME, "");
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    runner.getStream(STREAM_ID, TEST_PHYSICAL_NAME, "");
   }
 
   // Null is not allowed for system name.
@@ -255,8 +255,8 @@ public class TestAbstractApplicationRunner {
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2,
                                       StreamConfig.SYSTEM(), TEST_SYSTEM2);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    env.getStream(STREAM_ID, TEST_PHYSICAL_NAME, null);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    runner.getStream(STREAM_ID, TEST_PHYSICAL_NAME, null);
   }
 
   // Special characters are NOT allowed for streamId, because it's used as an identifier in the config.
@@ -265,8 +265,8 @@ public class TestAbstractApplicationRunner {
     Config config = buildStreamConfig(STREAM_ID_INVALID,
         StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    env.getStream(STREAM_ID_INVALID);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    runner.getStream(STREAM_ID_INVALID);
   }
 
   // Empty strings are NOT allowed for streamId, because it's used as an identifier in the config.
@@ -275,8 +275,8 @@ public class TestAbstractApplicationRunner {
     Config config = buildStreamConfig("",
         StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    env.getStream("");
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    runner.getStream("");
   }
 
   // Null is not allowed for streamId.
@@ -285,8 +285,8 @@ public class TestAbstractApplicationRunner {
     Config config = buildStreamConfig(null,
         StreamConfig.SYSTEM(), TEST_SYSTEM);
 
-    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
-    env.getStream(null);
+    AbstractApplicationRunner runner = new TestAbstractApplicationRunnerImpl(config);
+    runner.getStream(null);
   }
 
 
