@@ -547,6 +547,7 @@ project(":samza-rest") {
     compile "org.glassfish.jersey.containers:jersey-container-jetty-http:$jerseyVersion"
     compile "org.glassfish.jersey.media:jersey-media-moxy:$jerseyVersion"
     compile "org.eclipse.jetty.aggregate:jetty-all:$jettyVersion"
+    compile "commons-httpclient:commons-httpclient:$commonsHttpClientVersion"
     compile("org.apache.hadoop:hadoop-yarn-client:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
       exclude module: 'servlet-api'
