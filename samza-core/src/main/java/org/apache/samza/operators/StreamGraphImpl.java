@@ -255,7 +255,7 @@ public class StreamGraphImpl implements StreamGraph {
         config.get(JobConfig.JOB_NAME()),
         config.get(JobConfig.JOB_ID(), "1"),
         opNameWithId);
-    StreamSpec streamSpec = runner.streamFromConfig(streamId);
+    StreamSpec streamSpec = runner.getStream(streamId);
 
     this.inStreams.putIfAbsent(streamSpec.getId(), new IntermediateStreamImpl(this, streamSpec, null, null, parKeyFn));
     IntermediateStreamImpl intStream = (IntermediateStreamImpl) this.inStreams.get(streamSpec.getId());
