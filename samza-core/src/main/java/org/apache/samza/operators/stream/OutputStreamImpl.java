@@ -49,18 +49,18 @@ public class OutputStreamImpl<K, V, M> extends MessageStreamImpl<M> implements O
   }
 
   public Function<M, K> getKeyExtractor() {
-    return keyExtractor;
+    return this.keyExtractor;
   }
 
   public Function<M, V> getMsgExtractor() {
-    return msgExtractor;
+    return this.msgExtractor;
   }
 
   public Serde<K> getKeySerde() {
-    return keySerde;
+    return this.keySerde;
   }
 
   public Serde<V> getMsgSerde() {
-    return msgSerde;
+    return this.msgSerde;
   }
 }

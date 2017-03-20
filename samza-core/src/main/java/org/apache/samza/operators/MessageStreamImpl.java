@@ -190,8 +190,8 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   @Override
   public <K> MessageStream<M> partitionBy(Function<M, K> parKeyExtractor) {
     int opId = this.graph.getNextOpId();
-    String streamName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
-    MessageStreamImpl<M> intStream = this.graph.<K, M, M>createIntStream(streamName, parKeyExtractor, m -> m, (k, m) -> m);
+    String opName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
+    MessageStreamImpl<M> intStream = this.graph.<K, M, M>createIntStream(opName, parKeyExtractor, m -> m, (k, m) -> m);
     this.registeredOperatorSpecs.add(OperatorSpecs.createPartitionByOperatorSpec(intStream, opId));
     return intStream;
   }

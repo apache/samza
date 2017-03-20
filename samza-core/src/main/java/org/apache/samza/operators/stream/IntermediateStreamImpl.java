@@ -49,29 +49,29 @@ public class IntermediateStreamImpl<K, V, M> extends MessageStreamImpl<M>
   }
 
   public StreamSpec getStreamSpec() {
-    return streamSpec;
+    return this.streamSpec;
   }
 
   public Function<M, K> getKeyExtractor() {
-    return keyExtractor;
+    return this.keyExtractor;
   }
 
   public Function<M, V> getMsgExtractor() {
-    return msgExtractor;
+    return this.msgExtractor;
   }
 
   @Override
   public BiFunction<K, V, M> getMsgBuilder() {
-    return msgBuilder;
+    return this.msgBuilder;
   }
 
   @Override
   public Serde<K> getKeySerde() {
-    return keySerde;
+    return this.keySerde;
   }
 
   @Override
   public Serde<V> getMsgSerde() {
-    return msgSerde;
+    return this.msgSerde;
   }
 }

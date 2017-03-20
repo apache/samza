@@ -36,12 +36,12 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * The {@link StreamGraph} implementation that allows users to create system input/output/intermediate streams.
+ * The {@link StreamGraph} implementation that allows users to create input and output system streams.
  */
 public class StreamGraphImpl implements StreamGraph {
   /**
-   * Unique identifier for each {@link org.apache.samza.operators.spec.OperatorSpec} added to transform the message
-   * in the input {@link MessageStream}s.
+   * Unique identifier for each {@link org.apache.samza.operators.spec.OperatorSpec} in the graph.
+   * Should only be accessed via {@link #getNextOpId()}.
    */
   private int opId = 0;
 
@@ -81,7 +81,7 @@ public class StreamGraphImpl implements StreamGraph {
   /**
    * Internal helper method to create an intermediate stream for an operator.
    *
-   * @param streamName name of the intermediate stream to create (will be prefixed with job name and id)
+   * @param streamName the name of the stream to be created (will be prefixed with job name and id)
    * @param keyExtractor the function to extract the output key from the input message
    * @param msgExtractor the function to extract the output message from the input message
    * @param msgBuilder the function to convert the incoming key and message to the output message
@@ -142,7 +142,7 @@ public class StreamGraphImpl implements StreamGraph {
     return this.contextManager;
   }
 
-  int getNextOpId() {
+  public int getNextOpId() {
     return this.opId++;
   }
 

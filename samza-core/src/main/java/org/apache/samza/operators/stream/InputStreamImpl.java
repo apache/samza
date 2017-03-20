@@ -46,14 +46,14 @@ public class InputStreamImpl<K, V, M> extends MessageStreamImpl<M> implements In
   }
 
   public Serde<K> getKeySerde() {
-    return keySerde;
+    return this.keySerde;
   }
 
   public Serde<V> getMsgSerde() {
-    return msgSerde;
+    return this.msgSerde;
   }
 
   public BiFunction<K, V, M> getMsgBuilder() {
-    return msgBuilder;
+    return this.msgBuilder;
   }
 }
