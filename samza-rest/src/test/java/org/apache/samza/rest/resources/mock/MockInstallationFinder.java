@@ -16,21 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.rest.resources;
+package org.apache.samza.rest.resources.mock;
 
-import com.google.common.collect.ImmutableList;
-import java.util.List;
-import org.apache.samza.config.Config;
-import org.apache.samza.rest.proxy.task.TaskResourceConfig;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.samza.rest.proxy.installation.InstallationFinder;
+import org.apache.samza.rest.proxy.installation.InstallationRecord;
+import org.apache.samza.rest.proxy.job.JobInstance;
 
 
-/**
- * Instantiates all the resources that are shipped with the REST service.
- */
-public class DefaultResourceFactory implements ResourceFactory {
+public class MockInstallationFinder implements InstallationFinder {
+
   @Override
-  public List<? extends Object> getResourceInstances(Config config) {
-    return ImmutableList.of(new JobsResource(new JobsResourceConfig(config)),
-                            new TasksResource(new TaskResourceConfig(config)));
+  public boolean isInstalled(JobInstance jobInstance) {
+    return true;
+  }
+
+  @Override
+  public Map<JobInstance, InstallationRecord> getAllInstalledJobs() {
+    return new HashMap<>();
   }
 }

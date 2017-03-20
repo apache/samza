@@ -16,35 +16,35 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.rest.resources;
+package org.apache.samza.rest.proxy.task;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.rest.proxy.job.JobProxy;
-import org.apache.samza.rest.proxy.job.JobProxyFactory;
+import org.apache.samza.rest.resources.BaseResourceConfig;
+import org.apache.samza.rest.resources.TasksResource;
 
 
 /**
- * Configurations for the {@link JobsResource} endpoint.
+ * Configurations for the {@link TasksResource} endpoint.
  */
-public class JobsResourceConfig extends BaseResourceConfig {
+public class TaskResourceConfig extends BaseResourceConfig {
 
   /**
-   * Specifies the canonical name of the {@link JobProxyFactory} class to produce
-   * {@link JobProxy} instances.
+   * Specifies the canonical name of the {@link TaskProxyFactory} class to produce
+   * {@link TaskProxy} instances.
    *
    * To use your own proxy, implement the factory and specify the class for this config.
    */
-  public static final String CONFIG_JOB_PROXY_FACTORY = "job.proxy.factory.class";
+  public static final String CONFIG_TASK_PROXY_FACTORY = "task.proxy.factory.class";
 
-  public JobsResourceConfig(Config config) {
+  public TaskResourceConfig(Config config) {
     super(config);
   }
 
   /**
-   * @see JobsResourceConfig#CONFIG_JOB_PROXY_FACTORY
-   * @return the canonical name of the {@link JobProxyFactory} class to produce {@link JobProxy} instances.
+   * @see TaskResourceConfig#CONFIG_TASK_PROXY_FACTORY
+   * @return the canonical name of the {@link TaskProxyFactory} class to produce {@link TaskProxy} instances.
    */
-  public String getJobProxyFactory() {
-    return get(CONFIG_JOB_PROXY_FACTORY);
+  public String getTaskProxyFactory() {
+    return get(CONFIG_TASK_PROXY_FACTORY);
   }
 }

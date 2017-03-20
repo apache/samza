@@ -16,21 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.rest.resources;
+package org.apache.samza.rest.proxy.task;
 
-import com.google.common.collect.ImmutableList;
-import java.util.List;
 import org.apache.samza.config.Config;
-import org.apache.samza.rest.proxy.task.TaskResourceConfig;
 
 
 /**
- * Instantiates all the resources that are shipped with the REST service.
+ * Factory interface that will be used to create {@link TaskProxy}
+ * instances.
+ *
+ * To use a custom {@link TaskProxy}, create an implementation of this interface
+ * and instantiate the custom proxy in the getTaskProxy method. Set
+ * the config {@link TaskResourceConfig#CONFIG_TASK_PROXY_FACTORY}
+ * value to the appropriate factory implementation class.
  */
-public class DefaultResourceFactory implements ResourceFactory {
-  @Override
-  public List<? extends Object> getResourceInstances(Config config) {
-    return ImmutableList.of(new JobsResource(new JobsResourceConfig(config)),
-                            new TasksResource(new TaskResourceConfig(config)));
-  }
+public interface TaskProxyFactory {
+
+  /**
+   *
+   * @param config the {@link Config} to pass to the proxy.
+   * @return the created proxy.
+   */
+  TaskProxy getTaskProxy(TaskResourceConfig config);
 }

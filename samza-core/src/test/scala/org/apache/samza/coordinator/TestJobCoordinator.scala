@@ -22,29 +22,39 @@ package org.apache.samza.coordinator
 import java.util
 
 import org.apache.samza.checkpoint.TestCheckpointTool.MockCheckpointManagerFactory
-import org.apache.samza.job.MockJobFactory
-import org.apache.samza.job.local.{ProcessJobFactory, ThreadJobFactory}
+import org.apache.samza.job.local.ProcessJobFactory
+import org.apache.samza.job.local.ThreadJobFactory
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.util.Util
-import org.junit.{After, Test}
+import org.junit.After
+import org.junit.Test
 import org.junit.Assert._
+
 import scala.collection.JavaConversions._
 import org.apache.samza.config.MapConfig
 import org.apache.samza.config.TaskConfig
 import org.apache.samza.config.SystemConfig
-import org.apache.samza.container.{SamzaContainer, TaskName}
+import org.apache.samza.container.SamzaContainer
+import org.apache.samza.container.TaskName
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.config.Config
 import org.apache.samza.system._
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.{SamzaException, Partition}
+import org.apache.samza.Partition
+import org.apache.samza.SamzaException
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.config.JobConfig
-import org.apache.samza.coordinator.stream.{MockCoordinatorStreamWrappedConsumer, MockCoordinatorStreamSystemFactory}
+import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
+import org.apache.samza.coordinator.stream.MockCoordinatorStreamWrappedConsumer
+import org.apache.samza.job.MockJobFactory
+import org.scalatest.{FlatSpec, PrivateMethodTester}
 
-class TestJobCoordinator {
+import scala.collection.immutable
+
+
+class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
   /**
    * Builds a coordinator from config, and then compares it with what was
    * expected. We simulate having a checkpoint manager that has 2 task
@@ -251,9 +261,11 @@ class TestJobCoordinator {
     }).toMap
 
     val streamMetadataCache = new StreamMetadataCache(systemAdmins)
+    val getInputStreamPartitions = PrivateMethod[immutable.Set[Any]]('getInputStreamPartitions)
+    val getMatchedInputStreamPartitions = PrivateMethod[immutable.Set[Any]]('getMatchedInputStreamPartitions)
 
-    val allSSP = JobModelManager.getInputStreamPartitions(config, streamMetadataCache)
-    val matchedSSP = JobModelManager.getMatchedInputStreamPartitions(config, streamMetadataCache)
+    val allSSP = JobModelManager invokePrivate getInputStreamPartitions(config, streamMetadataCache)
+    val matchedSSP = JobModelManager invokePrivate  getMatchedInputStreamPartitions(config, streamMetadataCache)
     assertEquals(matchedSSP, allSSP)
   }
 
@@ -320,7 +332,7 @@ class MockSystemAdmin extends ExtendedSystemAdmin {
   override def createCoordinatorStream(streamName: String) {
     new UnsupportedOperationException("Method not implemented.")
   }
-  
+
   override def offsetComparator(offset1: String, offset2: String) = null
 
   override def getSystemStreamPartitionCounts(streamNames: util.Set[String],

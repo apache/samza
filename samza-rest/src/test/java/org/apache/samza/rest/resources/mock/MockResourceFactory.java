@@ -16,21 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.rest.resources;
+package org.apache.samza.rest.resources.mock;
 
-import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.samza.config.Config;
 import org.apache.samza.rest.proxy.task.TaskResourceConfig;
+import org.apache.samza.rest.resources.JobsResource;
+import org.apache.samza.rest.resources.JobsResourceConfig;
+import org.apache.samza.rest.resources.ResourceFactory;
+import org.apache.samza.rest.resources.TasksResource;
 
 
-/**
- * Instantiates all the resources that are shipped with the REST service.
- */
-public class DefaultResourceFactory implements ResourceFactory {
+public class MockResourceFactory implements ResourceFactory {
+
   @Override
   public List<? extends Object> getResourceInstances(Config config) {
-    return ImmutableList.of(new JobsResource(new JobsResourceConfig(config)),
-                            new TasksResource(new TaskResourceConfig(config)));
+    List<Object> resources = new ArrayList<>();
+    if (config.containsKey(JobsResourceConfig.CONFIG_JOB_PROXY_FACTORY)) {
+      resources.add(new JobsResource(new JobsResourceConfig(config)));
+    }
+    if (config.containsKey(TaskResourceConfig.CONFIG_TASK_PROXY_FACTORY)) {
+      resources.add(new TasksResource(new TaskResourceConfig(config)));
+    }
+    return resources;
   }
 }

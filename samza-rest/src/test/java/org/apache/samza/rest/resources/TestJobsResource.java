@@ -18,8 +18,8 @@
  */
 package org.apache.samza.rest.resources;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Application;
@@ -31,6 +31,8 @@ import org.apache.samza.rest.SamzaRestConfig;
 import org.apache.samza.rest.model.Job;
 import org.apache.samza.rest.model.JobStatus;
 import org.apache.samza.rest.resources.mock.MockJobProxy;
+import org.apache.samza.rest.resources.mock.MockJobProxyFactory;
+import org.apache.samza.rest.resources.mock.MockResourceFactory;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
@@ -48,10 +50,11 @@ public class TestJobsResource extends JerseyTest {
 
   @Override
   protected Application configure() {
-    Map<String, String> map = new HashMap<>();
-    map.put(JobsResourceConfig.CONFIG_JOB_PROXY_FACTORY, "org.apache.samza.rest.resources.mock.MockJobProxyFactory");
-    map.put(JobsResourceConfig.CONFIG_JOB_INSTALLATIONS_PATH, ".");
-    SamzaRestConfig config = new SamzaRestConfig(new MapConfig(map));
+    Map<String, String> configMap = ImmutableMap.of(JobsResourceConfig.CONFIG_JOB_PROXY_FACTORY,
+                                                    MockJobProxyFactory.class.getName(),
+                                                    SamzaRestConfig.CONFIG_REST_RESOURCE_FACTORIES,
+                                                    MockResourceFactory.class.getName());
+    SamzaRestConfig config = new SamzaRestConfig(new MapConfig(configMap));
     return new SamzaRestApplication(config);
   }
 

@@ -25,9 +25,9 @@ import org.apache.samza.rest.proxy.installation.InstallationFinder;
 import org.apache.samza.rest.proxy.installation.InstallationRecord;
 import org.apache.samza.rest.proxy.installation.SimpleInstallationFinder;
 import org.apache.samza.rest.resources.JobsResourceConfig;
+import org.apache.samza.util.ClassLoaderHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 /**
  * Extends the {@link ScriptJobProxy} with methods specific to simple Samza deployments.
@@ -45,10 +45,10 @@ public class SimpleYarnJobProxy extends ScriptJobProxy {
 
   private final InstallationFinder installFinder;
 
-  public SimpleYarnJobProxy(JobsResourceConfig config) {
+  public SimpleYarnJobProxy(JobsResourceConfig config) throws Exception {
     super(config);
-
-    installFinder = new SimpleInstallationFinder(config.getInstallationsPath(), getJobConfigFactory());
+    this.installFinder = new SimpleInstallationFinder(config.getInstallationsPath(),
+                                                      ClassLoaderHelper.fromClassName(config.getJobConfigFactory()));
   }
 
   @Override
