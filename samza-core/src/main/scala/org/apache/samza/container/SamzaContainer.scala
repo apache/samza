@@ -27,6 +27,7 @@ import java.lang.Thread.UncaughtExceptionHandler
 import java.net.{URL, UnknownHostException}
 
 import org.apache.samza.SamzaException
+import org.apache.samza.application.StreamApplication
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
@@ -106,6 +107,11 @@ object SamzaContainer extends Logging {
     putMDC("jobName", config.getName.getOrElse(throw new SamzaException("can not find the job name")))
     putMDC("jobId", config.getJobId.getOrElse("1"))
     var jmxServer: JmxServer = null
+    val appRunner = if (config.containsKey(StreamApplication.APP_CLASS_CONFIG)) {
+      ApplicationRunner.fromConfig(config)
+    } else {
+      null
+    }
 
     try {
       jmxServer = newJmxServer()
@@ -117,7 +123,10 @@ object SamzaContainer extends Logging {
         config,
         jobModel.maxChangeLogStreamPartitions,
         getLocalityManager(containerId, config),
-        jmxServer).run
+        jmxServer,
+        Map[String, MetricsReporter](),
+        null,
+        appRunner).run
     } finally {
       if (jmxServer != null) {
         jmxServer.stop
@@ -165,7 +174,6 @@ object SamzaContainer extends Logging {
     jmxServer: JmxServer,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
     taskFactory: Object = null,
-    // SAMZA-1137: need to instantiate the ApplicationRunner in the container local JVM and pass it in
     appRunner: ApplicationRunner = null) = {
     val containerName = getSamzaContainerName(containerId)
     val containerPID = Util.getContainerPID
