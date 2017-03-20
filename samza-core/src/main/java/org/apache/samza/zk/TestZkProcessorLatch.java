@@ -32,10 +32,11 @@ import org.apache.samza.coordinator.CoordinationService;
 import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.ProcessorLatch;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
-import org.testng.Assert;
-import org.testng.annotations.AfterSuite;
-import org.testng.annotations.BeforeSuite;
-import org.testng.annotations.Test;
+import org.junit.AfterClass;
+import org.junit.Assert;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
 
 
 public class TestZkProcessorLatch {
@@ -45,7 +46,7 @@ public class TestZkProcessorLatch {
   private final CoordinationServiceFactory factory = new ZkCoordinationServiceFactory();
   private CoordinationService coordinationService;
 
-  @BeforeSuite
+  @BeforeClass
   public void setup() throws InterruptedException {
     zkServer = new EmbeddedZookeeper();
     zkServer.setup();
@@ -67,7 +68,7 @@ public class TestZkProcessorLatch {
     pool = Executors.newFixedThreadPool(3);
   }
 
-  @AfterSuite
+  @AfterClass
   public void teardown() {
     zkServer.teardown();
   }
@@ -84,14 +85,14 @@ public class TestZkProcessorLatch {
       try {
         latch.await(TimeUnit.MILLISECONDS, 100000);
       } catch (TimeoutException e) {
-        Assert.fail("await timed out", e);
+        Assert.fail("await timed out. " + e.getLocalizedMessage());
       }
     });
 
     try {
       f1.get(30000, TimeUnit.MILLISECONDS);
     } catch (Exception e) {
-      Assert.fail("failed to get", e);
+      Assert.fail("failed to get future." + e.getLocalizedMessage());
     }
 
   }
@@ -108,7 +109,7 @@ public class TestZkProcessorLatch {
       try {
         latch.await(TimeUnit.MILLISECONDS, 100000);
       } catch (TimeoutException e) {
-        Assert.fail("await timed out", e);
+        Assert.fail("await timed out " + e.getLocalizedMessage());
       }
     });
     Future f2 = pool.submit(() -> {
@@ -117,7 +118,7 @@ public class TestZkProcessorLatch {
       try {
         latch.await(TimeUnit.MILLISECONDS, 100000);
       } catch (TimeoutException e) {
-        Assert.fail("await timed out", e);
+        Assert.fail("await timed out. " + e.getLocalizedMessage());
       }
     });
     Future f3 = pool.submit(() -> {
@@ -126,7 +127,7 @@ public class TestZkProcessorLatch {
       try {
         latch.await(TimeUnit.MILLISECONDS, 100000);
       } catch (TimeoutException e) {
-        Assert.fail("await timed out", e);
+        Assert.fail("await timed out. " + e.getLocalizedMessage());
       }
     });
 
@@ -135,7 +136,7 @@ public class TestZkProcessorLatch {
       f2.get(300, TimeUnit.MILLISECONDS);
       f3.get(300, TimeUnit.MILLISECONDS);
     } catch (Exception e) {
-      Assert.fail("failed to get", e);
+      Assert.fail("failed to get future. " + e.getLocalizedMessage());
     }
   }
 
@@ -152,7 +153,7 @@ public class TestZkProcessorLatch {
       try {
         latch.await(TimeUnit.MILLISECONDS, 100000);
       } catch (TimeoutException e) {
-        Assert.fail("await timed out", e);
+        Assert.fail("await timed out. " + e.getLocalizedMessage());
       }
     });
     Future f2 = pool.submit(() -> {
@@ -161,7 +162,7 @@ public class TestZkProcessorLatch {
       try {
         latch.await(TimeUnit.MILLISECONDS, 100000);
       } catch (TimeoutException e) {
-        Assert.fail("await timed out", e);
+        Assert.fail("await timed out. " + e.getLocalizedMessage());
       }
     });
     Future f3 = pool.submit(() -> {
@@ -171,7 +172,7 @@ public class TestZkProcessorLatch {
       try {
         latch.await(TimeUnit.MILLISECONDS, 100000);
       } catch (TimeoutException e) {
-        Assert.fail("await timed out", e);
+        Assert.fail("await timed out. " + e.getLocalizedMessage());
       }
     });
 
@@ -205,7 +206,7 @@ public class TestZkProcessorLatch {
       try {
         latch.await(TimeUnit.MILLISECONDS, 100000);
       } catch (TimeoutException e) {
-        Assert.fail("await timed out", e);
+        Assert.fail("await timed out. " + e.getLocalizedMessage());
       }
     });
     Future f2 = pool.submit(() -> {
@@ -213,7 +214,7 @@ public class TestZkProcessorLatch {
       try {
         latch.await(TimeUnit.MILLISECONDS, 100000);
       } catch (TimeoutException e) {
-        Assert.fail("await timed out", e);
+        Assert.fail("await timed out. " + e.getLocalizedMessage());
       }
     });
     Future f3 = pool.submit(() -> {
@@ -221,7 +222,7 @@ public class TestZkProcessorLatch {
       try {
         latch.await(TimeUnit.MILLISECONDS, 100000);
       } catch (TimeoutException e) {
-        Assert.fail("await timed out", e);
+        Assert.fail("await timed out. " + e.getLocalizedMessage());
       }
     });
 
