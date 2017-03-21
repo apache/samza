@@ -22,7 +22,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 
-public interface ProcessorLatch {
-  void await(TimeUnit tu, long timeout) throws TimeoutException;
+/**
+ * latch implementation for the coordination service.
+ * Supports different size latches.
+ * await() returns when either latch reaches N (N participants call countDown()) or timeout.
+ */
+public interface Latch {
+  void await(long timeout, TimeUnit tu) throws TimeoutException;
   void countDown();
 }

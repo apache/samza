@@ -27,14 +27,16 @@ import org.apache.samza.zk.ZkCoordinationService;
 import org.apache.samza.zk.ZkKeyBuilder;
 import org.apache.samza.zk.ZkUtils;
 
+
 public class ZkCoordinationServiceFactory implements CoordinationServiceFactory {
-  @Override
-  synchronized public CoordinationService getCoordinationService(String groupId, String processorId, Config config) {
+
+
+  synchronized public CoordinationService getCoordinationService(String groupId, String participantId, Config config) {
     ZkConfig zkConfig = new ZkConfig(config);
     ZkClient zkClient = new ZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
-    ZkUtils zkUtils = new ZkUtils(processorId, new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs());
+    ZkUtils zkUtils = new ZkUtils(participantId, new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs());
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
-    return new ZkCoordinationService(processorId, zkConfig, zkUtils, debounceTimer);
+    return new ZkCoordinationService(participantId, zkConfig, zkUtils, debounceTimer);
   }
 
 }

@@ -59,7 +59,7 @@ public class TestZkBarrierForVersionUpgrade {
     map.put(ZkConfig.ZK_BARRIER_TIMEOUT_MS, "200");
     Config config = new MapConfig(map);
 
-    coordinationService = factory.getCoordinationService(groupId, processorId, config);
+    coordinationService = ((ZkCoordinationServiceFactory)factory).getCoordinationService(groupId, processorId, config);
     coordinationService.start();
     coordinationService.reset();
   }

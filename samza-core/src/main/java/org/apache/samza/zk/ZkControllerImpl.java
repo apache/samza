@@ -43,7 +43,7 @@ public class ZkControllerImpl implements ZkController {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
     this.zkControllerListener = zkControllerListener;
-    this.leaderElector = new ZkLeaderElector(processorIdStr, zkUtils);
+    this.leaderElector = new ZkLeaderElector(processorIdStr, zkUtils, debounceTimer);
     this.debounceTimer = debounceTimer;
 
     init();

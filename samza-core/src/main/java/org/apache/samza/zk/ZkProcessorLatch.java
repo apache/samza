@@ -20,12 +20,12 @@ package org.apache.samza.zk;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.ProcessorLatch;
+import org.apache.samza.coordinator.Latch;
 
 
-public class ZkProcessorLatch implements ProcessorLatch {
+public class ZkProcessorLatch implements Latch {
 
-  public final ZkConfig zkConfig;
+  private final ZkConfig zkConfig;
   public final ZkUtils zkUtils;
   public final String processorIdStr;
   public final ZkKeyBuilder keyBuilder;
@@ -37,10 +37,10 @@ public class ZkProcessorLatch implements ProcessorLatch {
   public final static String LATCH_PATH = "latch";
   public final int size; // latch size
 
-  public ZkProcessorLatch(int size, String latchId, String processorId, ZkConfig zkConfig, ZkUtils zkUtils) {
+  public ZkProcessorLatch(int size, String latchId, String participantId, ZkConfig zkConfig, ZkUtils zkUtils) {
     this.zkConfig = zkConfig;
     this.zkUtils = zkUtils;
-    this.processorIdStr = processorId;
+    this.processorIdStr = participantId;
     this.latchId = latchId;
     this.keyBuilder = this.zkUtils.getKeyBuilder();
     this.size = size;
@@ -52,7 +52,7 @@ public class ZkProcessorLatch implements ProcessorLatch {
   }
 
   @Override
-  public void await(TimeUnit tu, long timeout) {
+  public void await(long timeout, TimeUnit tu) {
     zkUtils.getZkClient().waitUntilExists(targetPath, TimeUnit.MILLISECONDS, timeout);
   }
 

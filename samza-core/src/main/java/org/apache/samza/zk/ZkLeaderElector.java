@@ -49,6 +49,7 @@ public class ZkLeaderElector implements LeaderElector {
   private final String processorIdStr;
   private final ZkKeyBuilder keyBuilder;
   private final String hostName;
+  private final ScheduleAfterDebounceTime debounceTimer;
 
   private AtomicBoolean isLeader = new AtomicBoolean(false);
   private IZkDataListener previousProcessorChangeListener;
@@ -60,11 +61,12 @@ public class ZkLeaderElector implements LeaderElector {
     this.previousProcessorChangeListener = previousProcessorChangeListener;
   }
 
-  public ZkLeaderElector(String processorIdStr, ZkUtils zkUtils) {
+  public ZkLeaderElector(String processorIdStr, ZkUtils zkUtils,  ScheduleAfterDebounceTime debounceTimer) {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
     this.keyBuilder = zkUtils.getKeyBuilder();
     this.hostName = getHostName();
+    this.debounceTimer = (debounceTimer != null) ? debounceTimer : new ScheduleAfterDebounceTime();
 
 //    String [] paths = new String[]{keyBuilder.getProcessorsPath()};
 //    zkUtils.makeSurePersistentPathsExists(paths);
@@ -81,8 +83,8 @@ public class ZkLeaderElector implements LeaderElector {
   }
 
   @Override
-  public boolean tryBecomeLeader(LeaderElectorListener leaderElectorListener) {
-    String currentPath = zkUtils.registerProcessorAndGetId(hostName+ " " + processorIdStr);
+  public void tryBecomeLeader(LeaderElectorListener leaderElectorListener) {
+    String currentPath = zkUtils.registerProcessorAndGetId(hostName + " " + processorIdStr);
 
     List<String> children = zkUtils.getSortedActiveProcessors();
     LOGGER.debug(zLog("Current active processors - " + children));
@@ -96,8 +98,8 @@ public class ZkLeaderElector implements LeaderElector {
     if (index == 0) {
       isLeader.getAndSet(true);
       LOGGER.info(zLog("Eligible to become the leader!"));
-      leaderElectorListener.onBecomingLeader(); // inform the caller
-      return true;
+      debounceTimer.scheduleAfterDebounceTime("ON_BECOMING_LEADER", 1, () -> leaderElectorListener.onBecomingLeader()); // inform the caller
+      return;
     }
 
     isLeader.getAndSet(false);
@@ -134,9 +136,8 @@ public class ZkLeaderElector implements LeaderElector {
         Thread.interrupted();
       }
       LOGGER.info(zLog("Predecessor doesn't exist anymore. Trying to become leader again..."));
-      return tryBecomeLeader(leaderElectorListener);
+      tryBecomeLeader(leaderElectorListener);
     }
-    return false;
   }
 
   @Override

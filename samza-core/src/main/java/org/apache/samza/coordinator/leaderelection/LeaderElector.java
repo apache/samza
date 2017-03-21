@@ -23,14 +23,21 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.coordinator.LeaderElectorListener;
 
 
+/**
+ * Leader elector async primitives, implemented based on ZK.
+ * The callback is a async, and run in a separate (common) thread.
+ * So the caller should never block in the callback.
+ * Callbacks will be delivered on callback at a time. Others will wait.
+ *
+ */
 @InterfaceStability.Evolving
 public interface LeaderElector {
   /**
-   * Method that helps the caller participate in leader election and returns when the participation is complete
+   * Async method that helps the caller participate in leader election.
    *
-   * @return True, if caller is chosen as a leader through the leader election process. False, otherwise.
+   * invokes the callback if the caller is chosen as a leader through the leader election process.
    */
-  boolean tryBecomeLeader(LeaderElectorListener leaderElectorListener);
+  void tryBecomeLeader(LeaderElectorListener leaderElectorListener);
 
   /**
    * Method that allows a caller to resign from leadership role. Caller can resign from leadership due to various

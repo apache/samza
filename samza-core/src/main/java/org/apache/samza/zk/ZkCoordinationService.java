@@ -22,11 +22,8 @@ import com.google.common.annotations.VisibleForTesting;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationService;
-import org.apache.samza.coordinator.ProcessorLatch;
+import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.leaderelection.LeaderElector;
-import org.apache.samza.zk.ZkLeaderElector;
-import org.apache.samza.zk.ZkProcessorLatch;
-import org.apache.samza.zk.ZkUtils;
 
 
 public class ZkCoordinationService implements CoordinationService {
@@ -59,11 +56,11 @@ public class ZkCoordinationService implements CoordinationService {
 
   @Override
   public LeaderElector getLeaderElector() {
-    return new ZkLeaderElector(processorIdStr, zkUtils);
+    return new ZkLeaderElector(processorIdStr, zkUtils, debounceTimer);
   }
 
   @Override
-  public ProcessorLatch getLatch(int size, String latchId) {
+  public Latch getLatch(int size, String latchId) {
     return new ZkProcessorLatch(size, latchId, processorIdStr, zkConfig, zkUtils);
   }
 

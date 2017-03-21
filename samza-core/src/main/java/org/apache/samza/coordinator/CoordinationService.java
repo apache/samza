@@ -21,9 +21,16 @@ package org.apache.samza.coordinator;
 import org.apache.samza.coordinator.leaderelection.LeaderElector;
 
 
+/**
+ * Coordination service provides synchronization primitives.
+ * The actual implementation (for example ZK based) is left to each implementation class.
+ * This service provide three primitives:
+ *   - LeaderElection
+ *   - Latch
+ *   - barrier for version upgrades
+ */
 public interface CoordinationService {
   // life cycle
-
   /**
    * start the service
    */
@@ -43,7 +50,7 @@ public interface CoordinationService {
   // facilities for group coordination
   LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
 
-  ProcessorLatch getLatch(int size, String latchId);
+  Latch getLatch(int size, String latchId);
 
   BarrierForVersionUpgrade getBarrier(String barrierId);
 }

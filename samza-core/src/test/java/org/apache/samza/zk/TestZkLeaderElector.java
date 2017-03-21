@@ -112,9 +112,8 @@ public class TestZkLeaderElector {
     when(kb.getProcessorsPath()).thenReturn("");
     when(mockZkUtils.getKeyBuilder()).thenReturn(kb);
 
-    ZkLeaderElector leaderElector = new ZkLeaderElector("1", mockZkUtils);
+    ZkLeaderElector leaderElector = new ZkLeaderElector("1", mockZkUtils, null);
     BooleanResult isLeader = new BooleanResult();
-
 
     leaderElector.tryBecomeLeader(new LeaderElectorListener() {
       @Override
@@ -136,7 +135,7 @@ public class TestZkLeaderElector {
     when(kb.getProcessorsPath()).thenReturn("");
     when(mockZkUtils.getKeyBuilder()).thenReturn(kb);
 
-    ZkLeaderElector leaderElector = new ZkLeaderElector(processorId, mockZkUtils);
+    ZkLeaderElector leaderElector = new ZkLeaderElector(processorId, mockZkUtils, null);
 
     try {
       leaderElector.tryBecomeLeader(new LeaderElectorListener() {
@@ -174,16 +173,16 @@ public class TestZkLeaderElector {
 
     // Processor-1
     ZkUtils zkUtils1 = getZkUtilsWithNewClient("1");
-    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1);
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1, null);
 
     // Processor-2
     ZkUtils zkUtils2 = getZkUtilsWithNewClient("2");
-    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2);
+    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2, null);
 
 
     // Processor-3
     ZkUtils zkUtils3 = getZkUtilsWithNewClient("3");
-    ZkLeaderElector leaderElector3 = new ZkLeaderElector("3", zkUtils3);
+    ZkLeaderElector leaderElector3 = new ZkLeaderElector("3", zkUtils3, null);
 
     Assert.assertEquals(0, testZkUtils.getSortedActiveProcessors().size());
 
@@ -243,7 +242,7 @@ public class TestZkLeaderElector {
     // Processor-1
     ZkUtils zkUtils1 = getZkUtilsWithNewClient("processor1");
     zkUtils1.registerProcessorAndGetId("processor1");
-    ZkLeaderElector leaderElector1 = new ZkLeaderElector("processor1",zkUtils1);
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("processor1",zkUtils1, null);
 
     leaderElector1.setPreviousProcessorChangeListener(new IZkDataListener() {
       @Override
@@ -261,7 +260,7 @@ public class TestZkLeaderElector {
     // Processor-2
     ZkUtils zkUtils2 = getZkUtilsWithNewClient("processor2");
     final String path2 = zkUtils2.registerProcessorAndGetId("processor2");
-    ZkLeaderElector leaderElector2 = new ZkLeaderElector("processor2", zkUtils2);
+    ZkLeaderElector leaderElector2 = new ZkLeaderElector("processor2", zkUtils2, null);
 
     leaderElector2.setPreviousProcessorChangeListener(new IZkDataListener() {
       @Override
@@ -293,7 +292,7 @@ public class TestZkLeaderElector {
     // Processor-3
     ZkUtils zkUtils3  = getZkUtilsWithNewClient("processor3");
     zkUtils3.registerProcessorAndGetId("processor3");
-    ZkLeaderElector leaderElector3 = new ZkLeaderElector("processor3", zkUtils3);
+    ZkLeaderElector leaderElector3 = new ZkLeaderElector("processor3", zkUtils3, null);
 
     leaderElector3.setPreviousProcessorChangeListener(new IZkDataListener() {
       @Override
@@ -378,7 +377,7 @@ public class TestZkLeaderElector {
     // Processor-1
     ZkUtils zkUtils1 = getZkUtilsWithNewClient("processor1");
     zkUtils1.registerProcessorAndGetId("processor1");
-    ZkLeaderElector leaderElector1 = new ZkLeaderElector("processor1", zkUtils1);
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("processor1", zkUtils1, null);
 
     leaderElector1.setPreviousProcessorChangeListener(new IZkDataListener() {
       @Override
@@ -398,7 +397,7 @@ public class TestZkLeaderElector {
     // Processor-2
     ZkUtils zkUtils2 = getZkUtilsWithNewClient("processor2");
     zkUtils2.registerProcessorAndGetId("processor2");
-    ZkLeaderElector leaderElector2 = new ZkLeaderElector("processor2", zkUtils2);
+    ZkLeaderElector leaderElector2 = new ZkLeaderElector("processor2", zkUtils2, null);
 
     leaderElector2.setPreviousProcessorChangeListener(new IZkDataListener() {
       @Override
@@ -417,7 +416,7 @@ public class TestZkLeaderElector {
     // Processor-3
     ZkUtils zkUtils3  = getZkUtilsWithNewClient("processor3");
     final String path3 = zkUtils3.registerProcessorAndGetId("processor3");
-    ZkLeaderElector leaderElector3 = new ZkLeaderElector("processor3", zkUtils3);
+    ZkLeaderElector leaderElector3 = new ZkLeaderElector("processor3", zkUtils3, null);
 
     leaderElector3.setPreviousProcessorChangeListener(new IZkDataListener() {
       @Override
@@ -497,11 +496,11 @@ public class TestZkLeaderElector {
     // Processor-1
 
     ZkUtils zkUtils1 = getZkUtilsWithNewClient("1");
-    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1);
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1, null);
 
     // Processor-2
     ZkUtils zkUtils2 = getZkUtilsWithNewClient("2");
-    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2);
+    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2, null);
 
     // Before Leader Election
     Assert.assertFalse(leaderElector1.amILeader());
