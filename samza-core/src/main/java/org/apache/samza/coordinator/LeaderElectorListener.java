@@ -19,7 +19,7 @@
 package org.apache.samza.coordinator;
 
 /**
- * This call back should be passed to {@link LeaderElector#tryBecomeLeader(listener)} and
+ * This call back should be passed to {@link LeaderElector#tryBecomeLeader} and
  * will be invoked if the caller becomes the leader.
  */
 public interface LeaderElectorListener {

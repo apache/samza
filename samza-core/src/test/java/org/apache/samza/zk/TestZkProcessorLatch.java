@@ -113,23 +113,23 @@ public class TestZkProcessorLatch {
 
     ExecutorService pool = Executors.newFixedThreadPool(3);
     Future f1 = pool.submit(() -> {
-      Latch latch = coordinationService.getLatch(latchSize, latchId);
-      //latch.countDown(); only one thread counts down
-      try {
-        latch.await(100000, TimeUnit.MILLISECONDS);
-      } catch (TimeoutException e) {
-        Assert.fail("await timed out. " + e.getLocalizedMessage());
-      }
+          Latch latch = coordinationService.getLatch(latchSize, latchId);
+          //latch.countDown(); only one thread counts down
+          try {
+            latch.await(100000, TimeUnit.MILLISECONDS);
+          } catch (TimeoutException e) {
+            Assert.fail("await timed out. " + e.getLocalizedMessage());
+          }
     });
 
     Future f2 = pool.submit(() -> {
-      Latch latch = coordinationService.getLatch(latchSize, latchId);
-      latch.countDown();
-      try {
-        latch.await(100000, TimeUnit.MILLISECONDS);
-      } catch (TimeoutException e) {
-        Assert.fail("await timed out. " + e.getLocalizedMessage());
-      }
+          Latch latch = coordinationService.getLatch(latchSize, latchId);
+          latch.countDown();
+          try {
+            latch.await(100000, TimeUnit.MILLISECONDS);
+          } catch (TimeoutException e) {
+            Assert.fail("await timed out. " + e.getLocalizedMessage());
+          }
     });
 
     try {
@@ -149,32 +149,32 @@ public class TestZkProcessorLatch {
 
     ExecutorService pool = Executors.newFixedThreadPool(3);
     Future f1 = pool.submit(() -> {
-      Latch latch = coordinationService.getLatch(latchSize, latchId);
-      latch.countDown();
-      try {
-        latch.await(100000, TimeUnit.MILLISECONDS);
-      } catch (TimeoutException e) {
-        Assert.fail("await timed out " + e.getLocalizedMessage());
-      }
+          Latch latch = coordinationService.getLatch(latchSize, latchId);
+          latch.countDown();
+          try {
+            latch.await(100000, TimeUnit.MILLISECONDS);
+          } catch (TimeoutException e) {
+            Assert.fail("await timed out " + e.getLocalizedMessage());
+          }
     });
     Future f2 = pool.submit(() -> {
-      Latch latch = coordinationService.getLatch(latchSize, latchId);
-      latch.countDown();
-      try {
-        latch.await(100000, TimeUnit.MILLISECONDS);
-      } catch (TimeoutException e) {
-        Assert.fail("await timed out. " + e.getLocalizedMessage());
-      }
+          Latch latch = coordinationService.getLatch(latchSize, latchId);
+          latch.countDown();
+          try {
+            latch.await(100000, TimeUnit.MILLISECONDS);
+          } catch (TimeoutException e) {
+            Assert.fail("await timed out. " + e.getLocalizedMessage());
+          }
     });
     Future f3 = pool.submit(() -> {
-      Latch latch = coordinationService.getLatch(latchSize, latchId);
-      latch.countDown();
-      try {
-        latch.await(100000, TimeUnit.MILLISECONDS);
-      } catch (TimeoutException e) {
-        Assert.fail("await timed out. " + e.getLocalizedMessage());
-      }
-    });
+          Latch latch = coordinationService.getLatch(latchSize, latchId);
+          latch.countDown();
+          try {
+            latch.await(100000, TimeUnit.MILLISECONDS);
+          } catch (TimeoutException e) {
+            Assert.fail("await timed out. " + e.getLocalizedMessage());
+          }
+        });
 
     try {
       f1.get(300, TimeUnit.MILLISECONDS);

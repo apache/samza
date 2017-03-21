@@ -18,9 +18,6 @@
  */
 package org.apache.samza.coordinator;
 
-import org.apache.samza.coordinator.leaderelection.LeaderElector;
-
-
 /**
  * Coordination service provides synchronization primitives.
  * The actual implementation (for example ZK based) is left to each implementation class.

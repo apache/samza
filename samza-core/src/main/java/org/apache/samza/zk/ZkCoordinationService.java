@@ -23,7 +23,7 @@ import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationService;
 import org.apache.samza.coordinator.Latch;
-import org.apache.samza.coordinator.leaderelection.LeaderElector;
+import org.apache.samza.coordinator.LeaderElector;
 
 
 public class ZkCoordinationService implements CoordinationService {

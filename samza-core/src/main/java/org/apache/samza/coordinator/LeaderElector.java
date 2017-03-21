@@ -17,10 +17,9 @@
  * under the License.
  */
 
-package org.apache.samza.coordinator.leaderelection;
+package org.apache.samza.coordinator;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.coordinator.LeaderElectorListener;
 
 
 /**
@@ -35,7 +34,7 @@ public interface LeaderElector {
   /**
    * Async method that helps the caller participate in leader election.
    *
-   * invokes the callback if the caller is chosen as a leader through the leader election process.
+   * @param leaderElectorListener to be invoked if the caller is chosen as a leader through the leader election process
    */
   void tryBecomeLeader(LeaderElectorListener leaderElectorListener);
 

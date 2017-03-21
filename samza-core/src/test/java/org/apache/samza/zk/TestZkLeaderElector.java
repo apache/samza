@@ -242,7 +242,7 @@ public class TestZkLeaderElector {
     // Processor-1
     ZkUtils zkUtils1 = getZkUtilsWithNewClient("processor1");
     zkUtils1.registerProcessorAndGetId("processor1");
-    ZkLeaderElector leaderElector1 = new ZkLeaderElector("processor1",zkUtils1, null);
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("processor1", zkUtils1, null);
 
     leaderElector1.setPreviousProcessorChangeListener(new IZkDataListener() {
       @Override

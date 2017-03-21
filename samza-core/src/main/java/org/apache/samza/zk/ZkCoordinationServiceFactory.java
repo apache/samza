@@ -23,9 +23,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.CoordinationService;
 import org.apache.samza.coordinator.CoordinationServiceFactory;
-import org.apache.samza.zk.ZkCoordinationService;
-import org.apache.samza.zk.ZkKeyBuilder;
-import org.apache.samza.zk.ZkUtils;
 
 
 public class ZkCoordinationServiceFactory implements CoordinationServiceFactory {

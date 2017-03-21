@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.LeaderElectorListener;
-import org.apache.samza.coordinator.leaderelection.LeaderElector;
+import org.apache.samza.coordinator.LeaderElector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -109,7 +109,7 @@ public class ZkLeaderElector implements LeaderElector {
       if (currentSubscription != null) {
 
         // callback in case if the previous node gets deleted (when previous processor dies)
-        if(previousProcessorChangeListener == null)
+        if (previousProcessorChangeListener == null)
           previousProcessorChangeListener =  new PreviousProcessorChangeListener(leaderElectorListener);
 
         LOGGER.debug(zLog("Unsubscribing data change for " + currentSubscription));

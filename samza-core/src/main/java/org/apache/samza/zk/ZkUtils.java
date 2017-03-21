@@ -112,10 +112,10 @@ public class ZkUtils {
           zkClient.createEphemeralSequential(
               keyBuilder.getProcessorsPath() + "/", data);
 
-      System.out.println("newly generated path for " + data +  " is " +  ephemeralPath );
+      System.out.println("newly generated path for " + data +  " is " +  ephemeralPath);
       return ephemeralPath;
     } else {
-      System.out.println("existing path for " + data +  " is " +  ephemeralPath );
+      System.out.println("existing path for " + data +  " is " +  ephemeralPath);
       return ephemeralPath;
     }
   }

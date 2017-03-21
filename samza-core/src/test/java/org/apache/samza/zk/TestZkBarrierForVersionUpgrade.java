@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import junit.framework.Assert;
-import org.I0Itec.zkclient.ZkConnection;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ZkConfig;
@@ -41,8 +40,6 @@ import org.junit.Test;
 public class TestZkBarrierForVersionUpgrade {
   private static EmbeddedZookeeper zkServer = null;
   private static String testZkConnectionString = null;
-
-  private static final CoordinationServiceFactory factory = new ZkCoordinationServiceFactory();
   private static CoordinationService coordinationService;
 
 
@@ -51,7 +48,10 @@ public class TestZkBarrierForVersionUpgrade {
     zkServer = new EmbeddedZookeeper();
     zkServer.setup();
     testZkConnectionString = "localhost:" + zkServer.getPort();
+  }
 
+  @Before
+  public void testSetup() {
     String groupId = "group1";
     String processorId = "p1";
     Map<String, String> map = new HashMap<>();
@@ -59,11 +59,17 @@ public class TestZkBarrierForVersionUpgrade {
     map.put(ZkConfig.ZK_BARRIER_TIMEOUT_MS, "200");
     Config config = new MapConfig(map);
 
-    coordinationService = ((ZkCoordinationServiceFactory)factory).getCoordinationService(groupId, processorId, config);
+    CoordinationServiceFactory serviceFactory = new ZkCoordinationServiceFactory();
+    coordinationService = serviceFactory.getCoordinationService(groupId, processorId, config);
     coordinationService.start();
     coordinationService.reset();
   }
 
+  @After
+  public void testTearDown() {
+    coordinationService.reset();
+    coordinationService.stop();
+  }
 
   @AfterClass
   public static void teardown() {
@@ -183,5 +189,6 @@ public class TestZkBarrierForVersionUpgrade {
       }
     });
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> s.p1 && s.p2 && s.p3, 2, 400));
+
   }
 }
