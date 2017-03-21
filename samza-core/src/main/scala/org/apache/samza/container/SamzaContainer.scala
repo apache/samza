@@ -23,11 +23,9 @@ import java.io.File
 import java.nio.file.Path
 import java.util
 import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, TimeUnit}
-import java.lang.Thread.UncaughtExceptionHandler
 import java.net.{URL, UnknownHostException}
 
 import org.apache.samza.SamzaException
-import org.apache.samza.application.StreamApplication
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
@@ -82,57 +80,6 @@ import scala.collection.JavaConversions._
 object SamzaContainer extends Logging {
   val DEFAULT_READ_JOBMODEL_DELAY_MS = 100
   val DISK_POLL_INTERVAL_KEY = "container.disk.poll.interval.ms"
-
-  def main(args: Array[String]) {
-    safeMain(() => new JmxServer, new SamzaContainerExceptionHandler(() => System.exit(1)))
-  }
-
-  def safeMain(
-    newJmxServer: () => JmxServer,
-    exceptionHandler: UncaughtExceptionHandler = null) {
-    if (exceptionHandler != null) {
-      Thread.setDefaultUncaughtExceptionHandler(exceptionHandler)
-    }
-    putMDC("containerName", "samza-container-" + System.getenv(ShellCommandConfig.ENV_CONTAINER_ID))
-    // Break out the main method to make the JmxServer injectable so we can
-    // validate that we don't leak JMX non-daemon threads if we have an
-    // exception in the main method.
-    val containerId = System.getenv(ShellCommandConfig.ENV_CONTAINER_ID).toInt
-    logger.info("Got container ID: %s" format containerId)
-    val coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL)
-    logger.info("Got coordinator URL: %s" format coordinatorUrl)
-    val jobModel = readJobModel(coordinatorUrl)
-    val containerModel = jobModel.getContainers()(containerId.toInt)
-    val config = jobModel.getConfig
-    putMDC("jobName", config.getName.getOrElse(throw new SamzaException("can not find the job name")))
-    putMDC("jobId", config.getJobId.getOrElse("1"))
-    var jmxServer: JmxServer = null
-    val appRunner = if (config.containsKey(StreamApplication.APP_CLASS_CONFIG)) {
-      ApplicationRunner.fromConfig(config)
-    } else {
-      null
-    }
-
-    try {
-      jmxServer = newJmxServer()
-      val containerModel = jobModel.getContainers.get(containerId.toInt)
-      // TODO: add actual local runner in a container to the parameters
-      SamzaContainer(
-        containerId.toInt,
-        containerModel,
-        config,
-        jobModel.maxChangeLogStreamPartitions,
-        getLocalityManager(containerId, config),
-        jmxServer,
-        Map[String, MetricsReporter](),
-        null,
-        appRunner).run
-    } finally {
-      if (jmxServer != null) {
-        jmxServer.stop
-      }
-    }
-  }
 
   def getLocalityManager(containerId: Int, config: Config): LocalityManager = {
     val containerName = getSamzaContainerName(containerId)
