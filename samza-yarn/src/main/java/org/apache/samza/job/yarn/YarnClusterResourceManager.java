@@ -119,10 +119,9 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     hConfig = new YarnConfiguration();
     hConfig.set("fs.http.impl", HttpFileSystem.class.getName());
 
-    if (config.containsKey("fs.certfs.impl.override")) { //TODO: change to use constants from CertFSConstants once that CertFSConstants.java is in
-      hConfig.set("fs.certfs.impl", config.get("fs.certfs.impl.override"));
-      log.info("samza job config fs.certfs.impl.override is used for yarn.");
-    }
+    // Use the Samza job config "fs.<scheme>.impl" to override YarnConfiguration
+    FsImplConfigManager fsImplConfigManager = new FsImplConfigManager(config);
+    fsImplConfigManager.overrideYarnConfiguration(hConfig);
 
     MetricsRegistryMap registry = new MetricsRegistryMap();
     metrics = new SamzaAppMasterMetrics(config, samzaAppState, registry);

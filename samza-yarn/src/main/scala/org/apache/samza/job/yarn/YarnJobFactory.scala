@@ -26,6 +26,7 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.samza.config.Config
 import org.apache.samza.util.hadoop.HttpFileSystem
 import org.apache.samza.util.Logging
+import scala.collection.JavaConversions._
 
 class YarnJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config) = {
@@ -39,10 +40,9 @@ class YarnJobFactory extends StreamJobFactory with Logging {
       hConfig.set(YarnConfiguration.RM_ADDRESS, config.get(YarnConfiguration.RM_ADDRESS, "0.0.0.0:8032"))
     }
 
-    if (config.containsKey("fs.certfs.impl.override")) { //TODO: change to use constants from CertFSConstants once that CertFSConstants.java is in
-      hConfig.set("fs.certfs.impl", config.get("fs.certfs.impl.override"))
-      logger.info("samza job config fs.certfs.impl.override is used for yarn.")
-    }
+    // Use the Samza job config "fs.<scheme>.impl" to override YarnConfiguration
+    val fsImplConfigManager = new FsImplConfigManager(config)
+    fsImplConfigManager.overrideYarnConfiguration(hConfig)
 
     new YarnJob(config, hConfig)
   }

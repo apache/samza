@@ -193,15 +193,6 @@ public class YarnConfig extends MapConfig {
     return packagePath;
   }
 
-  public Config getLocalizerResourceConfigs() {
-    Config localizerResourceConfigs = subset(LOCALIZER_RESOURCE_PREFIX, false); // do not strip off the prefix
-    if (localizerResourceConfigs == null || localizerResourceConfigs.isEmpty()) {
-      throw new SamzaException("No Samza app localizer resource path defined in config.");
-    }
-    return localizerResourceConfigs;
-  }
-
-
   public int getAMContainerMaxMemoryMb() {
     return getInt(AM_CONTAINER_MAX_MEMORY_MB, DEFAULT_AM_CONTAINER_MAX_MEMORY_MB);
   }

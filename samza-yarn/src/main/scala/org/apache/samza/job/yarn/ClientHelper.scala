@@ -173,7 +173,6 @@ class ClientHelper(conf: Configuration) extends Logging {
     // include the resources from the universal resource configurations
     try {
       val resourceMapper = new LocalizerResourceMapper(config, new YarnConfiguration(conf))
-      resourceMapper.map() // generate all resources from the universal resource configurations
       localResources ++= resourceMapper.getResourceMap
     } catch {
       case e: LocalizerResourceException => {
