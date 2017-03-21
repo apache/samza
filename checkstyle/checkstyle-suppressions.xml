@@ -24,6 +24,6 @@
 <suppressions>
     <suppress checks="Indentation"
            files="TestZkProcessorLatch.java"
-           lines="0-9999"/>
+           lines="91-275"/>
 </suppressions>
 
