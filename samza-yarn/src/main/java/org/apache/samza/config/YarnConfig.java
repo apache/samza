@@ -27,13 +27,6 @@ public class YarnConfig extends MapConfig {
    */
   public static final String PACKAGE_PATH = "yarn.package.path";
 
-  /**
-   * The prefix for defining any optional yarn localizer resource
-   * The key will be localizer.resource.&lt;resourceVisibility&gt;.&lt;resourceType&gt;.&lt;resourceName&gt;
-   * The value corresponding to the key will be the URI.
-   */
-  public static final String LOCALIZER_RESOURCE_PREFIX = "yarn.localizer.resource.";
-
   // Configs related to each yarn container
   /**
    * Memory, in megabytes, to request from YARN per container
