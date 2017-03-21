@@ -672,6 +672,18 @@ class SamzaContainer(
 
   val shutdownMs = containerContext.config.getShutdownMs.getOrElse(5000L)
   private val runLoopStartLatch: CountDownLatch = new CountDownLatch(1)
+  private val runLoopEndLatch: CountDownLatch = new CountDownLatch(1)
+
+  def createInstance (    containerId: Int,
+                 containerModel: ContainerModel,
+                 config: Config,
+                 maxChangeLogStreamPartitions: Int,
+                 localityManager: LocalityManager,
+                 jmxServer: JmxServer,
+                 customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
+                 taskFactory: Object = null): SamzaContainer = {
+    SamzaContainer.apply(containerId, containerModel, config, maxChangeLogStreamPartitions, localityManager, jmxServer, customReporters, taskFactory)
+  }
 
   def awaitStart(timeoutMs: Long): Boolean = {
     try {
@@ -679,6 +691,15 @@ class SamzaContainer(
     } catch {
       case ie: InterruptedException =>
         error("Interrupted while waiting for runloop to start!", ie)
+        throw ie
+    }
+  }
+  def awaitStop(timeoutMs: Long): Boolean = {
+    try {
+      runLoopEndLatch.await(timeoutMs, TimeUnit.MILLISECONDS)
+    } catch {
+      case ie: InterruptedException =>
+        error("Interrupted while waiting for runloop to stop!", ie)
         throw ie
     }
   }
@@ -719,6 +740,8 @@ class SamzaContainer(
       shutdownOffsetManager
       shutdownMetrics
       shutdownSecurityManger
+
+      runLoopEndLatch.countDown()
 
       info("Shutdown complete.")
     }

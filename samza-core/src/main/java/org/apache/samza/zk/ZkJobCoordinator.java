@@ -112,6 +112,11 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   }
 
   @Override
+  public boolean awaitStop(long timeoutMs) throws InterruptedException {
+    return containerController.awaitStop(timeoutMs);
+  }
+
+  @Override
   public int getProcessorId() {
     return processorId;
   }

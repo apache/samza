@@ -164,6 +164,10 @@ project(":samza-core_$scalaVersion") {
     testCompile project(":samza-api").sourceSets.test.output
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
+    testCompile "org.powermock:powermock-module-junit4:$powermockVersion"
+    testCompile "org.powermock:powermock-module-junit4-common:$powermockVersion"
+    testCompile "org.powermock:powermock-core:$powermockVersion"
+    testCompile "org.powermock:powermock-api-mockito:$powermockVersion"
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
   }
 

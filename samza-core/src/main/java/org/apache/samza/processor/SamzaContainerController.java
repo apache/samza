@@ -22,10 +22,8 @@ package org.apache.samza.processor;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.SamzaContainer;
-import org.apache.samza.container.SamzaContainer$;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsReporter;
@@ -34,25 +32,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 public class SamzaContainerController {
   private static final Logger log = LoggerFactory.getLogger(SamzaContainerController.class);
 
-  private final ExecutorService executorService;
   private volatile SamzaContainer container;
   private final Map<String, MetricsReporter> metricsReporterMap;
   private final Object taskFactory;
-  private final long containerShutdownMs;
   private final ProcessorLifecycleCallback lifecycleCallback;
 
   // Internal Member Variables
   private Future containerFuture;
+  private ExecutorService executorService;
 
   /**
    * Creates an instance of a controller for instantiating, starting and/or stopping {@link SamzaContainer}
@@ -60,27 +54,16 @@ public class SamzaContainerController {
    *
    * @param taskFactory         Factory that be used create instances of {@link org.apache.samza.task.StreamTask} or
    *                            {@link org.apache.samza.task.AsyncStreamTask}
-   * @param containerShutdownMs How long the Samza container should wait for an orderly shutdown of task instances
-   * @param processorId         Id of the processor
    * @param lifecycleCallback   An instance of callback handler for lifecycle events. May be null. If null, the caller
    *                            will not get notified on the lifecycle events.
    * @param metricsReporterMap  Map of metric reporter name and {@link MetricsReporter} instance
    */
   public SamzaContainerController(
       Object taskFactory,
-      long containerShutdownMs,
-      String processorId,
       ProcessorLifecycleCallback lifecycleCallback,
       Map<String, MetricsReporter> metricsReporterMap) {
-    this.executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
-        .setNameFormat("p" + processorId + "-container-thread-%d").build());
     this.taskFactory = taskFactory;
     this.metricsReporterMap = metricsReporterMap;
-    if (containerShutdownMs == -1) {
-      this.containerShutdownMs = TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS;
-    } else {
-      this.containerShutdownMs = containerShutdownMs;
-    }
     this.lifecycleCallback = lifecycleCallback;
   }
 
@@ -99,10 +82,11 @@ public class SamzaContainerController {
   public void startContainer(ContainerModel containerModel, Config config, int maxChangelogStreamPartitions) {
     LocalityManager localityManager = null;
     if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {
-      localityManager = SamzaContainer$.MODULE$.getLocalityManager(containerModel.getContainerId(), config);
+      localityManager = SamzaContainerWrapper.getLocalityManager(containerModel.getContainerId(), config);
     }
     log.info("About to create container: " + containerModel.getContainerId());
-    container = SamzaContainer$.MODULE$.apply(
+
+    container = SamzaContainerWrapper.createInstance(
         containerModel.getContainerId(),
         containerModel,
         config,
@@ -114,18 +98,22 @@ public class SamzaContainerController {
         // TODO: need to use the correct local ApplicationRunner here
         null);
     log.info("About to start container: " + containerModel.getContainerId());
+    executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
+        .setNameFormat("processor-thread-%d").build());
+
     containerFuture = executorService.submit(() -> {
         try {
           container.run();
         } catch (Throwable t) {
           if (lifecycleCallback != null) {
             lifecycleCallback.onError(t);
-          } else {
-            log.error("Container Run Loop Error", t);
-            throw t;
           }
         }
       });
+  }
+
+  boolean isContainerRunning() {
+    return container != null && containerFuture != null && !containerFuture.isDone();
   }
 
   /**
@@ -138,7 +126,19 @@ public class SamzaContainerController {
    * @throws InterruptedException if the current thread is interrupted while waiting for container to start-up
    */
   public boolean awaitStart(long timeoutMs) throws InterruptedException {
+    if (container == null) {
+      log.warn("Cannot awaitStart when container has not been started!");
+      return false;
+    }
     return container.awaitStart(timeoutMs);
+  }
+
+  public boolean awaitStop(long timeoutMs) throws InterruptedException {
+    if (container == null) {
+      log.warn("Cannot awaitStop when container has not been started!" );
+      return false;
+    }
+    return container.awaitStop(timeoutMs);
   }
 
   /**
@@ -146,20 +146,10 @@ public class SamzaContainerController {
    */
   public void stopContainer() {
     if (container == null) {
-      log.warn("Shutdown before a container was created.");
+      log.warn("stopContainer called before a container was created.");
       return;
     }
-
     container.shutdown();
-    try {
-      if (containerFuture != null)
-        containerFuture.get(containerShutdownMs, TimeUnit.MILLISECONDS);
-    } catch (InterruptedException | ExecutionException e) {
-      log.error("Ran into problems while trying to stop the container in the processor!", e);
-    } catch (TimeoutException e) {
-      log.warn("Got Timeout Exception while trying to stop the container in the processor! The processor may not shutdown properly", e);
-    } finally {
-      executorService.shutdown();
-    }
+    executorService.shutdown();
   }
 }

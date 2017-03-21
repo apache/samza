@@ -24,6 +24,7 @@
   jacksonVersion = "1.9.13"
   junitVersion = "4.8.1"
   mockitoVersion = "1.10.19"
+  powermockVersion = "1.6.4"
   scalaTestVersion = "2.2.4"
   zkClientVersion = "0.8"
   zookeeperVersion = "3.4.6"
