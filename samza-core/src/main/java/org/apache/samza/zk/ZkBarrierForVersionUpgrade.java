@@ -33,17 +33,10 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This class creates a barrier for version upgrade.
- * Leader should call barrier.start() - this will create barrier_${VERSION}, barrier_processors and barrier_done nodes in ZK,
- * and will create a listener on any changes to barrier_processors. start() will also store the list of the processors expected
- * to join the barrier.
- * Each participant will register its name under barrier_processor and subscribe to the changes of barrier_done.
- * The callback (subscribed by start()) will evaluate the current list under barrier_processors and compare it to the list
- * of expected processors. When the lists match it means that the barrier has been reached. It will change the value of
- * the barrier_done node to "DONE". This will inform all the subscribed processors that they may continue with the new version.
- *
- * start() also starts a timer for a time-out. If the timer fires before the barrier is reached, it will put "TIME_OUT" value
- * into the barrier_done, which, in turn, will cause all the processors to be notified and unsubscribe from the barrier.
- * This barrier becomes invalid.
+ * Barrier is started by the participant responsible for the upgrade. (start())
+ * Each participant will mark its readiness and register for a notification when the barrier is reached. (waitFor())
+ * If a timer (started in start()) goes off before the barrier is reached, all the participants will unsubscribe
+ * from the notification and the barrier becomes invalid.
  */
 public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final ZkUtils zkUtils;
@@ -61,6 +54,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final String barrierProcessors;
   private final String version;
   private final List<String> processorsNames;
+  private final String VERSION_UPGRADE_TIMEOUT_TIMER = "VersionUpgradeTimeout";
 
   public ZkBarrierForVersionUpgrade(ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer, String version, List<String> processorsNames) {
     this.zkUtils = zkUtils;
@@ -84,8 +78,8 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
    * @param version for which the barrier is created
    * @param timeout - time in ms to wait
    */
-  public void setTimer(final String version, final long timeout, final Stat currentStatOfBarrierDone) {
-    debounceTimer.scheduleAfterDebounceTime("VersionUpgradeTimeout", timeout, ()->timerOff(version, currentStatOfBarrierDone));
+  private void setTimer(final String version, final long timeout, final Stat currentStatOfBarrierDone) {
+    debounceTimer.scheduleAfterDebounceTime(VERSION_UPGRADE_TIMEOUT_TIMER, timeout, ()->timerOff(version, currentStatOfBarrierDone));
   }
 
   protected long getBarrierTimeOutMs() {
