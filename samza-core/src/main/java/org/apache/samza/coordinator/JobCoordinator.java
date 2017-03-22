@@ -56,8 +56,6 @@ public interface JobCoordinator {
    */
   boolean awaitStart(long timeoutMs) throws InterruptedException;
 
-  boolean awaitStop(long timeoutMs) throws InterruptedException;
-
   /**
    * Returns the logical ID assigned to the processor
    * It is up to the user to ensure that different instances of StreamProcessor within a job have unique processor ID.

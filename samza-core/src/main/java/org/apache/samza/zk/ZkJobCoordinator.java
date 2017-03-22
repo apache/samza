@@ -102,18 +102,20 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   @Override
   public void stop() {
+    containerController.stopContainer();
     zkController.stop();
   }
+
+  /*
+   * TODO: See SAMZA-1147
+   *      If the processor has not yet been allocated a containerModel, then this usage of awaitStart will simply return,
+   *      even though processing has not started yet. Should implement blocking call for ZK initialization as well.
+   */
 
   @Override
   public boolean awaitStart(long timeoutMs)
       throws InterruptedException {
     return containerController.awaitStart(timeoutMs);
-  }
-
-  @Override
-  public boolean awaitStop(long timeoutMs) throws InterruptedException {
-    return containerController.awaitStop(timeoutMs);
   }
 
   @Override

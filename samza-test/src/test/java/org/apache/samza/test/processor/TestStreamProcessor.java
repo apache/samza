@@ -193,7 +193,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
         Assert.fail("StreamTask either failed to process all input or timed out!");
       }
     }
-    processor.stop();
+    processor.syncStop();
   }
 
   /**

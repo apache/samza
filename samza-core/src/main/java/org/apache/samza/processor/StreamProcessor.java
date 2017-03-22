@@ -22,6 +22,7 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.metrics.MetricsReporter;
@@ -49,7 +50,7 @@ import java.util.Map;
  * } catch (InterruptedException ie) {
  *   ...
  * } finally {
- *   processor.stop();
+ *   processor.syncStop();
  * }
  * </pre>
  * Note: A single JVM can create multiple StreamProcessor instances. It is safe to create StreamProcessor instances in
@@ -124,6 +125,7 @@ public class StreamProcessor {
 
     SamzaContainerController containerController = new SamzaContainerController(
         taskFactory,
+        new TaskConfigJava(config).getShutdownMs(),
         lifecycleCallback,
         customMetricsReporters);
 
@@ -160,9 +162,6 @@ public class StreamProcessor {
     return jobCoordinator.awaitStart(timeoutMs);
   }
 
-  public boolean awaitStop(long timeoutMs) throws InterruptedException {
-    return jobCoordinator.awaitStop(timeoutMs);
-  }
   /**
    * StreamProcessor Lifecycle: stop()
    * <ul>
@@ -170,7 +169,7 @@ public class StreamProcessor {
    * <li>Stops the JobCoordinator</li>
    * </ul>
    */
-  public void stop() {
+  public void syncStop() {
     jobCoordinator.stop();
   }
 }

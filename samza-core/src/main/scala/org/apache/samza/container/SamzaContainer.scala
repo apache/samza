@@ -672,7 +672,6 @@ class SamzaContainer(
 
   val shutdownMs = containerContext.config.getShutdownMs.getOrElse(5000L)
   private val runLoopStartLatch: CountDownLatch = new CountDownLatch(1)
-  private val runLoopEndLatch: CountDownLatch = new CountDownLatch(1)
 
   def createInstance (    containerId: Int,
                  containerModel: ContainerModel,
@@ -694,15 +693,6 @@ class SamzaContainer(
         throw ie
     }
   }
-  def awaitStop(timeoutMs: Long): Boolean = {
-    try {
-      runLoopEndLatch.await(timeoutMs, TimeUnit.MILLISECONDS)
-    } catch {
-      case ie: InterruptedException =>
-        error("Interrupted while waiting for runloop to stop!", ie)
-        throw ie
-    }
-  }
 
   def run {
     try {
@@ -721,6 +711,7 @@ class SamzaContainer(
 
       addShutdownHook
       runLoopStartLatch.countDown()
+
       info("Entering run loop.")
       runLoop.run
     } catch {
@@ -740,8 +731,6 @@ class SamzaContainer(
       shutdownOffsetManager
       shutdownMetrics
       shutdownSecurityManger
-
-      runLoopEndLatch.countDown()
 
       info("Shutdown complete.")
     }

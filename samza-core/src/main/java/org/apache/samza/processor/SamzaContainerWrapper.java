@@ -24,6 +24,7 @@ import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.runtime.ApplicationRunner;
 import scala.collection.immutable.Map;
 
 public class SamzaContainerWrapper {
@@ -39,10 +40,11 @@ public class SamzaContainerWrapper {
       LocalityManager localityManager,
       JmxServer jmxServer,
       Map<String, MetricsReporter> customReporters,
-      Object taskFactory) {
+      Object taskFactory,
+      ApplicationRunner applicationRunner) {
     return SamzaContainer.apply(
         containerId, containerModel, config, maxChangeLogStreamPartitions, localityManager, jmxServer,
-        customReporters, taskFactory);
+        customReporters, taskFactory, applicationRunner);
   }
 
   public static LocalityManager getLocalityManager(int containerId, Config config) {

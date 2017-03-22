@@ -24,6 +24,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.RunLoop;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.TaskName;
@@ -63,75 +64,50 @@ public class TestSamzaContainerController {
     }
   }
 
-  // Test error in Container invokes the  configured callback
-  @Test
-  public void testContainerErrorInvokesProcessorCallback() throws Exception {
-    final ProcessorLifecycleCallback callback = new MyCallback();
-
-    SamzaContainerController controller = new SamzaContainerController(
-        PowerMockito.mock(StreamTaskFactory.class), callback, new HashMap<String, MetricsReporter>());
-    Config config = new MapConfig();
-
-    JmxServer mockJmxServer = PowerMockito.mock(JmxServer.class);
-    PowerMockito.whenNew(JmxServer.class).withAnyArguments().thenReturn(mockJmxServer);
-
-
-    TaskName tn = new TaskName("taskName");
+  private ContainerModel getContainerModel(int containerId, String taskName) {
+    TaskName tn = new TaskName(taskName);
     TaskModel tm = new TaskModel(tn, Collections.<SystemStreamPartition>emptySet(), new Partition(0));
-    ContainerModel cm = new ContainerModel(1, new HashMap<TaskName, TaskModel>() {
+    return new ContainerModel(containerId, new HashMap<TaskName, TaskModel>() {
       {
         put(tn, tm);
       }
     });
+  }
 
-    RunLoop mockRunloop = PowerMockito.mock(RunLoop.class);
-    PowerMockito.doThrow(new SamzaException("Something has to fail!")).when(mockRunloop).run();
+  // Tests that any error during the {@link RunLoop} execution invokes the lifecycleCallback being passed in
+  @Test
+  public void testContainerErrorInvokesProcessorCallback() {
+    ContainerModel cm = getContainerModel(1, "taskName");
 
-    PowerMockito.mockStatic(SamzaContainerWrapper.class);
+    // Configure a mock SamzaContainer
     SamzaContainer mockContainer = PowerMockito.mock(SamzaContainer.class);
     PowerMockito.doThrow(new SamzaException("Failure in container initialization")).when(mockContainer).run();
 
+    // Mock for static method in SamzaContainerWrapper
+    PowerMockito.mockStatic(SamzaContainerWrapper.class);
     PowerMockito
-        .when(SamzaContainerWrapper.createInstance(eq(1), any(ContainerModel.class), eq(config), eq(1), eq(null),
-            eq(mockJmxServer), any(scala.collection.immutable.Map.class), any(StreamTaskFactory.class)))
+        .when(SamzaContainerWrapper.createInstance(eq(1), any(ContainerModel.class), any(Config.class), eq(1), eq(null),
+            any(JmxServer.class), any(scala.collection.immutable.Map.class), any(StreamTaskFactory.class)))
         .thenReturn(mockContainer);
 
+    final ProcessorLifecycleCallback callback = new MyCallback();
+    SamzaContainerController controller = new SamzaContainerController(
+        PowerMockito.mock(StreamTaskFactory.class), TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS, callback, new HashMap<String, MetricsReporter>());
 
-    controller.startContainer(cm, config, 1);
-
+    controller.startContainer(cm, new MapConfig(), 1);
     try {
       ((MyCallback) callback).hold.await(2000, TimeUnit.MILLISECONDS);
     } catch (Exception e) {
       Assert.fail("Failed waiting for callback to be invoked. Exception: " + e.getMessage());
     }
     controller.stopContainer();
-
-    try {
-      controller.awaitStop(2000);
-    } catch (InterruptedException e) { }
   }
 
-  // Test multiple start / stop is idempotent
   @Test
-  public void testMultipleStart() throws Exception {
-    // returns false, if startContainer was never called or containerFuture is not done yet
-    SamzaContainerController controller = new SamzaContainerController(
-        PowerMockito.mock(StreamTaskFactory.class), null, new HashMap<String, MetricsReporter>());
-    Config config = new MapConfig();
+  public void testIsContainerRunning() throws Exception {
+    ContainerModel cm = getContainerModel(1, "taskName");
 
-    JmxServer mockJmxServer = PowerMockito.mock(JmxServer.class);
-    PowerMockito.whenNew(JmxServer.class).withAnyArguments().thenReturn(mockJmxServer);
-
-
-    TaskName tn = new TaskName("taskName");
-    TaskModel tm = new TaskModel(tn, Collections.<SystemStreamPartition>emptySet(), new Partition(0));
-    ContainerModel cm = new ContainerModel(1, new HashMap<TaskName, TaskModel>() {
-      {
-        put(tn, tm);
-      }
-    });
-
-    PowerMockito.mockStatic(SamzaContainerWrapper.class);
+    // Configure a mock SamzaContainer
     SamzaContainer mockContainer = PowerMockito.mock(SamzaContainer.class);
     final CountDownLatch latch = new CountDownLatch(1);
 
@@ -151,50 +127,29 @@ public class TestSamzaContainerController {
       }
     }).when(mockContainer).shutdown();
 
+    // Mock for static method in SamzaContainerWrapper
+    PowerMockito.mockStatic(SamzaContainerWrapper.class);
     PowerMockito
-        .when(SamzaContainerWrapper.createInstance(eq(1), any(ContainerModel.class), eq(config), eq(1), eq(null),
-            eq(mockJmxServer), any(scala.collection.immutable.Map.class), any(StreamTaskFactory.class)))
+        .when(SamzaContainerWrapper.createInstance(eq(1), any(ContainerModel.class), any(Config.class), eq(1), eq(null),
+            any(JmxServer.class), any(scala.collection.immutable.Map.class), any(StreamTaskFactory.class)))
         .thenReturn(mockContainer);
 
-    try {
-      controller.stopContainer();
-      controller.awaitStop(1000);
-      controller.startContainer(cm, config, 1);
-      controller.startContainer(cm, config, 1);
-      controller.startContainer(cm, config, 1);
-    } catch (Exception e) {
-      Assert.fail("Exception thrown when startContainer was called multiple times!\n" + e);
-    }
+    SamzaContainerController controller = new SamzaContainerController(
+        PowerMockito.mock(StreamTaskFactory.class), TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS, null, new HashMap<String, MetricsReporter>());
+    Assert.assertFalse(controller.isContainerRunning());
+
+    controller.startContainer(cm, new MapConfig(), 1);
+    controller.awaitStart(1000);
+    Assert.assertTrue(controller.isContainerRunning());
 
     controller.stopContainer();
-    controller.stopContainer();
+    Assert.assertFalse(controller.isContainerRunning());
   }
 
-
-  // Test startContainer the container run loop
-
-  // Test stopContainer stops the container thread
-
   @Test
-  public void testIsContainerRunning() throws Exception {
-    // returns false, if startContainer was never called or containerFuture is not done yet
-    SamzaContainerController controller = new SamzaContainerController(
-        PowerMockito.mock(StreamTaskFactory.class), null, new HashMap<String, MetricsReporter>());
-    Config config = new MapConfig();
+  public void testMultipleStartStop() throws Exception {
+    ContainerModel cm = getContainerModel(1, "taskName");
 
-    JmxServer mockJmxServer = PowerMockito.mock(JmxServer.class);
-    PowerMockito.whenNew(JmxServer.class).withAnyArguments().thenReturn(mockJmxServer);
-
-
-    TaskName tn = new TaskName("taskName");
-    TaskModel tm = new TaskModel(tn, Collections.<SystemStreamPartition>emptySet(), new Partition(0));
-    ContainerModel cm = new ContainerModel(1, new HashMap<TaskName, TaskModel>() {
-      {
-        put(tn, tm);
-      }
-    });
-
-    PowerMockito.mockStatic(SamzaContainerWrapper.class);
     SamzaContainer mockContainer = PowerMockito.mock(SamzaContainer.class);
     final CountDownLatch latch = new CountDownLatch(1);
 
@@ -206,17 +161,33 @@ public class TestSamzaContainerController {
       }
     }).when(mockContainer).run();
 
+    PowerMockito.doAnswer(new Answer<Object>() {
+      @Override
+      public Object answer(InvocationOnMock invocation) throws Throwable {
+        latch.countDown();
+        return null;
+      }
+    }).when(mockContainer).shutdown();
+
+    PowerMockito.mockStatic(SamzaContainerWrapper.class);
     PowerMockito
-        .when(SamzaContainerWrapper.createInstance(eq(1), any(ContainerModel.class), eq(config), eq(1), eq(null),
-            eq(mockJmxServer), any(scala.collection.immutable.Map.class), any(StreamTaskFactory.class)))
+        .when(SamzaContainerWrapper.createInstance(eq(1), any(ContainerModel.class), any(Config.class), eq(1), eq(null),
+            any(JmxServer.class), any(scala.collection.immutable.Map.class), any(StreamTaskFactory.class)))
         .thenReturn(mockContainer);
 
-    controller.startContainer(cm, new MapConfig(), 1);
-    controller.awaitStart(1000);
-    Assert.assertTrue(controller.isContainerRunning());
-    latch.countDown();
+    SamzaContainerController controller = new SamzaContainerController(
+        PowerMockito.mock(StreamTaskFactory.class), TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS, null, new HashMap<String, MetricsReporter>());
+
+    try {
+      controller.stopContainer();
+      controller.startContainer(cm, new MapConfig(), 1);
+      controller.startContainer(cm, new MapConfig(), 1);
+      controller.startContainer(cm, new MapConfig(), 1);
+    } catch (Exception e) {
+      Assert.fail("Exception thrown when startContainer was called multiple times!\n" + e);
+    }
+
     controller.stopContainer();
-    controller.awaitStop(1000);
-    Assert.assertFalse(controller.isContainerRunning());
+    controller.stopContainer();
   }
 }
