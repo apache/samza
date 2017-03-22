@@ -24,23 +24,20 @@ import org.apache.samza.config.StreamConfig;
 import org.apache.samza.system.StreamSpec;
 
 
-public abstract class AbstractApplicationRunner implements ApplicationRunner {
-
-  protected final Config config;
+/**
+ * Defines common, core behavior for implementations of the {@link ApplicationRunner} API
+ */
+public abstract class AbstractApplicationRunner extends ApplicationRunner {
 
   public AbstractApplicationRunner(Config config) {
-    if (config == null) {
-      throw new NullPointerException("Parameter 'config' cannot be null.");
-    }
-
-    this.config = config;
+    super(config);
   }
 
   @Override
-  public StreamSpec streamFromConfig(String streamId) {
+  public StreamSpec getStream(String streamId) {
     StreamConfig streamConfig = new StreamConfig(config);
     String physicalName = streamConfig.getPhysicalName(streamId);
-    return streamFromConfig(streamId, physicalName);
+    return getStream(streamId, physicalName);
   }
 
   /**
@@ -61,11 +58,11 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
    * @param physicalName  The system-specific name for this stream. It could be a file URN, topic name, or other identifer.
    * @return              The {@link StreamSpec} instance.
    */
-  /*package private*/ StreamSpec streamFromConfig(String streamId, String physicalName) {
+  /*package private*/ StreamSpec getStream(String streamId, String physicalName) {
     StreamConfig streamConfig = new StreamConfig(config);
     String system = streamConfig.getSystem(streamId);
 
-    return streamFromConfig(streamId, physicalName, system);
+    return getStream(streamId, physicalName, system);
   }
 
   /**
@@ -79,7 +76,7 @@ public abstract class AbstractApplicationRunner implements ApplicationRunner {
    * @param system        The name of the System on which this stream will be used.
    * @return              The {@link StreamSpec} instance.
    */
-  /*package private*/ StreamSpec streamFromConfig(String streamId, String physicalName, String system) {
+  /*package private*/ StreamSpec getStream(String streamId, String physicalName, String system) {
     StreamConfig streamConfig = new StreamConfig(config);
     Map<String, String> properties = streamConfig.getStreamProperties(streamId);
 
