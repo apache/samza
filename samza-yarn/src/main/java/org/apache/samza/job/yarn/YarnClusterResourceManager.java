@@ -40,7 +40,6 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.util.hadoop.HttpFileSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -120,8 +119,10 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     hConfig.set("fs.http.impl", HttpFileSystem.class.getName());
 
     // Use the Samza job config "fs.<scheme>.impl" to override YarnConfiguration
-    FsImplConfigManager fsImplConfigManager = new FsImplConfigManager(config);
-    fsImplConfigManager.overrideYarnConfiguration(hConfig);
+    FileSystemImplConfig fsImplConfig = new FileSystemImplConfig(config);
+    fsImplConfig.getSchemes().forEach(
+        scheme -> hConfig.set(fsImplConfig.getFsImplKey(scheme), fsImplConfig.getFsImplClassName(scheme))
+    );
 
     MetricsRegistryMap registry = new MetricsRegistryMap();
     metrics = new SamzaAppMasterMetrics(config, samzaAppState, registry);

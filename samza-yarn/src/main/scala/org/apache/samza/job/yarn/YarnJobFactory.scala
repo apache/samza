@@ -41,8 +41,10 @@ class YarnJobFactory extends StreamJobFactory with Logging {
     }
 
     // Use the Samza job config "fs.<scheme>.impl" to override YarnConfiguration
-    val fsImplConfigManager = new FsImplConfigManager(config)
-    fsImplConfigManager.overrideYarnConfiguration(hConfig)
+    val fsImplConfig = new FileSystemImplConfig(config)
+    fsImplConfig.getSchemes.foreach(
+      (scheme : String) => hConfig.set(fsImplConfig.getFsImplKey(scheme), fsImplConfig.getFsImplClassName(scheme))
+    )
 
     new YarnJob(config, hConfig)
   }

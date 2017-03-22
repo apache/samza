@@ -21,6 +21,7 @@ package org.apache.samza.job.yarn;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.LocalResource;
@@ -30,7 +31,6 @@ import org.apache.hadoop.yarn.api.records.URL;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
-import org.apache.samza.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,27 +41,25 @@ import org.slf4j.LoggerFactory;
 public class LocalizerResourceMapper {
   private static final Logger log = LoggerFactory.getLogger(LocalizerResourceMapper.class);
 
-  private Config config; //job configurations
-  private YarnConfiguration yarnConfiguration; //yarn configurations
-  private LocalizerResourceConfigManager resourceConfigManager;
-  private ImmutableMap<String, LocalResource> localResourceMap;
+  private final YarnConfiguration yarnConfiguration; //yarn configurations
+  private final LocalizerResourceConfig resourceConfig;
+  private final Map<String, LocalResource> localResourceMap;
 
-  public LocalizerResourceMapper(Config config, YarnConfiguration yarnConfiguration) throws LocalizerResourceException {
-    this.config = config;
+  public LocalizerResourceMapper(LocalizerResourceConfig resourceConfig, YarnConfiguration yarnConfiguration) {
     this.yarnConfiguration = yarnConfiguration;
-    this.resourceConfigManager = new LocalizerResourceConfigManager(this.config);
-    map(); // set up localResourceMap
+    this.resourceConfig = resourceConfig;
+    this.localResourceMap = buildResourceMapping();
   }
 
-  private void map() throws LocalizerResourceException {
+  private Map<String, LocalResource> buildResourceMapping() {
     ImmutableMap.Builder<String, LocalResource>  localResourceMapBuilder = ImmutableMap.builder();
 
-    List<String> resourceNames = resourceConfigManager.getResourceNames();
+    List<String> resourceNames = resourceConfig.getResourceNames();
     for (String resourceName : resourceNames) {
-      String resourceLocalName = resourceConfigManager.getResourceLocalName(resourceName);
-      LocalResourceType resourceType = resourceConfigManager.getResourceLocalType(resourceName);
-      LocalResourceVisibility resourceVisibility = resourceConfigManager.getResourceLocalVisibility(resourceName);
-      Path resourcePath = resourceConfigManager.getResourcePath(resourceName);
+      String resourceLocalName = resourceConfig.getResourceLocalName(resourceName);
+      LocalResourceType resourceType = resourceConfig.getResourceLocalType(resourceName);
+      LocalResourceVisibility resourceVisibility = resourceConfig.getResourceLocalVisibility(resourceName);
+      Path resourcePath = resourceConfig.getResourcePath(resourceName);
 
       LocalResource localResource = createLocalResource(resourcePath, resourceType, resourceVisibility);
 
@@ -69,10 +67,10 @@ public class LocalizerResourceMapper {
       log.info("preparing local resource: {}", resourceLocalName);
     }
 
-    this.localResourceMap = localResourceMapBuilder.build();
+    return localResourceMapBuilder.build();
   }
 
-  private LocalResource createLocalResource(Path resourcePath, LocalResourceType resourceType, LocalResourceVisibility resourceVisibility) throws LocalizerResourceException {
+  private LocalResource createLocalResource(Path resourcePath, LocalResourceType resourceType, LocalResourceVisibility resourceVisibility) {
     LocalResource localResource = Records.newRecord(LocalResource.class);
     URL resourceUrl = ConverterUtils.getYarnUrlFromPath(resourcePath);
     try {
@@ -96,8 +94,8 @@ public class LocalizerResourceMapper {
 
   }
 
-  public ImmutableMap<String, LocalResource> getResourceMap() {
-    return localResourceMap;
+  public Map<String, LocalResource> getResourceMap() {
+    return ImmutableMap.copyOf(localResourceMap);
   }
 
 }

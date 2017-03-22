@@ -18,7 +18,6 @@
  */
 package org.apache.samza.job.yarn;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
@@ -28,15 +27,15 @@ import org.apache.samza.config.MapConfig;
 import org.junit.Rule;
 import org.junit.rules.ExpectedException;
 import org.junit.Test;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
-public class TestLocalizerResourceConfigManager {
+public class TestLocalizerResourceConfig {
 
   @Rule
   public ExpectedException thrown= ExpectedException.none();
 
   @Test
-  public void testResourceConfigIncluded() throws Exception {
+  public void testResourceConfigIncluded() {
     Map<String, String> configMap = new HashMap<>();
 
     configMap.put("yarn.resources.myResource1.path", "http://host1.com/readme");
@@ -46,7 +45,7 @@ public class TestLocalizerResourceConfigManager {
 
     Config conf = new MapConfig(configMap);
 
-    LocalizerResourceConfigManager manager = new LocalizerResourceConfigManager(conf);
+    LocalizerResourceConfig manager = new LocalizerResourceConfig(conf);
     assertEquals(1, manager.getResourceNames().size());
     assertEquals("myResource1", manager.getResourceNames().get(0));
     assertEquals("readme", manager.getResourceLocalName("myResource1"));
@@ -55,7 +54,7 @@ public class TestLocalizerResourceConfigManager {
   }
 
   @Test
-  public void testResourcrConfigNotIncluded() throws Exception {
+  public void testResourcrConfigNotIncluded() {
     Map<String, String> configMap = new HashMap<>();
 
     configMap.put("otherconfig", "https://host2.com/not_included");
@@ -65,18 +64,19 @@ public class TestLocalizerResourceConfigManager {
 
     Config conf = new MapConfig(configMap);
 
-    LocalizerResourceConfigManager manager = new LocalizerResourceConfigManager(conf);
+    LocalizerResourceConfig manager = new LocalizerResourceConfig(conf);
     assertEquals(0, manager.getResourceNames().size());
   }
 
   @Test
-  public void testNullConfig() throws Exception {
-    LocalizerResourceConfigManager manager = new LocalizerResourceConfigManager(null);
-    assertEquals(new ArrayList<String>(), manager.getResourceNames());
+  public void testNullConfig() {
+    thrown.expect(IllegalArgumentException.class);
+    thrown.expectMessage("config cannot be null");
+    LocalizerResourceConfig manager = new LocalizerResourceConfig(null);
   }
 
   @Test
-  public void testInvalidVisibility() throws Exception {
+  public void testInvalidVisibility() {
     thrown.expect(IllegalArgumentException.class);
     thrown.expectMessage("No enum constant org.apache.hadoop.yarn.api.records.LocalResourceVisibility.INVALIDVISIBILITY");
 
@@ -87,12 +87,12 @@ public class TestLocalizerResourceConfigManager {
     configMap.put("yarn.resources.myResource1.local.visibility", "invalidVisibility");
     Config conf = new MapConfig(configMap);
 
-    LocalizerResourceConfigManager manager = new LocalizerResourceConfigManager(conf);
+    LocalizerResourceConfig manager = new LocalizerResourceConfig(conf);
     manager.getResourceLocalVisibility("myResource1");
   }
 
   @Test
-  public void testInvalidType() throws Exception {
+  public void testInvalidType() {
     thrown.expect(IllegalArgumentException.class);
     thrown.expectMessage("No enum constant org.apache.hadoop.yarn.api.records.LocalResourceType.INVALIDTYPE");
 
@@ -103,12 +103,12 @@ public class TestLocalizerResourceConfigManager {
     configMap.put("yarn.resources.myResource1.local.visibility", "application");
     Config conf = new MapConfig(configMap);
 
-    LocalizerResourceConfigManager manager = new LocalizerResourceConfigManager(conf);
+    LocalizerResourceConfig manager = new LocalizerResourceConfig(conf);
     manager.getResourceLocalType("myResource1");
   }
 
   @Test
-  public void testInvalidPath() throws Exception {
+  public void testInvalidPath() {
     thrown.expect(LocalizerResourceException.class);
     thrown.expectMessage("resource path is required but not defined in config for resource myResource1");
     Map<String, String> configMap = new HashMap<>();
@@ -118,7 +118,7 @@ public class TestLocalizerResourceConfigManager {
     configMap.put("yarn.resources.myResource1.local.visibility", "application");
     Config conf = new MapConfig(configMap);
 
-    LocalizerResourceConfigManager manager = new LocalizerResourceConfigManager(conf);
+    LocalizerResourceConfig manager = new LocalizerResourceConfig(conf);
     manager.getResourcePath("myResource1");
   }
 

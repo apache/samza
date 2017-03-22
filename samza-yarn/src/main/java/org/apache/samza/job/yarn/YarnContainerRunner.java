@@ -43,7 +43,6 @@ import org.apache.samza.job.CommandBuilder;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -147,7 +146,7 @@ public class YarnContainerRunner {
    *    Runs a command as a process on the container. All binaries needed by the physical process are packaged in the URL
    *    specified by packagePath.
    */
-  private void startContainer(Path packagePath, //keep packagePath out of resourceNamePathMap for backward compatibility purpose
+  private void startContainer(Path packagePath,
                                 Container container,
                                 Map<String, String> env,
                                 final String cmd) throws SamzaContainerLaunchException {
@@ -200,12 +199,8 @@ public class YarnContainerRunner {
     localResourceMap.put("__package", packageResource);
 
     // include the resources from the universal resource configurations
-    try {
-      LocalizerResourceMapper resourceMapper = new LocalizerResourceMapper(config, yarnConfiguration);
-      localResourceMap.putAll(resourceMapper.getResourceMap());
-    } catch (LocalizerResourceException e) {
-      throw new SamzaContainerLaunchException("Exception during resource mapping from config. ", e);
-    }
+    LocalizerResourceMapper resourceMapper = new LocalizerResourceMapper(new LocalizerResourceConfig(config), yarnConfiguration);
+    localResourceMap.putAll(resourceMapper.getResourceMap());
 
     ContainerLaunchContext context = Records.newRecord(ContainerLaunchContext.class);
     context.setEnvironment(env);

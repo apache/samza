@@ -18,11 +18,8 @@
  */
 package org.apache.samza.job.yarn;
 
-
-import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
@@ -30,11 +27,12 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.util.hadoop.HttpFileSystem;
-import org.hamcrest.Matcher;
 import org.junit.Rule;
 import org.junit.rules.ExpectedException;
 import org.junit.Test;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 public class TestLocalizerResourceMapper {
 
@@ -42,7 +40,7 @@ public class TestLocalizerResourceMapper {
   public ExpectedException thrown= ExpectedException.none();
 
   @Test
-  public void testResourceMapSuccess() throws Exception {
+  public void testResourceMapSuccess() {
 
     Map<String, String> configMap = new HashMap<>();
 
@@ -72,8 +70,8 @@ public class TestLocalizerResourceMapper {
     yarnConfiguration.set("fs.http.impl", HttpFileSystem.class.getName());
     yarnConfiguration.set("fs.https.impl", HttpFileSystem.class.getName());
 
-    LocalizerResourceMapper mapper = new LocalizerResourceMapper(conf, yarnConfiguration);
-    ImmutableMap<String, LocalResource> resourceMap = mapper.getResourceMap();
+    LocalizerResourceMapper mapper = new LocalizerResourceMapper(new LocalizerResourceConfig(conf), yarnConfiguration);
+    Map<String, LocalResource> resourceMap = mapper.getResourceMap();
 
     assertEquals("resourceMap has 3 resources", 3, resourceMap.size());
 
@@ -98,7 +96,7 @@ public class TestLocalizerResourceMapper {
   }
 
   @Test
-  public void testResourceMapWithDefaultValues() throws Exception {
+  public void testResourceMapWithDefaultValues() {
 
     Map<String, String> configMap = new HashMap<>();
 
@@ -109,8 +107,8 @@ public class TestLocalizerResourceMapper {
     YarnConfiguration yarnConfiguration = new YarnConfiguration();
     yarnConfiguration.set("fs.http.impl", HttpFileSystem.class.getName());
 
-    LocalizerResourceMapper mapper = new LocalizerResourceMapper(conf, yarnConfiguration);
-    ImmutableMap<String, LocalResource> resourceMap = mapper.getResourceMap();
+    LocalizerResourceMapper mapper = new LocalizerResourceMapper(new LocalizerResourceConfig(conf), yarnConfiguration);
+    Map<String, LocalResource> resourceMap = mapper.getResourceMap();
 
     assertNull("Resource does not exist with a name readme", resourceMap.get("readme"));
     assertNotNull("Resource exists with a name myResource1", resourceMap.get("myResource1"));
@@ -120,7 +118,7 @@ public class TestLocalizerResourceMapper {
   }
 
   @Test
-  public void testResourceMapWithFileStatusFailure() throws Exception {
+  public void testResourceMapWithFileStatusFailure() {
     thrown.expect(LocalizerResourceException.class);
     thrown.expectMessage("IO Exception when accessing the resource file status from the filesystem");
 
@@ -134,11 +132,11 @@ public class TestLocalizerResourceMapper {
     YarnConfiguration yarnConfiguration = new YarnConfiguration();
     yarnConfiguration.set("fs.http.impl", HttpFileSystem.class.getName());
     yarnConfiguration.set("fs.https.impl", HttpFileSystem.class.getName());
-    LocalizerResourceMapper mapper = new LocalizerResourceMapper(conf, yarnConfiguration);
+    LocalizerResourceMapper mapper = new LocalizerResourceMapper(new LocalizerResourceConfig(conf), yarnConfiguration);
   }
 
   @Test
-  public void testResourceMapWithInvalidVisibilityFailure() throws Exception {
+  public void testResourceMapWithInvalidVisibilityFailure() {
     thrown.expect(IllegalArgumentException.class);
     thrown.expectMessage("No enum constant org.apache.hadoop.yarn.api.records.LocalResourceVisibility.INVALIDVISIBILITY");
 
@@ -152,11 +150,11 @@ public class TestLocalizerResourceMapper {
     YarnConfiguration yarnConfiguration = new YarnConfiguration();
     yarnConfiguration.set("fs.http.impl", HttpFileSystem.class.getName());
     yarnConfiguration.set("fs.https.impl", HttpFileSystem.class.getName());
-    LocalizerResourceMapper mapper = new LocalizerResourceMapper(conf, yarnConfiguration);
+    LocalizerResourceMapper mapper = new LocalizerResourceMapper(new LocalizerResourceConfig(conf), yarnConfiguration);
   }
 
   @Test
-  public void testResourceMapWithInvalidTypeFailure() throws Exception {
+  public void testResourceMapWithInvalidTypeFailure() {
     thrown.expect(IllegalArgumentException.class);
     thrown.expectMessage("No enum constant org.apache.hadoop.yarn.api.records.LocalResourceType.INVALIDTYPE");
 
@@ -170,7 +168,7 @@ public class TestLocalizerResourceMapper {
     YarnConfiguration yarnConfiguration = new YarnConfiguration();
     yarnConfiguration.set("fs.http.impl", HttpFileSystem.class.getName());
     yarnConfiguration.set("fs.https.impl", HttpFileSystem.class.getName());
-    LocalizerResourceMapper mapper = new LocalizerResourceMapper(conf, yarnConfiguration);
+    LocalizerResourceMapper mapper = new LocalizerResourceMapper(new LocalizerResourceConfig(conf), yarnConfiguration);
   }
 
 }

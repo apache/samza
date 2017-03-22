@@ -21,9 +21,7 @@ package org.apache.samza.job.yarn;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.lang.StringUtils;
-import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,20 +33,19 @@ import org.slf4j.LoggerFactory;
  * Usually this config exist in yarn config,
  * but it is also allowed the clients define this for Samza Job and pick specific implementation for the job.
  */
-public class FsImplConfigManager {
-  private static final Logger log = LoggerFactory.getLogger(FsImplConfigManager.class);
+public class FileSystemImplConfig {
+  private static final Logger log = LoggerFactory.getLogger(FileSystemImplConfig.class);
   private static final String FS_IMPL_PREFIX = "fs.";
   private static final String FS_IMPL_SUFFIX = ".impl";
   private static final String FS_IMPL = "fs.%s.impl";
 
   private final Config config;
 
-  public FsImplConfigManager(final Config config) {
+  public FileSystemImplConfig(final Config config) {
     if (null == config) {
-      this.config = new MapConfig();
-    } else {
-      this.config = config;
+      throw new IllegalArgumentException("config cannot be null");
     }
+    this.config = config;
   }
 
   /**
@@ -80,35 +77,14 @@ public class FsImplConfigManager {
    * Get the class name corresponding for the given scheme
    * @param scheme scheme name, such as http, hdfs, myscheme
    * @return full scoped class name for the file system for &lt;scheme&gt;
-   * @throws LocalizerResourceException
+   * @throws LocalizerResourceException if the value for fs.&lt;scheme&gt.impl is empty
    */
-  public String getFsImplClassName(final String scheme) throws LocalizerResourceException {
+  public String getFsImplClassName(final String scheme) {
     String fsImplKey = getFsImplKey(scheme);
     String fsImplClassName = config.get(fsImplKey);
     if (StringUtils.isEmpty(fsImplClassName)) {
       throw new LocalizerResourceException(fsImplKey + " does not have configured class implementation");
     }
     return fsImplClassName;
-  }
-
-  /**
-   * Take the fs.&lt;scheme&gt;impl from the samza job configuration and override the values in yarn configuration
-   * @param yarnConfiguration
-   */
-  public void overrideYarnConfiguration(YarnConfiguration yarnConfiguration) {
-    if (null == yarnConfiguration) {
-      log.error("yarnConfiguration is null, skipping overrideYarnConfiguration");
-      return;
-    }
-    try {
-      List<String> schemes = getSchemes();
-      for (String scheme : schemes) {
-        String fsImplKey = getFsImplKey(scheme);
-        yarnConfiguration.set(fsImplKey, getFsImplClassName(scheme));
-        log.info("Samza job config {} is used for yarn.", fsImplKey);
-      }
-    } catch (LocalizerResourceException e) {
-      log.error("Exception when overriding fs.<scheme>.impl from Samza jobs, ignoring by defaulting to yarn config. ", e);
-    }
   }
 }

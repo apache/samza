@@ -18,7 +18,7 @@
  */
 package org.apache.samza.job.yarn;
 
-public class LocalizerResourceException extends Exception {
+public class LocalizerResourceException extends RuntimeException {
 
   /**
    * Constructs an {@code LocalizerResourceException} with {@code null}

@@ -25,8 +25,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
-
 
 /**
  * LocalizerResourceConfigManager is intended to manage/fetch the config values
@@ -48,7 +46,7 @@ import org.apache.samza.config.MapConfig;
  *     PUBLIC, PRIVATE, or APPLICATION.
  *     If not set, the default value is is APPLICATION.
  */
-public class LocalizerResourceConfigManager{
+public class LocalizerResourceConfig {
   private static final String RESOURCE_PREFIX = "yarn.resources.";
   private static final String PATH_SUFFIX = ".path";
   private static final String RESOURCE_PATH = "yarn.resources.%s.path";
@@ -60,12 +58,11 @@ public class LocalizerResourceConfigManager{
 
   private final Config config;
 
-  public LocalizerResourceConfigManager(final Config config) {
+  public LocalizerResourceConfig(final Config config) {
     if (null == config) {
-      this.config = new MapConfig();
-    } else {
-      this.config = config;
+      throw new IllegalArgumentException("config cannot be null");
     }
+    this.config = config;
   }
 
   public List<String> getResourceNames() {
@@ -79,7 +76,7 @@ public class LocalizerResourceConfigManager{
     return resourceNames;
   }
 
-  public Path getResourcePath(final String resourceName) throws LocalizerResourceException {
+  public Path getResourcePath(final String resourceName) {
     String pathStr = config.get(String.format(RESOURCE_PATH, resourceName));
     if (StringUtils.isEmpty(pathStr)) {
       throw new LocalizerResourceException("resource path is required but not defined in config for resource " + resourceName);
