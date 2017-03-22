@@ -46,7 +46,7 @@ public class LocalStoreMonitorConfig extends MapConfig {
    * Defines the comma separated list of job status servers of the form
    * "Host1:Port1,Host2:Port2".
    */
-  private static final String CONFIG_JOB_STATUS_SERVERS = "job.status.servers";
+  private static final String CONFIG_JOB_STATUS_SERVERS = "jobs.status.servers";
 
   /**
    * Default offset file ttl in milliseconds. Equivalent to 7 days.

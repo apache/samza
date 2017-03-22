@@ -65,7 +65,7 @@ public class TestLocalStoreMonitor {
 
     // Initialize the local store monitor with mock and config
     localStoreMonitor = new LocalStoreMonitor(new LocalStoreMonitorConfig(new MapConfig(config)),
-                                              new NoOpMetricsRegistry(),
+                                              new LocalStoreMonitorMetrics("TestMonitorName", new NoOpMetricsRegistry()),
                                               jobsClientMock);
   }
 
