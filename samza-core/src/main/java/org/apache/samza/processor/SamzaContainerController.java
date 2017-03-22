@@ -49,7 +49,7 @@ public class SamzaContainerController {
   private final Map<String, MetricsReporter> metricsReporterMap;
   private final Object taskFactory;
   private final long containerShutdownMs;
-  private final ProcessorLifecycleCallback lifecycleCallback;
+  private final ProcessorErrorHandler lifecycleCallback;
 
   // Internal Member Variables
   private Future containerFuture;
@@ -69,7 +69,7 @@ public class SamzaContainerController {
   public SamzaContainerController(
       Object taskFactory,
       long containerShutdownMs,
-      ProcessorLifecycleCallback lifecycleCallback,
+      ProcessorErrorHandler lifecycleCallback,
       Map<String, MetricsReporter> metricsReporterMap) {
     this.taskFactory = taskFactory;
     this.metricsReporterMap = metricsReporterMap;

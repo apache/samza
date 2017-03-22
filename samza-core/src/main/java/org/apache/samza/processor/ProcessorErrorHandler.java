@@ -21,13 +21,13 @@ package org.apache.samza.processor;
 import org.apache.samza.annotation.InterfaceStability;
 
 @InterfaceStability.Evolving
-public interface ProcessorLifecycleCallback {
+public interface ProcessorErrorHandler {
   /**
    * Callback method that is invoked when the processing loop exits with an exception/error.
    *
    * Note: This callback is invoked in the context of the StreamProcessor's container thread.
    *
-   * @param error Any kind of {@link Throwable} thrown by the container's run loop
+   * @param error Any kind of {@link Throwable} thrown by {@link org.apache.samza.container.SamzaContainer}'s run loop
    */
   void onError(Throwable error);
 }

@@ -25,6 +25,8 @@ import org.apache.samza.job.model.JobModel;
  *  A JobCoordinator is a pluggable module in each process that provides the JobModel and the ID to the StreamProcessor.
  *  In some cases, ID assignment is completely config driven, while in other cases, ID assignment may require
  *  coordination with JobCoordinators of other StreamProcessors.
+ *
+ *  TODO: State definition and Error handlers for JobCoordinators SAMZA-1147 , SAMZA-1150
  *  */
 @InterfaceStability.Evolving
 public interface JobCoordinator {

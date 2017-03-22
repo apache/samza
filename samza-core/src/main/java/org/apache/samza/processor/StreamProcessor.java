@@ -61,12 +61,13 @@ public class StreamProcessor {
   /**
    * processor.id is equivalent to containerId in samza. It is a logical identifier used by Samza for a processor.
    * In a distributed environment, this logical identifier is mapped to a physical identifier of the resource. For
-   * example, Yarn provides a "containerId" for every resource it allocates.
+   * example, Yarn provides a "Yarn containerId" for every resource it allocates.
    * In an embedded environment, this identifier is provided by the user by directly using the StreamProcessor API.
    * <p>
    * <b>Note:</b>This identifier has to be unique across the instances of StreamProcessors.
    */
   private static final String PROCESSOR_ID = "processor.id";
+  private boolean isRunning = false;
   private final JobCoordinator jobCoordinator;
 
   /**
@@ -82,46 +83,52 @@ public class StreamProcessor {
    * @param processorId            Unique identifier for a processor within the job. It has the same semantics as
    *                               "containerId" in Samza
    * @param config                 Instance of config object - contains all configuration required for processing
+   * @param lifecycleCallback      User-defined callback for handling errors from processor. Can be Null.
    * @param customMetricsReporters Map of custom MetricReporter instances that are to be injected in the Samza job
    * @param asyncStreamTaskFactory The {@link AsyncStreamTaskFactory} to be used for creating task instances.
    */
-  public StreamProcessor(int processorId, Config config, ProcessorLifecycleCallback lifecycleCallback, Map<String, MetricsReporter> customMetricsReporters,
+  public StreamProcessor(int processorId, Config config, ProcessorErrorHandler lifecycleCallback,
+                         Map<String, MetricsReporter> customMetricsReporters,
                          AsyncStreamTaskFactory asyncStreamTaskFactory) {
     this(processorId, config, lifecycleCallback, customMetricsReporters, (Object) asyncStreamTaskFactory);
   }
 
 
   /**
-   * Same as {@link #StreamProcessor(int, Config, ProcessorLifecycleCallback, Map, AsyncStreamTaskFactory)}, except task instances are created
-   * using the provided {@link StreamTaskFactory}.
+   * Same as {@link #StreamProcessor(int, Config, ProcessorErrorHandler, Map, AsyncStreamTaskFactory)},
+   * except task instances are created using the provided {@link StreamTaskFactory}.
    * @param processorId - this processor Id
    * @param config - config
+   * @param lifecycleCallback User-defined callback for handling errors from processor. Can be Null.
    * @param customMetricsReporters metric Reporter
    * @param streamTaskFactory task factory to instantiate the Task
    */
-  public StreamProcessor(int processorId, Config config, ProcessorLifecycleCallback lifecycleCallback, Map<String, MetricsReporter> customMetricsReporters,
+  public StreamProcessor(int processorId, Config config, ProcessorErrorHandler lifecycleCallback,
+                         Map<String, MetricsReporter> customMetricsReporters,
                          StreamTaskFactory streamTaskFactory) {
     this(processorId, config, lifecycleCallback, customMetricsReporters, (Object) streamTaskFactory);
   }
 
   /**
-   * Same as {@link #StreamProcessor(int, Config, ProcessorLifecycleCallback, Map, AsyncStreamTaskFactory)}, except task instances are created
-   * using the "task.class" configuration instead of a task factory.
+   * Same as {@link #StreamProcessor(int, Config, ProcessorErrorHandler, Map, AsyncStreamTaskFactory)},
+   * except task instances are created using the "task.class" configuration instead of a task factory.
    * @param processorId - this processor Id
    * @param config - config
+   * @param lifecycleCallback User-defined callback for handling errors from processor. Can be Null.
    * @param customMetricsReporters metrics
    */
-  public StreamProcessor(int processorId, Config config, ProcessorLifecycleCallback lifecycleCallback, Map<String, MetricsReporter> customMetricsReporters) {
+  public StreamProcessor(int processorId, Config config, ProcessorErrorHandler lifecycleCallback,
+                         Map<String, MetricsReporter> customMetricsReporters) {
     this(processorId, config, lifecycleCallback, customMetricsReporters, (Object) null);
   }
 
-  private StreamProcessor(int processorId, Config config, ProcessorLifecycleCallback lifecycleCallback, Map<String, MetricsReporter> customMetricsReporters,
+  private StreamProcessor(int processorId, Config config, ProcessorErrorHandler lifecycleCallback,
+                          Map<String, MetricsReporter> customMetricsReporters,
                           Object taskFactory) {
     Map<String, String> updatedConfigMap = new HashMap<>();
     updatedConfigMap.putAll(config);
     updatedConfigMap.put(PROCESSOR_ID, String.valueOf(processorId));
     Config updatedConfig = new MapConfig(updatedConfigMap);
-
 
     SamzaContainerController containerController = new SamzaContainerController(
         taskFactory,
@@ -138,28 +145,35 @@ public class StreamProcessor {
 
   /**
    * StreamProcessor Lifecycle: start()
+   *
    * <ul>
-   * <li>Starts the JobCoordinator and fetches the JobModel</li>
-   * <li>jobCoordinator.start returns after starting the container using ContainerModel </li>
+   * <li>Starts the JobCoordinator</li>
+   * <li>When the JobModel becomes available, the JobCoordinator starts the container. Availability of JobModel depends
+   * on the JobCoordinator implementation.
+   * In case of {@link org.apache.samza.standalone.StandaloneJobCoordinator}, it is available immediately since it is
+   * statically generated from the configuration.
+   * In case of {@link org.apache.samza.zk.ZkJobCoordinator}, it is generated by the leader and notified to the
+   * processors. </li>
    * </ul>
-   * When start() returns, it only guarantees that the container is initialized and submitted by the controller to
-   * execute
    */
   public void start() {
-    jobCoordinator.start();
+    if (!isRunning) {
+      jobCoordinator.start();
+      isRunning = true;
+    }
   }
 
   /**
-   * Method that allows the user to wait for a specified amount of time for the container to initialize and start
-   * processing messages
+   * Method that allows the user to wait for a specified amount of time for the
+   * {@link org.apache.samza.container.SamzaContainer} to initialize and start processing messages
    *
    * @param timeoutMs Maximum time to wait, in milliseconds
-   * @return {@code true}, if the container started within the specified wait time and {@code false} if the waiting time
-   * elapsed
+   * @return {@code true}, if the container started within the specified wait time. Returns {@code false} if
+   *         the waiting time elapsed or if the processor was never started
    * @throws InterruptedException if the current thread is interrupted while waiting for container to start-up
    */
   public boolean awaitStart(long timeoutMs) throws InterruptedException {
-    return jobCoordinator.awaitStart(timeoutMs);
+    return isRunning && jobCoordinator.awaitStart(timeoutMs);
   }
 
   /**
@@ -170,6 +184,9 @@ public class StreamProcessor {
    * </ul>
    */
   public void syncStop() {
-    jobCoordinator.stop();
+    if (isRunning) {
+      jobCoordinator.stop();
+      isRunning = false;
+    }
   }
 }

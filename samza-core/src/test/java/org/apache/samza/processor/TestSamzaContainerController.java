@@ -56,7 +56,7 @@ import static org.mockito.Matchers.eq;
 @PowerMockIgnore({"javax.management.*", "javax.naming.*"})
 public class TestSamzaContainerController {
 
-  class MyCallback implements ProcessorLifecycleCallback {
+  class MyCallback implements ProcessorErrorHandler {
     public volatile CountDownLatch hold = new CountDownLatch(1);
     @Override
     public void onError(Throwable error) {
@@ -87,10 +87,10 @@ public class TestSamzaContainerController {
     PowerMockito.mockStatic(SamzaContainerWrapper.class);
     PowerMockito
         .when(SamzaContainerWrapper.createInstance(eq(1), any(ContainerModel.class), any(Config.class), eq(1), eq(null),
-            any(JmxServer.class), any(scala.collection.immutable.Map.class), any(StreamTaskFactory.class)))
+            any(JmxServer.class), any(scala.collection.immutable.Map.class), any(StreamTaskFactory.class), eq(null)))
         .thenReturn(mockContainer);
 
-    final ProcessorLifecycleCallback callback = new MyCallback();
+    final ProcessorErrorHandler callback = new MyCallback();
     SamzaContainerController controller = new SamzaContainerController(
         PowerMockito.mock(StreamTaskFactory.class), TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS, callback, new HashMap<String, MetricsReporter>());
 
@@ -131,7 +131,7 @@ public class TestSamzaContainerController {
     PowerMockito.mockStatic(SamzaContainerWrapper.class);
     PowerMockito
         .when(SamzaContainerWrapper.createInstance(eq(1), any(ContainerModel.class), any(Config.class), eq(1), eq(null),
-            any(JmxServer.class), any(scala.collection.immutable.Map.class), any(StreamTaskFactory.class)))
+            any(JmxServer.class), any(scala.collection.immutable.Map.class), any(StreamTaskFactory.class), eq(null)))
         .thenReturn(mockContainer);
 
     SamzaContainerController controller = new SamzaContainerController(
@@ -172,7 +172,7 @@ public class TestSamzaContainerController {
     PowerMockito.mockStatic(SamzaContainerWrapper.class);
     PowerMockito
         .when(SamzaContainerWrapper.createInstance(eq(1), any(ContainerModel.class), any(Config.class), eq(1), eq(null),
-            any(JmxServer.class), any(scala.collection.immutable.Map.class), any(StreamTaskFactory.class)))
+            any(JmxServer.class), any(scala.collection.immutable.Map.class), any(StreamTaskFactory.class), eq(null)))
         .thenReturn(mockContainer);
 
     SamzaContainerController controller = new SamzaContainerController(
