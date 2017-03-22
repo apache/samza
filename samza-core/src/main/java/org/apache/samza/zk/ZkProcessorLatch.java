@@ -23,19 +23,24 @@ import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.Latch;
 
 
+/*
+ * Latch of the sizeN is open when countDown() was called N times.
+ * In this implementation a sequential node is created on every call of countDown().
+ * When Nth node is created await() call returns.
+ */
 public class ZkProcessorLatch implements Latch {
 
   private final ZkConfig zkConfig;
-  public final ZkUtils zkUtils;
-  public final String processorIdStr;
-  public final ZkKeyBuilder keyBuilder;
-  public final String latchId;
+  private final ZkUtils zkUtils;
+  private final String processorIdStr;
+  private final ZkKeyBuilder keyBuilder;
+  private final String latchId;
 
-  public final String latchPath;
-  public final String targetPath;
+  private final String latchPath;
+  private final String targetPath;
 
-  public final static String LATCH_PATH = "latch";
-  public final int size; // latch size
+  private final static String LATCH_PATH = "latch";
+  private final int size; // latch size
 
   public ZkProcessorLatch(int size, String latchId, String participantId, ZkConfig zkConfig, ZkUtils zkUtils) {
     this.zkConfig = zkConfig;
