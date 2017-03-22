@@ -54,7 +54,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final String barrierProcessors;
   private final String version;
   private final List<String> processorsNames;
-  private final String VERSION_UPGRADE_TIMEOUT_TIMER = "VersionUpgradeTimeout";
+  private static final String VERSION_UPGRADE_TIMEOUT_TIMER = "VersionUpgradeTimeout";
 
   public ZkBarrierForVersionUpgrade(ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer, String version, List<String> processorsNames) {
     this.zkUtils = zkUtils;
