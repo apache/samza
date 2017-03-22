@@ -23,14 +23,10 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.data.JsonMessage;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.serializers.JsonSerde;
-import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -42,14 +38,12 @@ import java.util.function.Supplier;
  *
  */
 public class WindowExample implements StreamApplication {
-  private final StreamSpec inputStreamSpec = new StreamSpec("inputStream", "inputStream", "inputSystem");
 
   @Override
   public void init(StreamGraph graph, Config config) {
     Supplier<Integer> initialValue = () -> 0;
-    FoldLeftFunction<JsonMessage<PageViewEvent>, Integer> counter = (m, c) -> c == null ? 1 : c + 1;
-    MessageStream<JsonMessage<PageViewEvent>> inputStream = graph.createInStream(inputStreamSpec, (k, m) -> m,
-        new StringSerde("UTF-8"), new JsonSerde<JsonMessage<PageViewEvent>>());
+    FoldLeftFunction<PageViewEvent, Integer> counter = (m, c) -> c == null ? 1 : c + 1;
+    MessageStream<PageViewEvent> inputStream = graph.getInputStream("inputStream", (k, m) -> (PageViewEvent) m);
 
     // create a tumbling window that outputs the number of message collected every 10 minutes.
     // also emit early results if either the number of messages collected reaches 30000, or if no new messages arrive
@@ -76,5 +70,4 @@ public class WindowExample implements StreamApplication {
       this.timestamp = timestamp;
     }
   }
-
 }

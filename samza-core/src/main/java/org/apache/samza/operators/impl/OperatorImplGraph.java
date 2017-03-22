@@ -20,9 +20,10 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.system.SystemStream;
@@ -37,63 +38,65 @@ import java.util.Map;
 
 
 /**
- * Instantiates the DAG of {@link OperatorImpl}s corresponding to the {@link OperatorSpec}s for a
- * {@link MessageStreamImpl}
+ * Instantiates the DAG of {@link OperatorImpl}s corresponding to the {@link OperatorSpec}s for the input
+ * {@link MessageStreamImpl}s
  */
-public class OperatorGraph {
+public class OperatorImplGraph {
 
   /**
-   * A {@link Map} from {@link OperatorSpec} to {@link OperatorImpl}. This map registers all {@link OperatorImpl} in the DAG
-   * of {@link OperatorImpl} in a {@link org.apache.samza.container.TaskInstance}. Each {@link OperatorImpl} is created
-   * according to a single instance of {@link OperatorSpec}.
+   * A mapping from {@link OperatorSpec}s to their {@link OperatorImpl}s in this graph. Used to avoid creating
+   * multiple {@link OperatorImpl}s for an {@link OperatorSpec}, e.g., when it's reached from different
+   * input {@link MessageStreamImpl}s.
    */
-  private final Map<OperatorSpec, OperatorImpl> operators = new HashMap<>();
+  private final Map<OperatorSpec, OperatorImpl> operatorImpls = new HashMap<>();
 
   /**
-   * This {@link Map} describes the DAG of {@link OperatorImpl} that are chained together to process the input messages.
+   * A mapping from input {@link SystemStream}s to their {@link OperatorImpl}s sub-DAG in this graph.
    */
-  private final Map<SystemStream, RootOperatorImpl> operatorGraph = new HashMap<>();
+  private final Map<SystemStream, RootOperatorImpl> rootOperators = new HashMap<>();
 
   private final Clock clock;
 
-  public OperatorGraph(Clock clock) {
+  public OperatorImplGraph(Clock clock) {
     this.clock = clock;
   }
 
-  public OperatorGraph() {
+  /* package private */ OperatorImplGraph() {
     this(SystemClock.instance());
   }
 
   /**
-   * Initialize the whole DAG of {@link OperatorImpl}s, based on the input {@link MessageStreamImpl} from the {@link org.apache.samza.operators.StreamGraph}.
-   * This method will traverse each input {@link org.apache.samza.operators.MessageStream} in the {@code inputStreams} and
-   * instantiate the corresponding {@link OperatorImpl} chains that take the {@link org.apache.samza.operators.MessageStream} as input.
+   * Initialize the DAG of {@link OperatorImpl}s for the input {@link MessageStreamImpl} in the provided
+   * {@link org.apache.samza.operators.StreamGraph}.
    *
-   * @param inputStreams  the map of input {@link org.apache.samza.operators.MessageStream}s
+   * @param streamGraph  the logical {@link org.apache.samza.operators.StreamGraph}
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
    */
-  public void init(Map<SystemStream, MessageStreamImpl> inputStreams, Config config, TaskContext context) {
-    inputStreams.forEach((ss, mstream) -> this.operatorGraph.put(ss, this.createOperatorImpls(mstream, config, context)));
+  public void init(StreamGraphImpl streamGraph, Config config, TaskContext context) {
+    streamGraph.getInputStreams().forEach((streamSpec, inputStream) -> {
+        SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
+        this.rootOperators.put(systemStream, this.createOperatorImpls((MessageStreamImpl) inputStream, config, context));
+      });
   }
 
   /**
-   * Get the {@link RootOperatorImpl} corresponding to the provided {@code ss}.
+   * Get the {@link RootOperatorImpl} corresponding to the provided input {@code systemStream}.
    *
-   * @param ss  input {@link SystemStream}
+   * @param systemStream  input {@link SystemStream}
    * @return  the {@link RootOperatorImpl} that starts processing the input message
    */
-  public RootOperatorImpl get(SystemStream ss) {
-    return this.operatorGraph.get(ss);
+  public RootOperatorImpl getRootOperator(SystemStream systemStream) {
+    return this.rootOperators.get(systemStream);
   }
 
   /**
    * Get all {@link RootOperatorImpl}s for the graph.
    *
-   * @return  an immutable view of all {@link RootOperatorImpl}s for the graph
+   * @return  an unmodifiable view of all {@link RootOperatorImpl}s for the graph
    */
-  public Collection<RootOperatorImpl> getAll() {
-    return Collections.unmodifiableCollection(this.operatorGraph.values());
+  public Collection<RootOperatorImpl> getAllRootOperators() {
+    return Collections.unmodifiableCollection(this.rootOperators.values());
   }
 
   /**
@@ -106,8 +109,7 @@ public class OperatorGraph {
    * @param context  the {@link TaskContext} required to instantiate operators
    * @return  root node for the {@link OperatorImpl} DAG
    */
-  private <M> RootOperatorImpl<M> createOperatorImpls(MessageStreamImpl<M> source, Config config,
-      TaskContext context) {
+  private <M> RootOperatorImpl<M> createOperatorImpls(MessageStreamImpl<M> source, Config config, TaskContext context) {
     // since the source message stream might have multiple operator specs registered on it,
     // create a new root node as a single point of entry for the DAG.
     RootOperatorImpl<M> rootOperator = new RootOperatorImpl<>();
@@ -115,7 +117,7 @@ public class OperatorGraph {
     source.getRegisteredOperatorSpecs().forEach(registeredOperator -> {
         // pass in the source and context s.t. stateful stream operators can initialize their stores
         OperatorImpl<M, ?> operatorImpl =
-            this.createAndRegisterOperatorImpl(registeredOperator, source, config, context);
+            createAndRegisterOperatorImpl(registeredOperator, source, config, context);
         rootOperator.registerNextOperator(operatorImpl);
       });
     return rootOperator;
@@ -134,9 +136,9 @@ public class OperatorGraph {
    */
   private <M> OperatorImpl<M, ?> createAndRegisterOperatorImpl(OperatorSpec operatorSpec,
       MessageStreamImpl<M> source, Config config, TaskContext context) {
-    if (!operators.containsKey(operatorSpec)) {
+    if (!operatorImpls.containsKey(operatorSpec)) {
       OperatorImpl<M, ?> operatorImpl = createOperatorImpl(source, operatorSpec, config, context);
-      if (operators.putIfAbsent(operatorSpec, operatorImpl) == null) {
+      if (operatorImpls.putIfAbsent(operatorSpec, operatorImpl) == null) {
         // this is the first time we've added the operatorImpl corresponding to the operatorSpec,
         // so traverse and initialize and register the rest of the DAG.
         // initialize the corresponding operator function
@@ -145,7 +147,7 @@ public class OperatorGraph {
         if (nextStream != null) {
           Collection<OperatorSpec> registeredSpecs = nextStream.getRegisteredOperatorSpecs();
           registeredSpecs.forEach(registeredSpec -> {
-              OperatorImpl subImpl = this.createAndRegisterOperatorImpl(registeredSpec, nextStream, config, context);
+              OperatorImpl subImpl = createAndRegisterOperatorImpl(registeredSpec, nextStream, config, context);
               operatorImpl.registerNextOperator(subImpl);
             });
         }
@@ -155,7 +157,7 @@ public class OperatorGraph {
 
     // the implementation corresponding to operatorSpec has already been instantiated
     // and registered, so we do not need to traverse the DAG further.
-    return operators.get(operatorSpec);
+    return operatorImpls.get(operatorSpec);
   }
 
   /**
@@ -168,12 +170,13 @@ public class OperatorGraph {
    * @param context  the {@link TaskContext} required to instantiate operators
    * @return  the {@link OperatorImpl} implementation instance
    */
-  private <M> OperatorImpl<M, ?> createOperatorImpl(MessageStreamImpl<M> source, OperatorSpec operatorSpec, Config config, TaskContext context) {
+  private <M> OperatorImpl<M, ?> createOperatorImpl(MessageStreamImpl<M> source,
+      OperatorSpec operatorSpec, Config config, TaskContext context) {
     if (operatorSpec instanceof StreamOperatorSpec) {
       StreamOperatorSpec<M, ?> streamOpSpec = (StreamOperatorSpec<M, ?>) operatorSpec;
       return new StreamOperatorImpl<>(streamOpSpec, source, config, context);
-    } else if (operatorSpec instanceof SinkOperatorSpec) {
-      return new SinkOperatorImpl<>((SinkOperatorSpec<M>) operatorSpec, config, context);
+    } else if (operatorSpec instanceof OutputOperatorSpec) {
+      return new OutputOperatorImpl<>((OutputOperatorSpec<M>) operatorSpec, config, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
       return new WindowOperatorImpl((WindowOperatorSpec<M, ?, ?>) operatorSpec, clock);
     } else if (operatorSpec instanceof PartialJoinOperatorSpec) {

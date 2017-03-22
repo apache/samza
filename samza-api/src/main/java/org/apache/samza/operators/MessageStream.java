@@ -77,18 +77,21 @@ public interface MessageStream<M> {
   /**
    * Allows sending messages in this {@link MessageStream} to an output using the provided {@link SinkFunction}.
    *
-   * NOTE: The output <b>must not</b> be a {@link org.apache.samza.system.SystemStream}. It can be an external database, etc.
+   * NOTE: If the output is for a {@link org.apache.samza.system.SystemStream}, use {@link #sendTo(String, Function)}
+   * instead. This transform should only be used to output to an non-stream systems (e.g., an external database).
    *
-   * @param sinkFn  the function to send messages in this stream to an output
+   * @param sinkFn the function to send messages in this stream to an output
    */
   void sink(SinkFunction<M> sinkFn);
 
   /**
    * Allows sending messages in this {@link MessageStream} to an output {@link MessageStream}.
    *
-   * @param stream  the output {@link MessageStream}
+   * @param streamId the ID for the output {@link MessageStream}
+   * @param keyExtractor the {@link Function} to extract the output message key from the input message
+   * @param <K> the type of output message key
    */
-  void sendTo(MessageStream<M> stream);
+  <K> void sendTo(String streamId, Function<M, K> keyExtractor);
 
   /**
    * Groups the messages in this {@link MessageStream} according to the provided {@link Window} semantics
@@ -126,8 +129,8 @@ public interface MessageStream<M> {
    * <p>
    * The merging streams must have the same messages of type {@code M}.
    *
-   * @param otherStreams  other {@link MessageStream}s to be merged with this {@link MessageStream}
-   * @return  the merged {@link MessageStream}
+   * @param otherStreams other {@link MessageStream}s to be merged with this {@link MessageStream}
+   * @return the merged {@link MessageStream}
    */
   MessageStream<M> merge(Collection<MessageStream<M>> otherStreams);
 
@@ -135,10 +138,10 @@ public interface MessageStream<M> {
    * Repartition the messages in this {@link MessageStream}, send it to an output stream and consume it as
    * the input {@link MessageStream} again.
    *
-   * @param parKeyExtractor the {@link Function} to extract the output partition key from the input message
+   * @param keyExtractor the {@link Function} to extract the output message and partition key from the input message
    * @param <K> the type of partition key
    * @return the repartitioned {@link MessageStream}
    */
-  <K> MessageStream<M> partitionBy(Function<M, K> parKeyExtractor);
+  <K> MessageStream<M> partitionBy(Function<M, K> keyExtractor);
 
 }

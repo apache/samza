@@ -27,9 +27,6 @@ import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.serializers.JsonSerde;
-import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -41,23 +38,17 @@ import java.util.function.Supplier;
  */
 public class PageViewCounterExample implements StreamApplication {
 
-  private final StreamSpec inputStreamSpec = new StreamSpec("pageViewEventStream", "PageViewEvent", "kafka");
-  private final StreamSpec outputStreamSpec = new StreamSpec("pageViewEventPerMemberStream", "PageViewEventCountByMemberId", "kafka");
-
   @Override public void init(StreamGraph graph, Config config) {
-    MessageStream<PageViewEvent> pageViewEvents = graph.createInStream(inputStreamSpec, (k, m) -> m,
-        new StringSerde("UTF-8"), new JsonSerde<PageViewEvent>());
-    MessageStream<PageViewCount> pageViewPerMemberCounters =
-        graph.createOutStream(outputStreamSpec, m -> m.memberId, m -> m,
-            new StringSerde("UTF-8"), new JsonSerde<PageViewCount>());
+    MessageStream<PageViewEvent> pageViewEvents =
+        graph.getInputStream("pageViewEventStream", (k, m) -> (PageViewEvent) m);
 
     Supplier<Integer> initialValue = () -> 0;
-    pageViewEvents.
-        window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), initialValue, (m, c) -> c + 1)
+    pageViewEvents
+        .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), initialValue, (m, c) -> c + 1)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
-            .setAccumulationMode(AccumulationMode.DISCARDING)).
-        map(PageViewCount::new).
-        sendTo(pageViewPerMemberCounters);
+            .setAccumulationMode(AccumulationMode.DISCARDING))
+        .map(PageViewCount::new)
+        .sendTo("pageViewEventPerMemberStream", m -> m.memberId);
   }
 
   // local execution mode
@@ -92,5 +83,4 @@ public class PageViewCounterExample implements StreamApplication {
       this.count = m.getMessage();
     }
   }
-
 }

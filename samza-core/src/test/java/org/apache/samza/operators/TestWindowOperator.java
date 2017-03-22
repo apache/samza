@@ -27,6 +27,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.triggers.FiringType;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.testUtils.TestClock;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
@@ -35,7 +36,6 @@ import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamOperatorTask;
@@ -71,7 +71,7 @@ public class TestWindowOperator {
     runner = mock(ApplicationRunner.class);
     when(taskContext.getSystemStreamPartitions()).thenReturn(ImmutableSet
         .of(new SystemStreamPartition("kafka", "integers", new Partition(0))));
-
+    when(runner.getStreamSpec("integer-stream")).thenReturn(new StreamSpec("integer-stream", "integers", "kafka"));
   }
 
   @Test
@@ -333,7 +333,6 @@ public class TestWindowOperator {
 
   private class KeyedTumblingWindowStreamApplication implements StreamApplication {
 
-    private final StreamSpec streamSpec = new StreamSpec("integer-stream", "integers", "kafka");
     private final AccumulationMode mode;
     private final Duration duration;
     private final Trigger<MessageEnvelope<Integer, Integer>> earlyTrigger;
@@ -347,8 +346,8 @@ public class TestWindowOperator {
 
     @Override
     public void init(StreamGraph graph, Config config) {
-      MessageStream<MessageEnvelope<Integer, Integer>> inStream = graph.createInStream(streamSpec,
-          (k, m) -> new MessageEnvelope(k, m), null, null);
+      MessageStream<MessageEnvelope<Integer, Integer>> inStream = graph.getInputStream("integer-stream",
+          (k, m) -> new MessageEnvelope(k, m));
       Function<MessageEnvelope<Integer, Integer>, Integer> keyFn = m -> m.getKey();
       inStream
         .map(m -> m)
@@ -363,7 +362,6 @@ public class TestWindowOperator {
 
   private class KeyedSessionWindowStreamApplication implements StreamApplication {
 
-    private final StreamSpec streamSpec = new StreamSpec("integer-stream", "integers", "kafka");
     private final AccumulationMode mode;
     private final Duration duration;
 
@@ -374,8 +372,8 @@ public class TestWindowOperator {
 
     @Override
     public void init(StreamGraph graph, Config config) {
-      MessageStream<MessageEnvelope<Integer, Integer>> inStream = graph.createInStream(streamSpec,
-          (k, m) -> new MessageEnvelope(k, m), null, null);
+      MessageStream<MessageEnvelope<Integer, Integer>> inStream = graph.getInputStream("integer-stream",
+          (k, m) -> new MessageEnvelope(k, m));
       Function<MessageEnvelope<Integer, Integer>, Integer> keyFn = m -> m.getKey();
 
       inStream

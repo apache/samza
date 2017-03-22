@@ -20,10 +20,9 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.stream.OutputStream;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.stream.OutputStream;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
@@ -32,54 +31,42 @@ import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * The spec for a sink operator that outputs a {@link MessageStream} to an external
- * system. This is a terminal operator and does not allow further operator chaining.
+ * The spec for an operator that outputs a {@link MessageStreamImpl} to an external system.
+ * This is a terminal operator and does not allow further operator chaining.
  *
  * @param <M>  the type of input message
  */
-public class SinkOperatorSpec<M> implements OperatorSpec {
+public class OutputOperatorSpec<M> implements OperatorSpec {
 
-  /**
-   * {@link OpCode} for this {@link SinkOperatorSpec}
-   */
+  private final SinkFunction<M> sinkFn;
   private final OperatorSpec.OpCode opCode;
-
-  /**
-   * The unique ID for this operator.
-   */
   private final int opId;
 
   /**
-   * The sink function to send messages
-   */
-  private final SinkFunction<M> sinkFn;
-
-
-  /**
-   * Constructs a {@link SinkOperatorSpec} with a user defined {@link SinkFunction}.
+   * Constructs an {@link OutputOperatorSpec} with a user defined {@link SinkFunction}.
    *
    * @param sinkFn  a user defined {@link SinkFunction} that will be called with the output message,
    *                the output {@link org.apache.samza.task.MessageCollector} and the
    *                {@link org.apache.samza.task.TaskCoordinator}.
-   * @param opCode  the specific {@link OpCode} for this {@link SinkOperatorSpec}.
+   * @param opCode  the specific {@link OpCode} for this {@link OutputOperatorSpec}.
    *                It could be {@link OpCode#SINK}, {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}
-   * @param opId  the unique ID of this {@link SinkOperatorSpec} in the {@link org.apache.samza.operators.StreamGraph}
+   * @param opId  the unique ID of this {@link OperatorSpec} in the {@link org.apache.samza.operators.StreamGraph}
    */
-  SinkOperatorSpec(SinkFunction<M> sinkFn, OperatorSpec.OpCode opCode, int opId) {
+  OutputOperatorSpec(SinkFunction<M> sinkFn, OperatorSpec.OpCode opCode, int opId) {
+    this.sinkFn = sinkFn;
     this.opCode = opCode;
     this.opId = opId;
-    this.sinkFn = sinkFn;
   }
 
   /**
-   * Constructs a {@link SinkOperatorSpec} to send messages to the provided {@code outStream}
-   * @param outStream  the output {@link MessageStream} to send messages to
-   * @param opCode the specific {@link OpCode} for this {@link SinkOperatorSpec}.
-   *                It could be {@link OpCode#SINK}, {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}
-   * @param opId  the unique ID of this {@link SinkOperatorSpec} in the {@link org.apache.samza.operators.StreamGraph}
+   * Constructs an {@link OutputOperatorSpec} to send messages to the provided {@code outStream}
+   * @param output  the output {@link MessageStreamImpl} to send messages to
+   * @param opCode the specific {@link OpCode} for this {@link OutputOperatorSpec}.
+   *               It could be {@link OpCode#SINK}, {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}
+   * @param opId  the unique ID of this {@link OutputOperatorSpec} in the {@link org.apache.samza.operators.StreamGraph}
    */
-  SinkOperatorSpec(MessageStream<M> outStream, OperatorSpec.OpCode opCode, int opId) {
-    this(createSinkFn(outStream), opCode, opId);
+  OutputOperatorSpec(MessageStreamImpl<M> output, OperatorSpec.OpCode opCode, int opId) {
+    this(createSinkFn(output), opCode, opId);
   }
 
   /**
@@ -95,10 +82,12 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
     return this.sinkFn;
   }
 
+  @Override
   public OperatorSpec.OpCode getOpCode() {
     return this.opCode;
   }
 
+  @Override
   public int getOpId() {
     return this.opId;
   }
@@ -109,17 +98,17 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
   }
 
   /**
-   * Creates a {@link SinkFunction} to send messages to the provided {@code outStream}.
-   * @param outStream  the output {@link MessageStream} to send messages to
+   * Creates a {@link SinkFunction} to send messages to the provided {@code output}.
+   * @param output  the output {@link MessageStreamImpl} to send messages to
    * @param <M>  the type of input message
-   * @return  a {@link SinkFunction} that sends messages to the provided {@code outStream}
+   * @return  a {@link SinkFunction} that sends messages to the provided {@code output}
    */
-  private static <M> SinkFunction<M> createSinkFn(MessageStream<M> outStream) {
-    if (!(outStream instanceof OutputStream)) {
+  private static <M> SinkFunction<M> createSinkFn(MessageStreamImpl<M> output) {
+    if (!(output instanceof OutputStream)) {
       throw new SamzaException("MessageStream used for sending messages must be an output stream.");
     }
 
-    OutputStream<?, ?, M> outputStream = (OutputStream<?, ?, M>) outStream;
+    OutputStream<?, ?, M> outputStream = (OutputStream<?, ?, M>) output;
     return (M message, MessageCollector mc, TaskCoordinator tc) -> {
       // TODO: SAMZA-1148 - need to find a way to directly pass in the serde class names
       SystemStream systemStream = new SystemStream(outputStream.getStreamSpec().getSystemName(),

@@ -20,7 +20,6 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -46,14 +45,14 @@ public class OperatorSpecs {
    * Creates a {@link StreamOperatorSpec} for {@link MapFunction}
    *
    * @param mapFn  the map function
-   * @param output  the output {@link MessageStreamImpl} object
+   * @param nextStream  the output {@link MessageStreamImpl} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
    * @param <OM>  type of output message
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createMapOperatorSpec(
-      MapFunction<M, OM> mapFn, MessageStreamImpl<OM> output, int opId) {
+      MapFunction<M, OM> mapFn, MessageStreamImpl<OM> nextStream, int opId) {
     return new StreamOperatorSpec<>(new FlatMapFunction<M, OM>() {
       @Override
       public Collection<OM> apply(M message) {
@@ -71,20 +70,20 @@ public class OperatorSpecs {
       public void init(Config config, TaskContext context) {
         mapFn.init(config, context);
       }
-    }, output, OperatorSpec.OpCode.MAP, opId);
+    }, nextStream, OperatorSpec.OpCode.MAP, opId);
   }
 
   /**
    * Creates a {@link StreamOperatorSpec} for {@link FilterFunction}
    *
    * @param filterFn  the transformation function
-   * @param output  the output {@link MessageStreamImpl} object
+   * @param nextStream  the output {@link MessageStreamImpl} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M> StreamOperatorSpec<M, M> createFilterOperatorSpec(
-      FilterFunction<M> filterFn, MessageStreamImpl<M> output, int opId) {
+      FilterFunction<M> filterFn, MessageStreamImpl<M> nextStream, int opId) {
     return new StreamOperatorSpec<>(new FlatMapFunction<M, M>() {
       @Override
       public Collection<M> apply(M message) {
@@ -101,68 +100,65 @@ public class OperatorSpecs {
       public void init(Config config, TaskContext context) {
         filterFn.init(config, context);
       }
-    }, output, OperatorSpec.OpCode.FILTER, opId);
+    }, nextStream, OperatorSpec.OpCode.FILTER, opId);
   }
 
   /**
    * Creates a {@link StreamOperatorSpec}.
    *
    * @param transformFn  the transformation function
-   * @param output  the output {@link MessageStreamImpl} object
+   * @param nextStream  the output {@link MessageStreamImpl} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
    * @param <OM>  type of output message
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createStreamOperatorSpec(
-      FlatMapFunction<M, OM> transformFn, MessageStreamImpl<OM> output, int opId) {
-    return new StreamOperatorSpec<>(transformFn, output, OperatorSpec.OpCode.FLAT_MAP, opId);
+      FlatMapFunction<M, OM> transformFn, MessageStreamImpl<OM> nextStream, int opId) {
+    return new StreamOperatorSpec<>(transformFn, nextStream, OperatorSpec.OpCode.FLAT_MAP, opId);
   }
 
   /**
-   * Creates a {@link SinkOperatorSpec} for the sink operator.
+   * Creates an {@link OutputOperatorSpec} for the sink operator.
    *
    * @param sinkFn  the sink function provided by the user
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
-   * @return  the {@link SinkOperatorSpec} for the sink operator
+   * @return  the {@link OutputOperatorSpec} for the sink operator
    */
-  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(
-      SinkFunction<M> sinkFn, int opId) {
-    return new SinkOperatorSpec<>(sinkFn, OperatorSpec.OpCode.SINK, opId);
+  public static <M> OutputOperatorSpec<M> createSinkOperatorSpec(SinkFunction<M> sinkFn, int opId) {
+    return new OutputOperatorSpec<>(sinkFn, OperatorSpec.OpCode.SINK, opId);
   }
 
   /**
-   * Creates a {@link SinkOperatorSpec} for the sendTo operator.
+   * Creates an {@link OutputOperatorSpec} for the sendTo operator.
    *
-   * @param outStream  the output {@link MessageStream} to send the messages to
+   * @param output  the output {@link MessageStreamImpl} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
-   * @return  the {@link SinkOperatorSpec} for the sendTo operator
+   * @return  the {@link OutputOperatorSpec} for the sendTo operator
    */
-  public static <M> SinkOperatorSpec<M> createSendToOperatorSpec(
-      MessageStream<M> outStream, int opId) {
-    return new SinkOperatorSpec<>(outStream, OperatorSpec.OpCode.SEND_TO, opId);
+  public static <M> OutputOperatorSpec<M> createSendToOperatorSpec(MessageStreamImpl<M> output, int opId) {
+    return new OutputOperatorSpec<>(output, OperatorSpec.OpCode.SEND_TO, opId);
   }
 
   /**
-   * Creates a {@link SinkOperatorSpec} for the partitionBy operator.
+   * Creates an {@link OutputOperatorSpec} for the partitionBy operator.
    *
-   * @param outStream  the output {@link MessageStream} to send the messages to
+   * @param output  the output {@link MessageStreamImpl} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
-   * @return  the {@link SinkOperatorSpec} for the partitionBy operator
+   * @return  the {@link OutputOperatorSpec} for the partitionBy operator
    */
-  public static <M> SinkOperatorSpec<M> createPartitionByOperatorSpec(
-      MessageStream<M> outStream, int opId) {
-    return new SinkOperatorSpec<>(outStream, OperatorSpec.OpCode.PARTITION_BY, opId);
+  public static <M> OutputOperatorSpec<M> createPartitionByOperatorSpec(MessageStreamImpl<M> output, int opId) {
+    return new OutputOperatorSpec<>(output, OperatorSpec.OpCode.PARTITION_BY, opId);
   }
 
   /**
    * Creates a {@link WindowOperatorSpec}.
    *
    * @param window  the description of the window.
-   * @param wndOutput  the window output {@link MessageStreamImpl} object
+   * @param nextStream  the output {@link MessageStreamImpl} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  the type of input message
    * @param <WK>  the type of key in the {@link WindowPane}
@@ -171,8 +167,8 @@ public class OperatorSpecs {
    */
 
   public static <M, WK, WV> WindowOperatorSpec<M, WK, WV> createWindowOperatorSpec(
-      WindowInternal<M, WK, WV> window, MessageStreamImpl<WindowPane<WK, WV>> wndOutput, int opId) {
-    return new WindowOperatorSpec<>(window, wndOutput, opId);
+      WindowInternal<M, WK, WV> window, MessageStreamImpl<WindowPane<WK, WV>> nextStream, int opId) {
+    return new WindowOperatorSpec<>(window, nextStream, opId);
   }
 
   /**
@@ -181,7 +177,7 @@ public class OperatorSpecs {
    * @param thisPartialJoinFn  the partial join function for this message stream
    * @param otherPartialJoinFn  the partial join function for the other message stream
    * @param ttlMs  the ttl in ms for retaining messages in each stream
-   * @param joinOutput  the output {@link MessageStreamImpl}
+   * @param nextStream  the output {@link MessageStreamImpl} to send messages to
    * @param opId  the unique ID of the operator
    * @param <K>  the type of join key
    * @param <M>  the type of input message
@@ -191,27 +187,25 @@ public class OperatorSpecs {
    */
   public static <K, M, JM, RM> PartialJoinOperatorSpec<K, M, JM, RM> createPartialJoinOperatorSpec(
       PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn, PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn,
-      long ttlMs, MessageStreamImpl<RM> joinOutput, int opId) {
-    return new PartialJoinOperatorSpec<K, M, JM, RM>(thisPartialJoinFn, otherPartialJoinFn,
-        ttlMs, joinOutput, opId);
+      long ttlMs, MessageStreamImpl<RM> nextStream, int opId) {
+    return new PartialJoinOperatorSpec<K, M, JM, RM>(thisPartialJoinFn, otherPartialJoinFn, ttlMs, nextStream, opId);
   }
 
   /**
    * Creates a {@link StreamOperatorSpec} with a merger function.
    *
-   * @param mergeOutput  the output {@link MessageStreamImpl} from the merger
+   * @param nextStream  the output {@link MessageStreamImpl} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  the type of input message
    * @return  the {@link StreamOperatorSpec} for the merge
    */
-  public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(
-      MessageStreamImpl<M> mergeOutput, int opId) {
+  public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(MessageStreamImpl<M> nextStream, int opId) {
     return new StreamOperatorSpec<M, M>(message ->
         new ArrayList<M>() {
           {
             this.add(message);
           }
         },
-        mergeOutput, OperatorSpec.OpCode.MERGE, opId);
+        nextStream, OperatorSpec.OpCode.MERGE, opId);
   }
 }

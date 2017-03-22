@@ -20,7 +20,6 @@ package org.apache.samza.operators.stream;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 
 import java.util.function.BiFunction;
@@ -34,10 +33,6 @@ import java.util.function.BiFunction;
 public interface InputStream<K, V, M> extends MessageStream<M> {
 
   StreamSpec getStreamSpec();
-
-  Serde<K> getKeySerde();
-
-  Serde<V> getMsgSerde();
 
   BiFunction<K, V, M> getMsgBuilder();
 

@@ -25,10 +25,7 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.serializers.JsonSerde;
-import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.KeyValueStore;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.CommandLine;
 
@@ -43,21 +40,14 @@ import java.util.concurrent.TimeUnit;
  */
 public class KeyValueStoreExample implements StreamApplication {
 
-  private final StreamSpec input = new StreamSpec("pageViewEventStream", "PageViewEvent", "kafka");
-  private final StreamSpec output = new StreamSpec("pageViewEventPerMemberStream", "PageViewEventCountByMemberId", "kafka");
-
   @Override public void init(StreamGraph graph, Config config) {
-    MessageStream<PageViewEvent> pageViewEvents = graph.createInStream(input, (k, v) -> v,
-        new StringSerde("UTF-8"), new JsonSerde<PageViewEvent>());
-
-    MessageStream<StatsOutput> pageViewPerMemberCounters =
-        graph.createOutStream(output, statsOutput -> statsOutput.memberId, m -> m,
-            new StringSerde("UTF-8"), new JsonSerde<StatsOutput>());
+    MessageStream<PageViewEvent> pageViewEvents = graph.getInputStream(
+        "pageViewEventStream", (k, v) -> (PageViewEvent) v);
 
     pageViewEvents.
         partitionBy(m -> m.memberId).
         flatMap(new MyStatsCounter()).
-        sendTo(pageViewPerMemberCounters);
+        sendTo("pageViewEventPerMemberStream", statsOutput -> statsOutput.memberId);
   }
 
   // local execution mode
@@ -128,5 +118,4 @@ public class KeyValueStoreExample implements StreamApplication {
       this.count = count;
     }
   }
-
 }

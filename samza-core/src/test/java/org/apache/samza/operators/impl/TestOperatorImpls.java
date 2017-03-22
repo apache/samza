@@ -18,23 +18,21 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.TestMessageStreamImplUtil;
+import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.WindowOperatorSpec;
+import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
+import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.operators.windows.internal.WindowType;
@@ -43,6 +41,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -65,11 +65,11 @@ public class TestOperatorImpls {
     nextOperatorsField = OperatorImpl.class.getDeclaredField("nextOperators");
     nextOperatorsField.setAccessible(true);
 
-    createOpMethod = OperatorGraph.class.getDeclaredMethod("createOperatorImpl", MessageStreamImpl.class,
+    createOpMethod = OperatorImplGraph.class.getDeclaredMethod("createOperatorImpl", MessageStreamImpl.class,
         OperatorSpec.class, Config.class, TaskContext.class);
     createOpMethod.setAccessible(true);
 
-    createOpsMethod = OperatorGraph.class.getDeclaredMethod("createOperatorImpls", MessageStreamImpl.class, Config.class, TaskContext.class);
+    createOpsMethod = OperatorImplGraph.class.getDeclaredMethod("createOperatorImpls", MessageStreamImpl.class, Config.class, TaskContext.class);
     createOpsMethod.setAccessible(true);
   }
 
@@ -83,7 +83,7 @@ public class TestOperatorImpls {
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
 
-    OperatorGraph opGraph = new OperatorGraph();
+    OperatorImplGraph opGraph = new OperatorImplGraph();
     OperatorImpl<TestMessageEnvelope, ?> opImpl = (OperatorImpl<TestMessageEnvelope, ?>)
         createOpMethod.invoke(opGraph, mockStream, mockWnd, mockConfig, mockContext);
     assertTrue(opImpl instanceof WindowOperatorImpl);
@@ -104,11 +104,11 @@ public class TestOperatorImpls {
 
     // get sink operator
     SinkFunction<TestMessageEnvelope> sinkFn = (m, mc, tc) -> { };
-    SinkOperatorSpec<TestMessageEnvelope> sinkOp = mock(SinkOperatorSpec.class);
+    OutputOperatorSpec<TestMessageEnvelope> sinkOp = mock(OutputOperatorSpec.class);
     when(sinkOp.getSinkFn()).thenReturn(sinkFn);
     opImpl = (OperatorImpl<TestMessageEnvelope, ?>) createOpMethod.invoke(opGraph, mockStream, sinkOp, mockConfig, mockContext);
-    assertTrue(opImpl instanceof SinkOperatorImpl);
-    Field sinkFnField = SinkOperatorImpl.class.getDeclaredField("sinkFn");
+    assertTrue(opImpl instanceof OutputOperatorImpl);
+    Field sinkFnField = OutputOperatorImpl.class.getDeclaredField("sinkFn");
     sinkFnField.setAccessible(true);
     assertEquals(sinkFn, sinkFnField.get(opImpl));
 
@@ -125,7 +125,7 @@ public class TestOperatorImpls {
     MessageStreamImpl<TestMessageEnvelope> testStream = mock(MessageStreamImpl.class);
     TaskContext mockContext = mock(TaskContext.class);
     Config mockConfig = mock(Config.class);
-    OperatorGraph opGraph = new OperatorGraph();
+    OperatorImplGraph opGraph = new OperatorImplGraph();
     RootOperatorImpl operatorChain = (RootOperatorImpl) createOpsMethod.invoke(opGraph, testStream, mockConfig, mockContext);
     assertTrue(operatorChain != null);
   }
@@ -138,7 +138,7 @@ public class TestOperatorImpls {
     TaskContext mockContext = mock(TaskContext.class);
     Config mockConfig = mock(Config.class);
     testInput.map(m -> m).window(Windows.keyedSessionWindow(TestMessageEnvelope::getKey, Duration.ofMinutes(10)));
-    OperatorGraph opGraph = new OperatorGraph();
+    OperatorImplGraph opGraph = new OperatorImplGraph();
     RootOperatorImpl operatorChain = (RootOperatorImpl) createOpsMethod.invoke(opGraph, testInput, mockConfig, mockContext);
     Set<OperatorImpl> subsSet = (Set<OperatorImpl>) nextOperatorsField.get(operatorChain);
     assertEquals(subsSet.size(), 1);
@@ -159,7 +159,7 @@ public class TestOperatorImpls {
     Config mockConfig = mock(Config.class);
     testInput.filter(m -> m.getMessage().getEventTime() > 123456L).flatMap(m -> new ArrayList() { { this.add(m); this.add(m); } });
     testInput.filter(m -> m.getMessage().getEventTime() < 123456L).map(m -> m);
-    OperatorGraph opGraph = new OperatorGraph();
+    OperatorImplGraph opGraph = new OperatorImplGraph();
     RootOperatorImpl operatorChain = (RootOperatorImpl) createOpsMethod.invoke(opGraph, testInput, mockConfig, mockContext);
     Set<OperatorImpl> subsSet = (Set<OperatorImpl>) nextOperatorsField.get(operatorChain);
     assertEquals(subsSet.size(), 2);
@@ -207,7 +207,7 @@ public class TestOperatorImpls {
               }
             }, Duration.ofMinutes(1))
         .map(m -> m);
-    OperatorGraph opGraph = new OperatorGraph();
+    OperatorImplGraph opGraph = new OperatorImplGraph();
     // now, we create chained operators from each input sources
     RootOperatorImpl chain1 = (RootOperatorImpl) createOpsMethod.invoke(opGraph, input1, mockConfig, mockContext);
     RootOperatorImpl chain2 = (RootOperatorImpl) createOpsMethod.invoke(opGraph, input2, mockConfig, mockContext);

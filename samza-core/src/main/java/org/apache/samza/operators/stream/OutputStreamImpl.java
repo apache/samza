@@ -20,7 +20,6 @@ package org.apache.samza.operators.stream;
 
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 
 import java.util.function.Function;
@@ -30,18 +29,13 @@ public class OutputStreamImpl<K, V, M> extends MessageStreamImpl<M> implements O
   private final StreamSpec streamSpec;
   private final Function<M, K> keyExtractor;
   private final Function<M, V> msgExtractor;
-  private final Serde<K> keySerde;
-  private final Serde<V> msgSerde;
 
   public OutputStreamImpl(StreamGraphImpl graph, StreamSpec streamSpec,
-      Function<M, K> keyExtractor, Function<M, V> msgExtractor,
-      Serde<K> keySerde, Serde<V> msgSerde) {
+      Function<M, K> keyExtractor, Function<M, V> msgExtractor) {
     super(graph);
     this.streamSpec = streamSpec;
     this.keyExtractor = keyExtractor;
     this.msgExtractor = msgExtractor;
-    this.keySerde = keySerde;
-    this.msgSerde = msgSerde;
   }
 
   public StreamSpec getStreamSpec() {
@@ -54,13 +48,5 @@ public class OutputStreamImpl<K, V, M> extends MessageStreamImpl<M> implements O
 
   public Function<M, V> getMsgExtractor() {
     return this.msgExtractor;
-  }
-
-  public Serde<K> getKeySerde() {
-    return this.keySerde;
-  }
-
-  public Serde<V> getMsgSerde() {
-    return this.msgSerde;
   }
 }

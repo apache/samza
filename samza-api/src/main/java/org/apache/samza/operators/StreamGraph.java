@@ -19,11 +19,8 @@
 package org.apache.samza.operators;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.StreamSpec;
 
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
 /**
  * Allows creating input and output {@link MessageStream}s to be used in the application.
@@ -34,35 +31,14 @@ public interface StreamGraph {
   /**
    * Add an input {@link MessageStream} to the graph.
    *
-   * @param streamSpec the {@link StreamSpec} describing the physical characteristics of the input {@link MessageStream}
+   * @param streamId the unique ID for the stream
    * @param msgBuilder the function to convert the incoming key and message to a message in the input {@link MessageStream}
-   * @param keySerde the serde used to deserialize the incoming message key
-   * @param msgSerde the serde used to deserialize the incoming message body
    * @param <K> the type of key in the incoming message
    * @param <V> the type of message in the incoming message
    * @param <M> the type of message in the input {@link MessageStream}
    * @return the input {@link MessageStream}
    */
-  <K, V, M> MessageStream<M> createInStream(StreamSpec streamSpec,
-      BiFunction<K, V, M> msgBuilder,
-      Serde<K> keySerde, Serde<V> msgSerde);
-
-  /**
-   * Add an output {@link MessageStream} to the graph.
-   *
-   * @param streamSpec the {@link StreamSpec} describing the physical characteristics of the output {@link MessageStream}
-   * @param keyExtractor the function to extract the outgoing key from a message in the output {@link MessageStream}
-   * @param msgExtractor the function to extract the outgoing message from a message in the output {@link MessageStream}
-   * @param keySerde the serde used to serialize the outgoing message key
-   * @param msgSerde the serde used to serialize the outgoing message body
-   * @param <K> the type of key in the outgoing message
-   * @param <V> the type of message in the outgoing message
-   * @param <M> the type of message in the output {@link MessageStream}
-   * @return the output {@link MessageStream}
-   */
-  <K, V, M> MessageStream<M> createOutStream(StreamSpec streamSpec,
-      Function<M, K> keyExtractor, Function<M, V> msgExtractor,
-      Serde<K> keySerde, Serde<V> msgSerde);
+  <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<K, V, M> msgBuilder);
 
   /**
    * Set the {@link ContextManager} for the {@link StreamGraph}.

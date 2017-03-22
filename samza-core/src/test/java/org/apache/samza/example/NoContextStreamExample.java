@@ -22,12 +22,8 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.data.JsonMessage;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.serializers.JsonSerde;
-import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -40,20 +36,13 @@ import java.util.List;
  */
 public class NoContextStreamExample implements StreamApplication {
 
-  private final StreamSpec inputSpec1 = new StreamSpec("inputStreamA", "PageViewEvent", "kafka");
-  private final StreamSpec inputSpec2 = new StreamSpec("inputStreamB", "RumLixEvent", "kafka");
-  private final StreamSpec outputSpec = new StreamSpec("joinedPageViewStream", "PageViewJoinRumLix", "kafka");
-
   @Override public void init(StreamGraph graph, Config config) {
-    MessageStream<JsonMessage<PageViewEvent>> inputStream1 = graph.createInStream(inputSpec1, null, null, null);
-    MessageStream<JsonMessage<PageViewEvent>> inputStream2 = graph.createInStream(inputSpec2, null, null, null);
-
-    MessageStream<JsonMessage<PageViewEvent>> outStream =
-        graph.createOutStream(outputSpec, null, null, new StringSerde("UTF-8"), new JsonSerde<>());
+    MessageStream<PageViewEvent> inputStream1 = graph.getInputStream("pageViewEvent", (k, m) -> (PageViewEvent) m);
+    MessageStream<RumLixEvent> inputStream2 = graph.getInputStream("rumLixEvent", (k, m) -> (RumLixEvent) m);
 
     inputStream1
         .join(inputStream2, new MyJoinFunction(), Duration.ofMinutes(1))
-        .sendTo(outStream);
+        .sendTo("joinedPageViewStream", m -> m);
   }
 
   // local execution mode
@@ -65,24 +54,24 @@ public class NoContextStreamExample implements StreamApplication {
     localRunner.run(new NoContextStreamExample());
   }
 
-  class MyJoinFunction implements JoinFunction<String, JsonMessage<PageViewEvent>, JsonMessage<PageViewEvent>, JsonMessage<PageViewEvent>> {
+  class MyJoinFunction implements JoinFunction<String, PageViewEvent, RumLixEvent, PageViewEvent> {
     @Override
-    public JsonMessage<PageViewEvent> apply(JsonMessage<PageViewEvent> m1, JsonMessage<PageViewEvent> m2) {
+    public PageViewEvent apply(PageViewEvent m1, RumLixEvent m2) {
       PageViewEvent newJoinMsg = new PageViewEvent();
-      newJoinMsg.joinKey = m1.getKey();
-      newJoinMsg.joinFields.addAll(m1.getData().joinFields);
-      newJoinMsg.joinFields.addAll(m2.getData().joinFields);
-      return new JsonMessage<PageViewEvent>(m1.getData().joinKey, newJoinMsg);
+      newJoinMsg.joinKey = m1.joinKey;
+      newJoinMsg.joinFields.addAll(m1.joinFields);
+      newJoinMsg.joinFields.addAll(m2.joinFields);
+      return newJoinMsg;
     }
 
     @Override
-    public String getFirstKey(JsonMessage<PageViewEvent> message) {
-      return message.getKey();
+    public String getFirstKey(PageViewEvent message) {
+      return message.joinKey;
     }
 
     @Override
-    public String getSecondKey(JsonMessage<PageViewEvent> message) {
-      return message.getKey();
+    public String getSecondKey(RumLixEvent message) {
+      return message.joinKey;
     }
   }
 
@@ -91,4 +80,8 @@ public class NoContextStreamExample implements StreamApplication {
     List<String> joinFields = new ArrayList<>();
   }
 
+  class RumLixEvent {
+    String joinKey;
+    List<String> joinFields = new ArrayList<>();
+  }
 }

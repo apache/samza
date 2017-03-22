@@ -74,8 +74,8 @@ public class ExecutionPlanner {
    */
   /* package private */ JobGraph createJobGraph(StreamGraphImpl streamGraph) {
     JobGraph jobGraph = new JobGraph(streamGraph, config);
-    Set<StreamSpec> sourceStreams = new HashSet<>(streamGraph.getInStreams().keySet());
-    Set<StreamSpec> sinkStreams = new HashSet<>(streamGraph.getOutStreams().keySet());
+    Set<StreamSpec> sourceStreams = new HashSet<>(streamGraph.getInputStreams().keySet());
+    Set<StreamSpec> sinkStreams = new HashSet<>(streamGraph.getOutputStreams().keySet());
     Set<StreamSpec> intStreams = new HashSet<>(sourceStreams);
     intStreams.retainAll(sinkStreams);
     sourceStreams.removeAll(intStreams);
@@ -166,7 +166,7 @@ public class ExecutionPlanner {
     // The visited set keeps track of the join specs that have been already inserted in the queue before
     Set<OperatorSpec> visited = new HashSet<>();
 
-    streamGraph.getInStreams().entrySet().forEach(entry -> {
+    streamGraph.getInputStreams().entrySet().forEach(entry -> {
         StreamEdge streamEdge = jobGraph.getOrCreateEdge(entry.getKey());
         // Traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
         findReachableJoins(entry.getValue(), streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs,

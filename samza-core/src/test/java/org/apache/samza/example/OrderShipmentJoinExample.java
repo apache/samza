@@ -24,9 +24,6 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.serializers.JsonSerde;
-import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -36,21 +33,14 @@ import java.time.Duration;
  */
 public class OrderShipmentJoinExample implements StreamApplication {
 
-  private final StreamSpec ordersStreamSpec = new StreamSpec("orderStream", "OrderEvent", "kafka");
-  private final StreamSpec shipmentsStreamSpec = new StreamSpec("shipmentStream", "ShipmentEvent", "kafka");
-  private final StreamSpec fulfilledOrdersStreamSpec = new StreamSpec("joinedOrderShipmentStream", "OrderShipmentJoinEvent", "kafka");
-
   @Override
   public void init(StreamGraph graph, Config config) {
-    MessageStream<OrderRecord> orders =
-        graph.createInStream(ordersStreamSpec, (k, m) -> m, new StringSerde("UTF-8"), new JsonSerde<OrderRecord>());
-    MessageStream<ShipmentRecord> shipments =
-        graph.createInStream(shipmentsStreamSpec, (k, m) -> m, new StringSerde("UTF-8"), new JsonSerde<ShipmentRecord>());
-    MessageStream<FulFilledOrderRecord> fulfilledOrders =
-        graph.createOutStream(fulfilledOrdersStreamSpec, m -> m.orderId, m -> m,
-            new StringSerde("UTF-8"), new JsonSerde<FulFilledOrderRecord>());
+    MessageStream<OrderRecord> orders = graph.getInputStream("orderStream", (k, m) -> (OrderRecord) m);
+    MessageStream<ShipmentRecord> shipments = graph.getInputStream("shipmentStream", (k, m) -> (ShipmentRecord) m);
 
-    orders.join(shipments, new MyJoinFunction(), Duration.ofMinutes(1)).sendTo(fulfilledOrders);
+    orders
+        .join(shipments, new MyJoinFunction(), Duration.ofMinutes(1))
+        .sendTo("joinedOrderShipmentStream", m -> m.orderId);
   }
 
   // local execution mode
@@ -111,5 +101,4 @@ public class OrderShipmentJoinExample implements StreamApplication {
       return message.orderId;
     }
   }
-
 }

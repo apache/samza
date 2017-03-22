@@ -21,7 +21,6 @@ package org.apache.samza.operators.stream;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 
 import java.util.function.Function;
@@ -40,9 +39,5 @@ public interface OutputStream<K, V, M> extends MessageStream<M> {
   Function<M, K> getKeyExtractor();
 
   Function<M, V> getMsgExtractor();
-
-  Serde<K> getKeySerde();
-
-  Serde<V> getMsgSerde();
 
 }

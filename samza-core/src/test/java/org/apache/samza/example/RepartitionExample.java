@@ -25,9 +25,6 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.serializers.JsonSerde;
-import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -39,22 +36,16 @@ import java.util.function.Supplier;
  */
 public class RepartitionExample implements StreamApplication {
 
-  private final StreamSpec inputStreamSpec = new StreamSpec("pageViewEventStream", "PageViewEvent", "kafka");
-  private final StreamSpec outputStreamSpec = new StreamSpec("pageViewEventPerMemberStream", "PageViewEventCountByMemberId", "kafka");
-
   @Override public void init(StreamGraph graph, Config config) {
     Supplier<Integer> initialValue = () -> 0;
-    MessageStream<PageViewEvent> pageViewEvents = graph.createInStream(inputStreamSpec, (k, m) -> m,
-        new StringSerde("UTF-8"), new JsonSerde<PageViewEvent>());
-    MessageStream<MyStreamOutput> pageViewPerMemberCounters =
-        graph.createOutStream(outputStreamSpec, m -> m.memberId, m -> m,
-            new StringSerde("UTF-8"), new JsonSerde<MyStreamOutput>());
+    MessageStream<PageViewEvent> pageViewEvents =
+        graph.getInputStream("pageViewEventStream", (k, m) -> (PageViewEvent) m);
 
     pageViewEvents
         .partitionBy(m -> m.memberId)
         .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofMinutes(5), initialValue, (m, c) -> c + 1))
         .map(MyStreamOutput::new)
-        .sendTo(pageViewPerMemberCounters);
+        .sendTo("pageViewEventPerMemberStream", m -> m.memberId);
   }
 
   // local execution mode
@@ -89,5 +80,4 @@ public class RepartitionExample implements StreamApplication {
       this.count = m.getMessage();
     }
   }
-
 }

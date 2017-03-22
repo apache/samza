@@ -28,6 +28,7 @@ import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpecs;
+import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.util.InternalInMemoryStore;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
@@ -95,12 +96,15 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public void sink(SinkFunction<M> sinkFn) {
-    this.registeredOperatorSpecs.add(OperatorSpecs.createSinkOperatorSpec(sinkFn, this.graph.getNextOpId()));
+    OutputOperatorSpec<M> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, this.graph.getNextOpId());
+    this.registeredOperatorSpecs.add(op);
   }
 
   @Override
-  public void sendTo(MessageStream<M> stream) {
-    this.registeredOperatorSpecs.add(OperatorSpecs.createSendToOperatorSpec(stream, this.graph.getNextOpId()));
+  public <K> void sendTo(String streamId, Function<M, K> keyExtractor) {
+    OutputOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec(
+        (MessageStreamImpl<M>) this.graph.getOutputStream(streamId, keyExtractor, m -> m), this.graph.getNextOpId());
+    this.registeredOperatorSpecs.add(op);
   }
 
   @Override
@@ -114,7 +118,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   @Override
   public <K, JM, RM> MessageStream<RM> join(
       MessageStream<JM> otherStream, JoinFunction<K, M, JM, RM> joinFn, Duration ttl) {
-    MessageStreamImpl<RM> outputStream = new MessageStreamImpl<>(this.graph);
+    MessageStreamImpl<RM> nextStream = new MessageStreamImpl<>(this.graph);
 
     PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn = new PartialJoinFunction<K, M, JM, RM>() {
       private KeyValueStore<K, PartialJoinMessage<M>> thisStreamState;
@@ -168,32 +172,33 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     };
 
     this.registeredOperatorSpecs.add(OperatorSpecs.<K, M, JM, RM>createPartialJoinOperatorSpec(
-        thisPartialJoinFn, otherPartialJoinFn, ttl.toMillis(), outputStream, this.graph.getNextOpId()));
+        thisPartialJoinFn, otherPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId()));
 
     ((MessageStreamImpl<JM>) otherStream).registeredOperatorSpecs
         .add(OperatorSpecs.<K, JM, M, RM>createPartialJoinOperatorSpec(
-            otherPartialJoinFn, thisPartialJoinFn, ttl.toMillis(), outputStream, this.graph.getNextOpId()));
+            otherPartialJoinFn, thisPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId()));
 
-    return outputStream;
+    return nextStream;
   }
 
   @Override
   public MessageStream<M> merge(Collection<MessageStream<M>> otherStreams) {
-    MessageStreamImpl<M> outputStream = new MessageStreamImpl<>(this.graph);
+    MessageStreamImpl<M> nextStream = new MessageStreamImpl<>(this.graph);
 
     otherStreams.add(this);
     otherStreams.forEach(other -> ((MessageStreamImpl<M>) other).registeredOperatorSpecs.
-        add(OperatorSpecs.createMergeOperatorSpec(outputStream, this.graph.getNextOpId())));
-    return outputStream;
+        add(OperatorSpecs.createMergeOperatorSpec(nextStream, this.graph.getNextOpId())));
+    return nextStream;
   }
 
   @Override
-  public <K> MessageStream<M> partitionBy(Function<M, K> parKeyExtractor) {
+  public <K> MessageStream<M> partitionBy(Function<M, K> keyExtractor) {
     int opId = this.graph.getNextOpId();
     String opName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
-    MessageStreamImpl<M> intStream = this.graph.<K, M, M>createIntStream(opName, parKeyExtractor, m -> m, (k, m) -> m);
-    this.registeredOperatorSpecs.add(OperatorSpecs.createPartitionByOperatorSpec(intStream, opId));
-    return intStream;
+    MessageStreamImpl<M> intermediateStream =
+        this.graph.<K, M, M>getIntermediateStream(opName, keyExtractor, m -> m, (k, m) -> m);
+    this.registeredOperatorSpecs.add(OperatorSpecs.createPartitionByOperatorSpec(intermediateStream, opId));
+    return intermediateStream;
   }
 
   /**

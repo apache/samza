@@ -26,10 +26,9 @@ import org.apache.samza.operators.stream.IntermediateStreamImpl;
 import org.apache.samza.operators.stream.OutputStream;
 import org.apache.samza.operators.stream.OutputStreamImpl;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemStream;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -45,31 +44,24 @@ public class StreamGraphImpl implements StreamGraph {
    */
   private int opId = 0;
 
-  private final Map<String, InputStream> inStreams = new HashMap<>();
-  private final Map<String, OutputStream> outStreams = new HashMap<>();
+  private final Map<StreamSpec, InputStream> inStreams = new HashMap<>();
+  private final Map<StreamSpec, OutputStream> outStreams = new HashMap<>();
   private final ApplicationRunner runner;
   private final Config config;
 
   private ContextManager contextManager = new ContextManager() { };
 
   public StreamGraphImpl(ApplicationRunner runner, Config config) {
+    // TODO: SAMZA-1159 - Move StreamSpec and ApplicationRunner out of StreamGraphImpl once Systems
+    // can use streamId to send and receive messages (SAMZA-1118).
     this.runner = runner;
     this.config = config;
   }
 
   @Override
-  public <K, V, M> MessageStream<M> createInStream(StreamSpec streamSpec,
-      BiFunction<K, V, M> msgBuilder, Serde<K> keySerde, Serde<V> msgSerde) {
-    return inStreams.computeIfAbsent(streamSpec.getId(),
-        streamId -> new InputStreamImpl<>(this, streamSpec, msgBuilder, keySerde, msgSerde));
-  }
-
-  @Override
-  public <K, V, M> MessageStream<M> createOutStream(StreamSpec streamSpec,
-      Function<M, K> keyExtractor, Function<M, V> msgExtractor,
-      Serde<K> keySerde, Serde<V> msgSerde) {
-    return outStreams.computeIfAbsent(streamSpec.getId(),
-        streamId -> new OutputStreamImpl<>(this, streamSpec, keyExtractor, msgExtractor, keySerde, msgSerde));
+  public <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<K, V, M> msgBuilder) {
+    return inStreams.computeIfAbsent(runner.getStreamSpec(streamId),
+        streamSpec -> new InputStreamImpl<>(this, streamSpec, msgBuilder));
   }
 
   @Override
@@ -79,7 +71,25 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   /**
-   * Internal helper method to create an intermediate stream for an operator.
+   * Internal helper for {@link MessageStreamImpl} to add an output {@link MessageStream} to the graph.
+   *
+   * @param streamId the unique ID for the stream
+   * @param keyExtractor the function to extract the outgoing key from a message in the output {@link MessageStream}
+   * @param msgExtractor the function to extract the outgoing message from a message in the output {@link MessageStream}
+   * @param <K> the type of key in the outgoing message
+   * @param <V> the type of message in the outgoing message
+   * @param <M> the type of message in the output {@link MessageStream}
+   * @return the output {@link MessageStream}
+   */
+  <K, V, M> MessageStream<M> getOutputStream(String streamId,
+      Function<M, K> keyExtractor, Function<M, V> msgExtractor) {
+    return outStreams.computeIfAbsent(runner.getStreamSpec(streamId),
+        streamSpec -> new OutputStreamImpl<>(this, streamSpec, keyExtractor, msgExtractor));
+  }
+
+  /**
+   * Internal helper for {@link MessageStreamImpl} to add an intermediate {@link MessageStream} to the graph.
+   * An intermediate {@link MessageStream} is both an output and an input stream.
    *
    * @param streamName the name of the stream to be created (will be prefixed with job name and id)
    * @param keyExtractor the function to extract the output key from the input message
@@ -88,78 +98,35 @@ public class StreamGraphImpl implements StreamGraph {
    * @param <K> the type of key in the incoming message
    * @param <V> the type of message in the incoming message
    * @param <M> the type of messages in the intermediate {@link MessageStream}
-   * @return  the output {@link MessageStreamImpl} for the re-partitioned stream
+   * @return  the intermediate {@link MessageStreamImpl} for the re-partitioned stream
    */
-  <K, V, M> MessageStreamImpl<M> createIntStream(String streamName, Function<M, K> keyExtractor, Function<M, V> msgExtractor,
-      BiFunction<K, V, M> msgBuilder) {
+  <K, V, M> MessageStreamImpl<M> getIntermediateStream(String streamName,
+      Function<M, K> keyExtractor, Function<M, V> msgExtractor, BiFunction<K, V, M> msgBuilder) {
     String streamId = String.format("%s-%s-%s",
         config.get(JobConfig.JOB_NAME()),
         config.get(JobConfig.JOB_ID(), "1"),
         streamName);
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
-
-    // intermediate streams use default system serdes
-    return createIntStream(streamSpec, keyExtractor, msgExtractor, msgBuilder, null, null);
-  }
-
-  /**
-   * Internal helper method to create and add an intermediate {@link MessageStream} to the graph.
-   *
-   * @param streamSpec  the {@link StreamSpec} describing the physical characteristics of the intermediate {@link MessageStream}
-   * @param keyExtractor the function to extract the output key from the input message
-   * @param msgExtractor the function to extract the output message from the input message
-   * @param msgBuilder the function to convert the incoming key and message to the outgoing message of type {@code M}
-   * @param keySerde  the serde used to serialize/deserialize the message key from the intermediate {@link MessageStream}
-   * @param msgSerde  the serde used to serialize/deserialize the message body from the intermediate {@link MessageStream}
-   * @param <K> the type of key in the incoming message
-   * @param <V> the type of message in the incoming message
-   * @param <M> the type of messages in the intermediate {@link MessageStream}
-   * @return the intermediate {@link MessageStream} object
-   */
-  <K, V, M> MessageStreamImpl<M> createIntStream(StreamSpec streamSpec,
-      Function<M, K> keyExtractor, Function<M, V> msgExtractor, BiFunction<K, V, M> msgBuilder,
-      Serde<K> keySerde, Serde<V> msgSerde) {
     IntermediateStreamImpl<K, V, M> intStream = (IntermediateStreamImpl<K, V, M>) inStreams.computeIfAbsent(
-        streamSpec.getId(), streamId -> new IntermediateStreamImpl<>(this, streamSpec,
-            keyExtractor, msgExtractor, msgBuilder, keySerde, msgSerde));
-    outStreams.putIfAbsent(streamSpec.getId(), intStream);
+        streamSpec, k -> new IntermediateStreamImpl<>(this, streamSpec,
+            keyExtractor, msgExtractor, msgBuilder));
+    outStreams.putIfAbsent(streamSpec, intStream);
     return intStream;
   }
 
-  public Map<StreamSpec, MessageStream> getInStreams() {
-    Map<StreamSpec, MessageStream> inStreamMap = new HashMap<>();
-    this.inStreams.forEach((ss, entry) -> inStreamMap.put(entry.getStreamSpec(), entry));
-    return inStreamMap;
+  public Map<StreamSpec, InputStream> getInputStreams() {
+    return Collections.unmodifiableMap(inStreams);
   }
 
-  public Map<StreamSpec, MessageStream> getOutStreams() {
-    Map<StreamSpec, MessageStream> outStreamMap = new HashMap<>();
-    this.outStreams.forEach((ss, entry) -> outStreamMap.put(entry.getStreamSpec(), entry));
-    return outStreamMap;
+  public Map<StreamSpec, OutputStream> getOutputStreams() {
+    return Collections.unmodifiableMap(outStreams);
   }
 
   public ContextManager getContextManager() {
     return this.contextManager;
   }
 
-  public int getNextOpId() {
+  int getNextOpId() {
     return this.opId++;
-  }
-
-  /**
-   * Get the input stream corresponding to a {@link SystemStream}
-   *
-   * @param sStream the {@link SystemStream}
-   * @return the {@link MessageStreamImpl} corresponding to the {@code systemStream}, or null
-   */
-  public MessageStreamImpl getInputStream(SystemStream sStream) {
-    for (InputStream inStream: this.inStreams.values()) {
-      StreamSpec inStreamSpec = inStream.getStreamSpec();
-      if (inStreamSpec.getSystemName().equals(sStream.getSystem()) &&
-          inStreamSpec.getPhysicalName().equals(sStream.getStream())) {
-        return (MessageStreamImpl) inStream;
-      }
-    }
-    return null;
   }
 }

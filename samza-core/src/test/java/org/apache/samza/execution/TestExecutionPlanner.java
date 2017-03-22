@@ -27,46 +27,41 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.runtime.AbstractApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskCoordinator;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 public class TestExecutionPlanner {
 
-  private Config config;
-
   private static final String DEFAULT_SYSTEM = "test-system";
   private static final int DEFAULT_PARTITIONS = 10;
+
+  private Map<String, SystemAdmin> systemAdmins;
+  private StreamManager streamManager;
+  private ApplicationRunner runner;
+  private Config config;
 
   private StreamSpec input1;
   private StreamSpec input2;
   private StreamSpec input3;
   private StreamSpec output1;
   private StreamSpec output2;
-
-  private Map<String, SystemAdmin> systemAdmins;
-  private StreamManager streamManager;
-
-  private ApplicationRunner runner;
 
   private JoinFunction createJoin() {
     return new JoinFunction() {
@@ -83,14 +78,6 @@ public class TestExecutionPlanner {
       @Override
       public Object getSecondKey(Object message) {
         return null;
-      }
-    };
-  }
-
-  private SinkFunction createSink() {
-    return new SinkFunction() {
-      @Override
-      public void apply(Object message, MessageCollector messageCollector, TaskCoordinator taskCoordinator) {
       }
     };
   }
@@ -146,9 +133,9 @@ public class TestExecutionPlanner {
      *
      */
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    streamGraph.createInStream(input1, null, null, null)
+    streamGraph.getInputStream("input1", null)
         .partitionBy(m -> "yes!!!").map(m -> m)
-        .sendTo(streamGraph.createOutStream(output1, null, null, null, null));
+        .sendTo("output1", null);
     return streamGraph;
   }
 
@@ -156,21 +143,21 @@ public class TestExecutionPlanner {
 
     /** the graph looks like the following
      *
-     *                        input1 -> map -> join -> output1
-     *                                           |
-     *          input2 -> partitionBy -> filter -|
-     *                                           |
-     * input3 -> filter -> partitionBy -> map -> join -> output2
+     *                               input1 (64) -> map -> join -> output1 (8)
+     *                                                       |
+     *          input2 (16) -> partitionBy ("64") -> filter -|
+     *                                                       |
+     * input3 (32) -> filter -> partitionBy ("64") -> map -> join -> output2 (16)
      *
      */
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    MessageStream m1 = streamGraph.createInStream(input1, null, null, null).map(m -> m);
-    MessageStream m2 = streamGraph.createInStream(input2, null, null, null).partitionBy(m -> "haha").filter(m -> true);
-    MessageStream m3 = streamGraph.createInStream(input3, null, null, null).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
+    MessageStream m1 = streamGraph.getInputStream("input1", null).map(m -> m);
+    MessageStream m2 = streamGraph.getInputStream("input2", null).partitionBy(m -> "haha").filter(m -> true);
+    MessageStream m3 = streamGraph.getInputStream("input3", null).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
 
-    m1.join(m2, createJoin(), Duration.ofHours(1)).sendTo(streamGraph.createOutStream(output1, null, null, null, null));
-    m3.join(m2, createJoin(), Duration.ofHours(1)).sendTo(streamGraph.createOutStream(output2, null, null, null, null));
+    m1.join(m2, createJoin(), Duration.ofHours(2)).sendTo("output1", null);
+    m3.join(m2, createJoin(), Duration.ofHours(1)).sendTo("output2", null);
 
     return streamGraph;
   }
@@ -206,21 +193,20 @@ public class TestExecutionPlanner {
     systemAdmins.put("system2", systemAdmin2);
     streamManager = new StreamManager(systemAdmins);
 
-    runner = new AbstractApplicationRunner(config) {
-      @Override
-      public void run(StreamApplication streamApp) {
-      }
+    runner = mock(ApplicationRunner.class);
+    when(runner.getStreamSpec("input1")).thenReturn(input1);
+    when(runner.getStreamSpec("input2")).thenReturn(input2);
+    when(runner.getStreamSpec("input3")).thenReturn(input3);
+    when(runner.getStreamSpec("output1")).thenReturn(output1);
+    when(runner.getStreamSpec("output2")).thenReturn(output2);
 
-      @Override
-      public void kill(StreamApplication streamApp) {
-
-      }
-
-      @Override
-      public ApplicationStatus status(StreamApplication streamApp) {
-        return null;
-      }
-    };
+    // intermediate streams used in tests
+    when(runner.getStreamSpec("test-app-1-partition_by-0"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-0", "test-app-1-partition_by-0", "default-system"));
+    when(runner.getStreamSpec("test-app-1-partition_by-1"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-1", "test-app-1-partition_by-1", "default-system"));
+    when(runner.getStreamSpec("test-app-1-partition_by-4"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-4", "test-app-1-partition_by-4", "default-system"));
   }
 
   @Test

@@ -20,7 +20,6 @@ package org.apache.samza.operators.stream;
 
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamSpec;
 
 import java.util.function.BiFunction;
@@ -28,29 +27,16 @@ import java.util.function.BiFunction;
 public class InputStreamImpl<K, V, M> extends MessageStreamImpl<M> implements InputStream<K, V, M> {
 
   private final StreamSpec streamSpec;
-  private final Serde<K> keySerde;
-  private final Serde<V> msgSerde;
   private final BiFunction<K, V, M> msgBuilder;
 
-  public InputStreamImpl(StreamGraphImpl graph, StreamSpec streamSpec,
-      BiFunction<K, V, M> msgBuilder, Serde<K> keySerde, Serde<V> msgSerde) {
+  public InputStreamImpl(StreamGraphImpl graph, StreamSpec streamSpec, BiFunction<K, V, M> msgBuilder) {
     super(graph);
     this.streamSpec = streamSpec;
     this.msgBuilder = msgBuilder;
-    this.keySerde = keySerde;
-    this.msgSerde = msgSerde;
   }
 
   public StreamSpec getStreamSpec() {
     return this.streamSpec;
-  }
-
-  public Serde<K> getKeySerde() {
-    return this.keySerde;
-  }
-
-  public Serde<V> getMsgSerde() {
-    return this.msgSerde;
   }
 
   public BiFunction<K, V, M> getMsgBuilder() {

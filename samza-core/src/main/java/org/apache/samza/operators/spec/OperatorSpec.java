@@ -45,7 +45,6 @@ public interface OperatorSpec<OM> {
     PARTITION_BY
   }
 
-
   /**
    * Get the output stream containing transformed messages produced by this operator.
    * @return  the output stream containing transformed messages produced by this operator.
@@ -53,8 +52,14 @@ public interface OperatorSpec<OM> {
   MessageStreamImpl<OM> getNextStream();
 
   /**
-   * Return the ID for this operator
-   * @return ID integer
+   * Get the {@link OpCode} for this operator.
+   * @return the {@link OpCode} for this operator
+   */
+  OpCode getOpCode();
+
+  /**
+   * Get the unique ID of this operator in the {@link org.apache.samza.operators.StreamGraph}.
+   * @return the unique operator ID
    */
   int getOpId();
 

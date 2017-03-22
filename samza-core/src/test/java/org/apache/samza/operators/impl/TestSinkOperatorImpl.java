@@ -21,7 +21,7 @@ package org.apache.samza.operators.impl;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
+import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -34,12 +34,12 @@ public class TestSinkOperatorImpl {
 
   @Test
   public void testSinkOperator() {
-    SinkOperatorSpec<TestOutputMessageEnvelope> sinkOp = mock(SinkOperatorSpec.class);
+    OutputOperatorSpec<TestOutputMessageEnvelope> sinkOp = mock(OutputOperatorSpec.class);
     SinkFunction<TestOutputMessageEnvelope> sinkFn = mock(SinkFunction.class);
     when(sinkOp.getSinkFn()).thenReturn(sinkFn);
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
-    SinkOperatorImpl<TestOutputMessageEnvelope> sinkImpl = new SinkOperatorImpl<>(sinkOp, mockConfig, mockContext);
+    OutputOperatorImpl<TestOutputMessageEnvelope> sinkImpl = new OutputOperatorImpl<>(sinkOp, mockConfig, mockContext);
     TestOutputMessageEnvelope mockMsg = mock(TestOutputMessageEnvelope.class);
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);

@@ -36,21 +36,18 @@ import org.apache.samza.task.TaskContext;
 public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK, WV>> {
 
   private final WindowInternal<M, WK, WV> window;
-
-  private final MessageStreamImpl<WindowPane<WK, WV>> outputStream;
-
+  private final MessageStreamImpl<WindowPane<WK, WV>> nextStream;
   private final int opId;
-
 
   /**
    * Constructor for {@link WindowOperatorSpec}.
    *
    * @param window  the window function
-   * @param outputStream  the output {@link MessageStreamImpl} from this {@link WindowOperatorSpec}
+   * @param nextStream  the output {@link MessageStreamImpl} containing the messages produced from this operator
    * @param opId  auto-generated unique ID of this operator
    */
-  WindowOperatorSpec(WindowInternal<M, WK, WV> window, MessageStreamImpl<WindowPane<WK, WV>> outputStream, int opId) {
-    this.outputStream = outputStream;
+  WindowOperatorSpec(WindowInternal<M, WK, WV> window, MessageStreamImpl<WindowPane<WK, WV>> nextStream, int opId) {
+    this.nextStream = nextStream;
     this.window = window;
     this.opId = opId;
   }
@@ -64,17 +61,19 @@ public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK
 
   @Override
   public MessageStreamImpl<WindowPane<WK, WV>> getNextStream() {
-    return this.outputStream;
+    return this.nextStream;
   }
 
   public WindowInternal<M, WK, WV> getWindow() {
     return window;
   }
 
+  @Override
   public OpCode getOpCode() {
     return OpCode.WINDOW;
   }
 
+  @Override
   public int getOpId() {
     return this.opId;
   }

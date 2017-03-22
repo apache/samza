@@ -26,7 +26,6 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
@@ -49,7 +48,7 @@ public class TestJoinOperator {
   private final TaskCoordinator taskCoordinator = mock(TaskCoordinator.class);
   private final ApplicationRunner runner = mock(ApplicationRunner.class);
   private final Set<Integer> numbers = ImmutableSet.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-
+  
   @Test
   public void join() throws Exception {
     StreamOperatorTask sot = createStreamOperatorTask();
@@ -238,15 +237,12 @@ public class TestJoinOperator {
   }
 
   private class TestStreamApplication implements StreamApplication {
-    StreamSpec inStreamSpec = new StreamSpec("instream", "instream", "insystem");
-    StreamSpec inStreamSpec2 = new StreamSpec("instream2", "instream2", "insystem2");
-
     @Override
     public void init(StreamGraph graph, Config config) {
       MessageStream<FirstStreamIME> inStream =
-          graph.createInStream(inStreamSpec, FirstStreamIME::new, null, null);
+          graph.getInputStream("instream", FirstStreamIME::new);
       MessageStream<SecondStreamIME> inStream2 =
-          graph.createInStream(inStreamSpec2, SecondStreamIME::new, null, null);
+          graph.getInputStream("instream2", SecondStreamIME::new);
 
       SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
       inStream
