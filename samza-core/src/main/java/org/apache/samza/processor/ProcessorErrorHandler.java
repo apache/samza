@@ -16,29 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
- ext {
-  elasticsearchVersion = "1.5.1"
-  jerseyVersion = "2.22.1"
-  jodaTimeVersion = "2.2"
-  joptSimpleVersion = "3.2"
-  jacksonVersion = "1.9.13"
-  junitVersion = "4.8.1"
-  mockitoVersion = "1.10.19"
-  powermockVersion = "1.6.4"
-  scalaTestVersion = "2.2.4"
-  zkClientVersion = "0.8"
-  zookeeperVersion = "3.4.6"
-  metricsVersion = "2.2.0"
-  kafkaVersion = "0.10.0.1"
-  commonsHttpClientVersion = "3.1"
-  rocksdbVersion = "5.0.1"
-  yarnVersion = "2.6.1"
-  slf4jVersion = "1.6.2"
-  log4jVersion = "1.2.17"
-  guavaVersion = "17.0"
-  commonsCodecVersion = "1.9"
-  commonsCollectionVersion = "3.2.1"
-  httpClientVersion="4.4.1"
-  commonsLang3Version="3.4"
-  apacheCommonsCollections4Version="4.0"
+package org.apache.samza.processor;
+
+import org.apache.samza.annotation.InterfaceStability;
+
+@InterfaceStability.Evolving
+public interface ProcessorErrorHandler {
+  /**
+   * Callback method that is invoked when the processing loop exits with an exception/error.
+   *
+   * Note: This callback is invoked in the context of the StreamProcessor's container thread.
+   *
+   * @param error Any kind of {@link Throwable} thrown by {@link org.apache.samza.container.SamzaContainer}'s run loop
+   */
+  void onError(Throwable error);
 }

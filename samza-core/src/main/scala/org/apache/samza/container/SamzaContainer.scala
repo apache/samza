@@ -673,6 +673,17 @@ class SamzaContainer(
   val shutdownMs = containerContext.config.getShutdownMs.getOrElse(5000L)
   private val runLoopStartLatch: CountDownLatch = new CountDownLatch(1)
 
+  def createInstance (    containerId: Int,
+                 containerModel: ContainerModel,
+                 config: Config,
+                 maxChangeLogStreamPartitions: Int,
+                 localityManager: LocalityManager,
+                 jmxServer: JmxServer,
+                 customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
+                 taskFactory: Object = null): SamzaContainer = {
+    SamzaContainer.apply(containerId, containerModel, config, maxChangeLogStreamPartitions, localityManager, jmxServer, customReporters, taskFactory)
+  }
+
   def awaitStart(timeoutMs: Long): Boolean = {
     try {
       runLoopStartLatch.await(timeoutMs, TimeUnit.MILLISECONDS)
@@ -700,6 +711,7 @@ class SamzaContainer(
 
       addShutdownHook
       runLoopStartLatch.countDown()
+
       info("Entering run loop.")
       runLoop.run
     } catch {
