@@ -21,6 +21,8 @@ package org.apache.samza.system.chooser
 
 import org.apache.samza.Partition
 import org.apache.samza.config.{DefaultChooserConfig, MapConfig}
+import org.apache.samza.container.MockSystemAdmin
+import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemStream, SystemStreamMetadata, SystemStreamPartition}
 import org.apache.samza.util.BlockingEnvelopeMap
@@ -66,7 +68,9 @@ class TestDefaultChooser {
         1 -> mock2),
       Map(
         envelope1.getSystemStreamPartition.getSystemStream -> streamMetadata,
-        envelope8.getSystemStreamPartition.getSystemStream -> stream3Metadata))
+        envelope8.getSystemStreamPartition.getSystemStream -> stream3Metadata),
+      new MetricsRegistryMap(),
+      Map("kafka" -> new MockSystemAdmin()))
 
     chooser.register(envelope1.getSystemStreamPartition, null)
     chooser.register(envelope2.getSystemStreamPartition, null)

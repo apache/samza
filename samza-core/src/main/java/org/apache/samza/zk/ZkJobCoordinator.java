@@ -20,6 +20,7 @@ package org.apache.samza.zk;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +32,6 @@ import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationService;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
-import org.apache.samza.coordinator.JobModelManager$;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.processor.SamzaContainerController;
 import org.apache.samza.system.StreamMetadataCache;
@@ -60,7 +60,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   private JobModel newJobModel;
   private String newJobModelVersion;  // version published in ZK (by the leader)
-  private JobModelManager jobModelManager;
+  private JobModel jobModel;
 
   public ZkJobCoordinator(int processorId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
       SamzaContainerController containerController, CoordinationService coordinationService) {
@@ -207,9 +207,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     }
     log.info("generate new job model: processorsIds: " + sb.toString());
 
-    jobModelManager = JobModelManager$.MODULE$.getJobCoordinator(this.config, null, null, streamMetadataCache, null,
-        containerIds);
-    JobModel jobModel = jobModelManager.jobModel();
+    jobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache, containerIds);
 
     log.info("pid=" + processorId + "Generated jobModel: " + jobModel);
 

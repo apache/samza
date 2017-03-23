@@ -19,12 +19,12 @@
 package org.apache.samza.standalone;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.util.Collections;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
-import org.apache.samza.coordinator.JobModelManager$;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.processor.SamzaContainerController;
 import org.apache.samza.system.StreamMetadataCache;
@@ -65,7 +65,7 @@ public class StandaloneJobCoordinator implements JobCoordinator {
   private static final Logger log = LoggerFactory.getLogger(StandaloneJobCoordinator.class);
   private final int processorId;
   private final Config config;
-  private final JobModelManager jobModelManager;
+  private final JobModel jobModel;
   private final SamzaContainerController containerController;
 
   @VisibleForTesting
@@ -73,11 +73,11 @@ public class StandaloneJobCoordinator implements JobCoordinator {
       int processorId,
       Config config,
       SamzaContainerController containerController,
-      JobModelManager jobModelManager) {
+      JobModel jobModel) {
     this.processorId = processorId;
     this.config = config;
     this.containerController = containerController;
-    this.jobModelManager = jobModelManager;
+    this.jobModel = jobModel;
   }
 
   public StandaloneJobCoordinator(int processorId, Config config, SamzaContainerController containerController) {
@@ -105,7 +105,7 @@ public class StandaloneJobCoordinator implements JobCoordinator {
      * TaskNameGrouper with the LocalityManager! Hence, groupers should be a property of the jobcoordinator
      * (job.coordinator.task.grouper, instead of task.systemstreampartition.grouper)
      */
-    this.jobModelManager = JobModelManager$.MODULE$.getJobCoordinator(this.config, null, null, streamMetadataCache, null, null);
+    this.jobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache, null);
   }
 
   @Override
@@ -143,6 +143,6 @@ public class StandaloneJobCoordinator implements JobCoordinator {
 
   @Override
   public JobModel getJobModel() {
-    return jobModelManager.jobModel();
+    return jobModel;
   }
 }

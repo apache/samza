@@ -21,22 +21,21 @@ package org.apache.samza.runtime;
 import java.lang.reflect.Constructor;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.StreamSpec;
 
 
 /**
- * Interface to be implemented by physical execution engine to deploy the config and jobs to run the {@link org.apache.samza.operators.StreamGraph}
- *
- * Implementations of this interface must define a constructor with a single {@link Config} as the argument in order
- * to support the {@link ApplicationRunner#fromConfig(Config)} static constructor.
+ * A physical execution engine to deploy the config and jobs to run the {@link org.apache.samza.operators.StreamGraph}
  */
 @InterfaceStability.Unstable
-public interface ApplicationRunner {
+public abstract class ApplicationRunner {
 
-  String RUNNER_CONFIG = "job.runner.class";
-  String DEFAULT_RUNNER_CLASS = "org.apache.samza.runtime.RemoteApplicationRunner";
+  private static final String RUNNER_CONFIG = "app.runner.class";
+  private static final String DEFAULT_RUNNER_CLASS = "org.apache.samza.runtime.RemoteApplicationRunner";
+
+  protected final Config config;
 
   /**
    * Static method to create the local {@link ApplicationRunner}.
@@ -44,19 +43,17 @@ public interface ApplicationRunner {
    * @param config  configuration passed in to initialize the Samza local process
    * @return  the local {@link ApplicationRunner} to run the user-defined stream applications
    */
-  static ApplicationRunner getLocalRunner(Config config) {
+  public static ApplicationRunner getLocalRunner(Config config) {
     return null;
   }
 
   /**
    * Static method to load the {@link ApplicationRunner}
    *
-   * Requires the implementation class to define a constructor with a single {@link Config} as the argument.
-   *
    * @param config  configuration passed in to initialize the Samza processes
    * @return  the configure-driven {@link ApplicationRunner} to run the user-defined stream applications
    */
-  static ApplicationRunner fromConfig(Config config) {
+  public static ApplicationRunner fromConfig(Config config) {
     try {
       Class<?> runnerClass = Class.forName(config.get(RUNNER_CONFIG, DEFAULT_RUNNER_CLASS));
       if (ApplicationRunner.class.isAssignableFrom(runnerClass)) {
@@ -68,17 +65,25 @@ public interface ApplicationRunner {
           RUNNER_CONFIG)), e);
     }
     throw new ConfigException(String.format(
-        "Class %s does not implement interface ApplicationRunner properly",
+        "Class %s does not extend ApplicationRunner properly",
         config.get(RUNNER_CONFIG)));
   }
 
+
+  public ApplicationRunner(Config config) {
+    if (config == null) {
+      throw new NullPointerException("Parameter 'config' cannot be null.");
+    }
+
+    this.config = config;
+  }
+
   /**
-   * Method to be invoked to deploy and run the actual Samza jobs to execute {@link org.apache.samza.operators.StreamGraph}
+   * Method to be invoked to deploy and run the actual Samza jobs to execute {@link StreamApplication}
    *
-   * @param graphBuilder  the user-defined {@link StreamGraphBuilder} object
-   * @param config  the {@link Config} object for this job
+   * @param streamApp  the user-defined {@link StreamApplication} object
    */
-  void run(StreamGraphBuilder graphBuilder, Config config);
+  public abstract void run(StreamApplication streamApp);
 
   /**
    * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
@@ -99,5 +104,5 @@ public interface ApplicationRunner {
    * @param streamId  The logical identifier for the stream in Samza.
    * @return          The {@link StreamSpec} instance.
    */
-  StreamSpec streamFromConfig(String streamId);
+  public abstract StreamSpec getStream(String streamId);
 }

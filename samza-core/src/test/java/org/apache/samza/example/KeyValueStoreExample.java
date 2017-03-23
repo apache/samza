@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.samza.operators.*;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -40,7 +40,7 @@ import org.apache.samza.util.CommandLine;
 /**
  * Example code using {@link KeyValueStore} to implement event-time window
  */
-public class KeyValueStoreExample implements StreamGraphBuilder {
+public class KeyValueStoreExample implements StreamApplication {
 
   /**
    * used by remote application runner to launch the job in remote program. The remote program should follow the similar
@@ -71,7 +71,7 @@ public class KeyValueStoreExample implements StreamGraphBuilder {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
-    localRunner.run(new KeyValueStoreExample(), config);
+    localRunner.run(new KeyValueStoreExample());
   }
 
   class MyStatsCounter implements FlatMapFunction<PageViewEvent, StatsOutput> {

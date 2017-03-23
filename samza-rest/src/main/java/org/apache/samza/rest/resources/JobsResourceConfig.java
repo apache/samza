@@ -19,8 +19,6 @@
 package org.apache.samza.rest.resources;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.rest.proxy.installation.InstallationRecord;
 import org.apache.samza.rest.proxy.job.JobProxy;
 import org.apache.samza.rest.proxy.job.JobProxyFactory;
 
@@ -28,7 +26,8 @@ import org.apache.samza.rest.proxy.job.JobProxyFactory;
 /**
  * Configurations for the {@link JobsResource} endpoint.
  */
-public class JobsResourceConfig extends MapConfig {
+public class JobsResourceConfig extends BaseResourceConfig {
+
   /**
    * Specifies the canonical name of the {@link JobProxyFactory} class to produce
    * {@link JobProxy} instances.
@@ -37,48 +36,15 @@ public class JobsResourceConfig extends MapConfig {
    */
   public static final String CONFIG_JOB_PROXY_FACTORY = "job.proxy.factory.class";
 
-  /**
-   * The path where all the Samza jobs are installed (unzipped). Each subdirectory of this path
-   * is expected to be a Samza job installation and corresponds to one {@link InstallationRecord}.
-   */
-  public static final String CONFIG_JOB_INSTALLATIONS_PATH = "job.installations.path";
-
-  /**
-   * Specifies the canonical name of the {@link org.apache.samza.config.ConfigFactory} to read the job configs.
-   */
-  public static final String CONFIG_JOB_CONFIG_FACTORY = "job.config.factory.class";
-
   public JobsResourceConfig(Config config) {
     super(config);
   }
 
   /**
-   * @see JobsResourceConfig#CONFIG_JOB_CONFIG_FACTORY
+   * @see JobsResourceConfig#CONFIG_JOB_PROXY_FACTORY
    * @return the canonical name of the {@link JobProxyFactory} class to produce {@link JobProxy} instances.
    */
   public String getJobProxyFactory() {
     return get(CONFIG_JOB_PROXY_FACTORY);
   }
-
-  /**
-   * @see JobsResourceConfig#CONFIG_JOB_INSTALLATIONS_PATH
-   * @return the path where all the Samza jobs are installed (unzipped).
-   */
-  public String getInstallationsPath() {
-    return sanitizePath(get(CONFIG_JOB_INSTALLATIONS_PATH));
-  }
-
-  /**
-   * Ensures a usable file path when the user specifies a tilde for the home path.
-   *
-   * @param rawPath the original path.
-   * @return        the updated path with the tilde resolved to home.
-   */
-  private static String sanitizePath(String rawPath) {
-    if (rawPath == null) {
-      return null;
-    }
-    return rawPath.replaceFirst("^~", System.getProperty("user.home"));
-  }
-
 }

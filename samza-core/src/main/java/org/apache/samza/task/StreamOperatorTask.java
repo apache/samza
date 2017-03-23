@@ -18,18 +18,23 @@
  */
 package org.apache.samza.task;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.impl.OperatorGraph;
+import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
-
-import java.util.HashMap;
-import java.util.Map;
+import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.Clock;
+import org.apache.samza.util.SystemClock;
 
 
 /**
@@ -43,9 +48,9 @@ import java.util.Map;
  * This class brings all the operator API implementation components together and feeds the
  * {@link InputMessageEnvelope}s into the transformation chains.
  * <p>
- * It accepts an instance of the user implemented factory {@link StreamGraphBuilder} as input parameter of the constructor.
+ * It accepts an instance of the user implemented factory {@link StreamApplication} as input parameter of the constructor.
  * When its own {@link #init(Config, TaskContext)} method is called during startup, it instantiate a user-defined {@link StreamGraphImpl}
- * from the {@link StreamGraphBuilder}, calls {@link StreamGraphImpl#getContextManager()} to initialize the task-wide context
+ * from the {@link StreamApplication}, calls {@link StreamGraphImpl#getContextManager()} to initialize the task-wide context
  * for the graph, and creates a {@link MessageStreamImpl} corresponding to each of its input
  * {@link org.apache.samza.system.SystemStreamPartition}s. Each input {@link MessageStreamImpl}
  * will be corresponding to either an input stream or intermediate stream in {@link StreamGraphImpl}.
@@ -65,29 +70,44 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   /**
    * A mapping from each {@link SystemStream} to the root node of its operator chain DAG.
    */
-  private final OperatorGraph operatorGraph = new OperatorGraph();
+  private final OperatorGraph operatorGraph;
 
-  private final StreamGraphBuilder graphBuilder;
+  private final StreamApplication graphBuilder;
+
+  private final ApplicationRunner runner;
+
+  private final Clock clock;
 
   private ContextManager contextManager;
 
-  public StreamOperatorTask(StreamGraphBuilder graphBuilder) {
+  private Set<SystemStreamPartition> systemStreamPartitions;
+
+  public StreamOperatorTask(StreamApplication graphBuilder, ApplicationRunner runner) {
+    this(graphBuilder, SystemClock.instance(), runner);
+  }
+
+  // purely for testing.
+  public StreamOperatorTask(StreamApplication graphBuilder, Clock clock, ApplicationRunner runner) {
     this.graphBuilder = graphBuilder;
+    this.operatorGraph = new OperatorGraph(clock);
+    this.clock = clock;
+    this.runner = runner;
   }
 
   @Override
   public final void init(Config config, TaskContext context) throws Exception {
     // create the MessageStreamsImpl object and initialize app-specific logic DAG within the task
-    StreamGraphImpl streams = new StreamGraphImpl();
-    this.graphBuilder.init(streams, config);
+    StreamGraphImpl streamGraph = new StreamGraphImpl(this.runner, config);
+    this.graphBuilder.init(streamGraph, config);
     // get the context manager of the {@link StreamGraph} and initialize the task-specific context
-    this.contextManager = streams.getContextManager();
+    this.contextManager = streamGraph.getContextManager();
+    this.systemStreamPartitions = context.getSystemStreamPartitions();
 
     Map<SystemStream, MessageStreamImpl> inputBySystemStream = new HashMap<>();
-    context.getSystemStreamPartitions().forEach(ssp -> {
+    systemStreamPartitions.forEach(ssp -> {
         if (!inputBySystemStream.containsKey(ssp.getSystemStream())) {
           // create mapping from the physical input {@link SystemStream} to the logic {@link MessageStream}
-          inputBySystemStream.putIfAbsent(ssp.getSystemStream(), streams.getInputStream(ssp.getSystemStream()));
+          inputBySystemStream.putIfAbsent(ssp.getSystemStream(), streamGraph.getInputStream(ssp.getSystemStream()));
         }
       });
     operatorGraph.init(inputBySystemStream, config, this.contextManager.initTaskContext(config, context));
@@ -100,8 +120,11 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   }
 
   @Override
-  public final void window(MessageCollector collector, TaskCoordinator coordinator) throws Exception {
-    // TODO: invoke timer based triggers
+  public final void window(MessageCollector collector, TaskCoordinator coordinator)  {
+    systemStreamPartitions.forEach(ssp -> {
+        this.operatorGraph.get(ssp.getSystemStream())
+          .onTick(collector, coordinator);
+      });
   }
 
   @Override

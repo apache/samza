@@ -34,7 +34,7 @@ public interface JobProxyFactory {
   /**
    * Creates a new {@link JobProxy} and initializes it with the specified config.
    *
-   * @param config  the {@link org.apache.samza.rest.SamzaRestConfig} to pass to the proxy.
+   * @param config  the {@link JobsResourceConfig} to pass to the proxy.
    * @return        the created proxy.
    */
   JobProxy getJobProxy(JobsResourceConfig config);

@@ -19,7 +19,7 @@
 package org.apache.samza.example;
 
 import org.apache.samza.operators.*;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.windows.WindowPane;
@@ -31,12 +31,13 @@ import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
+import java.util.function.Supplier;
 
 
 /**
- * Example {@link StreamGraphBuilder} code to test the API methods with re-partition operator
+ * Example {@link StreamApplication} code to test the API methods with re-partition operator
  */
-public class RepartitionExample implements StreamGraphBuilder {
+public class RepartitionExample implements StreamApplication {
 
   /**
    * used by remote application runner to launch the job in remote program. The remote program should follow the similar
@@ -67,11 +68,12 @@ public class RepartitionExample implements StreamGraphBuilder {
 
     MessageStream<PageViewEvent> pageViewEvents = graph.createInStream(input1, new StringSerde("UTF-8"), new JsonSerde<>());
     OutputStream<MyStreamOutput> pageViewPerMemberCounters = graph.createOutStream(output, new StringSerde("UTF-8"), new JsonSerde<>());
+    Supplier<Integer> initialValue = () -> 0;
 
     pageViewEvents.
         partitionBy(m -> m.getMessage().memberId).
         window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(
-            msg -> msg.getMessage().memberId, Duration.ofMinutes(5), (m, c) -> c + 1)).
+            msg -> msg.getMessage().memberId, Duration.ofMinutes(5), initialValue, (m, c) -> c + 1)).
         map(MyStreamOutput::new).
         sendTo(pageViewPerMemberCounters);
 
@@ -82,7 +84,7 @@ public class RepartitionExample implements StreamGraphBuilder {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
-    localRunner.run(new RepartitionExample(), config);
+    localRunner.run(new RepartitionExample());
   }
 
   StreamSpec input1 = new StreamSpec("pageViewEventStream", "PageViewEvent", "kafka");

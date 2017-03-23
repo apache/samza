@@ -38,6 +38,7 @@ import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.operators.windows.internal.WindowInternal;
+import org.apache.samza.operators.windows.internal.WindowType;
 import org.apache.samza.task.TaskContext;
 import org.junit.Before;
 import org.junit.Test;
@@ -77,7 +78,7 @@ public class TestOperatorImpls {
   public void testCreateOperator() throws NoSuchFieldException, IllegalAccessException, InvocationTargetException {
     // get window operator
     WindowOperatorSpec mockWnd = mock(WindowOperatorSpec.class);
-    WindowInternal<TestMessageEnvelope, String, Integer> windowInternal = new WindowInternal<>(null, null, null, null);
+    WindowInternal<TestMessageEnvelope, String, Integer> windowInternal = new WindowInternal<>(null, null, null, null, null, WindowType.TUMBLING);
     when(mockWnd.getWindow()).thenReturn(windowInternal);
     MessageStreamImpl<TestMessageEnvelope> mockStream = mock(MessageStreamImpl.class);
     Config mockConfig = mock(Config.class);
@@ -113,10 +114,8 @@ public class TestOperatorImpls {
     assertEquals(sinkFn, sinkFnField.get(opImpl));
 
     // get join operator
-    PartialJoinOperatorSpec<TestMessageEnvelope, String, TestMessageEnvelope, TestOutputMessageEnvelope> joinOp = mock(PartialJoinOperatorSpec.class);
-    TestOutputMessageEnvelope mockOutput = mock(TestOutputMessageEnvelope.class);
+    PartialJoinOperatorSpec<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> joinOp = mock(PartialJoinOperatorSpec.class);
     PartialJoinFunction<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> joinFn = mock(PartialJoinFunction.class);
-    when(joinOp.getTransformFn()).thenReturn(joinFn);
     opImpl = (OperatorImpl<TestMessageEnvelope, ? extends MessageEnvelope>) createOpMethod.invoke(opGraph, mockStream, joinOp, mockConfig, mockContext);
     assertTrue(opImpl instanceof PartialJoinOperatorImpl);
   }
@@ -207,7 +206,7 @@ public class TestOperatorImpls {
               public String getSecondKey(TestMessageEnvelope message) {
                 return message.getKey();
               }
-            })
+            }, Duration.ofMinutes(1))
         .map(m -> m);
     OperatorGraph opGraph = new OperatorGraph();
     // now, we create chained operators from each input sources

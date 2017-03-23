@@ -25,6 +25,7 @@ import java.util
 import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, TimeUnit}
 import java.lang.Thread.UncaughtExceptionHandler
 import java.net.{URL, UnknownHostException}
+
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
@@ -48,6 +49,7 @@ import org.apache.samza.metrics.JmxServer
 import org.apache.samza.metrics.JvmMetrics
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsReporter
+import org.apache.samza.runtime.ApplicationRunner
 import org.apache.samza.serializers.SerdeFactory
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.serializers.model.SamzaObjectMapper
@@ -64,19 +66,12 @@ import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.chooser.DefaultChooser
 import org.apache.samza.system.chooser.MessageChooserFactory
 import org.apache.samza.system.chooser.RoundRobinChooserFactory
-import org.apache.samza.task.AsyncRunLoop
-import org.apache.samza.task.AsyncStreamTask
-import org.apache.samza.task.AsyncStreamTaskAdapter
-import org.apache.samza.task.AsyncStreamTaskFactory
-import org.apache.samza.task.StreamTask
-import org.apache.samza.task.StreamTaskFactory
-import org.apache.samza.task.TaskInstanceCollector
+import org.apache.samza.task._
 import org.apache.samza.util.HighResolutionClock
 import org.apache.samza.util.ExponentialSleepStrategy
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Throttleable
 import org.apache.samza.util.MetricsReporterLoader
-import org.apache.samza.util.ThrottlingExecutor
 import org.apache.samza.util.SystemClock
 import org.apache.samza.util.Util
 import org.apache.samza.util.Util.asScalaClock
@@ -115,6 +110,7 @@ object SamzaContainer extends Logging {
     try {
       jmxServer = newJmxServer()
       val containerModel = jobModel.getContainers.get(containerId.toInt)
+      // TODO: add actual local runner in a container to the parameters
       SamzaContainer(
         containerId.toInt,
         containerModel,
@@ -168,7 +164,9 @@ object SamzaContainer extends Logging {
     localityManager: LocalityManager,
     jmxServer: JmxServer,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
-    taskFactory: Object = null) = {
+    taskFactory: Object = null,
+    // SAMZA-1137: need to instantiate the ApplicationRunner in the container local JVM and pass it in
+    appRunner: ApplicationRunner = null) = {
     val containerName = getSamzaContainerName(containerId)
     val containerPID = Util.getContainerPID
 
@@ -354,7 +352,7 @@ object SamzaContainer extends Logging {
 
     val chooserFactory = Util.getObj[MessageChooserFactory](chooserFactoryClassName)
 
-    val chooser = DefaultChooser(inputStreamMetadata, chooserFactory, config, samzaContainerMetrics.registry)
+    val chooser = DefaultChooser(inputStreamMetadata, chooserFactory, config, samzaContainerMetrics.registry, systemAdmins)
 
     info("Setting up metrics reporters.")
 
@@ -432,28 +430,6 @@ object SamzaContainer extends Logging {
     val singleThreadMode = config.getSingleThreadMode
     info("Got single thread mode: " + singleThreadMode)
 
-    val taskClassName = config.getTaskClass.orNull
-    info("Got task class name: %s" format taskClassName)
-
-    if (taskClassName == null && taskFactory == null) {
-      throw new SamzaException("Either the task class name or the task factory instance is required.")
-    }
-
-    val isAsyncTask: Boolean =
-      if (taskFactory != null) {
-        taskFactory.isInstanceOf[AsyncStreamTaskFactory]
-      } else {
-        classOf[AsyncStreamTask].isAssignableFrom(Class.forName(taskClassName))
-      }
-
-    if (isAsyncTask) {
-      info("Got an AsyncStreamTask implementation.")
-    }
-
-    if(singleThreadMode && isAsyncTask) {
-      throw new SamzaException("AsyncStreamTask cannot run on single thread mode.")
-    }
-
     val threadPoolSize = config.getThreadPoolSize
     info("Got thread pool size: " + threadPoolSize)
 
@@ -461,6 +437,14 @@ object SamzaContainer extends Logging {
       Executors.newFixedThreadPool(threadPoolSize)
     else
       null
+
+    val taskFactoryInstance = Option(taskFactory)
+      .getOrElse(TaskFactoryUtil.fromTaskClassConfig(config, appRunner))
+
+    val finalTaskFactory = TaskFactoryUtil.finalizeTaskFactory(
+      taskFactoryInstance,
+      singleThreadMode,
+      taskThreadPool)
 
     // Wire up all task-instance-level (unshared) objects.
     val taskNames = containerModel
@@ -483,24 +467,10 @@ object SamzaContainer extends Logging {
 
       val taskName = taskModel.getTaskName
 
-      val taskObj = if (taskFactory != null) {
-        debug("Using task factory to create task instance")
-        taskFactory match {
-          case tf: AsyncStreamTaskFactory => tf.createInstance()
-          case tf: StreamTaskFactory => tf.createInstance()
-          case _ =>
-            throw new SamzaException("taskFactory must be an instance of StreamTaskFactory or AsyncStreamTaskFactory")
-        }
-      } else {
-        debug("Using task class name: %s to create instance" format taskClassName)
-        Class.forName(taskClassName).newInstance
+      val task = finalTaskFactory match {
+        case tf: AsyncStreamTaskFactory => tf.asInstanceOf[AsyncStreamTaskFactory].createInstance()
+        case tf: StreamTaskFactory => tf.asInstanceOf[StreamTaskFactory].createInstance()
       }
-
-      val task = if (!singleThreadMode && !isAsyncTask)
-        // Wrap the StreamTask into a AsyncStreamTask with the build-in thread pool
-        new AsyncStreamTaskAdapter(taskObj.asInstanceOf[StreamTask], taskThreadPool)
-      else
-        taskObj
 
       val taskInstanceMetrics = new TaskInstanceMetrics("TaskName-%s" format taskName)
 
