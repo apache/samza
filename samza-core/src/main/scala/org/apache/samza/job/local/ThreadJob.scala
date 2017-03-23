@@ -19,6 +19,8 @@
 
 package org.apache.samza.job.local
 
+import java.lang.Thread.UncaughtExceptionHandler
+
 import org.apache.samza.util.Logging
 import org.apache.samza.job.StreamJob
 import org.apache.samza.job.ApplicationStatus
@@ -42,7 +44,7 @@ class ThreadJob(runnable: Runnable) extends StreamJob with Logging {
           runnable.run
           jobStatus = Some(SuccessfulFinish)
         } catch {
-          case e: Exception => {
+          case e: Throwable => {
             error("Failing job with exception.", e)
             jobStatus = Some(UnsuccessfulFinish)
             throw e

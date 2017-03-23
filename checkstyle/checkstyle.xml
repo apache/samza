@@ -21,6 +21,9 @@
 <module name="Checker">
   <property name="localeLanguage" value="en"/>
 
+  <!-- allow suppression for specific files -->
+  <module name="SuppressionCommentFilter"/>
+
   <module name="FileTabCharacter"/>
 
   <!-- header: use one star only -->
@@ -32,6 +35,7 @@
 
     <!-- code cleanup -->
     <module name="UnusedImports"/>
+    <module name="FileContentsHolder"/>
     <module name="RedundantImport"/>
     <module name="IllegalImport" />
     <module name="EqualsHashCode"/>
@@ -62,8 +66,8 @@
     <!-- whitespace -->
     <module name="GenericWhitespace"/>
     <module name="NoWhitespaceBefore"/>
-    <module name="WhitespaceAfter" />
     <module name="NoWhitespaceAfter"/>
+    <module name="WhitespaceAfter" />
     <module name="WhitespaceAround">
       <property name="allowEmptyConstructors" value="true"/>
       <property name="allowEmptyMethods" value="true"/>

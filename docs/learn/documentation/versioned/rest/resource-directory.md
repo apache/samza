@@ -22,6 +22,7 @@ title: Resource Directory
 The Samza REST Service ships with the JAX-RS Resources listed below.
 
 - [JobsResource](resources/jobs.html)
-- (Second resource coming soon)
+- [TasksResource](resources/tasks.html)
 
 ## [Jobs Resource &raquo;](resources/jobs.html)
+## [Tasks Resource &raquo;](resources/tasks.html)

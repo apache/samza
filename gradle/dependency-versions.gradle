@@ -23,7 +23,7 @@
   joptSimpleVersion = "3.2"
   jacksonVersion = "1.9.13"
   junitVersion = "4.8.1"
-  mockitoVersion = "1.8.4"
+  mockitoVersion = "1.10.19"
   scalaTestVersion = "2.2.4"
   zkClientVersion = "0.8"
   zookeeperVersion = "3.4.6"

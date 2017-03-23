@@ -22,7 +22,7 @@ package org.apache.samza.operators.triggers;
  * A {@link Trigger} that fires when the number of messages in the {@link org.apache.samza.operators.windows.WindowPane}
  * reaches the specified count.
  */
-public class CountTrigger<M> implements Trigger {
+public class CountTrigger<M> implements Trigger<M> {
 
   private final long count;
 

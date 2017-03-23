@@ -18,12 +18,13 @@
  */
 package org.apache.samza.operators.windows.internal;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.Window;
 
-import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  *  Internal representation of a {@link Window}. This specifies default, early and late triggers for the {@link Window}
@@ -32,81 +33,105 @@ import java.util.function.Function;
  *  Note: This class is meant to be used internally by Samza, and is not to be instantiated by programmers.
  *
  * @param <M>  the type of input message
- * @param <K>  the type of key for the window
+ * @param <WK>  the type of key for the window
  * @param <WV>  the type of aggregated value in the window output
  */
 @InterfaceStability.Unstable
-public final class WindowInternal<M, K, WV> implements Window<M, K, WV> {
+public final class WindowInternal<M, WK, WV> implements Window<M, WK, WV> {
 
-  private final Trigger defaultTrigger;
+  private final Trigger<M> defaultTrigger;
+
+  /**
+   * The supplier of initial value to be used for windowed aggregations
+   */
+  private final Supplier<WV> initializer;
 
   /*
    * The function that is applied each time a {@link MessageEnvelope} is added to this window.
    */
-  private final BiFunction<M, WV, WV> foldFunction;
+  private final FoldLeftFunction<M, WV> foldLeftFunction;
 
   /*
    * The function that extracts the key from a {@link MessageEnvelope}
    */
-  private final Function<M, K> keyExtractor;
+  private final Function<M, WK> keyExtractor;
 
   /*
    * The function that extracts the event time from a {@link MessageEnvelope}
    */
   private final Function<M, Long> eventTimeExtractor;
 
-  private Trigger earlyTrigger;
+  /**
+   * The type of this window. Tumbling and Session windows are supported for now.
+   */
+  private final WindowType windowType;
 
-  private Trigger lateTrigger;
+  private Trigger<M> earlyTrigger;
+
+  private Trigger<M> lateTrigger;
 
   private AccumulationMode mode;
 
-  public WindowInternal(Trigger defaultTrigger, BiFunction<M, WV, WV> foldFunction, Function<M, K> keyExtractor, Function<M, Long> eventTimeExtractor) {
-    this.foldFunction = foldFunction;
+  public WindowInternal(Trigger<M> defaultTrigger, Supplier<WV> initialValue, FoldLeftFunction<M, WV> foldLeftFunction, Function<M, WK> keyExtractor, Function<M, Long> eventTimeExtractor, WindowType windowType) {
+    this.defaultTrigger = defaultTrigger;
+    this.initializer = initialValue;
+    this.foldLeftFunction = foldLeftFunction;
     this.eventTimeExtractor = eventTimeExtractor;
     this.keyExtractor = keyExtractor;
-    this.defaultTrigger = defaultTrigger;
+    this.windowType = windowType;
   }
 
   @Override
-  public Window<M, K, WV> setEarlyTrigger(Trigger trigger) {
+  public Window<M, WK, WV> setEarlyTrigger(Trigger<M> trigger) {
     this.earlyTrigger = trigger;
     return this;
   }
 
   @Override
-  public Window<M, K, WV> setLateTrigger(Trigger trigger) {
+  public Window<M, WK, WV> setLateTrigger(Trigger<M> trigger) {
     this.lateTrigger = trigger;
     return this;
   }
 
   @Override
-  public Window<M, K, WV> setAccumulationMode(AccumulationMode mode) {
+  public Window<M, WK, WV> setAccumulationMode(AccumulationMode mode) {
     this.mode = mode;
     return this;
   }
 
-  public Trigger getDefaultTrigger() {
+  public Trigger<M> getDefaultTrigger() {
     return defaultTrigger;
   }
 
-  public Trigger getEarlyTrigger() {
+  public Trigger<M> getEarlyTrigger() {
     return earlyTrigger;
   }
 
-  public Trigger getLateTrigger() {
+  public Trigger<M> getLateTrigger() {
     return lateTrigger;
   }
 
-  public BiFunction<M, WV, WV> getFoldFunction() {
-    return foldFunction;
+  public Supplier<WV> getInitializer() {
+    return initializer;
   }
 
-  public Function<M, K> getKeyExtractor() {
+  public FoldLeftFunction<M, WV> getFoldLeftFunction() {
+    return foldLeftFunction;
+  }
+
+  public Function<M, WK> getKeyExtractor() {
     return keyExtractor;
   }
 
   public Function<M, Long> getEventTimeExtractor() {
     return eventTimeExtractor;
+  }
+
+  public WindowType getWindowType() {
+    return windowType;
+  }
+
+  public AccumulationMode getAccumulationMode() {
+    return mode;
   }
 }

@@ -28,5 +28,9 @@ class RepeatingTrigger<M> implements Trigger<M> {
   RepeatingTrigger(Trigger<M> trigger) {
     this.trigger = trigger;
   }
+
+  public Trigger<M> getTrigger() {
+    return trigger;
+  }
 }
 

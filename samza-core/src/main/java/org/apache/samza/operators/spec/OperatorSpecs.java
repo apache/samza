@@ -147,13 +147,13 @@ public class OperatorSpecs {
    * Creates a {@link SinkOperatorSpec}.
    *
    * @param sinkFn  the sink function
-   * @param graph  the {@link StreamGraphImpl} object
    * @param stream  the {@link OutputStream} where the message is sent to
+   * @param opId operator ID
    * @param <M>  type of input message
    * @return  the {@link SinkOperatorSpec}
    */
-  public static <M> SinkOperatorSpec<M> createPartitionOperatorSpec(SinkFunction<M> sinkFn, StreamGraphImpl graph, OutputStream<M> stream) {
-    return new SinkOperatorSpec<>(sinkFn, OperatorSpec.OpCode.PARTITION_BY, graph.getNextOpId(), stream);
+  public static <M> SinkOperatorSpec<M> createPartitionOperatorSpec(SinkFunction<M> sinkFn, OutputStream<M> stream, int opId) {
+    return new SinkOperatorSpec<>(sinkFn, OperatorSpec.OpCode.PARTITION_BY, opId, stream);
   }
 
   /**
@@ -176,18 +176,21 @@ public class OperatorSpecs {
   /**
    * Creates a {@link PartialJoinOperatorSpec}.
    *
-   * @param partialJoinFn  the join function
+   * @param thisPartialJoinFn  the partial join function for this message stream
+   * @param otherPartialJoinFn  the partial join function for the other message stream
+   * @param ttlMs  the ttl in ms for retaining messages in each stream
    * @param graph  the {@link StreamGraphImpl} object
    * @param joinOutput  the output {@link MessageStreamImpl}
-   * @param <M>  type of input message
-   * @param <K>  type of join key
+   * @param <K>  the type of join key
+   * @param <M>  the type of input message
    * @param <JM>  the type of message in the other join stream
-   * @param <OM>  the type of message in the join output
+   * @param <RM>  the type of message in the join output
    * @return  the {@link PartialJoinOperatorSpec}
    */
-  public static <M, K, JM, OM> PartialJoinOperatorSpec<M, K, JM, OM> createPartialJoinOperatorSpec(
-      PartialJoinFunction<K, M, JM, OM> partialJoinFn, StreamGraphImpl graph, MessageStreamImpl<OM> joinOutput) {
-    return new PartialJoinOperatorSpec<>(partialJoinFn, joinOutput, graph.getNextOpId());
+  public static <K, M, JM, RM> PartialJoinOperatorSpec<K, M, JM, RM> createPartialJoinOperatorSpec(
+      PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn, PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn,
+      long ttlMs, StreamGraphImpl graph, MessageStreamImpl<RM> joinOutput) {
+    return new PartialJoinOperatorSpec<K, M, JM, RM>(thisPartialJoinFn, otherPartialJoinFn, ttlMs, joinOutput, graph.getNextOpId());
   }
 
   /**

@@ -66,7 +66,7 @@ public class TestZkLeaderElector {
 
   @Before
   public void testSetup() {
-    testZkConnectionString = "localhost:" + zkServer.getPort();
+    testZkConnectionString = "127.0.0.1:" + zkServer.getPort();
     try {
       testZkUtils = getZkUtilsWithNewClient("testProcessorId");
     } catch (Exception e) {

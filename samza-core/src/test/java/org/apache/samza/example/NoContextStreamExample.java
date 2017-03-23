@@ -19,7 +19,7 @@
 package org.apache.samza.example;
 
 import org.apache.samza.operators.*;
-import org.apache.samza.operators.StreamGraphBuilder;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.data.InputMessageEnvelope;
 import org.apache.samza.operators.data.JsonIncomingSystemMessageEnvelope;
@@ -32,14 +32,15 @@ import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.CommandLine;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
 
 /**
- * Example {@link StreamGraphBuilder} code to test the API methods
+ * Example {@link StreamApplication} code to test the API methods
  */
-public class NoContextStreamExample implements StreamGraphBuilder {
+public class NoContextStreamExample implements StreamApplication {
 
   StreamSpec input1 = new StreamSpec("inputStreamA", "PageViewEvent", "kafka");
 
@@ -111,7 +112,7 @@ public class NoContextStreamExample implements StreamGraphBuilder {
         new StringSerde("UTF-8"), new JsonSerde<>());
 
     inputSource1.map(this::getInputMessage).
-        join(inputSource2.map(this::getInputMessage), new MyJoinFunction()).
+        join(inputSource2.map(this::getInputMessage), new MyJoinFunction(), Duration.ofMinutes(1)).
         sendTo(outStream);
 
   }
@@ -121,7 +122,7 @@ public class NoContextStreamExample implements StreamGraphBuilder {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
-    localRunner.run(new NoContextStreamExample(), config);
+    localRunner.run(new NoContextStreamExample());
   }
 
 }

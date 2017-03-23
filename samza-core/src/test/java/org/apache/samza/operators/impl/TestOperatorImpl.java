@@ -50,7 +50,12 @@ public class TestOperatorImpl {
         TestOperatorImpl.this.curCollector = collector;
         TestOperatorImpl.this.curCoordinator = coordinator;
       }
-    };
+      @Override
+      public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+
+      }
+
+      };
     // verify registerNextOperator() added the mockSub and propagateResult() invoked the mockSub.onNext()
     OperatorImpl mockSub = mock(OperatorImpl.class);
     opImpl.registerNextOperator(mockSub);

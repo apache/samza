@@ -31,8 +31,9 @@ import org.apache.samza.annotation.InterfaceStability;
 public interface MapFunction<M, OM>  extends InitableFunction {
 
   /**
-   * Transforms the provided message into another message
-   * @param message  the input message to be transformed
+   * Transforms the provided message into another message.
+   *
+   * @param message  the input message to be transformed. This object should not be mutated.
    * @return  the transformed message
    */
   OM apply(M message);

@@ -40,6 +40,7 @@ object TaskConfig {
   val GROUPER_FACTORY = "task.name.grouper.factory" // class name for task grouper
   val MAX_CONCURRENCY = "task.max.concurrency" // max number of concurrent process for a AsyncStreamTask
   val CALLBACK_TIMEOUT_MS = "task.callback.timeout.ms"  // timeout period for triggering a callback
+  val ASYNC_COMMIT = "task.async.commit" // to enable async commit in a AsyncStreamTask
 
   /**
    * Samza's container polls for more messages under two conditions. The first
@@ -126,6 +127,11 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getCallbackTimeoutMs: Option[Long] = getOption(TaskConfig.CALLBACK_TIMEOUT_MS) match {
     case Some(ms) => Some(ms.toLong)
+    case _ => None
+  }
+
+  def getAsyncCommit: Option[Boolean] = getOption(TaskConfig.ASYNC_COMMIT) match {
+    case Some(asyncCommit) => Some(asyncCommit.toBoolean)
     case _ => None
   }
 }
