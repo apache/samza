@@ -36,7 +36,6 @@ import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.YarnConfig;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.CommandBuilder;
-import org.apache.samza.job.yarn.YarnContainer;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.util.hadoop.HttpFileSystem;
 import org.slf4j.Logger;
@@ -119,6 +118,11 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     super(callback);
     hConfig = new YarnConfiguration();
     hConfig.set("fs.http.impl", HttpFileSystem.class.getName());
+
+    if (config.containsKey("fs.certfs.impl.override")) { //TODO: change to use constants from CertFSConstants once that CertFSConstants.java is in
+      hConfig.set("fs.certfs.impl", config.get("fs.certfs.impl.override"));
+      log.info("samza job config fs.certfs.impl.override is used for yarn.");
+    }
 
     MetricsRegistryMap registry = new MetricsRegistryMap();
     metrics = new SamzaAppMasterMetrics(config, samzaAppState, registry);

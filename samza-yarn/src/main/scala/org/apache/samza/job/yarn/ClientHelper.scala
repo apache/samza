@@ -20,12 +20,12 @@
 package org.apache.samza.job.yarn
 
 import org.apache.hadoop.fs.permission.FsPermission
-import org.apache.samza.config.{JobConfig, Config, YarnConfig}
-import org.apache.samza.coordinator.stream.{CoordinatorStreamWriter}
+import org.apache.samza.config.{Config, JobConfig, YarnConfig}
+import org.apache.samza.coordinator.stream.CoordinatorStreamWriter
 import org.apache.samza.coordinator.stream.messages.SetConfig
 
 import scala.collection.JavaConversions._
-import scala.collection.{Map}
+import scala.collection.Map
 import scala.collection.mutable.HashMap
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
@@ -167,6 +167,17 @@ class ClientHelper(conf: Configuration) extends Logging {
     val localResources: HashMap[String, LocalResource] = HashMap[String, LocalResource]()
     localResources += "__package" -> packageResource
 
+    // set the local certificate for containers and app master
+    val appCertificateRequestPathStr = yarnConfig.getAppCertificateRequestPath
+    info("appCertificateRequestPathStr: %s " format appCertificateRequestPathStr)
+    if (appCertificateRequestPathStr != null) {
+      val certificatePath = new Path(appCertificateRequestPathStr)
+      val appCertName = yarnConfig.getAppCertificateName
+      val appCertLocalResources = setupAppCertLocalResources(fs, certificatePath, appCertName)
+      localResources ++= appCertLocalResources
+    }
+
+
     if (UserGroupInformation.isSecurityEnabled()) {
       validateJobConfig(config)
 
@@ -187,6 +198,8 @@ class ClientHelper(conf: Configuration) extends Logging {
       coordinatorStreamWriter.stop()
     }
 
+    // prepare all local resources for localizer
+    info("localResource_ClientHelper_is: %s" format localResources)
     containerCtx.setLocalResources(localResources)
     info("set local resources on application master for %s" format appId.get)
 
@@ -286,6 +299,13 @@ class ClientHelper(conf: Configuration) extends Logging {
     }
   }
 
+  private[yarn] def setupAppCertLocalResources(fs: FileSystem, appCertificateRequestPath: Path, appCertName: String) = {
+    val localResources = HashMap[String, LocalResource]()
+    localResources.put(appCertName, getLocalResource(fs, appCertificateRequestPath, LocalResourceType.FILE))
+    localResources.toMap
+  }
+
+
   private def addLocalFile(fs: FileSystem, localFile: String, destDirPath: Path) = {
     val srcFilePath = new Path(localFile)
     val destFilePath = new Path(destDirPath, srcFilePath.getName)
@@ -298,7 +318,9 @@ class ClientHelper(conf: Configuration) extends Logging {
   private def getLocalResource(fs: FileSystem, destFilePath: Path, resourceType: LocalResourceType) = {
     val localResource = Records.newRecord(classOf[LocalResource])
     val fileStatus = fs.getFileStatus(destFilePath)
-    localResource.setResource(ConverterUtils.getYarnUrlFromPath(destFilePath))
+    val resourceFetchUrl = ConverterUtils.getYarnUrlFromPath(destFilePath)
+    localResource.setResource(resourceFetchUrl)
+    info("set local resource fetch url to %s for %s" format (resourceFetchUrl, jobContext.getAppId))
     localResource.setSize(fileStatus.getLen())
     localResource.setTimestamp(fileStatus.getModificationTime())
     localResource.setType(resourceType)

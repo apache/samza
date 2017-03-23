@@ -35,10 +35,12 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
+import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.SamzaContainerLaunchException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.YarnConfig;
+import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.job.CommandBuilder;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -112,11 +114,20 @@ public class YarnContainerRunner {
 
     log.info("Samza FWK path: " + command + "; env=" + env);
 
-    Path path = new Path(yarnConfig.getPackagePath());
-    log.info("Starting container ID {} using package path {}", samzaContainerId, path);
+    Path packagePath = new Path(yarnConfig.getPackagePath());
+
+    Path certificateRequestPath = null;
+    try {
+      certificateRequestPath = new Path(yarnConfig.getAppCertificateRequestPath());
+    } catch (SamzaException e) {
+      log.info("certificateRequestPath not found in config, defaulting to null");
+    }
+    log.info("Starting container ID {} using package path {} and certificate request path {}", samzaContainerId, packagePath, certificateRequestPath);
+
 
     startContainer(
-        path,
+        packagePath,
+        certificateRequestPath,
         container,
         env,
         getFormattedCommand(
@@ -145,6 +156,7 @@ public class YarnContainerRunner {
    *    specified by packagePath.
    */
   private void startContainer(Path packagePath,
+                                Path certificatePath,
                                 Container container,
                                 Map<String, String> env,
                                 final String cmd) throws SamzaContainerLaunchException {
@@ -163,6 +175,7 @@ public class YarnContainerRunner {
     }
 
     packageResource.setResource(packageUrl);
+    log.info("set package Resource in YarnContainerRunner for {}", packageUrl);
     packageResource.setSize(fileStatus.getLen());
     packageResource.setTimestamp(fileStatus.getModificationTime());
     packageResource.setType(LocalResourceType.ARCHIVE);
@@ -190,14 +203,36 @@ public class YarnContainerRunner {
       throw new SamzaContainerLaunchException("IO Exception when writing credentials to output buffer");
     }
 
+    Map<String, LocalResource> localResourceMap = new HashMap<>();
+    localResourceMap.put("__package", packageResource);
+
+    if (null != certificatePath) {
+      LocalResource certificateResource = Records.newRecord(LocalResource.class);
+      URL certificateUrl = ConverterUtils.getYarnUrlFromPath(certificatePath);
+      FileStatus certificateFileStatus;
+      try {
+        certificateFileStatus = certificatePath.getFileSystem(yarnConfiguration).getFileStatus(certificatePath);
+      } catch (IOException ioe) {
+        log.error("IO Exception when accessing the certificate file status from the filesystem", ioe);
+        throw new SamzaContainerLaunchException("IO Exception when accessing the certificate file status from the filesystem");
+      }
+
+      certificateResource.setResource(certificateUrl);
+      log.info("setCertificateResource in YarnContainerRunner for {}", certificateUrl);
+      certificateResource.setSize(certificateFileStatus.getLen());
+      certificateResource.setTimestamp(certificateFileStatus.getModificationTime());
+      certificateResource.setType(LocalResourceType.FILE);
+      certificateResource.setVisibility(LocalResourceVisibility.APPLICATION);
+      localResourceMap.put(certificatePath.getName(), certificateResource);
+    }
+
     ContainerLaunchContext context = Records.newRecord(ContainerLaunchContext.class);
     context.setEnvironment(env);
     context.setTokens(allTokens.duplicate());
     context.setCommands(new ArrayList<String>() {{add(cmd);}});
-    context.setLocalResources(Collections.singletonMap("__package", packageResource));
+    context.setLocalResources(localResourceMap);
 
-    log.debug("setting package to {}", packageResource);
-    log.debug("setting context to {}", context);
+    log.debug("setting localResourceMap to {}", localResourceMap);
 
     StartContainerRequest startContainerRequest = Records.newRecord(StartContainerRequest.class);
     startContainerRequest.setContainerLaunchContext(context);

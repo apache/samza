@@ -26,6 +26,8 @@ public class YarnConfig extends MapConfig {
    * (Required) URL from which the job package can be downloaded
    */
   public static final String PACKAGE_PATH = "yarn.package.path";
+  public static final String CSR_SSL_REQUEST_PATH = "csr.ssl.request.path";
+  public static final String CSR_SSL_APPCERT_NAME = "csr.ssl.appcert.name";
 
   // Configs related to each yarn container
   /**
@@ -33,6 +35,11 @@ public class YarnConfig extends MapConfig {
    */
   public static final String CONTAINER_MAX_MEMORY_MB = "yarn.container.memory.mb";
   private static final int DEFAULT_CONTAINER_MEM = 1024;
+
+  /**
+   * default App certificate name used for the samza applications
+   */
+  private static final String DEFAULT_APP_CERT_NAME = "identity";
 
   /**
    * Name of YARN queue to run jobs on
@@ -184,6 +191,18 @@ public class YarnConfig extends MapConfig {
       throw new SamzaException("No YARN package path defined in config.");
     }
     return packagePath;
+  }
+
+  public String getAppCertificateRequestPath() {
+    String certificateRequestPath = get(CSR_SSL_REQUEST_PATH);
+    if (certificateRequestPath == null) {
+      throw new SamzaException("No Samza app certificate request path defined in config.");
+    }
+    return certificateRequestPath;
+  }
+
+  public String getAppCertificateName() {
+    return get(CSR_SSL_APPCERT_NAME, DEFAULT_APP_CERT_NAME);
   }
 
   public int getAMContainerMaxMemoryMb() {

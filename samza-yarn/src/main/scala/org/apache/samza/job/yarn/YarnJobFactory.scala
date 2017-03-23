@@ -25,8 +25,9 @@ import org.apache.samza.job.StreamJobFactory
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.samza.config.Config
 import org.apache.samza.util.hadoop.HttpFileSystem
+import org.apache.samza.util.Logging
 
-class YarnJobFactory extends StreamJobFactory {
+class YarnJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config) = {
     // TODO fix this. needed to support http package locations.
     val hConfig = new YarnConfiguration
@@ -37,6 +38,12 @@ class YarnJobFactory extends StreamJobFactory {
     if (config.containsKey(YarnConfiguration.RM_ADDRESS)) {
       hConfig.set(YarnConfiguration.RM_ADDRESS, config.get(YarnConfiguration.RM_ADDRESS, "0.0.0.0:8032"))
     }
+
+    if (config.containsKey("fs.certfs.impl.override")) { // TODO: change to use constants from CertFSConstants once that CertFSConstants.java is in
+      hConfig.set("fs.certfs.impl", config.get("fs.certfs.impl.override"))
+      logger.info("samza job config fs.certfs.impl.override is used for yarn.")
+    }
+
     new YarnJob(config, hConfig)
   }
 }
