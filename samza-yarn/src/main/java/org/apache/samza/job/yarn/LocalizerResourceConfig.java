@@ -27,7 +27,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.samza.config.Config;
 
 /**
- * LocalizerResourceConfigManager is intended to manage/fetch the config values
+ * LocalizerResourceConfig is intended to manage/fetch the config values
  * for the yarn localizer resource(s) from the configuration.
  *
  * There are 4 config values

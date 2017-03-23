@@ -26,35 +26,23 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
 public class TestYarnJobFactory {
-
   @Test
   public void testGetJobWithDefaultFsImpl() {
-
     YarnJobFactory jobFactory = new YarnJobFactory();
-
     YarnJob yarnJob = jobFactory.getJob(new MapConfig());
-
     Configuration hConfig = yarnJob.client().yarnClient().getConfig();
-
     assertEquals(HttpFileSystem.class.getName(), hConfig.get("fs.http.impl"));
-
     assertEquals(HttpFileSystem.class.getName(), hConfig.get("fs.https.impl"));
-
   }
 
   @Test
   public void  testGetJobWithFsImplOverride() {
-
     YarnJobFactory jobFactory = new YarnJobFactory();
-
     YarnJob yarnJob = jobFactory.getJob(new MapConfig(ImmutableMap.of(
         "fs.http.impl", "org.apache.myHttp",
         "fs.myscheme.impl","org.apache.myScheme")));
-
     Configuration hConfig = yarnJob.client().yarnClient().getConfig();
-
     assertEquals("org.apache.myHttp", hConfig.get("fs.http.impl"));
-
     assertEquals("org.apache.myScheme", hConfig.get("fs.myscheme.impl"));
   }
 }

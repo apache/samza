@@ -27,11 +27,8 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * FsImplConfigManager is intented to manage the Samza config for fs.&lt;scheme&gt;impl.
+ * FileSystemImplConfig is intended to manage the Samza config for fs.&lt;scheme&gt;impl.
  * e.g. fs.http.impl
- *
- * Usually this config exist in yarn config,
- * but it is also allowed the clients define this for Samza Job and pick specific implementation for the job.
  */
 public class FileSystemImplConfig {
   private static final Logger log = LoggerFactory.getLogger(FileSystemImplConfig.class);
