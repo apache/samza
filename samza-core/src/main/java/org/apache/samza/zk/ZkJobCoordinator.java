@@ -51,7 +51,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private static final String JOB_MODEL_VERSION_BARRIER = "JobModelVersion";
 
   private final ZkUtils zkUtils;
-  private final int processorId;
+  private final String processorId;
+
   private final ZkController zkController;
   private final SamzaContainerController containerController;
   private final ScheduleAfterDebounceTime debounceTimer;
@@ -64,14 +65,14 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private String newJobModelVersion;  // version published in ZK (by the leader)
   private JobModel jobModel;
 
-  public ZkJobCoordinator(int processorId, String groupId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
-      SamzaContainerController containerController) {
+  public ZkJobCoordinator(String groupId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
+                          SamzaContainerController containerController) {
     this.zkUtils = zkUtils;
     this.keyBuilder = zkUtils.getKeyBuilder();
     this.debounceTimer = debounceTimer;
-    this.processorId = processorId;
+    this.processorId = getProcessorIdGeneratorFromConfig(config).generateProcessorId();
     this.containerController = containerController;
-    this.zkController = new ZkControllerImpl(String.valueOf(processorId), zkUtils, debounceTimer, this);
+    this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this);
     this.config = config;
     this.coordinationUtils = Util.
         <CoordinationServiceFactory>getObj(
@@ -90,7 +91,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       String systemFactoryClassName = systemConfig.getSystemFactory(systemName);
       if (systemFactoryClassName == null) {
         String msg = String.format("A stream uses system %s, which is missing from the configuration.", systemName);
-        log.error(String.format(msg));
+        log.error(msg);
         throw new SamzaException(msg);
       }
       SystemFactory systemFactory = Util.getObj(systemFactoryClassName);
@@ -103,10 +104,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   @Override
   public void start() {
     zkController.register();
-  }
-
-  public void cleanupZk() {
-    zkUtils.deleteRoot();
   }
 
   @Override
@@ -123,7 +120,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   }
 
   @Override
-  public int getProcessorId() {
+  public String getProcessorId() {
     return processorId;
   }
 

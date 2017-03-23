@@ -25,7 +25,7 @@ import org.apache.samza.processor.SamzaContainerController;
 
 public class StandaloneJobCoordinatorFactory  implements JobCoordinatorFactory {
   @Override
-  public JobCoordinator getJobCoordinator(int processorId, Config config, SamzaContainerController containerController) {
-    return new StandaloneJobCoordinator(processorId, config, containerController);
+  public JobCoordinator getJobCoordinator(Config config, SamzaContainerController containerController) {
+    return new StandaloneJobCoordinator(config, containerController);
   }
 }

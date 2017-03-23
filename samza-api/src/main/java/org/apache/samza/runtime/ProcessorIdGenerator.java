@@ -16,20 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
+package org.apache.samza.runtime;
 
-import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.processor.SamzaContainerController;
-
-
-@InterfaceStability.Evolving
-public interface JobCoordinatorFactory {
+public interface ProcessorIdGenerator {
   /**
-   * @param config Configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
-   * @param containerController Controller interface for starting and stopping container. In future, it may simply
-   *                            pause the container and add/remove tasks
-   * @return An instance of IJobCoordinator
+   * Generates a String representation to identify the processor instance
+   * This value can be representative of its current executing environment. It can also be custom-managed by the user.
+   *
+   * <b>Note</b>: processorId has to be unique among the processors within a job
+   *
+   * @return String Identifier for the processor
    */
-  JobCoordinator getJobCoordinator(Config config, SamzaContainerController containerController);
+  String generateProcessorId();
+
 }

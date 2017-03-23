@@ -65,11 +65,11 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     final String outputTopic = "output";
     final int messageCount = 20;
 
-    final Config configs = new MapConfig(createConfigs(testSystem, inputTopic, outputTopic, messageCount));
+    final Config configs = new MapConfig(createConfigs("1", testSystem, inputTopic, outputTopic, messageCount));
     // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
     // TopicExistsException since StreamProcessor auto-creates them.
     createTopics(inputTopic, outputTopic);
-    final StreamProcessor processor = new StreamProcessor(1, new MapConfig(configs), new HashMap<>(), IdentityStreamTask::new);
+    final StreamProcessor processor = new StreamProcessor(new MapConfig(configs), new HashMap<>());
 
     produceMessages(inputTopic, messageCount);
     run(processor, endLatch);
@@ -86,10 +86,10 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     final String outputTopic = "output2";
     final int messageCount = 20;
 
-    final Config configs = new MapConfig(createConfigs(testSystem, inputTopic, outputTopic, messageCount));
+    final Config configs = new MapConfig(createConfigs("1", testSystem, inputTopic, outputTopic, messageCount));
     createTopics(inputTopic, outputTopic);
     final StreamTaskFactory stf = IdentityStreamTask::new;
-    final StreamProcessor processor = new StreamProcessor(1, configs, new HashMap<>(), stf);
+    final StreamProcessor processor = new StreamProcessor(configs, new HashMap<>(), stf);
 
     produceMessages(inputTopic, messageCount);
     run(processor, endLatch);
@@ -106,11 +106,11 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     final String outputTopic = "output3";
     final int messageCount = 20;
 
-    final Config configs = new MapConfig(createConfigs(testSystem, inputTopic, outputTopic, messageCount));
+    final Config configs = new MapConfig(createConfigs("1", testSystem, inputTopic, outputTopic, messageCount));
     final ExecutorService executorService = Executors.newSingleThreadExecutor();
     createTopics(inputTopic, outputTopic);
     final AsyncStreamTaskFactory stf = () -> new AsyncStreamTaskAdapter(new IdentityStreamTask(), executorService);
-    final StreamProcessor processor = new StreamProcessor(1, configs, new HashMap<>(), stf);
+    final StreamProcessor processor = new StreamProcessor(configs, new HashMap<>(), stf);
 
     produceMessages(inputTopic, messageCount);
     run(processor, endLatch);
@@ -128,11 +128,11 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     final String outputTopic = "output4";
     final int messageCount = 20;
 
-    final Map<String, String> configMap = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
+    final Map<String, String> configMap = createConfigs("1", testSystem, inputTopic, outputTopic, messageCount);
     configMap.remove("task.class");
     final Config configs = new MapConfig(configMap);
 
-    StreamProcessor processor = new StreamProcessor(1, configs, new HashMap<>(), (StreamTaskFactory) null);
+    StreamProcessor processor = new StreamProcessor(configs, new HashMap<>());
     run(processor, endLatch);
   }
 
@@ -141,7 +141,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     TestUtils.createTopic(zkUtils(), outputTopic, 1, 1, servers(), new Properties());
   }
 
-  private Map<String, String> createConfigs(String testSystem, String inputTopic, String outputTopic, int messageCount) {
+  private Map<String, String> createConfigs(String processorId, String testSystem, String inputTopic, String outputTopic, int messageCount) {
     Map<String, String> configs = new HashMap<>();
     configs.putAll(
         StandaloneTestUtils.getStandaloneConfigs("test-job", "org.apache.samza.test.processor.IdentityStreamTask"));
@@ -152,6 +152,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     configs.put("app.outputTopic", outputTopic);
     configs.put("app.outputSystem", testSystem);
     configs.put(ZkConfig.ZK_CONNECT, zkConnect());
+    configs.put("processor.id", processorId);
     return configs;
   }
 

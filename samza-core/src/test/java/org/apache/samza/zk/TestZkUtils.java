@@ -67,7 +67,6 @@ public class TestZkUtils {
     }
 
     zkUtils = new ZkUtils(
-        "testProcessorId",
         KEY_BUILDER,
         zkClient,
         SESSION_TIMEOUT_MS);

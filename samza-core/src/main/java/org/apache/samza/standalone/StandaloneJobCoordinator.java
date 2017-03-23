@@ -27,6 +27,7 @@ import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.processor.SamzaContainerController;
+import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
@@ -63,25 +64,28 @@ import java.util.Map;
  * */
 public class StandaloneJobCoordinator implements JobCoordinator {
   private static final Logger log = LoggerFactory.getLogger(StandaloneJobCoordinator.class);
-  private final int processorId;
+  private final ProcessorIdGenerator processorIdGenerator;
+  private final String processorId;
   private final Config config;
   private final JobModel jobModel;
   private final SamzaContainerController containerController;
 
   @VisibleForTesting
   StandaloneJobCoordinator(
-      int processorId,
+      ProcessorIdGenerator processorIdGenerator,
       Config config,
       SamzaContainerController containerController,
       JobModel jobModel) {
-    this.processorId = processorId;
+    this.processorIdGenerator = processorIdGenerator;
+    this.processorId = processorIdGenerator.generateProcessorId();
     this.config = config;
     this.containerController = containerController;
     this.jobModel = jobModel;
   }
 
-  public StandaloneJobCoordinator(int processorId, Config config, SamzaContainerController containerController) {
-    this.processorId = processorId;
+  public StandaloneJobCoordinator(Config config, SamzaContainerController containerController) {
+    this.processorIdGenerator = getProcessorIdGeneratorFromConfig(config);
+    this.processorId = processorIdGenerator.generateProcessorId();
     this.config = config;
     this.containerController = containerController;
 
@@ -113,7 +117,7 @@ public class StandaloneJobCoordinator implements JobCoordinator {
     // No-op
     JobModel jobModel = getJobModel();
     containerController.startContainer(
-        jobModel.getContainers().get(processorId),
+        jobModel.getContainers().get(getProcessorId()),
         jobModel.getConfig(),
         jobModel.maxChangeLogStreamPartitions);
   }
@@ -137,8 +141,8 @@ public class StandaloneJobCoordinator implements JobCoordinator {
   }
 
   @Override
-  public int getProcessorId() {
-    return this.processorId;
+  public String getProcessorId() {
+    return processorId;
   }
 
   @Override
