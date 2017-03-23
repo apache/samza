@@ -69,11 +69,12 @@ public class TestZkBarrierForVersionUpgrade {
   @Test
   public void testZkBarrierForVersionUpgrade() {
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
-    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(testZkUtils, debounceTimer);
     String ver = "1";
     List<String> processors = new ArrayList<String>();
     processors.add("p1");
     processors.add("p2");
+
+    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(testZkUtils, debounceTimer, ver, processors);
 
     class Status {
       boolean p1 = false;
@@ -81,16 +82,16 @@ public class TestZkBarrierForVersionUpgrade {
     }
     final Status s = new Status();
 
-    barrier.start(ver, processors);
+    barrier.start();
 
-    barrier.waitForBarrier(ver, "p1", new Runnable() {
+    barrier.waitForBarrier("p1", new Runnable() {
       @Override
       public void run() {
         s.p1 = true;
       }
     });
 
-    barrier.waitForBarrier(ver, "p2", new Runnable() {
+    barrier.waitForBarrier("p2", new Runnable() {
       @Override
       public void run() {
         s.p2 = true;
@@ -103,12 +104,13 @@ public class TestZkBarrierForVersionUpgrade {
   @Test
   public void testNegativeZkBarrierForVersionUpgrade() {
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
-    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(testZkUtils, debounceTimer);
     String ver = "1";
     List<String> processors = new ArrayList<String>();
     processors.add("p1");
     processors.add("p2");
     processors.add("p3");
+
+    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(testZkUtils, debounceTimer, ver, processors);
 
     class Status {
       boolean p1 = false;
@@ -117,16 +119,16 @@ public class TestZkBarrierForVersionUpgrade {
     }
     final Status s = new Status();
 
-    barrier.start(ver, processors);
+    barrier.start();
 
-    barrier.waitForBarrier(ver, "p1", new Runnable() {
+    barrier.waitForBarrier("p1", new Runnable() {
       @Override
       public void run() {
         s.p1 = true;
       }
     });
 
-    barrier.waitForBarrier(ver, "p2", new Runnable() {
+    barrier.waitForBarrier("p2", new Runnable() {
       @Override
       public void run() {
         s.p2 = true;
@@ -139,17 +141,19 @@ public class TestZkBarrierForVersionUpgrade {
   @Test
   public void testZkBarrierForVersionUpgradeWithTimeOut() {
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
-    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(testZkUtils, debounceTimer) {
-      @Override
-      protected long getBarrierTimeOutMs() {
-        return 200;
-      }
-    };
+
     String ver = "1";
     List<String> processors = new ArrayList<String>();
     processors.add("p1");
     processors.add("p2");
     processors.add("p3");
+
+    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(testZkUtils, debounceTimer, ver, processors) {
+      @Override
+      protected long getBarrierTimeOutMs() {
+        return 200;
+      }
+    };
 
     class Status {
       boolean p1 = false;
@@ -158,16 +162,16 @@ public class TestZkBarrierForVersionUpgrade {
     }
     final Status s = new Status();
 
-    barrier.start(ver, processors);
+    barrier.start();
 
-    barrier.waitForBarrier(ver, "p1", new Runnable() {
+    barrier.waitForBarrier("p1", new Runnable() {
       @Override
       public void run() {
         s.p1 = true;
       }
     });
 
-    barrier.waitForBarrier(ver, "p2", new Runnable() {
+    barrier.waitForBarrier("p2", new Runnable() {
       @Override
       public void run() {
         s.p2 = true;
@@ -175,7 +179,7 @@ public class TestZkBarrierForVersionUpgrade {
     });
 
     // this node will join "too late"
-    barrier.waitForBarrier(ver, "p3", new Runnable() {
+    barrier.waitForBarrier("p3", new Runnable() {
       @Override
       public void run() {
         TestZkUtils.sleepMs(300);
