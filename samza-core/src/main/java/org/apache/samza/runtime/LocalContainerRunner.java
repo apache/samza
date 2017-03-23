@@ -33,6 +33,7 @@ import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.ScalaToJavaUtils;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -41,11 +42,11 @@ import org.slf4j.LoggerFactory;
 /**
  * LocalContainerRunner is the local runner for Yarn {@link SamzaContainer}s. It is an intermediate step to
  * have a local runner for yarn before we consolidate the Yarn container and coordination into a
- * StreamProcessor. This class will be replaced by the {@link org.apache.samza.processor.StreamProcessor} local runner
- * once that's done.
+ * {@link org.apache.samza.processor.StreamProcessor}. This class will be replaced by the {@link org.apache.samza.processor.StreamProcessor}
+ * local runner once that's done.
  *
- * Since we don't have the jobCoordinator implementation in Yarn, the components (jobModel and containerId) are directly
- * inside the runner.
+ * Since we don't have the {@link org.apache.samza.coordinator.JobCoordinator} implementation in Yarn, the components (jobModel and containerId)
+ * are directly inside the runner.
  */
 public class LocalContainerRunner extends AbstractApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(LocalContainerRunner.class);
@@ -64,6 +65,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     try {
       jmxServer = new JmxServer();
       ContainerModel containerModel = jobModel.getContainers().get(containerId);
+      Object taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, this);
 
       SamzaContainer container = SamzaContainer$.MODULE$.apply(
           containerModel.getContainerId(),
@@ -73,8 +75,9 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
           SamzaContainer.getLocalityManager(containerId, config),
           jmxServer,
           Util.javaMapAsScalaMap(new HashMap<String, MetricsReporter>()),
-          null,
+          taskFactory,
           this);
+
       container.run();
     } finally {
       if (jmxServer != null) {
@@ -83,7 +86,8 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     }
   }
 
-  public static void main(String[] args) {
+
+  public static void main(String[] args) throws Exception {
     setExceptionHandler(() -> System.exit(1));
 
     Integer containerId = Integer.valueOf(System.getenv(ShellCommandConfig.ENV_CONTAINER_ID()));
@@ -103,7 +107,8 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
 
-    new LocalContainerRunner(jobModel, containerId).run(null);
+    StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
+    new LocalContainerRunner(jobModel, containerId).run(streamApp);
   }
 
   /* package private */ static void setExceptionHandler(Runnable runnable) {

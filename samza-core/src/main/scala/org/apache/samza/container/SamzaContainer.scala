@@ -394,7 +394,7 @@ object SamzaContainer extends Logging {
       null
 
     val taskFactoryInstance = Option(taskFactory)
-      .getOrElse(TaskFactoryUtil.fromTaskClassConfig(config, appRunner))
+      .getOrElse(TaskFactoryUtil.fromTaskClassConfig(config))
 
     val finalTaskFactory = TaskFactoryUtil.finalizeTaskFactory(
       taskFactoryInstance,

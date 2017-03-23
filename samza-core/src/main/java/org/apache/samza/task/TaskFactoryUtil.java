@@ -39,28 +39,34 @@ public class TaskFactoryUtil {
   private static final Logger log = LoggerFactory.getLogger(TaskFactoryUtil.class);
 
   /**
-   * This method loads a task factory class based on the configuration
+   * This method creates a task factory class based on the configuration and {@link StreamApplication}
    *
    * @param config  the {@link Config} for this job
    * @param runner  the {@link ApplicationRunner} to run this job
    * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
    */
-  public static Object fromTaskClassConfig(Config config, ApplicationRunner runner) {
+  public static Object createTaskFactory(Config config, StreamApplication streamApp, ApplicationRunner runner) {
+    return (streamApp != null) ? createStreamOperatorTaskFactory(streamApp, runner) : fromTaskClassConfig(config);
+  }
 
-    String taskClassName;
+  private static StreamTaskFactory createStreamOperatorTaskFactory(StreamApplication streamApp, ApplicationRunner runner) {
+    return () -> new StreamOperatorTask(streamApp, runner);
+  }
 
+  /**
+   * Create {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory} based on the configured task.class.
+   * @param config
+   * @return task factory instance
+   */
+  public static Object fromTaskClassConfig(Config config) {
     // if there is configuration to set the job w/ a specific type of task, instantiate the corresponding task factory
-    if (isStreamOperatorTask(config)) {
-      taskClassName = StreamOperatorTask.class.getName();
-    } else {
-      taskClassName = new TaskConfig(config).getTaskClass().getOrElse(
-          new AbstractFunction0<String>() {
-            @Override
-            public String apply() {
-              throw new ConfigException("There is no task class defined in the configuration. Failed to create a valid TaskFactory");
-            }
-          });
-    }
+    String taskClassName = new TaskConfig(config).getTaskClass().getOrElse(
+      new AbstractFunction0<String>() {
+        @Override
+        public String apply() {
+          throw new ConfigException("There is no task class defined in the configuration. Failed to create a valid TaskFactory");
+        }
+      });
 
     log.info("Got task class name: {}", taskClassName);
 
@@ -89,9 +95,6 @@ public class TaskFactoryUtil {
       @Override
       public StreamTask createInstance() {
         try {
-          if (taskClassName.equals(StreamOperatorTask.class.getName())) {
-            return createStreamOperatorTask(config, runner);
-          }
           return (StreamTask) Class.forName(taskClassName).newInstance();
         } catch (Throwable t) {
           log.error("Error loading StreamTask class: {}. error: {}", taskClassName, t);
@@ -147,29 +150,31 @@ public class TaskFactoryUtil {
     }
   }
 
-  private static StreamTask createStreamOperatorTask(Config config, ApplicationRunner runner) throws Exception {
-    Class<?> builderClass = Class.forName(config.get(StreamApplication.APP_CLASS_CONFIG));
-    StreamApplication graphBuilder = (StreamApplication) builderClass.newInstance();
-    return new StreamOperatorTask(graphBuilder, runner);
-  }
-
-  private static boolean isStreamOperatorTask(Config config) {
+  /**
+   * Create a {@link StreamApplication} from config.
+   * Throw {@link ConfigException} if the configured class name is not a StreamApplication type, or
+   * the low level task.class is also configured.
+   * @param config Config
+   * @return {@link StreamApplication} instance
+   */
+  public static StreamApplication createStreamApplication(Config config) {
     if (config.get(StreamApplication.APP_CLASS_CONFIG) != null && !config.get(StreamApplication.APP_CLASS_CONFIG).isEmpty()) {
-
       TaskConfig taskConfig = new TaskConfig(config);
       if (taskConfig.getTaskClass() != null && !taskConfig.getTaskClass().isEmpty()) {
         throw new ConfigException("High level StreamApplication API cannot be used together with low-level API using task.class.");
       }
 
+      String appClassName = config.get(StreamApplication.APP_CLASS_CONFIG);
       try {
-        Class<?> builderClass = Class.forName(config.get(StreamApplication.APP_CLASS_CONFIG));
-        return StreamApplication.class.isAssignableFrom(builderClass);
+        Class<?> builderClass = Class.forName(appClassName);
+        return (StreamApplication) builderClass.newInstance();
       } catch (Throwable t) {
         log.error("Failed to validate StreamApplication class from the config. {}={}",
-            StreamApplication.APP_CLASS_CONFIG, config.get(StreamApplication.APP_CLASS_CONFIG));
-        return false;
+            StreamApplication.APP_CLASS_CONFIG, appClassName);
+        throw new ConfigException(String.format("%s is not a StreamApplication.", appClassName));
       }
+    } else {
+      return null;
     }
-    return false;
   }
 }
