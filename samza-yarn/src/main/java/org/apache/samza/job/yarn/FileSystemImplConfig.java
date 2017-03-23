@@ -74,7 +74,6 @@ public class FileSystemImplConfig {
    * Get the class name corresponding for the given scheme
    * @param scheme scheme name, such as http, hdfs, myscheme
    * @return full scoped class name for the file system for &lt;scheme&gt;
-   * @throws LocalizerResourceException if the value for fs.&lt;scheme&gt.impl is empty
    */
   public String getFsImplClassName(final String scheme) {
     String fsImplKey = getFsImplKey(scheme);
