@@ -22,8 +22,10 @@
 -->
 
 <suppressions>
+<!-- example
     <suppress checks="Indentation"
            files="TestZkProcessorLatch.java"
            lines="91-275"/>
+           -->
 </suppressions>
 

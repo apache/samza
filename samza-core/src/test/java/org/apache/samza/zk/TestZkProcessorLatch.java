@@ -85,7 +85,7 @@ public class TestZkProcessorLatch {
     System.out.println("Started 1");
     int latchSize = 1;
     String latchId = "l2";
-
+// CHECKSTYLE:OFF
     ExecutorService pool = Executors.newFixedThreadPool(3);
     Future f1 = pool.submit(() -> {
       Latch latch = coordinationService.getLatch(latchSize, latchId);
@@ -273,7 +273,7 @@ public class TestZkProcessorLatch {
         Assert.fail("await timed out. " + e.getLocalizedMessage());
       }
     });
-
+// CHECKSTYLE:ON
     try {
       f1.get(600, TimeUnit.MILLISECONDS);
       f2.get(600, TimeUnit.MILLISECONDS);
