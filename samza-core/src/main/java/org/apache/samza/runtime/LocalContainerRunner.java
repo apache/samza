@@ -89,9 +89,9 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
   public static void main(String[] args) throws Exception {
     setExceptionHandler(() -> {
-      log.info("Exiting process now.");
-      System.exit(1);
-    });
+        log.info("Exiting process now.");
+        System.exit(1);
+      });
 
     Integer containerId = Integer.valueOf(System.getenv(ShellCommandConfig.ENV_CONTAINER_ID()));
     log.info(String.format("Got container ID: %d", containerId));

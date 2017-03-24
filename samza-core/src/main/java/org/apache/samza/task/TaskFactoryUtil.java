@@ -42,6 +42,7 @@ public class TaskFactoryUtil {
    * This method creates a task factory class based on the configuration and {@link StreamApplication}
    *
    * @param config  the {@link Config} for this job
+   * @param streamApp the {@link StreamApplication}
    * @param runner  the {@link ApplicationRunner} to run this job
    * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
    */
@@ -55,7 +56,7 @@ public class TaskFactoryUtil {
 
   /**
    * Create {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory} based on the configured task.class.
-   * @param config
+   * @param config the {@link Config}
    * @return task factory instance
    */
   public static Object fromTaskClassConfig(Config config) {
