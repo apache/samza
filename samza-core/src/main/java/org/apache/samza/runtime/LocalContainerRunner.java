@@ -51,9 +51,9 @@ import org.slf4j.LoggerFactory;
 public class LocalContainerRunner extends AbstractApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(LocalContainerRunner.class);
   private final JobModel jobModel;
-  private final Integer containerId;
+  private final int containerId;
 
-  public LocalContainerRunner(JobModel jobModel, Integer containerId) {
+  public LocalContainerRunner(JobModel jobModel, int containerId) {
     super(jobModel.getConfig());
     this.jobModel = jobModel;
     this.containerId = containerId;
@@ -88,7 +88,10 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
 
   public static void main(String[] args) throws Exception {
-    setExceptionHandler(() -> System.exit(1));
+    setExceptionHandler(() -> {
+      log.info("Exiting process now.");
+      System.exit(1);
+    });
 
     Integer containerId = Integer.valueOf(System.getenv(ShellCommandConfig.ENV_CONTAINER_ID()));
     log.info(String.format("Got container ID: %d", containerId));
@@ -113,7 +116,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
   /* package private */ static void setExceptionHandler(Runnable runnable) {
     Thread.UncaughtExceptionHandler exceptionHandler = (t, e) -> {
-      log.error(String.format("Uncaught exception in thread (name=%s). Exiting process now.", t.getName(), e));
+      log.error(String.format("Uncaught exception in thread (name=%s).", t.getName(), e));
       e.printStackTrace(System.err);
       runnable.run();
     };

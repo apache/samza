@@ -32,7 +32,7 @@ import org.apache.samza.util.Util;
  * For a StreamApplication, it creates the {@link ApplicationRunner} based on the config, and then run the application.
  * For a Samza job using low level task API, it will create the JobRunner to run it.
  */
-public class ApplicationRunnerMain {
+public class  ApplicationRunnerMain {
   // TODO: have the app configs consolidated in one place
   private static final String STREAM_APPLICATION_CLASS_CONFIG = "app.class";
 

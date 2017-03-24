@@ -151,9 +151,8 @@ public class TaskFactoryUtil {
   }
 
   /**
-   * Create a {@link StreamApplication} from config.
-   * Throw {@link ConfigException} if the configured class name is not a StreamApplication type, or
-   * the low level task.class is also configured.
+   * Returns {@link StreamApplication} if it's configured, otherwise null.
+   * Throws {@link ConfigException} if there is misconfiguration of StreamApp.
    * @param config Config
    * @return {@link StreamApplication} instance
    */
@@ -169,8 +168,6 @@ public class TaskFactoryUtil {
         Class<?> builderClass = Class.forName(appClassName);
         return (StreamApplication) builderClass.newInstance();
       } catch (Throwable t) {
-        log.error("Failed to validate StreamApplication class from the config. {}={}",
-            StreamApplication.APP_CLASS_CONFIG, appClassName);
         throw new ConfigException(String.format("%s is not a StreamApplication.", appClassName));
       }
     } else {
