@@ -74,7 +74,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     // Convert to a Set of ContainerModel
     Set<ContainerModel> containerModels = new HashSet<>();
     for (int i = 0; i < containerCount; i++) {
-      containerModels.add(new ContainerModel(i, taskGroups[i]));
+      containerModels.add(new ContainerModel(String.valueOf(i), taskGroups[i]));
     }
 
     return Collections.unmodifiableSet(containerModels);

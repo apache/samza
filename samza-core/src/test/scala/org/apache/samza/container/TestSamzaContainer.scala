@@ -29,37 +29,23 @@ import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.config.{Config, MapConfig}
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
-import org.apache.samza.job.model.ContainerModel
-import org.apache.samza.job.model.JobModel
-import org.apache.samza.job.model.TaskModel
-import org.apache.samza.serializers._
+import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
+import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.storage.TaskStorageManager
-import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.system.StreamMetadataCache
-import org.apache.samza.system.SystemConsumer
-import org.apache.samza.system.SystemConsumers
-import org.apache.samza.system.SystemProducer
-import org.apache.samza.system.SystemProducers
-import org.apache.samza.system.SystemStream
-import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.chooser.RoundRobinChooser
-import org.apache.samza.task.ClosableTask
-import org.apache.samza.task.InitableTask
-import org.apache.samza.task.MessageCollector
-import org.apache.samza.task.StreamTask
-import org.apache.samza.task.TaskContext
-import org.apache.samza.task.TaskCoordinator
-import org.apache.samza.task.TaskInstanceCollector
+import org.apache.samza.system.{IncomingMessageEnvelope, SystemConsumers, SystemConsumer, SystemProducers, SystemProducer, StreamMetadataCache, SystemStream, SystemStreamPartition}
+import org.apache.samza.task.{StreamTask, InitableTask, ClosableTask, TaskContext, MessageCollector, TaskCoordinator, TaskInstanceCollector}
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
 import org.junit.Assert._
 import org.junit.Test
-import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
 
 import scala.collection.JavaConverters._
+import org.mockito.Mockito.when
+import scala.collection.JavaConversions._
 
 class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   @Test
@@ -113,7 +99,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     }
     assertEquals(2, mockJobServlet.exceptionCount)
   }
-/*
+
   @Test
   def testChangelogPartitions {
     val config = new MapConfig(Map("a" -> "b").asJava)
@@ -126,12 +112,12 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       new TaskName("t3") -> new TaskModel(new TaskName("t3"), offsets.keySet(), new Partition(2)),
       new TaskName("t4") -> new TaskModel(new TaskName("t4"), offsets.keySet(), new Partition(3)),
       new TaskName("t5") -> new TaskModel(new TaskName("t6"), offsets.keySet(), new Partition(4)))
-    val containerModel1 = new ContainerModel(0, tasksForContainer1.asJava)
-    val containerModel2 = new ContainerModel(1, tasksForContainer2.asJava)
+    val containerModel1 = new ContainerModel("0", tasksForContainer1)
+    val containerModel2 = new ContainerModel("1", tasksForContainer2)
     val containers = Map(
-      Integer.valueOf(0) -> containerModel1,
-      Integer.valueOf(1) -> containerModel2)
-    val jobModel = new JobModel(config, containers.asJava)
+      "0" -> containerModel1,
+      "1" -> containerModel2)
+    val jobModel = new JobModel(config, containers)
     assertEquals(jobModel.maxChangeLogStreamPartitions, 5)
   }
 
@@ -152,9 +138,9 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     assertNotNull(stream2Metadata)
     assertEquals("stream1", stream1Metadata.getStreamName)
     assertEquals("stream2", stream2Metadata.getStreamName)
-  }*/
+  }
 
-/*  @Test
+  @Test
   def testExceptionInTaskInitShutsDownTask {
     val task = new StreamTask with InitableTask with ClosableTask {
       var wasShutdown = false
@@ -179,7 +165,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       Map[String, SystemProducer](),
       new SerdeManager)
     val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext(0, config, Set(taskName).asJava)
+    val containerContext = new SamzaContainerContext("0", config, Set[TaskName](taskName))
     val taskInstance: TaskInstance = new TaskInstance(
       task,
       taskName,
@@ -211,9 +197,9 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       case e: Exception => // Expected
     }
     assertTrue(task.wasShutdown)
-  }*/
+  }
 
-/*  @Test
+  @Test
   def testUncaughtExceptionHandler {
     var caughtException = false
     val exceptionHandler = new UncaughtExceptionHandler {
@@ -262,7 +248,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       Map[String, SystemProducer](),
       new SerdeManager)
     val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext(0, config, Set(taskName).asJava)
+    val containerContext = new SamzaContainerContext("0", config, Set[TaskName](taskName))
     val taskInstance: TaskInstance = new TaskInstance(
       task,
       taskName,
@@ -294,9 +280,9 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       case e: Throwable => // Expected
     }
     assertTrue(task.wasShutdown)
-  }*/
+  }
 
- /* @Test
+  @Test
   def testStartStoresIncrementsCounter {
     val task = new StreamTask {
       def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
@@ -311,7 +297,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       Map[String, SystemProducer](),
       new SerdeManager)
     val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext(0, config, Set(taskName).asJava)
+    val containerContext = new SamzaContainerContext("0", config, Set[TaskName](taskName))
     val mockTaskStorageManager = mock[TaskStorageManager]
 
     when(mockTaskStorageManager.init).thenAnswer(new Answer[String] {
@@ -348,7 +334,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     assertNotNull(containerMetrics.taskStoreRestorationMetrics.get(taskName))
     assertTrue(containerMetrics.taskStoreRestorationMetrics.get(taskName).getValue >= 1)
 
-  }*/
+  }
 }
 
 class MockCheckpointManager extends CheckpointManager {

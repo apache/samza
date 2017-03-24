@@ -19,14 +19,6 @@
 
 package org.apache.samza.serializers.model;
 
-import static org.junit.Assert.assertEquals;
-
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
 import junit.framework.Assert;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
@@ -36,21 +28,23 @@ import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.system.SystemStreamPartition;
-import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+import static org.junit.Assert.assertEquals;
+
 public class TestSamzaObjectMapper {
   private JobModel jobModel;
-  private String jobModelJsonString;
-  private ObjectMapper mapper;
 
   @Before
   public void setup() throws IOException {
-    mapper = SamzaObjectMapper.getObjectMapper();
-
     Map<String, String> configMap = new HashMap<String, String>();
     Set<SystemStreamPartition> ssp = new HashSet<>();
     configMap.put("a", "b");
@@ -60,12 +54,10 @@ public class TestSamzaObjectMapper {
     TaskModel taskModel = new TaskModel(taskName, ssp, new Partition(2));
     Map<TaskName, TaskModel> tasks = new HashMap<TaskName, TaskModel>();
     tasks.put(taskName, taskModel);
-    ContainerModel containerModel = new ContainerModel(1, tasks);
+    ContainerModel containerModel = new ContainerModel("1", tasks);
     Map<String, ContainerModel> containerMap = new HashMap<String, ContainerModel>();
     containerMap.put("1", containerModel);
     jobModel = new JobModel(config, containerMap);
-
-    jobModelJsonString = mapper.writeValueAsString(jobModel);
   }
 
   @Test
@@ -77,7 +69,7 @@ public class TestSamzaObjectMapper {
     assertEquals(jobModel, obj);
   }
 
-
+  // Critical test to guarantee compatibility between samza 0.12 job models and 0.13+
   @Test
   public void testJobModelStringToObjectMapping() {
     try {

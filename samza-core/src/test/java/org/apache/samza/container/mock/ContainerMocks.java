@@ -46,7 +46,7 @@ public class ContainerMocks {
       }
       j += taskCountPerContainer[i];
 
-      models.add(createContainerModel(i, partitions));
+      models.add(createContainerModel(String.valueOf(i), partitions));
     }
     return models;
   }
@@ -73,7 +73,7 @@ public class ContainerMocks {
     return newTaskCountPerContainer;
   }
 
-  public static ContainerModel createContainerModel(int containerId, int[] partitions) {
+  public static ContainerModel createContainerModel(String containerId, int[] partitions) {
     Map<TaskName, TaskModel> tasks = new HashMap<>();
     for (int partition : partitions) {
       tasks.put(getTaskName(partition), getTaskModel(partition));

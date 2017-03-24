@@ -41,11 +41,11 @@ public class MockTaskProxy extends SamzaTaskProxy {
       new SystemStreamPartition(SYSTEM_NAME, STREAM_NAME, new Partition(PARTITION_ID)));
 
   public static final String TASK_1_NAME = "Task1";
-  public static final int TASK_1_CONTAINER_ID = 1;
+  public static final String TASK_1_CONTAINER_ID = "1";
   public static final Partition CHANGE_LOG_PARTITION = new Partition(0);
 
   public static final String TASK_2_NAME = "Task2";
-  public static final int TASK_2_CONTAINER_ID = 2;
+  public static final String TASK_2_CONTAINER_ID = "2";
 
   public MockTaskProxy() {
     super(new TaskResourceConfig(new MapConfig()),
