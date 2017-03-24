@@ -36,7 +36,7 @@ public class TestContainerRequestState {
   /**
    * Test state after a request is submitted
    */
-  @Test
+ /* @Test
   public void testUpdateRequestState() {
     // Host-affinity is enabled
     ResourceRequestState state = new ResourceRequestState(true, manager);
@@ -72,9 +72,9 @@ public class TestContainerRequestState {
   }
 
 
-  /**
+  *//**
    * Test addContainer() updates the state correctly
-   */
+   *//*
   @Test
   public void testAddContainer() {
     // Add container to ANY_LIST when host-affinity is not enabled
@@ -134,11 +134,11 @@ public class TestContainerRequestState {
     assertEquals(container3, state1.getResourcesOnAHost(ANY_HOST).get(2));
   }
 
-  /**
+  *//**
    * Test request state after container is assigned to a host
    * * Assigned on requested host
    * * Assigned on any host
-   */
+   *//*
   @Test
   public void testContainerAssignment() throws Exception {
     // Host-affinity enabled
@@ -193,6 +193,6 @@ public class TestContainerRequestState {
     assertEquals(0, state.getResourcesOnAHost(ANY_HOST).size());
 
   }
-
+*/
 
 }

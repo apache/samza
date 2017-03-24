@@ -88,6 +88,7 @@ public class TestContainerProcessManager {
   private SamzaApplicationState state = null;
 
 
+/*
   private JobModelManager getCoordinator(int containerCount) {
     Map<Integer, ContainerModel> containers = new java.util.HashMap<>();
     for (int i = 0; i < containerCount; i++) {
@@ -109,7 +110,9 @@ public class TestContainerProcessManager {
 
     return reader;
   }
+*/
 
+/*
   @Before
   public void setup() throws Exception {
     server = new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class));
@@ -221,9 +224,11 @@ public class TestContainerProcessManager {
 
   }
 
-  /**
+  */
+/**
    * Test Task Manager should stop when all containers finish
-   */
+   *//*
+
   @Test
   public void testTaskManagerShouldStopWhenContainersFinish() {
     Config conf = getConfig();
@@ -244,10 +249,12 @@ public class TestContainerProcessManager {
     assertTrue(taskManager.shouldShutdown());
   }
 
-  /**
+  */
+/**
    * Test Task Manager should request a new container when a task fails with unknown exit code
    * When host-affinity is not enabled, it will always request for ANY_HOST
-   */
+   *//*
+
   @Test
   public void testNewContainerRequestedOnFailureWithUnknownCode() throws Exception {
     Config conf = getConfig();
@@ -317,10 +324,12 @@ public class TestContainerProcessManager {
     taskManager.stop();
   }
 
-  /**
+  */
+/**
    * Test AM requests a new container when a task fails
    * Error codes with same behavior - Disk failure, preemption and aborted
-   */
+   *//*
+
   @Test
   public void testNewContainerRequestedOnFailureWithKnownCode() throws Exception {
     Config conf = getConfig();
@@ -422,5 +431,6 @@ public class TestContainerProcessManager {
   public void teardown() {
     server.stop();
   }
+*/
 
 }

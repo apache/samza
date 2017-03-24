@@ -142,7 +142,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
    *                              if the previous mapping doesn't exist or isn't usable.
    */
   private List<TaskGroup> getPreviousContainers(TaskAssignmentManager taskAssignmentManager, int taskCount) {
-    Map<String, Integer> taskToContainerId = taskAssignmentManager.readTaskAssignment();
+    Map<String, String> taskToContainerId = taskAssignmentManager.readTaskAssignment();
     if (taskToContainerId.isEmpty()) {
       log.info("No task assignment map was saved.");
       return null;
@@ -178,7 +178,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
   private void saveTaskAssignments(Set<ContainerModel> containers, TaskAssignmentManager taskAssignmentManager) {
     for (ContainerModel container : containers) {
       for (TaskName taskName : container.getTasks().keySet()) {
-        taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName(), container.getContainerId());
+        taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName(), container.getProcessorId());
       }
     }
   }
@@ -294,14 +294,14 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
    * @param taskToContainerId a map from each task name to the containerId to which it is assigned.
    * @return                  a list of TaskGroups ordered ascending by containerId.
    */
-  private List<TaskGroup> getOrderedContainers(Map<String, Integer> taskToContainerId) {
+  private List<TaskGroup> getOrderedContainers(Map<String, String> taskToContainerId) {
     log.debug("Got task to container map: {}", taskToContainerId);
 
     // Group tasks by container Id
-    HashMap<Integer, List<String>> containerIdToTaskNames = new HashMap<>();
-    for (Map.Entry<String, Integer> entry : taskToContainerId.entrySet()) {
+    HashMap<String, List<String>> containerIdToTaskNames = new HashMap<>();
+    for (Map.Entry<String, String> entry : taskToContainerId.entrySet()) {
       String taskName = entry.getKey();
-      Integer containerId = entry.getValue();
+      String containerId = entry.getValue();
       List<String> taskNames = containerIdToTaskNames.get(containerId);
       if (taskNames == null) {
         taskNames = new ArrayList<>();

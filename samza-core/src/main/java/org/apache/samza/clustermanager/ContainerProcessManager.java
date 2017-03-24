@@ -93,7 +93,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    * value is the {@link ResourceFailure} object that has a count of failures.
    *
    */
-  private final Map<Integer, ResourceFailure> containerFailures = new HashMap<>();
+  private final Map<String, ResourceFailure> containerFailures = new HashMap<>();
 
   private final ContainerProcessManagerMetrics metrics;
 
@@ -173,7 +173,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     state.neededContainers.set(containerCount);
 
     // Request initial set of containers
-    Map<Integer, String> containerToHostMapping = state.jobModelManager.jobModel().getAllContainerLocality();
+    Map<String, String> containerToHostMapping = state.jobModelManager.jobModel().getAllContainerLocality();
 
     containerAllocator.requestResources(containerToHostMapping);
 
@@ -228,8 +228,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    */
   public void onResourceCompleted(SamzaResourceStatus containerStatus) {
     String containerIdStr = containerStatus.getResourceID();
-    int containerId = -1;
-    for (Map.Entry<Integer, SamzaResource> entry: state.runningContainers.entrySet()) {
+    String containerId = null;
+    for (Map.Entry<String, SamzaResource> entry: state.runningContainers.entrySet()) {
       if (entry.getValue().getResourceID().equals(containerStatus.getResourceID())) {
         log.info("Matching container ID found " + entry.getKey() + " " + entry.getValue());
 
@@ -237,7 +237,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         break;
       }
     }
-    if (containerId == -1) {
+    if (containerId == null) {
       log.info("No matching container id found for " + containerStatus.toString());
     }
     state.runningContainers.remove(containerId);
@@ -249,7 +249,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
         state.completedContainers.incrementAndGet();
 
-        if (containerId != -1) {
+        if (containerId != null) {
           state.finishedContainers.incrementAndGet();
           containerFailures.remove(containerId);
         }
@@ -275,7 +275,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         // clean up, and request a refactor container for the tasks. This only
         // should happen if the container was 'lost' due to node failure, not
         // if the AM released the container.
-        if (containerId != -1) {
+        if (containerId != null) {
           log.info("Released container {} was assigned task group ID {}. Requesting a refactor container for the task group.", containerIdStr, containerId);
 
           state.neededContainers.incrementAndGet();
@@ -295,7 +295,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         state.failedContainersStatus.put(containerIdStr, containerStatus);
         state.jobHealthy.set(false);
 
-        if (containerId != -1) {
+        if (containerId != null) {
           state.neededContainers.incrementAndGet();
           // Find out previously running container location
           String lastSeenOn = state.jobModelManager.jobModel().getContainerToHostValue(containerId, SetContainerHostMapping.HOST_KEY);

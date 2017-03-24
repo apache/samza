@@ -94,7 +94,7 @@ public class SamzaTaskProxy implements TaskProxy {
     Map<Integer, String> containerLocality = jobModel.getAllContainerLocality();
     List<Task> tasks = new ArrayList<>();
     for (ContainerModel containerModel : jobModel.getContainers().values()) {
-      int containerId = containerModel.getContainerId();
+      int containerId = containerModel.getProcessorId();
       String host = containerLocality.get(containerId);
       for (TaskModel taskModel : containerModel.getTasks().values()) {
         String taskName = taskModel.getTaskName().getTaskName();

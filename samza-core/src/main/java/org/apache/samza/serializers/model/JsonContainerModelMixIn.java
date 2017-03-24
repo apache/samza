@@ -30,11 +30,15 @@ import org.codehaus.jackson.annotate.JsonProperty;
  */
 public abstract class JsonContainerModelMixIn {
   @JsonCreator
-  public JsonContainerModelMixIn(@JsonProperty("container-id") int containerId, @JsonProperty("tasks") Map<TaskName, TaskModel> tasks) {
+  public JsonContainerModelMixIn(@JsonProperty("processor-id") String processorId, @JsonProperty("container-id") int containerId, @JsonProperty("tasks") Map<TaskName, TaskModel> tasks) {
   }
 
+  @Deprecated
   @JsonProperty("container-id")
   abstract int getContainerId();
+
+  @JsonProperty("processor-id")
+  abstract int getProcessorId();
 
   @JsonProperty("tasks")
   abstract Map<TaskName, TaskModel> getTasks();

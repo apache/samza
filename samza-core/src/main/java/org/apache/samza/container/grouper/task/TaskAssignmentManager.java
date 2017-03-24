@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
  * */
 public class TaskAssignmentManager extends AbstractCoordinatorStreamManager {
   private static final Logger log = LoggerFactory.getLogger(TaskAssignmentManager.class);
-  private final Map<String, Integer> taskNameToContainerId = new HashMap<>();
+  private final Map<String, String> taskNameToContainerId = new HashMap<>();
   private boolean registered = false;
 
   /**
@@ -70,7 +70,7 @@ public class TaskAssignmentManager extends AbstractCoordinatorStreamManager {
    *
    * @return the map of taskName: containerId
    */
-  public Map<String, Integer> readTaskAssignment() {
+  public Map<String, String> readTaskAssignment() {
     taskNameToContainerId.clear();
     for (CoordinatorStreamMessage message: getBootstrappedStream(SetTaskContainerMapping.TYPE)) {
       if (message.isDelete()) {
@@ -83,11 +83,11 @@ public class TaskAssignmentManager extends AbstractCoordinatorStreamManager {
       }
     }
 
-    for (Map.Entry<String, Integer> entry : taskNameToContainerId.entrySet()) {
+    for (Map.Entry<String, String> entry : taskNameToContainerId.entrySet()) {
       log.debug("Assignment for task \"{}\": {}", entry.getKey(), entry.getValue());
     }
 
-    return Collections.unmodifiableMap(new HashMap<>(taskNameToContainerId));
+    return Collections.<String, String>unmodifiableMap(taskNameToContainerId);
   }
 
   /**
@@ -96,8 +96,8 @@ public class TaskAssignmentManager extends AbstractCoordinatorStreamManager {
    * @param taskName    the task name
    * @param containerId the SamzaContainer ID or {@code null} to delete the mapping
    */
-  public void writeTaskContainerMapping(String taskName, Integer containerId) {
-    Integer existingContainerId = taskNameToContainerId.get(taskName);
+  public void writeTaskContainerMapping(String taskName, String containerId) {
+    String existingContainerId = taskNameToContainerId.get(taskName);
     if (existingContainerId != null && !existingContainerId.equals(containerId)) {
       log.info("Task \"{}\" moved from container {} to container {}", new Object[]{taskName, existingContainerId, containerId});
     } else {

@@ -34,7 +34,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class TestTaskAssignmentManager {
-
+/*
   private final MockCoordinatorStreamSystemFactory mockCoordinatorStreamSystemFactory =
       new MockCoordinatorStreamSystemFactory();
   private final Config config = new MapConfig(
@@ -156,5 +156,5 @@ public class TestTaskAssignmentManager {
     taskAssignmentManager.stop();
     assertTrue(producer.isStopped());
     assertTrue(consumer.isStopped());
-  }
+  }*/
 }

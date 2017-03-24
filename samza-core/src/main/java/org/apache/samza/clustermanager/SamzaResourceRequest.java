@@ -55,14 +55,14 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
   /**
    * The ID of the StreamProcessor which this request is for.
    */
-  private final int containerID;
+  private final String containerID;
 
   /**
    * The timestamp in millis when the request was created.
    */
   private final long requestTimestampMs;
 
-  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, int expectedContainerID) {
+  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String expectedContainerID) {
     this.numCores = numCores;
     this.memoryMB = memoryMB;
     this.preferredHost = preferredHost;
@@ -72,7 +72,7 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
     log.info("Resource Request created for {} on {} at {}", new Object[] {this.containerID, this.preferredHost, this.requestTimestampMs});
   }
 
-  public int getContainerID() {
+  public String getContainerID() {
     return containerID;
   }
 

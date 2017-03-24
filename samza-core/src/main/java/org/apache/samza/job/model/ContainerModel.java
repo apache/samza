@@ -37,16 +37,33 @@ import org.apache.samza.container.TaskName;
  * </p>
  */
 public class ContainerModel implements Comparable<ContainerModel> {
+  @Deprecated
   private final int containerId;
+  private final String processorId;
   private final Map<TaskName, TaskModel> tasks;
 
+  @Deprecated
   public ContainerModel(int containerId, Map<TaskName, TaskModel> tasks) {
+    this(String.valueOf(containerId), containerId, tasks);
+  }
+
+  public ContainerModel(String containerId, Map<TaskName, TaskModel> tasks) {
+    this(containerId, -1, tasks);
+  }
+
+  public ContainerModel(String processorId, int containerId, Map<TaskName, TaskModel> tasks) {
     this.containerId = containerId;
+    this.processorId = processorId;
     this.tasks = Collections.unmodifiableMap(tasks);
   }
 
+  @Deprecated
   public int getContainerId() {
     return containerId;
+  }
+
+  public String getProcessorId() {
+    return processorId;
   }
 
   public Map<TaskName, TaskModel> getTasks() {
@@ -76,7 +93,7 @@ public class ContainerModel implements Comparable<ContainerModel> {
     if (getClass() != obj.getClass())
       return false;
     ContainerModel other = (ContainerModel) obj;
-    if (containerId != other.containerId)
+    if (!processorId.equals(other.processorId))
       return false;
     if (tasks == null) {
       if (other.tasks != null)
@@ -87,6 +104,6 @@ public class ContainerModel implements Comparable<ContainerModel> {
   }
 
   public int compareTo(ContainerModel other) {
-    return containerId - other.getContainerId();
+    return processorId.compareTo(other.getProcessorId());
   }
 }

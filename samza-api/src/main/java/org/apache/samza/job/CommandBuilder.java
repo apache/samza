@@ -30,7 +30,7 @@ import org.apache.samza.config.Config;
  */
 public abstract class CommandBuilder {
   protected Config config;
-  protected int id;
+  protected String id;
   protected URL url;
   protected String commandPath;
 
@@ -61,7 +61,7 @@ public abstract class CommandBuilder {
    *          associated with a specific instantiation of a SamzaContainer.
    * @return self to support a builder style of use.
    */
-  public CommandBuilder setId(int id) {
+  public CommandBuilder setId(String id) {
     this.id = id;
     return this;
   }

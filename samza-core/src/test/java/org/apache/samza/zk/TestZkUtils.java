@@ -160,7 +160,7 @@ public class TestZkUtils {
     Assert.assertTrue(testWithDelayBackOff(() -> "newProcessor".equals(res.getRes()), 2, 1000));
   }
 
-  @Test
+/*  @Test
   public void testPublishNewJobModel() {
     ZkKeyBuilder keyBuilder = new ZkKeyBuilder("test");
     String root = keyBuilder.getRootPath();
@@ -193,7 +193,7 @@ public class TestZkUtils {
 
     zkUtils.publishJobModel(version, jobModel);
     Assert.assertEquals(jobModel, zkUtils.getJobModel(version));
-  }
+  }*/
 
   public static boolean testWithDelayBackOff(BooleanSupplier cond, long startDelayMs, long maxDelayMs) {
     long delay = startDelayMs;

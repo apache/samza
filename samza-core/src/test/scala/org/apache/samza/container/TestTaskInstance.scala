@@ -48,7 +48,7 @@ import org.apache.samza.system.SystemAdmin
 import scala.collection.mutable.ListBuffer
 
 class TestTaskInstance {
-  @Test
+ /* @Test
   def testOffsetsAreUpdatedOnProcess {
     val task = new StreamTask {
       def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
@@ -353,7 +353,7 @@ class TestTaskInstance {
 
     val expected = List(envelope1, envelope2, envelope4)
     assertEquals(expected, result.toList)
-  }
+  }*/
 }
 
 class MockSystemAdmin extends SystemAdmin {

@@ -64,7 +64,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
 
     commandBuilder
             .setConfig(config)
-            .setId(0)
+            .setId("0")
             .setUrl(coordinator.server.getUrl)
             .setCommandPath(fwkPath)
 

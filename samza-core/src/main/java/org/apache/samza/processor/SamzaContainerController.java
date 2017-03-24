@@ -92,11 +92,11 @@ public class SamzaContainerController {
   public void startContainer(ContainerModel containerModel, Config config, int maxChangelogStreamPartitions) {
     LocalityManager localityManager = null;
     if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {
-      localityManager = SamzaContainer$.MODULE$.getLocalityManager(containerModel.getContainerId(), config);
+      localityManager = SamzaContainer$.MODULE$.getLocalityManager(containerModel.getProcessorId(), config);
     }
-    log.info("About to create container: " + containerModel.getContainerId());
+    log.info("About to create container: " + containerModel.getProcessorId());
     container = SamzaContainer$.MODULE$.apply(
-        containerModel.getContainerId(),
+        containerModel.getProcessorId(),
         containerModel,
         config,
         maxChangelogStreamPartitions,
@@ -104,7 +104,7 @@ public class SamzaContainerController {
         new JmxServer(),
         Util.<String, MetricsReporter>javaMapAsScalaMap(metricsReporterMap),
         taskFactory);
-    log.info("About to start container: " + containerModel.getContainerId());
+    log.info("About to start container: " + containerModel.getProcessorId());
     containerFuture = executorService.submit(() -> container.run());
   }
 

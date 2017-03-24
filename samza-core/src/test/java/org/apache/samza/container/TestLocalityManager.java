@@ -51,7 +51,7 @@ public class TestLocalityManager {
         }
       });
 
-  @Before
+/*  @Before
   public void setup() {
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache();
   }
@@ -136,5 +136,5 @@ public class TestLocalityManager {
 
     localityManager.stop();
     assertTrue(producer.isStopped());
-  }
+  }*/
 }
