@@ -53,7 +53,7 @@ public class TestTaskFactoryUtil {
         this.put("task.class", "org.apache.samza.testUtils.TestStreamTask");
       }
     });
-    Object retFactory = TaskFactoryUtil.fromTaskClassConfig(config);
+    Object retFactory = TaskFactoryUtil.createTaskFactory(config, null, null);
     assertTrue(retFactory instanceof StreamTaskFactory);
     assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof TestStreamTask);
 
@@ -63,7 +63,7 @@ public class TestTaskFactoryUtil {
       }
     });
     try {
-      TaskFactoryUtil.fromTaskClassConfig(config);
+      TaskFactoryUtil.createTaskFactory(config, null, null);
       fail("Should have failed w/ no.such.class");
     } catch (ConfigException cfe) {
       // expected
@@ -204,7 +204,7 @@ public class TestTaskFactoryUtil {
         this.put("task.class", "org.apache.samza.testUtils.TestAsyncStreamTask");
       }
     });
-    Object retFactory = TaskFactoryUtil.fromTaskClassConfig(config);
+    Object retFactory = TaskFactoryUtil.createTaskFactory(config, null, null);
     assertTrue(retFactory instanceof AsyncStreamTaskFactory);
     assertTrue(((AsyncStreamTaskFactory) retFactory).createInstance() instanceof TestAsyncStreamTask);
 
@@ -214,7 +214,7 @@ public class TestTaskFactoryUtil {
       }
     });
     try {
-      TaskFactoryUtil.fromTaskClassConfig(config);
+      TaskFactoryUtil.createTaskFactory(config, null, null);
       fail("Should have failed w/ no.such.class");
     } catch (ConfigException cfe) {
       // expected

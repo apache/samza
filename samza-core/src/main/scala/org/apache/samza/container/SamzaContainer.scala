@@ -120,8 +120,7 @@ object SamzaContainer extends Logging {
     localityManager: LocalityManager,
     jmxServer: JmxServer,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
-    taskFactory: Object = null,
-    appRunner: ApplicationRunner = null) = {
+    taskFactory: Object) = {
     val containerName = getSamzaContainerName(containerId)
     val containerPID = Util.getContainerPID
 
@@ -393,11 +392,8 @@ object SamzaContainer extends Logging {
     else
       null
 
-    val taskFactoryInstance = Option(taskFactory)
-      .getOrElse(TaskFactoryUtil.fromTaskClassConfig(config))
-
     val finalTaskFactory = TaskFactoryUtil.finalizeTaskFactory(
-      taskFactoryInstance,
+      taskFactory,
       singleThreadMode,
       taskThreadPool)
 

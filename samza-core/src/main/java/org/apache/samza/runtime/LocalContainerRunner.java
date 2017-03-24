@@ -75,8 +75,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
           SamzaContainer.getLocalityManager(containerId, config),
           jmxServer,
           Util.javaMapAsScalaMap(new HashMap<String, MetricsReporter>()),
-          taskFactory,
-          this);
+          taskFactory);
 
       container.run();
     } finally {

@@ -59,7 +59,7 @@ public class TaskFactoryUtil {
    * @param config the {@link Config}
    * @return task factory instance
    */
-  public static Object fromTaskClassConfig(Config config) {
+  private static Object fromTaskClassConfig(Config config) {
     // if there is configuration to set the job w/ a specific type of task, instantiate the corresponding task factory
     String taskClassName = new TaskConfig(config).getTaskClass().getOrElse(
       new AbstractFunction0<String>() {
@@ -153,8 +153,8 @@ public class TaskFactoryUtil {
 
   /**
    * Returns {@link StreamApplication} if it's configured, otherwise null.
-   * Throws {@link ConfigException} if there is misconfiguration of StreamApp.
    * @param config Config
+   * throws {@link ConfigException} if there is misconfiguration of StreamApp.
    * @return {@link StreamApplication} instance
    */
   public static StreamApplication createStreamApplication(Config config) {
