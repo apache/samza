@@ -24,13 +24,14 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskModel;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
+import org.codehaus.jackson.map.annotate.JsonDeserialize;
 
 /**
  * A mix-in Jackson class to convert Samza's ContainerModel to/from JSON.
  */
 public abstract class JsonContainerModelMixIn {
   @JsonCreator
-  public JsonContainerModelMixIn(@JsonProperty("processor-id") String processorId, @JsonProperty("container-id") int containerId, @JsonProperty("tasks") Map<TaskName, TaskModel> tasks) {
+  public JsonContainerModelMixIn(@JsonProperty("processor-id") String processorId, @JsonDeserialize @JsonProperty("container-id") int containerId, @JsonProperty("tasks") Map<TaskName, TaskModel> tasks) {
   }
 
   @Deprecated
@@ -38,7 +39,7 @@ public abstract class JsonContainerModelMixIn {
   abstract int getContainerId();
 
   @JsonProperty("processor-id")
-  abstract int getProcessorId();
+  abstract String getProcessorId();
 
   @JsonProperty("tasks")
   abstract Map<TaskName, TaskModel> getTasks();

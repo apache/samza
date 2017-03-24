@@ -48,12 +48,16 @@ public class ContainerModel implements Comparable<ContainerModel> {
   }
 
   public ContainerModel(String containerId, Map<TaskName, TaskModel> tasks) {
-    this(containerId, -1, tasks);
+    this(containerId, Integer.valueOf(containerId), tasks);
   }
 
   public ContainerModel(String processorId, int containerId, Map<TaskName, TaskModel> tasks) {
     this.containerId = containerId;
-    this.processorId = processorId;
+    if (processorId == null) {
+      this.processorId = String.valueOf(containerId);
+    } else {
+      this.processorId = processorId;
+    }
     this.tasks = Collections.unmodifiableMap(tasks);
   }
 

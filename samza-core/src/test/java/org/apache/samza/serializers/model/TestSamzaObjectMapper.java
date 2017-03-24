@@ -60,7 +60,7 @@ public class TestSamzaObjectMapper {
     TaskModel taskModel = new TaskModel(taskName, ssp, new Partition(2));
     Map<TaskName, TaskModel> tasks = new HashMap<TaskName, TaskModel>();
     tasks.put(taskName, taskModel);
-    ContainerModel containerModel = new ContainerModel("1", tasks);
+    ContainerModel containerModel = new ContainerModel(1, tasks);
     Map<String, ContainerModel> containerMap = new HashMap<String, ContainerModel>();
     containerMap.put("1", containerModel);
     jobModel = new JobModel(config, containerMap);
@@ -79,11 +79,20 @@ public class TestSamzaObjectMapper {
 
 
   @Test
-  public void testJobModelStringToObjectMapping() throws IOException {
-    String newJobModelString = "{\"config\":{\"a\":\"b\"},\"containers\":{\"1\":{\"processor-id\":\"1\",\"container-id\":-1,\"tasks\":{\"test\":{\"task-name\":\"test\",\"system-stream-partitions\":[{\"system\":\"foo\",\"partition\":1,\"stream\":\"bar\"}],\"changelog-partition\":2}}}},\"max-change-log-stream-partitions\":3,\"all-container-locality\":{\"1\":null}}";
-    ObjectMapper mapper = SamzaObjectMapper.getObjectMapper();
-    JobModel jobModel = mapper.readValue(newJobModelString, JobModel.class);
-    System.out.println("Here");
+  public void testJobModelStringToObjectMapping() {
+    try {
+      String newJobModelString = "{\"config\":{\"a\":\"b\"},\"containers\":{\"1\":{\"processor-id\":\"1\",\"container-id\":1,\"tasks\":{\"test\":{\"task-name\":\"test\",\"system-stream-partitions\":[{\"system\":\"foo\",\"partition\":1,\"stream\":\"bar\"}],\"changelog-partition\":2}}}},\"max-change-log-stream-partitions\":3,\"all-container-locality\":{\"1\":null}}";
+      ObjectMapper mapper = SamzaObjectMapper.getObjectMapper();
+      JobModel jobModel = mapper.readValue(newJobModelString, JobModel.class);
+
+      String oldJobModelString = "{\"config\":{\"a\":\"b\"},\"containers\":{\"1\":{\"container-id\":1,\"tasks\":{\"test\":{\"task-name\":\"test\",\"system-stream-partitions\":[{\"system\":\"foo\",\"partition\":1,\"stream\":\"bar\"}],\"changelog-partition\":2}}}},\"max-change-log-stream-partitions\":3,\"all-container-locality\":{\"1\":null}}";
+      ObjectMapper mapper1 = SamzaObjectMapper.getObjectMapper();
+      JobModel jobModel1 = mapper1.readValue(oldJobModelString, JobModel.class);
+
+      Assert.assertEquals(jobModel, jobModel1);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
   }
 
 }
