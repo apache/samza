@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
@@ -89,9 +90,34 @@ public class SamzaObjectMapper {
     mapper.getSerializationConfig().addMixInAnnotations(TaskModel.class, JsonTaskModelMixIn.class);
     mapper.getDeserializationConfig().addMixInAnnotations(TaskModel.class, JsonTaskModelMixIn.class);
     mapper.getSerializationConfig().addMixInAnnotations(ContainerModel.class, JsonContainerModelMixIn.class);
-    mapper.getDeserializationConfig().addMixInAnnotations(ContainerModel.class, JsonContainerModelMixIn.class);
+//    mapper.getDeserializationConfig().addMixInAnnotations(ContainerModel.class, JsonContainerModelMixIn.class);
     mapper.getSerializationConfig().addMixInAnnotations(JobModel.class, JsonJobModelMixIn.class);
     mapper.getDeserializationConfig().addMixInAnnotations(JobModel.class, JsonJobModelMixIn.class);
+
+    module.addDeserializer(ContainerModel.class, new JsonDeserializer<ContainerModel>() {
+      @Override
+      public ContainerModel deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+        ObjectCodec oc = jp.getCodec();
+        JsonNode node = oc.readTree(jp);
+        System.out.println("####### Here");
+        System.out.println(node);
+        int containerId = node.get("container-id").getIntValue();
+        if (node.get("container-id") == null) {
+          throw new SamzaException("JobModel did not contain a container-id. This can never happen. JobModel corrupt!");
+        }
+        String processorId;
+        if (node.get("processor-id") == null) {
+          System.out.println("Didn't find processorId!");
+          processorId = String.valueOf(containerId);
+        } else {
+          processorId = node.get("processor-id").getTextValue();
+          System.out.println("Found processor-id " + processorId);
+        }
+
+        Map<TaskName, TaskModel> tasksMapping = OBJECT_MAPPER.readValue(node.get("tasks"), new TypeReference<Map<TaskName, TaskModel>>() {});
+        return new ContainerModel(processorId, containerId, tasksMapping);
+      }
+    });
 
     // Convert camel case to hyphenated field names, and register the module.
     mapper.setPropertyNamingStrategy(new CamelCaseToDashesStrategy());

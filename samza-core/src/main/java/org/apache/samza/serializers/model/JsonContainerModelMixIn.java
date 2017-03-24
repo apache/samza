@@ -24,6 +24,7 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskModel;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
+import org.codehaus.jackson.annotate.JsonWriteNullProperties;
 import org.codehaus.jackson.map.annotate.JsonDeserialize;
 
 /**
@@ -31,7 +32,7 @@ import org.codehaus.jackson.map.annotate.JsonDeserialize;
  */
 public abstract class JsonContainerModelMixIn {
   @JsonCreator
-  public JsonContainerModelMixIn(@JsonProperty("processor-id") String processorId, @JsonDeserialize @JsonProperty("container-id") int containerId, @JsonProperty("tasks") Map<TaskName, TaskModel> tasks) {
+  public JsonContainerModelMixIn(@JsonProperty("processor-id") String processorId, @JsonProperty("tasks") Map<TaskName, TaskModel> tasks) {
   }
 
   @Deprecated
