@@ -20,7 +20,10 @@
 package org.apache.samza.job.local
 
 
+import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap}
+import org.apache.samza.runtime.LocalContainerRunner
+import org.apache.samza.task.TaskFactoryUtil
 import org.apache.samza.util.Logging
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
@@ -41,6 +44,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val jobModel = coordinator.jobModel
     val containerModel = jobModel.getContainers.get(0)
     val jmxServer = new JmxServer
+    val streamApp = TaskFactoryUtil.createStreamApplication(config)
+    val appRunner = new LocalContainerRunner(jobModel, 0)
+    val taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, appRunner)
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
     config.getTaskOpts match {
@@ -57,7 +63,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
               config,
               jobModel.maxChangeLogStreamPartitions,
               null,
-              jmxServer))
+              jmxServer,
+              Map[String, MetricsReporter](),
+              taskFactory))
     } finally {
       coordinator.stop
       jmxServer.stop
