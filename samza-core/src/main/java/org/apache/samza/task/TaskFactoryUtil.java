@@ -165,8 +165,9 @@ public class TaskFactoryUtil {
         Class<?> builderClass = Class.forName(config.get(StreamApplication.APP_CLASS_CONFIG));
         return StreamApplication.class.isAssignableFrom(builderClass);
       } catch (Throwable t) {
-        log.error("Failed to validate StreamApplication class from the config. {}={}",
+        String errorMsg = String.format("Failed to validate StreamApplication class from the config. %s = %s",
             StreamApplication.APP_CLASS_CONFIG, config.get(StreamApplication.APP_CLASS_CONFIG));
+        log.error(errorMsg, t);
         return false;
       }
     }
