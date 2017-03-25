@@ -52,6 +52,7 @@ import java.util.Properties;
  *     Automatic Setup and teardown: Any non-trivial integration test brings up components like Zookeeper
  *     servers, Kafka brokers, Kafka producers and Kafka consumers. This harness initializes each
  *     of these components in {@link #setUp()} and shuts down each of them cleanly in {@link #tearDown()}.
+ *     {@link #setUp()} and {@link #tearDown()} are automatically invoked from the Junit runner.
  *   <li>
  *     Interaction with Kafka: The harness provides convenience methods to interact with Kafka brokers, consumers
  *     and producers - for instance, methods to create topics, produce and consume messages.
@@ -61,7 +62,7 @@ import java.util.Properties;
  *     serdes for producing / consuming messages and a default system-alias named "kafka" that uses the
  *     {@link org.apache.samza.system.kafka.KafkaSystemFactory}.
  *   <li>
- *     Debugging: At times, it is convenient to debug integration tests run locally from an IDE. This harness
+ *     Debugging: At times, it is convenient to debug integration tests locally from an IDE. This harness
  *     runs all its components (including Kafka brokers, Zookeeper servers and Samza) locally.
  * </ul>
  *
@@ -69,8 +70,12 @@ import java.util.Properties;
  * State persistence: {@link #tearDown()} clears all associated state (including topics and metadata) in Kafka and
  * Zookeeper. Hence, the state is not durable across invocations of {@link #tearDown()} <br/>
  *
- * Execution model: </i> {@link StreamApplication}s are run as their own {@link org.apache.samza.job.local.ThreadJob}s.
- * Kafka servers and Zookeeper servers are started as their own threads.
+ * Execution model: {@link StreamApplication}s are run as their own {@link org.apache.samza.job.local.ThreadJob}s.
+ * Similarly, embedded Kafka servers and Zookeeper servers are run as their own threads.
+ *
+ * <h3>Usage Example</h3>
+ * Here is a test that publishes a message into Kafka, runs an application, and verifies consumption
+ * from the output topic.
  *
  *  <pre> {@code
  * class MyTest extends StreamApplicationIntegrationTestHarness {
@@ -169,18 +174,16 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    */
   public List<ConsumerRecord<String, String>> getMessages(Collection<String> topics, int threshold) {
     int emptyPollCount = 0;
-    int numFetchedMessages = 0;
     List<ConsumerRecord<String, String>> recordList = new ArrayList<>();
     consumer.subscribe(topics);
 
-    while (emptyPollCount < NUM_EMPTY_POLLS && numFetchedMessages < threshold) {
+    while (emptyPollCount < NUM_EMPTY_POLLS && recordList.size() < threshold) {
       ConsumerRecords<String, String> records = consumer.poll(POLL_TIMEOUT_MS.toMillis());
       if (!records.isEmpty()) {
         Iterator<ConsumerRecord<String, String>> iterator = records.iterator();
-        while (iterator.hasNext() && numFetchedMessages < threshold) {
+        while (iterator.hasNext() && recordList.size() < threshold) {
           ConsumerRecord record = iterator.next();
           recordList.add(record);
-          numFetchedMessages++;
         }
       } else {
         emptyPollCount++;

@@ -214,30 +214,6 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   }
 
   @Test
-  def testUncaughtExceptionHandler {
-    var caughtException = false
-    val exceptionHandler = new UncaughtExceptionHandler {
-      def uncaughtException(t: Thread, e: Throwable) {
-        caughtException = true
-      }
-    }
-    try {
-      SamzaContainer.safeMain(() => null, exceptionHandler)
-    } catch {
-      case _: Exception =>
-      // Expect some random exception from SamzaContainer because we haven't
-      // set any environment variables for container ID, etc.
-    }
-    assertFalse(caughtException)
-    val t = new Thread(new Runnable {
-      def run = throw new RuntimeException("Uncaught exception in another thread. Catch this.")
-    })
-    t.start
-    t.join
-    assertTrue(caughtException)
-  }
-
-  @Test
   def testErrorInTaskInitShutsDownTask {
     val task = new StreamTask with InitableTask with ClosableTask {
       var wasShutdown = false

@@ -17,25 +17,33 @@
  * under the License.
  */
 
-package org.apache.samza.zk;
+package org.apache.samza.runtime;
 
-/**
- * Interface for a barrier - to allow synchronization between different processors to switch to a newly published
- * JobModel.
- */
-public interface BarrierForVersionUpgrade {
-  /**
-   * Barrier is usually started by the leader.
-   */
-  void start();
+import org.junit.Test;
 
-  /**
-   * Called by the processor.
-   * Updates the processor readiness to use the new version and wait on the barrier, until all other processors
-   * joined.
-   * The call is async. The callback will be invoked when the barrier is reached.
-   * @param thisProcessorsName as it appears in the list of processors.
-   * @param callback  will be invoked, when barrier is reached.
-   */
-  void waitForBarrier(String thisProcessorsName, Runnable callback);
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+public class TestLocalContainerRunner {
+  private boolean caughtException = false;
+
+  @Test
+  public void testUncaughtExceptionHandler() throws Exception {
+    Runnable runnable = () -> { caughtException = true; };
+    LocalContainerRunner.setExceptionHandler(runnable);
+
+    try {
+      ((String) null).length();
+    } catch (Exception e) {
+      // catch null pointer exception
+    }
+    assertFalse(caughtException);
+
+    Thread t = new Thread(() -> {
+        throw new RuntimeException("Uncaught exception in another thread. Catch this.");
+      });
+    t.start();
+    t.join();
+    assertTrue(caughtException);
+  }
 }
