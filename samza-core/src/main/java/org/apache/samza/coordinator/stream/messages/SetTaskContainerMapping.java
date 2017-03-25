@@ -42,11 +42,10 @@ package org.apache.samza.coordinator.stream.messages;
 public class SetTaskContainerMapping extends CoordinatorStreamMessage {
   public static final String TYPE = "set-task-container-assignment";
   public static final String CONTAINER_KEY = "containerId";
-  public static final String PROCESSOR_KEY = "processorId";
 
 
   /**
-   * SteContainerToHostMapping is used to set the container to host mapping information.
+   * SetContainerToHostMapping is used to set the container to host mapping information.
    * @param message which holds the container to host information.
    */
   public SetTaskContainerMapping(CoordinatorStreamMessage message) {
@@ -63,13 +62,10 @@ public class SetTaskContainerMapping extends CoordinatorStreamMessage {
     super(source);
     setType(TYPE);
     setKey(taskName);
-    putMessageValue(PROCESSOR_KEY, containerId);
+    putMessageValue(CONTAINER_KEY, containerId);
   }
 
   public String getTaskAssignment() {
-    if (getMessageValue(CONTAINER_KEY) == null) {
-      return getMessageValue(PROCESSOR_KEY);
-    }
     return getMessageValue(CONTAINER_KEY);
   }
 

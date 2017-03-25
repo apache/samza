@@ -19,13 +19,12 @@
 
 package org.apache.samza.serializers.model;
 
-import java.util.Map;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskModel;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
-import org.codehaus.jackson.annotate.JsonWriteNullProperties;
-import org.codehaus.jackson.map.annotate.JsonDeserialize;
+
+import java.util.Map;
 
 /**
  * A mix-in Jackson class to convert Samza's ContainerModel to/from JSON.

@@ -87,7 +87,7 @@ public class TaskAssignmentManager extends AbstractCoordinatorStreamManager {
       log.debug("Assignment for task \"{}\": {}", entry.getKey(), entry.getValue());
     }
 
-    return Collections.<String, String>unmodifiableMap(taskNameToContainerId);
+    return Collections.unmodifiableMap(new HashMap<>(taskNameToContainerId));
   }
 
   /**

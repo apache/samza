@@ -42,11 +42,6 @@ public class ContainerModel implements Comparable<ContainerModel> {
   private final String processorId;
   private final Map<TaskName, TaskModel> tasks;
 
-  @Deprecated
-  public ContainerModel(int containerId, Map<TaskName, TaskModel> tasks) {
-    this(String.valueOf(containerId), containerId, tasks);
-  }
-
   public ContainerModel(String containerId, Map<TaskName, TaskModel> tasks) {
     this(containerId, Integer.parseInt(containerId), tasks);
   }

@@ -51,7 +51,7 @@ public class TestLocalityManager {
         }
       });
 
-/*  @Before
+  @Before
   public void setup() {
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache();
   }
@@ -84,12 +84,12 @@ public class TestLocalityManager {
     assertTrue(producer.isStarted());
     assertTrue(consumer.isStarted());
 
-    localityManager.writeContainerToHostMapping(0, "localhost", "jmx:localhost:8080", "jmx:tunnel:localhost:9090");
-    Map<Integer, Map<String, String>> localMap = localityManager.readContainerLocality();
-    Map<Integer, Map<String, String>> expectedMap =
-      new HashMap<Integer, Map<String, String>>() {
+    localityManager.writeContainerToHostMapping("0", "localhost", "jmx:localhost:8080", "jmx:tunnel:localhost:9090");
+    Map<String, Map<String, String>> localMap = localityManager.readContainerLocality();
+    Map<String, Map<String, String>> expectedMap =
+      new HashMap<String, Map<String, String>>() {
         {
-          this.put(new Integer(0),
+          this.put("0",
             new HashMap<String, String>() {
               {
                 this.put(SetContainerHostMapping.HOST_KEY, "localhost");
@@ -118,7 +118,7 @@ public class TestLocalityManager {
     localityManager.start();
     assertTrue(producer.isStarted());
 
-    localityManager.writeContainerToHostMapping(1, "localhost", "jmx:localhost:8181", "jmx:tunnel:localhost:9191");
+    localityManager.writeContainerToHostMapping("1", "localhost", "jmx:localhost:8181", "jmx:tunnel:localhost:9191");
     try {
       localityManager.readContainerLocality();
       fail("Should have thrown UnsupportedOperationException");
@@ -136,5 +136,5 @@ public class TestLocalityManager {
 
     localityManager.stop();
     assertTrue(producer.isStopped());
-  }*/
+  }
 }

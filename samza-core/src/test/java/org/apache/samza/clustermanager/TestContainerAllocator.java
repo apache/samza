@@ -128,14 +128,14 @@ public class TestContainerAllocator {
   /**
    * Test requestContainers
    */
-/*  @Test
+  @Test
   public void testRequestContainers() throws Exception {
-    Map<Integer, String> containersToHostMapping = new HashMap<Integer, String>() {
+    Map<String, String> containersToHostMapping = new HashMap<String, String>() {
       {
-        put(0, "abc");
-        put(1, "def");
-        put(2, null);
-        put(3, "abc");
+        put("0", "abc");
+        put("1", "def");
+        put("2", null);
+        put("3", "abc");
       }
     };
 
@@ -154,15 +154,15 @@ public class TestContainerAllocator {
     assertEquals(requestState.getRequestsToCountMap().keySet().size(), 0);
   }
 
-  *//**
+  /**
    * Test request containers with no containerToHostMapping makes the right number of requests
-   *//*
+   */
   @Test
   public void testRequestContainersWithNoMapping() throws Exception {
     int containerCount = 4;
-    Map<Integer, String> containersToHostMapping = new HashMap<Integer, String>();
+    Map<String, String> containersToHostMapping = new HashMap<String, String>();
     for (int i = 0; i < containerCount; i++) {
-      containersToHostMapping.put(i, null);
+      containersToHostMapping.put(String.valueOf(i), null);
     }
     allocatorThread.start();
 
@@ -177,11 +177,11 @@ public class TestContainerAllocator {
     assertTrue(requestState.getRequestsToCountMap().keySet().size() == 0);
   }
 
-  *//**
+  /**
    * Extra allocated containers that are returned by the RM and unused by the AM should be released.
    * Containers are considered "extra" only when there are no more pending requests to fulfill
    * @throws Exception
-   *//*
+   */
   @Test
   public void testAllocatorReleasesExtraContainers() throws Exception {
     final SamzaResource resource = new SamzaResource(1, 1000, "abc", "id1");
@@ -208,7 +208,7 @@ public class TestContainerAllocator {
 
     allocatorThread.start();
 
-    containerAllocator.requestResource(0, "abc");
+    containerAllocator.requestResource("0", "abc");
 
     containerAllocator.addResource(resource);
     containerAllocator.addResource(resource1);
@@ -218,10 +218,10 @@ public class TestContainerAllocator {
   }
 
 
-  *//**
+  /**
    * If the container fails to start e.g because it fails to connect to a NM on a host that
    * is down, the allocator should request a new container on a different host.
-   *//*
+   */
   @Test
   public void testRerequestOnAnyHostIfContainerStartFails() throws Exception {
     final SamzaResource container = new SamzaResource(1, 1024, "2", "id0");
@@ -245,11 +245,11 @@ public class TestContainerAllocator {
             assertEquals(2, requestState.assignedRequests.size());
 
             SamzaResourceRequest request = requestState.assignedRequests.remove();
-            assertEquals(0, request.getContainerID());
+            assertEquals("0", request.getContainerID());
             assertEquals("2", request.getPreferredHost());
 
             request = requestState.assignedRequests.remove();
-            assertEquals(0, request.getContainerID());
+            assertEquals("0", request.getContainerID());
             assertEquals("ANY_HOST", request.getPreferredHost());
 
             // This routine should be called after the retry is assigned, but before it's started.
@@ -261,14 +261,14 @@ public class TestContainerAllocator {
     state.neededContainers.set(1);
     requestState.registerContainerListener(listener);
 
-    containerAllocator.requestResource(0, "2");
+    containerAllocator.requestResource("0", "2");
     containerAllocator.addResource(container);
     containerAllocator.addResource(container1);
     allocatorThread.start();
 
     listener.verify();
 
-  }*/
+  }
 
 
 }

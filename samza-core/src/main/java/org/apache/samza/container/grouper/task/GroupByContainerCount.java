@@ -211,7 +211,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
   private List<TaskGroup> createContainers(int startContainerId, int endContainerId) {
     List<TaskGroup> containers = new ArrayList<>(endContainerId - startContainerId);
     for (int i = startContainerId; i < endContainerId; i++) {
-      TaskGroup taskGroup = new TaskGroup(i, new ArrayList<String>());
+      TaskGroup taskGroup = new TaskGroup(String.valueOf(i), new ArrayList<String>());
       containers.add(taskGroup);
     }
     return containers;
@@ -225,10 +225,11 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
    * @param taskNamesToAssign     the list of tasks to assign to the containers.
    * @param containers            the containers (as {@link TaskGroup}) to which the tasks will be assigned.
    */
+  // TODO: Change logic from using int arrays to ordered array list
   private void assignTasksToContainers(int[] taskCountPerContainer, List<String> taskNamesToAssign,
       List<TaskGroup> containers) {
     for (TaskGroup taskGroup : containers) {
-      for (int j = taskGroup.size(); j < taskCountPerContainer[taskGroup.getContainerId()]; j++) {
+      for (int j = taskGroup.size(); j < taskCountPerContainer[Integer.valueOf(taskGroup.getContainerId())]; j++) {
         String taskName = taskNamesToAssign.remove(0);
         taskGroup.addTaskName(taskName);
         log.info("Assigned task {} to container {}", taskName, taskGroup.getContainerId());
@@ -314,7 +315,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     List<TaskGroup> containerTasks = new ArrayList<>(containerIdToTaskNames.size());
     for (int i = 0; i < containerIdToTaskNames.size(); i++) {
       if (containerIdToTaskNames.get(i) == null) throw new IllegalStateException("Task mapping is missing container: " + i);
-      containerTasks.add(new TaskGroup(i, containerIdToTaskNames.get(i)));
+      containerTasks.add(new TaskGroup(String.valueOf(i), containerIdToTaskNames.get(i)));
     }
 
     return containerTasks;
@@ -327,15 +328,15 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
    */
   private static class TaskGroup {
     private final List<String> taskNames = new LinkedList<>();
-    private final Integer containerId;
+    private final String containerId;
 
-    private TaskGroup(Integer containerId, List<String> taskNames) {
+    private TaskGroup(String containerId, List<String> taskNames) {
       this.containerId = containerId;
       Collections.sort(taskNames);        // For consistency because the taskNames came from a Map
       this.taskNames.addAll(taskNames);
     }
 
-    public Integer getContainerId() {
+    public String getContainerId() {
       return containerId;
     }
 

@@ -18,17 +18,10 @@
  */
 package org.apache.samza.zk;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.BooleanSupplier;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
-import org.apache.samza.SamzaException;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.job.model.ContainerModel;
-import org.apache.samza.job.model.JobModel;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -36,6 +29,8 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import java.util.function.BooleanSupplier;
 
 public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;

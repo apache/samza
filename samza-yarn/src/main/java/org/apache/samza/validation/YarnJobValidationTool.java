@@ -151,9 +151,9 @@ public class YarnJobValidationTool {
   public void validateJmxMetrics() throws Exception {
     JobModelManager jobModelManager = JobModelManager.apply(config);
     validator.init(config);
-    Map<Integer, String> jmxUrls = jobModelManager.jobModel().getAllContainerToHostValues(SetContainerHostMapping.JMX_TUNNELING_URL_KEY);
-    for (Map.Entry<Integer, String> entry : jmxUrls.entrySet()) {
-      Integer containerId = entry.getKey();
+    Map<String, String> jmxUrls = jobModelManager.jobModel().getAllContainerToHostValues(SetContainerHostMapping.JMX_TUNNELING_URL_KEY);
+    for (Map.Entry<String, String> entry : jmxUrls.entrySet()) {
+      String containerId = entry.getKey();
       String jmxUrl = entry.getValue();
       log.info("validate container " + containerId + " metrics with JMX: " + jmxUrl);
       JmxMetricsAccessor jmxMetrics = new JmxMetricsAccessor(jmxUrl);

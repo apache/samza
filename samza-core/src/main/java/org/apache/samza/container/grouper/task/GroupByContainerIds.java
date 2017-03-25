@@ -89,7 +89,7 @@ public class GroupByContainerIds implements TaskNameGrouper {
     // Convert to a Set of ContainerModel
     Set<ContainerModel> containerModels = new HashSet<>();
     for (int i = 0; i < containerCount; i++) {
-      containerModels.add(new ContainerModel(containersIds.get(i), taskGroups[i]));
+      containerModels.add(new ContainerModel(String.valueOf(containersIds.get(i)), taskGroups[i]));
     }
 
     return Collections.unmodifiableSet(containerModels);

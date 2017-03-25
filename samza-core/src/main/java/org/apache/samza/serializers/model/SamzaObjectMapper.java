@@ -19,9 +19,6 @@
 
 package org.apache.samza.serializers.model;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -50,6 +47,10 @@ import org.codehaus.jackson.map.introspect.AnnotatedField;
 import org.codehaus.jackson.map.introspect.AnnotatedMethod;
 import org.codehaus.jackson.map.module.SimpleModule;
 import org.codehaus.jackson.type.TypeReference;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * <p>
@@ -108,8 +109,8 @@ public class SamzaObjectMapper {
         } else {
           processorId = node.get("processor-id").getTextValue();
         }
-
-        Map<TaskName, TaskModel> tasksMapping = OBJECT_MAPPER.readValue(node.get("tasks"), new TypeReference<Map<TaskName, TaskModel>>() {});
+        Map<TaskName, TaskModel> tasksMapping =
+            OBJECT_MAPPER.readValue(node.get("tasks"), new TypeReference<Map<TaskName, TaskModel>>() { });
         return new ContainerModel(processorId, containerId, tasksMapping);
       }
     });
