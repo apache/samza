@@ -36,7 +36,6 @@ import java.util.function.Function;
 
 /**
  * A {@link StreamApplication} that demonstrates a repartition followed by a windowed count.
- *
  */
 public class RepartitionWindowApp implements StreamApplication {
 

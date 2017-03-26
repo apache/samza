@@ -76,7 +76,7 @@ import java.util.Properties;
  * {@link #produceMessage(String, int, String, String)} and {@link #getMessages(Collection, int)} are blocking calls.
  *
  * <h3>Usage Example</h3>
- * Here is a test that publishes a message into Kafka, runs an application, and verifies consumption
+ * Here is an actual test that publishes a message into Kafka, runs an application, and verifies consumption
  * from the output topic.
  *
  *  <pre> {@code

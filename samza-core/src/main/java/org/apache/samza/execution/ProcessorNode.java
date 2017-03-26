@@ -129,5 +129,4 @@ public class ProcessorNode {
 
     return scopedConfig;
   }
-
 }
