@@ -1,5 +1,3 @@
-// CHECKSTYLE:OFF
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -37,32 +35,33 @@ import java.time.Duration;
 import java.util.function.Function;
 
 /**
- * Filters out messages with a certain key, and does a windowed count. Keys and values are assumed to be strings.
+ * A {@link StreamApplication} that demonstrates a filter followed by a session window.
  */
-public class SessionCountApp implements StreamApplication {
+public class SessionWindowApp implements StreamApplication {
 
-  private static final Logger LOG = LoggerFactory.getLogger(SessionCountApp.class);
+  private static final Logger LOG = LoggerFactory.getLogger(SessionWindowApp.class);
+  private static final String FILTER_KEY = "badKey";
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    StreamSpec pageViewStreamSpec = new StreamSpec("page-views", TestSessionizer.INPUT_TOPIC, "kafka");
-    Function<MessageEnvelope<String, String>, String> keyFn = pageView -> (String) pageView.getKey();
+    StreamSpec pageViewStreamSpec = new StreamSpec("page-views", TestRepartitionWindowApp.INPUT_TOPIC, "kafka");
+    Function<MessageEnvelope<String, String>, String> keyFn = m -> m.getKey();
 
     MessageStream<MessageEnvelope<String, String>> pageViews = graph.createInStream(pageViewStreamSpec, null, null);
     pageViews
         .filter(m -> {
-          LOG.info("Processing message with key: {} ", m.getKey());
-          return !"badKey".equals(m.getKey());
-        })
-        .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(3)))
+            LOG.info("Processing message with key: {} ", m.getKey());
+            return !FILTER_KEY.equals(m.getKey());
+          })
         // identity map
-        .map(windowResult -> windowResult)
+        .map(m -> m)
         // emit output
+        .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(3)))
         .sink((windowOutput, collector, coordinator) -> {
-          String key = windowOutput.getKey().getKey();
-          String count = new Integer(windowOutput.getMessage().size()).toString();
-          LOG.info("Count is " + count  + " for key " + key);
-          collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", TestSessionizer.OUTPUT_TOPIC), key, count));
-        });
+            String key = windowOutput.getKey().getKey();
+            String count = new Integer(windowOutput.getMessage().size()).toString();
+            LOG.info("Count is " + count  + " for userId " + key);
+            collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", TestRepartitionWindowApp.OUTPUT_TOPIC), key, count));
+          });
   }
 }

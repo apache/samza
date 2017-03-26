@@ -19,20 +19,23 @@
 package org.apache.samza.test.operator;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.samza.application.StreamApplication;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 
 /**
- * Tests behavior of a Session window with a filter.
+ * Test driver for {@link TumblingWindowApp}.
  */
-public class TestSessionizer extends StreamApplicationIntegrationTestHarness {
+public class TestTumblingWindowApp extends StreamApplicationIntegrationTestHarness {
 
   static final String INPUT_TOPIC = "PageViewEvent";
   static final String OUTPUT_TOPIC = "Result";
-  private static final String APP_NAME = "Sessionizer";
+  static final Duration DURATION = Duration.ofSeconds(3);
+  private static final String APP_NAME = "SessionWindowDemo";
 
   @Test
   public void test() throws Exception {
@@ -40,16 +43,14 @@ public class TestSessionizer extends StreamApplicationIntegrationTestHarness {
     createTopic(INPUT_TOPIC, 1);
     createTopic(OUTPUT_TOPIC, 1);
 
-    // produce messages (badKey should be filtered out)
-    produceMessage(INPUT_TOPIC, 0, "badKey", "userId1,india,hotmail.com");
+    // Produce messages to the same partition. (intersperse them with messages with badKeys to be
+    // filtered out.)
+    produceMessage(INPUT_TOPIC, 0, "badKey", "badKey,india,google.com");
     produceMessage(INPUT_TOPIC, 0, "userId1", "userId1,india,google.com");
-    produceMessage(INPUT_TOPIC, 0, "userId2", "userId2,india,yahoo.com");
-    produceMessage(INPUT_TOPIC, 0, "userId1", "userId1,india,hotmail.com");
-    produceMessage(INPUT_TOPIC, 0, "userId1", "userId1,india,hotmail.com");
-    produceMessage(INPUT_TOPIC, 0, "userId1", "userId1,india,hotmail.com");
+    produceMessage(INPUT_TOPIC, 0, "userId2", "userId1,india,google.com");
 
     // run the application
-    SessionCountApp app = new SessionCountApp();
+    StreamApplication app = new TumblingWindowApp();
     runApplication(app, APP_NAME, null);
 
     // consume and validate result
@@ -59,12 +60,14 @@ public class TestSessionizer extends StreamApplicationIntegrationTestHarness {
     for (ConsumerRecord<String, String> message : messages) {
       String key = message.key();
       String value = message.value();
+      //Assert that "badKey" messages where actually filtered out
       Assert.assertTrue(key.equals("userId1") || key.equals("userId2"));
-      if ("userId1".equals(key)) {
-        Assert.assertEquals(value, "4");
-      } else {
-        Assert.assertEquals(value, "1");
-      }
+      Assert.assertEquals(value, "1");
     }
+
+    produceMessage(INPUT_TOPIC, 0, "userId1", "userId1,india,hotmail.com");
+    produceMessage(INPUT_TOPIC, 0, "userId2", "userId2,india,hotmail.com");
+    List<ConsumerRecord<String, String>> messageList = getMessages(Collections.singletonList(OUTPUT_TOPIC), 2);
+    Assert.assertEquals(messageList.size(), 2);
   }
 }

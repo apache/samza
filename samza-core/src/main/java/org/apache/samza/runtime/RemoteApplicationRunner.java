@@ -55,7 +55,6 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       // 2. create the physical execution plan
       ExecutionPlanner planner = new ExecutionPlanner(config);
       ProcessorGraph processorGraph = planner.plan(streamGraph);
-
       // 3. submit jobs for remote execution
       processorGraph.getProcessorNodes().forEach(processor -> {
           Config processorConfig = processor.generateConfig();

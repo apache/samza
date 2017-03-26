@@ -48,6 +48,22 @@ public class ProcessorNode {
   private final List<StreamEdge> outEdges = new ArrayList<>();
   private final Config config;
 
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    ProcessorNode that = (ProcessorNode) o;
+
+    return id.equals(that.id);
+
+  }
+
+  @Override
+  public int hashCode() {
+    return id.hashCode();
+  }
+
   ProcessorNode(String id, Config config) {
     this.id = id;
     this.config = config;
@@ -113,4 +129,5 @@ public class ProcessorNode {
 
     return scopedConfig;
   }
+
 }

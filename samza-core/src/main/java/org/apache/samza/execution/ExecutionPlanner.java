@@ -303,6 +303,8 @@ public class ExecutionPlanner {
   }
 
   private static int maxPartition(Collection<StreamEdge> edges) {
+    if (edges.size() == 0)
+      return -1;
     return edges.stream().map(StreamEdge::getPartitionCount).reduce(Integer::max).get();
   }
 

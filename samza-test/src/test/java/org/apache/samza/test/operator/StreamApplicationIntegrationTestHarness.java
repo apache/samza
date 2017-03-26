@@ -28,6 +28,7 @@ import org.apache.kafka.common.protocol.SecurityProtocol;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
@@ -72,6 +73,7 @@ import java.util.Properties;
  *
  * Execution model: {@link StreamApplication}s are run as their own {@link org.apache.samza.job.local.ThreadJob}s.
  * Similarly, embedded Kafka servers and Zookeeper servers are run as their own threads.
+ * {@link #produceMessage(String, int, String, String)} and {@link #getMessages(Collection, int)} are blocking calls.
  *
  * <h3>Usage Example</h3>
  * Here is a test that publishes a message into Kafka, runs an application, and verifies consumption
@@ -161,6 +163,12 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     producer.flush();
   }
 
+  @Override
+  public int clusterSize() {
+    return Integer.parseInt(KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR());
+  }
+
+
   /**
    * Read messages from the provided list of topics until {@param threshold} messages have been read or until
    * {@link #NUM_EMPTY_POLLS} polls return no messages.
@@ -215,6 +223,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     configs.put("systems.kafka.samza.msg.serde", "string");
     configs.put("systems.kafka.samza.offset.default", "oldest");
     configs.put("job.coordinator.system", "kafka");
+    configs.put("job.default.system", "kafka");
     configs.put("job.coordinator.replication.factor", "1");
     configs.put("task.window.ms", "1000");
 
