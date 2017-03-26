@@ -67,7 +67,7 @@ public class TestSessionWindowApp extends StreamApplicationIntegrationTestHarnes
     for (ConsumerRecord<String, String> message : messages) {
       String key = message.key();
       String value = message.value();
-      //Assert that "badKey" messages where actually filtered out
+      //Assert that "badKey" messages were actually filtered out
       Assert.assertTrue(key.equals("userId1") || key.equals("userId2") || key.equals("userId3"));
       if ("userId1".equals(key)) {
         Assert.assertEquals(value, "3");
