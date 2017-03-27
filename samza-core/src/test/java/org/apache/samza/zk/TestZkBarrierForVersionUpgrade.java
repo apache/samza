@@ -27,7 +27,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
-import org.apache.samza.coordinator.CoordinationService;
+import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
@@ -40,7 +40,7 @@ import org.junit.Test;
 public class TestZkBarrierForVersionUpgrade {
   private static EmbeddedZookeeper zkServer = null;
   private static String testZkConnectionString = null;
-  private static CoordinationService coordinationService;
+  private static CoordinationUtils coordinationUtils;
 
 
   @BeforeClass
@@ -60,15 +60,13 @@ public class TestZkBarrierForVersionUpgrade {
     Config config = new MapConfig(map);
 
     CoordinationServiceFactory serviceFactory = new ZkCoordinationServiceFactory();
-    coordinationService = serviceFactory.getCoordinationService(groupId, processorId, config);
-    coordinationService.start();
-    coordinationService.reset();
+    coordinationUtils = serviceFactory.getCoordinationService(groupId, processorId, config);
+    coordinationUtils.reset();
   }
 
   @After
   public void testTearDown() {
-    coordinationService.reset();
-    coordinationService.stop();
+    coordinationUtils.reset();
   }
 
   @AfterClass
@@ -84,7 +82,7 @@ public class TestZkBarrierForVersionUpgrade {
     processors.add("p1");
     processors.add("p2");
 
-    BarrierForVersionUpgrade barrier = coordinationService.getBarrier(barrierId, ver, processors);
+    BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(barrierId, ver, processors);
 
     class Status {
       boolean p1 = false;
@@ -121,7 +119,7 @@ public class TestZkBarrierForVersionUpgrade {
     processors.add("p2");
     processors.add("p3");
 
-    BarrierForVersionUpgrade barrier = coordinationService.getBarrier(barrierId, ver, processors);
+    BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(barrierId, ver, processors);
 
     class Status {
       boolean p1 = false;
@@ -158,7 +156,7 @@ public class TestZkBarrierForVersionUpgrade {
     processors.add("p2");
     processors.add("p3");
 
-    BarrierForVersionUpgrade barrier = coordinationService.getBarrier(barrierId, ver, processors);
+    BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(barrierId, ver, processors);
 
     class Status {
       boolean p1 = false;

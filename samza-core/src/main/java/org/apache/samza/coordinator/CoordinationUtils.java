@@ -29,17 +29,7 @@ import java.util.List;
  *   - Latch
  *   - barrier for version upgrades
  */
-public interface CoordinationService {
-  // life cycle
-  /**
-   * start the service
-   */
-  void start();
-
-  /**
-   * stop the service
-   */
-  void stop();
+public interface CoordinationUtils {
 
   /**
    * reset the internal structure. Does not happen automatically with stop()

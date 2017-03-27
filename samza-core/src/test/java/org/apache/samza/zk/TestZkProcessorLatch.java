@@ -28,7 +28,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.CoordinationService;
+import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
@@ -45,7 +45,7 @@ public class TestZkProcessorLatch {
   private static EmbeddedZookeeper zkServer = null;
   private static String zkConnectionString;
   private final CoordinationServiceFactory factory = new ZkCoordinationServiceFactory();
-  private CoordinationService coordinationService;
+  private CoordinationUtils coordinationUtils;
 
   @BeforeClass
   public static void setup() throws InterruptedException {
@@ -65,14 +65,12 @@ public class TestZkProcessorLatch {
     Config config = new MapConfig(map);
 
 
-    coordinationService = factory.getCoordinationService(groupId, processorId, config);
-    coordinationService.start();
-    coordinationService.reset();
+    coordinationUtils = factory.getCoordinationService(groupId, processorId, config);
+    coordinationUtils.reset();
   }
 
   @After
   public void testTearDown() {
-    coordinationService.stop();
   }
 
   @AfterClass
@@ -88,7 +86,7 @@ public class TestZkProcessorLatch {
     ExecutorService pool = Executors.newFixedThreadPool(3);
     Future f1 = pool.submit(
       () -> {
-        Latch latch = coordinationService.getLatch(latchSize, latchId);
+        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
         latch.countDown();
         try {
           latch.await(100000, TimeUnit.MILLISECONDS);
@@ -114,7 +112,7 @@ public class TestZkProcessorLatch {
     ExecutorService pool = Executors.newFixedThreadPool(3);
     Future f1 = pool.submit(
       () -> {
-        Latch latch = coordinationService.getLatch(latchSize, latchId);
+        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
         //latch.countDown(); only one thread counts down
         try {
           latch.await(100000, TimeUnit.MILLISECONDS);
@@ -125,7 +123,7 @@ public class TestZkProcessorLatch {
 
     Future f2 = pool.submit(
       () -> {
-        Latch latch = coordinationService.getLatch(latchSize, latchId);
+        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
         latch.countDown();
         try {
           latch.await(100000, TimeUnit.MILLISECONDS);
@@ -152,7 +150,7 @@ public class TestZkProcessorLatch {
     ExecutorService pool = Executors.newFixedThreadPool(3);
     Future f1 = pool.submit(
       () -> {
-        Latch latch = coordinationService.getLatch(latchSize, latchId);
+        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
         latch.countDown();
         try {
           latch.await(100000, TimeUnit.MILLISECONDS);
@@ -162,7 +160,7 @@ public class TestZkProcessorLatch {
       });
     Future f2 = pool.submit(
       () -> {
-        Latch latch = coordinationService.getLatch(latchSize, latchId);
+        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
         latch.countDown();
         try {
           latch.await(100000, TimeUnit.MILLISECONDS);
@@ -172,7 +170,7 @@ public class TestZkProcessorLatch {
       });
     Future f3 = pool.submit(
       () -> {
-        Latch latch = coordinationService.getLatch(latchSize, latchId);
+        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
         latch.countDown();
         try {
           latch.await(100000, TimeUnit.MILLISECONDS);
@@ -200,7 +198,7 @@ public class TestZkProcessorLatch {
     ExecutorService pool = Executors.newFixedThreadPool(3);
     Future f1 = pool.submit(
       () -> {
-        Latch latch = coordinationService.getLatch(latchSize, latchId);
+        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
         latch.countDown();
         try {
           latch.await(100000, TimeUnit.MILLISECONDS);
@@ -210,7 +208,7 @@ public class TestZkProcessorLatch {
       });
     Future f2 = pool.submit(
       () -> {
-        Latch latch = coordinationService.getLatch(latchSize, latchId);
+        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
         latch.countDown();
         try {
           latch.await(100000, TimeUnit.MILLISECONDS);
@@ -220,7 +218,7 @@ public class TestZkProcessorLatch {
       });
     Future f3 = pool.submit(
       () -> {
-        Latch latch = coordinationService.getLatch(latchSize, latchId);
+        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
         // This processor never completes its task
         //latch.countDown();
         try {
@@ -254,7 +252,7 @@ public class TestZkProcessorLatch {
     // Only one thread invokes countDown
     Future f1 = pool.submit(
       () -> {
-        Latch latch = coordinationService.getLatch(latchSize, latchId);
+        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
         latch.countDown();
         TestZkUtils.sleepMs(100);
         latch.countDown();
@@ -268,7 +266,7 @@ public class TestZkProcessorLatch {
       });
     Future f2 = pool.submit(
       () -> {
-        Latch latch = coordinationService.getLatch(latchSize, latchId);
+        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
         try {
           latch.await(100000, TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
@@ -277,7 +275,7 @@ public class TestZkProcessorLatch {
       });
     Future f3 = pool.submit(
       () -> {
-        Latch latch = coordinationService.getLatch(latchSize, latchId);
+        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
         try {
           latch.await(100000, TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {

@@ -28,7 +28,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
-import org.apache.samza.coordinator.CoordinationService;
+import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
@@ -57,14 +57,14 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final StreamMetadataCache  streamMetadataCache;
   private final ZkKeyBuilder keyBuilder;
   private final Config config;
-  private final CoordinationService coordinationService;
+  private final CoordinationUtils coordinationUtils;
 
   private JobModel newJobModel;
   private String newJobModelVersion;  // version published in ZK (by the leader)
   private JobModel jobModel;
 
   public ZkJobCoordinator(int processorId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
-      SamzaContainerController containerController, CoordinationService coordinationService) {
+      SamzaContainerController containerController, CoordinationUtils coordinationUtils) {
     this.zkUtils = zkUtils;
     this.keyBuilder = zkUtils.getKeyBuilder();
     this.debounceTimer = debounceTimer;
@@ -72,7 +72,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     this.containerController = containerController;
     this.zkController = new ZkControllerImpl(String.valueOf(processorId), zkUtils, debounceTimer, this);
     this.config = config;
-    this.coordinationService = coordinationService;
+    this.coordinationUtils = coordinationUtils;
 
     streamMetadataCache = getStreamMetadataCache();
   }
@@ -214,7 +214,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     log.info("pid=" + processorId + "published new JobModel ver=" + nextJMVersion + ";jm=" + jobModel);
 
     // start the barrier for the job model update
-    barrier = coordinationService.getBarrier(JOB_MODEL_VERSION_BARRIER, nextJMVersion, currentProcessors);
+    barrier = coordinationUtils.getBarrier(JOB_MODEL_VERSION_BARRIER, nextJMVersion, currentProcessors);
     barrier.start();
 
     // publish new JobModel version

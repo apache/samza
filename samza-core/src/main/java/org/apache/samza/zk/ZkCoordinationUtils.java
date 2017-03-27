@@ -22,32 +22,23 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.List;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
-import org.apache.samza.coordinator.CoordinationService;
+import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
 
 
-public class ZkCoordinationService implements CoordinationService {
+public class ZkCoordinationUtils implements CoordinationUtils {
   public final ZkConfig zkConfig;
   public final ZkUtils zkUtils;
   public final String processorIdStr;
   public final ScheduleAfterDebounceTime debounceTimer;
 
-  public ZkCoordinationService(String processorId, ZkConfig zkConfig, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer) {
+  public ZkCoordinationUtils(String processorId, ZkConfig zkConfig, ZkUtils zkUtils,
+      ScheduleAfterDebounceTime debounceTimer) {
     this.zkConfig = zkConfig;
     this.zkUtils = zkUtils;
     this.processorIdStr = processorId;
     this.debounceTimer = debounceTimer;
-  }
-
-  @Override
-  public void start() {
-    zkUtils.connect();
-  }
-
-  @Override
-  public void stop() {
-    zkUtils.close();
   }
 
   @Override

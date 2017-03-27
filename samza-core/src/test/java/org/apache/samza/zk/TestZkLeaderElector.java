@@ -32,7 +32,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.CoordinationService;
+import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
@@ -43,12 +43,14 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mockito;
+import org.slf4j.Logger;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class TestZkLeaderElector {
+  private static final Logger LOG = org.slf4j.LoggerFactory.getLogger(TestZkLeaderElector.class);
 
   private static EmbeddedZookeeper zkServer = null;
   private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
@@ -149,16 +151,15 @@ public class TestZkLeaderElector {
     }
   }
 
-  private CoordinationService getZkCoordinationService(String groupId, String processorId) {
+  private CoordinationUtils getZkCoordinationService(String groupId, String processorId) {
 
     Map<String, String> map = new HashMap<>();
     map.put(ZkConfig.ZK_CONNECT, testZkConnectionString);
     Config config = new MapConfig(map);
 
-    CoordinationService coordinationService = factory.getCoordinationService(groupId, processorId, config);
-    coordinationService.start();
-
-    return coordinationService;
+    CoordinationUtils coordinationUtils = factory.getCoordinationService(groupId, processorId, config);
+    
+    return coordinationUtils;
   }
 
   /**
@@ -282,7 +283,7 @@ public class TestZkLeaderElector {
           int predecessorId = Integer.parseInt(predecessorIdStr);
           Assert.assertEquals(1, selfId - predecessorId);
         } catch (Exception e) {
-          System.out.println(e.getMessage());
+          LOG.error(e.getLocalizedMessage());
         }
         count.incrementAndGet();
         electionLatch.countDown();

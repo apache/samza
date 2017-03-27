@@ -21,19 +21,19 @@ package org.apache.samza.zk;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.CoordinationService;
+import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.CoordinationServiceFactory;
 
 
 public class ZkCoordinationServiceFactory implements CoordinationServiceFactory {
 
 
-  synchronized public CoordinationService getCoordinationService(String groupId, String participantId, Config config) {
+  synchronized public CoordinationUtils getCoordinationService(String groupId, String participantId, Config config) {
     ZkConfig zkConfig = new ZkConfig(config);
     ZkClient zkClient = new ZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
     ZkUtils zkUtils = new ZkUtils(participantId, new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs());
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
-    return new ZkCoordinationService(participantId, zkConfig, zkUtils, debounceTimer);
+    return new ZkCoordinationUtils(participantId, zkConfig, zkUtils, debounceTimer);
   }
 
 }

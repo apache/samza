@@ -33,5 +33,5 @@ public interface JobCoordinatorFactory {
    * @return An instance of IJobCoordinator
    */
   JobCoordinator getJobCoordinator(int processorId, Config config,
-      SamzaContainerController containerController, CoordinationService coordinationService);
+      SamzaContainerController containerController, CoordinationUtils coordinationUtils);
 }
