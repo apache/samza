@@ -72,4 +72,16 @@ public class FileSystemImplConfig {
     Config schemeConfig = config.subset(fsSchemeImpl, false); // do not strip off the prefix
     return schemeConfig;
   }
+
+  /**
+   * Get the set of subKeys for fs.&lt;scheme&gt;.impl if .&lt;scheme&gt;. has additional subKeys in the configuration
+   * e.g. fs.myScheme.impl.client and fs.myScheme.impl.server are the subKeys for myScheme
+   * @param scheme scheme name, such as http, hdfs, myscheme
+   * @return a set of subKeys from the configuration without stripping off prefix
+   */
+  public Set<String> getFsImplSubKeys(final String scheme) {
+    String fsImplSubKeyPrefix = String.format(FS_IMPL_SUBKEY_PREFIX, scheme);
+    Config subConfig = config.subset(fsImplSubKeyPrefix, false); // do not strip off the prefix
+    return subConfig.keySet();
+  }
 }
