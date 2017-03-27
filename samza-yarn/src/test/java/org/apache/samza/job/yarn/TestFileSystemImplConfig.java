@@ -18,8 +18,11 @@
  */
 package org.apache.samza.job.yarn;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.junit.Rule;
@@ -71,5 +74,23 @@ public class TestFileSystemImplConfig {
 
     FileSystemImplConfig manager = new FileSystemImplConfig(conf);
     manager.getFsImplClassName("http");
+  }
+
+  @Test
+  public void testFsImplSubkeys() {
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put("fs.http.impl", "org.apache.samza.HttpFileSystem");
+    configMap.put("fs.myscheme.impl", "org.apache.samza.MySchemeFileSystem");
+    configMap.put("fs.http.impl.key1", "val1");
+    configMap.put("fs.http.impl.key2", "val2");
+    Config conf = new MapConfig(configMap);
+
+    FileSystemImplConfig manager = new FileSystemImplConfig(conf);
+    Set<String> expectedFsHttpImplSubKeys = new HashSet<>(Arrays.asList("fs.http.impl.key1", "fs.http.impl.key2"));
+    Set<String> expectedFsMyschemeImplSubKeys = new HashSet<>(); //empty set
+
+    assertEquals(Arrays.asList("http", "myscheme"), manager.getSchemes());
+    assertEquals(expectedFsHttpImplSubKeys, manager.getFsImplSubKeys("http"));
+    assertEquals(expectedFsMyschemeImplSubKeys, manager.getFsImplSubKeys("myscheme"));
   }
 }

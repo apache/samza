@@ -45,4 +45,15 @@ public class TestYarnJobFactory {
     assertEquals("org.apache.myHttp", hConfig.get("fs.http.impl"));
     assertEquals("org.apache.myScheme", hConfig.get("fs.myscheme.impl"));
   }
+
+  @Test
+  public void  testGetJobWithFsImplSubkeys() {
+    YarnJobFactory jobFactory = new YarnJobFactory();
+    YarnJob yarnJob = jobFactory.getJob(new MapConfig(ImmutableMap.of(
+        "fs.myscheme.impl","org.apache.myScheme",
+        "fs.myscheme.impl.client","org.apache.mySchemeClient")));
+    Configuration hConfig = yarnJob.client().yarnClient().getConfig();
+    assertEquals("org.apache.myScheme", hConfig.get("fs.myscheme.impl"));
+    assertEquals("org.apache.mySchemeClient", hConfig.get("fs.myscheme.impl.client"));
+  }
 }

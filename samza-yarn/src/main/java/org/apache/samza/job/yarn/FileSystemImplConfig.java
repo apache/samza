@@ -20,6 +20,7 @@ package org.apache.samza.job.yarn;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.apache.commons.lang.StringUtils;
 import org.apache.samza.config.Config;
 import org.slf4j.Logger;
@@ -35,6 +36,7 @@ public class FileSystemImplConfig {
   private static final String FS_IMPL_PREFIX = "fs.";
   private static final String FS_IMPL_SUFFIX = ".impl";
   private static final String FS_IMPL = "fs.%s.impl";
+  private static final String FS_IMPL_SUBKEY_PREFIX = "fs.%s.impl.";
 
   private final Config config;
 
@@ -82,5 +84,17 @@ public class FileSystemImplConfig {
       throw new LocalizerResourceException(fsImplKey + " does not have configured class implementation");
     }
     return fsImplClassName;
+  }
+
+  /**
+   * Get the set of subKeys for fs.&lt;scheme&gt;.impl if .&lt;scheme&gt;. has additional subKeys in the configuration
+   * e.g. fs.myScheme.impl.client and fs.myScheme.impl.server are the subKeys for myScheme
+   * @param scheme scheme name, such as http, hdfs, myscheme
+   * @return a set of subKeys from the configuration without stripping off prefix
+   */
+  public Set<String> getFsImplSubKeys(final String scheme) {
+    String fsImplSubKeyPrefix = String.format(FS_IMPL_SUBKEY_PREFIX, scheme);
+    Config subConfig = config.subset(fsImplSubKeyPrefix, false); // do not strip off the prefix
+    return subConfig.keySet();
   }
 }
