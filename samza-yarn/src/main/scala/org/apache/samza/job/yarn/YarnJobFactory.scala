@@ -25,8 +25,10 @@ import org.apache.samza.job.StreamJobFactory
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.samza.config.Config
 import org.apache.samza.util.hadoop.HttpFileSystem
+import org.apache.samza.util.Logging
+import scala.collection.JavaConversions._
 
-class YarnJobFactory extends StreamJobFactory {
+class YarnJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config) = {
     // TODO fix this. needed to support http package locations.
     val hConfig = new YarnConfiguration
@@ -37,6 +39,13 @@ class YarnJobFactory extends StreamJobFactory {
     if (config.containsKey(YarnConfiguration.RM_ADDRESS)) {
       hConfig.set(YarnConfiguration.RM_ADDRESS, config.get(YarnConfiguration.RM_ADDRESS, "0.0.0.0:8032"))
     }
+
+    // Use the Samza job config "fs.<scheme>.impl" to override YarnConfiguration
+    val fsImplConfig = new FileSystemImplConfig(config)
+    fsImplConfig.getSchemes.foreach(
+      (scheme : String) => hConfig.set(fsImplConfig.getFsImplKey(scheme), fsImplConfig.getFsImplClassName(scheme))
+    )
+
     new YarnJob(config, hConfig)
   }
 }

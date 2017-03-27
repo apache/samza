@@ -20,12 +20,12 @@
 package org.apache.samza.job.yarn
 
 import org.apache.hadoop.fs.permission.FsPermission
-import org.apache.samza.config.{JobConfig, Config, YarnConfig}
-import org.apache.samza.coordinator.stream.{CoordinatorStreamWriter}
+import org.apache.samza.config.{Config, JobConfig, YarnConfig}
+import org.apache.samza.coordinator.stream.CoordinatorStreamWriter
 import org.apache.samza.coordinator.stream.messages.SetConfig
 
 import scala.collection.JavaConversions._
-import scala.collection.{Map}
+import scala.collection.Map
 import scala.collection.mutable.HashMap
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
@@ -140,6 +140,8 @@ class ClientHelper(conf: Configuration) extends Logging {
       case None =>
     }
 
+    // TODO: remove the customized approach for package resource and use the common one.
+    // But keep it now for backward compatibility.
     // set the local package so that the containers and app master are provisioned with it
     val packageUrl = ConverterUtils.getYarnUrlFromPath(packagePath)
     val fs = packagePath.getFileSystem(conf)
@@ -167,6 +169,17 @@ class ClientHelper(conf: Configuration) extends Logging {
     val localResources: HashMap[String, LocalResource] = HashMap[String, LocalResource]()
     localResources += "__package" -> packageResource
 
+
+    // include the resources from the universal resource configurations
+    try {
+      val resourceMapper = new LocalizerResourceMapper(new LocalizerResourceConfig(config), new YarnConfiguration(conf))
+      localResources ++= resourceMapper.getResourceMap
+    } catch {
+      case e: LocalizerResourceException => {
+        throw new SamzaException("Exception during resource mapping from config. ", e)
+      }
+    }
+
     if (UserGroupInformation.isSecurityEnabled()) {
       validateJobConfig(config)
 
@@ -187,6 +200,8 @@ class ClientHelper(conf: Configuration) extends Logging {
       coordinatorStreamWriter.stop()
     }
 
+    // prepare all local resources for localizer
+    info("localResources is: %s" format localResources)
     containerCtx.setLocalResources(localResources)
     info("set local resources on application master for %s" format appId.get)
 
