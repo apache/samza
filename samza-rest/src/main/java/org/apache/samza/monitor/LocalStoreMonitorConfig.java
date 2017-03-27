@@ -33,20 +33,20 @@ public class LocalStoreMonitorConfig extends MapConfig {
   /**
    * Defines the local store directory of the job.
    */
-  static final String CONFIG_LOCAL_STORE_DIR = "jobs.local.store.dir";
+  static final String CONFIG_LOCAL_STORE_DIR = "job.local.store.dir";
 
   /**
    * Defines the ttl of the offset file in milliseconds.
    * This must not be larger than delete.retention.ms(slightly lower is better).
    * For instance, if the delete.retention.ms is 24 hrs, this should be set to 23.5 hrs.
    */
-  private static final String CONFIG_OFFSET_FILE_TTL = "jobs.offset.ttl.ms";
+  private static final String CONFIG_OFFSET_FILE_TTL = "job.offset.ttl.ms";
 
   /**
    * Defines the comma separated list of job status servers of the form
    * "Host1:Port1,Host2:Port2".
    */
-  private static final String CONFIG_JOB_STATUS_SERVERS = "jobs.status.servers";
+  private static final String CONFIG_JOB_STATUS_SERVERS = "job.status.servers";
 
   /**
    * Default offset file ttl in milliseconds. Equivalent to 7 days.

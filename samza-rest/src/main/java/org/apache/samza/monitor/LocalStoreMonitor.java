@@ -144,8 +144,9 @@ public class LocalStoreMonitor implements Monitor {
     File offsetFile = new File(taskStoreDir, OFFSET_FILE_NAME);
     if (!offsetFile.exists()) {
       LOG.info("Deleting the task store : {}, since it has no offset file.", taskStorePath);
+      long taskStoreSizeInBytes = taskStoreDir.getTotalSpace();
       FileUtils.deleteDirectory(taskStoreDir);
-      localStoreMonitorMetrics.diskSpaceFreedInBytes.inc(taskStoreDir.getTotalSpace());
+      localStoreMonitorMetrics.diskSpaceFreedInBytes.inc(taskStoreSizeInBytes);
       localStoreMonitorMetrics.noOfDeletedTaskPartitionStores.inc();
     } else if ((CLOCK.currentTimeMillis() - offsetFile.lastModified()) >= config.getOffsetFileTTL()) {
       LOG.info("Deleting the offset file from the store : {}, since the last modified timestamp : {} "
