@@ -43,7 +43,7 @@ public class JobCoordinatorConfig extends MapConfig {
     String jobCooridanationFactoryClassName = get(JOB_COORDINATIOIN_SERVICE_FACTORY, "org.apache.samza.zk.ZkCoordinationServiceFactory");
     if (Strings.isNullOrEmpty(jobCooridanationFactoryClassName)) {
       throw new ConfigException(
-          String.format("Missing config - %s. Cannot start coordiantion service!", JOB_COORDINATOR_FACTORY));
+          String.format("config  '%s' is set to empty. Cannot instantiate coordination utils!", JOB_COORDINATOR_FACTORY));
     }
 
     return jobCooridanationFactoryClassName;

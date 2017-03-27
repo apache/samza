@@ -44,7 +44,7 @@ import org.slf4j.LoggerFactory;
  * </p>
  * */
 public class ZkLeaderElector implements LeaderElector {
-  public static final Logger LOGGER = LoggerFactory.getLogger(ZkLeaderElector.class);
+  public static final Logger LOG = LoggerFactory.getLogger(ZkLeaderElector.class);
   private final ZkUtils zkUtils;
   private final String processorIdStr;
   private final ZkKeyBuilder keyBuilder;
@@ -77,7 +77,7 @@ public class ZkLeaderElector implements LeaderElector {
     try {
       return InetAddress.getLocalHost().getHostName();
     } catch (UnknownHostException e) {
-      LOGGER.error("Failed to fetch hostname of the processor", e);
+      LOG.error("Failed to fetch hostname of the processor", e);
       throw new SamzaException(e);
     }
   }
@@ -87,23 +87,23 @@ public class ZkLeaderElector implements LeaderElector {
     String currentPath = zkUtils.registerProcessorAndGetId(hostName + " " + processorIdStr);
 
     List<String> children = zkUtils.getSortedActiveProcessors();
-    LOGGER.debug(zLog("Current active processors - " + children));
+    LOG.debug(zLog("Current active processors - " + children));
     int index = children.indexOf(ZkKeyBuilder.parseIdFromPath(currentPath));
 
-    System.out.println("index = " + index + " for path=" + currentPath + " out of " + Arrays.toString(children.toArray()));
+    LOG.info("tryBecomeLeader: index = " + index + " for path=" + currentPath + " out of " + Arrays.toString(children.toArray()));
     if (children.size() == 0 || index == -1) {
       throw new SamzaException("Looks like we are no longer connected to Zk. Need to reconnect!");
     }
 
     if (index == 0) {
       isLeader.getAndSet(true);
-      LOGGER.info(zLog("Eligible to become the leader!"));
+      LOG.info(zLog("Eligible to become the leader!"));
       debounceTimer.scheduleAfterDebounceTime("ON_BECOMING_LEADER", 1, () -> leaderElectorListener.onBecomingLeader()); // inform the caller
       return;
     }
 
     isLeader.getAndSet(false);
-    LOGGER.info("Index = " + index + " Not eligible to be a leader yet!");
+    LOG.info("Index = " + index + " Not eligible to be a leader yet!");
     String predecessor = children.get(index - 1);
     if (!predecessor.equals(currentSubscription)) {
       if (currentSubscription != null) {
@@ -112,12 +112,12 @@ public class ZkLeaderElector implements LeaderElector {
         if (previousProcessorChangeListener == null)
           previousProcessorChangeListener =  new PreviousProcessorChangeListener(leaderElectorListener);
 
-        LOGGER.debug(zLog("Unsubscribing data change for " + currentSubscription));
+        LOG.debug(zLog("Unsubscribing data change for " + currentSubscription));
         zkUtils.unsubscribeDataChanges(keyBuilder.getProcessorsPath() + "/" + currentSubscription,
             previousProcessorChangeListener);
       }
       currentSubscription = predecessor;
-      LOGGER.info(zLog("Subscribing data change for " + predecessor));
+      LOG.info(zLog("Subscribing data change for " + predecessor));
       zkUtils.subscribeDataChanges(keyBuilder.getProcessorsPath() + "/" + currentSubscription,
           previousProcessorChangeListener);
     }
@@ -128,14 +128,14 @@ public class ZkLeaderElector implements LeaderElector {
      */
     boolean predecessorExists = zkUtils.exists(keyBuilder.getProcessorsPath() + "/" + currentSubscription);
     if (predecessorExists) {
-      LOGGER.info(zLog("Predecessor still exists. Current subscription is valid. Continuing as non-leader."));
+      LOG.info(zLog("Predecessor still exists. Current subscription is valid. Continuing as non-leader."));
     } else {
       try {
         Thread.sleep(random.nextInt(1000));
       } catch (InterruptedException e) {
         Thread.interrupted();
       }
-      LOGGER.info(zLog("Predecessor doesn't exist anymore. Trying to become leader again..."));
+      LOG.info(zLog("Predecessor doesn't exist anymore. Trying to become leader again..."));
       tryBecomeLeader(leaderElectorListener);
     }
   }
@@ -163,12 +163,13 @@ public class ZkLeaderElector implements LeaderElector {
 
     @Override
     public void handleDataChange(String dataPath, Object data) throws Exception {
-      LOGGER.debug("Data change on path: " + dataPath + " Data: " + data);
+      LOG.debug("Data change on path: " + dataPath + " Data: " + data);
     }
 
     @Override
     public void handleDataDeleted(String dataPath) throws Exception {
-      LOGGER.info(zLog("Data deleted on path " + dataPath + ". Predecessor went away. So, trying to become leader again..."));
+      LOG.info(
+          zLog("Data deleted on path " + dataPath + ". Predecessor went away. So, trying to become leader again..."));
       tryBecomeLeader(leaderElectorListener);
     }
   }
