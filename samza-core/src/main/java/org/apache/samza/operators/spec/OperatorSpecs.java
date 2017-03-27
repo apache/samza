@@ -133,25 +133,25 @@ public class OperatorSpecs {
   /**
    * Creates an {@link OutputOperatorSpec} for the sendTo operator.
    *
-   * @param output  the output {@link MessageStreamImpl} to send messages to
+   * @param outputStream  the output {@link MessageStreamImpl} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
    * @return  the {@link OutputOperatorSpec} for the sendTo operator
    */
-  public static <M> OutputOperatorSpec<M> createSendToOperatorSpec(MessageStreamImpl<M> output, int opId) {
-    return new OutputOperatorSpec<>(output, OperatorSpec.OpCode.SEND_TO, opId);
+  public static <M> OutputOperatorSpec<M> createSendToOperatorSpec(MessageStreamImpl<M> outputStream, int opId) {
+    return new OutputOperatorSpec<>(outputStream, OperatorSpec.OpCode.SEND_TO, opId);
   }
 
   /**
    * Creates an {@link OutputOperatorSpec} for the partitionBy operator.
    *
-   * @param output  the output {@link MessageStreamImpl} to send messages to
+   * @param outputStream  the output {@link MessageStreamImpl} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
    * @return  the {@link OutputOperatorSpec} for the partitionBy operator
    */
-  public static <M> OutputOperatorSpec<M> createPartitionByOperatorSpec(MessageStreamImpl<M> output, int opId) {
-    return new OutputOperatorSpec<>(output, OperatorSpec.OpCode.PARTITION_BY, opId);
+  public static <M> OutputOperatorSpec<M> createPartitionByOperatorSpec(MessageStreamImpl<M> outputStream, int opId) {
+    return new OutputOperatorSpec<>(outputStream, OperatorSpec.OpCode.PARTITION_BY, opId);
   }
 
   /**

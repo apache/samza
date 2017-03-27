@@ -25,7 +25,7 @@ import org.apache.samza.task.TaskContext;
 
 
 /**
- * A stateless serializable stream operator specification that holds all the information required
+ * A stateless stream operator specification that holds all the information required
  * to transform the input {@link MessageStreamImpl} and produce the output {@link MessageStreamImpl}.
  *
  * @param <OM>  the type of output message from the operator
@@ -46,8 +46,8 @@ public interface OperatorSpec<OM> {
   }
 
   /**
-   * Get the output stream containing transformed messages produced by this operator.
-   * @return  the output stream containing transformed messages produced by this operator.
+   * Get the output {@link MessageStreamImpl} containing transformed messages produced by this operator.
+   * @return  the output {@link MessageStreamImpl} containing transformed messages produced by this operator.
    */
   MessageStreamImpl<OM> getNextStream();
 

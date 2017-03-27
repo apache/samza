@@ -80,14 +80,14 @@ public interface MessageStream<M> {
    * NOTE: If the output is for a {@link org.apache.samza.system.SystemStream}, use {@link #sendTo(String, Function)}
    * instead. This transform should only be used to output to an non-stream systems (e.g., an external database).
    *
-   * @param sinkFn the function to send messages in this stream to an output
+   * @param sinkFn the function to send messages in this stream to an external system
    */
   void sink(SinkFunction<M> sinkFn);
 
   /**
    * Allows sending messages in this {@link MessageStream} to an output {@link MessageStream}.
    *
-   * @param streamId the ID for the output {@link MessageStream}
+   * @param streamId the unique logical ID for the output stream
    * @param keyExtractor the {@link Function} to extract the output message key from the input message
    * @param <K> the type of output message key
    */
@@ -135,11 +135,12 @@ public interface MessageStream<M> {
   MessageStream<M> merge(Collection<MessageStream<M>> otherStreams);
 
   /**
-   * Repartition the messages in this {@link MessageStream}, send it to an output stream and consume it as
-   * the input {@link MessageStream} again.
+   * Sends the messages in this {@link MessageStream} to a repartitioned output stream and consumes them as
+   * an input {@link MessageStream} again. Uses keys returned by the {@code keyExtractor} as the partition key.
    *
-   * @param keyExtractor the {@link Function} to extract the output message and partition key from the input message
-   * @param <K> the type of partition key
+   * @param keyExtractor the {@link Function} to extract the output message key and partition key from
+   *                     the input message
+   * @param <K> the type of output message key and partition key
    * @return the repartitioned {@link MessageStream}
    */
   <K> MessageStream<M> partitionBy(Function<M, K> keyExtractor);

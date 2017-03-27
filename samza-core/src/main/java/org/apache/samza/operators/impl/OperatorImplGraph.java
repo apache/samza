@@ -39,7 +39,7 @@ import java.util.Map;
 
 /**
  * Instantiates the DAG of {@link OperatorImpl}s corresponding to the {@link OperatorSpec}s for the input
- * {@link MessageStreamImpl}s
+ * {@link MessageStreamImpl}s.
  */
 public class OperatorImplGraph {
 
@@ -51,7 +51,7 @@ public class OperatorImplGraph {
   private final Map<OperatorSpec, OperatorImpl> operatorImpls = new HashMap<>();
 
   /**
-   * A mapping from input {@link SystemStream}s to their {@link OperatorImpl}s sub-DAG in this graph.
+   * A mapping from input {@link SystemStream}s to their {@link OperatorImpl} sub-DAG in this graph.
    */
   private final Map<SystemStream, RootOperatorImpl> rootOperators = new HashMap<>();
 
@@ -67,9 +67,9 @@ public class OperatorImplGraph {
 
   /**
    * Initialize the DAG of {@link OperatorImpl}s for the input {@link MessageStreamImpl} in the provided
-   * {@link org.apache.samza.operators.StreamGraph}.
+   * {@link StreamGraphImpl}.
    *
-   * @param streamGraph  the logical {@link org.apache.samza.operators.StreamGraph}
+   * @param streamGraph  the logical {@link StreamGraphImpl}
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
    */

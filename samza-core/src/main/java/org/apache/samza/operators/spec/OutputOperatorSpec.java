@@ -49,8 +49,8 @@ public class OutputOperatorSpec<M> implements OperatorSpec {
    *                the output {@link org.apache.samza.task.MessageCollector} and the
    *                {@link org.apache.samza.task.TaskCoordinator}.
    * @param opCode  the specific {@link OpCode} for this {@link OutputOperatorSpec}.
-   *                It could be {@link OpCode#SINK}, {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}
-   * @param opId  the unique ID of this {@link OperatorSpec} in the {@link org.apache.samza.operators.StreamGraph}
+   *                It could be {@link OpCode#SINK}, {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}.
+   * @param opId  the unique ID of this {@link OperatorSpec} in the graph
    */
   OutputOperatorSpec(SinkFunction<M> sinkFn, OperatorSpec.OpCode opCode, int opId) {
     this.sinkFn = sinkFn;
@@ -63,7 +63,7 @@ public class OutputOperatorSpec<M> implements OperatorSpec {
    * @param output  the output {@link MessageStreamImpl} to send messages to
    * @param opCode the specific {@link OpCode} for this {@link OutputOperatorSpec}.
    *               It could be {@link OpCode#SINK}, {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}
-   * @param opId  the unique ID of this {@link OutputOperatorSpec} in the {@link org.apache.samza.operators.StreamGraph}
+   * @param opId  the unique ID of this {@link OutputOperatorSpec} in the graph
    */
   OutputOperatorSpec(MessageStreamImpl<M> output, OperatorSpec.OpCode opCode, int opId) {
     this(createSinkFn(output), opCode, opId);

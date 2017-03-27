@@ -23,16 +23,17 @@ import org.apache.samza.annotation.InterfaceStability;
 import java.util.function.BiFunction;
 
 /**
- * Allows creating input and output {@link MessageStream}s to be used in the application.
+ * Provides APIs for accessing {@link MessageStream}s to be used to create the DAG of transforms.
  */
 @InterfaceStability.Unstable
 public interface StreamGraph {
 
   /**
-   * Add an input {@link MessageStream} to the graph.
+   * Gets the input {@link MessageStream} corresponding to the logical {@code streamId}.
    *
-   * @param streamId the unique ID for the stream
-   * @param msgBuilder the function to convert the incoming key and message to a message in the input {@link MessageStream}
+   * @param streamId the unique logical ID for the stream
+   * @param msgBuilder the {@link BiFunction} to convert the incoming key and message to a message
+   *                   in the input {@link MessageStream}
    * @param <K> the type of key in the incoming message
    * @param <V> the type of message in the incoming message
    * @param <M> the type of message in the input {@link MessageStream}
@@ -41,11 +42,14 @@ public interface StreamGraph {
   <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<K, V, M> msgBuilder);
 
   /**
-   * Set the {@link ContextManager} for the {@link StreamGraph}.
+   * Sets the {@link ContextManager} for this {@link StreamGraph}.
    *
-   * @param manager the {@link ContextManager} to use for the {@link StreamGraph}
-   * @return the {@link StreamGraph} with the {@code manager} as its {@link ContextManager}
+   * The provided {@code contextManager} will be initialized before the transformation functions
+   * and can be used to setup shared context between them.
+   *
+   * @param contextManager the {@link ContextManager} to use for the {@link StreamGraph}
+   * @return the {@link StreamGraph} with the {@code contextManager} as its {@link ContextManager}
    */
-  StreamGraph withContextManager(ContextManager manager);
+  StreamGraph withContextManager(ContextManager contextManager);
 
 }

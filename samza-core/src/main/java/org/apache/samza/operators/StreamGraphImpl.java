@@ -35,12 +35,14 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * The {@link StreamGraph} implementation that allows users to create input and output system streams.
+ * The {@link StreamGraph} implementation that provides APIs for accessing {@link MessageStream}s to be used to
+ * create the DAG of transforms.
  */
 public class StreamGraphImpl implements StreamGraph {
+
   /**
    * Unique identifier for each {@link org.apache.samza.operators.spec.OperatorSpec} in the graph.
-   * Should only be accessed via {@link #getNextOpId()}.
+   * Should only be accessed by {@link MessageStreamImpl} via {@link #getNextOpId()}.
    */
   private int opId = 0;
 
@@ -52,8 +54,8 @@ public class StreamGraphImpl implements StreamGraph {
   private ContextManager contextManager = new ContextManager() { };
 
   public StreamGraphImpl(ApplicationRunner runner, Config config) {
-    // TODO: SAMZA-1159 - Move StreamSpec and ApplicationRunner out of StreamGraphImpl once Systems
-    // can use streamId to send and receive messages (SAMZA-1118).
+    // TODO: SAMZA-1118 - Move StreamSpec and ApplicationRunner out of StreamGraphImpl once Systems
+    // can use streamId to send and receive messages.
     this.runner = runner;
     this.config = config;
   }
@@ -65,17 +67,17 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   @Override
-  public StreamGraph withContextManager(ContextManager manager) {
-    this.contextManager = manager;
+  public StreamGraph withContextManager(ContextManager contextManager) {
+    this.contextManager = contextManager;
     return this;
   }
 
   /**
    * Internal helper for {@link MessageStreamImpl} to add an output {@link MessageStream} to the graph.
    *
-   * @param streamId the unique ID for the stream
-   * @param keyExtractor the function to extract the outgoing key from a message in the output {@link MessageStream}
-   * @param msgExtractor the function to extract the outgoing message from a message in the output {@link MessageStream}
+   * @param streamId the unique logical ID for the stream
+   * @param keyExtractor the {@link Function} to extract the outgoing key from the output message
+   * @param msgExtractor the {@link Function} to extract the outgoing message from the output message
    * @param <K> the type of key in the outgoing message
    * @param <V> the type of message in the outgoing message
    * @param <M> the type of message in the output {@link MessageStream}
@@ -91,14 +93,16 @@ public class StreamGraphImpl implements StreamGraph {
    * Internal helper for {@link MessageStreamImpl} to add an intermediate {@link MessageStream} to the graph.
    * An intermediate {@link MessageStream} is both an output and an input stream.
    *
-   * @param streamName the name of the stream to be created (will be prefixed with job name and id)
-   * @param keyExtractor the function to extract the output key from the input message
-   * @param msgExtractor the function to extract the output message from the input message
-   * @param msgBuilder the function to convert the incoming key and message to the output message
-   * @param <K> the type of key in the incoming message
-   * @param <V> the type of message in the incoming message
+   * @param streamName the name of the stream to be created. Will be prefixed with job name and id to generate the
+   *                   logical streamId.
+   * @param keyExtractor the {@link Function} to extract the outgoing key from the intermediate message
+   * @param msgExtractor the {@link Function} to extract the outgoing message from the intermediate message
+   * @param msgBuilder the {@link BiFunction} to convert the incoming key and message to a message
+   *                   in the intermediate {@link MessageStream}
+   * @param <K> the type of key in the intermediate message
+   * @param <V> the type of message in the intermediate message
    * @param <M> the type of messages in the intermediate {@link MessageStream}
-   * @return  the intermediate {@link MessageStreamImpl} for the re-partitioned stream
+   * @return  the intermediate {@link MessageStreamImpl}
    */
   <K, V, M> MessageStreamImpl<M> getIntermediateStream(String streamName,
       Function<M, K> keyExtractor, Function<M, V> msgExtractor, BiFunction<K, V, M> msgBuilder) {
