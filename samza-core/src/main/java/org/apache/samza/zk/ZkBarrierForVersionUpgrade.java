@@ -23,33 +23,57 @@ import java.util.Arrays;
 import java.util.List;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
+import org.I0Itec.zkclient.exception.ZkBadVersionException;
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.samza.config.ZkConfig;
+import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * This class creates a barrier for version upgrade.
+ * Barrier is started by the participant responsible for the upgrade. (start())
+ * Each participant will mark its readiness and register for a notification when the barrier is reached. (waitFor())
+ * If a timer (started in start()) goes off before the barrier is reached, all the participants will unsubscribe
+ * from the notification and the barrier becomes invalid.
+ */
 public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final ZkUtils zkUtils;
   private final ZkKeyBuilder keyBuilder;
   private final static String BARRIER_DONE = "done";
   private final static String BARRIER_TIMED_OUT = "TIMED_OUT";
   private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
-  private final ZkConfig zkConfig;
 
   private final ScheduleAfterDebounceTime debounceTimer;
 
   private final String barrierPrefix;
+  private final String barrierPath;
+  private final String barrierDonePath;
+  private final String barrierProcessors;
+  private final String version;
+  private final List<String> processorsNames;
+  private static final String VERSION_UPGRADE_TIMEOUT_TIMER = "VersionUpgradeTimeout";
+  private final long barrierTimeoutMS;
 
-  public ZkBarrierForVersionUpgrade(ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer, ZkConfig zkConfig) {
+  public ZkBarrierForVersionUpgrade(String barrierId, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer,
+      String version, List<String> processorsNames, long barrierTimeoutMS) {
     this.zkUtils = zkUtils;
     keyBuilder = zkUtils.getKeyBuilder();
 
-    barrierPrefix = keyBuilder.getJobModelVersionBarrierPrefix();
+    barrierPrefix = keyBuilder.getJobModelVersionBarrierPrefix(barrierId);
     this.debounceTimer = debounceTimer;
-    this.zkConfig = zkConfig;
+
+    barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
+    barrierDonePath = String.format("%s/barrier_done", barrierPath);
+    barrierProcessors = String.format("%s/barrier_processors", barrierPath);
+
+    this.version = version;
+    this.processorsNames = processorsNames;
+    this.barrierTimeoutMS = barrierTimeoutMS;
+
+    zkUtils.makeSurePersistentPathsExists(new String[]{barrierPrefix, barrierPath, barrierProcessors, barrierDonePath});
   }
 
   /**
@@ -57,59 +81,43 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
    * @param version for which the barrier is created
    * @param timeout - time in ms to wait
    */
-  public void setTimer(String version, long timeout) {
-    debounceTimer.scheduleAfterDebounceTime("VersionUpgradeTimeout", timeout, ()->timerOff(version));
+  private void setTimer(final String version, final long timeout, final Stat currentStatOfBarrierDone) {
+    debounceTimer.scheduleAfterDebounceTime(VERSION_UPGRADE_TIMEOUT_TIMER, timeout, ()->timerOff(version, currentStatOfBarrierDone));
   }
 
   protected long getBarrierTimeOutMs() {
-    return zkConfig.getZkBarrierTimeoutMs();
+    return barrierTimeoutMS;
   }
 
-  private void timerOff(String version) {
-    // check if barrier has finished
-    final String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
-    final String barrierDonePath = String.format("%s/barrier_done", barrierPath);
-    Stat stat = new Stat();
-    String done = zkUtils.getZkClient().<String>readData(barrierDonePath, stat);
-    if (done != null && done.equals(BARRIER_DONE))
-      return; //nothing to do
-
-    while (true) {
-      try {
-        // write a new value if no one else did, if the value was changed since previous reading - retry
-        zkUtils.getZkClient().writeData(barrierDonePath, "TIMED_OUT", stat.getVersion());
-        return;
-      } catch (Exception e) {
-        // failed to write, try read/write again
-        LOG.info("Barrier timeout write failed");
-        done = zkUtils.getZkClient().<String>readData(barrierDonePath, stat);
-        if (done.equals(BARRIER_DONE))
-          return; //nothing to do
+  private void timerOff(final String version, final Stat currentStatOfBarrierDone) {
+    try {
+      // write a new value "TIMED_OUT", if the value was changed since previous value, make sure it was changed to "DONE"
+      zkUtils.getZkClient().writeData(barrierDonePath, BARRIER_TIMED_OUT, currentStatOfBarrierDone.getVersion());
+    } catch (ZkBadVersionException e) {
+      // failed to write, make sure the value is "DONE"
+      LOG.warn("Barrier timeout write failed");
+      String done = zkUtils.getZkClient().<String>readData(barrierDonePath);
+      if (!done.equals(BARRIER_DONE)) {
+        throw new SamzaException("Failed to write to the barrier_done, version=" + version, e);
       }
     }
   }
 
   @Override
-  public void start(String version, List<String> processorsNames) {
-    final String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
-    final String barrierDonePath = String.format("%s/barrier_done", barrierPath);
-    final String barrierProcessors = String.format("%s/barrier_processors", barrierPath);
-
-    zkUtils.makeSurePersistentPathsExists(new String[]{barrierPrefix, barrierPath, barrierProcessors, barrierDonePath});
+  public void start() {
 
     // subscribe for processor's list changes
     LOG.info("Subscribing for child changes at " + barrierProcessors);
     zkUtils.getZkClient().subscribeChildChanges(barrierProcessors, new ZkBarrierChangeHandler(version, processorsNames));
 
-    setTimer(version, getBarrierTimeOutMs());
+    // create a timer for time-out
+    Stat currentStatOfBarrierDone = new Stat();
+    zkUtils.getZkClient().readData(barrierDonePath, currentStatOfBarrierDone);
+    setTimer(version, getBarrierTimeOutMs(), currentStatOfBarrierDone);
   }
 
   @Override
-  public void waitForBarrier(String version, String processorsName, Runnable callback) {
-    // if participant makes this call it means it has already stopped the old container and got the new job model.
-    final String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
-    final String barrierDonePath = String.format("%s/barrier_done", barrierPath);
-    final String barrierProcessors = String.format("%s/barrier_processors", barrierPath);
+  public void waitForBarrier(String processorsName, Runnable callback) {
     final String barrierProcessorThis = String.format("%s/%s", barrierProcessors, processorsName);
 
     // update the barrier for this processor
@@ -139,15 +147,12 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
         LOG.info("Got handleChildChange with null currentChildren");
         return;
       }
-
       LOG.info("list of children in the barrier = " + parentPath + ":" + Arrays.toString(currentChildren.toArray()));
       LOG.info("list of children to compare against = " + parentPath + ":" + Arrays.toString(names.toArray()));
 
       // check if all the names are in
       if (CollectionUtils.containsAll(names, currentChildren)) {
         LOG.info("ALl nodes reached the barrier");
-        final String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
-        final String barrierDonePath = String.format("%s/barrier_done", barrierPath);
         LOG.info("Writing BARRIER DONE to " + barrierDonePath);
         zkUtils.getZkClient().writeData(barrierDonePath, BARRIER_DONE);
       }
@@ -175,8 +180,8 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
         debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, callback);
       } else if (done.equals(BARRIER_TIMED_OUT)) {
         // timed out
-        LOG.error("Barrier for " + dataPath + " timed out");
-        System.out.println("Barrier for " + dataPath + " timed out");
+        LOG.warn("Barrier for " + dataPath + " timed out");
+        LOG.info("Barrier for " + dataPath + " timed out");
         zkUtils.unsubscribeDataChanges(barrierPathDone, this);
       }
       // we do not need to resubscribe because, ZkClient library does it for us.

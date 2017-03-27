@@ -19,6 +19,7 @@
 package org.apache.samza.zk;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.util.List;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationService;
@@ -65,8 +66,8 @@ public class ZkCoordinationService implements CoordinationService {
   }
 
   @Override
-  public BarrierForVersionUpgrade getBarrier(String barrierId) {
-    return new ZkBarrierForVersionUpgrade(zkUtils, debounceTimer, zkConfig);
+  public BarrierForVersionUpgrade getBarrier(String barrierId, String version, List<String> participatns) {
+    return new ZkBarrierForVersionUpgrade(barrierId, zkUtils, debounceTimer, version, participatns, zkConfig.getZkBarrierTimeoutMs());
   }
   @VisibleForTesting
   public ZkUtils getZkUtils() {

@@ -47,16 +47,18 @@ import org.slf4j.LoggerFactory;
  */
 public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private static final Logger log = LoggerFactory.getLogger(ZkJobCoordinator.class);
+  private static final String JOB_MODEL_VERSION_BARRIER = "JobModelVersion";
 
   private final ZkUtils zkUtils;
   private final int processorId;
   private final ZkController zkController;
   private final SamzaContainerController containerController;
-  private final BarrierForVersionUpgrade barrier;
+  private BarrierForVersionUpgrade barrier;
   private final ScheduleAfterDebounceTime debounceTimer;
   private final StreamMetadataCache  streamMetadataCache;
   private final ZkKeyBuilder keyBuilder;
   private final Config config;
+  private final CoordinationService coordinationService;
 
   private JobModel newJobModel;
   private String newJobModelVersion;  // version published in ZK (by the leader)
@@ -71,11 +73,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     this.containerController = containerController;
     this.zkController = new ZkControllerImpl(String.valueOf(processorId), zkUtils, debounceTimer, this);
     this.config = config;
-    JobConfig jConfig = new JobConfig(config);
+    this.coordinationService = coordinationService;
 
-
-    //barrier = new ZkBarrierForVersionUpgrade(zkUtils, debounceTimer);
-    barrier = coordinationService.getBarrier(jConfig.getJobId() + "-" + jConfig.getName());
     streamMetadataCache = getStreamMetadataCache();
   }
 
@@ -160,7 +159,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     String zkProcessorId = keyBuilder.parseIdFromPath(currentPath);
 
     // update ZK and wait for all the processors to get this new version
-    barrier.waitForBarrier(version, String.valueOf(zkProcessorId), new Runnable() {
+    barrier.waitForBarrier(String.valueOf(zkProcessorId), new Runnable() {
       @Override
       public void run() {
         onNewJobModelConfirmed(version);
@@ -216,7 +215,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     log.info("pid=" + processorId + "published new JobModel ver=" + nextJMVersion + ";jm=" + jobModel);
 
     // start the barrier for the job model update
-    barrier.start(nextJMVersion, currentProcessors);
+    barrier = coordinationService.getBarrier(JOB_MODEL_VERSION_BARRIER, nextJMVersion, currentProcessors);
+    barrier.start();
 
     // publish new JobModel version
     zkUtils.publishJobModelVersion(currentJMVersion, nextJMVersion);

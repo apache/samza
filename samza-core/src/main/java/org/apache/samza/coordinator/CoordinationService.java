@@ -18,6 +18,9 @@
  */
 package org.apache.samza.coordinator;
 
+import java.util.List;
+
+
 /**
  * Coordination service provides synchronization primitives.
  * The actual implementation (for example ZK based) is left to each implementation class.
@@ -49,5 +52,5 @@ public interface CoordinationService {
 
   Latch getLatch(int size, String latchId);
 
-  BarrierForVersionUpgrade getBarrier(String barrierId);
+  BarrierForVersionUpgrade getBarrier(String barrierId, String version, List<String> participatns);
 }
