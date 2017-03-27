@@ -105,9 +105,7 @@ public class SamzaContainerController {
         localityManager,
         new JmxServer(),
         Util.<String, MetricsReporter>javaMapAsScalaMap(metricsReporterMap),
-        taskFactory,
-        // TODO: need to use the correct local ApplicationRunner here
-        null);
+        taskFactory);
     log.info("About to start container: " + containerModel.getContainerId());
     containerFuture = executorService.submit(() -> container.run());
   }

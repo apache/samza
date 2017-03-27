@@ -79,7 +79,6 @@ public class TestZkBarrierForVersionUpgrade {
   @Test
   public void testZkBarrierForVersionUpgrade() {
     String barrierId = "b1";
-
     String ver = "1";
     List<String> processors = new ArrayList<String>();
     processors.add("p1");
