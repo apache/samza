@@ -39,14 +39,15 @@ public class ApplicationRunnerMain {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     OptionSet options = cmdLine.parser().parse(args);
-    Config config = cmdLine.loadConfig(options);
+    Config orgConfig = cmdLine.loadConfig(options);
+    Config config = Util.rewriteConfig(orgConfig);
 
     if (config.containsKey(STREAM_APPLICATION_CLASS_CONFIG)) {
       ApplicationRunner runner = ApplicationRunner.fromConfig(config);
       StreamApplication app = (StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).newInstance();
       runner.run(app);
     } else {
-      new JobRunner(Util.rewriteConfig(config)).run(true);
+      new JobRunner(config).run(true);
     }
   }
 }
