@@ -60,6 +60,6 @@ public class TestZkKeyBuilder {
     Assert.assertEquals("/test/jobModels", builder.getJobModelPathPrefix());
     String version = "2";
     Assert.assertEquals("/test/jobModels/" + version, builder.getJobModelPath(version));
-    Assert.assertEquals("/test/versionBarriers", builder.getJobModelVersionBarrierPrefix("testBarrier"));
+    Assert.assertEquals("/test/testBarrier/versionBarriers", builder.getJobModelVersionBarrierPrefix("testBarrier"));
   }
 }

@@ -27,7 +27,6 @@ import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationService;
 import org.apache.samza.coordinator.JobCoordinator;
