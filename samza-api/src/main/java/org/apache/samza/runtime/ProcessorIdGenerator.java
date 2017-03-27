@@ -18,6 +18,10 @@
  */
 package org.apache.samza.runtime;
 
+import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.config.Config;
+
+@InterfaceStability.Evolving
 public interface ProcessorIdGenerator {
   /**
    * Generates a String representation to identify the processor instance
@@ -25,8 +29,9 @@ public interface ProcessorIdGenerator {
    *
    * <b>Note</b>: processorId has to be unique among the processors within a job
    *
+   * @param config Config instance
    * @return String Identifier for the processor
    */
-  String generateProcessorId();
+  String generateProcessorId(Config config);
 
 }

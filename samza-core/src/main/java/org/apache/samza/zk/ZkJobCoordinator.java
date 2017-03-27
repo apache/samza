@@ -19,6 +19,7 @@
 package org.apache.samza.zk;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -28,9 +29,11 @@ import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.processor.SamzaContainerController;
+import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
+import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -62,7 +65,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final CoordinationUtils coordinationUtils;
 
   private JobModel newJobModel;
-  private String newJobModelVersion;  // version published in ZK (by the leader)
   private JobModel jobModel;
 
   public ZkJobCoordinator(String groupId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
@@ -70,7 +72,15 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     this.zkUtils = zkUtils;
     this.keyBuilder = zkUtils.getKeyBuilder();
     this.debounceTimer = debounceTimer;
-    this.processorId = getProcessorIdGeneratorFromConfig(config).generateProcessorId();
+    ApplicationConfig appConfig = new ApplicationConfig(config);
+    if (appConfig.getProcessorId() != null) {    // TODO: This check to be removed after 0.13+
+      this.processorId = appConfig.getProcessorId();
+    } else {
+      ProcessorIdGenerator idGenerator =
+          ClassLoaderHelper.fromClassName(
+              new ApplicationConfig(config).getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
+      this.processorId = idGenerator.generateProcessorId(config);
+    }
     this.containerController = containerController;
     this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this);
     this.config = config;
@@ -149,7 +159,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   @Override
   public void onNewJobModelAvailable(final String version) {
-    newJobModelVersion = version;
     log.info("pid=" + processorId + "new JobModel available");
     // stop current work
     containerController.stopContainer();

@@ -18,20 +18,22 @@
  */
 package org.apache.samza.runtime;
 
+import org.apache.samza.config.Config;
+
 import java.util.UUID;
 
 public class UUIDGenerator implements ProcessorIdGenerator {
-
   /**
    * Generates a String representation to identify the processor instance
    * This value can be representative of its current executing environment. It can also be custom-managed by the user.
    * <p>
    * <b>Note</b>: processorId has to be unique among the processors within a job
    *
+   * @param config Config instance
    * @return String Identifier for the processor
    */
   @Override
-  public String generateProcessorId() {
+  public String generateProcessorId(Config config) {
     return UUID.randomUUID().toString();
   }
 }

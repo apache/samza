@@ -19,12 +19,7 @@
 package org.apache.samza.coordinator;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.runtime.ProcessorIdGenerator;
-
-import java.lang.reflect.Constructor;
 
 /**
  *  A JobCoordinator is a pluggable module in each process that provides the JobModel and the ID to the StreamProcessor.
@@ -33,24 +28,6 @@ import java.lang.reflect.Constructor;
  *  */
 @InterfaceStability.Evolving
 public interface JobCoordinator {
-  String DEFAULT_PROCESSOR_ID_GENERATOR = "org.apache.samza.runtime.UUIDGenerator";
-  String APP_PROCESSOR_ID_GENERATOR_CLASS_CONFIG = "app.processor-id-generator.class";
-
-  default ProcessorIdGenerator getProcessorIdGeneratorFromConfig(Config config) {
-    String idGeneratorClassName = config.get(APP_PROCESSOR_ID_GENERATOR_CLASS_CONFIG, DEFAULT_PROCESSOR_ID_GENERATOR);
-    try {
-      Class<?> idGeneratorClass = Class.forName(idGeneratorClassName);
-      if (!ProcessorIdGenerator.class.isAssignableFrom(idGeneratorClass)) {
-        throw new ConfigException(String.format(
-            "Class %s is not of type ProcessorIdGenerator", idGeneratorClassName));
-      }
-      Constructor<?> constructor = idGeneratorClass.getConstructor();
-      return (ProcessorIdGenerator) constructor.newInstance();
-    } catch (Exception e) {
-      throw new ConfigException(String.format(
-          "Problem in loading ProcessorIdGenerator class %s", idGeneratorClassName), e);
-    }
-  }
   /**
    * Starts the JobCoordinator which involves one or more of the following:
    * * LeaderElector Module initialization, if any

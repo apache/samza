@@ -104,8 +104,10 @@ public class StreamProcessor {
 
   private StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
                           Object taskFactory) {
+    // TODO: This check to be removed after 0.13+
     ApplicationConfig applicationConfig = new ApplicationConfig(config);
-    if (applicationConfig.getProcessorId() == null && applicationConfig.getAppProcessorIdGeneratorClass() == null) {
+    if (applicationConfig.getProcessorId() == null &&
+        applicationConfig.getAppProcessorIdGeneratorClass() == null) {
       throw new ConfigException(
           String.format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
               ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
