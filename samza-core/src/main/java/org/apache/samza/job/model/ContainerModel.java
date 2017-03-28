@@ -71,14 +71,14 @@ public class ContainerModel implements Comparable<ContainerModel> {
 
   @Override
   public String toString() {
-    return "ContainerModel [containerId=" + containerId + ", tasks=" + tasks + "]";
+    return "ContainerModel [processorId=" + processorId + ", tasks=" + tasks + "]";
   }
 
   @Override
   public int hashCode() {
     final int prime = 31;
     int result = 1;
-    result = prime * result + containerId;
+    result = prime * result + ((processorId == null) ? 0 : processorId.hashCode());
     result = prime * result + ((tasks == null) ? 0 : tasks.hashCode());
     return result;
   }

@@ -63,7 +63,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class YarnClusterResourceManager extends ClusterResourceManager implements AMRMClientAsync.CallbackHandler {
 
-  private final int INVALID_YARN_CONTAINER_ID = -1;
+  private final String INVALID_YARN_CONTAINER_ID = "-1";
 
   /**
    * The containerProcessManager instance to request resources from yarn.
@@ -264,8 +264,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   @Override
   public void launchStreamProcessor(SamzaResource resource, CommandBuilder builder) throws SamzaContainerLaunchException {
     String containerIDStr = builder.buildEnvironment().get(ShellCommandConfig.ENV_CONTAINER_ID());
-    int containerID = Integer.parseInt(containerIDStr);
-    log.info("Received launch request for {} on hostname {}", containerID , resource.getHost());
+    log.info("Received launch request for {} on hostname {}", containerIDStr , resource.getHost());
 
     synchronized (lock) {
       Container container = allocatedResources.get(resource);
@@ -274,8 +273,8 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
         return;
       }
 
-      state.runningYarnContainers.put(containerID, new YarnContainer(container));
-      yarnContainerRunner.runContainer(containerID, container, builder);
+      state.runningYarnContainers.put(containerIDStr, new YarnContainer(container));
+      yarnContainerRunner.runContainer(containerIDStr, container, builder);
     }
   }
 
@@ -290,10 +289,10 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   //In that case, this scan will turn into a lookup. This change will require changes/testing in the UI files because
   //those UI stub templates operate on the YarnContainer object.
 
-  private int getIDForContainer(String lookupContainerId) {
-    int samzaContainerID = INVALID_YARN_CONTAINER_ID;
-    for(Map.Entry<Integer, YarnContainer> entry : state.runningYarnContainers.entrySet()) {
-      Integer key = entry.getKey();
+  private String getIDForContainer(String lookupContainerId) {
+    String samzaContainerID = INVALID_YARN_CONTAINER_ID;
+    for(Map.Entry<String, YarnContainer> entry : state.runningYarnContainers.entrySet()) {
+      String key = entry.getKey();
       YarnContainer yarnContainer = entry.getValue();
       String yarnContainerId = yarnContainer.id().toString();
       if(yarnContainerId.equals(lookupContainerId)) {
@@ -319,7 +318,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     synchronized (lock) {
       AMRMClient.ContainerRequest containerRequest = requestsMap.get(request);
       if (containerRequest == null) {
-        log.info("Cancellation of {} already done. ", containerRequest);
+        log.info("Cancellation of {} already done. ", request);
         return;
       }
       requestsMap.remove(request);
@@ -386,12 +385,12 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
       SamzaResourceStatus samzaResrcStatus = new SamzaResourceStatus(status.getContainerId().toString(), status.getDiagnostics(), status.getExitStatus());
       samzaResrcStatuses.add(samzaResrcStatus);
 
-      int completedContainerID = getIDForContainer(status.getContainerId().toString());
+      String completedContainerID = getIDForContainer(status.getContainerId().toString());
       log.info("Completed container had ID: {}", completedContainerID);
 
       //remove the container from the list of running containers, if failed with a non-zero exit code, add it to the list of
       //failed containers.
-      if(completedContainerID != INVALID_YARN_CONTAINER_ID){
+      if(!completedContainerID.equals(INVALID_YARN_CONTAINER_ID)){
         if(state.runningYarnContainers.containsKey(completedContainerID)) {
           log.info("Removing container ID {} from completed containers", completedContainerID);
           state.runningYarnContainers.remove(completedContainerID);

@@ -109,7 +109,7 @@ object SamzaContainer extends Logging {
   }
 
   def getSamzaContainerName(containerId: String): String = {
-    "samza-container-%d" format containerId
+    "samza-container-%s" format containerId
   }
 
   def apply(
