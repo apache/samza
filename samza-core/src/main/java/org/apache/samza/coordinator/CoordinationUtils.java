@@ -18,7 +18,8 @@
  */
 package org.apache.samza.coordinator;
 
-/**
+/**  THIS API WILL CHANGE
+ *
  * Coordination service provides synchronization primitives.
  * The actual implementation (for example ZK based) is left to each implementation class.
  * This service provide three primitives:
