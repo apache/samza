@@ -49,31 +49,20 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final ScheduleAfterDebounceTime debounceTimer;
 
   private final String barrierPrefix;
-  private final String barrierPath;
-  private final String barrierDonePath;
-  private final String barrierProcessors;
-  private final String version;
-  private final List<String> processorsNames;
+  private String barrierPath;
+  private String barrierDonePath;
+  private String barrierProcessors;
   private static final String VERSION_UPGRADE_TIMEOUT_TIMER = "VersionUpgradeTimeout";
   private final long barrierTimeoutMS;
 
-  public ZkBarrierForVersionUpgrade(String barrierId, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer,
-      String version, List<String> processorsNames, long barrierTimeoutMS) {
+  public ZkBarrierForVersionUpgrade(String barrierId, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer, long barrierTimeoutMS) {
     this.zkUtils = zkUtils;
     keyBuilder = zkUtils.getKeyBuilder();
 
     barrierPrefix = keyBuilder.getJobModelVersionBarrierPrefix(barrierId);
+
     this.debounceTimer = debounceTimer;
-
-    barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
-    barrierDonePath = String.format("%s/barrier_done", barrierPath);
-    barrierProcessors = String.format("%s/barrier_processors", barrierPath);
-
-    this.version = version;
-    this.processorsNames = processorsNames;
     this.barrierTimeoutMS = barrierTimeoutMS;
-
-    zkUtils.makeSurePersistentPathsExists(new String[]{barrierPrefix, barrierPath, barrierProcessors, barrierDonePath});
   }
 
   /**
@@ -103,40 +92,52 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     }
   }
 
+  private void setPaths(String version) {
+    barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
+    barrierDonePath = String.format("%s/barrier_done", barrierPath);
+    barrierProcessors = String.format("%s/barrier_processors", barrierPath);
+
+    zkUtils.makeSurePersistentPathsExists(new String[]{barrierPrefix, barrierPath, barrierProcessors, barrierDonePath});
+  }
+
   @Override
-  public void start() {
+  public void start(String version, List<String> participants) {
+
+    setPaths(version);
 
     // subscribe for processor's list changes
     LOG.info("Subscribing for child changes at " + barrierProcessors);
-    zkUtils.getZkClient().subscribeChildChanges(barrierProcessors, new ZkBarrierChangeHandler(version, processorsNames));
+    zkUtils.getZkClient().subscribeChildChanges(barrierProcessors, new ZkBarrierChangeHandler(participants));
 
     // create a timer for time-out
     Stat currentStatOfBarrierDone = new Stat();
     zkUtils.getZkClient().readData(barrierDonePath, currentStatOfBarrierDone);
+
     setTimer(version, getBarrierTimeOutMs(), currentStatOfBarrierDone);
   }
 
   @Override
-  public void waitForBarrier(String processorsName, Runnable callback) {
-    final String barrierProcessorThis = String.format("%s/%s", barrierProcessors, processorsName);
+  public void waitForBarrier(String version, String participantName, Runnable callback) {
+
+    setPaths(version);
+    final String barrierProcessorThis = String.format("%s/%s", barrierProcessors, participantName);
+
+    // now subscribe for the barrier
+    zkUtils.getZkClient().subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, debounceTimer, callback));
 
     // update the barrier for this processor
     LOG.info("Creating a child for barrier at " + barrierProcessorThis);
     zkUtils.getZkClient().createPersistent(barrierProcessorThis);
-
-    // now subscribe for the barrier
-    zkUtils.getZkClient().subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, debounceTimer, callback));
   }
 
   /**
-   * listener for the subscription.
+   * Listener for the subscription for the list of participants.
+   * This method will identify when all the participants have joined.
    */
   class ZkBarrierChangeHandler implements IZkChildListener {
-    private final String version;
     private final List<String> names;
 
-    public ZkBarrierChangeHandler(String version, List<String> names) {
-      this.version = version;
+    public ZkBarrierChangeHandler(List<String> names) {
       this.names = names;
     }
 
@@ -154,7 +155,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
       if (CollectionUtils.containsAll(names, currentChildren)) {
         LOG.info("ALl nodes reached the barrier");
         LOG.info("Writing BARRIER DONE to " + barrierDonePath);
-        zkUtils.getZkClient().writeData(barrierDonePath, BARRIER_DONE);
+        zkUtils.getZkClient().writeData(barrierDonePath, BARRIER_DONE); // this will trigger notifications
       }
     }
   }
@@ -176,16 +177,13 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
       String done = (String) data;
       LOG.info("got notification about barrier path=" + barrierPathDone + "; done=" + done);
       if (done.equals(BARRIER_DONE)) {
-        zkUtils.unsubscribeDataChanges(barrierPathDone, this);
         debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, callback);
       } else if (done.equals(BARRIER_TIMED_OUT)) {
         // timed out
         LOG.warn("Barrier for " + dataPath + " timed out");
-        LOG.info("Barrier for " + dataPath + " timed out");
-        zkUtils.unsubscribeDataChanges(barrierPathDone, this);
       }
-      // we do not need to resubscribe because, ZkClient library does it for us.
-
+      // in any case we unsubscribe
+      zkUtils.unsubscribeDataChanges(barrierPathDone, this);
     }
 
     @Override

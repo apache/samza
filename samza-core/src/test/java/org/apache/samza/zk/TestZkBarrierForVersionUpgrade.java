@@ -82,7 +82,7 @@ public class TestZkBarrierForVersionUpgrade {
     processors.add("p1");
     processors.add("p2");
 
-    BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(barrierId, ver, processors);
+    BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(barrierId);
 
     class Status {
       boolean p1 = false;
@@ -90,16 +90,16 @@ public class TestZkBarrierForVersionUpgrade {
     }
     final Status s = new Status();
 
-    barrier.start();
+    barrier.start(ver, processors);
 
-    barrier.waitForBarrier("p1", new Runnable() {
+    barrier.waitForBarrier(ver, "p1", new Runnable() {
       @Override
       public void run() {
         s.p1 = true;
       }
     });
 
-    barrier.waitForBarrier("p2", new Runnable() {
+    barrier.waitForBarrier(ver, "p2", new Runnable() {
       @Override
       public void run() {
         s.p2 = true;
@@ -119,7 +119,7 @@ public class TestZkBarrierForVersionUpgrade {
     processors.add("p2");
     processors.add("p3");
 
-    BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(barrierId, ver, processors);
+    BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(barrierId);
 
     class Status {
       boolean p1 = false;
@@ -128,16 +128,16 @@ public class TestZkBarrierForVersionUpgrade {
     }
     final Status s = new Status();
 
-    barrier.start();
+    barrier.start(ver, processors);
 
-    barrier.waitForBarrier("p1", new Runnable() {
+    barrier.waitForBarrier(ver, "p1", new Runnable() {
       @Override
       public void run() {
         s.p1 = true;
       }
     });
 
-    barrier.waitForBarrier("p2", new Runnable() {
+    barrier.waitForBarrier(ver, "p2", new Runnable() {
       @Override
       public void run() {
         s.p2 = true;
@@ -156,7 +156,7 @@ public class TestZkBarrierForVersionUpgrade {
     processors.add("p2");
     processors.add("p3");
 
-    BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(barrierId, ver, processors);
+    BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(barrierId);
 
     class Status {
       boolean p1 = false;
@@ -165,16 +165,16 @@ public class TestZkBarrierForVersionUpgrade {
     }
     final Status s = new Status();
 
-    barrier.start();
+    barrier.start(ver, processors);
 
-    barrier.waitForBarrier("p1", new Runnable() {
+    barrier.waitForBarrier(ver, "p1", new Runnable() {
       @Override
       public void run() {
         s.p1 = true;
       }
     });
 
-    barrier.waitForBarrier("p2", new Runnable() {
+    barrier.waitForBarrier(ver, "p2", new Runnable() {
       @Override
       public void run() {
         s.p2 = true;
@@ -182,7 +182,7 @@ public class TestZkBarrierForVersionUpgrade {
     });
 
     // this node will join "too late"
-    barrier.waitForBarrier("p3", new Runnable() {
+    barrier.waitForBarrier(ver, "p3", new Runnable() {
       @Override
       public void run() {
         TestZkUtils.sleepMs(300);

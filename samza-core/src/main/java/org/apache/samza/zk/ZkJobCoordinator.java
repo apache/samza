@@ -27,7 +27,6 @@ import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
-import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
@@ -52,7 +51,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final int processorId;
   private final ZkController zkController;
   private final SamzaContainerController containerController;
-  private BarrierForVersionUpgrade barrier;
   private final ScheduleAfterDebounceTime debounceTimer;
   private final StreamMetadataCache  streamMetadataCache;
   private final ZkKeyBuilder keyBuilder;
@@ -158,7 +156,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     String zkProcessorId = keyBuilder.parseIdFromPath(currentPath);
 
     // update ZK and wait for all the processors to get this new version
-    barrier.waitForBarrier(String.valueOf(zkProcessorId), new Runnable() {
+    ZkBarrierForVersionUpgrade barrier = (ZkBarrierForVersionUpgrade) coordinationUtils.getBarrier(JOB_MODEL_VERSION_BARRIER);
+    barrier.waitForBarrier(version, String.valueOf(zkProcessorId), new Runnable() {
       @Override
       public void run() {
         onNewJobModelConfirmed(version);
@@ -205,7 +204,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     }
     log.info("generate new job model: processorsIds: " + sb.toString());
 
-    jobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache, containerIds);
+    jobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache,
+        containerIds);
 
     log.info("pid=" + processorId + "Generated jobModel: " + jobModel);
 
@@ -214,8 +214,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     log.info("pid=" + processorId + "published new JobModel ver=" + nextJMVersion + ";jm=" + jobModel);
 
     // start the barrier for the job model update
-    barrier = coordinationUtils.getBarrier(JOB_MODEL_VERSION_BARRIER, nextJMVersion, currentProcessors);
-    barrier.start();
+    ZkBarrierForVersionUpgrade barrier = (ZkBarrierForVersionUpgrade) coordinationUtils.getBarrier(JOB_MODEL_VERSION_BARRIER);
+    barrier.start(nextJMVersion, currentProcessors);
 
     // publish new JobModel version
     zkUtils.publishJobModelVersion(currentJMVersion, nextJMVersion);
