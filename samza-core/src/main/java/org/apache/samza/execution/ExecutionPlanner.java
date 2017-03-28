@@ -302,8 +302,8 @@ public class ExecutionPlanner {
     }
   }
 
-  private static int maxPartition(Collection<StreamEdge> edges) {
-    return edges.stream().map(StreamEdge::getPartitionCount).reduce(Integer::max).get();
+  /* package private */ static int maxPartition(Collection<StreamEdge> edges) {
+    return edges.stream().map(StreamEdge::getPartitionCount).reduce(Integer::max).orElse(StreamEdge.PARTITIONS_UNKNOWN);
   }
 
   private static StreamSpec createStreamSpec(StreamEdge edge) {

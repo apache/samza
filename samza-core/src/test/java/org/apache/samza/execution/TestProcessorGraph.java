@@ -34,6 +34,7 @@ public class TestProcessorGraph {
 
   ProcessorGraph graph1;
   ProcessorGraph graph2;
+  ProcessorGraph graph3;
   int streamSeq = 0;
 
   private StreamSpec genStream() {
@@ -88,6 +89,14 @@ public class TestProcessorGraph {
     graph2.addIntermediateStream(genStream(), "5", "5");
     graph2.addIntermediateStream(genStream(), "5", "7");
     graph2.addSink(genStream(), "7");
+
+    /**
+     * graph3 is a single node graph with a loop
+     * 1<->1
+     */
+    graph3 = new ProcessorGraph(null);
+    graph3.addSource(genStream(), "1");
+    graph3.addIntermediateStream(genStream(), "1", "1");
   }
 
   @Test
@@ -194,5 +203,9 @@ public class TestProcessorGraph {
     assertTrue(idxMap2.get("6") > idxMap2.get("1"));
     assertTrue(idxMap2.get("5") > idxMap2.get("4"));
     assertTrue(idxMap2.get("7") > idxMap2.get("5"));
+
+    //test graph3
+    List<ProcessorNode> sortedNodes3 = graph3.topologicalSort();
+    assertTrue(sortedNodes3.size() == 1);
   }
 }
