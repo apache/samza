@@ -57,7 +57,8 @@ public interface JobCoordinator {
   boolean awaitStart(long timeoutMs) throws InterruptedException;
   /**
    * Returns the logical ID assigned to the processor
-   * It is up to the user to ensure that different instances of StreamProcessor within a job have unique processor ID.
+   * It is the responsibility of the JobCoordinator to assign a unique identifier based on the underlying environment.
+   *
    * @return String representing a unique logical processor ID
    */
   String getProcessorId();

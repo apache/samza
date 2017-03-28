@@ -33,5 +33,4 @@ public interface ProcessorIdGenerator {
    * @return String Identifier for the processor
    */
   String generateProcessorId(Config config);
-
 }
