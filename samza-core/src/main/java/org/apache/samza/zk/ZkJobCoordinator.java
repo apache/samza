@@ -64,7 +64,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private String newJobModelVersion;  // version published in ZK (by the leader)
   private JobModel jobModel;
 
-  public ZkJobCoordinator(int processorId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
+  public ZkJobCoordinator(int processorId, String groupId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
       SamzaContainerController containerController) {
     this.zkUtils = zkUtils;
     this.keyBuilder = zkUtils.getKeyBuilder();
@@ -77,7 +77,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         <CoordinationServiceFactory>getObj(
             new JobCoordinatorConfig(config)
                 .getJobCoordinationServiceFactoryClassName())
-        .getCoordinationService("groupId", String.valueOf(processorId), config);
+        .getCoordinationService(groupId, String.valueOf(processorId), config);
 
     streamMetadataCache = getStreamMetadataCache();
   }
