@@ -64,8 +64,12 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
       case _ => false
     }
 
+  def isResetOffsetConfigured(systemStream: SystemStream) = containsSamzaProperty(systemStream, StreamConfig.CONSUMER_RESET_OFFSET)
+
   def getDefaultStreamOffset(systemStream: SystemStream) =
     Option(getSamzaProperty(systemStream, StreamConfig.CONSUMER_OFFSET_DEFAULT))
+
+  def isDefaultStreamOffsetConfigured(systemStream: SystemStream) = containsSamzaProperty(systemStream, StreamConfig.CONSUMER_OFFSET_DEFAULT)
 
   def getBootstrapEnabled(systemStream: SystemStream) =
     java.lang.Boolean.parseBoolean(getSamzaProperty(systemStream, StreamConfig.BOOTSTRAP))
@@ -155,7 +159,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     * @param systemStream the SystemStream for which the property value will be retrieved.
     * @param property the samza property name excluding the leading delimiter. e.g. "samza.x.y"
     */
-  def getSamzaProperty(systemStream: SystemStream, property: String): String = {
+  protected def getSamzaProperty(systemStream: SystemStream, property: String): String = {
     if (!property.startsWith(StreamConfig.SAMZA_PROPERTY)) {
       throw new IllegalArgumentException("Attempt to fetch a non samza property for SystemStream %s named %s" format(systemStream, property))
     }
@@ -180,7 +184,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     * @param defaultValue the default value to use if the property value is not found
     *
     */
-  def getSamzaProperty(systemStream: SystemStream, property: String, defaultValue: String): String = {
+  protected def getSamzaProperty(systemStream: SystemStream, property: String, defaultValue: String): String = {
     val streamVal = getSamzaProperty(systemStream, property)
 
     if (streamVal != null) {
@@ -197,7 +201,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     * Note, because the translation is not perfect between SystemStream and streamId,
     * this method is not identical to getProperty(streamId, property)
     */
-  def containsSamzaProperty(systemStream: SystemStream, property: String): Boolean = {
+  protected def containsSamzaProperty(systemStream: SystemStream, property: String): Boolean = {
     if (!property.startsWith(StreamConfig.SAMZA_PROPERTY)) {
       throw new IllegalArgumentException("Attempt to fetch a non samza property for SystemStream %s named %s" format(systemStream, property))
     }
