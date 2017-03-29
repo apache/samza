@@ -32,6 +32,5 @@ public interface JobCoordinatorFactory {
    *                            pause the container and add/remove tasks
    * @return An instance of IJobCoordinator
    */
-  JobCoordinator getJobCoordinator(int processorId, Config config,
-      SamzaContainerController containerController, CoordinationUtils coordinationUtils);
+  JobCoordinator getJobCoordinator(int processorId, Config config, SamzaContainerController containerController);
 }

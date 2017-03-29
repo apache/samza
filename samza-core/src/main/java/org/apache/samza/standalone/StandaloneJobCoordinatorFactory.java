@@ -19,15 +19,13 @@
 package org.apache.samza.standalone;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.processor.SamzaContainerController;
 
 public class StandaloneJobCoordinatorFactory  implements JobCoordinatorFactory {
   @Override
-  public JobCoordinator getJobCoordinator(int processorId, Config config,
-      SamzaContainerController containerController, CoordinationUtils coordinationUtils) {
+  public JobCoordinator getJobCoordinator(int processorId, Config config, SamzaContainerController containerController) {
     return new StandaloneJobCoordinator(processorId, config, containerController);
   }
 }
