@@ -74,7 +74,6 @@ public class StreamProcessor {
   private static final String PROCESSOR_ID = "processor.id";
   private final int processorId;
   private final JobCoordinator jobCoordinator;
-  private SamzaContainerController containerController;
 
   /**
    * Create an instance of StreamProcessor that encapsulates a JobCoordinator and Samza Container
@@ -121,7 +120,7 @@ public class StreamProcessor {
     Config updatedConfig = new MapConfig(updatedConfigMap);
 
 
-    containerController = new SamzaContainerController(
+    SamzaContainerController containerController = new SamzaContainerController(
         taskFactory,
         new TaskConfigJava(updatedConfig).getShutdownMs(),
         String.valueOf(processorId),
@@ -175,7 +174,5 @@ public class StreamProcessor {
    */
   public void stop() {
     jobCoordinator.stop();
-    if(containerController != null)
-      containerController.stopContainer();
   }
 }
