@@ -39,7 +39,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
   @Override
   public JobCoordinator getJobCoordinator(int processorId, Config config, SamzaContainerController containerController, CoordinationUtils coordinationUtils) {
     JobConfig jobConfig = new JobConfig(config);
-    String groupName = String.format("%s-%s", jobConfig.getName(), jobConfig.getJobId());
+    String groupName = String.format("%s-%s", jobConfig.getName().get(), jobConfig.getJobId().get());
     ZkConfig zkConfig = new ZkConfig(config);
     String processorIdStr = String.valueOf(processorId);
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();

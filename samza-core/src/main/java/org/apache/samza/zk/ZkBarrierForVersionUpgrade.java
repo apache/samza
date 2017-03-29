@@ -83,9 +83,10 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
       // write a new value "TIMED_OUT", if the value was changed since previous value, make sure it was changed to "DONE"
       zkUtils.getZkClient().writeData(barrierDonePath, BARRIER_TIMED_OUT, currentStatOfBarrierDone.getVersion());
     } catch (ZkBadVersionException e) {
-      // failed to write, make sure the value is "DONE"
-      LOG.warn("Barrier timeout write failed");
+      // Expected. failed to write, make sure the value is "DONE"
+      ///LOG.("Barrier timeout write failed");
       String done = zkUtils.getZkClient().<String>readData(barrierDonePath);
+      LOG.info("Barrier timeout expired, but done=" + done);
       if (!done.equals(BARRIER_DONE)) {
         throw new SamzaException("Failed to write to the barrier_done, version=" + version, e);
       }
