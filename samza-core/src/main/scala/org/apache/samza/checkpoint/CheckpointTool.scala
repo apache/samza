@@ -66,7 +66,7 @@ import scala.collection.immutable.HashMap
  */
 object CheckpointTool {
   /** Format in which SystemStreamPartition is represented in a properties file */
-  val SSP_PATTERN = "tasknames.%s." + StreamConfig.STREAM_PREFIX + "partitions.%d"
+  val SSP_PATTERN = "tasknames.%s.systems.%s.streams.%s.partitions.%d"
   val SSP_REGEX = Pattern.compile("tasknames\\.(.+)\\.systems\\.(.+)\\.streams\\.(.+)\\.partitions\\.([0-9]+)")
 
   type TaskNameToCheckpointMap = Map[TaskName, Map[SystemStreamPartition, String]]
