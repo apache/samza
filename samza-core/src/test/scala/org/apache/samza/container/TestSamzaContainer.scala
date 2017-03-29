@@ -19,7 +19,6 @@
 
 package org.apache.samza.container
 
-import java.lang.Thread.UncaughtExceptionHandler
 import java.util
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -33,11 +32,12 @@ import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.chooser.RoundRobinChooser
-import org.apache.samza.system.{IncomingMessageEnvelope, SystemConsumers, SystemConsumer, SystemProducers, SystemProducer, StreamMetadataCache, SystemStream, SystemStreamPartition}
-import org.apache.samza.task.{StreamTask, InitableTask, ClosableTask, TaskContext, MessageCollector, TaskCoordinator, TaskInstanceCollector}
+import org.apache.samza.system.{IncomingMessageEnvelope, StreamMetadataCache, SystemConsumer, SystemConsumers, SystemProducer, SystemProducers, SystemStream, SystemStreamPartition}
+import org.apache.samza.task.{ClosableTask, InitableTask, MessageCollector, StreamTask, TaskContext, TaskCoordinator, TaskInstanceCollector}
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
 import org.junit.Assert._
 import org.junit.Test
+import org.mockito.Mockito.when
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.junit.AssertionsForJUnit
@@ -197,30 +197,6 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       case e: Exception => // Expected
     }
     assertTrue(task.wasShutdown)
-  }
-
-  @Test
-  def testUncaughtExceptionHandler {
-    var caughtException = false
-    val exceptionHandler = new UncaughtExceptionHandler {
-      def uncaughtException(t: Thread, e: Throwable) {
-        caughtException = true
-      }
-    }
-    try {
-      SamzaContainer.safeMain(() => null, exceptionHandler)
-    } catch {
-      case _: Exception =>
-      // Expect some random exception from SamzaContainer because we haven't
-      // set any environment variables for container ID, etc.
-    }
-    assertFalse(caughtException)
-    val t = new Thread(new Runnable {
-      def run = throw new RuntimeException("Uncaught exception in another thread. Catch this.")
-    })
-    t.start
-    t.join
-    assertTrue(caughtException)
   }
 
   @Test

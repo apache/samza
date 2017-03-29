@@ -92,16 +92,6 @@ public class StreamProcessor {
     this(config, customMetricsReporters, (Object) streamTaskFactory);
   }
 
-  /**
-   * Same as {@link #StreamProcessor(Config, Map, AsyncStreamTaskFactory)}, except task instances are created
-   * using the "task.class" configuration instead of a task factory.
-   * @param config - config
-   * @param customMetricsReporters metrics
-   */
-  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters) {
-    this(config, customMetricsReporters, (Object) null);
-  }
-
   private StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
                           Object taskFactory) {
     // TODO: This check to be removed after 0.13+

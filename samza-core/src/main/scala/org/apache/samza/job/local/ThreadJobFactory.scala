@@ -45,7 +45,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val containerModel = jobModel.getContainers.get("0")
     val jmxServer = new JmxServer
     val streamApp = TaskFactoryUtil.createStreamApplication(config)
-    val appRunner = new LocalContainerRunner(jobModel, 0)
+    val appRunner = new LocalContainerRunner(jobModel, "0")
     val taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, appRunner)
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
