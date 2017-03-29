@@ -123,9 +123,8 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     FileSystemImplConfig fsImplConfig = new FileSystemImplConfig(config);
     fsImplConfig.getSchemes().forEach(
         scheme -> {
-          hConfig.set(fsImplConfig.getFsImplKey(scheme), fsImplConfig.getFsImplClassName(scheme));
-          fsImplConfig.getFsImplSubKeys(scheme).forEach(
-              subKey -> hConfig.set(subKey, config.get(subKey))
+          fsImplConfig.getSchemeConfig(scheme).forEach(
+              (confKey, confValue) -> hConfig.set(confKey, confValue)
           );
         }
     );

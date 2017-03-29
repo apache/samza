@@ -32,11 +32,9 @@ import org.slf4j.LoggerFactory;
  * e.g. fs.http.impl
  */
 public class FileSystemImplConfig {
-  private static final Logger log = LoggerFactory.getLogger(FileSystemImplConfig.class);
   private static final String FS_IMPL_PREFIX = "fs.";
   private static final String FS_IMPL_SUFFIX = ".impl";
-  private static final String FS_IMPL = "fs.%s.impl";
-  private static final String FS_IMPL_SUBKEY_PREFIX = "fs.%s.impl.";
+  private static final String FS_IMPL_TEMPLATE = "fs.%s.impl";
 
   private final Config config;
 
@@ -63,38 +61,15 @@ public class FileSystemImplConfig {
   }
 
   /**
-   * Get the fs.&lt;scheme&gt;impl as the config key from scheme
+   * Get the config subset for fs.&lt;scheme&gt;.impl
+   * It can include config for fs.&lt;scheme&gt;.impl and additional config for the subKeys fs.&lt;scheme&gt;.impl.* from the configuration
+   * e.g. for scheme "myScheme", there could be config for fs.myScheme.impl, fs.myScheme.impl.client and fs.myScheme.impl.server
    * @param scheme scheme name, such as http, hdfs, myscheme
-   * @return fs.&lt;scheme&gt;impl
+   * @return a set of sub configurations without stripping off prefix
    */
-  public String getFsImplKey(final String scheme) {
-    String fsImplKey = String.format(FS_IMPL, scheme);
-    return fsImplKey;
-  }
-
-  /**
-   * Get the class name corresponding for the given scheme
-   * @param scheme scheme name, such as http, hdfs, myscheme
-   * @return full scoped class name for the file system for &lt;scheme&gt;
-   */
-  public String getFsImplClassName(final String scheme) {
-    String fsImplKey = getFsImplKey(scheme);
-    String fsImplClassName = config.get(fsImplKey);
-    if (StringUtils.isEmpty(fsImplClassName)) {
-      throw new LocalizerResourceException(fsImplKey + " does not have configured class implementation");
-    }
-    return fsImplClassName;
-  }
-
-  /**
-   * Get the set of subKeys for fs.&lt;scheme&gt;.impl if .&lt;scheme&gt;. has additional subKeys in the configuration
-   * e.g. fs.myScheme.impl.client and fs.myScheme.impl.server are the subKeys for myScheme
-   * @param scheme scheme name, such as http, hdfs, myscheme
-   * @return a set of subKeys from the configuration without stripping off prefix
-   */
-  public Set<String> getFsImplSubKeys(final String scheme) {
-    String fsImplSubKeyPrefix = String.format(FS_IMPL_SUBKEY_PREFIX, scheme);
-    Config subConfig = config.subset(fsImplSubKeyPrefix, false); // do not strip off the prefix
-    return subConfig.keySet();
+  public Config getSchemeConfig(final String scheme) {
+    String fsSchemeImpl = String.format(FS_IMPL_TEMPLATE, scheme);
+    Config schemeConfig = config.subset(fsSchemeImpl, false); // do not strip off the prefix
+    return schemeConfig;
   }
 }

@@ -18,11 +18,10 @@
  */
 package org.apache.samza.job.yarn;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.junit.Rule;
@@ -48,12 +47,6 @@ public class TestFileSystemImplConfig {
     assertEquals(2, manager.getSchemes().size());
     assertEquals("http", manager.getSchemes().get(0));
     assertEquals("myscheme", manager.getSchemes().get(1));
-
-    assertEquals("fs.http.impl", manager.getFsImplKey("http"));
-    assertEquals("fs.myscheme.impl", manager.getFsImplKey("myscheme"));
-
-    assertEquals("org.apache.samza.HttpFileSystem", manager.getFsImplClassName("http"));
-    assertEquals("org.apache.samza.MySchemeFileSystem", manager.getFsImplClassName("myscheme"));
   }
 
   @Test
@@ -64,20 +57,7 @@ public class TestFileSystemImplConfig {
   }
 
   @Test
-  public void testEmptyImpl() {
-    thrown.expect(LocalizerResourceException.class);
-    thrown.expectMessage("fs.http.impl does not have configured class implementation");
-
-    Map<String, String> configMap = new HashMap<>();
-    configMap.put("fs.http.impl", "");
-    Config conf = new MapConfig(configMap);
-
-    FileSystemImplConfig manager = new FileSystemImplConfig(conf);
-    manager.getFsImplClassName("http");
-  }
-
-  @Test
-  public void testFsImplSubkeys() {
+  public void testSchemeWithSubkeys() {
     Map<String, String> configMap = new HashMap<>();
     configMap.put("fs.http.impl", "org.apache.samza.HttpFileSystem");
     configMap.put("fs.myscheme.impl", "org.apache.samza.MySchemeFileSystem");
@@ -86,11 +66,17 @@ public class TestFileSystemImplConfig {
     Config conf = new MapConfig(configMap);
 
     FileSystemImplConfig manager = new FileSystemImplConfig(conf);
-    Set<String> expectedFsHttpImplSubKeys = new HashSet<>(Arrays.asList("fs.http.impl.key1", "fs.http.impl.key2"));
-    Set<String> expectedFsMyschemeImplSubKeys = new HashSet<>(); //empty set
+    Map<String, String> expectedFsHttpImplConfs = ImmutableMap.of( //Scheme with additional subkeys
+        "fs.http.impl", "org.apache.samza.HttpFileSystem",
+        "fs.http.impl.key1", "val1",
+        "fs.http.impl.key2", "val2"
+    );
+    Map<String, String> expectedFsMyschemeImplConfs = ImmutableMap.of( // Scheme without subkeys
+        "fs.myscheme.impl", "org.apache.samza.MySchemeFileSystem"
+    );
 
     assertEquals(Arrays.asList("http", "myscheme"), manager.getSchemes());
-    assertEquals(expectedFsHttpImplSubKeys, manager.getFsImplSubKeys("http"));
-    assertEquals(expectedFsMyschemeImplSubKeys, manager.getFsImplSubKeys("myscheme"));
+    assertEquals(expectedFsHttpImplConfs, manager.getSchemeConfig("http"));
+    assertEquals(expectedFsMyschemeImplConfs, manager.getSchemeConfig("myscheme"));
   }
 }
