@@ -153,10 +153,8 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     */
   def getSystem(streamId: String) = {
     getOption(StreamConfig.SYSTEM_FOR_STREAM_ID format streamId) match {
-      case Some(system) =>
-        system
-      case _ =>
-        config.getDefaultSystem.orNull
+      case Some(system) => system
+      case _ => config.getDefaultSystem.orNull
     }
   }
 
