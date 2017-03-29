@@ -27,6 +27,7 @@ import org.apache.samza.system.StreamSpec;
 import org.junit.Before;
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 
@@ -34,6 +35,8 @@ public class TestProcessorGraph {
 
   ProcessorGraph graph1;
   ProcessorGraph graph2;
+  ProcessorGraph graph3;
+  ProcessorGraph graph4;
   int streamSeq = 0;
 
   private StreamSpec genStream() {
@@ -88,6 +91,24 @@ public class TestProcessorGraph {
     graph2.addIntermediateStream(genStream(), "5", "5");
     graph2.addIntermediateStream(genStream(), "5", "7");
     graph2.addSink(genStream(), "7");
+
+    /**
+     * graph3 is a graph with self loops
+     * 1<->1 -> 2<->2
+     */
+    graph3 = new ProcessorGraph(null);
+    graph3.addSource(genStream(), "1");
+    graph3.addIntermediateStream(genStream(), "1", "1");
+    graph3.addIntermediateStream(genStream(), "1", "2");
+    graph3.addIntermediateStream(genStream(), "2", "2");
+
+    /**
+     * graph4 is a graph of single-loop node
+     * 1<->1
+     */
+    graph4 = new ProcessorGraph(null);
+    graph4.addSource(genStream(), "1");
+    graph4.addIntermediateStream(genStream(), "1", "1");
   }
 
   @Test
@@ -194,5 +215,16 @@ public class TestProcessorGraph {
     assertTrue(idxMap2.get("6") > idxMap2.get("1"));
     assertTrue(idxMap2.get("5") > idxMap2.get("4"));
     assertTrue(idxMap2.get("7") > idxMap2.get("5"));
+
+    //test graph3
+    List<ProcessorNode> sortedNodes3 = graph3.topologicalSort();
+    assertTrue(sortedNodes3.size() == 2);
+    assertEquals(sortedNodes3.get(0).getId(), "1");
+    assertEquals(sortedNodes3.get(1).getId(), "2");
+
+    //test graph4
+    List<ProcessorNode> sortedNodes4 = graph4.topologicalSort();
+    assertTrue(sortedNodes4.size() == 1);
+    assertEquals(sortedNodes4.get(0).getId(), "1");
   }
 }

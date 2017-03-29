@@ -20,6 +20,9 @@
 package org.apache.samza.execution;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -44,6 +47,7 @@ import org.apache.samza.task.TaskCoordinator;
 import org.junit.Before;
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 
@@ -278,5 +282,24 @@ public class TestExecutionPlanner {
     processorGraph.getIntermediateStreams().forEach(edge -> {
         assertTrue(edge.getPartitionCount() == 64); // max of input1 and output1
       });
+  }
+
+  @Test
+  public void testMaxPartition() {
+    Collection<StreamEdge> edges = new ArrayList<>();
+    StreamEdge edge = new StreamEdge(input1);
+    edge.setPartitionCount(2);
+    edges.add(edge);
+    edge = new StreamEdge(input2);
+    edge.setPartitionCount(32);
+    edges.add(edge);
+    edge = new StreamEdge(input3);
+    edge.setPartitionCount(16);
+    edges.add(edge);
+
+    assertEquals(ExecutionPlanner.maxPartition(edges), 32);
+
+    edges = Collections.emptyList();
+    assertEquals(ExecutionPlanner.maxPartition(edges), StreamEdge.PARTITIONS_UNKNOWN);
   }
 }
