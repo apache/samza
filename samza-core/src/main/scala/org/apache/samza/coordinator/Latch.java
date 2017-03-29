@@ -18,20 +18,16 @@
  */
 package org.apache.samza.coordinator;
 
-import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.processor.SamzaContainerController;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 
-@InterfaceStability.Evolving
-public interface JobCoordinatorFactory {
-  /**
-   * @param processorId Unique identifier for the processor
-   * @param config Configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
-   * @param containerController Controller interface for starting and stopping container. In future, it may simply
-   *                            pause the container and add/remove tasks
-   * @return An instance of IJobCoordinator
-   */
-  JobCoordinator getJobCoordinator(int processorId, Config config,
-      SamzaContainerController containerController, CoordinationUtils coordinationUtils);
+/**
+ * latch implementation for the coordination service.
+ * Supports different size latches.
+ * await() returns when either latch reaches N (N participants call countDown()) or timeout.
+ */
+public interface Latch {
+  void await(long timeout, TimeUnit tu) throws TimeoutException;
+  void countDown();
 }

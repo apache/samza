@@ -18,20 +18,19 @@
  */
 package org.apache.samza.coordinator;
 
-import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
-import org.apache.samza.processor.SamzaContainerController;
 
 
-@InterfaceStability.Evolving
-public interface JobCoordinatorFactory {
+/**
+ * factory to instantiate a c{@link CoordinationUtils} service
+ */
+public interface CoordinationServiceFactory {
   /**
-   * @param processorId Unique identifier for the processor
-   * @param config Configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
-   * @param containerController Controller interface for starting and stopping container. In future, it may simply
-   *                            pause the container and add/remove tasks
-   * @return An instance of IJobCoordinator
+   * get a unique service instance
+   * @param groupId - unique id to identify the service
+   * @param participantId - a unique id that identifies the participant in the service
+   * @param updatedConfig - configs, to define the details of the service
+   * @return a unique service instance
    */
-  JobCoordinator getJobCoordinator(int processorId, Config config,
-      SamzaContainerController containerController, CoordinationUtils coordinationUtils);
+  CoordinationUtils getCoordinationService(String groupId, String participantId, Config updatedConfig);
 }

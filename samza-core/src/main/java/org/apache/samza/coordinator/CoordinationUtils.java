@@ -18,20 +18,27 @@
  */
 package org.apache.samza.coordinator;
 
-import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.processor.SamzaContainerController;
+/**  THIS API WILL CHANGE
+ *
+ * Coordination service provides synchronization primitives.
+ * The actual implementation (for example ZK based) is left to each implementation class.
+ * This service provide three primitives:
+ *   - LeaderElection
+ *   - Latch
+ *   - barrier for version upgrades
+ */
+public interface CoordinationUtils {
 
-
-@InterfaceStability.Evolving
-public interface JobCoordinatorFactory {
   /**
-   * @param processorId Unique identifier for the processor
-   * @param config Configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
-   * @param containerController Controller interface for starting and stopping container. In future, it may simply
-   *                            pause the container and add/remove tasks
-   * @return An instance of IJobCoordinator
+   * reset the internal structure. Does not happen automatically with stop()
    */
-  JobCoordinator getJobCoordinator(int processorId, Config config,
-      SamzaContainerController containerController, CoordinationUtils coordinationUtils);
+  void reset();
+
+
+  // facilities for group coordination
+  LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
+
+  Latch getLatch(int size, String latchId);
+
+  BarrierForVersionUpgrade getBarrier(String barrierId);
 }

@@ -284,7 +284,7 @@ public class ConfigManager {
     //killing the current job
     log.info("Killing the current job");
     yarnUtil.killApplication(applicationId);
-    //clear the global variables
+    //reset the global variables
     coordinatorServerURL = null;
 
 

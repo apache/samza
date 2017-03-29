@@ -16,18 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.standalone;
+package org.apache.samza.zk;
 
+import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
-import org.apache.samza.coordinator.JobCoordinator;
-import org.apache.samza.coordinator.JobCoordinatorFactory;
-import org.apache.samza.processor.SamzaContainerController;
+import org.apache.samza.coordinator.CoordinationServiceFactory;
 
-public class StandaloneJobCoordinatorFactory  implements JobCoordinatorFactory {
-  @Override
-  public JobCoordinator getJobCoordinator(int processorId, Config config,
-      SamzaContainerController containerController, CoordinationUtils coordinationUtils) {
-    return new StandaloneJobCoordinator(processorId, config, containerController);
+
+public class ZkCoordinationServiceFactory implements CoordinationServiceFactory {
+
+
+  synchronized public CoordinationUtils getCoordinationService(String groupId, String participantId, Config config) {
+    ZkConfig zkConfig = new ZkConfig(config);
+    ZkClient zkClient = new ZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
+    ZkUtils zkUtils = new ZkUtils(participantId, new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs());
+    ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
+    return new ZkCoordinationUtils(participantId, zkConfig, zkUtils, debounceTimer);
   }
+
 }
