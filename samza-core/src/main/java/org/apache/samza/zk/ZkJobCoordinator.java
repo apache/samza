@@ -105,7 +105,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   @Override
   public void stop() {
     zkController.stop();
-    if(containerController != null)
+    if (containerController != null)
       containerController.stopContainer();
   }
 
