@@ -23,7 +23,6 @@ import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.processor.SamzaContainerController;
@@ -37,7 +36,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
    * @return An instance of IJobCoordinator
    */
   @Override
-  public JobCoordinator getJobCoordinator(int processorId, Config config, SamzaContainerController containerController, CoordinationUtils coordinationUtils) {
+  public JobCoordinator getJobCoordinator(int processorId, Config config, SamzaContainerController containerController) {
     JobConfig jobConfig = new JobConfig(config);
     String groupName = String.format("%s-%s", jobConfig.getName().get(), jobConfig.getJobId().get());
     ZkConfig zkConfig = new ZkConfig(config);
@@ -47,6 +46,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
 
     return new ZkJobCoordinator(
         processorId,
+        "groupId",  // TODO: Usage of groupId to be resolved in SAMZA-1173
         config,
         debounceTimer,
         new ZkUtils(
@@ -55,6 +55,6 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
             zkClient,
             zkConfig.getZkConnectionTimeoutMs()
             ),
-        containerController, coordinationUtils);
+        containerController);
   }
 }
