@@ -34,6 +34,8 @@ object StreamConfig {
   val KEY_SERDE =               SAMZA_PROPERTY + "key.serde"
   val CONSUMER_RESET_OFFSET =   SAMZA_PROPERTY + "reset.offset"
   val CONSUMER_OFFSET_DEFAULT = SAMZA_PROPERTY + "offset.default"
+  val BOOTSTRAP =               SAMZA_PROPERTY + "bootstrap"
+  val PRIORITY =                SAMZA_PROPERTY + "priority"
 
   // We don't want any external dependencies on these patterns while both exist. Use getProperty to ensure proper values.
   private val STREAMS_PREFIX = "streams."
@@ -65,6 +67,12 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getDefaultStreamOffset(systemStream: SystemStream) =
     Option(getSamzaProperty(systemStream, StreamConfig.CONSUMER_OFFSET_DEFAULT))
 
+  def getBootstrapEnabled(systemStream: SystemStream) =
+    java.lang.Boolean.parseBoolean(getSamzaProperty(systemStream, StreamConfig.BOOTSTRAP))
+
+  def getPriority(systemStream: SystemStream) =
+    java.lang.Integer.parseInt(getSamzaProperty(systemStream, StreamConfig.PRIORITY, "-1"))
+
   /**
    * Returns a list of all SystemStreams that have a serde defined from the config file.
    */
@@ -86,38 +94,6 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
       .map(streamId => streamIdToSystemStream(streamId)).toSet
 
     legacySystemStreams.union(systemStreams)
-  }
-
-  /**
-    * Gets the stream properties from the legacy config style:
-    * systems.{system}.streams.{streams}.*
-    *
-    * @param systemName the system name under which the properties are configured
-    * @param streamName the stream name
-    * @return           the map of properties for the stream
-    */
-  private def getSystemStreamProperties(systemName: String, streamName: String) = {
-    if (systemName == null || streamName == null) {
-      Map()
-    }
-    config.subset(StreamConfig.STREAM_PREFIX format(systemName, streamName), true)
-  }
-
-  /**
-    * Gets the properties for the specified streamId from the config.
-    * It first applies any legacy configs from this config location:
-    * systems.{system}.streams.{stream}.*
-    *
-    * It then overrides them with properties of the new config format:
-    * streams.{streamId}.*
-    *
-    * @param streamId the identifier for the stream in the config.
-    * @return         the merged map of config properties from both the legacy and new config styles
-    */
-  private def getAllStreamProperties(streamId: String) = {
-    val allProperties = subset(StreamConfig.STREAM_ID_PREFIX format streamId)
-    val inheritedLegacyProperties:java.util.Map[String, String] = getSystemStreamProperties(getSystem(streamId), getPhysicalName(streamId))
-    new MapConfig(java.util.Arrays.asList(inheritedLegacyProperties, allProperties))
   }
 
   /**
@@ -226,6 +202,39 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
       throw new IllegalArgumentException("Attempt to fetch a non samza property for SystemStream %s named %s" format(systemStream, property))
     }
     return getSamzaProperty(systemStream, property) != null
+  }
+
+
+  /**
+    * Gets the stream properties from the legacy config style:
+    * systems.{system}.streams.{streams}.*
+    *
+    * @param systemName the system name under which the properties are configured
+    * @param streamName the stream name
+    * @return           the map of properties for the stream
+    */
+  private def getSystemStreamProperties(systemName: String, streamName: String) = {
+    if (systemName == null || streamName == null) {
+      Map()
+    }
+    config.subset(StreamConfig.STREAM_PREFIX format(systemName, streamName), true)
+  }
+
+  /**
+    * Gets the properties for the specified streamId from the config.
+    * It first applies any legacy configs from this config location:
+    * systems.{system}.streams.{stream}.*
+    *
+    * It then overrides them with properties of the new config format:
+    * streams.{streamId}.*
+    *
+    * @param streamId the identifier for the stream in the config.
+    * @return         the merged map of config properties from both the legacy and new config styles
+    */
+  private def getAllStreamProperties(streamId: String) = {
+    val allProperties = subset(StreamConfig.STREAM_ID_PREFIX format streamId)
+    val inheritedLegacyProperties:java.util.Map[String, String] = getSystemStreamProperties(getSystem(streamId), getPhysicalName(streamId))
+    new MapConfig(java.util.Arrays.asList(inheritedLegacyProperties, allProperties))
   }
 
   private def getStreamIds(): Iterable[String] = {
