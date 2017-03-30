@@ -330,7 +330,7 @@ object Util extends Logging {
   /**
    * Returns the the first host address which is not the loopback address, or {@link java.net.InetAddress#getLocalHost InetAddress.getLocalhost()} as a fallback
    *
-   * @return the {java.net.InetAddress InetAddress} which represents the localhost
+   * @return the {@link java.net.InetAddress InetAddress} which represents the localhost
    */
   def getLocalHost: InetAddress = {
     val localHost = InetAddress.getLocalHost

@@ -20,7 +20,9 @@
 package org.apache.samza.system.chooser
 
 import org.apache.samza.SamzaException
-import org.apache.samza.metrics.{MetricsHelper, MetricsRegistry, MetricsRegistryMap}
+import org.apache.samza.metrics.MetricsHelper
+import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemStreamMetadata.OffsetType
 import org.apache.samza.system._
 import org.apache.samza.util.Logging

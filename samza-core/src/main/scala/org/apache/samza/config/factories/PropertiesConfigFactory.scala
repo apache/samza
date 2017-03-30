@@ -44,6 +44,6 @@ class PropertiesConfigFactory extends ConfigFactory with Logging {
 
     debug("got config %s from config %s" format (props, configPath))
 
-    new MapConfig(props.asScala.toMap[String, String].asJava)
+    new MapConfig(props.asScala.asJava)
   }
 }

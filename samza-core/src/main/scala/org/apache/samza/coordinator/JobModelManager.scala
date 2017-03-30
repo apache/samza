@@ -109,21 +109,22 @@ object JobModelManager extends Logging {
       // Map the name of each system to the corresponding SystemAdmin
       val systemAdmins = getSystemAdmins(config)
 
-    val streamMetadataCache = new StreamMetadataCache(systemAdmins = systemAdmins, cacheTTLms = 0)
-    var streamPartitionCountMonitor: StreamPartitionCountMonitor = null
-    if (config.getMonitorPartitionChange) {
-      val extendedSystemAdmins = systemAdmins.filter{
-                                                      case (systemName, systemAdmin) => systemAdmin.isInstanceOf[ExtendedSystemAdmin]
-                                                    }
-      val inputStreamsToMonitor = config.getInputStreams.filter(systemStream => extendedSystemAdmins.contains(systemStream.getSystem))
-      if (inputStreamsToMonitor.nonEmpty) {
-        streamPartitionCountMonitor = new StreamPartitionCountMonitor(
-          inputStreamsToMonitor.asJava,
-          streamMetadataCache,
-          metricsRegistryMap,
-          config.getMonitorPartitionChangeFrequency)
+      val streamMetadataCache = new StreamMetadataCache(systemAdmins = systemAdmins, cacheTTLms = 0)
+      var streamPartitionCountMonitor: StreamPartitionCountMonitor = null
+      if (config.getMonitorPartitionChange) {
+        val extendedSystemAdmins = systemAdmins.filter{
+          case (systemName, systemAdmin) => systemAdmin.isInstanceOf[ExtendedSystemAdmin]
+        }
+        val inputStreamsToMonitor = config.getInputStreams.filter(systemStream => extendedSystemAdmins.contains(systemStream.getSystem))
+        if (inputStreamsToMonitor.nonEmpty) {
+          streamPartitionCountMonitor = new StreamPartitionCountMonitor(
+            inputStreamsToMonitor.asJava,
+            streamMetadataCache,
+            metricsRegistryMap,
+            config.getMonitorPartitionChangeFrequency)
+        }
       }
-    }val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
+      val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
       val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, localityManager, streamMetadataCache, streamPartitionCountMonitor, null)
       val jobModel = jobModelManager.jobModel
       // Save the changelog mapping back to the ChangelogPartitionmanager
@@ -133,11 +134,11 @@ object JobModelManager extends Logging {
       // maxChangelogPartitionId always has the absolute max, not the current
       // max (in case the task with the highest changelog partition mapping
       // disappears.
-      val newChangelogPartitionMapping = jobModel.getContainers.flatMap(_._2.getTasks).map{case (taskName,taskModel) => {
+      val newChangelogPartitionMapping = jobModel.getContainers.asScala.flatMap(_._2.getTasks.asScala).map{case (taskName,taskModel) => {
         taskName -> Integer.valueOf(taskModel.getChangelogPartition.getPartitionId)
-      }}.toMap ++ previousChangelogPartitionMapping
+      }}.toMap ++ previousChangelogPartitionMapping.asScala
       info("Saving task-to-changelog partition mapping: %s" format newChangelogPartitionMapping)
-      changelogManager.writeChangeLogPartitionMapping(newChangelogPartitionMapping)
+      changelogManager.writeChangeLogPartitionMapping(newChangelogPartitionMapping.asJava)
 
       createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions)
 
@@ -184,7 +185,8 @@ object JobModelManager extends Logging {
       .flatMap {
         case (systemStream, metadata) =>
           metadata
-            .getSystemStreamPartitionMetadata.asScala
+            .getSystemStreamPartitionMetadata
+            .asScala
             .keys
             .map(new SystemStreamPartition(systemStream, _))
       }.toSet
@@ -237,7 +239,7 @@ object JobModelManager extends Logging {
 
     // If no mappings are present(first time the job is running) we return -1, this will allow 0 to be the first change
     // mapping.
-    var maxChangelogPartitionId = changeLogPartitionMapping.values.asScala.map(_.toInt).toList.sorted.lastOption.getOrElse(-1)
+    var maxChangelogPartitionId = changeLogPartitionMapping.asScala.values.map(_.toInt).toList.sorted.lastOption.getOrElse(-1)
     // Sort the groups prior to assigning the changelog mapping so that the mapping is reproducible and intuitive
     val sortedGroups = new util.TreeMap[TaskName, util.Set[SystemStreamPartition]](groups)
 
@@ -262,10 +264,10 @@ object JobModelManager extends Logging {
     val containerGrouperFactory = Util.getObj[TaskNameGrouperFactory](config.getTaskNameGrouperFactory)
     val containerGrouper = containerGrouperFactory.build(config)
     val containerModels = {
-      if (containerGrouper.isInstanceOf[BalancingTaskNameGrouper])
-        containerGrouper.asInstanceOf[BalancingTaskNameGrouper].balance(taskModels.asJava, localityManager)
-      else
-        containerGrouper.group(taskModels.asJava, containerIds)
+      containerGrouper match {
+        case grouper: BalancingTaskNameGrouper => grouper.balance(taskModels.asJava, localityManager)
+        case _ => containerGrouper.group(taskModels.asJava, containerIds)
+      }
     }
     val containerMap = containerModels.asScala.map { case (containerModel) => Integer.valueOf(containerModel.getContainerId) -> containerModel }.toMap
 
