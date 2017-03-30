@@ -66,11 +66,13 @@ public class TestFileSystemImplConfig {
     Config conf = new MapConfig(configMap);
 
     FileSystemImplConfig manager = new FileSystemImplConfig(conf);
+
     Map<String, String> expectedFsHttpImplConfs = ImmutableMap.of( //Scheme with additional subkeys
         "fs.http.impl", "org.apache.samza.HttpFileSystem",
         "fs.http.impl.key1", "val1",
         "fs.http.impl.key2", "val2"
     );
+
     Map<String, String> expectedFsMyschemeImplConfs = ImmutableMap.of( // Scheme without subkeys
         "fs.myscheme.impl", "org.apache.samza.MySchemeFileSystem"
     );
