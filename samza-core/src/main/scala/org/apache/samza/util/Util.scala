@@ -35,7 +35,6 @@ import org.apache.samza.config.MapConfig
 import org.apache.samza.config.SystemConfig
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.SystemConfig.Config2System
-
 import scala.collection.JavaConversions._
 import java.io.InputStreamReader
 

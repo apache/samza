@@ -28,6 +28,7 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphImpl;
@@ -61,6 +62,7 @@ public class TestExecutionPlanner {
   private StreamSpec output2;
 
   private Map<String, SystemAdmin> systemAdmins;
+  private StreamManager streamManager;
 
   private ApplicationRunner runner;
 
@@ -198,10 +200,21 @@ public class TestExecutionPlanner {
     systemAdmins = new HashMap<>();
     systemAdmins.put("system1", systemAdmin1);
     systemAdmins.put("system2", systemAdmin2);
+    streamManager = new StreamManager(systemAdmins);
 
     runner = new AbstractApplicationRunner(config) {
       @Override
       public void run(StreamApplication streamApp) {
+      }
+
+      @Override
+      public void kill(StreamApplication streamApp) {
+
+      }
+
+      @Override
+      public ApplicationStatus status(StreamApplication streamApp) {
+        return null;
       }
     };
   }
@@ -223,7 +236,7 @@ public class TestExecutionPlanner {
     StreamGraph streamGraph = createStreamGraphWithJoin();
     ProcessorGraph processorGraph = planner.createProcessorGraph(streamGraph);
 
-    ExecutionPlanner.updateExistingPartitions(processorGraph, systemAdmins);
+    ExecutionPlanner.updateExistingPartitions(processorGraph, streamManager);
     assertTrue(processorGraph.getOrCreateEdge(input1).getPartitionCount() == 64);
     assertTrue(processorGraph.getOrCreateEdge(input2).getPartitionCount() == 16);
     assertTrue(processorGraph.getOrCreateEdge(input3).getPartitionCount() == 32);
@@ -241,7 +254,7 @@ public class TestExecutionPlanner {
     StreamGraph streamGraph = createStreamGraphWithJoin();
     ProcessorGraph processorGraph = planner.createProcessorGraph(streamGraph);
 
-    ExecutionPlanner.updateExistingPartitions(processorGraph, systemAdmins);
+    ExecutionPlanner.updateExistingPartitions(processorGraph, streamManager);
     ExecutionPlanner.calculateJoinInputPartitions(streamGraph, processorGraph);
 
     // the partitions should be the same as input1
@@ -259,7 +272,7 @@ public class TestExecutionPlanner {
     ExecutionPlanner planner = new ExecutionPlanner(cfg);
     StreamGraph streamGraph = createSimpleGraph();
     ProcessorGraph processorGraph = planner.createProcessorGraph(streamGraph);
-    planner.calculatePartitions(streamGraph, processorGraph, systemAdmins);
+    planner.calculatePartitions(streamGraph, processorGraph, streamManager);
 
     // the partitions should be the same as input1
     processorGraph.getIntermediateStreams().forEach(edge -> {
@@ -272,7 +285,7 @@ public class TestExecutionPlanner {
     ExecutionPlanner planner = new ExecutionPlanner(config);
     StreamGraph streamGraph = createSimpleGraph();
     ProcessorGraph processorGraph = planner.createProcessorGraph(streamGraph);
-    planner.calculatePartitions(streamGraph, processorGraph, systemAdmins);
+    planner.calculatePartitions(streamGraph, processorGraph, streamManager);
 
     // the partitions should be the same as input1
     processorGraph.getIntermediateStreams().forEach(edge -> {

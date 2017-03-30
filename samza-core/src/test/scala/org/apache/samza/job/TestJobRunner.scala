@@ -29,6 +29,8 @@ import org.junit.Test
 
 object TestJobRunner {
   var processCount = 0
+  var killCount = 0
+  var getStatusCount = 0
 }
 
 class TestJobRunner {
@@ -42,6 +44,7 @@ class TestJobRunner {
   def testJobRunnerWorks {
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache()
 
+    assertEquals(0, TestJobRunner.processCount)
     JobRunner.main(Array(
       "--config-factory",
       "org.apache.samza.config.factories.PropertiesConfigFactory",
@@ -49,16 +52,44 @@ class TestJobRunner {
       "file://%s/src/test/resources/test.properties" format new File(".").getCanonicalPath))
     assertEquals(1, TestJobRunner.processCount)
   }
+
+  @Test
+  def testJobRunnerKillWorks {
+    MockCoordinatorStreamSystemFactory.enableMockConsumerCache()
+
+    assertEquals(0, TestJobRunner.killCount)
+    JobRunner.main(Array(
+      "--config-factory",
+      "org.apache.samza.config.factories.PropertiesConfigFactory",
+      "--config-path",
+      "file://%s/src/test/resources/test.properties" format new File(".").getCanonicalPath,
+      "--operation=kill"))
+    assertEquals(1, TestJobRunner.killCount)
+  }
+
+  @Test
+  def testJobRunnerStatusWorks {
+    MockCoordinatorStreamSystemFactory.enableMockConsumerCache()
+
+    assertEquals(0, TestJobRunner.getStatusCount)
+    JobRunner.main(Array(
+      "--config-factory",
+      "org.apache.samza.config.factories.PropertiesConfigFactory",
+      "--config-path",
+      "file://%s/src/test/resources/test.properties" format new File(".").getCanonicalPath,
+      "--operation=status"))
+    assertEquals(1, TestJobRunner.getStatusCount)
+  }
 }
 
 class MockJobFactory extends StreamJobFactory {
   def getJob(config: Config): StreamJob = {
     return new StreamJob {
       def submit() = { TestJobRunner.processCount += 1; this }
-      def kill() = this
+      def kill() = { TestJobRunner.killCount += 1; this }
       def waitForFinish(timeoutMs: Long) = ApplicationStatus.SuccessfulFinish
       def waitForStatus(status: ApplicationStatus, timeoutMs: Long) = status
-      def getStatus() = ApplicationStatus.SuccessfulFinish
+      def getStatus() = { TestJobRunner.getStatusCount += 1; ApplicationStatus.SuccessfulFinish }
     }
   }
 }

@@ -28,7 +28,6 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
@@ -40,10 +39,7 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
-import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.SystemStreamMetadata;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,17 +58,15 @@ public class ExecutionPlanner {
   }
 
   public ProcessorGraph plan(StreamGraph streamGraph) throws Exception {
-    Map<String, SystemAdmin> sysAdmins = getSystemAdmins(config);
+    Map<String, SystemAdmin> sysAdmins = new JavaSystemConfig(config).getSystemAdmins();
+    StreamManager streamManager = new StreamManager(sysAdmins);
 
     // create physical processors based on stream graph
     ProcessorGraph processorGraph = createProcessorGraph(streamGraph);
 
     if (!processorGraph.getIntermediateStreams().isEmpty()) {
       // figure out the partitions for internal streams
-      calculatePartitions(streamGraph, processorGraph, sysAdmins);
-
-      // create the streams
-      createStreams(processorGraph, sysAdmins);
+      calculatePartitions(streamGraph, processorGraph, streamManager);
     }
 
     return processorGraph;
@@ -110,9 +104,9 @@ public class ExecutionPlanner {
   /**
    * Figure out the number of partitions of all streams
    */
-  /* package private */ void calculatePartitions(StreamGraph streamGraph, ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
+  /* package private */ void calculatePartitions(StreamGraph streamGraph, ProcessorGraph processorGraph, StreamManager streamManager) {
     // fetch the external streams partition info
-    updateExistingPartitions(processorGraph, sysAdmins);
+    updateExistingPartitions(processorGraph, streamManager);
 
     // calculate the partitions for the input streams of join operators
     calculateJoinInputPartitions(streamGraph, processorGraph);
@@ -127,9 +121,9 @@ public class ExecutionPlanner {
   /**
    * Fetch the partitions of source/sink streams and update the StreamEdges.
    * @param processorGraph ProcessorGraph
-   * @param sysAdmins mapping from system name to the {@link SystemAdmin}
+   * @param streamManager the {@StreamManager} to interface with the streams.
    */
-  /* package private */ static void updateExistingPartitions(ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
+  /* package private */ static void updateExistingPartitions(ProcessorGraph processorGraph, StreamManager streamManager) {
     Set<StreamEdge> existingStreams = new HashSet<>();
     existingStreams.addAll(processorGraph.getSources());
     existingStreams.addAll(processorGraph.getSinks());
@@ -146,14 +140,12 @@ public class ExecutionPlanner {
       Map<String, StreamEdge> streamToStreamEdge = new HashMap<>();
       // create the stream name to StreamEdge mapping for this system
       streamEdges.forEach(streamEdge -> streamToStreamEdge.put(streamEdge.getSystemStream().getStream(), streamEdge));
-      SystemAdmin systemAdmin = sysAdmins.get(systemName);
-      // retrieve the metadata for the streams in this system
-      Map<String, SystemStreamMetadata> streamToMetadata = systemAdmin.getSystemStreamMetadata(streamToStreamEdge.keySet());
+      // retrieve the partition counts for the streams in this system
+      Map<String, Integer> streamToPartitionCount = streamManager.getStreamPartitionCounts(systemName, streamToStreamEdge.keySet());
       // set the partitions of a stream to its StreamEdge
-      streamToMetadata.forEach((stream, data) -> {
-          int partitions = data.getSystemStreamPartitionMetadata().size();
-          streamToStreamEdge.get(stream).setPartitionCount(partitions);
-          log.debug("Partition count is {} for stream {}", partitions, stream);
+      streamToPartitionCount.forEach((stream, partitionCount) -> {
+          streamToStreamEdge.get(stream).setPartitionCount(partitionCount);
+          log.debug("Partition count is {} for stream {}", partitionCount, stream);
         });
     }
   }
@@ -283,55 +275,8 @@ public class ExecutionPlanner {
     }
   }
 
-  private static void createStreams(ProcessorGraph graph, Map<String, SystemAdmin> sysAdmins) {
-    Multimap<String, StreamSpec> streamsToCreate = HashMultimap.create();
-    graph.getIntermediateStreams().forEach(edge -> {
-        StreamSpec streamSpec = createStreamSpec(edge);
-        streamsToCreate.put(edge.getSystemStream().getSystem(), streamSpec);
-      });
-
-    for (Map.Entry<String, Collection<StreamSpec>> entry : streamsToCreate.asMap().entrySet()) {
-      String systemName = entry.getKey();
-      SystemAdmin systemAdmin = sysAdmins.get(systemName);
-
-      for (StreamSpec stream : entry.getValue()) {
-        log.info("Creating stream {} with partitions {} on system {}",
-            new Object[]{stream.getPhysicalName(), stream.getPartitionCount(), systemName});
-        systemAdmin.createStream(stream);
-      }
-    }
-  }
-
   private static int maxPartition(Collection<StreamEdge> edges) {
     return edges.stream().map(StreamEdge::getPartitionCount).reduce(Integer::max).get();
   }
 
-  private static StreamSpec createStreamSpec(StreamEdge edge) {
-    StreamSpec orgSpec = edge.getStreamSpec();
-    return orgSpec.copyWithPartitionCount(edge.getPartitionCount());
-  }
-
-  private static Map<String, SystemAdmin> getSystemAdmins(Config config) {
-    return getSystemFactories(config).entrySet()
-        .stream()
-        .collect(Collectors.toMap(entry -> entry.getKey(), entry -> entry.getValue().getAdmin(entry.getKey(), config)));
-  }
-
-  private static Map<String, SystemFactory> getSystemFactories(Config config) {
-    Map<String, SystemFactory> systemFactories =
-        getSystemNames(config).stream().collect(Collectors.toMap(systemName -> systemName, systemName -> {
-            String systemFactoryClassName = new JavaSystemConfig(config).getSystemFactory(systemName);
-            if (systemFactoryClassName == null) {
-              throw new SamzaException(
-                  String.format("A stream uses system %s, which is missing from the configuration.", systemName));
-            }
-            return Util.getObj(systemFactoryClassName);
-          }));
-
-    return systemFactories;
-  }
-
-  private static Collection<String> getSystemNames(Config config) {
-    return new JavaSystemConfig(config).getSystemNames();
-  }
 }

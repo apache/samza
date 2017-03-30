@@ -20,9 +20,10 @@ package org.apache.samza.runtime;
 
 import java.lang.reflect.Constructor;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.ConfigException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
+import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.system.StreamSpec;
 
 
@@ -79,11 +80,26 @@ public abstract class ApplicationRunner {
   }
 
   /**
-   * Method to be invoked to deploy and run the actual Samza jobs to execute {@link StreamApplication}
+   * Deploy and run the Samza jobs to execute {@link StreamApplication}
    *
    * @param streamApp  the user-defined {@link StreamApplication} object
    */
   public abstract void run(StreamApplication streamApp);
+
+  /**
+   * Kill the Samza jobs represented by {@link StreamApplication}
+   *
+   * @param streamApp  the user-defined {@link StreamApplication} object
+   */
+  public abstract void kill(StreamApplication streamApp);
+
+  /**
+   * Get the collective status of the Samza jobs represented by {@link StreamApplication}.
+   * Returns {@link ApplicationStatus#Running} if any of the jobs are running.
+   *
+   * @param streamApp  the user-defined {@link StreamApplication} object
+   */
+  public abstract ApplicationStatus status(StreamApplication streamApp);
 
   /**
    * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
@@ -104,5 +120,5 @@ public abstract class ApplicationRunner {
    * @param streamId  The logical identifier for the stream in Samza.
    * @return          The {@link StreamSpec} instance.
    */
-  public abstract StreamSpec getStream(String streamId);
+  public abstract StreamSpec getStreamSpec(String streamId);
 }

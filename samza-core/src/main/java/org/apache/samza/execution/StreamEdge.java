@@ -54,8 +54,12 @@ public class StreamEdge {
     targetNodes.add(targetNode);
   }
 
-  StreamSpec getStreamSpec() {
-    return streamSpec;
+  public StreamSpec getStreamSpec() {
+    if (partitions == PARTITIONS_UNKNOWN) {
+      return streamSpec;
+    } else {
+      return streamSpec.copyWithPartitionCount(partitions);
+    }
   }
 
   SystemStream getSystemStream() {

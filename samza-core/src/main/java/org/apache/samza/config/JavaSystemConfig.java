@@ -22,6 +22,12 @@ package org.apache.samza.config;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import org.apache.samza.SamzaException;
+import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemFactory;
+import org.apache.samza.util.Util;
+
 
 /**
  * a java version of the system config
@@ -59,5 +65,34 @@ public class JavaSystemConfig extends MapConfig {
       }
     }
     return systemNames;
+  }
+
+  /**
+   * @return map of system name to {@link SystemAdmin}
+   */
+  public Map<String, SystemAdmin> getSystemAdmins() {
+    return getSystemFactories().entrySet()
+        .stream()
+        .collect(Collectors.toMap(systemNameToFactoryEntry -> systemNameToFactoryEntry.getKey(),
+            systemNameToFactoryEntry -> systemNameToFactoryEntry.getValue()
+                .getAdmin(systemNameToFactoryEntry.getKey(), this)));
+  }
+
+  /**
+   * @return a map from system name to {@link SystemFactory}
+   */
+  public Map<String, SystemFactory> getSystemFactories() {
+    Map<String, SystemFactory> systemFactories = getSystemNames().stream().collect(Collectors.toMap(
+      systemName -> systemName,
+      systemName -> {
+        String systemFactoryClassName = getSystemFactory(systemName);
+        if (systemFactoryClassName == null) {
+          throw new SamzaException(
+              String.format("A stream uses system %s, which is missing from the configuration.", systemName));
+        }
+        return Util.getObj(systemFactoryClassName);
+      }));
+
+    return systemFactories;
   }
 }
