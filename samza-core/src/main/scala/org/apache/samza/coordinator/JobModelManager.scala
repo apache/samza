@@ -81,76 +81,65 @@ object JobModelManager extends Logging {
    *                                from the coordinator stream, and instantiate a JobModelManager.
    */
   def apply(coordinatorSystemConfig: Config, metricsRegistryMap: MetricsRegistryMap): JobModelManager = {
-    var coordinatorSystemConsumer: CoordinatorStreamSystemConsumer = null
-    var coordinatorSystemProducer: CoordinatorStreamSystemProducer = null
-    try {
-      val coordinatorStreamSystemFactory: CoordinatorStreamSystemFactory = new CoordinatorStreamSystemFactory()
-      coordinatorSystemConsumer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(coordinatorSystemConfig, metricsRegistryMap)
-      coordinatorSystemProducer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(coordinatorSystemConfig, metricsRegistryMap)
-      info("Registering coordinator system stream consumer.")
-      coordinatorSystemConsumer.register
-      debug("Starting coordinator system stream consumer.")
-      coordinatorSystemConsumer.start
-      debug("Bootstrapping coordinator system stream consumer.")
-      coordinatorSystemConsumer.bootstrap
-      info("Registering coordinator system stream producer.")
-      coordinatorSystemProducer.register(SOURCE)
+    val coordinatorStreamSystemFactory: CoordinatorStreamSystemFactory = new CoordinatorStreamSystemFactory()
+    val coordinatorSystemConsumer: CoordinatorStreamSystemConsumer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(coordinatorSystemConfig, metricsRegistryMap)
+    val coordinatorSystemProducer: CoordinatorStreamSystemProducer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(coordinatorSystemConfig, metricsRegistryMap)
+    info("Registering coordinator system stream consumer.")
+    coordinatorSystemConsumer.register
+    debug("Starting coordinator system stream consumer.")
+    coordinatorSystemConsumer.start
+    debug("Bootstrapping coordinator system stream consumer.")
+    coordinatorSystemConsumer.bootstrap
+    info("Registering coordinator system stream producer.")
+    coordinatorSystemProducer.register(SOURCE)
 
-      val config = coordinatorSystemConsumer.getConfig
-      info("Got config: %s" format config)
-      val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, SOURCE)
-      changelogManager.start()
-      val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
-      // We don't need to start() localityManager as they share the same instances with checkpoint and changelog managers.
-      // TODO: This code will go away with refactoring - SAMZA-678
+    val config = coordinatorSystemConsumer.getConfig
+    info("Got config: %s" format config)
+    val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, SOURCE)
+    changelogManager.start()
+    val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
+    // We don't need to start() localityManager as they share the same instances with checkpoint and changelog managers.
+    // TODO: This code will go away with refactoring - SAMZA-678
 
-      localityManager.start()
+    localityManager.start()
 
-      // Map the name of each system to the corresponding SystemAdmin
-      val systemAdmins = getSystemAdmins(config)
+    // Map the name of each system to the corresponding SystemAdmin
+    val systemAdmins = getSystemAdmins(config)
 
-      val streamMetadataCache = new StreamMetadataCache(systemAdmins = systemAdmins, cacheTTLms = 0)
-      var streamPartitionCountMonitor: StreamPartitionCountMonitor = null
-      if (config.getMonitorPartitionChange) {
-        val extendedSystemAdmins = systemAdmins.filter{
-          case (systemName, systemAdmin) => systemAdmin.isInstanceOf[ExtendedSystemAdmin]
-        }
-        val inputStreamsToMonitor = config.getInputStreams.filter(systemStream => extendedSystemAdmins.contains(systemStream.getSystem))
-        if (inputStreamsToMonitor.nonEmpty) {
-          streamPartitionCountMonitor = new StreamPartitionCountMonitor(
-            inputStreamsToMonitor.asJava,
-            streamMetadataCache,
-            metricsRegistryMap,
-            config.getMonitorPartitionChangeFrequency)
-        }
+    val streamMetadataCache = new StreamMetadataCache(systemAdmins = systemAdmins, cacheTTLms = 0)
+    var streamPartitionCountMonitor: StreamPartitionCountMonitor = null
+    if (config.getMonitorPartitionChange) {
+      val extendedSystemAdmins = systemAdmins.filter{
+        case (systemName, systemAdmin) => systemAdmin.isInstanceOf[ExtendedSystemAdmin]
       }
-      val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
-      val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, localityManager, streamMetadataCache, streamPartitionCountMonitor, null)
-      val jobModel = jobModelManager.jobModel
-      // Save the changelog mapping back to the ChangelogPartitionmanager
-      // newChangelogPartitionMapping is the merging of all current task:changelog
-      // assignments with whatever we had before (previousChangelogPartitionMapping).
-      // We must persist legacy changelog assignments so that
-      // maxChangelogPartitionId always has the absolute max, not the current
-      // max (in case the task with the highest changelog partition mapping
-      // disappears.
-      val newChangelogPartitionMapping = jobModel.getContainers.asScala.flatMap(_._2.getTasks.asScala).map{case (taskName,taskModel) => {
-        taskName -> Integer.valueOf(taskModel.getChangelogPartition.getPartitionId)
-      }}.toMap ++ previousChangelogPartitionMapping.asScala
-      info("Saving task-to-changelog partition mapping: %s" format newChangelogPartitionMapping)
-      changelogManager.writeChangeLogPartitionMapping(newChangelogPartitionMapping.asJava)
-
-      createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions)
-
-      jobModelManager
-    } finally {
-      if (coordinatorSystemConsumer != null) {
-        coordinatorSystemConsumer.stop()
-      }
-      if (coordinatorSystemProducer != null) {
-        coordinatorSystemProducer.stop()
+      val inputStreamsToMonitor = config.getInputStreams.filter(systemStream => extendedSystemAdmins.contains(systemStream.getSystem))
+      if (inputStreamsToMonitor.nonEmpty) {
+        streamPartitionCountMonitor = new StreamPartitionCountMonitor(
+          inputStreamsToMonitor.asJava,
+          streamMetadataCache,
+          metricsRegistryMap,
+          config.getMonitorPartitionChangeFrequency)
       }
     }
+    val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
+    val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, localityManager, streamMetadataCache, streamPartitionCountMonitor, null)
+    val jobModel = jobModelManager.jobModel
+    // Save the changelog mapping back to the ChangelogPartitionmanager
+    // newChangelogPartitionMapping is the merging of all current task:changelog
+    // assignments with whatever we had before (previousChangelogPartitionMapping).
+    // We must persist legacy changelog assignments so that
+    // maxChangelogPartitionId always has the absolute max, not the current
+    // max (in case the task with the highest changelog partition mapping
+    // disappears.
+    val newChangelogPartitionMapping = jobModel.getContainers.asScala.flatMap(_._2.getTasks.asScala).map{case (taskName,taskModel) => {
+      taskName -> Integer.valueOf(taskModel.getChangelogPartition.getPartitionId)
+    }}.toMap ++ previousChangelogPartitionMapping.asScala
+    info("Saving task-to-changelog partition mapping: %s" format newChangelogPartitionMapping)
+    changelogManager.writeChangeLogPartitionMapping(newChangelogPartitionMapping.asJava)
+
+    createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions)
+
+    jobModelManager
   }
   def apply(coordinatorSystemConfig: Config): JobModelManager = apply(coordinatorSystemConfig, new MetricsRegistryMap())
 
