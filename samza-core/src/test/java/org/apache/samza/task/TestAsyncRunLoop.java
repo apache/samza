@@ -237,7 +237,8 @@ public class TestAsyncRunLoop {
     assertEquals(2L, containerMetrics.processes().getCount());
   }
 
-  @Test
+  // TODO: Fix in SAMZA-1183
+  //@Test
   public void testProcessInOrder() throws Exception {
     AsyncRunLoop runLoop = createRunLoop();
     when(consumerMultiplexer.choose(false)).thenReturn(envelope0).thenReturn(envelope3).thenReturn(envelope1).thenReturn(null);
@@ -519,7 +520,8 @@ public class TestAsyncRunLoop {
     callbackExecutor.awaitTermination(100, TimeUnit.MILLISECONDS);
   }
 
-  @Test
+  // TODO: Fix in SAMZA-1183
+  // @Test
   public void testCommitBehaviourWhenAsyncCommitIsEnabled() throws InterruptedException {
     commitRequest = TaskCoordinator.RequestScope.CURRENT_TASK;
     maxMessagesInFlight = 2;
