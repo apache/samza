@@ -125,7 +125,7 @@ public class StandaloneJobCoordinator implements JobCoordinator {
     // No-op
     JobModel jobModel = getJobModel();
     containerController.startContainer(
-        jobModel.getContainers().get(getProcessorId()),
+        jobModel.getContainers().get(getLocalProcessorId()),
         jobModel.getConfig(),
         jobModel.maxChangeLogStreamPartitions);
   }
@@ -149,7 +149,7 @@ public class StandaloneJobCoordinator implements JobCoordinator {
   }
 
   @Override
-  public String getProcessorId() {
+  public String getLocalProcessorId() {
     return processorId;
   }
 

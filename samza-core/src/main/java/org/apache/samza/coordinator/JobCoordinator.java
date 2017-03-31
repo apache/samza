@@ -61,7 +61,7 @@ public interface JobCoordinator {
    *
    * @return String representing a unique logical processor ID
    */
-  String getProcessorId();
+  String getLocalProcessorId();
 
   /**
    * Returns the current JobModel
