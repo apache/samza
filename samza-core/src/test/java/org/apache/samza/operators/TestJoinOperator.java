@@ -251,8 +251,8 @@ public class TestJoinOperator {
       inStream
           .join(inStream2, new TestJoinFunction(), Duration.ofMillis(10))
           .sink((message, messageCollector, taskCoordinator) -> {
-            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-          });
+              messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+            });
     }
   }
 
