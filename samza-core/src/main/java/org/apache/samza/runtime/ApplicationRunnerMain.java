@@ -25,6 +25,7 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.JobRunner$;
 import org.apache.samza.util.CommandLine;
+import org.apache.samza.util.Util;
 
 
 /**

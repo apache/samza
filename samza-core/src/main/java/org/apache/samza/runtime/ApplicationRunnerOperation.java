@@ -35,6 +35,7 @@ public enum ApplicationRunnerOperation {
     this.str = str;
   }
 
+  @Override
   public String toString() {
     return str;
   }

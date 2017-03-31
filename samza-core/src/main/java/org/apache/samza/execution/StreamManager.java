@@ -40,11 +40,11 @@ public class StreamManager {
   public StreamManager(Map<String, SystemAdmin> sysAdmins) {
     this.sysAdmins = sysAdmins;
   }
+
   public void createStreams(List<StreamSpec> streams) {
     Multimap<String, StreamSpec> streamsGroupedBySystem = HashMultimap.create();
     streams.forEach(streamSpec ->
       streamsGroupedBySystem.put(streamSpec.getSystemName(), streamSpec));
-
 
     for (Map.Entry<String, Collection<StreamSpec>> entry : streamsGroupedBySystem.asMap().entrySet()) {
       String systemName = entry.getKey();

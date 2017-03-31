@@ -85,7 +85,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
       processorGraph.getProcessorNodes().forEach(processor -> {
           Config processorConfig = processor.generateConfig();
-          log.info("Killing processor {} with config {}", processor.getId(), processorConfig);
+          log.info("Killing processor {}", processor.getId());
           JobRunner runner = new JobRunner(processorConfig);
           runner.kill();
         });
@@ -105,7 +105,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
         Config processorConfig = processor.generateConfig();
         JobRunner runner = new JobRunner(processorConfig);
         ApplicationStatus status = runner.status();
-        log.debug("Status is {} for processor {} with config {}", new Object[]{status, processor.getId(), processorConfig});
+        log.debug("Status is {} for processor {}", new Object[]{status, processor.getId()});
 
         switch (status) {
           case Running:

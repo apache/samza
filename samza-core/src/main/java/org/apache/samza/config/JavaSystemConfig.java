@@ -68,6 +68,8 @@ public class JavaSystemConfig extends MapConfig {
   }
 
   /**
+   * Get {@link SystemAdmin} instances for all the systems defined in this config.
+   *
    * @return map of system name to {@link SystemAdmin}
    */
   public Map<String, SystemAdmin> getSystemAdmins() {
@@ -79,6 +81,8 @@ public class JavaSystemConfig extends MapConfig {
   }
 
   /**
+   * Get {@link SystemFactory} instances for all the systems defined in this config.
+   *
    * @return a map from system name to {@link SystemFactory}
    */
   public Map<String, SystemFactory> getSystemFactories() {

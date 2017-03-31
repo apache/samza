@@ -22,6 +22,9 @@ package org.apache.samza.config
 import scala.collection.JavaConverters._
 import org.apache.samza.util.Logging
 
+/**
+  * Note: All new methods are being added to [[org.apache.samza.config.JavaSystemConfig]]
+  */
 object SystemConfig {
   // system config constants
   val SYSTEM_PREFIX = "systems.%s."
