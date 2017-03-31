@@ -173,7 +173,7 @@ class ClientHelper(conf: Configuration) extends Logging {
     // include the resources from the universal resource configurations
     try {
       val resourceMapper = new LocalizerResourceMapper(new LocalizerResourceConfig(config), new YarnConfiguration(conf))
-      localResources ++= resourceMapper.getResourceMap
+      localResources ++= resourceMapper.getResourceMap.asScala
     } catch {
       case e: LocalizerResourceException => {
         throw new SamzaException("Exception during resource mapping from config. ", e)
