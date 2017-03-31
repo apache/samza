@@ -30,8 +30,7 @@ import org.junit.Assert._
 import org.junit.BeforeClass
 import org.junit.Test
 
-import scala.collection.JavaConversions._
-import scala.collection.mutable.HashMap
+import scala.collection.JavaConverters._
 
 object TestFileReaderSystemConsumer {
   val consumer = new FileReaderSystemConsumer("file-reader", null)
@@ -90,10 +89,10 @@ class TestFileReaderSystemConsumer {
     consumer.start
     Thread.sleep(500)
 
-    val ssp1Result = consumer.poll(Set(ssp1), 1000)
-    val ssp2Result = consumer.poll(Set(ssp2), 1000)
-    val ssp3Result = consumer.poll(Set(ssp3), 1000)
-    val ssp4Result = consumer.poll(Set(ssp4), 1000)
+    val ssp1Result = consumer.poll(Set(ssp1).asJava, 1000)
+    val ssp2Result = consumer.poll(Set(ssp2).asJava, 1000)
+    val ssp3Result = consumer.poll(Set(ssp3).asJava, 1000)
+    val ssp4Result = consumer.poll(Set(ssp4).asJava, 1000)
 
     assertEquals(0, ssp1Result.size)
     assertEquals(0, ssp2Result.size)
@@ -114,7 +113,7 @@ class TestFileReaderSystemConsumer {
     Thread.sleep(1000)
 
     // ssp5 should read the new lines
-    val ssp5Result = consumer.poll(Set(ssp5), 1000)
+    val ssp5Result = consumer.poll(Set(ssp5).asJava, 1000)
     assertEquals(1, ssp5Result.size)
     assertEquals(3, ssp5Result.get(ssp5).size)
     envelope = ssp5Result.get(ssp5).remove(0)

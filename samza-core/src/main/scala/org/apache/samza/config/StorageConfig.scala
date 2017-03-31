@@ -22,7 +22,7 @@ package org.apache.samza.config
 
 import java.util.concurrent.TimeUnit
 import org.apache.samza.SamzaException
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
 
@@ -72,7 +72,7 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
 
   def getStoreNames: Seq[String] = {
     val conf = config.subset("stores.", true)
-    conf.keys.filter(k => k.endsWith(".factory")).map(k => k.substring(0, k.length - ".factory".length)).toSeq
+    conf.asScala.keys.filter(k => k.endsWith(".factory")).map(k => k.substring(0, k.length - ".factory".length)).toSeq
   }
 
   /**

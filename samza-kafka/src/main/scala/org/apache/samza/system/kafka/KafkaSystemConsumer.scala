@@ -26,7 +26,6 @@ import kafka.message.MessageAndOffset
 import org.apache.samza.Partition
 import org.apache.kafka.common.utils.Utils
 import org.apache.samza.util.Clock
-import java.util.UUID
 import kafka.serializer.DefaultDecoder
 import kafka.serializer.Decoder
 import org.apache.samza.util.BlockingEnvelopeMap
@@ -37,7 +36,7 @@ import org.apache.samza.util.TopicMetadataStore
 import kafka.api.TopicMetadata
 import org.apache.samza.util.ExponentialSleepStrategy
 import java.util.concurrent.ConcurrentHashMap
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import org.apache.samza.system.SystemAdmin
 
 object KafkaSystemConsumer {
@@ -133,7 +132,7 @@ private[kafka] class KafkaSystemConsumer(
 
   type HostPort = (String, Int)
   val brokerProxies = scala.collection.mutable.Map[HostPort, BrokerProxy]()
-  val topicPartitionsAndOffsets: scala.collection.concurrent.Map[TopicAndPartition, String] = new ConcurrentHashMap[TopicAndPartition, String]()
+  val topicPartitionsAndOffsets: scala.collection.concurrent.Map[TopicAndPartition, String] = new ConcurrentHashMap[TopicAndPartition, String]().asScala
   var perPartitionFetchThreshold = fetchThreshold
   var perPartitionFetchThresholdBytes = 0L
 

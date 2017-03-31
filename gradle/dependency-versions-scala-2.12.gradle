@@ -16,28 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
-package org.apache.samza.config
-import scala.collection.JavaConverters._
-
-object SerializerConfig {
-  // serializer config constants
-  val SERIALIZER_PREFIX = "serializers.registry.%s"
-  val SERDE = "serializers.registry.%s.class"
-
-  implicit def Config2Serializer(config: Config) = new SerializerConfig(config)
-}
-
-class SerializerConfig(config: Config) extends ScalaMapConfig(config) {
-  def getSerdeClass(name: String) = getOption(SerializerConfig.SERDE format name)
-
-  /**
-   * Returns a list of all serializer names from the config file. Useful for
-   * getting individual serializers.
-   */
-  import SerializerConfig._
-  def getSerdeNames() = {
-    val subConf = config.subset(SERIALIZER_PREFIX format "", true)
-    subConf.asScala.keys.filter(k => k.endsWith(".class")).map(_.replace(".class", ""))
-  }
+ext {
+  scalaVersion = "2.12"
+  scalaLibVersion = "2.12.1"
+  // Extra options for the compiler:
+  // -feature: Give detailed warnings about language feature use (rather than just 'there were 4 warnings')
+  // -language:implicitConversions: Allow the use of implicit conversions without warning or library import
+  // -language:reflectiveCalls: Allow the automatic use of reflection to access fields without warning or library import
+  scalaOptions = "-feature -language:implicitConversions -language:reflectiveCalls"
+  scalatraVersion = "2.5.0"
+  jettyVersion = "9.2.7.v20150116"
 }

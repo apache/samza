@@ -24,11 +24,11 @@ import org.apache.hadoop.fs.{FileStatus, Path, FileSystem}
 import org.apache.hadoop.yarn.api.records.ApplicationId
 import org.apache.hadoop.yarn.client.api.YarnClient
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{MapConfig, JobConfig, Config, YarnConfig}
+import org.apache.samza.config.{MapConfig, JobConfig, YarnConfig}
 import org.mockito.Mockito._
 import org.mockito.Matchers.any
 import org.scalatest.FunSuite
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 
 
 class TestClientHelper extends FunSuite {

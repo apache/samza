@@ -19,7 +19,6 @@
 
 package org.apache.samza.system.filereader
 
-import org.apache.samza.system.SystemConsumer
 import org.apache.samza.util.BlockingEnvelopeMap
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemStreamPartition
@@ -27,13 +26,9 @@ import scala.collection.mutable.Map
 import java.io.RandomAccessFile
 import org.apache.samza.system.IncomingMessageEnvelope
 import java.util.concurrent.LinkedBlockingQueue
-import org.apache.samza.Partition
-import collection.JavaConversions._
-import scala.collection.mutable.HashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ExecutorService
 import org.apache.samza.util.DaemonThreadFactory
-import org.apache.samza.SamzaException
 import org.apache.samza.util.Logging
 
 object FileReaderSystemConsumer {

@@ -28,7 +28,6 @@ import org.junit.Test
 
 import scala.collection.mutable
 import scala.collection.JavaConverters._
-import scala.collection.JavaConversions._
 
 class TestRegexSystemStreamPartitionMatcher {
   val sspSet = mutable.Set(new SystemStreamPartition("test", "stream1", new Partition(0)))
@@ -54,14 +53,14 @@ class TestRegexSystemStreamPartitionMatcher {
       JobConfig.STREAM_JOB_FACTORY_CLASS -> classOf[ThreadJobFactory].getCanonicalName,
       JobConfig.SSP_MATCHER_CLASS -> JobConfig.SSP_MATCHER_CLASS_REGEX,
       JobConfig.SSP_MATCHER_CONFIG_REGEX -> regex,
-      (SystemConfig.SYSTEM_FACTORY format "test") -> classOf[MockSystemFactory].getCanonicalName))
+      (SystemConfig.SYSTEM_FACTORY format "test") -> classOf[MockSystemFactory].getCanonicalName).asJava)
   }
 
   @Test
   def testFilterWithMatcherConfigRegexWithNomatches() {
     val config = getConfig("--")
 
-    val filteredSet = new RegexSystemStreamPartitionMatcher().filter(sspSet, config)
+    val filteredSet = new RegexSystemStreamPartitionMatcher().filter(sspSet.asJava, config)
     assertEquals(0, filteredSet.size)
   }
 
@@ -72,8 +71,8 @@ class TestRegexSystemStreamPartitionMatcher {
       TaskConfig.INPUT_STREAMS -> "test.stream1",
       JobConfig.STREAM_JOB_FACTORY_CLASS -> classOf[ThreadJobFactory].getCanonicalName,
       JobConfig.SSP_MATCHER_CLASS -> JobConfig.SSP_MATCHER_CONFIG_REGEX,
-      (SystemConfig.SYSTEM_FACTORY format "test") -> classOf[MockSystemFactory].getCanonicalName))
+      (SystemConfig.SYSTEM_FACTORY format "test") -> classOf[MockSystemFactory].getCanonicalName).asJava)
 
-    new RegexSystemStreamPartitionMatcher().filter(sspSet, config)
+    new RegexSystemStreamPartitionMatcher().filter(sspSet.asJava, config)
   }
 }

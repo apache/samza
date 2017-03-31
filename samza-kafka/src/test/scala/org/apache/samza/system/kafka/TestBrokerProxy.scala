@@ -37,7 +37,7 @@ import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.{Matchers, Mockito}
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 class TestBrokerProxy extends Logging {
   val tp2 = new TopicAndPartition("Redbird", 2013)
@@ -52,8 +52,8 @@ class TestBrokerProxy extends Logging {
     bp.addTopicPartition(tp2, Option("0"))
     Thread.sleep(1000)
     assertEquals(2, sink.receivedMessages.size)
-    assertEquals(42, sink.receivedMessages.get(0)._2.offset)
-    assertEquals(84, sink.receivedMessages.get(1)._2.offset)
+    assertEquals(42, sink.receivedMessages(0)._2.offset)
+    assertEquals(84, sink.receivedMessages(1)._2.offset)
   }
 
   @Test def brokerProxySkipsFetchForEmptyRequests() = {
@@ -64,8 +64,8 @@ class TestBrokerProxy extends Logging {
     bp.addTopicPartition(tp2, Option("0"))
     Thread.sleep(1000)
     assertEquals(0, sink.receivedMessages.size)
-    assertTrue(bp.metrics.brokerSkippedFetchRequests(bp.host, bp.port).getCount > 0)
-    assertEquals(0, bp.metrics.brokerReads(bp.host, bp.port).getCount)
+    assertTrue(bp.metrics.brokerSkippedFetchRequests.get((bp.host, bp.port)).getCount > 0)
+    assertEquals(0, bp.metrics.brokerReads.get((bp.host, bp.port)).getCount)
   }
 
   @Test def brokerProxyThrowsExceptionOnDuplicateTopicPartitions() = {
@@ -91,7 +91,7 @@ class TestBrokerProxy extends Logging {
       def refreshDropped() {}
 
       def addMessage(tp: TopicAndPartition, msg: MessageAndOffset, highWatermark: Long) {
-        receivedMessages.add((tp, msg, msg.offset.equals(highWatermark)))
+        receivedMessages += ((tp, msg, msg.offset.equals(highWatermark)))
       }
 
       def setIsAtHighWatermark(tp: TopicAndPartition, isAtHighWatermark: Boolean) {
@@ -109,7 +109,7 @@ class TestBrokerProxy extends Logging {
 
     metrics.registerBrokerProxy(host, port)
     metrics.registerTopicAndPartition(tp)
-    metrics.topicPartitions(host, port).set(1)
+    metrics.topicPartitions.get((host, port)).set(1)
 
     val bp = new BrokerProxy(
       host,
@@ -168,7 +168,7 @@ class TestBrokerProxy extends Logging {
             val fetchResponsePartitionData = FetchResponsePartitionData(0, 500, messageSet)
             val map = scala.Predef.Map[TopicAndPartition, FetchResponsePartitionData](tp -> fetchResponsePartitionData)
 
-            when(fetchResponse.data).thenReturn(map)
+            when(fetchResponse.data).thenReturn(map.toSeq)
             when(fetchResponse.messageSet(any(classOf[String]), any(classOf[Int]))).thenReturn(messageSet)
             fetchResponse
           }
@@ -210,14 +210,14 @@ class TestBrokerProxy extends Logging {
     bp.addTopicPartition(tp, Option("0"))
     Thread.sleep(1000)
     // update when fetching messages
-    assertEquals(500, bp.metrics.highWatermark(tp).getValue)
-    assertEquals(415, bp.metrics.lag(tp).getValue)
+    assertEquals(500, bp.metrics.highWatermark.get(tp).getValue)
+    assertEquals(415, bp.metrics.lag.get(tp).getValue)
 
     fetchTp1 = false
     Thread.sleep(1000)
     // update when not fetching messages
-    assertEquals(100, bp.metrics.highWatermark(tp).getValue)
-    assertEquals(15, bp.metrics.lag(tp).getValue)
+    assertEquals(100, bp.metrics.highWatermark.get(tp).getValue)
+    assertEquals(15, bp.metrics.lag.get(tp).getValue)
 
     fetchTp1 = true
   }
@@ -264,7 +264,7 @@ class TestBrokerProxy extends Logging {
           val response = mock(classOf[FetchResponsePartitionData])
           when(response.error).thenReturn(ErrorMapping.OffsetOutOfRangeCode)
           val responseMap = Map(tp -> response)
-          when(mfr.data).thenReturn(responseMap)
+          when(mfr.data).thenReturn(responseMap.toSeq)
           invocationCount += 1
           mfr
         } else {

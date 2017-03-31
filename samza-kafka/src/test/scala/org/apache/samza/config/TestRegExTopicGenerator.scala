@@ -19,9 +19,8 @@
 
 package org.apache.samza.config
 
-import collection.JavaConversions._
+import collection.JavaConverters._
 
-import org.apache.samza.SamzaException
 import org.junit.Assert._
 import org.junit.Test
 
@@ -45,7 +44,7 @@ class TestRegExTopicGenerator {
       getRegexConfigInherited + ".b.triumph" -> "spitfire",
       unrelated)
 
-    val config = new MapConfig(map)
+    val config = new MapConfig(map.asJava)
 
     // Don't actually talk to ZooKeeper
     val rewriter = new RegExTopicGenerator() {
@@ -83,7 +82,7 @@ class TestRegExTopicGenerator {
       override def getTopicsFromZK(rewriterName: String, config: Config): Seq[String] = List("yoyoyo")
     }
 
-    val config = rewriter.rewrite(REWRITER_NAME, new MapConfig(map))
+    val config = rewriter.rewrite(REWRITER_NAME, new MapConfig(map.asJava))
     assertEquals("test.yoyoyo", config.get(TaskConfig.INPUT_STREAMS))
   }
 }

@@ -31,9 +31,9 @@ import org.mockito.Matchers
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.junit.AssertionsForJUnit
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 
-import scala.collection.JavaConversions
+import scala.collection.JavaConverters._
 
 
 class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSugar {
@@ -71,7 +71,7 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
     val metrics = new MetricsRegistryMap()
 
     val partitionCountMonitor = new StreamPartitionCountMonitor(
-      JavaConversions.setAsJavaSet(inputSystemStreamSet),
+      inputSystemStreamSet.asJava,
       mockMetadataCache,
       metrics,
       5
@@ -95,7 +95,7 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
     val inputSystemStream = new SystemStream("test-system", "test-stream")
     val inputSystemStreamSet = Set[SystemStream](inputSystemStream)
     val monitor = new StreamPartitionCountMonitor(
-      JavaConversions.setAsJavaSet(inputSystemStreamSet),
+      inputSystemStreamSet.asJava,
       mockMetadataCache,
       new MetricsRegistryMap(),
       50
@@ -140,7 +140,7 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
     val sampleCount = new CountDownLatch(2); // Verify 2 invocations
 
     val monitor = new StreamPartitionCountMonitor(
-      JavaConversions.setAsJavaSet(inputSystemStreamSet),
+      inputSystemStreamSet.asJava,
       mockMetadataCache,
       new MetricsRegistryMap(),
       50

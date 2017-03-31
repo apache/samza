@@ -21,7 +21,7 @@ package org.apache.samza.job
 
 import org.junit.Assert._
 import org.junit.Test
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import org.apache.samza.config.MapConfig
 import org.apache.samza.config.ShellCommandConfig
 import java.net.URL
@@ -30,7 +30,7 @@ class TestShellCommandBuilder {
   @Test
   def testEnvironmentVariables {
     val urlStr = "http://www.google.com"
-    val config = new MapConfig(Map(ShellCommandConfig.COMMAND_SHELL_EXECUTE -> "foo"))
+    val config = new MapConfig(Map(ShellCommandConfig.COMMAND_SHELL_EXECUTE -> "foo").asJava)
     val scb = new ShellCommandBuilder
     scb.setConfig(config)
     scb.setId(1)
@@ -38,15 +38,15 @@ class TestShellCommandBuilder {
     val command = scb.buildCommand
     val environment = scb.buildEnvironment
     assertEquals("foo", command)
-    assertEquals("1", environment(ShellCommandConfig.ENV_CONTAINER_ID))
-    assertEquals(urlStr, environment(ShellCommandConfig.ENV_COORDINATOR_URL))
+    assertEquals("1", environment.get(ShellCommandConfig.ENV_CONTAINER_ID))
+    assertEquals(urlStr, environment.get(ShellCommandConfig.ENV_COORDINATOR_URL))
   }
 
   // if cmdPath is specified, the full path to the command should be adjusted
   @Test
   def testCommandWithFwkPath {
     val urlStr = "http://www.linkedin.com"
-    val config = new MapConfig(Map(ShellCommandConfig.COMMAND_SHELL_EXECUTE -> "foo"))
+    val config = new MapConfig(Map(ShellCommandConfig.COMMAND_SHELL_EXECUTE -> "foo").asJava)
     val scb = new ShellCommandBuilder
     scb.setConfig(config)
     scb.setId(1)
