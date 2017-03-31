@@ -37,7 +37,7 @@ import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
 import org.apache.samza.util.Clock
 
-import scala.collection.{JavaConversions, Map}
+import scala.collection.JavaConverters._
 
 object TaskStorageManager {
   def getStoreDir(storeBaseDir: File, storeName: String) = {
@@ -313,7 +313,7 @@ class TaskStorageManager(
           systemAdmin.asInstanceOf[ExtendedSystemAdmin].getNewestOffset(new SystemStreamPartition(systemStream.getSystem, systemStream.getStream, partition), 3)
         } else {
           val streamToMetadata = systemAdmins(systemStream.getSystem)
-                  .getSystemStreamMetadata(JavaConversions.setAsJavaSet(Set(systemStream.getStream)))
+                  .getSystemStreamMetadata(Set(systemStream.getStream).asJava)
           val sspMetadata = streamToMetadata
                   .get(systemStream.getStream)
                   .getSystemStreamPartitionMetadata

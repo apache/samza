@@ -58,6 +58,8 @@ public interface StorageEngine {
 
   /**
    * Get store properties
+   *
+   * @return store properties
    */
   StoreProperties getStoreProperties();
 }

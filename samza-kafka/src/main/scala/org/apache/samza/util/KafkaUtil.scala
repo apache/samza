@@ -23,13 +23,13 @@ import java.util.Properties
 import java.util.concurrent.atomic.AtomicLong
 import kafka.admin.AdminUtils
 import kafka.utils.ZkUtils
-import org.apache.kafka.clients.producer.{Producer, ProducerRecord}
 import org.apache.kafka.common.PartitionInfo
 import org.apache.samza.config.Config
 import org.apache.samza.config.ConfigException
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.system.OutgoingMessageEnvelope
-import kafka.common.{TopicExistsException, ErrorMapping, ReplicaNotAvailableException}
+import kafka.common.{ErrorMapping, ReplicaNotAvailableException}
+import org.apache.kafka.common.errors.TopicExistsException
 import org.apache.samza.system.kafka.TopicMetadataCache
 
 object KafkaUtil extends Logging {

@@ -25,12 +25,12 @@ import scalate.ScalateSupport
 import org.apache.samza.config.Config
 import org.apache.samza.job.yarn.{YarnAppState, ClientHelper}
 import org.apache.samza.metrics._
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import java.util.HashMap
 import org.apache.samza.serializers.model.SamzaObjectMapper
 
-class ApplicationMasterRestServlet(config: Config, samzaAppState: SamzaApplicationState, state: YarnAppState, registry: ReadableMetricsRegistry) extends ScalatraServlet with ScalateSupport {
+class ApplicationMasterRestServlet(samzaConfig: Config, samzaAppState: SamzaApplicationState, state: YarnAppState, registry: ReadableMetricsRegistry) extends ScalatraServlet with ScalateSupport {
   val yarnConfig = new YarnConfiguration
   val client = new ClientHelper(yarnConfig)
   val jsonMapper = SamzaObjectMapper.getObjectMapper
@@ -43,10 +43,10 @@ class ApplicationMasterRestServlet(config: Config, samzaAppState: SamzaApplicati
     val metricMap = new HashMap[String, java.util.Map[String, Object]]
 
     // build metric map
-    registry.getGroups.foreach(group => {
+    registry.getGroups.asScala.foreach(group => {
       val groupMap = new HashMap[String, Object]
 
-      registry.getGroup(group).foreach {
+      registry.getGroup(group).asScala.foreach {
         case (name, metric) =>
           metric.visit(new MetricsVisitor() {
             def counter(counter: Counter) =
@@ -79,7 +79,7 @@ class ApplicationMasterRestServlet(config: Config, samzaAppState: SamzaApplicati
   get("/am") {
     val containers = new HashMap[String, HashMap[String, Object]]
 
-    state.runningYarnContainers.foreach {
+    state.runningYarnContainers.asScala.foreach {
       case (containerId, container) =>
         val yarnContainerId = container.id.toString
         val containerMap = new HashMap[String, Object]
@@ -98,10 +98,10 @@ class ApplicationMasterRestServlet(config: Config, samzaAppState: SamzaApplicati
       "containers" -> containers,
       "host" -> "%s:%s".format(state.nodeHost, state.rpcUrl.getPort))
 
-    jsonMapper.writeValueAsString(new HashMap[String, Object](status))
+    jsonMapper.writeValueAsString(new HashMap[String, Object](status.asJava))
   }
 
   get("/config") {
-    jsonMapper.writeValueAsString(new HashMap[String, Object](config.sanitize.toMap))
+    jsonMapper.writeValueAsString(new HashMap[String, Object](samzaConfig.sanitize))
   }
 }

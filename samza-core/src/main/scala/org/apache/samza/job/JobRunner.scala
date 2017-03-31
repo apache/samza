@@ -31,7 +31,7 @@ import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLi
 import org.apache.samza.runtime.ApplicationRunnerOperation
 import org.apache.samza.util.{Logging, Util}
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 
 object JobRunner extends Logging {
@@ -90,23 +90,22 @@ class JobRunner(config: Config) extends Logging {
     if (resetJobConfig) {
       info("Storing config in coordinator stream.")
       coordinatorSystemProducer.register(JobRunner.SOURCE)
-      coordinatorSystemProducer.start
+      coordinatorSystemProducer.start()
       coordinatorSystemProducer.writeConfig(JobRunner.SOURCE, config)
     }
     info("Loading old config from coordinator stream.")
-    coordinatorSystemConsumer.register
-    coordinatorSystemConsumer.start
-    coordinatorSystemConsumer.bootstrap
-    coordinatorSystemConsumer.stop
+    coordinatorSystemConsumer.register()
+    coordinatorSystemConsumer.start()
+    coordinatorSystemConsumer.bootstrap()
+    coordinatorSystemConsumer.stop()
 
-    val oldConfig = coordinatorSystemConsumer.getConfig()
+    val oldConfig = coordinatorSystemConsumer.getConfig
     if (resetJobConfig) {
-      info("Deleting old configs that are no longer defined: %s".format(oldConfig.keySet -- config.keySet))
-      (oldConfig.keySet -- config.keySet).foreach(key => {
-        coordinatorSystemProducer.send(new Delete(JobRunner.SOURCE, key, SetConfig.TYPE))
-      })
+      val keysToRemove = oldConfig.keySet.asScala.toSet.diff(config.keySet.asScala)
+      info("Deleting old configs that are no longer defined: %s".format(keysToRemove))
+      keysToRemove.foreach(key => { coordinatorSystemProducer.send(new Delete(JobRunner.SOURCE, key, SetConfig.TYPE)) })
     }
-    coordinatorSystemProducer.stop
+    coordinatorSystemProducer.stop()
 
     // Create the actual job, and submit it.
     val job = jobFactory.getJob(config).submit

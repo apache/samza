@@ -20,7 +20,7 @@
 package org.apache.samza.checkpoint.file
 
 import java.io.File
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import java.util.Random
 import org.junit.Assert._
 import org.junit.{After, Before, Test}
@@ -55,7 +55,7 @@ class TestFileSystemCheckpointManager  {
     val cp = new Checkpoint(Map(
       new SystemStreamPartition("a", "b", new Partition(0)) -> "c",
       new SystemStreamPartition("a", "c", new Partition(1)) -> "d",
-      new SystemStreamPartition("b", "d", new Partition(2)) -> "e"))
+      new SystemStreamPartition("b", "d", new Partition(2)) -> "e").asJava)
 
     var readCp:Checkpoint = null
     val cpm =  new FileSystemCheckpointManager("some-job-name", tempFolder.getRoot)

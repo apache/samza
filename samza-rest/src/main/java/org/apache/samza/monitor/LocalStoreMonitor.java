@@ -28,7 +28,6 @@ import java.util.List;
 import org.apache.commons.io.filefilter.DirectoryFileFilter;
 import org.apache.commons.io.FileUtils;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.rest.model.JobStatus;
 import org.apache.samza.rest.model.Task;
 import org.apache.samza.rest.proxy.job.JobInstance;
@@ -56,15 +55,16 @@ public class LocalStoreMonitor implements Monitor {
 
   private final LocalStoreMonitorConfig config;
 
-  // MetricsRegistry should be used in the future to send metrics from this monitor.
-  // Metrics from the monitor is a way to know if the monitor is alive.
+  private final LocalStoreMonitorMetrics localStoreMonitorMetrics;
+
   public LocalStoreMonitor(LocalStoreMonitorConfig config,
-                           MetricsRegistry metricsRegistry,
+                           LocalStoreMonitorMetrics localStoreMonitorMetrics,
                            JobsClient jobsClient) {
     Preconditions.checkState(!Strings.isNullOrEmpty(config.getLocalStoreBaseDir()),
                              String.format("%s is not set in config.", LocalStoreMonitorConfig.CONFIG_LOCAL_STORE_DIR));
     this.config = config;
     this.jobsClient = jobsClient;
+    this.localStoreMonitorMetrics = localStoreMonitorMetrics;
   }
 
   /**
@@ -81,8 +81,6 @@ public class LocalStoreMonitor implements Monitor {
     for (JobInstance jobInstance : getHostAffinityEnabledJobs(localStoreDir)) {
       File jobDir = new File(localStoreDir,
                              String.format("%s-%s", jobInstance.getJobName(), jobInstance.getJobId()));
-      Preconditions.checkState(jobDir.exists(), "JobDir is null");
-      Preconditions.checkNotNull(jobDir , "JobDir is null");
       JobStatus jobStatus = jobsClient.getJobStatus(jobInstance);
       for (Task task : jobsClient.getTasks(jobInstance)) {
         for (String storeName : jobDir.list(DirectoryFileFilter.DIRECTORY)) {
@@ -146,7 +144,10 @@ public class LocalStoreMonitor implements Monitor {
     File offsetFile = new File(taskStoreDir, OFFSET_FILE_NAME);
     if (!offsetFile.exists()) {
       LOG.info("Deleting the task store : {}, since it has no offset file.", taskStorePath);
+      long taskStoreSizeInBytes = taskStoreDir.getTotalSpace();
       FileUtils.deleteDirectory(taskStoreDir);
+      localStoreMonitorMetrics.diskSpaceFreedInBytes.inc(taskStoreSizeInBytes);
+      localStoreMonitorMetrics.noOfDeletedTaskPartitionStores.inc();
     } else if ((CLOCK.currentTimeMillis() - offsetFile.lastModified()) >= config.getOffsetFileTTL()) {
       LOG.info("Deleting the offset file from the store : {}, since the last modified timestamp : {} "
                    + "of the offset file is older than config file ttl : {}.",

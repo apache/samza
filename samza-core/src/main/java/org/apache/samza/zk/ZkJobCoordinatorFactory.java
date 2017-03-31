@@ -38,16 +38,19 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
   @Override
   public JobCoordinator getJobCoordinator(int processorId, Config config, SamzaContainerController containerController) {
     JobConfig jobConfig = new JobConfig(config);
-    String groupName = String.format("%s-%s", jobConfig.getName(), jobConfig.getJobId());
+    String groupName = String.format("%s-%s", jobConfig.getName().get(), jobConfig.getJobId().get());
     ZkConfig zkConfig = new ZkConfig(config);
+    String processorIdStr = String.valueOf(processorId);
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
     ZkClient zkClient = new ZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
+
     return new ZkJobCoordinator(
         processorId,
+        "groupId",  // TODO: Usage of groupId to be resolved in SAMZA-1173
         config,
         debounceTimer,
         new ZkUtils(
-            String.valueOf(processorId),
+            processorIdStr,
             new ZkKeyBuilder(groupName),
             zkClient,
             zkConfig.getZkConnectionTimeoutMs()

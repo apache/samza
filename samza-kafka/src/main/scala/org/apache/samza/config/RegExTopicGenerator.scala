@@ -24,12 +24,11 @@ import kafka.utils.ZkUtils
 import org.apache.samza.config.KafkaConfig.{ Config2Kafka, REGEX_RESOLVED_STREAMS }
 import org.apache.samza.SamzaException
 import org.apache.samza.util.Util
-import collection.JavaConversions._
+import collection.JavaConverters._
 import org.apache.samza.util.Logging
 import scala.collection._
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.system.SystemStream
-import scala.util.Sorting
 
 /**
  * Dynamically determine the Kafka topics to use as input streams to the task via a regular expression.
@@ -80,6 +79,7 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
       // For each topic that matched, generate all the specified configs
       config
         .getRegexResolvedInheritedConfig(rewriterName)
+        .asScala
         .foreach(kv => keysAndValsToAdd.put("systems." + m.getSystem + ".streams." + m.getStream + "." + kv._1, kv._2))
     }
     // Build new inputs
@@ -92,7 +92,7 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
       .sortWith(_ < _)
       .mkString(",")
 
-    new MapConfig((keysAndValsToAdd ++ config) += inputStreams)
+    new MapConfig(((keysAndValsToAdd ++ config.asScala) += inputStreams).asJava)
   }
 
   def getTopicsFromZK(rewriterName: String, config: Config): Seq[String] = {

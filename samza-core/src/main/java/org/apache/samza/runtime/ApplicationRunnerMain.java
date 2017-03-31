@@ -53,7 +53,8 @@ public class ApplicationRunnerMain {
   public static void main(String[] args) throws Exception {
     ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerCommandLine();
     OptionSet options = cmdLine.parser().parse(args);
-    Config config = cmdLine.loadConfig(options);
+    Config orgConfig = cmdLine.loadConfig(options);
+    Config config = Util.rewriteConfig(orgConfig);
     ApplicationRunnerOperation op = cmdLine.getOperation(options);
 
     if (config.containsKey(STREAM_APPLICATION_CLASS_CONFIG)) {

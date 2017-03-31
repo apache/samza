@@ -18,7 +18,7 @@
  */
 
 package org.apache.samza.config
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 object SerializerConfig {
   // serializer config constants
@@ -38,6 +38,6 @@ class SerializerConfig(config: Config) extends ScalaMapConfig(config) {
   import SerializerConfig._
   def getSerdeNames() = {
     val subConf = config.subset(SERIALIZER_PREFIX format "", true)
-    subConf.keys.filter(k => k.endsWith(".class")).map(_.replace(".class", ""))
+    subConf.asScala.keys.filter(k => k.endsWith(".class")).map(_.replace(".class", ""))
   }
 }

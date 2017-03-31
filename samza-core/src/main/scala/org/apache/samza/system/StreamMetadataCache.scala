@@ -22,7 +22,7 @@ package org.apache.samza.system
 import org.apache.samza.util.Logging
 import org.apache.samza.SamzaException
 import org.apache.samza.util.{Clock, SystemClock}
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 /**
  * Caches requests to SystemAdmin.getSystemStreamMetadata for a short while (by default
@@ -64,11 +64,11 @@ class StreamMetadataCache (
           val systemAdmin = systemAdmins
             .getOrElse(systemName, throw new SamzaException("Cannot get metadata for unknown system: %s" format systemName))
           val streamToMetadata = if (partitionsMetadataOnly && systemAdmin.isInstanceOf[ExtendedSystemAdmin]) {
-            systemAdmin.asInstanceOf[ExtendedSystemAdmin].getSystemStreamPartitionCounts(systemStreams.map(_.getStream), cacheTTLms)
+            systemAdmin.asInstanceOf[ExtendedSystemAdmin].getSystemStreamPartitionCounts(systemStreams.map(_.getStream).asJava, cacheTTLms)
           } else {
-            systemAdmin.getSystemStreamMetadata(systemStreams.map(_.getStream))
+            systemAdmin.getSystemStreamMetadata(systemStreams.map(_.getStream).asJava)
           }
-          streamToMetadata.map {
+          streamToMetadata.asScala.map {
             case (streamName, metadata) => (new SystemStream(systemName, streamName) -> metadata)
           }
       }

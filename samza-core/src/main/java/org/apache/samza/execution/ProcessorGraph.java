@@ -276,6 +276,10 @@ public class ProcessorGraph {
    */
   /* package private */ List<ProcessorNode> topologicalSort() {
     Collection<ProcessorNode> pnodes = nodes.values();
+    if (pnodes.size() == 1) {
+      return new ArrayList<>(pnodes);
+    }
+
     Queue<ProcessorNode> q = new ArrayDeque<>();
     Map<String, Long> indegree = new HashMap<>();
     Set<ProcessorNode> visited = new HashSet<>();
@@ -337,6 +341,7 @@ public class ProcessorGraph {
           }
           // start from the node with minimal input edge again
           q.add(minNode);
+          visited.add(minNode);
         } else {
           // all the remaining nodes should be reachable from sources
           // start from sources again to find the next node that hasn't been visited
@@ -344,6 +349,7 @@ public class ProcessorGraph {
               .filter(node -> !visited.contains(node))
               .findAny().get();
           q.add(nextNode);
+          visited.add(nextNode);
         }
       }
     }

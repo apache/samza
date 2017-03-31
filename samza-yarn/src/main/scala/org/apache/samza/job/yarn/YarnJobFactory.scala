@@ -26,7 +26,7 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.samza.config.Config
 import org.apache.samza.util.hadoop.HttpFileSystem
 import org.apache.samza.util.Logging
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 class YarnJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config) = {
@@ -42,7 +42,7 @@ class YarnJobFactory extends StreamJobFactory with Logging {
 
     // Use the Samza job config "fs.<scheme>.impl" to override YarnConfiguration
     val fsImplConfig = new FileSystemImplConfig(config)
-    fsImplConfig.getSchemes.foreach(
+    fsImplConfig.getSchemes.asScala.foreach(
       (scheme : String) => hConfig.set(fsImplConfig.getFsImplKey(scheme), fsImplConfig.getFsImplClassName(scheme))
     )
 

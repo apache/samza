@@ -28,7 +28,8 @@ public class LocalStoreMonitorFactory implements MonitorFactory {
   @Override
   public Monitor getMonitorInstance(String monitorName, MonitorConfig config, MetricsRegistry metricsRegistry) throws Exception {
     LocalStoreMonitorConfig monitorConfig = new LocalStoreMonitorConfig(config);
+    LocalStoreMonitorMetrics localStoreMonitorMetrics = new LocalStoreMonitorMetrics(String.format("%s-", monitorName), metricsRegistry);
     JobsClient jobsClient = new JobsClient(monitorConfig.getJobStatusServers());
-    return new LocalStoreMonitor(monitorConfig, metricsRegistry, jobsClient);
+    return new LocalStoreMonitor(monitorConfig, localStoreMonitorMetrics, jobsClient);
   }
 }

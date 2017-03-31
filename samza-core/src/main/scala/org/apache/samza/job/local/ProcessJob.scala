@@ -29,7 +29,7 @@ import org.apache.samza.job.util.ProcessKiller
 import org.apache.samza.job.{ApplicationStatus, CommandBuilder, StreamJob}
 import org.apache.samza.util.Logging
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 class ProcessJob(commandBuilder: CommandBuilder, jobCoordinator: JobModelManager) extends StreamJob with Logging {
   var jobStatus: Option[ApplicationStatus] = None
@@ -38,7 +38,7 @@ class ProcessJob(commandBuilder: CommandBuilder, jobCoordinator: JobModelManager
   def submit: StreamJob = {
     jobStatus = Some(New)
     val waitForThreadStart = new CountDownLatch(1)
-    val processBuilder = new ProcessBuilder(commandBuilder.buildCommand.split(" ").toList)
+    val processBuilder = new ProcessBuilder(commandBuilder.buildCommand.split(" ").toList.asJava)
 
     processBuilder
       .environment

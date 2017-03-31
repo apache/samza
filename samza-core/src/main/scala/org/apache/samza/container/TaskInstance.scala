@@ -41,7 +41,7 @@ import org.apache.samza.task.TaskInstanceCollector
 import org.apache.samza.task.WindowableTask
 import org.apache.samza.util.Logging
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 class TaskInstance(
   task: Any,
@@ -65,7 +65,7 @@ class TaskInstance(
 
   val context = new TaskContext {
     def getMetricsRegistry = metrics.registry
-    def getSystemStreamPartitions = systemStreamPartitions
+    def getSystemStreamPartitions = systemStreamPartitions.asJava
     def getStore(storeName: String) = if (storageManager != null) {
       storageManager(storeName)
     } else {

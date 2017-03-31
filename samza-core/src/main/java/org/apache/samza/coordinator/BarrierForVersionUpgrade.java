@@ -17,7 +17,10 @@
  * under the License.
  */
 
-package org.apache.samza.zk;
+package org.apache.samza.coordinator;
+
+import java.util.List;
+
 
 /**
  * Interface for a barrier - to allow synchronization between different processors to switch to a newly published
@@ -26,16 +29,19 @@ package org.apache.samza.zk;
 public interface BarrierForVersionUpgrade {
   /**
    * Barrier is usually started by the leader.
+   * @param version - for which the barrier is created
+   * @param participatns - list of participants that need to join for barrier to complete
    */
-  void start();
+  void start(String version, List<String> participatns);
 
   /**
    * Called by the processor.
    * Updates the processor readiness to use the new version and wait on the barrier, until all other processors
    * joined.
    * The call is async. The callback will be invoked when the barrier is reached.
+   * @param version - for which the barrier waits
    * @param thisProcessorsName as it appears in the list of processors.
    * @param callback  will be invoked, when barrier is reached.
    */
-  void waitForBarrier(String thisProcessorsName, Runnable callback);
+  void waitForBarrier(String version, String thisProcessorsName, Runnable callback);
 }

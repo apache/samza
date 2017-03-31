@@ -37,7 +37,7 @@ import org.apache.samza.task.TaskInstanceCollector
 import org.apache.samza.util.{CommandLine, Logging, Util}
 import org.apache.samza.{Partition, SamzaException}
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.util.Random
 
 /**
@@ -258,7 +258,7 @@ class TestKeyValuePerformance extends Logging {
         store.flush()
 
         timer.reset().start()
-        assert(store.getAll(shuffledKeys).size == shuffledKeys.size)
+        assert(store.getAll(shuffledKeys.asJava).size == shuffledKeys.size)
         val getAllTime = timer.stop().elapsed(TimeUnit.MILLISECONDS)
 
         // Restore cache, in case it's enabled, to a state similar to the one above when the getAll test started
@@ -312,9 +312,9 @@ class TestKeyValuePerformance extends Logging {
         val shuffledKeys = Random.shuffle(keys).take(messagesCountPerBatch)
 
         // We want to measure ::getAll when called many times, so populate the cache because first call is a cache-miss
-        val totalSize = store.getAll(shuffledKeys).values.map(_.length).sum
+        val totalSize = store.getAll(shuffledKeys.asJava).values.asScala.map(_.length).sum
         timer.reset().start()
-        assert(store.getAll(shuffledKeys).size == shuffledKeys.size)
+        assert(store.getAll(shuffledKeys.asJava).size == shuffledKeys.size)
         val getAllTime = timer.stop().elapsed(TimeUnit.MILLISECONDS)
 
         // We want to measure ::get when called many times, so populate the cache because first call is a cache-miss
