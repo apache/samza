@@ -65,7 +65,7 @@ public class FileSystemImplConfig {
    * It can include config for fs.&lt;scheme&gt;.impl and additional config for the subKeys fs.&lt;scheme&gt;.impl.* from the configuration
    * e.g. for scheme "myScheme", there could be config for fs.myScheme.impl, fs.myScheme.impl.client and fs.myScheme.impl.server
    * @param scheme scheme name, such as http, hdfs, myscheme
-   * @return a set of sub configurations without stripping off prefix
+   * @return config for the particular scheme
    */
   public Config getSchemeConfig(final String scheme) {
     String fsSchemeImpl = String.format(FS_IMPL_TEMPLATE, scheme);
