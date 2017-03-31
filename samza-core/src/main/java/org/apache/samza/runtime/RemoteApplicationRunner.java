@@ -45,8 +45,11 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger log = LoggerFactory.getLogger(RemoteApplicationRunner.class);
 
+  private final StreamManager streamManager;
+
   public RemoteApplicationRunner(Config config) {
     super(config);
+    this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
   }
 
   /**
@@ -63,7 +66,6 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       List<StreamSpec> streams = processorGraph.getIntermediateStreams().stream()
           .map(streamEdge -> streamEdge.getStreamSpec())
           .collect(Collectors.toList());
-      StreamManager streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
       streamManager.createStreams(streams);
 
       // 3. submit jobs for remote execution
@@ -137,7 +139,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     app.init(streamGraph, config);
 
     // create the physical execution plan
-    ExecutionPlanner planner = new ExecutionPlanner(config);
+    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     return planner.plan(streamGraph);
   }
 }

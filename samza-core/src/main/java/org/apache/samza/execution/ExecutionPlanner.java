@@ -30,7 +30,6 @@ import java.util.Queue;
 import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
@@ -38,7 +37,6 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,21 +50,20 @@ public class ExecutionPlanner {
   private static final Logger log = LoggerFactory.getLogger(ExecutionPlanner.class);
 
   private final Config config;
+  private final StreamManager streamManager;
 
-  public ExecutionPlanner(Config config) {
+  public ExecutionPlanner(Config config, StreamManager streamManager) {
     this.config = config;
+    this.streamManager = streamManager;
   }
 
   public ProcessorGraph plan(StreamGraph streamGraph) throws Exception {
-    Map<String, SystemAdmin> sysAdmins = new JavaSystemConfig(config).getSystemAdmins();
-    StreamManager streamManager = new StreamManager(sysAdmins);
-
     // create physical processors based on stream graph
     ProcessorGraph processorGraph = createProcessorGraph(streamGraph);
 
     if (!processorGraph.getIntermediateStreams().isEmpty()) {
       // figure out the partitions for internal streams
-      calculatePartitions(streamGraph, processorGraph, streamManager);
+      calculatePartitions(streamGraph, processorGraph);
     }
 
     return processorGraph;
@@ -104,7 +101,7 @@ public class ExecutionPlanner {
   /**
    * Figure out the number of partitions of all streams
    */
-  /* package private */ void calculatePartitions(StreamGraph streamGraph, ProcessorGraph processorGraph, StreamManager streamManager) {
+  /* package private */ void calculatePartitions(StreamGraph streamGraph, ProcessorGraph processorGraph) {
     // fetch the external streams partition info
     updateExistingPartitions(processorGraph, streamManager);
 
