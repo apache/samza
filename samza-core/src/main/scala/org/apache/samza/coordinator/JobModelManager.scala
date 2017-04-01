@@ -258,8 +258,7 @@ object JobModelManager extends Logging {
         case _ => containerGrouper.group(taskModels.asJava, containerIds)
       }
     }
-
-    val containerMap = asScalaSet(containerModels).map { case (containerModel) => containerModel.getProcessorId -> containerModel }.toMap
+    val containerMap = containerModels.asScala.map { case (containerModel) => containerModel.getProcessorId -> containerModel }.toMap
 
     new JobModel(config, containerMap.asJava, localityManager)
   }
