@@ -47,12 +47,34 @@ public class TestApplicationRunnerMain {
 
   @Test
   public void TestKillOperation() throws Exception {
+    assertEquals(0, TestApplicationRunnerInvocationCounts.killCount);
+    ApplicationRunnerMain.main(new String[]{
+        "--config-factory",
+        "org.apache.samza.config.factories.PropertiesConfigFactory",
+        "--config-path",
+        String.format("file://%s/src/test/resources/test.properties", new File(".").getCanonicalPath()),
+        "-config", ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
+        "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts",
+        "--operation=kill"
+    });
 
+    assertEquals(1, TestApplicationRunnerInvocationCounts.killCount);
   }
 
   @Test
   public void TestStatusOperation() throws Exception {
+    assertEquals(0, TestApplicationRunnerInvocationCounts.statusCount);
+    ApplicationRunnerMain.main(new String[]{
+        "--config-factory",
+        "org.apache.samza.config.factories.PropertiesConfigFactory",
+        "--config-path",
+        String.format("file://%s/src/test/resources/test.properties", new File(".").getCanonicalPath()),
+        "-config", ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
+        "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts",
+        "--operation=status"
+    });
 
+    assertEquals(1, TestApplicationRunnerInvocationCounts.statusCount);
   }
 
   public static class TestApplicationRunnerInvocationCounts extends AbstractApplicationRunner {
