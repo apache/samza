@@ -162,7 +162,7 @@ public class TestGroupByContainerCount {
    *  because the scenario is infrequent, the benefits are not guaranteed, and the code complexity
    *  wasn't worth it. It certainly could be implemented in the future.
    */
-//  @Test - Not working - TODO: Fix it
+  @Test
   public void testBalancerAfterContainerIncrease() {
     Set<TaskModel> taskModels = generateTaskModels(9);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(2).group(taskModels);
@@ -243,28 +243,28 @@ public class TestGroupByContainerCount {
    *  from C2 and C3 to containers that were on the same respective hosts, it wasn't implemented
    *  because the scenario is infrequent, the benefits are not guaranteed, and the code complexity
    *  wasn't worth it. It certainly could be implemented in the future.
-   *//*
+   */
   @Test
   public void testBalancerAfterContainerDecrease() {
     Set<TaskModel> taskModels = generateTaskModels(9);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(4).group(taskModels);
-    Map<String, Integer> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
+    Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
     Set<ContainerModel> containers = new GroupByContainerCount(2).balance(taskModels, localityManager);
 
-    Map<Integer, ContainerModel> containersMap = new HashMap<>();
+    Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getLocalProcessorId(), container);
+      containersMap.put(container.getProcessorId(), container);
     }
 
     assertEquals(2, containers.size());
-    ContainerModel container0 = containersMap.get(0);
-    ContainerModel container1 = containersMap.get(1);
+    ContainerModel container0 = containersMap.get("0");
+    ContainerModel container1 = containersMap.get("1");
     assertNotNull(container0);
     assertNotNull(container1);
-    assertEquals(0, container0.getLocalProcessorId());
-    assertEquals(1, container1.getLocalProcessorId());
+    assertEquals("0", container0.getProcessorId());
+    assertEquals("1", container1.getProcessorId());
     assertEquals(5, container0.getTasks().size());
     assertEquals(4, container1.getTasks().size());
 
@@ -283,21 +283,21 @@ public class TestGroupByContainerCount {
     assertTrue(container1.getTasks().containsKey(getTaskName(3)));
 
     // Verify task mappings are saved
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(4).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(8).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(6).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), 0);
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(4).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(8).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(6).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), "0");
 
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), 1);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(5).getTaskName(), 1);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(7).getTaskName(), 1);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(3).getTaskName(), 1);
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), "1");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(5).getTaskName(), "1");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(7).getTaskName(), "1");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(3).getTaskName(), "1");
 
     verify(taskAssignmentManager, never()).deleteTaskContainerMappings(anyCollection());
   }
 
-  *//**
+  /**
    * Before:
    *  C0  C1  C2  C3
    * ----------------
@@ -320,30 +320,30 @@ public class TestGroupByContainerCount {
    *  T0  T1  T6
    *  T4  T5  T2
    *  T8  T7  T3
-   *//*
+   */
   @Test
   public void testBalancerMultipleReblances() {
     // Before
     Set<TaskModel> taskModels = generateTaskModels(9);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(4).group(taskModels);
-    Map<String, Integer> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
+    Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
     // First balance
     Set<ContainerModel> containers = new GroupByContainerCount(2).balance(taskModels, localityManager);
 
-    Map<Integer, ContainerModel> containersMap = new HashMap<>();
+    Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getLocalProcessorId(), container);
+      containersMap.put(container.getProcessorId(), container);
     }
 
     assertEquals(2, containers.size());
-    ContainerModel container0 = containersMap.get(0);
-    ContainerModel container1 = containersMap.get(1);
+    ContainerModel container0 = containersMap.get("0");
+    ContainerModel container1 = containersMap.get("1");
     assertNotNull(container0);
     assertNotNull(container1);
-    assertEquals(0, container0.getLocalProcessorId());
-    assertEquals(1, container1.getLocalProcessorId());
+    assertEquals("0", container0.getProcessorId());
+    assertEquals("1", container1.getProcessorId());
     assertEquals(5, container0.getTasks().size());
     assertEquals(4, container1.getTasks().size());
 
@@ -362,16 +362,16 @@ public class TestGroupByContainerCount {
     assertTrue(container1.getTasks().containsKey(getTaskName(3)));
 
     // Verify task mappings are saved
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(4).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(8).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(6).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), 0);
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(4).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(8).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(6).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), "0");
 
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), 1);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(5).getTaskName(), 1);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(7).getTaskName(), 1);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(3).getTaskName(), 1);
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), "1");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(5).getTaskName(), "1");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(7).getTaskName(), "1");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(3).getTaskName(), "1");
 
     verify(taskAssignmentManager, never()).deleteTaskContainerMappings(anyCollection());
 
@@ -388,19 +388,19 @@ public class TestGroupByContainerCount {
 
     containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getLocalProcessorId(), container);
+      containersMap.put(container.getProcessorId(), container);
     }
 
     assertEquals(3, containers.size());
-    container0 = containersMap.get(0);
-    container1 = containersMap.get(1);
-    ContainerModel container2 = containersMap.get(2);
+    container0 = containersMap.get("0");
+    container1 = containersMap.get("1");
+    ContainerModel container2 = containersMap.get("2");
     assertNotNull(container0);
     assertNotNull(container1);
     assertNotNull(container2);
-    assertEquals(0, container0.getLocalProcessorId());
-    assertEquals(1, container1.getLocalProcessorId());
-    assertEquals(2, container2.getLocalProcessorId());
+    assertEquals("0", container0.getProcessorId());
+    assertEquals("1", container1.getProcessorId());
+    assertEquals("2", container2.getProcessorId());
     assertEquals(3, container0.getTasks().size());
     assertEquals(3, container1.getTasks().size());
     assertEquals(3, container2.getTasks().size());
@@ -420,22 +420,22 @@ public class TestGroupByContainerCount {
     assertTrue(container2.getTasks().containsKey(getTaskName(3)));
 
     // Verify task mappings are saved
-    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(0).getTaskName(), 0);
-    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(4).getTaskName(), 0);
-    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(8).getTaskName(), 0);
+    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(0).getTaskName(), "0");
+    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(4).getTaskName(), "0");
+    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(8).getTaskName(), "0");
 
-    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(1).getTaskName(), 1);
-    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(5).getTaskName(), 1);
-    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(7).getTaskName(), 1);
+    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(1).getTaskName(), "1");
+    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(5).getTaskName(), "1");
+    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(7).getTaskName(), "1");
 
-    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(6).getTaskName(), 2);
-    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(2).getTaskName(), 2);
-    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(3).getTaskName(), 2);
+    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(6).getTaskName(), "2");
+    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(2).getTaskName(), "2");
+    verify(taskAssignmentManager2).writeTaskContainerMapping(getTaskName(3).getTaskName(), "2");
 
     verify(taskAssignmentManager2, never()).deleteTaskContainerMappings(anyCollection());
   }
 
-  *//**
+  /**
    * Before:
    *  C0  C1
    * --------
@@ -453,28 +453,28 @@ public class TestGroupByContainerCount {
    *  T4  T5
    *  T6  T7
    *  T8
-   *//*
+   */
   @Test
   public void testBalancerAfterContainerSame() {
     Set<TaskModel> taskModels = generateTaskModels(9);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(2).group(taskModels);
-    Map<String, Integer> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
+    Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
     Set<ContainerModel> containers = new GroupByContainerCount(2).balance(taskModels, localityManager);
 
-    Map<Integer, ContainerModel> containersMap = new HashMap<>();
+    Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getLocalProcessorId(), container);
+      containersMap.put(container.getProcessorId(), container);
     }
 
     assertEquals(2, containers.size());
-    ContainerModel container0 = containersMap.get(0);
-    ContainerModel container1 = containersMap.get(1);
+    ContainerModel container0 = containersMap.get("0");
+    ContainerModel container1 = containersMap.get("1");
     assertNotNull(container0);
     assertNotNull(container1);
-    assertEquals(0, container0.getLocalProcessorId());
-    assertEquals(1, container1.getLocalProcessorId());
+    assertEquals("0", container0.getProcessorId());
+    assertEquals("1", container1.getProcessorId());
     assertEquals(5, container0.getTasks().size());
     assertEquals(4, container1.getTasks().size());
 
@@ -488,11 +488,11 @@ public class TestGroupByContainerCount {
     assertTrue(container1.getTasks().containsKey(getTaskName(5)));
     assertTrue(container1.getTasks().containsKey(getTaskName(7)));
 
-    verify(taskAssignmentManager, never()).writeTaskContainerMapping(anyString(), anyInt());
+    verify(taskAssignmentManager, never()).writeTaskContainerMapping(anyString(), anyString());
     verify(taskAssignmentManager, never()).deleteTaskContainerMappings(anyCollection());
   }
 
-  *//**
+  /**
    * Verifies the ability to have a custom task-container mapping that is *deliberately* unbalanced.
    *
    * Before:
@@ -514,37 +514,37 @@ public class TestGroupByContainerCount {
    *  T3
    *  T4
    *  T5
-   *//*
+   */
   @Test
   public void testBalancerAfterContainerSameCustomAssignment() {
     Set<TaskModel> taskModels = generateTaskModels(9);
 
-    Map<String, Integer> prevTaskToContainerMapping = new HashMap<>();
-    prevTaskToContainerMapping.put(getTaskName(0).getTaskName(), 0);
-    prevTaskToContainerMapping.put(getTaskName(1).getTaskName(), 0);
-    prevTaskToContainerMapping.put(getTaskName(2).getTaskName(), 0);
-    prevTaskToContainerMapping.put(getTaskName(3).getTaskName(), 0);
-    prevTaskToContainerMapping.put(getTaskName(4).getTaskName(), 0);
-    prevTaskToContainerMapping.put(getTaskName(5).getTaskName(), 0);
-    prevTaskToContainerMapping.put(getTaskName(6).getTaskName(), 1);
-    prevTaskToContainerMapping.put(getTaskName(7).getTaskName(), 1);
-    prevTaskToContainerMapping.put(getTaskName(8).getTaskName(), 1);
+    Map<String, String> prevTaskToContainerMapping = new HashMap<>();
+    prevTaskToContainerMapping.put(getTaskName(0).getTaskName(), "0");
+    prevTaskToContainerMapping.put(getTaskName(1).getTaskName(), "0");
+    prevTaskToContainerMapping.put(getTaskName(2).getTaskName(), "0");
+    prevTaskToContainerMapping.put(getTaskName(3).getTaskName(), "0");
+    prevTaskToContainerMapping.put(getTaskName(4).getTaskName(), "0");
+    prevTaskToContainerMapping.put(getTaskName(5).getTaskName(), "0");
+    prevTaskToContainerMapping.put(getTaskName(6).getTaskName(), "1");
+    prevTaskToContainerMapping.put(getTaskName(7).getTaskName(), "1");
+    prevTaskToContainerMapping.put(getTaskName(8).getTaskName(), "1");
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
     Set<ContainerModel> containers = new GroupByContainerCount(2).balance(taskModels, localityManager);
 
-    Map<Integer, ContainerModel> containersMap = new HashMap<>();
+    Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getLocalProcessorId(), container);
+      containersMap.put(container.getProcessorId(), container);
     }
 
     assertEquals(2, containers.size());
-    ContainerModel container0 = containersMap.get(0);
-    ContainerModel container1 = containersMap.get(1);
+    ContainerModel container0 = containersMap.get("0");
+    ContainerModel container1 = containersMap.get("1");
     assertNotNull(container0);
     assertNotNull(container1);
-    assertEquals(0, container0.getLocalProcessorId());
-    assertEquals(1, container1.getLocalProcessorId());
+    assertEquals("0", container0.getProcessorId());
+    assertEquals("1", container1.getProcessorId());
     assertEquals(6, container0.getTasks().size());
     assertEquals(3, container1.getTasks().size());
 
@@ -558,11 +558,11 @@ public class TestGroupByContainerCount {
     assertTrue(container1.getTasks().containsKey(getTaskName(7)));
     assertTrue(container1.getTasks().containsKey(getTaskName(8)));
 
-    verify(taskAssignmentManager, never()).writeTaskContainerMapping(anyString(), anyInt());
+    verify(taskAssignmentManager, never()).writeTaskContainerMapping(anyString(), anyString());
     verify(taskAssignmentManager, never()).deleteTaskContainerMappings(anyCollection());
   }
 
-  *//**
+  /**
    * Verifies the ability to have a custom task-container mapping that is *deliberately* unbalanced.
    *
    * Before:
@@ -583,37 +583,37 @@ public class TestGroupByContainerCount {
    *  The key here is that C0, which is not one of the new containers was under-allocated.
    *  This is an important case because this scenario, while impossible with GroupByContainerCount.group()
    *  could occur when the grouper class is switched or if there is a custom mapping.
-   *//*
+   */
   @Test
   public void testBalancerAfterContainerSameCustomAssignmentAndContainerIncrease() {
     Set<TaskModel> taskModels = generateTaskModels(6);
 
-    Map<String, Integer> prevTaskToContainerMapping = new HashMap<>();
-    prevTaskToContainerMapping.put(getTaskName(0).getTaskName(), 0);
-    prevTaskToContainerMapping.put(getTaskName(1).getTaskName(), 1);
-    prevTaskToContainerMapping.put(getTaskName(2).getTaskName(), 1);
-    prevTaskToContainerMapping.put(getTaskName(3).getTaskName(), 1);
-    prevTaskToContainerMapping.put(getTaskName(4).getTaskName(), 1);
-    prevTaskToContainerMapping.put(getTaskName(5).getTaskName(), 1);
+    Map<String, String> prevTaskToContainerMapping = new HashMap<>();
+    prevTaskToContainerMapping.put(getTaskName(0).getTaskName(), "0");
+    prevTaskToContainerMapping.put(getTaskName(1).getTaskName(), "1");
+    prevTaskToContainerMapping.put(getTaskName(2).getTaskName(), "1");
+    prevTaskToContainerMapping.put(getTaskName(3).getTaskName(), "1");
+    prevTaskToContainerMapping.put(getTaskName(4).getTaskName(), "1");
+    prevTaskToContainerMapping.put(getTaskName(5).getTaskName(), "1");
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
     Set<ContainerModel> containers = new GroupByContainerCount(3).balance(taskModels, localityManager);
 
-    Map<Integer, ContainerModel> containersMap = new HashMap<>();
+    Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getLocalProcessorId(), container);
+      containersMap.put(container.getProcessorId(), container);
     }
 
     assertEquals(3, containers.size());
-    ContainerModel container0 = containersMap.get(0);
-    ContainerModel container1 = containersMap.get(1);
-    ContainerModel container2 = containersMap.get(2);
+    ContainerModel container0 = containersMap.get("0");
+    ContainerModel container1 = containersMap.get("1");
+    ContainerModel container2 = containersMap.get("2");
     assertNotNull(container0);
     assertNotNull(container1);
     assertNotNull(container2);
-    assertEquals(0, container0.getLocalProcessorId());
-    assertEquals(1, container1.getLocalProcessorId());
-    assertEquals(2, container2.getLocalProcessorId());
+    assertEquals("0", container0.getProcessorId());
+    assertEquals("1", container1.getProcessorId());
+    assertEquals("2", container2.getProcessorId());
     assertEquals(2, container0.getTasks().size());
     assertEquals(2, container1.getTasks().size());
     assertEquals(2, container1.getTasks().size());
@@ -625,12 +625,12 @@ public class TestGroupByContainerCount {
     assertTrue(container2.getTasks().containsKey(getTaskName(4)));
     assertTrue(container2.getTasks().containsKey(getTaskName(3)));
 
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), 1);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), 1);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(3).getTaskName(), 2);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(4).getTaskName(), 2);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(5).getTaskName(), 0);
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), "1");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), "1");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(3).getTaskName(), "2");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(4).getTaskName(), "2");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(5).getTaskName(), "0");
 
     verify(taskAssignmentManager, never()).deleteTaskContainerMappings(anyCollection());
   }
@@ -639,26 +639,26 @@ public class TestGroupByContainerCount {
   public void testBalancerOldContainerCountOne() {
     Set<TaskModel> taskModels = generateTaskModels(3);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(1).group(taskModels);
-    Map<String, Integer> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
+    Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
     Set<ContainerModel> containers = new GroupByContainerCount(3).balance(taskModels, localityManager);
 
     // Results should be the same as calling group()
-    Map<Integer, ContainerModel> containersMap = new HashMap<>();
+    Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getLocalProcessorId(), container);
+      containersMap.put(container.getProcessorId(), container);
     }
     assertEquals(3, containers.size());
-    ContainerModel container0 = containersMap.get(0);
-    ContainerModel container1 = containersMap.get(1);
-    ContainerModel container2 = containersMap.get(2);
+    ContainerModel container0 = containersMap.get("0");
+    ContainerModel container1 = containersMap.get("1");
+    ContainerModel container2 = containersMap.get("2");
     assertNotNull(container0);
     assertNotNull(container1);
     assertNotNull(container2);
-    assertEquals(0, container0.getLocalProcessorId());
-    assertEquals(1, container1.getLocalProcessorId());
-    assertEquals(2, container2.getLocalProcessorId());
+    assertEquals("0", container0.getProcessorId());
+    assertEquals("1", container1.getProcessorId());
+    assertEquals("2", container2.getProcessorId());
     assertEquals(1, container0.getTasks().size());
     assertEquals(1, container1.getTasks().size());
     assertEquals(1, container2.getTasks().size());
@@ -668,9 +668,9 @@ public class TestGroupByContainerCount {
     assertTrue(container2.getTasks().containsKey(getTaskName(2)));
 
     // Verify task mappings are saved
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), 1);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), 2);
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), "1");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), "2");
 
     verify(taskAssignmentManager, never()).deleteTaskContainerMappings(anyCollection());
   }
@@ -679,30 +679,30 @@ public class TestGroupByContainerCount {
   public void testBalancerNewContainerCountOne() {
     Set<TaskModel> taskModels = generateTaskModels(3);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(taskModels);
-    Map<String, Integer> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
+    Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
     Set<ContainerModel> containers = new GroupByContainerCount(1).balance(taskModels, localityManager);
 
     // Results should be the same as calling group
-    Map<Integer, ContainerModel> containersMap = new HashMap<>();
+    Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getLocalProcessorId(), container);
+      containersMap.put(container.getProcessorId(), container);
     }
 
     assertEquals(1, containers.size());
-    ContainerModel container0 = containersMap.get(0);
+    ContainerModel container0 = containersMap.get("0");
     assertNotNull(container0);
-    assertEquals(0, container0.getLocalProcessorId());
+    assertEquals("0", container0.getProcessorId());
     assertEquals(3, container0.getTasks().size());
 
     assertTrue(container0.getTasks().containsKey(getTaskName(0)));
     assertTrue(container0.getTasks().containsKey(getTaskName(1)));
     assertTrue(container0.getTasks().containsKey(getTaskName(2)));
 
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), 0);
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), "0");
 
     verify(taskAssignmentManager, never()).deleteTaskContainerMappings(anyCollection());
   }
@@ -710,29 +710,29 @@ public class TestGroupByContainerCount {
   @Test
   public void testBalancerEmptyTaskMapping() {
     Set<TaskModel> taskModels = generateTaskModels(3);
-    when(taskAssignmentManager.readTaskAssignment()).thenReturn(new HashMap<String, Integer>());
+    when(taskAssignmentManager.readTaskAssignment()).thenReturn(new HashMap<String, String>());
 
     Set<ContainerModel> containers = new GroupByContainerCount(1).balance(taskModels, localityManager);
 
     // Results should be the same as calling group
-    Map<Integer, ContainerModel> containersMap = new HashMap<>();
+    Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getLocalProcessorId(), container);
+      containersMap.put(container.getProcessorId(), container);
     }
 
     assertEquals(1, containers.size());
-    ContainerModel container0 = containersMap.get(0);
+    ContainerModel container0 = containersMap.get("0");
     assertNotNull(container0);
-    assertEquals(0, container0.getLocalProcessorId());
+    assertEquals("0", container0.getProcessorId());
     assertEquals(3, container0.getTasks().size());
 
     assertTrue(container0.getTasks().containsKey(getTaskName(0)));
     assertTrue(container0.getTasks().containsKey(getTaskName(1)));
     assertTrue(container0.getTasks().containsKey(getTaskName(2)));
 
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), 0);
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), "0");
 
     verify(taskAssignmentManager, never()).deleteTaskContainerMappings(anyCollection());
   }
@@ -742,30 +742,30 @@ public class TestGroupByContainerCount {
     int taskCount = 3;
     Set<TaskModel> taskModels = generateTaskModels(taskCount);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(2).group(generateTaskModels(taskCount - 1));
-    Map<String, Integer> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
+    Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
     Set<ContainerModel> containers = new GroupByContainerCount(1).balance(taskModels, localityManager);
 
     // Results should be the same as calling group
-    Map<Integer, ContainerModel> containersMap = new HashMap<>();
+    Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getLocalProcessorId(), container);
+      containersMap.put(container.getProcessorId(), container);
     }
 
     assertEquals(1, containers.size());
-    ContainerModel container0 = containersMap.get(0);
+    ContainerModel container0 = containersMap.get("0");
     assertNotNull(container0);
-    assertEquals(0, container0.getLocalProcessorId());
+    assertEquals("0", container0.getProcessorId());
     assertEquals(3, container0.getTasks().size());
 
     assertTrue(container0.getTasks().containsKey(getTaskName(0)));
     assertTrue(container0.getTasks().containsKey(getTaskName(1)));
     assertTrue(container0.getTasks().containsKey(getTaskName(2)));
 
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), 0);
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), "0");
 
     verify(taskAssignmentManager).deleteTaskContainerMappings(anyCollection());
   }
@@ -775,30 +775,30 @@ public class TestGroupByContainerCount {
     int taskCount = 3;
     Set<TaskModel> taskModels = generateTaskModels(taskCount);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(generateTaskModels(taskCount + 1));
-    Map<String, Integer> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
+    Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
     Set<ContainerModel> containers = new GroupByContainerCount(1).balance(taskModels, localityManager);
 
     // Results should be the same as calling group
-    Map<Integer, ContainerModel> containersMap = new HashMap<>();
+    Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getLocalProcessorId(), container);
+      containersMap.put(container.getProcessorId(), container);
     }
 
     assertEquals(1, containers.size());
-    ContainerModel container0 = containersMap.get(0);
+    ContainerModel container0 = containersMap.get("0");
     assertNotNull(container0);
-    assertEquals(0, container0.getLocalProcessorId());
+    assertEquals("0", container0.getProcessorId());
     assertEquals(3, container0.getTasks().size());
 
     assertTrue(container0.getTasks().containsKey(getTaskName(0)));
     assertTrue(container0.getTasks().containsKey(getTaskName(1)));
     assertTrue(container0.getTasks().containsKey(getTaskName(2)));
 
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), 0);
-    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), 0);
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(0).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(1).getTaskName(), "0");
+    verify(taskAssignmentManager).writeTaskContainerMapping(getTaskName(2).getTaskName(), "0");
 
     verify(taskAssignmentManager).deleteTaskContainerMappings(anyCollection());
   }
@@ -807,7 +807,7 @@ public class TestGroupByContainerCount {
   public void testBalancerNewContainerCountGreaterThanTasks() {
     Set<TaskModel> taskModels = generateTaskModels(3);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(taskModels);
-    Map<String, Integer> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
+    Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
     new GroupByContainerCount(5).balance(taskModels, localityManager);     // Should throw
@@ -817,7 +817,7 @@ public class TestGroupByContainerCount {
   public void testBalancerEmptyTasks() {
     Set<TaskModel> taskModels = generateTaskModels(3);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(taskModels);
-    Map<String, Integer> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
+    Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
     new GroupByContainerCount(5).balance(new HashSet<TaskModel>(), localityManager);     // Should throw
@@ -827,10 +827,10 @@ public class TestGroupByContainerCount {
   public void testBalancerResultImmutable() {
     Set<TaskModel> taskModels = generateTaskModels(3);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(taskModels);
-    Map<String, Integer> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
+    Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
     Set<ContainerModel> containers = new GroupByContainerCount(2).balance(taskModels, localityManager);
     containers.remove(containers.iterator().next());
-  }*/
+  }
 }

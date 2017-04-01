@@ -22,6 +22,10 @@ import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -30,6 +34,8 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.BooleanSupplier;
 
 public class TestZkUtils {
@@ -155,7 +161,7 @@ public class TestZkUtils {
     Assert.assertTrue(testWithDelayBackOff(() -> "newProcessor".equals(res.getRes()), 2, 1000));
   }
 
-/*  @Test
+  @Test
   public void testPublishNewJobModel() {
     ZkKeyBuilder keyBuilder = new ZkKeyBuilder("test");
     String root = keyBuilder.getRootPath();
@@ -182,13 +188,13 @@ public class TestZkUtils {
 
     // create job model
     Map<String, String> configMap = new HashMap<>();
-    Map<Integer, ContainerModel> containers = new HashMap<>();
+    Map<String, ContainerModel> containers = new HashMap<>();
     MapConfig config = new MapConfig(configMap);
     JobModel jobModel = new JobModel(config, containers);
 
     zkUtils.publishJobModel(version, jobModel);
     Assert.assertEquals(jobModel, zkUtils.getJobModel(version));
-  }*/
+  }
 
   public static boolean testWithDelayBackOff(BooleanSupplier cond, long startDelayMs, long maxDelayMs) {
     long delay = startDelayMs;

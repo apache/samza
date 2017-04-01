@@ -314,8 +314,8 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     // Build container tasks
     List<TaskGroup> containerTasks = new ArrayList<>(containerIdToTaskNames.size());
     for (int i = 0; i < containerIdToTaskNames.size(); i++) {
-      if (containerIdToTaskNames.get(i) == null) throw new IllegalStateException("Task mapping is missing container: " + i);
-      containerTasks.add(new TaskGroup(String.valueOf(i), containerIdToTaskNames.get(i)));
+      if (containerIdToTaskNames.get(String.valueOf(i)) == null) throw new IllegalStateException("Task mapping is missing container: " + i);
+      containerTasks.add(new TaskGroup(String.valueOf(i), containerIdToTaskNames.get(String.valueOf(i))));
     }
 
     return containerTasks;
