@@ -48,14 +48,13 @@ public class PageViewCounterExample implements StreamApplication {
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING))
         .map(PageViewCount::new)
-        .sendTo("pageViewEventPerMemberStream", m -> m.memberId);
+        .sendTo("pageViewEventPerMemberStream", m -> m.memberId, m -> m);
   }
 
   // local execution mode
   public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    // for remote execution: ApplicationRunner runner = ApplicationRunner.getRemoteRunner(config);
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
     localRunner.run(new PageViewCounterExample());
   }

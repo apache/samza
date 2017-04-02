@@ -36,16 +36,15 @@ public class BroadcastExample implements StreamApplication {
   public void init(StreamGraph graph, Config config) {
     MessageStream<PageViewEvent> inputStream = graph.getInputStream("inputStream", (k, m) -> (PageViewEvent) m);
 
-    inputStream.filter(m -> m.key.equals("key1")).sendTo("outputStream1", m -> m.key);
-    inputStream.filter(m -> m.key.equals("key2")).sendTo("outputStream2", m -> m.key);
-    inputStream.filter(m -> m.key.equals("key3")).sendTo("outputStream3", m -> m.key);
+    inputStream.filter(m -> m.key.equals("key1")).sendTo("outputStream1", m -> m.key, m -> m);
+    inputStream.filter(m -> m.key.equals("key2")).sendTo("outputStream2", m -> m.key, m -> m);
+    inputStream.filter(m -> m.key.equals("key3")).sendTo("outputStream3", m -> m.key, m -> m);
   }
 
   // local execution mode
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    // for remote execution: ApplicationRunner runner = ApplicationRunner.getRemoteRunner(config);
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
     localRunner.run(new BroadcastExample());
   }

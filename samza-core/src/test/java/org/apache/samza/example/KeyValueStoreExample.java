@@ -47,14 +47,13 @@ public class KeyValueStoreExample implements StreamApplication {
     pageViewEvents.
         partitionBy(m -> m.memberId).
         flatMap(new MyStatsCounter()).
-        sendTo("pageViewEventPerMemberStream", statsOutput -> statsOutput.memberId);
+        sendTo("pageViewEventPerMemberStream", statsOutput -> statsOutput.memberId, statsOutput -> statsOutput);
   }
 
   // local execution mode
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    // for remote execution: ApplicationRunner runner = ApplicationRunner.getRemoteRunner(config);
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
     localRunner.run(new KeyValueStoreExample());
   }

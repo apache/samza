@@ -40,18 +40,33 @@ public class OrderShipmentJoinExample implements StreamApplication {
 
     orders
         .join(shipments, new MyJoinFunction(), Duration.ofMinutes(1))
-        .sendTo("joinedOrderShipmentStream", m -> m.orderId);
+        .sendTo("joinedOrderShipmentStream", m -> m.orderId, m -> m);
   }
 
   // local execution mode
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    // for remote execution: ApplicationRunner runner = ApplicationRunner.getRemoteRunner(config);
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
     localRunner.run(new OrderShipmentJoinExample());
   }
 
+  class MyJoinFunction implements JoinFunction<String, OrderRecord, ShipmentRecord, FulFilledOrderRecord> {
+    @Override
+    public FulFilledOrderRecord apply(OrderRecord message, ShipmentRecord otherMessage) {
+      return new FulFilledOrderRecord(message.orderId, message.orderTimeMs, otherMessage.shipTimeMs);
+    }
+
+    @Override
+    public String getFirstKey(OrderRecord message) {
+      return message.orderId;
+    }
+
+    @Override
+    public String getSecondKey(ShipmentRecord message) {
+      return message.orderId;
+    }
+  }
 
   class OrderRecord {
     String orderId;
@@ -82,23 +97,6 @@ public class OrderShipmentJoinExample implements StreamApplication {
       this.orderId = orderId;
       this.orderTimeMs = orderTimeMs;
       this.shipTimeMs = shipTimeMs;
-    }
-  }
-
-  class MyJoinFunction implements JoinFunction<String, OrderRecord, ShipmentRecord, FulFilledOrderRecord> {
-    @Override
-    public FulFilledOrderRecord apply(OrderRecord message, ShipmentRecord otherMessage) {
-      return new FulFilledOrderRecord(message.orderId, message.orderTimeMs, otherMessage.shipTimeMs);
-    }
-
-    @Override
-    public String getFirstKey(OrderRecord message) {
-      return message.orderId;
-    }
-
-    @Override
-    public String getSecondKey(ShipmentRecord message) {
-      return message.orderId;
     }
   }
 }

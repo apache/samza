@@ -135,13 +135,14 @@ public class TestExecutionPlanner {
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
     streamGraph.getInputStream("input1", null)
         .partitionBy(m -> "yes!!!").map(m -> m)
-        .sendTo("output1", null);
+        .sendTo("output1", null, null);
     return streamGraph;
   }
 
   private StreamGraphImpl createStreamGraphWithJoin() {
 
-    /** the graph looks like the following
+    /**
+     * the graph looks like the following. number of partitions in parentheses. quotes indicate expected value.
      *
      *                               input1 (64) -> map -> join -> output1 (8)
      *                                                       |
@@ -156,8 +157,8 @@ public class TestExecutionPlanner {
     MessageStream m2 = streamGraph.getInputStream("input2", null).partitionBy(m -> "haha").filter(m -> true);
     MessageStream m3 = streamGraph.getInputStream("input3", null).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
 
-    m1.join(m2, createJoin(), Duration.ofHours(2)).sendTo("output1", null);
-    m3.join(m2, createJoin(), Duration.ofHours(1)).sendTo("output2", null);
+    m1.join(m2, createJoin(), Duration.ofHours(2)).sendTo("output1", null, null);
+    m3.join(m2, createJoin(), Duration.ofHours(1)).sendTo("output2", null, null);
 
     return streamGraph;
   }

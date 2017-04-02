@@ -45,14 +45,13 @@ public class RepartitionExample implements StreamApplication {
         .partitionBy(m -> m.memberId)
         .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofMinutes(5), initialValue, (m, c) -> c + 1))
         .map(MyStreamOutput::new)
-        .sendTo("pageViewEventPerMemberStream", m -> m.memberId);
+        .sendTo("pageViewEventPerMemberStream", m -> m.memberId, m -> m);
   }
 
   // local execution mode
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    // for remote execution: ApplicationRunner runner = ApplicationRunner.getRemoteRunner(config);
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
     localRunner.run(new RepartitionExample());
   }

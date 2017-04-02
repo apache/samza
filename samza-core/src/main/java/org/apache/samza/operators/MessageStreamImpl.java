@@ -101,9 +101,10 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K> void sendTo(String streamId, Function<M, K> keyExtractor) {
+  public <K, V> void sendTo(String streamId, Function<M, K> keyExtractor, Function<M, V> msgExtractor) {
     SinkOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec(
-        (MessageStreamImpl<M>) this.graph.getOutputStream(streamId, keyExtractor, m -> m), this.graph.getNextOpId());
+        (MessageStreamImpl<M>) this.graph.getOutputStream(streamId, keyExtractor, msgExtractor),
+        this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
   }
 
