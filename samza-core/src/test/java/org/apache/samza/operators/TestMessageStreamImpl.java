@@ -29,7 +29,7 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.OutputOperatorSpec;
+import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.runtime.ApplicationRunner;
@@ -139,8 +139,8 @@ public class TestMessageStreamImpl {
     Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
     OperatorSpec<TestMessageEnvelope> sinkOp = subs.iterator().next();
-    assertTrue(sinkOp instanceof OutputOperatorSpec);
-    assertEquals(((OutputOperatorSpec) sinkOp).getSinkFn(), xSink);
+    assertTrue(sinkOp instanceof SinkOperatorSpec);
+    assertEquals(((SinkOperatorSpec) sinkOp).getSinkFn(), xSink);
   }
 
   @Test
@@ -228,10 +228,10 @@ public class TestMessageStreamImpl {
     Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
     assertEquals(subs.size(), 1);
     OperatorSpec<TestMessageEnvelope> partitionByOp = subs.iterator().next();
-    assertTrue(partitionByOp instanceof OutputOperatorSpec);
+    assertTrue(partitionByOp instanceof SinkOperatorSpec);
     assertNull(partitionByOp.getNextStream());
 
-    ((OutputOperatorSpec) partitionByOp).getSinkFn().apply(new TestMessageEnvelope("111", "test", 1000),
+    ((SinkOperatorSpec) partitionByOp).getSinkFn().apply(new TestMessageEnvelope("111", "test", 1000),
         new MessageCollector() {
           @Override
           public void send(OutgoingMessageEnvelope envelope) {

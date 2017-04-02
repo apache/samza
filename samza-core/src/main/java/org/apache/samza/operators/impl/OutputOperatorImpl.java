@@ -20,21 +20,21 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.spec.OutputOperatorSpec;
+import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * Implementation for {@link OutputOperatorSpec}
+ * Implementation for {@link SinkOperatorSpec}
  */
 class OutputOperatorImpl<M> extends OperatorImpl<M, M> {
 
   private final SinkFunction<M> sinkFn;
 
-  OutputOperatorImpl(OutputOperatorSpec<M> outputOp, Config config, TaskContext context) {
-    this.sinkFn = outputOp.getSinkFn();
+  OutputOperatorImpl(SinkOperatorSpec<M> sinkOp, Config config, TaskContext context) {
+    this.sinkFn = sinkOp.getSinkFn();
   }
 
   @Override

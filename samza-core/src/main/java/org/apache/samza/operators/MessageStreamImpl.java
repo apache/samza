@@ -28,7 +28,7 @@ import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpecs;
-import org.apache.samza.operators.spec.OutputOperatorSpec;
+import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.util.InternalInMemoryStore;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
@@ -96,13 +96,13 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public void sink(SinkFunction<M> sinkFn) {
-    OutputOperatorSpec<M> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, this.graph.getNextOpId());
+    SinkOperatorSpec<M> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
   }
 
   @Override
   public <K> void sendTo(String streamId, Function<M, K> keyExtractor) {
-    OutputOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec(
+    SinkOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec(
         (MessageStreamImpl<M>) this.graph.getOutputStream(streamId, keyExtractor, m -> m), this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
   }

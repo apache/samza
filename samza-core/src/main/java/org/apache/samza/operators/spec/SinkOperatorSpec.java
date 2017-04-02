@@ -36,36 +36,36 @@ import org.apache.samza.task.TaskCoordinator;
  *
  * @param <M>  the type of input message
  */
-public class OutputOperatorSpec<M> implements OperatorSpec {
+public class SinkOperatorSpec<M> implements OperatorSpec {
 
   private final SinkFunction<M> sinkFn;
   private final OperatorSpec.OpCode opCode;
   private final int opId;
 
   /**
-   * Constructs an {@link OutputOperatorSpec} with a user defined {@link SinkFunction}.
+   * Constructs a {@link SinkOperatorSpec} with a user defined {@link SinkFunction}.
    *
    * @param sinkFn  a user defined {@link SinkFunction} that will be called with the output message,
    *                the output {@link org.apache.samza.task.MessageCollector} and the
    *                {@link org.apache.samza.task.TaskCoordinator}.
-   * @param opCode  the specific {@link OpCode} for this {@link OutputOperatorSpec}.
+   * @param opCode  the specific {@link OpCode} for this {@link SinkOperatorSpec}.
    *                It could be {@link OpCode#SINK}, {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}.
    * @param opId  the unique ID of this {@link OperatorSpec} in the graph
    */
-  OutputOperatorSpec(SinkFunction<M> sinkFn, OperatorSpec.OpCode opCode, int opId) {
+  SinkOperatorSpec(SinkFunction<M> sinkFn, OperatorSpec.OpCode opCode, int opId) {
     this.sinkFn = sinkFn;
     this.opCode = opCode;
     this.opId = opId;
   }
 
   /**
-   * Constructs an {@link OutputOperatorSpec} to send messages to the provided {@code outStream}
+   * Constructs a {@link SinkOperatorSpec} to send messages to the provided {@code outStream}
    * @param output  the output {@link MessageStreamImpl} to send messages to
-   * @param opCode the specific {@link OpCode} for this {@link OutputOperatorSpec}.
+   * @param opCode the specific {@link OpCode} for this {@link SinkOperatorSpec}.
    *               It could be {@link OpCode#SINK}, {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}
-   * @param opId  the unique ID of this {@link OutputOperatorSpec} in the graph
+   * @param opId  the unique ID of this {@link SinkOperatorSpec} in the graph
    */
-  OutputOperatorSpec(MessageStreamImpl<M> output, OperatorSpec.OpCode opCode, int opId) {
+  SinkOperatorSpec(MessageStreamImpl<M> output, OperatorSpec.OpCode opCode, int opId) {
     this(createSinkFn(output), opCode, opId);
   }
 

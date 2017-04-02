@@ -21,7 +21,7 @@ package org.apache.samza.operators.impl;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.spec.OutputOperatorSpec;
+import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -34,7 +34,7 @@ public class TestSinkOperatorImpl {
 
   @Test
   public void testSinkOperator() {
-    OutputOperatorSpec<TestOutputMessageEnvelope> sinkOp = mock(OutputOperatorSpec.class);
+    SinkOperatorSpec<TestOutputMessageEnvelope> sinkOp = mock(SinkOperatorSpec.class);
     SinkFunction<TestOutputMessageEnvelope> sinkFn = mock(SinkFunction.class);
     when(sinkOp.getSinkFn()).thenReturn(sinkFn);
     Config mockConfig = mock(Config.class);

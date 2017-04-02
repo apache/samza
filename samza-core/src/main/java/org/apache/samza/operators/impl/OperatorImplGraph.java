@@ -22,7 +22,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.OutputOperatorSpec;
+import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
@@ -175,8 +175,8 @@ public class OperatorImplGraph {
     if (operatorSpec instanceof StreamOperatorSpec) {
       StreamOperatorSpec<M, ?> streamOpSpec = (StreamOperatorSpec<M, ?>) operatorSpec;
       return new StreamOperatorImpl<>(streamOpSpec, source, config, context);
-    } else if (operatorSpec instanceof OutputOperatorSpec) {
-      return new OutputOperatorImpl<>((OutputOperatorSpec<M>) operatorSpec, config, context);
+    } else if (operatorSpec instanceof SinkOperatorSpec) {
+      return new OutputOperatorImpl<>((SinkOperatorSpec<M>) operatorSpec, config, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
       return new WindowOperatorImpl((WindowOperatorSpec<M, ?, ?>) operatorSpec, clock);
     } else if (operatorSpec instanceof PartialJoinOperatorSpec) {

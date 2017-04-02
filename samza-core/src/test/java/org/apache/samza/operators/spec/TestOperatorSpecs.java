@@ -62,7 +62,7 @@ public class TestOperatorSpecs {
   public void testCreateSinkOperator() {
     SinkFunction<TestMessageEnvelope> sinkFn = (TestMessageEnvelope message, MessageCollector messageCollector,
           TaskCoordinator taskCoordinator) -> { };
-    OutputOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createSinkOperatorSpec(sinkFn, 1);
+    SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createSinkOperatorSpec(sinkFn, 1);
     assertEquals(sinkOp.getSinkFn(), sinkFn);
     assertEquals(sinkOp.getOpCode(), OperatorSpec.OpCode.SINK);
     assertEquals(sinkOp.getNextStream(), null);
@@ -71,7 +71,7 @@ public class TestOperatorSpecs {
   @Test
   public void testCreateSendToOperator() {
     OutputStreamImpl<Object, Object, TestMessageEnvelope> mockOutput = mock(OutputStreamImpl.class);
-    OutputOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createSendToOperatorSpec(mockOutput, 1);
+    SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createSendToOperatorSpec(mockOutput, 1);
     assertNotNull(sinkOp.getSinkFn());
     assertEquals(sinkOp.getOpCode(), OperatorSpec.OpCode.SEND_TO);
     assertEquals(sinkOp.getNextStream(), null);
@@ -81,7 +81,7 @@ public class TestOperatorSpecs {
   @Test
   public void testCreatePartitionByOperator() {
     OutputStreamImpl<Object, Object, TestMessageEnvelope> mockOutput = mock(OutputStreamImpl.class);
-    OutputOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createPartitionByOperatorSpec(mockOutput, 1);
+    SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createPartitionByOperatorSpec(mockOutput, 1);
     assertNotNull(sinkOp.getSinkFn());
     assertEquals(sinkOp.getOpCode(), OperatorSpec.OpCode.PARTITION_BY);
     assertEquals(sinkOp.getNextStream(), null);

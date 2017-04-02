@@ -119,39 +119,39 @@ public class OperatorSpecs {
   }
 
   /**
-   * Creates an {@link OutputOperatorSpec} for the sink operator.
+   * Creates a {@link SinkOperatorSpec} for the sink operator.
    *
    * @param sinkFn  the sink function provided by the user
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
-   * @return  the {@link OutputOperatorSpec} for the sink operator
+   * @return  the {@link SinkOperatorSpec} for the sink operator
    */
-  public static <M> OutputOperatorSpec<M> createSinkOperatorSpec(SinkFunction<M> sinkFn, int opId) {
-    return new OutputOperatorSpec<>(sinkFn, OperatorSpec.OpCode.SINK, opId);
+  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<M> sinkFn, int opId) {
+    return new SinkOperatorSpec<>(sinkFn, OperatorSpec.OpCode.SINK, opId);
   }
 
   /**
-   * Creates an {@link OutputOperatorSpec} for the sendTo operator.
+   * Creates a {@link SinkOperatorSpec} for the sendTo operator.
    *
    * @param outputStream  the output {@link MessageStreamImpl} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
-   * @return  the {@link OutputOperatorSpec} for the sendTo operator
+   * @return  the {@link SinkOperatorSpec} for the sendTo operator
    */
-  public static <M> OutputOperatorSpec<M> createSendToOperatorSpec(MessageStreamImpl<M> outputStream, int opId) {
-    return new OutputOperatorSpec<>(outputStream, OperatorSpec.OpCode.SEND_TO, opId);
+  public static <M> SinkOperatorSpec<M> createSendToOperatorSpec(MessageStreamImpl<M> outputStream, int opId) {
+    return new SinkOperatorSpec<>(outputStream, OperatorSpec.OpCode.SEND_TO, opId);
   }
 
   /**
-   * Creates an {@link OutputOperatorSpec} for the partitionBy operator.
+   * Creates a {@link SinkOperatorSpec} for the partitionBy operator.
    *
    * @param outputStream  the output {@link MessageStreamImpl} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
-   * @return  the {@link OutputOperatorSpec} for the partitionBy operator
+   * @return  the {@link SinkOperatorSpec} for the partitionBy operator
    */
-  public static <M> OutputOperatorSpec<M> createPartitionByOperatorSpec(MessageStreamImpl<M> outputStream, int opId) {
-    return new OutputOperatorSpec<>(outputStream, OperatorSpec.OpCode.PARTITION_BY, opId);
+  public static <M> SinkOperatorSpec<M> createPartitionByOperatorSpec(MessageStreamImpl<M> outputStream, int opId) {
+    return new SinkOperatorSpec<>(outputStream, OperatorSpec.OpCode.PARTITION_BY, opId);
   }
 
   /**
