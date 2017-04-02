@@ -27,40 +27,15 @@ public class YarnConfig extends MapConfig {
    */
   public static final String PACKAGE_PATH = "yarn.package.path";
 
-  // Configs related to each yarn container
-  /**
-   * Memory, in megabytes, to request from YARN per container
-   */
-  public static final String CONTAINER_MAX_MEMORY_MB = "yarn.container.memory.mb";
-  private static final int DEFAULT_CONTAINER_MEM = 1024;
-
   /**
    * Name of YARN queue to run jobs on
    */
   public static final String QUEUE_NAME = "yarn.queue";
 
   /**
-   * Number of CPU cores to request from YARN per container
-   */
-  public static final String CONTAINER_MAX_CPU_CORES = "yarn.container.cpu.cores";
-  private static final int DEFAULT_CPU_CORES = 1;
-
-  /**
    * Label to request from YARN for containers
    */
   public static final String CONTAINER_LABEL = "yarn.container.label";
-
-  /**
-   * Maximum number of times the AM tries to restart a failed container
-   */
-  public static final String CONTAINER_RETRY_COUNT = "yarn.container.retry.count";
-  private static final int DEFAULT_CONTAINER_RETRY_COUNT = 8;
-
-  /**
-   * Determines how frequently a container is allowed to fail before we give up and fail the job
-   */
-  public static final String CONTAINER_RETRY_WINDOW_MS = "yarn.container.retry.window.ms";
-  private static final int DEFAULT_CONTAINER_RETRY_WINDOW_MS = 300000;
 
   // Configs related to the Samza Application Master (AM)
   /**
@@ -150,24 +125,8 @@ public class YarnConfig extends MapConfig {
     super(config);
   }
 
-  public int getContainerRetryCount() {
-    return getInt(CONTAINER_RETRY_COUNT, DEFAULT_CONTAINER_RETRY_COUNT);
-  }
-
-  public int getContainerRetryWindowMs() {
-    return getInt(CONTAINER_RETRY_WINDOW_MS, DEFAULT_CONTAINER_RETRY_WINDOW_MS);
-  }
-
   public int getAMPollIntervalMs() {
     return getInt(AM_POLL_INTERVAL_MS, DEFAULT_POLL_INTERVAL_MS);
-  }
-
-  public int getContainerMaxMemoryMb() {
-    return getInt(CONTAINER_MAX_MEMORY_MB, DEFAULT_CONTAINER_MEM);
-  }
-
-  public int getContainerMaxCpuCores() {
-    return getInt(CONTAINER_MAX_CPU_CORES, DEFAULT_CPU_CORES);
   }
 
   public String getContainerLabel() {
