@@ -46,9 +46,8 @@ import static org.mockito.Mockito.when;
 
 public class TestJoinOperator {
   private final TaskCoordinator taskCoordinator = mock(TaskCoordinator.class);
-  private final ApplicationRunner runner = mock(ApplicationRunner.class);
   private final Set<Integer> numbers = ImmutableSet.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-  
+
   @Test
   public void join() throws Exception {
     StreamOperatorTask sot = createStreamOperatorTask();
@@ -224,6 +223,10 @@ public class TestJoinOperator {
   }
 
   private StreamOperatorTask createStreamOperatorTask() throws Exception {
+    ApplicationRunner runner = mock(ApplicationRunner.class);
+    when(runner.getStream("instream")).thenReturn(new StreamSpec("instream", "instream", "insystem"));
+    when(runner.getStream("instream2")).thenReturn(new StreamSpec("instream2", "instream2", "insystem2"));
+
     TaskContext taskContext = mock(TaskContext.class);
     when(taskContext.getSystemStreamPartitions()).thenReturn(ImmutableSet
         .of(new SystemStreamPartition("insystem", "instream", new Partition(0)),
