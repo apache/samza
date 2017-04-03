@@ -22,7 +22,7 @@ package org.apache.samza.runtime;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.SamzaException;
 import org.apache.samza.execution.ExecutionPlanner;
-import org.apache.samza.execution.ProcessorGraph;
+import org.apache.samza.execution.JobGraph;
 import org.apache.samza.job.JobRunner;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.config.Config;
@@ -54,10 +54,10 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
       // 2. create the physical execution plan
       ExecutionPlanner planner = new ExecutionPlanner(config);
-      ProcessorGraph processorGraph = planner.plan(streamGraph);
+      JobGraph jobGraph = planner.plan(streamGraph);
 
       // 3. submit jobs for remote execution
-      processorGraph.getProcessorNodes().forEach(processor -> {
+      jobGraph.getProcessorNodes().forEach(processor -> {
           Config processorConfig = processor.generateConfig();
           log.info("Starting processor {} with config {}", processor.getId(), config);
           JobRunner runner = new JobRunner(processorConfig);

@@ -39,22 +39,34 @@ import org.slf4j.LoggerFactory;
  * to remote cluster. In LocalExecutionEnvironment, it's a set of StreamProcessors for local execution.
  * A ProcessorNode contains the input/output, and the configs for physical execution.
  */
-public class ProcessorNode {
-  private static final Logger log = LoggerFactory.getLogger(ProcessorNode.class);
+public class JobNode {
+  private static final Logger log = LoggerFactory.getLogger(JobNode.class);
   private static final String CONFIG_PROCESSOR_PREFIX = "processors.%s.";
 
+  private final String jobName;
+  private final String jobId;
   private final String id;
   private final List<StreamEdge> inEdges = new ArrayList<>();
   private final List<StreamEdge> outEdges = new ArrayList<>();
   private final Config config;
 
-  ProcessorNode(String id, Config config) {
-    this.id = id;
+  JobNode(String jobName, String jobId, Config config) {
+    this.jobName = jobName;
+    this.jobId = jobId;
+    this.id = createId(jobName, jobId);
     this.config = config;
   }
 
   public  String getId() {
     return id;
+  }
+
+  public String getJobName() {
+    return jobName;
+  }
+
+  public String getJobId() {
+    return jobId;
   }
 
   void addInEdge(StreamEdge in) {
@@ -112,5 +124,9 @@ public class ProcessorNode {
     log.debug("Prefix '{}' has merged config {}", configPrefix, scopedConfig);
 
     return scopedConfig;
+  }
+
+  static String createId(String jobName, String jobId) {
+    return String.format("%s-%s", jobName, jobId);
   }
 }

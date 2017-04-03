@@ -61,31 +61,28 @@ public class ExecutionPlanner {
     this.config = config;
   }
 
-  public ProcessorGraph plan(StreamGraph streamGraph) throws Exception {
+  public JobGraph plan(StreamGraph streamGraph) throws Exception {
     Map<String, SystemAdmin> sysAdmins = getSystemAdmins(config);
 
-    // create physical processors based on stream graph
-    ProcessorGraph processorGraph = createProcessorGraph(streamGraph);
+    // create physical job graph based on stream graph
+    JobGraph jobGraph = createJobGraph(streamGraph);
 
-    if (!processorGraph.getIntermediateStreams().isEmpty()) {
+    if (!jobGraph.getIntermediateStreams().isEmpty()) {
       // figure out the partitions for internal streams
-      calculatePartitions(streamGraph, processorGraph, sysAdmins);
+      calculatePartitions(streamGraph, jobGraph, sysAdmins);
 
       // create the streams
-      createStreams(processorGraph, sysAdmins);
+      createStreams(jobGraph, sysAdmins);
     }
 
-    return processorGraph;
+    return jobGraph;
   }
 
   /**
    * Create the physical graph from StreamGraph
    */
-  /* package private */ ProcessorGraph createProcessorGraph(StreamGraph streamGraph) {
-    // For this phase, we are going to create a processor for the whole dag
-    String processorId = config.get(JobConfig.JOB_NAME()); // only one processor, use the job name
-
-    ProcessorGraph processorGraph = new ProcessorGraph(config);
+  /* package private */ JobGraph createJobGraph(StreamGraph streamGraph) {
+    JobGraph jobGraph = new JobGraph(streamGraph, config);
     Set<StreamSpec> sourceStreams = new HashSet<>(streamGraph.getInStreams().keySet());
     Set<StreamSpec> sinkStreams = new HashSet<>(streamGraph.getOutStreams().keySet());
     Set<StreamSpec> intStreams = new HashSet<>(sourceStreams);
@@ -93,46 +90,51 @@ public class ExecutionPlanner {
     sourceStreams.removeAll(intStreams);
     sinkStreams.removeAll(intStreams);
 
+    // For this phase, we are going to create a job for the whole dag
+    String jobName = config.get(JobConfig.JOB_NAME());
+    String jobId = config.get(JobConfig.JOB_ID(), "1");
+    JobNode node = jobGraph.getOrCreateNode(jobName, jobId);
+
     // add sources
-    sourceStreams.forEach(spec -> processorGraph.addSource(spec, processorId));
+    sourceStreams.forEach(spec -> jobGraph.addSource(spec, node));
 
     // add sinks
-    sinkStreams.forEach(spec -> processorGraph.addSink(spec, processorId));
+    sinkStreams.forEach(spec -> jobGraph.addSink(spec, node));
 
     // add intermediate streams
-    intStreams.forEach(spec -> processorGraph.addIntermediateStream(spec, processorId, processorId));
+    intStreams.forEach(spec -> jobGraph.addIntermediateStream(spec, node, node));
 
-    processorGraph.validate();
+    jobGraph.validate();
 
-    return processorGraph;
+    return jobGraph;
   }
 
   /**
    * Figure out the number of partitions of all streams
    */
-  /* package private */ void calculatePartitions(StreamGraph streamGraph, ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
+  /* package private */ void calculatePartitions(StreamGraph streamGraph, JobGraph jobGraph, Map<String, SystemAdmin> sysAdmins) {
     // fetch the external streams partition info
-    updateExistingPartitions(processorGraph, sysAdmins);
+    updateExistingPartitions(jobGraph, sysAdmins);
 
     // calculate the partitions for the input streams of join operators
-    calculateJoinInputPartitions(streamGraph, processorGraph);
+    calculateJoinInputPartitions(streamGraph, jobGraph);
 
     // calculate the partitions for the rest of intermediate streams
-    calculateIntStreamPartitions(processorGraph, config);
+    calculateIntStreamPartitions(jobGraph, config);
 
     // validate all the partitions are assigned
-    validatePartitions(processorGraph);
+    validatePartitions(jobGraph);
   }
 
   /**
    * Fetch the partitions of source/sink streams and update the StreamEdges.
-   * @param processorGraph ProcessorGraph
+   * @param jobGraph {@link JobGraph}
    * @param sysAdmins mapping from system name to the {@link SystemAdmin}
    */
-  /* package private */ static void updateExistingPartitions(ProcessorGraph processorGraph, Map<String, SystemAdmin> sysAdmins) {
+  /* package private */ static void updateExistingPartitions(JobGraph jobGraph, Map<String, SystemAdmin> sysAdmins) {
     Set<StreamEdge> existingStreams = new HashSet<>();
-    existingStreams.addAll(processorGraph.getSources());
-    existingStreams.addAll(processorGraph.getSinks());
+    existingStreams.addAll(jobGraph.getSources());
+    existingStreams.addAll(jobGraph.getSinks());
 
     Multimap<String, StreamEdge> systemToStreamEdges = HashMultimap.create();
     // group the StreamEdge(s) based on the system name
@@ -161,7 +163,7 @@ public class ExecutionPlanner {
   /**
    * Calculate the partitions for the input streams of join operators
    */
-  /* package private */ static void calculateJoinInputPartitions(StreamGraph streamGraph, ProcessorGraph processorGraph) {
+  /* package private */ static void calculateJoinInputPartitions(StreamGraph streamGraph, JobGraph jobGraph) {
     // mapping from a source stream to all join specs reachable from it
     Multimap<OperatorSpec, StreamEdge> joinSpecToStreamEdges = HashMultimap.create();
     // reverse mapping of the above
@@ -176,7 +178,7 @@ public class ExecutionPlanner {
     Set<OperatorSpec> visited = new HashSet<>();
 
     streamGraph.getInStreams().entrySet().forEach(entry -> {
-        StreamEdge streamEdge = processorGraph.getOrCreateEdge(entry.getKey());
+        StreamEdge streamEdge = jobGraph.getOrCreateEdge(entry.getKey());
         // Traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
         findReachableJoins(entry.getValue(), streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs,
             outputStreamToJoinSpec, joinQ, visited);
@@ -259,31 +261,31 @@ public class ExecutionPlanner {
     }
   }
 
-  private static void calculateIntStreamPartitions(ProcessorGraph processorGraph, Config config) {
+  private static void calculateIntStreamPartitions(JobGraph jobGraph, Config config) {
     int partitions = config.getInt(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), StreamEdge.PARTITIONS_UNKNOWN);
     if (partitions < 0) {
       // use the following simple algo to figure out the partitions
       // partition = MAX(MAX(Input topic partitions), MAX(Output topic partitions))
-      int maxInPartitions = maxPartition(processorGraph.getSources());
-      int maxOutPartitions = maxPartition(processorGraph.getSinks());
+      int maxInPartitions = maxPartition(jobGraph.getSources());
+      int maxOutPartitions = maxPartition(jobGraph.getSinks());
       partitions = Math.max(maxInPartitions, maxOutPartitions);
     }
-    for (StreamEdge edge : processorGraph.getIntermediateStreams()) {
+    for (StreamEdge edge : jobGraph.getIntermediateStreams()) {
       if (edge.getPartitionCount() <= 0) {
         edge.setPartitionCount(partitions);
       }
     }
   }
 
-  private static void validatePartitions(ProcessorGraph processorGraph) {
-    for (StreamEdge edge : processorGraph.getIntermediateStreams()) {
+  private static void validatePartitions(JobGraph jobGraph) {
+    for (StreamEdge edge : jobGraph.getIntermediateStreams()) {
       if (edge.getPartitionCount() <= 0) {
         throw new SamzaException(String.format("Failure to assign the partitions to Stream %s", edge.getFormattedSystemStream()));
       }
     }
   }
 
-  private static void createStreams(ProcessorGraph graph, Map<String, SystemAdmin> sysAdmins) {
+  private static void createStreams(JobGraph graph, Map<String, SystemAdmin> sysAdmins) {
     Multimap<String, StreamSpec> streamsToCreate = HashMultimap.create();
     graph.getIntermediateStreams().forEach(edge -> {
         StreamSpec streamSpec = createStreamSpec(edge);

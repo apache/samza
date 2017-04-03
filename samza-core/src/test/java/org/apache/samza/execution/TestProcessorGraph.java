@@ -33,10 +33,10 @@ import static org.junit.Assert.assertTrue;
 
 public class TestProcessorGraph {
 
-  ProcessorGraph graph1;
-  ProcessorGraph graph2;
-  ProcessorGraph graph3;
-  ProcessorGraph graph4;
+  JobGraph graph1;
+  JobGraph graph2;
+  JobGraph graph3;
+  JobGraph graph4;
   int streamSeq = 0;
 
   private StreamSpec genStream() {
@@ -59,7 +59,7 @@ public class TestProcessorGraph {
      * 2 9 10
      */
     // init graph1
-    graph1 = new ProcessorGraph(null);
+    graph1 = new JobGraph(null);
     graph1.addSource(genStream(), "5");
     graph1.addSource(genStream(), "7");
     graph1.addSource(genStream(), "3");
@@ -80,7 +80,7 @@ public class TestProcessorGraph {
      * 1 -> 2 -> 3 -> 4 -> 5 -> 7
      *      |<---6 <--|    <>
      */
-    graph2 = new ProcessorGraph(null);
+    graph2 = new JobGraph(null);
     graph2.addSource(genStream(), "1");
     graph2.addIntermediateStream(genStream(), "1", "2");
     graph2.addIntermediateStream(genStream(), "2", "3");
@@ -96,7 +96,7 @@ public class TestProcessorGraph {
      * graph3 is a graph with self loops
      * 1<->1 -> 2<->2
      */
-    graph3 = new ProcessorGraph(null);
+    graph3 = new JobGraph(null);
     graph3.addSource(genStream(), "1");
     graph3.addIntermediateStream(genStream(), "1", "1");
     graph3.addIntermediateStream(genStream(), "1", "2");
@@ -106,14 +106,14 @@ public class TestProcessorGraph {
      * graph4 is a graph of single-loop node
      * 1<->1
      */
-    graph4 = new ProcessorGraph(null);
+    graph4 = new JobGraph(null);
     graph4.addSource(genStream(), "1");
     graph4.addIntermediateStream(genStream(), "1", "1");
   }
 
   @Test
   public void testAddSource() {
-    ProcessorGraph graph = new ProcessorGraph(null);
+    JobGraph graph = new JobGraph(null);
 
     /**
      * s1 -> 1
@@ -132,9 +132,9 @@ public class TestProcessorGraph {
 
     assertTrue(graph.getSources().size() == 3);
 
-    assertTrue(graph.getOrCreateProcessor("1").getInEdges().size() == 2);
-    assertTrue(graph.getOrCreateProcessor("2").getInEdges().size() == 1);
-    assertTrue(graph.getOrCreateProcessor("3").getInEdges().size() == 1);
+    assertTrue(graph.getOrCreateNode("1").getInEdges().size() == 2);
+    assertTrue(graph.getOrCreateNode("2").getInEdges().size() == 1);
+    assertTrue(graph.getOrCreateNode("3").getInEdges().size() == 1);
 
     assertTrue(graph.getOrCreateEdge(s1).getSourceNodes().size() == 0);
     assertTrue(graph.getOrCreateEdge(s1).getTargetNodes().size() == 1);
@@ -154,14 +154,14 @@ public class TestProcessorGraph {
     StreamSpec s1 = genStream();
     StreamSpec s2 = genStream();
     StreamSpec s3 = genStream();
-    ProcessorGraph graph = new ProcessorGraph(null);
+    JobGraph graph = new JobGraph(null);
     graph.addSink(s1, "1");
     graph.addSink(s2, "2");
     graph.addSink(s3, "2");
 
     assertTrue(graph.getSinks().size() == 3);
-    assertTrue(graph.getOrCreateProcessor("1").getOutEdges().size() == 1);
-    assertTrue(graph.getOrCreateProcessor("2").getOutEdges().size() == 2);
+    assertTrue(graph.getOrCreateNode("1").getOutEdges().size() == 1);
+    assertTrue(graph.getOrCreateNode("2").getOutEdges().size() == 2);
 
     assertTrue(graph.getOrCreateEdge(s1).getSourceNodes().size() == 1);
     assertTrue(graph.getOrCreateEdge(s1).getTargetNodes().size() == 0);
@@ -173,10 +173,10 @@ public class TestProcessorGraph {
 
   @Test
   public void testReachable() {
-    Set<ProcessorNode> reachable1 = graph1.findReachable();
+    Set<JobNode> reachable1 = graph1.findReachable();
     assertTrue(reachable1.size() == 8);
 
-    Set<ProcessorNode> reachable2 = graph2.findReachable();
+    Set<JobNode> reachable2 = graph2.findReachable();
     assertTrue(reachable2.size() == 7);
   }
 
@@ -184,7 +184,7 @@ public class TestProcessorGraph {
   public void testTopologicalSort() {
 
     // test graph1
-    List<ProcessorNode> sortedNodes1 = graph1.topologicalSort();
+    List<JobNode> sortedNodes1 = graph1.topologicalSort();
     Map<String, Integer> idxMap1 = new HashMap<>();
     for (int i = 0; i < sortedNodes1.size(); i++) {
       idxMap1.put(sortedNodes1.get(i).getId(), i);
@@ -202,7 +202,7 @@ public class TestProcessorGraph {
     assertTrue(idxMap1.get("10") > idxMap1.get("3"));
 
     // test graph2
-    List<ProcessorNode> sortedNodes2 = graph2.topologicalSort();
+    List<JobNode> sortedNodes2 = graph2.topologicalSort();
     Map<String, Integer> idxMap2 = new HashMap<>();
     for (int i = 0; i < sortedNodes2.size(); i++) {
       idxMap2.put(sortedNodes2.get(i).getId(), i);
@@ -217,13 +217,13 @@ public class TestProcessorGraph {
     assertTrue(idxMap2.get("7") > idxMap2.get("5"));
 
     //test graph3
-    List<ProcessorNode> sortedNodes3 = graph3.topologicalSort();
+    List<JobNode> sortedNodes3 = graph3.topologicalSort();
     assertTrue(sortedNodes3.size() == 2);
     assertEquals(sortedNodes3.get(0).getId(), "1");
     assertEquals(sortedNodes3.get(1).getId(), "2");
 
     //test graph4
-    List<ProcessorNode> sortedNodes4 = graph4.topologicalSort();
+    List<JobNode> sortedNodes4 = graph4.topologicalSort();
     assertTrue(sortedNodes4.size() == 1);
     assertEquals(sortedNodes4.get(0).getId(), "1");
   }
