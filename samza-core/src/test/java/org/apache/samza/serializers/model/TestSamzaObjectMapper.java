@@ -69,9 +69,14 @@ public class TestSamzaObjectMapper {
     assertEquals(jobModel, obj);
   }
 
-  // Critical test to guarantee compatibility between samza 0.12 job models and 0.13+
+  /**
+   * Critical test to guarantee compatibility between samza 0.12 container models and 0.13+
+   *
+   * Samza 0.12 contains only "container-id" (integer) in the ContainerModel. "processor-id" (String) is added in 0.13.
+   * When serializing, we serialize both the fields in 0.13. Deserialization correctly handles the fields in 0.13.
+   */
   @Test
-  public void testJobModelStringToObjectMapping() {
+  public void testContainerModelCompatible() {
     try {
       String newJobModelString = "{\"config\":{\"a\":\"b\"},\"containers\":{\"1\":{\"processor-id\":\"1\",\"container-id\":1,\"tasks\":{\"test\":{\"task-name\":\"test\",\"system-stream-partitions\":[{\"system\":\"foo\",\"partition\":1,\"stream\":\"bar\"}],\"changelog-partition\":2}}}},\"max-change-log-stream-partitions\":3,\"all-container-locality\":{\"1\":null}}";
       ObjectMapper mapper = SamzaObjectMapper.getObjectMapper();
