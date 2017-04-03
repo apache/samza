@@ -130,7 +130,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   }
 
   @Override
-  public String getLocalProcessorId() {
+  public String getProcessorId() {
     return processorId;
   }
 
