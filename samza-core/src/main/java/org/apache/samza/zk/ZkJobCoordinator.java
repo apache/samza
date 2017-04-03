@@ -65,6 +65,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final CoordinationUtils coordinationUtils;
 
   private JobModel newJobModel;
+  private String newJobModelVersion;  // version published in ZK (by the leader)
   private JobModel jobModel;
 
   public ZkJobCoordinator(String groupId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
@@ -159,6 +160,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   @Override
   public void onNewJobModelAvailable(final String version) {
+    newJobModelVersion = version;
     log.info("pid=" + processorId + "new JobModel available");
     // stop current work
     containerController.stopContainer();

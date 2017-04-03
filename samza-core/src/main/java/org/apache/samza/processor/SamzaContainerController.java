@@ -44,7 +44,7 @@ import java.util.concurrent.TimeoutException;
 public class SamzaContainerController {
   private static final Logger log = LoggerFactory.getLogger(SamzaContainerController.class);
 
-  private final ExecutorService executorService;
+  private ExecutorService executorService;
   private volatile SamzaContainer container;
   private final Map<String, MetricsReporter> metricsReporterMap;
   private final Object taskFactory;
@@ -66,8 +66,6 @@ public class SamzaContainerController {
       Object taskFactory,
       long containerShutdownMs,
       Map<String, MetricsReporter> metricsReporterMap) {
-    this.executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
-        .setNameFormat("container-thread-%d").build());
     this.taskFactory = taskFactory;
     this.metricsReporterMap = metricsReporterMap;
     if (containerShutdownMs == -1) {
@@ -105,6 +103,8 @@ public class SamzaContainerController {
         Util.<String, MetricsReporter>javaMapAsScalaMap(metricsReporterMap),
         taskFactory);
     log.info("About to start container: " + containerModel.getProcessorId());
+    executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
+          .setNameFormat("p-" + containerModel.getProcessorId() + "-container-thread-%d").build());
     containerFuture = executorService.submit(() -> container.run());
   }
 
@@ -146,6 +146,8 @@ public class SamzaContainerController {
    */
   public void shutdown() {
     stopContainer();
-    executorService.shutdown();
+    if (executorService != null) {
+      executorService.shutdown();
+    }
   }
 }
