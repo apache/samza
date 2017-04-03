@@ -21,6 +21,7 @@ package org.apache.samza.runtime;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.job.ApplicationStatus;
 
 
 /**
@@ -40,5 +41,14 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     // 4. create all input/output/intermediate topics
     // 5. create the configuration for StreamProcessor
     // 6. start the StreamProcessor w/ optimized instance of StreamApplication
+  }
+
+  @Override
+  public void kill(StreamApplication streamApp) {
+  }
+
+  @Override
+  public ApplicationStatus status(StreamApplication streamApp) {
+    return null;
   }
 }
