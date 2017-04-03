@@ -28,8 +28,8 @@ import org.apache.samza.util.Util;
 
 /**
  * A StreamEdge connects the source {@link JobNode}s to the target {@link JobNode}s with a stream.
- * If it's a sink StreamEdge, the target ProcessorNode is empty.
- * If it's a source StreamEdge, the source ProcessorNode is empty.
+ * If it's a sink StreamEdge, the target JobNode is empty.
+ * If it's a source StreamEdge, the source JobNode is empty.
  */
 public class StreamEdge {
   public static final int PARTITIONS_UNKNOWN = -1;
@@ -54,8 +54,12 @@ public class StreamEdge {
     targetNodes.add(targetNode);
   }
 
-  StreamSpec getStreamSpec() {
-    return streamSpec;
+  public StreamSpec getStreamSpec() {
+    if (partitions == PARTITIONS_UNKNOWN) {
+      return streamSpec;
+    } else {
+      return streamSpec.copyWithPartitionCount(partitions);
+    }
   }
 
   SystemStream getSystemStream() {

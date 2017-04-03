@@ -28,10 +28,8 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
@@ -39,11 +37,7 @@ import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemAdmin;
-import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.SystemStreamMetadata;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,23 +50,20 @@ public class ExecutionPlanner {
   private static final Logger log = LoggerFactory.getLogger(ExecutionPlanner.class);
 
   private final Config config;
+  private final StreamManager streamManager;
 
-  public ExecutionPlanner(Config config) {
+  public ExecutionPlanner(Config config, StreamManager streamManager) {
     this.config = config;
+    this.streamManager = streamManager;
   }
 
   public JobGraph plan(StreamGraph streamGraph) throws Exception {
-    Map<String, SystemAdmin> sysAdmins = getSystemAdmins(config);
-
     // create physical job graph based on stream graph
     JobGraph jobGraph = createJobGraph(streamGraph);
 
     if (!jobGraph.getIntermediateStreams().isEmpty()) {
       // figure out the partitions for internal streams
-      calculatePartitions(streamGraph, jobGraph, sysAdmins);
-
-      // create the streams
-      createStreams(jobGraph, sysAdmins);
+      calculatePartitions(streamGraph, jobGraph);
     }
 
     return jobGraph;
@@ -90,7 +81,7 @@ public class ExecutionPlanner {
     sourceStreams.removeAll(intStreams);
     sinkStreams.removeAll(intStreams);
 
-    // For this phase, we are going to create a job for the whole dag
+    // For this phase, we have a single job node for the whole dag
     String jobName = config.get(JobConfig.JOB_NAME());
     String jobId = config.get(JobConfig.JOB_ID(), "1");
     JobNode node = jobGraph.getOrCreateNode(jobName, jobId);
@@ -112,9 +103,9 @@ public class ExecutionPlanner {
   /**
    * Figure out the number of partitions of all streams
    */
-  /* package private */ void calculatePartitions(StreamGraph streamGraph, JobGraph jobGraph, Map<String, SystemAdmin> sysAdmins) {
+  /* package private */ void calculatePartitions(StreamGraph streamGraph, JobGraph jobGraph) {
     // fetch the external streams partition info
-    updateExistingPartitions(jobGraph, sysAdmins);
+    updateExistingPartitions(jobGraph, streamManager);
 
     // calculate the partitions for the input streams of join operators
     calculateJoinInputPartitions(streamGraph, jobGraph);
@@ -129,9 +120,9 @@ public class ExecutionPlanner {
   /**
    * Fetch the partitions of source/sink streams and update the StreamEdges.
    * @param jobGraph {@link JobGraph}
-   * @param sysAdmins mapping from system name to the {@link SystemAdmin}
+   * @param streamManager the {@StreamManager} to interface with the streams.
    */
-  /* package private */ static void updateExistingPartitions(JobGraph jobGraph, Map<String, SystemAdmin> sysAdmins) {
+  /* package private */ static void updateExistingPartitions(JobGraph jobGraph, StreamManager streamManager) {
     Set<StreamEdge> existingStreams = new HashSet<>();
     existingStreams.addAll(jobGraph.getSources());
     existingStreams.addAll(jobGraph.getSinks());
@@ -148,14 +139,12 @@ public class ExecutionPlanner {
       Map<String, StreamEdge> streamToStreamEdge = new HashMap<>();
       // create the stream name to StreamEdge mapping for this system
       streamEdges.forEach(streamEdge -> streamToStreamEdge.put(streamEdge.getSystemStream().getStream(), streamEdge));
-      SystemAdmin systemAdmin = sysAdmins.get(systemName);
-      // retrieve the metadata for the streams in this system
-      Map<String, SystemStreamMetadata> streamToMetadata = systemAdmin.getSystemStreamMetadata(streamToStreamEdge.keySet());
+      // retrieve the partition counts for the streams in this system
+      Map<String, Integer> streamToPartitionCount = streamManager.getStreamPartitionCounts(systemName, streamToStreamEdge.keySet());
       // set the partitions of a stream to its StreamEdge
-      streamToMetadata.forEach((stream, data) -> {
-          int partitions = data.getSystemStreamPartitionMetadata().size();
-          streamToStreamEdge.get(stream).setPartitionCount(partitions);
-          log.debug("Partition count is {} for stream {}", partitions, stream);
+      streamToPartitionCount.forEach((stream, partitionCount) -> {
+          streamToStreamEdge.get(stream).setPartitionCount(partitionCount);
+          log.debug("Partition count is {} for stream {}", partitionCount, stream);
         });
     }
   }
@@ -285,55 +274,8 @@ public class ExecutionPlanner {
     }
   }
 
-  private static void createStreams(JobGraph graph, Map<String, SystemAdmin> sysAdmins) {
-    Multimap<String, StreamSpec> streamsToCreate = HashMultimap.create();
-    graph.getIntermediateStreams().forEach(edge -> {
-        StreamSpec streamSpec = createStreamSpec(edge);
-        streamsToCreate.put(edge.getSystemStream().getSystem(), streamSpec);
-      });
-
-    for (Map.Entry<String, Collection<StreamSpec>> entry : streamsToCreate.asMap().entrySet()) {
-      String systemName = entry.getKey();
-      SystemAdmin systemAdmin = sysAdmins.get(systemName);
-
-      for (StreamSpec stream : entry.getValue()) {
-        log.info("Creating stream {} with partitions {} on system {}",
-            new Object[]{stream.getPhysicalName(), stream.getPartitionCount(), systemName});
-        systemAdmin.createStream(stream);
-      }
-    }
-  }
-
   /* package private */ static int maxPartition(Collection<StreamEdge> edges) {
     return edges.stream().map(StreamEdge::getPartitionCount).reduce(Integer::max).orElse(StreamEdge.PARTITIONS_UNKNOWN);
   }
 
-  private static StreamSpec createStreamSpec(StreamEdge edge) {
-    StreamSpec orgSpec = edge.getStreamSpec();
-    return orgSpec.copyWithPartitionCount(edge.getPartitionCount());
-  }
-
-  private static Map<String, SystemAdmin> getSystemAdmins(Config config) {
-    return getSystemFactories(config).entrySet()
-        .stream()
-        .collect(Collectors.toMap(entry -> entry.getKey(), entry -> entry.getValue().getAdmin(entry.getKey(), config)));
-  }
-
-  private static Map<String, SystemFactory> getSystemFactories(Config config) {
-    Map<String, SystemFactory> systemFactories =
-        getSystemNames(config).stream().collect(Collectors.toMap(systemName -> systemName, systemName -> {
-            String systemFactoryClassName = new JavaSystemConfig(config).getSystemFactory(systemName);
-            if (systemFactoryClassName == null) {
-              throw new SamzaException(
-                  String.format("A stream uses system %s, which is missing from the configuration.", systemName));
-            }
-            return Util.getObj(systemFactoryClassName);
-          }));
-
-    return systemFactories;
-  }
-
-  private static Collection<String> getSystemNames(Config config) {
-    return new JavaSystemConfig(config).getSystemNames();
-  }
 }

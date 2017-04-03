@@ -31,7 +31,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 
-public class TestProcessorGraph {
+public class TestJobGraph {
 
   JobGraph graph1;
   JobGraph graph2;
@@ -45,75 +45,113 @@ public class TestProcessorGraph {
     return new StreamSpec(String.valueOf(streamSeq), "test-stream", "test-system");
   }
 
+  /**
+   * graph1 is the example graph from wikipedia
+   *
+   * 5   7   3
+   * | / | / |
+   * v   v   |
+   * 11  8   |
+   * | \X   /
+   * v v \v
+   * 2 9 10
+   */
+  private void createGraph1() {
+    graph1 = new JobGraph(null, null);
+
+    JobNode n2 = graph1.getOrCreateNode("2", "1");
+    JobNode n3 = graph1.getOrCreateNode("3", "1");
+    JobNode n5 = graph1.getOrCreateNode("5", "1");
+    JobNode n7 = graph1.getOrCreateNode("7", "1");
+    JobNode n8 = graph1.getOrCreateNode("8", "1");
+    JobNode n9 = graph1.getOrCreateNode("9", "1");
+    JobNode n10 = graph1.getOrCreateNode("10", "1");
+    JobNode n11 = graph1.getOrCreateNode("11", "1");
+
+    graph1.addSource(genStream(), n5);
+    graph1.addSource(genStream(), n7);
+    graph1.addSource(genStream(), n3);
+    graph1.addIntermediateStream(genStream(), n5, n11);
+    graph1.addIntermediateStream(genStream(), n7, n11);
+    graph1.addIntermediateStream(genStream(), n7, n8);
+    graph1.addIntermediateStream(genStream(), n3, n8);
+    graph1.addIntermediateStream(genStream(), n11, n2);
+    graph1.addIntermediateStream(genStream(), n11, n9);
+    graph1.addIntermediateStream(genStream(), n8, n9);
+    graph1.addIntermediateStream(genStream(), n11, n10);
+    graph1.addSink(genStream(), n2);
+    graph1.addSink(genStream(), n9);
+    graph1.addSink(genStream(), n10);
+  }
+
+  /**
+   * graph2 is a graph with a loop
+   * 1 -> 2 -> 3 -> 4 -> 5 -> 7
+   *      |<---6 <--|    <>
+   */
+  private void createGraph2() {
+    graph2 = new JobGraph(null, null);
+
+    JobNode n1 = graph2.getOrCreateNode("1", "1");
+    JobNode n2 = graph2.getOrCreateNode("2", "1");
+    JobNode n3 = graph2.getOrCreateNode("3", "1");
+    JobNode n4 = graph2.getOrCreateNode("4", "1");
+    JobNode n5 = graph2.getOrCreateNode("5", "1");
+    JobNode n6 = graph2.getOrCreateNode("6", "1");
+    JobNode n7 = graph2.getOrCreateNode("7", "1");
+
+    graph2.addSource(genStream(), n1);
+    graph2.addIntermediateStream(genStream(), n1, n2);
+    graph2.addIntermediateStream(genStream(), n2, n3);
+    graph2.addIntermediateStream(genStream(), n3, n4);
+    graph2.addIntermediateStream(genStream(), n4, n5);
+    graph2.addIntermediateStream(genStream(), n4, n6);
+    graph2.addIntermediateStream(genStream(), n6, n2);
+    graph2.addIntermediateStream(genStream(), n5, n5);
+    graph2.addIntermediateStream(genStream(), n5, n7);
+    graph2.addSink(genStream(), n7);
+  }
+
+  /**
+   * graph3 is a graph with two self loops
+   * 1<->1 -> 2<->2
+   */
+  private void createGraph3() {
+    graph3 = new JobGraph(null, null);
+
+    JobNode n1 = graph3.getOrCreateNode("1", "1");
+    JobNode n2 = graph3.getOrCreateNode("2", "1");
+
+    graph3.addSource(genStream(), n1);
+    graph3.addIntermediateStream(genStream(), n1, n1);
+    graph3.addIntermediateStream(genStream(), n1, n2);
+    graph3.addIntermediateStream(genStream(), n2, n2);
+  }
+
+  /**
+   * graph4 is a graph of single-loop node
+   * 1<->1
+   */
+  private void createGraph4() {
+    graph4 = new JobGraph(null, null);
+
+    JobNode n1 = graph4.getOrCreateNode("1", "1");
+
+    graph4.addSource(genStream(), n1);
+    graph4.addIntermediateStream(genStream(), n1, n1);
+  }
+
   @Before
   public void setup() {
-    /**
-     * graph1 is the example graph from wikipedia
-     *
-     * 5   7   3
-     * | / | / |
-     * v   v   |
-     * 11  8   |
-     * | \X   /
-     * v v \v
-     * 2 9 10
-     */
-    // init graph1
-    graph1 = new JobGraph(null);
-    graph1.addSource(genStream(), "5");
-    graph1.addSource(genStream(), "7");
-    graph1.addSource(genStream(), "3");
-    graph1.addIntermediateStream(genStream(), "5", "11");
-    graph1.addIntermediateStream(genStream(), "7", "11");
-    graph1.addIntermediateStream(genStream(), "7", "8");
-    graph1.addIntermediateStream(genStream(), "3", "8");
-    graph1.addIntermediateStream(genStream(), "11", "2");
-    graph1.addIntermediateStream(genStream(), "11", "9");
-    graph1.addIntermediateStream(genStream(), "8", "9");
-    graph1.addIntermediateStream(genStream(), "11", "10");
-    graph1.addSink(genStream(), "2");
-    graph1.addSink(genStream(), "9");
-    graph1.addSink(genStream(), "10");
-
-    /**
-     * graph2 is a graph with a loop
-     * 1 -> 2 -> 3 -> 4 -> 5 -> 7
-     *      |<---6 <--|    <>
-     */
-    graph2 = new JobGraph(null);
-    graph2.addSource(genStream(), "1");
-    graph2.addIntermediateStream(genStream(), "1", "2");
-    graph2.addIntermediateStream(genStream(), "2", "3");
-    graph2.addIntermediateStream(genStream(), "3", "4");
-    graph2.addIntermediateStream(genStream(), "4", "5");
-    graph2.addIntermediateStream(genStream(), "4", "6");
-    graph2.addIntermediateStream(genStream(), "6", "2");
-    graph2.addIntermediateStream(genStream(), "5", "5");
-    graph2.addIntermediateStream(genStream(), "5", "7");
-    graph2.addSink(genStream(), "7");
-
-    /**
-     * graph3 is a graph with self loops
-     * 1<->1 -> 2<->2
-     */
-    graph3 = new JobGraph(null);
-    graph3.addSource(genStream(), "1");
-    graph3.addIntermediateStream(genStream(), "1", "1");
-    graph3.addIntermediateStream(genStream(), "1", "2");
-    graph3.addIntermediateStream(genStream(), "2", "2");
-
-    /**
-     * graph4 is a graph of single-loop node
-     * 1<->1
-     */
-    graph4 = new JobGraph(null);
-    graph4.addSource(genStream(), "1");
-    graph4.addIntermediateStream(genStream(), "1", "1");
+    createGraph1();
+    createGraph2();
+    createGraph3();
+    createGraph4();
   }
 
   @Test
   public void testAddSource() {
-    JobGraph graph = new JobGraph(null);
+    JobGraph graph = new JobGraph(null, null);
 
     /**
      * s1 -> 1
@@ -122,19 +160,22 @@ public class TestProcessorGraph {
      * s3 -> 2
      *   |-> 3
      */
+    JobNode n1 = graph.getOrCreateNode("1", "1");
+    JobNode n2 = graph.getOrCreateNode("2", "1");
+    JobNode n3 = graph.getOrCreateNode("3", "1");
     StreamSpec s1 = genStream();
     StreamSpec s2 = genStream();
     StreamSpec s3 = genStream();
-    graph.addSource(s1, "1");
-    graph.addSource(s2, "1");
-    graph.addSource(s3, "2");
-    graph.addSource(s3, "3");
+    graph.addSource(s1, n1);
+    graph.addSource(s2, n1);
+    graph.addSource(s3, n2);
+    graph.addSource(s3, n3);
 
     assertTrue(graph.getSources().size() == 3);
 
-    assertTrue(graph.getOrCreateNode("1").getInEdges().size() == 2);
-    assertTrue(graph.getOrCreateNode("2").getInEdges().size() == 1);
-    assertTrue(graph.getOrCreateNode("3").getInEdges().size() == 1);
+    assertTrue(graph.getOrCreateNode("1", "1").getInEdges().size() == 2);
+    assertTrue(graph.getOrCreateNode("2", "1").getInEdges().size() == 1);
+    assertTrue(graph.getOrCreateNode("3", "1").getInEdges().size() == 1);
 
     assertTrue(graph.getOrCreateEdge(s1).getSourceNodes().size() == 0);
     assertTrue(graph.getOrCreateEdge(s1).getTargetNodes().size() == 1);
@@ -151,17 +192,19 @@ public class TestProcessorGraph {
      * 2 -> s2
      * 2 -> s3
      */
+    JobGraph graph = new JobGraph(null, null);
+    JobNode n1 = graph.getOrCreateNode("1", "1");
+    JobNode n2 = graph.getOrCreateNode("2", "1");
     StreamSpec s1 = genStream();
     StreamSpec s2 = genStream();
     StreamSpec s3 = genStream();
-    JobGraph graph = new JobGraph(null);
-    graph.addSink(s1, "1");
-    graph.addSink(s2, "2");
-    graph.addSink(s3, "2");
+    graph.addSink(s1, n1);
+    graph.addSink(s2, n2);
+    graph.addSink(s3, n2);
 
     assertTrue(graph.getSinks().size() == 3);
-    assertTrue(graph.getOrCreateNode("1").getOutEdges().size() == 1);
-    assertTrue(graph.getOrCreateNode("2").getOutEdges().size() == 2);
+    assertTrue(graph.getOrCreateNode("1", "1").getOutEdges().size() == 1);
+    assertTrue(graph.getOrCreateNode("2", "1").getOutEdges().size() == 2);
 
     assertTrue(graph.getOrCreateEdge(s1).getSourceNodes().size() == 1);
     assertTrue(graph.getOrCreateEdge(s1).getTargetNodes().size() == 0);
@@ -187,7 +230,7 @@ public class TestProcessorGraph {
     List<JobNode> sortedNodes1 = graph1.topologicalSort();
     Map<String, Integer> idxMap1 = new HashMap<>();
     for (int i = 0; i < sortedNodes1.size(); i++) {
-      idxMap1.put(sortedNodes1.get(i).getId(), i);
+      idxMap1.put(sortedNodes1.get(i).getJobName(), i);
     }
 
     assertTrue(idxMap1.size() == 8);
@@ -205,7 +248,7 @@ public class TestProcessorGraph {
     List<JobNode> sortedNodes2 = graph2.topologicalSort();
     Map<String, Integer> idxMap2 = new HashMap<>();
     for (int i = 0; i < sortedNodes2.size(); i++) {
-      idxMap2.put(sortedNodes2.get(i).getId(), i);
+      idxMap2.put(sortedNodes2.get(i).getJobName(), i);
     }
 
     assertTrue(idxMap2.size() == 7);
@@ -219,12 +262,12 @@ public class TestProcessorGraph {
     //test graph3
     List<JobNode> sortedNodes3 = graph3.topologicalSort();
     assertTrue(sortedNodes3.size() == 2);
-    assertEquals(sortedNodes3.get(0).getId(), "1");
-    assertEquals(sortedNodes3.get(1).getId(), "2");
+    assertEquals(sortedNodes3.get(0).getJobName(), "1");
+    assertEquals(sortedNodes3.get(1).getJobName(), "2");
 
     //test graph4
     List<JobNode> sortedNodes4 = graph4.topologicalSort();
     assertTrue(sortedNodes4.size() == 1);
-    assertEquals(sortedNodes4.get(0).getId(), "1");
+    assertEquals(sortedNodes4.get(0).getJobName(), "1");
   }
 }

@@ -34,10 +34,10 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   }
 
   @Override
-  public StreamSpec getStream(String streamId) {
+  public StreamSpec getStreamSpec(String streamId) {
     StreamConfig streamConfig = new StreamConfig(config);
     String physicalName = streamConfig.getPhysicalName(streamId);
-    return getStream(streamId, physicalName);
+    return getStreamSpec(streamId, physicalName);
   }
 
   /**
@@ -58,11 +58,11 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
    * @param physicalName  The system-specific name for this stream. It could be a file URN, topic name, or other identifer.
    * @return              The {@link StreamSpec} instance.
    */
-  /*package private*/ StreamSpec getStream(String streamId, String physicalName) {
+  /*package private*/ StreamSpec getStreamSpec(String streamId, String physicalName) {
     StreamConfig streamConfig = new StreamConfig(config);
     String system = streamConfig.getSystem(streamId);
 
-    return getStream(streamId, physicalName, system);
+    return getStreamSpec(streamId, physicalName, system);
   }
 
   /**
@@ -76,7 +76,7 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
    * @param system        The name of the System on which this stream will be used.
    * @return              The {@link StreamSpec} instance.
    */
-  /*package private*/ StreamSpec getStream(String streamId, String physicalName, String system) {
+  /*package private*/ StreamSpec getStreamSpec(String streamId, String physicalName, String system) {
     StreamConfig streamConfig = new StreamConfig(config);
     Map<String, String> properties = streamConfig.getStreamProperties(streamId);
 
