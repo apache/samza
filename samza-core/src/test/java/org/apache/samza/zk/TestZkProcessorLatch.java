@@ -19,11 +19,6 @@
 package org.apache.samza.zk;
 
 import org.I0Itec.zkclient.ZkConnection;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.CoordinationServiceFactory;
-import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
@@ -32,11 +27,8 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.slf4j.Logger;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -44,23 +36,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 public class TestZkProcessorLatch {
-  private static final Logger LOG = org.slf4j.LoggerFactory.getLogger(TestZkLeaderElector.class);
-
   private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
   private static EmbeddedZookeeper zkServer = null;
-  private static String zkConnectionString;
   private String testZkConnectionString = null;
   private ZkUtils testZkUtils = null;
   private static final int SESSION_TIMEOUT_MS = 20000;
   private static final int CONNECTION_TIMEOUT_MS = 10000;
 
-  private final CoordinationServiceFactory factory = new ZkCoordinationServiceFactory();
 
   @BeforeClass
   public static void setup() throws InterruptedException {
     zkServer = new EmbeddedZookeeper();
     zkServer.setup();
-    zkConnectionString = "localhost:" + zkServer.getPort();
   }
   @Before
   public void testSetup() {
@@ -77,12 +64,6 @@ public class TestZkProcessorLatch {
   public void testTeardown() {
     testZkUtils.deleteRoot();
     testZkUtils.close();
-  }
-
-  private Config getConfig() {
-    Map<String, String> map = new HashMap<>();
-    map.put(ZkConfig.ZK_CONNECT, zkConnectionString);
-    return new MapConfig(map);
   }
 
   @AfterClass
@@ -263,59 +244,21 @@ public class TestZkProcessorLatch {
     }
   }
 
-//  @Test
+  @Test
   public void testLatchExpires() {
-    String latchId = "l4";
-    int latchSize = 3;
+    final String latchId = "testLatchExpires";
+    final int latchSize = 3;
 
-    ExecutorService pool = Executors.newFixedThreadPool(3);
-    Future f1 = pool.submit(
-      () -> {
-        CoordinationUtils coordinationUtils = factory.getCoordinationService("groupId", "participant1", getConfig());
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
-        latch.countDown();
-        try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
-        }
-      });
-    Future f2 = pool.submit(
-      () -> {
-        CoordinationUtils coordinationUtils = factory.getCoordinationService("groupId", "participant2", getConfig());
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
-        latch.countDown();
-        try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
-        }
-      });
-    Future f3 = pool.submit(
-      () -> {
-        CoordinationUtils coordinationUtils = factory.getCoordinationService("groupId", "participant3", getConfig());
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
-        // This processor never completes its task
-        //latch.countDown();
-        try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
-        }
-      });
-
+    Latch latch = new ZkProcessorLatch(latchSize, latchId, "test", testZkUtils);
     try {
-      f1.get(300, TimeUnit.MILLISECONDS);
-      f2.get(300, TimeUnit.MILLISECONDS);
-      f3.get(300, TimeUnit.MILLISECONDS);
-      Assert.fail("Latch should've timeout.");
-    } catch (Exception e) {
-      f1.cancel(true);
-      f2.cancel(true);
-      f3.cancel(true);
+      latch.countDown();
+      latch.await(5, TimeUnit.SECONDS);
+    } catch (TimeoutException e) {
       // expected
+    } catch (Exception e) {
+      Assert.fail(String.format("Expected only TimeoutException! Received %s", e));
     }
-    pool.shutdownNow();
+
   }
   private ZkUtils getZkUtilsWithNewClient(String processorId) {
     ZkConnection zkConnection = ZkUtils.createZkConnection(testZkConnectionString, SESSION_TIMEOUT_MS);
