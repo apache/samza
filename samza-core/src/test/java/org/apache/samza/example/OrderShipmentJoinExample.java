@@ -21,6 +21,7 @@ package org.apache.samza.example;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.ApplicationRunner;
@@ -37,10 +38,12 @@ public class OrderShipmentJoinExample implements StreamApplication {
   public void init(StreamGraph graph, Config config) {
     MessageStream<OrderRecord> orders = graph.getInputStream("orderStream", (k, m) -> (OrderRecord) m);
     MessageStream<ShipmentRecord> shipments = graph.getInputStream("shipmentStream", (k, m) -> (ShipmentRecord) m);
+    OutputStream<String, FulFilledOrderRecord, FulFilledOrderRecord> joinedOrderShipmentStream =
+        graph.getOutputStream("joinedOrderShipmentStream", m -> m.orderId, m -> m);
 
     orders
         .join(shipments, new MyJoinFunction(), Duration.ofMinutes(1))
-        .sendTo("joinedOrderShipmentStream", m -> m.orderId, m -> m);
+        .sendTo(joinedOrderShipmentStream);
   }
 
   // local execution mode

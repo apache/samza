@@ -18,11 +18,10 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.stream.OutputStream;
+import org.apache.samza.operators.stream.OutputStreamInternal;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
@@ -60,13 +59,13 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
 
   /**
    * Constructs a {@link SinkOperatorSpec} to send messages to the provided {@code outStream}
-   * @param output  the output {@link MessageStreamImpl} to send messages to
+   * @param outputStream  the {@link OutputStreamInternal} to send messages to
    * @param opCode the specific {@link OpCode} for this {@link SinkOperatorSpec}.
    *               It could be {@link OpCode#SINK}, {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}
    * @param opId  the unique ID of this {@link SinkOperatorSpec} in the graph
    */
-  SinkOperatorSpec(MessageStreamImpl<M> output, OperatorSpec.OpCode opCode, int opId) {
-    this(createSinkFn(output), opCode, opId);
+  SinkOperatorSpec(OutputStreamInternal<?, ?, M> outputStream, OperatorSpec.OpCode opCode, int opId) {
+    this(createSinkFn(outputStream), opCode, opId);
   }
 
   /**
@@ -99,16 +98,11 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
 
   /**
    * Creates a {@link SinkFunction} to send messages to the provided {@code output}.
-   * @param output  the output {@link MessageStreamImpl} to send messages to
+   * @param outputStream  the {@link OutputStreamInternal} to send messages to
    * @param <M>  the type of input message
    * @return  a {@link SinkFunction} that sends messages to the provided {@code output}
    */
-  private static <M> SinkFunction<M> createSinkFn(MessageStreamImpl<M> output) {
-    if (!(output instanceof OutputStream)) {
-      throw new SamzaException("MessageStream used for sending messages must be an output stream.");
-    }
-
-    OutputStream<?, ?, M> outputStream = (OutputStream<?, ?, M>) output;
+  private static <M> SinkFunction<M> createSinkFn(OutputStreamInternal<?, ?, M> outputStream) {
     return (M message, MessageCollector mc, TaskCoordinator tc) -> {
       // TODO: SAMZA-1148 - need to find a way to directly pass in the serde class names
       SystemStream systemStream = new SystemStream(outputStream.getStreamSpec().getSystemName(),

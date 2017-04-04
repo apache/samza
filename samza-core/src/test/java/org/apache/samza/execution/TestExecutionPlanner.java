@@ -19,18 +19,12 @@
 
 package org.apache.samza.execution;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.ApplicationRunner;
@@ -40,6 +34,14 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -133,9 +135,10 @@ public class TestExecutionPlanner {
      *
      */
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    OutputStream<Object, Object, Object> output1 = streamGraph.getOutputStream("output1", null, null);
     streamGraph.getInputStream("input1", null)
         .partitionBy(m -> "yes!!!").map(m -> m)
-        .sendTo("output1", null, null);
+        .sendTo(output1);
     return streamGraph;
   }
 
@@ -156,9 +159,11 @@ public class TestExecutionPlanner {
     MessageStream m1 = streamGraph.getInputStream("input1", null).map(m -> m);
     MessageStream m2 = streamGraph.getInputStream("input2", null).partitionBy(m -> "haha").filter(m -> true);
     MessageStream m3 = streamGraph.getInputStream("input3", null).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
+    OutputStream<Object, Object, Object> output1 = streamGraph.getOutputStream("output1", null, null);
+    OutputStream<Object, Object, Object> output2 = streamGraph.getOutputStream("output2", null, null);
 
-    m1.join(m2, createJoin(), Duration.ofHours(2)).sendTo("output1", null, null);
-    m3.join(m2, createJoin(), Duration.ofHours(1)).sendTo("output2", null, null);
+    m1.join(m2, createJoin(), Duration.ofHours(2)).sendTo(output1);
+    m3.join(m2, createJoin(), Duration.ofHours(1)).sendTo(output2);
 
     return streamGraph;
   }

@@ -26,6 +26,7 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
@@ -224,8 +225,8 @@ public class TestJoinOperator {
 
   private StreamOperatorTask createStreamOperatorTask() throws Exception {
     ApplicationRunner runner = mock(ApplicationRunner.class);
-    when(runner.getStream("instream")).thenReturn(new StreamSpec("instream", "instream", "insystem"));
-    when(runner.getStream("instream2")).thenReturn(new StreamSpec("instream2", "instream2", "insystem2"));
+    when(runner.getStreamSpec("instream")).thenReturn(new StreamSpec("instream", "instream", "insystem"));
+    when(runner.getStreamSpec("instream2")).thenReturn(new StreamSpec("instream2", "instream2", "insystem2"));
 
     TaskContext taskContext = mock(TaskContext.class);
     when(taskContext.getSystemStreamPartitions()).thenReturn(ImmutableSet

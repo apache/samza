@@ -22,6 +22,7 @@ package org.apache.samza.example;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.runtime.ApplicationRunner;
@@ -43,11 +44,13 @@ public class KeyValueStoreExample implements StreamApplication {
   @Override public void init(StreamGraph graph, Config config) {
     MessageStream<PageViewEvent> pageViewEvents = graph.getInputStream(
         "pageViewEventStream", (k, v) -> (PageViewEvent) v);
+    OutputStream<String, StatsOutput, StatsOutput> pageViewEventPerMemberStream = graph.getOutputStream(
+        "pageViewEventPerMemberStream", statsOutput -> statsOutput.memberId, statsOutput -> statsOutput);
 
     pageViewEvents.
         partitionBy(m -> m.memberId).
         flatMap(new MyStatsCounter()).
-        sendTo("pageViewEventPerMemberStream", statsOutput -> statsOutput.memberId, statsOutput -> statsOutput);
+        sendTo(pageViewEventPerMemberStream);
   }
 
   // local execution mode

@@ -16,28 +16,37 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.operators.stream;
 
-import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.system.StreamSpec;
 
 import java.util.function.Function;
 
+public class OutputStreamInternalImpl<K, V, M> extends MessageStreamImpl<M> implements OutputStreamInternal<K, V, M> {
 
-/**
- * The interface for an output stream.
- *
- * @param <M> the type of messages in the output stream
- */
-@InterfaceStability.Unstable
-public interface OutputStream<K, V, M> extends MessageStream<M> {
+  private final StreamSpec streamSpec;
+  private final Function<M, K> keyExtractor;
+  private final Function<M, V> msgExtractor;
 
-  StreamSpec getStreamSpec();
+  public OutputStreamInternalImpl(StreamGraphImpl graph, StreamSpec streamSpec,
+      Function<M, K> keyExtractor, Function<M, V> msgExtractor) {
+    super(graph);
+    this.streamSpec = streamSpec;
+    this.keyExtractor = keyExtractor;
+    this.msgExtractor = msgExtractor;
+  }
 
-  Function<M, K> getKeyExtractor();
+  public StreamSpec getStreamSpec() {
+    return this.streamSpec;
+  }
 
-  Function<M, V> getMsgExtractor();
+  public Function<M, K> getKeyExtractor() {
+    return this.keyExtractor;
+  }
 
+  public Function<M, V> getMsgExtractor() {
+    return this.msgExtractor;
+  }
 }

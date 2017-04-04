@@ -22,6 +22,7 @@ package org.apache.samza.example;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.util.CommandLine;
@@ -34,11 +35,18 @@ public class BroadcastExample implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    MessageStream<PageViewEvent> inputStream = graph.getInputStream("inputStream", (k, m) -> (PageViewEvent) m);
+    MessageStream<PageViewEvent> inputStream =
+        graph.getInputStream("inputStream", (k, m) -> (PageViewEvent) m);
+    OutputStream<String, PageViewEvent, PageViewEvent> outputStream1 =
+        graph.getOutputStream("outputStream1", m -> m.key, m -> m);
+    OutputStream<String, PageViewEvent, PageViewEvent> outputStream2 =
+        graph.getOutputStream("outputStream2", m -> m.key, m -> m);
+    OutputStream<String, PageViewEvent, PageViewEvent> outputStream3 =
+        graph.getOutputStream("outputStream3", m -> m.key, m -> m);
 
-    inputStream.filter(m -> m.key.equals("key1")).sendTo("outputStream1", m -> m.key, m -> m);
-    inputStream.filter(m -> m.key.equals("key2")).sendTo("outputStream2", m -> m.key, m -> m);
-    inputStream.filter(m -> m.key.equals("key3")).sendTo("outputStream3", m -> m.key, m -> m);
+    inputStream.filter(m -> m.key.equals("key1")).sendTo(outputStream1);
+    inputStream.filter(m -> m.key.equals("key2")).sendTo(outputStream2);
+    inputStream.filter(m -> m.key.equals("key3")).sendTo(outputStream3);
   }
 
   // local execution mode

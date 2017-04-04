@@ -29,6 +29,7 @@ import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
+import org.apache.samza.operators.stream.OutputStreamInternal;
 import org.apache.samza.operators.util.InternalInMemoryStore;
 import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
@@ -101,10 +102,9 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, V> void sendTo(String streamId, Function<M, K> keyExtractor, Function<M, V> msgExtractor) {
+  public <K, V> void sendTo(OutputStream<K, V, M> outputStream) {
     SinkOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec(
-        (MessageStreamImpl<M>) this.graph.getOutputStream(streamId, keyExtractor, msgExtractor),
-        this.graph.getNextOpId());
+        (OutputStreamInternal<K, V, M>) outputStream, this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
   }
 
@@ -198,7 +198,9 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     String opName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
     MessageStreamImpl<M> intermediateStream =
         this.graph.<K, M, M>getIntermediateStream(opName, keyExtractor, m -> m, (k, m) -> m);
-    this.registeredOperatorSpecs.add(OperatorSpecs.createPartitionByOperatorSpec(intermediateStream, opId));
+    SinkOperatorSpec<M> partitionByOperatorSpec = OperatorSpecs.createPartitionByOperatorSpec(
+        (OutputStreamInternal<K, M, M>) intermediateStream, opId);
+    this.registeredOperatorSpecs.add(partitionByOperatorSpec);
     return intermediateStream;
   }
 

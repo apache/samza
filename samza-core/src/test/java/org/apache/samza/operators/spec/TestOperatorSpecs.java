@@ -27,7 +27,7 @@ import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.stream.OutputStreamImpl;
+import org.apache.samza.operators.stream.OutputStreamInternalImpl;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.operators.windows.internal.WindowType;
@@ -70,7 +70,7 @@ public class TestOperatorSpecs {
 
   @Test
   public void testCreateSendToOperator() {
-    OutputStreamImpl<Object, Object, TestMessageEnvelope> mockOutput = mock(OutputStreamImpl.class);
+    OutputStreamInternalImpl<Object, Object, TestMessageEnvelope> mockOutput = mock(OutputStreamInternalImpl.class);
     SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createSendToOperatorSpec(mockOutput, 1);
     assertNotNull(sinkOp.getSinkFn());
     assertEquals(sinkOp.getOpCode(), OperatorSpec.OpCode.SEND_TO);
@@ -80,7 +80,7 @@ public class TestOperatorSpecs {
 
   @Test
   public void testCreatePartitionByOperator() {
-    OutputStreamImpl<Object, Object, TestMessageEnvelope> mockOutput = mock(OutputStreamImpl.class);
+    OutputStreamInternalImpl<Object, Object, TestMessageEnvelope> mockOutput = mock(OutputStreamInternalImpl.class);
     SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createPartitionByOperatorSpec(mockOutput, 1);
     assertNotNull(sinkOp.getSinkFn());
     assertEquals(sinkOp.getOpCode(), OperatorSpec.OpCode.PARTITION_BY);

@@ -23,15 +23,22 @@ import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.system.StreamSpec;
 
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
-public class InputStreamImpl<K, V, M> extends MessageStreamImpl<M> implements InputStream<K, V, M> {
+public class IntermediateStreamInternalImpl<K, V, M> extends MessageStreamImpl<M>
+    implements InputStreamInternal<K, V, M>, OutputStreamInternal<K, V, M> {
 
   private final StreamSpec streamSpec;
+  private final Function<M, K> keyExtractor;
+  private final Function<M, V> msgExtractor;
   private final BiFunction<K, V, M> msgBuilder;
 
-  public InputStreamImpl(StreamGraphImpl graph, StreamSpec streamSpec, BiFunction<K, V, M> msgBuilder) {
+  public IntermediateStreamInternalImpl(StreamGraphImpl graph, StreamSpec streamSpec,
+      Function<M, K> keyExtractor, Function<M, V> msgExtractor, BiFunction<K, V, M> msgBuilder) {
     super(graph);
     this.streamSpec = streamSpec;
+    this.keyExtractor = keyExtractor;
+    this.msgExtractor = msgExtractor;
     this.msgBuilder = msgBuilder;
   }
 
@@ -39,6 +46,15 @@ public class InputStreamImpl<K, V, M> extends MessageStreamImpl<M> implements In
     return this.streamSpec;
   }
 
+  public Function<M, K> getKeyExtractor() {
+    return this.keyExtractor;
+  }
+
+  public Function<M, V> getMsgExtractor() {
+    return this.msgExtractor;
+  }
+
+  @Override
   public BiFunction<K, V, M> getMsgBuilder() {
     return this.msgBuilder;
   }

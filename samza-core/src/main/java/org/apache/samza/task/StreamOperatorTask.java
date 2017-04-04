@@ -23,7 +23,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
-import org.apache.samza.operators.stream.InputStream;
+import org.apache.samza.operators.stream.InputStreamInternal;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
@@ -46,7 +46,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   private OperatorImplGraph operatorImplGraph;
   private ContextManager contextManager;
-  private Map<SystemStream, InputStream> inputSystemStreamToInputStream;
+  private Map<SystemStream, InputStreamInternal> inputSystemStreamToInputStream;
 
   /**
    * Constructs an adaptor task to run the user-implemented {@link StreamApplication}.
@@ -72,8 +72,8 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
    * and the logical transforms using the {@link org.apache.samza.operators.MessageStream} APIs.
    *<p>
    * It then uses the {@link StreamGraphImpl} to create the {@link OperatorImplGraph} corresponding to the logical
-   * DAG. It also saves the mapping between input {@link SystemStream}s and their corresponding {@link InputStream}s
-   * for delivering incoming messages to the appropriate sub-DAG.
+   * DAG. It also saves the mapping between input {@link SystemStream}s and their corresponding
+   * {@link InputStreamInternal}s for delivering incoming messages to the appropriate sub-DAG.
    *
    * @param config allows accessing of fields in the configuration files that this StreamTask is specified in
    * @param context allows initializing and accessing contextual data of this StreamTask
@@ -116,7 +116,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   @Override
   public final void process(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator) {
     SystemStream systemStream = ime.getSystemStreamPartition().getSystemStream();
-    InputStream inputStream = inputSystemStreamToInputStream.get(systemStream);
+    InputStreamInternal inputStream = inputSystemStreamToInputStream.get(systemStream);
     // TODO: SAMZA-1148 - Cast to appropriate input (key, msg) types based on the serde before applying the msgBuilder.
     operatorImplGraph.getRootOperator(systemStream)
         .onNext(inputStream.getMsgBuilder().apply(ime.getKey(), ime.getMessage()), collector, coordinator);

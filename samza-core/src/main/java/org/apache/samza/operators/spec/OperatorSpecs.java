@@ -21,6 +21,7 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.stream.OutputStreamInternal;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.MapFunction;
@@ -133,24 +134,26 @@ public class OperatorSpecs {
   /**
    * Creates a {@link SinkOperatorSpec} for the sendTo operator.
    *
-   * @param outputStream  the output {@link MessageStreamImpl} to send messages to
+   * @param outputStream  the {@link OutputStreamInternal} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
    * @return  the {@link SinkOperatorSpec} for the sendTo operator
    */
-  public static <M> SinkOperatorSpec<M> createSendToOperatorSpec(MessageStreamImpl<M> outputStream, int opId) {
+  public static <K, V, M> SinkOperatorSpec<M> createSendToOperatorSpec(
+      OutputStreamInternal<K, V, M> outputStream, int opId) {
     return new SinkOperatorSpec<>(outputStream, OperatorSpec.OpCode.SEND_TO, opId);
   }
 
   /**
    * Creates a {@link SinkOperatorSpec} for the partitionBy operator.
    *
-   * @param outputStream  the output {@link MessageStreamImpl} to send messages to
+   * @param outputStream  the {@link OutputStreamInternal} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
    * @return  the {@link SinkOperatorSpec} for the partitionBy operator
    */
-  public static <M> SinkOperatorSpec<M> createPartitionByOperatorSpec(MessageStreamImpl<M> outputStream, int opId) {
+  public static <K, V, M> SinkOperatorSpec<M> createPartitionByOperatorSpec(
+      OutputStreamInternal<K, V, M> outputStream, int opId) {
     return new SinkOperatorSpec<>(outputStream, OperatorSpec.OpCode.PARTITION_BY, opId);
   }
 

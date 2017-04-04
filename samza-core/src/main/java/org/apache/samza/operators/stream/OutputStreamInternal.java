@@ -16,37 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.operators.stream;
 
-import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.system.StreamSpec;
 
 import java.util.function.Function;
 
-public class OutputStreamImpl<K, V, M> extends MessageStreamImpl<M> implements OutputStream<K, V, M> {
 
-  private final StreamSpec streamSpec;
-  private final Function<M, K> keyExtractor;
-  private final Function<M, V> msgExtractor;
+/**
+ * The interface for an output stream.
+ *
+ * @param <M> the type of messages in the output stream
+ */
+@InterfaceStability.Unstable
+public interface OutputStreamInternal<K, V, M> extends MessageStream<M>, OutputStream<K, V, M> {
 
-  public OutputStreamImpl(StreamGraphImpl graph, StreamSpec streamSpec,
-      Function<M, K> keyExtractor, Function<M, V> msgExtractor) {
-    super(graph);
-    this.streamSpec = streamSpec;
-    this.keyExtractor = keyExtractor;
-    this.msgExtractor = msgExtractor;
-  }
+  StreamSpec getStreamSpec();
 
-  public StreamSpec getStreamSpec() {
-    return this.streamSpec;
-  }
+  Function<M, K> getKeyExtractor();
 
-  public Function<M, K> getKeyExtractor() {
-    return this.keyExtractor;
-  }
+  Function<M, V> getMsgExtractor();
 
-  public Function<M, V> getMsgExtractor() {
-    return this.msgExtractor;
-  }
 }

@@ -21,6 +21,7 @@ package org.apache.samza.example;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
@@ -41,6 +42,8 @@ public class PageViewCounterExample implements StreamApplication {
   @Override public void init(StreamGraph graph, Config config) {
     MessageStream<PageViewEvent> pageViewEvents =
         graph.getInputStream("pageViewEventStream", (k, m) -> (PageViewEvent) m);
+    OutputStream<String, PageViewCount, PageViewCount> pageViewEventPerMemberStream = graph
+        .getOutputStream("pageViewEventPerMemberStream", m -> m.memberId, m -> m);
 
     Supplier<Integer> initialValue = () -> 0;
     pageViewEvents
@@ -48,7 +51,7 @@ public class PageViewCounterExample implements StreamApplication {
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING))
         .map(PageViewCount::new)
-        .sendTo("pageViewEventPerMemberStream", m -> m.memberId, m -> m);
+        .sendTo(pageViewEventPerMemberStream);
   }
 
   // local execution mode

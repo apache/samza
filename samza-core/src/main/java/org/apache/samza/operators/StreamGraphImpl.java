@@ -20,11 +20,11 @@ package org.apache.samza.operators;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.operators.stream.InputStream;
-import org.apache.samza.operators.stream.InputStreamImpl;
-import org.apache.samza.operators.stream.IntermediateStreamImpl;
-import org.apache.samza.operators.stream.OutputStream;
-import org.apache.samza.operators.stream.OutputStreamImpl;
+import org.apache.samza.operators.stream.InputStreamInternal;
+import org.apache.samza.operators.stream.InputStreamInternalImpl;
+import org.apache.samza.operators.stream.IntermediateStreamInternalImpl;
+import org.apache.samza.operators.stream.OutputStreamInternal;
+import org.apache.samza.operators.stream.OutputStreamInternalImpl;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 
@@ -46,8 +46,8 @@ public class StreamGraphImpl implements StreamGraph {
    */
   private int opId = 0;
 
-  private final Map<StreamSpec, InputStream> inStreams = new HashMap<>();
-  private final Map<StreamSpec, OutputStream> outStreams = new HashMap<>();
+  private final Map<StreamSpec, InputStreamInternal> inStreams = new HashMap<>();
+  private final Map<StreamSpec, OutputStreamInternal> outStreams = new HashMap<>();
   private final ApplicationRunner runner;
   private final Config config;
 
@@ -63,7 +63,7 @@ public class StreamGraphImpl implements StreamGraph {
   @Override
   public <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<K, V, M> msgBuilder) {
     return inStreams.computeIfAbsent(runner.getStreamSpec(streamId),
-        streamSpec -> new InputStreamImpl<>(this, streamSpec, msgBuilder));
+        streamSpec -> new InputStreamInternalImpl<>(this, streamSpec, msgBuilder));
   }
 
   @Override
@@ -83,10 +83,10 @@ public class StreamGraphImpl implements StreamGraph {
    * @param <M> the type of message in the output {@link MessageStream}
    * @return the output {@link MessageStream}
    */
-  <K, V, M> MessageStream<M> getOutputStream(String streamId,
+  public <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId,
       Function<M, K> keyExtractor, Function<M, V> msgExtractor) {
     return outStreams.computeIfAbsent(runner.getStreamSpec(streamId),
-        streamSpec -> new OutputStreamImpl<>(this, streamSpec, keyExtractor, msgExtractor));
+        streamSpec -> new OutputStreamInternalImpl<>(this, streamSpec, keyExtractor, msgExtractor));
   }
 
   /**
@@ -111,18 +111,19 @@ public class StreamGraphImpl implements StreamGraph {
         config.get(JobConfig.JOB_ID(), "1"),
         streamName);
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
-    IntermediateStreamImpl<K, V, M> intStream = (IntermediateStreamImpl<K, V, M>) inStreams.computeIfAbsent(
-        streamSpec, k -> new IntermediateStreamImpl<>(this, streamSpec,
-            keyExtractor, msgExtractor, msgBuilder));
+    IntermediateStreamInternalImpl<K, V, M> intStream =
+        (IntermediateStreamInternalImpl<K, V, M>) inStreams
+            .computeIfAbsent(streamSpec,
+                k -> new IntermediateStreamInternalImpl<>(this, streamSpec, keyExtractor, msgExtractor, msgBuilder));
     outStreams.putIfAbsent(streamSpec, intStream);
     return intStream;
   }
 
-  public Map<StreamSpec, InputStream> getInputStreams() {
+  public Map<StreamSpec, InputStreamInternal> getInputStreams() {
     return Collections.unmodifiableMap(inStreams);
   }
 
-  public Map<StreamSpec, OutputStream> getOutputStreams() {
+  public Map<StreamSpec, OutputStreamInternal> getOutputStreams() {
     return Collections.unmodifiableMap(outStreams);
   }
 

@@ -78,7 +78,7 @@ public interface MessageStream<M> {
    * Allows sending messages in this {@link MessageStream} to an output using the provided {@link SinkFunction}.
    *
    * NOTE: If the output is for a {@link org.apache.samza.system.SystemStream}, use
-   * {@link #sendTo(String, Function, Function)} instead. This transform should only be used to output to
+   * {@link #sendTo(OutputStream)} instead. This transform should only be used to output to
    * non-stream systems (e.g., an external database).
    *
    * @param sinkFn the function to send messages in this stream to an external system
@@ -88,13 +88,11 @@ public interface MessageStream<M> {
   /**
    * Allows sending messages in this {@link MessageStream} to an output {@link MessageStream}.
    *
-   * @param streamId the unique logical ID for the output stream
-   * @param keyExtractor the {@link Function} to extract the key for the outgoing message
-   * @param msgExtractor the {@link Function} to extract the message for the outgoing message
+   * @param outputStream the output stream to send messages to
    * @param <K> the type of key in the outgoing message
    * @param <V> the type of message in the outgoing message
    */
-  <K, V> void sendTo(String streamId, Function<M, K> keyExtractor, Function<M, V> msgExtractor);
+  <K, V> void sendTo(OutputStream<K, V, M> outputStream);
 
   /**
    * Groups the messages in this {@link MessageStream} according to the provided {@link Window} semantics

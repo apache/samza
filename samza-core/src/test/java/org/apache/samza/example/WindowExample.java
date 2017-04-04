@@ -22,9 +22,11 @@ package org.apache.samza.example;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.triggers.Triggers;
+import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.util.CommandLine;
@@ -44,6 +46,8 @@ public class WindowExample implements StreamApplication {
     Supplier<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> counter = (m, c) -> c == null ? 1 : c + 1;
     MessageStream<PageViewEvent> inputStream = graph.getInputStream("inputStream", (k, m) -> (PageViewEvent) m);
+    OutputStream<String, Integer, WindowPane<Void, Integer>> outputStream = graph
+        .getOutputStream("outputStream", m -> m.getKey().getPaneId(), m -> m.getMessage());
 
     // create a tumbling window that outputs the number of message collected every 10 minutes.
     // also emit early results if either the number of messages collected reaches 30000, or if no new messages arrive
@@ -51,7 +55,7 @@ public class WindowExample implements StreamApplication {
     inputStream
         .window(Windows.tumblingWindow(Duration.ofMinutes(10), initialValue, counter)
             .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))))
-        .sendTo("outputStream", m -> m.getKey().getPaneId(), m -> m);
+        .sendTo(outputStream);
   }
 
   // local execution mode

@@ -21,6 +21,7 @@ package org.apache.samza.operators;
 import org.apache.samza.annotation.InterfaceStability;
 
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
  * Provides APIs for accessing {@link MessageStream}s to be used to create the DAG of transforms.
@@ -40,6 +41,20 @@ public interface StreamGraph {
    * @return the input {@link MessageStream}
    */
   <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<K, V, M> msgBuilder);
+
+  /**
+   * Gets the {@link OutputStream} corresponding to the logical {@code streamId}.
+   *
+   * @param streamId the unique logical ID for the stream
+   * @param keyExtractor the {@link Function} to extract the outgoing key from the output message
+   * @param msgExtractor the {@link Function} to extract the outgoing message from the output message
+   * @param <K> the type of key in the outgoing message
+   * @param <V> the type of message in the outgoing message
+   * @param <M> the type of message in the {@link OutputStream}
+   * @return the output {@link MessageStream}
+   */
+  <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId,
+      Function<M, K> keyExtractor, Function<M, V> msgExtractor);
 
   /**
    * Sets the {@link ContextManager} for this {@link StreamGraph}.
