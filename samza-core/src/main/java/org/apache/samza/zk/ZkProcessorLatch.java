@@ -32,21 +32,16 @@ public class ZkProcessorLatch implements Latch {
 
   private final ZkUtils zkUtils;
   private final String processorIdStr;
-  private final ZkKeyBuilder keyBuilder;
-  private final String latchId;
 
   private final String latchPath;
   private final String targetPath;
 
   public final static String LATCH_PATH = "latch";
-  private final int size; // latch size
 
   public ZkProcessorLatch(int size, String latchId, String participantId, ZkUtils zkUtils) {
     this.zkUtils = zkUtils;
     this.processorIdStr = participantId;
-    this.latchId = latchId;
-    this.keyBuilder = this.zkUtils.getKeyBuilder();
-    this.size = size;
+    ZkKeyBuilder keyBuilder = this.zkUtils.getKeyBuilder();
 
     latchPath = String.format("%s/%s", keyBuilder.getRootPath(), LATCH_PATH + "_" + latchId);
     zkUtils.makeSurePersistentPathsExists(new String[] {latchPath});
