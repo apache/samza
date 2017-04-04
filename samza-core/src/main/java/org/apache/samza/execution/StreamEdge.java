@@ -27,16 +27,16 @@ import org.apache.samza.util.Util;
 
 
 /**
- * A StreamEdge connects the source {@link ProcessorNode}s to the target {@link ProcessorNode}s with a stream.
- * If it's a sink StreamEdge, the target ProcessorNode is empty.
- * If it's a source StreamEdge, the source ProcessorNode is empty.
+ * A StreamEdge connects the source {@link JobNode}s to the target {@link JobNode}s with a stream.
+ * If it's a sink StreamEdge, the target JobNode is empty.
+ * If it's a source StreamEdge, the source JobNode is empty.
  */
 public class StreamEdge {
   public static final int PARTITIONS_UNKNOWN = -1;
 
   private final StreamSpec streamSpec;
-  private final List<ProcessorNode> sourceNodes = new ArrayList<>();
-  private final List<ProcessorNode> targetNodes = new ArrayList<>();
+  private final List<JobNode> sourceNodes = new ArrayList<>();
+  private final List<JobNode> targetNodes = new ArrayList<>();
 
   private String name = "";
   private int partitions = PARTITIONS_UNKNOWN;
@@ -46,11 +46,11 @@ public class StreamEdge {
     this.name = Util.getNameFromSystemStream(getSystemStream());
   }
 
-  void addSourceNode(ProcessorNode sourceNode) {
+  void addSourceNode(JobNode sourceNode) {
     sourceNodes.add(sourceNode);
   }
 
-  void addTargetNode(ProcessorNode targetNode) {
+  void addTargetNode(JobNode targetNode) {
     targetNodes.add(targetNode);
   }
 
@@ -70,11 +70,11 @@ public class StreamEdge {
     return Util.getNameFromSystemStream(getSystemStream());
   }
 
-  List<ProcessorNode> getSourceNodes() {
+  List<JobNode> getSourceNodes() {
     return sourceNodes;
   }
 
-  List<ProcessorNode> getTargetNodes() {
+  List<JobNode> getTargetNodes() {
     return targetNodes;
   }
 

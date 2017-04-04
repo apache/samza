@@ -26,8 +26,8 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.execution.ExecutionPlanner;
-import org.apache.samza.execution.ProcessorGraph;
-import org.apache.samza.execution.ProcessorNode;
+import org.apache.samza.execution.JobGraph;
+import org.apache.samza.execution.JobNode;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
@@ -60,19 +60,19 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   public void run(StreamApplication app) {
     try {
       // 1. initialize and plan
-      ProcessorGraph processorGraph = getExecutionPlan(app);
+      JobGraph jobGraph = getExecutionPlan(app);
 
       // 2. create the necessary streams
-      List<StreamSpec> streams = processorGraph.getIntermediateStreams().stream()
+      List<StreamSpec> streams = jobGraph.getIntermediateStreams().stream()
           .map(streamEdge -> streamEdge.getStreamSpec())
           .collect(Collectors.toList());
       streamManager.createStreams(streams);
 
       // 3. submit jobs for remote execution
-      processorGraph.getProcessorNodes().forEach(processor -> {
-          Config processorConfig = processor.generateConfig();
-          log.info("Starting processor {} with config {}", processor.getId(), processorConfig);
-          JobRunner runner = new JobRunner(processorConfig);
+      jobGraph.getJobNodes().forEach(job -> {
+          Config jobConfig = job.generateConfig();
+          log.info("Starting job {} with config {}", job.getId(), jobConfig);
+          JobRunner runner = new JobRunner(jobConfig);
           runner.run(true);
         });
     } catch (Throwable t) {
@@ -83,12 +83,12 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   @Override
   public void kill(StreamApplication app) {
     try {
-      ProcessorGraph processorGraph = getExecutionPlan(app);
+      JobGraph jobGraph = getExecutionPlan(app);
 
-      processorGraph.getProcessorNodes().forEach(processor -> {
-          Config processorConfig = processor.generateConfig();
-          log.info("Killing processor {}", processor.getId());
-          JobRunner runner = new JobRunner(processorConfig);
+      jobGraph.getJobNodes().forEach(job -> {
+          Config jobConfig = job.generateConfig();
+          log.info("Killing job {}", job.getId());
+          JobRunner runner = new JobRunner(jobConfig);
           runner.kill();
         });
     } catch (Throwable t) {
@@ -102,12 +102,12 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       boolean finished = false;
       boolean unsuccessfulFinish = false;
 
-      ProcessorGraph processorGraph = getExecutionPlan(app);
-      for (ProcessorNode processor : processorGraph.getProcessorNodes()) {
-        Config processorConfig = processor.generateConfig();
-        JobRunner runner = new JobRunner(processorConfig);
+      JobGraph jobGraph = getExecutionPlan(app);
+      for (JobNode job : jobGraph.getJobNodes()) {
+        Config jobConfig = job.generateConfig();
+        JobRunner runner = new JobRunner(jobConfig);
         ApplicationStatus status = runner.status();
-        log.debug("Status is {} for processor {}", new Object[]{status, processor.getId()});
+        log.debug("Status is {} for jopb {}", new Object[]{status, job.getId()});
 
         switch (status) {
           case Running:
@@ -133,7 +133,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
-  private ProcessorGraph getExecutionPlan(StreamApplication app) throws Exception {
+  private JobGraph getExecutionPlan(StreamApplication app) throws Exception {
     // build stream graph
     StreamGraph streamGraph = new StreamGraphImpl(this, config);
     app.init(streamGraph, config);

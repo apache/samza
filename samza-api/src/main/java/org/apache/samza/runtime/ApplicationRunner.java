@@ -98,6 +98,7 @@ public abstract class ApplicationRunner {
    * Returns {@link ApplicationStatus#Running} if any of the jobs are running.
    *
    * @param streamApp  the user-defined {@link StreamApplication} object
+   * @return the status of the application
    */
   public abstract ApplicationStatus status(StreamApplication streamApp);
 

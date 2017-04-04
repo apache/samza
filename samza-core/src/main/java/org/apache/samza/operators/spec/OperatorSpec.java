@@ -53,6 +53,12 @@ public interface OperatorSpec<OM> {
   MessageStreamImpl<OM> getNextStream();
 
   /**
+   * Return the ID for this operator
+   * @return ID integer
+   */
+  int getOpId();
+
+  /**
    * Init method to initialize the context for this {@link OperatorSpec}. The default implementation is NO-OP.
    *
    * @param config  the {@link Config} object for this task
