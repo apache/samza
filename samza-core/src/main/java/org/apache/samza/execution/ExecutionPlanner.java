@@ -25,9 +25,11 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -57,7 +59,7 @@ public class ExecutionPlanner {
     this.streamManager = streamManager;
   }
 
-  public JobGraph plan(StreamGraph streamGraph) throws Exception {
+  public StreamPlan plan(StreamGraph streamGraph) throws Exception {
     // create physical job graph based on stream graph
     JobGraph jobGraph = createJobGraph(streamGraph);
 
@@ -66,7 +68,12 @@ public class ExecutionPlanner {
       calculatePartitions(streamGraph, jobGraph);
     }
 
-    return jobGraph;
+    List<JobConfig> jobConfigs = jobGraph.getJobNodes().stream().map(JobNode::generateConfig).collect(Collectors.toList());
+    String planJson = new PlanJsonGenerator().toJson(jobGraph);
+    List<StreamSpec> intermediateStreams = jobGraph.getIntermediateStreams().stream()
+        .map(streamEdge -> streamEdge.getStreamSpec())
+        .collect(Collectors.toList());
+    return new StreamPlan(streamGraph, jobConfigs, intermediateStreams, planJson);
   }
 
   /**

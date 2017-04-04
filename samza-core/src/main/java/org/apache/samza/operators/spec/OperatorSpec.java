@@ -59,6 +59,12 @@ public interface OperatorSpec<OM> {
   int getOpId();
 
   /**
+   * Return the OpCode for this operator
+   * @return {@link org.apache.samza.operators.spec.OperatorSpec.OpCode}
+   */
+  OpCode getOpCode();
+
+  /**
    * Init method to initialize the context for this {@link OperatorSpec}. The default implementation is NO-OP.
    *
    * @param config  the {@link Config} object for this task

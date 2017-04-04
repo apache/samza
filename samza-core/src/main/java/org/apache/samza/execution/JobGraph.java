@@ -45,7 +45,7 @@ import org.slf4j.LoggerFactory;
  * Note that intermediate streams are both the input and output of a JobNode in JobGraph.
  * So the graph may have cycles and it's not a DAG.
  */
-public class JobGraph {
+/* package private */ class JobGraph {
   private static final Logger log = LoggerFactory.getLogger(JobGraph.class);
 
   private final Map<String, JobNode> nodes = new HashMap<>();
@@ -110,7 +110,7 @@ public class JobGraph {
    * @param jobId id of the job
    * @return
    */
-  /* package private */JobNode getOrCreateNode(String jobName, String jobId) {
+  /* package private */ JobNode getOrCreateNode(String jobName, String jobId) {
     String nodeId = JobNode.createId(jobName, jobId);
     JobNode node = nodes.get(nodeId);
     if (node == null) {
@@ -125,7 +125,7 @@ public class JobGraph {
    * @param streamSpec spec of the StreamEdge
    * @return stream edge
    */
-  /* package private */StreamEdge getOrCreateEdge(StreamSpec streamSpec) {
+  /* package private */ StreamEdge getOrCreateEdge(StreamSpec streamSpec) {
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
@@ -139,7 +139,7 @@ public class JobGraph {
    * Returns the job nodes to be executed in the topological order
    * @return unmodifiable list of {@link JobNode}
    */
-  public List<JobNode> getJobNodes() {
+  /* package private */ List<JobNode> getJobNodes() {
     List<JobNode> sortedNodes = topologicalSort();
     return Collections.unmodifiableList(sortedNodes);
   }
@@ -148,7 +148,7 @@ public class JobGraph {
    * Returns the source streams in the graph
    * @return unmodifiable set of {@link StreamEdge}
    */
-  public Set<StreamEdge> getSources() {
+  /* package private */ Set<StreamEdge> getSources() {
     return Collections.unmodifiableSet(sources);
   }
 
@@ -156,7 +156,7 @@ public class JobGraph {
    * Return the sink streams in the graph
    * @return unmodifiable set of {@link StreamEdge}
    */
-  public Set<StreamEdge> getSinks() {
+  /* package private */ Set<StreamEdge> getSinks() {
     return Collections.unmodifiableSet(sinks);
   }
 
@@ -164,7 +164,7 @@ public class JobGraph {
    * Return the intermediate streams in the graph
    * @return unmodifiable set of {@link StreamEdge}
    */
-  public Set<StreamEdge> getIntermediateStreams() {
+  /* package private */ Set<StreamEdge> getIntermediateStreams() {
     return Collections.unmodifiableSet(intermediateStreams);
   }
 
@@ -172,7 +172,7 @@ public class JobGraph {
    * Return the {@link StreamGraph}
    * @return {@link StreamGraph}
    */
-  public StreamGraph getStreamGraph() {
+  /* package private */ StreamGraph getStreamGraph() {
     return this.streamGraph;
   }
 
@@ -182,7 +182,7 @@ public class JobGraph {
    * sinks are going to external streams, and the nodes are connected with intermediate streams.
    * Also validate all the nodes are reachable from the sources.
    */
-  public void validate() {
+  void validate() {
     validateSources();
     validateSinks();
     validateInternalStreams();

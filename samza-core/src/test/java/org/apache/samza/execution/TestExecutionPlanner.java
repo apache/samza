@@ -25,31 +25,23 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import org.apache.samza.Partition;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.runtime.AbstractApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
-import org.apache.samza.system.SystemStreamMetadata;
-import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskCoordinator;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-
+import static org.apache.samza.execution.TestUtil.createJoin;
+import static org.apache.samza.execution.TestUtil.createRunner;
+import static org.apache.samza.execution.TestUtil.createSystemAdmin;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class TestExecutionPlanner {
 
@@ -68,76 +60,6 @@ public class TestExecutionPlanner {
   private StreamManager streamManager;
 
   private ApplicationRunner runner;
-
-  private JoinFunction createJoin() {
-    return new JoinFunction() {
-      @Override
-      public Object apply(Object message, Object otherMessage) {
-        return null;
-      }
-
-      @Override
-      public Object getFirstKey(Object message) {
-        return null;
-      }
-
-      @Override
-      public Object getSecondKey(Object message) {
-        return null;
-      }
-    };
-  }
-
-  private SinkFunction createSink() {
-    return new SinkFunction() {
-      @Override
-      public void apply(Object message, MessageCollector messageCollector, TaskCoordinator taskCoordinator) {
-      }
-    };
-  }
-
-  private SystemAdmin createSystemAdmin(Map<String, Integer> streamToPartitions) {
-
-    return new SystemAdmin() {
-      @Override
-      public Map<SystemStreamPartition, String> getOffsetsAfter(Map<SystemStreamPartition, String> offsets) {
-        return null;
-      }
-
-      @Override
-      public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
-        Map<String, SystemStreamMetadata> map = new HashMap<>();
-        for (String stream : streamNames) {
-          Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> m = new HashMap<>();
-          for (int i = 0; i < streamToPartitions.get(stream); i++) {
-            m.put(new Partition(i), new SystemStreamMetadata.SystemStreamPartitionMetadata("", "", ""));
-          }
-          map.put(stream, new SystemStreamMetadata(stream, m));
-        }
-        return map;
-      }
-
-      @Override
-      public void createChangelogStream(String streamName, int numOfPartitions) {
-
-      }
-
-      @Override
-      public void validateChangelogStream(String streamName, int numOfPartitions) {
-
-      }
-
-      @Override
-      public void createCoordinatorStream(String streamName) {
-
-      }
-
-      @Override
-      public Integer offsetComparator(String offset1, String offset2) {
-        return null;
-      }
-    };
-  }
 
   private StreamGraph createSimpleGraph() {
     /**
@@ -205,23 +127,8 @@ public class TestExecutionPlanner {
     systemAdmins.put("system2", systemAdmin2);
     streamManager = new StreamManager(systemAdmins);
 
-    runner = new AbstractApplicationRunner(config) {
-      @Override
-      public void run(StreamApplication streamApp) {
-      }
-
-      @Override
-      public void kill(StreamApplication streamApp) {
-
-      }
-
-      @Override
-      public ApplicationStatus status(StreamApplication streamApp) {
-        return null;
-      }
-    };
+    runner = createRunner(config);
   }
-
   @Test
   public void testCreateProcessorGraph() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);

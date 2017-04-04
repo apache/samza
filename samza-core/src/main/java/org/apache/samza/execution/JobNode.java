@@ -85,7 +85,7 @@ public class JobNode {
     return outEdges;
   }
 
-  public Config generateConfig() {
+  public JobConfig generateConfig() {
     Map<String, String> configs = new HashMap<>();
     configs.put(JobConfig.JOB_NAME(), jobName);
 
@@ -95,7 +95,7 @@ public class JobNode {
 
     String configPrefix = String.format(CONFIG_JOB_PREFIX, jobName);
     // TODO: Disallow user specifying job inputs/outputs. This info comes strictly from the pipeline.
-    return Util.rewriteConfig(extractScopedConfig(config, new MapConfig(configs), configPrefix));
+    return new JobConfig(Util.rewriteConfig(extractScopedConfig(config, new MapConfig(configs), configPrefix)));
   }
 
   /**

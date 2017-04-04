@@ -19,21 +19,18 @@
 
 package org.apache.samza.runtime;
 
-import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.execution.ExecutionPlanner;
-import org.apache.samza.execution.JobGraph;
-import org.apache.samza.execution.JobNode;
 import org.apache.samza.execution.StreamManager;
+import org.apache.samza.execution.StreamPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.system.StreamSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,18 +57,14 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   public void run(StreamApplication app) {
     try {
       // 1. initialize and plan
-      JobGraph jobGraph = getExecutionPlan(app);
+      StreamPlan plan = getExecutionPlan(app);
 
       // 2. create the necessary streams
-      List<StreamSpec> streams = jobGraph.getIntermediateStreams().stream()
-          .map(streamEdge -> streamEdge.getStreamSpec())
-          .collect(Collectors.toList());
-      streamManager.createStreams(streams);
+      streamManager.createStreams(plan.getIntermediateStreams());
 
       // 3. submit jobs for remote execution
-      jobGraph.getJobNodes().forEach(job -> {
-          Config jobConfig = job.generateConfig();
-          log.info("Starting job {} with config {}", job.getId(), jobConfig);
+      plan.getJobConfigs().forEach(jobConfig -> {
+          log.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
           JobRunner runner = new JobRunner(jobConfig);
           runner.run(true);
         });
@@ -83,11 +76,10 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   @Override
   public void kill(StreamApplication app) {
     try {
-      JobGraph jobGraph = getExecutionPlan(app);
+      StreamPlan plan = getExecutionPlan(app);
 
-      jobGraph.getJobNodes().forEach(job -> {
-          Config jobConfig = job.generateConfig();
-          log.info("Killing job {}", job.getId());
+      plan.getJobConfigs().forEach(jobConfig -> {
+          log.info("Killing job {}", jobConfig.getName());
           JobRunner runner = new JobRunner(jobConfig);
           runner.kill();
         });
@@ -102,12 +94,11 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       boolean finished = false;
       boolean unsuccessfulFinish = false;
 
-      JobGraph jobGraph = getExecutionPlan(app);
-      for (JobNode job : jobGraph.getJobNodes()) {
-        Config jobConfig = job.generateConfig();
+      StreamPlan plan = getExecutionPlan(app);
+      for (JobConfig jobConfig : plan.getJobConfigs()) {
         JobRunner runner = new JobRunner(jobConfig);
         ApplicationStatus status = runner.status();
-        log.debug("Status is {} for jopb {}", new Object[]{status, job.getId()});
+        log.debug("Status is {} for jopb {}", new Object[]{status, jobConfig.getName()});
 
         switch (status) {
           case Running:
@@ -133,7 +124,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
-  private JobGraph getExecutionPlan(StreamApplication app) throws Exception {
+  private StreamPlan getExecutionPlan(StreamApplication app) throws Exception {
     // build stream graph
     StreamGraph streamGraph = new StreamGraphImpl(this, config);
     app.init(streamGraph, config);
