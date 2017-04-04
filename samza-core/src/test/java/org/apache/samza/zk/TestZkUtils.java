@@ -76,7 +76,6 @@ public class TestZkUtils {
 
   }
 
-
   @After
   public void testTeardown() {
     zkUtils.close();

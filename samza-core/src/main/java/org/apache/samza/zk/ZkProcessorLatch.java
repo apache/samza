@@ -39,7 +39,7 @@ public class ZkProcessorLatch implements Latch {
   private final String latchPath;
   private final String targetPath;
 
-  private final static String LATCH_PATH = "latch";
+  public final static String LATCH_PATH = "latch";
   private final int size; // latch size
 
   public ZkProcessorLatch(int size, String latchId, String participantId, ZkConfig zkConfig, ZkUtils zkUtils) {
