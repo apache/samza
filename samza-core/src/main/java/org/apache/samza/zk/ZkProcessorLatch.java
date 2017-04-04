@@ -21,6 +21,8 @@ package org.apache.samza.zk;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.samza.coordinator.Latch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /*
  * Latch of the sizeN is open when countDown() was called N times.
@@ -28,10 +30,10 @@ import org.apache.samza.coordinator.Latch;
  * When Nth node is created await() call returns.
  */
 public class ZkProcessorLatch implements Latch {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ZkProcessorLatch.class);
 
   private final ZkUtils zkUtils;
   private final String participantId;
-
   private final String latchPath;
   private final String targetPath;
 
@@ -43,10 +45,11 @@ public class ZkProcessorLatch implements Latch {
     ZkKeyBuilder keyBuilder = this.zkUtils.getKeyBuilder();
 
     latchPath = String.format("%s/%s", keyBuilder.getRootPath(), LATCH_PATH + "_" + latchId);
-    // TODO: Verify that makeSurePersistentPathsExists doesn't fail with exceptions!
+    // TODO: Verify that makeSurePersistentPathsExists doesn't fail with exceptions
     zkUtils.makeSurePersistentPathsExists(new String[] {latchPath});
     targetPath =  String.format("%s/%010d", latchPath, size - 1);
-    System.out.println("targetPath " + targetPath);
+
+    LOGGER.debug("ZkProcessorLatch targetPath " + targetPath);
   }
 
   @Override
@@ -58,6 +61,6 @@ public class ZkProcessorLatch implements Latch {
   public void countDown() {
     // create persistent (should be ephemeral? Probably not)
     String path = zkUtils.getZkClient().createPersistentSequential(latchPath + "/", participantId);
-    System.out.println("countDown created " + path);
+    LOGGER.debug("ZKProcessorLatch countDown created " + path);
   }
 }
