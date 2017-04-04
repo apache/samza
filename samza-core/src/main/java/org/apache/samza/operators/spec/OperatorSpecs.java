@@ -21,12 +21,12 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.stream.OutputStreamInternal;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.stream.OutputStreamInternal;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.task.TaskContext;
@@ -136,7 +136,9 @@ public class OperatorSpecs {
    *
    * @param outputStream  the {@link OutputStreamInternal} to send messages to
    * @param opId  the unique ID of the operator
-   * @param <M>  type of input message
+   * @param <K> the type of key in the outgoing message
+   * @param <V> the type of message in the outgoing message
+   * @param <M> the type of message in the {@link OutputStreamInternal}
    * @return  the {@link SinkOperatorSpec} for the sendTo operator
    */
   public static <K, V, M> SinkOperatorSpec<M> createSendToOperatorSpec(
@@ -149,7 +151,9 @@ public class OperatorSpecs {
    *
    * @param outputStream  the {@link OutputStreamInternal} to send messages to
    * @param opId  the unique ID of the operator
-   * @param <M>  type of input message
+   * @param <K> the type of key in the outgoing message
+   * @param <V> the type of message in the outgoing message
+   * @param <M> the type of message in the {@link OutputStreamInternal}
    * @return  the {@link SinkOperatorSpec} for the partitionBy operator
    */
   public static <K, V, M> SinkOperatorSpec<M> createPartitionByOperatorSpec(
