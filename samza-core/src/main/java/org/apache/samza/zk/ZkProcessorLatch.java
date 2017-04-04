@@ -19,9 +19,8 @@
 package org.apache.samza.zk;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.Latch;
 
+import org.apache.samza.coordinator.Latch;
 
 /*
  * Latch of the sizeN is open when countDown() was called N times.
@@ -31,7 +30,7 @@ import org.apache.samza.coordinator.Latch;
 public class ZkProcessorLatch implements Latch {
 
   private final ZkUtils zkUtils;
-  private final String processorIdStr;
+  private final String participantId;
 
   private final String latchPath;
   private final String targetPath;
@@ -40,7 +39,7 @@ public class ZkProcessorLatch implements Latch {
 
   public ZkProcessorLatch(int size, String latchId, String participantId, ZkUtils zkUtils) {
     this.zkUtils = zkUtils;
-    this.processorIdStr = participantId;
+    this.participantId = participantId;
     ZkKeyBuilder keyBuilder = this.zkUtils.getKeyBuilder();
 
     latchPath = String.format("%s/%s", keyBuilder.getRootPath(), LATCH_PATH + "_" + latchId);
@@ -57,7 +56,7 @@ public class ZkProcessorLatch implements Latch {
   @Override
   public void countDown() {
     // create persistent (should be ephemeral? Probably not)
-    String path = zkUtils.getZkClient().createPersistentSequential(latchPath + "/", processorIdStr);
+    String path = zkUtils.getZkClient().createPersistentSequential(latchPath + "/", participantId);
     System.out.println("countDown created " + path);
   }
 }
