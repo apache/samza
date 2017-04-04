@@ -25,7 +25,7 @@ import org.apache.samza.system.StreamSpec;
 import java.util.function.BiFunction;
 
 /**
- * The interface for an input stream.
+ * Internal representation of an input stream.
  *
  * @param <M> the type of messages in the input stream
  */

@@ -39,7 +39,7 @@ public class TestSinkOperatorImpl {
     when(sinkOp.getSinkFn()).thenReturn(sinkFn);
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
-    OutputOperatorImpl<TestOutputMessageEnvelope> sinkImpl = new OutputOperatorImpl<>(sinkOp, mockConfig, mockContext);
+    SinkOperatorImpl<TestOutputMessageEnvelope> sinkImpl = new SinkOperatorImpl<>(sinkOp, mockConfig, mockContext);
     TestOutputMessageEnvelope mockMsg = mock(TestOutputMessageEnvelope.class);
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);

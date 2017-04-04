@@ -28,7 +28,7 @@ import java.util.function.Function;
 
 
 /**
- * The interface for an output stream.
+ * Internal representation of an output stream.
  *
  * @param <M> the type of messages in the output stream
  */

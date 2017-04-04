@@ -107,8 +107,8 @@ public class TestOperatorImpls {
     SinkOperatorSpec<TestMessageEnvelope> sinkOp = mock(SinkOperatorSpec.class);
     when(sinkOp.getSinkFn()).thenReturn(sinkFn);
     opImpl = (OperatorImpl<TestMessageEnvelope, ?>) createOpMethod.invoke(opGraph, mockStream, sinkOp, mockConfig, mockContext);
-    assertTrue(opImpl instanceof OutputOperatorImpl);
-    Field sinkFnField = OutputOperatorImpl.class.getDeclaredField("sinkFn");
+    assertTrue(opImpl instanceof SinkOperatorImpl);
+    Field sinkFnField = SinkOperatorImpl.class.getDeclaredField("sinkFn");
     sinkFnField.setAccessible(true);
     assertEquals(sinkFn, sinkFnField.get(opImpl));
 

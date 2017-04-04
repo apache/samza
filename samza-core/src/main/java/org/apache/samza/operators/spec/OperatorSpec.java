@@ -25,8 +25,8 @@ import org.apache.samza.task.TaskContext;
 
 
 /**
- * A stateless stream operator specification that holds all the information required
- * to transform the input {@link MessageStreamImpl} and produce the output {@link MessageStreamImpl}.
+ * A stream operator specification that holds all the information required to transform 
+ * the input {@link MessageStreamImpl} and produce the output {@link MessageStreamImpl}.
  *
  * @param <OM>  the type of output message from the operator
  */

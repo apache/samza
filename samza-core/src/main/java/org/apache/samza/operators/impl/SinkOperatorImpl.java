@@ -29,11 +29,11 @@ import org.apache.samza.task.TaskCoordinator;
 /**
  * Implementation for {@link SinkOperatorSpec}
  */
-class OutputOperatorImpl<M> extends OperatorImpl<M, M> {
+class SinkOperatorImpl<M> extends OperatorImpl<M, M> {
 
   private final SinkFunction<M> sinkFn;
 
-  OutputOperatorImpl(SinkOperatorSpec<M> sinkOp, Config config, TaskContext context) {
+  SinkOperatorImpl(SinkOperatorSpec<M> sinkOp, Config config, TaskContext context) {
     this.sinkFn = sinkOp.getSinkFn();
   }
 

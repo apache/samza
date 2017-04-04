@@ -136,8 +136,8 @@ public interface MessageStream<M> {
   MessageStream<M> merge(Collection<MessageStream<M>> otherStreams);
 
   /**
-   * Sends the messages in this {@link MessageStream} to a repartitioned output stream and consumes them as
-   * an input {@link MessageStream} again. Uses keys returned by the {@code keyExtractor} as the partition key.
+   * Sends the messages of type {@code M}in this {@link MessageStream} to a repartitioned output stream and consumes
+   * them as an input {@link MessageStream} again. Uses keys returned by the {@code keyExtractor} as the partition key.
    *
    * @param keyExtractor the {@link Function} to extract the output message key and partition key from
    *                     the input message

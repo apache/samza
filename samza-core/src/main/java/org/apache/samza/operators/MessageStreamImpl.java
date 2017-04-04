@@ -73,7 +73,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public <TM> MessageStream<TM> map(MapFunction<M, TM> mapFn) {
-    OperatorSpec<TM> op = OperatorSpecs.<M, TM>createMapOperatorSpec(
+    OperatorSpec<TM> op = OperatorSpecs.createMapOperatorSpec(
         mapFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
     return op.getNextStream();
@@ -81,7 +81,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public MessageStream<M> filter(FilterFunction<M> filterFn) {
-    OperatorSpec<M> op = OperatorSpecs.<M>createFilterOperatorSpec(
+    OperatorSpec<M> op = OperatorSpecs.createFilterOperatorSpec(
         filterFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
     return op.getNextStream();
@@ -172,11 +172,11 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
       }
     };
 
-    this.registeredOperatorSpecs.add(OperatorSpecs.<K, M, JM, RM>createPartialJoinOperatorSpec(
+    this.registeredOperatorSpecs.add(OperatorSpecs.createPartialJoinOperatorSpec(
         thisPartialJoinFn, otherPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId()));
 
     ((MessageStreamImpl<JM>) otherStream).registeredOperatorSpecs
-        .add(OperatorSpecs.<K, JM, M, RM>createPartialJoinOperatorSpec(
+        .add(OperatorSpecs.createPartialJoinOperatorSpec(
             otherPartialJoinFn, thisPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId()));
 
     return nextStream;

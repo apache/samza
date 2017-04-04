@@ -67,26 +67,16 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   @Override
-  public StreamGraph withContextManager(ContextManager contextManager) {
-    this.contextManager = contextManager;
-    return this;
-  }
-
-  /**
-   * Internal helper for {@link MessageStreamImpl} to add an output {@link MessageStream} to the graph.
-   *
-   * @param streamId the unique logical ID for the stream
-   * @param keyExtractor the {@link Function} to extract the outgoing key from the output message
-   * @param msgExtractor the {@link Function} to extract the outgoing message from the output message
-   * @param <K> the type of key in the outgoing message
-   * @param <V> the type of message in the outgoing message
-   * @param <M> the type of message in the output {@link MessageStream}
-   * @return the output {@link MessageStream}
-   */
   public <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId,
       Function<M, K> keyExtractor, Function<M, V> msgExtractor) {
     return outStreams.computeIfAbsent(runner.getStreamSpec(streamId),
         streamSpec -> new OutputStreamInternalImpl<>(this, streamSpec, keyExtractor, msgExtractor));
+  }
+
+  @Override
+  public StreamGraph withContextManager(ContextManager contextManager) {
+    this.contextManager = contextManager;
+    return this;
   }
 
   /**

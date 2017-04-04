@@ -176,7 +176,7 @@ public class OperatorImplGraph {
       StreamOperatorSpec<M, ?> streamOpSpec = (StreamOperatorSpec<M, ?>) operatorSpec;
       return new StreamOperatorImpl<>(streamOpSpec, source, config, context);
     } else if (operatorSpec instanceof SinkOperatorSpec) {
-      return new OutputOperatorImpl<>((SinkOperatorSpec<M>) operatorSpec, config, context);
+      return new SinkOperatorImpl<>((SinkOperatorSpec<M>) operatorSpec, config, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
       return new WindowOperatorImpl((WindowOperatorSpec<M, ?, ?>) operatorSpec, clock);
     } else if (operatorSpec instanceof PartialJoinOperatorSpec) {
