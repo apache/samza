@@ -52,7 +52,7 @@ public class ZkCoordinationUtils implements CoordinationUtils {
 
   @Override
   public Latch getLatch(int size, String latchId) {
-    return new ZkProcessorLatch(size, latchId, processorIdStr, zkConfig, zkUtils);
+    return new ZkProcessorLatch(size, latchId, processorIdStr, zkUtils);
   }
 
   @Override

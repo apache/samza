@@ -102,7 +102,7 @@ public class TestZkProcessorLatch {
           ZkUtils zkUtils = getZkUtilsWithNewClient(participant1);
           zkUtils.connect();
           ZkProcessorLatch latch = new ZkProcessorLatch(
-              latchSize, latchId, participant1, new ZkConfig(getConfig()), zkUtils);
+              latchSize, latchId, participant1, zkUtils);
           latch.countDown();
           try {
             latch.await(30, TimeUnit.SECONDS);
@@ -132,42 +132,62 @@ public class TestZkProcessorLatch {
     }
   }
 
-//  @Test
+  @Test
   public void testLatchSizeOneWithTwoParticipants() {
-    int latchSize = 1;
-    String latchId = "testLatchSizeOneWithTwoParticipants";
+    final int latchSize = 1;
+    final String latchId = "testLatchSizeOneWithTwoParticipants";
+    final String participant1 = "participant1";
+    final String participant2 = "participant2";
+
     ExecutorService pool = Executors.newFixedThreadPool(3);
     Future f1 = pool.submit(
         () -> {
-          CoordinationUtils coordinationUtils = factory.getCoordinationService("groupId", "participant1", getConfig());
-          Latch latch = coordinationUtils.getLatch(latchSize, latchId);
+          ZkUtils zkUtils = getZkUtilsWithNewClient(participant1);
+          zkUtils.connect();
+          Latch latch = new ZkProcessorLatch(latchSize, latchId, participant1, zkUtils);
           //latch.countDown(); only one thread counts down
           try {
-            latch.await(100000, TimeUnit.MILLISECONDS);
+            latch.await(30, TimeUnit.SECONDS);
           } catch (TimeoutException e) {
-            Assert.fail("await timed out. " + e.getLocalizedMessage());
+            Assert.fail(String.format("await timed out from  %s - %s", participant1, e.getLocalizedMessage()));
+          } finally {
+            zkUtils.close();
           }
         });
 
     Future f2 = pool.submit(
       () -> {
-        CoordinationUtils coordinationUtils = factory.getCoordinationService("groupId", "participant2", getConfig());
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
+        ZkUtils zkUtils = getZkUtilsWithNewClient(participant2);
+        zkUtils.connect();
+        Latch latch = new ZkProcessorLatch(latchSize, latchId, participant2, zkUtils);
         latch.countDown();
         try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
+          latch.await(30, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
+          Assert.fail(String.format("await timed out from  %s - %s", participant2, e.getLocalizedMessage()));
+        } finally {
+          zkUtils.close();
         }
       });
 
     try {
-      f1.get(30000, TimeUnit.MILLISECONDS);
-      f2.get(30000, TimeUnit.MILLISECONDS);
+      f1.get(30, TimeUnit.SECONDS);
+      f2.get(30, TimeUnit.SECONDS);
     } catch (Exception e) {
       Assert.fail("failed to get future." + e.getLocalizedMessage());
+    } finally {
+      pool.shutdownNow();
     }
-    pool.shutdownNow();
+    try {
+      List<String> latchParticipants =
+          testZkUtils.getZkClient().getChildren(
+              String.format("%s/%s_%s", KEY_BUILDER.getRootPath(), ZkProcessorLatch.LATCH_PATH, latchId));
+      Assert.assertNotNull(latchParticipants);
+      Assert.assertEquals(1, latchParticipants.size());
+      Assert.assertEquals("0000000000", latchParticipants.get(0));
+    } catch (Exception e) {
+      Assert.fail("Failed to read the latch status from ZK directly" + e.getLocalizedMessage());
+    }
   }
 
 //  @Test

@@ -30,7 +30,6 @@ import org.apache.samza.coordinator.Latch;
  */
 public class ZkProcessorLatch implements Latch {
 
-  private final ZkConfig zkConfig;
   private final ZkUtils zkUtils;
   private final String processorIdStr;
   private final ZkKeyBuilder keyBuilder;
@@ -42,8 +41,7 @@ public class ZkProcessorLatch implements Latch {
   public final static String LATCH_PATH = "latch";
   private final int size; // latch size
 
-  public ZkProcessorLatch(int size, String latchId, String participantId, ZkConfig zkConfig, ZkUtils zkUtils) {
-    this.zkConfig = zkConfig;
+  public ZkProcessorLatch(int size, String latchId, String participantId, ZkUtils zkUtils) {
     this.zkUtils = zkUtils;
     this.processorIdStr = participantId;
     this.latchId = latchId;
