@@ -64,46 +64,37 @@ public class PlanJsonGenerator {
     }
   }
 
-  public static final class OpNode extends GraphNode {
-    private String jobName;
-    private String jobId;
-    private String opName;
-    private Set<Integer> opIds = new HashSet<>();
+  static final class OpNode extends GraphNode {
+    private String opCode;
+    private int opId;
+    private int pairNodeId = -1;  //for join operator, we will have a pair nodes for two partial joins
 
-    public String getJobName() {
-      return jobName;
+    public int getPairNodeId() {
+      return pairNodeId;
     }
 
-    public void setJobName(String jobName) {
-      this.jobName = jobName;
+    public void setPairNodeId(int pairNodeId) {
+      this.pairNodeId = pairNodeId;
     }
 
-    public String getJobId() {
-      return jobId;
+    public String getOpCode() {
+      return opCode;
     }
 
-    public void setJobId(String jobId) {
-      this.jobId = jobId;
+    public void setOpCode(String opCode) {
+      this.opCode = opCode;
     }
 
-    public String getOpName() {
-      return opName;
+    public int getOpId() {
+      return opId;
     }
 
-    public void setOpName(String opName) {
-      this.opName = opName;
-    }
-
-    public Set<Integer> getOpIds() {
-      return opIds;
-    }
-
-    public void setOpIds(Set<Integer> opIds) {
-      this.opIds = opIds;
+    public void setOpId(int opId) {
+      this.opId = opId;
     }
   }
 
-  public static final class StreamNode extends GraphNode {
+  static final class StreamNode extends GraphNode {
     private String streamId;
     private String system;
     private String physicalName;
@@ -142,30 +133,58 @@ public class PlanJsonGenerator {
     }
   }
 
-  public static final class GraphNodes {
+  static final class Job {
+    private String jobName;
+    private String jobId;
     private List<OpNode> opNodes;
-    private List<StreamNode> streamNodes;
+
+    public String getJobName() {
+      return jobName;
+    }
+
+    public void setJobName(String jobName) {
+      this.jobName = jobName;
+    }
+
+    public String getJobId() {
+      return jobId;
+    }
+
+    public void setJobId(String jobId) {
+      this.jobId = jobId;
+    }
 
     public List<OpNode> getOpNodes() {
       return opNodes;
     }
 
-    public List<StreamNode> getStreamNodes() {
-      return streamNodes;
-    }
-
     public void setOpNodes(List<OpNode> opNodes) {
       this.opNodes = opNodes;
     }
+  }
 
-    public void setStreamNodes(List<StreamNode> streamNodes) {
-      this.streamNodes = streamNodes;
+  static final class GraphNodes {
+    private List<Job> jobs;
+    private List<StreamNode> streams;
+
+    public List<Job> getJobs() {
+      return jobs;
+    }
+
+    public void setJobs(List<Job> jobs) {
+      this.jobs = jobs;
+    }
+
+    public List<StreamNode> getStreams() {
+      return streams;
+    }
+
+    public void setStreams(List<StreamNode> streams) {
+      this.streams = streams;
     }
   }
 
   private int nextID = 0;
-  // operatorId to JobNode mapping
-  private final Map<Integer, OpNode> opNodes = new HashMap<>();
   // streamId to StreamNode mapping
   private final Map<String, StreamNode> streamNodes = new HashMap<>();
   // Mapping from the output stream to the join spec. Since StreamGraph creates two partial join operators for a join and they
@@ -175,35 +194,40 @@ public class PlanJsonGenerator {
 
   /* package private */ String toJson(JobGraph jobGraph) throws Exception {
     StreamGraphImpl streamGraph = (StreamGraphImpl) jobGraph.getStreamGraph();
-    Map<OutputStream, StreamEdge> outputToStreamSpecs = streamGraph.getOutStreams().entrySet().stream().collect(
-        Collectors.toMap(Map.Entry::getValue, e -> jobGraph.getOrCreateEdge(e.getKey())));
-    JobNode jobNode = jobGraph.getJobNodes().get(0);
-
-    streamGraph.getInStreams().forEach((streamSpec, stream) -> {
-        StreamEdge streamEdge = jobGraph.getOrCreateEdge(streamSpec);
-        GraphNode node = getOrCreateStreamNode(streamEdge);
-        buildJsonGraph(stream, node, jobNode, outputToStreamSpecs);
-      });
-
     GraphNodes nodes = new GraphNodes();
-    nodes.setOpNodes(createListAndSort(opNodes.values()));
-    nodes.setStreamNodes(createListAndSort(streamNodes.values()));
+    List<Job> jobs = jobGraph.getJobNodes().stream()
+        .map(jobNode -> buildJob(jobNode, streamGraph, jobGraph))
+        .collect(Collectors.toList());
+    nodes.setJobs(jobs);
+    nodes.setStreams(createListAndSort(streamNodes.values()));
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ObjectMapper mapper = new ObjectMapper();
     mapper.writeValue(out, nodes);
     return new String(out.toByteArray());
   }
 
-  private <T extends GraphNode> List<T> createListAndSort(Collection<T> nodes) {
-    List<T> list = new ArrayList<>(nodes);
-    Collections.sort(list, (o1, o2) -> o1.getNodeId().compareTo(o2.getNodeId()));
-    return list;
+  private Job buildJob(JobNode jobNode, StreamGraphImpl streamGraph, JobGraph jobGraph) {
+    Map<OutputStream, StreamEdge> outputToStreamSpecs = streamGraph.getOutStreams().entrySet().stream().collect(
+        Collectors.toMap(Map.Entry::getValue, e -> jobGraph.getOrCreateEdge(e.getKey())));
+    Map<Integer, OpNode> opNodes = new HashMap<>();
+
+    streamGraph.getInStreams().forEach((streamSpec, stream) -> {
+        StreamEdge streamEdge = jobGraph.getOrCreateEdge(streamSpec);
+        GraphNode node = getOrCreateStreamNode(streamEdge);
+        buildJsonGraph(stream, node, opNodes, outputToStreamSpecs);
+      });
+
+    Job job = new Job();
+    job.setJobName(jobNode.getJobName());
+    job.setJobId(jobNode.getJobId());
+    job.setOpNodes(createListAndSort(opNodes.values()));
+    return job;
   }
 
-  private void buildJsonGraph(MessageStream inputStream, GraphNode node, JobNode jobNode, Map<OutputStream, StreamEdge> outputToStreamSpecs) {
+  private void buildJsonGraph(MessageStream inputStream, GraphNode node, Map<Integer, OpNode> opNodes, Map<OutputStream, StreamEdge> outputToStreamSpecs) {
     Collection<OperatorSpec> specs = ((MessageStreamImpl) inputStream).getRegisteredOperatorSpecs();
     for (OperatorSpec spec : specs) {
-      GraphNode next = getOrCreateOpNode(spec, jobNode);
+      GraphNode next = getOrCreateOpNode(opNodes, spec);
       node.getSuccessors().add(next.getNodeId());
 
       if (spec instanceof SinkOperatorSpec) {
@@ -214,13 +238,21 @@ public class PlanJsonGenerator {
       }
 
       if (spec.getNextStream() != null) {
-        buildJsonGraph(spec.getNextStream(), next, jobNode, outputToStreamSpecs);
+        buildJsonGraph(spec.getNextStream(), next, opNodes, outputToStreamSpecs);
       }
     }
   }
 
-  private OpNode getOrCreateOpNode(OperatorSpec opSpec, JobNode jobNode) {
+  private OpNode getOrCreateOpNode(Map<Integer, OpNode> opNodes, OperatorSpec opSpec) {
     OpNode node = opNodes.get(opSpec.getOpId());
+    if (node == null) {
+      node = new OpNode();
+      node.setNodeId(nextID++);
+      node.setOpCode(opSpec.getOpCode().name());
+      node.setOpId(opSpec.getOpId());
+      opNodes.put(opSpec.getOpId(), node);
+    }
+
     if (opSpec instanceof PartialJoinOperatorSpec) {
       // every join will have two partial join operators
       // we will choose one of them in order to consolidate the inputs
@@ -231,19 +263,10 @@ public class PlanJsonGenerator {
         joinSpec = opSpec;
         outputStreamToJoinSpec.put(output, joinSpec);
       } else {
-        node = opNodes.get(joinSpec.getOpId());
-        node.getOpIds().add(opSpec.getOpId());
+        OpNode joinNode = opNodes.get(joinSpec.getOpId());
+        joinNode.setPairNodeId(node.getNodeId());
+        node.setPairNodeId(joinNode.getNodeId());
       }
-    }
-
-    if (node == null) {
-      node = new OpNode();
-      node.setNodeId(nextID++);
-      node.setJobName(jobNode.getJobName());
-      node.setJobId(jobNode.getJobId());
-      node.setOpName(opSpec.getOpCode().name());
-      node.getOpIds().add(opSpec.getOpId());
-      opNodes.put(opSpec.getOpId(), node);
     }
 
     return node;
@@ -262,5 +285,11 @@ public class PlanJsonGenerator {
       streamNodes.put(streamId, node);
     }
     return node;
+  }
+
+  private static <T extends GraphNode> List<T> createListAndSort(Collection<T> nodes) {
+    List<T> list = new ArrayList<>(nodes);
+    Collections.sort(list, (o1, o2) -> o1.getNodeId().compareTo(o2.getNodeId()));
+    return list;
   }
 }

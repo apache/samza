@@ -98,7 +98,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       for (JobConfig jobConfig : plan.getJobConfigs()) {
         JobRunner runner = new JobRunner(jobConfig);
         ApplicationStatus status = runner.status();
-        log.debug("Status is {} for jopb {}", new Object[]{status, jobConfig.getName()});
+        log.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
 
         switch (status) {
           case Running:

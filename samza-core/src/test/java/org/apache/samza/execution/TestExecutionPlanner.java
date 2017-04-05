@@ -37,9 +37,9 @@ import org.apache.samza.system.SystemAdmin;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.apache.samza.execution.TestUtil.createJoin;
-import static org.apache.samza.execution.TestUtil.createRunner;
-import static org.apache.samza.execution.TestUtil.createSystemAdmin;
+import static org.apache.samza.execution.TestExecutionUtils.createJoin;
+import static org.apache.samza.execution.TestExecutionUtils.createRunner;
+import static org.apache.samza.execution.TestExecutionUtils.createSystemAdmin;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 

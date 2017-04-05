@@ -20,6 +20,7 @@
 package org.apache.samza.execution;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.system.StreamSpec;
@@ -31,15 +32,12 @@ import org.apache.samza.system.StreamSpec;
  */
 public class StreamPlan {
   private final StreamGraph streamGraph;
-  private final List<JobConfig> jobConfigs;
-  private final List<StreamSpec> intermediateStreams;
-  private final String planJson;
+  private final JobGraph jobGraph;
+  private final PlanJsonGenerator jsonGenerator = new PlanJsonGenerator();
 
-  public StreamPlan(StreamGraph streamGraph, List<JobConfig> jobConfigs, List<StreamSpec> intermediateStreams, String planJson) {
+  public StreamPlan(StreamGraph streamGraph, JobGraph jobGraph) {
     this.streamGraph = streamGraph;
-    this.jobConfigs = jobConfigs;
-    this.intermediateStreams = intermediateStreams;
-    this.planJson = planJson;
+    this.jobGraph = jobGraph;
   }
 
   /**
@@ -55,7 +53,7 @@ public class StreamPlan {
    * @return list of job configs
    */
   public List<JobConfig> getJobConfigs() {
-    return jobConfigs;
+    return jobGraph.getJobNodes().stream().map(JobNode::generateConfig).collect(Collectors.toList());
   }
 
   /**
@@ -63,14 +61,17 @@ public class StreamPlan {
    * @return intermediate {@link StreamSpec}s
    */
   public List<StreamSpec> getIntermediateStreams() {
-    return intermediateStreams;
+    return jobGraph.getIntermediateStreams().stream()
+        .map(streamEdge -> streamEdge.getStreamSpec())
+        .collect(Collectors.toList());
   }
 
   /**
    * Returns the JSON representation of the plan for visualization
    * @return json string
+   * @throws Exception
    */
-  public String getPlanAsJson() {
-    return planJson;
+  public String getPlanAsJson() throws Exception {
+    return jsonGenerator.toJson(jobGraph);
   }
 }

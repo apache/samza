@@ -33,7 +33,7 @@ import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 
-public class TestUtil {
+public class TestExecutionUtils {
 
   static ApplicationRunner createRunner(Config config) {
     return new AbstractApplicationRunner(config) {

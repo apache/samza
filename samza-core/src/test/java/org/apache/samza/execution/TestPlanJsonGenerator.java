@@ -34,9 +34,9 @@ import org.apache.samza.system.SystemAdmin;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Test;
 
-import static org.apache.samza.execution.TestUtil.createJoin;
-import static org.apache.samza.execution.TestUtil.createRunner;
-import static org.apache.samza.execution.TestUtil.createSystemAdmin;
+import static org.apache.samza.execution.TestExecutionUtils.createJoin;
+import static org.apache.samza.execution.TestExecutionUtils.createRunner;
+import static org.apache.samza.execution.TestExecutionUtils.createSystemAdmin;
 import static org.junit.Assert.assertTrue;
 
 
@@ -94,11 +94,12 @@ public class TestPlanJsonGenerator {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     StreamPlan plan = planner.plan(streamGraph);
     String json = plan.getPlanAsJson();
+    System.out.println(json);
 
     // deserialize
     ObjectMapper mapper = new ObjectMapper();
     PlanJsonGenerator.GraphNodes nodes = mapper.readValue(json, PlanJsonGenerator.GraphNodes.class);
-    assertTrue(nodes.getOpNodes().size() == 10);
-    assertTrue(nodes.getStreamNodes().size() == 7);
+    assertTrue(nodes.getJobs().get(0).getOpNodes().size() == 12);
+    assertTrue(nodes.getStreams().size() == 7);
   }
 }

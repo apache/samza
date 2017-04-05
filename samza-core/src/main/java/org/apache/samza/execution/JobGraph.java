@@ -60,7 +60,7 @@ import org.slf4j.LoggerFactory;
    * The JobGraph is only constructed by the {@link ExecutionPlanner}.
    * @param config Config
    */
-  /* package private */ JobGraph(StreamGraph streamGraph, Config config) {
+  JobGraph(StreamGraph streamGraph, Config config) {
     this.streamGraph = streamGraph;
     this.config = config;
   }
@@ -70,7 +70,7 @@ import org.slf4j.LoggerFactory;
    * @param input source stream
    * @param node the job node that consumes from the source
    */
-  /* package private */ void addSource(StreamSpec input, JobNode node) {
+  void addSource(StreamSpec input, JobNode node) {
     StreamEdge edge = getOrCreateEdge(input);
     edge.addTargetNode(node);
     node.addInEdge(edge);
@@ -82,7 +82,7 @@ import org.slf4j.LoggerFactory;
    * @param output sink stream
    * @param node the job node that outputs to the sink
    */
-  /* package private */ void addSink(StreamSpec output, JobNode node) {
+  void addSink(StreamSpec output, JobNode node) {
     StreamEdge edge = getOrCreateEdge(output);
     edge.addSourceNode(node);
     node.addOutEdge(edge);
@@ -95,7 +95,7 @@ import org.slf4j.LoggerFactory;
    * @param from the source node
    * @param to the target node
    */
-  /* package private */ void addIntermediateStream(StreamSpec streamSpec, JobNode from, JobNode to) {
+  void addIntermediateStream(StreamSpec streamSpec, JobNode from, JobNode to) {
     StreamEdge edge = getOrCreateEdge(streamSpec);
     edge.addSourceNode(from);
     edge.addTargetNode(to);
@@ -110,7 +110,7 @@ import org.slf4j.LoggerFactory;
    * @param jobId id of the job
    * @return
    */
-  /* package private */ JobNode getOrCreateNode(String jobName, String jobId) {
+  JobNode getOrCreateNode(String jobName, String jobId) {
     String nodeId = JobNode.createId(jobName, jobId);
     JobNode node = nodes.get(nodeId);
     if (node == null) {
@@ -125,7 +125,7 @@ import org.slf4j.LoggerFactory;
    * @param streamSpec spec of the StreamEdge
    * @return stream edge
    */
-  /* package private */ StreamEdge getOrCreateEdge(StreamSpec streamSpec) {
+  StreamEdge getOrCreateEdge(StreamSpec streamSpec) {
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
@@ -139,7 +139,7 @@ import org.slf4j.LoggerFactory;
    * Returns the job nodes to be executed in the topological order
    * @return unmodifiable list of {@link JobNode}
    */
-  /* package private */ List<JobNode> getJobNodes() {
+  List<JobNode> getJobNodes() {
     List<JobNode> sortedNodes = topologicalSort();
     return Collections.unmodifiableList(sortedNodes);
   }
@@ -148,7 +148,7 @@ import org.slf4j.LoggerFactory;
    * Returns the source streams in the graph
    * @return unmodifiable set of {@link StreamEdge}
    */
-  /* package private */ Set<StreamEdge> getSources() {
+  Set<StreamEdge> getSources() {
     return Collections.unmodifiableSet(sources);
   }
 
@@ -156,7 +156,7 @@ import org.slf4j.LoggerFactory;
    * Return the sink streams in the graph
    * @return unmodifiable set of {@link StreamEdge}
    */
-  /* package private */ Set<StreamEdge> getSinks() {
+  Set<StreamEdge> getSinks() {
     return Collections.unmodifiableSet(sinks);
   }
 
@@ -164,7 +164,7 @@ import org.slf4j.LoggerFactory;
    * Return the intermediate streams in the graph
    * @return unmodifiable set of {@link StreamEdge}
    */
-  /* package private */ Set<StreamEdge> getIntermediateStreams() {
+  Set<StreamEdge> getIntermediateStreams() {
     return Collections.unmodifiableSet(intermediateStreams);
   }
 
@@ -172,7 +172,7 @@ import org.slf4j.LoggerFactory;
    * Return the {@link StreamGraph}
    * @return {@link StreamGraph}
    */
-  /* package private */ StreamGraph getStreamGraph() {
+  StreamGraph getStreamGraph() {
     return this.streamGraph;
   }
 
@@ -255,7 +255,7 @@ import org.slf4j.LoggerFactory;
    * Find the reachable set of nodes using BFS.
    * @return reachable set of {@link JobNode}
    */
-  /* package private */ Set<JobNode> findReachable() {
+  Set<JobNode> findReachable() {
     Queue<JobNode> queue = new ArrayDeque<>();
     Set<JobNode> visited = new HashSet<>();
 
@@ -283,7 +283,7 @@ import org.slf4j.LoggerFactory;
    * This algorithm also takes account of the simple loops in the graph
    * @return topologically sorted {@link JobNode}s
    */
-  /* package private */ List<JobNode> topologicalSort() {
+  List<JobNode> topologicalSort() {
     Collection<JobNode> pnodes = nodes.values();
     if (pnodes.size() == 1) {
       return new ArrayList<>(pnodes);
