@@ -44,7 +44,7 @@ class YarnJobFactory extends StreamJobFactory with Logging {
     val fsImplConfig = new FileSystemImplConfig(config)
     fsImplConfig.getSchemes.asScala.foreach(
       scheme => {
-        fsImplConfig.getSchemeConfig(scheme).foreach {
+        fsImplConfig.getSchemeConfig(scheme).asScala.foreach {
           case(confKey, confValue) => hConfig.set(confKey, confValue)
         }
       }
