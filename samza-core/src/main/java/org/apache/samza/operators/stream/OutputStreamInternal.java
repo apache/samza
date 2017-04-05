@@ -20,7 +20,6 @@
 package org.apache.samza.operators.stream;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.system.StreamSpec;
 
@@ -33,7 +32,7 @@ import java.util.function.Function;
  * @param <M> the type of messages in the output stream
  */
 @InterfaceStability.Unstable
-public interface OutputStreamInternal<K, V, M> extends MessageStream<M>, OutputStream<K, V, M> {
+public interface OutputStreamInternal<K, V, M> extends OutputStream<K, V, M> {
 
   StreamSpec getStreamSpec();
 

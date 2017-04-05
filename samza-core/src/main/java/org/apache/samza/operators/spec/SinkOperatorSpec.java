@@ -38,6 +38,7 @@ import org.apache.samza.task.TaskCoordinator;
 public class SinkOperatorSpec<M> implements OperatorSpec {
 
   private final SinkFunction<M> sinkFn;
+  private OutputStreamInternal<?, ?, M> outputStream; // may be null
   private final OperatorSpec.OpCode opCode;
   private final int opId;
 
@@ -66,6 +67,7 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
    */
   SinkOperatorSpec(OutputStreamInternal<?, ?, M> outputStream, OperatorSpec.OpCode opCode, int opId) {
     this(createSinkFn(outputStream), opCode, opId);
+    this.outputStream = outputStream;
   }
 
   /**
@@ -75,6 +77,14 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
   @Override
   public MessageStreamImpl<M> getNextStream() {
     return null;
+  }
+
+  /**
+   * The {@link OutputStreamInternal} that this operator is sending its output to.
+   * @return the {@link OutputStreamInternal} for this operator if any, else null.
+   */
+  public OutputStreamInternal<?, ?, M> getOutputStream() {
+    return this.outputStream;
   }
 
   public SinkFunction<M> getSinkFn() {

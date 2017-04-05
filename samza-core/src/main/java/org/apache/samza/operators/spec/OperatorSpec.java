@@ -46,20 +46,20 @@ public interface OperatorSpec<OM> {
   }
 
   /**
-   * Get the output {@link MessageStreamImpl} containing transformed messages produced by this operator.
-   * @return  the output {@link MessageStreamImpl} containing transformed messages produced by this operator.
+   * Get the next {@link MessageStreamImpl} that receives the transformed messages produced by this operator.
+   * @return  the next {@link MessageStreamImpl}
    */
   MessageStreamImpl<OM> getNextStream();
 
   /**
    * Get the {@link OpCode} for this operator.
-   * @return the {@link OpCode} for this operator
+   * @return  the {@link OpCode} for this operator
    */
   OpCode getOpCode();
 
   /**
    * Get the unique ID of this operator in the {@link org.apache.samza.operators.StreamGraph}.
-   * @return the unique operator ID
+   * @return  the unique operator ID
    */
   int getOpId();
 
