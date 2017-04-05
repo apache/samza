@@ -43,12 +43,12 @@ public class TestZkProcessorLatch {
   private static final int SESSION_TIMEOUT_MS = 20000;
   private static final int CONNECTION_TIMEOUT_MS = 10000;
 
-
   @BeforeClass
   public static void setup() throws InterruptedException {
     zkServer = new EmbeddedZookeeper();
     zkServer.setup();
   }
+
   @Before
   public void testSetup() {
     testZkConnectionString = "127.0.0.1:" + zkServer.getPort();
