@@ -36,7 +36,7 @@ import java.util.function.Supplier;
 
 
 /**
- * Example implementation of a simple user-defined tasks w/ window operators
+ * Example implementation of a simple user-defined task w/ a window operator.
  *
  */
 public class WindowExample implements StreamApplication {

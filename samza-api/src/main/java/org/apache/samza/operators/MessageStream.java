@@ -75,7 +75,7 @@ public interface MessageStream<M> {
   MessageStream<M> filter(FilterFunction<M> filterFn);
 
   /**
-   * Allows sending messages in this {@link MessageStream} to an output using the provided {@link SinkFunction}.
+   * Allows sending messages in this {@link MessageStream} to an output system using the provided {@link SinkFunction}.
    *
    * NOTE: If the output is for a {@link org.apache.samza.system.SystemStream}, use
    * {@link #sendTo(OutputStream)} instead. This transform should only be used to output to

@@ -21,6 +21,7 @@ package org.apache.samza.example;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
@@ -40,12 +41,14 @@ public class RepartitionExample implements StreamApplication {
     Supplier<Integer> initialValue = () -> 0;
     MessageStream<PageViewEvent> pageViewEvents =
         graph.getInputStream("pageViewEventStream", (k, m) -> (PageViewEvent) m);
+    OutputStream<String, MyStreamOutput, MyStreamOutput> pageViewEventPerMemberStream = graph
+        .getOutputStream("pageViewEventPerMemberStream", m -> m.memberId, m -> m);
 
     pageViewEvents
         .partitionBy(m -> m.memberId)
         .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofMinutes(5), initialValue, (m, c) -> c + 1))
         .map(MyStreamOutput::new)
-        .sendTo(graph.getOutputStream("steramId", m -> m.memberId, m -> m.memberId));
+        .sendTo(pageViewEventPerMemberStream);
   }
 
   // local execution mode

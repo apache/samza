@@ -212,7 +212,7 @@ public class TestMessageStreamImpl {
     assertEquals(outputs.iterator().next(), mockMsg);
   }
 
-//  @Test
+  @Test
   public void testPartitionBy() {
     Map<String, String> map = new HashMap<>();
     map.put(JobConfig.JOB_DEFAULT_SYSTEM(), "testsystem");
@@ -232,11 +232,6 @@ public class TestMessageStreamImpl {
     assertNull(partitionByOp.getNextStream());
 
     ((SinkOperatorSpec) partitionByOp).getSinkFn().apply(new TestMessageEnvelope("111", "test", 1000),
-        new MessageCollector() {
-          @Override
-          public void send(OutgoingMessageEnvelope envelope) {
-            assertTrue(envelope.getPartitionKey().equals("222"));
-          }
-        }, null);
+        envelope -> assertTrue(envelope.getPartitionKey().equals("222")), null);
   }
 }

@@ -35,7 +35,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * The {@link StreamGraph} implementation that provides APIs for accessing {@link MessageStream}s to be used to
+ * A {@link StreamGraph} that provides APIs for accessing {@link MessageStream}s to be used to
  * create the DAG of transforms.
  */
 public class StreamGraphImpl implements StreamGraph {
@@ -121,7 +121,7 @@ public class StreamGraphImpl implements StreamGraph {
     return this.contextManager;
   }
 
-  int getNextOpId() {
+  /* package private */ int getNextOpId() {
     return this.opId++;
   }
 }

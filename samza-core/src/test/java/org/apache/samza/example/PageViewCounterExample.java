@@ -23,6 +23,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
@@ -46,8 +47,9 @@ public class PageViewCounterExample implements StreamApplication {
         .getOutputStream("pageViewEventPerMemberStream", m -> m.memberId, m -> m);
 
     Supplier<Integer> initialValue = () -> 0;
+    FoldLeftFunction<PageViewEvent, Integer> foldLeftFn = (m, c) -> c + 1;
     pageViewEvents
-        .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), initialValue, (m, c) -> c + 1)
+        .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), initialValue, foldLeftFn)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING))
         .map(PageViewCount::new)
