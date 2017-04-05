@@ -29,6 +29,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,15 +47,21 @@ public class JobNode {
   private final String jobName;
   private final String jobId;
   private final String id;
+  private final StreamGraph streamGraph;
   private final List<StreamEdge> inEdges = new ArrayList<>();
   private final List<StreamEdge> outEdges = new ArrayList<>();
   private final Config config;
 
-  JobNode(String jobName, String jobId, Config config) {
+  JobNode(String jobName, String jobId, StreamGraph streamGraph, Config config) {
     this.jobName = jobName;
     this.jobId = jobId;
     this.id = createId(jobName, jobId);
+    this.streamGraph = streamGraph;
     this.config = config;
+  }
+
+  public StreamGraph getStreamGraph() {
+    return streamGraph;
   }
 
   public  String getId() {

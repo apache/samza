@@ -31,6 +31,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.system.StreamSpec;
 import org.slf4j.Logger;
@@ -45,7 +46,7 @@ import org.slf4j.LoggerFactory;
  * Note that intermediate streams are both the input and output of a JobNode in JobGraph.
  * So the graph may have cycles and it's not a DAG.
  */
-/* package private */ class JobGraph {
+/* package private */ class JobGraph implements ExecutionPlan {
   private static final Logger log = LoggerFactory.getLogger(JobGraph.class);
 
   private final Map<String, JobNode> nodes = new HashMap<>();
@@ -54,15 +55,41 @@ import org.slf4j.LoggerFactory;
   private final Set<StreamEdge> sinks = new HashSet<>();
   private final Set<StreamEdge> intermediateStreams = new HashSet<>();
   private final Config config;
-  private final StreamGraph streamGraph;
+  private final JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
 
   /**
    * The JobGraph is only constructed by the {@link ExecutionPlanner}.
    * @param config Config
    */
-  JobGraph(StreamGraph streamGraph, Config config) {
-    this.streamGraph = streamGraph;
+  JobGraph(Config config) {
     this.config = config;
+  }
+
+  /**
+   * Returns the configs for single stage job, in the order of topologically sort.
+   * @return list of job configs
+   */
+  public List<JobConfig> getJobConfigs() {
+    return getJobNodes().stream().map(JobNode::generateConfig).collect(Collectors.toList());
+  }
+
+  /**
+   * Returns the intermediate streams that need to be created.
+   * @return intermediate {@link StreamSpec}s
+   */
+  public List<StreamSpec> getIntermediateStreams() {
+    return getIntermediateStreamEdges().stream()
+        .map(streamEdge -> streamEdge.getStreamSpec())
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Returns the JSON representation of the plan for visualization
+   * @return json string
+   * @throws Exception
+   */
+  public String getPlanAsJson() throws Exception {
+    return jsonGenerator.toJson(this);
   }
 
   /**
@@ -110,11 +137,11 @@ import org.slf4j.LoggerFactory;
    * @param jobId id of the job
    * @return
    */
-  JobNode getOrCreateNode(String jobName, String jobId) {
+  JobNode getOrCreateNode(String jobName, String jobId, StreamGraph streamGraph) {
     String nodeId = JobNode.createId(jobName, jobId);
     JobNode node = nodes.get(nodeId);
     if (node == null) {
-      node = new JobNode(jobName, jobId, config);
+      node = new JobNode(jobName, jobId, streamGraph, config);
       nodes.put(nodeId, node);
     }
     return node;
@@ -164,18 +191,9 @@ import org.slf4j.LoggerFactory;
    * Return the intermediate streams in the graph
    * @return unmodifiable set of {@link StreamEdge}
    */
-  Set<StreamEdge> getIntermediateStreams() {
+  Set<StreamEdge> getIntermediateStreamEdges() {
     return Collections.unmodifiableSet(intermediateStreams);
   }
-
-  /**
-   * Return the {@link StreamGraph}
-   * @return {@link StreamGraph}
-   */
-  StreamGraph getStreamGraph() {
-    return this.streamGraph;
-  }
-
 
   /**
    * Validate the graph has the correct topology, meaning the sources are coming from external streams,

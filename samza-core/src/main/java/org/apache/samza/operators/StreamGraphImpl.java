@@ -63,7 +63,7 @@ public class StreamGraphImpl implements StreamGraph {
       this.msgSerde = msgSerde;
     }
 
-    StreamSpec getSpec() {
+    public StreamSpec getSpec() {
       return this.spec;
     }
 
@@ -80,7 +80,7 @@ public class StreamGraphImpl implements StreamGraph {
       this.msgSerde = msgSerde;
     }
 
-    StreamSpec getSpec() {
+    public StreamSpec getSpec() {
       return this.spec;
     }
 

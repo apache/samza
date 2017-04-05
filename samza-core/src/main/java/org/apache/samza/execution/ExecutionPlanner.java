@@ -57,23 +57,23 @@ public class ExecutionPlanner {
     this.streamManager = streamManager;
   }
 
-  public StreamPlan plan(StreamGraph streamGraph) throws Exception {
+  public ExecutionPlan plan(StreamGraph streamGraph) throws Exception {
     // create physical job graph based on stream graph
     JobGraph jobGraph = createJobGraph(streamGraph);
 
-    if (!jobGraph.getIntermediateStreams().isEmpty()) {
+    if (!jobGraph.getIntermediateStreamEdges().isEmpty()) {
       // figure out the partitions for internal streams
       calculatePartitions(streamGraph, jobGraph);
     }
 
-    return new StreamPlan(streamGraph, jobGraph);
+    return jobGraph;
   }
 
   /**
    * Create the physical graph from StreamGraph
    */
   /* package private */ JobGraph createJobGraph(StreamGraph streamGraph) {
-    JobGraph jobGraph = new JobGraph(streamGraph, config);
+    JobGraph jobGraph = new JobGraph(config);
     Set<StreamSpec> sourceStreams = new HashSet<>(streamGraph.getInStreams().keySet());
     Set<StreamSpec> sinkStreams = new HashSet<>(streamGraph.getOutStreams().keySet());
     Set<StreamSpec> intStreams = new HashSet<>(sourceStreams);
@@ -84,7 +84,7 @@ public class ExecutionPlanner {
     // For this phase, we have a single job node for the whole dag
     String jobName = config.get(JobConfig.JOB_NAME());
     String jobId = config.get(JobConfig.JOB_ID(), "1");
-    JobNode node = jobGraph.getOrCreateNode(jobName, jobId);
+    JobNode node = jobGraph.getOrCreateNode(jobName, jobId, streamGraph);
 
     // add sources
     sourceStreams.forEach(spec -> jobGraph.addSource(spec, node));
@@ -259,7 +259,7 @@ public class ExecutionPlanner {
       int maxOutPartitions = maxPartition(jobGraph.getSinks());
       partitions = Math.max(maxInPartitions, maxOutPartitions);
     }
-    for (StreamEdge edge : jobGraph.getIntermediateStreams()) {
+    for (StreamEdge edge : jobGraph.getIntermediateStreamEdges()) {
       if (edge.getPartitionCount() <= 0) {
         edge.setPartitionCount(partitions);
       }
@@ -267,7 +267,7 @@ public class ExecutionPlanner {
   }
 
   private static void validatePartitions(JobGraph jobGraph) {
-    for (StreamEdge edge : jobGraph.getIntermediateStreams()) {
+    for (StreamEdge edge : jobGraph.getIntermediateStreamEdges()) {
       if (edge.getPartitionCount() <= 0) {
         throw new SamzaException(String.format("Failure to assign the partitions to Stream %s", edge.getFormattedSystemStream()));
       }

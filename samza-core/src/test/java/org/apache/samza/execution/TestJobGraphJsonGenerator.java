@@ -28,19 +28,20 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Test;
 
-import static org.apache.samza.execution.TestExecutionUtils.createJoin;
 import static org.apache.samza.execution.TestExecutionUtils.createRunner;
 import static org.apache.samza.execution.TestExecutionUtils.createSystemAdmin;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
 
 
-public class TestPlanJsonGenerator {
+public class TestJobGraphJsonGenerator {
 
   @Test
   public void test() throws Exception {
@@ -88,18 +89,18 @@ public class TestPlanJsonGenerator {
     MessageStream m2 = streamGraph.createInStream(input2, null, null).partitionBy(m -> "haha").filter(m -> true);
     MessageStream m3 = streamGraph.createInStream(input3, null, null).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
 
-    m1.join(m2, createJoin(), Duration.ofHours(1)).sendTo(streamGraph.createOutStream(output1, null, null));
-    m3.join(m2, createJoin(), Duration.ofHours(2)).sendTo(streamGraph.createOutStream(output2, null, null));
+    m1.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(streamGraph.createOutStream(output1, null, null));
+    m3.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).sendTo(streamGraph.createOutStream(output2, null, null));
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamPlan plan = planner.plan(streamGraph);
+    ExecutionPlan plan = planner.plan(streamGraph);
     String json = plan.getPlanAsJson();
     System.out.println(json);
 
     // deserialize
     ObjectMapper mapper = new ObjectMapper();
-    PlanJsonGenerator.GraphNodes nodes = mapper.readValue(json, PlanJsonGenerator.GraphNodes.class);
-    assertTrue(nodes.getJobs().get(0).getOpNodes().size() == 12);
-    assertTrue(nodes.getStreams().size() == 7);
+    JobGraphJsonGenerator.JobGraphJson nodes = mapper.readValue(json, JobGraphJsonGenerator.JobGraphJson.class);
+    assertTrue(nodes.jobs.get(0).operatorGraph.operators.size() == 12);
+    assertTrue(nodes.streams.size() == 7);
   }
 }

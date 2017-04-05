@@ -20,58 +20,32 @@
 package org.apache.samza.execution;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.system.StreamSpec;
 
 
 /**
- * This class represents Samza {@link org.apache.samza.application.StreamApplication}
+ * This interface represents Samza {@link org.apache.samza.application.StreamApplication}
  * plans for physical execution.
  */
-public class StreamPlan {
-  private final StreamGraph streamGraph;
-  private final JobGraph jobGraph;
-  private final PlanJsonGenerator jsonGenerator = new PlanJsonGenerator();
-
-  public StreamPlan(StreamGraph streamGraph, JobGraph jobGraph) {
-    this.streamGraph = streamGraph;
-    this.jobGraph = jobGraph;
-  }
-
-  /**
-   * Returns the final {@link StreamGraph} after optimization and plan.
-   * @return {@link StreamGraph}
-   */
-  public StreamGraph getStreamGraph() {
-    return streamGraph;
-  }
+public interface ExecutionPlan {
 
   /**
    * Returns the configs for single stage job, in the order of topologically sort.
    * @return list of job configs
    */
-  public List<JobConfig> getJobConfigs() {
-    return jobGraph.getJobNodes().stream().map(JobNode::generateConfig).collect(Collectors.toList());
-  }
+  List<JobConfig> getJobConfigs();
 
   /**
    * Returns the intermediate streams that need to be created.
    * @return intermediate {@link StreamSpec}s
    */
-  public List<StreamSpec> getIntermediateStreams() {
-    return jobGraph.getIntermediateStreams().stream()
-        .map(streamEdge -> streamEdge.getStreamSpec())
-        .collect(Collectors.toList());
-  }
+  List<StreamSpec> getIntermediateStreams();
 
   /**
    * Returns the JSON representation of the plan for visualization
    * @return json string
-   * @throws Exception
+   * @throws Exception exception
    */
-  public String getPlanAsJson() throws Exception {
-    return jsonGenerator.toJson(jobGraph);
-  }
+  String getPlanAsJson() throws Exception;
 }

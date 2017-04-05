@@ -20,6 +20,7 @@ package org.apache.samza.operators;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.system.StreamSpec;
 
 
 /**
@@ -38,4 +39,6 @@ public interface OutputStream<M> {
    * @return  The pre-defined {@link SinkFunction} to apply proper serdes before sending the message to the output stream.
    */
   SinkFunction<M> getSinkFunction();
+
+  StreamSpec getSpec();
 }

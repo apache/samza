@@ -26,7 +26,6 @@ import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.AbstractApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.SystemAdmin;
@@ -48,25 +47,6 @@ public class TestExecutionUtils {
 
       @Override
       public ApplicationStatus status(StreamApplication streamApp) {
-        return null;
-      }
-    };
-  }
-
-  static JoinFunction createJoin() {
-    return new JoinFunction() {
-      @Override
-      public Object apply(Object message, Object otherMessage) {
-        return null;
-      }
-
-      @Override
-      public Object getFirstKey(Object message) {
-        return null;
-      }
-
-      @Override
-      public Object getSecondKey(Object message) {
         return null;
       }
     };

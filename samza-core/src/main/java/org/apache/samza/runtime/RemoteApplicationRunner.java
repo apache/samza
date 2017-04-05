@@ -26,7 +26,7 @@ import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
-import org.apache.samza.execution.StreamPlan;
+import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
 import org.apache.samza.operators.StreamGraph;
@@ -57,7 +57,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   public void run(StreamApplication app) {
     try {
       // 1. initialize and plan
-      StreamPlan plan = getExecutionPlan(app);
+      ExecutionPlan plan = getExecutionPlan(app);
 
       // 2. create the necessary streams
       streamManager.createStreams(plan.getIntermediateStreams());
@@ -76,7 +76,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   @Override
   public void kill(StreamApplication app) {
     try {
-      StreamPlan plan = getExecutionPlan(app);
+      ExecutionPlan plan = getExecutionPlan(app);
 
       plan.getJobConfigs().forEach(jobConfig -> {
           log.info("Killing job {}", jobConfig.getName());
@@ -94,7 +94,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       boolean finished = false;
       boolean unsuccessfulFinish = false;
 
-      StreamPlan plan = getExecutionPlan(app);
+      ExecutionPlan plan = getExecutionPlan(app);
       for (JobConfig jobConfig : plan.getJobConfigs()) {
         JobRunner runner = new JobRunner(jobConfig);
         ApplicationStatus status = runner.status();
@@ -124,7 +124,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
-  private StreamPlan getExecutionPlan(StreamApplication app) throws Exception {
+  private ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
     // build stream graph
     StreamGraph streamGraph = new StreamGraphImpl(this, config);
     app.init(streamGraph, config);
