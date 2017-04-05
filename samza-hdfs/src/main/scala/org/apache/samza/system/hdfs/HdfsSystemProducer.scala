@@ -34,7 +34,7 @@ import scala.collection.mutable.{Map => MMap}
 class HdfsSystemProducer(
   systemName: String, clientId: String, config: HdfsConfig, metrics: HdfsSystemProducerMetrics,
   val clock: () => Long = () => System.currentTimeMillis) extends SystemProducer with Logging with TimerUtils {
-  val dfs = FileSystem.get(new Configuration(true))
+  val dfs = FileSystem.newInstance(new Configuration(true))
   val writers: MMap[String, HdfsWriter[_]] = MMap.empty[String, HdfsWriter[_]]
   private val lock = new Object //synchronization lock for thread safe access
 
