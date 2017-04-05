@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
@@ -23,32 +24,29 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.windows.WindowPane;
-import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.util.CommandLine;
 
-import java.time.Duration;
-import java.util.function.Supplier;
-
 
 /**
- * Example {@link StreamApplication} code to test the API methods with re-partition operator
+ * Example implementation of a task that splits its input into multiple output streams.
  */
-public class RepartitionExample implements StreamApplication {
+public class BroadcastExample implements StreamApplication {
 
-  @Override public void init(StreamGraph graph, Config config) {
-    Supplier<Integer> initialValue = () -> 0;
-    MessageStream<PageViewEvent> pageViewEvents =
-        graph.getInputStream("pageViewEventStream", (k, m) -> (PageViewEvent) m);
-    OutputStream<String, MyStreamOutput, MyStreamOutput> pageViewEventPerMemberStream = graph
-        .getOutputStream("pageViewEventPerMemberStream", m -> m.memberId, m -> m);
+  @Override
+  public void init(StreamGraph graph, Config config) {
+    MessageStream<PageViewEvent> inputStream =
+        graph.getInputStream("inputStream", (k, m) -> (PageViewEvent) m);
+    OutputStream<String, PageViewEvent, PageViewEvent> outputStream1 =
+        graph.getOutputStream("outputStream1", m -> m.key, m -> m);
+    OutputStream<String, PageViewEvent, PageViewEvent> outputStream2 =
+        graph.getOutputStream("outputStream2", m -> m.key, m -> m);
+    OutputStream<String, PageViewEvent, PageViewEvent> outputStream3 =
+        graph.getOutputStream("outputStream3", m -> m.key, m -> m);
 
-    pageViewEvents
-        .partitionBy(m -> m.memberId)
-        .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofMinutes(5), initialValue, (m, c) -> c + 1))
-        .map(MyStreamOutput::new)
-        .sendTo(pageViewEventPerMemberStream);
+    inputStream.filter(m -> m.key.equals("key1")).sendTo(outputStream1);
+    inputStream.filter(m -> m.key.equals("key2")).sendTo(outputStream2);
+    inputStream.filter(m -> m.key.equals("key3")).sendTo(outputStream3);
   }
 
   // local execution mode
@@ -56,30 +54,16 @@ public class RepartitionExample implements StreamApplication {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
-    localRunner.run(new RepartitionExample());
+    localRunner.run(new BroadcastExample());
   }
 
   class PageViewEvent {
-    String pageId;
-    String memberId;
+    String key;
     long timestamp;
 
-    PageViewEvent(String pageId, String memberId, long timestamp) {
-      this.pageId = pageId;
-      this.memberId = memberId;
+    public PageViewEvent(String key, long timestamp) {
+      this.key = key;
       this.timestamp = timestamp;
-    }
-  }
-
-  class MyStreamOutput {
-    String memberId;
-    long timestamp;
-    int count;
-
-    MyStreamOutput(WindowPane<String, Integer> m) {
-      this.memberId = m.getKey().getKey();
-      this.timestamp = Long.valueOf(m.getKey().getPaneId());
-      this.count = m.getMessage();
     }
   }
 }

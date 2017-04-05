@@ -37,7 +37,7 @@ public interface SinkFunction<M>  extends InitableFunction {
    * or shut the container down.
    *
    * @param message  the input message to be sent to an output {@link org.apache.samza.system.SystemStream}
-   * @param messageCollector  the {@link MessageCollector} to send the {@link org.apache.samza.operators.data.MessageEnvelope}
+   * @param messageCollector  the {@link MessageCollector} to send the message
    * @param taskCoordinator  the {@link TaskCoordinator} to request commits or shutdown
    */
   void apply(M message, MessageCollector messageCollector, TaskCoordinator taskCoordinator);

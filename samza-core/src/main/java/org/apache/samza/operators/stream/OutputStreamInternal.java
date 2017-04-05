@@ -17,15 +17,27 @@
  * under the License.
  */
 
-package org.apache.samza.operators.data;
+package org.apache.samza.operators.stream;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.OutputStream;
+import org.apache.samza.system.StreamSpec;
+
+import java.util.function.Function;
 
 
 /**
- * A generic interface extending {@link java.lang.Comparable} to be used as {@code Offset} in a stream
+ * Internal representation of an output stream.
+ *
+ * @param <M> the type of messages in the output stream
  */
 @InterfaceStability.Unstable
-public interface Offset extends Comparable<Offset> {
+public interface OutputStreamInternal<K, V, M> extends OutputStream<K, V, M> {
+
+  StreamSpec getStreamSpec();
+
+  Function<M, K> getKeyExtractor();
+
+  Function<M, V> getMsgExtractor();
 
 }

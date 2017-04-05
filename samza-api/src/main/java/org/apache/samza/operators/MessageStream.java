@@ -75,22 +75,24 @@ public interface MessageStream<M> {
   MessageStream<M> filter(FilterFunction<M> filterFn);
 
   /**
-   * Allows sending messages in this {@link MessageStream} to an output using the provided {@link SinkFunction}.
+   * Allows sending messages in this {@link MessageStream} to an output system using the provided {@link SinkFunction}.
    *
-   * NOTE: the output may not be a {@link org.apache.samza.system.SystemStream}. It can be an external database, etc.
+   * NOTE: If the output is for a {@link org.apache.samza.system.SystemStream}, use
+   * {@link #sendTo(OutputStream)} instead. This transform should only be used to output to
+   * non-stream systems (e.g., an external database).
    *
-   * @param sinkFn  the function to send messages in this stream to output
+   * @param sinkFn the function to send messages in this stream to an external system
    */
   void sink(SinkFunction<M> sinkFn);
 
   /**
    * Allows sending messages in this {@link MessageStream} to an output {@link MessageStream}.
    *
-   * NOTE: the {@code stream} has to be a {@link MessageStream}.
-   *
-   * @param stream  the output {@link MessageStream}
+   * @param outputStream the output stream to send messages to
+   * @param <K> the type of key in the outgoing message
+   * @param <V> the type of message in the outgoing message
    */
-  void sendTo(OutputStream<M> stream);
+  <K, V> void sendTo(OutputStream<K, V, M> outputStream);
 
   /**
    * Groups the messages in this {@link MessageStream} according to the provided {@link Window} semantics
@@ -128,19 +130,20 @@ public interface MessageStream<M> {
    * <p>
    * The merging streams must have the same messages of type {@code M}.
    *
-   * @param otherStreams  other {@link MessageStream}s to be merged with this {@link MessageStream}
-   * @return  the merged {@link MessageStream}
+   * @param otherStreams other {@link MessageStream}s to be merged with this {@link MessageStream}
+   * @return the merged {@link MessageStream}
    */
   MessageStream<M> merge(Collection<MessageStream<M>> otherStreams);
 
   /**
-   * Send the input message to an output {@link org.apache.samza.system.SystemStream} and consume it as input {@link MessageStream} again.
+   * Sends the messages of type {@code M}in this {@link MessageStream} to a repartitioned output stream and consumes
+   * them as an input {@link MessageStream} again. Uses keys returned by the {@code keyExtractor} as the partition key.
    *
-   * Note: this is an transform function only used in logic DAG. In a physical DAG, this is either translated to a NOOP function, or a {@code MessageStream#sendThrough} function.
-   *
-   * @param parKeyExtractor  a {@link Function} that extract the partition key from a message in this {@link MessageStream}
-   * @param <K>  the type of partition key
-   * @return  a {@link MessageStream} object after the re-partition
+   * @param keyExtractor the {@link Function} to extract the output message key and partition key from
+   *                     the input message
+   * @param <K> the type of output message key and partition key
+   * @return the repartitioned {@link MessageStream}
    */
-  <K> MessageStream<M> partitionBy(Function<M, K> parKeyExtractor);
+  <K> MessageStream<M> partitionBy(Function<M, K> keyExtractor);
+
 }

@@ -18,43 +18,22 @@
  */
 package org.apache.samza.operators.data;
 
-import org.apache.samza.system.SystemStreamPartition;
 
-
-/**
- * Example input {@link MessageEnvelope} w/ Json message and string as the key.
- */
-
-public class JsonIncomingSystemMessageEnvelope<T> implements MessageEnvelope<String, T> {
-
+public class TestOutputMessageEnvelope {
   private final String key;
-  private final T data;
-  private final Offset offset;
-  private final SystemStreamPartition partition;
+  private final Integer value;
 
-  public JsonIncomingSystemMessageEnvelope(String key, T data, Offset offset, SystemStreamPartition partition) {
+  public TestOutputMessageEnvelope(String key, Integer value) {
     this.key = key;
-    this.data = data;
-    this.offset = offset;
-    this.partition = partition;
+    this.value = value;
   }
 
-  @Override
-  public T getMessage() {
-    return this.data;
+  public Integer getMessage() {
+    return this.value;
   }
 
-  @Override
   public String getKey() {
     return this.key;
-  }
-
-  public Offset getOffset() {
-    return this.offset;
-  }
-
-  public SystemStreamPartition getSystemStreamPartition() {
-    return this.partition;
   }
 }
 

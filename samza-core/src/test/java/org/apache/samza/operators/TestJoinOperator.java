@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -48,7 +47,6 @@ import static org.mockito.Mockito.when;
 
 public class TestJoinOperator {
   private final TaskCoordinator taskCoordinator = mock(TaskCoordinator.class);
-  private final ApplicationRunner runner = mock(ApplicationRunner.class);
   private final Set<Integer> numbers = ImmutableSet.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
   @Test
@@ -226,6 +224,10 @@ public class TestJoinOperator {
   }
 
   private StreamOperatorTask createStreamOperatorTask() throws Exception {
+    ApplicationRunner runner = mock(ApplicationRunner.class);
+    when(runner.getStreamSpec("instream")).thenReturn(new StreamSpec("instream", "instream", "insystem"));
+    when(runner.getStreamSpec("instream2")).thenReturn(new StreamSpec("instream2", "instream2", "insystem2"));
+
     TaskContext taskContext = mock(TaskContext.class);
     when(taskContext.getSystemStreamPartitions()).thenReturn(ImmutableSet
         .of(new SystemStreamPartition("insystem", "instream", new Partition(0)),
@@ -239,13 +241,12 @@ public class TestJoinOperator {
   }
 
   private class TestStreamApplication implements StreamApplication {
-    StreamSpec inStreamSpec = new StreamSpec("instream", "instream", "insystem");
-    StreamSpec inStreamSpec2 = new StreamSpec("instream2", "instream2", "insystem2");
-
     @Override
     public void init(StreamGraph graph, Config config) {
-      MessageStream<MessageEnvelope<Integer, Integer>> inStream = graph.createInStream(inStreamSpec, null, null);
-      MessageStream<MessageEnvelope<Integer, Integer>> inStream2 = graph.createInStream(inStreamSpec2, null, null);
+      MessageStream<FirstStreamIME> inStream =
+          graph.getInputStream("instream", FirstStreamIME::new);
+      MessageStream<SecondStreamIME> inStream2 =
+          graph.getInputStream("instream2", SecondStreamIME::new);
 
       SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
       inStream
@@ -256,22 +257,20 @@ public class TestJoinOperator {
     }
   }
 
-  private class TestJoinFunction
-      implements JoinFunction<Integer, MessageEnvelope<Integer, Integer>, MessageEnvelope<Integer, Integer>, Integer> {
+  private class TestJoinFunction implements JoinFunction<Integer, FirstStreamIME, SecondStreamIME, Integer> {
     @Override
-    public Integer apply(MessageEnvelope<Integer, Integer> message,
-        MessageEnvelope<Integer, Integer> otherMessage) {
-      return message.getMessage() + otherMessage.getMessage();
+    public Integer apply(FirstStreamIME message, SecondStreamIME otherMessage) {
+      return (Integer) message.getMessage() + (Integer) otherMessage.getMessage();
     }
 
     @Override
-    public Integer getFirstKey(MessageEnvelope<Integer, Integer> message) {
-      return message.getKey();
+    public Integer getFirstKey(FirstStreamIME message) {
+      return (Integer) message.getKey();
     }
 
     @Override
-    public Integer getSecondKey(MessageEnvelope<Integer, Integer> message) {
-      return message.getKey();
+    public Integer getSecondKey(SecondStreamIME message) {
+      return (Integer) message.getKey();
     }
   }
 

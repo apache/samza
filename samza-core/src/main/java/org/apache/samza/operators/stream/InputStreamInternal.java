@@ -16,31 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.example;
+package org.apache.samza.operators.stream;
 
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.system.StreamSpec;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.function.BiFunction;
 
 /**
- * Base class for test examples
+ * Internal representation of an input stream.
  *
+ * @param <M> the type of messages in the input stream
  */
-public abstract class TestExampleBase implements StreamApplication {
+@InterfaceStability.Unstable
+public interface InputStreamInternal<K, V, M> extends MessageStream<M> {
 
-  protected final Map<SystemStream, Set<SystemStreamPartition>> inputs;
+  StreamSpec getStreamSpec();
 
-  TestExampleBase(Set<SystemStreamPartition> inputs) {
-    this.inputs = new HashMap<>();
-    for (SystemStreamPartition input : inputs) {
-      this.inputs.putIfAbsent(input.getSystemStream(), new HashSet<>());
-      this.inputs.get(input.getSystemStream()).add(input);
-    }
-  }
+  BiFunction<K, V, M> getMsgBuilder();
 
 }

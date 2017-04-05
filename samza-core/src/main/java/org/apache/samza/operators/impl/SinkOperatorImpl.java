@@ -40,5 +40,7 @@ class SinkOperatorImpl<M> extends OperatorImpl<M, M> {
   @Override
   public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
     this.sinkFn.apply(message, collector, coordinator);
+    // there should be no further chained operators since this is a terminal operator.
+    // hence we don't call #propogateResult() here.
   }
 }

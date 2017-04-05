@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
@@ -23,6 +24,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.functions.FoldLeftFunction;
+import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
@@ -33,22 +36,26 @@ import java.util.function.Supplier;
 
 
 /**
- * Example {@link StreamApplication} code to test the API methods with re-partition operator
+ * Example implementation of a simple user-defined task w/ a window operator.
+ *
  */
-public class RepartitionExample implements StreamApplication {
+public class WindowExample implements StreamApplication {
 
-  @Override public void init(StreamGraph graph, Config config) {
+  @Override
+  public void init(StreamGraph graph, Config config) {
     Supplier<Integer> initialValue = () -> 0;
-    MessageStream<PageViewEvent> pageViewEvents =
-        graph.getInputStream("pageViewEventStream", (k, m) -> (PageViewEvent) m);
-    OutputStream<String, MyStreamOutput, MyStreamOutput> pageViewEventPerMemberStream = graph
-        .getOutputStream("pageViewEventPerMemberStream", m -> m.memberId, m -> m);
+    FoldLeftFunction<PageViewEvent, Integer> counter = (m, c) -> c == null ? 1 : c + 1;
+    MessageStream<PageViewEvent> inputStream = graph.getInputStream("inputStream", (k, m) -> (PageViewEvent) m);
+    OutputStream<String, Integer, WindowPane<Void, Integer>> outputStream = graph
+        .getOutputStream("outputStream", m -> m.getKey().getPaneId(), m -> m.getMessage());
 
-    pageViewEvents
-        .partitionBy(m -> m.memberId)
-        .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofMinutes(5), initialValue, (m, c) -> c + 1))
-        .map(MyStreamOutput::new)
-        .sendTo(pageViewEventPerMemberStream);
+    // create a tumbling window that outputs the number of message collected every 10 minutes.
+    // also emit early results if either the number of messages collected reaches 30000, or if no new messages arrive
+    // for 1 minute.
+    inputStream
+        .window(Windows.tumblingWindow(Duration.ofMinutes(10), initialValue, counter)
+            .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))))
+        .sendTo(outputStream);
   }
 
   // local execution mode
@@ -56,30 +63,16 @@ public class RepartitionExample implements StreamApplication {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
-    localRunner.run(new RepartitionExample());
+    localRunner.run(new WindowExample());
   }
 
   class PageViewEvent {
-    String pageId;
-    String memberId;
+    String key;
     long timestamp;
 
-    PageViewEvent(String pageId, String memberId, long timestamp) {
-      this.pageId = pageId;
-      this.memberId = memberId;
+    public PageViewEvent(String key, long timestamp) {
+      this.key = key;
       this.timestamp = timestamp;
-    }
-  }
-
-  class MyStreamOutput {
-    String memberId;
-    long timestamp;
-    int count;
-
-    MyStreamOutput(WindowPane<String, Integer> m) {
-      this.memberId = m.getKey().getKey();
-      this.timestamp = Long.valueOf(m.getKey().getPaneId());
-      this.count = m.getMessage();
     }
   }
 }

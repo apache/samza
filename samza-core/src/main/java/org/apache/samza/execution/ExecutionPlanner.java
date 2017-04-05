@@ -33,7 +33,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.system.StreamSpec;
@@ -57,7 +57,7 @@ public class ExecutionPlanner {
     this.streamManager = streamManager;
   }
 
-  public JobGraph plan(StreamGraph streamGraph) throws Exception {
+  public JobGraph plan(StreamGraphImpl streamGraph) throws Exception {
     // create physical job graph based on stream graph
     JobGraph jobGraph = createJobGraph(streamGraph);
 
@@ -72,10 +72,10 @@ public class ExecutionPlanner {
   /**
    * Create the physical graph from StreamGraph
    */
-  /* package private */ JobGraph createJobGraph(StreamGraph streamGraph) {
+  /* package private */ JobGraph createJobGraph(StreamGraphImpl streamGraph) {
     JobGraph jobGraph = new JobGraph(streamGraph, config);
-    Set<StreamSpec> sourceStreams = new HashSet<>(streamGraph.getInStreams().keySet());
-    Set<StreamSpec> sinkStreams = new HashSet<>(streamGraph.getOutStreams().keySet());
+    Set<StreamSpec> sourceStreams = new HashSet<>(streamGraph.getInputStreams().keySet());
+    Set<StreamSpec> sinkStreams = new HashSet<>(streamGraph.getOutputStreams().keySet());
     Set<StreamSpec> intStreams = new HashSet<>(sourceStreams);
     intStreams.retainAll(sinkStreams);
     sourceStreams.removeAll(intStreams);
@@ -103,7 +103,7 @@ public class ExecutionPlanner {
   /**
    * Figure out the number of partitions of all streams
    */
-  /* package private */ void calculatePartitions(StreamGraph streamGraph, JobGraph jobGraph) {
+  /* package private */ void calculatePartitions(StreamGraphImpl streamGraph, JobGraph jobGraph) {
     // fetch the external streams partition info
     updateExistingPartitions(jobGraph, streamManager);
 
@@ -152,7 +152,7 @@ public class ExecutionPlanner {
   /**
    * Calculate the partitions for the input streams of join operators
    */
-  /* package private */ static void calculateJoinInputPartitions(StreamGraph streamGraph, JobGraph jobGraph) {
+  /* package private */ static void calculateJoinInputPartitions(StreamGraphImpl streamGraph, JobGraph jobGraph) {
     // mapping from a source stream to all join specs reachable from it
     Multimap<OperatorSpec, StreamEdge> joinSpecToStreamEdges = HashMultimap.create();
     // reverse mapping of the above
@@ -166,7 +166,7 @@ public class ExecutionPlanner {
     // The visited set keeps track of the join specs that have been already inserted in the queue before
     Set<OperatorSpec> visited = new HashSet<>();
 
-    streamGraph.getInStreams().entrySet().forEach(entry -> {
+    streamGraph.getInputStreams().entrySet().forEach(entry -> {
         StreamEdge streamEdge = jobGraph.getOrCreateEdge(entry.getKey());
         // Traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
         findReachableJoins(entry.getValue(), streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs,

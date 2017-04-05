@@ -18,18 +18,17 @@
  */
 package org.apache.samza.example;
 
-import org.apache.samza.operators.*;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.serializers.JsonSerde;
-import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -42,20 +41,22 @@ import java.util.function.Supplier;
 public class PageViewCounterExample implements StreamApplication {
 
   @Override public void init(StreamGraph graph, Config config) {
+    MessageStream<PageViewEvent> pageViewEvents =
+        graph.getInputStream("pageViewEventStream", (k, m) -> (PageViewEvent) m);
+    OutputStream<String, PageViewCount, PageViewCount> pageViewEventPerMemberStream = graph
+        .getOutputStream("pageViewEventPerMemberStream", m -> m.memberId, m -> m);
 
-    MessageStream<PageViewEvent> pageViewEvents = graph.createInStream(input1, new StringSerde("UTF-8"), new JsonSerde<>());
-    OutputStream<MyStreamOutput> pageViewPerMemberCounters = graph.createOutStream(output, new StringSerde("UTF-8"), new JsonSerde<>());
     Supplier<Integer> initialValue = () -> 0;
-
-    pageViewEvents.
-        window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.getMessage().memberId, Duration.ofSeconds(10), initialValue, (m, c) -> c + 1).
-            setEarlyTrigger(Triggers.repeat(Triggers.count(5))).
-            setAccumulationMode(AccumulationMode.DISCARDING)).
-        map(MyStreamOutput::new).
-        sendTo(pageViewPerMemberCounters);
-
+    FoldLeftFunction<PageViewEvent, Integer> foldLeftFn = (m, c) -> c + 1;
+    pageViewEvents
+        .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), initialValue, foldLeftFn)
+            .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
+            .setAccumulationMode(AccumulationMode.DISCARDING))
+        .map(PageViewCount::new)
+        .sendTo(pageViewEventPerMemberStream);
   }
 
+  // local execution mode
   public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
@@ -63,11 +64,7 @@ public class PageViewCounterExample implements StreamApplication {
     localRunner.run(new PageViewCounterExample());
   }
 
-  StreamSpec input1 = new StreamSpec("pageViewEventStream", "PageViewEvent", "kafka");
-
-  StreamSpec output = new StreamSpec("pageViewEventPerMemberStream", "PageViewEventCountByMemberId", "kafka");
-
-  class PageViewEvent implements MessageEnvelope<String, PageViewEvent> {
+  class PageViewEvent {
     String pageId;
     String memberId;
     long timestamp;
@@ -77,38 +74,17 @@ public class PageViewCounterExample implements StreamApplication {
       this.memberId = memberId;
       this.timestamp = timestamp;
     }
-
-    @Override
-    public String getKey() {
-      return this.pageId;
-    }
-
-    @Override
-    public PageViewEvent getMessage() {
-      return this;
-    }
   }
 
-  class MyStreamOutput implements MessageEnvelope<String, MyStreamOutput> {
+  class PageViewCount {
     String memberId;
     long timestamp;
     int count;
 
-    MyStreamOutput(WindowPane<String, Integer> m) {
+    PageViewCount(WindowPane<String, Integer> m) {
       this.memberId = m.getKey().getKey();
       this.timestamp = Long.valueOf(m.getKey().getPaneId());
       this.count = m.getMessage();
     }
-
-    @Override
-    public String getKey() {
-      return this.memberId;
-    }
-
-    @Override
-    public MyStreamOutput getMessage() {
-      return this;
-    }
   }
-
 }

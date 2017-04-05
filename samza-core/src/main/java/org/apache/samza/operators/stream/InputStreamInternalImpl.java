@@ -16,39 +16,30 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.operators.stream;
 
-package org.apache.samza.operators.data;
+import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.system.StreamSpec;
 
-import org.apache.samza.annotation.InterfaceStability;
+import java.util.function.BiFunction;
 
+public class InputStreamInternalImpl<K, V, M> extends MessageStreamImpl<M> implements InputStreamInternal<K, V, M> {
 
-/**
- * An entry in the input/output {@link org.apache.samza.operators.MessageStream}s
- */
-@InterfaceStability.Unstable
-public interface MessageEnvelope<K, M> {
+  private final StreamSpec streamSpec;
+  private final BiFunction<K, V, M> msgBuilder;
 
-  /**
-   * Get the key for this {@link MessageEnvelope}.
-   *
-   * @return  the key for this {@link MessageEnvelope}
-   */
-  K getKey();
-
-  /**
-   * Get the message in this {@link MessageEnvelope}.
-   *
-   * @return  the message in this {@link MessageEnvelope}
-   */
-  M getMessage();
-
-  /**
-   * Whether this {@link MessageEnvelope} indicates deletion of a previous message with this key.
-   *
-   * @return  true if the current {@link MessageEnvelope} indicates deletion of a previous message with this key
-   */
-  default boolean isDelete() {
-    return false;
+  public InputStreamInternalImpl(StreamGraphImpl graph, StreamSpec streamSpec, BiFunction<K, V, M> msgBuilder) {
+    super(graph);
+    this.streamSpec = streamSpec;
+    this.msgBuilder = msgBuilder;
   }
 
+  public StreamSpec getStreamSpec() {
+    return this.streamSpec;
+  }
+
+  public BiFunction<K, V, M> getMsgBuilder() {
+    return this.msgBuilder;
+  }
 }

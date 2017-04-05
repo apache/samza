@@ -16,28 +16,42 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
-
-import org.apache.samza.operators.data.MessageEnvelope;
+package org.apache.samza.operators.data;
 
 
-public class TestOutputMessageEnvelope implements MessageEnvelope<String, Integer> {
+public class TestMessageEnvelope {
+
   private final String key;
-  private final Integer value;
+  private final MessageType value;
 
-  public TestOutputMessageEnvelope(String key, Integer value) {
+  public TestMessageEnvelope(String key, String value, long eventTime) {
     this.key = key;
-    this.value = value;
+    this.value = new MessageType(value, eventTime);
   }
 
-  @Override
-  public Integer getMessage() {
+  public MessageType getMessage() {
     return this.value;
   }
 
-  @Override
   public String getKey() {
     return this.key;
   }
-}
 
+  public class MessageType {
+    private final String value;
+    private final long eventTime;
+
+    public MessageType(String value, long eventTime) {
+      this.value = value;
+      this.eventTime = eventTime;
+    }
+
+    public long getEventTime() {
+      return eventTime;
+    }
+
+    public String getValue() {
+      return value;
+    }
+  }
+}

@@ -18,248 +18,110 @@
  */
 package org.apache.samza.operators;
 
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.operators.stream.InputStreamInternal;
+import org.apache.samza.operators.stream.InputStreamInternalImpl;
+import org.apache.samza.operators.stream.IntermediateStreamInternalImpl;
+import org.apache.samza.operators.stream.OutputStreamInternal;
+import org.apache.samza.operators.stream.OutputStreamInternalImpl;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.system.StreamSpec;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
-import org.apache.samza.operators.data.MessageEnvelope;
-import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskCoordinator;
-
 /**
- * The implementation of {@link StreamGraph} interface. This class provides implementation of methods to allow users to
- * create system input/output/intermediate streams.
+ * A {@link StreamGraph} that provides APIs for accessing {@link MessageStream}s to be used to
+ * create the DAG of transforms.
  */
 public class StreamGraphImpl implements StreamGraph {
 
   /**
-   * Unique identifier for each {@link org.apache.samza.operators.spec.OperatorSpec} added to transform the {@link MessageEnvelope}
-   * in the input {@link MessageStream}s.
+   * Unique identifier for each {@link org.apache.samza.operators.spec.OperatorSpec} in the graph.
+   * Should only be accessed by {@link MessageStreamImpl} via {@link #getNextOpId()}.
    */
   private int opId = 0;
 
-  // TODO: SAMZA-1101: the instantiation of physical streams and the physical sink functions should be delayed
-  // after physical deployment. The input/output/intermediate stream creation should also be delegated to {@link ExecutionEnvironment}
-  // s.t. we can allow different physical instantiation of stream under different execution environment w/o code change.
-  private class InputStreamImpl<K, V, M extends MessageEnvelope<K, V>> extends MessageStreamImpl<M> {
-    final StreamSpec spec;
-    final Serde<K> keySerde;
-    final Serde<V> msgSerde;
-
-    InputStreamImpl(StreamGraphImpl graph, StreamSpec streamSpec, Serde<K> keySerde, Serde<V> msgSerde) {
-      super(graph);
-      this.spec = streamSpec;
-      this.keySerde = keySerde;
-      this.msgSerde = msgSerde;
-    }
-
-    StreamSpec getSpec() {
-      return this.spec;
-    }
-
-  }
-
-  private class OutputStreamImpl<K, V, M extends MessageEnvelope<K, V>> implements OutputStream<M> {
-    final StreamSpec spec;
-    final Serde<K> keySerde;
-    final Serde<V> msgSerde;
-
-    OutputStreamImpl(StreamGraphImpl graph, StreamSpec streamSpec, Serde<K> keySerde, Serde<V> msgSerde) {
-      this.spec = streamSpec;
-      this.keySerde = keySerde;
-      this.msgSerde = msgSerde;
-    }
-
-    StreamSpec getSpec() {
-      return this.spec;
-    }
-
-    @Override
-    public SinkFunction<M> getSinkFunction() {
-      return (M message, MessageCollector mc, TaskCoordinator tc) -> {
-        // TODO: need to find a way to directly pass in the serde class names
-        // mc.send(new OutgoingMessageEnvelope(this.spec.getSystemStream(), this.keySerde.getClass().getName(), this.msgSerde.getClass().getName(),
-        //    message.getKey(), message.getKey(), message.getMessage()));
-        mc.send(new OutgoingMessageEnvelope(new SystemStream(this.spec.getSystemName(), this.spec.getPhysicalName()), message.getKey(), message.getMessage()));
-      };
-    }
-  }
-
-  private class IntermediateStreamImpl<PK, K, V, M extends MessageEnvelope<K, V>> extends InputStreamImpl<K, V, M> implements OutputStream<M> {
-    final Function<M, PK> parKeyFn;
-
-    /**
-     * Default constructor
-     *
-     * @param graph the {@link StreamGraphImpl} object that this stream belongs to
-     */
-    IntermediateStreamImpl(StreamGraphImpl graph, StreamSpec streamSpec, Serde<K> keySerde, Serde<V> msgSerde) {
-      this(graph, streamSpec, keySerde, msgSerde, null);
-    }
-
-    IntermediateStreamImpl(StreamGraphImpl graph, StreamSpec streamSpec, Serde<K> keySerde, Serde<V> msgSerde, Function<M, PK> parKeyFn) {
-      super(graph, streamSpec, keySerde, msgSerde);
-      this.parKeyFn = parKeyFn;
-    }
-
-    @Override
-    public SinkFunction<M> getSinkFunction() {
-      return (M message, MessageCollector mc, TaskCoordinator tc) -> {
-        // TODO: need to find a way to directly pass in the serde class names
-        // mc.send(new OutgoingMessageEnvelope(this.spec.getSystemStream(), this.keySerde.getClass().getName(), this.msgSerde.getClass().getName(),
-        //    message.getKey(), message.getKey(), message.getMessage()));
-        if (this.parKeyFn == null) {
-          mc.send(new OutgoingMessageEnvelope(new SystemStream(this.spec.getSystemName(), this.spec.getPhysicalName()), message.getKey(), message.getMessage()));
-        } else {
-          // apply partition key function
-          mc.send(new OutgoingMessageEnvelope(new SystemStream(this.spec.getSystemName(), this.spec.getPhysicalName()), this.parKeyFn.apply(message), message.getKey(), message.getMessage()));
-        }
-      };
-    }
-  }
-
-  /**
-   * Maps keeping all {@link SystemStream}s that are input and output of operators in {@link StreamGraphImpl}
-   */
-  private final Map<String, MessageStream> inStreams = new HashMap<>();
-  private final Map<String, OutputStream> outStreams = new HashMap<>();
+  private final Map<StreamSpec, InputStreamInternal> inStreams = new HashMap<>();
+  private final Map<StreamSpec, OutputStreamInternal> outStreams = new HashMap<>();
   private final ApplicationRunner runner;
   private final Config config;
 
   private ContextManager contextManager = new ContextManager() { };
 
   public StreamGraphImpl(ApplicationRunner runner, Config config) {
+    // TODO: SAMZA-1118 - Move StreamSpec and ApplicationRunner out of StreamGraphImpl once Systems
+    // can use streamId to send and receive messages.
     this.runner = runner;
     this.config = config;
   }
 
   @Override
-  public <K, V, M extends MessageEnvelope<K, V>> MessageStream<M> createInStream(StreamSpec streamSpec, Serde<K> keySerde, Serde<V> msgSerde) {
-    if (!this.inStreams.containsKey(streamSpec.getId())) {
-      this.inStreams.putIfAbsent(streamSpec.getId(), new InputStreamImpl<K, V, M>(this, streamSpec, keySerde, msgSerde));
-    }
-    return this.inStreams.get(streamSpec.getId());
-  }
-
-  /**
-   * Helper method to be used by {@link MessageStreamImpl} class
-   *
-   * @param streamSpec  the {@link StreamSpec} object defining the {@link SystemStream} as the output
-   * @param <M>  the type of {@link MessageEnvelope}s in the output {@link SystemStream}
-   * @return  the {@link MessageStreamImpl} object
-   */
-  @Override
-  public <K, V, M extends MessageEnvelope<K, V>> OutputStream<M> createOutStream(StreamSpec streamSpec, Serde<K> keySerde, Serde<V> msgSerde) {
-    if (!this.outStreams.containsKey(streamSpec.getId())) {
-      this.outStreams.putIfAbsent(streamSpec.getId(), new OutputStreamImpl<K, V, M>(this, streamSpec, keySerde, msgSerde));
-    }
-    return this.outStreams.get(streamSpec.getId());
-  }
-
-  /**
-   * Helper method to be used by {@link MessageStreamImpl} class
-   *
-   * @param streamSpec  the {@link StreamSpec} object defining the {@link SystemStream} as an intermediate {@link SystemStream}
-   * @param <M>  the type of {@link MessageEnvelope}s in the output {@link SystemStream}
-   * @return  the {@link MessageStreamImpl} object
-   */
-  @Override
-  public <K, V, M extends MessageEnvelope<K, V>> OutputStream<M> createIntStream(StreamSpec streamSpec,
-      Serde<K> keySerde, Serde<V> msgSerde) {
-    if (!this.inStreams.containsKey(streamSpec.getId())) {
-      this.inStreams.putIfAbsent(streamSpec.getId(), new IntermediateStreamImpl<K, K, V, M>(this, streamSpec, keySerde, msgSerde));
-    }
-    IntermediateStreamImpl<K, K, V, M> intStream = (IntermediateStreamImpl<K, K, V, M>) this.inStreams.get(streamSpec.getId());
-    if (!this.outStreams.containsKey(streamSpec.getId())) {
-      this.outStreams.putIfAbsent(streamSpec.getId(), intStream);
-    }
-    return intStream;
-  }
-
-  @Override public Map<StreamSpec, MessageStream> getInStreams() {
-    Map<StreamSpec, MessageStream> inStreamMap = new HashMap<>();
-    this.inStreams.forEach((ss, entry) -> inStreamMap.put(((InputStreamImpl) entry).getSpec(), entry));
-    return Collections.unmodifiableMap(inStreamMap);
-  }
-
-  @Override public Map<StreamSpec, OutputStream> getOutStreams() {
-    Map<StreamSpec, OutputStream> outStreamMap = new HashMap<>();
-    this.outStreams.forEach((ss, entry) -> {
-        StreamSpec streamSpec = (entry instanceof IntermediateStreamImpl) ?
-          ((IntermediateStreamImpl) entry).getSpec() :
-          ((OutputStreamImpl) entry).getSpec();
-        outStreamMap.put(streamSpec, entry);
-      });
-    return Collections.unmodifiableMap(outStreamMap);
+  public <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<K, V, M> msgBuilder) {
+    return inStreams.computeIfAbsent(runner.getStreamSpec(streamId),
+        streamSpec -> new InputStreamInternalImpl<>(this, streamSpec, msgBuilder));
   }
 
   @Override
-  public StreamGraph withContextManager(ContextManager manager) {
-    this.contextManager = manager;
+  public <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId,
+      Function<M, K> keyExtractor, Function<M, V> msgExtractor) {
+    return outStreams.computeIfAbsent(runner.getStreamSpec(streamId),
+        streamSpec -> new OutputStreamInternalImpl<>(this, streamSpec, keyExtractor, msgExtractor));
+  }
+
+  @Override
+  public StreamGraph withContextManager(ContextManager contextManager) {
+    this.contextManager = contextManager;
     return this;
   }
 
-  public int getNextOpId() {
-    return this.opId++;
+  /**
+   * Internal helper for {@link MessageStreamImpl} to add an intermediate {@link MessageStream} to the graph.
+   * An intermediate {@link MessageStream} is both an output and an input stream.
+   *
+   * @param streamName the name of the stream to be created. Will be prefixed with job name and id to generate the
+   *                   logical streamId.
+   * @param keyExtractor the {@link Function} to extract the outgoing key from the intermediate message
+   * @param msgExtractor the {@link Function} to extract the outgoing message from the intermediate message
+   * @param msgBuilder the {@link BiFunction} to convert the incoming key and message to a message
+   *                   in the intermediate {@link MessageStream}
+   * @param <K> the type of key in the intermediate message
+   * @param <V> the type of message in the intermediate message
+   * @param <M> the type of messages in the intermediate {@link MessageStream}
+   * @return  the intermediate {@link MessageStreamImpl}
+   */
+  <K, V, M> MessageStreamImpl<M> getIntermediateStream(String streamName,
+      Function<M, K> keyExtractor, Function<M, V> msgExtractor, BiFunction<K, V, M> msgBuilder) {
+    String streamId = String.format("%s-%s-%s",
+        config.get(JobConfig.JOB_NAME()),
+        config.get(JobConfig.JOB_ID(), "1"),
+        streamName);
+    StreamSpec streamSpec = runner.getStreamSpec(streamId);
+    IntermediateStreamInternalImpl<K, V, M> intStream =
+        (IntermediateStreamInternalImpl<K, V, M>) inStreams
+            .computeIfAbsent(streamSpec,
+                k -> new IntermediateStreamInternalImpl<>(this, streamSpec, keyExtractor, msgExtractor, msgBuilder));
+    outStreams.putIfAbsent(streamSpec, intStream);
+    return intStream;
+  }
+
+  public Map<StreamSpec, InputStreamInternal> getInputStreams() {
+    return Collections.unmodifiableMap(inStreams);
+  }
+
+  public Map<StreamSpec, OutputStreamInternal> getOutputStreams() {
+    return Collections.unmodifiableMap(outStreams);
   }
 
   public ContextManager getContextManager() {
     return this.contextManager;
   }
 
-  /**
-   * Helper method to be get the input stream via {@link SystemStream}
-   *
-   * @param sstream  the {@link SystemStream}
-   * @return  a {@link MessageStreamImpl} object corresponding to the {@code systemStream}
-   */
-  public MessageStreamImpl getInputStream(SystemStream sstream) {
-    for (MessageStream entry: this.inStreams.values()) {
-      if (((InputStreamImpl) entry).getSpec().getSystemName().equals(sstream.getSystem()) &&
-          ((InputStreamImpl) entry).getSpec().getPhysicalName().equals(sstream.getStream())) {
-        return (MessageStreamImpl) entry;
-      }
-    }
-    return null;
-  }
-
-  <M> OutputStream<M> getOutputStream(MessageStreamImpl<M> intStream) {
-    if (this.outStreams.containsValue(intStream)) {
-      return (OutputStream<M>) intStream;
-    }
-    return null;
-  }
-
-  /**
-   * Method to generate intermediate stream from an operator ID.
-   *
-   * @param opId  operator ID
-   * @param parKeyFn  the function to extract the partition key from the input message
-   * @param <PK>  the type of partition key
-   * @param <M>  the type of input message
-   * @return  the {@link OutputStream} object for the re-partitioned stream
-   */
-  <PK, M> MessageStreamImpl<M> generateIntStreamFromOpId(int opId, Function<M, PK> parKeyFn) {
-    String opNameWithId = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
-    String streamId = String.format("%s-%s-%s",
-        config.get(JobConfig.JOB_NAME()),
-        config.get(JobConfig.JOB_ID(), "1"),
-        opNameWithId);
-    StreamSpec streamSpec = runner.getStreamSpec(streamId);
-
-    this.inStreams.putIfAbsent(streamSpec.getId(), new IntermediateStreamImpl(this, streamSpec, null, null, parKeyFn));
-    IntermediateStreamImpl intStream = (IntermediateStreamImpl) this.inStreams.get(streamSpec.getId());
-    this.outStreams.putIfAbsent(streamSpec.getId(), intStream);
-    return intStream;
+  /* package private */ int getNextOpId() {
+    return this.opId++;
   }
 }
