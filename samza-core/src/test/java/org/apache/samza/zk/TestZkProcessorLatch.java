@@ -71,28 +71,34 @@ public class TestZkProcessorLatch {
     zkServer.teardown();
   }
 
-  @Test
-  public void testLatchSizeOne() {
-    final int latchSize = 1;
-    final String latchId = "latchSizeOne";
-    final String participant1 = "participant1";
-
-    ExecutorService pool = Executors.newFixedThreadPool(3);
-    Future processor = pool.submit(
-      () -> {
-        ZkUtils zkUtils = getZkUtilsWithNewClient(participant1);
+  private Runnable getParticipantRunnable(int latchSize, String latchId, String participantId) {
+    return new Runnable() {
+      @Override
+      public void run() {
+        ZkUtils zkUtils = getZkUtilsWithNewClient(participantId);
         zkUtils.connect();
         ZkProcessorLatch latch = new ZkProcessorLatch(
-            latchSize, latchId, participant1, zkUtils);
+            latchSize, latchId, participantId, zkUtils);
         latch.countDown();
         try {
           latch.await(30, TimeUnit.SECONDS);
         } catch (Exception e) {
-          Assert.fail("Threw an exception while waiting for latch completion in participant1!" + e.getLocalizedMessage());
+          Assert.fail(String.format("Threw an exception while waiting for latch completion in %s! %s",
+              participantId, e.getLocalizedMessage()));
         } finally {
           zkUtils.close();
         }
-      });
+      }
+    };
+  }
+
+  @Test
+  public void testLatchSizeOne() {
+    final int latchSize = 1;
+    final String latchId = "latchSizeOne";
+
+    ExecutorService pool = Executors.newFixedThreadPool(3);
+    Future processor = pool.submit(getParticipantRunnable(latchSize, latchId, "participant1"));
 
     try {
       processor.get(30, TimeUnit.SECONDS);
@@ -117,12 +123,11 @@ public class TestZkProcessorLatch {
   public void testLatchSizeOneWithTwoParticipants() {
     final int latchSize = 1;
     final String latchId = "testLatchSizeOneWithTwoParticipants";
-    final String participant1 = "participant1";
-    final String participant2 = "participant2";
 
     ExecutorService pool = Executors.newFixedThreadPool(3);
     Future f1 = pool.submit(
       () -> {
+        String participant1 = "participant1";
         ZkUtils zkUtils = getZkUtilsWithNewClient(participant1);
         zkUtils.connect();
         Latch latch = new ZkProcessorLatch(latchSize, latchId, participant1, zkUtils);
@@ -136,20 +141,7 @@ public class TestZkProcessorLatch {
         }
       });
 
-    Future f2 = pool.submit(
-      () -> {
-        ZkUtils zkUtils = getZkUtilsWithNewClient(participant2);
-        zkUtils.connect();
-        Latch latch = new ZkProcessorLatch(latchSize, latchId, participant2, zkUtils);
-        latch.countDown();
-        try {
-          latch.await(30, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail(String.format("await timed out from  %s - %s", participant2, e.getLocalizedMessage()));
-        } finally {
-          zkUtils.close();
-        }
-      });
+    Future f2 = pool.submit(getParticipantRunnable(latchSize, latchId, "participant2"));
 
     try {
       f1.get(30, TimeUnit.SECONDS);
@@ -177,52 +169,9 @@ public class TestZkProcessorLatch {
     final String latchId = "testLatchSizeN";
 
     ExecutorService pool = Executors.newFixedThreadPool(3);
-    Future f1 = pool.submit(
-      () -> {
-        String participant1 = "participant1";
-        ZkUtils zkUtils = getZkUtilsWithNewClient(participant1);
-        zkUtils.connect();
-        Latch latch = new ZkProcessorLatch(latchSize, latchId, participant1, zkUtils);
-        latch.countDown();
-        try {
-          latch.await(30, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail(String.format("await timed out from  %s - %s", participant1, e.getLocalizedMessage()));
-        } finally {
-          zkUtils.close();
-        }
-      });
-    Future f2 = pool.submit(
-      () -> {
-        String participant2 = "participant2";
-        ZkUtils zkUtils = getZkUtilsWithNewClient(participant2);
-        zkUtils.connect();
-        Latch latch = new ZkProcessorLatch(latchSize, latchId, participant2, zkUtils);
-        latch.countDown();
-        try {
-          latch.await(30, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail(String.format("await timed out from  %s - %s", participant2, e.getLocalizedMessage()));
-        } finally {
-          zkUtils.close();
-        }
-      });
-
-    Future f3 = pool.submit(
-      () -> {
-        String participant3 = "participant3";
-        ZkUtils zkUtils = getZkUtilsWithNewClient(participant3);
-        zkUtils.connect();
-        Latch latch = new ZkProcessorLatch(latchSize, latchId, participant3, zkUtils);
-        latch.countDown();
-        try {
-          latch.await(30, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail(String.format("await timed out from  %s - %s", participant3, e.getLocalizedMessage()));
-        } finally {
-          zkUtils.close();
-        }
-      });
+    Future f1 = pool.submit(getParticipantRunnable(latchSize, latchId, "participant1"));
+    Future f2 = pool.submit(getParticipantRunnable(latchSize, latchId, "participant2"));
+    Future f3 = pool.submit(getParticipantRunnable(latchSize, latchId, "participant3"));
 
     try {
       f1.get(30, TimeUnit.SECONDS);
