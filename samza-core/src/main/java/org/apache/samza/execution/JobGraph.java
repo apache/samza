@@ -32,7 +32,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.system.StreamSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -137,7 +137,7 @@ import org.slf4j.LoggerFactory;
    * @param jobId id of the job
    * @return
    */
-  JobNode getOrCreateNode(String jobName, String jobId, StreamGraph streamGraph) {
+  JobNode getOrCreateNode(String jobName, String jobId, StreamGraphImpl streamGraph) {
     String nodeId = JobNode.createId(jobName, jobId);
     JobNode node = nodes.get(nodeId);
     if (node == null) {

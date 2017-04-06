@@ -19,38 +19,45 @@
 
 package org.apache.samza.execution;
 
+import org.apache.samza.Partition;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.system.SystemStreamPartition;
+import org.junit.Before;
+import org.junit.Test;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemAdmin;
-import org.junit.Before;
-import org.junit.Test;
+import java.util.Set;
 
-import static org.apache.samza.execution.TestExecutionUtils.createRunner;
-import static org.apache.samza.execution.TestExecutionUtils.createSystemAdmin;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 public class TestExecutionPlanner {
 
-  private Config config;
-
   private static final String DEFAULT_SYSTEM = "test-system";
   private static final int DEFAULT_PARTITIONS = 10;
+
+  private Map<String, SystemAdmin> systemAdmins;
+  private StreamManager streamManager;
+  private ApplicationRunner runner;
+  private Config config;
 
   private StreamSpec input1;
   private StreamSpec input2;
@@ -58,42 +65,86 @@ public class TestExecutionPlanner {
   private StreamSpec output1;
   private StreamSpec output2;
 
-  private Map<String, SystemAdmin> systemAdmins;
-  private StreamManager streamManager;
+  static SystemAdmin createSystemAdmin(Map<String, Integer> streamToPartitions) {
 
-  private ApplicationRunner runner;
+    return new SystemAdmin() {
+      @Override
+      public Map<SystemStreamPartition, String> getOffsetsAfter(Map<SystemStreamPartition, String> offsets) {
+        return null;
+      }
 
-  private StreamGraph createSimpleGraph() {
+      @Override
+      public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
+        Map<String, SystemStreamMetadata> map = new HashMap<>();
+        for (String stream : streamNames) {
+          Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> m = new HashMap<>();
+          for (int i = 0; i < streamToPartitions.get(stream); i++) {
+            m.put(new Partition(i), new SystemStreamMetadata.SystemStreamPartitionMetadata("", "", ""));
+          }
+          map.put(stream, new SystemStreamMetadata(stream, m));
+        }
+        return map;
+      }
+
+      @Override
+      public void createChangelogStream(String streamName, int numOfPartitions) {
+
+      }
+
+      @Override
+      public void validateChangelogStream(String streamName, int numOfPartitions) {
+
+      }
+
+      @Override
+      public void createCoordinatorStream(String streamName) {
+
+      }
+
+      @Override
+      public Integer offsetComparator(String offset1, String offset2) {
+        return null;
+      }
+    };
+  }
+
+  private StreamGraphImpl createSimpleGraph() {
     /**
      * a simple graph of partitionBy and map
      *
      * input1 -> partitionBy -> map -> output1
      *
      */
-    StreamGraph streamGraph = new StreamGraphImpl(runner, config);
-    streamGraph.createInStream(input1, null, null).partitionBy(m -> "yes!!!").map(m -> m).sendTo(streamGraph.createOutStream(output1, null, null));
+    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    OutputStream<Object, Object, Object> output1 = streamGraph.getOutputStream("output1", null, null);
+    streamGraph.getInputStream("input1", null)
+        .partitionBy(m -> "yes!!!").map(m -> m)
+        .sendTo(output1);
     return streamGraph;
   }
 
-  private StreamGraph createStreamGraphWithJoin() {
+  private StreamGraphImpl createStreamGraphWithJoin() {
 
-    /** the graph looks like the following
+    /**
+     * the graph looks like the following. number of partitions in parentheses. quotes indicate expected value.
      *
-     *                        input1 -> map -> join -> output1
-     *                                           |
-     *          input2 -> partitionBy -> filter -|
-     *                                           |
-     * input3 -> filter -> partitionBy -> map -> join -> output2
+     *                               input1 (64) -> map -> join -> output1 (8)
+     *                                                       |
+     *          input2 (16) -> partitionBy ("64") -> filter -|
+     *                                                       |
+     * input3 (32) -> filter -> partitionBy ("64") -> map -> join -> output2 (16)
      *
      */
 
-    StreamGraph streamGraph = new StreamGraphImpl(runner, config);
-    MessageStream m1 = streamGraph.createInStream(input1, null, null).map(m -> m);
-    MessageStream m2 = streamGraph.createInStream(input2, null, null).partitionBy(m -> "haha").filter(m -> true);
-    MessageStream m3 = streamGraph.createInStream(input3, null, null).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
+    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    MessageStream m1 = streamGraph.getInputStream("input1", null).map(m -> m);
+    MessageStream m2 = streamGraph.getInputStream("input2", null).partitionBy(m -> "haha").filter(m -> true);
+    MessageStream m3 = streamGraph.getInputStream("input3", null).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
+    OutputStream<Object, Object, Object> output1 = streamGraph.getOutputStream("output1", null, null);
+    OutputStream<Object, Object, Object> output2 = streamGraph.getOutputStream("output2", null, null);
 
-    m1.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(streamGraph.createOutStream(output1, null, null));
-    m3.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(streamGraph.createOutStream(output2, null, null));
+    m1.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).sendTo(output1);
+    m3.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(output2);
 
     return streamGraph;
   }
@@ -129,23 +180,37 @@ public class TestExecutionPlanner {
     systemAdmins.put("system2", systemAdmin2);
     streamManager = new StreamManager(systemAdmins);
 
-    runner = createRunner(config);
+    runner = mock(ApplicationRunner.class);
+    when(runner.getStreamSpec("input1")).thenReturn(input1);
+    when(runner.getStreamSpec("input2")).thenReturn(input2);
+    when(runner.getStreamSpec("input3")).thenReturn(input3);
+    when(runner.getStreamSpec("output1")).thenReturn(output1);
+    when(runner.getStreamSpec("output2")).thenReturn(output2);
+
+    // intermediate streams used in tests
+    when(runner.getStreamSpec("test-app-1-partition_by-0"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-0", "test-app-1-partition_by-0", "default-system"));
+    when(runner.getStreamSpec("test-app-1-partition_by-1"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-1", "test-app-1-partition_by-1", "default-system"));
+    when(runner.getStreamSpec("test-app-1-partition_by-4"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-4", "test-app-1-partition_by-4", "default-system"));
   }
+
   @Test
   public void testCreateProcessorGraph() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamGraph streamGraph = createStreamGraphWithJoin();
+    StreamGraphImpl streamGraph = createStreamGraphWithJoin();
 
     JobGraph jobGraph = planner.createJobGraph(streamGraph);
     assertTrue(jobGraph.getSources().size() == 3);
     assertTrue(jobGraph.getSinks().size() == 2);
-    assertTrue(jobGraph.getIntermediateStreamEdges().size() == 2); // two streams generated by partitionBy
+    assertTrue(jobGraph.getIntermediateStreams().size() == 2); // two streams generated by partitionBy
   }
 
   @Test
   public void testFetchExistingStreamPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamGraph streamGraph = createStreamGraphWithJoin();
+    StreamGraphImpl streamGraph = createStreamGraphWithJoin();
     JobGraph jobGraph = planner.createJobGraph(streamGraph);
 
     ExecutionPlanner.updateExistingPartitions(jobGraph, streamManager);
@@ -163,14 +228,14 @@ public class TestExecutionPlanner {
   @Test
   public void testCalculateJoinInputPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamGraph streamGraph = createStreamGraphWithJoin();
+    StreamGraphImpl streamGraph = createStreamGraphWithJoin();
     JobGraph jobGraph = planner.createJobGraph(streamGraph);
 
     ExecutionPlanner.updateExistingPartitions(jobGraph, streamManager);
     ExecutionPlanner.calculateJoinInputPartitions(streamGraph, jobGraph);
 
     // the partitions should be the same as input1
-    jobGraph.getIntermediateStreamEdges().forEach(edge -> {
+    jobGraph.getIntermediateStreams().forEach(edge -> {
         assertTrue(edge.getPartitionCount() == 64);
       });
   }
@@ -182,12 +247,12 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamGraph streamGraph = createSimpleGraph();
+    StreamGraphImpl streamGraph = createSimpleGraph();
     JobGraph jobGraph = planner.createJobGraph(streamGraph);
     planner.calculatePartitions(streamGraph, jobGraph);
 
     // the partitions should be the same as input1
-    jobGraph.getIntermediateStreamEdges().forEach(edge -> {
+    jobGraph.getIntermediateStreams().forEach(edge -> {
         assertTrue(edge.getPartitionCount() == DEFAULT_PARTITIONS);
       });
   }
@@ -195,12 +260,12 @@ public class TestExecutionPlanner {
   @Test
   public void testCalculateIntStreamPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamGraph streamGraph = createSimpleGraph();
+    StreamGraphImpl streamGraph = createSimpleGraph();
     JobGraph jobGraph = planner.createJobGraph(streamGraph);
     planner.calculatePartitions(streamGraph, jobGraph);
 
     // the partitions should be the same as input1
-    jobGraph.getIntermediateStreamEdges().forEach(edge -> {
+    jobGraph.getIntermediateStreams().forEach(edge -> {
         assertTrue(edge.getPartitionCount() == 64); // max of input1 and output1
       });
   }

@@ -133,34 +133,43 @@ public class JobGraphJsonGenerator {
    * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.JobNodeJson}
    */
   private JobNodeJson buildJobNodeJson(JobNode jobNode, Map<String, StreamEdgeJson> streamEdges) {
-    OperatorGraphJson opGraph = new OperatorGraphJson();
-    jobNode.getStreamGraph().getInStreams().forEach((streamSpec, stream) -> {
-        buildOperatorGraphJson((MessageStreamImpl) stream, streamEdges.get(streamSpec.getId()), opGraph);
-      });
-
     JobNodeJson job = new JobNodeJson();
     job.jobName = jobNode.getJobName();
     job.jobId = jobNode.getJobId();
-    job.operatorGraph = opGraph;
+    job.operatorGraph = buildOperatorGraphJson(jobNode, streamEdges);
     return job;
   }
 
   /**
-   * Traverse the {@StreamGraph} recursively and build the operator graph JSON POJO.
+   * Traverse the {@StreamGraph} and build the operator graph JSON POJO.
+   * @param jobNode job node in the {@link JobGraph}
+   * @param streamEdges map of {@link org.apache.samza.execution.JobGraphJsonGenerator.StreamEdgeJson}
+   * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.OperatorGraphJson}
+   */
+  private OperatorGraphJson buildOperatorGraphJson(JobNode jobNode, Map<String, StreamEdgeJson> streamEdges) {
+    OperatorGraphJson opGraph = new OperatorGraphJson();
+    jobNode.getStreamGraph().getInputStreams().forEach((streamSpec, stream) -> {
+        updateOperatorGraphJson((MessageStreamImpl) stream, streamEdges.get(streamSpec.getId()), opGraph);
+      });
+    return opGraph;
+  }
+
+  /**
+   * Traverse the {@StreamGraph} recursively and update the operator graph JSON POJO.
    * @param messageStream input
    * @param parent parent node in the traveral
    * @param opGraph operator graph to build
    */
-  private void buildOperatorGraphJson(MessageStreamImpl messageStream, Traversable parent, OperatorGraphJson opGraph) {
+  private void updateOperatorGraphJson(MessageStreamImpl messageStream, Traversable parent, OperatorGraphJson opGraph) {
     Collection<OperatorSpec> specs = messageStream.getRegisteredOperatorSpecs();
     specs.forEach(opSpec -> {
         parent.nextOperatorIds.add(opSpec.getOpId());
 
         OperatorJson opJson = getOrCreateOperatorJson(opSpec, opGraph);
         if (opSpec instanceof SinkOperatorSpec) {
-          opJson.outputStreamId = ((SinkOperatorSpec) opSpec).getOutStream().getSpec().getId();
+          opJson.outputStreamId = ((SinkOperatorSpec) opSpec).getOutputStream().getStreamSpec().getId();
         } else if (opSpec.getNextStream() != null) {
-          buildOperatorGraphJson(opSpec.getNextStream(), opJson, opGraph);
+          updateOperatorGraphJson(opSpec.getNextStream(), opJson, opGraph);
         }
       });
   }
@@ -190,7 +199,7 @@ public class JobGraphJsonGenerator {
       if (joinSpec == null) {
         joinSpec = opSpec;
         outputStreamToJoinSpec.put(output, joinSpec);
-      } else {
+      } else if (joinSpec != opSpec) {
         OperatorJson joinNode = operators.get(joinSpec.getOpId());
         joinNode.pairedOpId = opJson.opId;
         opJson.pairedOpId = joinNode.opId;

@@ -35,11 +35,10 @@ import org.apache.samza.task.TaskContext;
  */
 public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
 
-
   private final PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn;
   private final PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn;
   private final long ttlMs;
-  private final MessageStreamImpl<RM> joinOutput;
+  private final MessageStreamImpl<RM> nextStream;
   private final int opId;
 
   /**
@@ -50,22 +49,22 @@ public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
    * @param otherPartialJoinFn  partial join function that provides state for input messages of type {@code JM}
    *                            in the other stream
    * @param ttlMs  the ttl in ms for retaining messages in each stream
-   * @param joinOutput  the output {@link MessageStreamImpl} of the join results
+   * @param nextStream  the output {@link MessageStreamImpl} containing the messages produced from this operator
    * @param opId  the unique ID for this operator
    */
   PartialJoinOperatorSpec(PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn,
       PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn, long ttlMs,
-      MessageStreamImpl<RM> joinOutput, int opId) {
+      MessageStreamImpl<RM> nextStream, int opId) {
     this.thisPartialJoinFn = thisPartialJoinFn;
     this.otherPartialJoinFn = otherPartialJoinFn;
     this.ttlMs = ttlMs;
-    this.joinOutput = joinOutput;
+    this.nextStream = nextStream;
     this.opId = opId;
   }
 
   @Override
   public MessageStreamImpl<RM> getNextStream() {
-    return this.joinOutput;
+    return this.nextStream;
   }
 
   public PartialJoinFunction<K, M, JM, RM> getThisPartialJoinFn() {
@@ -80,10 +79,12 @@ public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
     return ttlMs;
   }
 
+  @Override
   public OperatorSpec.OpCode getOpCode() {
     return OpCode.JOIN;
   }
 
+  @Override
   public int getOpId() {
     return this.opId;
   }

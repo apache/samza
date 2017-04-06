@@ -18,17 +18,13 @@
  */
 package org.apache.samza.example;
 
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.serializers.JsonSerde;
-import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -38,29 +34,19 @@ import java.time.Duration;
  */
 public class OrderShipmentJoinExample implements StreamApplication {
 
-  /**
-   * used by remote application runner to launch the job in remote program. The remote program should follow the similar
-   * invoking context as in local runner:
-   *
-   *   public static void main(String args[]) throws Exception {
-   *     CommandLine cmdLine = new CommandLine();
-   *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-   *     ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-   *     runner.run(new UserMainExample(), config);
-   *   }
-   *
-   */
-  @Override public void init(StreamGraph graph, Config config) {
+  @Override
+  public void init(StreamGraph graph, Config config) {
+    MessageStream<OrderRecord> orders = graph.getInputStream("orderStream", (k, m) -> (OrderRecord) m);
+    MessageStream<ShipmentRecord> shipments = graph.getInputStream("shipmentStream", (k, m) -> (ShipmentRecord) m);
+    OutputStream<String, FulFilledOrderRecord, FulFilledOrderRecord> joinedOrderShipmentStream =
+        graph.getOutputStream("joinedOrderShipmentStream", m -> m.orderId, m -> m);
 
-    MessageStream<OrderRecord> orders = graph.createInStream(input1, new StringSerde("UTF-8"), new JsonSerde<>());
-    MessageStream<ShipmentRecord> shipments = graph.createInStream(input2, new StringSerde("UTF-8"), new JsonSerde<>());
-    OutputStream<FulFilledOrderRecord> fulfilledOrders = graph.createOutStream(output, new StringSerde("UTF-8"), new JsonSerde<>());
-
-    orders.join(shipments, new MyJoinFunction(), Duration.ofMinutes(1)).sendTo(fulfilledOrders);
-
+    orders
+        .join(shipments, new MyJoinFunction(), Duration.ofMinutes(1))
+        .sendTo(joinedOrderShipmentStream);
   }
 
-  // standalone local program model
+  // local execution mode
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
@@ -68,13 +54,24 @@ public class OrderShipmentJoinExample implements StreamApplication {
     localRunner.run(new OrderShipmentJoinExample());
   }
 
-  StreamSpec input1 = new StreamSpec("orderStream", "OrderEvent", "kafka");
+  class MyJoinFunction implements JoinFunction<String, OrderRecord, ShipmentRecord, FulFilledOrderRecord> {
+    @Override
+    public FulFilledOrderRecord apply(OrderRecord message, ShipmentRecord otherMessage) {
+      return new FulFilledOrderRecord(message.orderId, message.orderTimeMs, otherMessage.shipTimeMs);
+    }
 
-  StreamSpec input2 = new StreamSpec("shipmentStream", "ShipmentEvent", "kafka");
+    @Override
+    public String getFirstKey(OrderRecord message) {
+      return message.orderId;
+    }
 
-  StreamSpec output = new StreamSpec("joinedOrderShipmentStream", "OrderShipmentJoinEvent", "kafka");
+    @Override
+    public String getSecondKey(ShipmentRecord message) {
+      return message.orderId;
+    }
+  }
 
-  class OrderRecord implements MessageEnvelope<String, OrderRecord> {
+  class OrderRecord {
     String orderId;
     long orderTimeMs;
 
@@ -82,19 +79,9 @@ public class OrderShipmentJoinExample implements StreamApplication {
       this.orderId = orderId;
       this.orderTimeMs = timeMs;
     }
-
-    @Override
-    public String getKey() {
-      return this.orderId;
-    }
-
-    @Override
-    public OrderRecord getMessage() {
-      return this;
-    }
   }
 
-  class ShipmentRecord implements MessageEnvelope<String, ShipmentRecord> {
+  class ShipmentRecord {
     String orderId;
     long shipTimeMs;
 
@@ -102,19 +89,9 @@ public class OrderShipmentJoinExample implements StreamApplication {
       this.orderId = orderId;
       this.shipTimeMs = timeMs;
     }
-
-    @Override
-    public String getKey() {
-      return this.orderId;
-    }
-
-    @Override
-    public ShipmentRecord getMessage() {
-      return this;
-    }
   }
 
-  class FulFilledOrderRecord implements MessageEnvelope<String, FulFilledOrderRecord> {
+  class FulFilledOrderRecord {
     String orderId;
     long orderTimeMs;
     long shipTimeMs;
@@ -123,39 +100,6 @@ public class OrderShipmentJoinExample implements StreamApplication {
       this.orderId = orderId;
       this.orderTimeMs = orderTimeMs;
       this.shipTimeMs = shipTimeMs;
-    }
-
-
-    @Override
-    public String getKey() {
-      return this.orderId;
-    }
-
-    @Override
-    public FulFilledOrderRecord getMessage() {
-      return this;
-    }
-  }
-
-  FulFilledOrderRecord myJoinResult(OrderRecord m1, ShipmentRecord m2) {
-    return new FulFilledOrderRecord(m1.getKey(), m1.orderTimeMs, m2.shipTimeMs);
-  }
-
-  class MyJoinFunction implements JoinFunction<String, OrderRecord, ShipmentRecord, FulFilledOrderRecord> {
-
-    @Override
-    public FulFilledOrderRecord apply(OrderRecord message, ShipmentRecord otherMessage) {
-      return OrderShipmentJoinExample.this.myJoinResult(message, otherMessage);
-    }
-
-    @Override
-    public String getFirstKey(OrderRecord message) {
-      return message.getKey();
-    }
-
-    @Override
-    public String getSecondKey(ShipmentRecord message) {
-      return message.getKey();
     }
   }
 }

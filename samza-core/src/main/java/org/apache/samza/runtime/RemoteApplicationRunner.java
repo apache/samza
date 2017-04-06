@@ -29,7 +29,6 @@ import org.apache.samza.execution.StreamManager;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,7 +125,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   private ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
     // build stream graph
-    StreamGraph streamGraph = new StreamGraphImpl(this, config);
+    StreamGraphImpl streamGraph = new StreamGraphImpl(this, config);
     app.init(streamGraph, config);
 
     // create the physical execution plan

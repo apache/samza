@@ -18,13 +18,14 @@
  */
 package org.apache.samza.runtime;
 
-import java.lang.reflect.Constructor;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.system.StreamSpec;
+
+import java.lang.reflect.Constructor;
 
 
 /**

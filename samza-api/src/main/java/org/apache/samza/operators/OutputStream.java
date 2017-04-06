@@ -19,26 +19,15 @@
 package org.apache.samza.operators;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.system.StreamSpec;
-
 
 /**
- * The interface class defining the specific {@link SinkFunction} for a system {@link OutputStream}.
+ * An output stream to send messages to.
  *
- * @param <M>  The type of message to be send to this output stream
+ * @param <K> the type of key in the outgoing message
+ * @param <V> the type of message in the outgoing message
+ * @param <M> the type of message in this {@link OutputStream}
  */
 @InterfaceStability.Unstable
-public interface OutputStream<M> {
+public interface OutputStream<K, V, M> {
 
-  /**
-   * Returns the specific {@link SinkFunction} for this output stream. The {@link OutputStream} is created
-   * via {@link StreamGraph#createOutStream(StreamSpec, Serde, Serde)} or {@link StreamGraph#createIntStream(StreamSpec, Serde, Serde)}.
-   * Hence, the proper types of serdes for key and value are instantiated and are used in the {@link SinkFunction} returned.
-   *
-   * @return  The pre-defined {@link SinkFunction} to apply proper serdes before sending the message to the output stream.
-   */
-  SinkFunction<M> getSinkFunction();
-
-  StreamSpec getSpec();
 }
