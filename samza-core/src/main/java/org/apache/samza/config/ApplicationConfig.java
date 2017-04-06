@@ -23,13 +23,15 @@ package org.apache.samza.config;
  */
 public class ApplicationConfig extends MapConfig {
   /**
-   * processor.id is equivalent to containerId in samza. It is a logical identifier used by Samza for a processor.
-   * In a distributed environment, this logical identifier is mapped to a physical identifier of the resource. For
-   * example, Yarn provides a "Yarn containerId" for every resource it allocates.
-   * In an embedded environment, this identifier is provided by the user by directly using the StreamProcessor API.
+   * <p>processor.id is similar to the logical containerId generated in Samza. However, in addition to identifying the JVM
+   * of the processor, it also contains a segment to identify the instance of the
+   * {@link org.apache.samza.processor.StreamProcessor} within the JVM. More detail can be found in
+   * {@link org.apache.samza.runtime.ProcessorIdGenerator}. </p>
    * <p>
-   * <b>Note:</b>This identifier has to be unique across the instances of StreamProcessors.
+   * This is an important distinction because Samza 0.13.0 in Yarn has a 1:1 mapping between the processor and the Yarn
+   * container (JVM). However, Samza in an embedded execution can contain more than one processor within the same JVM.
    * </p>
+   * <b>Note:</b>This identifier has to be unique across the instances of StreamProcessors.
    * TODO: Deprecated in 0.13. After 0.13+, this id is generated using {@link org.apache.samza.runtime.ProcessorIdGenerator}
    */
   @Deprecated

@@ -19,9 +19,10 @@
 
 package org.apache.samza.job.model;
 
+import org.apache.samza.container.TaskName;
+
 import java.util.Collections;
 import java.util.Map;
-import org.apache.samza.container.TaskName;
 
 /**
  * <p>
@@ -35,8 +36,11 @@ import org.apache.samza.container.TaskName;
  * containers have tasks. Each data model contains relevant information, such as
  * an id, partition information, etc.
  * </p>
+ * <p>
+ * <b>Note</b>: This class has a natural ordering that is inconsistent with equals.
+ * </p>
  */
-public class ContainerModel implements Comparable<ContainerModel> {
+public class ContainerModel {
   @Deprecated
   private final int containerId;
   private final String processorId;
@@ -102,7 +106,4 @@ public class ContainerModel implements Comparable<ContainerModel> {
     return true;
   }
 
-  public int compareTo(ContainerModel other) {
-    return processorId.compareTo(other.getProcessorId());
-  }
 }
