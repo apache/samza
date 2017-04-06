@@ -65,26 +65,7 @@ public class TestExecutionPlanner {
   private StreamSpec output1;
   private StreamSpec output2;
 
-  private JoinFunction createJoin() {
-    return new JoinFunction() {
-      @Override
-      public Object apply(Object message, Object otherMessage) {
-        return null;
-      }
-
-      @Override
-      public Object getFirstKey(Object message) {
-        return null;
-      }
-
-      @Override
-      public Object getSecondKey(Object message) {
-        return null;
-      }
-    };
-  }
-
-  private SystemAdmin createSystemAdmin(Map<String, Integer> streamToPartitions) {
+  static SystemAdmin createSystemAdmin(Map<String, Integer> streamToPartitions) {
 
     return new SystemAdmin() {
       @Override
@@ -162,8 +143,8 @@ public class TestExecutionPlanner {
     OutputStream<Object, Object, Object> output1 = streamGraph.getOutputStream("output1", null, null);
     OutputStream<Object, Object, Object> output2 = streamGraph.getOutputStream("output2", null, null);
 
-    m1.join(m2, createJoin(), Duration.ofHours(2)).sendTo(output1);
-    m3.join(m2, createJoin(), Duration.ofHours(1)).sendTo(output2);
+    m1.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).sendTo(output1);
+    m3.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(output2);
 
     return streamGraph;
   }
@@ -239,7 +220,7 @@ public class TestExecutionPlanner {
     assertTrue(jobGraph.getOrCreateEdge(output1).getPartitionCount() == 8);
     assertTrue(jobGraph.getOrCreateEdge(output2).getPartitionCount() == 16);
 
-    jobGraph.getIntermediateStreams().forEach(edge -> {
+    jobGraph.getIntermediateStreamEdges().forEach(edge -> {
         assertTrue(edge.getPartitionCount() == -1);
       });
   }

@@ -31,7 +31,8 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.system.StreamSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +46,7 @@ import org.slf4j.LoggerFactory;
  * Note that intermediate streams are both the input and output of a JobNode in JobGraph.
  * So the graph may have cycles and it's not a DAG.
  */
-public class JobGraph {
+/* package private */ class JobGraph implements ExecutionPlan {
   private static final Logger log = LoggerFactory.getLogger(JobGraph.class);
 
   private final Map<String, JobNode> nodes = new HashMap<>();
@@ -54,15 +55,41 @@ public class JobGraph {
   private final Set<StreamEdge> sinks = new HashSet<>();
   private final Set<StreamEdge> intermediateStreams = new HashSet<>();
   private final Config config;
-  private final StreamGraph streamGraph;
+  private final JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
 
   /**
    * The JobGraph is only constructed by the {@link ExecutionPlanner}.
    * @param config Config
    */
-  /* package private */ JobGraph(StreamGraph streamGraph, Config config) {
-    this.streamGraph = streamGraph;
+  JobGraph(Config config) {
     this.config = config;
+  }
+
+  /**
+   * Returns the configs for single stage job, in the order of topologically sort.
+   * @return list of job configs
+   */
+  public List<JobConfig> getJobConfigs() {
+    return getJobNodes().stream().map(JobNode::generateConfig).collect(Collectors.toList());
+  }
+
+  /**
+   * Returns the intermediate streams that need to be created.
+   * @return intermediate {@link StreamSpec}s
+   */
+  public List<StreamSpec> getIntermediateStreams() {
+    return getIntermediateStreamEdges().stream()
+        .map(streamEdge -> streamEdge.getStreamSpec())
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Returns the JSON representation of the plan for visualization
+   * @return json string
+   * @throws Exception
+   */
+  public String getPlanAsJson() throws Exception {
+    return jsonGenerator.toJson(this);
   }
 
   /**
@@ -70,7 +97,7 @@ public class JobGraph {
    * @param input source stream
    * @param node the job node that consumes from the source
    */
-  /* package private */ void addSource(StreamSpec input, JobNode node) {
+  void addSource(StreamSpec input, JobNode node) {
     StreamEdge edge = getOrCreateEdge(input);
     edge.addTargetNode(node);
     node.addInEdge(edge);
@@ -82,7 +109,7 @@ public class JobGraph {
    * @param output sink stream
    * @param node the job node that outputs to the sink
    */
-  /* package private */ void addSink(StreamSpec output, JobNode node) {
+  void addSink(StreamSpec output, JobNode node) {
     StreamEdge edge = getOrCreateEdge(output);
     edge.addSourceNode(node);
     node.addOutEdge(edge);
@@ -95,7 +122,7 @@ public class JobGraph {
    * @param from the source node
    * @param to the target node
    */
-  /* package private */ void addIntermediateStream(StreamSpec streamSpec, JobNode from, JobNode to) {
+  void addIntermediateStream(StreamSpec streamSpec, JobNode from, JobNode to) {
     StreamEdge edge = getOrCreateEdge(streamSpec);
     edge.addSourceNode(from);
     edge.addTargetNode(to);
@@ -110,11 +137,11 @@ public class JobGraph {
    * @param jobId id of the job
    * @return
    */
-  /* package private */JobNode getOrCreateNode(String jobName, String jobId) {
+  JobNode getOrCreateNode(String jobName, String jobId, StreamGraphImpl streamGraph) {
     String nodeId = JobNode.createId(jobName, jobId);
     JobNode node = nodes.get(nodeId);
     if (node == null) {
-      node = new JobNode(jobName, jobId, config);
+      node = new JobNode(jobName, jobId, streamGraph, config);
       nodes.put(nodeId, node);
     }
     return node;
@@ -125,7 +152,7 @@ public class JobGraph {
    * @param streamSpec spec of the StreamEdge
    * @return stream edge
    */
-  /* package private */StreamEdge getOrCreateEdge(StreamSpec streamSpec) {
+  StreamEdge getOrCreateEdge(StreamSpec streamSpec) {
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
@@ -139,7 +166,7 @@ public class JobGraph {
    * Returns the job nodes to be executed in the topological order
    * @return unmodifiable list of {@link JobNode}
    */
-  public List<JobNode> getJobNodes() {
+  List<JobNode> getJobNodes() {
     List<JobNode> sortedNodes = topologicalSort();
     return Collections.unmodifiableList(sortedNodes);
   }
@@ -148,7 +175,7 @@ public class JobGraph {
    * Returns the source streams in the graph
    * @return unmodifiable set of {@link StreamEdge}
    */
-  public Set<StreamEdge> getSources() {
+  Set<StreamEdge> getSources() {
     return Collections.unmodifiableSet(sources);
   }
 
@@ -156,7 +183,7 @@ public class JobGraph {
    * Return the sink streams in the graph
    * @return unmodifiable set of {@link StreamEdge}
    */
-  public Set<StreamEdge> getSinks() {
+  Set<StreamEdge> getSinks() {
     return Collections.unmodifiableSet(sinks);
   }
 
@@ -164,25 +191,16 @@ public class JobGraph {
    * Return the intermediate streams in the graph
    * @return unmodifiable set of {@link StreamEdge}
    */
-  public Set<StreamEdge> getIntermediateStreams() {
+  Set<StreamEdge> getIntermediateStreamEdges() {
     return Collections.unmodifiableSet(intermediateStreams);
   }
-
-  /**
-   * Return the {@link StreamGraph}
-   * @return {@link StreamGraph}
-   */
-  public StreamGraph getStreamGraph() {
-    return this.streamGraph;
-  }
-
 
   /**
    * Validate the graph has the correct topology, meaning the sources are coming from external streams,
    * sinks are going to external streams, and the nodes are connected with intermediate streams.
    * Also validate all the nodes are reachable from the sources.
    */
-  public void validate() {
+  void validate() {
     validateSources();
     validateSinks();
     validateInternalStreams();
@@ -255,7 +273,7 @@ public class JobGraph {
    * Find the reachable set of nodes using BFS.
    * @return reachable set of {@link JobNode}
    */
-  /* package private */ Set<JobNode> findReachable() {
+  Set<JobNode> findReachable() {
     Queue<JobNode> queue = new ArrayDeque<>();
     Set<JobNode> visited = new HashSet<>();
 
@@ -283,7 +301,7 @@ public class JobGraph {
    * This algorithm also takes account of the simple loops in the graph
    * @return topologically sorted {@link JobNode}s
    */
-  /* package private */ List<JobNode> topologicalSort() {
+  List<JobNode> topologicalSort() {
     Collection<JobNode> pnodes = nodes.values();
     if (pnodes.size() == 1) {
       return new ArrayList<>(pnodes);

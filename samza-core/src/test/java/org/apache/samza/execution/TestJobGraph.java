@@ -57,16 +57,16 @@ public class TestJobGraph {
    * 2 9 10
    */
   private void createGraph1() {
-    graph1 = new JobGraph(null, null);
+    graph1 = new JobGraph(null);
 
-    JobNode n2 = graph1.getOrCreateNode("2", "1");
-    JobNode n3 = graph1.getOrCreateNode("3", "1");
-    JobNode n5 = graph1.getOrCreateNode("5", "1");
-    JobNode n7 = graph1.getOrCreateNode("7", "1");
-    JobNode n8 = graph1.getOrCreateNode("8", "1");
-    JobNode n9 = graph1.getOrCreateNode("9", "1");
-    JobNode n10 = graph1.getOrCreateNode("10", "1");
-    JobNode n11 = graph1.getOrCreateNode("11", "1");
+    JobNode n2 = graph1.getOrCreateNode("2", "1", null);
+    JobNode n3 = graph1.getOrCreateNode("3", "1", null);
+    JobNode n5 = graph1.getOrCreateNode("5", "1", null);
+    JobNode n7 = graph1.getOrCreateNode("7", "1", null);
+    JobNode n8 = graph1.getOrCreateNode("8", "1", null);
+    JobNode n9 = graph1.getOrCreateNode("9", "1", null);
+    JobNode n10 = graph1.getOrCreateNode("10", "1", null);
+    JobNode n11 = graph1.getOrCreateNode("11", "1", null);
 
     graph1.addSource(genStream(), n5);
     graph1.addSource(genStream(), n7);
@@ -90,15 +90,15 @@ public class TestJobGraph {
    *      |<---6 <--|    <>
    */
   private void createGraph2() {
-    graph2 = new JobGraph(null, null);
+    graph2 = new JobGraph(null);
 
-    JobNode n1 = graph2.getOrCreateNode("1", "1");
-    JobNode n2 = graph2.getOrCreateNode("2", "1");
-    JobNode n3 = graph2.getOrCreateNode("3", "1");
-    JobNode n4 = graph2.getOrCreateNode("4", "1");
-    JobNode n5 = graph2.getOrCreateNode("5", "1");
-    JobNode n6 = graph2.getOrCreateNode("6", "1");
-    JobNode n7 = graph2.getOrCreateNode("7", "1");
+    JobNode n1 = graph2.getOrCreateNode("1", "1", null);
+    JobNode n2 = graph2.getOrCreateNode("2", "1", null);
+    JobNode n3 = graph2.getOrCreateNode("3", "1", null);
+    JobNode n4 = graph2.getOrCreateNode("4", "1", null);
+    JobNode n5 = graph2.getOrCreateNode("5", "1", null);
+    JobNode n6 = graph2.getOrCreateNode("6", "1", null);
+    JobNode n7 = graph2.getOrCreateNode("7", "1", null);
 
     graph2.addSource(genStream(), n1);
     graph2.addIntermediateStream(genStream(), n1, n2);
@@ -117,10 +117,10 @@ public class TestJobGraph {
    * 1<->1 -> 2<->2
    */
   private void createGraph3() {
-    graph3 = new JobGraph(null, null);
+    graph3 = new JobGraph(null);
 
-    JobNode n1 = graph3.getOrCreateNode("1", "1");
-    JobNode n2 = graph3.getOrCreateNode("2", "1");
+    JobNode n1 = graph3.getOrCreateNode("1", "1", null);
+    JobNode n2 = graph3.getOrCreateNode("2", "1", null);
 
     graph3.addSource(genStream(), n1);
     graph3.addIntermediateStream(genStream(), n1, n1);
@@ -133,9 +133,9 @@ public class TestJobGraph {
    * 1<->1
    */
   private void createGraph4() {
-    graph4 = new JobGraph(null, null);
+    graph4 = new JobGraph(null);
 
-    JobNode n1 = graph4.getOrCreateNode("1", "1");
+    JobNode n1 = graph4.getOrCreateNode("1", "1", null);
 
     graph4.addSource(genStream(), n1);
     graph4.addIntermediateStream(genStream(), n1, n1);
@@ -151,7 +151,7 @@ public class TestJobGraph {
 
   @Test
   public void testAddSource() {
-    JobGraph graph = new JobGraph(null, null);
+    JobGraph graph = new JobGraph(null);
 
     /**
      * s1 -> 1
@@ -160,9 +160,9 @@ public class TestJobGraph {
      * s3 -> 2
      *   |-> 3
      */
-    JobNode n1 = graph.getOrCreateNode("1", "1");
-    JobNode n2 = graph.getOrCreateNode("2", "1");
-    JobNode n3 = graph.getOrCreateNode("3", "1");
+    JobNode n1 = graph.getOrCreateNode("1", "1", null);
+    JobNode n2 = graph.getOrCreateNode("2", "1", null);
+    JobNode n3 = graph.getOrCreateNode("3", "1", null);
     StreamSpec s1 = genStream();
     StreamSpec s2 = genStream();
     StreamSpec s3 = genStream();
@@ -173,9 +173,9 @@ public class TestJobGraph {
 
     assertTrue(graph.getSources().size() == 3);
 
-    assertTrue(graph.getOrCreateNode("1", "1").getInEdges().size() == 2);
-    assertTrue(graph.getOrCreateNode("2", "1").getInEdges().size() == 1);
-    assertTrue(graph.getOrCreateNode("3", "1").getInEdges().size() == 1);
+    assertTrue(graph.getOrCreateNode("1", "1", null).getInEdges().size() == 2);
+    assertTrue(graph.getOrCreateNode("2", "1", null).getInEdges().size() == 1);
+    assertTrue(graph.getOrCreateNode("3", "1", null).getInEdges().size() == 1);
 
     assertTrue(graph.getOrCreateEdge(s1).getSourceNodes().size() == 0);
     assertTrue(graph.getOrCreateEdge(s1).getTargetNodes().size() == 1);
@@ -192,9 +192,9 @@ public class TestJobGraph {
      * 2 -> s2
      * 2 -> s3
      */
-    JobGraph graph = new JobGraph(null, null);
-    JobNode n1 = graph.getOrCreateNode("1", "1");
-    JobNode n2 = graph.getOrCreateNode("2", "1");
+    JobGraph graph = new JobGraph(null);
+    JobNode n1 = graph.getOrCreateNode("1", "1", null);
+    JobNode n2 = graph.getOrCreateNode("2", "1", null);
     StreamSpec s1 = genStream();
     StreamSpec s2 = genStream();
     StreamSpec s3 = genStream();
@@ -203,8 +203,8 @@ public class TestJobGraph {
     graph.addSink(s3, n2);
 
     assertTrue(graph.getSinks().size() == 3);
-    assertTrue(graph.getOrCreateNode("1", "1").getOutEdges().size() == 1);
-    assertTrue(graph.getOrCreateNode("2", "1").getOutEdges().size() == 2);
+    assertTrue(graph.getOrCreateNode("1", "1", null).getOutEdges().size() == 1);
+    assertTrue(graph.getOrCreateNode("2", "1", null).getOutEdges().size() == 2);
 
     assertTrue(graph.getOrCreateEdge(s1).getSourceNodes().size() == 1);
     assertTrue(graph.getOrCreateEdge(s1).getTargetNodes().size() == 0);
