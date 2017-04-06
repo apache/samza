@@ -24,11 +24,24 @@ import org.apache.samza.config.Config;
 @InterfaceStability.Evolving
 public interface ProcessorIdGenerator {
   /**
-   * Generates a String representation to identify a single instance of StreamProcessor
-   * This value can be representative of its current executing environment. It can also be custom-managed by the user.
+   * Generates a String representation to identify a single instance of StreamProcessor.
    *
-   * <b>Note</b>: processorId has to be unique among the processors within a job. Processors can co-exists within the
-   * same JVM, as long as the identifiers are guaranteed to be unique.
+   * This value can be representative of its current executing environment. It can also be custom-managed by the user,
+   * as long as it adheres to the specification below. More than one processor can co-exist within the same JVM,
+   * as long as their identifiers are guaranteed to be unique.
+   *
+   * <b>Specification of processor identifier</b>:
+   * <ul>
+   *  <li>Processor identifier has to be unique among the processors within a job</li>
+   *  <li>When more than one processor co-exist within the same JVM, the processor identifier should be of the format:
+   *  $x_$y, where 'x' is a unique identifier for the executing JVM and 'y' is a unique identifier for the
+   *  processor instance within the JVM.</li>
+   * </ul>
+   *
+   * <b>Note</b>:
+   * In case of more than one processors within the same JVM, the custom implementation of ProcessorIdGenerator can
+   * contain a static counter, which is incremented on each call to generateProcessorId. The counter value can
+   * be treated as the identifier for the processor instance within the JVM.
    *
    * @param config Config instance
    * @return String Identifier for the processor
