@@ -146,12 +146,12 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
   private List<TaskGroup> getPreviousContainers(TaskAssignmentManager taskAssignmentManager, int taskCount) {
     Map<String, String> taskToContainerId = taskAssignmentManager.readTaskAssignment();
     taskToContainerId.values().forEach(id -> {
-      try {
-        int intId = Integer.parseInt(id);
-      } catch (NumberFormatException nfe) {
-        throw new SamzaException("GroupByContainerCount cannot handle non-integer processorIds!", nfe);
-      }
-    });
+        try {
+          int intId = Integer.parseInt(id);
+        } catch (NumberFormatException nfe) {
+          throw new SamzaException("GroupByContainerCount cannot handle non-integer processorIds!", nfe);
+        }
+      });
     if (taskToContainerId.isEmpty()) {
       log.info("No task assignment map was saved.");
       return null;
@@ -293,7 +293,8 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
         TaskModel model = taskNameToModel.get(taskName);
         containerTaskModels.put(model.getTaskName(), model);
       }
-      containerModels.add(new ContainerModel(container.containerId, containerTaskModels));
+      containerModels.add(
+          new ContainerModel(container.containerId, Integer.valueOf(container.containerId), containerTaskModels));
     }
     return Collections.unmodifiableSet(containerModels);
   }

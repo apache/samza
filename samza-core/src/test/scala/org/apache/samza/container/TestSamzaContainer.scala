@@ -57,8 +57,8 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       new TaskName("t1") -> new TaskModel(new TaskName("t1"), offsets.keySet(), new Partition(0)),
       new TaskName("t2") -> new TaskModel(new TaskName("t2"), offsets.keySet(), new Partition(0)))
     val containers = Map(
-      "0" -> new ContainerModel("0", tasks),
-      "1" -> new ContainerModel("1", tasks))
+      "0" -> new ContainerModel("0", 0, tasks),
+      "1" -> new ContainerModel("1", 0, tasks))
     val jobModel = new JobModel(config, containers)
     def jobModelGenerator(): JobModel = jobModel
     val server = new HttpServer
@@ -82,8 +82,8 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       new TaskName("t1") -> new TaskModel(new TaskName("t1"), offsets.keySet(), new Partition(0)),
       new TaskName("t2") -> new TaskModel(new TaskName("t2"), offsets.keySet(), new Partition(0)))
     val containers = Map(
-      "0" -> new ContainerModel("0", tasks),
-      "1" -> new ContainerModel("1", tasks))
+      "0" -> new ContainerModel("0", 0, tasks),
+      "1" -> new ContainerModel("1", 1, tasks))
     val jobModel = new JobModel(config, containers)
     def jobModelGenerator(): JobModel = jobModel
     val server = new HttpServer
@@ -112,8 +112,8 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       new TaskName("t3") -> new TaskModel(new TaskName("t3"), offsets.keySet(), new Partition(2)),
       new TaskName("t4") -> new TaskModel(new TaskName("t4"), offsets.keySet(), new Partition(3)),
       new TaskName("t5") -> new TaskModel(new TaskName("t6"), offsets.keySet(), new Partition(4)))
-    val containerModel1 = new ContainerModel("0", tasksForContainer1)
-    val containerModel2 = new ContainerModel("1", tasksForContainer2)
+    val containerModel1 = new ContainerModel("0", 0, tasksForContainer1)
+    val containerModel2 = new ContainerModel("1", 1, tasksForContainer2)
     val containers = Map(
       "0" -> containerModel1,
       "1" -> containerModel2)

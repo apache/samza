@@ -54,7 +54,7 @@ public class TestSamzaObjectMapper {
     TaskModel taskModel = new TaskModel(taskName, ssp, new Partition(2));
     Map<TaskName, TaskModel> tasks = new HashMap<TaskName, TaskModel>();
     tasks.put(taskName, taskModel);
-    ContainerModel containerModel = new ContainerModel("1", tasks);
+    ContainerModel containerModel = new ContainerModel("1", 1, tasks);
     Map<String, ContainerModel> containerMap = new HashMap<String, ContainerModel>();
     containerMap.put("1", containerModel);
     jobModel = new JobModel(config, containerMap);

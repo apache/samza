@@ -341,7 +341,7 @@ public class TestHostAwareContainerAllocator {
     HttpServer server = new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class));
     Map<String, ContainerModel> containers = new java.util.HashMap<>();
     for (int i = 0; i < containerCount; i++) {
-      ContainerModel container = new ContainerModel(String.valueOf(i), new HashMap<TaskName, TaskModel>());
+      ContainerModel container = new ContainerModel(String.valueOf(i), i, new HashMap<TaskName, TaskModel>());
       containers.put(String.valueOf(i), container);
     }
     JobModel jobModel = new JobModel(getConfig(), containers);

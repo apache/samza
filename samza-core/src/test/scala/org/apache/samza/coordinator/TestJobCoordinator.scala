@@ -79,8 +79,8 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     val container1Tasks = Map(
       task1Name -> new TaskModel(task1Name, checkpoint1.keySet.asJava, new Partition(3)))
     val containers = Map(
-      "0" -> new ContainerModel("0", container0Tasks.asJava),
-      "1" -> new ContainerModel("1", container1Tasks.asJava))
+      "0" -> new ContainerModel("0", 0, container0Tasks.asJava),
+      "1" -> new ContainerModel("1", 1, container1Tasks.asJava))
 
 
     // The test does not pass offsets for task2 (Partition 2) to the checkpointmanager, this will verify that we get an offset 0 for this partition
@@ -151,8 +151,8 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     val container1Tasks = Map(
       task1Name -> new TaskModel(task1Name, ssp1.asJava, new Partition(3)))
     val containers = Map(
-      Integer.valueOf(0) -> new ContainerModel("0", container0Tasks.asJava),
-      Integer.valueOf(1) -> new ContainerModel("1", container1Tasks.asJava))
+      Integer.valueOf(0) -> new ContainerModel("0", 0, container0Tasks.asJava),
+      Integer.valueOf(1) -> new ContainerModel("1", 1, container1Tasks.asJava))
     val changelogInfo0 = MockCoordinatorStreamWrappedConsumer.CHANGELOGPREFIX + "mock:" + task0Name.getTaskName() -> "4"
 
     // Configs which are processed by the MockCoordinatorStream as special configs which are interpreted as
@@ -210,7 +210,7 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     val container0Tasks = Map(
       task1Name -> new TaskModel(task1Name, Set(new SystemStreamPartition("test", "stream1", new Partition(1))).asJava, new Partition(0)))
     val containers = Map(
-      "0" -> new ContainerModel("0", container0Tasks.asJava))
+      "0" -> new ContainerModel("0", 0, container0Tasks.asJava))
     val jobModel = new JobModel(config, containers.asJava)
     assertEquals(config, coordinator.jobModel.getConfig)
     assertEquals(jobModel, coordinator.jobModel)
@@ -232,7 +232,7 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
       task1Name -> new TaskModel(task1Name, Set(new SystemStreamPartition("test", "stream1", new Partition(1))).asJava, new Partition(0)))
 
     val containers = Map(
-      "0" -> new ContainerModel("0", container0Tasks.asJava))
+      "0" -> new ContainerModel("0", 0, container0Tasks.asJava))
     val jobModel = new JobModel(config, containers.asJava)
     assertEquals(config, coordinator.jobModel.getConfig)
     assertEquals(jobModel, coordinator.jobModel)

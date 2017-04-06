@@ -60,10 +60,10 @@ public class MockTaskProxy extends SamzaTaskProxy {
     }
     TaskModel task1Model = new TaskModel(new TaskName(TASK_1_NAME), SYSTEM_STREAM_PARTITIONS, CHANGE_LOG_PARTITION);
     TaskModel task2Model = new TaskModel(new TaskName(TASK_2_NAME), SYSTEM_STREAM_PARTITIONS, CHANGE_LOG_PARTITION);
-    ContainerModel task1ContainerModel = new ContainerModel(TASK_1_CONTAINER_ID,
+    ContainerModel task1ContainerModel = new ContainerModel(TASK_1_CONTAINER_ID, 1,
                                                             ImmutableMap.of(new TaskName(TASK_1_NAME),
                                                                             task1Model));
-    ContainerModel task2ContainerModel = new ContainerModel(TASK_2_CONTAINER_ID,
+    ContainerModel task2ContainerModel = new ContainerModel(TASK_2_CONTAINER_ID, 2,
                                                             ImmutableMap.of(new TaskName(TASK_2_NAME),
                                                                             task2Model));
     return new JobModel(new MapConfig(), ImmutableMap.of(TASK_1_CONTAINER_ID, task1ContainerModel,

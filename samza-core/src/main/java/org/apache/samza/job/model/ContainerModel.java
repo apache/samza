@@ -46,10 +46,6 @@ public class ContainerModel {
   private final String processorId;
   private final Map<TaskName, TaskModel> tasks;
 
-  public ContainerModel(String containerId, Map<TaskName, TaskModel> tasks) {
-    this(containerId, Integer.parseInt(containerId), tasks);
-  }
-
   public ContainerModel(String processorId, int containerId, Map<TaskName, TaskModel> tasks) {
     this.containerId = containerId;
     if (processorId == null) {

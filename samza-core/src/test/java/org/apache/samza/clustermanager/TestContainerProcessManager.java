@@ -90,7 +90,7 @@ public class TestContainerProcessManager {
   private JobModelManager getCoordinator(int containerCount) {
     Map<String, ContainerModel> containers = new java.util.HashMap<>();
     for (int i = 0; i < containerCount; i++) {
-      ContainerModel container = new ContainerModel(String.valueOf(i), new HashMap<TaskName, TaskModel>());
+      ContainerModel container = new ContainerModel(String.valueOf(i), i, new HashMap<TaskName, TaskModel>());
       containers.put(String.valueOf(i), container);
     }
     Map<String, Map<String, String>> localityMap = new HashMap<>();

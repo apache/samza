@@ -78,7 +78,7 @@ public class ContainerMocks {
     for (int partition : partitions) {
       tasks.put(getTaskName(partition), getTaskModel(partition));
     }
-    return new ContainerModel(containerId, tasks);
+    return new ContainerModel(containerId, -1, tasks);
   }
 
   public static Set<TaskModel> generateTaskModels(int[] partitions) {
