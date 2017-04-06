@@ -220,6 +220,20 @@ class ClientHelper(conf: Configuration) extends Logging {
     appId
   }
 
+  def getActiveApplicationIds(appName: String): List[ApplicationId] = {
+    val getAppsRsp = yarnClient.getApplications
+
+    getAppsRsp
+      .asScala
+        .filter(appRep => ((
+            Running.equals(convertState(appRep.getYarnApplicationState, appRep.getFinalApplicationStatus).get)
+            || New.equals(convertState(appRep.getYarnApplicationState, appRep.getFinalApplicationStatus).get)
+            )
+          && appName.equals(appRep.getName)))
+        .map(appRep => appRep.getApplicationId)
+        .toList
+  }
+
   def status(appId: ApplicationId): Option[ApplicationStatus] = {
     val statusResponse = yarnClient.getApplicationReport(appId)
     convertState(statusResponse.getYarnApplicationState, statusResponse.getFinalApplicationStatus)
@@ -251,7 +265,7 @@ class ClientHelper(conf: Configuration) extends Logging {
   private def convertState(state: YarnApplicationState, status: FinalApplicationStatus): Option[ApplicationStatus] = {
     (state, status) match {
       case (YarnApplicationState.FINISHED, FinalApplicationStatus.SUCCEEDED) => Some(SuccessfulFinish)
-      case (YarnApplicationState.KILLED, _) | (YarnApplicationState.FAILED, _) => Some(UnsuccessfulFinish)
+      case (YarnApplicationState.KILLED, _) | (YarnApplicationState.FAILED, _) | (YarnApplicationState.FINISHED, _) => Some(UnsuccessfulFinish)
       case (YarnApplicationState.NEW, _) | (YarnApplicationState.SUBMITTED, _) => Some(New)
       case _ => Some(Running)
     }
@@ -337,6 +351,8 @@ class ClientHelper(conf: Configuration) extends Logging {
     * Cleanup application staging directory.
     */
   def cleanupStagingDir(): Unit = {
-    YarnJobUtil.cleanupStagingDir(jobContext, FileSystem.get(conf))
+    if (jobContext != null) {
+      YarnJobUtil.cleanupStagingDir(jobContext, FileSystem.get(conf))
+    }
   }
 }

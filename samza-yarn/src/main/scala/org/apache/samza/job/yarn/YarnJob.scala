@@ -134,16 +134,22 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
   }
 
   def getStatus: ApplicationStatus = {
-    appId match {
-      case Some(appId) => client.status(appId).getOrElse(null)
-      case None => null
+    getAppId match {
+      case Some(appId) =>
+        logger.info("Getting status for applicationId %s" format appId)
+        client.status(appId).getOrElse(null)
+      case None =>
+        logger.info("Unable to report status because no applicationId could be found.")
+        null
     }
   }
 
   def kill: YarnJob = {
-    appId match {
+    // getAppId only returns one appID. Run multiple times to kill dupes (erroneous case)
+    getAppId match {
       case Some(appId) =>
         try {
+          logger.info("Killing applicationId {}", appId)
           client.kill(appId)
         } finally {
           client.cleanupStagingDir
@@ -151,5 +157,29 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
       case None =>
     }
     this
+  }
+
+  private def getAppId: Option[ApplicationId] = {
+    appId match {
+      case Some(applicationId) =>
+       appId
+      case None =>
+        // Get by name
+        config.getName match {
+          case Some(jobName) =>
+            val applicationName = "%s_%s" format(jobName, config.getJobId.getOrElse(1))
+            logger.info("Fetching status from YARN for application name %s" format applicationName)
+            val applicationIds = client.getActiveApplicationIds(applicationName)
+
+            applicationIds.foreach(applicationId =>  {
+              logger.info("Found applicationId %s for applicationName %s" format(applicationId, applicationName))
+            })
+
+            // Only return one, because there should only be one.
+            applicationIds.headOption
+          case None =>
+            None
+        }
+    }
   }
 }
