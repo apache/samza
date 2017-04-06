@@ -151,7 +151,7 @@ object JobModelManager extends Logging {
                                 localityManager: LocalityManager,
                                 streamMetadataCache: StreamMetadataCache,
                                 streamPartitionCountMonitor: StreamPartitionCountMonitor,
-                                containerIds: java.util.List[Integer]) = {
+                                containerIds: java.util.List[String]) = {
     val jobModel: JobModel = readJobModel(config, changeLogMapping, localityManager, streamMetadataCache, containerIds)
     jobModelRef.set(jobModel)
 
@@ -219,7 +219,7 @@ object JobModelManager extends Logging {
                    changeLogPartitionMapping: util.Map[TaskName, Integer],
                    localityManager: LocalityManager,
                    streamMetadataCache: StreamMetadataCache,
-                   containerIds: java.util.List[Integer]): JobModel = {
+                   containerIds: java.util.List[String]): JobModel = {
     // Do grouping to fetch TaskName to SSP mapping
     val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache)
     val grouper = getSystemStreamPartitionGrouper(config)

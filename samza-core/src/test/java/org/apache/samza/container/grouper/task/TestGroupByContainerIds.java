@@ -117,10 +117,10 @@ public class TestGroupByContainerIds {
   public void testGroupHappyPathWithListOfContainers() {
     Set<TaskModel> taskModels = generateTaskModels(5);
 
-    List<Integer> containerIds = new ArrayList<Integer>() {
+    List<String> containerIds = new ArrayList<String>() {
       {
-        add(4);
-        add(2);
+        add("4");
+        add("2");
       }
     };
 
@@ -152,10 +152,10 @@ public class TestGroupByContainerIds {
   public void testGroupManyTasks() {
     Set<TaskModel> taskModels = generateTaskModels(21);
 
-    List<Integer> containerIds = new ArrayList<Integer>() {
+    List<String> containerIds = new ArrayList<String>() {
       {
-        add(4);
-        add(2);
+        add("4");
+        add("2");
       }
     };
 

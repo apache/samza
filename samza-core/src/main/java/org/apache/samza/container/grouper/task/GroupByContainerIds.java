@@ -52,14 +52,14 @@ public class GroupByContainerIds implements TaskNameGrouper {
     if (startContainerCount > tasks.size())
       throw new IllegalArgumentException("number of containers="  + startContainerCount + " is bigger than number of tasks=" + tasks.size());
 
-    List<Integer> containerIds = new ArrayList<>(startContainerCount);
+    List<String> containerIds = new ArrayList<>(startContainerCount);
     for (int i = 0; i < startContainerCount; i++) {
-      containerIds.add(i);
+      containerIds.add(String.valueOf(i));
     }
     return group(tasks, containerIds);
   }
 
-  public Set<ContainerModel> group(Set<TaskModel> tasks, List<Integer> containersIds) {
+  public Set<ContainerModel> group(Set<TaskModel> tasks, List<String> containersIds) {
     if (tasks.isEmpty())
       throw new IllegalArgumentException("cannot group an empty set. containersIds=" + Arrays
           .toString(containersIds.toArray()));

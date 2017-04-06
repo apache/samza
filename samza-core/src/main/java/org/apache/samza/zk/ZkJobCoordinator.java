@@ -212,14 +212,12 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     }
     log.info("pid=" + processorId + "generating new model. Version = " + nextJMVersion);
 
-    StringBuilder sb = new StringBuilder();
-    List<Integer> containerIds = new ArrayList<>();
+    List<String> containerIds = new ArrayList<>();
     for (String processor : currentProcessors) {
-      String zkProcessorId = keyBuilder.parseIdFromPath(processor);
-      sb.append(zkProcessorId).append(",");
-      containerIds.add(Integer.valueOf(zkProcessorId));
+      String zkProcessorId = ZkKeyBuilder.parseIdFromPath(processor);
+      containerIds.add(zkProcessorId);
     }
-    log.info("generate new job model: processorsIds: " + sb.toString());
+    log.info("generate new job model: processorsIds: " + Arrays.toString(containerIds.toArray()));
 
     jobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache,
         containerIds);
