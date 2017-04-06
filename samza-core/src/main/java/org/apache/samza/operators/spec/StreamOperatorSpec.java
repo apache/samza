@@ -32,54 +32,42 @@ import org.apache.samza.task.TaskContext;
  */
 public class StreamOperatorSpec<M, OM> implements OperatorSpec<OM> {
 
-  /**
-   * {@link OpCode} for this {@link StreamOperatorSpec}
-   */
-  private final OperatorSpec.OpCode opCode;
-
-  /**
-   * The unique ID for this operator.
-   */
-  private final int opId;
-
-  /**
-   * The output {@link MessageStreamImpl} from this {@link StreamOperatorSpec}
-   */
-  private final MessageStreamImpl<OM> outputStream;
-
-  /**
-   * Transformation function applied in this {@link StreamOperatorSpec}
-   */
   private final FlatMapFunction<M, OM> transformFn;
+  private final MessageStreamImpl<OM> nextStream;
+  private final OperatorSpec.OpCode opCode;
+  private final int opId;
 
   /**
    * Constructor for a {@link StreamOperatorSpec} that accepts an output {@link MessageStreamImpl}.
    *
    * @param transformFn  the transformation function
-   * @param outputStream  the output {@link MessageStreamImpl}
+   * @param nextStream  the output {@link MessageStreamImpl} containing the messages produced from this operator
    * @param opCode  the {@link OpCode} for this {@link StreamOperatorSpec}
    * @param opId  the unique id for this {@link StreamOperatorSpec} in a {@link org.apache.samza.operators.StreamGraph}
    */
-  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, MessageStreamImpl outputStream, OperatorSpec.OpCode opCode, int opId) {
-    this.outputStream = outputStream;
+  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, MessageStreamImpl nextStream,
+      OperatorSpec.OpCode opCode, int opId) {
     this.transformFn = transformFn;
+    this.nextStream = nextStream;
     this.opCode = opCode;
     this.opId = opId;
   }
 
   @Override
   public MessageStreamImpl<OM> getNextStream() {
-    return this.outputStream;
+    return this.nextStream;
   }
 
   public FlatMapFunction<M, OM> getTransformFn() {
     return this.transformFn;
   }
 
+  @Override
   public OperatorSpec.OpCode getOpCode() {
     return this.opCode;
   }
 
+  @Override
   public int getOpId() {
     return this.opId;
   }

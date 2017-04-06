@@ -23,14 +23,7 @@ package org.apache.samza.system.hdfs
 import java.text.SimpleDateFormat
 import java.util.UUID
 
-import org.apache.samza.SamzaException
-import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.{YarnConfig, Config, ScalaMapConfig}
-import org.apache.samza.util.{Logging, Util}
-
-import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
-
 
 object HdfsConfig {
 

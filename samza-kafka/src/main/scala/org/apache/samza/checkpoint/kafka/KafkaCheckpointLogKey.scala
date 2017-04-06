@@ -25,7 +25,7 @@ import org.apache.samza.container.TaskName
 import org.codehaus.jackson.`type`.TypeReference
 import org.codehaus.jackson.map.ObjectMapper
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 /**
  * Kafka Checkpoint Log-specific key used to identify what type of entry is
@@ -43,7 +43,7 @@ class KafkaCheckpointLogKey private (val map: Map[String, String]) {
    */
   def toBytes(): Array[Byte] = {
     val jMap = new util.HashMap[String, String](map.size)
-    jMap.putAll(map)
+    jMap.putAll(map.asJava)
 
     JSON_MAPPER.writeValueAsBytes(jMap)
   }
@@ -156,7 +156,7 @@ object KafkaCheckpointLogKey {
         }
       }
 
-      new KafkaCheckpointLogKey(jmap.toMap)
+      new KafkaCheckpointLogKey(jmap.asScala.toMap)
     } catch {
       case e: Exception =>
         throw new SamzaException("Exception while deserializing checkpoint key", e)

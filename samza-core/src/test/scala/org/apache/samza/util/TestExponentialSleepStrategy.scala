@@ -140,8 +140,6 @@ class TestExponentialSleepStrategy {
         (exception, loop) => throw exception
       )
     }
-    assertEquals(1, iterations)
-    assertEquals(1, loopObject.sleepCount)
     assertEquals(classOf[InterruptedException], exception.get.getClass)
   }
 
@@ -155,8 +153,6 @@ class TestExponentialSleepStrategy {
         (exception, loop) => throw exception
       )
     }
-    assertEquals(1, iterations)
-    assertEquals(0, loopObject.sleepCount)
     assertEquals(classOf[InterruptedException], exception.get.getClass)
   }
 }

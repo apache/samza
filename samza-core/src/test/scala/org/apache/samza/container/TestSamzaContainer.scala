@@ -57,23 +57,23 @@ import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.junit.AssertionsForJUnit
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   @Test
   def testReadJobModel {
-    val config = new MapConfig(Map("a" -> "b"))
+    val config = new MapConfig(Map("a" -> "b").asJava)
     val offsets = new util.HashMap[SystemStreamPartition, String]()
     offsets.put(new SystemStreamPartition("system","stream", new Partition(0)), "1")
     val tasks = Map(
       new TaskName("t1") -> new TaskModel(new TaskName("t1"), offsets.keySet(), new Partition(0)),
       new TaskName("t2") -> new TaskModel(new TaskName("t2"), offsets.keySet(), new Partition(0)))
     val containers = Map(
-      Integer.valueOf(0) -> new ContainerModel(0, tasks),
-      Integer.valueOf(1) -> new ContainerModel(1, tasks))
-    val jobModel = new JobModel(config, containers)
+      Integer.valueOf(0) -> new ContainerModel(0, tasks.asJava),
+      Integer.valueOf(1) -> new ContainerModel(1, tasks.asJava))
+    val jobModel = new JobModel(config, containers.asJava)
     def jobModelGenerator(): JobModel = jobModel
     val server = new HttpServer
     val coordinator = new JobModelManager(jobModel, server)
@@ -89,16 +89,16 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
 
   @Test
   def testReadJobModelWithTimeouts {
-    val config = new MapConfig(Map("a" -> "b"))
+    val config = new MapConfig(Map("a" -> "b").asJava)
     val offsets = new util.HashMap[SystemStreamPartition, String]()
     offsets.put(new SystemStreamPartition("system","stream", new Partition(0)), "1")
     val tasks = Map(
       new TaskName("t1") -> new TaskModel(new TaskName("t1"), offsets.keySet(), new Partition(0)),
       new TaskName("t2") -> new TaskModel(new TaskName("t2"), offsets.keySet(), new Partition(0)))
     val containers = Map(
-      Integer.valueOf(0) -> new ContainerModel(0, tasks),
-      Integer.valueOf(1) -> new ContainerModel(1, tasks))
-    val jobModel = new JobModel(config, containers)
+      Integer.valueOf(0) -> new ContainerModel(0, tasks.asJava),
+      Integer.valueOf(1) -> new ContainerModel(1, tasks.asJava))
+    val jobModel = new JobModel(config, containers.asJava)
     def jobModelGenerator(): JobModel = jobModel
     val server = new HttpServer
     val coordinator = new JobModelManager(jobModel, server)
@@ -116,7 +116,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
 
   @Test
   def testChangelogPartitions {
-    val config = new MapConfig(Map("a" -> "b"))
+    val config = new MapConfig(Map("a" -> "b").asJava)
     val offsets = new util.HashMap[SystemStreamPartition, String]()
     offsets.put(new SystemStreamPartition("system", "stream", new Partition(0)), "1")
     val tasksForContainer1 = Map(
@@ -126,12 +126,12 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       new TaskName("t3") -> new TaskModel(new TaskName("t3"), offsets.keySet(), new Partition(2)),
       new TaskName("t4") -> new TaskModel(new TaskName("t4"), offsets.keySet(), new Partition(3)),
       new TaskName("t5") -> new TaskModel(new TaskName("t6"), offsets.keySet(), new Partition(4)))
-    val containerModel1 = new ContainerModel(0, tasksForContainer1)
-    val containerModel2 = new ContainerModel(1, tasksForContainer2)
+    val containerModel1 = new ContainerModel(0, tasksForContainer1.asJava)
+    val containerModel2 = new ContainerModel(1, tasksForContainer2.asJava)
     val containers = Map(
       Integer.valueOf(0) -> containerModel1,
       Integer.valueOf(1) -> containerModel2)
-    val jobModel = new JobModel(config, containers)
+    val jobModel = new JobModel(config, containers.asJava)
     assertEquals(jobModel.maxChangeLogStreamPartitions, 5)
   }
 
@@ -179,7 +179,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       Map[String, SystemProducer](),
       new SerdeManager)
     val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
+    val containerContext = new SamzaContainerContext(0, config, Set(taskName).asJava)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
       taskName,
@@ -238,7 +238,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       Map[String, SystemProducer](),
       new SerdeManager)
     val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
+    val containerContext = new SamzaContainerContext(0, config, Set(taskName).asJava)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
       taskName,
@@ -287,7 +287,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       Map[String, SystemProducer](),
       new SerdeManager)
     val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
+    val containerContext = new SamzaContainerContext(0, config, Set(taskName).asJava)
     val mockTaskStorageManager = mock[TaskStorageManager]
 
     when(mockTaskStorageManager.init).thenAnswer(new Answer[String] {
@@ -333,7 +333,7 @@ class MockCheckpointManager extends CheckpointManager {
 
   override def register(taskName: TaskName): Unit = {}
 
-  override def readLastCheckpoint(taskName: TaskName): Checkpoint = { new Checkpoint(Map[SystemStreamPartition, String]()) }
+  override def readLastCheckpoint(taskName: TaskName): Checkpoint = { new Checkpoint(Map[SystemStreamPartition, String]().asJava) }
 
   override def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint): Unit = { }
 }

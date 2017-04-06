@@ -43,10 +43,12 @@ import org.apache.samza.job.CommandBuilder;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 /**
  * A Helper class to run container processes on Yarn. This encapsulates quite a bit of YarnContainer
@@ -112,11 +114,11 @@ public class YarnContainerRunner {
 
     log.info("Samza FWK path: " + command + "; env=" + env);
 
-    Path path = new Path(yarnConfig.getPackagePath());
-    log.info("Starting container ID {} using package path {}", samzaContainerId, path);
+    Path packagePath = new Path(yarnConfig.getPackagePath());
+    log.info("Starting container ID {} using package path {}", samzaContainerId, packagePath);
 
     startContainer(
-        path,
+        packagePath,
         container,
         env,
         getFormattedCommand(
@@ -151,6 +153,8 @@ public class YarnContainerRunner {
     log.info("starting container {} {} {} {}",
         new Object[]{packagePath, container, env, cmd});
 
+    // TODO: SAMZA-1144 remove the customized approach for package resource and use the common one.
+    // But keep it now for backward compatibility.
     // set the local package so that the containers and app master are provisioned with it
     LocalResource packageResource = Records.newRecord(LocalResource.class);
     URL packageUrl = ConverterUtils.getYarnUrlFromPath(packagePath);
@@ -163,6 +167,7 @@ public class YarnContainerRunner {
     }
 
     packageResource.setResource(packageUrl);
+    log.info("set package Resource in YarnContainerRunner for {}", packageUrl);
     packageResource.setSize(fileStatus.getLen());
     packageResource.setTimestamp(fileStatus.getModificationTime());
     packageResource.setType(LocalResourceType.ARCHIVE);
@@ -190,13 +195,20 @@ public class YarnContainerRunner {
       throw new SamzaContainerLaunchException("IO Exception when writing credentials to output buffer");
     }
 
+    Map<String, LocalResource> localResourceMap = new HashMap<>();
+    localResourceMap.put("__package", packageResource);
+
+    // include the resources from the universal resource configurations
+    LocalizerResourceMapper resourceMapper = new LocalizerResourceMapper(new LocalizerResourceConfig(config), yarnConfiguration);
+    localResourceMap.putAll(resourceMapper.getResourceMap());
+
     ContainerLaunchContext context = Records.newRecord(ContainerLaunchContext.class);
     context.setEnvironment(env);
     context.setTokens(allTokens.duplicate());
     context.setCommands(new ArrayList<String>() {{add(cmd);}});
-    context.setLocalResources(Collections.singletonMap("__package", packageResource));
+    context.setLocalResources(localResourceMap);
 
-    log.debug("setting package to {}", packageResource);
+    log.debug("setting localResourceMap to {}", localResourceMap);
     log.debug("setting context to {}", context);
 
     StartContainerRequest startContainerRequest = Records.newRecord(StartContainerRequest.class);

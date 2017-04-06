@@ -23,7 +23,6 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.data.MessageEnvelope;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
@@ -31,6 +30,7 @@ import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -44,14 +44,12 @@ public class TumblingWindowApp implements StreamApplication {
   @Override
   public void init(StreamGraph graph, Config config) {
     StreamSpec pageViewStreamSpec = new StreamSpec("page-views", TestRepartitionWindowApp.INPUT_TOPIC, "kafka");
-    Function<MessageEnvelope<String, String>, String> keyFn = m -> m.getKey();
+    BiFunction<String, String, PageView> msgBuilder = (k, v) -> new PageView(v);
+    MessageStream<PageView> pageViews = graph.getInputStream("page-views", msgBuilder);
+    Function<PageView, String> keyFn = pageView -> pageView.getUserId();
 
-    MessageStream<MessageEnvelope<String, String>> pageViews = graph.createInStream(pageViewStreamSpec, null, null);
     pageViews
-        .filter(m -> {
-            LOG.info("Processing message with key: {} ", m.getKey());
-            return !FILTER_KEY.equals(m.getKey());
-          })
+        .filter(m -> !FILTER_KEY.equals(m.getUserId()))
         // identity map
         .map(m -> m)
         // emit output

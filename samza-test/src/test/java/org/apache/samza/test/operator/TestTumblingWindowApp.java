@@ -32,7 +32,7 @@ import java.util.List;
  */
 public class TestTumblingWindowApp extends StreamApplicationIntegrationTestHarness {
 
-  static final String INPUT_TOPIC = "PageViewEvent";
+  static final String INPUT_TOPIC = "page-views";
   static final String OUTPUT_TOPIC = "Result";
   static final Duration DURATION = Duration.ofSeconds(3);
   private static final String APP_NAME = "SessionWindowDemo";
@@ -47,7 +47,7 @@ public class TestTumblingWindowApp extends StreamApplicationIntegrationTestHarne
     // filtered out.)
     produceMessage(INPUT_TOPIC, 0, "badKey", "badKey,india,google.com");
     produceMessage(INPUT_TOPIC, 0, "userId1", "userId1,india,google.com");
-    produceMessage(INPUT_TOPIC, 0, "userId2", "userId1,india,google.com");
+    produceMessage(INPUT_TOPIC, 0, "userId2", "userId2,india,google.com");
 
     // run the application
     StreamApplication app = new TumblingWindowApp();

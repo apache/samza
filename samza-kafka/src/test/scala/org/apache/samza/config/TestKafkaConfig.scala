@@ -19,18 +19,14 @@
 
 package org.apache.samza.config
 
-import java.net.URI
-import java.io.File
 import java.util.Properties
-import kafka.consumer.ConsumerConfig
 import org.apache.samza.config.factories.PropertiesConfigFactory
 import org.junit.Assert._
 import org.junit.Test
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.junit.Before
-import org.junit.BeforeClass
 
 class TestKafkaConfig {
   
@@ -52,7 +48,7 @@ class TestKafkaConfig {
     val factory = new PropertiesConfigFactory()
     props.setProperty("systems." + SYSTEM_NAME + ".samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory")
 
-    val mapConfig = new MapConfig(props.toMap[String, String])
+    val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
 
     val consumerConfig1 = kafkaConfig.getKafkaSystemConsumerConfig(SYSTEM_NAME, "TestClientId1")
@@ -85,33 +81,33 @@ class TestKafkaConfig {
 
   @Test
   def testStreamLevelFetchSizeOverride() {
-    val mapConfig = new MapConfig(props.toMap[String, String])
+    val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     val consumerConfig = kafkaConfig.getKafkaSystemConsumerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
     // default fetch size
     assertEquals(1024*1024, consumerConfig.fetchMessageMaxBytes)
 
     props.setProperty("systems." + SYSTEM_NAME + ".consumer.fetch.message.max.bytes", "262144")
-    val mapConfig1 = new MapConfig(props.toMap[String, String])
+    val mapConfig1 = new MapConfig(props.asScala.asJava)
     val kafkaConfig1 = new KafkaConfig(mapConfig1)
     val consumerConfig1 = kafkaConfig1.getKafkaSystemConsumerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
     // shared fetch size
     assertEquals(512*512, consumerConfig1.fetchMessageMaxBytes)
     
     props.setProperty("systems." + SYSTEM_NAME + ".streams.topic1.consumer.fetch.message.max.bytes", "65536")
-    val mapConfig2 = new MapConfig(props.toMap[String, String])
+    val mapConfig2 = new MapConfig(props.asScala.asJava)
     val kafkaConfig2 = new KafkaConfig(mapConfig2)
     val consumerConfig2 = kafkaConfig2.getFetchMessageMaxBytesTopics(SYSTEM_NAME)
     // topic fetch size
     assertEquals(256*256, consumerConfig2 getOrElse ("topic1", 1024*1024))
 
     // default samza.fetch.threshold.bytes
-    val mapConfig3 = new MapConfig(props.toMap[String, String])
+    val mapConfig3 = new MapConfig(props.asScala.asJava)
     val kafkaConfig3 = new KafkaConfig(mapConfig3)
     assertTrue(kafkaConfig3.getConsumerFetchThresholdBytes("kafka").isEmpty)
 
     props.setProperty("systems.kafka.samza.fetch.threshold.bytes", "65536")
-    val mapConfig4 = new MapConfig(props.toMap[String, String])
+    val mapConfig4 = new MapConfig(props.asScala.asJava)
     val kafkaConfig4 = new KafkaConfig(mapConfig4)
     assertEquals("65536", kafkaConfig4.getConsumerFetchThresholdBytes("kafka").get)
   }
@@ -125,7 +121,7 @@ class TestKafkaConfig {
     props.setProperty("stores.test3.changelog", "otherstream")
     props.setProperty("stores.test1.changelog.kafka.cleanup.policy", "delete")
     
-    val mapConfig = new MapConfig(props.toMap[String, String])
+    val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test1").getProperty("cleanup.policy"), "delete")
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test2").getProperty("cleanup.policy"), "compact")
@@ -138,7 +134,7 @@ class TestKafkaConfig {
   
   @Test
   def testDefaultValuesForProducerProperties() {
-    val mapConfig = new MapConfig(props.toMap[String, String])
+    val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     val kafkaProducerConfig = kafkaConfig.getKafkaSystemProducerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
     val producerProperties = kafkaProducerConfig.getProducerProperties
@@ -155,7 +151,7 @@ class TestKafkaConfig {
     
     props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, expectedValue);
     
-    val mapConfig = new MapConfig(props.toMap[String, String])
+    val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     val kafkaProducerConfig = kafkaConfig.getKafkaSystemProducerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
     val producerProperties = kafkaProducerConfig.getProducerProperties
@@ -169,7 +165,7 @@ class TestKafkaConfig {
     
     props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.RETRIES_CONFIG, expectedValue);
     
-    val mapConfig = new MapConfig(props.toMap[String, String])
+    val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     val kafkaProducerConfig = kafkaConfig.getKafkaSystemProducerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
     val producerProperties = kafkaProducerConfig.getProducerProperties
@@ -181,7 +177,7 @@ class TestKafkaConfig {
   def testMaxInFlightRequestsPerConnectionWrongNumberFormat() {
     props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "Samza");
     
-    val mapConfig = new MapConfig(props.toMap[String, String])
+    val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     val kafkaProducerConfig = kafkaConfig.getKafkaSystemProducerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
     kafkaProducerConfig.getProducerProperties
@@ -191,7 +187,7 @@ class TestKafkaConfig {
   def testRetriesWrongNumberFormat() {
     props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.RETRIES_CONFIG, "Samza");
     
-    val mapConfig = new MapConfig(props.toMap[String, String])
+    val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     val kafkaProducerConfig = kafkaConfig.getKafkaSystemProducerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
     kafkaProducerConfig.getProducerProperties

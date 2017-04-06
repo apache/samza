@@ -45,7 +45,7 @@ object JobConfig {
   val JOB_COORDINATOR_SYSTEM = "job.coordinator.system"
   val JOB_DEFAULT_SYSTEM = "job.default.system"
   val JOB_CONTAINER_COUNT = "job.container.count"
-  val jOB_CONTAINER_THREAD_POOL_SIZE = "job.container.thread.pool.size"
+  val JOB_CONTAINER_THREAD_POOL_SIZE = "job.container.thread.pool.size"
   val JOB_CONTAINER_SINGLE_THREAD_MODE = "job.container.single.thread.mode"
   val JOB_REPLICATION_FACTOR = "job.coordinator.replication.factor"
   val JOB_SEGMENT_BYTES = "job.coordinator.segment.bytes"
@@ -53,19 +53,19 @@ object JobConfig {
 
   val SSP_GROUPER_FACTORY = "job.systemstreampartition.grouper.factory"
 
-  val SSP_MATCHER_CLASS = "job.systemstreampartition.matcher.class";
+  val SSP_MATCHER_CLASS = "job.systemstreampartition.matcher.class"
 
   val SSP_MATCHER_CLASS_REGEX = "org.apache.samza.system.RegexSystemStreamPartitionMatcher"
 
   val SSP_MATCHER_CLASS_RANGE = "org.apache.samza.system.RangeSystemStreamPartitionMatcher"
 
-  val SSP_MATCHER_CONFIG_REGEX = "job.systemstreampartition.matcher.config.regex";
+  val SSP_MATCHER_CONFIG_REGEX = "job.systemstreampartition.matcher.config.regex"
 
-  val SSP_MATCHER_CONFIG_RANGES = "job.systemstreampartition.matcher.config.ranges";
+  val SSP_MATCHER_CONFIG_RANGES = "job.systemstreampartition.matcher.config.ranges"
 
-  val SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX = "job.systemstreampartition.matcher.config.job.factory.regex";
+  val SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX = "job.systemstreampartition.matcher.config.job.factory.regex"
 
-  val DEFAULT_SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX = "org\\.apache\\.samza\\.job\\.local(.*ProcessJobFactory|.*ThreadJobFactory)";
+  val DEFAULT_SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX = "org\\.apache\\.samza\\.job\\.local(.*ProcessJobFactory|.*ThreadJobFactory)"
 
   // number of partitions in the checkpoint stream should be 1. But sometimes,
   // if a stream was created(automatically) with the wrong number of partitions(default number of partitions
@@ -177,7 +177,7 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getSSPMatcherConfigJobFactoryRegex = getOrElse(JobConfig.SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX, JobConfig.DEFAULT_SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX)
 
-  def getThreadPoolSize = getOption(JobConfig.jOB_CONTAINER_THREAD_POOL_SIZE) match {
+  def getThreadPoolSize = getOption(JobConfig.JOB_CONTAINER_THREAD_POOL_SIZE) match {
     case Some(size) => size.toInt
     case _ => 0
   }

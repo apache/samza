@@ -28,7 +28,7 @@ import org.apache.samza.system.chooser.DefaultChooser
 import org.apache.samza.system.chooser.MockMessageChooser
 import org.apache.samza.util.BlockingEnvelopeMap
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 class TestSystemConsumers {
   def testPollIntervalMs {
@@ -159,7 +159,7 @@ class TestSystemConsumers {
       def start = consumerStarted += 1
       def stop = consumerStopped += 1
       def register(systemStreamPartition: SystemStreamPartition, offset: String) = consumerRegistered += systemStreamPartition -> offset
-      def poll(systemStreamPartitions: java.util.Set[SystemStreamPartition], timeout: Long) = Map[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]]()
+      def poll(systemStreamPartitions: java.util.Set[SystemStreamPartition], timeout: Long) = Map[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]]().asJava
     })
 
     val consumers = new SystemConsumers(new MessageChooser {
@@ -199,7 +199,7 @@ class TestSystemConsumers {
       def start {}
       def stop {}
       def register(systemStreamPartition: SystemStreamPartition, offset: String) {}
-      def poll(systemStreamPartitions: java.util.Set[SystemStreamPartition], timeout: Long) = Map[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]]()
+      def poll(systemStreamPartitions: java.util.Set[SystemStreamPartition], timeout: Long) = Map[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]]().asJava
     })
     val consumers = new SystemConsumers(new MessageChooser {
       def update(envelope: IncomingMessageEnvelope) = Unit
@@ -300,7 +300,7 @@ class TestSystemConsumers {
     def poll(systemStreamPartitions: java.util.Set[SystemStreamPartition], timeout: Long) = {
       polls += 1
       lastPoll = systemStreamPartitions
-      pollResponse
+      pollResponse.asJava
     }
     def setResponseSizes(numEnvelopes: Int) {
       val q = new java.util.ArrayList[IncomingMessageEnvelope]()
@@ -330,6 +330,6 @@ class TestSystemConsumers {
 
 object TestSystemConsumers {
   def getSystemConsumers(consumers: java.util.Map[String, SystemConsumer]) : SystemConsumers = {
-    new SystemConsumers(new DefaultChooser, consumers.toMap)
+    new SystemConsumers(new DefaultChooser, consumers.asScala.toMap)
   }
 }

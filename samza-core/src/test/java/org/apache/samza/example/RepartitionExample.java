@@ -18,16 +18,14 @@
  */
 package org.apache.samza.example;
 
-import org.apache.samza.operators.*;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.data.MessageEnvelope;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.serializers.JsonSerde;
-import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -39,47 +37,21 @@ import java.util.function.Supplier;
  */
 public class RepartitionExample implements StreamApplication {
 
-  /**
-   * used by remote application runner to launch the job in remote program. The remote program should follow the similar
-   * invoking context as in local runner:
-   *
-   *   public static void main(String args[]) throws Exception {
-   *     CommandLine cmdLine = new CommandLine();
-   *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-   *     ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-   *     runner.run(new UserMainExample(), config);
-   *   }
-   *
-   */
-
-  /**
-   * used by remote execution environment to launch the job in remote program. The remote program should follow the similar
-   * invoking context as in standalone:
-   *
-   *   public static void main(String args[]) throws Exception {
-   *     CommandLine cmdLine = new CommandLine();
-   *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-   *     ExecutionEnvironment remoteEnv = ExecutionEnvironment.getRemoteEnvironment(config);
-   *     remoteEnv.run(new UserMainExample(), config);
-   *   }
-   *
-   */
   @Override public void init(StreamGraph graph, Config config) {
-
-    MessageStream<PageViewEvent> pageViewEvents = graph.createInStream(input1, new StringSerde("UTF-8"), new JsonSerde<>());
-    OutputStream<MyStreamOutput> pageViewPerMemberCounters = graph.createOutStream(output, new StringSerde("UTF-8"), new JsonSerde<>());
     Supplier<Integer> initialValue = () -> 0;
+    MessageStream<PageViewEvent> pageViewEvents =
+        graph.getInputStream("pageViewEventStream", (k, m) -> (PageViewEvent) m);
+    OutputStream<String, MyStreamOutput, MyStreamOutput> pageViewEventPerMemberStream = graph
+        .getOutputStream("pageViewEventPerMemberStream", m -> m.memberId, m -> m);
 
-    pageViewEvents.
-        partitionBy(m -> m.getMessage().memberId).
-        window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(
-            msg -> msg.getMessage().memberId, Duration.ofMinutes(5), initialValue, (m, c) -> c + 1)).
-        map(MyStreamOutput::new).
-        sendTo(pageViewPerMemberCounters);
-
+    pageViewEvents
+        .partitionBy(m -> m.memberId)
+        .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofMinutes(5), initialValue, (m, c) -> c + 1))
+        .map(MyStreamOutput::new)
+        .sendTo(pageViewEventPerMemberStream);
   }
 
-  // standalone local program model
+  // local execution mode
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
@@ -87,11 +59,7 @@ public class RepartitionExample implements StreamApplication {
     localRunner.run(new RepartitionExample());
   }
 
-  StreamSpec input1 = new StreamSpec("pageViewEventStream", "PageViewEvent", "kafka");
-
-  StreamSpec output = new StreamSpec("pageViewEventPerMemberStream", "PageViewEventCountByMemberId", "kafka");
-
-  class PageViewEvent implements MessageEnvelope<String, PageViewEvent> {
+  class PageViewEvent {
     String pageId;
     String memberId;
     long timestamp;
@@ -101,19 +69,9 @@ public class RepartitionExample implements StreamApplication {
       this.memberId = memberId;
       this.timestamp = timestamp;
     }
-
-    @Override
-    public String getKey() {
-      return this.pageId;
-    }
-
-    @Override
-    public PageViewEvent getMessage() {
-      return this;
-    }
   }
 
-  class MyStreamOutput implements MessageEnvelope<String, MyStreamOutput> {
+  class MyStreamOutput {
     String memberId;
     long timestamp;
     int count;
@@ -123,16 +81,5 @@ public class RepartitionExample implements StreamApplication {
       this.timestamp = Long.valueOf(m.getKey().getPaneId());
       this.count = m.getMessage();
     }
-
-    @Override
-    public String getKey() {
-      return this.memberId;
-    }
-
-    @Override
-    public MyStreamOutput getMessage() {
-      return this;
-    }
   }
-
 }

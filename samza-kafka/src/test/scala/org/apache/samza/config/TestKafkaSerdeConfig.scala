@@ -23,7 +23,7 @@ import org.apache.samza.config.KafkaSerdeConfig.Config2KafkaSerde
 import org.junit.Assert._
 import org.junit.Test
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 class TestKafkaSerdeConfig {
   val MAGIC_VAL = "1000"
@@ -31,7 +31,7 @@ class TestKafkaSerdeConfig {
   val paramsToTest = List(
     "serializers.registry.test.encoder", "serializers.registry.test.decoder")
 
-  val config = new MapConfig(mapAsJavaMap(paramsToTest.map { m => (m, MAGIC_VAL) }.toMap))
+  val config = new MapConfig(paramsToTest.map { m => (m, MAGIC_VAL) }.toMap.asJava)
 
   @Test
   def testKafkaConfigurationIsBackwardsCompatible {

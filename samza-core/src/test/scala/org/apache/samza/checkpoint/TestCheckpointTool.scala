@@ -30,8 +30,8 @@ import org.junit.{Before, Test}
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.junit.AssertionsForJUnit
-import org.scalatest.mock.MockitoSugar
-import scala.collection.JavaConversions._
+import org.scalatest.mockito.MockitoSugar
+import scala.collection.JavaConverters._
 import org.apache.samza.config.JobConfig
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
 
@@ -70,19 +70,19 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
       SystemConfig.SYSTEM_FACTORY.format("test") -> classOf[MockSystemFactory].getName,
       SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
       TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
-    ))
+    ).asJava)
     val metadata = new SystemStreamMetadata("foo", Map[Partition, SystemStreamPartitionMetadata](
       new Partition(0) -> new SystemStreamPartitionMetadata("0", "100", "101"),
       new Partition(1) -> new SystemStreamPartitionMetadata("0", "200", "201")
-    ))
+    ).asJava)
     TestCheckpointTool.checkpointManager = mock[CheckpointManager]
     TestCheckpointTool.systemAdmin = mock[SystemAdmin]
-    when(TestCheckpointTool.systemAdmin.getSystemStreamMetadata(Set("foo")))
-      .thenReturn(Map("foo" -> metadata))
+    when(TestCheckpointTool.systemAdmin.getSystemStreamMetadata(Set("foo").asJava))
+      .thenReturn(Map("foo" -> metadata).asJava)
     when(TestCheckpointTool.checkpointManager.readLastCheckpoint(tn0))
-      .thenReturn(new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "1234")))
+      .thenReturn(new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "1234").asJava))
     when(TestCheckpointTool.checkpointManager.readLastCheckpoint(tn1))
-      .thenReturn(new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "4321")))
+      .thenReturn(new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "4321").asJava))
   }
 
   @Test
@@ -102,8 +102,8 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
     val checkpointTool = CheckpointTool(config, toOverwrite)
     checkpointTool.run
     verify(TestCheckpointTool.checkpointManager)
-      .writeCheckpoint(tn0, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "42")))
+      .writeCheckpoint(tn0, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "42").asJava))
     verify(TestCheckpointTool.checkpointManager)
-      .writeCheckpoint(tn1, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "43")))
+      .writeCheckpoint(tn1, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "43").asJava))
   }
 }

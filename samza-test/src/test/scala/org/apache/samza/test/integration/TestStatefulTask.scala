@@ -27,7 +27,7 @@ import org.apache.samza.task.{MessageCollector, TaskContext, TaskCoordinator}
 import org.junit.Assert._
 import org.junit.{AfterClass, BeforeClass, Test}
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 object TestStatefulTask {
     val STORE_NAME = "mystore"
@@ -171,6 +171,7 @@ class StateStoreTestTask extends TestTask {
     store = context.getStore(TestStatefulTask.STORE_NAME).asInstanceOf[KeyValueStore[String, String]]
     val iter = store.all
     restored ++= iter
+      .asScala
       .map(_.getValue)
       .toSet
     System.err.println("StateStoreTestTask.init(): %s" format restored)

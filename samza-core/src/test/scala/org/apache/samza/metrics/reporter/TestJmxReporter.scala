@@ -26,7 +26,6 @@ import org.junit.Test
 import org.apache.samza.task.TaskContext
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.config.MapConfig
-import org.apache.samza.Partition
 import org.apache.samza.metrics.JvmMetrics
 
 import java.lang.management.ManagementFactory
@@ -38,7 +37,7 @@ import javax.management.remote.JMXConnectorServerFactory
 import javax.management.remote.JMXConnectorServer
 import javax.management.remote.JMXConnectorFactory
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 object TestJmxReporter {
   val port = 4500
@@ -68,7 +67,7 @@ class TestJmxReporter {
   def testJmxReporter {
     val registry = new MetricsRegistryMap
     val jvm = new JvmMetrics(registry)
-    val reporter = new JmxReporterFactory().getMetricsReporter("", "", new MapConfig(Map[String, String]()))
+    val reporter = new JmxReporterFactory().getMetricsReporter("", "", new MapConfig(Map[String, String]().asJava))
 
     reporter.register("test", registry)
     reporter.start

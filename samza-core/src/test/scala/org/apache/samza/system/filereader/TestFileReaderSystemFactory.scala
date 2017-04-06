@@ -24,8 +24,6 @@ import org.junit.Assert._
 import org.junit.Test
 import org.scalatest.junit.AssertionsForJUnit
 
-import scala.collection.JavaConversions._
-
 class TestFileReaderSystemFactory extends AssertionsForJUnit {
 
   @Test

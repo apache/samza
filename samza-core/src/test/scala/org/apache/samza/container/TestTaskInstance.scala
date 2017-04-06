@@ -43,7 +43,7 @@ import org.apache.samza.task._
 import org.junit.Assert._
 import org.junit.Test
 import org.scalatest.Assertions.intercept
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import org.apache.samza.system.SystemAdmin
 import scala.collection.mutable.ListBuffer
 
@@ -66,11 +66,11 @@ class TestTaskInstance {
     val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
     val systemStreamPartitions = Set(systemStreamPartition)
     // Pretend our last checkpointed (next) offset was 2.
-    val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
+    val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")).asJava)
     val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
     val taskName = new TaskName("taskName")
     val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
+    val containerContext = new SamzaContainerContext(0, config, Set(taskName).asJava)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
       taskName,
@@ -148,7 +148,7 @@ class TestTaskInstance {
     val ignoredExceptions = classOf[TroublesomeException].getName + "," +
       classOf[NonFatalException].getName
     val config = new MapConfig(Map[String, String](
-      "task.ignored.exceptions" -> ignoredExceptions))
+      "task.ignored.exceptions" -> ignoredExceptions).asJava)
 
     val partition = new Partition(0)
     val consumerMultiplexer = new SystemConsumers(
@@ -161,11 +161,11 @@ class TestTaskInstance {
     val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
     val systemStreamPartitions = Set(systemStreamPartition)
     // Pretend our last checkpointed (next) offset was 2.
-    val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
+    val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")).asJava)
     val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
     val taskName = new TaskName("taskName")
     val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
+    val containerContext = new SamzaContainerContext(0, config, Set(taskName).asJava)
 
     val registry = new MetricsRegistryMap
     val taskMetrics = new TaskInstanceMetrics(registry = registry)
@@ -205,7 +205,7 @@ class TestTaskInstance {
   def testIgnoreAllExceptions {
     val task = new TroublesomeTask
     val config = new MapConfig(Map[String, String](
-      "task.ignored.exceptions" -> "*"))
+      "task.ignored.exceptions" -> "*").asJava)
 
     val partition = new Partition(0)
     val consumerMultiplexer = new SystemConsumers(
@@ -218,11 +218,11 @@ class TestTaskInstance {
     val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
     val systemStreamPartitions = Set(systemStreamPartition)
     // Pretend our last checkpointed (next) offset was 2.
-    val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")))
+    val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")).asJava)
     val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
     val taskName = new TaskName("taskName")
     val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
+    val containerContext = new SamzaContainerContext(0, config, Set(taskName).asJava)
 
     val registry = new MetricsRegistryMap
     val taskMetrics = new TaskInstanceMetrics(registry = registry)
@@ -281,7 +281,7 @@ class TestTaskInstance {
     val metrics = new TaskInstanceMetrics()
     val taskName = new TaskName("Offset Reset Task 0")
     val collector = new TaskInstanceCollector(producers)
-    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
+    val containerContext = new SamzaContainerContext(0, config, Set(taskName).asJava)
 
     val offsetManager = new OffsetManager()
 
@@ -316,7 +316,7 @@ class TestTaskInstance {
     val metrics = new TaskInstanceMetrics()
     val taskName = new TaskName("testing")
     val collector = new TaskInstanceCollector(producers)
-    val containerContext = new SamzaContainerContext(0, config, Set[TaskName](taskName))
+    val containerContext = new SamzaContainerContext(0, config, Set(taskName).asJava)
     val offsetManager = new OffsetManager()
     offsetManager.startingOffsets += taskName -> Map(partition0 -> "0", partition1 -> "100")
     val systemAdmins = Map("system" -> new MockSystemAdmin)

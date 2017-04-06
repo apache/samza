@@ -30,7 +30,7 @@ import java.util.List;
  */
 public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHarness {
 
-  static final String INPUT_TOPIC = "PageViewEvent";
+  static final String INPUT_TOPIC = "page-views";
   static final String OUTPUT_TOPIC = "Result";
   private static final String APP_NAME = "Sessionizer";
 
@@ -39,6 +39,7 @@ public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHa
     // create topics
     createTopic(INPUT_TOPIC, 3);
     createTopic(OUTPUT_TOPIC, 1);
+
 
     // produce messages to different partitions.
     produceMessage(INPUT_TOPIC, 1, "userId1", "userId1,india,google.com");

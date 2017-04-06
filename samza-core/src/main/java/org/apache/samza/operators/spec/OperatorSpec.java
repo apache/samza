@@ -25,8 +25,8 @@ import org.apache.samza.task.TaskContext;
 
 
 /**
- * A stateless serializable stream operator specification that holds all the information required
- * to transform the input {@link MessageStreamImpl} and produce the output {@link MessageStreamImpl}.
+ * A stream operator specification that holds all the information required to transform 
+ * the input {@link MessageStreamImpl} and produce the output {@link MessageStreamImpl}.
  *
  * @param <OM>  the type of output message from the operator
  */
@@ -45,12 +45,23 @@ public interface OperatorSpec<OM> {
     PARTITION_BY
   }
 
-
   /**
-   * Get the output stream containing transformed messages produced by this operator.
-   * @return  the output stream containing transformed messages produced by this operator.
+   * Get the next {@link MessageStreamImpl} that receives the transformed messages produced by this operator.
+   * @return  the next {@link MessageStreamImpl}
    */
   MessageStreamImpl<OM> getNextStream();
+
+  /**
+   * Get the {@link OpCode} for this operator.
+   * @return  the {@link OpCode} for this operator
+   */
+  OpCode getOpCode();
+
+  /**
+   * Get the unique ID of this operator in the {@link org.apache.samza.operators.StreamGraph}.
+   * @return  the unique operator ID
+   */
+  int getOpId();
 
   /**
    * Init method to initialize the context for this {@link OperatorSpec}. The default implementation is NO-OP.

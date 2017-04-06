@@ -31,7 +31,7 @@ import java.util.List;
  */
 public class TestSessionWindowApp extends StreamApplicationIntegrationTestHarness {
 
-  static final String INPUT_TOPIC = "PageViewEvent";
+  static final String INPUT_TOPIC = "page-views";
   static final String OUTPUT_TOPIC = "Result";
   static final long WINDOW_GAP = Duration.ofSeconds(3).toMillis();
 
@@ -70,7 +70,7 @@ public class TestSessionWindowApp extends StreamApplicationIntegrationTestHarnes
       //Assert that "badKey" messages were actually filtered out
       Assert.assertTrue(key.equals("userId1") || key.equals("userId2") || key.equals("userId3"));
       if ("userId1".equals(key)) {
-        Assert.assertEquals(value, "3");
+        Assert.assertEquals(value, "2");
       } else {
         Assert.assertEquals(value, "1");
       }

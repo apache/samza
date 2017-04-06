@@ -30,15 +30,15 @@ import org.apache.samza.system.SystemStream;
  * A convenience class for fetching configs related to the {@link org.apache.samza.system.chooser.DefaultChooser}
  */
 public class DefaultChooserConfig extends MapConfig {
-  public static final String BOOTSTRAP = StreamConfig.STREAM_PREFIX() + "samza.bootstrap";
-  public static final String PRIORITY = StreamConfig.STREAM_PREFIX() + "samza.priority";
-  public static final String BATCH_SIZE = "task.consumer.batch.size";
+  private static final String BATCH_SIZE = "task.consumer.batch.size";
 
   private final TaskConfigJava taskConfigJava;
+  private final StreamConfig streamConfig;
 
   public DefaultChooserConfig(Config config) {
     super(config);
     taskConfigJava = new TaskConfigJava(config);
+    streamConfig = new StreamConfig(config);
   }
 
   /**
@@ -55,7 +55,7 @@ public class DefaultChooserConfig extends MapConfig {
     Set<SystemStream> bootstrapInputs = new HashSet<>();
     Set<SystemStream> allInputs = taskConfigJava.getAllInputStreams();
     for (SystemStream systemStream : allInputs) {
-      if (getBoolean(String.format(BOOTSTRAP, systemStream.getSystem(), systemStream.getStream()), false)) {
+      if (streamConfig.getBootstrapEnabled(systemStream)) {
         bootstrapInputs.add(systemStream);
       }
     }
@@ -75,7 +75,7 @@ public class DefaultChooserConfig extends MapConfig {
 
     Map<SystemStream, Integer> priorityStreams = new HashMap<>();
     for (SystemStream systemStream : allInputs) {
-      int priority = getInt(String.format(PRIORITY, systemStream.getSystem(), systemStream.getStream()), -1);
+      int priority = streamConfig.getPriority(systemStream);
       if (priority >= 0) {
         priorityStreams.put(systemStream, priority);
       }

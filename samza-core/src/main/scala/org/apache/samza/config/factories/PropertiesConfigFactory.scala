@@ -21,7 +21,7 @@ package org.apache.samza.config.factories
 import java.io.FileInputStream
 import java.net.URI
 import java.util.Properties
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import org.apache.samza.config.Config
 import org.apache.samza.config.ConfigFactory
 import org.apache.samza.config.MapConfig
@@ -36,14 +36,14 @@ class PropertiesConfigFactory extends ConfigFactory with Logging {
     }
 
     val configPath = configUri.getPath
-    val props = new Properties();
-    val in = new FileInputStream(configPath);
+    val props = new Properties()
+    val in = new FileInputStream(configPath)
 
-    props.load(in);
-    in.close
+    props.load(in)
+    in.close()
 
     debug("got config %s from config %s" format (props, configPath))
 
-    new MapConfig(props.toMap[String, String])
+    new MapConfig(props.asScala.asJava)
   }
 }

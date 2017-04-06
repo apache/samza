@@ -19,9 +19,12 @@
 
 package org.apache.samza.config
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import org.apache.samza.util.Logging
 
+/**
+  * Note: All new methods are being added to [[org.apache.samza.config.JavaSystemConfig]]
+  */
 object SystemConfig {
   // system config constants
   val SYSTEM_PREFIX = "systems.%s."
@@ -49,6 +52,6 @@ class SystemConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getSystemNames() = {
     val subConf = config.subset("systems.", true)
     // find all .samza.factory keys, and strip the suffix
-    subConf.keys.filter(k => k.endsWith(".samza.factory")).map(_.replace(".samza.factory", ""))
+    subConf.asScala.keys.filter(k => k.endsWith(".samza.factory")).map(_.replace(".samza.factory", ""))
   }
 }

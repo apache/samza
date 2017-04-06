@@ -98,10 +98,10 @@ class SerializedKeyValueStore[K, V](
   }
 
   private class DeserializingIterator(iter: KeyValueIterator[Array[Byte], Array[Byte]]) extends KeyValueIterator[K, V] {
-    def hasNext() = iter.hasNext()
-    def remove() = iter.remove()
-    def close() = iter.close()
-    def next(): Entry[K, V] = {
+    override def hasNext() = iter.hasNext()
+    override def remove() = iter.remove()
+    override def close() = iter.close()
+    override def next(): Entry[K, V] = {
       val nxt = iter.next()
       val key = fromBytesOrNull(nxt.getKey, keySerde)
       val value = fromBytesOrNull(nxt.getValue, msgSerde)

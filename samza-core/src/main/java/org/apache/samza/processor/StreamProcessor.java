@@ -117,7 +117,6 @@ public class StreamProcessor {
     updatedConfigMap.put(PROCESSOR_ID, String.valueOf(this.processorId));
     Config updatedConfig = new MapConfig(updatedConfigMap);
 
-
     SamzaContainerController containerController = new SamzaContainerController(
         taskFactory,
         new TaskConfigJava(updatedConfig).getShutdownMs(),

@@ -21,7 +21,7 @@ package org.apache.samza.storage.kv
 
 import org.apache.samza.util.Util.notNull
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 object NullSafeKeyValueStore {
   val NullKeyErrorMessage = "Null is not a valid key."
@@ -39,7 +39,7 @@ class NullSafeKeyValueStore[K, V](store: KeyValueStore[K, V]) extends KeyValueSt
 
   def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
     notNull(keys, NullKeysErrorMessage)
-    keys.foreach(key => notNull(key, NullKeyErrorMessage))
+    keys.asScala.foreach(key => notNull(key, NullKeyErrorMessage))
     store.getAll(keys)
   }
 
@@ -50,7 +50,7 @@ class NullSafeKeyValueStore[K, V](store: KeyValueStore[K, V]) extends KeyValueSt
   }
 
   def putAll(entries: java.util.List[Entry[K, V]]) {
-    entries.foreach(entry => {
+    entries.asScala.foreach(entry => {
       notNull(entry.getKey, NullKeyErrorMessage)
       notNull(entry.getValue, NullValueErrorMessage)
     })
@@ -64,7 +64,7 @@ class NullSafeKeyValueStore[K, V](store: KeyValueStore[K, V]) extends KeyValueSt
 
   def deleteAll(keys: java.util.List[K]) = {
     notNull(keys, NullKeysErrorMessage)
-    keys.foreach(key => notNull(key, NullKeyErrorMessage))
+    keys.asScala.foreach(key => notNull(key, NullKeyErrorMessage))
     store.deleteAll(keys)
   }
 

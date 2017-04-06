@@ -29,6 +29,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
+import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.JmxServer;
@@ -85,6 +86,17 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     }
   }
 
+  @Override
+  public void kill(StreamApplication streamApp) {
+    // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ApplicationStatus status(StreamApplication streamApp) {
+    // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
+    throw new UnsupportedOperationException();
+  }
 
   public static void main(String[] args) throws Exception {
     setExceptionHandler(() -> {
