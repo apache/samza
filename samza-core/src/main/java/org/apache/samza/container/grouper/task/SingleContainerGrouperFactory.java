@@ -50,7 +50,7 @@ class SingleContainerGrouper implements TaskNameGrouper {
     for (TaskModel taskModel: taskModels) {
       taskNameTaskModelMap.put(taskModel.getTaskName(), taskModel);
     }
-    ContainerModel containerModel = new ContainerModel(containerId, taskNameTaskModelMap);
+    ContainerModel containerModel = new ContainerModel(containerId, -1, taskNameTaskModelMap);
     return Collections.singleton(containerModel);
   }
 }

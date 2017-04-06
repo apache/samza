@@ -27,6 +27,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.apache.samza.SamzaException;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
@@ -74,7 +76,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     // Convert to a Set of ContainerModel
     Set<ContainerModel> containerModels = new HashSet<>();
     for (int i = 0; i < containerCount; i++) {
-      containerModels.add(new ContainerModel(String.valueOf(i), taskGroups[i]));
+      containerModels.add(new ContainerModel(String.valueOf(i), i, taskGroups[i]));
     }
 
     return Collections.unmodifiableSet(containerModels);
@@ -143,6 +145,13 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
    */
   private List<TaskGroup> getPreviousContainers(TaskAssignmentManager taskAssignmentManager, int taskCount) {
     Map<String, String> taskToContainerId = taskAssignmentManager.readTaskAssignment();
+    taskToContainerId.values().forEach(id -> {
+      try {
+        int intId = Integer.parseInt(id);
+      } catch (NumberFormatException nfe) {
+        throw new SamzaException("GroupByContainerCount cannot handle non-integer processorIds!", nfe);
+      }
+    });
     if (taskToContainerId.isEmpty()) {
       log.info("No task assignment map was saved.");
       return null;
