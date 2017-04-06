@@ -34,6 +34,7 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 
@@ -74,6 +75,7 @@ public class TestZkBarrierForVersionUpgrade {
     zkServer.teardown();
   }
 
+  @Ignore("The test is flaky, see SAMZA-1193")
   @Test
   public void testZkBarrierForVersionUpgrade() {
     String barrierId = "b1";
