@@ -118,6 +118,7 @@ public class TestJobGraphJsonGenerator {
     // deserialize
     ObjectMapper mapper = new ObjectMapper();
     JobGraphJsonGenerator.JobGraphJson nodes = mapper.readValue(json, JobGraphJsonGenerator.JobGraphJson.class);
+    assertTrue(nodes.jobs.get(0).operatorGraph.inputStreams.size() == 5);
     assertTrue(nodes.jobs.get(0).operatorGraph.operators.size() == 12);
     assertTrue(nodes.streams.size() == 7);
   }

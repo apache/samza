@@ -20,6 +20,7 @@
 package org.apache.samza.execution;
 
 import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -70,14 +71,21 @@ public class JobGraphJsonGenerator {
     int partitionCount;
   }
 
-  static final class StreamEdgeJson  extends Traversable {
+  static final class StreamEdgeJson {
     @JsonProperty("StreamSpec")
     StreamSpecJson streamSpec;
   }
 
   static final class OperatorGraphJson {
+    @JsonProperty("InputStreams")
+    List<InputStreamJson> inputStreams;
     @JsonProperty("Operators")
     Map<Integer, OperatorJson> operators = new HashMap<>();
+  }
+
+  static final class InputStreamJson extends Traversable {
+    @JsonProperty("StreamId")
+    String streamId;
   }
 
   static final class JobNodeJson {
@@ -136,20 +144,23 @@ public class JobGraphJsonGenerator {
     JobNodeJson job = new JobNodeJson();
     job.jobName = jobNode.getJobName();
     job.jobId = jobNode.getJobId();
-    job.operatorGraph = buildOperatorGraphJson(jobNode, streamEdges);
+    job.operatorGraph = buildOperatorGraphJson(jobNode);
     return job;
   }
 
   /**
    * Traverse the {@StreamGraph} and build the operator graph JSON POJO.
    * @param jobNode job node in the {@link JobGraph}
-   * @param streamEdges map of {@link org.apache.samza.execution.JobGraphJsonGenerator.StreamEdgeJson}
    * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.OperatorGraphJson}
    */
-  private OperatorGraphJson buildOperatorGraphJson(JobNode jobNode, Map<String, StreamEdgeJson> streamEdges) {
+  private OperatorGraphJson buildOperatorGraphJson(JobNode jobNode) {
     OperatorGraphJson opGraph = new OperatorGraphJson();
+    opGraph.inputStreams = new ArrayList<>();
     jobNode.getStreamGraph().getInputStreams().forEach((streamSpec, stream) -> {
-        updateOperatorGraphJson((MessageStreamImpl) stream, streamEdges.get(streamSpec.getId()), opGraph);
+        InputStreamJson inputJson = new InputStreamJson();
+        inputJson.streamId = streamSpec.getId();
+        opGraph.inputStreams.add(inputJson);
+        updateOperatorGraphJson((MessageStreamImpl) stream, inputJson, opGraph);
       });
     return opGraph;
   }
