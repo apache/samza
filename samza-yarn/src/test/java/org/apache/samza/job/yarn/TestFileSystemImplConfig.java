@@ -18,6 +18,8 @@
  */
 package org.apache.samza.job.yarn;
 
+import com.google.common.collect.ImmutableMap;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
@@ -45,12 +47,6 @@ public class TestFileSystemImplConfig {
     assertEquals(2, manager.getSchemes().size());
     assertEquals("http", manager.getSchemes().get(0));
     assertEquals("myscheme", manager.getSchemes().get(1));
-
-    assertEquals("fs.http.impl", manager.getFsImplKey("http"));
-    assertEquals("fs.myscheme.impl", manager.getFsImplKey("myscheme"));
-
-    assertEquals("org.apache.samza.HttpFileSystem", manager.getFsImplClassName("http"));
-    assertEquals("org.apache.samza.MySchemeFileSystem", manager.getFsImplClassName("myscheme"));
   }
 
   @Test
@@ -61,15 +57,28 @@ public class TestFileSystemImplConfig {
   }
 
   @Test
-  public void testEmptyImpl() {
-    thrown.expect(LocalizerResourceException.class);
-    thrown.expectMessage("fs.http.impl does not have configured class implementation");
-
+  public void testSchemeWithSubkeys() {
     Map<String, String> configMap = new HashMap<>();
-    configMap.put("fs.http.impl", "");
+    configMap.put("fs.http.impl", "org.apache.samza.HttpFileSystem");
+    configMap.put("fs.myscheme.impl", "org.apache.samza.MySchemeFileSystem");
+    configMap.put("fs.http.impl.key1", "val1");
+    configMap.put("fs.http.impl.key2", "val2");
     Config conf = new MapConfig(configMap);
 
     FileSystemImplConfig manager = new FileSystemImplConfig(conf);
-    manager.getFsImplClassName("http");
+
+    Map<String, String> expectedFsHttpImplConfs = ImmutableMap.of( //Scheme with additional subkeys
+        "fs.http.impl", "org.apache.samza.HttpFileSystem",
+        "fs.http.impl.key1", "val1",
+        "fs.http.impl.key2", "val2"
+    );
+
+    Map<String, String> expectedFsMyschemeImplConfs = ImmutableMap.of( // Scheme without subkeys
+        "fs.myscheme.impl", "org.apache.samza.MySchemeFileSystem"
+    );
+
+    assertEquals(Arrays.asList("http", "myscheme"), manager.getSchemes());
+    assertEquals(expectedFsHttpImplConfs, manager.getSchemeConfig("http"));
+    assertEquals(expectedFsMyschemeImplConfs, manager.getSchemeConfig("myscheme"));
   }
 }

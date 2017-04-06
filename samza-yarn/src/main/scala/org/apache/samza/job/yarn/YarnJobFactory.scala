@@ -40,10 +40,14 @@ class YarnJobFactory extends StreamJobFactory with Logging {
       hConfig.set(YarnConfiguration.RM_ADDRESS, config.get(YarnConfiguration.RM_ADDRESS, "0.0.0.0:8032"))
     }
 
-    // Use the Samza job config "fs.<scheme>.impl" to override YarnConfiguration
+    // Use the Samza job config "fs.<scheme>.impl" and "fs.<scheme>.impl.*" for YarnConfiguration
     val fsImplConfig = new FileSystemImplConfig(config)
     fsImplConfig.getSchemes.asScala.foreach(
-      (scheme : String) => hConfig.set(fsImplConfig.getFsImplKey(scheme), fsImplConfig.getFsImplClassName(scheme))
+      scheme => {
+        fsImplConfig.getSchemeConfig(scheme).asScala.foreach {
+          case(confKey, confValue) => hConfig.set(confKey, confValue)
+        }
+      }
     )
 
     new YarnJob(config, hConfig)

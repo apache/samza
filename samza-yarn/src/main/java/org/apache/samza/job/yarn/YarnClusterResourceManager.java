@@ -119,10 +119,14 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     hConfig = new YarnConfiguration();
     hConfig.set("fs.http.impl", HttpFileSystem.class.getName());
 
-    // Use the Samza job config "fs.<scheme>.impl" to override YarnConfiguration
+    // Use the Samza job config "fs.<scheme>.impl" and "fs.<scheme>.impl.*" for YarnConfiguration
     FileSystemImplConfig fsImplConfig = new FileSystemImplConfig(config);
     fsImplConfig.getSchemes().forEach(
-        scheme -> hConfig.set(fsImplConfig.getFsImplKey(scheme), fsImplConfig.getFsImplClassName(scheme))
+        scheme -> {
+          fsImplConfig.getSchemeConfig(scheme).forEach(
+              (confKey, confValue) -> hConfig.set(confKey, confValue)
+          );
+        }
     );
 
     MetricsRegistryMap registry = new MetricsRegistryMap();
