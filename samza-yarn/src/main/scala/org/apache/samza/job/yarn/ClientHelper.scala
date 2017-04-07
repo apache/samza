@@ -220,6 +220,21 @@ class ClientHelper(conf: Configuration) extends Logging {
     appId
   }
 
+  /**
+    * Gets the list of Yarn [[org.apache.hadoop.yarn.api.records.ApplicationId]]
+    * corresponding to the specified appName and are "active".
+    * <p>
+    * In this context, "active" means that the application is starting or running
+    * and is not in any terminated state.
+    * <p>
+    * In Samza, an appName should be unique and there should only be one active
+    * applicationId for a given appName, but this can be violated in unusual cases
+    * like while troubleshooting a new application. So, this method returns as many
+    * active application ids as it finds.
+    *
+    * @param appName the app name as found in the Name column in the Yarn application list.
+    * @return        the active application ids.
+    */
   def getActiveApplicationIds(appName: String): List[ApplicationId] = {
     val getAppsRsp = yarnClient.getApplications
 
