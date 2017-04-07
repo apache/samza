@@ -20,24 +20,27 @@
 package org.apache.samza.processor;
 
 /**
- * This class listens to the life cycle events in a StreamProcessor,
+ * This class listens to the life cycle events in a {@link StreamProcessor},
  * and triggers the corresponding callbacks.
+ *
+ * TODO: right now the callbacks happen during the container life cycle.
+ * We need to switch to the real StreamProcessor life cycle.
  */
 public interface StreamProcessorLifeCycleAware {
   /**
-   * Callback when the Samza container is started
+   * Callback when the Samza processor is started
    */
-  void onContainerStart();
+  void onStart();
 
   /**
-   * Callback when the Samza container is shut down.
+   * Callback when the Samza processor is shut down.
    */
-  void onContainerShutdown();
+  void onShutdown();
 
   /**
-   * Callback when the Samza container fails
+   * Callback when the Samza processor fails
    * @param t exception of the failure
    */
-  void onContainerFailure(Throwable t);
+  void onFailure(Throwable t);
 
 }

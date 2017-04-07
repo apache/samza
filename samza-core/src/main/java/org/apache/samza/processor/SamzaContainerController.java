@@ -113,14 +113,14 @@ public class SamzaContainerController {
     log.info("About to start container: " + containerModel.getContainerId());
     containerFuture = executorService.submit(() -> {
       try {
-        lifeCycleAwares.forEach(l -> l.onContainerStart());
+        lifeCycleAwares.forEach(l -> l.onStart());
 
         container.run();
 
-        lifeCycleAwares.forEach(l -> l.onContainerShutdown());
+        lifeCycleAwares.forEach(l -> l.onShutdown());
 
       } catch (Throwable t) {
-        lifeCycleAwares.forEach(l -> l.onContainerFailure(t));
+        lifeCycleAwares.forEach(l -> l.onFailure(t));
       }
     });
   }

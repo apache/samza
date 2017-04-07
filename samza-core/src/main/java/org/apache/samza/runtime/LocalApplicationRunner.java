@@ -64,7 +64,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private final ConcurrentHashSet<StreamProcessor> processors = new ConcurrentHashSet<>();
   private final AtomicReference<Throwable> throwable = new AtomicReference<>();
 
-  ApplicationStatus appStatus = ApplicationStatus.New;
+  private ApplicationStatus appStatus = ApplicationStatus.New;
 
   final class LocalProcessorListener implements StreamProcessorLifeCycleAware {
     StreamProcessor processor;
@@ -74,11 +74,11 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
 
     @Override
-    public void onContainerStart() {
+    public void onStart() {
     }
 
     @Override
-    public void onContainerShutdown() {
+    public void onShutdown() {
       processors.remove(processor);
       if (processors.isEmpty()) {
         latch.countDown();
@@ -86,8 +86,10 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
 
     @Override
-    public void onContainerFailure(Throwable t) {
+    public void onFailure(Throwable t) {
+      processors.remove(processor);
       throwable.compareAndSet(null, t);
+      latch.countDown();
     }
   }
 
@@ -104,28 +106,16 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       ExecutionPlan plan = getExecutionPlan(app);
 
       // 2. create the necessary streams
-      List<StreamSpec> intStreams = plan.getIntermediateStreams();
-      if (!intStreams.isEmpty()) {
-        if (coordination != null) {
-          Latch initLatch = coordination.getLatch(1, LATCH_INIT);
-          coordination.getLeaderElector().tryBecomeLeader(() -> {
-            getStreamManager().createStreams(intStreams);
-            initLatch.countDown();
-          });
-          initLatch.await(LATCH_TIMEOUT, TimeUnit.MINUTES);
-        } else {
-          // each application process will try creating the streams, which
-          // requires stream creation to be idempotent
-          getStreamManager().createStreams(intStreams);
-        }
-      }
+      createStreams(plan.getIntermediateStreams());
 
       // 3. start the StreamProcessors
+      if (plan.getJobConfigs().isEmpty()) {
+        throw new SamzaException("No jobs to run.");
+      }
       plan.getJobConfigs().forEach(jobConfig -> {
         log.info("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
 
-        Object taskFactory = TaskFactoryUtil.createTaskFactory(config, app, this);
-        StreamProcessor processor = createStreamProcessor(jobConfig, taskFactory);
+        StreamProcessor processor = createStreamProcessor(jobConfig, app);
         processor.addLifeCycleAware(new LocalProcessorListener(processor));
         processors.add(processor);
         processor.start();
@@ -133,18 +123,14 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       appStatus = ApplicationStatus.Running;
 
       // 4. block until the processors are done or there is a failure
-      latch.await();
-      if (throwable.get() != null) {
-        appStatus = ApplicationStatus.UnsuccessfulFinish;
-        throw throwable.get();
-      } else {
-        appStatus = ApplicationStatus.SuccessfulFinish;
-      }
+      awaitComplete();
 
     } catch (Throwable t) {
       throw new SamzaException("Failed to run application", t);
     } finally {
-      coordination.reset();
+      if (coordination != null) {
+        coordination.reset();
+      }
     }
   }
 
@@ -158,6 +144,11 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     return appStatus;
   }
 
+  /**
+   * Create the Coordination needed by the application runner.
+   * @return {@link CoordinationUtils}
+   * @throws Exception exception
+   */
   private CoordinationUtils getCoordinationUtils() throws Exception {
     ApplicationConfig appConfig = new ApplicationConfig(config);
     String clazz = appConfig.getCoordinationServiceFactoryClass();
@@ -171,7 +162,36 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
-  private StreamProcessor createStreamProcessor(Config config, Object taskFactory) {
+  /**
+   * Create intermediate streams.
+   * @param intStreams intermediate {@link StreamSpec}s
+   * @throws Exception exception
+   */
+  /* package private */ void createStreams(List<StreamSpec> intStreams) throws Exception {
+    if (!intStreams.isEmpty()) {
+      if (coordination != null) {
+        Latch initLatch = coordination.getLatch(1, LATCH_INIT);
+        coordination.getLeaderElector().tryBecomeLeader(() -> {
+          getStreamManager().createStreams(intStreams);
+          initLatch.countDown();
+        });
+        initLatch.await(LATCH_TIMEOUT, TimeUnit.MINUTES);
+      } else {
+        // each application process will try creating the streams, which
+        // requires stream creation to be idempotent
+        getStreamManager().createStreams(intStreams);
+      }
+    }
+  }
+
+  /**
+   * Create {@link StreamProcessor} based on {@link StreamApplication} and the config
+   * @param config config
+   * @param app {@link StreamApplication}
+   * @return {@link StreamProcessor]}
+   */
+  /* package private */ StreamProcessor createStreamProcessor(Config config, StreamApplication app) {
+    Object taskFactory = TaskFactoryUtil.createTaskFactory(config, app, this);
     if (taskFactory instanceof StreamTaskFactory) {
       return new StreamProcessor(processorId, config, new HashMap<>(), (StreamTaskFactory) taskFactory);
     } else if (taskFactory instanceof AsyncStreamTaskFactory) {
@@ -182,5 +202,18 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
+  /**
+   * Wait for all the {@link StreamProcessor}s to finish.
+   * @throws Throwable exceptions thrown by the processors.
+   */
+  /* package private */ void awaitComplete() throws Throwable {
+    latch.await();
 
+    if (throwable.get() != null) {
+      appStatus = ApplicationStatus.UnsuccessfulFinish;
+      throw throwable.get();
+    } else {
+      appStatus = ApplicationStatus.SuccessfulFinish;
+    }
+  }
 }

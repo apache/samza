@@ -36,10 +36,12 @@ import org.apache.samza.system.StreamSpec;
 public abstract class AbstractApplicationRunner extends ApplicationRunner {
 
   private final StreamManager streamManager;
+  private final ExecutionPlanner planner;
 
   public AbstractApplicationRunner(Config config) {
     super(config);
     this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
+    this.planner = new ExecutionPlanner(config, streamManager);
   }
 
   @Override
@@ -98,7 +100,6 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     app.init(streamGraph, config);
 
     // create the physical execution plan
-    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     return planner.plan(streamGraph);
   }
 
