@@ -119,6 +119,7 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
           outputStream.getStreamSpec().getPhysicalName());
       Object key = outputStream.getKeyExtractor().apply(message);
       Object msg = outputStream.getMsgExtractor().apply(message);
+      System.out.println("inside 11key " + key.toString() + " 11msg " + msg.toString());
       mc.send(new OutgoingMessageEnvelope(systemStream, key, msg));
     };
   }

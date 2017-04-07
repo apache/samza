@@ -97,8 +97,8 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
   KafkaProducer producer;
   KafkaConsumer consumer;
 
-  private static final int NUM_EMPTY_POLLS = 2;
-  private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(10);
+  private static final int NUM_EMPTY_POLLS = 3;
+  private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(20);
   private static final String DEFAULT_DESERIALIZER = "org.apache.kafka.common.serialization.StringDeserializer";
 
   /**

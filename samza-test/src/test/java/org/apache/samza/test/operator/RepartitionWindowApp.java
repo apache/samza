@@ -52,9 +52,13 @@ public class RepartitionWindowApp implements StreamApplication {
     BiFunction<String, String, String> msgBuilder1 = (k, v) -> v;
     MessageStream<String> pageViews1 = graph.getInputStream("page-views", msgBuilder1);
     Function<String, String> keyFn1 = pageView -> new PageView(pageView).getUserId();
-
+    /*
     pageViews1
-        .partitionBy(keyFn1)
+        .map(m -> {
+          System.out.println("got msg:" + m);
+         return m;
+        })
+        //.partitionBy(keyFn1)
         .window(Windows.keyedSessionWindow(keyFn1, Duration.ofSeconds(3)))
         // emit output
         .sink((windowOutput, collector, coordinator) -> {
@@ -63,5 +67,8 @@ public class RepartitionWindowApp implements StreamApplication {
             LOG.info("Count is " + count  + " for key " + key);
             collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", TestRepartitionWindowApp.OUTPUT_TOPIC), key, count));
           });
+          */
+
+
   }
 }
