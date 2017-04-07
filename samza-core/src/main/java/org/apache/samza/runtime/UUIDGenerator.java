@@ -27,7 +27,9 @@ public class UUIDGenerator implements ProcessorIdGenerator {
    * Generates a String representation to identify the processor instance
    * This value can be representative of its current executing environment. It can also be custom-managed by the user.
    * <p>
-   * <b>Note</b>: processorId has to be unique among the processors within a job
+   * <b>Note</b>: When more than one processor exist within the same JVM, there is no need to use a static counter in
+   * this generator to adhere to the "$x_$y" format specified in {@link ProcessorIdGenerator} since each UUID is already
+   * unique by itself
    *
    * @param config Config instance
    * @return String Identifier for the processor

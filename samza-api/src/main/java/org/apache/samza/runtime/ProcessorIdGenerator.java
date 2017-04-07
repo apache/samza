@@ -33,9 +33,10 @@ public interface ProcessorIdGenerator {
    * <b>Specification of processor identifier</b>:
    * <ul>
    *  <li>Processor identifier has to be unique among the processors within a job</li>
-   *  <li>When more than one processor co-exist within the same JVM, the processor identifier should be of the format:
+   *  <li>When more than one processor co-exist within the same JVM, the processor identifier can be of the format:
    *  $x_$y, where 'x' is a unique identifier for the executing JVM and 'y' is a unique identifier for the
-   *  processor instance within the JVM.</li>
+   *  processor instance within the JVM. When there is only one processor within a JVM, 'x' should be sufficient to
+   *  uniquely identify the processor instance.</li>
    * </ul>
    *
    * <b>Note</b>:

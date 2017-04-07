@@ -44,6 +44,8 @@ import org.slf4j.LoggerFactory;
  * happens to be). No consideration is given towards locality, even distribution
  * of aggregate SSPs within a container, even distribution of the number of
  * taskNames between containers, etc.
+ *
+ * TODO: SAMZA-1197 - need to modify balance to work with processorId strings
  */
 public class GroupByContainerCount implements BalancingTaskNameGrouper {
   private static final Logger log = LoggerFactory.getLogger(GroupByContainerCount.class);

@@ -89,6 +89,8 @@ public class GroupByContainerIds implements TaskNameGrouper {
     // Convert to a Set of ContainerModel
     Set<ContainerModel> containerModels = new HashSet<>();
     for (int i = 0; i < containerCount; i++) {
+      // containerId in ContainerModel constructor is set to -1 because processorId can be any string and does
+      // not have an integer equivalent. So, we set it to -1. After 0.13, this parameter will be removed.
       containerModels.add(new ContainerModel(containersIds.get(i), -1, taskGroups[i]));
     }
 

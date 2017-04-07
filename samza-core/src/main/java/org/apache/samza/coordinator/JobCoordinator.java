@@ -61,7 +61,7 @@ public interface JobCoordinator {
   boolean awaitStart(long timeoutMs) throws InterruptedException;
 
   /**
-   * Returns the logical ID assigned to the processor that is local to the instance of StreamProcessor.
+   * Returns the identifier assigned to the processor that is local to the instance of StreamProcessor.
    *
    * The semantics and format of the identifier returned should adhere to the specification defined in
    * {@link org.apache.samza.runtime.ProcessorIdGenerator}
