@@ -30,12 +30,12 @@ import org.codehaus.jackson.annotate.JsonProperty;
  */
 public abstract class JsonJobModelMixIn {
   @JsonCreator
-  public JsonJobModelMixIn(@JsonProperty("config") Config config, @JsonProperty("containers") Map<Integer, ContainerModel> containers) {
+  public JsonJobModelMixIn(@JsonProperty("config") Config config, @JsonProperty("containers") Map<String, ContainerModel> containers) {
   }
 
   @JsonProperty("config")
   abstract Config getConfig();
 
   @JsonProperty("containers")
-  abstract Map<Integer, ContainerModel> getContainers();
+  abstract Map<String, ContainerModel> getContainers();
 }

@@ -19,9 +19,10 @@
 
 package org.apache.samza.job.model;
 
+import org.apache.samza.container.TaskName;
+
 import java.util.Collections;
 import java.util.Map;
-import org.apache.samza.container.TaskName;
 
 /**
  * <p>
@@ -35,18 +36,33 @@ import org.apache.samza.container.TaskName;
  * containers have tasks. Each data model contains relevant information, such as
  * an id, partition information, etc.
  * </p>
+ * <p>
+ * <b>Note</b>: This class has a natural ordering that is inconsistent with equals.
+ * </p>
  */
-public class ContainerModel implements Comparable<ContainerModel> {
+public class ContainerModel {
+  @Deprecated
   private final int containerId;
+  private final String processorId;
   private final Map<TaskName, TaskModel> tasks;
 
-  public ContainerModel(int containerId, Map<TaskName, TaskModel> tasks) {
+  public ContainerModel(String processorId, int containerId, Map<TaskName, TaskModel> tasks) {
     this.containerId = containerId;
+    if (processorId == null) {
+      this.processorId = String.valueOf(containerId);
+    } else {
+      this.processorId = processorId;
+    }
     this.tasks = Collections.unmodifiableMap(tasks);
   }
 
+  @Deprecated
   public int getContainerId() {
     return containerId;
+  }
+
+  public String getProcessorId() {
+    return processorId;
   }
 
   public Map<TaskName, TaskModel> getTasks() {
@@ -55,14 +71,14 @@ public class ContainerModel implements Comparable<ContainerModel> {
 
   @Override
   public String toString() {
-    return "ContainerModel [containerId=" + containerId + ", tasks=" + tasks + "]";
+    return "ContainerModel [processorId=" + processorId + ", tasks=" + tasks + "]";
   }
 
   @Override
   public int hashCode() {
     final int prime = 31;
     int result = 1;
-    result = prime * result + containerId;
+    result = prime * result + ((processorId == null) ? 0 : processorId.hashCode());
     result = prime * result + ((tasks == null) ? 0 : tasks.hashCode());
     return result;
   }
@@ -76,7 +92,7 @@ public class ContainerModel implements Comparable<ContainerModel> {
     if (getClass() != obj.getClass())
       return false;
     ContainerModel other = (ContainerModel) obj;
-    if (containerId != other.containerId)
+    if (!processorId.equals(other.processorId))
       return false;
     if (tasks == null) {
       if (other.tasks != null)
@@ -86,7 +102,4 @@ public class ContainerModel implements Comparable<ContainerModel> {
     return true;
   }
 
-  public int compareTo(ContainerModel other) {
-    return containerId - other.getContainerId();
-  }
 }

@@ -52,7 +52,7 @@ public interface TaskNameGrouper {
    */
   Set<ContainerModel> group(Set<TaskModel> tasks);
 
-  default Set<ContainerModel> group(Set<TaskModel> tasks, List<Integer> containersIds) {
+  default Set<ContainerModel> group(Set<TaskModel> tasks, List<String> containersIds) {
     return group(tasks);
   }
 }

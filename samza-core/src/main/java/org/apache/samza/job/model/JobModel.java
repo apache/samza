@@ -41,24 +41,24 @@ import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 public class JobModel {
   private static final String EMPTY_STRING = "";
   private final Config config;
-  private final Map<Integer, ContainerModel> containers;
+  private final Map<String, ContainerModel> containers;
 
   private final LocalityManager localityManager;
-  private Map<Integer, String> localityMappings = new HashMap<Integer, String>();
+  private Map<String, String> localityMappings = new HashMap<String, String>();
 
   public int maxChangeLogStreamPartitions;
 
-  public JobModel(Config config, Map<Integer, ContainerModel> containers) {
+  public JobModel(Config config, Map<String, ContainerModel> containers) {
     this(config, containers, null);
   }
 
-  public JobModel(Config config, Map<Integer, ContainerModel> containers, LocalityManager localityManager) {
+  public JobModel(Config config, Map<String, ContainerModel> containers, LocalityManager localityManager) {
     this.config = config;
     this.containers = Collections.unmodifiableMap(containers);
     this.localityManager = localityManager;
 
     if (localityManager == null) {
-      for (Integer containerId : containers.keySet()) {
+      for (String containerId : containers.keySet()) {
         localityMappings.put(containerId, null);
       }
     } else {
@@ -89,7 +89,7 @@ public class JobModel {
    * @param key mapping key which is one of the keys declared in {@link org.apache.samza.coordinator.stream.messages.SetContainerHostMapping}
    * @return the value if it exists for a given container and key, otherwise an empty string
    */
-  public String getContainerToHostValue(Integer containerId, String key) {
+  public String getContainerToHostValue(String containerId, String key) {
     if (localityManager == null) {
       return EMPTY_STRING;
     }
@@ -103,12 +103,12 @@ public class JobModel {
     return mappings.get(key);
   }
 
-  public Map<Integer, String> getAllContainerToHostValues(String key) {
+  public Map<String, String> getAllContainerToHostValues(String key) {
     if (localityManager == null) {
       return Collections.EMPTY_MAP;
     }
-    Map<Integer, String> allValues = new HashMap<>();
-    for (Map.Entry<Integer, Map<String, String>> entry : localityManager.readContainerLocality().entrySet()) {
+    Map<String, String> allValues = new HashMap<>();
+    for (Map.Entry<String, Map<String, String>> entry : localityManager.readContainerLocality().entrySet()) {
       String value = entry.getValue().get(key);
       if (value != null) {
         allValues.put(entry.getKey(), value);
@@ -118,8 +118,8 @@ public class JobModel {
   }
 
   private void populateContainerLocalityMappings() {
-    Map<Integer, Map<String, String>> allMappings = localityManager.readContainerLocality();
-    for (Integer containerId: containers.keySet()) {
+    Map<String, Map<String, String>> allMappings = localityManager.readContainerLocality();
+    for (String containerId: containers.keySet()) {
       if (allMappings.containsKey(containerId)) {
         localityMappings.put(containerId, allMappings.get(containerId).get(SetContainerHostMapping.HOST_KEY));
       } else {
@@ -128,14 +128,14 @@ public class JobModel {
     }
   }
 
-  public Map<Integer, String> getAllContainerLocality() {
+  public Map<String, String> getAllContainerLocality() {
     if (localityManager != null) {
       populateContainerLocalityMappings();
     }
     return localityMappings;
   }
 
-  public Map<Integer, ContainerModel> getContainers() {
+  public Map<String, ContainerModel> getContainers() {
     return containers;
   }
 

@@ -145,7 +145,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
 
     // Update state
     resourceRequestState.updateStateAfterAssignment(request, preferredHost, resource);
-    int containerID = request.getContainerID();
+    String containerID = request.getContainerID();
 
     //run container on resource
     log.info("Found available resources on {}. Assigning request for container_id {} with "
@@ -176,9 +176,9 @@ public abstract class AbstractContainerAllocator implements Runnable {
    *                                - when host-affinity is not enabled, or
    *                                - when host-affinity is enabled and job is run for the first time
    */
-  public void requestResources(Map<Integer, String> resourceToHostMappings) {
-    for (Map.Entry<Integer, String> entry : resourceToHostMappings.entrySet()) {
-      int containerId = entry.getKey();
+  public void requestResources(Map<String, String> resourceToHostMappings) {
+    for (Map.Entry<String, String> entry : resourceToHostMappings.entrySet()) {
+      String containerId = entry.getKey();
       String preferredHost = entry.getValue();
       if (preferredHost == null)
         preferredHost = ResourceRequestState.ANY_HOST;
@@ -211,7 +211,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
    *                            this request
    * @param preferredHost Name of the host that you prefer to run the container on
    */
-  public final void requestResource(int containerID, String preferredHost) {
+  public final void requestResource(String containerID, String preferredHost) {
     SamzaResourceRequest request = new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb,
         preferredHost, containerID);
     resourceRequestState.addResourceRequest(request);
@@ -242,7 +242,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
    * @param samzaContainerId to configure the builder with.
    * @return the constructed builder object
    */
-  private CommandBuilder getCommandBuilder(int samzaContainerId) {
+  private CommandBuilder getCommandBuilder(String samzaContainerId) {
     String cmdBuilderClassName = taskConfig.getCommandClass(ShellCommandBuilder.class.getName());
     CommandBuilder cmdBuilder = (CommandBuilder) Util.getObj(cmdBuilderClassName);
 

@@ -52,14 +52,14 @@ public class GroupByContainerIds implements TaskNameGrouper {
     if (startContainerCount > tasks.size())
       throw new IllegalArgumentException("number of containers="  + startContainerCount + " is bigger than number of tasks=" + tasks.size());
 
-    List<Integer> containerIds = new ArrayList<>(startContainerCount);
+    List<String> containerIds = new ArrayList<>(startContainerCount);
     for (int i = 0; i < startContainerCount; i++) {
-      containerIds.add(i);
+      containerIds.add(String.valueOf(i));
     }
     return group(tasks, containerIds);
   }
 
-  public Set<ContainerModel> group(Set<TaskModel> tasks, List<Integer> containersIds) {
+  public Set<ContainerModel> group(Set<TaskModel> tasks, List<String> containersIds) {
     if (tasks.isEmpty())
       throw new IllegalArgumentException("cannot group an empty set. containersIds=" + Arrays
           .toString(containersIds.toArray()));
@@ -89,7 +89,9 @@ public class GroupByContainerIds implements TaskNameGrouper {
     // Convert to a Set of ContainerModel
     Set<ContainerModel> containerModels = new HashSet<>();
     for (int i = 0; i < containerCount; i++) {
-      containerModels.add(new ContainerModel(containersIds.get(i), taskGroups[i]));
+      // containerId in ContainerModel constructor is set to -1 because processorId can be any string and does
+      // not have an integer equivalent. So, we set it to -1. After 0.13, this parameter will be removed.
+      containerModels.add(new ContainerModel(containersIds.get(i), -1, taskGroups[i]));
     }
 
     return Collections.unmodifiableSet(containerModels);

@@ -23,9 +23,13 @@ import org.apache.samza.job.model.JobModel;
 
 /**
  *  A JobCoordinator is a pluggable module in each process that provides the JobModel and the ID to the StreamProcessor.
- *  In some cases, ID assignment is completely config driven, while in other cases, ID assignment may require
- *  coordination with JobCoordinators of other StreamProcessors.
- *  */
+ *
+ *  It is the responsibility of the JobCoordinator to assign a unique identifier to the StreamProcessor
+ *  based on the underlying environment. In some cases, ID assignment is completely config driven, while in other
+ *  cases, ID assignment may require coordination with JobCoordinators of other StreamProcessors.
+ *
+ *  This interface contains methods required for the StreamProcessor to interact with JobCoordinator.
+ */
 @InterfaceStability.Evolving
 public interface JobCoordinator {
   /**
@@ -55,12 +59,16 @@ public interface JobCoordinator {
    * @throws InterruptedException if the current thread is interrupted while waiting for the JobCoordinator to start-up
    */
   boolean awaitStart(long timeoutMs) throws InterruptedException;
+
   /**
-   * Returns the logical ID assigned to the processor
-   * It is up to the user to ensure that different instances of StreamProcessor within a job have unique processor ID.
-   * @return integer representing the logical processor ID
+   * Returns the identifier assigned to the processor that is local to the instance of StreamProcessor.
+   *
+   * The semantics and format of the identifier returned should adhere to the specification defined in
+   * {@link org.apache.samza.runtime.ProcessorIdGenerator}
+   *
+   * @return String representing a unique logical processor ID
    */
-  int getProcessorId();
+  String getProcessorId();
 
   /**
    * Returns the current JobModel

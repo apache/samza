@@ -87,15 +87,14 @@ public class TestContainerProcessManager {
 
   private SamzaApplicationState state = null;
 
-
   private JobModelManager getCoordinator(int containerCount) {
-    Map<Integer, ContainerModel> containers = new java.util.HashMap<>();
+    Map<String, ContainerModel> containers = new java.util.HashMap<>();
     for (int i = 0; i < containerCount; i++) {
-      ContainerModel container = new ContainerModel(i, new HashMap<TaskName, TaskModel>());
-      containers.put(i, container);
+      ContainerModel container = new ContainerModel(String.valueOf(i), i, new HashMap<TaskName, TaskModel>());
+      containers.put(String.valueOf(i), container);
     }
-    Map<Integer, Map<String, String>> localityMap = new HashMap<>();
-    localityMap.put(0, new HashMap<String, String>() { {
+    Map<String, Map<String, String>> localityMap = new HashMap<>();
+    localityMap.put("0", new HashMap<String, String>() { {
         put(SetContainerHostMapping.HOST_KEY, "abc");
       }
     });
@@ -105,9 +104,7 @@ public class TestContainerProcessManager {
     JobModel jobModel = new JobModel(getConfig(), containers, mockLocalityManager);
     JobModelManager.jobModelRef().getAndSet(jobModel);
 
-    JobModelManager reader = new JobModelManager(jobModel, this.server, null);
-
-    return reader;
+    return new JobModelManager(jobModel, this.server, null);
   }
 
   @Before
@@ -137,7 +134,8 @@ public class TestContainerProcessManager {
         manager
     );
 
-    AbstractContainerAllocator allocator = (AbstractContainerAllocator) getPrivateFieldFromTaskManager("containerAllocator", taskManager).get(taskManager);
+    AbstractContainerAllocator allocator =
+        (AbstractContainerAllocator) getPrivateFieldFromTaskManager("containerAllocator", taskManager).get(taskManager);
     assertEquals(ContainerAllocator.class, allocator.getClass());
     // Asserts that samza exposed container configs is honored by allocator thread
     assertEquals(500, allocator.containerMemoryMb);
@@ -155,7 +153,8 @@ public class TestContainerProcessManager {
         manager
     );
 
-    allocator = (AbstractContainerAllocator) getPrivateFieldFromTaskManager("containerAllocator", taskManager).get(taskManager);
+    allocator =
+        (AbstractContainerAllocator) getPrivateFieldFromTaskManager("containerAllocator", taskManager).get(taskManager);
     assertEquals(HostAwareContainerAllocator.class, allocator.getClass());
     // Asserts that samza exposed container configs is honored by allocator thread
     assertEquals(500, allocator.containerMemoryMb);
@@ -244,6 +243,7 @@ public class TestContainerProcessManager {
     assertTrue(taskManager.shouldShutdown());
   }
 
+
   /**
    * Test Task Manager should request a new container when a task fails with unknown exit code
    * When host-affinity is not enabled, it will always request for ANY_HOST
@@ -316,6 +316,7 @@ public class TestContainerProcessManager {
 
     taskManager.stop();
   }
+
 
   /**
    * Test AM requests a new container when a task fails
@@ -415,8 +416,6 @@ public class TestContainerProcessManager {
     taskManager1.start();
     taskManager1.onResourceAllocated(container2);
   }
-
-
 
   @After
   public void teardown() {

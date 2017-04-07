@@ -89,7 +89,7 @@ public class YarnContainerRunner {
    * @throws SamzaContainerLaunchException  when there's an exception in submitting the request to the RM.
    *
    */
-  public void runContainer(int samzaContainerId, Container container, CommandBuilder cmdBuilder) throws SamzaContainerLaunchException {
+  public void runContainer(String samzaContainerId, Container container, CommandBuilder cmdBuilder) throws SamzaContainerLaunchException {
     String containerIdStr = ConverterUtils.toString(container.getId());
     log.info("Got available container ID ({}) for container: {}", samzaContainerId, container);
 
@@ -229,7 +229,7 @@ public class YarnContainerRunner {
    * @param samzaContainerId  the Samza container Id for logging purposes.
    * @param env               the Map of environment variables to their respective values.
    */
-  private void printContainerEnvironmentVariables(int samzaContainerId, Map<String, String> env) {
+  private void printContainerEnvironmentVariables(String samzaContainerId, Map<String, String> env) {
     StringBuilder sb = new StringBuilder();
     for (Map.Entry<String, String> entry : env.entrySet()) {
       sb.append(String.format("\n%s=%s", entry.getKey(), entry.getValue()));

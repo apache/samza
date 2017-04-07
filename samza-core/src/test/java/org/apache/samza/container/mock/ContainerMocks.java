@@ -46,17 +46,17 @@ public class ContainerMocks {
       }
       j += taskCountPerContainer[i];
 
-      models.add(createContainerModel(i, partitions));
+      models.add(createContainerModel(String.valueOf(i), partitions));
     }
     return models;
   }
 
-  public static Map<String, Integer> generateTaskAssignments(int numContainers, int taskCount) {
-    Map<String, Integer> mapping = new HashMap<>(taskCount);
+  public static Map<String, String> generateTaskAssignments(int numContainers, int taskCount) {
+    Map<String, String> mapping = new HashMap<>(taskCount);
     Set<ContainerModel> containers = generateContainerModels(numContainers, taskCount);
     for (ContainerModel container : containers) {
       for (TaskName taskName : container.getTasks().keySet()) {
-        mapping.put(taskName.getTaskName(), container.getContainerId());
+        mapping.put(taskName.getTaskName(), container.getProcessorId());
       }
     }
     return mapping;
@@ -73,12 +73,12 @@ public class ContainerMocks {
     return newTaskCountPerContainer;
   }
 
-  public static ContainerModel createContainerModel(int containerId, int[] partitions) {
+  public static ContainerModel createContainerModel(String containerId, int[] partitions) {
     Map<TaskName, TaskModel> tasks = new HashMap<>();
     for (int partition : partitions) {
       tasks.put(getTaskName(partition), getTaskModel(partition));
     }
-    return new ContainerModel(containerId, tasks);
+    return new ContainerModel(containerId, -1, tasks);
   }
 
   public static Set<TaskModel> generateTaskModels(int[] partitions) {
@@ -117,11 +117,11 @@ public class ContainerMocks {
     return values;
   }
 
-  public static Map<String, Integer> generateTaskContainerMapping(Set<ContainerModel> containers) {
-    Map<String, Integer> taskMapping = new HashMap<>();
+  public static Map<String, String> generateTaskContainerMapping(Set<ContainerModel> containers) {
+    Map<String, String> taskMapping = new HashMap<>();
     for (ContainerModel container : containers) {
       for (TaskName taskName : container.getTasks().keySet()) {
-        taskMapping.put(taskName.getTaskName(), container.getContainerId());
+        taskMapping.put(taskName.getTaskName(), container.getProcessorId());
       }
     }
     return taskMapping;

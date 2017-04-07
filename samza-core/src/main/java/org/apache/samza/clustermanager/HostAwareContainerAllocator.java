@@ -64,7 +64,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
       SamzaResourceRequest request = peekPendingRequest();
       log.info("Handling request: " + request.getContainerID() + " " + request.getRequestTimestampMs() + " " + request.getPreferredHost());
       String preferredHost = request.getPreferredHost();
-      int containerID = request.getContainerID();
+      String containerID = request.getContainerID();
 
       if (hasAllocatedResource(preferredHost)) {
         // Found allocated container at preferredHost

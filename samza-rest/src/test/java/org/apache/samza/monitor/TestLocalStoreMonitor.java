@@ -64,7 +64,7 @@ public class TestLocalStoreMonitor {
     // Set default return values for methods.
     Mockito.when(jobsClientMock.getJobStatus(Mockito.any()))
            .thenReturn(JobStatus.STOPPED);
-    Task task = new Task("localHost", "test-task", 0,
+    Task task = new Task("localHost", "test-task", "0",
                          new ArrayList<>(), ImmutableList.of("test-store"));
     Mockito.when(jobsClientMock.getTasks(Mockito.any()))
            .thenReturn(ImmutableList.of(task));
@@ -136,7 +136,7 @@ public class TestLocalStoreMonitor {
   // TODO: Fix in SAMZA-1183
   //@Test
   public void shouldDeleteTaskStoreWhenTaskPreferredStoreIsNotLocalHost() throws Exception {
-    Task task = new Task("notLocalHost", "test-task", 0,
+    Task task = new Task("notLocalHost", "test-task", "0",
                          new ArrayList<>(), ImmutableList.of("test-store"));
     Mockito.when(jobsClientMock.getTasks(Mockito.any()))
            .thenReturn(ImmutableList.of(task));

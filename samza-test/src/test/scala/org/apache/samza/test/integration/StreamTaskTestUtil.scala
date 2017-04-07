@@ -35,7 +35,7 @@ import org.apache.samza.Partition
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.kafka.common.protocol.SecurityProtocol
 import org.apache.kafka.common.security.JaasUtils
-import org.apache.samza.config.{Config, KafkaProducerConfig, MapConfig}
+import org.apache.samza.config.{ApplicationConfig, Config, KafkaProducerConfig, MapConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.local.ThreadJobFactory
 import org.apache.samza.job.{ApplicationStatus, JobRunner, StreamJob}
@@ -81,6 +81,7 @@ object StreamTaskTestUtil {
   var jobConfig = Map(
     "job.factory.class" -> classOf[ThreadJobFactory].getCanonicalName,
     "job.coordinator.system" -> "kafka",
+    ApplicationConfig.PROCESSOR_ID -> "1",
     "task.inputs" -> "kafka.input",
     "serializers.registry.string.class" -> "org.apache.samza.serializers.StringSerdeFactory",
     "systems.kafka.samza.factory" -> "org.apache.samza.system.kafka.KafkaSystemFactory",

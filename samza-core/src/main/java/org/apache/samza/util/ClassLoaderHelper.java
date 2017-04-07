@@ -19,11 +19,30 @@
 
 package org.apache.samza.util;
 
+import org.apache.samza.config.ConfigException;
+
+import java.lang.reflect.Constructor;
+
 public class ClassLoaderHelper {
 
   public static <T> T fromClassName(String className) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
     Class<T> clazz = (Class<T>) Class.forName(className);
     T instance = clazz.newInstance();
     return instance;
+  }
+
+  public static <T> T fromClassName(String className, Class<T> classType) {
+    try {
+      Class<?> idGeneratorClass = Class.forName(className);
+      if (!classType.isAssignableFrom(idGeneratorClass)) {
+        throw new ConfigException(String.format(
+            "Class %s is not of type %s", className, classType));
+      }
+      Constructor<?> constructor = idGeneratorClass.getConstructor();
+      return (T) constructor.newInstance();
+    } catch (Exception e) {
+      throw new ConfigException(String.format(
+          "Problem in loading %s class %s", classType, className), e);
+    }
   }
 }

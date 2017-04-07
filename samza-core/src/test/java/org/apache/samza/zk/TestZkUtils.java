@@ -18,9 +18,6 @@
  */
 package org.apache.samza.zk;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.BooleanSupplier;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
@@ -36,6 +33,10 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.BooleanSupplier;
 
 public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
@@ -67,7 +68,6 @@ public class TestZkUtils {
     }
 
     zkUtils = new ZkUtils(
-        "testProcessorId",
         KEY_BUILDER,
         zkClient,
         SESSION_TIMEOUT_MS);
@@ -188,7 +188,7 @@ public class TestZkUtils {
 
     // create job model
     Map<String, String> configMap = new HashMap<>();
-    Map<Integer, ContainerModel> containers = new HashMap<>();
+    Map<String, ContainerModel> containers = new HashMap<>();
     MapConfig config = new MapConfig(configMap);
     JobModel jobModel = new JobModel(config, containers);
 

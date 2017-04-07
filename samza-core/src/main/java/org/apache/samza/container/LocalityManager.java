@@ -37,7 +37,7 @@ import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
  * */
 public class LocalityManager extends AbstractCoordinatorStreamManager {
   private static final Logger log = LoggerFactory.getLogger(LocalityManager.class);
-  private Map<Integer, Map<String, String>> containerToHostMapping = new HashMap<>();
+  private Map<String, Map<String, String>> containerToHostMapping = new HashMap<>();
   private final TaskAssignmentManager taskAssignmentManager;
   private final boolean writeOnly;
 
@@ -92,23 +92,23 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
    *
    * @return the map of containerId: (hostname, jmxAddress, jmxTunnelAddress)
    */
-  public Map<Integer, Map<String, String>> readContainerLocality() {
+  public Map<String, Map<String, String>> readContainerLocality() {
     if (this.writeOnly) {
       throw new UnsupportedOperationException("Read container locality function is not supported in write-only LocalityManager");
     }
 
-    Map<Integer, Map<String, String>> allMappings = new HashMap<>();
+    Map<String, Map<String, String>> allMappings = new HashMap<>();
     for (CoordinatorStreamMessage message: getBootstrappedStream(SetContainerHostMapping.TYPE)) {
       SetContainerHostMapping mapping = new SetContainerHostMapping(message);
       Map<String, String> localityMappings = new HashMap<>();
       localityMappings.put(SetContainerHostMapping.HOST_KEY, mapping.getHostLocality());
       localityMappings.put(SetContainerHostMapping.JMX_URL_KEY, mapping.getJmxUrl());
       localityMappings.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, mapping.getJmxTunnelingUrl());
-      allMappings.put(Integer.parseInt(mapping.getKey()), localityMappings);
+      allMappings.put(mapping.getKey(), localityMappings);
     }
     containerToHostMapping = Collections.unmodifiableMap(allMappings);
 
-    for (Map.Entry<Integer, Map<String, String>> entry : containerToHostMapping.entrySet()) {
+    for (Map.Entry<String, Map<String, String>> entry : containerToHostMapping.entrySet()) {
       log.debug(String.format("Locality for container %s: %s", entry.getKey(), entry.getValue()));
     }
 
@@ -123,7 +123,7 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
    * @param jmxAddress  the JMX URL address
    * @param jmxTunnelingAddress  the JMX Tunnel URL address
    */
-  public void writeContainerToHostMapping(Integer containerId, String hostName, String jmxAddress, String jmxTunnelingAddress) {
+  public void writeContainerToHostMapping(String containerId, String hostName, String jmxAddress, String jmxTunnelingAddress) {
     Map<String, String> existingMappings = containerToHostMapping.get(containerId);
     String existingHostMapping = existingMappings != null ? existingMappings.get(SetContainerHostMapping.HOST_KEY) : null;
     if (existingHostMapping != null && !existingHostMapping.equals(hostName)) {

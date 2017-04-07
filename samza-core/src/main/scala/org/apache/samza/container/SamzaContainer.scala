@@ -81,7 +81,7 @@ object SamzaContainer extends Logging {
   val DEFAULT_READ_JOBMODEL_DELAY_MS = 100
   val DISK_POLL_INTERVAL_KEY = "container.disk.poll.interval.ms"
 
-  def getLocalityManager(containerId: Int, config: Config): LocalityManager = {
+  def getLocalityManager(containerId: String, config: Config): LocalityManager = {
     val containerName = getSamzaContainerName(containerId)
     val registryMap = new MetricsRegistryMap(containerName)
     val coordinatorSystemProducer =
@@ -108,12 +108,12 @@ object SamzaContainer extends Logging {
         classOf[JobModel])
   }
 
-  def getSamzaContainerName(containerId: Int): String = {
-    "samza-container-%d" format containerId
+  def getSamzaContainerName(containerId: String): String = {
+    "samza-container-%s" format containerId
   }
 
   def apply(
-    containerId: Int,
+    containerId: String,
     containerModel: ContainerModel,
     config: Config,
     maxChangeLogStreamPartitions: Int,

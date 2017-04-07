@@ -16,33 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.clustermanager;
+package org.apache.samza.runtime;
 
 import org.apache.samza.config.Config;
 
-import java.lang.reflect.Field;
+import java.util.UUID;
 
-import java.util.Map;
-
-public class MockContainerAllocator extends ContainerAllocator {
-  public int requestedContainers = 0;
-
-  public MockContainerAllocator(ClusterResourceManager manager,
-                                Config config,
-                                SamzaApplicationState state) {
-    super(manager, config, state);
-  }
-
+public class UUIDGenerator implements ProcessorIdGenerator {
+  /**
+   * Generates a String representation to identify the processor instance
+   * This value can be representative of its current executing environment. It can also be custom-managed by the user.
+   * <p>
+   * <b>Note</b>: When more than one processor exist within the same JVM, there is no need to use a static counter in
+   * this generator to adhere to the "$x_$y" format specified in {@link ProcessorIdGenerator} since each UUID is already
+   * unique by itself
+   *
+   * @param config Config instance
+   * @return String Identifier for the processor
+   */
   @Override
-  public void requestResources(Map<String, String> containerToHostMappings) {
-    requestedContainers += containerToHostMappings.size();
-    super.requestResources(containerToHostMappings);
-  }
-
-  public ResourceRequestState getContainerRequestState() throws Exception {
-    Field field = AbstractContainerAllocator.class.getDeclaredField("resourceRequestState");
-    field.setAccessible(true);
-
-    return (ResourceRequestState) field.get(this);
+  public String generateProcessorId(Config config) {
+    return UUID.randomUUID().toString();
   }
 }

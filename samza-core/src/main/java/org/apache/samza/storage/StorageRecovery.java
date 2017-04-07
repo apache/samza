@@ -65,7 +65,7 @@ public class StorageRecovery extends CommandLine {
   private HashMap<String, StorageEngineFactory<?, ?>> storageEngineFactories = new HashMap<String, StorageEngineFactory<?, ?>>();
   private HashMap<String, SystemFactory> systemFactories = new HashMap<String, SystemFactory>();
   private HashMap<String, SystemAdmin> systemAdmins = new HashMap<String, SystemAdmin>();
-  private Map<Integer, ContainerModel> containers = new HashMap<Integer, ContainerModel>();
+  private Map<String, ContainerModel> containers = new HashMap<String, ContainerModel>();
   private List<TaskStorageManager> taskStorageManagers = new ArrayList<TaskStorageManager>();
   private Logger log = LoggerFactory.getLogger(StorageRecovery.class);
 
@@ -211,7 +211,7 @@ public class StorageRecovery extends CommandLine {
 
     for (ContainerModel containerModel : containers.values()) {
       HashMap<String, StorageEngine> taskStores = new HashMap<String, StorageEngine>();
-      SamzaContainerContext containerContext = new SamzaContainerContext(containerModel.getContainerId(), jobConfig, containerModel.getTasks()
+      SamzaContainerContext containerContext = new SamzaContainerContext(containerModel.getProcessorId(), jobConfig, containerModel.getTasks()
           .keySet());
 
       for (TaskModel taskModel : containerModel.getTasks().values()) {

@@ -40,7 +40,7 @@ public class TestContainerRequestState {
   public void testUpdateRequestState() {
     // Host-affinity is enabled
     ResourceRequestState state = new ResourceRequestState(true, manager);
-    SamzaResourceRequest request = new SamzaResourceRequest(1, 1024, "abc", 0);
+    SamzaResourceRequest request = new SamzaResourceRequest(1, 1024, "abc", "0");
     state.addResourceRequest(request);
 
     assertNotNull(manager.resourceRequests);
@@ -57,7 +57,7 @@ public class TestContainerRequestState {
 
     // Host-affinity is not enabled
     ResourceRequestState state1 = new ResourceRequestState(false, manager);
-    SamzaResourceRequest request1 = new SamzaResourceRequest(1, 1024, null, 1);
+    SamzaResourceRequest request1 = new SamzaResourceRequest(1, 1024, null, "1");
     state1.addResourceRequest(request1);
 
     assertNotNull(manager.resourceRequests);
@@ -70,7 +70,6 @@ public class TestContainerRequestState {
     assertNull(state1.getRequestsToCountMap().get(ANY_HOST));
 
   }
-
 
   /**
    * Test addContainer() updates the state correctly
@@ -102,7 +101,7 @@ public class TestContainerRequestState {
     assertEquals(container1, state1.getResourcesOnAHost(ANY_HOST).get(0));
 
     // Container Allocated on a Requested Host
-    state1.addResourceRequest(new SamzaResourceRequest(1, 1024, "abc", 0));
+    state1.addResourceRequest(new SamzaResourceRequest(1, 1024, "abc", "0"));
 
     assertEquals(1, state1.numPendingRequests());
 
@@ -143,9 +142,9 @@ public class TestContainerRequestState {
   public void testContainerAssignment() throws Exception {
     // Host-affinity enabled
     ResourceRequestState state = new ResourceRequestState(true, manager);
-    SamzaResourceRequest request = new SamzaResourceRequest(1, 1024, "abc", 0);
+    SamzaResourceRequest request = new SamzaResourceRequest(1, 1024, "abc", "0");
 
-    SamzaResourceRequest request1 = new SamzaResourceRequest(1, 1024, "def", 0);
+    SamzaResourceRequest request1 = new SamzaResourceRequest(1, 1024, "def", "0");
 
     state.addResourceRequest(request);
     state.addResourceRequest(request1);
@@ -193,6 +192,5 @@ public class TestContainerRequestState {
     assertEquals(0, state.getResourcesOnAHost(ANY_HOST).size());
 
   }
-
 
 }

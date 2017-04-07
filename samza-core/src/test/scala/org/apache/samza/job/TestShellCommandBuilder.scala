@@ -33,7 +33,7 @@ class TestShellCommandBuilder {
     val config = new MapConfig(Map(ShellCommandConfig.COMMAND_SHELL_EXECUTE -> "foo").asJava)
     val scb = new ShellCommandBuilder
     scb.setConfig(config)
-    scb.setId(1)
+    scb.setId("1")
     scb.setUrl(new URL(urlStr))
     val command = scb.buildCommand
     val environment = scb.buildEnvironment
@@ -49,7 +49,7 @@ class TestShellCommandBuilder {
     val config = new MapConfig(Map(ShellCommandConfig.COMMAND_SHELL_EXECUTE -> "foo").asJava)
     val scb = new ShellCommandBuilder
     scb.setConfig(config)
-    scb.setId(1)
+    scb.setId("1")
     scb.setUrl(new URL(urlStr))
     val command = scb.buildCommand
     assertEquals("foo", command)
