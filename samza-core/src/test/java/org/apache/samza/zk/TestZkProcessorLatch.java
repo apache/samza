@@ -35,6 +35,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+/**
+ * The ZkProcessorLatch uses a shared Znode as a latch. Each participant await existence of a target znode under the
+ * shared latch, which is a persistent, sequential target znode with value (latchSize - 1). latchSize is the minimum
+ * number of participants that need to join the latch.
+ */
 public class TestZkProcessorLatch {
   private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
   private static EmbeddedZookeeper zkServer = null;
@@ -165,7 +170,7 @@ public class TestZkProcessorLatch {
 
   @Test
   public void testLatchSizeN() {
-    final int latchSize = 1;
+    final int latchSize = 3;
     final String latchId = "testLatchSizeN";
 
     ExecutorService pool = Executors.newFixedThreadPool(3);
@@ -212,7 +217,6 @@ public class TestZkProcessorLatch {
   private ZkUtils getZkUtilsWithNewClient(String processorId) {
     ZkConnection zkConnection = ZkUtils.createZkConnection(testZkConnectionString, SESSION_TIMEOUT_MS);
     return new ZkUtils(
-        processorId,
         KEY_BUILDER,
         ZkUtils.createZkClient(zkConnection, CONNECTION_TIMEOUT_MS),
         CONNECTION_TIMEOUT_MS);
