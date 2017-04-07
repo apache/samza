@@ -234,7 +234,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
    * @param taskNamesToAssign     the list of tasks to assign to the containers.
    * @param containers            the containers (as {@link TaskGroup}) to which the tasks will be assigned.
    */
-  // TODO: Change logic from using int arrays to ordered array list
+  // TODO: Change logic from using int arrays to a Map<String, Integer> (id -> taskCount)
   private void assignTasksToContainers(int[] taskCountPerContainer, List<String> taskNamesToAssign,
       List<TaskGroup> containers) {
     for (TaskGroup taskGroup : containers) {
