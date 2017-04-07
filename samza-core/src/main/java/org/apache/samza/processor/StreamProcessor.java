@@ -18,6 +18,8 @@
  */
 package org.apache.samza.processor;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -72,6 +74,7 @@ public class StreamProcessor {
   private static final String PROCESSOR_ID = "processor.id";
   private final int processorId;
   private final JobCoordinator jobCoordinator;
+  private final List<StreamProcessorLifeCycleAware> lifeCycleAwares = new ArrayList<>();
 
   /**
    * Create an instance of StreamProcessor that encapsulates a JobCoordinator and Samza Container
@@ -121,7 +124,8 @@ public class StreamProcessor {
         taskFactory,
         new TaskConfigJava(updatedConfig).getShutdownMs(),
         String.valueOf(processorId),
-        customMetricsReporters);
+        customMetricsReporters,
+        lifeCycleAwares);
 
     this.jobCoordinator = Util.
         <JobCoordinatorFactory>getObj(
@@ -165,5 +169,13 @@ public class StreamProcessor {
    */
   public void stop() {
     jobCoordinator.stop();
+  }
+
+  /**
+   * Add {@link StreamProcessorLifeCycleAware} to this processor
+   * @param aware {@link StreamProcessorLifeCycleAware}
+   */
+  public void addLifeCycleAware(StreamProcessorLifeCycleAware aware) {
+    lifeCycleAwares.add(aware);
   }
 }

@@ -19,8 +19,14 @@
 package org.apache.samza.runtime;
 
 import java.util.Map;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.StreamConfig;
+import org.apache.samza.execution.ExecutionPlan;
+import org.apache.samza.execution.ExecutionPlanner;
+import org.apache.samza.execution.StreamManager;
+import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.system.StreamSpec;
 
 
@@ -29,8 +35,11 @@ import org.apache.samza.system.StreamSpec;
  */
 public abstract class AbstractApplicationRunner extends ApplicationRunner {
 
+  private final StreamManager streamManager;
+
   public AbstractApplicationRunner(Config config) {
     super(config);
+    this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
   }
 
   @Override
@@ -81,5 +90,19 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     Map<String, String> properties = streamConfig.getStreamProperties(streamId);
 
     return new StreamSpec(streamId, physicalName, system, properties);
+  }
+
+  final ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
+    // build stream graph
+    StreamGraphImpl streamGraph = new StreamGraphImpl(this, config);
+    app.init(streamGraph, config);
+
+    // create the physical execution plan
+    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
+    return planner.plan(streamGraph);
+  }
+
+  final StreamManager getStreamManager() {
+    return streamManager;
   }
 }

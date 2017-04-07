@@ -20,6 +20,7 @@
 package org.apache.samza.processor;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.util.List;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.TaskConfigJava;
@@ -49,6 +50,7 @@ public class SamzaContainerController {
   private final Map<String, MetricsReporter> metricsReporterMap;
   private final Object taskFactory;
   private final long containerShutdownMs;
+  private final List<StreamProcessorLifeCycleAware> lifeCycleAwares;
 
   // Internal Member Variables
   private Future containerFuture;
@@ -67,7 +69,8 @@ public class SamzaContainerController {
       Object taskFactory,
       long containerShutdownMs,
       String processorId,
-      Map<String, MetricsReporter> metricsReporterMap) {
+      Map<String, MetricsReporter> metricsReporterMap,
+      List<StreamProcessorLifeCycleAware> lifeCycleAwares) {
     this.executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
         .setNameFormat("p" + processorId + "-container-thread-%d").build());
     this.taskFactory = taskFactory;
@@ -77,6 +80,7 @@ public class SamzaContainerController {
     } else {
       this.containerShutdownMs = containerShutdownMs;
     }
+    this.lifeCycleAwares = lifeCycleAwares;
   }
 
   /**
@@ -107,7 +111,18 @@ public class SamzaContainerController {
         Util.<String, MetricsReporter>javaMapAsScalaMap(metricsReporterMap),
         taskFactory);
     log.info("About to start container: " + containerModel.getContainerId());
-    containerFuture = executorService.submit(() -> container.run());
+    containerFuture = executorService.submit(() -> {
+      try {
+        lifeCycleAwares.forEach(l -> l.onContainerStart());
+
+        container.run();
+
+        lifeCycleAwares.forEach(l -> l.onContainerShutdown());
+
+      } catch (Throwable t) {
+        lifeCycleAwares.forEach(l -> l.onContainerFailure(t));
+      }
+    });
   }
 
   /**

@@ -46,7 +46,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
 
     return new ZkJobCoordinator(
         processorId,
-        "groupId",  // TODO: Usage of groupId to be resolved in SAMZA-1173
+        groupName,  // TODO: Usage of groupId to be resolved in SAMZA-1173
         config,
         debounceTimer,
         new ZkUtils(

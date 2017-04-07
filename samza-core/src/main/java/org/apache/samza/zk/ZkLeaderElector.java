@@ -84,6 +84,7 @@ public class ZkLeaderElector implements LeaderElector {
 
   @Override
   public void tryBecomeLeader(LeaderElectorListener leaderElectorListener) {
+    zkUtils.makeSurePersistentPathsExists(new String[]{keyBuilder.getProcessorsPath()});
     String currentPath = zkUtils.registerProcessorAndGetId(hostName + " " + processorIdStr);
 
     List<String> children = zkUtils.getSortedActiveProcessors();
