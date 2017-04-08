@@ -19,9 +19,10 @@
 package org.apache.samza.zk;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.Latch;
 
+import org.apache.samza.coordinator.Latch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /*
  * Latch of the sizeN is open when countDown() was called N times.
@@ -29,31 +30,26 @@ import org.apache.samza.coordinator.Latch;
  * When Nth node is created await() call returns.
  */
 public class ZkProcessorLatch implements Latch {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ZkProcessorLatch.class);
 
-  private final ZkConfig zkConfig;
   private final ZkUtils zkUtils;
-  private final String processorIdStr;
-  private final ZkKeyBuilder keyBuilder;
-  private final String latchId;
-
+  private final String participantId;
   private final String latchPath;
   private final String targetPath;
 
-  private final static String LATCH_PATH = "latch";
-  private final int size; // latch size
+  public final static String LATCH_PATH = "latch";
 
-  public ZkProcessorLatch(int size, String latchId, String participantId, ZkConfig zkConfig, ZkUtils zkUtils) {
-    this.zkConfig = zkConfig;
+  public ZkProcessorLatch(int size, String latchId, String participantId, ZkUtils zkUtils) {
     this.zkUtils = zkUtils;
-    this.processorIdStr = participantId;
-    this.latchId = latchId;
-    this.keyBuilder = this.zkUtils.getKeyBuilder();
-    this.size = size;
+    this.participantId = participantId;
+    ZkKeyBuilder keyBuilder = this.zkUtils.getKeyBuilder();
 
     latchPath = String.format("%s/%s", keyBuilder.getRootPath(), LATCH_PATH + "_" + latchId);
+    // TODO: Verify that makeSurePersistentPathsExists doesn't fail with exceptions
     zkUtils.makeSurePersistentPathsExists(new String[] {latchPath});
     targetPath =  String.format("%s/%010d", latchPath, size - 1);
-    System.out.println("targetPath " + targetPath);
+
+    LOGGER.debug("ZkProcessorLatch targetPath " + targetPath);
   }
 
   @Override
@@ -64,7 +60,7 @@ public class ZkProcessorLatch implements Latch {
   @Override
   public void countDown() {
     // create persistent (should be ephemeral? Probably not)
-    String path = zkUtils.getZkClient().createPersistentSequential(latchPath + "/", processorIdStr);
-    System.out.println("countDown created " + path);
+    String path = zkUtils.getZkClient().createPersistentSequential(latchPath + "/", participantId);
+    LOGGER.debug("ZKProcessorLatch countDown created " + path);
   }
 }
