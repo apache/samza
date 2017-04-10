@@ -1,0 +1,105 @@
+<!doctype html>
+
+<meta charset="utf-8">
+<title>Dagre D3</title>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+
+<script src="js/d3.v3.min.js" charset="utf-8"></script>
+<script type="text/javascript" src="js/dagre-d3.js"></script>
+<script type="text/javascript" src="data/plan.json"></script>
+
+<h1>Samza DAG</h1>
+
+<style id="css">
+  /* This sets the color for "TK" nodes to a light blue green. */
+  g.type-TK > rect {
+    fill: #00ffd0;
+  }
+
+  text {
+    font-weight: 300;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serf;
+    font-size: 14px;
+  }
+
+  .node rect {
+    stroke: #999;
+    fill: #fff;
+    stroke-width: 1.5px;
+  }
+
+  .edgePath path {
+    stroke: #333;
+    stroke-width: 1.5px;
+  }
+</style>
+
+<svg id="svg-canvas" width=1000 height=1000></svg>
+
+<section>
+  <p>An example of visualizing the tokenization of a sentence. This example shows
+    how CSS classes can be applied to a rendered graph.
+</section>
+
+<script id="js">
+
+  function jsonToDagre(data) {
+    // Create the input graph
+    var g = new dagreD3.graphlib.Graph()
+        .setGraph({})
+        .setDefaultEdgeLabel(function() { return {}; });
+
+    var streams = data.Streams;
+    for (var streamId in streams) {
+      var stream = streams[streamId];
+      g.setNode(streamId,  { label: stream.StreamSpec.PhysicalName});
+    }
+
+    var jobs = data.Jobs;
+    for (var i = 0; i < jobs.length; i++) {
+      var operators = jobs[i].OperatorGraph.Operators;
+      for (var opId in operators) {
+        var operator = operators[opId];
+        g.setNode(opId,  { label: operator.OpCode});
+      }
+    }
+
+    for (var i = 0; i < jobs.length; i++) {
+      var inputs = jobs[i].OperatorGraph.InputStreams;
+      for (var k = 0; k < inputs.length; k++) {
+        var input = inputs[k];
+        for (var m = 0; m < input.NextOperatorIds.length; m++) {
+          g.setEdge(input.StreamId, input.NextOperatorIds[m].toString());
+        }
+      }
+
+      var operators = jobs[i].OperatorGraph.Operators;
+      for (var opId in operators) {
+        var operator = operators[opId];
+        for (var j = 0; j < operator.NextOperatorIds.length; j++) {
+          g.setEdge(opId, operator.NextOperatorIds[j].toString());
+        }
+        if (operator.OutputStreamId !== null) {
+          g.setEdge(opId, operator.OutputStreamId);
+        }
+      }
+    }
+
+    return g;
+  }
+
+
+  var json = JSON.parse(plan);
+  var g = jsonToDagre(json);
+
+  // Create the renderer
+  var render = new dagreD3.render();
+
+  // Set up an SVG group so that we can translate the final graph.
+  var svg = d3.select("svg"),
+      svgGroup = svg.append("g");
+
+  // Run the renderer. This is what draws the final graph.
+  render(d3.select("svg g"), g);
+
+</script>
