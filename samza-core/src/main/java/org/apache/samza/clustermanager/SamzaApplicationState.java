@@ -99,7 +99,7 @@ public class SamzaApplicationState {
    *  Map of the samzaContainerId to the {@link SamzaResource} on which it is running
    *  Modified by both the AMRMCallbackThread and the ContainerAllocator thread
    */
-  public final ConcurrentMap<Integer, SamzaResource> runningContainers = new ConcurrentHashMap<Integer, SamzaResource>(0);
+  public final ConcurrentMap<String, SamzaResource> runningContainers = new ConcurrentHashMap<String, SamzaResource>(0);
 
   /**
    * Final status of the application

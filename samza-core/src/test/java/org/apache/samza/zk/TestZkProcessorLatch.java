@@ -18,18 +18,7 @@
  */
 package org.apache.samza.zk;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.CoordinationUtils;
-import org.apache.samza.coordinator.CoordinationServiceFactory;
+import org.I0Itec.zkclient.ZkConnection;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
@@ -39,38 +28,47 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
-
+/**
+ * The ZkProcessorLatch uses a shared Znode as a latch. Each participant await existence of a target znode under the
+ * shared latch, which is a persistent, sequential target znode with value (latchSize - 1). latchSize is the minimum
+ * number of participants that need to join the latch.
+ */
 public class TestZkProcessorLatch {
+  private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
   private static EmbeddedZookeeper zkServer = null;
-  private static String zkConnectionString;
-  private final CoordinationServiceFactory factory = new ZkCoordinationServiceFactory();
-  private CoordinationUtils coordinationUtils;
+  private String testZkConnectionString = null;
+  private ZkUtils testZkUtils = null;
+  private static final int SESSION_TIMEOUT_MS = 20000;
+  private static final int CONNECTION_TIMEOUT_MS = 10000;
 
   @BeforeClass
   public static void setup() throws InterruptedException {
     zkServer = new EmbeddedZookeeper();
     zkServer.setup();
-
-    zkConnectionString = "localhost:" + zkServer.getPort();
-    System.out.println("ZK port = " + zkServer.getPort());
   }
 
   @Before
   public void testSetup() {
-    String groupId = "group1";
-    String processorId = "p1";
-    Map<String, String> map = new HashMap<>();
-    map.put(ZkConfig.ZK_CONNECT, zkConnectionString);
-    Config config = new MapConfig(map);
-
-
-    coordinationUtils = factory.getCoordinationService(groupId, processorId, config);
-    coordinationUtils.reset();
+    testZkConnectionString = "127.0.0.1:" + zkServer.getPort();
+    try {
+      testZkUtils = getZkUtilsWithNewClient("testZkUtils");
+    } catch (Exception e) {
+      Assert.fail("Client connection setup failed. Aborting tests..");
+    }
+    testZkUtils.connect();
   }
 
   @After
-  public void testTearDown() {
+  public void testTeardown() {
+    testZkUtils.deleteRoot();
+    testZkUtils.close();
   }
 
   @AfterClass
@@ -78,217 +76,149 @@ public class TestZkProcessorLatch {
     zkServer.teardown();
   }
 
-  @Test
-  public void testSingleLatch1() {
-    System.out.println("Started 1");
-    int latchSize = 1;
-    String latchId = "l2";
-    ExecutorService pool = Executors.newFixedThreadPool(3);
-    Future f1 = pool.submit(
-      () -> {
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
+  private Runnable getParticipantRunnable(int latchSize, String latchId, String participantId) {
+    return new Runnable() {
+      @Override
+      public void run() {
+        ZkUtils zkUtils = getZkUtilsWithNewClient(participantId);
+        zkUtils.connect();
+        ZkProcessorLatch latch = new ZkProcessorLatch(
+            latchSize, latchId, participantId, zkUtils);
         latch.countDown();
         try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
+          latch.await(30, TimeUnit.SECONDS);
+        } catch (Exception e) {
+          Assert.fail(String.format("Threw an exception while waiting for latch completion in %s! %s",
+              participantId, e.getLocalizedMessage()));
+        } finally {
+          zkUtils.close();
         }
-      });
-
-    try {
-      f1.get(30000, TimeUnit.MILLISECONDS);
-    } catch (Exception e) {
-      Assert.fail("failed to get future." + e.getLocalizedMessage());
-    }
-    pool.shutdownNow();
+      }
+    };
   }
 
   @Test
-  public void testSingleLatch2() {
-    System.out.println("Started 1");
-    int latchSize = 1;
-    String latchId = "l2";
+  public void testLatchSizeOne() {
+    final int latchSize = 1;
+    final String latchId = "latchSizeOne";
+
+    ExecutorService pool = Executors.newFixedThreadPool(3);
+    Future processor = pool.submit(getParticipantRunnable(latchSize, latchId, "participant1"));
+
+    try {
+      processor.get(30, TimeUnit.SECONDS);
+    } catch (Exception e) {
+      Assert.fail("failed to get future." + e.getLocalizedMessage());
+    } finally {
+      pool.shutdownNow();
+    }
+    try {
+      List<String> latchParticipants =
+          testZkUtils.getZkClient().getChildren(
+              String.format("%s/%s_%s", KEY_BUILDER.getRootPath(), ZkProcessorLatch.LATCH_PATH, latchId));
+      Assert.assertNotNull(latchParticipants);
+      Assert.assertEquals(1, latchParticipants.size());
+      Assert.assertEquals("0000000000", latchParticipants.get(0));
+    } catch (Exception e) {
+      Assert.fail("Failed to read the latch status from ZK directly" + e.getLocalizedMessage());
+    }
+  }
+
+  @Test
+  public void testLatchSizeOneWithTwoParticipants() {
+    final int latchSize = 1;
+    final String latchId = "testLatchSizeOneWithTwoParticipants";
 
     ExecutorService pool = Executors.newFixedThreadPool(3);
     Future f1 = pool.submit(
       () -> {
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
+        String participant1 = "participant1";
+        ZkUtils zkUtils = getZkUtilsWithNewClient(participant1);
+        zkUtils.connect();
+        Latch latch = new ZkProcessorLatch(latchSize, latchId, participant1, zkUtils);
         //latch.countDown(); only one thread counts down
         try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
+          latch.await(30, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
+          Assert.fail(String.format("await timed out from  %s - %s", participant1, e.getLocalizedMessage()));
+        } finally {
+          zkUtils.close();
         }
       });
 
-    Future f2 = pool.submit(
-      () -> {
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
-        latch.countDown();
-        try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
-        }
-      });
+    Future f2 = pool.submit(getParticipantRunnable(latchSize, latchId, "participant2"));
 
     try {
-      f1.get(30000, TimeUnit.MILLISECONDS);
-      f2.get(30000, TimeUnit.MILLISECONDS);
+      f1.get(30, TimeUnit.SECONDS);
+      f2.get(30, TimeUnit.SECONDS);
     } catch (Exception e) {
       Assert.fail("failed to get future." + e.getLocalizedMessage());
+    } finally {
+      pool.shutdownNow();
     }
-    pool.shutdownNow();
+    try {
+      List<String> latchParticipants =
+          testZkUtils.getZkClient().getChildren(
+              String.format("%s/%s_%s", KEY_BUILDER.getRootPath(), ZkProcessorLatch.LATCH_PATH, latchId));
+      Assert.assertNotNull(latchParticipants);
+      Assert.assertEquals(1, latchParticipants.size());
+      Assert.assertEquals("0000000000", latchParticipants.get(0));
+    } catch (Exception e) {
+      Assert.fail("Failed to read the latch status from ZK directly" + e.getLocalizedMessage());
+    }
   }
 
   @Test
-  public void testNSizeLatch() {
-    System.out.println("Started N");
-    String latchId = "l1";
-    int latchSize = 3;
+  public void testLatchSizeN() {
+    final int latchSize = 3;
+    final String latchId = "testLatchSizeN";
 
     ExecutorService pool = Executors.newFixedThreadPool(3);
-    Future f1 = pool.submit(
-      () -> {
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
-        latch.countDown();
-        try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail("await timed out " + e.getLocalizedMessage());
-        }
-      });
-    Future f2 = pool.submit(
-      () -> {
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
-        latch.countDown();
-        try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
-        }
-      });
-    Future f3 = pool.submit(
-      () -> {
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
-        latch.countDown();
-        try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
-        }
-      });
+    Future f1 = pool.submit(getParticipantRunnable(latchSize, latchId, "participant1"));
+    Future f2 = pool.submit(getParticipantRunnable(latchSize, latchId, "participant2"));
+    Future f3 = pool.submit(getParticipantRunnable(latchSize, latchId, "participant3"));
 
     try {
-      f1.get(300, TimeUnit.MILLISECONDS);
-      f2.get(300, TimeUnit.MILLISECONDS);
-      f3.get(300, TimeUnit.MILLISECONDS);
+      f1.get(30, TimeUnit.SECONDS);
+      f2.get(30, TimeUnit.SECONDS);
+      f3.get(30, TimeUnit.SECONDS);
     } catch (Exception e) {
-      Assert.fail("failed to get future. " + e.getLocalizedMessage());
+      Assert.fail("failed to get future." + e.getLocalizedMessage());
+    } finally {
+      pool.shutdownNow();
+    }
+    try {
+      List<String> latchParticipants =
+          testZkUtils.getZkClient().getChildren(
+              String.format("%s/%s_%s", KEY_BUILDER.getRootPath(), ZkProcessorLatch.LATCH_PATH, latchId));
+      Assert.assertNotNull(latchParticipants);
+      Assert.assertEquals(3, latchParticipants.size());
+    } catch (Exception e) {
+      Assert.fail("Failed to read the latch status from ZK directly" + e.getLocalizedMessage());
     }
   }
 
   @Test
   public void testLatchExpires() {
-    System.out.println("Started expiring");
-    String latchId = "l4";
+    final String latchId = "testLatchExpires";
+    final int latchSize = 3;
 
-    int latchSize = 3;
-
-    ExecutorService pool = Executors.newFixedThreadPool(3);
-    Future f1 = pool.submit(
-      () -> {
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
-        latch.countDown();
-        try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
-        }
-      });
-    Future f2 = pool.submit(
-      () -> {
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
-        latch.countDown();
-        try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
-        }
-      });
-    Future f3 = pool.submit(
-      () -> {
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
-        // This processor never completes its task
-        //latch.countDown();
-        try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
-        }
-      });
-
+    Latch latch = new ZkProcessorLatch(latchSize, latchId, "test", testZkUtils);
     try {
-      f1.get(300, TimeUnit.MILLISECONDS);
-      f2.get(300, TimeUnit.MILLISECONDS);
-      f3.get(300, TimeUnit.MILLISECONDS);
-      Assert.fail("Latch should've timeout.");
-    } catch (Exception e) {
-      f1.cancel(true);
-      f2.cancel(true);
-      f3.cancel(true);
+      latch.countDown();
+      latch.await(5, TimeUnit.SECONDS);
+    } catch (TimeoutException e) {
       // expected
-    }
-    pool.shutdownNow();
-  }
-
-  @Test
-  public void testSingleCountdown() {
-    System.out.println("Started single countdown");
-    String latchId = "l1";
-    int latchSize = 3;
-
-    ExecutorService pool = Executors.newFixedThreadPool(3);
-    // Only one thread invokes countDown
-    Future f1 = pool.submit(
-      () -> {
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
-        latch.countDown();
-        TestZkUtils.sleepMs(100);
-        latch.countDown();
-        TestZkUtils.sleepMs(100);
-        latch.countDown();
-        try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
-        }
-      });
-    Future f2 = pool.submit(
-      () -> {
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
-        try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
-        }
-      });
-    Future f3 = pool.submit(
-      () -> {
-        Latch latch = coordinationUtils.getLatch(latchSize, latchId);
-        try {
-          latch.await(100000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-          Assert.fail("await timed out. " + e.getLocalizedMessage());
-        }
-      });
-    try {
-      f1.get(600, TimeUnit.MILLISECONDS);
-      f2.get(600, TimeUnit.MILLISECONDS);
-      f3.get(600, TimeUnit.MILLISECONDS);
     } catch (Exception e) {
-      Assert.fail("Failed to get.");
+      Assert.fail(String.format("Expected only TimeoutException! Received %s", e));
     }
-    pool.shutdownNow();
+
+  }
+  private ZkUtils getZkUtilsWithNewClient(String processorId) {
+    ZkConnection zkConnection = ZkUtils.createZkConnection(testZkConnectionString, SESSION_TIMEOUT_MS);
+    return new ZkUtils(
+        KEY_BUILDER,
+        ZkUtils.createZkClient(zkConnection, CONNECTION_TIMEOUT_MS),
+        CONNECTION_TIMEOUT_MS);
   }
 }

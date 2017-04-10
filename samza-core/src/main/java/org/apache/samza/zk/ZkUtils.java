@@ -64,13 +64,11 @@ public class ZkUtils {
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
-  private final String processorId;
 
-  public ZkUtils(String processorId, ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs) {
+  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs) {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkClient = zkClient;
-    this.processorId = processorId;
   }
 
   public void connect() throws ZkInterruptedException {
@@ -160,7 +158,7 @@ public class ZkUtils {
     * @param dataListener describe this
     */
   public void subscribeToJobModelVersionChange(IZkDataListener dataListener) {
-    LOG.info("pid=" + processorId + " subscribing for jm version change at:" + keyBuilder.getJobModelVersionPath());
+    LOG.info(" subscribing for jm version change at:" + keyBuilder.getJobModelVersionPath());
     zkClient.subscribeDataChanges(keyBuilder.getJobModelVersionPath(), dataListener);
   }
 
@@ -175,7 +173,7 @@ public class ZkUtils {
     try {
       ObjectMapper mmapper = SamzaObjectMapper.getObjectMapper();
       String jobModelStr = mmapper.writerWithDefaultPrettyPrinter().writeValueAsString(jobModel);
-      LOG.info("pid=" + processorId + " jobModelAsString=" + jobModelStr);
+      LOG.info("jobModelAsString=" + jobModelStr);
       zkClient.createPersistent(keyBuilder.getJobModelPath(jobModelVersion), jobModelStr);
       LOG.info("wrote jobModel path =" + keyBuilder.getJobModelPath(jobModelVersion));
     } catch (Exception e) {
@@ -190,7 +188,7 @@ public class ZkUtils {
    * @return job model for this version
    */
   public JobModel getJobModel(String jobModelVersion) {
-    LOG.info("pid=" + processorId + "read the model ver=" + jobModelVersion + " from " + keyBuilder.getJobModelPath(jobModelVersion));
+    LOG.info("read the model ver=" + jobModelVersion + " from " + keyBuilder.getJobModelPath(jobModelVersion));
     Object data = zkClient.readData(keyBuilder.getJobModelPath(jobModelVersion));
     ObjectMapper mmapper = SamzaObjectMapper.getObjectMapper();
     JobModel jm;
@@ -218,7 +216,7 @@ public class ZkUtils {
   public void publishJobModelVersion(String oldVersion, String newVersion) {
     Stat stat = new Stat();
     String currentVersion = zkClient.<String>readData(keyBuilder.getJobModelVersionPath(), stat);
-    LOG.info("pid=" + processorId + " publishing new version: " + newVersion + "; oldVersion = " + oldVersion + "(" + stat
+    LOG.info("publishing new version: " + newVersion + "; oldVersion = " + oldVersion + "(" + stat
         .getVersion() + ")");
 
     if (currentVersion != null && !currentVersion.equals(oldVersion)) {
@@ -234,9 +232,8 @@ public class ZkUtils {
       LOG.error(msg, e);
       throw new SamzaException(msg);
     }
-    LOG.info("pid=" + processorId +
-        " published new version: " + newVersion + "; expected data version = " + (dataVersion  + 1) + "(actual data version after update = " + stat.getVersion()
-        +    ")");
+    LOG.info("published new version: " + newVersion + "; expected data version = " + (dataVersion  + 1) +
+        "(actual data version after update = " + stat.getVersion() +    ")");
   }
 
 
@@ -257,14 +254,14 @@ public class ZkUtils {
    * @param listener - will be called when a processor is added or removed.
    */
   public void subscribeToProcessorChange(IZkChildListener listener) {
-    LOG.info("pid=" + processorId + " subscribing for child change at:" + keyBuilder.getProcessorsPath());
+    LOG.info("subscribing for child change at:" + keyBuilder.getProcessorsPath());
     zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
   }
 
   public void deleteRoot() {
     String rootPath = keyBuilder.getRootPath();
     if (rootPath != null && !rootPath.isEmpty() && zkClient.exists(rootPath)) {
-      LOG.info("pid=" + processorId + " Deleteing root: " + rootPath);
+      LOG.info("Deleteing root: " + rootPath);
       zkClient.deleteRecursive(rootPath);
     }
   }

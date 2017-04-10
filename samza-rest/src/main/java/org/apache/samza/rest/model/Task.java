@@ -36,7 +36,7 @@ public class Task {
   private String taskName;
 
   // containerId of the samza container in which the task is running
-  private int containerId;
+  private String containerId;
 
   // list of partitions that belong to the task.
   private List<Partition> partitions;
@@ -49,7 +49,7 @@ public class Task {
 
   public Task(@JsonProperty("preferredHost") String preferredHost,
               @JsonProperty("taskName") String taskName,
-              @JsonProperty("containerId") int containerId,
+              @JsonProperty("containerId") String containerId,
               @JsonProperty("partitions") List<Partition> partitions,
               @JsonProperty("storeNames") List<String> storeNames) {
     this.preferredHost = preferredHost;
@@ -67,11 +67,11 @@ public class Task {
     this.preferredHost = preferredHost;
   }
 
-  public int getContainerId() {
+  public String getContainerId() {
     return containerId;
   }
 
-  public void setContainerId(int containerId) {
+  public void setContainerId(String containerId) {
     this.containerId = containerId;
   }
 
@@ -110,7 +110,7 @@ public class Task {
 
     Task task = (Task) o;
 
-    if (containerId != task.containerId) {
+    if (containerId != null && containerId.equals(task.containerId)) {
       return false;
     }
     if (!preferredHost.equals(task.preferredHost)) {
@@ -129,7 +129,7 @@ public class Task {
   public int hashCode() {
     int result = preferredHost.hashCode();
     result = 31 * result + taskName.hashCode();
-    result = 31 * result + containerId;
+    result = 31 * result + containerId.hashCode();
     result = 31 * result + partitions.hashCode();
     result = 31 * result + storeNames.hashCode();
     return result;

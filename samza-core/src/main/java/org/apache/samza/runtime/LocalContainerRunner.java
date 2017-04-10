@@ -52,9 +52,9 @@ import org.slf4j.LoggerFactory;
 public class LocalContainerRunner extends AbstractApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(LocalContainerRunner.class);
   private final JobModel jobModel;
-  private final int containerId;
+  private final String containerId;
 
-  public LocalContainerRunner(JobModel jobModel, int containerId) {
+  public LocalContainerRunner(JobModel jobModel, String containerId) {
     super(jobModel.getConfig());
     this.jobModel = jobModel;
     this.containerId = containerId;
@@ -69,13 +69,13 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
       Object taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, this);
 
       SamzaContainer container = SamzaContainer$.MODULE$.apply(
-          containerModel.getContainerId(),
+          containerModel.getProcessorId(),
           containerModel,
           config,
           jobModel.maxChangeLogStreamPartitions,
           SamzaContainer.getLocalityManager(containerId, config),
           jmxServer,
-          Util.javaMapAsScalaMap(new HashMap<String, MetricsReporter>()),
+          Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),
           taskFactory);
 
       container.run();
@@ -104,7 +104,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
         System.exit(1);
       });
 
-    Integer containerId = Integer.valueOf(System.getenv(ShellCommandConfig.ENV_CONTAINER_ID()));
+    String containerId = System.getenv(ShellCommandConfig.ENV_CONTAINER_ID());
     log.info(String.format("Got container ID: %d", containerId));
     String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
     log.info(String.format("Got coordinator URL: %s", coordinatorUrl));

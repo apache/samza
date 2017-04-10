@@ -34,9 +34,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class TestTaskAssignmentManager {
-
-  private final MockCoordinatorStreamSystemFactory mockCoordinatorStreamSystemFactory =
-      new MockCoordinatorStreamSystemFactory();
   private final Config config = new MapConfig(
       new HashMap<String, String>() {
         {
@@ -56,6 +53,8 @@ public class TestTaskAssignmentManager {
   }
 
   @Test public void testTaskAssignmentManager() throws Exception {
+    MockCoordinatorStreamSystemFactory mockCoordinatorStreamSystemFactory =
+        new MockCoordinatorStreamSystemFactory();
     MockCoordinatorStreamSystemProducer producer =
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
     MockCoordinatorStreamSystemConsumer consumer =
@@ -70,22 +69,22 @@ public class TestTaskAssignmentManager {
     assertTrue(producer.isStarted());
     assertTrue(consumer.isStarted());
 
-    Map<String, Integer> expectedMap =
-      new HashMap<String, Integer>() {
+    Map<String, String> expectedMap =
+      new HashMap<String, String>() {
         {
-          this.put("Task0", new Integer(0));
-          this.put("Task1", new Integer(1));
-          this.put("Task2", new Integer(2));
-          this.put("Task3", new Integer(0));
-          this.put("Task4", new Integer(1));
+          this.put("Task0", "0");
+          this.put("Task1", "1");
+          this.put("Task2", "2");
+          this.put("Task3", "0");
+          this.put("Task4", "1");
         }
       };
 
-    for (Map.Entry<String, Integer> entry : expectedMap.entrySet()) {
+    for (Map.Entry<String, String> entry : expectedMap.entrySet()) {
       taskAssignmentManager.writeTaskContainerMapping(entry.getKey(), entry.getValue());
     }
 
-    Map<String, Integer> localMap = taskAssignmentManager.readTaskAssignment();
+    Map<String, String> localMap = taskAssignmentManager.readTaskAssignment();
 
     assertEquals(expectedMap, localMap);
 
@@ -95,6 +94,8 @@ public class TestTaskAssignmentManager {
   }
 
   @Test public void testDeleteMappings() throws Exception {
+    MockCoordinatorStreamSystemFactory mockCoordinatorStreamSystemFactory =
+        new MockCoordinatorStreamSystemFactory();
     MockCoordinatorStreamSystemProducer producer =
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
     MockCoordinatorStreamSystemConsumer consumer =
@@ -109,23 +110,23 @@ public class TestTaskAssignmentManager {
     assertTrue(producer.isStarted());
     assertTrue(consumer.isStarted());
 
-    Map<String, Integer> expectedMap =
-      new HashMap<String, Integer>() {
+    Map<String, String> expectedMap =
+      new HashMap<String, String>() {
         {
-          this.put("Task0", new Integer(0));
-          this.put("Task1", new Integer(1));
+          this.put("Task0", "0");
+          this.put("Task1", "1");
         }
       };
 
-    for (Map.Entry<String, Integer> entry : expectedMap.entrySet()) {
+    for (Map.Entry<String, String> entry : expectedMap.entrySet()) {
       taskAssignmentManager.writeTaskContainerMapping(entry.getKey(), entry.getValue());
     }
 
-    Map<String, Integer> localMap = taskAssignmentManager.readTaskAssignment();
+    Map<String, String> localMap = taskAssignmentManager.readTaskAssignment();
     assertEquals(expectedMap, localMap);
 
     taskAssignmentManager.deleteTaskContainerMappings(localMap.keySet());
-    Map<String, Integer> deletedMap = taskAssignmentManager.readTaskAssignment();
+    Map<String, String> deletedMap = taskAssignmentManager.readTaskAssignment();
     assertTrue(deletedMap.isEmpty());
 
     taskAssignmentManager.stop();
@@ -134,6 +135,8 @@ public class TestTaskAssignmentManager {
   }
 
   @Test public void testTaskAssignmentManagerEmptyCoordinatorStream() throws Exception {
+    MockCoordinatorStreamSystemFactory mockCoordinatorStreamSystemFactory =
+        new MockCoordinatorStreamSystemFactory();
     MockCoordinatorStreamSystemProducer producer =
         mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
     MockCoordinatorStreamSystemConsumer consumer =
@@ -148,8 +151,8 @@ public class TestTaskAssignmentManager {
     assertTrue(producer.isStarted());
     assertTrue(consumer.isStarted());
 
-    Map<String, Integer> expectedMap = new HashMap<>();
-    Map<String, Integer> localMap = taskAssignmentManager.readTaskAssignment();
+    Map<String, String> expectedMap = new HashMap<>();
+    Map<String, String> localMap = taskAssignmentManager.readTaskAssignment();
 
     assertEquals(expectedMap, localMap);
 

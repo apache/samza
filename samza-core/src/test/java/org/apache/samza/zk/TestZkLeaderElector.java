@@ -18,22 +18,10 @@
  */
 package org.apache.samza.zk;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.CoordinationUtils;
-import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
@@ -44,6 +32,12 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
@@ -58,7 +52,6 @@ public class TestZkLeaderElector {
   private ZkUtils testZkUtils = null;
   private static final int SESSION_TIMEOUT_MS = 20000;
   private static final int CONNECTION_TIMEOUT_MS = 10000;
-  private final CoordinationServiceFactory factory = new ZkCoordinationServiceFactory();
 
   @BeforeClass
   public static void setup() throws InterruptedException {
@@ -151,17 +144,6 @@ public class TestZkLeaderElector {
     }
   }
 
-  private CoordinationUtils getZkCoordinationService(String groupId, String processorId) {
-
-    Map<String, String> map = new HashMap<>();
-    map.put(ZkConfig.ZK_CONNECT, testZkConnectionString);
-    Config config = new MapConfig(map);
-
-    CoordinationUtils coordinationUtils = factory.getCoordinationService(groupId, processorId, config);
-    
-    return coordinationUtils;
-  }
-
   /**
    * Test starts 3 processors and verifies the state of the Zk tree after all processors participate in LeaderElection
    */
@@ -211,7 +193,6 @@ public class TestZkLeaderElector {
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> isLeader3.res, 2, 100));
 
     Assert.assertEquals(3, testZkUtils.getSortedActiveProcessors().size());
-
 
     // Clean up
     zkUtils1.close();
@@ -531,7 +512,6 @@ public class TestZkLeaderElector {
   private ZkUtils getZkUtilsWithNewClient(String processorId) {
     ZkConnection zkConnection = ZkUtils.createZkConnection(testZkConnectionString, SESSION_TIMEOUT_MS);
     return new ZkUtils(
-        processorId,
         KEY_BUILDER,
         ZkUtils.createZkClient(zkConnection, CONNECTION_TIMEOUT_MS),
         CONNECTION_TIMEOUT_MS);

@@ -19,13 +19,15 @@
 
 package org.apache.samza.processor;
 
+import org.apache.samza.annotation.InterfaceStability;
+
+
 /**
  * This class listens to the life cycle events in a {@link StreamProcessor},
  * and triggers the corresponding callbacks.
- *
- * TODO: right now the callbacks happen during the container life cycle.
- * We need to switch to the real StreamProcessor life cycle.
  */
+
+@InterfaceStability.Evolving
 public interface StreamProcessorLifeCycleAware {
   /**
    * Callback when the Samza processor is started

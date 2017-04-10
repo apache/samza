@@ -49,7 +49,7 @@ public class YarnAppState {
   * Modified by both the AMRMCallbackThread and the ContainerAllocator thread
   */
 
-  public Map<Integer, YarnContainer> runningYarnContainers = new ConcurrentHashMap<Integer, YarnContainer>()  ;
+  public Map<String, YarnContainer> runningYarnContainers = new ConcurrentHashMap<String, YarnContainer>()  ;
 
   public ConcurrentMap<String, ContainerStatus> failedContainersStatus = new ConcurrentHashMap<String, ContainerStatus>();
 

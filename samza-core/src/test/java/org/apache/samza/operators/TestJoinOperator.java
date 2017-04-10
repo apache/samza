@@ -240,7 +240,7 @@ public class TestJoinOperator {
     return sot;
   }
 
-  private class TestStreamApplication implements StreamApplication {
+  private static class TestStreamApplication implements StreamApplication {
     @Override
     public void init(StreamGraph graph, Config config) {
       MessageStream<FirstStreamIME> inStream =
@@ -257,7 +257,7 @@ public class TestJoinOperator {
     }
   }
 
-  private class TestJoinFunction implements JoinFunction<Integer, FirstStreamIME, SecondStreamIME, Integer> {
+  private static class TestJoinFunction implements JoinFunction<Integer, FirstStreamIME, SecondStreamIME, Integer> {
     @Override
     public Integer apply(FirstStreamIME message, SecondStreamIME otherMessage) {
       return (Integer) message.getMessage() + (Integer) otherMessage.getMessage();
@@ -274,13 +274,13 @@ public class TestJoinOperator {
     }
   }
 
-  private class FirstStreamIME extends IncomingMessageEnvelope {
+  private static class FirstStreamIME extends IncomingMessageEnvelope {
     FirstStreamIME(Integer key, Integer message) {
       super(new SystemStreamPartition("insystem", "instream", new Partition(0)), "1", key, message);
     }
   }
 
-  private class SecondStreamIME extends IncomingMessageEnvelope {
+  private static class SecondStreamIME extends IncomingMessageEnvelope {
     SecondStreamIME(Integer key, Integer message) {
       super(new SystemStreamPartition("insystem2", "instream2", new Partition(0)), "1", key, message);
     }

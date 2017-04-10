@@ -44,13 +44,11 @@ import static org.mockito.Mockito.when;
 
 
 public class TestGroupByContainerIds {
-  private TaskAssignmentManager taskAssignmentManager;
-  private LocalityManager localityManager;
 
   @Before
   public void setup() {
-    taskAssignmentManager = mock(TaskAssignmentManager.class);
-    localityManager = mock(LocalityManager.class);
+    TaskAssignmentManager taskAssignmentManager = mock(TaskAssignmentManager.class);
+    LocalityManager localityManager = mock(LocalityManager.class);
     when(localityManager.getTaskAssignmentManager()).thenReturn(taskAssignmentManager);
 
 
@@ -94,18 +92,18 @@ public class TestGroupByContainerIds {
 
     Set<ContainerModel> containers = buildSimpleGrouper(2).group(taskModels);
 
-    Map<Integer, ContainerModel> containersMap = new HashMap<>();
+    Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getContainerId(), container);
+      containersMap.put(container.getProcessorId(), container);
     }
 
     assertEquals(2, containers.size());
-    ContainerModel container0 = containersMap.get(0);
-    ContainerModel container1 = containersMap.get(1);
+    ContainerModel container0 = containersMap.get("0");
+    ContainerModel container1 = containersMap.get("1");
     assertNotNull(container0);
     assertNotNull(container1);
-    assertEquals(0, container0.getContainerId());
-    assertEquals(1, container1.getContainerId());
+    assertEquals("0", container0.getProcessorId());
+    assertEquals("1", container1.getProcessorId());
     assertEquals(3, container0.getTasks().size());
     assertEquals(2, container1.getTasks().size());
     assertTrue(container0.getTasks().containsKey(getTaskName(0)));
@@ -119,27 +117,27 @@ public class TestGroupByContainerIds {
   public void testGroupHappyPathWithListOfContainers() {
     Set<TaskModel> taskModels = generateTaskModels(5);
 
-    List<Integer> containerIds = new ArrayList<Integer>() {
+    List<String> containerIds = new ArrayList<String>() {
       {
-        add(4);
-        add(2);
+        add("4");
+        add("2");
       }
     };
 
     Set<ContainerModel> containers = buildSimpleGrouper().group(taskModels, containerIds);
 
-    Map<Integer, ContainerModel> containersMap = new HashMap<>();
+    Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getContainerId(), container);
+      containersMap.put(container.getProcessorId(), container);
     }
 
     assertEquals(2, containers.size());
-    ContainerModel container0 = containersMap.get(4);
-    ContainerModel container1 = containersMap.get(2);
+    ContainerModel container0 = containersMap.get("4");
+    ContainerModel container1 = containersMap.get("2");
     assertNotNull(container0);
     assertNotNull(container1);
-    assertEquals(4, container0.getContainerId());
-    assertEquals(2, container1.getContainerId());
+    assertEquals("4", container0.getProcessorId());
+    assertEquals("2", container1.getProcessorId());
     assertEquals(3, container0.getTasks().size());
     assertEquals(2, container1.getTasks().size());
     assertTrue(container0.getTasks().containsKey(getTaskName(0)));
@@ -154,28 +152,28 @@ public class TestGroupByContainerIds {
   public void testGroupManyTasks() {
     Set<TaskModel> taskModels = generateTaskModels(21);
 
-    List<Integer> containerIds = new ArrayList<Integer>() {
+    List<String> containerIds = new ArrayList<String>() {
       {
-        add(4);
-        add(2);
+        add("4");
+        add("2");
       }
     };
 
 
     Set<ContainerModel> containers = buildSimpleGrouper().group(taskModels, containerIds);
 
-    Map<Integer, ContainerModel> containersMap = new HashMap<>();
+    Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getContainerId(), container);
+      containersMap.put(container.getProcessorId(), container);
     }
 
     assertEquals(2, containers.size());
-    ContainerModel container0 = containersMap.get(4);
-    ContainerModel container1 = containersMap.get(2);
+    ContainerModel container0 = containersMap.get("4");
+    ContainerModel container1 = containersMap.get("2");
     assertNotNull(container0);
     assertNotNull(container1);
-    assertEquals(4, container0.getContainerId());
-    assertEquals(2, container1.getContainerId());
+    assertEquals("4", container0.getProcessorId());
+    assertEquals("2", container1.getProcessorId());
     assertEquals(11, container0.getTasks().size());
     assertEquals(10, container1.getTasks().size());
 

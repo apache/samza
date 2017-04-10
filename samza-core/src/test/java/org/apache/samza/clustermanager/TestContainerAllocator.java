@@ -98,10 +98,10 @@ public class TestContainerAllocator {
     //That way it becomes easier to mock objects. Save it for later.
 
     HttpServer server = new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class));
-    Map<Integer, ContainerModel> containers = new java.util.HashMap<>();
+    Map<String, ContainerModel> containers = new java.util.HashMap<>();
     for (int i = 0; i < containerCount; i++) {
-      ContainerModel container = new ContainerModel(i, new HashMap<TaskName, TaskModel>());
-      containers.put(i, container);
+      ContainerModel container = new ContainerModel(String.valueOf(i), i, new HashMap<TaskName, TaskModel>());
+      containers.put(String.valueOf(i), container);
     }
     JobModel jobModel = new JobModel(getConfig(), containers);
     return new JobModelManager(jobModel, server, null);
@@ -130,12 +130,12 @@ public class TestContainerAllocator {
    */
   @Test
   public void testRequestContainers() throws Exception {
-    Map<Integer, String> containersToHostMapping = new HashMap<Integer, String>() {
+    Map<String, String> containersToHostMapping = new HashMap<String, String>() {
       {
-        put(0, "abc");
-        put(1, "def");
-        put(2, null);
-        put(3, "abc");
+        put("0", "abc");
+        put("1", "def");
+        put("2", null);
+        put("3", "abc");
       }
     };
 
@@ -160,9 +160,9 @@ public class TestContainerAllocator {
   @Test
   public void testRequestContainersWithNoMapping() throws Exception {
     int containerCount = 4;
-    Map<Integer, String> containersToHostMapping = new HashMap<Integer, String>();
+    Map<String, String> containersToHostMapping = new HashMap<String, String>();
     for (int i = 0; i < containerCount; i++) {
-      containersToHostMapping.put(i, null);
+      containersToHostMapping.put(String.valueOf(i), null);
     }
     allocatorThread.start();
 
@@ -208,7 +208,7 @@ public class TestContainerAllocator {
 
     allocatorThread.start();
 
-    containerAllocator.requestResource(0, "abc");
+    containerAllocator.requestResource("0", "abc");
 
     containerAllocator.addResource(resource);
     containerAllocator.addResource(resource1);
@@ -245,11 +245,11 @@ public class TestContainerAllocator {
             assertEquals(2, requestState.assignedRequests.size());
 
             SamzaResourceRequest request = requestState.assignedRequests.remove();
-            assertEquals(0, request.getContainerID());
+            assertEquals("0", request.getContainerID());
             assertEquals("2", request.getPreferredHost());
 
             request = requestState.assignedRequests.remove();
-            assertEquals(0, request.getContainerID());
+            assertEquals("0", request.getContainerID());
             assertEquals("ANY_HOST", request.getPreferredHost());
 
             // This routine should be called after the retry is assigned, but before it's started.
@@ -261,7 +261,7 @@ public class TestContainerAllocator {
     state.neededContainers.set(1);
     requestState.registerContainerListener(listener);
 
-    containerAllocator.requestResource(0, "2");
+    containerAllocator.requestResource("0", "2");
     containerAllocator.addResource(container);
     containerAllocator.addResource(container1);
     allocatorThread.start();

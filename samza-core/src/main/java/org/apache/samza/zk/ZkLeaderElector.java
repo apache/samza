@@ -68,8 +68,7 @@ public class ZkLeaderElector implements LeaderElector {
     this.hostName = getHostName();
     this.debounceTimer = (debounceTimer != null) ? debounceTimer : new ScheduleAfterDebounceTime();
 
-//    String [] paths = new String[]{keyBuilder.getProcessorsPath()};
-//    zkUtils.makeSurePersistentPathsExists(paths);
+    zkUtils.makeSurePersistentPathsExists(new String[]{keyBuilder.getProcessorsPath()});
   }
 
   // TODO: This should go away once we integrate with Zk based Job Coordinator
@@ -84,7 +83,6 @@ public class ZkLeaderElector implements LeaderElector {
 
   @Override
   public void tryBecomeLeader(LeaderElectorListener leaderElectorListener) {
-    zkUtils.makeSurePersistentPathsExists(new String[]{keyBuilder.getProcessorsPath()});
     String currentPath = zkUtils.registerProcessorAndGetId(hostName + " " + processorIdStr);
 
     List<String> children = zkUtils.getSortedActiveProcessors();

@@ -43,8 +43,9 @@ public class SetTaskContainerMapping extends CoordinatorStreamMessage {
   public static final String TYPE = "set-task-container-assignment";
   public static final String CONTAINER_KEY = "containerId";
 
+
   /**
-   * SteContainerToHostMapping is used to set the container to host mapping information.
+   * SetContainerToHostMapping is used to set the container to host mapping information.
    * @param message which holds the container to host information.
    */
   public SetTaskContainerMapping(CoordinatorStreamMessage message) {
@@ -64,8 +65,8 @@ public class SetTaskContainerMapping extends CoordinatorStreamMessage {
     putMessageValue(CONTAINER_KEY, containerId);
   }
 
-  public Integer getTaskAssignment() {
-    return Integer.parseInt(getMessageValue(CONTAINER_KEY));
+  public String getTaskAssignment() {
+    return getMessageValue(CONTAINER_KEY);
   }
 
 

@@ -22,14 +22,10 @@ package org.apache.samza.runtime;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.execution.ExecutionPlanner;
-import org.apache.samza.execution.StreamManager;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
-import org.apache.samza.operators.StreamGraphImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

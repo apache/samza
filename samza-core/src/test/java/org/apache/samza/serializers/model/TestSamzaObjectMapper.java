@@ -19,12 +19,7 @@
 
 package org.apache.samza.serializers.model;
 
-import static org.junit.Assert.assertEquals;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
+import junit.framework.Assert;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -34,12 +29,22 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.system.SystemStreamPartition;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.junit.Before;
 import org.junit.Test;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+import static org.junit.Assert.assertEquals;
+
 public class TestSamzaObjectMapper {
-  @Test
-  public void testJsonTaskModel() throws Exception {
-    ObjectMapper mapper = SamzaObjectMapper.getObjectMapper();
+  private JobModel jobModel;
+
+  @Before
+  public void setup() throws IOException {
     Map<String, String> configMap = new HashMap<String, String>();
     Set<SystemStreamPartition> ssp = new HashSet<>();
     configMap.put("a", "b");
@@ -49,12 +54,42 @@ public class TestSamzaObjectMapper {
     TaskModel taskModel = new TaskModel(taskName, ssp, new Partition(2));
     Map<TaskName, TaskModel> tasks = new HashMap<TaskName, TaskModel>();
     tasks.put(taskName, taskModel);
-    ContainerModel containerModel = new ContainerModel(1, tasks);
-    Map<Integer, ContainerModel> containerMap = new HashMap<Integer, ContainerModel>();
-    containerMap.put(Integer.valueOf(1), containerModel);
-    JobModel jobModel = new JobModel(config, containerMap);
+    ContainerModel containerModel = new ContainerModel("1", 1, tasks);
+    Map<String, ContainerModel> containerMap = new HashMap<String, ContainerModel>();
+    containerMap.put("1", containerModel);
+    jobModel = new JobModel(config, containerMap);
+  }
+
+  @Test
+  public void testJsonTaskModel() throws Exception {
+    ObjectMapper mapper = SamzaObjectMapper.getObjectMapper();
+
     String str = mapper.writeValueAsString(jobModel);
     JobModel obj = mapper.readValue(str, JobModel.class);
     assertEquals(jobModel, obj);
   }
+
+  /**
+   * Critical test to guarantee compatibility between samza 0.12 container models and 0.13+
+   *
+   * Samza 0.12 contains only "container-id" (integer) in the ContainerModel. "processor-id" (String) is added in 0.13.
+   * When serializing, we serialize both the fields in 0.13. Deserialization correctly handles the fields in 0.13.
+   */
+  @Test
+  public void testContainerModelCompatible() {
+    try {
+      String newJobModelString = "{\"config\":{\"a\":\"b\"},\"containers\":{\"1\":{\"processor-id\":\"1\",\"container-id\":1,\"tasks\":{\"test\":{\"task-name\":\"test\",\"system-stream-partitions\":[{\"system\":\"foo\",\"partition\":1,\"stream\":\"bar\"}],\"changelog-partition\":2}}}},\"max-change-log-stream-partitions\":3,\"all-container-locality\":{\"1\":null}}";
+      ObjectMapper mapper = SamzaObjectMapper.getObjectMapper();
+      JobModel jobModel = mapper.readValue(newJobModelString, JobModel.class);
+
+      String oldJobModelString = "{\"config\":{\"a\":\"b\"},\"containers\":{\"1\":{\"container-id\":1,\"tasks\":{\"test\":{\"task-name\":\"test\",\"system-stream-partitions\":[{\"system\":\"foo\",\"partition\":1,\"stream\":\"bar\"}],\"changelog-partition\":2}}}},\"max-change-log-stream-partitions\":3,\"all-container-locality\":{\"1\":null}}";
+      ObjectMapper mapper1 = SamzaObjectMapper.getObjectMapper();
+      JobModel jobModel1 = mapper1.readValue(oldJobModelString, JobModel.class);
+
+      Assert.assertEquals(jobModel, jobModel1);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
 }

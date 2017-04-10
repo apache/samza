@@ -28,7 +28,7 @@ import java.util.Collections;
  * A SamzaContainerContext maintains per-container information for the tasks it executes.
  */
 public class SamzaContainerContext {
-  public final int id;
+  public final String id;
   public final Config config;
   public final Collection<TaskName> taskNames;
 
@@ -40,7 +40,7 @@ public class SamzaContainerContext {
    * @param taskNames The set of taskName keys for which this container is responsible.
    */
   public SamzaContainerContext(
-      int id,
+      String id,
       Config config,
       Collection<TaskName> taskNames) {
     this.id = id;

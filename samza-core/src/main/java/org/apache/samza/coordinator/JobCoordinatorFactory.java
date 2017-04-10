@@ -26,11 +26,10 @@ import org.apache.samza.processor.SamzaContainerController;
 @InterfaceStability.Evolving
 public interface JobCoordinatorFactory {
   /**
-   * @param processorId Unique identifier for the processor
    * @param config Configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
    * @param containerController Controller interface for starting and stopping container. In future, it may simply
    *                            pause the container and add/remove tasks
    * @return An instance of IJobCoordinator
    */
-  JobCoordinator getJobCoordinator(int processorId, Config config, SamzaContainerController containerController);
+  JobCoordinator getJobCoordinator(Config config, SamzaContainerController containerController);
 }

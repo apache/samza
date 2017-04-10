@@ -26,8 +26,7 @@ object ShellCommandConfig {
   val ENV_COORDINATOR_SYSTEM_CONFIG = "SAMZA_COORDINATOR_SYSTEM_CONFIG"
 
   /**
-   * The ID for a container. This is an integer number between 0 and
-   * &lt;number of containers&gt;.
+   * The ID for a container. This is a string representation that is unique to the runtime environment.
    */
   val ENV_CONTAINER_ID = "SAMZA_CONTAINER_ID"
 
