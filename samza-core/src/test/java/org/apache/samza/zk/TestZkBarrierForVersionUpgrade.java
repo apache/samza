@@ -74,6 +74,7 @@ public class TestZkBarrierForVersionUpgrade {
     zkServer.teardown();
   }
 
+  // TODO: SAMZA-1193 fix the following flaky test and re-enable it
   // @Test
   public void testZkBarrierForVersionUpgrade() {
     String barrierId = "b1";
