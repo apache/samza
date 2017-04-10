@@ -201,7 +201,6 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     SinkOperatorSpec<M> partitionByOperatorSpec = OperatorSpecs.createPartitionByOperatorSpec(
         (OutputStreamInternal<K, M, M>) intermediateStream, opId);
     this.registeredOperatorSpecs.add(partitionByOperatorSpec);
-    System.out.println("partition by called " );
     return intermediateStream;
   }
 

@@ -99,7 +99,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
   private StreamApplication app;
   private ApplicationRunner runner;
 
-  static final int NUM_EMPTY_POLLS = 3;
+  private int numEmptyPolls = 3;
   private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(20);
   private static final String DEFAULT_DESERIALIZER = "org.apache.kafka.common.serialization.StringDeserializer";
 
@@ -173,10 +173,10 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
 
   /**
    * Read messages from the provided list of topics until {@param threshold} messages have been read or until
-   * {@link #NUM_EMPTY_POLLS} polls return no messages.
+   * {@link #numEmptyPolls} polls return no messages.
    *
    * The default poll time out is determined by {@link #POLL_TIMEOUT_MS} and the number of empty polls are
-   * determined by {@link #NUM_EMPTY_POLLS}
+   * determined by {@link #numEmptyPolls}
    *
    * @param topics the list of topics to consume from
    * @param threshold the number of messages to consume
@@ -187,7 +187,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     List<ConsumerRecord<String, String>> recordList = new ArrayList<>();
     consumer.subscribe(topics);
 
-    while (emptyPollCount < NUM_EMPTY_POLLS && recordList.size() < threshold) {
+    while (emptyPollCount < numEmptyPolls && recordList.size() < threshold) {
       ConsumerRecords<String, String> records = consumer.poll(POLL_TIMEOUT_MS.toMillis());
       if (!records.isEmpty()) {
         Iterator<ConsumerRecord<String, String>> iterator = records.iterator();
@@ -237,6 +237,10 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     app = streamApplication;
     runner = ApplicationRunner.fromConfig(new MapConfig(configs));
     runner.run(streamApplication);
+  }
+
+  public void setNumEmptyPolls(int numEmptyPolls) {
+    this.numEmptyPolls = numEmptyPolls;
   }
 
   /**
