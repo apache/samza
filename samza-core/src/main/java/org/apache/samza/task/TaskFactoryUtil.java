@@ -169,10 +169,10 @@ public class TaskFactoryUtil {
         Class<?> builderClass = Class.forName(appClassName);
         return (StreamApplication) builderClass.newInstance();
       } catch (Throwable t) {
-        String errorMsg = String.format("Failed to validate StreamApplication class from the config. %s = %s",
+        String errorMsg = String.format("Failed to create StreamApplication class from the config. %s = %s",
             StreamApplication.APP_CLASS_CONFIG, config.get(StreamApplication.APP_CLASS_CONFIG));
         log.error(errorMsg, t);
-        throw new ConfigException(String.format("%s is not a StreamApplication.", appClassName));
+        throw new ConfigException(errorMsg, t);
       }
     } else {
       return null;

@@ -73,7 +73,7 @@ import java.util.Properties;
  *
  * Execution model: {@link StreamApplication}s are run as their own {@link org.apache.samza.job.local.ThreadJob}s.
  * Similarly, embedded Kafka servers and Zookeeper servers are run as their own threads.
- * {@link #produceMessage(String, int, String, String)} and {@link #getMessages(Collection, int)} are blocking calls.
+ * {@link #produceMessage(String, int, String, String)} and {@link #consumeMessages(Collection, int)} are blocking calls.
  *
  * <h3>Usage Example</h3>
  * Here is an actual test that publishes a message into Kafka, runs an application, and verifies consumption
@@ -88,16 +88,18 @@ import java.util.Properties;
  *     createTopic("mytopic", 1);
  *     produceMessage("mytopic", 0, "key1", "val1");
  *     runApplication(myApp, "myApp", null);
- *     List<ConsumerRecord<String, String>> messages = getMessages(outputTopics)
+ *     List<ConsumerRecord<String, String>> messages = consumeMessages(outputTopics)
  *     Assert.assertEquals(messages.size(), 1);
  *   }
  * }}</pre>
  */
 public class StreamApplicationIntegrationTestHarness extends AbstractIntegrationTestHarness {
-  KafkaProducer producer;
-  KafkaConsumer consumer;
+  private KafkaProducer producer;
+  private KafkaConsumer consumer;
+  private StreamApplication app;
+  private ApplicationRunner runner;
 
-  private static final int NUM_EMPTY_POLLS = 3;
+  static final int NUM_EMPTY_POLLS = 3;
   private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(20);
   private static final String DEFAULT_DESERIALIZER = "org.apache.kafka.common.serialization.StringDeserializer";
 
@@ -115,13 +117,13 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     consumerDeserializerProperties.setProperty("value.deserializer", DEFAULT_DESERIALIZER);
 
     producer = TestUtils.createNewProducer(
-        bootstrapServers(),
-        1,
-        60 * 1000L,
-        1024L * 1024L,
-        0,
-        0L,
-        5 * 1000L,
+        bootstrapServers(), // bootstrap-server url
+        1, // acks
+        60 * 1000L, // maxBlockMs
+        1024L * 1024L, // buffer size
+        0, // numRetries
+        0L, // lingerMs
+        5 * 1000L, // requestTimeout
         SecurityProtocol.PLAINTEXT,
         null,
         Option$.MODULE$.<Properties>apply(new Properties()),
@@ -131,10 +133,10 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
 
     consumer = TestUtils.createNewConsumer(
         bootstrapServers(),
-        "group",
-        "earliest",
-        4096L,
-        "org.apache.kafka.clients.consumer.RangeAssignor",
+        "group", // groupId
+        "earliest", // auto-offset-reset
+        4096L, // per-partition fetch size
+        "org.apache.kafka.clients.consumer.RangeAssignor", // partition Assigner
         30000,
         SecurityProtocol.PLAINTEXT,
         Option$.MODULE$.<File>empty(),
@@ -180,7 +182,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    * @param threshold the number of messages to consume
    * @return the list of {@link ConsumerRecord}s whose size can be atmost {@param threshold}
    */
-  public List<ConsumerRecord<String, String>> getMessages(Collection<String> topics, int threshold) {
+  public List<ConsumerRecord<String, String>> consumeMessages(Collection<String> topics, int threshold) {
     int emptyPollCount = 0;
     List<ConsumerRecord<String, String>> recordList = new ArrayList<>();
     consumer.subscribe(topics);
@@ -192,6 +194,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
         while (iterator.hasNext() && recordList.size() < threshold) {
           ConsumerRecord record = iterator.next();
           recordList.add(record);
+          emptyPollCount = 0;
         }
       } else {
         emptyPollCount++;
@@ -204,16 +207,16 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    * Executes the provided {@link StreamApplication} as a {@link org.apache.samza.job.local.ThreadJob}. The
    * {@link StreamApplication} runs in its own separate thread.
    *
-   * @param app the application to run
+   * @param streamApplication the application to run
    * @param appName the name of the application
    * @param overriddenConfigs configs to override
    */
-  public void runApplication(StreamApplication app, String appName, Config overriddenConfigs) {
+  public void runApplication(StreamApplication streamApplication, String appName, Config overriddenConfigs) {
 
     Map<String, String> configs = new HashMap<>();
     configs.put("job.factory.class", "org.apache.samza.job.local.ThreadJobFactory");
     configs.put("job.name", appName);
-    configs.put("app.class", app.getClass().getCanonicalName());
+    configs.put("app.class", streamApplication.getClass().getCanonicalName());
     configs.put("serializers.registry.json.class", "org.apache.samza.serializers.JsonSerdeFactory");
     configs.put("serializers.registry.string.class", "org.apache.samza.serializers.StringSerdeFactory");
     configs.put("systems.kafka.samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory");
@@ -231,8 +234,9 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
       configs.putAll(overriddenConfigs);
     }
 
-    ApplicationRunner runner = ApplicationRunner.fromConfig(new MapConfig(configs));
-    runner.run(app);
+    app = streamApplication;
+    runner = ApplicationRunner.fromConfig(new MapConfig(configs));
+    runner.run(streamApplication);
   }
 
   /**

@@ -38,7 +38,7 @@ public class TestSessionWindowApp extends StreamApplicationIntegrationTestHarnes
   private static final String APP_NAME = "SessionWindowDemo";
 
   @Test
-  public void test() throws Exception {
+  public void testSessionWindowCounter() throws Exception {
     // create topics
     createTopic(INPUT_TOPIC, 1);
     createTopic(OUTPUT_TOPIC, 1);
@@ -60,15 +60,17 @@ public class TestSessionWindowApp extends StreamApplicationIntegrationTestHarnes
     runApplication(app, APP_NAME, null);
 
     // consume and validate result
-    List<ConsumerRecord<String, String>> messages = getMessages(Collections.singletonList(OUTPUT_TOPIC), 3);
+    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(OUTPUT_TOPIC), 3);
     Assert.assertTrue(System.currentTimeMillis() - startTime >= WINDOW_GAP);
     Assert.assertEquals(messages.size(), 3);
 
     for (ConsumerRecord<String, String> message : messages) {
       String key = message.key();
       String value = message.value();
-      //Assert that "badKey" messages were actually filtered out
+      // Assert that "badKey" messages were actually filtered out
       Assert.assertTrue(key.equals("userId1") || key.equals("userId2") || key.equals("userId3"));
+
+      // Assert that there are 2 messages for userId1, 1 message each for userId2 and userId3
       if ("userId1".equals(key)) {
         Assert.assertEquals(value, "2");
       } else {

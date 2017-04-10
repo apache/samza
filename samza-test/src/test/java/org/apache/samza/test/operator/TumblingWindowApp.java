@@ -43,7 +43,6 @@ public class TumblingWindowApp implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    StreamSpec pageViewStreamSpec = new StreamSpec("page-views", TestRepartitionWindowApp.INPUT_TOPIC, "kafka");
     BiFunction<String, String, PageView> msgBuilder = (k, v) -> new PageView(v);
     MessageStream<PageView> pageViews = graph.getInputStream("page-views", msgBuilder);
     Function<PageView, String> keyFn = pageView -> pageView.getUserId();
@@ -57,7 +56,6 @@ public class TumblingWindowApp implements StreamApplication {
         .sink((windowOutput, collector, coordinator) -> {
             String key = windowOutput.getKey().getKey();
             String count = new Integer(windowOutput.getMessage().size()).toString();
-            LOG.info("Count is " + count  + " for userId " + key);
             collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", TestRepartitionWindowApp.OUTPUT_TOPIC), key, count));
           });
   }

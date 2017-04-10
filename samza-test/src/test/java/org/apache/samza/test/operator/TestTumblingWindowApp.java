@@ -35,10 +35,10 @@ public class TestTumblingWindowApp extends StreamApplicationIntegrationTestHarne
   static final String INPUT_TOPIC = "page-views";
   static final String OUTPUT_TOPIC = "Result";
   static final Duration DURATION = Duration.ofSeconds(3);
-  private static final String APP_NAME = "SessionWindowDemo";
+  private static final String APP_NAME = "TumblingWindowDemo";
 
   @Test
-  public void test() throws Exception {
+  public void testTumblingWindowCounter() throws Exception {
     // create topics
     createTopic(INPUT_TOPIC, 1);
     createTopic(OUTPUT_TOPIC, 1);
@@ -54,7 +54,7 @@ public class TestTumblingWindowApp extends StreamApplicationIntegrationTestHarne
     runApplication(app, APP_NAME, null);
 
     // consume and validate result
-    List<ConsumerRecord<String, String>> messages = getMessages(Collections.singletonList(OUTPUT_TOPIC), 2);
+    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(OUTPUT_TOPIC), 2);
     Assert.assertEquals(messages.size(), 2);
 
     for (ConsumerRecord<String, String> message : messages) {
@@ -67,7 +67,7 @@ public class TestTumblingWindowApp extends StreamApplicationIntegrationTestHarne
 
     produceMessage(INPUT_TOPIC, 0, "userId1", "userId1,india,hotmail.com");
     produceMessage(INPUT_TOPIC, 0, "userId2", "userId2,india,hotmail.com");
-    List<ConsumerRecord<String, String>> messageList = getMessages(Collections.singletonList(OUTPUT_TOPIC), 2);
+    List<ConsumerRecord<String, String>> messageList = consumeMessages(Collections.singletonList(OUTPUT_TOPIC), 2);
     Assert.assertEquals(messageList.size(), 2);
   }
 }

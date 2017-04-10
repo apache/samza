@@ -22,7 +22,9 @@ package org.apache.samza.test.operator;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
@@ -31,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -46,24 +49,15 @@ public class SessionWindowApp implements StreamApplication {
   public void init(StreamGraph graph, Config config) {
     BiFunction<String, String, PageView> msgBuilder = (k, v) -> new PageView(v);
     MessageStream<PageView> pageViews = graph.getInputStream("page-views", msgBuilder);
-    StreamSpec pageViewStreamSpec = new StreamSpec("page-views", TestRepartitionWindowApp.INPUT_TOPIC, "kafka");
+    OutputStream<String, String, WindowPane<String, Collection<PageView>>> outputStream = graph.getOutputStream
+        (TestSessionWindowApp.OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
 
     Function<PageView, String> keyFn = pageView -> pageView.getUserId();
 
     pageViews
-        .filter(m -> {
-            LOG.info("Processing message with key: {} ", m.getUserId());
-            return !FILTER_KEY.equals(m.getUserId());
-          })
-        // identity map
-        .map(m -> m)
+        .filter(m -> !FILTER_KEY.equals(m.getUserId()))
         // emit output
         .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(3)))
-        .sink((windowOutput, collector, coordinator) -> {
-            String key = windowOutput.getKey().getKey();
-            String count = new Integer(windowOutput.getMessage().size()).toString();
-            LOG.info("Count is " + count  + " for userId " + key);
-            collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", TestRepartitionWindowApp.OUTPUT_TOPIC), key, count));
-          });
+        .sendTo(outputStream);
   }
 }

@@ -22,7 +22,9 @@ package org.apache.samza.test.operator;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
@@ -31,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -43,32 +46,20 @@ public class RepartitionWindowApp implements StreamApplication {
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    StreamSpec pageViewStreamSpec = new StreamSpec("page-views", TestRepartitionWindowApp.INPUT_TOPIC, "kafka");
 
-    BiFunction<String, String, PageView> msgBuilder = (k, v) -> new PageView(v);
-    MessageStream<PageView> pageViews = graph.getInputStream("page-views", msgBuilder);
-    Function<PageView, String> keyFn = pageView -> pageView.getUserId();
+    BiFunction<String, String, String> msgBuilder = (k, v) -> v;
+    MessageStream<String> pageViews = graph.getInputStream("page-views", msgBuilder);
+    Function<String, String> keyFn = pageView -> new PageView(pageView).getUserId();
 
-    BiFunction<String, String, String> msgBuilder1 = (k, v) -> v;
-    MessageStream<String> pageViews1 = graph.getInputStream("page-views", msgBuilder1);
-    Function<String, String> keyFn1 = pageView -> new PageView(pageView).getUserId();
-    /*
-    pageViews1
-        .map(m -> {
-          System.out.println("got msg:" + m);
-         return m;
-        })
-        //.partitionBy(keyFn1)
-        .window(Windows.keyedSessionWindow(keyFn1, Duration.ofSeconds(3)))
+    OutputStream<String, String, WindowPane<String, Collection<String>>> outputStream = graph.getOutputStream
+        (TestRepartitionWindowApp.OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
+
+    pageViews
+        .map(m -> m)
+        .partitionBy(keyFn)
+        .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(3)))
         // emit output
-        .sink((windowOutput, collector, coordinator) -> {
-            String key = windowOutput.getKey().getKey();
-            String count = new Integer(windowOutput.getMessage().size()).toString();
-            LOG.info("Count is " + count  + " for key " + key);
-            collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", TestRepartitionWindowApp.OUTPUT_TOPIC), key, count));
-          });
-          */
-
+        .sendTo(outputStream);
 
   }
 }
