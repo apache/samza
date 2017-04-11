@@ -26,9 +26,6 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,8 +48,8 @@ public class RepartitionWindowApp implements StreamApplication {
     MessageStream<String> pageViews = graph.getInputStream("page-views", msgBuilder);
     Function<String, String> keyFn = pageView -> new PageView(pageView).getUserId();
 
-    OutputStream<String, String, WindowPane<String, Collection<String>>> outputStream = graph.getOutputStream
-        (TestRepartitionWindowApp.OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
+    OutputStream<String, String, WindowPane<String, Collection<String>>> outputStream = graph
+        .getOutputStream(TestRepartitionWindowApp.OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
 
     pageViews
         .map(m -> m)
@@ -60,6 +57,5 @@ public class RepartitionWindowApp implements StreamApplication {
         .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(3)))
         // emit output
         .sendTo(outputStream);
-
   }
 }

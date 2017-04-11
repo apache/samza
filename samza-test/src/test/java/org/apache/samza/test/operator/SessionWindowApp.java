@@ -26,9 +26,6 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,8 +46,8 @@ public class SessionWindowApp implements StreamApplication {
   public void init(StreamGraph graph, Config config) {
     BiFunction<String, String, PageView> msgBuilder = (k, v) -> new PageView(v);
     MessageStream<PageView> pageViews = graph.getInputStream("page-views", msgBuilder);
-    OutputStream<String, String, WindowPane<String, Collection<PageView>>> outputStream = graph.getOutputStream
-        (TestSessionWindowApp.OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
+    OutputStream<String, String, WindowPane<String, Collection<PageView>>> outputStream = graph
+        .getOutputStream(TestSessionWindowApp.OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
 
     Function<PageView, String> keyFn = pageView -> pageView.getUserId();
 
