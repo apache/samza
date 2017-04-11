@@ -41,20 +41,17 @@ public class SessionWindowApp implements StreamApplication {
 
   private static final Logger LOG = LoggerFactory.getLogger(SessionWindowApp.class);
   private static final String FILTER_KEY = "badKey";
+  private static final String OUTPUT_TOPIC = "Result";
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    BiFunction<String, String, PageView> msgBuilder = (k, v) -> new PageView(v);
-    MessageStream<PageView> pageViews = graph.getInputStream("page-views", msgBuilder);
+    MessageStream<PageView> pageViews = graph.<String, String, PageView>getInputStream("page-views", (k, v) -> new PageView(v));
     OutputStream<String, String, WindowPane<String, Collection<PageView>>> outputStream = graph
-        .getOutputStream(TestSessionWindowApp.OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
-
-    Function<PageView, String> keyFn = pageView -> pageView.getUserId();
+        .getOutputStream(OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
 
     pageViews
         .filter(m -> !FILTER_KEY.equals(m.getUserId()))
-        // emit output
-        .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(3)))
+        .window(Windows.keyedSessionWindow(pageView -> pageView.getUserId(), Duration.ofSeconds(3)))
         .sendTo(outputStream);
   }
 }

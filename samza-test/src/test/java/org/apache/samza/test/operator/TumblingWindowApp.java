@@ -29,9 +29,8 @@ import org.apache.samza.operators.windows.Windows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Collection;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 
 /**
  * A {@link StreamApplication} that demonstrates a filter followed by a tumbling window.
@@ -40,21 +39,17 @@ public class TumblingWindowApp implements StreamApplication {
 
   private static final Logger LOG = LoggerFactory.getLogger(TumblingWindowApp.class);
   private static final String FILTER_KEY = "badKey";
+  private static final String OUTPUT_TOPIC = "Result";
 
   @Override
   public void init(StreamGraph graph, Config config) {
-    BiFunction<String, String, PageView> msgBuilder = (k, v) -> new PageView(v);
-    MessageStream<PageView> pageViews = graph.getInputStream("page-views", msgBuilder);
-    Function<PageView, String> keyFn = pageView -> pageView.getUserId();
+    MessageStream<PageView> pageViews = graph.<String, String, PageView>getInputStream("page-views", (k, v) -> new PageView(v));
     OutputStream<String, String, WindowPane<String, Collection<PageView>>> outputStream = graph
-        .getOutputStream(TestTumblingWindowApp.OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
+        .getOutputStream(OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
 
     pageViews
         .filter(m -> !FILTER_KEY.equals(m.getUserId()))
-        // identity map
-        .map(m -> m)
-        // emit output
-        .window(Windows.keyedTumblingWindow(keyFn, TestTumblingWindowApp.DURATION))
+        .window(Windows.keyedTumblingWindow(pageView -> pageView.getUserId(), Duration.ofSeconds(3)))
         .sendTo(outputStream);
   }
 }

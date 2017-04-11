@@ -44,18 +44,15 @@ public class RepartitionWindowApp implements StreamApplication {
   @Override
   public void init(StreamGraph graph, Config config) {
 
-    BiFunction<String, String, String> msgBuilder = (k, v) -> v;
-    MessageStream<String> pageViews = graph.getInputStream("page-views", msgBuilder);
+    MessageStream<String> pageViews = graph.<String, String, String>getInputStream("page-views", (k, v) -> v);
     Function<String, String> keyFn = pageView -> new PageView(pageView).getUserId();
 
     OutputStream<String, String, WindowPane<String, Collection<String>>> outputStream = graph
         .getOutputStream(TestRepartitionWindowApp.OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
 
     pageViews
-        .map(m -> m)
         .partitionBy(keyFn)
         .window(Windows.keyedSessionWindow(keyFn, Duration.ofSeconds(3)))
-        // emit output
         .sendTo(outputStream);
   }
 }
