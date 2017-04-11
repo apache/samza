@@ -32,6 +32,7 @@ import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
+import scala.Option;
 import scala.Option$;
 
 import java.io.File;
@@ -81,7 +82,7 @@ import java.util.Properties;
  *
  *  <pre> {@code
  * class MyTest extends StreamApplicationIntegrationTestHarness {
- *   private final StreamApplication myApp = new StreamApplication();
+ *   private final StreamApplication myApp = new MyStreamApplication();
  *   private final Collection<String> outputTopics = Collections.singletonList("output-topic");
  *   @Test
  *   public void test() {
@@ -126,10 +127,10 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
         5 * 1000L, // requestTimeout
         SecurityProtocol.PLAINTEXT,
         null,
-        Option$.MODULE$.<Properties>apply(new Properties()),
+        Option.apply(new Properties()),
         new StringSerializer(),
         new StringSerializer(),
-        Option$.MODULE$.<Properties>apply(new Properties()));
+        Option.apply(new Properties()));
 
     consumer = TestUtils.createNewConsumer(
         bootstrapServers(),

@@ -31,8 +31,6 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 
 /**
  * A {@link StreamApplication} that demonstrates a filter followed by a session window.
