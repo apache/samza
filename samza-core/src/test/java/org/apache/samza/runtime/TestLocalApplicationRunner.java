@@ -226,18 +226,18 @@ public class TestLocalApplicationRunner {
     when(planner.plan(anyObject())).thenReturn(plan);
 
     StreamProcessor sp = mock(StreamProcessor.class);
+    ArgumentCaptor<StreamProcessorLifeCycleAware> captor =
+        ArgumentCaptor.forClass(StreamProcessorLifeCycleAware.class);
+
     doAnswer(i -> {
-        ArgumentCaptor<StreamProcessorLifeCycleAware> captor =
-            ArgumentCaptor.forClass(StreamProcessorLifeCycleAware.class);
-        verify(sp).addLifeCycleAware(captor.capture());
         StreamProcessorLifeCycleAware listener = captor.getValue();
-        listener.onShutdown();
+        listener.onShutdown("0");
         return null;
       }).when(sp).start();
 
 
     LocalApplicationRunner spy = spy(runner);
-    doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject());
+    doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
 
     spy.run(app);
 
@@ -277,18 +277,18 @@ public class TestLocalApplicationRunner {
 
     Throwable t = new Throwable("test failure");
     StreamProcessor sp = mock(StreamProcessor.class);
+    ArgumentCaptor<StreamProcessorLifeCycleAware> captor =
+        ArgumentCaptor.forClass(StreamProcessorLifeCycleAware.class);
+
     doAnswer(i -> {
-        ArgumentCaptor<StreamProcessorLifeCycleAware> captor =
-            ArgumentCaptor.forClass(StreamProcessorLifeCycleAware.class);
-        verify(sp).addLifeCycleAware(captor.capture());
         StreamProcessorLifeCycleAware listener = captor.getValue();
-        listener.onFailure(t);
+        listener.onFailure("0", t);
         return null;
       }).when(sp).start();
 
 
     LocalApplicationRunner spy = spy(runner);
-    doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject());
+    doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
 
     try {
       spy.run(app);

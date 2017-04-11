@@ -19,6 +19,7 @@
 
 package org.apache.samza.runtime;
 
+  import java.util.ArrayList;
   import java.util.HashMap;
   import java.util.List;
   import java.util.UUID;
@@ -53,39 +54,35 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger log = LoggerFactory.getLogger(LocalApplicationRunner.class);
   private static final String LATCH_INIT = "init";
-  private static final long LATCH_TIMEOUT = 10; // 10 min timeout
+  private static final long LATCH_TIMEOUT_MINUTES = 10; // 10 min timeout
 
   private final String uid;
   private final CoordinationUtils coordination;
+  private final List<StreamProcessor> processors = new ArrayList<>();
   private final CountDownLatch latch = new CountDownLatch(1);
-  private final ConcurrentHashSet<StreamProcessor> processors = new ConcurrentHashSet<>();
   private final AtomicReference<Throwable> throwable = new AtomicReference<>();
-
 
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
   final class LocalProcessorListener implements StreamProcessorLifeCycleAware {
-    StreamProcessor processor;
+    private final ConcurrentHashSet<String> processorIds = new ConcurrentHashSet<>();
 
-    LocalProcessorListener(StreamProcessor processor) {
-      this.processor = processor;
+    @Override
+    public void onStart(String processorId) {
+      processorIds.add(processorId);
     }
 
     @Override
-    public void onStart() {
-    }
-
-    @Override
-    public void onShutdown() {
-      processors.remove(processor);
-      if (processors.isEmpty()) {
+    public void onShutdown(String processorId) {
+      processorIds.remove(processorId);
+      if (processorIds.isEmpty()) {
         latch.countDown();
       }
     }
 
     @Override
-    public void onFailure(Throwable t) {
-      processors.remove(processor);
+    public void onFailure(String processorId, Throwable t) {
+      processorIds.remove(processorId);
       throwable.compareAndSet(null, t);
       latch.countDown();
     }
@@ -110,13 +107,12 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       if (plan.getJobConfigs().isEmpty()) {
         throw new SamzaException("No jobs to run.");
       }
+      LocalProcessorListener listener = new LocalProcessorListener();
       plan.getJobConfigs().forEach(jobConfig -> {
           log.info("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
-
-          StreamProcessor processor = createStreamProcessor(jobConfig, app);
-          processor.addLifeCycleAware(new LocalProcessorListener(processor));
-          processors.add(processor);
+          StreamProcessor processor = createStreamProcessor(jobConfig, app, listener);
           processor.start();
+          processors.add(processor);
         });
       appStatus = ApplicationStatus.Running;
 
@@ -173,7 +169,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
             getStreamManager().createStreams(intStreams);
             initLatch.countDown();
           });
-        initLatch.await(LATCH_TIMEOUT, TimeUnit.MINUTES);
+        initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
       } else {
         // each application process will try creating the streams, which
         // requires stream creation to be idempotent
@@ -188,12 +184,12 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    * @param app {@link StreamApplication}
    * @return {@link StreamProcessor]}
    */
-  /* package private */ StreamProcessor createStreamProcessor(Config config, StreamApplication app) {
+  /* package private */ StreamProcessor createStreamProcessor(Config config, StreamApplication app, StreamProcessorLifeCycleAware listener) {
     Object taskFactory = TaskFactoryUtil.createTaskFactory(config, app, this);
     if (taskFactory instanceof StreamTaskFactory) {
-      return new StreamProcessor(config, new HashMap<>(), (StreamTaskFactory) taskFactory);
+      return new StreamProcessor(config, new HashMap<>(), (StreamTaskFactory) taskFactory, listener);
     } else if (taskFactory instanceof AsyncStreamTaskFactory) {
-      return new StreamProcessor(config, new HashMap<>(), (AsyncStreamTaskFactory) taskFactory);
+      return new StreamProcessor(config, new HashMap<>(), (AsyncStreamTaskFactory) taskFactory, listener);
     } else {
       throw new SamzaException(String.format("%s is not a valid task factory",
           taskFactory.getClass().getCanonicalName().toString()));

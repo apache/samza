@@ -30,19 +30,22 @@ import org.apache.samza.annotation.InterfaceStability;
 @InterfaceStability.Evolving
 public interface StreamProcessorLifeCycleAware {
   /**
-   * Callback when the Samza processor is started
+   * Callback when the {@link StreamProcessor} is started
+   * @param processorId id of the StreamProcessor
    */
-  void onStart();
+  void onStart(String processorId);
 
   /**
-   * Callback when the Samza processor is shut down.
+   * Callback when the {@link StreamProcessor} is shut down.
+   * @param processorId id of the StreamProcessor
    */
-  void onShutdown();
+  void onShutdown(String processorId);
 
   /**
-   * Callback when the Samza processor fails
+   * Callback when the {@link StreamProcessor} fails
+   * @param processorId id of the StreamProcessor
    * @param t exception of the failure
    */
-  void onFailure(Throwable t);
+  void onFailure(String processorId, Throwable t);
 
 }
