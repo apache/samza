@@ -338,13 +338,13 @@ import org.slf4j.LoggerFactory;
       while (!q.isEmpty()) {
         JobNode node = q.poll();
         sortedNodes.add(node);
-        visited.add(node);
         node.getOutEdges().stream().flatMap(edge -> edge.getTargetNodes().stream()).forEach(n -> {
             String nid = n.getId();
             Long degree = indegree.get(nid) - 1;
             indegree.put(nid, degree);
             if (degree == 0L && !visited.contains(n)) {
               q.add(n);
+              visited.add(n);
             }
             reachable.add(n);
           });
