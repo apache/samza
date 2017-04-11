@@ -8,7 +8,7 @@
 <script type="text/javascript" src="js/dagre-d3.js"></script>
 <script type="text/javascript" src="data/plan.json"></script>
 
-<h1>Samza DAG</h1>
+<h1>Samza Plan Viewer</h1>
 
 <style id="css">
   /* This sets the color for "TK" nodes to a light blue green. */
@@ -34,19 +34,21 @@
   }
 </style>
 
-<svg id="svg-canvas" width=1000 height=1000></svg>
-
 <section>
   <p>An example of visualizing the tokenization of a sentence. This example shows
     how CSS classes can be applied to a rendered graph.
 </section>
+
+<svg id="svg-canvas" width=1600 height=1000></svg>
 
 <script id="js">
 
   function jsonToDagre(data) {
     // Create the input graph
     var g = new dagreD3.graphlib.Graph()
-        .setGraph({})
+        .setGraph({
+          rankdir: "LR"
+        })
         .setDefaultEdgeLabel(function() { return {}; });
 
     var streams = data.Streams;
