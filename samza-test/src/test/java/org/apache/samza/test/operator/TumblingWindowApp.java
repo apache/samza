@@ -22,13 +22,14 @@ package org.apache.samza.test.operator;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -45,6 +46,8 @@ public class TumblingWindowApp implements StreamApplication {
     BiFunction<String, String, PageView> msgBuilder = (k, v) -> new PageView(v);
     MessageStream<PageView> pageViews = graph.getInputStream("page-views", msgBuilder);
     Function<PageView, String> keyFn = pageView -> pageView.getUserId();
+    OutputStream<String, String, WindowPane<String, Collection<PageView>>> outputStream = graph
+        .getOutputStream(TestTumblingWindowApp.OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());
 
     pageViews
         .filter(m -> !FILTER_KEY.equals(m.getUserId()))
@@ -52,10 +55,6 @@ public class TumblingWindowApp implements StreamApplication {
         .map(m -> m)
         // emit output
         .window(Windows.keyedTumblingWindow(keyFn, TestTumblingWindowApp.DURATION))
-        .sink((windowOutput, collector, coordinator) -> {
-            String key = windowOutput.getKey().getKey();
-            String count = new Integer(windowOutput.getMessage().size()).toString();
-            collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", TestRepartitionWindowApp.OUTPUT_TOPIC), key, count));
-          });
+        .sendTo(outputStream);
   }
 }
