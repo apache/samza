@@ -101,9 +101,9 @@ public class TestJobGraphJsonGenerator {
     StreamManager streamManager = new StreamManager(systemAdmins);
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    MessageStream m1 = streamGraph.getInputStream("input1", null).map(m -> m);
-    MessageStream m2 = streamGraph.getInputStream("input2", null).partitionBy(m -> "haha").filter(m -> true);
-    MessageStream m3 = streamGraph.getInputStream("input3", null).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
+    MessageStream m1 = streamGraph.getInputStream("input1", (String k, String v) -> (String) v).map(m -> m);
+    MessageStream m2 = streamGraph.getInputStream("input2", (String k, String v) -> (String) v).partitionBy(m -> "haha").filter(m -> true);
+    MessageStream m3 = streamGraph.getInputStream("input3", (String k, String v) -> (String) v).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
     OutputStream<Object, Object, Object> outputStream1 = streamGraph.getOutputStream("output1", null, null);
     OutputStream<Object, Object, Object> outputStream2 = streamGraph.getOutputStream("output2", null, null);
 

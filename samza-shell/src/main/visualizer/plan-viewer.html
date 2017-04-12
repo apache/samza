@@ -32,6 +32,13 @@
     stroke: #333;
     stroke-width: 1.5px;
   }
+
+  .topbar {
+    width: 100%;
+    border-bottom: solid;
+    border-bottom-color: #cdcfd2;
+    border-bottom-width: 1px;
+  }
 </style>
 
 <section>
@@ -39,7 +46,7 @@
     how CSS classes can be applied to a rendered graph.
 </section>
 
-<svg id="svg-canvas" width=1600 height=1000></svg>
+<svg id="svg-canvas" width=2000 height=1000></svg>
 
 <script id="js">
 
@@ -54,7 +61,12 @@
     var streams = data.Streams;
     for (var streamId in streams) {
       var stream = streams[streamId];
-      g.setNode(streamId,  { label: stream.StreamSpec.PhysicalName});
+      var labelVal = "<div><h3 class=\"topbar\">" + stream.StreamSpec.Id + "</h3><ul>"
+      labelVal += "<li>SystemName: " + stream.StreamSpec.SystemName + "</li>"
+      labelVal += "<li>PhysicalName: " + stream.StreamSpec.PhysicalName + "</li>"
+      labelVal += "<li>PartitionCount: " + stream.StreamSpec.PartitionCount + "</li>"
+      labelVal += "</ul></div>"
+      g.setNode(streamId,  { label: labelVal, labelType: "html" });
     }
 
     var jobs = data.Jobs;
@@ -62,7 +74,11 @@
       var operators = jobs[i].OperatorGraph.Operators;
       for (var opId in operators) {
         var operator = operators[opId];
-        g.setNode(opId,  { label: operator.OpCode});
+        var labelVal = "<div><h3 class=\"topbar\">" + operator.OpCode + "</h3><ul>";
+        labelVal +=  "<li>ID: " + operator.OpId + "</li>"
+        labelVal +=  "<li>@" + operator.Invoker + "</li>"
+        labelVal += "</ul></div>"
+        g.setNode(opId,  { label: labelVal, labelType: "html" });
       }
     }
 

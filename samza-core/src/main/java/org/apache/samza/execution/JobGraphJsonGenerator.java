@@ -58,6 +58,8 @@ public class JobGraphJsonGenerator {
     String outputStreamId;
     @JsonProperty("PairedOpId")
     int pairedOpId = -1;  //for join operator, we will have a pair nodes for two partial joins
+    @JsonProperty("Invoker")
+    String invoker;
   }
 
   static final class StreamSpecJson {
@@ -176,7 +178,7 @@ public class JobGraphJsonGenerator {
     specs.forEach(opSpec -> {
         parent.nextOperatorIds.add(opSpec.getOpId());
 
-        OperatorJson opJson = getOrCreateOperatorJson(opSpec, opGraph);
+        OperatorJson opJson = getOrCreateOperatorJson(opSpec, opGraph, messageStream);
         if (opSpec instanceof SinkOperatorSpec) {
           opJson.outputStreamId = ((SinkOperatorSpec) opSpec).getOutputStream().getStreamSpec().getId();
         } else if (opSpec.getNextStream() != null) {
@@ -191,13 +193,17 @@ public class JobGraphJsonGenerator {
    * @param opGraph {@link org.apache.samza.execution.JobGraphJsonGenerator.OperatorGraphJson}
    * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.OperatorJson}
    */
-  private OperatorJson getOrCreateOperatorJson(OperatorSpec opSpec, OperatorGraphJson opGraph) {
+  private OperatorJson getOrCreateOperatorJson(OperatorSpec opSpec, OperatorGraphJson opGraph, MessageStreamImpl messageStream) {
     Map<Integer, OperatorJson> operators = opGraph.operators;
     OperatorJson opJson = operators.get(opSpec.getOpId());
     if (opJson == null) {
       opJson = new OperatorJson();
       opJson.opCode = opSpec.getOpCode().name();
       opJson.opId = opSpec.getOpId();
+      StackTraceElement stackTraceElement = messageStream.getInvokerStackTrace(opSpec.getOpId());
+      if (stackTraceElement != null) {
+        opJson.invoker = String.format("%s:%s", stackTraceElement.getFileName(), stackTraceElement.getLineNumber());
+      }
       operators.put(opSpec.getOpId(), opJson);
     }
 

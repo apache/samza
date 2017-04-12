@@ -19,6 +19,8 @@
 
 package org.apache.samza.operators;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -62,6 +64,8 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
    */
   private final Set<OperatorSpec> registeredOperatorSpecs = new HashSet<>();
 
+  private final Map<Integer, StackTraceElement> invokerStackTraces = new HashMap<>();
+
   /**
    * Default constructor
    *
@@ -76,22 +80,25 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     OperatorSpec<TM> op = OperatorSpecs.createMapOperatorSpec(
         mapFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
+    addInvokerStackTrace(op);
     return op.getNextStream();
   }
 
   @Override
   public MessageStream<M> filter(FilterFunction<M> filterFn) {
-    OperatorSpec<M> op = OperatorSpecs.createFilterOperatorSpec(
-        filterFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
+    OperatorSpec<M> op = OperatorSpecs.createFilterOperatorSpec(filterFn, new MessageStreamImpl<>(this.graph),
+        this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
+    addInvokerStackTrace(op);
     return op.getNextStream();
   }
 
   @Override
   public <TM> MessageStream<TM> flatMap(FlatMapFunction<M, TM> flatMapFn) {
-    OperatorSpec<TM> op = OperatorSpecs.createStreamOperatorSpec(
-        flatMapFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
+    OperatorSpec<TM> op = OperatorSpecs.createStreamOperatorSpec(flatMapFn, new MessageStreamImpl<>(this.graph),
+        this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
+    addInvokerStackTrace(op);
     return op.getNextStream();
   }
 
@@ -99,13 +106,15 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   public void sink(SinkFunction<M> sinkFn) {
     SinkOperatorSpec<M> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
+    addInvokerStackTrace(op);
   }
 
   @Override
   public <K, V> void sendTo(OutputStream<K, V, M> outputStream) {
-    SinkOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec(
-        (OutputStreamInternal<K, V, M>) outputStream, this.graph.getNextOpId());
+    SinkOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec((OutputStreamInternal<K, V, M>) outputStream,
+        this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
+    addInvokerStackTrace(op);
   }
 
   @Override
@@ -113,6 +122,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     OperatorSpec<WindowPane<K, WV>> wndOp = OperatorSpecs.createWindowOperatorSpec((WindowInternal<M, K, WV>) window,
         new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(wndOp);
+    addInvokerStackTrace(wndOp);
     return wndOp.getNextStream();
   }
 
@@ -172,12 +182,16 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
       }
     };
 
-    this.registeredOperatorSpecs.add(OperatorSpecs.createPartialJoinOperatorSpec(
-        thisPartialJoinFn, otherPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId()));
+    OperatorSpec thisPartialJoinSpec = OperatorSpecs.createPartialJoinOperatorSpec(thisPartialJoinFn,
+        otherPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId());
+    this.registeredOperatorSpecs.add(thisPartialJoinSpec);
+    addInvokerStackTrace(thisPartialJoinSpec);
 
-    ((MessageStreamImpl<JM>) otherStream).registeredOperatorSpecs
-        .add(OperatorSpecs.createPartialJoinOperatorSpec(
-            otherPartialJoinFn, thisPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId()));
+    OperatorSpec otherPartialJoinSpec = OperatorSpecs
+        .createPartialJoinOperatorSpec(otherPartialJoinFn, thisPartialJoinFn, ttl.toMillis(), nextStream,
+            this.graph.getNextOpId());
+    ((MessageStreamImpl<JM>) otherStream).registeredOperatorSpecs.add(otherPartialJoinSpec);
+    addInvokerStackTrace(otherPartialJoinSpec);
 
     return nextStream;
   }
@@ -187,8 +201,11 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     MessageStreamImpl<M> nextStream = new MessageStreamImpl<>(this.graph);
 
     otherStreams.add(this);
-    otherStreams.forEach(other -> ((MessageStreamImpl<M>) other).registeredOperatorSpecs.
-        add(OperatorSpecs.createMergeOperatorSpec(nextStream, this.graph.getNextOpId())));
+    otherStreams.forEach(other -> {
+      OperatorSpec mergeOperatorSepc = OperatorSpecs.createMergeOperatorSpec(nextStream, this.graph.getNextOpId());
+      ((MessageStreamImpl<M>) other).registeredOperatorSpecs.add(mergeOperatorSepc);
+      addInvokerStackTrace(mergeOperatorSepc);
+    });
     return nextStream;
   }
 
@@ -201,6 +218,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     SinkOperatorSpec<M> partitionByOperatorSpec = OperatorSpecs.createPartitionByOperatorSpec(
         (OutputStreamInternal<K, M, M>) intermediateStream, opId);
     this.registeredOperatorSpecs.add(partitionByOperatorSpec);
+    addInvokerStackTrace(partitionByOperatorSpec);
     return intermediateStream;
   }
 
@@ -212,6 +230,14 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
    */
   public Collection<OperatorSpec> getRegisteredOperatorSpecs() {
     return Collections.unmodifiableSet(this.registeredOperatorSpecs);
+  }
+
+  private void addInvokerStackTrace(OperatorSpec spec) {
+    invokerStackTraces.put(spec.getOpId(), Thread.currentThread().getStackTrace()[3]);
+  }
+
+  public StackTraceElement getInvokerStackTrace(int opId) {
+    return invokerStackTraces.get(opId);
   }
 
 }
