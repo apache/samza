@@ -55,6 +55,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
    * Testing a basic identity stream task - reads data from a topic and writes it to another topic
    * (without any modifications)
    *
+   * <p>
    * The standalone version in this test uses KafkaSystemFactory and it uses a SingleContainerGrouperFactory. Hence,
    * no matter how many tasks are present, it will always be run in a single processor instance. This simplifies testing
    */
