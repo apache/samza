@@ -53,6 +53,12 @@ public class LocalStoreMonitorConfig extends MapConfig {
    */
   private static final long DEFAULT_OFFSET_FILE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 
+  /**
+   * Boolean variable if set to true will make LocalStoreMonitor to ignore failures
+   * during store clean ups. By default, this is turned off.
+   */
+  public static final String CONFIG_IGNORE_FAILURES = "ignore.failures";
+
   public LocalStoreMonitorConfig(Config config) {
     super(config);
   }
@@ -80,6 +86,15 @@ public class LocalStoreMonitorConfig extends MapConfig {
    *         on the job status server.
    */
   public List<String> getJobStatusServers() {
-     return Arrays.asList(StringUtils.split(get(CONFIG_JOB_STATUS_SERVERS), '.'));
+     return Arrays.asList(StringUtils.split(get(CONFIG_JOB_STATUS_SERVERS), ','));
+  }
+
+  /**
+   *
+   * @return true, if store cleanup failures should be ignored in {@link LocalStoreMonitor} implementation.
+   *         false, otherwise.
+   */
+  public boolean getIgnoreFailures() {
+    return getBoolean(CONFIG_IGNORE_FAILURES, false);
   }
 }

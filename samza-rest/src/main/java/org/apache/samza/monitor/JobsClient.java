@@ -20,10 +20,11 @@ package org.apache.samza.monitor;
 
 import com.google.common.base.Preconditions;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+
+import org.apache.commons.codec.binary.StringUtils;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.samza.SamzaException;
@@ -68,7 +69,7 @@ public class JobsClient {
    */
   public List<Task> getTasks(JobInstance jobInstance) {
     return retriableHttpGet(baseUrl -> String.format(ResourceConstants.GET_TASKS_URL, baseUrl,
-        jobInstance.getJobName(), jobInstance.getJobId()));
+        jobInstance.getJobName(), jobInstance.getJobId()), new TypeReference<List<Task>>(){});
   }
 
   /**
@@ -79,7 +80,7 @@ public class JobsClient {
    */
   public JobStatus getJobStatus(JobInstance jobInstance) {
     Job job = retriableHttpGet(baseUrl -> String.format(ResourceConstants.GET_JOBS_URL, baseUrl,
-        jobInstance.getJobName(), jobInstance.getJobId()));
+        jobInstance.getJobName(), jobInstance.getJobId()), new TypeReference<Job>(){});
     return job.getStatus();
   }
 
@@ -90,41 +91,45 @@ public class JobsClient {
    * When a job status server is down or returns a error response, it tries to reach out to
    * the next job status server in the sequence, to complete the http get request.
    *
-   * @param urlMapFunction to build the request url, given job status server base url.
+   * @param requestUrlBuilder to build the request url, given job status server base url.
    * @param <T> return type of the http get response.
    * @return the response from any one of the job status server.
    * @throws Exception when all the job status servers are unavailable.
    *
    */
-  private <T> T retriableHttpGet(Function<String, String> urlMapFunction) {
+  private <T> T retriableHttpGet(Function<String, String> requestUrlBuilder, TypeReference<T> typeReference) {
     Exception fetchException = null;
     for (String jobStatusServer : jobStatusServers) {
-      String requestUrl = urlMapFunction.apply(jobStatusServer);
+      String requestUrl = requestUrlBuilder.apply(jobStatusServer);
       try {
         ObjectMapper objectMapper = new ObjectMapper();
-        return objectMapper.readValue(httpGet(requestUrl), new TypeReference<T>() {});
+        return objectMapper.readValue(httpGet(requestUrl), typeReference);
       } catch (Exception e) {
         LOG.error(String.format("Exception when fetching tasks from the url : %s", requestUrl), e);
         fetchException = e;
       }
     }
-    throw new SamzaException(String.format("Exception during http get from urls : %s", jobStatusServers),
-        fetchException);
+    throw new SamzaException(String.format("Exception during http get from urls : %s", jobStatusServers), fetchException);
   }
 
   /**
    * This method initiates http get request on the request url and returns the
    * response returned from the http get.
    * @param requestUrl url on which the http get request has to be performed.
-   * @return the input stream of the http get response.
+   * @return the http get response.
    * @throws IOException if there are problems with the http get request.
    */
-  private InputStream httpGet(String requestUrl) throws IOException {
+  private byte[] httpGet(String requestUrl) throws IOException {
     GetMethod getMethod = new GetMethod(requestUrl);
     try {
       int responseCode = httpClient.executeMethod(getMethod);
       LOG.debug("Received response code {} for the get request on the url : {}", responseCode, requestUrl);
-      return getMethod.getResponseBodyAsStream();
+      byte[] response = getMethod.getResponseBody();
+      if (responseCode != 200) {
+        throw new SamzaException(String.format("Received response code: %s for get request on: %s, with message: %s.",
+                                               responseCode, requestUrl, StringUtils.newStringUtf8(response)));
+      }
+      return response;
     } finally {
       getMethod.releaseConnection();
     }

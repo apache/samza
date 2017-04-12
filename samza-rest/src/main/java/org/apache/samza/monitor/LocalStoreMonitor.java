@@ -81,25 +81,33 @@ public class LocalStoreMonitor implements Monitor {
     for (JobInstance jobInstance : getHostAffinityEnabledJobs(localStoreDir)) {
       File jobDir = new File(localStoreDir,
                              String.format("%s-%s", jobInstance.getJobName(), jobInstance.getJobId()));
-      JobStatus jobStatus = jobsClient.getJobStatus(jobInstance);
-      for (Task task : jobsClient.getTasks(jobInstance)) {
-        for (String storeName : jobDir.list(DirectoryFileFilter.DIRECTORY)) {
-          LOG.info("Job: {} has the running status: {} with preferred host:  {}", jobInstance, jobStatus, task.getPreferredHost());
-          /**
-           *  A task store is active if all of the following conditions are true:
-           *  a) If the store is amongst the active stores of the task.
-           *  b) If the job has been started.
-           *  c) If the preferred host of the task is the localhost on which the monitor is run.
-           */
-          if (jobStatus.hasBeenStarted()
-              && task.getStoreNames().contains(storeName)
-              && task.getPreferredHost().equals(localHostName)) {
-            LOG.info(String.format("Store %s is actively used by the task: %s.", storeName, task.getTaskName()));
-          } else {
-            LOG.info(String.format("Store %s not used by the task: %s.", storeName, task.getTaskName()));
-            markSweepTaskStore(TaskStorageManager.getStorePartitionDir(jobDir, storeName, new TaskName(task.getTaskName())));
+      try {
+        JobStatus jobStatus = jobsClient.getJobStatus(jobInstance);
+        for (Task task : jobsClient.getTasks(jobInstance)) {
+          for (String storeName : jobDir.list(DirectoryFileFilter.DIRECTORY)) {
+            LOG.info("Job: {} has the running status: {} with preferred host:  {}", jobInstance, jobStatus, task.getPreferredHost());
+            /**
+             *  A task store is active if all of the following conditions are true:
+             *  a) If the store is amongst the active stores of the task.
+             *  b) If the job has been started.
+             *  c) If the preferred host of the task is the localhost on which the monitor is run.
+             */
+            if (jobStatus.hasBeenStarted()
+                && task.getStoreNames().contains(storeName)
+                && task.getPreferredHost().equals(localHostName)) {
+              LOG.info(String.format("Store %s is actively used by the task: %s.", storeName, task.getTaskName()));
+            } else {
+              LOG.info(String.format("Store %s not used by the task: %s.", storeName, task.getTaskName()));
+              markSweepTaskStore(TaskStorageManager.getStorePartitionDir(jobDir, storeName, new TaskName(task.getTaskName())));
+            }
           }
         }
+      } catch (Exception ex) {
+        if (!config.getIgnoreFailures()) {
+          throw ex;
+        }
+        LOG.warn("Local store cleanup for job: {} resulted in exception: {}. Config: {} turned on, failures are ignored.",
+                 new Object[]{jobInstance, ex, LocalStoreMonitorConfig.CONFIG_IGNORE_FAILURES});
       }
     }
   }
