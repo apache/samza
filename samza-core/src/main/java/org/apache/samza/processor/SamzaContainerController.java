@@ -20,6 +20,13 @@
 package org.apache.samza.processor;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.TaskConfigJava;
@@ -33,14 +40,6 @@ import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
 public class SamzaContainerController {
   private static final Logger log = LoggerFactory.getLogger(SamzaContainerController.class);
 
@@ -49,6 +48,8 @@ public class SamzaContainerController {
   private final Map<String, MetricsReporter> metricsReporterMap;
   private final Object taskFactory;
   private final long containerShutdownMs;
+  private final String processorId;
+  private final StreamProcessorLifeCycleAware lifeCycleAware;
 
   // Internal Member Variables
   private Future containerFuture;
@@ -57,15 +58,20 @@ public class SamzaContainerController {
    * Creates an instance of a controller for instantiating, starting and/or stopping {@link SamzaContainer}
    * Requests to execute a container are submitted to the {@link ExecutorService}
    *
+   * @param processorId         {@link StreamProcessor} ID
    * @param taskFactory         Factory that be used create instances of {@link org.apache.samza.task.StreamTask} or
    *                            {@link org.apache.samza.task.AsyncStreamTask}
    * @param containerShutdownMs How long the Samza container should wait for an orderly shutdown of task instances
    * @param metricsReporterMap  Map of metric reporter name and {@link MetricsReporter} instance
+   * @param lifeCycleAware {@link StreamProcessorLifeCycleAware}
    */
   public SamzaContainerController(
+      String processorId,
       Object taskFactory,
       long containerShutdownMs,
-      Map<String, MetricsReporter> metricsReporterMap) {
+      Map<String, MetricsReporter> metricsReporterMap,
+      StreamProcessorLifeCycleAware lifeCycleAware) {
+    this.processorId = processorId;
     this.taskFactory = taskFactory;
     this.metricsReporterMap = metricsReporterMap;
     if (containerShutdownMs == -1) {
@@ -73,6 +79,8 @@ public class SamzaContainerController {
     } else {
       this.containerShutdownMs = containerShutdownMs;
     }
+    // life cycle callbacks when shutdown and failure happens
+    this.lifeCycleAware = lifeCycleAware;
   }
 
   /**
@@ -104,8 +112,15 @@ public class SamzaContainerController {
         taskFactory);
     log.info("About to start container: " + containerModel.getProcessorId());
     executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
-          .setNameFormat("p-" + containerModel.getProcessorId() + "-container-thread-%d").build());
-    containerFuture = executorService.submit(() -> container.run());
+        .setNameFormat("p-" + containerModel.getProcessorId() + "-container-thread-%d").build());
+    containerFuture = executorService.submit(() -> {
+        try {
+          container.run();
+          lifeCycleAware.onShutdown(processorId);
+        } catch (Throwable t) {
+          lifeCycleAware.onFailure(processorId, t);
+        }
+      });
   }
 
   /**
