@@ -20,6 +20,7 @@
 package org.apache.samza.zk;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -134,6 +135,35 @@ public class ZkUtils {
       LOG.info("Found these children - " + children);
     }
     return children;
+  }
+
+  /**
+   * Method is used to get the <i>sorted</i> list of currently active/registered processors PIDs
+   *
+   * @return List of absolute ZK node paths
+   */
+  public List<String> getSortedActiveProcessorsPIDs() {
+    String processorPath = keyBuilder.getProcessorsPath();
+    List<String> children = zkClient.getChildren(processorPath);
+    List<String> childrenPids = new ArrayList<>(children.size());
+    if (children.size() > 0) {
+
+      for(String child : children) {
+        String fullChildPath = String.format("%s/%s", processorPath, child);
+        String data = zkClient.<String>readData(fullChildPath, true);
+        if(data == null) {
+          throw new SamzaException(String.format("List of processors changed while we were reading it. Child % does not exist anymore", fullChildPath ));
+        }
+        // data format is "host pid"
+        String [] pidHost = data.split(" ");
+        childrenPids.add(pidHost[1]);
+      }
+
+      Collections.sort(childrenPids);
+      LOG.info("Found these children - " + children);
+      LOG.info("Found these childrenPids - " + childrenPids);
+    }
+    return childrenPids;
   }
 
   /* Wrapper for standard I0Itec methods */

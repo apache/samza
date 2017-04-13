@@ -56,7 +56,7 @@ public class TestZkKeyBuilder {
 
     ZkKeyBuilder builder = new ZkKeyBuilder("test");
 
-    Assert.assertEquals("/test/" + ZkKeyBuilder.JOBMODEL_VERSION_PATH, builder.getJobModelVersionPath());
+    Assert.assertEquals("/test/" + ZkKeyBuilder.JOBMODEL_GENERATION_PATH, builder.getJobModelVersionPath());
     Assert.assertEquals("/test/jobModels", builder.getJobModelPathPrefix());
     String version = "2";
     Assert.assertEquals("/test/jobModels/" + version, builder.getJobModelPath(version));

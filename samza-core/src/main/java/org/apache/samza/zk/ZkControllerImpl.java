@@ -52,8 +52,10 @@ public class ZkControllerImpl implements ZkController {
   private void init() {
     ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
     zkUtils.makeSurePersistentPathsExists(
-        new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
-            .getJobModelPathPrefix()});
+        new String[]{
+            keyBuilder.getProcessorsPath(),
+            keyBuilder.getJobModelVersionPath(),
+            keyBuilder.getJobModelPathPrefix()});
   }
 
   private void onBecomeLeader() {

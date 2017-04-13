@@ -51,7 +51,7 @@ import java.util.Map;
  */
 public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private static final Logger log = LoggerFactory.getLogger(ZkJobCoordinator.class);
-  private static final String JOB_MODEL_VERSION_BARRIER = "JobModelVersion";
+  private static final String JOB_MODEL_VERSION_BARRIER = "jobModelUpgradeBarrier";
 
   private final ZkUtils zkUtils;
   private final String processorId;
@@ -68,10 +68,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private String newJobModelVersion;  // version published in ZK (by the leader)
   private JobModel jobModel;
 
-  public ZkJobCoordinator(String groupId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
+  public ZkJobCoordinator(String groupId, Config config, ScheduleAfterDebounceTime debounceTimer,
                           SamzaContainerController containerController) {
-    this.zkUtils = zkUtils;
-    this.keyBuilder = zkUtils.getKeyBuilder();
     this.debounceTimer = debounceTimer;
     ApplicationConfig appConfig = new ApplicationConfig(config);
     if (appConfig.getProcessorId() != null) {    // TODO: This check to be removed after 0.13+
@@ -83,13 +81,16 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       this.processorId = idGenerator.generateProcessorId(config);
     }
     this.containerController = containerController;
-    this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this);
     this.config = config;
     this.coordinationUtils = Util.
         <CoordinationServiceFactory>getObj(
             new JobCoordinatorConfig(config)
                 .getJobCoordinationServiceFactoryClassName())
         .getCoordinationService(groupId, String.valueOf(processorId), config);
+
+    this.zkUtils = ((ZkCoordinationUtils)coordinationUtils).getZkUtils();
+    this.keyBuilder = zkUtils.getKeyBuilder();
+    this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this);
 
     streamMetadataCache = getStreamMetadataCache();
   }
@@ -200,6 +201,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private void generateNewJobModel() {
     // get the current list of processors
     List<String> currentProcessors = zkUtils.getSortedActiveProcessors();
+    List<String> currentProcessorsPids = zkUtils.getSortedActiveProcessorsPIDs();
 
     // get the current version
     String currentJMVersion  = zkUtils.getJobModelVersion();
@@ -212,10 +214,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     }
     log.info("pid=" + processorId + "generating new model. Version = " + nextJMVersion);
 
-    List<String> containerIds = new ArrayList<>();
-    for (String processor : currentProcessors) {
-      String zkProcessorId = ZkKeyBuilder.parseIdFromPath(processor);
-      containerIds.add(zkProcessorId);
+    List<String> containerIds = new ArrayList<>(currentProcessorsPids.size());
+    for (String processorPid : currentProcessorsPids) {
+      containerIds.add(processorPid);
     }
     log.info("generate new job model: processorsIds: " + Arrays.toString(containerIds.toArray()));
 
