@@ -35,14 +35,15 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
    * @return An instance of IJobCoordinator
    */
   @Override
-  public JobCoordinator getJobCoordinator(Config config, SamzaContainerController containerController) {
+  public JobCoordinator getJobCoordinator(String processorId, Config config, SamzaContainerController containerController) {
     JobConfig jobConfig = new JobConfig(config);
     ZkConfig zkConfig = new ZkConfig(config);
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
 
     return new ZkJobCoordinator(
-        "groupId",  // TODO: Usage of groupId to be resolved in SAMZA-1173
-         config,
+        processorId,
+        groupName,
+        config,
         debounceTimer,
         containerController);
   }

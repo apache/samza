@@ -16,21 +16,36 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
+
+package org.apache.samza.processor;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.processor.SamzaContainerController;
 
+
+/**
+ * This class listens to the life cycle events in a {@link StreamProcessor},
+ * and triggers the corresponding callbacks.
+ */
 
 @InterfaceStability.Evolving
-public interface JobCoordinatorFactory {
+public interface StreamProcessorLifeCycleAware {
   /**
-   * @param processorId {@link org.apache.samza.processor.StreamProcessor} id
-   * @param config Configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
-   * @param containerController Controller interface for starting and stopping container. In future, it may simply
-   *                            pause the container and add/remove tasks
-   * @return An instance of IJobCoordinator
+   * Callback when the {@link StreamProcessor} is started
+   * @param processorId id of the StreamProcessor
    */
-  JobCoordinator getJobCoordinator(String processorId, Config config, SamzaContainerController containerController);
+  void onStart(String processorId);
+
+  /**
+   * Callback when the {@link StreamProcessor} is shut down.
+   * @param processorId id of the StreamProcessor
+   */
+  void onShutdown(String processorId);
+
+  /**
+   * Callback when the {@link StreamProcessor} fails
+   * @param processorId id of the StreamProcessor
+   * @param t exception of the failure
+   */
+  void onFailure(String processorId, Throwable t);
+
 }

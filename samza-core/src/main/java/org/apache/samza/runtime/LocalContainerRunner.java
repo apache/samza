@@ -105,7 +105,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
       });
 
     String containerId = System.getenv(ShellCommandConfig.ENV_CONTAINER_ID());
-    log.info(String.format("Got container ID: %d", containerId));
+    log.info(String.format("Got container ID: %s", containerId));
     String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
     log.info(String.format("Got coordinator URL: %s", coordinatorUrl));
     int delay = new Random().nextInt(SamzaContainer.DEFAULT_READ_JOBMODEL_DELAY_MS()) + 1;
@@ -127,7 +127,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
   /* package private */ static void setExceptionHandler(Runnable runnable) {
     Thread.UncaughtExceptionHandler exceptionHandler = (t, e) -> {
-      log.error(String.format("Uncaught exception in thread (name=%s).", t.getName(), e));
+      log.error(String.format("Uncaught exception in thread (name=%s).", t.getName()), e);
       e.printStackTrace(System.err);
       runnable.run();
     };
