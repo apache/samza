@@ -58,24 +58,17 @@ public class ZkControllerImpl implements ZkController {
             keyBuilder.getJobModelPathPrefix()});
   }
 
-  private void onBecomeLeader() {
-
-    listenToProcessorLiveness(); // subscribe for adding new processors
-
-    // inform the caller
-    zkControllerListener.onBecomeLeader();
-
-  }
-
   @Override
   public void register() {
-
     // TODO - make a loop here with some number of attempts.
     // possibly split into two method - becomeLeader() and becomeParticipant()
     leaderElector.tryBecomeLeader(new LeaderElectorListener() {
       @Override
       public void onBecomingLeader() {
-        onBecomeLeader();
+        listenToProcessorLiveness(); // subscribe for adding new processors
+
+        // inform the caller
+        zkControllerListener.onBecomeLeader();
       }
     });
 
