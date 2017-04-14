@@ -80,7 +80,7 @@ public class SamzaContainerController {
 
   /**
    * Instantiates a container and submits to the executor. This method does not actually wait for the container to
-   * fully start-up. For such a behavior, see {@link #awaitStart(long)}
+   * fully start-up.
    * <p>
    * <b>Note:</b> <i>This method does not stop a currently running container, if any. It is left up to the caller to
    * ensure that the container has been stopped with stopContainer before invoking this method.</i>
@@ -110,19 +110,6 @@ public class SamzaContainerController {
           lifecycleListener.onFailure(t);
         }
       });
-  }
-
-  /**
-   * Method waits for a specified amount of time for the container to fully start-up, which consists of class-loading
-   * all the components and start message processing
-   *
-   * @param timeoutMs Maximum time to wait, in milliseconds
-   * @return {@code true}, if the container started within the specified wait time and {@code false} if the waiting
-   * time elapsed
-   * @throws InterruptedException if the current thread is interrupted while waiting for container to start-up
-   */
-  public boolean awaitStart(long timeoutMs) throws InterruptedException {
-    return container.awaitStart(timeoutMs);
   }
 
   /**

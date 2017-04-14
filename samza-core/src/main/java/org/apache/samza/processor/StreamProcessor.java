@@ -37,19 +37,6 @@ import java.util.Map;
  * <p>
  * <b>Usage Example:</b>
  * <pre>
- * StreamProcessor processor = new StreamProcessor(1, config);
- * processor.start();
- * try {
- *  boolean status = processor.awaitStart(TIMEOUT_MS);    // Optional - blocking call
- *  if (!status) {
- *    // Timed out
- *  }
- *  ...
- * } catch (InterruptedException ie) {
- *   ...
- * } finally {
- *   processor.stop();
- * }
  * </pre>
  * Note: A single JVM can create multiple StreamProcessor instances. It is safe to create StreamProcessor instances in
  * multiple threads.
@@ -125,19 +112,6 @@ public class StreamProcessor {
   public void start() {
     jobCoordinator.start();
     lifecycleListener.onStart();
-  }
-
-  /**
-   * Method that allows the user to wait for a specified amount of time for the container to initialize and start
-   * processing messages
-   *
-   * @param timeoutMs Maximum time to wait, in milliseconds
-   * @return {@code true}, if the container started within the specified wait time and {@code false} if the waiting time
-   * elapsed
-   * @throws InterruptedException if the current thread is interrupted while waiting for container to start-up
-   */
-  public boolean awaitStart(long timeoutMs) throws InterruptedException {
-    return jobCoordinator.awaitStart(timeoutMs);
   }
 
   /**

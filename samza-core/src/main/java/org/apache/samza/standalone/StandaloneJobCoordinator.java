@@ -124,18 +124,6 @@ public class StandaloneJobCoordinator implements JobCoordinator {
     containerController.shutdown();
   }
 
-  /**
-   * Waits for a specified amount of time for the JobCoordinator to fully start-up, which means it should be ready to
-   * process messages. In a Standalone use-case, it may be sufficient to wait for the container to start-up. In case of
-   * ZK based Standalone use-case, it also includes registration with ZK, the initialization of leader elector module etc.
-   *
-   * @param timeoutMs Maximum time to wait, in milliseconds
-   */
-  @Override
-  public boolean awaitStart(long timeoutMs) throws InterruptedException {
-    return containerController.awaitStart(timeoutMs);
-  }
-
   @Override
   public String getProcessorId() {
     return processorId;
