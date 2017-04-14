@@ -631,18 +631,6 @@ class SamzaContainer(
   taskThreadPool: ExecutorService = null) extends Runnable with Logging {
 
   val shutdownMs = containerContext.config.getShutdownMs.getOrElse(5000L)
-  private val runLoopStartLatch: CountDownLatch = new CountDownLatch(1)
-  var shutdownHookThread: Thread = null
-
-  def awaitStart(timeoutMs: Long): Boolean = {
-    try {
-      runLoopStartLatch.await(timeoutMs, TimeUnit.MILLISECONDS)
-    } catch {
-      case ie: InterruptedException =>
-        error("Interrupted while waiting for runloop to start!", ie)
-        throw ie
-    }
-  }
 
   def run {
     try {
@@ -660,7 +648,6 @@ class SamzaContainer(
       startSecurityManger
 
       addShutdownHook
-      runLoopStartLatch.countDown()
       info("Entering run loop.")
       runLoop.run
     } catch {

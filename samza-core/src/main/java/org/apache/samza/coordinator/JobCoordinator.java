@@ -47,26 +47,9 @@ public interface JobCoordinator {
   void stop();
 
   /**
-   * Waits for a specified amount of time for the JobCoordinator to fully start-up, which means it should be ready to
-   * process messages.
-   * In a Standalone use-case, it may be sufficient to wait for the container to start-up.
-   * In a ZK based Standalone use-case, it also includes registration with ZK, initialization of the
-   * leader elector module, container start-up etc.
-   *
-   * @param timeoutMs Maximum time to wait, in milliseconds
-   * @return {@code true}, if the JobCoordinator is started within the specified wait time and {@code false} if the
-   * waiting time elapsed
-   * @throws InterruptedException if the current thread is interrupted while waiting for the JobCoordinator to start-up
-   */
-  boolean awaitStart(long timeoutMs) throws InterruptedException;
-
-  /**
-   * Returns the identifier assigned to the processor that is local to the instance of StreamProcessor.
-   *
-   * The semantics and format of the identifier returned should adhere to the specification defined in
-   * {@link org.apache.samza.runtime.ProcessorIdGenerator}
-   *
-   * @return String representing a unique logical processor ID
+   * Returns the logical ID assigned to the processor
+   * It is up to the user to ensure that different instances of StreamProcessor within a job have unique processor ID.
+   * @return integer representing the logical processor ID
    */
   String getProcessorId();
 
