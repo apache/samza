@@ -30,7 +30,7 @@ import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.SerializerConfig.Config2Serializer
-import org.apache.samza.config.{Config, ShellCommandConfig, StorageConfig}
+import org.apache.samza.config.{ClusterManagerConfig, Config, ShellCommandConfig, StorageConfig}
 import org.apache.samza.config.StorageConfig.Config2Storage
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System
@@ -81,8 +81,7 @@ object SamzaContainer extends Logging {
   val DEFAULT_READ_JOBMODEL_DELAY_MS = 100
   val DISK_POLL_INTERVAL_KEY = "container.disk.poll.interval.ms"
 
-  def getLocalityManager(containerId: String, config: Config): LocalityManager = {
-    val containerName = getSamzaContainerName(containerId)
+  def getLocalityManager(containerName: String, config: Config): LocalityManager = {
     val registryMap = new MetricsRegistryMap(containerName)
     val coordinatorSystemProducer =
       new CoordinatorStreamSystemFactory()
@@ -113,15 +112,20 @@ object SamzaContainer extends Logging {
   }
 
   def apply(
-    containerId: String,
     containerModel: ContainerModel,
     config: Config,
     maxChangeLogStreamPartitions: Int,
-    localityManager: LocalityManager,
     jmxServer: JmxServer,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
     taskFactory: Object) = {
+    val containerId = containerModel.getProcessorId()
     val containerName = getSamzaContainerName(containerId)
+
+    var localityManager: LocalityManager = null
+    if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {
+      localityManager = getLocalityManager(containerName, config)
+    }
+
     val containerPID = Util.getContainerPID
 
     info("Setting up Samza container: %s" format containerName)

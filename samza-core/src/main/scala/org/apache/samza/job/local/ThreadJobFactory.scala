@@ -58,11 +58,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       coordinator.start
       new ThreadJob(
             SamzaContainer(
-              containerModel.getProcessorId,
               containerModel,
               config,
               jobModel.maxChangeLogStreamPartitions,
-              null,
               jmxServer,
               Map[String, MetricsReporter](),
               taskFactory))

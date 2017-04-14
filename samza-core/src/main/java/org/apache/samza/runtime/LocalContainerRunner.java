@@ -71,11 +71,9 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
       Object taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, this);
 
       SamzaContainer container = SamzaContainer$.MODULE$.apply(
-          containerModel.getProcessorId(),
           containerModel,
           config,
           jobModel.maxChangeLogStreamPartitions,
-          SamzaContainer.getLocalityManager(containerId, config),
           jmxServer,
           Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),
           taskFactory);
