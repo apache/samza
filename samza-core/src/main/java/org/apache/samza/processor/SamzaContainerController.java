@@ -20,17 +20,8 @@
 package org.apache.samza.processor;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.TaskConfigJava;
-import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
 import org.apache.samza.job.model.ContainerModel;
@@ -39,6 +30,14 @@ import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class SamzaContainerController {
   private static final Logger log = LoggerFactory.getLogger(SamzaContainerController.class);
@@ -92,17 +91,11 @@ public class SamzaContainerController {
    *                                     TODO: Try to get rid of maxChangelogStreamPartitions from method arguments
    */
   public void startContainer(ContainerModel containerModel, Config config, int maxChangelogStreamPartitions) {
-    LocalityManager localityManager = null;
-    if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {
-      localityManager = SamzaContainer$.MODULE$.getLocalityManager(containerModel.getProcessorId(), config);
-    }
     log.info("About to create container: " + containerModel.getProcessorId());
     container = SamzaContainer$.MODULE$.apply(
-        containerModel.getProcessorId(),
         containerModel,
         config,
         maxChangelogStreamPartitions,
-        localityManager,
         new JmxServer(),
         Util.<String, MetricsReporter>javaMapAsScalaMap(metricsReporterMap),
         taskFactory);
