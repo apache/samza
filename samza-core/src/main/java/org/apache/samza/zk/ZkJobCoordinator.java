@@ -35,6 +35,7 @@ import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.processor.JobCoordinatorListener;
 import org.apache.samza.processor.SamzaContainerController;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
@@ -55,7 +56,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final String processorId;
 
   private final ZkController zkController;
-  private final SamzaContainerController containerController;
+  private final JobCoordinatorListener coordinatorListener;
   private final ScheduleAfterDebounceTime debounceTimer;
   private final StreamMetadataCache  streamMetadataCache;
   private final ZkKeyBuilder keyBuilder;
@@ -65,11 +66,11 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private JobModel newJobModel;
  
   public ZkJobCoordinator(String processorId, Config config, ScheduleAfterDebounceTime debounceTimer,
-                          SamzaContainerController containerController) {
-    this.debounceTimer = debounceTimer;
-    this.containerController = containerController;
-    this.config = config;
+                          JobCoordinatorListener coordinatorListener) {
     this.processorId = processorId;
+    this.debounceTimer = debounceTimer;
+    this.coordinatorListener = coordinatorListener;
+    this.config = config;
 
     this.coordinationUtils = Util.
         <CoordinationServiceFactory>getObj(
@@ -110,8 +111,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   @Override
   public void stop() {
     zkController.stop();
-    if (containerController != null)
-      containerController.stopContainer();
+    // TODO: Check logic here
+//    if (containerController != null)
+//      containerController.stopContainer();
   }
 
   @Override
@@ -147,7 +149,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public void onNewJobModelAvailable(final String version) {
     log.info("pid=" + processorId + "new JobModel available");
     // stop current work
-    containerController.stopContainer();
+    // TODO - Check logic here
+//    containerController.stopContainer();
     log.info("pid=" + processorId + "new JobModel available.Container stopped.");
     // get the new job model
     newJobModel = zkUtils.getJobModel(version);
@@ -172,9 +175,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     JobModel jobModel = getJobModel();
     log.info("pid=" + processorId + "got the new job model in JobModelConfirmed =" + jobModel);
 
-    // start the container with the new model
-    containerController.startContainer(jobModel.getContainers().get(processorId), jobModel.getConfig(),
-        jobModel.maxChangeLogStreamPartitions);
+    // start the container with the new model TODO: Check logic here
+//    containerController.startContainer(jobModel.getContainers().get(processorId), jobModel.getConfig(),
+//        jobModel.maxChangeLogStreamPartitions);
   }
 
   /**

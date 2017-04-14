@@ -18,18 +18,22 @@
  */
 package org.apache.samza.processor;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.util.Util;
 
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * StreamProcessor can be embedded in any application or executed in a distributed environment (aka cluster) as an
@@ -46,6 +50,28 @@ public class StreamProcessor {
   private final JobCoordinator jobCoordinator;
   private final StreamProcessorLifecycleListener lifecycleListener;
   private final String processorId;
+  private final ExecutorService executorService;
+  private final Object taskFactory;
+  private final Map<String, MetricsReporter> customMetricsReporter;
+  private SamzaContainer container;
+
+  private final JobCoordinatorListener jobCoordinatorListener = new JobCoordinatorListener() {
+    @Override
+    public void onNewJobModel(JobModel jobModel) {
+      if (!jobModel.getContainers().containsKey(processorId)) {
+        // Shutdown any running container
+        // Call lifecycle Shutdown
+      } else {
+        // TODO: move containerShutdownMS
+        // Start container in executor service
+      }
+    }
+
+    @Override
+    public void onCoordinatorFailure(Exception e) {
+
+    }
+  };
 
   /**
    * Create an instance of StreamProcessor that encapsulates a JobCoordinator and Samza Container
@@ -84,18 +110,22 @@ public class StreamProcessor {
   private StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
                           Object taskFactory, StreamProcessorLifecycleListener lifecycleListener) {
     this.processorId = processorId;
+    this.taskFactory = taskFactory;
+    this.customMetricsReporter = customMetricsReporters;
+    this.executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
+        .setNameFormat("p-" + processorId + "-container-thread-%d").build());
 
-    SamzaContainerController containerController = new SamzaContainerController(
+/*    SamzaContainerController containerController = new SamzaContainerController(
         taskFactory,
         new TaskConfigJava(config).getShutdownMs(),
         customMetricsReporters,
-        lifecycleListener);
+        lifecycleListener);*/
 
     this.jobCoordinator = Util.
         <JobCoordinatorFactory>getObj(
             new JobCoordinatorConfig(config)
                 .getJobCoordinatorFactoryClassName())
-        .getJobCoordinator(processorId, config, containerController);
+        .getJobCoordinator(processorId, config, jobCoordinatorListener);
 
     this.lifecycleListener = lifecycleListener;
   }

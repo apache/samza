@@ -28,6 +28,7 @@ import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.processor.JobCoordinatorListener;
 import org.apache.samza.processor.SamzaContainerController;
 import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
@@ -65,26 +66,42 @@ public class StandaloneJobCoordinator implements JobCoordinator {
   private static final Logger log = LoggerFactory.getLogger(StandaloneJobCoordinator.class);
   private final String processorId;
   private final Config config;
-  private final JobModel jobModel;
-  private final SamzaContainerController containerController;
+  private final JobCoordinatorListener coordinatorListener;
 
   @VisibleForTesting
   StandaloneJobCoordinator(
       ProcessorIdGenerator processorIdGenerator,
       Config config,
-      SamzaContainerController containerController,
-      JobModel jobModel) {
+      JobCoordinatorListener coordinatorListener) {
     this.processorId = processorIdGenerator.generateProcessorId(config);
     this.config = config;
-    this.containerController = containerController;
-    this.jobModel = jobModel;
+    this.coordinatorListener = coordinatorListener;
   }
 
-  public StandaloneJobCoordinator(String processorId, Config config, SamzaContainerController containerController) {
+  public StandaloneJobCoordinator(String processorId, Config config, JobCoordinatorListener coordinatorListener) {
     this.config = config;
-    this.containerController = containerController;
     this.processorId = processorId;
+    this.coordinatorListener = coordinatorListener;
+  }
 
+  @Override
+  public void start() {
+    // No-op
+    coordinatorListener.onNewJobModel(getJobModel());
+  }
+
+  @Override
+  public void stop() {
+    // No-op
+  }
+
+  @Override
+  public String getProcessorId() {
+    return processorId;
+  }
+
+  @Override
+  public JobModel getJobModel() {
     JavaSystemConfig systemConfig = new JavaSystemConfig(this.config);
     Map<String, SystemAdmin> systemAdmins = new HashMap<>();
     for (String systemName: systemConfig.getSystemNames()) {
@@ -100,37 +117,11 @@ public class StandaloneJobCoordinator implements JobCoordinator {
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(Util.<String, SystemAdmin>javaMapAsScalaMap(systemAdmins), 5000, SystemClock.instance());
 
     /** TODO:
-     * Locality Manager seems to be required in JC for reading locality info and grouping tasks intelligently and also,
-     * in SamzaContainer for writing locality info to the coordinator stream. This closely couples together
-     * TaskNameGrouper with the LocalityManager! Hence, groupers should be a property of the jobcoordinator
-     * (job.coordinator.task.grouper, instead of task.systemstreampartition.grouper)
+     Locality Manager seems to be required in JC for reading locality info and grouping tasks intelligently and also,
+     in SamzaContainer for writing locality info to the coordinator stream. This closely couples together
+     TaskNameGrouper with the LocalityManager! Hence, groupers should be a property of the jobcoordinator
+     (job.coordinator.task.grouper, instead of task.systemstreampartition.grouper)
      */
-    this.jobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache, null);
-  }
-
-  @Override
-  public void start() {
-    // No-op
-    JobModel jobModel = getJobModel();
-    containerController.startContainer(
-        jobModel.getContainers().get(getProcessorId()),
-        jobModel.getConfig(),
-        jobModel.maxChangeLogStreamPartitions);
-  }
-
-  @Override
-  public void stop() {
-    // No-op
-    containerController.shutdown();
-  }
-
-  @Override
-  public String getProcessorId() {
-    return processorId;
-  }
-
-  @Override
-  public JobModel getJobModel() {
-    return jobModel;
+    return JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache, null);
   }
 }

@@ -16,19 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
+package org.apache.samza.processor;
 
-import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.processor.JobCoordinatorListener;
+import org.apache.samza.job.model.JobModel;
 
-@InterfaceStability.Evolving
-public interface JobCoordinatorFactory {
-  /**
-   * @param processorId {@link org.apache.samza.processor.StreamProcessor} id
-   * @param config Configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
-   * @param coordinatorListener
-   * @return An instance of IJobCoordinator
-   */
-  JobCoordinator getJobCoordinator(String processorId, Config config, JobCoordinatorListener coordinatorListener);
+public interface JobCoordinatorListener {
+  void onNewJobModel(JobModel jobModel);
+
+  void onCoordinatorFailure(Exception e);
 }
