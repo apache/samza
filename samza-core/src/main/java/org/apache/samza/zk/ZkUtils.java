@@ -148,11 +148,11 @@ public class ZkUtils {
     List<String> childrenPids = new ArrayList<>(children.size());
     if (children.size() > 0) {
 
-      for(String child : children) {
+      for (String child : children) {
         String fullChildPath = String.format("%s/%s", processorPath, child);
         String data = zkClient.<String>readData(fullChildPath, true);
-        if(data == null) {
-          throw new SamzaException(String.format("List of processors changed while we were reading it. Child % does not exist anymore", fullChildPath ));
+        if (data == null) {
+          throw new SamzaException(String.format("List of processors changed while we were reading it. Child % does not exist anymore", fullChildPath));
         }
         // data format is "host pid"
         String [] pidHost = data.split(" ");

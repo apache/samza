@@ -19,7 +19,6 @@
 
 package org.apache.samza.zk;
 
-import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ZkConfig;
@@ -42,7 +41,6 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
 
     return new ZkJobCoordinator(
         processorId,
-        groupName,
         config,
         debounceTimer,
         containerController);

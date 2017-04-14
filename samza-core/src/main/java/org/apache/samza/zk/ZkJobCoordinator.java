@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -66,17 +67,20 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   public ZkJobCoordinator(String groupId, Config config, ScheduleAfterDebounceTime debounceTimer,
                           SamzaContainerController containerController) {
-    this.processorId = processorId;
     this.debounceTimer = debounceTimer;
     this.containerController = containerController;
     this.config = config;
+    this.processorId = new ApplicationConfig(config).getProcessorId();
+    if (processorId == null)
+      throw new SamzaException("Processor id is not provided in the config");
+
     this.coordinationUtils = Util.
         <CoordinationServiceFactory>getObj(
             new JobCoordinatorConfig(config)
                 .getJobCoordinationServiceFactoryClassName())
         .getCoordinationService(groupId, String.valueOf(processorId), config);
 
-    this.zkUtils = ((ZkCoordinationUtils)coordinationUtils).getZkUtils();
+    this.zkUtils = ((ZkCoordinationUtils) coordinationUtils).getZkUtils();
     this.keyBuilder = zkUtils.getKeyBuilder();
     this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this);
 
