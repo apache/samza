@@ -27,5 +27,13 @@
         <include>*</include>
       </includes>
     </fileSet>
+    <fileSet>
+      <outputDirectory>visualizer</outputDirectory>
+      <directory>${basedir}/src/main/visualizer</directory>
+      <fileMode>0644</fileMode>
+      <includes>
+        <include>*</include>
+      </includes>
+    </fileSet>
   </fileSets>
 </assembly>

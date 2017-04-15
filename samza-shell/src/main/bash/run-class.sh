@@ -47,6 +47,7 @@ BASE_LIB_DIR="$base_dir/lib"
 JOB_LIB_DIR="${JOB_LIB_DIR:-$home_dir/lib}"
 
 export JOB_LIB_DIR=$JOB_LIB_DIR
+export JOB_BIN_DIR="$base_dir/bin"
 
 if [ -d "$JOB_LIB_DIR" ] && [ "$JOB_LIB_DIR" != "$BASE_LIB_DIR" ]; then
   # build a common classpath
