@@ -131,7 +131,8 @@ public class JobGraphJsonGenerator {
 
     // build StreamEdge JSON
     ApplicationConfig appConfig = jobGraph.getApplicationConfig();
-    jobGraphJson.applicationName = "";
+    jobGraphJson.applicationName = appConfig.getAppName();
+    jobGraphJson.applicationId = appConfig.getAppId();
     jobGraphJson.sourceStreams = new HashMap<>();
     jobGraphJson.sinkStreams = new HashMap<>();
     jobGraphJson.intermediateStreams = new HashMap<>();

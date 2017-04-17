@@ -6,13 +6,18 @@
 
 <script src="js/d3.v3.min.js" charset="utf-8"></script>
 <script type="text/javascript" src="js/dagre-d3.js"></script>
+<script type="text/javascript" src="js/planToDagre.js"></script>
 <script type="text/javascript" src="plan.json"></script>
 
-<h1>SAMZA Plan Visualizer</h1>
+<h1>SAMZA Visualizer</h1>
 
 <style id="css">
   body {
     font: 300 14px 'Helvetica Neue', Helvetica;
+  }
+
+  svg {
+    margin-top: 30px;
   }
 
   .node rect {
@@ -63,79 +68,14 @@
 <svg id="svg-canvas" width=1200 height=1000><g/></svg>
 
 <script id="js">
+  var data = JSON.parse(plan);
+  var g = planToDagre(data);
 
-  function jsonToDagre(data) {
-    // Create the input graph
-    var g = new dagreD3.graphlib.Graph()
-        .setGraph({
-          rankdir: "LR"
-        })
-        .setDefaultEdgeLabel(function() { return {}; });
-
-    var allStreams = [data.SourceStreams, data.SinkStreams, data.IntermediateStreams];
-    var streamClasses = ["source", "sink", "intermediate"];
-    for (var i = 0; i < allStreams.length; i++) {
-      var streams = allStreams[i];
-      for (var streamId in streams) {
-        var stream = streams[streamId];
-        var labelVal = "<div><h3 class=\"topbar\">" + stream.StreamSpec.Id + "</h3><ul class=\"detailBox\" >"
-        labelVal += "<li>SystemName: " + stream.StreamSpec.SystemName + "</li>"
-        labelVal += "<li>PhysicalName: " + stream.StreamSpec.PhysicalName + "</li>"
-        labelVal += "<li>PartitionCount: " + stream.StreamSpec.PartitionCount + "</li>"
-        labelVal += "</ul></div>"
-        g.setNode(streamId,  { label: labelVal, labelType: "html", shape: "ellipse", class: streamClasses[i] });
-      }
-    }
-
-    var canonicalId = {};
-    var jobs = data.Jobs;
-    for (var i = 0; i < jobs.length; i++) {
-      var operators = jobs[i].OperatorGraph.Operators;
-      for (var opId in operators) {
-        var operator = operators[opId];
-        var labelVal = "<div><h3 class=\"topbar\">" + operator.OpCode + "</h3><ul class=\"detailBox\">";
-        var opId = operator.OpId;
-        if (parseInt(operator.PairedOpId) != -1) {
-          opId = parseInt(operator.OpId) < parseInt(operator.PairedOpId)?
-              (operator.OpId + "," + operator.PairedOpId) :
-              (operator.PairedOpId + "," + operator.OpId);
-        }
-        canonicalId[operator.OpId] = opId;
-        labelVal +=  "<li>ID: " + opId + "</li>";
-        labelVal +=  "<li>@" + operator.Invoker + "</li>";
-        labelVal += "</ul></div>";
-        g.setNode(opId,  { label: labelVal, labelType: "html", rx: 5, ry: 5 });
-      }
-    }
-
-    for (var i = 0; i < jobs.length; i++) {
-      var inputs = jobs[i].OperatorGraph.InputStreams;
-      for (var k = 0; k < inputs.length; k++) {
-        var input = inputs[k];
-        for (var m = 0; m < input.NextOperatorIds.length; m++) {
-          g.setEdge(input.StreamId, canonicalId[input.NextOperatorIds[m].toString()]);
-        }
-      }
-
-      var operators = jobs[i].OperatorGraph.Operators;
-      for (var opId in operators) {
-        var operator = operators[opId];
-        for (var j = 0; j < operator.NextOperatorIds.length; j++) {
-          g.setEdge(canonicalId[opId], canonicalId[operator.NextOperatorIds[j].toString()]);
-        }
-        if (operator.OutputStreamId !== null) {
-          g.setEdge(canonicalId[opId], operator.OutputStreamId);
-        }
-      }
-    }
-
-    return g;
-  }
-
-  var json = JSON.parse(plan);
-  var g = jsonToDagre(json);
-
-  document.getElementById("summary").innerHTML = "summary here";
+  var summary = "A visualization of application <b>" + data.ApplicationName + "-" + data.ApplicationId + "</b>";
+  summary += ", which consists of " + data.Jobs.length + " job(s), ";
+  summary += Object.keys(data.SourceStreams).length + " input stream(s), and ";
+  summary += Object.keys(data.SinkStreams).length + " output stream(s)."
+  document.getElementById("summary").innerHTML = summary;
 
   // Set up an SVG group so that we can translate the final graph.
   var svg = d3.select("svg"),
@@ -155,10 +95,7 @@
   render(inner, g);
 
   // Center the graph
-  var initialScale = 0.60;
-  zoom
-  .scale(initialScale)
-  .event(svg);
-  svg.attr('height', g.graph().height * initialScale + 40);
-
+  var initialScale = 0.6;
+  zoom.scale(initialScale).event(svg);
+  svg.attr('height', g.graph().height * initialScale + 100);
 </script>
