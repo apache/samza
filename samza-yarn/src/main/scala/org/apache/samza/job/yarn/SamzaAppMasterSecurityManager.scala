@@ -74,7 +74,6 @@ class SamzaAppMasterSecurityManager(config: Config, hadoopConf: Configuration) e
 
   private def loginFromKeytab(principal: String, keytab: String, credentialsFile: String) = {
     info(s"Logging to KDC using principal: $principal")
-    UserGroupInformation.loginUserFromKeytab(principal, keytab)
     val keytabUser = UserGroupInformation.loginUserFromKeytabAndReturnUGI(principal, keytab)
     val credentials = keytabUser.getCredentials
 

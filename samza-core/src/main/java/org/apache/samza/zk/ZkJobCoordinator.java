@@ -18,8 +18,13 @@
  */
 package org.apache.samza.zk;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -29,22 +34,13 @@ import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.processor.SamzaContainerController;
-import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
-import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * JobCoordinator for stand alone processor managed via Zookeeper.
@@ -68,20 +64,12 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private String newJobModelVersion;  // version published in ZK (by the leader)
   private JobModel jobModel;
 
-  public ZkJobCoordinator(String groupId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
+  public ZkJobCoordinator(String processorId, String groupId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
                           SamzaContainerController containerController) {
+    this.processorId = processorId;
     this.zkUtils = zkUtils;
     this.keyBuilder = zkUtils.getKeyBuilder();
     this.debounceTimer = debounceTimer;
-    ApplicationConfig appConfig = new ApplicationConfig(config);
-    if (appConfig.getProcessorId() != null) {    // TODO: This check to be removed after 0.13+
-      this.processorId = appConfig.getProcessorId();
-    } else {
-      ProcessorIdGenerator idGenerator =
-          ClassLoaderHelper.fromClassName(
-              new ApplicationConfig(config).getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
-      this.processorId = idGenerator.generateProcessorId(config);
-    }
     this.containerController = containerController;
     this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this);
     this.config = config;

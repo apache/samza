@@ -19,8 +19,10 @@
 package org.apache.samza.standalone;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.coordinator.JobCoordinator;
@@ -31,15 +33,10 @@ import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
-import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Standalone Job Coordinator does not implement any leader elector module or cluster manager
@@ -83,19 +80,10 @@ public class StandaloneJobCoordinator implements JobCoordinator {
     this.jobModel = jobModel;
   }
 
-  public StandaloneJobCoordinator(Config config, SamzaContainerController containerController) {
+  public StandaloneJobCoordinator(String processorId, Config config, SamzaContainerController containerController) {
     this.config = config;
     this.containerController = containerController;
-
-    ApplicationConfig appConfig = new ApplicationConfig(config);
-    if (appConfig.getProcessorId() != null) {     // TODO: This check to be removed after 0.13+
-      this.processorId = appConfig.getProcessorId();
-    } else {
-      ProcessorIdGenerator idGenerator =
-          ClassLoaderHelper.fromClassName(
-              new ApplicationConfig(config).getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
-      this.processorId = idGenerator.generateProcessorId(config);
-    }
+    this.processorId = processorId;
 
     JavaSystemConfig systemConfig = new JavaSystemConfig(this.config);
     Map<String, SystemAdmin> systemAdmins = new HashMap<>();

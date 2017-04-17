@@ -24,14 +24,10 @@ import java.io.PrintWriter;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.execution.ExecutionPlanner;
-import org.apache.samza.execution.StreamManager;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
-import org.apache.samza.operators.StreamGraphImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,11 +39,8 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger log = LoggerFactory.getLogger(RemoteApplicationRunner.class);
 
-  private final StreamManager streamManager;
-
   public RemoteApplicationRunner(Config config) {
     super(config);
-    this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
   }
 
   /**
@@ -68,7 +61,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       writer.close();
 
       // 2. create the necessary streams
-      streamManager.createStreams(plan.getIntermediateStreams());
+      getStreamManager().createStreams(plan.getIntermediateStreams());
 
       // 3. submit jobs for remote execution
       plan.getJobConfigs().forEach(jobConfig -> {
@@ -132,13 +125,4 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
-  private ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
-    // build stream graph
-    StreamGraphImpl streamGraph = new StreamGraphImpl(this, config);
-    app.init(streamGraph, config);
-
-    // create the physical execution plan
-    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    return planner.plan(streamGraph);
-  }
 }

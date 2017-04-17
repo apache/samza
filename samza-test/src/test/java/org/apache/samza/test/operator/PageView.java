@@ -16,16 +16,34 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.standalone;
+package org.apache.samza.test.operator;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.coordinator.JobCoordinator;
-import org.apache.samza.coordinator.JobCoordinatorFactory;
-import org.apache.samza.processor.SamzaContainerController;
+class PageView {
+  private final String userId;
+  private final String country;
+  private final String url;
 
-public class StandaloneJobCoordinatorFactory  implements JobCoordinatorFactory {
-  @Override
-  public JobCoordinator getJobCoordinator(String processorId, Config config, SamzaContainerController containerController) {
-    return new StandaloneJobCoordinator(processorId, config, containerController);
+  /**
+   * Constructs a {@link PageView} from the provided string.
+   *
+   * @param message in the following CSV format - userId,country,url
+   */
+  PageView(String message) {
+    String[] pageViewFields = message.split(",");
+    userId = pageViewFields[0];
+    country = pageViewFields[1];
+    url = pageViewFields[2];
+  }
+
+  String getUserId() {
+    return userId;
+  }
+
+  String getCountry() {
+    return country;
+  }
+
+  String getUrl() {
+    return url;
   }
 }

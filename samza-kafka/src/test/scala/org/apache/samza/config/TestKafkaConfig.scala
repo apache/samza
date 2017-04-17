@@ -192,4 +192,28 @@ class TestKafkaConfig {
     val kafkaProducerConfig = kafkaConfig.getKafkaSystemProducerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
     kafkaProducerConfig.getProducerProperties
   }
+
+  @Test
+  def testChangeLogReplicationFactor() {
+    props.setProperty("stores.store-with-override.changelog.replication.factor", "3")
+
+    val mapConfig = new MapConfig(props.asScala.asJava)
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    assertEquals(kafkaConfig.getChangelogStreamReplicationFactor("store-with-override"), "3")
+    assertEquals(kafkaConfig.getChangelogStreamReplicationFactor("store-without-override"), "2")
+    assertEquals(kafkaConfig.getDefaultChangelogStreamReplicationFactor , "2")
+  }
+
+  @Test
+  def testChangeLogReplicationFactorWithOverriddenDefault() {
+    props.setProperty("stores.store-with-override.changelog.replication.factor", "4")
+    // Override the "default" default value
+    props.setProperty("stores.default.changelog.replication.factor", "5")
+
+    val mapConfig = new MapConfig(props.asScala.asJava)
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    assertEquals(kafkaConfig.getChangelogStreamReplicationFactor("store-with-override"), "4")
+    assertEquals(kafkaConfig.getChangelogStreamReplicationFactor("store-without-override"), "5")
+    assertEquals(kafkaConfig.getDefaultChangelogStreamReplicationFactor , "5")
+  }
 }

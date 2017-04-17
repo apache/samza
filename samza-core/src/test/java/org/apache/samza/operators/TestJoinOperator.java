@@ -19,6 +19,10 @@
 package org.apache.samza.operators;
 
 import com.google.common.collect.ImmutableSet;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
@@ -33,12 +37,10 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamOperatorTask;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.testUtils.TestClock;
+import org.apache.samza.util.Clock;
+import org.apache.samza.util.SystemClock;
 import org.junit.Test;
-
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -51,7 +53,7 @@ public class TestJoinOperator {
 
   @Test
   public void join() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask();
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -67,7 +69,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinReverse() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask();
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -82,7 +84,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinNoMatch() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask();
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -96,7 +98,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinNoMatchReverse() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask();
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -110,7 +112,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsLatestMessageForKey() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask();
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -127,7 +129,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsLatestMessageForKeyReverse() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask();
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -144,7 +146,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsMatchedMessages() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask();
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -166,7 +168,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsMatchedMessagesReverse() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask();
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -188,14 +190,15 @@ public class TestJoinOperator {
 
   @Test
   public void joinRemovesExpiredMessages() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask();
+    TestClock testClock = new TestClock();
+    StreamOperatorTask sot = createStreamOperatorTask(testClock);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
     // push messages to first stream
     numbers.forEach(n -> sot.process(new FirstStreamIME(n, n), messageCollector, taskCoordinator));
 
-    Thread.sleep(100); // 10 * ttl for join
+    testClock.advanceTime(100);
     sot.window(messageCollector, taskCoordinator); // should expire first stream messages
 
     // push messages to second stream with same key
@@ -207,14 +210,15 @@ public class TestJoinOperator {
 
   @Test
   public void joinRemovesExpiredMessagesReverse() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask();
+    TestClock testClock = new TestClock();
+    StreamOperatorTask sot = createStreamOperatorTask(testClock);
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
     // push messages to second stream
     numbers.forEach(n -> sot.process(new SecondStreamIME(n, n), messageCollector, taskCoordinator));
 
-    Thread.sleep(100); // 10 * ttl for join
+    testClock.advanceTime(100); // 10 * ttl for join
     sot.window(messageCollector, taskCoordinator); // should expire second stream messages
 
     // push messages to first stream with same key
@@ -223,7 +227,7 @@ public class TestJoinOperator {
     assertTrue(output.isEmpty());
   }
 
-  private StreamOperatorTask createStreamOperatorTask() throws Exception {
+  private StreamOperatorTask createStreamOperatorTask(Clock clock) throws Exception {
     ApplicationRunner runner = mock(ApplicationRunner.class);
     when(runner.getStreamSpec("instream")).thenReturn(new StreamSpec("instream", "instream", "insystem"));
     when(runner.getStreamSpec("instream2")).thenReturn(new StreamSpec("instream2", "instream2", "insystem2"));
@@ -235,7 +239,7 @@ public class TestJoinOperator {
     Config config = mock(Config.class);
 
     StreamApplication sgb = new TestStreamApplication();
-    StreamOperatorTask sot = new StreamOperatorTask(sgb, runner);
+    StreamOperatorTask sot = new StreamOperatorTask(sgb, runner, clock);
     sot.init(config, taskContext);
     return sot;
   }

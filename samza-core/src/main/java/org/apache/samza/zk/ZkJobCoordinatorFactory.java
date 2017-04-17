@@ -35,7 +35,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
    * @return An instance of IJobCoordinator
    */
   @Override
-  public JobCoordinator getJobCoordinator(Config config, SamzaContainerController containerController) {
+  public JobCoordinator getJobCoordinator(String processorId, Config config, SamzaContainerController containerController) {
     JobConfig jobConfig = new JobConfig(config);
     String groupName = String.format("%s-%s", jobConfig.getName().get(), jobConfig.getJobId().get());
     ZkConfig zkConfig = new ZkConfig(config);
@@ -43,8 +43,9 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
     ZkClient zkClient = new ZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
 
     return new ZkJobCoordinator(
-        "groupId",  // TODO: Usage of groupId to be resolved in SAMZA-1173
-         config,
+        processorId,
+        groupName,
+        config,
         debounceTimer,
         new ZkUtils(
             new ZkKeyBuilder(groupName),
