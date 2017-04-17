@@ -85,7 +85,7 @@ public class LocalStoreMonitor implements Monitor {
         JobStatus jobStatus = jobsClient.getJobStatus(jobInstance);
         for (Task task : jobsClient.getTasks(jobInstance)) {
           for (String storeName : jobDir.list(DirectoryFileFilter.DIRECTORY)) {
-            LOG.info("Job: {} has the running status: {} with preferred host:  {}", jobInstance, jobStatus, task.getPreferredHost());
+            LOG.info("Job: {} has the running status: {} with preferred host: {}.", jobInstance, jobStatus, task.getPreferredHost());
             /**
              *  A task store is active if all of the following conditions are true:
              *  a) If the store is amongst the active stores of the task.
@@ -106,8 +106,8 @@ public class LocalStoreMonitor implements Monitor {
         if (!config.getIgnoreFailures()) {
           throw ex;
         }
-        LOG.warn("Local store cleanup for job: {} resulted in exception: {}. Config: {} turned on, failures are ignored.",
-                 new Object[]{jobInstance, ex, LocalStoreMonitorConfig.CONFIG_IGNORE_FAILURES});
+        LOG.warn("Config: {} turned on, failures will be ignored. Local store cleanup for job: {} resulted in exception: {}.",
+                 new Object[]{LocalStoreMonitorConfig.CONFIG_IGNORE_FAILURES, jobInstance, ex});
       }
     }
   }
@@ -151,14 +151,14 @@ public class LocalStoreMonitor implements Monitor {
     String taskStorePath = taskStoreDir.getAbsolutePath();
     File offsetFile = new File(taskStoreDir, OFFSET_FILE_NAME);
     if (!offsetFile.exists()) {
-      LOG.info("Deleting the task store : {}, since it has no offset file.", taskStorePath);
+      LOG.info("Deleting the task store: {}, since it has no offset file.", taskStorePath);
       long taskStoreSizeInBytes = taskStoreDir.getTotalSpace();
       FileUtils.deleteDirectory(taskStoreDir);
       localStoreMonitorMetrics.diskSpaceFreedInBytes.inc(taskStoreSizeInBytes);
       localStoreMonitorMetrics.noOfDeletedTaskPartitionStores.inc();
     } else if ((CLOCK.currentTimeMillis() - offsetFile.lastModified()) >= config.getOffsetFileTTL()) {
-      LOG.info("Deleting the offset file from the store : {}, since the last modified timestamp : {} "
-                   + "of the offset file is older than config file ttl : {}.",
+      LOG.info("Deleting the offset file from the store: {}, since the last modified timestamp: {} "
+                   + "of the offset file is older than config file ttl: {}.",
                   taskStorePath, offsetFile.lastModified(), config.getOffsetFileTTL());
       offsetFile.delete();
     }

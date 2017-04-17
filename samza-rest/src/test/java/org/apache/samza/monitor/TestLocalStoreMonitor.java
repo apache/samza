@@ -36,6 +36,8 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
@@ -44,6 +46,8 @@ public class TestLocalStoreMonitor {
 
   private static File jobDir = new File(System.getProperty("java.io.tmpdir") + File.separator + "samza-test-job/",
                                         "test-jobName-jobId");
+
+  private static Logger LOG = LoggerFactory.getLogger(TestLocalStoreMonitor.class);
 
   private File taskStoreDir = new File(new File(jobDir, "test-store"), "test-task");
 
@@ -88,7 +92,8 @@ public class TestLocalStoreMonitor {
       FileUtils.deleteDirectory(taskStoreDir);
     } catch (IOException e) {
       // Happens when task store can't be deleted after test finishes.
-      Assert.fail();
+      LOG.error("Deletion of directory: {} resulted in the exception: {}.", new Object[]{taskStoreDir, e});
+      Assert.fail(e.getMessage());
     }
   }
 

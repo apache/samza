@@ -26,6 +26,7 @@ import java.util.function.Function;
 
 import org.apache.commons.codec.binary.StringUtils;
 import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.samza.SamzaException;
 import org.apache.samza.rest.model.Job;
@@ -68,7 +69,7 @@ public class JobsClient {
    * @throws SamzaException if there were any problems with the http request.
    */
   public List<Task> getTasks(JobInstance jobInstance) {
-    return retriableHttpGet(baseUrl -> String.format(ResourceConstants.GET_TASKS_URL, baseUrl,
+    return queryJobStatusServers(baseUrl -> String.format(ResourceConstants.GET_TASKS_URL, baseUrl,
         jobInstance.getJobName(), jobInstance.getJobId()), new TypeReference<List<Task>>(){});
   }
 
@@ -79,7 +80,7 @@ public class JobsClient {
    * @throws SamzaException if there are any problems with the http request.
    */
   public JobStatus getJobStatus(JobInstance jobInstance) {
-    Job job = retriableHttpGet(baseUrl -> String.format(ResourceConstants.GET_JOBS_URL, baseUrl,
+    Job job = queryJobStatusServers(baseUrl -> String.format(ResourceConstants.GET_JOBS_URL, baseUrl,
         jobInstance.getJobName(), jobInstance.getJobId()), new TypeReference<Job>(){});
     return job.getStatus();
   }
@@ -97,19 +98,21 @@ public class JobsClient {
    * @throws Exception when all the job status servers are unavailable.
    *
    */
-  private <T> T retriableHttpGet(Function<String, String> requestUrlBuilder, TypeReference<T> typeReference) {
-    Exception fetchException = null;
+  private <T> T queryJobStatusServers(Function<String, String> requestUrlBuilder, TypeReference<T> typeReference) {
+    SamzaException fetchException = null;
     for (String jobStatusServer : jobStatusServers) {
       String requestUrl = requestUrlBuilder.apply(jobStatusServer);
       try {
         ObjectMapper objectMapper = new ObjectMapper();
-        return objectMapper.readValue(httpGet(requestUrl), typeReference);
+        byte[] response = httpGet(requestUrl);
+        return objectMapper.readValue(response, typeReference);
       } catch (Exception e) {
-        LOG.error(String.format("Exception when fetching tasks from the url : %s", requestUrl), e);
-        fetchException = e;
+        String exceptionMessage = String.format("Exception in http get request from url: %s.", requestUrl);
+        LOG.error(exceptionMessage, e);
+        fetchException = new SamzaException(exceptionMessage, e);
       }
     }
-    throw new SamzaException(String.format("Exception during http get from urls : %s", jobStatusServers), fetchException);
+    throw fetchException;
   }
 
   /**
@@ -123,9 +126,9 @@ public class JobsClient {
     GetMethod getMethod = new GetMethod(requestUrl);
     try {
       int responseCode = httpClient.executeMethod(getMethod);
-      LOG.debug("Received response code {} for the get request on the url : {}", responseCode, requestUrl);
+      LOG.debug("Received response code: {} for the get request on the url: {}", responseCode, requestUrl);
       byte[] response = getMethod.getResponseBody();
-      if (responseCode != 200) {
+      if (responseCode != HttpStatus.SC_OK) {
         throw new SamzaException(String.format("Received response code: %s for get request on: %s, with message: %s.",
                                                responseCode, requestUrl, StringUtils.newStringUtf8(response)));
       }
