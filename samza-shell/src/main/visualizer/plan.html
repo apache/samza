@@ -8,21 +8,20 @@
 <script type="text/javascript" src="js/dagre-d3.js"></script>
 <script type="text/javascript" src="plan.json"></script>
 
-<h1>Samza Plan Viewer</h1>
+<h1>SAMZA Plan Visualizer</h1>
 
 <style id="css">
-  /* This sets the color for "TK" nodes to a light blue green. */
-  g.type-TK > rect {
-    fill: #00ffd0;
-  }
-
-  text {
-    font-weight: 300;
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serf;
-    font-size: 14px;
+  body {
+    font: 300 14px 'Helvetica Neue', Helvetica;
   }
 
   .node rect {
+    stroke: #999;
+    fill: #E8E8EE;
+    stroke-width: 1.5px;
+  }
+
+  .node ellipse {
     stroke: #999;
     fill: #fff;
     stroke-width: 1.5px;
@@ -33,20 +32,35 @@
     stroke-width: 1.5px;
   }
 
+  g.source > ellipse {
+    fill: #BDEDFF;
+  }
+
+  g.sink > ellipse {
+    fill: #BDEDFF;
+  }
+
+  g.intermediate > ellipse {
+    fill: #C3FDB8;
+  }
+
   .topbar {
-    width: 100%;
+    text-align: center;
     border-bottom: solid;
     border-bottom-color: #cdcfd2;
     border-bottom-width: 1px;
   }
+
+  .detailBox{
+    margin-top: -10px;
+  }
 </style>
 
 <section>
-  <p>An example of visualizing the tokenization of a sentence. This example shows
-    how CSS classes can be applied to a rendered graph.
+  <p id="summary"/>
 </section>
 
-<svg id="svg-canvas" width=2000 height=1000></svg>
+<svg id="svg-canvas" width=1200 height=1000><g/></svg>
 
 <script id="js">
 
@@ -58,27 +72,39 @@
         })
         .setDefaultEdgeLabel(function() { return {}; });
 
-    var streams = data.Streams;
-    for (var streamId in streams) {
-      var stream = streams[streamId];
-      var labelVal = "<div><h3 class=\"topbar\">" + stream.StreamSpec.Id + "</h3><ul>"
-      labelVal += "<li>SystemName: " + stream.StreamSpec.SystemName + "</li>"
-      labelVal += "<li>PhysicalName: " + stream.StreamSpec.PhysicalName + "</li>"
-      labelVal += "<li>PartitionCount: " + stream.StreamSpec.PartitionCount + "</li>"
-      labelVal += "</ul></div>"
-      g.setNode(streamId,  { label: labelVal, labelType: "html" });
+    var allStreams = [data.SourceStreams, data.SinkStreams, data.IntermediateStreams];
+    var streamClasses = ["source", "sink", "intermediate"];
+    for (var i = 0; i < allStreams.length; i++) {
+      var streams = allStreams[i];
+      for (var streamId in streams) {
+        var stream = streams[streamId];
+        var labelVal = "<div><h3 class=\"topbar\">" + stream.StreamSpec.Id + "</h3><ul class=\"detailBox\" >"
+        labelVal += "<li>SystemName: " + stream.StreamSpec.SystemName + "</li>"
+        labelVal += "<li>PhysicalName: " + stream.StreamSpec.PhysicalName + "</li>"
+        labelVal += "<li>PartitionCount: " + stream.StreamSpec.PartitionCount + "</li>"
+        labelVal += "</ul></div>"
+        g.setNode(streamId,  { label: labelVal, labelType: "html", shape: "ellipse", class: streamClasses[i] });
+      }
     }
 
+    var canonicalId = {};
     var jobs = data.Jobs;
     for (var i = 0; i < jobs.length; i++) {
       var operators = jobs[i].OperatorGraph.Operators;
       for (var opId in operators) {
         var operator = operators[opId];
-        var labelVal = "<div><h3 class=\"topbar\">" + operator.OpCode + "</h3><ul>";
-        labelVal +=  "<li>ID: " + operator.OpId + "</li>"
-        labelVal +=  "<li>@" + operator.Invoker + "</li>"
-        labelVal += "</ul></div>"
-        g.setNode(opId,  { label: labelVal, labelType: "html" });
+        var labelVal = "<div><h3 class=\"topbar\">" + operator.OpCode + "</h3><ul class=\"detailBox\">";
+        var opId = operator.OpId;
+        if (parseInt(operator.PairedOpId) != -1) {
+          opId = parseInt(operator.OpId) < parseInt(operator.PairedOpId)?
+              (operator.OpId + "," + operator.PairedOpId) :
+              (operator.PairedOpId + "," + operator.OpId);
+        }
+        canonicalId[operator.OpId] = opId;
+        labelVal +=  "<li>ID: " + opId + "</li>";
+        labelVal +=  "<li>@" + operator.Invoker + "</li>";
+        labelVal += "</ul></div>";
+        g.setNode(opId,  { label: labelVal, labelType: "html", rx: 5, ry: 5 });
       }
     }
 
@@ -87,7 +113,7 @@
       for (var k = 0; k < inputs.length; k++) {
         var input = inputs[k];
         for (var m = 0; m < input.NextOperatorIds.length; m++) {
-          g.setEdge(input.StreamId, input.NextOperatorIds[m].toString());
+          g.setEdge(input.StreamId, canonicalId[input.NextOperatorIds[m].toString()]);
         }
       }
 
@@ -95,10 +121,10 @@
       for (var opId in operators) {
         var operator = operators[opId];
         for (var j = 0; j < operator.NextOperatorIds.length; j++) {
-          g.setEdge(opId, operator.NextOperatorIds[j].toString());
+          g.setEdge(canonicalId[opId], canonicalId[operator.NextOperatorIds[j].toString()]);
         }
         if (operator.OutputStreamId !== null) {
-          g.setEdge(opId, operator.OutputStreamId);
+          g.setEdge(canonicalId[opId], operator.OutputStreamId);
         }
       }
     }
@@ -106,18 +132,33 @@
     return g;
   }
 
-
   var json = JSON.parse(plan);
   var g = jsonToDagre(json);
+
+  document.getElementById("summary").innerHTML = "summary here";
+
+  // Set up an SVG group so that we can translate the final graph.
+  var svg = d3.select("svg"),
+      inner = svg.select("g");
+
+  // Set up zoom support
+  var zoom = d3.behavior.zoom().on("zoom", function() {
+      inner.attr("transform", "translate(" + d3.event.translate + ")" +
+                                  "scale(" + d3.event.scale + ")");
+    });
+  svg.call(zoom);
 
   // Create the renderer
   var render = new dagreD3.render();
 
-  // Set up an SVG group so that we can translate the final graph.
-  var svg = d3.select("svg"),
-      svgGroup = svg.append("g");
-
   // Run the renderer. This is what draws the final graph.
-  render(d3.select("svg g"), g);
+  render(inner, g);
+
+  // Center the graph
+  var initialScale = 0.60;
+  zoom
+  .scale(initialScale)
+  .event(svg);
+  svg.attr('height', g.graph().height * initialScale + 40);
 
 </script>

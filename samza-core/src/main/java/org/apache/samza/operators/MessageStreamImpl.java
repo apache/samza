@@ -191,7 +191,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
         .createPartialJoinOperatorSpec(otherPartialJoinFn, thisPartialJoinFn, ttl.toMillis(), nextStream,
             this.graph.getNextOpId());
     ((MessageStreamImpl<JM>) otherStream).registeredOperatorSpecs.add(otherPartialJoinSpec);
-    addInvokerStackTrace(otherPartialJoinSpec);
+    ((MessageStreamImpl<JM>) otherStream).addInvokerStackTrace(otherPartialJoinSpec);
 
     return nextStream;
   }

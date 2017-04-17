@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -102,8 +103,16 @@ public class JobGraphJsonGenerator {
   static final class JobGraphJson {
     @JsonProperty("Jobs")
     List<JobNodeJson> jobs;
-    @JsonProperty("Streams")
-    Map<String, StreamEdgeJson> streams;
+    @JsonProperty("SourceStreams")
+    Map<String, StreamEdgeJson> sourceStreams;
+    @JsonProperty("SinkStreams")
+    Map<String, StreamEdgeJson> sinkStreams;
+    @JsonProperty("IntermediateStreams")
+    Map<String, StreamEdgeJson> intermediateStreams;
+    @JsonProperty("ApplicationName")
+    String applicationName;
+    @JsonProperty("ApplicationId")
+    String applicationId;
   }
 
   // Mapping from the output stream to the join spec. Since StreamGraph creates two partial join operators for a join and they
@@ -121,13 +130,17 @@ public class JobGraphJsonGenerator {
     JobGraphJson jobGraphJson = new JobGraphJson();
 
     // build StreamEdge JSON
-    jobGraphJson.streams = new HashMap<>();
-    jobGraph.getSources().forEach(e -> getOrCreateStreamEdgeJson(e, jobGraphJson.streams));
-    jobGraph.getSinks().forEach(e -> getOrCreateStreamEdgeJson(e, jobGraphJson.streams));
-    jobGraph.getIntermediateStreamEdges().forEach(e -> getOrCreateStreamEdgeJson(e, jobGraphJson.streams));
+    ApplicationConfig appConfig = jobGraph.getApplicationConfig();
+    jobGraphJson.applicationName = "";
+    jobGraphJson.sourceStreams = new HashMap<>();
+    jobGraphJson.sinkStreams = new HashMap<>();
+    jobGraphJson.intermediateStreams = new HashMap<>();
+    jobGraph.getSources().forEach(e -> getOrCreateStreamEdgeJson(e, jobGraphJson.sourceStreams));
+    jobGraph.getSinks().forEach(e -> getOrCreateStreamEdgeJson(e, jobGraphJson.sinkStreams));
+    jobGraph.getIntermediateStreamEdges().forEach(e -> getOrCreateStreamEdgeJson(e, jobGraphJson.intermediateStreams));
 
     jobGraphJson.jobs = jobGraph.getJobNodes().stream()
-        .map(jobNode -> buildJobNodeJson(jobNode, jobGraphJson.streams))
+        .map(jobNode -> buildJobNodeJson(jobNode))
         .collect(Collectors.toList());
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -139,10 +152,9 @@ public class JobGraphJsonGenerator {
   /**
    * Create JSON POJO for a {@link JobNode}, including the {@link org.apache.samza.operators.StreamGraph} for this job
    * @param jobNode job node in the {@link JobGraph}
-   * @param streamEdges map of {@link org.apache.samza.execution.JobGraphJsonGenerator.StreamEdgeJson}
    * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.JobNodeJson}
    */
-  private JobNodeJson buildJobNodeJson(JobNode jobNode, Map<String, StreamEdgeJson> streamEdges) {
+  private JobNodeJson buildJobNodeJson(JobNode jobNode) {
     JobNodeJson job = new JobNodeJson();
     job.jobName = jobNode.getJobName();
     job.jobId = jobNode.getJobId();

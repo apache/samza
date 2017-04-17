@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.StreamGraphImpl;
@@ -90,6 +91,14 @@ import org.slf4j.LoggerFactory;
    */
   public String getPlanAsJson() throws Exception {
     return jsonGenerator.toJson(this);
+  }
+
+  /**
+   * Returns the config for this application
+   * @return {@link ApplicationConfig}
+   */
+  public ApplicationConfig getApplicationConfig() {
+    return new ApplicationConfig(config);
   }
 
   /**

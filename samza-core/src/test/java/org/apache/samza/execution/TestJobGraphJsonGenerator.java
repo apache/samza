@@ -120,6 +120,8 @@ public class TestJobGraphJsonGenerator {
     JobGraphJsonGenerator.JobGraphJson nodes = mapper.readValue(json, JobGraphJsonGenerator.JobGraphJson.class);
     assertTrue(nodes.jobs.get(0).operatorGraph.inputStreams.size() == 5);
     assertTrue(nodes.jobs.get(0).operatorGraph.operators.size() == 12);
-    assertTrue(nodes.streams.size() == 7);
+    assertTrue(nodes.sourceStreams.size() == 3);
+    assertTrue(nodes.sinkStreams.size() == 2);
+    assertTrue(nodes.intermediateStreams.size() == 2);
   }
 }
