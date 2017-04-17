@@ -61,6 +61,9 @@ public class ExecutionPlanner {
     // create physical job graph based on stream graph
     JobGraph jobGraph = createJobGraph(streamGraph);
 
+    // fetch the external streams partition info
+    updateExistingPartitions(jobGraph, streamManager);
+
     if (!jobGraph.getIntermediateStreamEdges().isEmpty()) {
       // figure out the partitions for internal streams
       calculatePartitions(streamGraph, jobGraph);
@@ -104,9 +107,6 @@ public class ExecutionPlanner {
    * Figure out the number of partitions of all streams
    */
   /* package private */ void calculatePartitions(StreamGraphImpl streamGraph, JobGraph jobGraph) {
-    // fetch the external streams partition info
-    updateExistingPartitions(jobGraph, streamManager);
-
     // calculate the partitions for the input streams of join operators
     calculateJoinInputPartitions(streamGraph, jobGraph);
 
