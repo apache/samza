@@ -114,7 +114,7 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   }
 
   /**
-   * Write the execution plan JSON to a file so it can be visualized
+   * Write the execution plan JSON to a file
    * @param planJson JSON representation of the plan
    */
   final void writePlanJsonFile(String planJson) {
