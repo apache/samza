@@ -88,10 +88,10 @@
   var data = JSON.parse(plan);
   var g = planToDagre(data);
 
-  var summary = "A visualization of application <b>" + data.ApplicationName + "-" + data.ApplicationId + "</b>";
-  summary += ", which consists of " + data.Jobs.length + " job(s), ";
-  summary += Object.keys(data.SourceStreams).length + " input stream(s), and ";
-  summary += Object.keys(data.SinkStreams).length + " output stream(s).";
+  var summary = "A visualization of application <b>" + data.applicationName + "-" + data.applicationId + "</b>";
+  summary += ", which consists of " + data.jobs.length + " job(s), ";
+  summary += Object.keys(data.sourceStreams).length + " input stream(s), and ";
+  summary += Object.keys(data.sinkStreams).length + " output stream(s).";
   document.getElementById("summary").innerHTML = summary;
 
   // Set up an SVG group so that we can translate the final graph.

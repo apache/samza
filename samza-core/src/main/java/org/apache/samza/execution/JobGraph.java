@@ -66,29 +66,19 @@ import org.slf4j.LoggerFactory;
     this.config = config;
   }
 
-  /**
-   * Returns the configs for single stage job, in the order of topologically sort.
-   * @return list of job configs
-   */
+  @Override
   public List<JobConfig> getJobConfigs() {
     return getJobNodes().stream().map(JobNode::generateConfig).collect(Collectors.toList());
   }
 
-  /**
-   * Returns the intermediate streams that need to be created.
-   * @return intermediate {@link StreamSpec}s
-   */
+  @Override
   public List<StreamSpec> getIntermediateStreams() {
     return getIntermediateStreamEdges().stream()
         .map(streamEdge -> streamEdge.getStreamSpec())
         .collect(Collectors.toList());
   }
 
-  /**
-   * Returns the JSON representation of the plan for visualization
-   * @return json string
-   * @throws Exception
-   */
+  @Override
   public String getPlanAsJson() throws Exception {
     return jsonGenerator.toJson(this);
   }
@@ -107,7 +97,7 @@ import org.slf4j.LoggerFactory;
    * @param node the job node that consumes from the source
    */
   void addSource(StreamSpec input, JobNode node) {
-    StreamEdge edge = getOrCreateEdge(input);
+    StreamEdge edge = getOrCreateStreamEdge(input);
     edge.addTargetNode(node);
     node.addInEdge(edge);
     sources.add(edge);
@@ -119,7 +109,7 @@ import org.slf4j.LoggerFactory;
    * @param node the job node that outputs to the sink
    */
   void addSink(StreamSpec output, JobNode node) {
-    StreamEdge edge = getOrCreateEdge(output);
+    StreamEdge edge = getOrCreateStreamEdge(output);
     edge.addSourceNode(node);
     node.addOutEdge(edge);
     sinks.add(edge);
@@ -132,7 +122,7 @@ import org.slf4j.LoggerFactory;
    * @param to the target node
    */
   void addIntermediateStream(StreamSpec streamSpec, JobNode from, JobNode to) {
-    StreamEdge edge = getOrCreateEdge(streamSpec);
+    StreamEdge edge = getOrCreateStreamEdge(streamSpec);
     edge.addSourceNode(from);
     edge.addTargetNode(to);
     from.addOutEdge(edge);
@@ -146,7 +136,7 @@ import org.slf4j.LoggerFactory;
    * @param jobId id of the job
    * @return
    */
-  JobNode getOrCreateNode(String jobName, String jobId, StreamGraphImpl streamGraph) {
+  JobNode getOrCreateJobNode(String jobName, String jobId, StreamGraphImpl streamGraph) {
     String nodeId = JobNode.createId(jobName, jobId);
     JobNode node = nodes.get(nodeId);
     if (node == null) {
@@ -161,7 +151,7 @@ import org.slf4j.LoggerFactory;
    * @param streamSpec spec of the StreamEdge
    * @return stream edge
    */
-  StreamEdge getOrCreateEdge(StreamSpec streamSpec) {
+  StreamEdge getOrCreateStreamEdge(StreamSpec streamSpec) {
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {

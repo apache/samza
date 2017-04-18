@@ -20,6 +20,7 @@
 package org.apache.samza.execution;
 
 import java.util.List;
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.system.StreamSpec;
 
@@ -28,10 +29,11 @@ import org.apache.samza.system.StreamSpec;
  * This interface represents Samza {@link org.apache.samza.application.StreamApplication}
  * plans for physical execution.
  */
+@InterfaceStability.Unstable
 public interface ExecutionPlan {
 
   /**
-   * Returns the configs for single stage job, in the order of topologically sort.
+   * Returns the configs for single stage job, in topological sort order.
    * @return list of job configs
    */
   List<JobConfig> getJobConfigs();
@@ -43,9 +45,10 @@ public interface ExecutionPlan {
   List<StreamSpec> getIntermediateStreams();
 
   /**
-   * Returns the JSON representation of the plan for visualization
+   * Returns the JSON representation of the plan.
    * @return json string
-   * @throws Exception exception
+   * @throws Exception exception during JSON serialization, including {@link java.io.IOException}
+   * and {@link org.codehaus.jackson.JsonGenerationException}
    */
   String getPlanAsJson() throws Exception;
 }

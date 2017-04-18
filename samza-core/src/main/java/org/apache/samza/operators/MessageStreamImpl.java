@@ -205,10 +205,10 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
     otherStreams.add(this);
     otherStreams.forEach(other -> {
-      OperatorSpec mergeOperatorSepc = OperatorSpecs.createMergeOperatorSpec(nextStream, this.graph.getNextOpId());
-      ((MessageStreamImpl<M>) other).registeredOperatorSpecs.add(mergeOperatorSepc);
-      addCallerStackTrace(mergeOperatorSepc);
-    });
+        OperatorSpec mergeOperatorSepc = OperatorSpecs.createMergeOperatorSpec(nextStream, this.graph.getNextOpId());
+        ((MessageStreamImpl<M>) other).registeredOperatorSpecs.add(mergeOperatorSepc);
+        ((MessageStreamImpl<M>) other).addCallerStackTrace(mergeOperatorSepc);
+      });
     return nextStream;
   }
 

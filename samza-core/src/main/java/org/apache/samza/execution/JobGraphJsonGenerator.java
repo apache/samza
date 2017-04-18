@@ -40,78 +40,84 @@ import org.codehaus.jackson.map.ObjectMapper;
 /**
  * This class generates the JSON representation of the {@link JobGraph}.
  */
-public class JobGraphJsonGenerator {
+/* package private */ class JobGraphJsonGenerator {
 
   /**
    * This class provides the necessary connection of operators for traversal.
    */
   static abstract class Traversable {
-    @JsonProperty("NextOperatorIds")
+    @JsonProperty("nextOperatorIds")
     Set<Integer>  nextOperatorIds = new HashSet<>();
   }
 
   static final class OperatorJson extends Traversable {
-    @JsonProperty("OpCode")
+    @JsonProperty("opCode")
     String opCode;
-    @JsonProperty("OpId")
+    @JsonProperty("opId")
     int opId;
-    @JsonProperty("OutputStreamId")
+    @JsonProperty("outputStreamId")
     String outputStreamId;
-    @JsonProperty("PairedOpId")
+    @JsonProperty("pairedOpId")
     int pairedOpId = -1;  //for join operator, we will have a pair nodes for two partial joins
-    @JsonProperty("Caller")
+    @JsonProperty("caller")
     String caller;
   }
 
   static final class StreamSpecJson {
-    @JsonProperty("Id")
+    @JsonProperty("id")
     String id;
-    @JsonProperty("SystemName")
+    @JsonProperty("systemName")
     String systemName;
-    @JsonProperty("PhysicalName")
+    @JsonProperty("physicalName")
     String physicalName;
-    @JsonProperty("PartitionCount")
+    @JsonProperty("partitionCount")
     int partitionCount;
   }
 
   static final class StreamEdgeJson {
-    @JsonProperty("StreamSpec")
+    @JsonProperty("streamSpec")
     StreamSpecJson streamSpec;
+    @JsonProperty("sourceJobs")
+    List<String> sourceJobs;
+    @JsonProperty("targetJobs")
+    List<String> targetJobs;
   }
 
   static final class OperatorGraphJson {
-    @JsonProperty("InputStreams")
+    @JsonProperty("inputStreams")
     List<InputStreamJson> inputStreams;
-    @JsonProperty("Operators")
+    @JsonProperty("operators")
     Map<Integer, OperatorJson> operators = new HashMap<>();
+    @JsonProperty("outputStreams")
+    List<String> outputStreams;
   }
 
   static final class InputStreamJson extends Traversable {
-    @JsonProperty("StreamId")
+    @JsonProperty("streamId")
     String streamId;
   }
 
   static final class JobNodeJson {
-    @JsonProperty("JobName")
+    @JsonProperty("jobName")
     String jobName;
-    @JsonProperty("JobId")
+    @JsonProperty("jobId")
     String jobId;
-    @JsonProperty("OperatorGraph")
+    @JsonProperty("operatorGraph")
     OperatorGraphJson operatorGraph;
   }
 
   static final class JobGraphJson {
-    @JsonProperty("Jobs")
+    @JsonProperty("jobs")
     List<JobNodeJson> jobs;
-    @JsonProperty("SourceStreams")
+    @JsonProperty("sourceStreams")
     Map<String, StreamEdgeJson> sourceStreams;
-    @JsonProperty("SinkStreams")
+    @JsonProperty("sinkStreams")
     Map<String, StreamEdgeJson> sinkStreams;
-    @JsonProperty("IntermediateStreams")
+    @JsonProperty("intermediateStreams")
     Map<String, StreamEdgeJson> intermediateStreams;
-    @JsonProperty("ApplicationName")
+    @JsonProperty("applicationName")
     String applicationName;
-    @JsonProperty("ApplicationId")
+    @JsonProperty("applicationId")
     String applicationId;
   }
 
@@ -136,9 +142,9 @@ public class JobGraphJsonGenerator {
     jobGraphJson.sourceStreams = new HashMap<>();
     jobGraphJson.sinkStreams = new HashMap<>();
     jobGraphJson.intermediateStreams = new HashMap<>();
-    jobGraph.getSources().forEach(e -> getOrCreateStreamEdgeJson(e, jobGraphJson.sourceStreams));
-    jobGraph.getSinks().forEach(e -> getOrCreateStreamEdgeJson(e, jobGraphJson.sinkStreams));
-    jobGraph.getIntermediateStreamEdges().forEach(e -> getOrCreateStreamEdgeJson(e, jobGraphJson.intermediateStreams));
+    jobGraph.getSources().forEach(e -> buildStreamEdgeJson(e, jobGraphJson.sourceStreams));
+    jobGraph.getSinks().forEach(e -> buildStreamEdgeJson(e, jobGraphJson.sinkStreams));
+    jobGraph.getIntermediateStreamEdges().forEach(e -> buildStreamEdgeJson(e, jobGraphJson.intermediateStreams));
 
     jobGraphJson.jobs = jobGraph.getJobNodes().stream()
         .map(jobNode -> buildJobNodeJson(jobNode))
@@ -177,6 +183,10 @@ public class JobGraphJsonGenerator {
         opGraph.inputStreams.add(inputJson);
         updateOperatorGraphJson((MessageStreamImpl) stream, inputJson, opGraph);
       });
+    opGraph.outputStreams = new ArrayList<>();
+    jobNode.getStreamGraph().getOutputStreams().keySet().forEach(streamSpec -> {
+        opGraph.outputStreams.add(streamSpec.getId());
+      });
     return opGraph;
   }
 
@@ -191,7 +201,7 @@ public class JobGraphJsonGenerator {
     specs.forEach(opSpec -> {
         parent.nextOperatorIds.add(opSpec.getOpId());
 
-        OperatorJson opJson = getOrCreateOperatorJson(opSpec, opGraph, messageStream);
+        OperatorJson opJson = buildOperatorJson(opSpec, opGraph, messageStream);
         if (opSpec instanceof SinkOperatorSpec) {
           opJson.outputStreamId = ((SinkOperatorSpec) opSpec).getOutputStream().getStreamSpec().getId();
         } else if (opSpec.getNextStream() != null) {
@@ -206,7 +216,8 @@ public class JobGraphJsonGenerator {
    * @param opGraph {@link org.apache.samza.execution.JobGraphJsonGenerator.OperatorGraphJson}
    * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.OperatorJson}
    */
-  private OperatorJson getOrCreateOperatorJson(OperatorSpec opSpec, OperatorGraphJson opGraph, MessageStreamImpl messageStream) {
+  private OperatorJson buildOperatorJson(OperatorSpec opSpec, OperatorGraphJson opGraph,
+      MessageStreamImpl messageStream) {
     Map<Integer, OperatorJson> operators = opGraph.operators;
     OperatorJson opJson = operators.get(opSpec.getOpId());
     if (opJson == null) {
@@ -245,7 +256,7 @@ public class JobGraphJsonGenerator {
    * @param streamEdges map of streamId to {@link org.apache.samza.execution.JobGraphJsonGenerator.StreamEdgeJson}
    * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.StreamEdgeJson}
    */
-  private StreamEdgeJson getOrCreateStreamEdgeJson(StreamEdge edge, Map<String, StreamEdgeJson> streamEdges) {
+  private StreamEdgeJson buildStreamEdgeJson(StreamEdge edge, Map<String, StreamEdgeJson> streamEdges) {
     String streamId = edge.getStreamSpec().getId();
     StreamEdgeJson edgeJson = streamEdges.get(streamId);
     if (edgeJson == null) {
@@ -256,6 +267,19 @@ public class JobGraphJsonGenerator {
       streamSpecJson.physicalName = edge.getStreamSpec().getPhysicalName();
       streamSpecJson.partitionCount = edge.getPartitionCount();
       edgeJson.streamSpec = streamSpecJson;
+
+      List<String> sourceJobs = new ArrayList<>();
+      edge.getSourceNodes().forEach(jobNode -> {
+          sourceJobs.add(jobNode.getJobName());
+        });
+      edgeJson.sourceJobs = sourceJobs;
+
+      List<String> targetJobs = new ArrayList<>();
+      edge.getTargetNodes().forEach(jobNode -> {
+          targetJobs.add(jobNode.getJobName());
+        });
+      edgeJson.targetJobs = targetJobs;
+
       streamEdges.put(streamId, edgeJson);
     }
     return edgeJson;

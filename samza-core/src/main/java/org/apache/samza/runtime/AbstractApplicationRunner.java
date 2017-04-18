@@ -21,7 +21,6 @@ package org.apache.samza.runtime;
 import java.io.File;
 import java.io.PrintWriter;
 import java.util.Map;
-import jdk.nashorn.tools.Shell;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
@@ -121,19 +120,15 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   final void writePlanJsonFile(String planJson) {
     try {
       String content = "plan='" + planJson + "'";
-      String planPath = ".";  //default using current directory
       String binPath = System.getenv(ShellCommandConfig.JOB_BIN_DIR());
       if (binPath != null && !binPath.isEmpty()) {
-        // For remote deployment, write the plan json to bin path which
-        // also contains the html and js files
-        planPath = binPath;
+        // Write the plan json to bin path which also contains the html and js files
+        File file = new File(binPath + "/plan.json");
+        file.setReadable(true, false);
+        PrintWriter writer = new PrintWriter(file, "UTF-8");
+        writer.println(content);
+        writer.close();
       }
-
-      File file = new File(planPath + "/plan.json");
-      file.setReadable(true, false);
-      PrintWriter writer = new PrintWriter(file, "UTF-8");
-      writer.println(content);
-      writer.close();
     } catch (Throwable t) {
       log.warn("fail to write execution plan json to file", t);
     }

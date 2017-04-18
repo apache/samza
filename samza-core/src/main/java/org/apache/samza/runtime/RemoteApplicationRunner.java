@@ -19,8 +19,6 @@
 
 package org.apache.samza.runtime;
 
-import java.io.File;
-import java.io.PrintWriter;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
