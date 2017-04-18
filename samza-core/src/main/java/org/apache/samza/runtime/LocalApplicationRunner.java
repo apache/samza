@@ -26,6 +26,8 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -70,8 +72,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     public final String processorId;
 
     public LocalStreamProcessorListener(String processorId) {
-      if (processorId == null) {
-        throw new NullPointerException("processorId cannot be null in LocalStreamProcessorListener!!");
+      if (StringUtils.isEmpty(processorId)) {
+        throw new NullPointerException("processorId has to be defined in LocalStreamProcessorListener.");
       }
       this.processorId = processorId;
     }

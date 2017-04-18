@@ -41,7 +41,7 @@ public interface StreamProcessorLifecycleListener {
 
   /**
    * Callback when the {@link StreamProcessor} fails
-   * @param t exception of the failure
+   * @param t Cause of the failure
    */
   void onFailure(Throwable t);
 
