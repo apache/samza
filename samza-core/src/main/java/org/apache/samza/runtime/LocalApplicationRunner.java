@@ -37,7 +37,7 @@ import org.apache.samza.coordinator.Latch;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
-import org.apache.samza.processor.StreamProcessorLifeCycleAware;
+import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
@@ -66,7 +66,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
-  final class LocalStreamProcessorListener implements StreamProcessorLifeCycleAware {
+  final class LocalStreamProcessorListener implements StreamProcessorLifecycleListener {
     public final String processorId;
 
     public LocalStreamProcessorListener(String processorId) {
@@ -223,7 +223,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       String processorId,
       Config config,
       StreamApplication app,
-      StreamProcessorLifeCycleAware listener) {
+      StreamProcessorLifecycleListener listener) {
     Object taskFactory = TaskFactoryUtil.createTaskFactory(config, app, this);
     if (taskFactory instanceof StreamTaskFactory) {
       return new StreamProcessor(

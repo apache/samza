@@ -28,7 +28,7 @@ import org.apache.samza.annotation.InterfaceStability;
  */
 
 @InterfaceStability.Evolving
-public interface StreamProcessorLifeCycleAware {
+public interface StreamProcessorLifecycleListener {
   /**
    * Callback when the {@link StreamProcessor} is started
    */

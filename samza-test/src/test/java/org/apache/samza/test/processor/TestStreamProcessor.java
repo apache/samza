@@ -40,7 +40,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.processor.StreamProcessor;
-import org.apache.samza.processor.StreamProcessorLifeCycleAware;
+import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.task.AsyncStreamTaskAdapter;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
@@ -76,7 +76,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
         new MapConfig(configs),
         new HashMap<>(),
         IdentityStreamTask::new,
-        new StreamProcessorLifeCycleAware() {
+        new StreamProcessorLifecycleListener() {
           @Override
           public void onStart() {
 
@@ -112,7 +112,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     createTopics(inputTopic, outputTopic);
     final StreamTaskFactory stf = IdentityStreamTask::new;
     final StreamProcessor processor =
-        new StreamProcessor("1", configs, new HashMap<>(), stf, new StreamProcessorLifeCycleAware() {
+        new StreamProcessor("1", configs, new HashMap<>(), stf, new StreamProcessorLifecycleListener() {
           /**
            * Callback when the {@link StreamProcessor} is started
            */
@@ -157,7 +157,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
         configs,
         new HashMap<>(),
         stf,
-        new StreamProcessorLifeCycleAware() {
+        new StreamProcessorLifecycleListener() {
           @Override
           public void onStart() {
 
@@ -199,7 +199,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
         configs,
         new HashMap<>(),
         (StreamTaskFactory) null,
-        new StreamProcessorLifeCycleAware() {
+        new StreamProcessorLifecycleListener() {
           @Override
           public void onStart() {
 

@@ -57,7 +57,7 @@ import java.util.Map;
 @InterfaceStability.Evolving
 public class StreamProcessor {
   private final JobCoordinator jobCoordinator;
-  private final StreamProcessorLifeCycleAware lifeCycleAware;
+  private final StreamProcessorLifecycleListener lifecycleListener;
   private final String processorId;
 
   /**
@@ -73,36 +73,36 @@ public class StreamProcessor {
    * @param config                 Instance of config object - contains all configuration required for processing
    * @param customMetricsReporters Map of custom MetricReporter instances that are to be injected in the Samza job
    * @param asyncStreamTaskFactory The {@link AsyncStreamTaskFactory} to be used for creating task instances.
-   * @param lifeCycleAware         listener to the StreamProcessor life cycle
+   * @param lifecycleListener         listener to the StreamProcessor life cycle
    */
   public StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
-                         AsyncStreamTaskFactory asyncStreamTaskFactory, StreamProcessorLifeCycleAware lifeCycleAware) {
-    this(processorId, config, customMetricsReporters, (Object) asyncStreamTaskFactory, lifeCycleAware);
+                         AsyncStreamTaskFactory asyncStreamTaskFactory, StreamProcessorLifecycleListener lifecycleListener) {
+    this(processorId, config, customMetricsReporters, (Object) asyncStreamTaskFactory, lifecycleListener);
   }
 
 
   /**
-   *Same as {@link #StreamProcessor(String, Config, Map, AsyncStreamTaskFactory, StreamProcessorLifeCycleAware)}, except task
+   *Same as {@link #StreamProcessor(String, Config, Map, AsyncStreamTaskFactory, StreamProcessorLifecycleListener)}, except task
    * instances are created using the provided {@link StreamTaskFactory}.
    * @param config - config
    * @param customMetricsReporters metric Reporter
    * @param streamTaskFactory task factory to instantiate the Task
-   * @param lifeCycleAware  listener to the StreamProcessor life cycle
+   * @param lifecycleListener  listener to the StreamProcessor life cycle
    */
   public StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
-                         StreamTaskFactory streamTaskFactory, StreamProcessorLifeCycleAware lifeCycleAware) {
-    this(processorId, config, customMetricsReporters, (Object) streamTaskFactory, lifeCycleAware);
+                         StreamTaskFactory streamTaskFactory, StreamProcessorLifecycleListener lifecycleListener) {
+    this(processorId, config, customMetricsReporters, (Object) streamTaskFactory, lifecycleListener);
   }
 
   private StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
-                          Object taskFactory, StreamProcessorLifeCycleAware lifeCycleAware) {
+                          Object taskFactory, StreamProcessorLifecycleListener lifecycleListener) {
     this.processorId = processorId;
 
     SamzaContainerController containerController = new SamzaContainerController(
         taskFactory,
         new TaskConfigJava(config).getShutdownMs(),
         customMetricsReporters,
-        lifeCycleAware);
+        lifecycleListener);
 
     this.jobCoordinator = Util.
         <JobCoordinatorFactory>getObj(
@@ -110,7 +110,7 @@ public class StreamProcessor {
                 .getJobCoordinatorFactoryClassName())
         .getJobCoordinator(processorId, config, containerController);
 
-    this.lifeCycleAware = lifeCycleAware;
+    this.lifecycleListener = lifecycleListener;
   }
 
   /**
@@ -124,7 +124,7 @@ public class StreamProcessor {
    */
   public void start() {
     jobCoordinator.start();
-    lifeCycleAware.onStart();
+    lifecycleListener.onStart();
   }
 
   /**

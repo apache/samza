@@ -32,7 +32,7 @@ import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
-import org.apache.samza.processor.StreamProcessorLifeCycleAware;
+import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -229,12 +229,12 @@ public class TestLocalApplicationRunner {
     when(planner.plan(anyObject())).thenReturn(plan);
 
     StreamProcessor sp = mock(StreamProcessor.class);
-    ArgumentCaptor<StreamProcessorLifeCycleAware> captor =
-        ArgumentCaptor.forClass(StreamProcessorLifeCycleAware.class);
+    ArgumentCaptor<StreamProcessorLifecycleListener> captor =
+        ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
 
     doAnswer(i ->
       {
-        StreamProcessorLifeCycleAware listener = captor.getValue();
+        StreamProcessorLifecycleListener listener = captor.getValue();
         listener.onShutdown();
         return null;
       }).when(sp).start();
@@ -282,11 +282,11 @@ public class TestLocalApplicationRunner {
 
     Throwable t = new Throwable("test failure");
     StreamProcessor sp = mock(StreamProcessor.class);
-    ArgumentCaptor<StreamProcessorLifeCycleAware> captor =
-        ArgumentCaptor.forClass(StreamProcessorLifeCycleAware.class);
+    ArgumentCaptor<StreamProcessorLifecycleListener> captor =
+        ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
 
     doAnswer(i -> {
-        StreamProcessorLifeCycleAware listener = captor.getValue();
+        StreamProcessorLifecycleListener listener = captor.getValue();
         listener.onFailure(t);
         return null;
       }).when(sp).start();
