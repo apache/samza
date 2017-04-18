@@ -59,8 +59,8 @@ public class JobGraphJsonGenerator {
     String outputStreamId;
     @JsonProperty("PairedOpId")
     int pairedOpId = -1;  //for join operator, we will have a pair nodes for two partial joins
-    @JsonProperty("Invoker")
-    String invoker;
+    @JsonProperty("Caller")
+    String caller;
   }
 
   static final class StreamSpecJson {
@@ -213,9 +213,9 @@ public class JobGraphJsonGenerator {
       opJson = new OperatorJson();
       opJson.opCode = opSpec.getOpCode().name();
       opJson.opId = opSpec.getOpId();
-      StackTraceElement stackTraceElement = messageStream.getInvokerStackTrace(opSpec.getOpId());
+      StackTraceElement stackTraceElement = messageStream.getCallerStackTrace(opSpec.getOpId());
       if (stackTraceElement != null) {
-        opJson.invoker = String.format("%s:%s", stackTraceElement.getFileName(), stackTraceElement.getLineNumber());
+        opJson.caller = String.format("%s:%s", stackTraceElement.getFileName(), stackTraceElement.getLineNumber());
       }
       operators.put(opSpec.getOpId(), opJson);
     }

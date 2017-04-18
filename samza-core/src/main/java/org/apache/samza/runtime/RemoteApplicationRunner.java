@@ -52,13 +52,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     try {
       // 1. initialize and plan
       ExecutionPlan plan = getExecutionPlan(app);
-      String planJson = "plan='" + plan.getPlanAsJson() + "'";
-      String binPath = System.getenv("JOB_BIN_DIR");
-      File file = new File(binPath + "/plan.json");
-      file.setReadable(true, false);
-      PrintWriter writer = new PrintWriter(file, "UTF-8");
-      writer.println(planJson);
-      writer.close();
+      writePlanJsonFile(plan.getPlanAsJson());
 
       // 2. create the necessary streams
       getStreamManager().createStreams(plan.getIntermediateStreams());

@@ -55,7 +55,7 @@ function planToDagre(data) {
       }
       canonicalId[operator.OpId] = opId;
       labelVal +=  "<li>ID: " + opId + "</li>";
-      labelVal +=  "<li>@" + operator.Invoker + "</li>";
+      labelVal +=  "<li>@" + operator.Caller + "</li>";
       labelVal += "</ul></div>";
       g.setNode(opId,  { label: labelVal, labelType: "html", rx: 5, ry: 5 });
     }
