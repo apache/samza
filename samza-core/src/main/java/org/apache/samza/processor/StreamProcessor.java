@@ -18,21 +18,18 @@
  */
 package org.apache.samza.processor;
 
-import java.util.Map;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.metrics.MetricsReporter;
-import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.util.Util;
+
+import java.util.Map;
 
 /**
  * StreamProcessor can be embedded in any application or executed in a distributed environment (aka cluster) as an
@@ -78,45 +75,30 @@ public class StreamProcessor {
    * @param asyncStreamTaskFactory The {@link AsyncStreamTaskFactory} to be used for creating task instances.
    * @param lifeCycleAware         listener to the StreamProcessor life cycle
    */
-  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
+  public StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
                          AsyncStreamTaskFactory asyncStreamTaskFactory, StreamProcessorLifeCycleAware lifeCycleAware) {
-    this(config, customMetricsReporters, (Object) asyncStreamTaskFactory, lifeCycleAware);
+    this(processorId, config, customMetricsReporters, (Object) asyncStreamTaskFactory, lifeCycleAware);
   }
 
 
   /**
-   *Same as {@link #StreamProcessor(Config, Map, AsyncStreamTaskFactory, StreamProcessorLifeCycleAware)}, except task
+   *Same as {@link #StreamProcessor(String, Config, Map, AsyncStreamTaskFactory, StreamProcessorLifeCycleAware)}, except task
    * instances are created using the provided {@link StreamTaskFactory}.
    * @param config - config
    * @param customMetricsReporters metric Reporter
    * @param streamTaskFactory task factory to instantiate the Task
    * @param lifeCycleAware  listener to the StreamProcessor life cycle
    */
-  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
+  public StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
                          StreamTaskFactory streamTaskFactory, StreamProcessorLifeCycleAware lifeCycleAware) {
-    this(config, customMetricsReporters, (Object) streamTaskFactory, lifeCycleAware);
+    this(processorId, config, customMetricsReporters, (Object) streamTaskFactory, lifeCycleAware);
   }
 
-  private StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
+  private StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
                           Object taskFactory, StreamProcessorLifeCycleAware lifeCycleAware) {
-
-    // TODO: This check to be removed after 0.13+
-    ApplicationConfig appConfig = new ApplicationConfig(config);
-    if (appConfig.getProcessorId() != null) {
-      this.processorId = appConfig.getProcessorId();
-    } else if (appConfig.getAppProcessorIdGeneratorClass() == null) {
-      ProcessorIdGenerator idGenerator =
-          ClassLoaderHelper.fromClassName(appConfig.getAppProcessorIdGeneratorClass(),
-              ProcessorIdGenerator.class);
-      this.processorId = idGenerator.generateProcessorId(config);
-    } else {
-      throw new ConfigException(
-          String.format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
-              ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
-    }
+    this.processorId = processorId;
 
     SamzaContainerController containerController = new SamzaContainerController(
-        processorId,
         taskFactory,
         new TaskConfigJava(config).getShutdownMs(),
         customMetricsReporters,
@@ -142,7 +124,7 @@ public class StreamProcessor {
    */
   public void start() {
     jobCoordinator.start();
-    lifeCycleAware.onStart(processorId);
+    lifeCycleAware.onStart();
   }
 
   /**

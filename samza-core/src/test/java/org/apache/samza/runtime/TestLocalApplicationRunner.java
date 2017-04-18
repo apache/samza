@@ -19,14 +19,8 @@
 
 package org.apache.samza.runtime;
 
-import java.lang.reflect.Field;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
@@ -42,6 +36,14 @@ import org.apache.samza.processor.StreamProcessorLifeCycleAware;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+
+import java.lang.reflect.Field;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -197,6 +199,7 @@ public class TestLocalApplicationRunner {
   @Test
   public void testRunComplete() throws Exception {
     final Map<String, String> config = new HashMap<>();
+    config.put(ApplicationConfig.PROCESSOR_ID, "0");
     LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(config));
     StreamApplication app = mock(StreamApplication.class);
     doNothing().when(app).init(anyObject(), anyObject());
@@ -229,15 +232,16 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessorLifeCycleAware> captor =
         ArgumentCaptor.forClass(StreamProcessorLifeCycleAware.class);
 
-    doAnswer(i -> {
+    doAnswer(i ->
+      {
         StreamProcessorLifeCycleAware listener = captor.getValue();
-        listener.onShutdown("0");
+        listener.onShutdown();
         return null;
       }).when(sp).start();
 
 
     LocalApplicationRunner spy = spy(runner);
-    doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
+    doReturn(sp).when(spy).createStreamProcessor(anyString(), anyObject(), anyObject(), captor.capture());
 
     spy.run(app);
 
@@ -247,6 +251,7 @@ public class TestLocalApplicationRunner {
   @Test
   public void testRunFailure() throws Exception {
     final Map<String, String> config = new HashMap<>();
+    config.put(ApplicationConfig.PROCESSOR_ID, "0");
     LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(config));
     StreamApplication app = mock(StreamApplication.class);
     doNothing().when(app).init(anyObject(), anyObject());
@@ -282,13 +287,13 @@ public class TestLocalApplicationRunner {
 
     doAnswer(i -> {
         StreamProcessorLifeCycleAware listener = captor.getValue();
-        listener.onFailure("0", t);
+        listener.onFailure(t);
         return null;
       }).when(sp).start();
 
 
     LocalApplicationRunner spy = spy(runner);
-    doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
+    doReturn(sp).when(spy).createStreamProcessor(anyString(), anyObject(), anyObject(), captor.capture());
 
     try {
       spy.run(app);
