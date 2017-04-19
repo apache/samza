@@ -31,14 +31,16 @@ class SerdeManager(
   systemMessageSerdes: Map[String, Serde[Object]] = Map(),
   systemStreamKeySerdes: Map[SystemStream, Serde[Object]] = Map(),
   systemStreamMessageSerdes: Map[SystemStream, Serde[Object]] = Map(),
-  changeLogSystemStreams: Set[SystemStream] = Set()) {
+  changeLogSystemStreams: Set[SystemStream] = Set(),
+  accessLogSystemStreams: Set[SystemStream] = Set()) {
 
   def toBytes(obj: Object, serializerName: String) = serdes
     .getOrElse(serializerName, throw new SamzaException("No serde defined for %s" format serializerName))
     .toBytes(obj)
 
   def toBytes(envelope: OutgoingMessageEnvelope): OutgoingMessageEnvelope = {
-    val key = if (changeLogSystemStreams.contains(envelope.getSystemStream)) {
+    val key = if (changeLogSystemStreams.contains(envelope.getSystemStream)
+      || accessLogSystemStreams.contains(envelope.getSystemStream)) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getKey
     } else if (envelope.getKeySerializerName != null) {
@@ -55,7 +57,8 @@ class SerdeManager(
       envelope.getKey
     }
 
-    val message = if (changeLogSystemStreams.contains(envelope.getSystemStream)) {
+    val message = if (changeLogSystemStreams.contains(envelope.getSystemStream)
+      || accessLogSystemStreams.contains(envelope.getSystemStream)) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getMessage
     } else if (envelope.getMessageSerializerName != null) {
@@ -90,7 +93,8 @@ class SerdeManager(
     .fromBytes(bytes)
 
   def fromBytes(envelope: IncomingMessageEnvelope) = {
-    val key = if (changeLogSystemStreams.contains(envelope.getSystemStreamPartition.getSystemStream)) {
+    val key = if (changeLogSystemStreams.contains(envelope.getSystemStreamPartition.getSystemStream)
+      || accessLogSystemStreams.contains(envelope.getSystemStreamPartition.getSystemStream)) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getKey
     } else if (systemStreamKeySerdes.contains(envelope.getSystemStreamPartition)) {
@@ -104,7 +108,8 @@ class SerdeManager(
       envelope.getKey
     }
 
-    val message = if (changeLogSystemStreams.contains(envelope.getSystemStreamPartition.getSystemStream)) {
+    val message = if (changeLogSystemStreams.contains(envelope.getSystemStreamPartition.getSystemStream)
+      || accessLogSystemStreams.contains(envelope.getSystemStreamPartition.getSystemStream)) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getMessage
     } else if (systemStreamMessageSerdes.contains(envelope.getSystemStreamPartition)) {

@@ -116,6 +116,7 @@ object TestKeyValuePerformance extends Logging {
           new TaskInstanceCollector(producerMultiplexer),
           new MetricsRegistryMap,
           null,
+          null,
           new SamzaContainerContext("0", config, taskNames)
         )
 
