@@ -20,13 +20,6 @@
 package org.apache.samza.processor;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.TaskConfigJava;
@@ -39,6 +32,14 @@ import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class SamzaContainerController {
   private static final Logger log = LoggerFactory.getLogger(SamzaContainerController.class);
@@ -61,7 +62,7 @@ public class SamzaContainerController {
    *                            {@link org.apache.samza.task.AsyncStreamTask}
    * @param containerShutdownMs How long the Samza container should wait for an orderly shutdown of task instances
    * @param metricsReporterMap  Map of metric reporter name and {@link MetricsReporter} instance
-   * @param lifecycleListener {@link StreamProcessorLifecycleListener}
+   * @param lifecycleListener  {@link StreamProcessorLifecycleListener} that listens to the StreamProcessor life cycle events
    */
   public SamzaContainerController(
       Object taskFactory,
