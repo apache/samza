@@ -130,7 +130,7 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
         writer.close();
       }
     } catch (Throwable t) {
-      log.warn("fail to write execution plan json to file", t);
+      log.warn("Failed to write execution plan json to file", t);
     }
   }
 }
