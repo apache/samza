@@ -31,6 +31,7 @@ import org.apache.samza.task.MessageCollector
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.util.HighResolutionClock
 import org.apache.samza.util.Util.asScalaClock
+import org.apache.samza.system.SystemStream
 
 /**
  * A key value storage engine factory implementation
@@ -71,14 +72,15 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
    * @param changeLogSystemStreamPartition Samza stream partition from which to receive the changelog.
    * @param containerContext Information about the container in which the task is executing.
    **/
-  def getStorageEngine( storeName: String,
-                        storeDir: File,
-                        keySerde: Serde[K],
-                        msgSerde: Serde[V],
-                        collector: MessageCollector,
-                        registry: MetricsRegistry,
-                        changeLogSystemStreamPartition: SystemStreamPartition,
-                        containerContext: SamzaContainerContext): StorageEngine = {
+  def getStorageEngine(storeName: String,
+                       storeDir: File,
+                       keySerde: Serde[K],
+                       msgSerde: Serde[V],
+                       collector: MessageCollector,
+                       registry: MetricsRegistry,
+                       changeLogSystemStreamPartition: SystemStreamPartition,
+                       accessLogSystemStreamPartition: SystemStreamPartition,
+                       containerContext: SamzaContainerContext): StorageEngine = {
     val storageConfig = containerContext.config.subset("stores." + storeName + ".", true)
     val storeFactory = storageConfig.get("factory")
     var storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder()
@@ -129,8 +131,14 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
       serialized
     }
 
+    val maybeAccessLoggedStore = if (accessLogSystemStreamPartition != null) {
+      new AccessLoggedStore(maybeCachedStore, collector, accessLogSystemStreamPartition)
+    } else {
+      maybeCachedStore
+    }
+
     // wrap with null value checking
-    val nullSafeStore = new NullSafeKeyValueStore(maybeCachedStore)
+    val nullSafeStore = new NullSafeKeyValueStore(maybeAccessLoggedStore)
 
     // create the storage engine and return
     // TODO: Decide if we should use raw bytes when restoring

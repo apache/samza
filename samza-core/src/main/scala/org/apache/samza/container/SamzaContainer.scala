@@ -289,13 +289,22 @@ object SamzaContainer extends Logging {
 
     info("Got change log system streams: %s" format changeLogSystemStreams)
 
+    val accessLogSystemStreams = config
+      .getStoreNames
+      .filter(config.getAccessLogStream(_).isDefined)
+      .map(name => (name, config.getAccessLogStream(name).get)).toMap
+      .mapValues(Util.getSystemStreamFromNames(_))
+
+    info("Got access log system streams: %s " format accessLogSystemStreams)
+
     val serdeManager = new SerdeManager(
       serdes = serdes,
       systemKeySerdes = systemKeySerdes,
       systemMessageSerdes = systemMessageSerdes,
       systemStreamKeySerdes = systemStreamKeySerdes,
       systemStreamMessageSerdes = systemStreamMessageSerdes,
-      changeLogSystemStreams = changeLogSystemStreams.values.toSet)
+      changeLogSystemStreams = changeLogSystemStreams.values.toSet,
+      accessLogSystemStreams = accessLogSystemStreams.values.toSet)
 
     info("Setting up JVM metrics.")
 
@@ -483,6 +492,11 @@ object SamzaContainer extends Logging {
             else {
               TaskStorageManager.getStorePartitionDir(defaultStoreBaseDir, storeName, taskName)
             }
+            val accessLogSystemStreamPartition = if(accessLogSystemStreams.contains(storeName)) {
+              new SystemStreamPartition(accessLogSystemStreams(storeName), taskModel.getChangelogPartition)
+            } else {
+              null
+            }
             val storageEngine = storageEngineFactory.getStorageEngine(
               storeName,
               storeBaseDir,
@@ -491,6 +505,7 @@ object SamzaContainer extends Logging {
               collector,
               taskInstanceMetrics.registry,
               changeLogSystemStreamPartition,
+              accessLogSystemStreamPartition,
               containerContext)
             (storeName, storageEngine)
         }

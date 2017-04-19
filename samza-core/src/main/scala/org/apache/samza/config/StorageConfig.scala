@@ -35,6 +35,7 @@ object StorageConfig {
   val CHANGELOG_SYSTEM = "job.changelog.system"
   val CHANGELOG_DELETE_RETENTION_MS = "stores.%s.changelog.delete.retention.ms"
   val DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1)
+  val ACCESSLOG_STREAM = "stores.%s.accesslog"
 
   implicit def Config2Storage(config: Config) = new StorageConfig(config)
 }
@@ -60,6 +61,18 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
         else {
           throw new SamzaException("changelog system is not defined:" + systemStream.get)
         }
+      } else {
+        systemStream
+      }
+    systemStreamRes
+  }
+
+  def getAccessLogStream(name: String) = {
+    //Looking for the access log stream similar to the change log stream
+    val systemStream = getOption(ACCESSLOG_STREAM format name)
+    val systemStreamRes =
+      if (systemStream.isDefined && ! systemStream.getOrElse("").contains('.')) {
+          throw new SamzaException("accesslog system is not defined " + systemStream.get)
       } else {
         systemStream
       }
