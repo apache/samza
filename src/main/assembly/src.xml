@@ -51,6 +51,26 @@
       <outputDirectory>config</outputDirectory>
       <filtered>true</filtered>
     </file>
+    <file>
+      <source>${basedir}/src/main/config/tumbling-pageview-counter.properties</source>
+      <outputDirectory>config</outputDirectory>
+      <filtered>true</filtered>
+    </file>
+    <file>
+      <source>${basedir}/src/main/config/pageview-sessionizer.properties</source>
+      <outputDirectory>config</outputDirectory>
+      <filtered>true</filtered>
+    </file>
+    <file>
+      <source>${basedir}/src/main/config/pageview-filter.properties</source>
+      <outputDirectory>config</outputDirectory>
+      <filtered>true</filtered>
+    </file>
+    <file>
+      <source>${basedir}/src/main/config/pageview-adclick-joiner.properties</source>
+      <outputDirectory>config</outputDirectory>
+      <filtered>true</filtered>
+    </file>
   </files>
   <dependencySets>
     <dependencySet>
