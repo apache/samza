@@ -47,20 +47,20 @@ public interface MessageStream<M> {
    * transformed {@link MessageStream}.
    *
    * @param mapFn the function to transform a message to another message
-   * @param <TM> the type of messages in the transformed {@link MessageStream}
+   * @param <OM> the type of messages in the output {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  <TM> MessageStream<TM> map(MapFunction<M, TM> mapFn);
+  <OM> MessageStream<OM> map(MapFunction<? super M, ? extends OM> mapFn);
 
   /**
    * Applies the provided 1:n function to transform a message in this {@link MessageStream}
    * to n messages in the transformed {@link MessageStream}
    *
    * @param flatMapFn the function to transform a message to zero or more messages
-   * @param <TM> the type of messages in the transformed {@link MessageStream}
+   * @param <OM> the type of messages in the output {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  <TM> MessageStream<TM> flatMap(FlatMapFunction<M, TM> flatMapFn);
+  <OM> MessageStream<OM> flatMap(FlatMapFunction<? super M, ? extends OM> flatMapFn);
 
   /**
    * Applies the provided function to messages in this {@link MessageStream} and returns the
@@ -72,7 +72,7 @@ public interface MessageStream<M> {
    * @param filterFn the predicate to filter messages from this {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  MessageStream<M> filter(FilterFunction<M> filterFn);
+  MessageStream<M> filter(FilterFunction<? super M> filterFn);
 
   /**
    * Allows sending messages in this {@link MessageStream} to an output system using the provided {@link SinkFunction}.
@@ -82,8 +82,9 @@ public interface MessageStream<M> {
    * non-stream systems (e.g., an external database).
    *
    * @param sinkFn the function to send messages in this stream to an external system
+   * @return this {@link MessageStream} object
    */
-  void sink(SinkFunction<M> sinkFn);
+  MessageStream<M> sink(SinkFunction<? super M> sinkFn);
 
   /**
    * Allows sending messages in this {@link MessageStream} to an output {@link MessageStream}.
@@ -91,8 +92,9 @@ public interface MessageStream<M> {
    * @param outputStream the output stream to send messages to
    * @param <K> the type of key in the outgoing message
    * @param <V> the type of message in the outgoing message
+   * @return this {@link MessageStream} object
    */
-  <K, V> void sendTo(OutputStream<K, V, M> outputStream);
+  <K, V> MessageStream<M> sendTo(OutputStream<K, V, M> outputStream);
 
   /**
    * Groups the messages in this {@link MessageStream} according to the provided {@link Window} semantics
@@ -119,11 +121,11 @@ public interface MessageStream<M> {
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
    * @param ttl the ttl for messages in each stream
    * @param <K> the type of join key
-   * @param <OM> the type of messages in the other stream
-   * @param <RM> the type of messages resulting from the {@code joinFn}
+   * @param <JM> the type of messages in the other join stream
+   * @param <OM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, OM, RM> MessageStream<RM> join(MessageStream<OM> otherStream, JoinFunction<K, M, OM, RM> joinFn, Duration ttl);
+  <K, JM, OM> MessageStream<OM> join(MessageStream<JM> otherStream, JoinFunction<? extends K, ? super M, ? super JM, ? extends OM> joinFn, Duration ttl);
 
   /**
    * Merge all {@code otherStreams} with this {@link MessageStream}.
@@ -133,7 +135,7 @@ public interface MessageStream<M> {
    * @param otherStreams other {@link MessageStream}s to be merged with this {@link MessageStream}
    * @return the merged {@link MessageStream}
    */
-  MessageStream<M> merge(Collection<MessageStream<M>> otherStreams);
+  MessageStream<M> merge(Collection<MessageStream<? extends M>> otherStreams);
 
   /**
    * Sends the messages of type {@code M}in this {@link MessageStream} to a repartitioned output stream and consumes
@@ -144,6 +146,6 @@ public interface MessageStream<M> {
    * @param <K> the type of output message key and partition key
    * @return the repartitioned {@link MessageStream}
    */
-  <K> MessageStream<M> partitionBy(Function<M, K> keyExtractor);
+  <K> MessageStream<M> partitionBy(Function<? super M, ? extends K> keyExtractor);
 
 }

@@ -31,11 +31,11 @@ public class OutputStreamInternalImpl<K, V, M> extends MessageStreamImpl<M> impl
   private final Function<M, V> msgExtractor;
 
   public OutputStreamInternalImpl(StreamGraphImpl graph, StreamSpec streamSpec,
-      Function<M, K> keyExtractor, Function<M, V> msgExtractor) {
+      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
     super(graph);
     this.streamSpec = streamSpec;
-    this.keyExtractor = keyExtractor;
-    this.msgExtractor = msgExtractor;
+    this.keyExtractor = keyExtractor::apply;
+    this.msgExtractor = msgExtractor::apply;
   }
 
   public StreamSpec getStreamSpec() {

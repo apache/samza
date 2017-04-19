@@ -19,6 +19,7 @@
 package org.apache.samza.task;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
@@ -74,7 +75,7 @@ public class TestTaskFactoryUtil {
   public void testCreateStreamApplication() throws Exception {
     Config config = new MapConfig(new HashMap<String, String>() {
       {
-        this.put(StreamApplication.APP_CLASS_CONFIG, "org.apache.samza.testUtils.TestStreamApplication");
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.TestStreamApplication");
       }
     });
     StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
@@ -85,7 +86,7 @@ public class TestTaskFactoryUtil {
 
     config = new MapConfig(new HashMap<String, String>() {
       {
-        this.put(StreamApplication.APP_CLASS_CONFIG, "org.apache.samza.testUtils.InvalidStreamApplication");
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.InvalidStreamApplication");
       }
     });
     try {
@@ -97,7 +98,7 @@ public class TestTaskFactoryUtil {
 
     config = new MapConfig(new HashMap<String, String>() {
       {
-        this.put(StreamApplication.APP_CLASS_CONFIG, "no.such.class");
+        this.put(ApplicationConfig.APP_CLASS, "no.such.class");
       }
     });
     try {
@@ -109,7 +110,7 @@ public class TestTaskFactoryUtil {
 
     config = new MapConfig(new HashMap<String, String>() {
       {
-        this.put(StreamApplication.APP_CLASS_CONFIG, "");
+        this.put(ApplicationConfig.APP_CLASS, "");
       }
     });
     streamApp = TaskFactoryUtil.createStreamApplication(config);
@@ -124,7 +125,7 @@ public class TestTaskFactoryUtil {
   public void testCreateStreamApplicationWithTaskClass() throws Exception {
     Config config = new MapConfig(new HashMap<String, String>() {
       {
-        this.put(StreamApplication.APP_CLASS_CONFIG, "org.apache.samza.testUtils.TestStreamApplication");
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.TestStreamApplication");
       }
     });
     StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
@@ -133,7 +134,7 @@ public class TestTaskFactoryUtil {
     config = new MapConfig(new HashMap<String, String>() {
       {
         this.put("task.class", "org.apache.samza.testUtils.TestAsyncStreamTask");
-        this.put(StreamApplication.APP_CLASS_CONFIG, "org.apache.samza.testUtils.TestStreamApplication");
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.TestStreamApplication");
       }
     });
     try {
@@ -146,7 +147,7 @@ public class TestTaskFactoryUtil {
     config = new MapConfig(new HashMap<String, String>() {
       {
         this.put("task.class", "no.such.class");
-        this.put(StreamApplication.APP_CLASS_CONFIG, "org.apache.samza.testUtils.TestStreamApplication");
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.TestStreamApplication");
       }
     });
     try {
@@ -162,7 +163,7 @@ public class TestTaskFactoryUtil {
 
     Config config = new MapConfig(new HashMap<String, String>() {
       {
-        this.put(StreamApplication.APP_CLASS_CONFIG, "org.apache.samza.testUtils.InvalidStreamApplication");
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.InvalidStreamApplication");
       }
     });
     try {
@@ -175,7 +176,7 @@ public class TestTaskFactoryUtil {
     config = new MapConfig(new HashMap<String, String>() {
       {
         this.put("task.class", "org.apache.samza.testUtils.TestStreamTask");
-        this.put(StreamApplication.APP_CLASS_CONFIG, "");
+        this.put(ApplicationConfig.APP_CLASS, "");
       }
     });
     StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
@@ -186,7 +187,7 @@ public class TestTaskFactoryUtil {
     config = new MapConfig(new HashMap<String, String>() {
       {
         this.put("task.class", "");
-        this.put(StreamApplication.APP_CLASS_CONFIG, "org.apache.samza.testUtils.InvalidStreamApplication");
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.InvalidStreamApplication");
       }
     });
     try {
@@ -226,7 +227,7 @@ public class TestTaskFactoryUtil {
 
     Config config = new MapConfig(new HashMap<String, String>() {
       {
-        this.put(StreamApplication.APP_CLASS_CONFIG, "org.apache.samza.testUtils.InvalidStreamApplication");
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.InvalidStreamApplication");
       }
     });
     try {
@@ -239,7 +240,7 @@ public class TestTaskFactoryUtil {
     config = new MapConfig(new HashMap<String, String>() {
       {
         this.put("task.class", "org.apache.samza.testUtils.TestAsyncStreamTask");
-        this.put(StreamApplication.APP_CLASS_CONFIG, "");
+        this.put(ApplicationConfig.APP_CLASS, "");
       }
     });
     StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
@@ -250,7 +251,7 @@ public class TestTaskFactoryUtil {
     config = new MapConfig(new HashMap<String, String>() {
       {
         this.put("task.class", "org.apache.samza.testUtils.TestAsyncStreamTask");
-        this.put(StreamApplication.APP_CLASS_CONFIG, null);
+        this.put(ApplicationConfig.APP_CLASS, null);
       }
     });
     streamApp = TaskFactoryUtil.createStreamApplication(config);

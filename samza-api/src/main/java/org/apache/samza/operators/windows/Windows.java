@@ -20,12 +20,14 @@
 package org.apache.samza.operators.windows;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.config.Config;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.triggers.TimeTrigger;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.operators.windows.internal.WindowType;
+import org.apache.samza.task.TaskContext;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -119,11 +121,21 @@ public final class Windows {
    * @param <K> the type of the key in the {@link Window}
    * @return the created {@link Window} function.
    */
-  public static <M, K, WV> Window<M, K, WV> keyedTumblingWindow(Function<M, K> keyFn, Duration interval,
-                                                                Supplier<WV> initialValue, FoldLeftFunction<M, WV> foldFn) {
+  public static <M, K, WV> Window<M, K, WV> keyedTumblingWindow(Function<? super M, ? extends K> keyFn, Duration interval,
+                                                                Supplier<? extends WV> initialValue, FoldLeftFunction<? super M, WV> foldFn) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
-    return new WindowInternal<M, K, WV>(defaultTrigger, initialValue, foldFn, keyFn, null, WindowType.TUMBLING);
+    return new WindowInternal<>(defaultTrigger, initialValue::get, new FoldLeftFunction<M, WV>() {
+      @Override
+      public WV apply(M message, WV oldValue) {
+        return foldFn.apply(message, oldValue);
+      }
+
+      @Override
+      public void init(Config config, TaskContext context) {
+        foldFn.init(config, context);
+      }
+    }, keyFn::apply, null, WindowType.TUMBLING);
   }
 
 
@@ -147,10 +159,10 @@ public final class Windows {
    * @param <K> the type of the key in the {@link Window}
    * @return the created {@link Window} function
    */
-  public static <M, K> Window<M, K, Collection<M>> keyedTumblingWindow(Function<M, K> keyFn, Duration interval) {
+  public static <M, K> Window<M, K, Collection<M>> keyedTumblingWindow(Function<? super M, ? extends K> keyFn, Duration interval) {
     FoldLeftFunction<M, Collection<M>> aggregator = createAggregator();
 
-    Supplier<Collection<M>> initialValue = () -> new ArrayList<>();
+    Supplier<Collection<M>> initialValue = ArrayList::new;
     return keyedTumblingWindow(keyFn, interval, initialValue, aggregator);
   }
 
@@ -175,10 +187,20 @@ public final class Windows {
    * @param <WV> the type of the {@link WindowPane} output value
    * @return the created {@link Window} function
    */
-  public static <M, WV> Window<M, Void, WV> tumblingWindow(Duration duration, Supplier<WV> initialValue,
-                                                           FoldLeftFunction<M, WV> foldFn) {
+  public static <M, WV> Window<M, Void, WV> tumblingWindow(Duration duration, Supplier<? extends WV> initialValue,
+                                                           FoldLeftFunction<? super M, WV> foldFn) {
     Trigger<M> defaultTrigger = Triggers.repeat(new TimeTrigger<>(duration));
-    return new WindowInternal<>(defaultTrigger, initialValue, foldFn, null, null, WindowType.TUMBLING);
+    return new WindowInternal<>(defaultTrigger, initialValue::get, new FoldLeftFunction<M, WV>() {
+        @Override
+        public WV apply(M message, WV oldValue) {
+          return foldFn.apply(message, oldValue);
+        }
+
+        @Override
+        public void init(Config config, TaskContext context) {
+          foldFn.init(config, context);
+        }
+      }, null, null, WindowType.TUMBLING);
   }
 
   /**
@@ -201,9 +223,9 @@ public final class Windows {
    * @return the created {@link Window} function
    */
   public static <M> Window<M, Void, Collection<M>> tumblingWindow(Duration duration) {
-    FoldLeftFunction<M, Collection<M>> aggregator = createAggregator();
+    FoldLeftFunction<? super M, Collection<M>> aggregator = createAggregator();
 
-    Supplier<Collection<M>> initialValue = () -> new ArrayList<>();
+    Supplier<Collection<M>> initialValue = ArrayList::new;
     return tumblingWindow(duration, initialValue, aggregator);
   }
 
@@ -235,10 +257,20 @@ public final class Windows {
    * @param <WV> the type of the output value in the {@link WindowPane}
    * @return the created {@link Window} function
    */
-  public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap,
-                                                               Supplier<WV> initialValue, FoldLeftFunction<M, WV> foldFn) {
+  public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(Function<? super M, ? extends K> keyFn, Duration sessionGap,
+                                                               Supplier<? extends WV> initialValue, FoldLeftFunction<? super M, WV> foldFn) {
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
-    return new WindowInternal<>(defaultTrigger, initialValue, foldFn, keyFn, null, WindowType.SESSION);
+    return new WindowInternal<>(defaultTrigger, initialValue::get, new FoldLeftFunction<M, WV>() {
+        @Override
+        public WV apply(M message, WV oldValue) {
+          return foldFn.apply(message, oldValue);
+        }
+
+        @Override
+        public void init(Config config, TaskContext context) {
+          foldFn.init(config, context);
+        }
+      }, keyFn::apply, null, WindowType.SESSION);
   }
 
   /**
@@ -265,11 +297,11 @@ public final class Windows {
    * @param <K> the type of the key in the {@link Window}
    * @return the created {@link Window} function
    */
-  public static <M, K> Window<M, K, Collection<M>> keyedSessionWindow(Function<M, K> keyFn, Duration sessionGap) {
+  public static <M, K> Window<M, K, Collection<M>> keyedSessionWindow(Function<? super M, ? extends K> keyFn, Duration sessionGap) {
 
     FoldLeftFunction<M, Collection<M>> aggregator = createAggregator();
 
-    Supplier<Collection<M>> initialValue = () -> new ArrayList<>();
+    Supplier<Collection<M>> initialValue = ArrayList::new;
     return keyedSessionWindow(keyFn, sessionGap, initialValue, aggregator);
   }
 

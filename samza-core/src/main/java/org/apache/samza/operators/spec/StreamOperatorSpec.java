@@ -45,7 +45,7 @@ public class StreamOperatorSpec<M, OM> implements OperatorSpec<OM> {
    * @param opCode  the {@link OpCode} for this {@link StreamOperatorSpec}
    * @param opId  the unique id for this {@link StreamOperatorSpec} in a {@link org.apache.samza.operators.StreamGraph}
    */
-  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, MessageStreamImpl nextStream,
+  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, MessageStreamImpl<OM> nextStream,
       OperatorSpec.OpCode opCode, int opId) {
     this.transformFn = transformFn;
     this.nextStream = nextStream;

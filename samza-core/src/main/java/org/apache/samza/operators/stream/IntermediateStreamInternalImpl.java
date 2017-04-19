@@ -33,13 +33,13 @@ public class IntermediateStreamInternalImpl<K, V, M> extends MessageStreamImpl<M
   private final Function<M, V> msgExtractor;
   private final BiFunction<K, V, M> msgBuilder;
 
-  public IntermediateStreamInternalImpl(StreamGraphImpl graph, StreamSpec streamSpec,
-      Function<M, K> keyExtractor, Function<M, V> msgExtractor, BiFunction<K, V, M> msgBuilder) {
+  public IntermediateStreamInternalImpl(StreamGraphImpl graph, StreamSpec streamSpec, Function<? super M, ? extends K> keyExtractor,
+      Function<? super M, ? extends V> msgExtractor, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
     super(graph);
     this.streamSpec = streamSpec;
-    this.keyExtractor = keyExtractor;
-    this.msgExtractor = msgExtractor;
-    this.msgBuilder = msgBuilder;
+    this.keyExtractor = keyExtractor::apply;
+    this.msgExtractor = msgExtractor::apply;
+    this.msgBuilder = msgBuilder::apply;
   }
 
   public StreamSpec getStreamSpec() {

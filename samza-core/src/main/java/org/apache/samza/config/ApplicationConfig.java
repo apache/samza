@@ -46,6 +46,7 @@ public class ApplicationConfig extends MapConfig {
   public static final String APP_COORDINATION_SERVICE_FACTORY_CLASS = "app.coordination.service.factory.class";
   public static final String APP_NAME = "app.name";
   public static final String APP_ID = "app.id";
+  public static final String APP_CLASS = "app.class";
 
   public ApplicationConfig(Config config) {
     super(config);
@@ -65,6 +66,10 @@ public class ApplicationConfig extends MapConfig {
 
   public String getAppId() {
     return get(APP_ID, get(JobConfig.JOB_ID(), "1"));
+  }
+
+  public String getAppClass() {
+    return get(APP_CLASS, null);
   }
 
   @Deprecated

@@ -61,16 +61,22 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   @Override
-  public <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<K, V, M> msgBuilder) {
+  public <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
+    if (msgBuilder == null) {
+      throw new IllegalArgumentException("msgBuilder can't be null for an input stream");
+    }
     return inStreams.computeIfAbsent(runner.getStreamSpec(streamId),
-        streamSpec -> new InputStreamInternalImpl<>(this, streamSpec, msgBuilder));
+        streamSpec -> new InputStreamInternalImpl<K, V, M>(this, streamSpec, msgBuilder));
   }
 
   @Override
   public <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId,
-      Function<M, K> keyExtractor, Function<M, V> msgExtractor) {
+      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
+    if (keyExtractor == null || msgExtractor == null) {
+      throw new IllegalArgumentException("Neither keyExtractor nor msgExtractor can be null for an output stream.");
+    }
     return outStreams.computeIfAbsent(runner.getStreamSpec(streamId),
-        streamSpec -> new OutputStreamInternalImpl<>(this, streamSpec, keyExtractor, msgExtractor));
+        streamSpec -> new OutputStreamInternalImpl<K, V, M>(this, streamSpec, keyExtractor, msgExtractor));
   }
 
   @Override
@@ -95,16 +101,24 @@ public class StreamGraphImpl implements StreamGraph {
    * @return  the intermediate {@link MessageStreamImpl}
    */
   <K, V, M> MessageStreamImpl<M> getIntermediateStream(String streamName,
-      Function<M, K> keyExtractor, Function<M, V> msgExtractor, BiFunction<K, V, M> msgBuilder) {
+      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
     String streamId = String.format("%s-%s-%s",
         config.get(JobConfig.JOB_NAME()),
         config.get(JobConfig.JOB_ID(), "1"),
         streamName);
+    if (msgBuilder == null) {
+      throw new IllegalArgumentException("msgBuilder cannot be null for an intermediate stream");
+    }
+
+    if (keyExtractor == null || msgExtractor == null) {
+      throw new IllegalArgumentException("Neither keyExtractor nor msgExtractor can be null for an intermediate stream");
+    }
+
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
     IntermediateStreamInternalImpl<K, V, M> intStream =
         (IntermediateStreamInternalImpl<K, V, M>) inStreams
             .computeIfAbsent(streamSpec,
-                k -> new IntermediateStreamInternalImpl<>(this, streamSpec, keyExtractor, msgExtractor, msgBuilder));
+                k -> new IntermediateStreamInternalImpl<K, V, M>(this, streamSpec, keyExtractor, msgExtractor, msgBuilder));
     outStreams.putIfAbsent(streamSpec, intStream);
     return intStream;
   }

@@ -40,7 +40,7 @@ public interface StreamGraph {
    * @param <M> the type of message in the input {@link MessageStream}
    * @return the input {@link MessageStream}
    */
-  <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<K, V, M> msgBuilder);
+  <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<? super K, ? super V, ? extends M> msgBuilder);
 
   /**
    * Gets the {@link OutputStream} corresponding to the logical {@code streamId}.
@@ -54,7 +54,7 @@ public interface StreamGraph {
    * @return the output {@link MessageStream}
    */
   <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId,
-      Function<M, K> keyExtractor, Function<M, V> msgExtractor);
+      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor);
 
   /**
    * Sets the {@link ContextManager} for this {@link StreamGraph}.

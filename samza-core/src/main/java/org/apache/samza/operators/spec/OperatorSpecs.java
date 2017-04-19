@@ -29,7 +29,9 @@ import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.stream.OutputStreamInternal;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
+import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
+import org.apache.samza.task.TaskCoordinator;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -53,7 +55,7 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createMapOperatorSpec(
-      MapFunction<M, OM> mapFn, MessageStreamImpl<OM> nextStream, int opId) {
+      MapFunction<? super M, ? extends OM> mapFn, MessageStreamImpl<OM> nextStream, int opId) {
     return new StreamOperatorSpec<>(new FlatMapFunction<M, OM>() {
       @Override
       public Collection<OM> apply(M message) {
@@ -84,7 +86,7 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M> StreamOperatorSpec<M, M> createFilterOperatorSpec(
-      FilterFunction<M> filterFn, MessageStreamImpl<M> nextStream, int opId) {
+      FilterFunction<? super M> filterFn, MessageStreamImpl<M> nextStream, int opId) {
     return new StreamOperatorSpec<>(new FlatMapFunction<M, M>() {
       @Override
       public Collection<M> apply(M message) {
@@ -115,8 +117,20 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createStreamOperatorSpec(
-      FlatMapFunction<M, OM> transformFn, MessageStreamImpl<OM> nextStream, int opId) {
-    return new StreamOperatorSpec<>(transformFn, nextStream, OperatorSpec.OpCode.FLAT_MAP, opId);
+      FlatMapFunction<? super M, ? extends OM> transformFn, MessageStreamImpl<OM> nextStream, int opId) {
+    return new StreamOperatorSpec<>(new FlatMapFunction<M, OM>() {
+      @Override
+      public Collection<OM> apply(M message) {
+        ArrayList<OM> retVal = new ArrayList<OM>();
+        retVal.addAll(transformFn.apply(message));
+        return retVal;
+      }
+
+      @Override
+      public void init(Config config, TaskContext context) {
+        transformFn.init(config, context);
+      }
+    }, nextStream, OperatorSpec.OpCode.FLAT_MAP, opId);
   }
 
   /**
@@ -127,8 +141,18 @@ public class OperatorSpecs {
    * @param <M>  type of input message
    * @return  the {@link SinkOperatorSpec} for the sink operator
    */
-  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<M> sinkFn, int opId) {
-    return new SinkOperatorSpec<>(sinkFn, OperatorSpec.OpCode.SINK, opId);
+  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<? super M> sinkFn, int opId) {
+    return new SinkOperatorSpec<>(new SinkFunction<M>() {
+        @Override
+        public void apply(M message, MessageCollector messageCollector, TaskCoordinator taskCoordinator) {
+          sinkFn.apply(message, messageCollector, taskCoordinator);
+        }
+
+        @Override
+        public void init(Config config, TaskContext context) {
+          sinkFn.init(config, context);
+        }
+      }, OperatorSpec.OpCode.SINK, opId);
   }
 
   /**
@@ -195,7 +219,7 @@ public class OperatorSpecs {
   public static <K, M, JM, RM> PartialJoinOperatorSpec<K, M, JM, RM> createPartialJoinOperatorSpec(
       PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn, PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn,
       long ttlMs, MessageStreamImpl<RM> nextStream, int opId) {
-    return new PartialJoinOperatorSpec<K, M, JM, RM>(thisPartialJoinFn, otherPartialJoinFn, ttlMs, nextStream, opId);
+    return new PartialJoinOperatorSpec<>(thisPartialJoinFn, otherPartialJoinFn, ttlMs, nextStream, opId);
   }
 
   /**
@@ -207,7 +231,7 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec} for the merge
    */
   public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(MessageStreamImpl<M> nextStream, int opId) {
-    return new StreamOperatorSpec<M, M>(message ->
+    return new StreamOperatorSpec<>(message ->
         new ArrayList<M>() {
           {
             this.add(message);
