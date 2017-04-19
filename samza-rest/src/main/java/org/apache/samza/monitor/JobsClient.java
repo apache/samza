@@ -20,11 +20,13 @@ package org.apache.samza.monitor;
 
 import com.google.common.base.Preconditions;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+
+import org.apache.commons.codec.binary.StringUtils;
 import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.samza.SamzaException;
 import org.apache.samza.rest.model.Job;
@@ -67,8 +69,8 @@ public class JobsClient {
    * @throws SamzaException if there were any problems with the http request.
    */
   public List<Task> getTasks(JobInstance jobInstance) {
-    return retriableHttpGet(baseUrl -> String.format(ResourceConstants.GET_TASKS_URL, baseUrl,
-        jobInstance.getJobName(), jobInstance.getJobId()));
+    return queryJobStatusServers(baseUrl -> String.format(ResourceConstants.GET_TASKS_URL, baseUrl,
+        jobInstance.getJobName(), jobInstance.getJobId()), new TypeReference<List<Task>>(){});
   }
 
   /**
@@ -78,8 +80,8 @@ public class JobsClient {
    * @throws SamzaException if there are any problems with the http request.
    */
   public JobStatus getJobStatus(JobInstance jobInstance) {
-    Job job = retriableHttpGet(baseUrl -> String.format(ResourceConstants.GET_JOBS_URL, baseUrl,
-        jobInstance.getJobName(), jobInstance.getJobId()));
+    Job job = queryJobStatusServers(baseUrl -> String.format(ResourceConstants.GET_JOBS_URL, baseUrl,
+        jobInstance.getJobName(), jobInstance.getJobId()), new TypeReference<Job>(){});
     return job.getStatus();
   }
 
@@ -90,41 +92,47 @@ public class JobsClient {
    * When a job status server is down or returns a error response, it tries to reach out to
    * the next job status server in the sequence, to complete the http get request.
    *
-   * @param urlMapFunction to build the request url, given job status server base url.
+   * @param requestUrlBuilder to build the request url, given job status server base url.
    * @param <T> return type of the http get response.
    * @return the response from any one of the job status server.
    * @throws Exception when all the job status servers are unavailable.
    *
    */
-  private <T> T retriableHttpGet(Function<String, String> urlMapFunction) {
-    Exception fetchException = null;
+  private <T> T queryJobStatusServers(Function<String, String> requestUrlBuilder, TypeReference<T> typeReference) {
+    SamzaException fetchException = null;
     for (String jobStatusServer : jobStatusServers) {
-      String requestUrl = urlMapFunction.apply(jobStatusServer);
+      String requestUrl = requestUrlBuilder.apply(jobStatusServer);
       try {
         ObjectMapper objectMapper = new ObjectMapper();
-        return objectMapper.readValue(httpGet(requestUrl), new TypeReference<T>() {});
+        byte[] response = httpGet(requestUrl);
+        return objectMapper.readValue(response, typeReference);
       } catch (Exception e) {
-        LOG.error(String.format("Exception when fetching tasks from the url : %s", requestUrl), e);
-        fetchException = e;
+        String exceptionMessage = String.format("Exception in http get request from url: %s.", requestUrl);
+        LOG.error(exceptionMessage, e);
+        fetchException = new SamzaException(exceptionMessage, e);
       }
     }
-    throw new SamzaException(String.format("Exception during http get from urls : %s", jobStatusServers),
-        fetchException);
+    throw fetchException;
   }
 
   /**
    * This method initiates http get request on the request url and returns the
    * response returned from the http get.
    * @param requestUrl url on which the http get request has to be performed.
-   * @return the input stream of the http get response.
+   * @return the http get response.
    * @throws IOException if there are problems with the http get request.
    */
-  private InputStream httpGet(String requestUrl) throws IOException {
+  private byte[] httpGet(String requestUrl) throws IOException {
     GetMethod getMethod = new GetMethod(requestUrl);
     try {
       int responseCode = httpClient.executeMethod(getMethod);
-      LOG.debug("Received response code {} for the get request on the url : {}", responseCode, requestUrl);
-      return getMethod.getResponseBodyAsStream();
+      LOG.debug("Received response code: {} for the get request on the url: {}", responseCode, requestUrl);
+      byte[] response = getMethod.getResponseBody();
+      if (responseCode != HttpStatus.SC_OK) {
+        throw new SamzaException(String.format("Received response code: %s for get request on: %s, with message: %s.",
+                                               responseCode, requestUrl, StringUtils.newStringUtf8(response)));
+      }
+      return response;
     } finally {
       getMethod.releaseConnection();
     }
