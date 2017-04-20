@@ -120,10 +120,10 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   final void writePlanJsonFile(String planJson) {
     try {
       String content = "plan='" + planJson + "'";
-      String binPath = System.getenv(ShellCommandConfig.JOB_BIN_DIR());
-      if (binPath != null && !binPath.isEmpty()) {
+      String planPath = System.getenv(ShellCommandConfig.EXECUTION_PLAN_DIR());
+      if (planPath != null && !planPath.isEmpty()) {
         // Write the plan json to bin path which also contains the html and js files
-        File file = new File(binPath + "/plan.json");
+        File file = new File(planPath + "/plan.json");
         file.setReadable(true, false);
         PrintWriter writer = new PrintWriter(file, "UTF-8");
         writer.println(content);

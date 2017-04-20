@@ -68,7 +68,15 @@ import org.slf4j.LoggerFactory;
 
   @Override
   public List<JobConfig> getJobConfigs() {
-    return getJobNodes().stream().map(JobNode::generateConfig).collect(Collectors.toList());
+    String json = "";
+    try {
+      json = getPlanAsJson();
+    } catch (Throwable t) {
+      log.warn("Failed to generate plan JSON");
+    }
+
+    final String planJson = json;
+    return getJobNodes().stream().map(n -> n.generateConfig(planJson)).collect(Collectors.toList());
   }
 
   @Override
