@@ -182,7 +182,7 @@ public class TestLocalApplicationRunner {
     };
     when(coordinationUtils.getLeaderElector()).thenReturn(leaderElector);
     when(coordinationUtils.getLatch(anyInt(), anyString())).thenReturn(latch);
-    doReturn(coordinationUtils).when(spy).getCoordinationUtils();
+    doReturn(coordinationUtils).when(spy).createCoordinationUtils();
 
     try {
       spy.run(app);

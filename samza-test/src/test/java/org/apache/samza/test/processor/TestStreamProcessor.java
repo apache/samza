@@ -47,11 +47,26 @@ import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
+import static org.mockito.Matchers.anyObject;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 import static org.apache.samza.test.processor.IdentityStreamTask.endLatch;
 
 public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
+
+  private StreamProcessorLifecycleListener listener;
+
+  @Before
+  public void setup() {
+    listener = mock(StreamProcessorLifecycleListener.class);
+    doNothing().when(listener).onStart();
+    doNothing().when(listener).onShutdown();
+    doNothing().when(listener).onFailure(anyObject());
+  }
+
   /**
    * Testing a basic identity stream task - reads data from a topic and writes it to another topic
    * (without any modifications)
@@ -76,22 +91,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
         new MapConfig(configs),
         new HashMap<>(),
         IdentityStreamTask::new,
-        new StreamProcessorLifecycleListener() {
-          @Override
-          public void onStart() {
-
-          }
-
-          @Override
-          public void onShutdown() {
-
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-
-          }
-        });
+        listener);
 
     produceMessages(inputTopic, messageCount);
     run(processor, endLatch);
@@ -112,26 +112,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     createTopics(inputTopic, outputTopic);
     final StreamTaskFactory stf = IdentityStreamTask::new;
     final StreamProcessor processor =
-        new StreamProcessor("1", configs, new HashMap<>(), stf, new StreamProcessorLifecycleListener() {
-          /**
-           * Callback when the {@link StreamProcessor} is started
-           */
-          @Override
-          public void onStart() { }
-          /**
-           * Callback when the {@link StreamProcessor} is shut down.
-           */
-          @Override
-          public void onShutdown() { }
-
-          /**
-           * Callback when the {@link StreamProcessor} fails
-           *
-           * @param t exception of the failure
-           */
-          @Override
-          public void onFailure(Throwable t) { }
-        });
+        new StreamProcessor("1", configs, new HashMap<>(), stf, listener);
 
     produceMessages(inputTopic, messageCount);
     run(processor, endLatch);
@@ -157,22 +138,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
         configs,
         new HashMap<>(),
         stf,
-        new StreamProcessorLifecycleListener() {
-          @Override
-          public void onStart() {
-
-          }
-
-          @Override
-          public void onShutdown() {
-
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-
-          }
-        });
+        listener);
 
     produceMessages(inputTopic, messageCount);
     run(processor, endLatch);
@@ -199,22 +165,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
         configs,
         new HashMap<>(),
         (StreamTaskFactory) null,
-        new StreamProcessorLifecycleListener() {
-          @Override
-          public void onStart() {
-
-          }
-
-          @Override
-          public void onShutdown() {
-
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-
-          }
-        });
+        listener);
     run(processor, endLatch);
   }
 

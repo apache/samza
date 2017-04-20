@@ -62,7 +62,8 @@ public class SamzaContainerController {
    *                            {@link org.apache.samza.task.AsyncStreamTask}
    * @param containerShutdownMs How long the Samza container should wait for an orderly shutdown of task instances
    * @param metricsReporterMap  Map of metric reporter name and {@link MetricsReporter} instance
-   * @param lifecycleListener  {@link StreamProcessorLifecycleListener} that listens to the StreamProcessor life cycle events
+   * @param lifecycleListener   {@link StreamProcessorLifecycleListener} that listens to the StreamProcessor life cycle events
+   *                            including start, shutdown and failure.
    */
   public SamzaContainerController(
       Object taskFactory,
@@ -76,7 +77,6 @@ public class SamzaContainerController {
     } else {
       this.containerShutdownMs = containerShutdownMs;
     }
-    // life cycle callbacks when shutdown and failure happens
     this.lifecycleListener = lifecycleListener;
   }
 
