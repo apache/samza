@@ -51,7 +51,6 @@ import org.apache.samza.operators.StreamGraph;
  *     CommandLine cmdLine = new CommandLine();
  *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
  *     PageViewCounterExample userApp = new PageViewCounterExample();
- *     userApp.initBlackList(config);
  *     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
  *     localRunner.run(userApp);
  *   }
