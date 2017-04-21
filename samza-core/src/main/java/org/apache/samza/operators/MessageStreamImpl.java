@@ -72,8 +72,8 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <OM> MessageStream<OM> map(MapFunction<? super M, ? extends OM> mapFn) {
-    OperatorSpec<OM> op = OperatorSpecs.createMapOperatorSpec(
+  public <TM> MessageStream<TM> map(MapFunction<? super M, ? extends TM> mapFn) {
+    OperatorSpec<TM> op = OperatorSpecs.createMapOperatorSpec(
         mapFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
     return op.getNextStream();
@@ -88,26 +88,24 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <OM> MessageStream<OM> flatMap(FlatMapFunction<? super M, ? extends OM> flatMapFn) {
-    OperatorSpec<OM> op = OperatorSpecs.createStreamOperatorSpec(
+  public <TM> MessageStream<TM> flatMap(FlatMapFunction<? super M, ? extends TM> flatMapFn) {
+    OperatorSpec<TM> op = OperatorSpecs.createStreamOperatorSpec(
         flatMapFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
     return op.getNextStream();
   }
 
   @Override
-  public MessageStream<M> sink(SinkFunction<? super M> sinkFn) {
+  public void sink(SinkFunction<? super M> sinkFn) {
     SinkOperatorSpec<M> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
-    return this;
   }
 
   @Override
-  public <K, V> MessageStream<M> sendTo(OutputStream<K, V, M> outputStream) {
+  public <K, V> void sendTo(OutputStream<K, V, M> outputStream) {
     SinkOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec(
         (OutputStreamInternal<K, V, M>) outputStream, this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
-    return this;
   }
 
   @Override
@@ -119,15 +117,15 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, JM, OM> MessageStream<OM> join(
-      MessageStream<JM> otherStream, JoinFunction<? extends K, ? super M, ? super JM, ? extends OM> joinFn, Duration ttl) {
-    MessageStreamImpl<OM> nextStream = new MessageStreamImpl<>(this.graph);
+  public <K, OM, TM> MessageStream<TM> join(
+      MessageStream<OM> otherStream, JoinFunction<? extends K, ? super M, ? super OM, ? extends TM> joinFn, Duration ttl) {
+    MessageStreamImpl<TM> nextStream = new MessageStreamImpl<>(this.graph);
 
-    PartialJoinFunction<K, M, JM, OM> thisPartialJoinFn = new PartialJoinFunction<K, M, JM, OM>() {
+    PartialJoinFunction<K, M, OM, TM> thisPartialJoinFn = new PartialJoinFunction<K, M, OM, TM>() {
       private KeyValueStore<K, PartialJoinFunction.PartialJoinMessage<M>> thisStreamState;
 
       @Override
-      public OM apply(M m, JM jm) {
+      public TM apply(M m, OM jm) {
         return joinFn.apply(m, jm);
       }
 
@@ -150,21 +148,21 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
       }
     };
 
-    PartialJoinFunction<K, JM, M, OM> otherPartialJoinFn = new PartialJoinFunction<K, JM, M, OM>() {
-      private KeyValueStore<K, PartialJoinMessage<JM>> otherStreamState;
+    PartialJoinFunction<K, OM, M, TM> otherPartialJoinFn = new PartialJoinFunction<K, OM, M, TM>() {
+      private KeyValueStore<K, PartialJoinMessage<OM>> otherStreamState;
 
       @Override
-      public OM apply(JM om, M m) {
+      public TM apply(OM om, M m) {
         return joinFn.apply(m, om);
       }
 
       @Override
-      public K getKey(JM message) {
+      public K getKey(OM message) {
         return joinFn.getSecondKey(message);
       }
 
       @Override
-      public KeyValueStore<K, PartialJoinMessage<JM>> getState() {
+      public KeyValueStore<K, PartialJoinMessage<OM>> getState() {
         return otherStreamState;
       }
 
@@ -177,7 +175,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     this.registeredOperatorSpecs.add(OperatorSpecs.createPartialJoinOperatorSpec(
         thisPartialJoinFn, otherPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId()));
 
-    ((MessageStreamImpl<JM>) otherStream).registeredOperatorSpecs
+    ((MessageStreamImpl<OM>) otherStream).registeredOperatorSpecs
         .add(OperatorSpecs.createPartialJoinOperatorSpec(
             otherPartialJoinFn, thisPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId()));
 

@@ -20,14 +20,12 @@
 package org.apache.samza.operators.windows;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.triggers.TimeTrigger;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.operators.windows.internal.WindowType;
-import org.apache.samza.task.TaskContext;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -125,17 +123,8 @@ public final class Windows {
                                                                 Supplier<? extends WV> initialValue, FoldLeftFunction<? super M, WV> foldFn) {
 
     Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
-    return new WindowInternal<>(defaultTrigger, initialValue::get, new FoldLeftFunction<M, WV>() {
-      @Override
-      public WV apply(M message, WV oldValue) {
-        return foldFn.apply(message, oldValue);
-      }
-
-      @Override
-      public void init(Config config, TaskContext context) {
-        foldFn.init(config, context);
-      }
-    }, keyFn::apply, null, WindowType.TUMBLING);
+    return new WindowInternal<>(defaultTrigger, (Supplier<WV>) initialValue, (FoldLeftFunction<M, WV>) foldFn,
+        (Function<M, K>) keyFn, null, WindowType.TUMBLING);
   }
 
 
@@ -190,17 +179,8 @@ public final class Windows {
   public static <M, WV> Window<M, Void, WV> tumblingWindow(Duration duration, Supplier<? extends WV> initialValue,
                                                            FoldLeftFunction<? super M, WV> foldFn) {
     Trigger<M> defaultTrigger = Triggers.repeat(new TimeTrigger<>(duration));
-    return new WindowInternal<>(defaultTrigger, initialValue::get, new FoldLeftFunction<M, WV>() {
-        @Override
-        public WV apply(M message, WV oldValue) {
-          return foldFn.apply(message, oldValue);
-        }
-
-        @Override
-        public void init(Config config, TaskContext context) {
-          foldFn.init(config, context);
-        }
-      }, null, null, WindowType.TUMBLING);
+    return new WindowInternal<>(defaultTrigger, (Supplier<WV>) initialValue, (FoldLeftFunction<M, WV>) foldFn,
+        null, null, WindowType.TUMBLING);
   }
 
   /**
@@ -223,7 +203,7 @@ public final class Windows {
    * @return the created {@link Window} function
    */
   public static <M> Window<M, Void, Collection<M>> tumblingWindow(Duration duration) {
-    FoldLeftFunction<? super M, Collection<M>> aggregator = createAggregator();
+    FoldLeftFunction<M, Collection<M>> aggregator = createAggregator();
 
     Supplier<Collection<M>> initialValue = ArrayList::new;
     return tumblingWindow(duration, initialValue, aggregator);
@@ -260,17 +240,8 @@ public final class Windows {
   public static <M, K, WV> Window<M, K, WV> keyedSessionWindow(Function<? super M, ? extends K> keyFn, Duration sessionGap,
                                                                Supplier<? extends WV> initialValue, FoldLeftFunction<? super M, WV> foldFn) {
     Trigger<M> defaultTrigger = Triggers.timeSinceLastMessage(sessionGap);
-    return new WindowInternal<>(defaultTrigger, initialValue::get, new FoldLeftFunction<M, WV>() {
-        @Override
-        public WV apply(M message, WV oldValue) {
-          return foldFn.apply(message, oldValue);
-        }
-
-        @Override
-        public void init(Config config, TaskContext context) {
-          foldFn.init(config, context);
-        }
-      }, keyFn::apply, null, WindowType.SESSION);
+    return new WindowInternal<>(defaultTrigger, (Supplier<WV>) initialValue, (FoldLeftFunction<M, WV>) foldFn, (Function<M, K>) keyFn,
+        null, WindowType.SESSION);
   }
 
   /**

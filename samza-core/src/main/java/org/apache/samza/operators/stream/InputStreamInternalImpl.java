@@ -32,7 +32,7 @@ public class InputStreamInternalImpl<K, V, M> extends MessageStreamImpl<M> imple
   public InputStreamInternalImpl(StreamGraphImpl graph, StreamSpec streamSpec, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
     super(graph);
     this.streamSpec = streamSpec;
-    this.msgBuilder = msgBuilder::apply;
+    this.msgBuilder = (BiFunction<K, V, M>) msgBuilder;
   }
 
   public StreamSpec getStreamSpec() {

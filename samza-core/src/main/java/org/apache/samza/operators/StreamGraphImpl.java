@@ -72,8 +72,11 @@ public class StreamGraphImpl implements StreamGraph {
   @Override
   public <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId,
       Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
-    if (keyExtractor == null || msgExtractor == null) {
-      throw new IllegalArgumentException("Neither keyExtractor nor msgExtractor can be null for an output stream.");
+    if (keyExtractor == null) {
+      throw new IllegalArgumentException("keyExtractor can't be null for an output stream.");
+    }
+    if (msgExtractor == null) {
+      throw new IllegalArgumentException("msgExtractor can't be null for an output stream.");
     }
     return outStreams.computeIfAbsent(runner.getStreamSpec(streamId),
         streamSpec -> new OutputStreamInternalImpl<K, V, M>(this, streamSpec, keyExtractor, msgExtractor));
@@ -110,8 +113,11 @@ public class StreamGraphImpl implements StreamGraph {
       throw new IllegalArgumentException("msgBuilder cannot be null for an intermediate stream");
     }
 
-    if (keyExtractor == null || msgExtractor == null) {
-      throw new IllegalArgumentException("Neither keyExtractor nor msgExtractor can be null for an intermediate stream");
+    if (keyExtractor == null) {
+      throw new IllegalArgumentException("keyExtractor can't be null for an output stream.");
+    }
+    if (msgExtractor == null) {
+      throw new IllegalArgumentException("msgExtractor can't be null for an output stream.");
     }
 
     StreamSpec streamSpec = runner.getStreamSpec(streamId);

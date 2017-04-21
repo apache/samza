@@ -47,20 +47,20 @@ public interface MessageStream<M> {
    * transformed {@link MessageStream}.
    *
    * @param mapFn the function to transform a message to another message
-   * @param <OM> the type of messages in the output {@link MessageStream}
+   * @param <TM> the type of messages in the transformed {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  <OM> MessageStream<OM> map(MapFunction<? super M, ? extends OM> mapFn);
+  <TM> MessageStream<TM> map(MapFunction<? super M, ? extends TM> mapFn);
 
   /**
    * Applies the provided 1:n function to transform a message in this {@link MessageStream}
    * to n messages in the transformed {@link MessageStream}
    *
    * @param flatMapFn the function to transform a message to zero or more messages
-   * @param <OM> the type of messages in the output {@link MessageStream}
+   * @param <TM> the type of messages in the transformed {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  <OM> MessageStream<OM> flatMap(FlatMapFunction<? super M, ? extends OM> flatMapFn);
+  <TM> MessageStream<TM> flatMap(FlatMapFunction<? super M, ? extends TM> flatMapFn);
 
   /**
    * Applies the provided function to messages in this {@link MessageStream} and returns the
@@ -82,9 +82,8 @@ public interface MessageStream<M> {
    * non-stream systems (e.g., an external database).
    *
    * @param sinkFn the function to send messages in this stream to an external system
-   * @return this {@link MessageStream} object
    */
-  MessageStream<M> sink(SinkFunction<? super M> sinkFn);
+  void sink(SinkFunction<? super M> sinkFn);
 
   /**
    * Allows sending messages in this {@link MessageStream} to an output {@link MessageStream}.
@@ -92,9 +91,8 @@ public interface MessageStream<M> {
    * @param outputStream the output stream to send messages to
    * @param <K> the type of key in the outgoing message
    * @param <V> the type of message in the outgoing message
-   * @return this {@link MessageStream} object
    */
-  <K, V> MessageStream<M> sendTo(OutputStream<K, V, M> outputStream);
+  <K, V> void sendTo(OutputStream<K, V, M> outputStream);
 
   /**
    * Groups the messages in this {@link MessageStream} according to the provided {@link Window} semantics
@@ -121,11 +119,11 @@ public interface MessageStream<M> {
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
    * @param ttl the ttl for messages in each stream
    * @param <K> the type of join key
-   * @param <JM> the type of messages in the other join stream
-   * @param <OM> the type of messages resulting from the {@code joinFn}
+   * @param <OM> the type of messages in the other stream
+   * @param <TM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, JM, OM> MessageStream<OM> join(MessageStream<JM> otherStream, JoinFunction<? extends K, ? super M, ? super JM, ? extends OM> joinFn, Duration ttl);
+  <K, OM, TM> MessageStream<TM> join(MessageStream<OM> otherStream, JoinFunction<? extends K, ? super M, ? super OM, ? extends TM> joinFn, Duration ttl);
 
   /**
    * Merge all {@code otherStreams} with this {@link MessageStream}.

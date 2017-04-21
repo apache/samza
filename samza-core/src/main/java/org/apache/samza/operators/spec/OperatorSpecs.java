@@ -29,9 +29,7 @@ import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.stream.OutputStreamInternal;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
-import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
-import org.apache.samza.task.TaskCoordinator;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -118,19 +116,7 @@ public class OperatorSpecs {
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createStreamOperatorSpec(
       FlatMapFunction<? super M, ? extends OM> transformFn, MessageStreamImpl<OM> nextStream, int opId) {
-    return new StreamOperatorSpec<>(new FlatMapFunction<M, OM>() {
-      @Override
-      public Collection<OM> apply(M message) {
-        ArrayList<OM> retVal = new ArrayList<OM>();
-        retVal.addAll(transformFn.apply(message));
-        return retVal;
-      }
-
-      @Override
-      public void init(Config config, TaskContext context) {
-        transformFn.init(config, context);
-      }
-    }, nextStream, OperatorSpec.OpCode.FLAT_MAP, opId);
+    return new StreamOperatorSpec<>((FlatMapFunction<M, OM>) transformFn, nextStream, OperatorSpec.OpCode.FLAT_MAP, opId);
   }
 
   /**
@@ -142,17 +128,7 @@ public class OperatorSpecs {
    * @return  the {@link SinkOperatorSpec} for the sink operator
    */
   public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<? super M> sinkFn, int opId) {
-    return new SinkOperatorSpec<>(new SinkFunction<M>() {
-        @Override
-        public void apply(M message, MessageCollector messageCollector, TaskCoordinator taskCoordinator) {
-          sinkFn.apply(message, messageCollector, taskCoordinator);
-        }
-
-        @Override
-        public void init(Config config, TaskContext context) {
-          sinkFn.init(config, context);
-        }
-      }, OperatorSpec.OpCode.SINK, opId);
+    return new SinkOperatorSpec<>((SinkFunction<M>) sinkFn, OperatorSpec.OpCode.SINK, opId);
   }
 
   /**

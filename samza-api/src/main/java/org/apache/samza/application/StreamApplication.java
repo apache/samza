@@ -33,7 +33,8 @@ import org.apache.samza.operators.StreamGraph;
  *
  * <pre>{@code
  * public class PageViewCounterExample implements StreamApplication {
- *   Set<String> blackListMembers = new HashSet<>();
+ *   // max timeout is 60 seconds
+ *   private static final MAX_TIMEOUT = 60000;
  *
  *   public void init(StreamGraph graph, Config config) {
  *     MessageStream<PageViewEvent> pageViewEvents = graph.getInputStream("pageViewEventStream", (k, m) -> (PageViewEvent) m);
@@ -41,7 +42,7 @@ import org.apache.samza.operators.StreamGraph;
  *       .getOutputStream("pageViewEventFiltered", m -> m.memberId, m -> m);
  *
  *     pageViewEvents
- *       .filter(m -> !this.blackListMembers.contains(m.memberId))
+ *       .filter(m -> !(m.getMessage().getEventTime() < System.currentTimeMillis() - MAX_TIMEOUT))
  *       .sendTo(pageViewEventFilteredStream);
  *   }
  *
@@ -55,9 +56,6 @@ import org.apache.samza.operators.StreamGraph;
  *     localRunner.run(userApp);
  *   }
  *
- *   private void initBlackList(Config config) {
- *     // Read the blacklist from config
- *   }
  * }
  * }</pre>
  *

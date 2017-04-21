@@ -37,9 +37,9 @@ public class IntermediateStreamInternalImpl<K, V, M> extends MessageStreamImpl<M
       Function<? super M, ? extends V> msgExtractor, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
     super(graph);
     this.streamSpec = streamSpec;
-    this.keyExtractor = keyExtractor::apply;
-    this.msgExtractor = msgExtractor::apply;
-    this.msgBuilder = msgBuilder::apply;
+    this.keyExtractor = (Function<M, K>) keyExtractor;
+    this.msgExtractor = (Function<M, V>) msgExtractor;
+    this.msgBuilder = (BiFunction<K, V, M>) msgBuilder;
   }
 
   public StreamSpec getStreamSpec() {

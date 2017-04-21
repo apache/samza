@@ -21,6 +21,7 @@ package org.apache.samza.operators.spec;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.TestMessageStreamImplUtil;
+import org.apache.samza.operators.data.TestInputMessageEnvelope;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -60,6 +61,8 @@ public class TestOperatorSpecs {
     MessageStreamImpl<TestMessageEnvelope> mockOutput = mock(MessageStreamImpl.class);
     StreamOperatorSpec<Object, TestMessageEnvelope> streamOp =
         OperatorSpecs.createStreamOperatorSpec(transformFn, mockOutput, 1);
+    assertEquals(streamOp.getTransformFn(), transformFn);
+
     Object mockInput = mock(Object.class);
     when(mockInput.toString()).thenReturn("test-string-1");
     List<TestMessageEnvelope> outputs = (List<TestMessageEnvelope>) streamOp.getTransformFn().apply(mockInput);
@@ -78,6 +81,8 @@ public class TestOperatorSpecs {
       messageCollector.send(new OutgoingMessageEnvelope(testStream, message.getKey(), message.getMessage()));
     };
     SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createSinkOperatorSpec(sinkFn, 1);
+    assertEquals(sinkOp.getSinkFn(), sinkFn);
+
     TestMessageEnvelope mockInput = mock(TestMessageEnvelope.class);
     when(mockInput.getKey()).thenReturn("my-test-msg-key");
     TestMessageEnvelope.MessageType mockMsgBody = mock(TestMessageEnvelope.MessageType.class);
@@ -129,6 +134,27 @@ public class TestOperatorSpecs {
     assertEquals(spec.getWindow(), window);
     assertEquals(spec.getWindow().getKeyExtractor(), keyExtractor);
     assertEquals(spec.getWindow().getFoldLeftFunction(), aggregator);
+  }
+
+  @Test
+  public void testCreateWindowOperatorWithRelaxedTypes() throws Exception {
+    Function<TestMessageEnvelope, String> keyExtractor = m -> m.getKey();
+    FoldLeftFunction<TestMessageEnvelope, Integer> aggregator = (m, c) -> c + 1;
+    Supplier<Integer> initialValue = () -> 0;
+    //instantiate a window using reflection
+    WindowInternal<TestInputMessageEnvelope, String, Integer> window = new WindowInternal(null, initialValue, aggregator, keyExtractor, null, WindowType.TUMBLING);
+
+    MessageStreamImpl<WindowPane<String, Integer>> mockWndOut = mock(MessageStreamImpl.class);
+    WindowOperatorSpec spec =
+        OperatorSpecs.createWindowOperatorSpec(window, mockWndOut, 1);
+    assertEquals(spec.getWindow(), window);
+    assertEquals(spec.getWindow().getKeyExtractor(), keyExtractor);
+    assertEquals(spec.getWindow().getFoldLeftFunction(), aggregator);
+
+    // make sure that the functions with relaxed types work as expected
+    TestInputMessageEnvelope inputMsg = new TestInputMessageEnvelope("test-input-key1", "test-value-1", 23456L, "input-id-1");
+    assertEquals("test-input-key1", spec.getWindow().getKeyExtractor().apply(inputMsg));
+    assertEquals(1, spec.getWindow().getFoldLeftFunction().apply(inputMsg, 0));
   }
 
   @Test
