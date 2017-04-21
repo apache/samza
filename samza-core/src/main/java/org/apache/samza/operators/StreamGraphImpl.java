@@ -66,7 +66,7 @@ public class StreamGraphImpl implements StreamGraph {
       throw new IllegalArgumentException("msgBuilder can't be null for an input stream");
     }
     return inStreams.computeIfAbsent(runner.getStreamSpec(streamId),
-        streamSpec -> new InputStreamInternalImpl<K, V, M>(this, streamSpec, msgBuilder));
+        streamSpec -> new InputStreamInternalImpl<>(this, streamSpec, (BiFunction<K, V, M>) msgBuilder));
   }
 
   @Override
@@ -79,7 +79,7 @@ public class StreamGraphImpl implements StreamGraph {
       throw new IllegalArgumentException("msgExtractor can't be null for an output stream.");
     }
     return outStreams.computeIfAbsent(runner.getStreamSpec(streamId),
-        streamSpec -> new OutputStreamInternalImpl<K, V, M>(this, streamSpec, keyExtractor, msgExtractor));
+        streamSpec -> new OutputStreamInternalImpl<>(this, streamSpec, (Function<M, K>) keyExtractor, (Function<M, V>) msgExtractor));
   }
 
   @Override
@@ -124,7 +124,8 @@ public class StreamGraphImpl implements StreamGraph {
     IntermediateStreamInternalImpl<K, V, M> intStream =
         (IntermediateStreamInternalImpl<K, V, M>) inStreams
             .computeIfAbsent(streamSpec,
-                k -> new IntermediateStreamInternalImpl<K, V, M>(this, streamSpec, keyExtractor, msgExtractor, msgBuilder));
+                k -> new IntermediateStreamInternalImpl<>(this, streamSpec, (Function<M, K>) keyExtractor,
+                    (Function<M, V>) msgExtractor, (BiFunction<K, V, M>) msgBuilder));
     outStreams.putIfAbsent(streamSpec, intStream);
     return intStream;
   }

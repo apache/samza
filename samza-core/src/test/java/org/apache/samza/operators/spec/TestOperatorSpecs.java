@@ -21,6 +21,7 @@ package org.apache.samza.operators.spec;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.TestMessageStreamImplUtil;
+import org.apache.samza.operators.data.MessageType;
 import org.apache.samza.operators.data.TestInputMessageEnvelope;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
@@ -85,7 +86,7 @@ public class TestOperatorSpecs {
 
     TestMessageEnvelope mockInput = mock(TestMessageEnvelope.class);
     when(mockInput.getKey()).thenReturn("my-test-msg-key");
-    TestMessageEnvelope.MessageType mockMsgBody = mock(TestMessageEnvelope.MessageType.class);
+    MessageType mockMsgBody = mock(MessageType.class);
     when(mockInput.getMessage()).thenReturn(mockMsgBody);
     final List<OutgoingMessageEnvelope> outputMsgs = new ArrayList<>();
     MessageCollector mockCollector = mock(MessageCollector.class);

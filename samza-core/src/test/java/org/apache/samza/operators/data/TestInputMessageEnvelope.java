@@ -25,4 +25,8 @@ public class TestInputMessageEnvelope extends TestMessageEnvelope {
     super(key, value, eventTime);
     this.inputId = inputId;
   }
+
+  public String getInputId() {
+    return this.inputId;
+  }
 }
