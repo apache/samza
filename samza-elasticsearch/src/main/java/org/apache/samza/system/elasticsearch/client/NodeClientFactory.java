@@ -21,7 +21,6 @@ package org.apache.samza.system.elasticsearch.client;
 
 import org.apache.samza.config.ElasticsearchConfig;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.node.NodeBuilder;
@@ -46,7 +45,7 @@ public class NodeClientFactory implements ClientFactory {
 
   @Override
   public Client getClient() {
-    Settings settings = ImmutableSettings.settingsBuilder()
+    Settings settings = Settings.settingsBuilder()
         .put(clientSettings)
         .build();
 

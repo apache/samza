@@ -23,7 +23,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.common.base.Charsets;
+import com.google.common.base.Charsets;
 import org.junit.Before;
 import org.junit.Test;
 

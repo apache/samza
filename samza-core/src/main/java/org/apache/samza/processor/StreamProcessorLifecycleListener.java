@@ -28,24 +28,21 @@ import org.apache.samza.annotation.InterfaceStability;
  */
 
 @InterfaceStability.Evolving
-public interface StreamProcessorLifeCycleAware {
+public interface StreamProcessorLifecycleListener {
   /**
    * Callback when the {@link StreamProcessor} is started
-   * @param processorId id of the StreamProcessor
    */
-  void onStart(String processorId);
+  void onStart();
 
   /**
    * Callback when the {@link StreamProcessor} is shut down.
-   * @param processorId id of the StreamProcessor
    */
-  void onShutdown(String processorId);
+  void onShutdown();
 
   /**
    * Callback when the {@link StreamProcessor} fails
-   * @param processorId id of the StreamProcessor
-   * @param t exception of the failure
+   * @param t Cause of the failure
    */
-  void onFailure(String processorId, Throwable t);
+  void onFailure(Throwable t);
 
 }
