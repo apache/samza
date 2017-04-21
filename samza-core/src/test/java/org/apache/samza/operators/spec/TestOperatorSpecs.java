@@ -21,6 +21,8 @@ package org.apache.samza.operators.spec;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.TestMessageStreamImplUtil;
+import org.apache.samza.operators.data.MessageType;
+import org.apache.samza.operators.data.TestInputMessageEnvelope;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -31,39 +33,71 @@ import org.apache.samza.operators.stream.OutputStreamInternalImpl;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.operators.windows.internal.WindowType;
+import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 public class TestOperatorSpecs {
   @Test
   public void testCreateStreamOperator() {
-    FlatMapFunction<?, TestMessageEnvelope> transformFn = m -> new ArrayList<TestMessageEnvelope>() { {
+    FlatMapFunction<Object, TestMessageEnvelope> transformFn = m -> new ArrayList<TestMessageEnvelope>() { {
           this.add(new TestMessageEnvelope(m.toString(), m.toString(), 12345L));
         } };
     MessageStreamImpl<TestMessageEnvelope> mockOutput = mock(MessageStreamImpl.class);
-    StreamOperatorSpec<?, TestMessageEnvelope> streamOp =
+    StreamOperatorSpec<Object, TestMessageEnvelope> streamOp =
         OperatorSpecs.createStreamOperatorSpec(transformFn, mockOutput, 1);
     assertEquals(streamOp.getTransformFn(), transformFn);
+
+    Object mockInput = mock(Object.class);
+    when(mockInput.toString()).thenReturn("test-string-1");
+    List<TestMessageEnvelope> outputs = (List<TestMessageEnvelope>) streamOp.getTransformFn().apply(mockInput);
+    assertEquals(outputs.size(), 1);
+    assertEquals(outputs.get(0).getKey(), "test-string-1");
+    assertEquals(outputs.get(0).getMessage().getValue(), "test-string-1");
+    assertEquals(outputs.get(0).getMessage().getEventTime(), 12345L);
     assertEquals(streamOp.getNextStream(), mockOutput);
   }
 
   @Test
   public void testCreateSinkOperator() {
+    SystemStream testStream = new SystemStream("test-sys", "test-stream");
     SinkFunction<TestMessageEnvelope> sinkFn = (TestMessageEnvelope message, MessageCollector messageCollector,
-          TaskCoordinator taskCoordinator) -> { };
+          TaskCoordinator taskCoordinator) -> {
+      messageCollector.send(new OutgoingMessageEnvelope(testStream, message.getKey(), message.getMessage()));
+    };
     SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createSinkOperatorSpec(sinkFn, 1);
     assertEquals(sinkOp.getSinkFn(), sinkFn);
+
+    TestMessageEnvelope mockInput = mock(TestMessageEnvelope.class);
+    when(mockInput.getKey()).thenReturn("my-test-msg-key");
+    MessageType mockMsgBody = mock(MessageType.class);
+    when(mockInput.getMessage()).thenReturn(mockMsgBody);
+    final List<OutgoingMessageEnvelope> outputMsgs = new ArrayList<>();
+    MessageCollector mockCollector = mock(MessageCollector.class);
+    doAnswer(invocation -> {
+        outputMsgs.add((OutgoingMessageEnvelope) invocation.getArguments()[0]);
+        return null;
+      }).when(mockCollector).send(any());
+    sinkOp.getSinkFn().apply(mockInput, mockCollector, null);
+    assertEquals(1, outputMsgs.size());
+    assertEquals(outputMsgs.get(0).getKey(), "my-test-msg-key");
+    assertEquals(outputMsgs.get(0).getMessage(), mockMsgBody);
     assertEquals(sinkOp.getOpCode(), OperatorSpec.OpCode.SINK);
     assertEquals(sinkOp.getNextStream(), null);
   }
@@ -101,6 +135,27 @@ public class TestOperatorSpecs {
     assertEquals(spec.getWindow(), window);
     assertEquals(spec.getWindow().getKeyExtractor(), keyExtractor);
     assertEquals(spec.getWindow().getFoldLeftFunction(), aggregator);
+  }
+
+  @Test
+  public void testCreateWindowOperatorWithRelaxedTypes() throws Exception {
+    Function<TestMessageEnvelope, String> keyExtractor = m -> m.getKey();
+    FoldLeftFunction<TestMessageEnvelope, Integer> aggregator = (m, c) -> c + 1;
+    Supplier<Integer> initialValue = () -> 0;
+    //instantiate a window using reflection
+    WindowInternal<TestInputMessageEnvelope, String, Integer> window = new WindowInternal(null, initialValue, aggregator, keyExtractor, null, WindowType.TUMBLING);
+
+    MessageStreamImpl<WindowPane<String, Integer>> mockWndOut = mock(MessageStreamImpl.class);
+    WindowOperatorSpec spec =
+        OperatorSpecs.createWindowOperatorSpec(window, mockWndOut, 1);
+    assertEquals(spec.getWindow(), window);
+    assertEquals(spec.getWindow().getKeyExtractor(), keyExtractor);
+    assertEquals(spec.getWindow().getFoldLeftFunction(), aggregator);
+
+    // make sure that the functions with relaxed types work as expected
+    TestInputMessageEnvelope inputMsg = new TestInputMessageEnvelope("test-input-key1", "test-value-1", 23456L, "input-id-1");
+    assertEquals("test-input-key1", spec.getWindow().getKeyExtractor().apply(inputMsg));
+    assertEquals(1, spec.getWindow().getFoldLeftFunction().apply(inputMsg, 0));
   }
 
   @Test

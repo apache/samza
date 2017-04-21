@@ -58,10 +58,9 @@ public interface TaskContext {
   /**
    * Method to allow user to return customized context
    *
-   * @param <T>  the type of user-defined task context
    * @return  user-defined task context object
    */
-  default <T> T getUserDefinedContext() {
+  default Object getUserDefinedContext() {
     return null;
   };
 }

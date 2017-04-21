@@ -18,23 +18,15 @@
  */
 package org.apache.samza.operators.data;
 
+public class TestInputMessageEnvelope extends TestMessageEnvelope {
+  private final String inputId;
 
-public class TestMessageEnvelope {
-
-  private final String key;
-  private final MessageType value;
-
-  public TestMessageEnvelope(String key, String value, long eventTime) {
-    this.key = key;
-    this.value = new MessageType(value, eventTime);
+  public TestInputMessageEnvelope(String key, String value, long eventTime, String inputId) {
+    super(key, value, eventTime);
+    this.inputId = inputId;
   }
 
-  public MessageType getMessage() {
-    return this.value;
+  public String getInputId() {
+    return this.inputId;
   }
-
-  public String getKey() {
-    return this.key;
-  }
-
 }
