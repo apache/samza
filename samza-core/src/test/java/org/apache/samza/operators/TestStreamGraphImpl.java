@@ -96,7 +96,6 @@ public class TestStreamGraphImpl {
     graph.getInputStream("test-stream-1", xMsgBuilder);
   }
 
-
   @Test
   public void testGetOutputStream() {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
