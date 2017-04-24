@@ -39,6 +39,7 @@ public interface StreamGraph {
    * @param <V> the type of message in the incoming message
    * @param <M> the type of message in the input {@link MessageStream}
    * @return the input {@link MessageStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
   <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<? super K, ? super V, ? extends M> msgBuilder);
 

@@ -65,6 +65,11 @@ public class StreamGraphImpl implements StreamGraph {
     if (msgBuilder == null) {
       throw new IllegalArgumentException("msgBuilder can't be null for an input stream");
     }
+
+    if (inStreams.containsKey(runner.getStreamSpec(streamId))) {
+      throw new IllegalStateException("Cannot invoke getInputStream() multiple times with the same streamId: " + streamId);
+    }
+
     return inStreams.computeIfAbsent(runner.getStreamSpec(streamId),
         streamSpec -> new InputStreamInternalImpl<>(this, streamSpec, (BiFunction<K, V, M>) msgBuilder));
   }
