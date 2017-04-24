@@ -55,11 +55,11 @@ public class RunLoopFactory {
 
     long taskWindowMs = config.getWindowMs().getOrElse(defaultValue(DEFAULT_WINDOW_MS));
 
-    log.info("Got window milliseconds: " + taskWindowMs);
+    log.info("Got window milliseconds: {}.", taskWindowMs);
 
     long taskCommitMs = config.getCommitMs().getOrElse(defaultValue(DEFAULT_COMMIT_MS));
 
-    log.info("Got commit milliseconds: " + taskCommitMs);
+    log.info("Got commit milliseconds: {}.", taskCommitMs);
 
     int asyncTaskCount = taskInstances.values().count(new AbstractFunction1<TaskInstance, Object>() {
       @Override
@@ -87,13 +87,15 @@ public class RunLoopFactory {
     } else {
       Integer taskMaxConcurrency = config.getMaxConcurrency().getOrElse(defaultValue(1));
 
+      log.info("Got taskMaxConcurrency: {}.", taskMaxConcurrency);
+
       boolean isAsyncCommitEnabled = config.getAsyncCommit().getOrElse(defaultValue(false));
 
-      log.info("Got max messages in flight: " + taskMaxConcurrency);
+      log.info("Got asyncCommitEnabled: {}.", isAsyncCommitEnabled);
 
       Long callbackTimeout = config.getCallbackTimeoutMs().getOrElse(defaultValue(DEFAULT_CALLBACK_TIMEOUT_MS));
 
-      log.info("Got callback timeout: " + callbackTimeout);
+      log.info("Got callbackTimeout: {}.", callbackTimeout);
 
       log.info("Run loop in asynchronous mode.");
 
