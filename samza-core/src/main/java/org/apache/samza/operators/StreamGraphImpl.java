@@ -80,9 +80,15 @@ public class StreamGraphImpl implements StreamGraph {
     if (keyExtractor == null) {
       throw new IllegalArgumentException("keyExtractor can't be null for an output stream.");
     }
+
     if (msgExtractor == null) {
       throw new IllegalArgumentException("msgExtractor can't be null for an output stream.");
     }
+
+    if (outStreams.containsKey(runner.getStreamSpec(streamId))) {
+      throw new IllegalStateException("Cannot invoke getOutputStream() multiple times with the same streamId: " + streamId);
+    }
+
     return outStreams.computeIfAbsent(runner.getStreamSpec(streamId),
         streamSpec -> new OutputStreamInternalImpl<>(this, streamSpec, (Function<M, K>) keyExtractor, (Function<M, V>) msgExtractor));
   }

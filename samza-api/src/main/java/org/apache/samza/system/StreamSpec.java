@@ -201,6 +201,7 @@ public class StreamSpec {
       throw new IllegalArgumentException(String.format("Identifier '%s' is '%s'. It must match the expression [A-Za-z0-9_-]+", identifierName, identifierValue));
     }
   }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
