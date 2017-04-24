@@ -19,8 +19,6 @@
 
 package org.apache.samza.runtime;
 
-import java.util.HashMap;
-import java.util.Random;
 import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
@@ -29,6 +27,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
+import org.apache.samza.container.SamzaContainerExceptionHandler;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
@@ -39,6 +38,9 @@ import org.apache.samza.util.ScalaToJavaUtils;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.HashMap;
+import java.util.Random;
 
 /**
  * LocalContainerRunner is the local runner for Yarn {@link SamzaContainer}s. It is an intermediate step to
@@ -99,11 +101,11 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
   }
 
   public static void main(String[] args) throws Exception {
-    setExceptionHandler(() -> {
-        log.info("Exiting process now.");
-        System.exit(1);
-      });
-
+    Thread.setDefaultUncaughtExceptionHandler(
+        new SamzaContainerExceptionHandler(() -> {
+          log.info("Exiting process now.");
+          System.exit(1);
+        }));
     String containerId = System.getenv(ShellCommandConfig.ENV_CONTAINER_ID());
     log.info(String.format("Got container ID: %s", containerId));
     String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
@@ -123,14 +125,5 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
     StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
     new LocalContainerRunner(jobModel, containerId).run(streamApp);
-  }
-
-  /* package private */ static void setExceptionHandler(Runnable runnable) {
-    Thread.UncaughtExceptionHandler exceptionHandler = (t, e) -> {
-      log.error(String.format("Uncaught exception in thread (name=%s).", t.getName()), e);
-      e.printStackTrace(System.err);
-      runnable.run();
-    };
-    Thread.setDefaultUncaughtExceptionHandler(exceptionHandler);
   }
 }

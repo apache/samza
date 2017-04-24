@@ -17,20 +17,23 @@
  * under the License.
  */
 
-package org.apache.samza.container
+package org.apache.samza.container;
 
-import org.junit.Test
-import org.junit.Assert._
-import org.junit.Before
-import org.apache.samza.SamzaException
-import org.junit.After
+import org.apache.samza.SamzaException;
+import org.junit.Test;
 
-class TestSamzaContainerExceptionHandler {
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import static org.junit.Assert.assertTrue;
+
+public class TestSamzaContainerExceptionHandler {
+
   @Test
-  def testShutdownProcess {
-    var exitCalled = false
-    val exceptionHandler = new SamzaContainerExceptionHandler(() => exitCalled = true)
-    exceptionHandler.uncaughtException(Thread.currentThread, new SamzaException)
-    assertTrue(exitCalled)
+  public void testExceptionHandler() {
+    final AtomicBoolean exitCalled = new AtomicBoolean(false);
+    Thread.UncaughtExceptionHandler exceptionHandler =
+        new SamzaContainerExceptionHandler(() -> exitCalled.getAndSet(true));
+    exceptionHandler.uncaughtException(Thread.currentThread(), new SamzaException());
+    assertTrue(exitCalled.get());
   }
 }
