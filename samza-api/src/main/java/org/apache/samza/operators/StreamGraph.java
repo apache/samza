@@ -30,7 +30,8 @@ import java.util.function.Function;
 public interface StreamGraph {
 
   /**
-   * Gets the input {@link MessageStream} corresponding to the logical {@code streamId}.
+   * Gets the input {@link MessageStream} corresponding to the logical {@code streamId}. Multiple invocations of
+   * this method with the same {@code streamId} will throw an {@link IllegalStateException}
    *
    * @param streamId the unique logical ID for the stream
    * @param msgBuilder the {@link BiFunction} to convert the incoming key and message to a message
@@ -39,11 +40,13 @@ public interface StreamGraph {
    * @param <V> the type of message in the incoming message
    * @param <M> the type of message in the input {@link MessageStream}
    * @return the input {@link MessageStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
   <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<? super K, ? super V, ? extends M> msgBuilder);
 
   /**
-   * Gets the {@link OutputStream} corresponding to the logical {@code streamId}.
+   * Gets the {@link OutputStream} corresponding to the logical {@code streamId}. Multiple invocations of
+   * this method with the same {@code streamId} will throw an {@link IllegalStateException}
    *
    * @param streamId the unique logical ID for the stream
    * @param keyExtractor the {@link Function} to extract the outgoing key from the output message
@@ -52,6 +55,7 @@ public interface StreamGraph {
    * @param <V> the type of message in the outgoing message
    * @param <M> the type of message in the {@link OutputStream}
    * @return the output {@link MessageStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
   <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId,
       Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor);
