@@ -24,11 +24,43 @@ import org.apache.samza.operators.StreamGraph;
 
 
 /**
- * This interface defines a template for stream application that user will implement to create operator DAG in {@link StreamGraph}.
+ * This interface defines a template for stream application that user will implement to initialize operator DAG in {@link StreamGraph}.
+ *
+ * <p>
+ * User program implements {@link StreamApplication#init(StreamGraph, Config)} method to initialize the transformation logic
+ * from all input streams to output streams. A simple user code example is shown below:
+ * </p>
+ *
+ * <pre>{@code
+ * public class PageViewCounterExample implements StreamApplication {
+ *   // max timeout is 60 seconds
+ *   private static final MAX_TIMEOUT = 60000;
+ *
+ *   public void init(StreamGraph graph, Config config) {
+ *     MessageStream<PageViewEvent> pageViewEvents = graph.getInputStream("pageViewEventStream", (k, m) -> (PageViewEvent) m);
+ *     OutputStream<String, PageViewEvent, PageViewEvent> pageViewEventFilteredStream = graph
+ *       .getOutputStream("pageViewEventFiltered", m -> m.memberId, m -> m);
+ *
+ *     pageViewEvents
+ *       .filter(m -> !(m.getMessage().getEventTime() < System.currentTimeMillis() - MAX_TIMEOUT))
+ *       .sendTo(pageViewEventFilteredStream);
+ *   }
+ *
+ *   // local execution mode
+ *   public static void main(String[] args) {
+ *     CommandLine cmdLine = new CommandLine();
+ *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
+ *     PageViewCounterExample userApp = new PageViewCounterExample();
+ *     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
+ *     localRunner.run(userApp);
+ *   }
+ *
+ * }
+ * }</pre>
+ *
  */
 @InterfaceStability.Unstable
 public interface StreamApplication {
-  static final String APP_CLASS_CONFIG = "app.class";
 
   /**
    * Users are required to implement this abstract method to initialize the processing logic of the application, in terms
@@ -38,4 +70,5 @@ public interface StreamApplication {
    * @param config  the {@link Config} of the application
    */
   void init(StreamGraph graph, Config config);
+
 }

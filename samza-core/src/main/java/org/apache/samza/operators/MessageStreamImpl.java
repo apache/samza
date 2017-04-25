@@ -72,7 +72,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <TM> MessageStream<TM> map(MapFunction<M, TM> mapFn) {
+  public <TM> MessageStream<TM> map(MapFunction<? super M, ? extends TM> mapFn) {
     OperatorSpec<TM> op = OperatorSpecs.createMapOperatorSpec(
         mapFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
@@ -80,7 +80,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public MessageStream<M> filter(FilterFunction<M> filterFn) {
+  public MessageStream<M> filter(FilterFunction<? super M> filterFn) {
     OperatorSpec<M> op = OperatorSpecs.createFilterOperatorSpec(
         filterFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
@@ -88,7 +88,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <TM> MessageStream<TM> flatMap(FlatMapFunction<M, TM> flatMapFn) {
+  public <TM> MessageStream<TM> flatMap(FlatMapFunction<? super M, ? extends TM> flatMapFn) {
     OperatorSpec<TM> op = OperatorSpecs.createStreamOperatorSpec(
         flatMapFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
@@ -96,7 +96,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public void sink(SinkFunction<M> sinkFn) {
+  public void sink(SinkFunction<? super M> sinkFn) {
     SinkOperatorSpec<M> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
   }
@@ -110,22 +110,22 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window) {
-    OperatorSpec<WindowPane<K, WV>> wndOp = OperatorSpecs.createWindowOperatorSpec((WindowInternal<M, K, WV>) window,
-        new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
+    OperatorSpec<WindowPane<K, WV>> wndOp = OperatorSpecs.createWindowOperatorSpec(
+        (WindowInternal<M, K, WV>) window, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(wndOp);
     return wndOp.getNextStream();
   }
 
   @Override
-  public <K, JM, RM> MessageStream<RM> join(
-      MessageStream<JM> otherStream, JoinFunction<K, M, JM, RM> joinFn, Duration ttl) {
-    MessageStreamImpl<RM> nextStream = new MessageStreamImpl<>(this.graph);
+  public <K, OM, TM> MessageStream<TM> join(
+      MessageStream<OM> otherStream, JoinFunction<? extends K, ? super M, ? super OM, ? extends TM> joinFn, Duration ttl) {
+    MessageStreamImpl<TM> nextStream = new MessageStreamImpl<>(this.graph);
 
-    PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn = new PartialJoinFunction<K, M, JM, RM>() {
-      private KeyValueStore<K, PartialJoinMessage<M>> thisStreamState;
+    PartialJoinFunction<K, M, OM, TM> thisPartialJoinFn = new PartialJoinFunction<K, M, OM, TM>() {
+      private KeyValueStore<K, PartialJoinFunction.PartialJoinMessage<M>> thisStreamState;
 
       @Override
-      public RM apply(M m, JM jm) {
+      public TM apply(M m, OM jm) {
         return joinFn.apply(m, jm);
       }
 
@@ -148,21 +148,21 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
       }
     };
 
-    PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn = new PartialJoinFunction<K, JM, M, RM>() {
-      private KeyValueStore<K, PartialJoinMessage<JM>> otherStreamState;
+    PartialJoinFunction<K, OM, M, TM> otherPartialJoinFn = new PartialJoinFunction<K, OM, M, TM>() {
+      private KeyValueStore<K, PartialJoinMessage<OM>> otherStreamState;
 
       @Override
-      public RM apply(JM om, M m) {
+      public TM apply(OM om, M m) {
         return joinFn.apply(m, om);
       }
 
       @Override
-      public K getKey(JM message) {
+      public K getKey(OM message) {
         return joinFn.getSecondKey(message);
       }
 
       @Override
-      public KeyValueStore<K, PartialJoinMessage<JM>> getState() {
+      public KeyValueStore<K, PartialJoinMessage<OM>> getState() {
         return otherStreamState;
       }
 
@@ -175,7 +175,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     this.registeredOperatorSpecs.add(OperatorSpecs.createPartialJoinOperatorSpec(
         thisPartialJoinFn, otherPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId()));
 
-    ((MessageStreamImpl<JM>) otherStream).registeredOperatorSpecs
+    ((MessageStreamImpl<OM>) otherStream).registeredOperatorSpecs
         .add(OperatorSpecs.createPartialJoinOperatorSpec(
             otherPartialJoinFn, thisPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId()));
 
@@ -183,7 +183,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public MessageStream<M> merge(Collection<MessageStream<M>> otherStreams) {
+  public MessageStream<M> merge(Collection<MessageStream<? extends M>> otherStreams) {
     MessageStreamImpl<M> nextStream = new MessageStreamImpl<>(this.graph);
 
     otherStreams.add(this);
@@ -193,7 +193,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K> MessageStream<M> partitionBy(Function<M, K> keyExtractor) {
+  public <K> MessageStream<M> partitionBy(Function<? super M, ? extends K> keyExtractor) {
     int opId = this.graph.getNextOpId();
     String opName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), opId);
     MessageStreamImpl<M> intermediateStream =

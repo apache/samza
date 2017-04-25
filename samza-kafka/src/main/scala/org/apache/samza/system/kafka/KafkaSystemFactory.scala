@@ -118,7 +118,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     // Construct the meta information for each topic, if the replication factor is not defined, we use 2 as the number of replicas for the change log stream.
     val topicMetaInformation = storeToChangelog.map{case (storeName, topicName) =>
     {
-       val replicationFactor = config.getChangelogStreamReplicationFactor(storeName).getOrElse("2").toInt
+       val replicationFactor = config.getChangelogStreamReplicationFactor(storeName).toInt
        val changelogInfo = ChangelogInfo(replicationFactor, config.getChangelogKafkaProperties(storeName))
        info("Creating topic meta information for topic: %s with replication factor: %s" format (topicName, replicationFactor))
        (topicName, changelogInfo)

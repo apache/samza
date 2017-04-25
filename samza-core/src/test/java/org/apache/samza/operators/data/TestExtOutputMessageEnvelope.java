@@ -18,23 +18,12 @@
  */
 package org.apache.samza.operators.data;
 
+public class TestExtOutputMessageEnvelope extends TestOutputMessageEnvelope {
+  private final String outputId;
 
-public class TestMessageEnvelope {
-
-  private final String key;
-  private final MessageType value;
-
-  public TestMessageEnvelope(String key, String value, long eventTime) {
-    this.key = key;
-    this.value = new MessageType(value, eventTime);
-  }
-
-  public MessageType getMessage() {
-    return this.value;
-  }
-
-  public String getKey() {
-    return this.key;
+  public TestExtOutputMessageEnvelope(String key, Integer value, String outputId) {
+    super(key, value);
+    this.outputId = outputId;
   }
 
 }

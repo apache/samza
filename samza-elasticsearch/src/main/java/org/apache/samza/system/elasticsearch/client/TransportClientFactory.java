@@ -23,12 +23,12 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.ElasticsearchConfig;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.transport.TransportAddress;
 
 import java.util.Map;
+import java.net.InetSocketAddress;
 
 /**
  * A {@link ClientFactory} that creates a {@link org.elasticsearch.node.Node} client that connects
@@ -65,12 +65,12 @@ public class TransportClientFactory implements ClientFactory {
 
   @Override
   public Client getClient() {
-    Settings settings = ImmutableSettings.settingsBuilder()
+    Settings settings = Settings.settingsBuilder()
         .put(clientSettings)
         .build();
 
-    TransportAddress address = new InetSocketTransportAddress(transportHost, transportPort);
+    TransportAddress address = new InetSocketTransportAddress(new InetSocketAddress(transportHost, transportPort));
 
-    return new TransportClient(settings).addTransportAddress(address);
+    return TransportClient.builder().settings(settings).build().addTransportAddress(address);
   }
 }

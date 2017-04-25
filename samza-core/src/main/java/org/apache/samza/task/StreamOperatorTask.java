@@ -23,6 +23,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
+import org.apache.samza.operators.impl.RootOperatorImpl;
 import org.apache.samza.operators.stream.InputStreamInternal;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -118,8 +119,10 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     SystemStream systemStream = ime.getSystemStreamPartition().getSystemStream();
     InputStreamInternal inputStream = inputSystemStreamToInputStream.get(systemStream);
     // TODO: SAMZA-1148 - Cast to appropriate input (key, msg) types based on the serde before applying the msgBuilder.
-    operatorImplGraph.getRootOperator(systemStream)
-        .onNext(inputStream.getMsgBuilder().apply(ime.getKey(), ime.getMessage()), collector, coordinator);
+    RootOperatorImpl rootOperatorImpl = operatorImplGraph.getRootOperator(systemStream);
+    if (rootOperatorImpl != null) {
+      rootOperatorImpl.onNext(inputStream.getMsgBuilder().apply(ime.getKey(), ime.getMessage()), collector, coordinator);
+    }
   }
 
   @Override

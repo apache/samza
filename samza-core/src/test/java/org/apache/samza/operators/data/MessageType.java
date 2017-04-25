@@ -18,23 +18,20 @@
  */
 package org.apache.samza.operators.data;
 
+public class MessageType {
+  private final String value;
+  private final long eventTime;
 
-public class TestMessageEnvelope {
-
-  private final String key;
-  private final MessageType value;
-
-  public TestMessageEnvelope(String key, String value, long eventTime) {
-    this.key = key;
-    this.value = new MessageType(value, eventTime);
+  public MessageType(String value, long eventTime) {
+    this.value = value;
+    this.eventTime = eventTime;
   }
 
-  public MessageType getMessage() {
-    return this.value;
+  public long getEventTime() {
+    return eventTime;
   }
 
-  public String getKey() {
-    return this.key;
+  public String getValue() {
+    return value;
   }
-
 }

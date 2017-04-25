@@ -16,33 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.job.util;
+package org.apache.samza.operators.data;
 
-import java.lang.reflect.Method;
+public class TestInputMessageEnvelope extends TestMessageEnvelope {
+  private final String inputId;
 
+  public TestInputMessageEnvelope(String key, String value, long eventTime, String inputId) {
+    super(key, value, eventTime);
+    this.inputId = inputId;
+  }
 
-/**
- * Kills a {@link Process} consistently, independent of Java version.
- */
-public class ProcessKiller {
-  /**
-   * Force-kills the process independently of Java implementation.
-   *
-   * In Java 7, destroy() would force kill the process.
-   *
-   * Java 8 changed the behavior of destroy() to be normal
-   * termination and added destroyForcibly(), sigh.
-   *
-   * TODO: remove this class when Java 7 is no longer supported.
-   *
-   * @param process the process to destroy.
-   */
-  public static void destroyForcibly(Process process) {
-    try {
-      Method methodToFind = Process.class.getMethod("destroyForcibly", (Class<?>[]) null);
-      methodToFind.invoke(process);
-    } catch (Exception e) {
-      process.destroy();
-    }
+  public String getInputId() {
+    return this.inputId;
   }
 }
