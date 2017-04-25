@@ -19,6 +19,7 @@
 package org.apache.samza.task;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.application.StreamApplication;
@@ -158,19 +159,20 @@ public class TaskFactoryUtil {
    * @return {@link StreamApplication} instance
    */
   public static StreamApplication createStreamApplication(Config config) {
-    if (config.get(StreamApplication.APP_CLASS_CONFIG) != null && !config.get(StreamApplication.APP_CLASS_CONFIG).isEmpty()) {
+    ApplicationConfig appConfig = new ApplicationConfig(config);
+    if (appConfig.getAppClass() != null && !appConfig.getAppClass().isEmpty()) {
       TaskConfig taskConfig = new TaskConfig(config);
       if (taskConfig.getTaskClass() != null && !taskConfig.getTaskClass().isEmpty()) {
         throw new ConfigException("High level StreamApplication API cannot be used together with low-level API using task.class.");
       }
 
-      String appClassName = config.get(StreamApplication.APP_CLASS_CONFIG);
+      String appClassName = appConfig.getAppClass();
       try {
         Class<?> builderClass = Class.forName(appClassName);
         return (StreamApplication) builderClass.newInstance();
       } catch (Throwable t) {
         String errorMsg = String.format("Failed to create StreamApplication class from the config. %s = %s",
-            StreamApplication.APP_CLASS_CONFIG, config.get(StreamApplication.APP_CLASS_CONFIG));
+            ApplicationConfig.APP_CLASS, appConfig.getAppClass());
         log.error(errorMsg, t);
         throw new ConfigException(errorMsg, t);
       }

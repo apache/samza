@@ -20,7 +20,7 @@ package org.apache.samza.rest.resources;
 
 public class ResourceConstants {
 
-  public static final String GET_TASKS_URL = "http://%s/%s/%s/tasks/";
+  public static final String GET_TASKS_URL = "http://%s/v1/jobs/%s/%s/tasks/";
 
   public static final String GET_JOBS_URL = "http://%s/v1/jobs/%s/%s/";
 }

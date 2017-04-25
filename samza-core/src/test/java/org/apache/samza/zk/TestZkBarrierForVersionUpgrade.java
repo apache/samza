@@ -48,7 +48,7 @@ public class TestZkBarrierForVersionUpgrade {
   public static void setup() throws InterruptedException {
     zkServer = new EmbeddedZookeeper();
     zkServer.setup();
-    testZkConnectionString = "localhost:" + zkServer.getPort();
+    testZkConnectionString = "127.0.0.1:" + zkServer.getPort();
   }
 
   @Before

@@ -54,7 +54,7 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createMapOperatorSpec(
-      MapFunction<M, OM> mapFn, MessageStreamImpl<OM> nextStream, int opId, StackTraceElement sourceLocation) {
+      MapFunction<? super M, ? extends OM> mapFn, MessageStreamImpl<OM> nextStream, int opId, StackTraceElement sourceLocation) {
     return new StreamOperatorSpec<>(new FlatMapFunction<M, OM>() {
       @Override
       public Collection<OM> apply(M message) {
@@ -86,7 +86,7 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M> StreamOperatorSpec<M, M> createFilterOperatorSpec(
-      FilterFunction<M> filterFn, MessageStreamImpl<M> nextStream, int opId, StackTraceElement sourceLocation) {
+      FilterFunction<? super M> filterFn, MessageStreamImpl<M> nextStream, int opId, StackTraceElement sourceLocation) {
     return new StreamOperatorSpec<>(new FlatMapFunction<M, M>() {
       @Override
       public Collection<M> apply(M message) {
@@ -118,8 +118,8 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createStreamOperatorSpec(
-      FlatMapFunction<M, OM> transformFn, MessageStreamImpl<OM> nextStream, int opId, StackTraceElement sourceLocation) {
-    return new StreamOperatorSpec<>(transformFn, nextStream, OperatorSpec.OpCode.FLAT_MAP, opId, sourceLocation);
+      FlatMapFunction<? super M, ? extends OM> transformFn, MessageStreamImpl<OM> nextStream, int opId, StackTraceElement sourceLocation) {
+    return new StreamOperatorSpec<>((FlatMapFunction<M, OM>) transformFn, nextStream, OperatorSpec.OpCode.FLAT_MAP, opId, sourceLocation);
   }
 
   /**
@@ -131,8 +131,8 @@ public class OperatorSpecs {
    * @param sourceLocation location of the source code that creates this operator
    * @return  the {@link SinkOperatorSpec} for the sink operator
    */
-  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<M> sinkFn, int opId, StackTraceElement sourceLocation) {
-    return new SinkOperatorSpec<>(sinkFn, OperatorSpec.OpCode.SINK, opId, sourceLocation);
+  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<? super M> sinkFn, int opId, StackTraceElement sourceLocation) {
+    return new SinkOperatorSpec<>((SinkFunction<M>) sinkFn, OperatorSpec.OpCode.SINK, opId, sourceLocation);
   }
 
   /**
@@ -203,7 +203,7 @@ public class OperatorSpecs {
   public static <K, M, JM, RM> PartialJoinOperatorSpec<K, M, JM, RM> createPartialJoinOperatorSpec(
       PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn, PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn,
       long ttlMs, MessageStreamImpl<RM> nextStream, int opId, StackTraceElement sourceLocation) {
-    return new PartialJoinOperatorSpec<K, M, JM, RM>(thisPartialJoinFn, otherPartialJoinFn, ttlMs, nextStream, opId, sourceLocation);
+    return new PartialJoinOperatorSpec<>(thisPartialJoinFn, otherPartialJoinFn, ttlMs, nextStream, opId, sourceLocation);
   }
 
   /**
@@ -216,7 +216,7 @@ public class OperatorSpecs {
    * @return  the {@link StreamOperatorSpec} for the merge
    */
   public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(MessageStreamImpl<M> nextStream, int opId, StackTraceElement sourceLocation) {
-    return new StreamOperatorSpec<M, M>(message ->
+    return new StreamOperatorSpec<>(message ->
         new ArrayList<M>() {
           {
             this.add(message);

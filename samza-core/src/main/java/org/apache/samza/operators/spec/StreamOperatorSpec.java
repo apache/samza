@@ -50,7 +50,7 @@ public class StreamOperatorSpec<M, OM> implements OperatorSpec<OM> {
    * @param opId  the unique id for this {@link StreamOperatorSpec} in a {@link org.apache.samza.operators.StreamGraph}
    * @param sourceLocation location of the source code that creates this operator
    */
-  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, MessageStreamImpl nextStream,
+  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, MessageStreamImpl<OM> nextStream,
       OperatorSpec.OpCode opCode, int opId, StackTraceElement sourceLocation) {
     this.transformFn = transformFn;
     this.nextStream = nextStream;

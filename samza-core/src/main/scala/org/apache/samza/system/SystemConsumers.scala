@@ -331,11 +331,11 @@ class SystemConsumers (
       val deserializedEnvelope = try {
         Some(serdeManager.fromBytes(rawEnvelope))
       } catch {
-        case e: Exception if !dropDeserializationError =>
+        case e: Throwable if !dropDeserializationError =>
           throw new SystemConsumersException(
             "Cannot deserialize an incoming message for %s"
               .format(systemStreamPartition.getSystemStream.toString), e)
-        case ex: Exception =>
+        case ex: Throwable =>
           debug("Cannot deserialize an incoming message for %s. Dropping the error message."
                 .format(systemStreamPartition.getSystemStream.toString), ex)
           metrics.deserializationError.inc

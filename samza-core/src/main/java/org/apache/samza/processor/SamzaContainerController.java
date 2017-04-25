@@ -48,8 +48,7 @@ public class SamzaContainerController {
   private final Map<String, MetricsReporter> metricsReporterMap;
   private final Object taskFactory;
   private final long containerShutdownMs;
-  private final String processorId;
-  private final StreamProcessorLifeCycleAware lifeCycleAware;
+  private final StreamProcessorLifecycleListener lifecycleListener;
 
   // Internal Member Variables
   private Future containerFuture;
@@ -58,20 +57,17 @@ public class SamzaContainerController {
    * Creates an instance of a controller for instantiating, starting and/or stopping {@link SamzaContainer}
    * Requests to execute a container are submitted to the {@link ExecutorService}
    *
-   * @param processorId         {@link StreamProcessor} ID
    * @param taskFactory         Factory that be used create instances of {@link org.apache.samza.task.StreamTask} or
    *                            {@link org.apache.samza.task.AsyncStreamTask}
    * @param containerShutdownMs How long the Samza container should wait for an orderly shutdown of task instances
    * @param metricsReporterMap  Map of metric reporter name and {@link MetricsReporter} instance
-   * @param lifeCycleAware {@link StreamProcessorLifeCycleAware}
+   * @param lifecycleListener {@link StreamProcessorLifecycleListener}
    */
   public SamzaContainerController(
-      String processorId,
       Object taskFactory,
       long containerShutdownMs,
       Map<String, MetricsReporter> metricsReporterMap,
-      StreamProcessorLifeCycleAware lifeCycleAware) {
-    this.processorId = processorId;
+      StreamProcessorLifecycleListener lifecycleListener) {
     this.taskFactory = taskFactory;
     this.metricsReporterMap = metricsReporterMap;
     if (containerShutdownMs == -1) {
@@ -80,7 +76,7 @@ public class SamzaContainerController {
       this.containerShutdownMs = containerShutdownMs;
     }
     // life cycle callbacks when shutdown and failure happens
-    this.lifeCycleAware = lifeCycleAware;
+    this.lifecycleListener = lifecycleListener;
   }
 
   /**
@@ -116,9 +112,9 @@ public class SamzaContainerController {
     containerFuture = executorService.submit(() -> {
         try {
           container.run();
-          lifeCycleAware.onShutdown(processorId);
+          lifecycleListener.onShutdown();
         } catch (Throwable t) {
-          lifeCycleAware.onFailure(processorId, t);
+          lifecycleListener.onFailure(t);
         }
       });
   }

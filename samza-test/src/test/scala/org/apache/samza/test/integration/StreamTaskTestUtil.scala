@@ -119,7 +119,7 @@ object StreamTaskTestUtil {
     servers = configs.map(TestUtils.createServer(_)).toBuffer
 
     val brokerList = TestUtils.getBrokerListStrFromServers(servers, SecurityProtocol.PLAINTEXT)
-    brokers = brokerList.split(",").map(p => "localhost" + p).mkString(",")
+    brokers = brokerList.split(",").map(p => "127.0.0.1" + p).mkString(",")
 
     // setup the zookeeper and bootstrap servers for local kafka cluster
     jobConfig ++= Map("systems.kafka.consumer.zookeeper.connect" -> zkConnect,

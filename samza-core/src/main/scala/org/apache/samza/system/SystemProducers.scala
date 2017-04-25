@@ -73,7 +73,7 @@ class SystemProducers(
     val bytesEnvelope = try {
       Some(serdeManager.toBytes(envelope))
     } catch {
-      case e: Exception if !dropSerializationError => throw new SamzaException("can not serialize the message", e)
+      case e: Throwable if !dropSerializationError => throw new SamzaException("can not serialize the message", e)
       case ex: Throwable => {
         debug("Serialization fails: %s . Drop the error message" format ex)
         metrics.serializationError.inc

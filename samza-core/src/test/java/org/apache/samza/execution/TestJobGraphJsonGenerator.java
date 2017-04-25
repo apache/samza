@@ -22,6 +22,9 @@ package org.apache.samza.execution;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -101,11 +104,13 @@ public class TestJobGraphJsonGenerator {
     StreamManager streamManager = new StreamManager(systemAdmins);
 
     StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    MessageStream m1 = streamGraph.getInputStream("input1", (String k, String v) -> (String) v).map(m -> m);
-    MessageStream m2 = streamGraph.getInputStream("input2", (String k, String v) -> (String) v).partitionBy(m -> "haha").filter(m -> true);
-    MessageStream m3 = streamGraph.getInputStream("input3", (String k, String v) -> (String) v).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
-    OutputStream<Object, Object, Object> outputStream1 = streamGraph.getOutputStream("output1", null, null);
-    OutputStream<Object, Object, Object> outputStream2 = streamGraph.getOutputStream("output2", null, null);
+    BiFunction mockBuilder = mock(BiFunction.class);
+    MessageStream m1 = streamGraph.getInputStream("input1", mockBuilder).map(m -> m);
+    MessageStream m2 = streamGraph.getInputStream("input2", mockBuilder).partitionBy(m -> "haha").filter(m -> true);
+    MessageStream m3 = streamGraph.getInputStream("input3", mockBuilder).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
+    Function mockFn = mock(Function.class);
+    OutputStream<Object, Object, Object> outputStream1 = streamGraph.getOutputStream("output1", mockFn, mockFn);
+    OutputStream<Object, Object, Object> outputStream2 = streamGraph.getOutputStream("output2", mockFn, mockFn);
 
     m1.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).sendTo(outputStream1);
     m3.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(outputStream2);
