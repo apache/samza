@@ -24,8 +24,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * An UncaughtExceptionHandler for SamzaContainer that simply shuts down when any thread throws
- * an uncaught exception.
+ * An UncaughtExceptionHandler for SamzaContainer that simply executes the configured {@link #runnable}
+ * when any thread throws an uncaught exception.
  */
 public class SamzaContainerExceptionHandler implements UncaughtExceptionHandler {
   private static final Logger LOGGER = LoggerFactory.getLogger(SamzaContainerExceptionHandler.class);

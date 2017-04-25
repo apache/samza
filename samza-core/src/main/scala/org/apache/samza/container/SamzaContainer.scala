@@ -816,13 +816,11 @@ class SamzaContainer(
         try {
           runLoopThread.join(shutdownMs)
         } catch {
-          case e: Exception => // Ignore to avoid deadlock with uncaughtExceptioHandler. See SAMZA-1220
-        } finally {
-          if (runLoopThread.isAlive) {
-            warn("Did not shut down within %s ms, exiting" format shutdownMs)
-          } else {
-            info("Shutdown complete")
-          }
+          case e: Throwable => // Ignore to avoid deadlock with uncaughtExceptionHandler. See SAMZA-1220
+            error("Did not shut down within %s ms, exiting" format shutdownMs, e)
+        }
+        if (!runLoopThread.isAlive) {
+          info("Shutdown complete")
         }
       }
     }
@@ -836,8 +834,7 @@ class SamzaContainer(
       }
     } catch {
       case e: IllegalStateException => {
-        // When samza is shutdown by external command, IllegalStateException will be thrown.
-        // And it's expected.
+        // Thrown when then JVM is already shutting down, so safe to ignore.
       }
     }
   }
