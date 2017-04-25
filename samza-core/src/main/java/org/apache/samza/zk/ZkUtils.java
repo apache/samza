@@ -138,10 +138,25 @@ public class ZkUtils {
   }
 
   /**
-   * Method is used to get the <i>sorted</i> list of currently active/registered processors PIDs
+   * Method is used to read processors PIDs
    *
-   * @return List of absolute ZK node paths
+   * @return absolute ZK node path
    */
+  public String getProcessorsPID(String fullPath) {
+    String data = zkClient.<String>readData(fullPath, true);
+    if (data == null) {
+      throw new SamzaException(String.format("Cannot read ZK node:", fullPath));
+    }
+    // data format is "host pid"
+    String [] pidHost = data.split(" ");
+    return pidHost[1];
+  }
+
+    /**
+     * Method is used to get the <i>sorted</i> list of currently active/registered processors PIDs
+     *
+     * @return List of absolute ZK node paths
+     */
   public List<String> getSortedActiveProcessorsPIDs() {
     String processorPath = keyBuilder.getProcessorsPath();
     List<String> children = zkClient.getChildren(processorPath);
@@ -150,13 +165,7 @@ public class ZkUtils {
 
       for (String child : children) {
         String fullChildPath = String.format("%s/%s", processorPath, child);
-        String data = zkClient.<String>readData(fullChildPath, true);
-        if (data == null) {
-          throw new SamzaException(String.format("List of processors changed while we were reading it. Child % does not exist anymore", fullChildPath));
-        }
-        // data format is "host pid"
-        String [] pidHost = data.split(" ");
-        childrenPids.add(pidHost[1]);
+        childrenPids.add(getProcessorsPID(fullChildPath));
       }
 
       Collections.sort(childrenPids);

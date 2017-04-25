@@ -18,6 +18,7 @@
  */
 package org.apache.samza.zk;
 
+import java.util.List;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
@@ -50,6 +51,7 @@ public class TestZkUtils {
   public static void setup() throws InterruptedException {
     zkServer = new EmbeddedZookeeper();
     zkServer.setup();
+    System.out.println("zk port=" + zkServer.getPort());
   }
 
   @Before
@@ -89,11 +91,11 @@ public class TestZkUtils {
 
   @Test
   public void testRegisterProcessorId() {
-    String assignedPath = zkUtils.registerProcessorAndGetId("0.0.0.0");
+    String assignedPath = zkUtils.registerProcessorAndGetId("0.0.0.0 1");
     Assert.assertTrue(assignedPath.startsWith(KEY_BUILDER.getProcessorsPath()));
 
     // Calling registerProcessorId again should return the same ephemeralPath as long as the session is valid
-    Assert.assertTrue(zkUtils.registerProcessorAndGetId("0.0.0.0").equals(assignedPath));
+    Assert.assertTrue(zkUtils.registerProcessorAndGetId("0.0.0.0 1").equals(assignedPath));
 
   }
 
@@ -102,6 +104,20 @@ public class TestZkUtils {
     Assert.assertEquals(0, zkUtils.getSortedActiveProcessors().size());
     zkUtils.registerProcessorAndGetId("processorData");
     Assert.assertEquals(1, zkUtils.getSortedActiveProcessors().size());
+  }
+
+  @Test
+  public void testGetProcessorsPIDs() {
+    Assert.assertEquals(0, zkUtils.getSortedActiveProcessorsPIDs().size());
+    zkUtils.registerProcessorAndGetId("host 1");
+    List<String> l = zkUtils.getSortedActiveProcessorsPIDs();
+    Assert.assertEquals(1, l.size());
+    new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS).registerProcessorAndGetId("host 2");
+    l = zkUtils.getSortedActiveProcessorsPIDs();
+    Assert.assertEquals(2, l.size());
+
+    Assert.assertEquals(" PID1 didn't match", "1", l.get(0));
+    Assert.assertEquals(" PID2 didn't match", "2", l.get(1));
   }
   
   @Test
