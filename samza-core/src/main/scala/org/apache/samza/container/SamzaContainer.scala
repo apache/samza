@@ -628,6 +628,7 @@ class SamzaContainer(
 
   val shutdownMs = containerContext.config.getShutdownMs.getOrElse(5000L)
   private val runLoopStartLatch: CountDownLatch = new CountDownLatch(1)
+  var shutdownHookThread: Thread = null
 
   def awaitStart(timeoutMs: Long): Boolean = {
     try {
@@ -664,6 +665,8 @@ class SamzaContainer(
         throw e
     } finally {
       info("Shutting down.")
+
+      removeShutdownHook
 
       shutdownConsumers
       shutdownTask
@@ -803,21 +806,37 @@ class SamzaContainer(
 
   def addShutdownHook {
     val runLoopThread = Thread.currentThread()
-    Runtime.getRuntime().addShutdownHook(new Thread() {
+    shutdownHookThread = new Thread("CONTAINER-SHUTDOWN-HOOK") {
       override def run() = {
         info("Shutting down, will wait up to %s ms" format shutdownMs)
         runLoop match {
           case runLoop: RunLoop => runLoop.shutdown
           case asyncRunLoop: AsyncRunLoop => asyncRunLoop.shutdown()
         }
-        runLoopThread.join(shutdownMs)
-        if (runLoopThread.isAlive) {
-          warn("Did not shut down within %s ms, exiting" format shutdownMs)
-        } else {
+        try {
+          runLoopThread.join(shutdownMs)
+        } catch {
+          case e: Throwable => // Ignore to avoid deadlock with uncaughtExceptionHandler. See SAMZA-1220
+            error("Did not shut down within %s ms, exiting" format shutdownMs, e)
+        }
+        if (!runLoopThread.isAlive) {
           info("Shutdown complete")
         }
       }
-    })
+    }
+    Runtime.getRuntime().addShutdownHook(shutdownHookThread)
+  }
+
+  def removeShutdownHook = {
+    try {
+      if (shutdownHookThread != null) {
+        Runtime.getRuntime.removeShutdownHook(shutdownHookThread)
+      }
+    } catch {
+      case e: IllegalStateException => {
+        // Thrown when then JVM is already shutting down, so safe to ignore.
+      }
+    }
   }
 
   def shutdownConsumers {
