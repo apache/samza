@@ -19,9 +19,13 @@
 
 package org.apache.samza.execution;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -32,36 +36,14 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.codehaus.jackson.annotate.JsonProperty;
 import org.codehaus.jackson.map.ObjectMapper;
+
 
 /**
  * This class generates the JSON representation of the {@link JobGraph}.
  */
 /* package private */ class JobGraphJsonGenerator {
-
-  /**
-   * This class provides the necessary connection of operators for traversal.
-   */
-  static abstract class Traversable {
-    @JsonProperty("nextOperatorIds")
-    Set<Integer>  nextOperatorIds = new HashSet<>();
-  }
-
-  static final class OperatorJson extends Traversable {
-    @JsonProperty("opCode")
-    String opCode;
-    @JsonProperty("opId")
-    int opId;
-    @JsonProperty("outputStreamId")
-    String outputStreamId;
-    @JsonProperty("pairedOpId")
-    int pairedOpId = -1;  //for join operator, we will have a pair nodes for two partial joins
-    @JsonProperty("caller")
-    String caller;
-  }
 
   static final class StreamSpecJson {
     @JsonProperty("id")
@@ -85,16 +67,20 @@ import org.codehaus.jackson.map.ObjectMapper;
 
   static final class OperatorGraphJson {
     @JsonProperty("inputStreams")
-    List<InputStreamJson> inputStreams;
-    @JsonProperty("operators")
-    Map<Integer, OperatorJson> operators = new HashMap<>();
+    List<StreamJson> inputStreams;
     @JsonProperty("outputStreams")
-    List<String> outputStreams;
+    List<StreamJson> outputStreams;
+    @JsonProperty("operators")
+    Map<Integer, Map<String, Object>> operators = new HashMap<>();
+    @JsonProperty("canonicalOpIds")
+    Map<Integer, String> canonicalOpIds = new HashMap<>();
   }
 
-  static final class InputStreamJson extends Traversable {
+  static final class StreamJson {
     @JsonProperty("streamId")
     String streamId;
+    @JsonProperty("nextOperatorIds")
+    Set<Integer>  nextOperatorIds = new HashSet<>();
   }
 
   static final class JobNodeJson {
@@ -121,10 +107,10 @@ import org.codehaus.jackson.map.ObjectMapper;
     String applicationId;
   }
 
-  // Mapping from the output stream to the join spec. Since StreamGraph creates two partial join operators for a join and they
-  // will have the same output stream, this mapping is used to choose one of them as the unique join spec representing this join
-  // (who register first in the map wins).
-  Map<MessageStream, OperatorSpec> outputStreamToJoinSpec = new HashMap<>();
+  // Mapping from the output stream to the ids.
+  // Logically they belong to the same operator, but in code we generate one operator for each input.
+  // This is to associate the operators that output to the same MessageStream.
+  Multimap<MessageStream, Integer> outputStreamToOpIds = HashMultimap.create();
 
   /**
    * Returns the JSON representation of a {@link JobGraph}
@@ -178,14 +164,27 @@ import org.codehaus.jackson.map.ObjectMapper;
     OperatorGraphJson opGraph = new OperatorGraphJson();
     opGraph.inputStreams = new ArrayList<>();
     jobNode.getStreamGraph().getInputStreams().forEach((streamSpec, stream) -> {
-        InputStreamJson inputJson = new InputStreamJson();
-        inputJson.streamId = streamSpec.getId();
+        StreamJson inputJson = new StreamJson();
         opGraph.inputStreams.add(inputJson);
-        updateOperatorGraphJson((MessageStreamImpl) stream, inputJson, opGraph);
+        inputJson.streamId = streamSpec.getId();
+        Collection<OperatorSpec> specs = ((MessageStreamImpl) stream).getRegisteredOperatorSpecs();
+        inputJson.nextOperatorIds = specs.stream().map(OperatorSpec::getOpId).collect(Collectors.toSet());
+
+        updateOperatorGraphJson((MessageStreamImpl) stream, opGraph);
+
+        for (Map.Entry<MessageStream, Collection<Integer>> entry : outputStreamToOpIds.asMap().entrySet()) {
+          List<Integer> sortedIds = new ArrayList<>(entry.getValue());
+          Collections.sort(sortedIds);
+          String canonicalId = Joiner.on(',').join(sortedIds);
+          sortedIds.stream().forEach(id -> opGraph.canonicalOpIds.put(id, canonicalId));
+        }
       });
+
     opGraph.outputStreams = new ArrayList<>();
     jobNode.getStreamGraph().getOutputStreams().keySet().forEach(streamSpec -> {
-        opGraph.outputStreams.add(streamSpec.getId());
+        StreamJson outputJson = new StreamJson();
+        outputJson.streamId = streamSpec.getId();
+        opGraph.outputStreams.add(outputJson);
       });
     return opGraph;
   }
@@ -193,68 +192,28 @@ import org.codehaus.jackson.map.ObjectMapper;
   /**
    * Traverse the {@StreamGraph} recursively and update the operator graph JSON POJO.
    * @param messageStream input
-   * @param parent parent node in the traveral
    * @param opGraph operator graph to build
    */
-  private void updateOperatorGraphJson(MessageStreamImpl messageStream, Traversable parent, OperatorGraphJson opGraph) {
+  private void updateOperatorGraphJson(MessageStreamImpl messageStream, OperatorGraphJson opGraph) {
     Collection<OperatorSpec> specs = messageStream.getRegisteredOperatorSpecs();
     specs.forEach(opSpec -> {
-        parent.nextOperatorIds.add(opSpec.getOpId());
+        opGraph.operators.put(opSpec.getOpId(), opSpec.toJsonMap());
 
-        OperatorJson opJson = buildOperatorJson(opSpec, opGraph, messageStream);
-        if (opSpec instanceof SinkOperatorSpec) {
-          opJson.outputStreamId = ((SinkOperatorSpec) opSpec).getOutputStream().getStreamSpec().getId();
-        } else if (opSpec.getNextStream() != null) {
-          updateOperatorGraphJson(opSpec.getNextStream(), opJson, opGraph);
+        if (opSpec.getOpCode() == OperatorSpec.OpCode.JOIN || opSpec.getOpCode() == OperatorSpec.OpCode.MERGE) {
+          outputStreamToOpIds.put(opSpec.getNextStream(), opSpec.getOpId());
+        }
+
+        if (opSpec.getNextStream() != null) {
+          updateOperatorGraphJson(opSpec.getNextStream(), opGraph);
         }
       });
-  }
-
-  /**
-   * Get or create the JSON POJO for an operator.
-   * @param opSpec {@link OperatorSpec}
-   * @param opGraph {@link org.apache.samza.execution.JobGraphJsonGenerator.OperatorGraphJson}
-   * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.OperatorJson}
-   */
-  private OperatorJson buildOperatorJson(OperatorSpec opSpec, OperatorGraphJson opGraph,
-      MessageStreamImpl messageStream) {
-    Map<Integer, OperatorJson> operators = opGraph.operators;
-    OperatorJson opJson = operators.get(opSpec.getOpId());
-    if (opJson == null) {
-      opJson = new OperatorJson();
-      opJson.opCode = opSpec.getOpCode().name();
-      opJson.opId = opSpec.getOpId();
-      StackTraceElement stackTraceElement = messageStream.getCallerStackTrace(opSpec.getOpId());
-      if (stackTraceElement != null) {
-        opJson.caller = String.format("%s:%s", stackTraceElement.getFileName(), stackTraceElement.getLineNumber());
-      }
-      operators.put(opSpec.getOpId(), opJson);
-    }
-
-    if (opSpec instanceof PartialJoinOperatorSpec) {
-      // every join will have two partial join operators
-      // we will choose one of them in order to consolidate the inputs
-      // the first one who registered with the outputStreamToJoinSpec will win
-      MessageStream output = opSpec.getNextStream();
-      OperatorSpec joinSpec = outputStreamToJoinSpec.get(output);
-      if (joinSpec == null) {
-        joinSpec = opSpec;
-        outputStreamToJoinSpec.put(output, joinSpec);
-      } else if (joinSpec != opSpec) {
-        OperatorJson joinNode = operators.get(joinSpec.getOpId());
-        joinNode.pairedOpId = opJson.opId;
-        opJson.pairedOpId = joinNode.opId;
-      }
-    }
-
-    return opJson;
   }
 
   /**
    * Get or create the JSON POJO for a {@link StreamEdge}
    * @param edge {@link StreamEdge}
    * @param streamEdges map of streamId to {@link org.apache.samza.execution.JobGraphJsonGenerator.StreamEdgeJson}
-   * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.StreamEdgeJson}
+   * @return JSON representation of the {@link StreamEdge}
    */
   private StreamEdgeJson buildStreamEdgeJson(StreamEdge edge, Map<String, StreamEdgeJson> streamEdges) {
     String streamId = edge.getStreamSpec().getId();

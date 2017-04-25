@@ -18,9 +18,12 @@
  */
 package org.apache.samza.operators.spec;
 
+import java.util.Collections;
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.FlatMapFunction;
+import org.apache.samza.operators.util.OperatorJsonUtils;
 import org.apache.samza.task.TaskContext;
 
 
@@ -36,6 +39,7 @@ public class StreamOperatorSpec<M, OM> implements OperatorSpec<OM> {
   private final MessageStreamImpl<OM> nextStream;
   private final OperatorSpec.OpCode opCode;
   private final int opId;
+  private final StackTraceElement sourceLocation;
 
   /**
    * Constructor for a {@link StreamOperatorSpec} that accepts an output {@link MessageStreamImpl}.
@@ -44,13 +48,15 @@ public class StreamOperatorSpec<M, OM> implements OperatorSpec<OM> {
    * @param nextStream  the output {@link MessageStreamImpl} containing the messages produced from this operator
    * @param opCode  the {@link OpCode} for this {@link StreamOperatorSpec}
    * @param opId  the unique id for this {@link StreamOperatorSpec} in a {@link org.apache.samza.operators.StreamGraph}
+   * @param sourceLocation location of the source code that creates this operator
    */
   StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, MessageStreamImpl nextStream,
-      OperatorSpec.OpCode opCode, int opId) {
+      OperatorSpec.OpCode opCode, int opId, StackTraceElement sourceLocation) {
     this.transformFn = transformFn;
     this.nextStream = nextStream;
     this.opCode = opCode;
     this.opId = opId;
+    this.sourceLocation = sourceLocation;
   }
 
   @Override
@@ -75,5 +81,15 @@ public class StreamOperatorSpec<M, OM> implements OperatorSpec<OM> {
   @Override
   public void init(Config config, TaskContext context) {
     this.transformFn.init(config, context);
+  }
+
+  @Override
+  public StackTraceElement getSourceLocation() {
+    return sourceLocation;
+  }
+
+  @Override
+  public Map<String, Object> toJsonMap() {
+    return OperatorJsonUtils.operatorToJson(this, Collections.emptyMap());
   }
 }

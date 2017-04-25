@@ -53,7 +53,7 @@ public class TestOperatorSpecs {
         } };
     MessageStreamImpl<TestMessageEnvelope> mockOutput = mock(MessageStreamImpl.class);
     StreamOperatorSpec<?, TestMessageEnvelope> streamOp =
-        OperatorSpecs.createStreamOperatorSpec(transformFn, mockOutput, 1);
+        OperatorSpecs.createStreamOperatorSpec(transformFn, mockOutput, 1, null);
     assertEquals(streamOp.getTransformFn(), transformFn);
     assertEquals(streamOp.getNextStream(), mockOutput);
   }
@@ -62,7 +62,7 @@ public class TestOperatorSpecs {
   public void testCreateSinkOperator() {
     SinkFunction<TestMessageEnvelope> sinkFn = (TestMessageEnvelope message, MessageCollector messageCollector,
           TaskCoordinator taskCoordinator) -> { };
-    SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createSinkOperatorSpec(sinkFn, 1);
+    SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createSinkOperatorSpec(sinkFn, 1, null);
     assertEquals(sinkOp.getSinkFn(), sinkFn);
     assertEquals(sinkOp.getOpCode(), OperatorSpec.OpCode.SINK);
     assertEquals(sinkOp.getNextStream(), null);
@@ -71,7 +71,7 @@ public class TestOperatorSpecs {
   @Test
   public void testCreateSendToOperator() {
     OutputStreamInternalImpl<Object, Object, TestMessageEnvelope> mockOutput = mock(OutputStreamInternalImpl.class);
-    SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createSendToOperatorSpec(mockOutput, 1);
+    SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createSendToOperatorSpec(mockOutput, 1, null);
     assertNotNull(sinkOp.getSinkFn());
     assertEquals(sinkOp.getOpCode(), OperatorSpec.OpCode.SEND_TO);
     assertEquals(sinkOp.getNextStream(), null);
@@ -81,7 +81,7 @@ public class TestOperatorSpecs {
   @Test
   public void testCreatePartitionByOperator() {
     OutputStreamInternalImpl<Object, Object, TestMessageEnvelope> mockOutput = mock(OutputStreamInternalImpl.class);
-    SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createPartitionByOperatorSpec(mockOutput, 1);
+    SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createPartitionByOperatorSpec(mockOutput, 1, null);
     assertNotNull(sinkOp.getSinkFn());
     assertEquals(sinkOp.getOpCode(), OperatorSpec.OpCode.PARTITION_BY);
     assertEquals(sinkOp.getNextStream(), null);
@@ -97,7 +97,7 @@ public class TestOperatorSpecs {
 
     MessageStreamImpl<WindowPane<String, Integer>> mockWndOut = mock(MessageStreamImpl.class);
     WindowOperatorSpec spec =
-        OperatorSpecs.<TestMessageEnvelope, String, Integer>createWindowOperatorSpec(window, mockWndOut, 1);
+        OperatorSpecs.<TestMessageEnvelope, String, Integer>createWindowOperatorSpec(window, mockWndOut, 1, null);
     assertEquals(spec.getWindow(), window);
     assertEquals(spec.getWindow().getKeyExtractor(), keyExtractor);
     assertEquals(spec.getWindow().getFoldLeftFunction(), aggregator);
@@ -113,7 +113,7 @@ public class TestOperatorSpecs {
     MessageStreamImpl<TestOutputMessageEnvelope> joinOutput = TestMessageStreamImplUtil.getMessageStreamImpl(mockGraph);
 
     PartialJoinOperatorSpec<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> partialJoinSpec
-        = OperatorSpecs.createPartialJoinOperatorSpec(thisPartialJoinFn, otherPartialJoinFn, 1000 * 60, joinOutput, 1);
+        = OperatorSpecs.createPartialJoinOperatorSpec(thisPartialJoinFn, otherPartialJoinFn, 1000 * 60, joinOutput, 1, null);
 
     assertEquals(partialJoinSpec.getNextStream(), joinOutput);
     assertEquals(partialJoinSpec.getThisPartialJoinFn(), thisPartialJoinFn);
@@ -125,7 +125,7 @@ public class TestOperatorSpecs {
     StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
     MessageStreamImpl<TestMessageEnvelope> output = TestMessageStreamImplUtil.<TestMessageEnvelope>getMessageStreamImpl(mockGraph);
     StreamOperatorSpec<TestMessageEnvelope, TestMessageEnvelope> mergeOp =
-        OperatorSpecs.createMergeOperatorSpec(output, 1);
+        OperatorSpecs.createMergeOperatorSpec(output, 1, null);
     Function<TestMessageEnvelope, Collection<TestMessageEnvelope>> mergeFn =
         t -> new ArrayList<TestMessageEnvelope>() { {
             this.add(t);

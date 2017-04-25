@@ -46,9 +46,9 @@ public interface ExecutionPlan {
 
   /**
    * Returns the JSON representation of the plan.
-   * @return json string
+   * @return JSON string
    * @throws Exception exception during JSON serialization, including {@link java.io.IOException}
-   * and {@link org.codehaus.jackson.JsonGenerationException}
+   *                   and {@link org.codehaus.jackson.JsonGenerationException}
    */
   String getPlanAsJson() throws Exception;
 }

@@ -40,24 +40,29 @@ function planToDagre(data) {
     }
   }
 
-  var canonicalId = {};
   var jobs = data.jobs;
   for (var i = 0; i < jobs.length; i++) {
+    var canonicalOpIds = jobs[i].operatorGraph.canonicalOpIds;
     var operators = jobs[i].operatorGraph.operators;
     for (var opId in operators) {
       var operator = operators[opId];
       var labelVal = "<div><h3 class=\"topbar\">" + operator.opCode + "</h3><ul class=\"detailBox\">";
       var opId = operator.opId;
-      if (parseInt(operator.pairedOpId) != -1) {
-        opId = parseInt(operator.opId) < parseInt(operator.pairedOpId)?
-            (operator.opId + "," + operator.pairedOpId) :
-            (operator.pairedOpId + "," + operator.opId);
+      if (!(opId in canonicalOpIds)) {
+        canonicalOpIds[opId] = opId.toString();
       }
-      canonicalId[operator.opId] = opId;
       labelVal +=  "<li>ID: " + opId + "</li>";
-      labelVal +=  "<li>@" + operator.caller + "</li>";
+      labelVal +=  "<li>@" + operator.sourceLocation + "</li>";
+
+      var keys = ["opId", "opCode", "sourceLocation", "outputStreamId", "nextOperatorIds"];
+      for (var key in operator) {
+        if (keys.indexOf(key) === -1) {
+          labelVal += "<li>" + key + ": " + operator[key] + "</li>";
+        }
+      }
+
       labelVal += "</ul></div>";
-      g.setNode(opId,  { label: labelVal, labelType: "html", rx: 5, ry: 5 });
+      g.setNode(canonicalOpIds[opId],  { label: labelVal, labelType: "html", rx: 5, ry: 5 });
     }
   }
 
@@ -66,7 +71,7 @@ function planToDagre(data) {
     for (var k = 0; k < inputs.length; k++) {
       var input = inputs[k];
       for (var m = 0; m < input.nextOperatorIds.length; m++) {
-        g.setEdge(input.streamId, canonicalId[input.nextOperatorIds[m].toString()]);
+        g.setEdge(input.streamId, canonicalOpIds[input.nextOperatorIds[m]]);
       }
     }
 
@@ -74,10 +79,10 @@ function planToDagre(data) {
     for (var opId in operators) {
       var operator = operators[opId];
       for (var j = 0; j < operator.nextOperatorIds.length; j++) {
-        g.setEdge(canonicalId[opId], canonicalId[operator.nextOperatorIds[j].toString()]);
+        g.setEdge(canonicalOpIds[opId], canonicalOpIds[operator.nextOperatorIds[j]]);
       }
-      if (operator.outputStreamId !== null) {
-        g.setEdge(canonicalId[opId], operator.outputStreamId);
+      if (typeof(operator.outputStreamId) !== 'undefined') {
+        g.setEdge(canonicalOpIds[opId], operator.outputStreamId);
       }
     }
   }

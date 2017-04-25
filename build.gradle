@@ -393,7 +393,6 @@ project(":samza-shell") {
   }
 
   task shellTarGz(type: Tar) {
-    println 'shellTarGz'
     compression = Compression.GZIP
     classifier = 'dist'
     from 'src/main/bash'

@@ -19,8 +19,12 @@
 
 package org.apache.samza.operators;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.time.Duration;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.function.Function;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -38,13 +42,6 @@ import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.TaskContext;
-
-import java.time.Duration;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.function.Function;
 
 
 /**
@@ -65,11 +62,6 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   private final Set<OperatorSpec> registeredOperatorSpecs = new HashSet<>();
 
   /**
-   * Track the caller stack trace
-   */
-  private final Map<Integer, StackTraceElement> callerStackTraces = new HashMap<>();
-
-  /**
    * Default constructor
    *
    * @param graph the {@link StreamGraphImpl} object that this stream belongs to
@@ -80,52 +72,46 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public <TM> MessageStream<TM> map(MapFunction<M, TM> mapFn) {
-    OperatorSpec<TM> op = OperatorSpecs.createMapOperatorSpec(
-        mapFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
+    OperatorSpec<TM> op = OperatorSpecs.createMapOperatorSpec(mapFn, new MessageStreamImpl<>(this.graph),
+        this.graph.getNextOpId(), getSourceLocation());
     this.registeredOperatorSpecs.add(op);
-    addCallerStackTrace(op);
     return op.getNextStream();
   }
 
   @Override
   public MessageStream<M> filter(FilterFunction<M> filterFn) {
     OperatorSpec<M> op = OperatorSpecs.createFilterOperatorSpec(filterFn, new MessageStreamImpl<>(this.graph),
-        this.graph.getNextOpId());
+        this.graph.getNextOpId(), getSourceLocation());
     this.registeredOperatorSpecs.add(op);
-    addCallerStackTrace(op);
     return op.getNextStream();
   }
 
   @Override
   public <TM> MessageStream<TM> flatMap(FlatMapFunction<M, TM> flatMapFn) {
     OperatorSpec<TM> op = OperatorSpecs.createStreamOperatorSpec(flatMapFn, new MessageStreamImpl<>(this.graph),
-        this.graph.getNextOpId());
+        this.graph.getNextOpId(), getSourceLocation());
     this.registeredOperatorSpecs.add(op);
-    addCallerStackTrace(op);
     return op.getNextStream();
   }
 
   @Override
   public void sink(SinkFunction<M> sinkFn) {
-    SinkOperatorSpec<M> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, this.graph.getNextOpId());
+    SinkOperatorSpec<M> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, this.graph.getNextOpId(), getSourceLocation());
     this.registeredOperatorSpecs.add(op);
-    addCallerStackTrace(op);
   }
 
   @Override
   public <K, V> void sendTo(OutputStream<K, V, M> outputStream) {
     SinkOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec((OutputStreamInternal<K, V, M>) outputStream,
-        this.graph.getNextOpId());
+        this.graph.getNextOpId(), getSourceLocation());
     this.registeredOperatorSpecs.add(op);
-    addCallerStackTrace(op);
   }
 
   @Override
   public <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window) {
     OperatorSpec<WindowPane<K, WV>> wndOp = OperatorSpecs.createWindowOperatorSpec((WindowInternal<M, K, WV>) window,
-        new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
+        new MessageStreamImpl<>(this.graph), this.graph.getNextOpId(), getSourceLocation());
     this.registeredOperatorSpecs.add(wndOp);
-    addCallerStackTrace(wndOp);
     return wndOp.getNextStream();
   }
 
@@ -186,15 +172,13 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     };
 
     OperatorSpec thisPartialJoinSpec = OperatorSpecs.createPartialJoinOperatorSpec(thisPartialJoinFn,
-        otherPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId());
+        otherPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId(), getSourceLocation());
     this.registeredOperatorSpecs.add(thisPartialJoinSpec);
-    addCallerStackTrace(thisPartialJoinSpec);
 
     OperatorSpec otherPartialJoinSpec = OperatorSpecs
         .createPartialJoinOperatorSpec(otherPartialJoinFn, thisPartialJoinFn, ttl.toMillis(), nextStream,
-            this.graph.getNextOpId());
+            this.graph.getNextOpId(), getSourceLocation());
     ((MessageStreamImpl<JM>) otherStream).registeredOperatorSpecs.add(otherPartialJoinSpec);
-    ((MessageStreamImpl<JM>) otherStream).addCallerStackTrace(otherPartialJoinSpec);
 
     return nextStream;
   }
@@ -205,9 +189,9 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
     otherStreams.add(this);
     otherStreams.forEach(other -> {
-        OperatorSpec mergeOperatorSepc = OperatorSpecs.createMergeOperatorSpec(nextStream, this.graph.getNextOpId());
+        OperatorSpec mergeOperatorSepc =
+            OperatorSpecs.createMergeOperatorSpec(nextStream, this.graph.getNextOpId(), getSourceLocation());
         ((MessageStreamImpl<M>) other).registeredOperatorSpecs.add(mergeOperatorSepc);
-        ((MessageStreamImpl<M>) other).addCallerStackTrace(mergeOperatorSepc);
       });
     return nextStream;
   }
@@ -219,9 +203,8 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     MessageStreamImpl<M> intermediateStream =
         this.graph.<K, M, M>getIntermediateStream(opName, keyExtractor, m -> m, (k, m) -> m);
     SinkOperatorSpec<M> partitionByOperatorSpec = OperatorSpecs.createPartitionByOperatorSpec(
-        (OutputStreamInternal<K, M, M>) intermediateStream, opId);
+        (OutputStreamInternal<K, M, M>) intermediateStream, opId, getSourceLocation());
     this.registeredOperatorSpecs.add(partitionByOperatorSpec);
-    addCallerStackTrace(partitionByOperatorSpec);
     return intermediateStream;
   }
 
@@ -235,23 +218,17 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     return Collections.unmodifiableSet(this.registeredOperatorSpecs);
   }
 
-  private void addCallerStackTrace(OperatorSpec spec) {
+  /**
+   * Return the location of source code that creates the operator
+   * @return {@link StackTraceElement} of the source location
+   */
+  private StackTraceElement getSourceLocation() {
     // The stack trace looks like:
     // [0] Thread.getStackTrace()
     // [1] MessageStreamImpl.addCallerStackTrace()
     // [2] MessageStreamImpl.someOperator()
     // [3] User code that calls [2]
     // we are only interested in [3] here
-    callerStackTraces.put(spec.getOpId(), Thread.currentThread().getStackTrace()[3]);
+    return Thread.currentThread().getStackTrace()[3];
   }
-
-  /**
-   * Return the stack trace element of the user code that calls MessageStreamImpl.someOperator()
-   * @param opId ID of the operator
-   * @return {@link StackTraceElement}
-   */
-  public StackTraceElement getCallerStackTrace(int opId) {
-    return callerStackTraces.get(opId);
-  }
-
 }

@@ -19,8 +19,11 @@
 
 package org.apache.samza.operators.spec;
 
+import java.util.Collections;
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.util.OperatorJsonUtils;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.task.TaskContext;
@@ -38,6 +41,7 @@ public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK
   private final WindowInternal<M, WK, WV> window;
   private final MessageStreamImpl<WindowPane<WK, WV>> nextStream;
   private final int opId;
+  private final StackTraceElement sourceLocation;
 
   /**
    * Constructor for {@link WindowOperatorSpec}.
@@ -45,11 +49,13 @@ public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK
    * @param window  the window function
    * @param nextStream  the output {@link MessageStreamImpl} containing the messages produced from this operator
    * @param opId  auto-generated unique ID of this operator
+   * @param sourceLocation location of the source code that creates this operator
    */
-  WindowOperatorSpec(WindowInternal<M, WK, WV> window, MessageStreamImpl<WindowPane<WK, WV>> nextStream, int opId) {
+  WindowOperatorSpec(WindowInternal<M, WK, WV> window, MessageStreamImpl<WindowPane<WK, WV>> nextStream, int opId, StackTraceElement sourceLocation) {
     this.nextStream = nextStream;
     this.window = window;
     this.opId = opId;
+    this.sourceLocation = sourceLocation;
   }
 
   @Override
@@ -76,5 +82,15 @@ public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK
   @Override
   public int getOpId() {
     return this.opId;
+  }
+
+  @Override
+  public StackTraceElement getSourceLocation() {
+    return sourceLocation;
+  }
+
+  @Override
+  public Map<String, Object> toJsonMap() {
+    return OperatorJsonUtils.operatorToJson(this, Collections.emptyMap());
   }
 }
