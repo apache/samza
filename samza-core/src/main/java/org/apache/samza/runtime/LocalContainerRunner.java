@@ -33,6 +33,7 @@ import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.processor.SamzaContainerListener;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.ScalaToJavaUtils;
 import org.apache.samza.util.Util;
@@ -76,7 +77,23 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
           jobModel.maxChangeLogStreamPartitions,
           jmxServer,
           Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),
-          taskFactory);
+          taskFactory,
+          new SamzaContainerListener() {
+            @Override
+            public void onContainerStart() {
+
+            }
+
+            @Override
+            public void onContainerStop(boolean invokedExternally) {
+
+            }
+
+            @Override
+            public void onContainerFailed(Throwable t) {
+
+            }
+          });
 
       container.run();
     } finally {

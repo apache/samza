@@ -25,7 +25,7 @@ import java.util
 import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, TimeUnit}
 import java.net.{URL, UnknownHostException}
 
-import org.apache.samza.SamzaException
+import org.apache.samza.{SamzaContainerStatus, SamzaException}
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
@@ -48,6 +48,7 @@ import org.apache.samza.metrics.JmxServer
 import org.apache.samza.metrics.JvmMetrics
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsReporter
+import org.apache.samza.processor.SamzaContainerListener
 import org.apache.samza.runtime.ApplicationRunner
 import org.apache.samza.serializers.SerdeFactory
 import org.apache.samza.serializers.SerdeManager
@@ -117,7 +118,8 @@ object SamzaContainer extends Logging {
     maxChangeLogStreamPartitions: Int,
     jmxServer: JmxServer,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
-    taskFactory: Object) = {
+    taskFactory: Object,
+    containerListener: SamzaContainerListener) = {
     val containerId = containerModel.getProcessorId()
     val containerName = getSamzaContainerName(containerId)
 
@@ -609,7 +611,8 @@ object SamzaContainer extends Logging {
       jmxServer = jmxServer,
       diskSpaceMonitor = diskSpaceMonitor,
       hostStatisticsMonitor = memoryStatisticsMonitor,
-      taskThreadPool = taskThreadPool)
+      taskThreadPool = taskThreadPool,
+      containerListener = containerListener)
   }
 }
 
@@ -628,13 +631,25 @@ class SamzaContainer(
   securityManager: SecurityManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   jvm: JvmMetrics = null,
-  taskThreadPool: ExecutorService = null) extends Runnable with Logging {
+  taskThreadPool: ExecutorService = null,
+  containerListener: SamzaContainerListener) extends Runnable with Logging {
 
   val shutdownMs = containerContext.config.getShutdownMs.getOrElse(5000L)
+  var shutdownHookThread: Thread = null
+
+  @volatile private var status = SamzaContainerStatus.NOT_STARTED
+//  @volatile private var handleCallback = true
+  var runloopExceptionThrown: Throwable  = null
+  var stopCalled: Boolean = false
+  var paused: Boolean = false
+
+  def getStatus(): SamzaContainerStatus = status
 
   def run {
     try {
       info("Starting container.")
+
+      status = SamzaContainerStatus.STARTING
 
       startMetrics
       startOffsetManager
@@ -649,14 +664,21 @@ class SamzaContainer(
 
       addShutdownHook
       info("Entering run loop.")
+      status = SamzaContainerStatus.RUNNING
+      containerListener.onContainerStart()
       runLoop.run
     } catch {
       case e: Throwable =>
-        error("Caught exception/error in process loop.", e)
-        throw e
-    } finally {
+        if (status.equals(SamzaContainerStatus.RUNNING)) {
+          error("Caught exception/error in process loop.", e)
+        } else {
+          error("Caught exception/error while initializing container.", e)
+        }
+        status = SamzaContainerStatus.FAILED
+        runloopExceptionThrown = e
+    }
+    try {
       info("Shutting down.")
-
       removeShutdownHook
 
       shutdownConsumers
@@ -670,15 +692,46 @@ class SamzaContainer(
       shutdownMetrics
       shutdownSecurityManger
 
+      if (!status.equals(SamzaContainerStatus.FAILED)) {
+        status = SamzaContainerStatus.STOPPED
+      }
+
       info("Shutdown complete.")
+    } catch {
+      case e: Throwable =>
+        error("Caught exception/error while shutting down container.", e)
+        if (runloopExceptionThrown ==  null) {
+          runloopExceptionThrown = e
+        }
+        status = SamzaContainerStatus.FAILED
+    }
+
+    status match {
+      case SamzaContainerStatus.STOPPED =>
+          containerListener.onContainerStop(stopCalled)
+      case SamzaContainerStatus.FAILED =>
+        containerListener.onContainerFailed(runloopExceptionThrown)
     }
   }
 
+  // Called by StreamProcessor.stop
   def shutdown() = {
+    stopCalled = true
+    shutdownRunLoop()
+  }
+
+  // Shutdown Runloop
+  def shutdownRunLoop() = {
     runLoop match {
       case runLoop: RunLoop => runLoop.shutdown
       case asyncRunLoop: AsyncRunLoop => asyncRunLoop.shutdown()
     }
+  }
+
+  // Called on JM Expiry by StreamProcessor
+  def pause() = {
+    paused = true
+    shutdownRunLoop()
   }
 
   def startDiskSpaceMonitor: Unit = {
@@ -800,10 +853,7 @@ class SamzaContainer(
     shutdownHookThread = new Thread("CONTAINER-SHUTDOWN-HOOK") {
       override def run() = {
         info("Shutting down, will wait up to %s ms" format shutdownMs)
-        runLoop match {
-          case runLoop: RunLoop => runLoop.shutdown
-          case asyncRunLoop: AsyncRunLoop => asyncRunLoop.shutdown()
-        }
+        shutdown()
         try {
           runLoopThread.join(shutdownMs)
         } catch {

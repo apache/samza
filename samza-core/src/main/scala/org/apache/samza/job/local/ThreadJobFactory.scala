@@ -22,6 +22,7 @@ package org.apache.samza.job.local
 
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap}
+import org.apache.samza.processor.SamzaContainerListener
 import org.apache.samza.runtime.LocalContainerRunner
 import org.apache.samza.task.TaskFactoryUtil
 import org.apache.samza.util.Logging
@@ -63,7 +64,13 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
               jobModel.maxChangeLogStreamPartitions,
               jmxServer,
               Map[String, MetricsReporter](),
-              taskFactory))
+              taskFactory,
+            new SamzaContainerListener {override def onContainerFailed(t: Throwable): Unit = { }
+
+              override def onContainerStop(invokedExternally: Boolean): Unit = { }
+
+              override def onContainerStart(): Unit = { }
+            }))
     } finally {
       coordinator.stop
       jmxServer.stop

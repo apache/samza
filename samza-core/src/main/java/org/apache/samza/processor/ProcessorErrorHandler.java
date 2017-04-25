@@ -18,16 +18,6 @@
  */
 package org.apache.samza.processor;
 
-import org.apache.samza.job.model.JobModel;
-
-public interface JobCoordinatorListener {
-  void onJobModelExpired();
-
-  void onNewJobModel(String processorId, JobModel jobModel);
-
-  void onCoordinatorStop();
-
-  void onCoordinatorFailure(Exception e);
-
-
+public interface ProcessorErrorHandler {
+  void onFailure(Throwable t);
 }

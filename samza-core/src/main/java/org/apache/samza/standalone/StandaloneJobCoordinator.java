@@ -29,7 +29,6 @@ import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.processor.JobCoordinatorListener;
-import org.apache.samza.processor.SamzaContainerController;
 import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
@@ -87,12 +86,19 @@ public class StandaloneJobCoordinator implements JobCoordinator {
   @Override
   public void start() {
     // No-op
-    coordinatorListener.onNewJobModel(getJobModel());
+    JobModel jobModel = getJobModel();
+    if (jobModel.getContainers().containsKey(processorId)) {
+      coordinatorListener.onNewJobModel(processorId, getJobModel());
+    } else {
+      stop();
+    }
   }
 
   @Override
   public void stop() {
     // No-op
+    coordinatorListener.onJobModelExpired();
+    coordinatorListener.onCoordinatorStop();
   }
 
   @Override
