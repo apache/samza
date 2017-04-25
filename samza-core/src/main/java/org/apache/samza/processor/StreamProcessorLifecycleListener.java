@@ -31,6 +31,9 @@ import org.apache.samza.annotation.InterfaceStability;
 public interface StreamProcessorLifecycleListener {
   /**
    * Callback when the {@link StreamProcessor} is started
+   * This callback is invoke only when {@link org.apache.samza.container.SamzaContainer} starts for the first time in
+   * the {@link StreamProcessor}. When there is a re-balance of tasks/partitions among the processors, the container may
+   * temporarily be "paused" and re-started again. For such re-starts, this callback is NOT invoked.
    */
   void onStart();
 

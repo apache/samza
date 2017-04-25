@@ -18,16 +18,15 @@
  */
 package org.apache.samza.processor;
 
-import org.apache.samza.job.model.JobModel;
+public interface SamzaContainerListener {
 
-public interface JobCoordinatorListener {
-  void onJobModelExpired();
+  void onContainerStart();
 
-  void onNewJobModel(String processorId, JobModel jobModel);
+  // invokedExternally is provided by the SamzaContainer to the listener
+  // Indicates if the container was stopped as a result of external invocation or user-application triggered shutdown (for example, in
+  // batched jobs)
+  // called only when the container gracefully shutsdown without any exceptions/errors
+  void onContainerStop(boolean invokedExternally);
 
-  void onCoordinatorStop();
-
-  void onCoordinatorFailure(Exception e);
-
-
+  void onContainerFailed(Throwable t);
 }

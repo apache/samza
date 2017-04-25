@@ -23,12 +23,13 @@ import java.util
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
-import org.apache.samza.Partition
+import org.apache.samza.{SamzaContainerStatus, Partition}
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.config.{Config, MapConfig}
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
+import org.apache.samza.processor.SamzaContainerListener
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.chooser.RoundRobinChooser
@@ -37,7 +38,6 @@ import org.apache.samza.task.{ClosableTask, InitableTask, MessageCollector, Stre
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin
 import org.junit.Assert._
 import org.junit.Test
-import org.mockito.Mockito.when
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.junit.AssertionsForJUnit
@@ -181,6 +181,11 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       consumerMultiplexer = consumerMultiplexer,
       metrics = new SamzaContainerMetrics,
       maxThrottlingDelayMs = TimeUnit.SECONDS.toMillis(1))
+    @volatile var onContainerFailedCalled = false
+    @volatile var onContainerStopCalled = false
+    @volatile var onContainerStartCalled = false
+    @volatile var onContainerFailedThrowable: Throwable = null
+
     val container = new SamzaContainer(
       containerContext = containerContext,
       taskInstances = Map(taskName -> taskInstance),
@@ -188,19 +193,116 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics,
-      jmxServer = null
+      jmxServer = null,
+      containerListener = new SamzaContainerListener {
+        override def onContainerFailed(t: Throwable): Unit = {
+          onContainerFailedCalled = true
+          onContainerFailedThrowable = t
+        }
+
+        override def onContainerStop(invokedExternally: Boolean): Unit = {
+          onContainerStopCalled = true
+        }
+
+        override def onContainerStart(): Unit = {
+          onContainerStartCalled = true
+        }
+      }
     )
-    try {
-      container.run
-      fail("Expected exception to be thrown in run method.")
-    } catch {
-      case e: Exception => // Expected
-    }
+    container.run
     assertTrue(task.wasShutdown)
+    assertFalse(onContainerStartCalled)
+    assertFalse(onContainerStopCalled)
+
+    assertTrue(onContainerFailedCalled)
+    assertNotNull(onContainerFailedThrowable)
   }
 
+  // Exception in Runloop should cause SamzaContainer to transition to FAILED status, shutdown the components and then,
+  // invoke the callback
   @Test
-  def testErrorInTaskInitShutsDownTask {
+  def testExceptionInTaskProcessRunLoop() {
+    val task = new StreamTask with InitableTask with ClosableTask {
+      var wasShutdown = false
+
+      def init(config: Config, context: TaskContext) {
+      }
+
+      def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
+        throw new Exception("Trigger a shutdown, please.")
+      }
+
+      def close {
+        wasShutdown = true
+      }
+    }
+    val config = new MapConfig
+    val taskName = new TaskName("taskName")
+    val consumerMultiplexer = new SystemConsumers(
+      new RoundRobinChooser,
+      Map[String, SystemConsumer]())
+    val producerMultiplexer = new SystemProducers(
+      Map[String, SystemProducer](),
+      new SerdeManager)
+    val collector = new TaskInstanceCollector(producerMultiplexer)
+    val containerContext = new SamzaContainerContext("0", config, Set[TaskName](taskName))
+    val taskInstance: TaskInstance = new TaskInstance(
+      task,
+      taskName,
+      config,
+      new TaskInstanceMetrics,
+      null,
+      consumerMultiplexer,
+      collector,
+      containerContext
+    )
+
+    @volatile var onContainerFailedCalled = false
+    @volatile var onContainerStopCalled = false
+    @volatile var onContainerStartCalled = false
+    @volatile var onContainerFailedThrowable: Throwable = null
+
+    val mockRunLoop = mock[RunLoop]
+    when(mockRunLoop.run).thenThrow(new RuntimeException("Trigger a shutdown, please."))
+
+    val container = new SamzaContainer(
+      containerContext = containerContext,
+      taskInstances = Map(taskName -> taskInstance),
+      runLoop = mockRunLoop,
+      consumerMultiplexer = consumerMultiplexer,
+      producerMultiplexer = producerMultiplexer,
+      metrics = new SamzaContainerMetrics,
+      jmxServer = null,
+      containerListener = new SamzaContainerListener {
+        override def onContainerFailed(t: Throwable): Unit = {
+          onContainerFailedCalled = true
+          onContainerFailedThrowable = t
+        }
+
+        override def onContainerStop(invokedExternally: Boolean): Unit = {
+          onContainerStopCalled = true
+        }
+
+        override def onContainerStart(): Unit = {
+          onContainerStartCalled = true
+        }
+      }
+    )
+    container.run
+    assertTrue(task.wasShutdown)
+    assertTrue(onContainerStartCalled)
+
+    assertFalse(onContainerStopCalled)
+
+    assertTrue(onContainerFailedCalled)
+    assertNotNull(onContainerFailedThrowable)
+
+    assertEquals(SamzaContainerStatus.FAILED, container.getStatus())
+  }
+
+
+  @Test
+  def testErrorInTaskInitShutsDownTask() {
     val task = new StreamTask with InitableTask with ClosableTask {
       var wasShutdown = false
 
@@ -240,6 +342,11 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       consumerMultiplexer = consumerMultiplexer,
       metrics = new SamzaContainerMetrics,
       maxThrottlingDelayMs = TimeUnit.SECONDS.toMillis(1))
+    @volatile var onContainerFailedCalled = false
+    @volatile var onContainerStopCalled = false
+    @volatile var onContainerStartCalled = false
+    @volatile var onContainerFailedThrowable: Throwable = null
+
     val container = new SamzaContainer(
       containerContext = containerContext,
       taskInstances = Map(taskName -> taskInstance),
@@ -247,15 +354,31 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics,
-      jmxServer = null
+      jmxServer = null,
+      containerListener = new SamzaContainerListener {
+        override def onContainerFailed(t: Throwable): Unit = {
+          onContainerFailedCalled = true
+          onContainerFailedThrowable = t
+        }
+
+        override def onContainerStop(invokedExternally: Boolean): Unit = {
+          onContainerStopCalled = true
+        }
+
+        override def onContainerStart(): Unit = {
+          onContainerStartCalled = true
+        }
+      }
     )
-    try {
-      container.run
-      fail("Expected error to be thrown in run method.")
-    } catch {
-      case e: Throwable => // Expected
-    }
+    container.run
+
     assertTrue(task.wasShutdown)
+
+    assertFalse(onContainerStopCalled)
+    assertFalse(onContainerStartCalled)
+
+    assertTrue(onContainerFailedCalled)
+    assertNotNull(onContainerFailedThrowable)
   }
 
   @Test
@@ -303,7 +426,13 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       metrics = containerMetrics,
-      jmxServer = null
+      jmxServer = null,
+      containerListener = new SamzaContainerListener {override def onContainerFailed(t: Throwable): Unit = { }
+
+        override def onContainerStop(invokedExternally: Boolean): Unit = { }
+
+        override def onContainerStart(): Unit = { }
+      }
     )
     container.startStores
     assertNotNull(containerMetrics.taskStoreRestorationMetrics)
