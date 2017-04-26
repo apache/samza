@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
@@ -73,13 +74,12 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
     // TODO - this groupId may be passed from the caller as an application ID.
     JobConfig jobConfig = new JobConfig(config);
-    String groupId = jobConfig.getName() + "-" + jobConfig.getJobId();
 
     this.coordinationUtils = Util.
         <CoordinationServiceFactory>getObj(
             new JobCoordinatorConfig(config)
                 .getJobCoordinationServiceFactoryClassName())
-        .getCoordinationService(groupId, String.valueOf(processorId), config);
+        .getCoordinationService(new ApplicationConfig(config).getGlobalAppId(), String.valueOf(processorId), config);
 
     this.zkUtils = ((ZkCoordinationUtils) coordinationUtils).getZkUtils();
     this.keyBuilder = zkUtils.getKeyBuilder();

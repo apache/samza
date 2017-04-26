@@ -35,8 +35,6 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
    */
   @Override
   public JobCoordinator getJobCoordinator(String processorId, Config config, SamzaContainerController containerController) {
-    //JobConfig jobConfig = new JobConfig(config);
-    //ZkConfig zkConfig = new ZkConfig(config);
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
 
     return new ZkJobCoordinator(
