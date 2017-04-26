@@ -66,6 +66,37 @@ public class TestStreamGraphImpl {
     assertEquals(((TestInputMessageEnvelope) xInputMsg).getInputId(), "input-id-1");
   }
 
+  @Test(expected = IllegalStateException.class)
+  public void testMultipleGetInputStream() {
+    ApplicationRunner mockRunner = mock(ApplicationRunner.class);
+    Config mockConfig = mock(Config.class);
+
+    StreamSpec testStreamSpec1 = new StreamSpec("test-stream-1", "physical-stream-1", "test-system");
+    StreamSpec testStreamSpec2 = new StreamSpec("test-stream-2", "physical-stream-2", "test-system");
+    StreamSpec nonExistentStreamSpec = new StreamSpec("non-existent-stream", "physical-stream-1", "test-system");
+
+    when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(testStreamSpec1);
+    when(mockRunner.getStreamSpec("test-stream-2")).thenReturn(testStreamSpec2);
+
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
+    BiFunction<String, MessageType, TestInputMessageEnvelope> xMsgBuilder =
+        (k, v) -> new TestInputMessageEnvelope(k, v.getValue(), v.getEventTime(), "input-id-1");
+
+    //create 2 streams for the corresponding streamIds
+    MessageStream<TestInputMessageEnvelope> inputStream1 = graph.getInputStream("test-stream-1", xMsgBuilder);
+    MessageStream<TestInputMessageEnvelope> inputStream2 = graph.getInputStream("test-stream-2", xMsgBuilder);
+
+    //assert that the streamGraph contains only the above 2 streams
+    assertEquals(graph.getInputStreams().get(testStreamSpec1), inputStream1);
+    assertEquals(graph.getInputStreams().get(testStreamSpec2), inputStream2);
+    assertEquals(graph.getInputStreams().get(nonExistentStreamSpec), null);
+    assertEquals(graph.getInputStreams().size(), 2);
+
+    //should throw IllegalStateException
+    graph.getInputStream("test-stream-1", xMsgBuilder);
+  }
+
+
   @Test
   public void testGetOutputStream() {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
