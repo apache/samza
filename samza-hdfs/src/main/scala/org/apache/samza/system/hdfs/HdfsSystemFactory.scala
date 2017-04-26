@@ -20,11 +20,11 @@
 package org.apache.samza.system.hdfs
 
 
-import org.apache.samza.config.Config
+import org.apache.samza.config.{Config, ConfigException, JobConfig}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemFactory
 import org.apache.samza.system.hdfs.HdfsSystemConsumer.HdfsSystemConsumerMetrics
-import org.apache.samza.util.{KafkaUtil, Logging}
+import org.apache.samza.util.Logging
 
 
 class HdfsSystemFactory extends SystemFactory with Logging {
@@ -33,13 +33,23 @@ class HdfsSystemFactory extends SystemFactory with Logging {
   }
 
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry) = {
-    // TODO: SAMZA-1026: should remove Kafka dependency below
-    val clientId = KafkaUtil.getClientId("samza-producer", config)
+    val jobConfig = new JobConfig(config)
+    val jobName = jobConfig.getName.getOrElse(throw new ConfigException("Missing job name."))
+    val jobId = jobConfig.getJobId.getOrElse("1")
+
+    val clientId = getClientId("samza-producer", jobName, jobId)
     val metrics = new HdfsSystemProducerMetrics(systemName, registry)
     new HdfsSystemProducer(systemName, clientId, config, metrics)
   }
 
   def getAdmin(systemName: String, config: Config) = {
     new HdfsSystemAdmin(systemName, config)
+  }
+
+  def getClientId(id: String, jobName: String, jobId: String): String = {
+    "%s-%s-%s" format
+      (id.replaceAll("[^A-Za-z0-9]", "_"),
+        jobName.replaceAll("[^A-Za-z0-9]", "_"),
+        jobId.replaceAll("[^A-Za-z0-9]", "_"))
   }
 }

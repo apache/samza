@@ -511,7 +511,6 @@ project(":samza-hdfs_$scalaVersion") {
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
-    compile project(":samza-kafka_$scalaVersion")
     // currently hdfs system producer/consumer do depend on yarn for two things:
     // 1. staging directory 2. security
     // SAMZA-1032 to solve the staging directory dependency
