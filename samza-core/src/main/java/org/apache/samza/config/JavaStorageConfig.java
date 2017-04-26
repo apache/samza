@@ -58,7 +58,7 @@ public class JavaStorageConfig extends MapConfig {
     // If this config only specifies <astream> and there is a value in job.changelog.system=<asystem> -
     // these values will be combined into <asystem>.<astream>
     String systemStream = get(String.format(CHANGELOG_STREAM, storeName), null);
-    String changelogSystem = get(CHANGELOG_SYSTEM, null);
+    String changelogSystem = getChangelogSystem(null);
 
     String systemStreamRes;
     if (systemStream != null  && !systemStream.contains(".")) {
@@ -84,5 +84,9 @@ public class JavaStorageConfig extends MapConfig {
 
   public String getStorageMsgSerde(String storeName) {
     return get(String.format(MSG_SERDE, storeName), null);
+  }
+
+  public String getChangelogSystem(String defaultValue) {
+    return get(CHANGELOG_SYSTEM,  get(JobConfig.JOB_DEFAULT_SYSTEM(), defaultValue));
   }
 }

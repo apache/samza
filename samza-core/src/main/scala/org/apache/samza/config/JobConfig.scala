@@ -23,7 +23,6 @@ package org.apache.samza.config
 import java.io.File
 
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
-import org.apache.samza.system.{RegexSystemStreamPartitionMatcher, SystemStreamPartitionMatcher}
 import org.apache.samza.util.Logging
 
 object JobConfig {
@@ -47,9 +46,9 @@ object JobConfig {
   val JOB_CONTAINER_COUNT = "job.container.count"
   val JOB_CONTAINER_THREAD_POOL_SIZE = "job.container.thread.pool.size"
   val JOB_CONTAINER_SINGLE_THREAD_MODE = "job.container.single.thread.mode"
-  val JOB_REPLICATION_FACTOR = "job.coordinator.replication.factor"
-  val JOB_SEGMENT_BYTES = "job.coordinator.segment.bytes"
   val JOB_INTERMEDIATE_STREAM_PARTITIONS = "job.intermediate.stream.partitions"
+
+  val CHECKPOINT_SEGMENT_BYTES = "task.checkpoint.segment.bytes"
 
   val SSP_GROUPER_FACTORY = "job.systemstreampartition.grouper.factory"
 
@@ -104,8 +103,15 @@ object JobConfig {
 class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getName = getOption(JobConfig.JOB_NAME)
 
-  def getCoordinatorSystemName = getOption(JobConfig.JOB_COORDINATOR_SYSTEM).getOrElse(
-      throw new ConfigException("Missing job.coordinator.system configuration. Cannot proceed with job execution."))
+  def getCoordinatorSystemName = {
+    val system = getCoordinatorSystemNameOrNull
+    if (system == null) {
+      throw new ConfigException("Missing job.coordinator.system configuration. Cannot proceed with job execution.")
+    }
+    system
+  }
+
+  def getCoordinatorSystemNameOrNull =  getOption(JobConfig.JOB_COORDINATOR_SYSTEM).getOrElse(getDefaultSystem.orNull)
 
   def getDefaultSystem = getOption(JobConfig.JOB_DEFAULT_SYSTEM)
 
@@ -143,31 +149,6 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getSystemStreamPartitionGrouperFactory = getOption(JobConfig.SSP_GROUPER_FACTORY).getOrElse(classOf[GroupByPartitionFactory].getCanonicalName)
 
   def getSecurityManagerFactory = getOption(JobConfig.JOB_SECURITY_MANAGER_FACTORY)
-
-  val CHECKPOINT_SEGMENT_BYTES = "task.checkpoint.segment.bytes"
-  val CHECKPOINT_REPLICATION_FACTOR = "task.checkpoint.replication.factor"
-
-  def getCoordinatorReplicationFactor = getOption(JobConfig.JOB_REPLICATION_FACTOR) match {
-    case Some(rplFactor) => rplFactor
-    case _ =>
-      getOption(CHECKPOINT_REPLICATION_FACTOR) match {
-        case Some(rplFactor) =>
-          info("%s was not found. Using %s=%s for coordinator stream" format (JobConfig.JOB_REPLICATION_FACTOR, CHECKPOINT_REPLICATION_FACTOR, rplFactor))
-          rplFactor
-        case _ => "3"
-      }
-  }
-
-  def getCoordinatorSegmentBytes = getOption(JobConfig.JOB_SEGMENT_BYTES) match {
-    case Some(segBytes) => segBytes
-    case _ =>
-      getOption(CHECKPOINT_SEGMENT_BYTES) match {
-        case Some(segBytes) =>
-          info("%s was not found. Using %s=%s for coordinator stream" format (JobConfig.JOB_SEGMENT_BYTES, CHECKPOINT_SEGMENT_BYTES, segBytes))
-          segBytes
-        case _ => "26214400"
-      }
-  }
 
   def getSSPMatcherClass = getOption(JobConfig.SSP_MATCHER_CLASS)
 

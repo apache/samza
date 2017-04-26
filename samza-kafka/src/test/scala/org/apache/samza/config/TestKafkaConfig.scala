@@ -29,20 +29,20 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.junit.Before
 
 class TestKafkaConfig {
-  
+
   var props : Properties = new Properties
   val SYSTEM_NAME = "kafka";
   val KAFKA_PRODUCER_PROPERTY_PREFIX = "systems." + SYSTEM_NAME + ".producer."
   val TEST_CLIENT_ID = "TestClientId"
   val TEST_GROUP_ID = "TestGroupId"
-  
+
   @Before
   def setupProperties() {
     props = new Properties
     props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + "bootstrap.servers", "localhost:9092")
     props.setProperty("systems." + SYSTEM_NAME + ".consumer.zookeeper.connect", "localhost:2181/")
   }
-  
+
   @Test
   def testIdGeneration = {
     val factory = new PropertiesConfigFactory()
@@ -93,7 +93,7 @@ class TestKafkaConfig {
     val consumerConfig1 = kafkaConfig1.getKafkaSystemConsumerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
     // shared fetch size
     assertEquals(512*512, consumerConfig1.fetchMessageMaxBytes)
-    
+
     props.setProperty("systems." + SYSTEM_NAME + ".streams.topic1.consumer.fetch.message.max.bytes", "65536")
     val mapConfig2 = new MapConfig(props.asScala.asJava)
     val kafkaConfig2 = new KafkaConfig(mapConfig2)
@@ -120,7 +120,7 @@ class TestKafkaConfig {
     props.setProperty("job.changelog.system", "kafka")
     props.setProperty("stores.test3.changelog", "otherstream")
     props.setProperty("stores.test1.changelog.kafka.cleanup.policy", "delete")
-    
+
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test1").getProperty("cleanup.policy"), "delete")
@@ -131,14 +131,14 @@ class TestKafkaConfig {
     assertEquals("mychangelog2", storeToChangelog.get("test2").getOrElse(""))
     assertEquals("otherstream", storeToChangelog.get("test3").getOrElse(""))
   }
-  
+
   @Test
   def testDefaultValuesForProducerProperties() {
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     val kafkaProducerConfig = kafkaConfig.getKafkaSystemProducerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
     val producerProperties = kafkaProducerConfig.getProducerProperties
-    
+
     assertEquals(classOf[ByteArraySerializer].getCanonicalName, producerProperties.get(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG))
     assertEquals(classOf[ByteArraySerializer].getCanonicalName, producerProperties.get(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG))
     assertEquals(kafkaProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION_DEFAULT, producerProperties.get(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION))
@@ -148,45 +148,45 @@ class TestKafkaConfig {
   @Test
   def testMaxInFlightRequestsPerConnectionOverride() {
     val expectedValue = "200";
-    
+
     props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, expectedValue);
-    
+
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     val kafkaProducerConfig = kafkaConfig.getKafkaSystemProducerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
     val producerProperties = kafkaProducerConfig.getProducerProperties
-    
+
     assertEquals(expectedValue, producerProperties.get(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION))
   }
-  
+
   @Test
   def testRetriesOverride() {
     val expectedValue = "200";
-    
+
     props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.RETRIES_CONFIG, expectedValue);
-    
+
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     val kafkaProducerConfig = kafkaConfig.getKafkaSystemProducerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
     val producerProperties = kafkaProducerConfig.getProducerProperties
-    
+
     assertEquals(expectedValue, producerProperties.get(ProducerConfig.RETRIES_CONFIG))
   }
-  
+
   @Test(expected = classOf[NumberFormatException])
   def testMaxInFlightRequestsPerConnectionWrongNumberFormat() {
     props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "Samza");
-    
+
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     val kafkaProducerConfig = kafkaConfig.getKafkaSystemProducerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
     kafkaProducerConfig.getProducerProperties
   }
-  
+
   @Test(expected = classOf[NumberFormatException])
   def testRetriesWrongNumberFormat() {
     props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + ProducerConfig.RETRIES_CONFIG, "Samza");
-    
+
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     val kafkaProducerConfig = kafkaConfig.getKafkaSystemProducerConfig(SYSTEM_NAME, TEST_CLIENT_ID)
@@ -195,25 +195,136 @@ class TestKafkaConfig {
 
   @Test
   def testChangeLogReplicationFactor() {
+    props.setProperty("stores.store-with-override.changelog", "kafka-system.changelog-topic")
     props.setProperty("stores.store-with-override.changelog.replication.factor", "3")
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
-    assertEquals(kafkaConfig.getChangelogStreamReplicationFactor("store-with-override"), "3")
-    assertEquals(kafkaConfig.getChangelogStreamReplicationFactor("store-without-override"), "2")
-    assertEquals(kafkaConfig.getDefaultChangelogStreamReplicationFactor , "2")
+    assertEquals("3", kafkaConfig.getChangelogStreamReplicationFactor("store-with-override"))
+    assertEquals("2", kafkaConfig.getChangelogStreamReplicationFactor("store-without-override"))
+    assertEquals("2", kafkaConfig.getDefaultChangelogStreamReplicationFactor("2"))
   }
 
   @Test
   def testChangeLogReplicationFactorWithOverriddenDefault() {
+    props.setProperty(JobConfig.JOB_DEFAULT_SYSTEM, "kafka-system")
+    props.setProperty("stores.store-with-override.changelog", "changelog-topic")
     props.setProperty("stores.store-with-override.changelog.replication.factor", "4")
     // Override the "default" default value
     props.setProperty("stores.default.changelog.replication.factor", "5")
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
-    assertEquals(kafkaConfig.getChangelogStreamReplicationFactor("store-with-override"), "4")
-    assertEquals(kafkaConfig.getChangelogStreamReplicationFactor("store-without-override"), "5")
-    assertEquals(kafkaConfig.getDefaultChangelogStreamReplicationFactor , "5")
+    assertEquals("4", kafkaConfig.getChangelogStreamReplicationFactor("store-with-override"))
+    assertEquals("5", kafkaConfig.getChangelogStreamReplicationFactor("store-without-override"))
+    assertEquals("5", kafkaConfig.getDefaultChangelogStreamReplicationFactor("2"))
+  }
+
+  @Test
+  def testChangeLogReplicationFactorWithSystemOverriddenDefault() {
+    props.setProperty(StorageConfig.CHANGELOG_SYSTEM, "kafka-system")
+    props.setProperty("systems.kafka-system.default.stream.replication.factor", "8")
+    props.setProperty("stores.store-with-override.changelog.replication.factor", "4")
+
+    val mapConfig = new MapConfig(props.asScala.asJava)
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    assertEquals("4", kafkaConfig.getChangelogStreamReplicationFactor("store-with-override"))
+    assertEquals("8", kafkaConfig.getChangelogStreamReplicationFactor("store-without-override"))
+    assertEquals("8", kafkaConfig.getDefaultChangelogStreamReplicationFactor("2"))
+  }
+
+  @Test
+  def testCheckpointReplicationFactor() {
+    val emptyConfig = new KafkaConfig(new MapConfig())
+    assertNull(emptyConfig.getCheckpointReplicationFactor.orNull)
+    assertNull(emptyConfig.getCheckpointSystem.orNull)
+
+    props.setProperty(KafkaConfig.CHECKPOINT_SYSTEM, "kafka-system")
+    props.setProperty("task.checkpoint.replication.factor", "4")
+
+    val mapConfig = new MapConfig(props.asScala.asJava)
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    assertEquals("kafka-system", kafkaConfig.getCheckpointSystem.orNull)
+    assertEquals("4", kafkaConfig.getCheckpointReplicationFactor.orNull)
+  }
+
+  @Test
+  def testCheckpointReplicationFactorWithSystemDefault() {
+    props.setProperty(JobConfig.JOB_DEFAULT_SYSTEM, "kafka-system-39-not38-not40-39")
+    props.setProperty("systems.kafka-system-39-not38-not40-39.default.stream.replication.factor", "8")
+    props.setProperty("systems.kafka-system-39-not38-not40-39.default.stream.segment.bytes", "8675309")
+
+    val mapConfig = new MapConfig(props.asScala.asJava)
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    assertEquals("kafka-system-39-not38-not40-39", kafkaConfig.getCheckpointSystem.orNull)
+    assertEquals("8", kafkaConfig.getCheckpointReplicationFactor.orNull)
+    assertEquals(8675309, kafkaConfig.getCheckpointSegmentBytes)
+  }
+
+  @Test
+  def testCheckpointReplicationFactorWithSystemOverriddenDefault() {
+    // Defaults
+    props.setProperty(JobConfig.JOB_DEFAULT_SYSTEM, "kafka-system-39-not38-not40-39")
+    props.setProperty("systems.kafka-system-39-not38-not40-39.default.stream.replication.factor", "8")
+    props.setProperty("systems.kafka-system.default.stream.segment.bytes", "8675309")
+
+    // Overrides
+    props.setProperty(KafkaConfig.CHECKPOINT_SYSTEM, "kafka-system")
+    props.setProperty(KafkaConfig.CHECKPOINT_REPLICATION_FACTOR, "4")
+
+    val mapConfig = new MapConfig(props.asScala.asJava)
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    assertEquals("kafka-system", kafkaConfig.getCheckpointSystem.orNull)
+    assertEquals("4", kafkaConfig.getCheckpointReplicationFactor.orNull)
+    assertEquals(8675309, kafkaConfig.getCheckpointSegmentBytes)
+  }
+
+  @Test
+  def testCoordinatorReplicationFactor() {
+    val emptyConfig = new KafkaConfig(new MapConfig())
+    assertEquals("3", emptyConfig.getCoordinatorReplicationFactor)
+    assertNull(new JobConfig(new MapConfig()).getCoordinatorSystemNameOrNull)
+
+    props.setProperty(JobConfig.JOB_COORDINATOR_SYSTEM, "kafka-system")
+    props.setProperty(KafkaConfig.JOB_COORDINATOR_REPLICATION_FACTOR, "4")
+
+    val mapConfig = new MapConfig(props.asScala.asJava)
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    val jobConfig = new JobConfig(mapConfig)
+    assertEquals("kafka-system", jobConfig.getCoordinatorSystemNameOrNull)
+    assertEquals("4", kafkaConfig.getCoordinatorReplicationFactor)
+  }
+
+  @Test
+  def testCoordinatorReplicationFactorWithSystemDefault() {
+    props.setProperty(JobConfig.JOB_DEFAULT_SYSTEM, "kafka-system-39-not38-not40-39")
+    props.setProperty("systems.kafka-system-39-not38-not40-39.default.stream.replication.factor", "8")
+    props.setProperty("systems.kafka-system-39-not38-not40-39.default.stream.segment.bytes", "8675309")
+
+    val mapConfig = new MapConfig(props.asScala.asJava)
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    val jobConfig = new JobConfig(mapConfig)
+    assertEquals("kafka-system-39-not38-not40-39", jobConfig.getCoordinatorSystemNameOrNull)
+    assertEquals("8", kafkaConfig.getCoordinatorReplicationFactor)
+    assertEquals("8675309", kafkaConfig.getCoordinatorSegmentBytes)
+  }
+
+  @Test
+  def testCoordinatorReplicationFactorWithSystemOverriddenDefault() {
+    // Defaults
+    props.setProperty(JobConfig.JOB_DEFAULT_SYSTEM, "kafka-system-39-not38-not40-39")
+    props.setProperty("systems.kafka-system-39-not38-not40-39.default.stream.replication.factor", "8")
+    props.setProperty("systems.kafka-system.default.stream.segment.bytes", "8675309")
+
+    // Overrides
+    props.setProperty(JobConfig.JOB_COORDINATOR_SYSTEM, "kafka-system")
+    props.setProperty(KafkaConfig.JOB_COORDINATOR_REPLICATION_FACTOR, "4")
+
+    val mapConfig = new MapConfig(props.asScala.asJava)
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    val jobConfig = new JobConfig(mapConfig)
+    assertEquals("kafka-system", jobConfig.getCoordinatorSystemNameOrNull)
+    assertEquals("4", kafkaConfig.getCoordinatorReplicationFactor)
+    assertEquals("8675309", kafkaConfig.getCoordinatorSegmentBytes)
   }
 }

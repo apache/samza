@@ -81,11 +81,14 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    * Returns a list of all SystemStreams that have a serde defined from the config file.
    */
   def getSerdeStreams(systemName: String) = {
+    val defaultStreamProperties = new JavaSystemConfig(config).getDefaultStreamProperties(systemName)
+    val hasSystemDefaultSerde = defaultStreamProperties.containsKey(StreamConfig.MSG_SERDE) || defaultStreamProperties.containsKey(StreamConfig.KEY_SERDE)
+
     val subConf = config.subset("systems.%s.streams." format systemName, true)
     val legacySystemStreams = subConf
       .asScala
       .keys
-      .filter(k => k.endsWith(StreamConfig.MSG_SERDE) || k.endsWith(StreamConfig.KEY_SERDE))
+      .filter(k => k.endsWith(StreamConfig.MSG_SERDE) || k.endsWith(StreamConfig.KEY_SERDE) || hasSystemDefaultSerde)
       .map(k => {
         val streamName = k.substring(0, k.length - 16 /* .samza.XXX.serde length */ )
         new SystemStream(systemName, streamName)
@@ -94,7 +97,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     val systemStreams = subset(StreamConfig.STREAMS_PREFIX)
       .asScala
       .keys
-      .filter(k => k.endsWith(StreamConfig.MSG_SERDE) || k.endsWith(StreamConfig.KEY_SERDE))
+      .filter(k => k.endsWith(StreamConfig.MSG_SERDE) || k.endsWith(StreamConfig.KEY_SERDE) || hasSystemDefaultSerde)
       .map(k => k.substring(0, k.length - 16 /* .samza.XXX.serde length */ ))
       .filter(streamId => systemName.equals(getSystem(streamId)))
       .map(streamId => streamIdToSystemStream(streamId)).toSet
@@ -220,10 +223,14 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     * @return           the map of properties for the stream
     */
   private def getSystemStreamProperties(systemName: String, streamName: String) = {
-    if (systemName == null || streamName == null) {
+    if (systemName == null) {
       Map()
     }
-    config.subset(StreamConfig.STREAM_PREFIX format(systemName, streamName), true)
+    val jsc = new JavaSystemConfig(config);
+
+    val defaults = jsc.getDefaultStreamProperties(systemName);
+    val explicitConfigs = config.subset(StreamConfig.STREAM_PREFIX format(systemName, streamName), true)
+    new MapConfig(defaults, explicitConfigs)
   }
 
   /**
