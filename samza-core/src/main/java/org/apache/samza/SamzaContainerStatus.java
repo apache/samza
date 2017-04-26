@@ -18,6 +18,20 @@
  */
 package org.apache.samza;
 
+
+/**
+ *                                                                   runloop completed [OR]
+ *                  container.run()           runloop.run            container.shutdown()
+ *    NOT_STARTED -----------------> STARTING ------------> RUNNING -----------------------> STOPPED
+ *                                       |      Error in runloop |
+ *                                       |      [OR] Error when  |
+ *                           Error when  |      stopping         |
+ *                   starting components |      components       |
+ *                                       V                       |
+ *                                    FAILED <-------------------|
+ *
+ */
+
 /**
  * Indicates the current status of a {@link org.apache.samza.container.SamzaContainer}
  */

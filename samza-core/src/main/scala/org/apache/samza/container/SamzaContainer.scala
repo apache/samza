@@ -639,7 +639,7 @@ class SamzaContainer(
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED
 //  @volatile private var handleCallback = true
-  var runloopExceptionThrown: Throwable  = null
+  var exceptionSeen: Throwable  = null
   var stopCalled: Boolean = false
   var paused: Boolean = false
 
@@ -675,7 +675,7 @@ class SamzaContainer(
           error("Caught exception/error while initializing container.", e)
         }
         status = SamzaContainerStatus.FAILED
-        runloopExceptionThrown = e
+        exceptionSeen = e
     }
     try {
       info("Shutting down.")
@@ -700,8 +700,8 @@ class SamzaContainer(
     } catch {
       case e: Throwable =>
         error("Caught exception/error while shutting down container.", e)
-        if (runloopExceptionThrown ==  null) {
-          runloopExceptionThrown = e
+        if (exceptionSeen ==  null) {
+          exceptionSeen = e
         }
         status = SamzaContainerStatus.FAILED
     }
@@ -710,7 +710,7 @@ class SamzaContainer(
       case SamzaContainerStatus.STOPPED =>
           containerListener.onContainerStop(stopCalled)
       case SamzaContainerStatus.FAILED =>
-        containerListener.onContainerFailed(runloopExceptionThrown)
+        containerListener.onContainerFailed(exceptionSeen)
     }
   }
 
