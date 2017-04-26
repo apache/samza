@@ -81,17 +81,17 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
           new SamzaContainerListener() {
             @Override
             public void onContainerStart() {
-
+              log.info("Container Started");
             }
 
             @Override
             public void onContainerStop(boolean invokedExternally) {
-
+              log.info("Container Stopped");
             }
 
             @Override
             public void onContainerFailed(Throwable t) {
-
+              log.info("Container Failed");
             }
           });
 
