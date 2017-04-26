@@ -18,8 +18,15 @@
  */
 package org.apache.samza.operators.impl;
 
+import org.apache.samza.config.Config;
+import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+
+import java.util.Collection;
+import java.util.Collections;
 
 
 /**
@@ -29,7 +36,32 @@ import org.apache.samza.task.TaskCoordinator;
 public final class RootOperatorImpl<M> extends OperatorImpl<M, M> {
 
   @Override
-  public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    this.propagateResult(message, collector, coordinator);
+  protected void doInit(Config config, TaskContext context) {
+  }
+
+  @Override
+  public Collection<M> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+    return Collections.singletonList(message);
+  }
+
+  // TODO: SAMZA-1221 - Change to InputOperatorSpec that also builds the message
+  @Override
+  protected OperatorSpec<M> getOpSpec() {
+    return new OperatorSpec<M>() {
+      @Override
+      public MessageStreamImpl<M> getNextStream() {
+        return null;
+      }
+
+      @Override
+      public OpCode getOpCode() {
+        return OpCode.INPUT;
+      }
+
+      @Override
+      public int getOpId() {
+        return -1;
+      }
+    };
   }
 }

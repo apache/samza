@@ -44,7 +44,8 @@ public class RepartitionWindowApp implements StreamApplication {
   public void init(StreamGraph graph, Config config) {
 
     MessageStream<String> pageViews = graph.<String, String, String>getInputStream("page-views", (k, v) -> v);
-    Function<String, String> keyFn = pageView -> new PageView(pageView).getUserId();
+    Function<String, String> keyFn = pageView ->
+        new PageView(pageView).getUserId();
 
     OutputStream<String, String, WindowPane<String, Collection<String>>> outputStream = graph
         .getOutputStream(TestRepartitionWindowApp.OUTPUT_TOPIC, m -> m.getKey().getKey(), m -> new Integer(m.getMessage().size()).toString());

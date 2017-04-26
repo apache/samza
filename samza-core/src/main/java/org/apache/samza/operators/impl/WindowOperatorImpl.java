@@ -20,14 +20,16 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.spec.WindowOperatorSpec;
+import org.apache.samza.config.Config;
 import org.apache.samza.operators.WindowState;
+import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.WindowOperatorSpec;
+import org.apache.samza.operators.triggers.FiringType;
 import org.apache.samza.operators.triggers.RepeatingTriggerImpl;
 import org.apache.samza.operators.triggers.TimeTrigger;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.TriggerImpl;
 import org.apache.samza.operators.triggers.TriggerImpls;
-import org.apache.samza.operators.triggers.FiringType;
 import org.apache.samza.operators.util.InternalInMemoryStore;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowKey;
@@ -36,6 +38,7 @@ import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.operators.windows.internal.WindowType;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
@@ -43,6 +46,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,22 +78,35 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
 
   private static final Logger LOG = LoggerFactory.getLogger(WindowOperatorImpl.class);
 
+  private final WindowOperatorSpec<M, WK, WV> windowOpSpec;
+  private final Clock clock;
   private final WindowInternal<M, WK, WV> window;
   private final KeyValueStore<WindowKey<WK>, WindowState<WV>> store = new InternalInMemoryStore<>();
-  TriggerScheduler<WK> triggerScheduler ;
+  private TriggerScheduler<WK> triggerScheduler;
+
+  // Results to be returned for the current handleMessage and handleTimer call.
+  private List<WindowPane<WK, WV>> currentResults = new ArrayList<>();
 
   // The trigger state corresponding to each {@link TriggerKey}.
   private final Map<TriggerKey<WK>, TriggerImplHandler> triggers = new HashMap<>();
-  private final Clock clock;
 
-  public WindowOperatorImpl(WindowOperatorSpec<M, WK, WV> spec, Clock clock) {
+  public WindowOperatorImpl(WindowOperatorSpec<M, WK, WV> windowOpSpec, Clock clock) {
+    this.windowOpSpec = windowOpSpec;
     this.clock = clock;
-    this.window = spec.getWindow();
+    this.window = windowOpSpec.getWindow();
     this.triggerScheduler= new TriggerScheduler(clock);
   }
 
   @Override
-  public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
+  protected void doInit(Config config, TaskContext context) {
+    WindowInternal<M, WK, WV> window = windowOpSpec.getWindow();
+    if (window.getFoldLeftFunction() != null) {
+      window.getFoldLeftFunction().init(config, context);
+    }
+  }
+
+  @Override
+  public Collection<WindowPane<WK, WV>> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
     LOG.trace("Processing message envelope: {}", message);
 
     WindowKey<WK> storeKey =  getStoreKey(message);
@@ -111,10 +128,14 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
       getOrCreateTriggerImplWrapper(triggerKey, window.getDefaultTrigger())
           .onMessage(triggerKey, message, collector, coordinator);
     }
+
+    List<WindowPane<WK, WV>> results = currentResults;
+    currentResults = new ArrayList<>();
+    return Collections.unmodifiableList(results);
   }
 
   @Override
-  public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+  public Collection<WindowPane<WK, WV>> handleTimer(MessageCollector collector, TaskCoordinator coordinator) {
     List<TriggerKey<WK>> keys = triggerScheduler.runPendingCallbacks();
 
     for (TriggerKey<WK> key : keys) {
@@ -124,6 +145,14 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
       }
     }
 
+    List<WindowPane<WK, WV>> results = currentResults;
+    currentResults = new ArrayList<>();
+    return Collections.unmodifiableList(results);
+  }
+
+  @Override
+  protected OperatorSpec<WindowPane<WK, WV>> getOpSpec() {
+    return windowOpSpec;
   }
 
   /**
@@ -200,7 +229,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
     }
 
     WindowPane<WK, WV> paneOutput = computePaneOutput(triggerKey, state);
-    super.propagateResult(paneOutput, collector, coordinator);
+    currentResults.add(paneOutput);
 
     // Handle accumulation modes.
     if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
@@ -315,5 +344,4 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
       return this.impl instanceof RepeatingTriggerImpl;
     }
   }
-
 }

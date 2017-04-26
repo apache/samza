@@ -19,9 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -34,6 +32,7 @@ import org.apache.samza.task.TaskContext;
 public interface OperatorSpec<OM> {
 
   enum OpCode {
+    INPUT,
     MAP,
     FLAT_MAP,
     FILTER,
@@ -63,11 +62,4 @@ public interface OperatorSpec<OM> {
    */
   int getOpId();
 
-  /**
-   * Init method to initialize the context for this {@link OperatorSpec}. The default implementation is NO-OP.
-   *
-   * @param config  the {@link Config} object for this task
-   * @param context  the {@link TaskContext} object for this task
-   */
-  default void init(Config config, TaskContext context) { }
 }

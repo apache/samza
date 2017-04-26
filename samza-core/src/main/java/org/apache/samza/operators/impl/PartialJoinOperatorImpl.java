@@ -18,12 +18,10 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction.PartialJoinMessage;
+import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueIterator;
@@ -34,6 +32,11 @@ import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Implementation of a {@link PartialJoinOperatorSpec} that joins messages of type {@code M} in this stream
@@ -47,35 +50,41 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(PartialJoinOperatorImpl.class);
 
+  private final PartialJoinOperatorSpec<K, M, JM, RM> partialJoinOpSpec;
   private final PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn;
   private final PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn;
   private final long ttlMs;
-  private final int opId;
   private final Clock clock;
 
-  PartialJoinOperatorImpl(PartialJoinOperatorSpec<K, M, JM, RM> partialJoinOperatorSpec, MessageStreamImpl<M> source,
+  PartialJoinOperatorImpl(PartialJoinOperatorSpec<K, M, JM, RM> partialJoinOpSpec,
       Config config, TaskContext context, Clock clock) {
-    this.thisPartialJoinFn = partialJoinOperatorSpec.getThisPartialJoinFn();
-    this.otherPartialJoinFn = partialJoinOperatorSpec.getOtherPartialJoinFn();
-    this.ttlMs = partialJoinOperatorSpec.getTtlMs();
-    this.opId = partialJoinOperatorSpec.getOpId();
+    this.partialJoinOpSpec = partialJoinOpSpec;
+    this.thisPartialJoinFn = partialJoinOpSpec.getThisPartialJoinFn();
+    this.otherPartialJoinFn = partialJoinOpSpec.getOtherPartialJoinFn();
+    this.ttlMs = partialJoinOpSpec.getTtlMs();
     this.clock = clock;
   }
 
   @Override
-  public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
+  protected void doInit(Config config, TaskContext context) {
+    this.thisPartialJoinFn.init(config, context);
+  }
+
+  @Override
+  public Collection<RM> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
     K key = thisPartialJoinFn.getKey(message);
     thisPartialJoinFn.getState().put(key, new PartialJoinMessage<>(message, clock.currentTimeMillis()));
     PartialJoinMessage<JM> otherMessage = otherPartialJoinFn.getState().get(key);
     long now = clock.currentTimeMillis();
     if (otherMessage != null && otherMessage.getReceivedTimeMs() > now - ttlMs) {
       RM joinResult = thisPartialJoinFn.apply(message, otherMessage.getMessage());
-      this.propagateResult(joinResult, collector, coordinator);
+      return Collections.singletonList(joinResult);
     }
+    return Collections.emptyList();
   }
 
   @Override
-  public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+  public Collection<RM> handleTimer(MessageCollector collector, TaskCoordinator coordinator) {
     long now = clock.currentTimeMillis();
 
     KeyValueStore<K, PartialJoinMessage<M>> thisState = thisPartialJoinFn.getState();
@@ -94,7 +103,11 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
     iterator.close();
     thisState.deleteAll(keysToRemove);
 
-    LOGGER.info("Operator ID {} onTimer self time: {} ms", opId, clock.currentTimeMillis() - now);
+    return Collections.emptyList();
   }
 
+  @Override
+  protected OperatorSpec<RM> getOpSpec() {
+    return partialJoinOpSpec;
+  }
 }
