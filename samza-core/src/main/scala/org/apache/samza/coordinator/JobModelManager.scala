@@ -156,7 +156,7 @@ object JobModelManager extends Logging {
     jobModelRef.set(jobModel)
 
     val server = new HttpServer
-    server.addServlet("/*", new JobServlet(jobModelRef))
+    server.addServlet("/", new JobServlet(jobModelRef))
     currentJobModelManager = new JobModelManager(jobModel, server, streamPartitionCountMonitor)
     currentJobModelManager
   }

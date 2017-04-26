@@ -19,28 +19,30 @@
 
 package org.apache.samza.runtime;
 
-import org.apache.log4j.MDC;
-import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.ShellCommandConfig;
-import org.apache.samza.container.SamzaContainer;
-import org.apache.samza.container.SamzaContainer$;
-import org.apache.samza.container.SamzaContainerExceptionHandler;
-import org.apache.samza.container.SamzaContainerListener;
-import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.job.model.ContainerModel;
-import org.apache.samza.job.model.JobModel;
-import org.apache.samza.metrics.MetricsReporter;
-import org.apache.samza.task.TaskFactoryUtil;
-import org.apache.samza.util.ScalaToJavaUtils;
-import org.apache.samza.util.Util;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+    import org.apache.log4j.MDC;
+    import org.apache.samza.SamzaException;
+    import org.apache.samza.application.StreamApplication;
+    import org.apache.samza.config.Config;
+    import org.apache.samza.config.JobConfig;
+    import org.apache.samza.config.ShellCommandConfig;
+    import org.apache.samza.container.ContainerHeartbeatClient;
+    import org.apache.samza.container.ContainerHeartbeatMonitor;
+    import org.apache.samza.container.SamzaContainer;
+    import org.apache.samza.container.SamzaContainer$;
+    import org.apache.samza.container.SamzaContainerExceptionHandler;
+    import org.apache.samza.container.SamzaContainerListener;
+    import org.apache.samza.job.ApplicationStatus;
+    import org.apache.samza.job.model.ContainerModel;
+    import org.apache.samza.job.model.JobModel;
+    import org.apache.samza.metrics.MetricsReporter;
+    import org.apache.samza.task.TaskFactoryUtil;
+    import org.apache.samza.util.ScalaToJavaUtils;
+    import org.apache.samza.util.Util;
+    import org.slf4j.Logger;
+    import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.Random;
+    import java.util.HashMap;
+    import java.util.Random;
 
 /**
  * LocalContainerRunner is the local runner for Yarn {@link SamzaContainer}s. It is an intermediate step to
@@ -56,6 +58,9 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
   private final JobModel jobModel;
   private final String containerId;
   private volatile Throwable containerException = null;
+  private ContainerHeartbeatMonitor containerHeartbeatMonitor;
+  private SamzaContainer container;
+  private volatile boolean containerShutdownForced = false;
 
   public LocalContainerRunner(JobModel jobModel, String containerId) {
     super(jobModel.getConfig());
@@ -63,12 +68,16 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     this.containerId = containerId;
   }
 
+  private boolean isContainerShutdownForced() {
+    return containerShutdownForced;
+  }
+
   @Override
   public void run(StreamApplication streamApp) {
     ContainerModel containerModel = jobModel.getContainers().get(containerId);
     Object taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, this);
 
-    SamzaContainer container = SamzaContainer$.MODULE$.apply(
+    container = SamzaContainer$.MODULE$.apply(
         containerModel,
         config,
         jobModel.maxChangeLogStreamPartitions,
@@ -93,8 +102,16 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
           }
         });
 
+    containerHeartbeatMonitor = createContainerHeartbeatMonitor();
+    if (containerHeartbeatMonitor != null) {
+      containerHeartbeatMonitor.start();
+    }
+
     container.run();
 
+    if (containerHeartbeatMonitor != null) {
+      containerHeartbeatMonitor.stop();
+    }
     if (containerException != null) {
       log.error("Container stopped with Exception. Exiting process now.", containerException);
       System.exit(1);
@@ -137,6 +154,27 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     MDC.put("jobId", jobId);
 
     StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
-    new LocalContainerRunner(jobModel, containerId).run(streamApp);
+    LocalContainerRunner localContainerRunner = new LocalContainerRunner(jobModel, containerId);
+    localContainerRunner.run(streamApp);
+    if (localContainerRunner.isContainerShutdownForced()) {
+      log.info("Exiting process due to forced shutdown.");
+      System.exit(1);
+    }
+  }
+
+  private ContainerHeartbeatMonitor createContainerHeartbeatMonitor() {
+    String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
+    String executionEnvContainerId = System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID());
+    if (executionEnvContainerId != null) {
+      log.info("Got execution environment container id: {}", executionEnvContainerId);
+      return new ContainerHeartbeatMonitor(() -> {
+        container.shutdown();
+        containerShutdownForced = true;
+      }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
+    } else {
+      log.warn("executionEnvContainerId not set. Container heartbeat monitor will not be started");
+      return null;
+    }
   }
 }
+

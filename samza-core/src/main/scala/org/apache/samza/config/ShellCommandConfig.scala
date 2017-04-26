@@ -45,6 +45,12 @@ object ShellCommandConfig {
    */
   val ENV_JAVA_HOME = "JAVA_HOME"
 
+  /**
+    * The ID assigned to the container by the execution environment (eg: YARN Container Id)
+    */
+
+  val ENV_EXECUTION_ENV_CONTAINER_ID = "EXECUTION_ENV_CONTAINER_ID"
+
   /*
    * The base directory for storing logged data stores used in Samza. This has to be set on all machine running Samza
    * containers. For example, when using YARN, it has to be set in all NMs and passed to the containers.

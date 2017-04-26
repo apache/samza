@@ -19,19 +19,20 @@
 
 package org.apache.samza.job.yarn
 
-import java.io.BufferedReader
+import java.io.{BufferedReader, InputStreamReader}
 import java.net.URL
-import java.io.InputStreamReader
+
 import org.apache.hadoop.yarn.util.ConverterUtils
 import org.apache.samza.clustermanager.SamzaApplicationState
-import org.apache.samza.config.MapConfig
-import org.junit.Assert._
-import org.junit.Test
-import scala.collection.JavaConverters._
-import org.apache.samza.config.Config
+import org.apache.samza.config.{Config, MapConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
+import org.apache.samza.metrics._
+import org.junit.Assert._
+import org.junit.Test
+
+import scala.collection.JavaConverters._
 
 class TestSamzaYarnAppMasterService {
 
@@ -40,9 +41,10 @@ class TestSamzaYarnAppMasterService {
     val config = getDummyConfig
     val jobModelManager = JobModelManager(config)
     val samzaState = new SamzaApplicationState(jobModelManager)
+    val registry = new MetricsRegistryMap()
 
     val state = new YarnAppState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "testHost", 1, 1);
-    val service = new SamzaYarnAppMasterService(config, samzaState, state, null, null)
+    val service = new SamzaYarnAppMasterService(config, samzaState, state, registry, null)
     val taskName = new TaskName("test")
 
     // start the dashboard
@@ -75,8 +77,9 @@ class TestSamzaYarnAppMasterService {
     val jobModelManager = JobModelManager(config)
     val samzaState = new SamzaApplicationState(jobModelManager)
     val state = new YarnAppState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "testHost", 1, 1);
+    val registry = new MetricsRegistryMap()
 
-    val service = new SamzaYarnAppMasterService(config, samzaState, state, null, null)
+    val service = new SamzaYarnAppMasterService(config, samzaState, state, registry, null)
 
     // start the dashboard
     service.onInit
