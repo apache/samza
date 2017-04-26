@@ -62,7 +62,7 @@ object KafkaConfig {
   // Helper regular expression definitions to extract/match configurations
   val CHANGELOG_STREAM_NAMES_REGEX = "stores\\.(.*)\\.changelog$"
 
-  val JOB_COORDINATOR_REPLICATION_FACTOR = "job.coordinator.replication.factor"
+  val JOB_COORDINATOR_REPLICATION_FACTOR = "job.coordinator." + TOPIC_REPLICATION_FACTOR
   val JOB_COORDINATOR_SEGMENT_BYTES = "job.coordinator." + SEGMENT_BYTES
 
   /**
@@ -167,13 +167,11 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
 
   def getRegexResolvedInheritedConfig(rewriterName: String) = config.subset((KafkaConfig.REGEX_INHERITED_CONFIG format rewriterName) + ".", true)
 
-  def getChangelogStreamReplicationFactor(name: String) = {
-    getOption(KafkaConfig.CHANGELOG_STREAM_REPLICATION_FACTOR format name).getOrElse(getDefaultChangelogStreamReplicationFactor("2"))
-  }
+  def getChangelogStreamReplicationFactor(name: String) = getOption(KafkaConfig.CHANGELOG_STREAM_REPLICATION_FACTOR format name).getOrElse(getDefaultChangelogStreamReplicationFactor)
 
-  def getDefaultChangelogStreamReplicationFactor(defaultValue: String) = {
+  def getDefaultChangelogStreamReplicationFactor() = {
     val changelogSystem =  new JavaStorageConfig(config).getChangelogSystem(null)
-    getOption(KafkaConfig.DEFAULT_CHANGELOG_STREAM_REPLICATION_FACTOR).getOrElse(getSystemDefaultReplicationFactor(changelogSystem, defaultValue))
+    getOption(KafkaConfig.DEFAULT_CHANGELOG_STREAM_REPLICATION_FACTOR).getOrElse(getSystemDefaultReplicationFactor(changelogSystem, "2"))
   }
 
   // The method returns a map of storenames to changelog topic names, which are configured to use kafka as the changelog stream

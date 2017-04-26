@@ -48,8 +48,6 @@ object JobConfig {
   val JOB_CONTAINER_SINGLE_THREAD_MODE = "job.container.single.thread.mode"
   val JOB_INTERMEDIATE_STREAM_PARTITIONS = "job.intermediate.stream.partitions"
 
-  val CHECKPOINT_SEGMENT_BYTES = "task.checkpoint.segment.bytes"
-
   val SSP_GROUPER_FACTORY = "job.systemstreampartition.grouper.factory"
 
   val SSP_MATCHER_CLASS = "job.systemstreampartition.matcher.class"
