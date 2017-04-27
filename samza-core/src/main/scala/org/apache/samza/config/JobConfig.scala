@@ -109,6 +109,13 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     system
   }
 
+  /**
+    * Gets the System to use for reading/writing the coordinator stream. Uses the following precedence.
+    *
+    * 1. If job.coordinator.system is defined, that value is used.
+    * 2. If job.default.system is defined, that value is used.
+    * 3. None
+    */
   def getCoordinatorSystemNameOrNull =  getOption(JobConfig.JOB_COORDINATOR_SYSTEM).getOrElse(getDefaultSystem.orNull)
 
   def getDefaultSystem = getOption(JobConfig.JOB_DEFAULT_SYSTEM)

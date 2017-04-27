@@ -58,7 +58,7 @@ public class JavaStorageConfig extends MapConfig {
     // If this config only specifies <astream> and there is a value in job.changelog.system=<asystem> -
     // these values will be combined into <asystem>.<astream>
     String systemStream = get(String.format(CHANGELOG_STREAM, storeName), null);
-    String changelogSystem = getChangelogSystem(null);
+    String changelogSystem = getChangelogSystem();
 
     String systemStreamRes;
     if (systemStream != null  && !systemStream.contains(".")) {
@@ -86,7 +86,20 @@ public class JavaStorageConfig extends MapConfig {
     return get(String.format(MSG_SERDE, storeName), null);
   }
 
-  public String getChangelogSystem(String defaultValue) {
-    return get(CHANGELOG_SYSTEM,  get(JobConfig.JOB_DEFAULT_SYSTEM(), defaultValue));
+  /**
+   * Gets the System to use for reading/writing checkpoints. Uses the following precedence.
+   *
+   * 1. If job.changelog.system is defined, that value is used.
+   * 2. If job.default.system is defined, that value is used.
+   * 3. null
+   *
+   * Note: Changelogs can be defined using
+   * stores.storeName.changelog=systemName.streamName  or
+   * stores.storeName.changelog=streamName
+   *
+   * If the former syntax is used, that system name will still be honored. For the latter syntax, this method is used.
+   */
+  public String getChangelogSystem() {
+    return get(CHANGELOG_SYSTEM,  get(JobConfig.JOB_DEFAULT_SYSTEM(), null));
   }
 }

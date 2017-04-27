@@ -86,11 +86,26 @@ object KafkaConfig {
 }
 
 class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
-  // checkpoints
+  /**
+    * Gets the System to use for reading/writing checkpoints. Uses the following precedence.
+    *
+    * 1. If task.checkpoint.system is defined, that value is used.
+    * 2. If job.default.system is defined, that value is used.
+    * 3. None
+    */
   def getCheckpointSystem = Option(getOrElse(KafkaConfig.CHECKPOINT_SYSTEM, new JobConfig(config).getDefaultSystem.orNull))
 
+  /**
+    * Gets the replication factor for the checkpoint topic. Uses the following precedence.
+    *
+    * 1. If task.checkpoint.replication.factor is configured, that value is used.
+    * 2. If systems.checkpoint-system.default.stream.replication.factor is configured, that value is used.
+    * 3. None
+    *
+    * Note that the checkpoint-system has a similar precedence. See [[getCheckpointSystem]]
+    */
   def getCheckpointReplicationFactor() = {
-    val defaultReplicationFactor: String = getSystemDefaultReplicationFactor(getCheckpointSystem.orNull, null)
+    val defaultReplicationFactor: String = getSystemDefaultReplicationFactor(getCheckpointSystem.orNull, "3")
     val replicationFactor = getOrDefault(KafkaConfig.CHECKPOINT_REPLICATION_FACTOR, defaultReplicationFactor)
 
     Option(replicationFactor)
@@ -101,11 +116,29 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     defaultReplicationFactor
   }
 
+  /**
+    * Gets the segment bytes for the checkpoint topic. Uses the following precedence.
+    *
+    * 1. If task.checkpoint.segment.bytes is configured, that value is used.
+    * 2. If systems.checkpoint-system.default.stream.segment.bytes is configured, that value is used.
+    * 3. None
+    *
+    * Note that the checkpoint-system has a similar precedence. See [[getCheckpointSystem]]
+    */
   def getCheckpointSegmentBytes() = {
     val defaultsegBytes = new JavaSystemConfig(config).getDefaultStreamProperties(getCheckpointSystem.orNull).getInt(KafkaConfig.SEGMENT_BYTES, KafkaConfig.DEFAULT_CHECKPOINT_SEGMENT_BYTES)
     getInt(KafkaConfig.CHECKPOINT_SEGMENT_BYTES, defaultsegBytes)
   }
 
+  /**
+    * Gets the replication factor for the coordinator topic. Uses the following precedence.
+    *
+    * 1. If job.coordinator.replication.factor is configured, that value is used.
+    * 2. If systems.coordinator-system.default.stream.replication.factor is configured, that value is used.
+    * 3. 3
+    *
+    * Note that the coordinator-system has a similar precedence. See [[JobConfig.getCoordinatorSystemName]]
+    */
   def getCoordinatorReplicationFactor = getOption(KafkaConfig.JOB_COORDINATOR_REPLICATION_FACTOR) match {
     case Some(rplFactor) => rplFactor
     case _ =>
@@ -114,6 +147,15 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
       systemReplicationFactor
   }
 
+  /**
+    * Gets the segment bytes for the coordinator topic. Uses the following precedence.
+    *
+    * 1. If job.coordinator.segment.bytes is configured, that value is used.
+    * 2. If systems.coordinator-system.default.stream.segment.bytes is configured, that value is used.
+    * 3. None
+    *
+    * Note that the coordinator-system has a similar precedence. See [[JobConfig.getCoordinatorSystemName]]
+    */
   def getCoordinatorSegmentBytes = getOption(KafkaConfig.JOB_COORDINATOR_SEGMENT_BYTES) match {
     case Some(segBytes) => segBytes
     case _ =>
@@ -128,7 +170,6 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getConsumerFetchThresholdBytes(name: String) = getOption(KafkaConfig.CONSUMER_FETCH_THRESHOLD_BYTES format name)
 
   def isConsumerFetchThresholdBytesEnabled(name: String): Boolean = getConsumerFetchThresholdBytes(name).getOrElse("-1").toLong > 0
-
 
   /**
     * Returns a map of topic -> fetch.message.max.bytes value for all streams that
@@ -167,10 +208,19 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
 
   def getRegexResolvedInheritedConfig(rewriterName: String) = config.subset((KafkaConfig.REGEX_INHERITED_CONFIG format rewriterName) + ".", true)
 
+  /**
+    * Gets the replication factor for the changelog topics. Uses the following precedence.
+    *
+    * 1. If stores.myStore.changelog.replication.factor is configured, that value is used.
+    * 2. If systems.changelog-system.default.stream.replication.factor is configured, that value is used.
+    * 3. 2
+    *
+    * Note that the changelog-system has a similar precedence. See [[JavaStorageConfig]]
+    */
   def getChangelogStreamReplicationFactor(name: String) = getOption(KafkaConfig.CHANGELOG_STREAM_REPLICATION_FACTOR format name).getOrElse(getDefaultChangelogStreamReplicationFactor)
 
   def getDefaultChangelogStreamReplicationFactor() = {
-    val changelogSystem =  new JavaStorageConfig(config).getChangelogSystem(null)
+    val changelogSystem =  new JavaStorageConfig(config).getChangelogSystem()
     getOption(KafkaConfig.DEFAULT_CHANGELOG_STREAM_REPLICATION_FACTOR).getOrElse(getSystemDefaultReplicationFactor(changelogSystem, "2"))
   }
 
