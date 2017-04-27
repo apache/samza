@@ -300,7 +300,6 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     assertEquals(SamzaContainerStatus.FAILED, container.getStatus())
   }
 
-
   @Test
   def testErrorInTaskInitShutsDownTask() {
     val task = new StreamTask with InitableTask with ClosableTask {
@@ -379,6 +378,158 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
 
     assertTrue(onContainerFailedCalled)
     assertNotNull(onContainerFailedThrowable)
+  }
+
+  @Test
+  def testRunloopShutdownIsClean(): Unit = {
+    val task = new StreamTask with InitableTask with ClosableTask {
+      var wasShutdown = false
+
+      def init(config: Config, context: TaskContext) {
+      }
+
+      def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
+      }
+
+      def close {
+        wasShutdown = true
+      }
+    }
+    val config = new MapConfig
+    val taskName = new TaskName("taskName")
+    val consumerMultiplexer = new SystemConsumers(
+      new RoundRobinChooser,
+      Map[String, SystemConsumer]())
+    val producerMultiplexer = new SystemProducers(
+      Map[String, SystemProducer](),
+      new SerdeManager)
+    val collector = new TaskInstanceCollector(producerMultiplexer)
+    val containerContext = new SamzaContainerContext("0", config, Set[TaskName](taskName))
+    val taskInstance: TaskInstance = new TaskInstance(
+      task,
+      taskName,
+      config,
+      new TaskInstanceMetrics,
+      null,
+      consumerMultiplexer,
+      collector,
+      containerContext
+    )
+
+    @volatile var onContainerFailedCalled = false
+    @volatile var onContainerStopCalled = false
+    @volatile var onContainerStartCalled = false
+    @volatile var onContainerFailedThrowable: Throwable = null
+
+    val mockRunLoop = mock[RunLoop]
+    when(mockRunLoop.run).then(new Answer[Unit] {
+      override def answer(invocation: InvocationOnMock): Unit = {
+        Thread.sleep(100)
+      }
+    })
+
+    val container = new SamzaContainer(
+      containerContext = containerContext,
+      taskInstances = Map(taskName -> taskInstance),
+      runLoop = mockRunLoop,
+      consumerMultiplexer = consumerMultiplexer,
+      producerMultiplexer = producerMultiplexer,
+      metrics = new SamzaContainerMetrics,
+      jmxServer = null,
+      containerListener = new SamzaContainerListener {
+        override def onContainerFailed(t: Throwable): Unit = {
+          onContainerFailedCalled = true
+          onContainerFailedThrowable = t
+        }
+
+        override def onContainerStop(invokedExternally: Boolean): Unit = {
+          onContainerStopCalled = true
+        }
+
+        override def onContainerStart(): Unit = {
+          onContainerStartCalled = true
+        }
+      }
+    )
+    container.run
+    assertFalse(onContainerFailedCalled)
+    assertTrue(onContainerStartCalled)
+    assertTrue(onContainerStopCalled)
+  }
+
+  @Test
+  def testFailureDuringShutdown: Unit = {
+    val task = new StreamTask with InitableTask with ClosableTask {
+      def init(config: Config, context: TaskContext) {
+      }
+
+      def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
+
+      }
+
+      def close {
+        throw new Exception("Exception during shutdown, please.")
+      }
+    }
+    val config = new MapConfig
+    val taskName = new TaskName("taskName")
+    val consumerMultiplexer = new SystemConsumers(
+      new RoundRobinChooser,
+      Map[String, SystemConsumer]())
+    val producerMultiplexer = new SystemProducers(
+      Map[String, SystemProducer](),
+      new SerdeManager)
+    val collector = new TaskInstanceCollector(producerMultiplexer)
+    val containerContext = new SamzaContainerContext("0", config, Set[TaskName](taskName))
+    val taskInstance: TaskInstance = new TaskInstance(
+      task,
+      taskName,
+      config,
+      new TaskInstanceMetrics,
+      null,
+      consumerMultiplexer,
+      collector,
+      containerContext
+    )
+
+    @volatile var onContainerFailedCalled = false
+    @volatile var onContainerStopCalled = false
+    @volatile var onContainerStartCalled = false
+    @volatile var onContainerFailedThrowable: Throwable = null
+
+    val mockRunLoop = mock[RunLoop]
+    when(mockRunLoop.run).then(new Answer[Unit] {
+      override def answer(invocation: InvocationOnMock): Unit = {
+        Thread.sleep(100)
+      }
+    })
+
+    val container = new SamzaContainer(
+      containerContext = containerContext,
+      taskInstances = Map(taskName -> taskInstance),
+      runLoop = mockRunLoop,
+      consumerMultiplexer = consumerMultiplexer,
+      producerMultiplexer = producerMultiplexer,
+      metrics = new SamzaContainerMetrics,
+      jmxServer = null,
+      containerListener = new SamzaContainerListener {
+        override def onContainerFailed(t: Throwable): Unit = {
+          onContainerFailedCalled = true
+          onContainerFailedThrowable = t
+        }
+
+        override def onContainerStop(invokedExternally: Boolean): Unit = {
+          onContainerStopCalled = true
+        }
+
+        override def onContainerStart(): Unit = {
+          onContainerStartCalled = true
+        }
+      }
+    )
+    container.run
+
+    assertTrue(onContainerFailedCalled)
   }
 
   @Test

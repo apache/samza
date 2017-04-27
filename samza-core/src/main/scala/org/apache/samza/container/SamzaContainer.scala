@@ -698,7 +698,7 @@ class SamzaContainer(
     } catch {
       case e: Throwable =>
         error("Caught exception/error while shutting down container.", e)
-        if (exceptionSeen ==  null) {
+        if (exceptionSeen == null) {
           exceptionSeen = e
         }
         status = SamzaContainerStatus.FAILED
