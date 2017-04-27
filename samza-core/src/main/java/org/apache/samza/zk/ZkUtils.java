@@ -106,7 +106,7 @@ public class ZkUtils {
 
     public ProcessorData(String data) {
       String [] splt = data.split(" ");
-      if(splt.length != 2)
+      if (splt.length != 2)
         throw new SamzaException("incorrect processor data format = " + data);
       host = splt[0];
       processorId = splt[1];

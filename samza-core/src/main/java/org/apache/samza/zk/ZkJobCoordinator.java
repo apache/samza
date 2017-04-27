@@ -28,7 +28,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationServiceFactory;
@@ -192,7 +191,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
    */
   private void generateNewJobModel(List<String> processors) {
     List<String> currentProcessorsPids;
-    if(processors.size() > 0) {
+    if (processors.size() > 0) {
       // we should use this list
       // but it needs to be converted into PIDs, which is part of the data
       currentProcessorsPids = zkUtils.getSortedActiveProcessorsPIDs(processors);
