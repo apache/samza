@@ -49,6 +49,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -64,9 +65,8 @@ import java.util.function.Function;
  * for the trigger and invokes {@link TriggerImplHandler#onMessage(TriggerKey, Object, MessageCollector, TaskCoordinator)}.
  * The {@link TriggerImplHandler} maintains the {@link TriggerImpl} instance along with whether it has been canceled yet
  * or not. Then, the {@link TriggerImplHandler} invokes onMessage on underlying its {@link TriggerImpl} instance. A
- * {@link TriggerImpl} instance is scoped to a window and its firing determines when results for its window are emitted. The
- * {@link WindowOperatorImpl} checks if the trigger fired, and propagates the result of the firing to its downstream
- * operators.
+ * {@link TriggerImpl} instance is scoped to a window and its firing determines when results for its window are emitted.
+ * The {@link WindowOperatorImpl} checks if the trigger fired and returns the result of the firing.
  *
  * @param <M> the type of the incoming message
  * @param <WK> the type of the key in this {@link org.apache.samza.operators.MessageStream}
@@ -119,19 +119,17 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
       TriggerKey<WK> triggerKey = new TriggerKey<>(FiringType.EARLY, storeKey);
 
       TriggerImplHandler triggerImplHandler = getOrCreateTriggerImplHandler(triggerKey, window.getEarlyTrigger());
-      WindowPane<WK, WV> triggeredPane = triggerImplHandler.onMessage(triggerKey, message, collector, coordinator);
-      if (triggeredPane != null) {
-        results.add(triggeredPane);
-      }
+      Optional<WindowPane<WK, WV>> maybeTriggeredPane =
+          triggerImplHandler.onMessage(triggerKey, message, collector, coordinator);
+      maybeTriggeredPane.ifPresent(results::add);
     }
 
     if (window.getDefaultTrigger() != null) {
       TriggerKey<WK> triggerKey = new TriggerKey<>(FiringType.DEFAULT, storeKey);
       TriggerImplHandler triggerImplHandler = getOrCreateTriggerImplHandler(triggerKey, window.getDefaultTrigger());
-      WindowPane<WK, WV> triggeredPane = triggerImplHandler.onMessage(triggerKey, message, collector, coordinator);
-      if (triggeredPane != null) {
-        results.add(triggeredPane);
-      }
+      Optional<WindowPane<WK, WV>> maybeTriggeredPane =
+          triggerImplHandler.onMessage(triggerKey, message, collector, coordinator);
+      maybeTriggeredPane.ifPresent(results::add);
     }
 
     return results;
@@ -146,10 +144,8 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
     for (TriggerKey<WK> key : keys) {
       TriggerImplHandler triggerImplHandler = triggers.get(key);
       if (triggerImplHandler != null) {
-        WindowPane<WK, WV> triggeredPane = triggerImplHandler.onTimer(key, collector, coordinator);
-        if (triggeredPane != null) {
-          results.add(triggeredPane);
-        }
+        Optional<WindowPane<WK, WV>> maybeTriggeredPane = triggerImplHandler.onTimer(key, collector, coordinator);
+        maybeTriggeredPane.ifPresent(results::add);
       }
     }
 
@@ -220,9 +216,9 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   }
 
   /**
-   * Handles trigger firings, and propagates results to downstream operators.
+   * Handles trigger firings and returns the optional result.
    */
-  private WindowPane<WK, WV> onTriggerFired(
+  private Optional<WindowPane<WK, WV>> onTriggerFired(
       TriggerKey<WK> triggerKey, MessageCollector collector, TaskCoordinator coordinator) {
     LOG.trace("Trigger key {} fired." , triggerKey);
 
@@ -232,7 +228,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
 
     if (state == null) {
       LOG.trace("No state found for triggerKey: {}", triggerKey);
-      return null;
+      return Optional.empty();
     }
 
     WindowPane<WK, WV> paneOutput = computePaneOutput(triggerKey, state);
@@ -264,7 +260,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
       cancelTrigger(triggerKey, false);
     }
 
-    return paneOutput;
+    return Optional.of(paneOutput);
   }
 
   /**
@@ -317,7 +313,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
       this.impl = impl;
     }
 
-    public WindowPane<WK, WV> onMessage(TriggerKey<WK> triggerKey, M message,
+    public Optional<WindowPane<WK, WV>> onMessage(TriggerKey<WK> triggerKey, M message,
         MessageCollector collector, TaskCoordinator coordinator) {
       if (!isCancelled) {
         LOG.trace("Forwarding callbacks for {}", message);
@@ -331,10 +327,11 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
           return onTriggerFired(triggerKey, collector, coordinator);
         }
       }
-      return null;
+      return Optional.empty();
     }
 
-    public WindowPane<WK, WV> onTimer(TriggerKey<WK> key, MessageCollector collector, TaskCoordinator coordinator) {
+    public Optional<WindowPane<WK, WV>> onTimer(
+        TriggerKey<WK> key, MessageCollector collector, TaskCoordinator coordinator) {
       if (impl.shouldFire() && !isCancelled) {
         LOG.trace("Triggering timer triggers");
 
@@ -344,7 +341,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
         }
         return onTriggerFired(key, collector, coordinator);
       }
-      return null;
+      return Optional.empty();
     }
 
     public void cancel() {
