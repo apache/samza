@@ -35,7 +35,8 @@ import org.apache.samza.util.Util;
 public class JavaSystemConfig extends MapConfig {
   private static final String SYSTEM_PREFIX = "systems.";
   private static final String SYSTEM_FACTORY_SUFFIX = ".samza.factory";
-  private static final String SYSTEM_FACTORY = "systems.%s.samza.factory";
+  private static final String SYSTEM_FACTORY_FORMAT = SYSTEM_PREFIX + "%s" + SYSTEM_FACTORY_SUFFIX;
+  private static final String SYSTEM_DEFAULT_STREAMS_PREFIX = SYSTEM_PREFIX + "%s" + ".default.stream.";
   private static final String EMPTY = "";
 
   public JavaSystemConfig(Config config) {
@@ -46,7 +47,7 @@ public class JavaSystemConfig extends MapConfig {
     if (name == null) {
       return null;
     }
-    String systemFactory = String.format(SYSTEM_FACTORY, name);
+    String systemFactory = String.format(SYSTEM_FACTORY_FORMAT, name);
     return get(systemFactory, null);
   }
 
@@ -98,5 +99,12 @@ public class JavaSystemConfig extends MapConfig {
       }));
 
     return systemFactories;
+  }
+
+  /**
+   * Gets the system-wide defaults for streams.
+   */
+  public Config getDefaultStreamProperties(String systemName) {
+    return subset(String.format(SYSTEM_DEFAULT_STREAMS_PREFIX, systemName), true);
   }
 }

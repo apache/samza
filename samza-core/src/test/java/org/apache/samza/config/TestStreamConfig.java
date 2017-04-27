@@ -41,6 +41,13 @@ public class TestStreamConfig {
   private static final String STREAM2_STREAM_ID = "streamId2";
   private static final SystemStream SYSTEM_STREAM_2 = new SystemStream(STREAM2_SYSTEM, STREAM2_PHYSICAL_NAME);
 
+  private static final String STREAM3_SYSTEM = "Sys3";
+  private static final String STREAM3_PHYSICAL_NAME = "Str3";
+  private static final String STREAM3_STREAM_ID = "streamId3";
+  private static final SystemStream SYSTEM_STREAM_3 = new SystemStream(STREAM3_SYSTEM, STREAM3_PHYSICAL_NAME);
+
+  private static final String SYSTEM_DEFAULT_STREAM_PATTERN = "systems.%s.default.stream.";
+
 
   @Test(expected = IllegalArgumentException.class)
   public void testGetSamzaPropertyThrowsIfInvalidPropertyName() {
@@ -185,6 +192,44 @@ public class TestStreamConfig {
     assertEquals("value2", config.getStreamMsgSerde(SYSTEM_STREAM_2).get());
   }
 
+  @Test
+  public void testStreamPropertyDefaults() {
+    final String nonSamzaProperty = "replication.factor";
+    StreamConfig config = buildConfig(
+        buildSystemDefaultProp(STREAM1_SYSTEM, nonSamzaProperty), "1",
+        buildSystemDefaultProp(STREAM1_SYSTEM, StreamConfig.KEY_SERDE()), "value1",
+        buildSystemDefaultProp(STREAM1_SYSTEM, StreamConfig.CONSUMER_OFFSET_DEFAULT()), "newest",
+        buildProp(SYSTEM_STREAM_1, "dummyStreamProperty"), "dummyValue",
+        buildProp(STREAM1_STREAM_ID, StreamConfig.SYSTEM()), STREAM1_SYSTEM,
+        buildProp(STREAM1_STREAM_ID, StreamConfig.PHYSICAL_NAME()), STREAM1_PHYSICAL_NAME,
+        buildSystemDefaultProp(STREAM2_SYSTEM, nonSamzaProperty), "2",
+        buildProp(STREAM2_STREAM_ID, StreamConfig.SYSTEM()), STREAM2_SYSTEM,
+        buildProp(STREAM2_STREAM_ID, StreamConfig.PHYSICAL_NAME()), STREAM2_PHYSICAL_NAME,
+        buildProp(STREAM2_STREAM_ID, nonSamzaProperty), "3",
+        buildSystemDefaultProp(STREAM3_SYSTEM, nonSamzaProperty), "4",
+        buildProp(STREAM3_STREAM_ID, StreamConfig.SYSTEM()), STREAM3_SYSTEM,
+        buildProp(STREAM3_STREAM_ID, StreamConfig.PHYSICAL_NAME()), STREAM3_PHYSICAL_NAME,
+        buildProp(SYSTEM_STREAM_3, nonSamzaProperty), "5",
+        "key3", "value3");
+
+
+
+    // Ensure that we can set legacy system properties via the new system wide default
+    assertEquals("value1", config.getStreamKeySerde(SYSTEM_STREAM_1).get());
+    assertEquals(1, config.getSerdeStreams(STREAM1_SYSTEM).size());
+    assertEquals("newest", config.getDefaultStreamOffset(SYSTEM_STREAM_1).get());
+
+    // Property set via systems.x.default.stream.* only
+    assertEquals("1", config.getStreamProperties(STREAM1_STREAM_ID).get(nonSamzaProperty));
+
+    // Property set via systems.x.default.stream.* and streams.y.*
+    assertEquals("3", config.getStreamProperties(STREAM2_STREAM_ID).get(nonSamzaProperty));
+
+    // Property set via systems.x.default.stream.* and system.x.streams.z.*
+    assertEquals("5", config.getStreamProperties(STREAM3_STREAM_ID).get(nonSamzaProperty));
+  }
+
+
   private StreamConfig buildConfig(String... kvs) {
     if (kvs.length % 2 != 0) {
       throw new IllegalArgumentException("There must be parity between the keys and values");
@@ -203,6 +248,10 @@ public class TestStreamConfig {
 
   private String buildProp(SystemStream systemStream, String suffix) {
     return String.format(SYSTEM_STREAM_PATTERN, systemStream.getSystem(), systemStream.getStream()) + suffix;
+  }
+
+  private String buildSystemDefaultProp(String system, String suffix) {
+    return String.format(SYSTEM_DEFAULT_STREAM_PATTERN, system) + suffix;
   }
 
   private Config addConfigs(Config original, String... kvs) {
