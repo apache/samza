@@ -127,7 +127,7 @@ public class ZkUtils {
    *
    * @return List of absolute ZK node paths
    */
-  public List<String> getSortedActiveProcessors() {
+  public List<String> getSortedActiveProcessorsZnodes() {
     List<String> znodeIds = zkClient.getChildren(keyBuilder.getProcessorsPath());
     if (znodeIds.size() > 0) {
       Collections.sort(znodeIds);
@@ -141,7 +141,7 @@ public class ZkUtils {
    * @param fullPath absolute path to the znode
    * @return processor's data
    */
-  public String getProcessorsData(String fullPath) {
+  String readProcessorData(String fullPath) {
     String data = zkClient.<String>readData(fullPath, true);
     if (data == null) {
       throw new SamzaException(String.format("Cannot read ZK node:", fullPath));
@@ -150,11 +150,11 @@ public class ZkUtils {
   }
 
   /**
-   * Method is used to get the <i>sorted</i> list of currently active/registered processor ids
+   * Method is used to get the list of currently active/registered processor ids
    * @return List of processorIds
    */
   public List<String> getSortedActiveProcessorsIDs() {
-    return getSortedActiveProcessorsIDs(getSortedActiveProcessors());
+    return getActiveProcessorsIDs(getSortedActiveProcessorsZnodes());
   }
 
   /**
@@ -162,17 +162,16 @@ public class ZkUtils {
    * @param znodeIds - list of relative paths of the children's znodes
    * @return List of processor ids for a given list of znodes
    */
-  public List<String> getSortedActiveProcessorsIDs(List<String> znodeIds) {
+  public List<String> getActiveProcessorsIDs(List<String> znodeIds) {
     String processorPath = keyBuilder.getProcessorsPath();
     List<String> processorIds = new ArrayList<>(znodeIds.size());
     if (znodeIds.size() > 0) {
 
       for (String child : znodeIds) {
         String fullPath = String.format("%s/%s", processorPath, child);
-        processorIds.add(getProcessorsData(fullPath));
+        processorIds.add(readProcessorData(fullPath));
       }
 
-      Collections.sort(processorIds);
       LOG.info("Found these children - " + znodeIds);
       LOG.info("Found these processorIds - " + processorIds);
     }

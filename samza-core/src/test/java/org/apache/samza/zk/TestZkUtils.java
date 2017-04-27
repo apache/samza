@@ -99,9 +99,9 @@ public class TestZkUtils {
 
   @Test
   public void testGetActiveProcessors() {
-    Assert.assertEquals(0, zkUtils.getSortedActiveProcessors().size());
+    Assert.assertEquals(0, zkUtils.getSortedActiveProcessorsZnodes().size());
     zkUtils.registerProcessorAndGetId(new ProcessorData("processorData", "1"));
-    Assert.assertEquals(1, zkUtils.getSortedActiveProcessors().size());
+    Assert.assertEquals(1, zkUtils.getSortedActiveProcessorsZnodes().size());
   }
 
   @Test

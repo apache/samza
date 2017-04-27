@@ -159,18 +159,12 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     // get the new job model
     newJobModel = zkUtils.getJobModel(version);
 
-    String currentPath = zkUtils.getEphemeralPath();
-    String data =  zkUtils.getProcessorsData(currentPath);
-    ProcessorData processorData = new ProcessorData(data);
-    String processorId = processorData.getProcessorId();
-    String processorHost = processorData.getHost();
-
-    log.info("pid=" + processorId + "; host=" + processorHost + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
+    log.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
 
     // update ZK and wait for all the processors to get this new version
     ZkBarrierForVersionUpgrade barrier = (ZkBarrierForVersionUpgrade) coordinationUtils.getBarrier(
         JOB_MODEL_UPGRADE_BARRIER);
-    barrier.waitForBarrier(version, String.valueOf(processorId), new Runnable() {
+    barrier.waitForBarrier(version, processorId, new Runnable() {
       @Override
       public void run() {
         onNewJobModelConfirmed(version);
@@ -198,7 +192,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     if (processors.size() > 0) {
       // we should use this list
       // but it needs to be converted into PIDs, which is part of the data
-      currentProcessorsIds = zkUtils.getSortedActiveProcessorsIDs(processors);
+      currentProcessorsIds = zkUtils.getActiveProcessorsIDs(processors);
     } else {
       // get the current list of processors
       currentProcessorsIds = zkUtils.getSortedActiveProcessorsIDs();
