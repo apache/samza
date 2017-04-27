@@ -70,13 +70,13 @@ public class TestOperatorImpl {
 
     // register a couple of operators
     OperatorImpl mockNextOpImpl1 = mock(OperatorImpl.class);
-    when(mockNextOpImpl1.getOpSpec()).thenReturn(new TestOpSpec());
+    when(mockNextOpImpl1.getOperatorSpec()).thenReturn(new TestOpSpec());
     when(mockNextOpImpl1.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
     mockNextOpImpl1.init(mock(Config.class), mockTaskContext);
     opImpl.registerNextOperator(mockNextOpImpl1);
 
     OperatorImpl mockNextOpImpl2 = mock(OperatorImpl.class);
-    when(mockNextOpImpl2.getOpSpec()).thenReturn(new TestOpSpec());
+    when(mockNextOpImpl2.getOperatorSpec()).thenReturn(new TestOpSpec());
     when(mockNextOpImpl2.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
     mockNextOpImpl2.init(mock(Config.class), mockTaskContext);
     opImpl.registerNextOperator(mockNextOpImpl2);
@@ -126,13 +126,13 @@ public class TestOperatorImpl {
 
     // register a couple of operators
     OperatorImpl mockNextOpImpl1 = mock(OperatorImpl.class);
-    when(mockNextOpImpl1.getOpSpec()).thenReturn(new TestOpSpec());
+    when(mockNextOpImpl1.getOperatorSpec()).thenReturn(new TestOpSpec());
     when(mockNextOpImpl1.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
     mockNextOpImpl1.init(mock(Config.class), mockTaskContext);
     opImpl.registerNextOperator(mockNextOpImpl1);
 
     OperatorImpl mockNextOpImpl2 = mock(OperatorImpl.class);
-    when(mockNextOpImpl2.getOpSpec()).thenReturn(new TestOpSpec());
+    when(mockNextOpImpl2.getOperatorSpec()).thenReturn(new TestOpSpec());
     when(mockNextOpImpl2.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
     mockNextOpImpl2.init(mock(Config.class), mockTaskContext);
     opImpl.registerNextOperator(mockNextOpImpl2);
@@ -183,7 +183,7 @@ public class TestOperatorImpl {
     }
 
     @Override
-    protected void doInit(Config config, TaskContext context) {}
+    protected void handleInit(Config config, TaskContext context) {}
 
     @Override
     public Collection<Object> handleMessage(Object message,
@@ -197,7 +197,7 @@ public class TestOperatorImpl {
     }
 
     @Override
-    protected OperatorSpec<Object> getOpSpec() {
+    protected OperatorSpec<Object> getOperatorSpec() {
       return new TestOpSpec();
     }
   }

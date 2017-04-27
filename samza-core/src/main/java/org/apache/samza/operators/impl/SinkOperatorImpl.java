@@ -44,7 +44,7 @@ class SinkOperatorImpl<M> extends OperatorImpl<M, M> {
   }
 
   @Override
-  protected void doInit(Config config, TaskContext context) {
+  protected void handleInit(Config config, TaskContext context) {
     this.sinkFn.init(config, context);
   }
 
@@ -57,7 +57,7 @@ class SinkOperatorImpl<M> extends OperatorImpl<M, M> {
   }
 
   @Override
-  protected OperatorSpec<M> getOpSpec() {
+  protected OperatorSpec<M> getOperatorSpec() {
     return sinkOpSpec;
   }
 }

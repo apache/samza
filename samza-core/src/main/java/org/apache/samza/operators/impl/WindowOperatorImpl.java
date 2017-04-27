@@ -46,7 +46,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,9 +83,6 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   private final KeyValueStore<WindowKey<WK>, WindowState<WV>> store = new InternalInMemoryStore<>();
   private TriggerScheduler<WK> triggerScheduler;
 
-  // Results to be returned for the current handleMessage and handleTimer call.
-  private List<WindowPane<WK, WV>> currentResults = new ArrayList<>();
-
   // The trigger state corresponding to each {@link TriggerKey}.
   private final Map<TriggerKey<WK>, TriggerImplHandler> triggers = new HashMap<>();
 
@@ -98,7 +94,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   }
 
   @Override
-  protected void doInit(Config config, TaskContext context) {
+  protected void handleInit(Config config, TaskContext context) {
     WindowInternal<M, WK, WV> window = windowOpSpec.getWindow();
     if (window.getFoldLeftFunction() != null) {
       window.getFoldLeftFunction().init(config, context);
@@ -106,52 +102,62 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   }
 
   @Override
-  public Collection<WindowPane<WK, WV>> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+  public Collection<WindowPane<WK, WV>> handleMessage(
+      M message, MessageCollector collector, TaskCoordinator coordinator) {
     LOG.trace("Processing message envelope: {}", message);
+    List<WindowPane<WK, WV>> results = new ArrayList<>();
 
     WindowKey<WK> storeKey =  getStoreKey(message);
     WindowState<WV> existingState = store.get(storeKey);
     WindowState<WV> newState = applyFoldFunction(existingState, message);
 
-    LOG.trace("New window value: {}, earliest timestamp: {}", newState.getWindowValue(), newState.getEarliestTimestamp());
+    LOG.trace("New window value: {}, earliest timestamp: {}",
+        newState.getWindowValue(), newState.getEarliestTimestamp());
     store.put(storeKey, newState);
 
     if (window.getEarlyTrigger() != null) {
       TriggerKey<WK> triggerKey = new TriggerKey<>(FiringType.EARLY, storeKey);
 
-      getOrCreateTriggerImplWrapper(triggerKey, window.getEarlyTrigger())
-          .onMessage(triggerKey, message, collector, coordinator);
+      TriggerImplHandler triggerImplHandler = getOrCreateTriggerImplHandler(triggerKey, window.getEarlyTrigger());
+      WindowPane<WK, WV> triggeredPane = triggerImplHandler.onMessage(triggerKey, message, collector, coordinator);
+      if (triggeredPane != null) {
+        results.add(triggeredPane);
+      }
     }
 
     if (window.getDefaultTrigger() != null) {
       TriggerKey<WK> triggerKey = new TriggerKey<>(FiringType.DEFAULT, storeKey);
-      getOrCreateTriggerImplWrapper(triggerKey, window.getDefaultTrigger())
-          .onMessage(triggerKey, message, collector, coordinator);
+      TriggerImplHandler triggerImplHandler = getOrCreateTriggerImplHandler(triggerKey, window.getDefaultTrigger());
+      WindowPane<WK, WV> triggeredPane = triggerImplHandler.onMessage(triggerKey, message, collector, coordinator);
+      if (triggeredPane != null) {
+        results.add(triggeredPane);
+      }
     }
 
-    List<WindowPane<WK, WV>> results = currentResults;
-    currentResults = new ArrayList<>();
-    return Collections.unmodifiableList(results);
+    return results;
   }
 
   @Override
   public Collection<WindowPane<WK, WV>> handleTimer(MessageCollector collector, TaskCoordinator coordinator) {
+    List<WindowPane<WK, WV>> results = new ArrayList<>();
+
     List<TriggerKey<WK>> keys = triggerScheduler.runPendingCallbacks();
 
     for (TriggerKey<WK> key : keys) {
       TriggerImplHandler triggerImplHandler = triggers.get(key);
       if (triggerImplHandler != null) {
-        triggerImplHandler.onTimer(key, collector, coordinator);
+        WindowPane<WK, WV> triggeredPane = triggerImplHandler.onTimer(key, collector, coordinator);
+        if (triggeredPane != null) {
+          results.add(triggeredPane);
+        }
       }
     }
 
-    List<WindowPane<WK, WV>> results = currentResults;
-    currentResults = new ArrayList<>();
-    return Collections.unmodifiableList(results);
+    return results;
   }
 
   @Override
-  protected OperatorSpec<WindowPane<WK, WV>> getOpSpec() {
+  protected OperatorSpec<WindowPane<WK, WV>> getOperatorSpec() {
     return windowOpSpec;
   }
 
@@ -197,7 +203,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
     return newState;
   }
 
-  private TriggerImplHandler getOrCreateTriggerImplWrapper(TriggerKey<WK> triggerKey, Trigger<M> trigger) {
+  private TriggerImplHandler getOrCreateTriggerImplHandler(TriggerKey<WK> triggerKey, Trigger<M> trigger) {
     TriggerImplHandler wrapper = triggers.get(triggerKey);
     if (wrapper != null) {
       LOG.trace("Returning existing trigger wrapper for {}", triggerKey);
@@ -216,7 +222,8 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   /**
    * Handles trigger firings, and propagates results to downstream operators.
    */
-  private void onTriggerFired(TriggerKey<WK> triggerKey, MessageCollector collector, TaskCoordinator coordinator) {
+  private WindowPane<WK, WV> onTriggerFired(
+      TriggerKey<WK> triggerKey, MessageCollector collector, TaskCoordinator coordinator) {
     LOG.trace("Trigger key {} fired." , triggerKey);
 
     TriggerImplHandler wrapper = triggers.get(triggerKey);
@@ -225,11 +232,10 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
 
     if (state == null) {
       LOG.trace("No state found for triggerKey: {}", triggerKey);
-      return;
+      return null;
     }
 
     WindowPane<WK, WV> paneOutput = computePaneOutput(triggerKey, state);
-    currentResults.add(paneOutput);
 
     // Handle accumulation modes.
     if (window.getAccumulationMode() == AccumulationMode.DISCARDING) {
@@ -257,6 +263,8 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
     if (triggerKey.getType() == FiringType.EARLY && !wrapper.isRepeating()) {
       cancelTrigger(triggerKey, false);
     }
+
+    return paneOutput;
   }
 
   /**
@@ -277,7 +285,8 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
       windowVal = (WV) new ArrayList<>((Collection<WV>) windowVal);
     }
 
-    WindowPane<WK, WV> paneOutput = new WindowPane<>(windowKey, windowVal, window.getAccumulationMode(), triggerKey.getType());
+    WindowPane<WK, WV> paneOutput =
+        new WindowPane<>(windowKey, windowVal, window.getAccumulationMode(), triggerKey.getType());
     LOG.trace("Emitting pane output for trigger key {}", triggerKey);
     return paneOutput;
   }
@@ -308,7 +317,8 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
       this.impl = impl;
     }
 
-    public void onMessage(TriggerKey<WK> triggerKey, M message, MessageCollector collector, TaskCoordinator coordinator) {
+    public WindowPane<WK, WV> onMessage(TriggerKey<WK> triggerKey, M message,
+        MessageCollector collector, TaskCoordinator coordinator) {
       if (!isCancelled) {
         LOG.trace("Forwarding callbacks for {}", message);
         impl.onMessage(message, triggerScheduler);
@@ -318,12 +328,13 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
           if (impl instanceof RepeatingTriggerImpl) {
             ((RepeatingTriggerImpl<M, WK>) impl).clear();
           }
-          onTriggerFired(triggerKey, collector, coordinator);
+          return onTriggerFired(triggerKey, collector, coordinator);
         }
       }
+      return null;
     }
 
-    public void onTimer(TriggerKey<WK> key, MessageCollector collector, TaskCoordinator coordinator) {
+    public WindowPane<WK, WV> onTimer(TriggerKey<WK> key, MessageCollector collector, TaskCoordinator coordinator) {
       if (impl.shouldFire() && !isCancelled) {
         LOG.trace("Triggering timer triggers");
 
@@ -331,8 +342,9 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
         if (impl instanceof RepeatingTriggerImpl) {
           ((RepeatingTriggerImpl<M, WK>) impl).clear();
         }
-        onTriggerFired(key, collector, coordinator);
+        return onTriggerFired(key, collector, coordinator);
       }
+      return null;
     }
 
     public void cancel() {

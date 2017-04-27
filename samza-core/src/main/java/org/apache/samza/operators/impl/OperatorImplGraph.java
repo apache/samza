@@ -172,8 +172,7 @@ public class OperatorImplGraph {
    */
   private <M> OperatorImpl<M, ?> createOperatorImpl(OperatorSpec operatorSpec, Config config, TaskContext context) {
     if (operatorSpec instanceof StreamOperatorSpec) {
-      StreamOperatorSpec<M, ?> streamOpSpec = (StreamOperatorSpec<M, ?>) operatorSpec;
-      return new StreamOperatorImpl<>(streamOpSpec, config, context);
+      return new StreamOperatorImpl<>((StreamOperatorSpec<M, ?>) operatorSpec, config, context);
     } else if (operatorSpec instanceof SinkOperatorSpec) {
       return new SinkOperatorImpl<>((SinkOperatorSpec<M>) operatorSpec, config, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {

@@ -62,4 +62,12 @@ public interface OperatorSpec<OM> {
    */
   int getOpId();
 
+  /**
+   * Get the name for this operator based on its opCode and opId.
+   * @return  the name for this operator
+   */
+  default String getOpName() {
+    return String.format("%s-%s", getOpCode().name().toLowerCase(), getOpId());
+  }
+
 }

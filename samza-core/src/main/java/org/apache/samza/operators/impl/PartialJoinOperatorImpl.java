@@ -19,6 +19,7 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.metrics.Counter;
 import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction.PartialJoinMessage;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -56,6 +57,8 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
   private final long ttlMs;
   private final Clock clock;
 
+  private Counter keysRemoved;
+
   PartialJoinOperatorImpl(PartialJoinOperatorSpec<K, M, JM, RM> partialJoinOpSpec,
       Config config, TaskContext context, Clock clock) {
     this.partialJoinOpSpec = partialJoinOpSpec;
@@ -66,7 +69,9 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
   }
 
   @Override
-  protected void doInit(Config config, TaskContext context) {
+  protected void handleInit(Config config, TaskContext context) {
+    keysRemoved = context.getMetricsRegistry()
+        .newCounter(OperatorImpl.class.getName(), this.partialJoinOpSpec.getOpName() + "-keys-removed");
     this.thisPartialJoinFn.init(config, context);
   }
 
@@ -96,18 +101,18 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
       if (entry.getValue().getReceivedTimeMs() < now - ttlMs) {
         keysToRemove.add(entry.getKey());
       } else {
-        break;
+        break; // InternalInMemoryStore uses a LinkedHashMap and will return entries in insertion order
       }
     }
 
     iterator.close();
     thisState.deleteAll(keysToRemove);
-
+    keysRemoved.inc(keysToRemove.size());
     return Collections.emptyList();
   }
 
   @Override
-  protected OperatorSpec<RM> getOpSpec() {
+  protected OperatorSpec<RM> getOperatorSpec() {
     return partialJoinOpSpec;
   }
 }

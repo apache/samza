@@ -36,7 +36,7 @@ import java.util.Collections;
 public final class RootOperatorImpl<M> extends OperatorImpl<M, M> {
 
   @Override
-  protected void doInit(Config config, TaskContext context) {
+  protected void handleInit(Config config, TaskContext context) {
   }
 
   @Override
@@ -46,7 +46,7 @@ public final class RootOperatorImpl<M> extends OperatorImpl<M, M> {
 
   // TODO: SAMZA-1221 - Change to InputOperatorSpec that also builds the message
   @Override
-  protected OperatorSpec<M> getOpSpec() {
+  protected OperatorSpec<M> getOperatorSpec() {
     return new OperatorSpec<M>() {
       @Override
       public MessageStreamImpl<M> getNextStream() {

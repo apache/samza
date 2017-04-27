@@ -47,7 +47,7 @@ class StreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
   }
 
   @Override
-  protected void doInit(Config config, TaskContext context) {
+  protected void handleInit(Config config, TaskContext context) {
     transformFn.init(config, context);
   }
 
@@ -58,7 +58,7 @@ class StreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
   }
 
   @Override
-  protected OperatorSpec<RM> getOpSpec() {
+  protected OperatorSpec<RM> getOperatorSpec() {
     return streamOpSpec;
   }
 }
