@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.samza.SamzaException;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -62,6 +63,10 @@ public class StreamManager {
     Map<String, Integer> streamToPartitionCount = new HashMap<>();
 
     SystemAdmin systemAdmin = sysAdmins.get(systemName);
+    if (systemAdmin == null) {
+      throw new SamzaException(String.format("System %s does not exist.", systemName));
+    }
+
     // retrieve the metadata for the streams in this system
     Map<String, SystemStreamMetadata> streamToMetadata = systemAdmin.getSystemStreamMetadata(streamNames);
     // set the partitions of a stream to its StreamEdge
