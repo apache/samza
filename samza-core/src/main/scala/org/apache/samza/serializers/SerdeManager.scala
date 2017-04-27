@@ -31,8 +31,7 @@ class SerdeManager(
   systemMessageSerdes: Map[String, Serde[Object]] = Map(),
   systemStreamKeySerdes: Map[SystemStream, Serde[Object]] = Map(),
   systemStreamMessageSerdes: Map[SystemStream, Serde[Object]] = Map(),
-  changeLogSystemStreams: Set[SystemStream] = Set(),
-  accessLogSystemStreams: Set[SystemStream] = Set()) {
+  changeLogSystemStreams: Set[SystemStream] = Set()) {
 
   def toBytes(obj: Object, serializerName: String) = serdes
     .getOrElse(serializerName, throw new SamzaException("No serde defined for %s" format serializerName))
@@ -40,7 +39,7 @@ class SerdeManager(
 
   def toBytes(envelope: OutgoingMessageEnvelope): OutgoingMessageEnvelope = {
     val key = if (changeLogSystemStreams.contains(envelope.getSystemStream)
-      || accessLogSystemStreams.contains(envelope.getSystemStream)) {
+      || envelope.getSystemStream.getStream.endsWith("access-log")) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getKey
     } else if (envelope.getKeySerializerName != null) {
@@ -58,7 +57,7 @@ class SerdeManager(
     }
 
     val message = if (changeLogSystemStreams.contains(envelope.getSystemStream)
-      || accessLogSystemStreams.contains(envelope.getSystemStream)) {
+      || envelope.getSystemStream.getStream.endsWith("access-log")) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getMessage
     } else if (envelope.getMessageSerializerName != null) {
@@ -94,7 +93,7 @@ class SerdeManager(
 
   def fromBytes(envelope: IncomingMessageEnvelope) = {
     val key = if (changeLogSystemStreams.contains(envelope.getSystemStreamPartition.getSystemStream)
-      || accessLogSystemStreams.contains(envelope.getSystemStreamPartition.getSystemStream)) {
+      || envelope.getSystemStreamPartition.getStream.endsWith("access-log") ) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getKey
     } else if (systemStreamKeySerdes.contains(envelope.getSystemStreamPartition)) {
@@ -109,7 +108,7 @@ class SerdeManager(
     }
 
     val message = if (changeLogSystemStreams.contains(envelope.getSystemStreamPartition.getSystemStream)
-      || accessLogSystemStreams.contains(envelope.getSystemStreamPartition.getSystemStream)) {
+      || envelope.getSystemStreamPartition.getStream.endsWith("access-log")) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getMessage
     } else if (systemStreamMessageSerdes.contains(envelope.getSystemStreamPartition)) {

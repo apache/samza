@@ -20,18 +20,16 @@
 package org.apache.samza.storage.kv
 
 import java.io.File
-
 import org.apache.samza.SamzaException
 import org.apache.samza.container.SamzaContainerContext
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.Serde
-import org.apache.samza.storage.{StoreProperties, StorageEngine, StorageEngineFactory}
+import org.apache.samza.storage.{StorageEngine, StorageEngineFactory, StoreProperties}
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.MessageCollector
 import org.apache.samza.config.MetricsConfig.Config2Metrics
-import org.apache.samza.util.HighResolutionClock
+import org.apache.samza.util.{HighResolutionClock, Logging}
 import org.apache.samza.util.Util.asScalaClock
-import org.apache.samza.system.SystemStream
 
 /**
  * A key value storage engine factory implementation
@@ -39,7 +37,7 @@ import org.apache.samza.system.SystemStream
  * This trait encapsulates all the steps needed to create a key value storage engine. It is meant to be extended
  * by the specific key value store factory implementations which will in turn override the getKVStore method.
  */
-trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] {
+trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] with Logging {
 
   private val INMEMORY_KV_STORAGE_ENGINE_FACTORY =
     "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory"
@@ -79,11 +77,13 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
                        collector: MessageCollector,
                        registry: MetricsRegistry,
                        changeLogSystemStreamPartition: SystemStreamPartition,
-                       accessLogSystemStreamPartition: SystemStreamPartition,
                        containerContext: SamzaContainerContext): StorageEngine = {
     val storageConfig = containerContext.config.subset("stores." + storeName + ".", true)
     val storeFactory = storageConfig.get("factory")
     var storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder()
+
+    val accessLog = storageConfig.getBoolean("accesslog")
+    info("Set value of access log " + accessLog)
 
     if (storeFactory == null) {
       throw new SamzaException("Store factory not defined. Cannot proceed with KV store creation!")
@@ -131,8 +131,8 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
       serialized
     }
 
-    val maybeAccessLoggedStore = if (accessLogSystemStreamPartition != null) {
-      new AccessLoggedStore(maybeCachedStore, collector, accessLogSystemStreamPartition)
+    val maybeAccessLoggedStore = if (accessLog) {
+      new AccessLoggedStore(maybeCachedStore, collector, changeLogSystemStreamPartition, storageConfig, storeName)
     } else {
       maybeCachedStore
     }

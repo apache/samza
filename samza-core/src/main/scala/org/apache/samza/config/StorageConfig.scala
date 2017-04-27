@@ -21,7 +21,10 @@ package org.apache.samza.config
 
 
 import java.util.concurrent.TimeUnit
+
 import org.apache.samza.SamzaException
+import org.apache.samza.system.SystemStream
+
 import scala.collection.JavaConverters._
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
@@ -35,7 +38,11 @@ object StorageConfig {
   val CHANGELOG_SYSTEM = "job.changelog.system"
   val CHANGELOG_DELETE_RETENTION_MS = "stores.%s.changelog.delete.retention.ms"
   val DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1)
-  val ACCESSLOG_STREAM = "stores.%s.accesslog"
+  val ACCESSLOG_STREAM = "access-log"
+  val ACCESSLOG_SAMPLE = "stores.%s.accesslog.sample"
+  val ACCESSLOG_STATUS = "stores.%s.accesslog"
+  val DEFAULT_ACCESSLOG_SAMPLE = 80
+
 
   implicit def Config2Storage(config: Config) = new StorageConfig(config)
 }
@@ -67,16 +74,15 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
     systemStreamRes
   }
 
-  def getAccessLogStream(name: String) = {
-    //Looking for the access log stream similar to the change log stream
-    val systemStream = getOption(ACCESSLOG_STREAM format name)
-    val systemStreamRes =
-      if (systemStream.isDefined && ! systemStream.getOrElse("").contains('.')) {
-          throw new SamzaException("accesslog system is not defined " + systemStream.get)
-      } else {
-        systemStream
-      }
-    systemStreamRes
+  //Given a system, this method returns the accesslog system stream
+  def getAccessLogStream(changeLogStream: String) = {
+    changeLogStream + "-" + ACCESSLOG_STREAM
+  }
+
+  def getSamplingSetting(storeName: String) = {
+    if (containsKey(ACCESSLOG_SAMPLE format storeName))
+      getInt(ACCESSLOG_SAMPLE format storeName)
+    DEFAULT_ACCESSLOG_SAMPLE
   }
 
   def getChangeLogDeleteRetentionInMs(storeName: String) = {
