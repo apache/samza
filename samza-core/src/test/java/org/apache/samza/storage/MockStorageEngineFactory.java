@@ -24,7 +24,6 @@ import java.io.File;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.Serde;
-
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
 

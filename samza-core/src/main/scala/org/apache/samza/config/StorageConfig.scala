@@ -21,10 +21,7 @@ package org.apache.samza.config
 
 
 import java.util.concurrent.TimeUnit
-
 import org.apache.samza.SamzaException
-import org.apache.samza.system.SystemStream
-
 import scala.collection.JavaConverters._
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util

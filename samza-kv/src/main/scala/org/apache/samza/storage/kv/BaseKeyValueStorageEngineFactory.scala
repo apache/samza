@@ -20,15 +20,16 @@
 package org.apache.samza.storage.kv
 
 import java.io.File
+
 import org.apache.samza.SamzaException
 import org.apache.samza.container.SamzaContainerContext
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.Serde
-import org.apache.samza.storage.{StorageEngine, StorageEngineFactory, StoreProperties}
+import org.apache.samza.storage.{StoreProperties, StorageEngine, StorageEngineFactory}
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.MessageCollector
 import org.apache.samza.config.MetricsConfig.Config2Metrics
-import org.apache.samza.util.{HighResolutionClock, Logging}
+import org.apache.samza.util.HighResolutionClock
 import org.apache.samza.util.Util.asScalaClock
 
 /**
@@ -37,7 +38,7 @@ import org.apache.samza.util.Util.asScalaClock
  * This trait encapsulates all the steps needed to create a key value storage engine. It is meant to be extended
  * by the specific key value store factory implementations which will in turn override the getKVStore method.
  */
-trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] with Logging {
+trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] {
 
   private val INMEMORY_KV_STORAGE_ENGINE_FACTORY =
     "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory"
@@ -70,20 +71,19 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
    * @param changeLogSystemStreamPartition Samza stream partition from which to receive the changelog.
    * @param containerContext Information about the container in which the task is executing.
    **/
-  def getStorageEngine(storeName: String,
-                       storeDir: File,
-                       keySerde: Serde[K],
-                       msgSerde: Serde[V],
-                       collector: MessageCollector,
-                       registry: MetricsRegistry,
-                       changeLogSystemStreamPartition: SystemStreamPartition,
-                       containerContext: SamzaContainerContext): StorageEngine = {
+  def getStorageEngine( storeName: String,
+                        storeDir: File,
+                        keySerde: Serde[K],
+                        msgSerde: Serde[V],
+                        collector: MessageCollector,
+                        registry: MetricsRegistry,
+                        changeLogSystemStreamPartition: SystemStreamPartition,
+                        containerContext: SamzaContainerContext): StorageEngine = {
     val storageConfig = containerContext.config.subset("stores." + storeName + ".", true)
     val storeFactory = storageConfig.get("factory")
     var storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder()
 
     val accessLog = storageConfig.getBoolean("accesslog")
-    info("Set value of access log " + accessLog)
 
     if (storeFactory == null) {
       throw new SamzaException("Store factory not defined. Cannot proceed with KV store creation!")
