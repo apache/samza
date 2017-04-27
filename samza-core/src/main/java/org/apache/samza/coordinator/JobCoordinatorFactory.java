@@ -27,8 +27,7 @@ public interface JobCoordinatorFactory {
   /**
    * @param processorId {@link org.apache.samza.processor.StreamProcessor} id
    * @param config Configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
-   * @param coordinatorListener
    * @return An instance of IJobCoordinator
    */
-  JobCoordinator getJobCoordinator(String processorId, Config config, JobCoordinatorListener coordinatorListener);
+  JobCoordinator getJobCoordinator(String processorId, Config config);
 }

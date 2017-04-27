@@ -65,29 +65,26 @@ public class StandaloneJobCoordinator implements JobCoordinator {
   private static final Logger log = LoggerFactory.getLogger(StandaloneJobCoordinator.class);
   private final String processorId;
   private final Config config;
-  private final JobCoordinatorListener coordinatorListener;
+  private JobCoordinatorListener coordinatorListener = null;
 
   @VisibleForTesting
   StandaloneJobCoordinator(
       ProcessorIdGenerator processorIdGenerator,
-      Config config,
-      JobCoordinatorListener coordinatorListener) {
+      Config config) {
     this.processorId = processorIdGenerator.generateProcessorId(config);
     this.config = config;
-    this.coordinatorListener = coordinatorListener;
   }
 
-  public StandaloneJobCoordinator(String processorId, Config config, JobCoordinatorListener coordinatorListener) {
+  public StandaloneJobCoordinator(String processorId, Config config) {
     this.config = config;
     this.processorId = processorId;
-    this.coordinatorListener = coordinatorListener;
   }
 
   @Override
   public void start() {
     // No-op
     JobModel jobModel = getJobModel();
-    if (jobModel.getContainers().containsKey(processorId)) {
+    if (jobModel.getContainers().containsKey(processorId) && coordinatorListener != null) {
       coordinatorListener.onNewJobModel(processorId, getJobModel());
     } else {
       stop();
@@ -97,13 +94,20 @@ public class StandaloneJobCoordinator implements JobCoordinator {
   @Override
   public void stop() {
     // No-op
-    coordinatorListener.onJobModelExpired();
-    coordinatorListener.onCoordinatorStop();
+    if (coordinatorListener != null) {
+      coordinatorListener.onJobModelExpired();
+      coordinatorListener.onCoordinatorStop();
+    }
   }
 
   @Override
   public String getProcessorId() {
     return processorId;
+  }
+
+  @Override
+  public void setListener(JobCoordinatorListener listener) {
+    this.coordinatorListener = listener;
   }
 
   @Override

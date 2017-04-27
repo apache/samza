@@ -55,7 +55,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final String processorId;
 
   private final ZkController zkController;
-  private final JobCoordinatorListener coordinatorListener;
+  private JobCoordinatorListener coordinatorListener = null;
   private final ScheduleAfterDebounceTime debounceTimer;
   private final StreamMetadataCache  streamMetadataCache;
   private final ZkKeyBuilder keyBuilder;
@@ -63,12 +63,11 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final CoordinationUtils coordinationUtils;
 
   private JobModel newJobModel;
- 
-  public ZkJobCoordinator(String processorId, Config config, ScheduleAfterDebounceTime debounceTimer,
-                          JobCoordinatorListener coordinatorListener) {
+  private JobModel jobModel;
+
+  public ZkJobCoordinator(String processorId, Config config, ScheduleAfterDebounceTime debounceTimer) {
     this.processorId = processorId;
     this.debounceTimer = debounceTimer;
-    this.coordinatorListener = coordinatorListener;
     this.config = config;
 
     this.coordinationUtils = Util.
@@ -121,6 +120,11 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   }
 
   @Override
+  public void setListener(JobCoordinatorListener listener) {
+    this.coordinatorListener = listener;
+  }
+
+  @Override
   public JobModel getJobModel() {
     return newJobModel;
   }
@@ -142,6 +146,10 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     log.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
     // if list of processors is empty - it means we are called from 'onBecomeLeader'
     generateNewJobModel(processors);
+    // TODO: Check logic here
+    if (coordinatorListener != null) {
+      coordinatorListener.onJobModelExpired();
+    }
   }
 
   @Override
@@ -177,6 +185,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     // start the container with the new model TODO: Check logic here
 //    containerController.startContainer(jobModel.getContainers().get(processorId), jobModel.getConfig(),
 //        jobModel.maxChangeLogStreamPartitions);
+    if (coordinatorListener != null) {
+      coordinatorListener.onNewJobModel(processorId, jobModel);
+    }
   }
 
   /**
