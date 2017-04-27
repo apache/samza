@@ -95,6 +95,36 @@ public class ZkUtils {
     return keyBuilder;
   }
 
+  public static class ProcessorData {
+    private final String processorId;
+    private final String host;
+
+    public ProcessorData(String host, String processorId) {
+      this.processorId = processorId;
+      this.host = host;
+    }
+
+    public ProcessorData(String data) {
+      String [] splt = data.split(" ");
+      if(splt.length != 2)
+        throw new SamzaException("incorrect processor data format = " + data);
+      host = splt[0];
+      processorId = splt[1];
+    }
+
+    public String toString() {
+      return host + " " + processorId;
+    }
+
+    public String getHost() {
+      return host;
+    }
+
+    public String getProcessorId() {
+      return processorId;
+    }
+  }
+
   /**
    * Returns a ZK generated identifier for this client.
    * If the current client is registering for the first time, it creates an ephemeral sequential node in the ZK tree
@@ -124,55 +154,60 @@ public class ZkUtils {
   }
 
   /**
-   * Method is used to get the <i>sorted</i> list of currently active/registered processors
+   * Method is used to get the <i>sorted</i> list of currently active/registered processors (znodes)
    *
    * @return List of absolute ZK node paths
    */
   public List<String> getSortedActiveProcessors() {
-    List<String> children = zkClient.getChildren(keyBuilder.getProcessorsPath());
-    if (children.size() > 0) {
-      Collections.sort(children);
-      LOG.info("Found these children - " + children);
+    List<String> znodeIds = zkClient.getChildren(keyBuilder.getProcessorsPath());
+    if (znodeIds.size() > 0) {
+      Collections.sort(znodeIds);
+      LOG.info("Found these children - " + znodeIds);
     }
-    return children;
+    return znodeIds;
   }
 
   /**
    * Method is used to read processors PIDs
-   *
-   * @return absolute ZK node path
+   * @param fullPath absolute path to the znode
+   * @return absolute znode path
    */
   public String getProcessorsPID(String fullPath) {
     String data = zkClient.<String>readData(fullPath, true);
     if (data == null) {
       throw new SamzaException(String.format("Cannot read ZK node:", fullPath));
     }
-    // data format is "host pid"
-    String [] pidHost = data.split(" ");
-    return pidHost[1];
+    return new ProcessorData(data).getProcessorId();
   }
 
-    /**
-     * Method is used to get the <i>sorted</i> list of currently active/registered processors PIDs
-     *
-     * @return List of absolute ZK node paths
-     */
+  /**
+   * Method is used to get the <i>sorted</i> list of currently active/registered processor ids
+   * @return List of processorIds
+   */
   public List<String> getSortedActiveProcessorsPIDs() {
-    String processorPath = keyBuilder.getProcessorsPath();
-    List<String> children = zkClient.getChildren(processorPath);
-    List<String> childrenPids = new ArrayList<>(children.size());
-    if (children.size() > 0) {
+    return getSortedActiveProcessorsPIDs(getSortedActiveProcessors());
+  }
 
-      for (String child : children) {
-        String fullChildPath = String.format("%s/%s", processorPath, child);
-        childrenPids.add(getProcessorsPID(fullChildPath));
+  /**
+   * Method is used to get the <i>sorted</i> list of currently active/registered processors ids
+   * @param znodeIds - list of relative paths of the children's znodes
+   * @return List of processor ids
+   */
+  public List<String> getSortedActiveProcessorsPIDs(List<String> znodeIds) {
+    String processorPath = keyBuilder.getProcessorsPath();
+    List<String> processorIds = new ArrayList<>(znodeIds.size());
+    if (znodeIds.size() > 0) {
+
+      for (String child : znodeIds) {
+        String fullPath = String.format("%s/%s", processorPath, child);
+        processorIds.add(getProcessorsPID(fullPath));
       }
 
-      Collections.sort(childrenPids);
-      LOG.info("Found these children - " + children);
-      LOG.info("Found these childrenPids - " + childrenPids);
+      Collections.sort(processorIds);
+      LOG.info("Found these children - " + znodeIds);
+      LOG.info("Found these processorIds - " + processorIds);
     }
-    return childrenPids;
+    return processorIds;
   }
 
   /* Wrapper for standard I0Itec methods */

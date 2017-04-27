@@ -51,7 +51,6 @@ public class TestZkUtils {
   public static void setup() throws InterruptedException {
     zkServer = new EmbeddedZookeeper();
     zkServer.setup();
-    System.out.println("zk port=" + zkServer.getPort());
   }
 
   @Before
@@ -75,7 +74,6 @@ public class TestZkUtils {
         SESSION_TIMEOUT_MS);
 
     zkUtils.connect();
-
   }
 
   @After
@@ -91,11 +89,11 @@ public class TestZkUtils {
 
   @Test
   public void testRegisterProcessorId() {
-    String assignedPath = zkUtils.registerProcessorAndGetId("0.0.0.0 1");
+    String assignedPath = zkUtils.registerProcessorAndGetId(new ZkUtils.ProcessorData("host", "1").toString());
     Assert.assertTrue(assignedPath.startsWith(KEY_BUILDER.getProcessorsPath()));
 
     // Calling registerProcessorId again should return the same ephemeralPath as long as the session is valid
-    Assert.assertTrue(zkUtils.registerProcessorAndGetId("0.0.0.0 1").equals(assignedPath));
+    Assert.assertTrue(zkUtils.registerProcessorAndGetId(new ZkUtils.ProcessorData("host", "1").toString()).equals(assignedPath));
 
   }
 
@@ -107,12 +105,12 @@ public class TestZkUtils {
   }
 
   @Test
-  public void testGetProcessorsPIDs() {
+  public void testGetProcessorsIDs() {
     Assert.assertEquals(0, zkUtils.getSortedActiveProcessorsPIDs().size());
-    zkUtils.registerProcessorAndGetId("host 1");
+    zkUtils.registerProcessorAndGetId(new ZkUtils.ProcessorData("host", "1").toString());
     List<String> l = zkUtils.getSortedActiveProcessorsPIDs();
     Assert.assertEquals(1, l.size());
-    new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS).registerProcessorAndGetId("host 2");
+    new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS).registerProcessorAndGetId(new ZkUtils.ProcessorData("host", "2").toString());
     l = zkUtils.getSortedActiveProcessorsPIDs();
     Assert.assertEquals(2, l.size());
 
