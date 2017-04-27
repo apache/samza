@@ -136,7 +136,6 @@ public class ZkUtils {
    */
   public synchronized String registerProcessorAndGetId(final Object data) {
     if (ephemeralPath == null) {
-      // TODO: Data should be more than just the hostname. Use Json serialized data
       ephemeralPath =
           zkClient.createEphemeralSequential(
               keyBuilder.getProcessorsPath() + "/", data);
@@ -168,39 +167,39 @@ public class ZkUtils {
   }
 
   /**
-   * Method is used to read processors PIDs
+   * Method is used to read processor's data from the znode
    * @param fullPath absolute path to the znode
-   * @return absolute znode path
+   * @return processor's data
    */
-  public String getProcessorsPID(String fullPath) {
+  public String getProcessorsData(String fullPath) {
     String data = zkClient.<String>readData(fullPath, true);
     if (data == null) {
       throw new SamzaException(String.format("Cannot read ZK node:", fullPath));
     }
-    return new ProcessorData(data).getProcessorId();
+    return data;
   }
 
   /**
    * Method is used to get the <i>sorted</i> list of currently active/registered processor ids
    * @return List of processorIds
    */
-  public List<String> getSortedActiveProcessorsPIDs() {
-    return getSortedActiveProcessorsPIDs(getSortedActiveProcessors());
+  public List<String> getSortedActiveProcessorsIDs() {
+    return getSortedActiveProcessorsIDs(getSortedActiveProcessors());
   }
 
   /**
-   * Method is used to get the <i>sorted</i> list of currently active/registered processors ids
+   * Method is used to get the <i>sorted</i> list of processors ids for a given list of znodes
    * @param znodeIds - list of relative paths of the children's znodes
-   * @return List of processor ids
+   * @return List of processor ids for a given list of znodes
    */
-  public List<String> getSortedActiveProcessorsPIDs(List<String> znodeIds) {
+  public List<String> getSortedActiveProcessorsIDs(List<String> znodeIds) {
     String processorPath = keyBuilder.getProcessorsPath();
     List<String> processorIds = new ArrayList<>(znodeIds.size());
     if (znodeIds.size() > 0) {
 
       for (String child : znodeIds) {
         String fullPath = String.format("%s/%s", processorPath, child);
-        processorIds.add(getProcessorsPID(fullPath));
+        processorIds.add(getProcessorsData(fullPath));
       }
 
       Collections.sort(processorIds);

@@ -106,12 +106,12 @@ public class TestZkUtils {
 
   @Test
   public void testGetProcessorsIDs() {
-    Assert.assertEquals(0, zkUtils.getSortedActiveProcessorsPIDs().size());
+    Assert.assertEquals(0, zkUtils.getSortedActiveProcessorsIDs().size());
     zkUtils.registerProcessorAndGetId(new ZkUtils.ProcessorData("host", "1").toString());
-    List<String> l = zkUtils.getSortedActiveProcessorsPIDs();
+    List<String> l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(1, l.size());
     new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS).registerProcessorAndGetId(new ZkUtils.ProcessorData("host", "2").toString());
-    l = zkUtils.getSortedActiveProcessorsPIDs();
+    l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(2, l.size());
 
     Assert.assertEquals(" PID1 didn't match", "1", l.get(0));

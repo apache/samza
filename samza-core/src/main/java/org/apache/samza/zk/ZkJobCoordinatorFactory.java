@@ -28,8 +28,8 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
   /**
    * Method to instantiate an implementation of JobCoordinator
    *
-   * @param processorId -
-   * @param config  Configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
+   * @param processorId - id of this processor
+   * @param config - configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
    * @param containerController - controller to allow JobCoordinator control the SamzaContainer.
    * @return An instance of IJobCoordinator
    */
