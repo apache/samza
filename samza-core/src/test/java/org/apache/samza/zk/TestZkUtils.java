@@ -107,15 +107,19 @@ public class TestZkUtils {
   @Test
   public void testGetProcessorsIDs() {
     Assert.assertEquals(0, zkUtils.getSortedActiveProcessorsIDs().size());
-    zkUtils.registerProcessorAndGetId(new ZkUtils.ProcessorData("host", "1").toString());
+    zkUtils.registerProcessorAndGetId(new ZkUtils.ProcessorData("host1", "1").toString());
     List<String> l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(1, l.size());
-    new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS).registerProcessorAndGetId(new ZkUtils.ProcessorData("host", "2").toString());
+    new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS).registerProcessorAndGetId(new ZkUtils.ProcessorData("host2", "2").toString());
     l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(2, l.size());
 
-    Assert.assertEquals(" PID1 didn't match", "1", l.get(0));
-    Assert.assertEquals(" PID2 didn't match", "2", l.get(1));
+    ZkUtils.ProcessorData pd = new ZkUtils.ProcessorData(l.get(0));
+    Assert.assertEquals(" ID1 didn't match", "1", pd.getProcessorId());
+    Assert.assertEquals(" Host1 didn't match", "host1", pd.getHost());
+    pd = new ZkUtils.ProcessorData(l.get(1));
+    Assert.assertEquals(" ID2 didn't match", "2", pd.getProcessorId());
+    Assert.assertEquals(" Host2 didn't match", "host2", pd.getHost());
   }
   
   @Test
