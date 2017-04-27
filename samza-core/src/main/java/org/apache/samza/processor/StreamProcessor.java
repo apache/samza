@@ -18,6 +18,7 @@
  */
 package org.apache.samza.processor;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.samza.SamzaContainerStatus;
 import org.apache.samza.annotation.InterfaceStability;
@@ -65,98 +66,11 @@ public class StreamProcessor {
 
   private volatile CountDownLatch jcContainerLatch = new CountDownLatch(1);
 
-  private final JobCoordinatorListener jobCoordinatorListener = new JobCoordinatorListener() {
-    // onJobModelExpired HAS to be called before onNewJobModel before the coordinator shuts-down
-    @Override
-    public void onJobModelExpired() {
-      // stop container
-      if (container != null && container.getStatus().equals(SamzaContainerStatus.RUNNING)) {
-        container.shutdown(true);
-        boolean shutdownComplete = false;
-        try {
-          shutdownComplete = jcContainerLatch.await(10000, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-          LOGGER.warn("Container shutdown was interrupted!" + container.toString());
-        }
-        if (!shutdownComplete) {
-          LOGGER.warn("Container " + container.toString() + " may not have shutdown successfully. Stopping the processor.");
-          container = null;
-          stop();
-        } else {
-          LOGGER.info("Container " + container.toString() + " shutdown successfully");
-        }
-      }
-    }
-
-    // TODO: Can change interface to ContainerModel if maxChangelogStreamPartitions can be made a part of ContainerModel
-    @Override
-    public void onNewJobModel(String processorId, JobModel jobModel) {
-      if (!jobModel.getContainers().containsKey(processorId)) {
-        stop();
-      } else {
-        jcContainerLatch = new CountDownLatch(1);
-        SamzaContainerListener containerListener = new SamzaContainerListener() {
-          @Override
-          public void onContainerStart() {
-            if (!processorOnStartCalled) {
-              processorListener.onStart();
-              // processorListener is called on start only the first time the container starts.
-              // It is not called after every re-balance of partitions among the processors
-              processorOnStartCalled = true;
-            }
-          }
-
-          @Override
-          public void onContainerStop(boolean pauseByJm) {
-            if (jcContainerLatch != null) {
-              jcContainerLatch.countDown();
-            } else {
-              LOGGER.debug("JobCoordinatorLatch was null. It is possible for some component to be waiting.");
-            }
-
-            if (pauseByJm) {
-              LOGGER.info("Container " + container.toString() + " stopped due to a request from JobCoordinator.");
-              // do nothing
-            } else {  // sp.stop was called or container stopped by itself
-              container = null; // this guarantees that stop() doesn't try to stop container again
-              stop();
-            }
-          }
-
-          @Override
-          public void onContainerFailed(Throwable t) {
-            jcContainerLatch.countDown();
-            stop();
-          }
-        };
-
-        container = createSamzaContainer(
-            jobModel.getContainers().get(processorId),
-            jobModel.maxChangeLogStreamPartitions,
-            new JmxServer(),
-            containerListener);
-        executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
-            .setNameFormat("p-" + processorId + "-container-thread-%d").build());
-        executorService.submit(container::run);
-      }
-    }
-
-    @Override
-    public void onCoordinatorStop() {
-      executorService.shutdownNow();
-      processorListener.onShutdown();
-    }
-
-    @Override
-    public void onCoordinatorFailure(Throwable e) {
-      stop(); // ??
-      processorListener.onFailure(e);
-    }
-  };
-
+  @VisibleForTesting
+  JobCoordinatorListener jobCoordinatorListener = null;
   /* package-private */
   // Useful for testing
-  SamzaContainer createSamzaContainer(ContainerModel containerModel, int maxChangelogStreamPartitions, JmxServer jmxServer, SamzaContainerListener containerListener) {
+/*  SamzaContainer createSamzaContainer(ContainerModel containerModel, int maxChangelogStreamPartitions, JmxServer jmxServer, SamzaContainerListener containerListener) {
     return SamzaContainer.apply(
         containerModel,
         config,
@@ -165,6 +79,114 @@ public class StreamProcessor {
         Util.<String, MetricsReporter>javaMapAsScalaMap(customMetricsReporter),
         taskFactory,
         containerListener);
+  }*/
+
+  /* package-private */
+  // Useful for testing
+  JobCoordinatorListener createJobCoordinatorListener() {
+    return new JobCoordinatorListener() {
+      // onJobModelExpired HAS to be called before onNewJobModel before the coordinator shuts-down
+      @Override
+      public void onJobModelExpired() {
+        // stop container
+        if (container != null && container.getStatus().equals(SamzaContainerStatus.RUNNING)) {
+          container.shutdown(true);
+          boolean shutdownComplete = false;
+          try {
+            shutdownComplete = jcContainerLatch.await(10000, TimeUnit.MILLISECONDS);
+          } catch (InterruptedException e) {
+            LOGGER.warn("Container shutdown was interrupted!" + container.toString());
+          }
+          if (!shutdownComplete) {
+            LOGGER.warn("Container " + container.toString() + " may not have shutdown successfully. Stopping the processor.");
+            container = null;
+            stop();
+          } else {
+            LOGGER.info("Container " + container.toString() + " shutdown successfully");
+          }
+        }
+      }
+
+      // TODO: Can change interface to ContainerModel if maxChangelogStreamPartitions can be made a part of ContainerModel
+      @Override
+      public void onNewJobModel(String processorId, JobModel jobModel) {
+        if (!jobModel.getContainers().containsKey(processorId)) {
+          stop();
+        } else {
+          jcContainerLatch = new CountDownLatch(1);
+          SamzaContainerListener containerListener = new SamzaContainerListener() {
+            @Override
+            public void onContainerStart() {
+              if (!processorOnStartCalled) {
+                processorListener.onStart();
+                // processorListener is called on start only the first time the container starts.
+                // It is not called after every re-balance of partitions among the processors
+                processorOnStartCalled = true;
+              }
+            }
+
+            @Override
+            public void onContainerStop(boolean pauseByJm) {
+              if (jcContainerLatch != null) {
+                jcContainerLatch.countDown();
+              } else {
+                LOGGER.debug("JobCoordinatorLatch was null. It is possible for some component to be waiting.");
+              }
+
+              if (pauseByJm) {
+                LOGGER.info("Container " + container.toString() + " stopped due to a request from JobCoordinator.");
+                // do nothing
+              } else {  // sp.stop was called or container stopped by itself
+                container = null; // this guarantees that stop() doesn't try to stop container again
+                stop();
+              }
+            }
+
+            @Override
+            public void onContainerFailed(Throwable t) {
+              jcContainerLatch.countDown();
+              stop();
+            }
+          };
+
+          container = createSamzaContainer(
+              jobModel.getContainers().get(processorId),
+              jobModel.maxChangeLogStreamPartitions,
+              new JmxServer(),
+              containerListener);
+          executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
+              .setNameFormat("p-" + processorId + "-container-thread-%d").build());
+          executorService.submit(container::run);
+        }
+      }
+
+      @Override
+      public void onCoordinatorStop() {
+        if (executorService != null) {
+          executorService.shutdownNow();
+        }
+        if (processorListener != null) {
+          processorListener.onShutdown();
+        }
+      }
+
+      @Override
+      public void onCoordinatorFailure(Throwable e) {
+        stop(); // ??
+        processorListener.onFailure(e);
+      }
+
+      SamzaContainer createSamzaContainer(ContainerModel containerModel, int maxChangelogStreamPartitions, JmxServer jmxServer, SamzaContainerListener containerListener) {
+        return SamzaContainer.apply(
+            containerModel,
+            config,
+            maxChangelogStreamPartitions,
+            jmxServer,
+            Util.<String, MetricsReporter>javaMapAsScalaMap(customMetricsReporter),
+            taskFactory,
+            containerListener);
+      }
+    };
   }
 
   /**
@@ -200,18 +222,34 @@ public class StreamProcessor {
     this(processorId, config, customMetricsReporters, (Object) streamTaskFactory, processorListener);
   }
 
+  /* package private */
+  JobCoordinator getJobCoordinator(String processorId) {
+    return Util.
+        <JobCoordinatorFactory>getObj(
+            new JobCoordinatorConfig(config)
+                .getJobCoordinatorFactoryClassName())
+        .getJobCoordinator(processorId, config);
+  }
+
+  @VisibleForTesting
+  StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters, Object taskFactory, StreamProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
+    this.taskFactory = taskFactory;
+    this.config = config;
+    this.customMetricsReporter = customMetricsReporters;
+    this.processorListener = processorListener;
+    this.jobCoordinator = jobCoordinator;
+    this.jobCoordinatorListener = createJobCoordinatorListener();
+    this.jobCoordinator.setListener(jobCoordinatorListener);
+  }
+
   private StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
                           Object taskFactory, StreamProcessorLifecycleListener processorListener) {
     this.taskFactory = taskFactory;
     this.config = config;
     this.customMetricsReporter = customMetricsReporters;
     this.processorListener = processorListener;
-
-    this.jobCoordinator = Util.
-        <JobCoordinatorFactory>getObj(
-            new JobCoordinatorConfig(config)
-                .getJobCoordinatorFactoryClassName())
-        .getJobCoordinator(processorId, config, jobCoordinatorListener);
+    this.jobCoordinator = getJobCoordinator(processorId);
+    this.jobCoordinator.setListener(createJobCoordinatorListener());
   }
 
   /**

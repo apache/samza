@@ -119,7 +119,6 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
   @Override
   public void waitForBarrier(String version, String participantName, Runnable callback) {
-
     setPaths(version);
     final String barrierProcessorThis = String.format("%s/%s", barrierProcessors, participantName);
 

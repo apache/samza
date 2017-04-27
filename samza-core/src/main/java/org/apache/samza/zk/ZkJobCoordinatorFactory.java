@@ -33,13 +33,12 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
    * @return An instance of IJobCoordinator
    */
   @Override
-  public JobCoordinator getJobCoordinator(String processorId, Config config, JobCoordinatorListener coordinatorListener) {
+  public JobCoordinator getJobCoordinator(String processorId, Config config) {
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
 
     return new ZkJobCoordinator(
         processorId,
         config,
-        debounceTimer,
-        coordinatorListener);
+        debounceTimer);
   }
 }

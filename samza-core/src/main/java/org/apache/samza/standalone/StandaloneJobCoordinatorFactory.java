@@ -25,7 +25,7 @@ import org.apache.samza.processor.JobCoordinatorListener;
 
 public class StandaloneJobCoordinatorFactory  implements JobCoordinatorFactory {
   @Override
-  public JobCoordinator getJobCoordinator(String processorId, Config config, JobCoordinatorListener coordinatorListener) {
-    return new StandaloneJobCoordinator(processorId, config, coordinatorListener);
+  public JobCoordinator getJobCoordinator(String processorId, Config config) {
+    return new StandaloneJobCoordinator(processorId, config);
   }
 }
