@@ -122,15 +122,15 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
       String content = "plan='" + planJson + "'";
       String planPath = System.getenv(ShellCommandConfig.EXECUTION_PLAN_DIR());
       if (planPath != null && !planPath.isEmpty()) {
-        // Write the plan json to bin path which also contains the html and js files
+        // Write the plan json to plan path
         File file = new File(planPath + "/plan.json");
         file.setReadable(true, false);
         PrintWriter writer = new PrintWriter(file, "UTF-8");
         writer.println(content);
         writer.close();
       }
-    } catch (Throwable t) {
-      log.warn("Failed to write execution plan json to file", t);
+    } catch (Exception e) {
+      log.warn("Failed to write execution plan json to file", e);
     }
   }
 }

@@ -71,8 +71,8 @@ import org.slf4j.LoggerFactory;
     String json = "";
     try {
       json = getPlanAsJson();
-    } catch (Throwable t) {
-      log.warn("Failed to generate plan JSON");
+    } catch (Exception e) {
+      log.warn("Failed to generate plan JSON", e);
     }
 
     final String planJson = json;
