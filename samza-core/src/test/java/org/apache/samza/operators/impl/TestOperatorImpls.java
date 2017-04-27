@@ -19,6 +19,7 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.TestMessageStreamImplUtil;
@@ -26,11 +27,10 @@ import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
+import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.windows.Windows;
@@ -62,14 +62,15 @@ public class TestOperatorImpls {
 
   @Before
   public void prep() throws NoSuchFieldException, NoSuchMethodException {
-    nextOperatorsField = OperatorImpl.class.getDeclaredField("nextOperators");
+    nextOperatorsField = OperatorImpl.class.getDeclaredField("registeredOperators");
     nextOperatorsField.setAccessible(true);
 
-    createOpMethod = OperatorImplGraph.class.getDeclaredMethod("createOperatorImpl", MessageStreamImpl.class,
+    createOpMethod = OperatorImplGraph.class.getDeclaredMethod("createOperatorImpl",
         OperatorSpec.class, Config.class, TaskContext.class);
     createOpMethod.setAccessible(true);
 
-    createOpsMethod = OperatorImplGraph.class.getDeclaredMethod("createOperatorImpls", MessageStreamImpl.class, Config.class, TaskContext.class);
+    createOpsMethod = OperatorImplGraph.class.getDeclaredMethod("createOperatorImpls", MessageStreamImpl.class,
+        Config.class, TaskContext.class);
     createOpsMethod.setAccessible(true);
   }
 
@@ -79,13 +80,12 @@ public class TestOperatorImpls {
     WindowOperatorSpec mockWnd = mock(WindowOperatorSpec.class);
     WindowInternal<TestMessageEnvelope, String, Integer> windowInternal = new WindowInternal<>(null, null, null, null, null, WindowType.TUMBLING);
     when(mockWnd.getWindow()).thenReturn(windowInternal);
-    MessageStreamImpl<TestMessageEnvelope> mockStream = mock(MessageStreamImpl.class);
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
 
     OperatorImplGraph opGraph = new OperatorImplGraph();
     OperatorImpl<TestMessageEnvelope, ?> opImpl = (OperatorImpl<TestMessageEnvelope, ?>)
-        createOpMethod.invoke(opGraph, mockStream, mockWnd, mockConfig, mockContext);
+        createOpMethod.invoke(opGraph, mockWnd, mockConfig, mockContext);
     assertTrue(opImpl instanceof WindowOperatorImpl);
     Field wndInternalField = WindowOperatorImpl.class.getDeclaredField("window");
     wndInternalField.setAccessible(true);
@@ -96,7 +96,7 @@ public class TestOperatorImpls {
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> mockSimpleOp = mock(StreamOperatorSpec.class);
     FlatMapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> mockTxfmFn = mock(FlatMapFunction.class);
     when(mockSimpleOp.getTransformFn()).thenReturn(mockTxfmFn);
-    opImpl = (OperatorImpl<TestMessageEnvelope, ?>) createOpMethod.invoke(opGraph, mockStream, mockSimpleOp, mockConfig, mockContext);
+    opImpl = (OperatorImpl<TestMessageEnvelope, ?>) createOpMethod.invoke(opGraph, mockSimpleOp, mockConfig, mockContext);
     assertTrue(opImpl instanceof StreamOperatorImpl);
     Field txfmFnField = StreamOperatorImpl.class.getDeclaredField("transformFn");
     txfmFnField.setAccessible(true);
@@ -106,7 +106,7 @@ public class TestOperatorImpls {
     SinkFunction<TestMessageEnvelope> sinkFn = (m, mc, tc) -> { };
     SinkOperatorSpec<TestMessageEnvelope> sinkOp = mock(SinkOperatorSpec.class);
     when(sinkOp.getSinkFn()).thenReturn(sinkFn);
-    opImpl = (OperatorImpl<TestMessageEnvelope, ?>) createOpMethod.invoke(opGraph, mockStream, sinkOp, mockConfig, mockContext);
+    opImpl = (OperatorImpl<TestMessageEnvelope, ?>) createOpMethod.invoke(opGraph, sinkOp, mockConfig, mockContext);
     assertTrue(opImpl instanceof SinkOperatorImpl);
     Field sinkFnField = SinkOperatorImpl.class.getDeclaredField("sinkFn");
     sinkFnField.setAccessible(true);
@@ -114,8 +114,7 @@ public class TestOperatorImpls {
 
     // get join operator
     PartialJoinOperatorSpec<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> joinOp = mock(PartialJoinOperatorSpec.class);
-    PartialJoinFunction<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> joinFn = mock(PartialJoinFunction.class);
-    opImpl = (OperatorImpl<TestMessageEnvelope, ?>) createOpMethod.invoke(opGraph, mockStream, joinOp, mockConfig, mockContext);
+    opImpl = (OperatorImpl<TestMessageEnvelope, ?>) createOpMethod.invoke(opGraph, joinOp, mockConfig, mockContext);
     assertTrue(opImpl instanceof PartialJoinOperatorImpl);
   }
 
@@ -124,6 +123,7 @@ public class TestOperatorImpls {
     // test creation of empty chain
     MessageStreamImpl<TestMessageEnvelope> testStream = mock(MessageStreamImpl.class);
     TaskContext mockContext = mock(TaskContext.class);
+    when(mockContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     Config mockConfig = mock(Config.class);
     OperatorImplGraph opGraph = new OperatorImplGraph();
     RootOperatorImpl operatorChain = (RootOperatorImpl) createOpsMethod.invoke(opGraph, testStream, mockConfig, mockContext);
@@ -134,8 +134,9 @@ public class TestOperatorImpls {
   public void testLinearChain() throws IllegalAccessException, InvocationTargetException {
     // test creation of linear chain
     StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
-    MessageStreamImpl<TestMessageEnvelope> testInput = TestMessageStreamImplUtil.<TestMessageEnvelope>getMessageStreamImpl(mockGraph);
+    MessageStreamImpl<TestMessageEnvelope> testInput = TestMessageStreamImplUtil.getMessageStreamImpl(mockGraph);
     TaskContext mockContext = mock(TaskContext.class);
+    when(mockContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     Config mockConfig = mock(Config.class);
     testInput.map(m -> m).window(Windows.keyedSessionWindow(TestMessageEnvelope::getKey, Duration.ofMinutes(10)));
     OperatorImplGraph opGraph = new OperatorImplGraph();
@@ -154,8 +155,9 @@ public class TestOperatorImpls {
   public void testBroadcastChain() throws IllegalAccessException, InvocationTargetException {
     // test creation of broadcast chain
     StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
-    MessageStreamImpl<TestMessageEnvelope> testInput = TestMessageStreamImplUtil.<TestMessageEnvelope>getMessageStreamImpl(mockGraph);
+    MessageStreamImpl<TestMessageEnvelope> testInput = TestMessageStreamImplUtil.getMessageStreamImpl(mockGraph);
     TaskContext mockContext = mock(TaskContext.class);
+    when(mockContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     Config mockConfig = mock(Config.class);
     testInput.filter(m -> m.getMessage().getEventTime() > 123456L).flatMap(m -> new ArrayList() { { this.add(m); this.add(m); } });
     testInput.filter(m -> m.getMessage().getEventTime() < 123456L).map(m -> m);
@@ -187,6 +189,7 @@ public class TestOperatorImpls {
     MessageStreamImpl<TestMessageEnvelope> input1 = TestMessageStreamImplUtil.getMessageStreamImpl(mockGraph);
     MessageStreamImpl<TestMessageEnvelope> input2 = TestMessageStreamImplUtil.getMessageStreamImpl(mockGraph);
     TaskContext mockContext = mock(TaskContext.class);
+    when(mockContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     Config mockConfig = mock(Config.class);
     input1
         .join(input2,

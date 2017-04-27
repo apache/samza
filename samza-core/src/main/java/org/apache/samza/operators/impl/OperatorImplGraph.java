@@ -104,20 +104,22 @@ public class OperatorImplGraph {
    * creates the corresponding DAG of {@link OperatorImpl}s, and returns its root {@link RootOperatorImpl} node.
    *
    * @param source  the input {@link MessageStreamImpl} to instantiate {@link OperatorImpl}s for
-   * @param <M>  the type of messagess in the {@code source} {@link MessageStreamImpl}
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
+   * @param <M>  the type of messages in the {@code source} {@link MessageStreamImpl}
    * @return  root node for the {@link OperatorImpl} DAG
    */
-  private <M> RootOperatorImpl<M> createOperatorImpls(MessageStreamImpl<M> source, Config config, TaskContext context) {
+  private <M> RootOperatorImpl<M> createOperatorImpls(MessageStreamImpl<M> source,
+      Config config, TaskContext context) {
     // since the source message stream might have multiple operator specs registered on it,
     // create a new root node as a single point of entry for the DAG.
     RootOperatorImpl<M> rootOperator = new RootOperatorImpl<>();
+    rootOperator.init(config, context);
     // create the pipeline/topology starting from the source
     source.getRegisteredOperatorSpecs().forEach(registeredOperator -> {
-        // pass in the source and context s.t. stateful stream operators can initialize their stores
+        // pass in the context so that operator implementations can initialize their functions
         OperatorImpl<M, ?> operatorImpl =
-            createAndRegisterOperatorImpl(registeredOperator, source, config, context);
+            createAndRegisterOperatorImpl(registeredOperator, config, context);
         rootOperator.registerNextOperator(operatorImpl);
       });
     return rootOperator;
@@ -127,27 +129,26 @@ public class OperatorImplGraph {
    * Helper method to recursively traverse the {@link OperatorSpec} DAG and instantiate and link the corresponding
    * {@link OperatorImpl}s.
    *
-   * @param operatorSpec  the operatorSpec registered with the {@code source}
-   * @param source  the source {@link MessageStreamImpl}
-   * @param <M>  type of input message
+   * @param operatorSpec  the operatorSpec to create the {@link OperatorImpl} for
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
+   * @param <M>  type of input message
    * @return  the operator implementation for the operatorSpec
    */
   private <M> OperatorImpl<M, ?> createAndRegisterOperatorImpl(OperatorSpec operatorSpec,
-      MessageStreamImpl<M> source, Config config, TaskContext context) {
+      Config config, TaskContext context) {
     if (!operatorImpls.containsKey(operatorSpec)) {
-      OperatorImpl<M, ?> operatorImpl = createOperatorImpl(source, operatorSpec, config, context);
+      OperatorImpl<M, ?> operatorImpl = createOperatorImpl(operatorSpec, config, context);
       if (operatorImpls.putIfAbsent(operatorSpec, operatorImpl) == null) {
         // this is the first time we've added the operatorImpl corresponding to the operatorSpec,
         // so traverse and initialize and register the rest of the DAG.
         // initialize the corresponding operator function
-        operatorSpec.init(config, context);
+        operatorImpl.init(config, context);
         MessageStreamImpl nextStream = operatorSpec.getNextStream();
         if (nextStream != null) {
           Collection<OperatorSpec> registeredSpecs = nextStream.getRegisteredOperatorSpecs();
           registeredSpecs.forEach(registeredSpec -> {
-              OperatorImpl subImpl = createAndRegisterOperatorImpl(registeredSpec, nextStream, config, context);
+              OperatorImpl subImpl = createAndRegisterOperatorImpl(registeredSpec, config, context);
               operatorImpl.registerNextOperator(subImpl);
             });
         }
@@ -163,24 +164,21 @@ public class OperatorImplGraph {
   /**
    * Creates a new {@link OperatorImpl} instance for the provided {@link OperatorSpec}.
    *
-   * @param source  the source {@link MessageStreamImpl}
-   * @param <M>  type of input message
    * @param operatorSpec  the immutable {@link OperatorSpec} definition.
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
+   * @param <M>  type of input message
    * @return  the {@link OperatorImpl} implementation instance
    */
-  private <M> OperatorImpl<M, ?> createOperatorImpl(MessageStreamImpl<M> source,
-      OperatorSpec operatorSpec, Config config, TaskContext context) {
+  private <M> OperatorImpl<M, ?> createOperatorImpl(OperatorSpec operatorSpec, Config config, TaskContext context) {
     if (operatorSpec instanceof StreamOperatorSpec) {
-      StreamOperatorSpec<M, ?> streamOpSpec = (StreamOperatorSpec<M, ?>) operatorSpec;
-      return new StreamOperatorImpl<>(streamOpSpec, source, config, context);
+      return new StreamOperatorImpl<>((StreamOperatorSpec<M, ?>) operatorSpec, config, context);
     } else if (operatorSpec instanceof SinkOperatorSpec) {
       return new SinkOperatorImpl<>((SinkOperatorSpec<M>) operatorSpec, config, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
       return new WindowOperatorImpl((WindowOperatorSpec<M, ?, ?>) operatorSpec, clock);
     } else if (operatorSpec instanceof PartialJoinOperatorSpec) {
-      return new PartialJoinOperatorImpl<>((PartialJoinOperatorSpec) operatorSpec, source, config, context, clock);
+      return new PartialJoinOperatorImpl<>((PartialJoinOperatorSpec) operatorSpec, config, context, clock);
     }
     throw new IllegalArgumentException(
         String.format("Unsupported OperatorSpec: %s", operatorSpec.getClass().getName()));

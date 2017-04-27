@@ -27,7 +27,10 @@ import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 public class TestSinkOperatorImpl {
@@ -44,7 +47,7 @@ public class TestSinkOperatorImpl {
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
 
-    sinkImpl.onNext(mockMsg, mockCollector, mockCoordinator);
+    sinkImpl.handleMessage(mockMsg, mockCollector, mockCoordinator);
     verify(sinkFn, times(1)).apply(mockMsg, mockCollector, mockCoordinator);
   }
 }

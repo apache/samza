@@ -18,10 +18,8 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.PartialJoinFunction;
-import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -88,10 +86,4 @@ public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
   public int getOpId() {
     return this.opId;
   }
-
-  @Override
-  public void init(Config config, TaskContext context) {
-    this.thisPartialJoinFn.init(config, context);
-  }
-
 }
