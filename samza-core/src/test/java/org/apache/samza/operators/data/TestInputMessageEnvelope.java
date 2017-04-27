@@ -16,21 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.operators.data;
 
-package org.apache.samza.container
+public class TestInputMessageEnvelope extends TestMessageEnvelope {
+  private final String inputId;
 
-import org.junit.Test
-import org.junit.Assert._
-import org.junit.Before
-import org.apache.samza.SamzaException
-import org.junit.After
+  public TestInputMessageEnvelope(String key, String value, long eventTime, String inputId) {
+    super(key, value, eventTime);
+    this.inputId = inputId;
+  }
 
-class TestSamzaContainerExceptionHandler {
-  @Test
-  def testShutdownProcess {
-    var exitCalled = false
-    val exceptionHandler = new SamzaContainerExceptionHandler(() => exitCalled = true)
-    exceptionHandler.uncaughtException(Thread.currentThread, new SamzaException)
-    assertTrue(exitCalled)
+  public String getInputId() {
+    return this.inputId;
   }
 }

@@ -17,33 +17,23 @@
  * under the License.
  */
 
-package org.apache.samza.runtime;
+package org.apache.samza.container;
 
+import org.apache.samza.SamzaException;
 import org.junit.Test;
 
-import static org.junit.Assert.assertFalse;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import static org.junit.Assert.assertTrue;
 
-public class TestLocalContainerRunner {
-  private boolean caughtException = false;
+public class TestSamzaContainerExceptionHandler {
 
   @Test
-  public void testUncaughtExceptionHandler() throws Exception {
-    Runnable runnable = () -> { caughtException = true; };
-    LocalContainerRunner.setExceptionHandler(runnable);
-
-    try {
-      ((String) null).length();
-    } catch (Exception e) {
-      // catch null pointer exception
-    }
-    assertFalse(caughtException);
-
-    Thread t = new Thread(() -> {
-        throw new RuntimeException("Uncaught exception in another thread. Catch this.");
-      });
-    t.start();
-    t.join();
-    assertTrue(caughtException);
+  public void testExceptionHandler() {
+    final AtomicBoolean exitCalled = new AtomicBoolean(false);
+    Thread.UncaughtExceptionHandler exceptionHandler =
+        new SamzaContainerExceptionHandler(() -> exitCalled.getAndSet(true));
+    exceptionHandler.uncaughtException(Thread.currentThread(), new SamzaException());
+    assertTrue(exitCalled.get());
   }
 }

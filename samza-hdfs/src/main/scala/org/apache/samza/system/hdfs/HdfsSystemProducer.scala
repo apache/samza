@@ -20,14 +20,12 @@
 package org.apache.samza.system.hdfs
 
 
-import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.conf.Configuration
-import org.apache.samza.SamzaException
-import org.apache.samza.config.Config
-import org.apache.samza.system.hdfs.HdfsConfig._
-import org.apache.samza.system.{SystemProducer, OutgoingMessageEnvelope}
+import org.apache.hadoop.fs.FileSystem
 import org.apache.samza.system.hdfs.writer.HdfsWriter
-import org.apache.samza.util.{Logging, ExponentialSleepStrategy, TimerUtils, KafkaUtil}
+import org.apache.samza.system.{OutgoingMessageEnvelope, SystemProducer}
+import org.apache.samza.util.{Logging, TimerUtils}
+
 import scala.collection.mutable.{Map => MMap}
 
 

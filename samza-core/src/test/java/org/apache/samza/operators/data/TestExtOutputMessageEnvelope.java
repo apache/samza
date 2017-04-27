@@ -16,20 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.operators.data;
 
-package org.apache.samza.container
+public class TestExtOutputMessageEnvelope extends TestOutputMessageEnvelope {
+  private final String outputId;
 
-import java.lang.Thread.UncaughtExceptionHandler
-import org.apache.samza.util.Logging
-
-/**
- * An UncaughtExceptionHandler that simply shuts down when any thread throws
- * an uncaught exception.
- */
-class SamzaContainerExceptionHandler(exit: () => Unit) extends UncaughtExceptionHandler with Logging {
-  def uncaughtException(t: Thread, e: Throwable) {
-    error("Uncaught exception in thread (name=%s). Exiting process now.".format(t.getName), e)
-    e.printStackTrace(System.err);
-    exit()
+  public TestExtOutputMessageEnvelope(String key, Integer value, String outputId) {
+    super(key, value);
+    this.outputId = outputId;
   }
+
 }

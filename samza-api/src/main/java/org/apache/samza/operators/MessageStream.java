@@ -50,7 +50,7 @@ public interface MessageStream<M> {
    * @param <TM> the type of messages in the transformed {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  <TM> MessageStream<TM> map(MapFunction<M, TM> mapFn);
+  <TM> MessageStream<TM> map(MapFunction<? super M, ? extends TM> mapFn);
 
   /**
    * Applies the provided 1:n function to transform a message in this {@link MessageStream}
@@ -60,7 +60,7 @@ public interface MessageStream<M> {
    * @param <TM> the type of messages in the transformed {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  <TM> MessageStream<TM> flatMap(FlatMapFunction<M, TM> flatMapFn);
+  <TM> MessageStream<TM> flatMap(FlatMapFunction<? super M, ? extends TM> flatMapFn);
 
   /**
    * Applies the provided function to messages in this {@link MessageStream} and returns the
@@ -72,7 +72,7 @@ public interface MessageStream<M> {
    * @param filterFn the predicate to filter messages from this {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  MessageStream<M> filter(FilterFunction<M> filterFn);
+  MessageStream<M> filter(FilterFunction<? super M> filterFn);
 
   /**
    * Allows sending messages in this {@link MessageStream} to an output system using the provided {@link SinkFunction}.
@@ -83,7 +83,7 @@ public interface MessageStream<M> {
    *
    * @param sinkFn the function to send messages in this stream to an external system
    */
-  void sink(SinkFunction<M> sinkFn);
+  void sink(SinkFunction<? super M> sinkFn);
 
   /**
    * Allows sending messages in this {@link MessageStream} to an output {@link MessageStream}.
@@ -120,10 +120,10 @@ public interface MessageStream<M> {
    * @param ttl the ttl for messages in each stream
    * @param <K> the type of join key
    * @param <OM> the type of messages in the other stream
-   * @param <RM> the type of messages resulting from the {@code joinFn}
+   * @param <TM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, OM, RM> MessageStream<RM> join(MessageStream<OM> otherStream, JoinFunction<K, M, OM, RM> joinFn, Duration ttl);
+  <K, OM, TM> MessageStream<TM> join(MessageStream<OM> otherStream, JoinFunction<? extends K, ? super M, ? super OM, ? extends TM> joinFn, Duration ttl);
 
   /**
    * Merge all {@code otherStreams} with this {@link MessageStream}.
@@ -133,7 +133,7 @@ public interface MessageStream<M> {
    * @param otherStreams other {@link MessageStream}s to be merged with this {@link MessageStream}
    * @return the merged {@link MessageStream}
    */
-  MessageStream<M> merge(Collection<MessageStream<M>> otherStreams);
+  MessageStream<M> merge(Collection<MessageStream<? extends M>> otherStreams);
 
   /**
    * Sends the messages of type {@code M}in this {@link MessageStream} to a repartitioned output stream and consumes
@@ -144,6 +144,6 @@ public interface MessageStream<M> {
    * @param <K> the type of output message key and partition key
    * @return the repartitioned {@link MessageStream}
    */
-  <K> MessageStream<M> partitionBy(Function<M, K> keyExtractor);
+  <K> MessageStream<M> partitionBy(Function<? super M, ? extends K> keyExtractor);
 
 }
