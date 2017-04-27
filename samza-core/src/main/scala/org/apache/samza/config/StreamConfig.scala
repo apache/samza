@@ -43,7 +43,7 @@ object StreamConfig {
 
   protected val STREAM_ID_PREFIX = STREAMS_PREFIX + "%s."
   protected val SYSTEM_FOR_STREAM_ID = STREAM_ID_PREFIX + SYSTEM
-  protected val PHYSICAL_NAME_FOR_STREAM_ID = STREAM_ID_PREFIX + PHYSICAL_NAME
+  val PHYSICAL_NAME_FOR_STREAM_ID = STREAM_ID_PREFIX + PHYSICAL_NAME
 
   implicit def Config2Stream(config: Config) = new StreamConfig(config)
 }
