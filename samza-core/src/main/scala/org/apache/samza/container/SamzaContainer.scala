@@ -638,10 +638,8 @@ class SamzaContainer(
   var shutdownHookThread: Thread = null
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED
-//  @volatile private var handleCallback = true
-  var exceptionSeen: Throwable  = null
-  var stopCalled: Boolean = false
-  var paused: Boolean = false
+  private var exceptionSeen: Throwable  = null
+  private var paused: Boolean = false
 
   def getStatus(): SamzaContainerStatus = status
 
@@ -708,15 +706,15 @@ class SamzaContainer(
 
     status match {
       case SamzaContainerStatus.STOPPED =>
-          containerListener.onContainerStop(stopCalled)
+          containerListener.onContainerStop(paused)
       case SamzaContainerStatus.FAILED =>
         containerListener.onContainerFailed(exceptionSeen)
     }
   }
 
   // Called by StreamProcessor.stop
-  def shutdown() = {
-    stopCalled = true
+  def shutdown(pausedByJm: Boolean) = {
+    paused = pausedByJm
     shutdownRunLoop()
   }
 
@@ -726,12 +724,6 @@ class SamzaContainer(
       case runLoop: RunLoop => runLoop.shutdown
       case asyncRunLoop: AsyncRunLoop => asyncRunLoop.shutdown()
     }
-  }
-
-  // Called on JM Expiry by StreamProcessor
-  def pause() = {
-    paused = true
-    shutdownRunLoop()
   }
 
   def startDiskSpaceMonitor: Unit = {
@@ -853,7 +845,7 @@ class SamzaContainer(
     shutdownHookThread = new Thread("CONTAINER-SHUTDOWN-HOOK") {
       override def run() = {
         info("Shutting down, will wait up to %s ms" format shutdownMs)
-        shutdown()
+        shutdownRunLoop()  //TODO: Pull out shutdown hook to LocalContainerRunner or SP
         try {
           runLoopThread.join(shutdownMs)
         } catch {
