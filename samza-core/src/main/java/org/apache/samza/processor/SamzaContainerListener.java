@@ -26,7 +26,7 @@ public interface SamzaContainerListener {
   // Indicates if the container was stopped as a result of external invocation or user-application triggered shutdown (for example, in
   // batched jobs)
   // called only when the container gracefully shutsdown without any exceptions/errors
-  void onContainerStop(boolean invokedExternally);
+  void onContainerStop(boolean pausedOrNot);
 
   void onContainerFailed(Throwable t);
 }

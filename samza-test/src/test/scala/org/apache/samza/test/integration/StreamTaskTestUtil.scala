@@ -222,7 +222,8 @@ class StreamTaskTestUtil {
   def stopJob(job: StreamJob) {
     // Shutdown task.
     job.kill
-    assertEquals(ApplicationStatus.UnsuccessfulFinish, job.waitForFinish(60000))
+    val status = job.waitForFinish(60000)
+    assertEquals(ApplicationStatus.UnsuccessfulFinish, status)
   }
 
   /**

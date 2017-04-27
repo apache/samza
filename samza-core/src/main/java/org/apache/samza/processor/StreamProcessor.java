@@ -20,12 +20,10 @@ package org.apache.samza.processor;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.samza.SamzaContainerStatus;
-import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.container.SamzaContainer;
-import org.apache.samza.container.SamzaContainer$;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.job.model.ContainerModel;
@@ -73,7 +71,7 @@ public class StreamProcessor {
     public void onJobModelExpired() {
       // stop container
       if (container != null && container.getStatus().equals(SamzaContainerStatus.RUNNING)) {
-        container.pause();
+        container.shutdown(true);
         boolean shutdownComplete = false;
         try {
           shutdownComplete = jcContainerLatch.await(10000, TimeUnit.MILLISECONDS);
@@ -90,10 +88,9 @@ public class StreamProcessor {
       }
     }
 
-    // TODO: Can change interface to ContainerModel when maxChangelogStreamPartitions is out of JobModel
+    // TODO: Can change interface to ContainerModel if maxChangelogStreamPartitions can be made a part of ContainerModel
     @Override
     public void onNewJobModel(String processorId, JobModel jobModel) {
-      // Just throw exception here?? -> may be cleaner
       if (!jobModel.getContainers().containsKey(processorId)) {
         stop();
       } else {
@@ -110,27 +107,19 @@ public class StreamProcessor {
           }
 
           @Override
-          public void onContainerStop(boolean processorStopCalled) {
+          public void onContainerStop(boolean pauseByJm) {
             if (jcContainerLatch != null) {
               jcContainerLatch.countDown();
-            }
-            /**
-             * if (stopped by JC)   { do nothing}
-             * else {
-             *  container = null;
-             *  stop()
-             * }
-             */
-            if (container.paused()) {
-              // don't do anything
             } else {
-              if (processorStopCalled) {  //sp.stop
-                // don't stop JC here & use processor containerLatch????
-                container  = null;
-                    stop();
-              } else { // container stopped by itself
-                 //stop jc??
-              }
+              LOGGER.debug("JobCoordinatorLatch was null. It is possible for some component to be waiting.");
+            }
+
+            if (pauseByJm) {
+              LOGGER.info("Container " + container.toString() + " stopped due to a request from JobCoordinator.");
+              // do nothing
+            } else {  // sp.stop was called or container stopped by itself
+              container = null; // this guarantees that stop() doesn't try to stop container again
+              stop();
             }
           }
 
@@ -159,7 +148,8 @@ public class StreamProcessor {
     }
 
     @Override
-    public void onCoordinatorFailure(Exception e) {
+    public void onCoordinatorFailure(Throwable e) {
+      stop(); // ??
       processorListener.onFailure(e);
     }
   };
@@ -247,7 +237,7 @@ public class StreamProcessor {
    */
   public synchronized void stop() {
     if (container != null) {
-      container.shutdown();
+      container.shutdown(false);
     } else {
       jobCoordinator.stop();
     }

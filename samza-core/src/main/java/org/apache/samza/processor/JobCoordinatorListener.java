@@ -27,7 +27,7 @@ public interface JobCoordinatorListener {
 
   void onCoordinatorStop();
 
-  void onCoordinatorFailure(Exception e);
+  void onCoordinatorFailure(Throwable e);
 
 
 }

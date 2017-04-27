@@ -20,20 +20,17 @@
 package org.apache.samza.job.local
 
 
-import org.apache.samza.metrics.MetricsReporter
-import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap}
+import org.apache.samza.config.Config
+import org.apache.samza.config.JobConfig._
+import org.apache.samza.config.ShellCommandConfig._
+import org.apache.samza.container.SamzaContainer
+import org.apache.samza.coordinator.JobModelManager
+import org.apache.samza.job.{StreamJob, StreamJobFactory}
+import org.apache.samza.metrics.{JmxServer, MetricsReporter}
 import org.apache.samza.processor.SamzaContainerListener
 import org.apache.samza.runtime.LocalContainerRunner
 import org.apache.samza.task.TaskFactoryUtil
 import org.apache.samza.util.Logging
-import org.apache.samza.SamzaException
-import org.apache.samza.config.Config
-import org.apache.samza.config.ShellCommandConfig._
-import org.apache.samza.config.TaskConfig._
-import org.apache.samza.container.SamzaContainer
-import org.apache.samza.job.{ StreamJob, StreamJobFactory }
-import org.apache.samza.config.JobConfig._
-import org.apache.samza.coordinator.JobModelManager
 
 /**
  * Creates a new Thread job with the given config
@@ -55,9 +52,22 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       case _ => None
     }
 
+    val containerListener = new SamzaContainerListener {
+      override def onContainerFailed(t: Throwable): Unit = {
+        throw t
+      }
+
+      override def onContainerStop(pausedOrNot: Boolean): Unit = {
+      }
+
+      override def onContainerStart(): Unit = {
+
+      }
+    }
     try {
       coordinator.start
-      new ThreadJob(
+
+      val threadJob = new ThreadJob(
             SamzaContainer(
               containerModel,
               config,
@@ -65,12 +75,8 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
               jmxServer,
               Map[String, MetricsReporter](),
               taskFactory,
-            new SamzaContainerListener {override def onContainerFailed(t: Throwable): Unit = { }
-
-              override def onContainerStop(invokedExternally: Boolean): Unit = { }
-
-              override def onContainerStart(): Unit = { }
-            }))
+              containerListener))
+      threadJob
     } finally {
       coordinator.stop
       jmxServer.stop
