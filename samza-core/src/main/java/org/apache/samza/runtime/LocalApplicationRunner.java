@@ -28,14 +28,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
-import org.apache.samza.coordinator.CoordinationServiceFactory;
+import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.execution.ExecutionPlan;
@@ -46,7 +43,8 @@ import org.apache.samza.system.StreamSpec;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
-import org.apache.samza.util.ClassLoaderHelper;
+import org.apache.samza.zk.ZkCoordinationServiceFactory;
+import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,38 +63,38 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private final String uid;
   private final CoordinationUtils coordinationUtils;
   private final List<StreamProcessor> processors = new ArrayList<>();
+  private final Set<StreamProcessor> runningProcessors = ConcurrentHashMap.newKeySet();
   private final CountDownLatch latch = new CountDownLatch(1);
   private final AtomicReference<Throwable> throwable = new AtomicReference<>();
-  private final Set<String> processorIds = ConcurrentHashMap.newKeySet();
 
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
   final class LocalStreamProcessorLifeCycleListener implements StreamProcessorLifecycleListener {
-    public final String processorId;
+    StreamProcessor processor;
 
-    public LocalStreamProcessorLifeCycleListener(String processorId) {
-      this.processorId = processorId;
+    void setProcessor(StreamProcessor processor) {
+      this.processor = processor;
     }
 
     @Override
     public void onStart() {
-      processorIds.add(processorId);
-      if (processorIds.size() == processors.size()) {
+      runningProcessors.add(processor);
+      if (runningProcessors.size() == processors.size()) {
         appStatus = ApplicationStatus.Running;
       }
     }
 
     @Override
     public void onShutdown() {
-      processorIds.remove(processorId);
-      if (processorIds.isEmpty()) {
+      runningProcessors.remove(processor);
+      if (runningProcessors.isEmpty()) {
         latch.countDown();
       }
     }
 
     @Override
     public void onFailure(Throwable t) {
-      processorIds.remove(processorId);
+      runningProcessors.remove(processor);
       throwable.compareAndSet(null, t);
       latch.countDown();
     }
@@ -123,15 +121,11 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       }
       plan.getJobConfigs().forEach(jobConfig -> {
           log.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
-          String processorId = getProcessorId(config);
-          if (StringUtils.isEmpty(processorId)) {
-            throw new SamzaException("processorId has to be defined when running StreamApplication locally.");
-          }
-
-          StreamProcessor processor =
-              createStreamProcessor(processorId, jobConfig, app, new LocalStreamProcessorLifeCycleListener(processorId));
-          processor.start();
+          LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
+          StreamProcessor processor = createStreamProcessor(jobConfig, app, listener);
+          listener.setProcessor(processor);
           processors.add(processor);
+          processor.start();
         });
 
       // 4. block until the processors are done or there is a failure
@@ -171,12 +165,13 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    * {@link InstantiationException}
    */
   /* package private */ CoordinationUtils createCoordinationUtils() throws Exception {
-    ApplicationConfig appConfig = new ApplicationConfig(config);
-    String clazz = appConfig.getCoordinationServiceFactoryClass();
-    if (StringUtils.isNotEmpty(clazz)) {
-      CoordinationServiceFactory factory = ClassLoaderHelper.fromClassName(clazz);
+    String jobCoordinatorFactoryClazz = config.get(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "");
+
+    // TODO: we will need a better way to package the configs with application runner
+    if (ZkJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClazz)) {
+      ApplicationConfig appConfig = new ApplicationConfig(config);
       String groupId = String.format("app-%s-%s", appConfig.getAppName(), appConfig.getAppId());
-      return factory.getCoordinationService(groupId, uid, config);
+      return new ZkCoordinationServiceFactory().getCoordinationService(groupId, uid, config);
     } else {
       return null;
     }
@@ -184,7 +179,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   /**
    * Create intermediate streams using {@link org.apache.samza.execution.StreamManager}.
-   * If {@link CoordinationUtils} is provided, this function will first invoke leader election, and the leader
+   * If {@link CoordinationUtils} is provided, this function will first invoke leader election, Pand the leader
    * will create the streams. All the runner processes will wait on the latch that is released after the leader finishes
    * stream creation.
    * @param intStreams list of intermediate {@link StreamSpec}s
@@ -208,29 +203,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   /**
-   * Generates processorId for each {@link StreamProcessor} using the configured {@link ProcessorIdGenerator}
-   *
-   * @param config Application config
-   * @return String that uniquely represents an instance of {@link StreamProcessor} in the current JVM
-   */
-  /* package private */
-  String getProcessorId(Config config) {
-    // TODO: This check to be removed after 0.13+
-    ApplicationConfig appConfig = new ApplicationConfig(config);
-    if (appConfig.getProcessorId() != null) {
-      return appConfig.getProcessorId();
-    } else if (appConfig.getAppProcessorIdGeneratorClass() != null) {
-      ProcessorIdGenerator idGenerator = ClassLoaderHelper.fromClassName(appConfig.getAppProcessorIdGeneratorClass(),
-                                                                         ProcessorIdGenerator.class);
-      return idGenerator.generateProcessorId(config);
-    } else {
-      throw new ConfigException(
-          String.format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
-              ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
-    }
-  }
-
-  /**
    * Create {@link StreamProcessor} based on {@link StreamApplication} and the config
    * @param config config
    * @param app {@link StreamApplication}
@@ -238,17 +210,16 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
    */
   /* package private */
   StreamProcessor createStreamProcessor(
-      String processorId,
       Config config,
       StreamApplication app,
       StreamProcessorLifecycleListener listener) {
     Object taskFactory = TaskFactoryUtil.createTaskFactory(config, app, this);
     if (taskFactory instanceof StreamTaskFactory) {
       return new StreamProcessor(
-          processorId, config, new HashMap<>(), (StreamTaskFactory) taskFactory, listener);
+          config, new HashMap<>(), (StreamTaskFactory) taskFactory, listener);
     } else if (taskFactory instanceof AsyncStreamTaskFactory) {
       return new StreamProcessor(
-          processorId, config, new HashMap<>(), (AsyncStreamTaskFactory) taskFactory, listener);
+          config, new HashMap<>(), (AsyncStreamTaskFactory) taskFactory, listener);
     } else {
       throw new SamzaException(String.format("%s is not a valid task factory",
           taskFactory.getClass().getCanonicalName()));

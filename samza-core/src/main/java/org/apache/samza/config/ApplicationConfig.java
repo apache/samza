@@ -43,7 +43,6 @@ public class ApplicationConfig extends MapConfig {
    * environment. Hence, durability of the identifier is same as the guarantees provided by the runtime environment
    */
   public static final String APP_PROCESSOR_ID_GENERATOR_CLASS = "app.processor-id-generator.class";
-  public static final String APP_COORDINATION_SERVICE_FACTORY_CLASS = "app.coordination.service.factory.class";
   public static final String APP_NAME = "app.name";
   public static final String APP_ID = "app.id";
   public static final String APP_CLASS = "app.class";
@@ -54,10 +53,6 @@ public class ApplicationConfig extends MapConfig {
 
   public String getAppProcessorIdGeneratorClass() {
     return get(APP_PROCESSOR_ID_GENERATOR_CLASS, null);
-  }
-
-  public String getCoordinationServiceFactoryClass() {
-    return get(APP_COORDINATION_SERVICE_FACTORY_CLASS);
   }
 
   public String getAppName() {

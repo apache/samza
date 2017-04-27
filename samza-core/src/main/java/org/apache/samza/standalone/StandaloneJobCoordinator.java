@@ -33,6 +33,7 @@ import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
+import org.apache.samza.util.ProcessorIdUtil;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -80,10 +81,10 @@ public class StandaloneJobCoordinator implements JobCoordinator {
     this.jobModel = jobModel;
   }
 
-  public StandaloneJobCoordinator(String processorId, Config config, SamzaContainerController containerController) {
+  public StandaloneJobCoordinator(Config config, SamzaContainerController containerController) {
     this.config = config;
     this.containerController = containerController;
-    this.processorId = processorId;
+    this.processorId = ProcessorIdUtil.generateProcessorId(config);
 
     JavaSystemConfig systemConfig = new JavaSystemConfig(this.config);
     Map<String, SystemAdmin> systemAdmins = new HashMap<>();

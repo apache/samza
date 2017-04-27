@@ -27,8 +27,6 @@ import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
-import org.apache.samza.config.JobCoordinatorConfig;
-import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
@@ -37,6 +35,7 @@ import org.apache.samza.processor.SamzaContainerController;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
+import org.apache.samza.util.ProcessorIdUtil;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -64,20 +63,16 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private String newJobModelVersion;  // version published in ZK (by the leader)
   private JobModel jobModel;
 
-  public ZkJobCoordinator(String processorId, String groupId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
+  public ZkJobCoordinator(String groupId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
                           SamzaContainerController containerController) {
-    this.processorId = processorId;
+    this.processorId = ProcessorIdUtil.generateProcessorId(config);
     this.zkUtils = zkUtils;
     this.keyBuilder = zkUtils.getKeyBuilder();
     this.debounceTimer = debounceTimer;
     this.containerController = containerController;
     this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this);
     this.config = config;
-    this.coordinationUtils = Util.
-        <CoordinationServiceFactory>getObj(
-            new JobCoordinatorConfig(config)
-                .getJobCoordinationServiceFactoryClassName())
-        .getCoordinationService(groupId, String.valueOf(processorId), config);
+    this.coordinationUtils = new ZkCoordinationServiceFactory().getCoordinationService(groupId, String.valueOf(processorId), config);
 
     streamMetadataCache = getStreamMetadataCache();
   }

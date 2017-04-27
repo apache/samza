@@ -87,7 +87,6 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     // TopicExistsException since StreamProcessor auto-creates them.
     createTopics(inputTopic, outputTopic);
     final StreamProcessor processor = new StreamProcessor(
-        "1",
         new MapConfig(configs),
         new HashMap<>(),
         IdentityStreamTask::new,
@@ -112,7 +111,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     createTopics(inputTopic, outputTopic);
     final StreamTaskFactory stf = IdentityStreamTask::new;
     final StreamProcessor processor =
-        new StreamProcessor("1", configs, new HashMap<>(), stf, listener);
+        new StreamProcessor(configs, new HashMap<>(), stf, listener);
 
     produceMessages(inputTopic, messageCount);
     run(processor, endLatch);
@@ -134,7 +133,6 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     createTopics(inputTopic, outputTopic);
     final AsyncStreamTaskFactory stf = () -> new AsyncStreamTaskAdapter(new IdentityStreamTask(), executorService);
     final StreamProcessor processor = new StreamProcessor(
-        "1",
         configs,
         new HashMap<>(),
         stf,
@@ -161,7 +159,6 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     final Config configs = new MapConfig(configMap);
 
     StreamProcessor processor = new StreamProcessor(
-        "1",
         configs,
         new HashMap<>(),
         (StreamTaskFactory) null,

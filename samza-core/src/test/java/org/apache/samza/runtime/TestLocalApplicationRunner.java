@@ -22,6 +22,7 @@ package org.apache.samza.runtime;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
@@ -241,7 +242,7 @@ public class TestLocalApplicationRunner {
 
 
     LocalApplicationRunner spy = spy(runner);
-    doReturn(sp).when(spy).createStreamProcessor(anyString(), anyObject(), anyObject(), captor.capture());
+    doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
 
     spy.run(app);
 
@@ -293,7 +294,7 @@ public class TestLocalApplicationRunner {
 
 
     LocalApplicationRunner spy = spy(runner);
-    doReturn(sp).when(spy).createStreamProcessor(anyString(), anyObject(), anyObject(), captor.capture());
+    doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
 
     try {
       spy.run(app);
