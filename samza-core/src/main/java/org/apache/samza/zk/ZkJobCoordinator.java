@@ -161,7 +161,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
     String currentPath = zkUtils.getEphemeralPath();
     String data =  zkUtils.getProcessorsData(currentPath);
-    ZkUtils.ProcessorData processorData = new ZkUtils.ProcessorData(data);
+    ProcessorData processorData = new ProcessorData(data);
     String processorId = processorData.getProcessorId();
     String processorHost = processorData.getHost();
 

@@ -83,7 +83,7 @@ public class ZkLeaderElector implements LeaderElector {
 
   @Override
   public void tryBecomeLeader(LeaderElectorListener leaderElectorListener) {
-    String currentPath = zkUtils.registerProcessorAndGetId(new ZkUtils.ProcessorData(hostName, processorIdStr).toString());
+    String currentPath = zkUtils.registerProcessorAndGetId(new ProcessorData(hostName, processorIdStr));
 
     List<String> children = zkUtils.getSortedActiveProcessors();
     LOG.debug(zLog("Current active processors - " + children));

@@ -89,35 +89,35 @@ public class TestZkUtils {
 
   @Test
   public void testRegisterProcessorId() {
-    String assignedPath = zkUtils.registerProcessorAndGetId(new ZkUtils.ProcessorData("host", "1").toString());
+    String assignedPath = zkUtils.registerProcessorAndGetId(new ProcessorData("host", "1"));
     Assert.assertTrue(assignedPath.startsWith(KEY_BUILDER.getProcessorsPath()));
 
     // Calling registerProcessorId again should return the same ephemeralPath as long as the session is valid
-    Assert.assertTrue(zkUtils.registerProcessorAndGetId(new ZkUtils.ProcessorData("host", "1").toString()).equals(assignedPath));
+    Assert.assertTrue(zkUtils.registerProcessorAndGetId(new ProcessorData("host", "1")).equals(assignedPath));
 
   }
 
   @Test
   public void testGetActiveProcessors() {
     Assert.assertEquals(0, zkUtils.getSortedActiveProcessors().size());
-    zkUtils.registerProcessorAndGetId("processorData");
+    zkUtils.registerProcessorAndGetId(new ProcessorData("processorData", "1"));
     Assert.assertEquals(1, zkUtils.getSortedActiveProcessors().size());
   }
 
   @Test
   public void testGetProcessorsIDs() {
     Assert.assertEquals(0, zkUtils.getSortedActiveProcessorsIDs().size());
-    zkUtils.registerProcessorAndGetId(new ZkUtils.ProcessorData("host1", "1").toString());
+    zkUtils.registerProcessorAndGetId(new ProcessorData("host1", "1"));
     List<String> l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(1, l.size());
-    new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS).registerProcessorAndGetId(new ZkUtils.ProcessorData("host2", "2").toString());
+    new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS).registerProcessorAndGetId(new ProcessorData("host2", "2"));
     l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(2, l.size());
 
-    ZkUtils.ProcessorData pd = new ZkUtils.ProcessorData(l.get(0));
+    ProcessorData pd = new ProcessorData(l.get(0));
     Assert.assertEquals(" ID1 didn't match", "1", pd.getProcessorId());
     Assert.assertEquals(" Host1 didn't match", "host1", pd.getHost());
-    pd = new ZkUtils.ProcessorData(l.get(1));
+    pd = new ProcessorData(l.get(1));
     Assert.assertEquals(" ID2 didn't match", "2", pd.getProcessorId());
     Assert.assertEquals(" Host2 didn't match", "host2", pd.getHost());
   }

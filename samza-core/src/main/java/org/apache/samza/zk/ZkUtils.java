@@ -95,36 +95,6 @@ public class ZkUtils {
     return keyBuilder;
   }
 
-  public static class ProcessorData {
-    private final String processorId;
-    private final String host;
-
-    public ProcessorData(String host, String processorId) {
-      this.processorId = processorId;
-      this.host = host;
-    }
-
-    public ProcessorData(String data) {
-      String [] splt = data.split(" ");
-      if (splt.length != 2)
-        throw new SamzaException("incorrect processor data format = " + data);
-      host = splt[0];
-      processorId = splt[1];
-    }
-
-    public String toString() {
-      return host + " " + processorId;
-    }
-
-    public String getHost() {
-      return host;
-    }
-
-    public String getProcessorId() {
-      return processorId;
-    }
-  }
-
   /**
    * Returns a ZK generated identifier for this client.
    * If the current client is registering for the first time, it creates an ephemeral sequential node in the ZK tree
@@ -134,11 +104,11 @@ public class ZkUtils {
    * @param data Object that should be written as data in the registered ephemeral ZK node
    * @return String representing the absolute ephemeralPath of this client in the current session
    */
-  public synchronized String registerProcessorAndGetId(final Object data) {
+  public synchronized String registerProcessorAndGetId(final ProcessorData data) {
     if (ephemeralPath == null) {
       ephemeralPath =
           zkClient.createEphemeralSequential(
-              keyBuilder.getProcessorsPath() + "/", data);
+              keyBuilder.getProcessorsPath() + "/", data.toString());
 
       LOG.info("newly generated path for " + data +  " is " +  ephemeralPath);
       return ephemeralPath;
