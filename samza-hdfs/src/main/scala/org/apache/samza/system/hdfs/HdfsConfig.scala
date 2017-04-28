@@ -83,7 +83,7 @@ object HdfsConfig {
   val STAGING_DIRECTORY = "systems.%s.stagingDirectory"
   val STAGING_DIRECTORY_DEFAULT = ""
 
-  implicit def Hdfs2Kafka(config: Config) = new HdfsConfig(config)
+  implicit def Config2Hdfs(config: Config) = new HdfsConfig(config)
 
 }
 
