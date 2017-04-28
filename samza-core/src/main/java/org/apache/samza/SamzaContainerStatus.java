@@ -20,6 +20,7 @@ package org.apache.samza;
 
 
 /**
+ * <pre>
  *                                                                   runloop completed [OR]
  *                  container.run()           runloop.run            container.shutdown()
  *    NOT_STARTED -----------------> STARTING ------------> RUNNING -----------------------> STOPPED
@@ -29,7 +30,7 @@ package org.apache.samza;
  *                   starting components |      components       |
  *                                       V                       |
  *                                    FAILED <-------------------|
- *
+ * </pre>
  */
 
 /**
