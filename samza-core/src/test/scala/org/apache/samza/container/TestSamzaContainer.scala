@@ -193,22 +193,24 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics,
-      jmxServer = null,
-      containerListener = new SamzaContainerListener {
-        override def onContainerFailed(t: Throwable): Unit = {
-          onContainerFailedCalled = true
-          onContainerFailedThrowable = t
-        }
+      jmxServer = null)
 
-        override def onContainerStop(invokedExternally: Boolean): Unit = {
-          onContainerStopCalled = true
-        }
-
-        override def onContainerStart(): Unit = {
-          onContainerStartCalled = true
-        }
+    val containerListener = new SamzaContainerListener {
+      override def onContainerFailed(t: Throwable): Unit = {
+        onContainerFailedCalled = true
+        onContainerFailedThrowable = t
       }
-    )
+
+      override def onContainerStop(invokedExternally: Boolean): Unit = {
+        onContainerStopCalled = true
+      }
+
+      override def onContainerStart(): Unit = {
+        onContainerStartCalled = true
+      }
+    }
+    container.setContainerListener(containerListener)
+
     container.run
     assertTrue(task.wasShutdown)
     assertFalse(onContainerStartCalled)
@@ -272,22 +274,23 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics,
-      jmxServer = null,
-      containerListener = new SamzaContainerListener {
-        override def onContainerFailed(t: Throwable): Unit = {
-          onContainerFailedCalled = true
-          onContainerFailedThrowable = t
-        }
-
-        override def onContainerStop(invokedExternally: Boolean): Unit = {
-          onContainerStopCalled = true
-        }
-
-        override def onContainerStart(): Unit = {
-          onContainerStartCalled = true
-        }
+      jmxServer = null)
+    val containerListener = new SamzaContainerListener {
+      override def onContainerFailed(t: Throwable): Unit = {
+        onContainerFailedCalled = true
+        onContainerFailedThrowable = t
       }
-    )
+
+      override def onContainerStop(invokedExternally: Boolean): Unit = {
+        onContainerStopCalled = true
+      }
+
+      override def onContainerStart(): Unit = {
+        onContainerStartCalled = true
+      }
+    }
+    container.setContainerListener(containerListener)
+
     container.run
     assertTrue(task.wasShutdown)
     assertTrue(onContainerStartCalled)
@@ -353,22 +356,23 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics,
-      jmxServer = null,
-      containerListener = new SamzaContainerListener {
-        override def onContainerFailed(t: Throwable): Unit = {
-          onContainerFailedCalled = true
-          onContainerFailedThrowable = t
-        }
-
-        override def onContainerStop(invokedExternally: Boolean): Unit = {
-          onContainerStopCalled = true
-        }
-
-        override def onContainerStart(): Unit = {
-          onContainerStartCalled = true
-        }
+      jmxServer = null)
+    val containerListener = new SamzaContainerListener {
+      override def onContainerFailed(t: Throwable): Unit = {
+        onContainerFailedCalled = true
+        onContainerFailedThrowable = t
       }
-    )
+
+      override def onContainerStop(invokedExternally: Boolean): Unit = {
+        onContainerStopCalled = true
+      }
+
+      override def onContainerStart(): Unit = {
+        onContainerStartCalled = true
+      }
+    }
+    container.setContainerListener(containerListener)
+
     container.run
 
     assertTrue(task.wasShutdown)
@@ -435,8 +439,8 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics,
-      jmxServer = null,
-      containerListener = new SamzaContainerListener {
+      jmxServer = null)
+      val containerListener = new SamzaContainerListener {
         override def onContainerFailed(t: Throwable): Unit = {
           onContainerFailedCalled = true
           onContainerFailedThrowable = t
@@ -450,7 +454,8 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
           onContainerStartCalled = true
         }
       }
-    )
+    container.setContainerListener(containerListener)
+
     container.run
     assertFalse(onContainerFailedCalled)
     assertTrue(onContainerStartCalled)
@@ -511,8 +516,9 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics,
-      jmxServer = null,
-      containerListener = new SamzaContainerListener {
+      jmxServer = null)
+
+    val containerListener = new SamzaContainerListener {
         override def onContainerFailed(t: Throwable): Unit = {
           onContainerFailedCalled = true
           onContainerFailedThrowable = t
@@ -526,7 +532,8 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
           onContainerStartCalled = true
         }
       }
-    )
+    container.setContainerListener(containerListener)
+
     container.run
 
     assertTrue(onContainerFailedCalled)
@@ -577,14 +584,15 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       metrics = containerMetrics,
-      jmxServer = null,
-      containerListener = new SamzaContainerListener {override def onContainerFailed(t: Throwable): Unit = { }
+      jmxServer = null)
+    /*val containerListener = new SamzaContainerListener {
+      override def onContainerFailed(t: Throwable): Unit = { }
 
         override def onContainerStop(invokedExternally: Boolean): Unit = { }
 
         override def onContainerStart(): Unit = { }
-      }
-    )
+      }*/
+
     container.startStores
     assertNotNull(containerMetrics.taskStoreRestorationMetrics)
     assertNotNull(containerMetrics.taskStoreRestorationMetrics.get(taskName))

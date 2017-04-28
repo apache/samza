@@ -77,7 +77,8 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
           jobModel.maxChangeLogStreamPartitions,
           jmxServer,
           Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),
-          taskFactory,
+          taskFactory);
+      container.setContainerListener(
           new SamzaContainerListener() {
             @Override
             public void onContainerStart() {

@@ -70,16 +70,15 @@ public class StreamProcessor {
   JobCoordinatorListener jobCoordinatorListener = null;
   /* package-private */
   // Useful for testing
-/*  SamzaContainer createSamzaContainer(ContainerModel containerModel, int maxChangelogStreamPartitions, JmxServer jmxServer, SamzaContainerListener containerListener) {
+  SamzaContainer createSamzaContainer(ContainerModel containerModel, int maxChangelogStreamPartitions, JmxServer jmxServer) {
     return SamzaContainer.apply(
         containerModel,
         config,
         maxChangelogStreamPartitions,
         jmxServer,
         Util.<String, MetricsReporter>javaMapAsScalaMap(customMetricsReporter),
-        taskFactory,
-        containerListener);
-  }*/
+        taskFactory);
+  }
 
   /* package-private */
   // Useful for testing
@@ -118,10 +117,10 @@ public class StreamProcessor {
             @Override
             public void onContainerStart() {
               if (!processorOnStartCalled) {
-                processorListener.onStart();
                 // processorListener is called on start only the first time the container starts.
                 // It is not called after every re-balance of partitions among the processors
                 processorOnStartCalled = true;
+                processorListener.onStart();
               }
             }
 
@@ -152,8 +151,8 @@ public class StreamProcessor {
           container = createSamzaContainer(
               jobModel.getContainers().get(processorId),
               jobModel.maxChangeLogStreamPartitions,
-              new JmxServer(),
-              containerListener);
+              new JmxServer());
+          container.setContainerListener(containerListener);
           executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
               .setNameFormat("p-" + processorId + "-container-thread-%d").build());
           executorService.submit(container::run);
@@ -176,7 +175,7 @@ public class StreamProcessor {
         processorListener.onFailure(e);
       }
 
-      SamzaContainer createSamzaContainer(ContainerModel containerModel, int maxChangelogStreamPartitions, JmxServer jmxServer, SamzaContainerListener containerListener) {
+/*      SamzaContainer createSamzaContainer(ContainerModel containerModel, int maxChangelogStreamPartitions, JmxServer jmxServer, SamzaContainerListener containerListener) {
         return SamzaContainer.apply(
             containerModel,
             config,
@@ -185,7 +184,7 @@ public class StreamProcessor {
             Util.<String, MetricsReporter>javaMapAsScalaMap(customMetricsReporter),
             taskFactory,
             containerListener);
-      }
+      }*/
     };
   }
 

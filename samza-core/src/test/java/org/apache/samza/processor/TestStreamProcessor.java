@@ -18,10 +18,13 @@
  */
 package org.apache.samza.processor;
 
+import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.RunLoop;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTask;
@@ -31,6 +34,7 @@ import org.mockito.stubbing.Answer;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -45,7 +49,6 @@ public class TestStreamProcessor {
   // test Coordinator failure - correctly shutsdown the streamprocessor
   // test Container failure
   // test sp.stop
-
   @Test
   public void testStop() throws NoSuchFieldException, IllegalAccessException {
 //    SamzaContainer mockContainer = mock(SamzaContainer.class);

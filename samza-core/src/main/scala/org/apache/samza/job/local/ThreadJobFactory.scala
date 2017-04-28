@@ -66,16 +66,16 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     }
     try {
       coordinator.start
+      val container = SamzaContainer(
+        containerModel,
+        config,
+        jobModel.maxChangeLogStreamPartitions,
+        jmxServer,
+        Map[String, MetricsReporter](),
+        taskFactory)
+      container.setContainerListener(containerListener)
 
-      val threadJob = new ThreadJob(
-            SamzaContainer(
-              containerModel,
-              config,
-              jobModel.maxChangeLogStreamPartitions,
-              jmxServer,
-              Map[String, MetricsReporter](),
-              taskFactory,
-              containerListener))
+      val threadJob = new ThreadJob(container)
       threadJob
     } finally {
       coordinator.stop
