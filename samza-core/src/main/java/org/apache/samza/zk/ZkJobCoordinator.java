@@ -108,10 +108,13 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   @Override
   public void stop() {
+    if (coordinatorListener != null) {
+      coordinatorListener.onJobModelExpired();
+    }
     zkController.stop();
-    // TODO: Check logic here
-//    if (containerController != null)
-//      containerController.stopContainer();
+    if (coordinatorListener != null) {
+      coordinatorListener.onCoordinatorStop();
+    }
   }
 
   @Override
@@ -146,7 +149,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     log.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
     // if list of processors is empty - it means we are called from 'onBecomeLeader'
     generateNewJobModel(processors);
-    // TODO: Check logic here
     if (coordinatorListener != null) {
       coordinatorListener.onJobModelExpired();
     }
@@ -156,8 +158,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public void onNewJobModelAvailable(final String version) {
     log.info("pid=" + processorId + "new JobModel available");
     // stop current work
-    // TODO - Check logic here
-//    containerController.stopContainer();
+    if (coordinatorListener != null) {
+      coordinatorListener.onJobModelExpired();
+    }
     log.info("pid=" + processorId + "new JobModel available.Container stopped.");
     // get the new job model
     newJobModel = zkUtils.getJobModel(version);
@@ -182,9 +185,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     JobModel jobModel = getJobModel();
     log.info("pid=" + processorId + "got the new job model in JobModelConfirmed =" + jobModel);
 
-    // start the container with the new model TODO: Check logic here
-//    containerController.startContainer(jobModel.getContainers().get(processorId), jobModel.getConfig(),
-//        jobModel.maxChangeLogStreamPartitions);
+    // start the container with the new model
     if (coordinatorListener != null) {
       coordinatorListener.onNewJobModel(processorId, jobModel);
     }
