@@ -18,58 +18,97 @@
  */
 package org.apache.samza.processor;
 
+import org.apache.samza.SamzaContainerStatus;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.RunLoop;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsReporter;
-import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.StreamTaskFactory;
+import org.junit.Assert;
 import org.junit.Test;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 
-import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
 
+import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TestStreamProcessor {
 
-  // Test multiple start / stop and its ordering
-  // test onNewJobModel
-  // test onJobModelExpiry
-  // test Coordinator failure - correctly shutsdown the streamprocessor
-  // test Container failure
-  // test sp.stop
+  class TestableStreamProcessor extends StreamProcessor {
+    private final CountDownLatch containerStop = new CountDownLatch(1);
+    private final CountDownLatch runLoopStartForMain = new CountDownLatch(1);
+    private SamzaContainer containerReference = null;
+
+    public TestableStreamProcessor(
+        Config config,
+        Map<String, MetricsReporter> customMetricsReporters,
+        StreamTaskFactory streamTaskFactory,
+        StreamProcessorLifecycleListener processorListener,
+        JobCoordinator jobCoordinator) {
+      super(config, customMetricsReporters, streamTaskFactory, processorListener, jobCoordinator);
+    }
+
+    @Override
+    SamzaContainer createSamzaContainer(
+        ContainerModel containerModel,
+        int maxChangelogStreamPartitions,
+        JmxServer jmxServer) {
+      RunLoop mockRunLoop = mock(RunLoop.class);
+      doAnswer(invocation ->
+        {
+          try {
+            runLoopStartForMain.countDown();
+            containerStop.await();
+          } catch (InterruptedException e) {
+            System.out.println("In exception" + e);
+            e.printStackTrace();
+          }
+          return null;
+        }).when(mockRunLoop).run();
+
+      doAnswer(invocation ->
+        {
+          containerStop.countDown();
+          return null;
+        }).when(mockRunLoop).shutdown();
+      containerReference = StreamProcessorTestUtils.getDummyContainer(mockRunLoop, null, mock(StreamTask.class));
+      return containerReference;
+    }
+  }
+
+  /**
+   * Tests stop() method when container and JobCoordinator are running
+   */
   @Test
-  public void testStop() throws NoSuchFieldException, IllegalAccessException {
-//    SamzaContainer mockContainer = mock(SamzaContainer.class);
+  public void testStopByProcessor() {
     JobCoordinator mockJobCoordinator = mock(JobCoordinator.class);
 
-    final AtomicBoolean processorListenerStopCalled = new AtomicBoolean(false);
     final CountDownLatch processorListenerStop = new CountDownLatch(1);
-    StreamProcessor processor = new StreamProcessor(
-        "1",
+    final CountDownLatch processorListenerStart = new CountDownLatch(1);
+
+    TestableStreamProcessor processor = new TestableStreamProcessor(
         new MapConfig(),
         new HashMap<String, MetricsReporter>(),
-        mock(AsyncStreamTaskFactory.class),
+        mock(StreamTaskFactory.class),
         new StreamProcessorLifecycleListener() {
           @Override
           public void onStart() {
-
+            processorListenerStart.countDown();
           }
 
           @Override
           public void onShutdown() {
-            processorListenerStopCalled.getAndSet(true);
             processorListenerStop.countDown();
           }
 
@@ -80,105 +119,58 @@ public class TestStreamProcessor {
         },
         mockJobCoordinator);
 
-    SamzaContainerListener containerListener = new SamzaContainerListener() {
-      @Override
-      public void onContainerStart() {
-        System.out.println("Container Thread: onContainerStart()");
-      }
-
-      @Override
-      public void onContainerStop(boolean pausedOrNot) {
-        if (!pausedOrNot) {
-          System.out.println("Container Thread: onContainerStop()");
-          try {
-            Field containerField = processor.getClass().getDeclaredField("container");
-            containerField.setAccessible(true);
-            containerField.set(processor, null);
-          } catch (NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
-          }
-          processor.stop();
-        }
-      }
-
-      @Override
-      public void onContainerFailed(Throwable t) {
-
-      }
-    };
-
-    final CountDownLatch containerStop = new CountDownLatch(1);
-
-    RunLoop mockRunLoop = mock(RunLoop.class);
-    doAnswer(new Answer() {
-      @Override
-      public Object answer(InvocationOnMock invocation) throws Throwable {
-        try {
-          System.out.println("Starting Runloop");
-          containerStop.await();
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-        }
-        return null;
-      }
-    }).when(mockRunLoop).run();
-
-    doAnswer(new Answer() {
-      @Override
-      public Object answer(InvocationOnMock invocation) throws Throwable {
-        containerStop.countDown();
-        return null;
-      }
-    }).when(mockRunLoop).shutdown();
-
-
-    SamzaContainer container = StreamProcessorTestUtils.getDummyContainer(mockRunLoop, containerListener, mock(StreamTask.class));
-
-    Field containerField = processor.getClass().getDeclaredField("container");
-    containerField.setAccessible(true);
-    containerField.set(processor, container);
+    Map containers = mock(Map.class);
+    doReturn(true).when(containers).containsKey(anyString());
+    when(containers.get(anyString())).thenReturn(mock(ContainerModel.class));
+    JobModel mockJobModel = mock(JobModel.class);
+    when(mockJobModel.getContainers()).thenReturn(containers);
 
     final CountDownLatch coordinatorStop = new CountDownLatch(1);
-    final Thread jcThread = new Thread(new Runnable() {
-      @Override
-      public void run() {
+    final Thread jcThread = new Thread(() ->
+      {
         try {
-          System.out.println("Starting JC Thread");
+          processor.jobCoordinatorListener.onNewJobModel("1", mockJobModel);
           coordinatorStop.await();
           processor.jobCoordinatorListener.onCoordinatorStop();
         } catch (InterruptedException e) {
           e.printStackTrace();
         }
-      }
-    }, "JOBCOORDINATOR-THREAD");
+      }, "JOBCOORDINATOR-THREAD");
 
-    doAnswer(new Answer() {
-      @Override
-      public Object answer(InvocationOnMock invocation) throws Throwable {
-        System.out.println("coordinatorStop latch countdown");
+    doAnswer(invocation ->
+      {
         coordinatorStop.countDown();
         return null;
-      }
-    }).when(mockJobCoordinator).stop();
+      }).when(mockJobCoordinator).stop();
 
-
-    new Thread(new Runnable() {
-      @Override
-      public void run() {
-        System.out.println("Starting Container thread - run loop");
-        container.run();
-      }
-    }, "CONTAINER-THREAD").start();
-
-    jcThread.start();
+    doAnswer(invocation ->
+      {
+        jcThread.start();
+        return null;
+      }).when(mockJobCoordinator).start();
 
     try {
-      Thread.sleep(1000);
+      processor.start();
+      processorListenerStart.await();
+
+      Assert.assertEquals(SamzaContainerStatus.RUNNING, processor.containerReference.getStatus());
+
+      // This block is required for the mockRunloop is actually start.
+      // Otherwise, processor.stop gets triggered before mockRunloop begins to block
+      processor.runLoopStartForMain.await();
+
       processor.stop();
+
       processorListenerStop.await();
-      jcThread.join();
     } catch (InterruptedException e) {
       e.printStackTrace();
     }
   }
+
+  // Test multiple start / stop and its ordering
+  // test onNewJobModel
+  // test onJobModelExpiry
+  // test Coordinator failure - correctly shutsdown the streamprocessor
+  // test Container failure
+  // test sp.stop
 }

@@ -68,8 +68,7 @@ public class StreamProcessor {
 
   @VisibleForTesting
   JobCoordinatorListener jobCoordinatorListener = null;
-  /* package-private */
-  // Useful for testing
+
   SamzaContainer createSamzaContainer(ContainerModel containerModel, int maxChangelogStreamPartitions, JmxServer jmxServer) {
     return SamzaContainer.apply(
         containerModel,
@@ -80,8 +79,6 @@ public class StreamProcessor {
         taskFactory);
   }
 
-  /* package-private */
-  // Useful for testing
   JobCoordinatorListener createJobCoordinatorListener() {
     return new JobCoordinatorListener() {
       // onJobModelExpired HAS to be called before onNewJobModel before the coordinator shuts-down
@@ -174,17 +171,6 @@ public class StreamProcessor {
         stop(); // ??
         processorListener.onFailure(e);
       }
-
-/*      SamzaContainer createSamzaContainer(ContainerModel containerModel, int maxChangelogStreamPartitions, JmxServer jmxServer, SamzaContainerListener containerListener) {
-        return SamzaContainer.apply(
-            containerModel,
-            config,
-            maxChangelogStreamPartitions,
-            jmxServer,
-            Util.<String, MetricsReporter>javaMapAsScalaMap(customMetricsReporter),
-            taskFactory,
-            containerListener);
-      }*/
     };
   }
 
@@ -231,7 +217,7 @@ public class StreamProcessor {
   }
 
   @VisibleForTesting
-  StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters, Object taskFactory, StreamProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
+  StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, Object taskFactory, StreamProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
     this.taskFactory = taskFactory;
     this.config = config;
     this.customMetricsReporter = customMetricsReporters;
@@ -274,8 +260,10 @@ public class StreamProcessor {
    */
   public synchronized void stop() {
     if (container != null) {
+      System.out.println(Thread.currentThread().getName() + " Shutting down container from StreamProcessor");
       container.shutdown(false);
     } else {
+      System.out.println(Thread.currentThread().getName() + "Shutting down JobCoordinator from StreamProcessor");
       jobCoordinator.stop();
     }
   }

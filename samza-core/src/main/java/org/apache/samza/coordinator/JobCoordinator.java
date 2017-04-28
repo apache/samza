@@ -29,7 +29,26 @@ import org.apache.samza.processor.JobCoordinatorListener;
  *  based on the underlying environment. In some cases, ID assignment is completely config driven, while in other
  *  cases, ID assignment may require coordination with JobCoordinators of other StreamProcessors.
  *
- *  This interface contains methods required for the StreamProcessor to interact with JobCoordinator.
+ *  This interface contains methods required for the StreamProcessor to interact with JobCoordinator. StreamProcessor
+ *  registers a {@link JobCoordinatorListener} in order to get notified about JobModel changes and Coordinator state change.
+ *
+ * <pre>
+ *   {@code
+ *  *******************  start()                            ********************
+ *  *                 *----------------------------------->>*                  *
+ *  *                 *         onNewJobModel    ************                  *
+ *  *                 *<<------------------------* Job      *                  *
+ *  *                 *     onJobModelExpired    * Co-      *                  *
+ *  *                 *<<------------------------* ordinator*                  *
+ *  * StreamProcessor *     onCoordinatorStop    * Listener *  JobCoordinator  *
+ *  *                 *<<------------------------*          *                  *
+ *  *                 *  onCoordinatorFailure    *          *                  *
+ *  *                 *<<------------------------************                  *
+ *  *                 *  stop()                             *                  *
+ *  *                 *----------------------------------->>*                  *
+ *  *******************                                     ********************
+ *  }
+ *  </pre>
  */
 @InterfaceStability.Evolving
 public interface JobCoordinator {
@@ -54,7 +73,13 @@ public interface JobCoordinator {
    */
   String getProcessorId();
 
+  /**
+   * Registers a {@link JobCoordinatorListener} to receive notification on coordinator state changes and job model changes
+   *
+   * @param listener An instance of {@link JobCoordinatorListener}
+   */
   void setListener(JobCoordinatorListener listener);
+
   /**
    * Returns the current JobModel
    * The implementation of the JobCoordinator in the leader needs to know how to read the config and generate JobModel

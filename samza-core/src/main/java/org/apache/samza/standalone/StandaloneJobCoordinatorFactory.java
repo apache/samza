@@ -21,7 +21,6 @@ package org.apache.samza.standalone;
 import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
-import org.apache.samza.processor.JobCoordinatorListener;
 
 public class StandaloneJobCoordinatorFactory  implements JobCoordinatorFactory {
   @Override
