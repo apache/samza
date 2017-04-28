@@ -235,7 +235,6 @@ public class StorageRecovery extends CommandLine {
                 null,
                 new MetricsRegistryMap(),
                 changeLogSystemStreamPartition,
-                null,
                 containerContext);
             taskStores.put(storeName, storageEngine);
           }
