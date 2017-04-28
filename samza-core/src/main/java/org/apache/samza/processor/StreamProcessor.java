@@ -122,7 +122,9 @@ public class StreamProcessor {
                 // processorListener is called on start only the first time the container starts.
                 // It is not called after every re-balance of partitions among the processors
                 processorOnStartCalled = true;
-                processorListener.onStart();
+                if (processorListener != null) {
+                  processorListener.onStart();
+                }
               }
             }
 
@@ -182,7 +184,9 @@ public class StreamProcessor {
       public void onCoordinatorFailure(Throwable e) {
         LOGGER.info("Coordinator Failed. Stopping the processor.");
         stop();
-        processorListener.onFailure(e);
+        if (processorListener != null) {
+          processorListener.onFailure(e);
+        }
       }
     };
   }
