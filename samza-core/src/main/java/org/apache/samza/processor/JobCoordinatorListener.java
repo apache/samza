@@ -27,16 +27,17 @@ import org.apache.samza.job.model.JobModel;
 public interface JobCoordinatorListener {
   /**
    * <p>
-   *   Method invoked by a {@link org.apache.samza.coordinator.JobCoordinator} when either :
+   *   Method invoked by a {@link org.apache.samza.coordinator.JobCoordinator} in the following scenarios:
    * <ul>
-   *  <li>the existing {@link JobModel} is no longer valid due to either re-balancing [OR] </li>
-   *  <li>coordinator is shutting down</li>
+   *  <li>the existing {@link JobModel} is no longer valid due to either re-balancing </li>
+   *  <li>JobCoordinator is shutting down</li>
    * </ul>
    * </p>
    */
   void onJobModelExpired();
 
   /**
+   * TODO: Can change interface to ContainerModel if maxChangelogStreamPartitions can be made a part of ContainerModel
    * <p>
    *   Method invoked by a {@link org.apache.samza.coordinator.JobCoordinator} when there is new {@link JobModel}
    * available for use by the processor.

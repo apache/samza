@@ -53,23 +53,23 @@ import org.apache.samza.processor.JobCoordinatorListener;
 @InterfaceStability.Evolving
 public interface JobCoordinator {
   /**
-   * Starts the JobCoordinator which involves one or more of the following:
-   * * LeaderElector Module initialization, if any
-   * * If leader, generate JobModel. Else, read JobModel
+   * Starts the JobCoordinator, which generally consists of participating in LeaderElection and listening for JobModel
+   * changes.
    */
   void start();
 
   /**
-   * Cleanly shutting down the JobCoordinator involves:
-   * * Shutting down the Container
-   * * Shutting down the LeaderElection module (TBD: details depending on leader or not)
+   * Stops the JobCoordinator and notifies the registered {@link JobCoordinatorListener}, if any
    */
   void stop();
 
   /**
-   * Returns the logical ID assigned to the processor
-   * It is up to the user to ensure that different instances of StreamProcessor within a job have unique processor ID.
-   * @return integer representing the logical processor ID
+   * Returns the identifier assigned to the processor that is local to the instance of StreamProcessor.
+   *
+   * The semantics and format of the identifier returned should adhere to the specification defined in
+   * {@link org.apache.samza.runtime.ProcessorIdGenerator}
+   *
+   * @return String representing a unique logical processor ID
    */
   String getProcessorId();
 
