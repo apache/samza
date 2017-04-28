@@ -585,13 +585,6 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       producerMultiplexer = producerMultiplexer,
       metrics = containerMetrics,
       jmxServer = null)
-    /*val containerListener = new SamzaContainerListener {
-      override def onContainerFailed(t: Throwable): Unit = { }
-
-        override def onContainerStop(invokedExternally: Boolean): Unit = { }
-
-        override def onContainerStart(): Unit = { }
-      }*/
 
     container.startStores
     assertNotNull(containerMetrics.taskStoreRestorationMetrics)
