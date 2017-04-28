@@ -720,7 +720,12 @@ class SamzaContainer(
     }
   }
 
-  // Called by StreamProcessor.stop
+  /**
+   * Triggers shutdown of the run loop
+   *
+   * @param pausedByJm Boolean, When StreamProcessor itself is shutting down, this value should be False.
+   *                   Otherwise, True.
+   */
   def shutdown(pausedByJm: Boolean) = {
     paused = pausedByJm
     shutdownRunLoop()
