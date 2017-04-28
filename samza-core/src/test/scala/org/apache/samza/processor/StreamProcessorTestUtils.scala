@@ -51,14 +51,17 @@ object StreamProcessorTestUtils {
       containerContext
     )
 
-    new SamzaContainer(
+    val container = new SamzaContainer(
       containerContext = containerContext,
       taskInstances = Map(taskName -> taskInstance),
       runLoop = mockRunloop,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics,
-      jmxServer = null,
-      containerListener = containerListener)
+      jmxServer = null)
+    if (containerListener != null) {
+      container.setContainerListener(containerListener)
+    }
+    container
   }
 }

@@ -118,8 +118,7 @@ object SamzaContainer extends Logging {
     maxChangeLogStreamPartitions: Int,
     jmxServer: JmxServer,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
-    taskFactory: Object,
-    containerListener: SamzaContainerListener) = {
+    taskFactory: Object) = {
     val containerId = containerModel.getProcessorId()
     val containerName = getSamzaContainerName(containerId)
 
@@ -611,8 +610,7 @@ object SamzaContainer extends Logging {
       jmxServer = jmxServer,
       diskSpaceMonitor = diskSpaceMonitor,
       hostStatisticsMonitor = memoryStatisticsMonitor,
-      taskThreadPool = taskThreadPool,
-      containerListener = containerListener)
+      taskThreadPool = taskThreadPool)
   }
 }
 
@@ -631,8 +629,7 @@ class SamzaContainer(
   securityManager: SecurityManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   jvm: JvmMetrics = null,
-  taskThreadPool: ExecutorService = null,
-  containerListener: SamzaContainerListener) extends Runnable with Logging {
+  taskThreadPool: ExecutorService = null) extends Runnable with Logging {
 
   val shutdownMs = containerContext.config.getShutdownMs.getOrElse(5000L)
   var shutdownHookThread: Thread = null
@@ -640,8 +637,13 @@ class SamzaContainer(
   @volatile private var status = SamzaContainerStatus.NOT_STARTED
   private var exceptionSeen: Throwable  = null
   private var paused: Boolean = false
+  private var containerListener: SamzaContainerListener = null
 
   def getStatus(): SamzaContainerStatus = status
+
+  def setContainerListener(listener: SamzaContainerListener): Unit = {
+    containerListener = listener
+  }
 
   def run {
     try {
@@ -663,7 +665,9 @@ class SamzaContainer(
       addShutdownHook
       info("Entering run loop.")
       status = SamzaContainerStatus.RUNNING
-      containerListener.onContainerStart()
+      if (containerListener != null) {
+        containerListener.onContainerStart()
+      }
       runLoop.run
     } catch {
       case e: Throwable =>
@@ -706,9 +710,13 @@ class SamzaContainer(
 
     status match {
       case SamzaContainerStatus.STOPPED =>
+        if (containerListener != null) {
           containerListener.onContainerStop(paused)
+        }
       case SamzaContainerStatus.FAILED =>
-        containerListener.onContainerFailed(exceptionSeen)
+        if (containerListener != null) {
+          containerListener.onContainerFailed(exceptionSeen)
+        }
     }
   }
 
