@@ -38,7 +38,7 @@ object StorageConfig {
   val ACCESSLOG_STREAM = "access-log"
   val ACCESSLOG_SAMPLE = "stores.%s.accesslog.sample"
   val ACCESSLOG_STATUS = "stores.%s.accesslog"
-  val DEFAULT_ACCESSLOG_SAMPLE = 80
+  val DEFAULT_ACCESSLOG_SAMPLE = 50
 
 
   implicit def Config2Storage(config: Config) = new StorageConfig(config)

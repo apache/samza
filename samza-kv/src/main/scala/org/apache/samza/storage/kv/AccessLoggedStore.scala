@@ -45,51 +45,49 @@ class AccessLoggedStore[K, V](
     val DELETE_ALL = Value("delete_all")
   }
 
-  var interval = 0
   val streamName = storageConfig.getAccessLogStream(systemStreamPartition.getSystemStream.getStream)
   val systemStream = new SystemStream(systemStreamPartition.getSystemStream.getSystem, streamName)
   val partitionId: Int = systemStreamPartition.getPartition.getPartitionId
   val serializer = new StringSerde("UTF-8")
   val sample = storageConfig.getSamplingSetting(storeName)
   val generator = scala.util.Random
-
-  info("Setting stream name as " + streamName)
-  info("Sampling set to " + sample)
+  val DELIMITER = " || "
 
   def get(key: K): V = {
-    var message = DBOperations.READ + ", " + key
+    var message = DBOperations.READ + DELIMITER + key
     measureLatencyAndWriteToStream(message, store.get(key))
   }
 
   def getAll(keys: util.List[K]): util.Map[K, V] = {
-    var message = DBOperations.READ_ALL + ", " + keys.toString
+
+    var message = DBOperations.READ_ALL + DELIMITER + toStringKey(keys.iterator())
     measureLatencyAndWriteToStream(message, store.getAll(keys))
   }
 
   def put(key: K, value: V): Unit = {
-    var message = DBOperations.WRITE + ", "  + key
+    var message = DBOperations.WRITE + DELIMITER  + key
     measureLatencyAndWriteToStream(message, store.put(key, value))
   }
 
   def putAll(entries: util.List[Entry[K, V]]): Unit = {
     val iter = entries.iterator
-    var message = DBOperations.WRITE_ALL + ", "  + entries.toString
+    var message = DBOperations.WRITE_ALL + DELIMITER  + toStringEntry(iter)
     measureLatencyAndWriteToStream(message, store.putAll(entries))
   }
 
 
   def delete(key: K): Unit = {
-    var message = DBOperations.DELETE  + ", " + key
+    var message = DBOperations.DELETE  + DELIMITER + key
     measureLatencyAndWriteToStream(message, store.delete(key))
   }
 
   def deleteAll(keys: util.List[K]): Unit = {
-    var message = DBOperations.DELETE_ALL + ", " + keys.toString
+    var message = DBOperations.DELETE_ALL + DELIMITER + toStringKey(keys.iterator())
     measureLatencyAndWriteToStream(message, store.deleteAll(keys))
   }
 
   def range(from: K, to: K): KeyValueIterator[K, V] = {
-    var message = DBOperations.RANGE + ", (" + from + "," + to + ")"
+    var message = DBOperations.RANGE + DELIMITER +  "(" + from + "," + to + ")"
     measureLatencyAndWriteToStream(message, store.range(from, to))
   }
 
@@ -110,27 +108,32 @@ class AccessLoggedStore[K, V](
     trace("Flushed store.")
   }
 
-  def size[T](obj: T, serde: Serde[T]): Integer = {
-    if (obj == null) {
-      return 0
+
+  def toStringKey(list: util.Iterator[K]): String = {
+    var serializedValue = "( "
+    while(list.hasNext) {
+      serializedValue += list.next() + ", "
     }
-    val bytes = serde.toBytes(obj)
-    bytes.size
+    serializedValue += ") "
+    serializedValue
   }
 
-  private def addHeader() = {
-    val header = "operation, key, latency, time"
-    val timeStamp = System.nanoTime().toString
-    collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, serializer.toBytes(timeStamp), serializer.toBytes(header)))
-  }
+  def toStringEntry(iter: util.Iterator[Entry[K, V]]): String = {
+    var serializedValue = "( "
+    while(iter.hasNext) {
+      val entry = iter.next()
+      serializedValue += entry.getKey + ":" + entry.getValue + ", "
+    }
 
+    serializedValue += ") "
+    serializedValue
+  }
 
   private def measureLatencyAndWriteToStream[R](message: String, block: => R):R = {
     val time1 = System.nanoTime()
     val result = block
     val time2 = System.nanoTime()
-    if (generator.nextInt(100) > sample) {
-      info("Not logging this. " + sample)
+    if (generator.nextInt() > sample) {
       return result
     }
 
@@ -138,14 +141,8 @@ class AccessLoggedStore[K, V](
     var msg = message
     val timeStamp = System.nanoTime().toString
 
-    if (interval == 0) {
-      addHeader()
-    }
-
-    interval = 1
-    msg += ", " + latency + ", " + timeStamp
+    msg += DELIMITER + latency + DELIMITER + timeStamp
     collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, serializer.toBytes(timeStamp), serializer.toBytes(msg)))
-    info(systemStream.toString)
     result
   }
 
