@@ -44,10 +44,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
- * StreamProcessor can be embedded in any application or executed in a distributed environment (aka cluster) as an
- * independent process.
+ * <p>
+ *   StreamProcessor can be embedded in any application or executed in a distributed environment (aka cluster) as an
+ *   independent process.
+ * </p>
  *
- * Note: A single JVM can create multiple StreamProcessor instances. It is safe to create StreamProcessor instances in
+ * <b>Note</b>: A single JVM can create multiple StreamProcessor instances. It is safe to create StreamProcessor instances in
  * multiple threads.
  */
 @InterfaceStability.Evolving
@@ -56,18 +58,19 @@ public class StreamProcessor {
 
   private final JobCoordinator jobCoordinator;
   private final StreamProcessorLifecycleListener processorListener;
-  private ExecutorService executorService;
   private final Object taskFactory;
   private final Map<String, MetricsReporter> customMetricsReporter;
   private final Config config;
+  private ExecutorService executorService;
   private volatile SamzaContainer container = null;
-
-  private volatile boolean processorOnStartCalled = false;
-
-  private volatile CountDownLatch jcContainerLatch = new CountDownLatch(1);
 
   @VisibleForTesting
   JobCoordinatorListener jobCoordinatorListener = null;
+
+  // Latch used to synchronize between the JobCoordinator thread and the container thread, when the container is
+  // stopped due to re-balancing
+  private volatile CountDownLatch jcContainerLatch = new CountDownLatch(1);
+  private volatile boolean processorOnStartCalled = false;
 
   SamzaContainer createSamzaContainer(ContainerModel containerModel, int maxChangelogStreamPartitions, JmxServer jmxServer) {
     return SamzaContainer.apply(
@@ -81,10 +84,8 @@ public class StreamProcessor {
 
   JobCoordinatorListener createJobCoordinatorListener() {
     return new JobCoordinatorListener() {
-      // onJobModelExpired HAS to be called before onNewJobModel before the coordinator shuts-down
       @Override
       public void onJobModelExpired() {
-        // stop container
         if (container != null && container.getStatus().equals(SamzaContainerStatus.RUNNING)) {
           container.shutdown(true);
           boolean shutdownComplete = false;
@@ -103,10 +104,10 @@ public class StreamProcessor {
         }
       }
 
-      // TODO: Can change interface to ContainerModel if maxChangelogStreamPartitions can be made a part of ContainerModel
       @Override
       public void onNewJobModel(String processorId, JobModel jobModel) {
         if (!jobModel.getContainers().containsKey(processorId)) {
+          LOGGER.warn("JobModel did not contain the processorId. Stopping the processor.");
           stop();
         } else {
           jcContainerLatch = new CountDownLatch(1);
@@ -126,13 +127,13 @@ public class StreamProcessor {
               if (jcContainerLatch != null) {
                 jcContainerLatch.countDown();
               } else {
-                LOGGER.debug("JobCoordinatorLatch was null. It is possible for some component to be waiting.");
+                LOGGER.warn("JobCoordinatorLatch was null. It is possible for some component to be waiting.");
               }
 
               if (pauseByJm) {
                 LOGGER.info("Container " + container.toString() + " stopped due to a request from JobCoordinator.");
-                // do nothing
               } else {  // sp.stop was called or container stopped by itself
+                LOGGER.info("Container " + container.toString() + " stopped.");
                 container = null; // this guarantees that stop() doesn't try to stop container again
                 stop();
               }
@@ -140,7 +141,12 @@ public class StreamProcessor {
 
             @Override
             public void onContainerFailed(Throwable t) {
-              jcContainerLatch.countDown();
+              if (jcContainerLatch != null) {
+                jcContainerLatch.countDown();
+              } else {
+                LOGGER.warn("JobCoordinatorLatch was null. It is possible for some component to be waiting.");
+              }
+              LOGGER.info("Container failed with " + t + ". Stopping the processor.");
               stop();
             }
           };
@@ -150,6 +156,7 @@ public class StreamProcessor {
               jobModel.maxChangeLogStreamPartitions,
               new JmxServer());
           container.setContainerListener(containerListener);
+          LOGGER.info("Starting container " + container.toString());
           executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
               .setNameFormat("p-" + processorId + "-container-thread-%d").build());
           executorService.submit(container::run);
@@ -159,6 +166,7 @@ public class StreamProcessor {
       @Override
       public void onCoordinatorStop() {
         if (executorService != null) {
+          LOGGER.info("Shutting down the executor service.");
           executorService.shutdownNow();
         }
         if (processorListener != null) {
@@ -168,7 +176,8 @@ public class StreamProcessor {
 
       @Override
       public void onCoordinatorFailure(Throwable e) {
-        stop(); // ??
+        LOGGER.info("Coordinator Failed. Stopping the processor.");
+        stop();
         processorListener.onFailure(e);
       }
     };
@@ -260,10 +269,10 @@ public class StreamProcessor {
    */
   public synchronized void stop() {
     if (container != null) {
-      System.out.println(Thread.currentThread().getName() + " Shutting down container from StreamProcessor");
+      LOGGER.info("Shutting down container " + container.toString() + " from StreamProcessor");
       container.shutdown(false);
     } else {
-      System.out.println(Thread.currentThread().getName() + "Shutting down JobCoordinator from StreamProcessor");
+      LOGGER.info("Shutting down JobCoordinator from StreamProcessor");
       jobCoordinator.stop();
     }
   }
