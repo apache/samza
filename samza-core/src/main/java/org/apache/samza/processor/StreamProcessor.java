@@ -24,6 +24,7 @@ import org.apache.samza.SamzaContainerStatus;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
@@ -61,6 +62,7 @@ public class StreamProcessor {
   private final Object taskFactory;
   private final Map<String, MetricsReporter> customMetricsReporter;
   private final Config config;
+  private final long taskShutdownMs;
   private ExecutorService executorService;
   private volatile SamzaContainer container = null;
 
@@ -84,13 +86,14 @@ public class StreamProcessor {
 
   JobCoordinatorListener createJobCoordinatorListener() {
     return new JobCoordinatorListener() {
+
       @Override
       public void onJobModelExpired() {
         if (container != null && container.getStatus().equals(SamzaContainerStatus.RUNNING)) {
           container.shutdown(true);
           boolean shutdownComplete = false;
           try {
-            shutdownComplete = jcContainerLatch.await(10000, TimeUnit.MILLISECONDS);
+            shutdownComplete = jcContainerLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
           } catch (InterruptedException e) {
             LOGGER.warn("Container shutdown was interrupted!" + container.toString());
           }
@@ -111,6 +114,7 @@ public class StreamProcessor {
           stop();
         } else {
           jcContainerLatch = new CountDownLatch(1);
+
           SamzaContainerListener containerListener = new SamzaContainerListener() {
             @Override
             public void onContainerStart() {
@@ -193,6 +197,7 @@ public class StreamProcessor {
    * <p>
    * <b>Note:</b> Lifecycle of the ExecutorService is fully managed by the StreamProcessor, and NOT exposed to the user
    *
+   * @param processorId            String identifier for this processor
    * @param config                 Instance of config object - contains all configuration required for processing
    * @param customMetricsReporters Map of custom MetricReporter instances that are to be injected in the Samza job
    * @param asyncStreamTaskFactory The {@link AsyncStreamTaskFactory} to be used for creating task instances.
@@ -226,9 +231,11 @@ public class StreamProcessor {
   }
 
   @VisibleForTesting
-  StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, Object taskFactory, StreamProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
+  StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, Object taskFactory,
+                  StreamProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
     this.taskFactory = taskFactory;
     this.config = config;
+    this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
     this.customMetricsReporter = customMetricsReporters;
     this.processorListener = processorListener;
     this.jobCoordinator = jobCoordinator;
@@ -240,6 +247,7 @@ public class StreamProcessor {
                           Object taskFactory, StreamProcessorLifecycleListener processorListener) {
     this.taskFactory = taskFactory;
     this.config = config;
+    this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
     this.customMetricsReporter = customMetricsReporters;
     this.processorListener = processorListener;
     this.jobCoordinator = getJobCoordinator(processorId);
@@ -247,25 +255,17 @@ public class StreamProcessor {
   }
 
   /**
-   * StreamProcessor Lifecycle: start()
-   * <ul>
-   * <li>Starts the JobCoordinator and fetches the JobModel</li>
-   * <li>jobCoordinator.start returns after starting the container using ContainerModel </li>
-   * </ul>
-   * When start() returns, it only guarantees that the container is initialized and submitted by the controller to
-   * execute
+   * Starts the JobCoordinator in StreamProcessor.
    */
   public void start() {
     jobCoordinator.start();
   }
 
   /**
-   * StreamProcessor Lifecycle: stop()
-   * <ul>
-   * <li>Stops the SamzaContainer execution</li>
-   * <li>Stops the JobCoordinator</li>
-   * </ul>
-   * Can be invoked by the user of StreamProcessor api or by any of the components in StreamProcessor (JobCoordinator or SamzaContainer)
+   * Stops the Streamprocessor's running components.
+   *
+   * Can be invoked by the user of StreamProcessor api or by any of the components in StreamProcessor (JobCoordinator
+   * or SamzaContainer)
    */
   public synchronized void stop() {
     if (container != null) {

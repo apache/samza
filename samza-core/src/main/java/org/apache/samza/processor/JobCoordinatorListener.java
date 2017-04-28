@@ -26,13 +26,11 @@ import org.apache.samza.job.model.JobModel;
  */
 public interface JobCoordinatorListener {
   /**
-   * <p>
-   *   Method invoked by a {@link org.apache.samza.coordinator.JobCoordinator} in the following scenarios:
+   * Method invoked by a {@link org.apache.samza.coordinator.JobCoordinator} in the following scenarios:
    * <ul>
    *  <li>the existing {@link JobModel} is no longer valid due to either re-balancing </li>
    *  <li>JobCoordinator is shutting down</li>
    * </ul>
-   * </p>
    */
   void onJobModelExpired();
 

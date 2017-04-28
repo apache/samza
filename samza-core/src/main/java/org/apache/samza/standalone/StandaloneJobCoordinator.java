@@ -18,10 +18,6 @@
  */
 package org.apache.samza.standalone;
 
-import com.google.common.annotations.VisibleForTesting;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
@@ -29,7 +25,6 @@ import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.processor.JobCoordinatorListener;
-import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
@@ -37,6 +32,10 @@ import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Standalone Job Coordinator does not implement any leader elector module or cluster manager
@@ -67,17 +66,9 @@ public class StandaloneJobCoordinator implements JobCoordinator {
   private final Config config;
   private JobCoordinatorListener coordinatorListener = null;
 
-  @VisibleForTesting
-  StandaloneJobCoordinator(
-      ProcessorIdGenerator processorIdGenerator,
-      Config config) {
-    this.processorId = processorIdGenerator.generateProcessorId(config);
-    this.config = config;
-  }
-
   public StandaloneJobCoordinator(String processorId, Config config) {
-    this.config = config;
     this.processorId = processorId;
+    this.config = config;
   }
 
   @Override
