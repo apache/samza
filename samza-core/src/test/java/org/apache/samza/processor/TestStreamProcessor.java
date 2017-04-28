@@ -135,7 +135,7 @@ public class TestStreamProcessor {
         } catch (InterruptedException e) {
           e.printStackTrace();
         }
-      }, "JOBCOORDINATOR-THREAD");
+      });
 
     doAnswer(invocation ->
       {

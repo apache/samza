@@ -62,7 +62,7 @@ import org.slf4j.LoggerFactory;
  * </ul>
  * */
 public class StandaloneJobCoordinator implements JobCoordinator {
-  private static final Logger log = LoggerFactory.getLogger(StandaloneJobCoordinator.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(StandaloneJobCoordinator.class);
   private final String processorId;
   private final Config config;
   private JobCoordinatorListener coordinatorListener = null;
@@ -83,9 +83,19 @@ public class StandaloneJobCoordinator implements JobCoordinator {
   @Override
   public void start() {
     // No-op
-    JobModel jobModel = getJobModel();
-    if (jobModel.getContainers().containsKey(processorId) && coordinatorListener != null) {
-      coordinatorListener.onNewJobModel(processorId, getJobModel());
+    JobModel jobModel = null;
+    try {
+      jobModel = getJobModel();
+    } catch (Exception e) {
+      LOGGER.error("Exception while trying to getJobModel.", e);
+      if (coordinatorListener != null) {
+        coordinatorListener.onCoordinatorFailure(e);
+      }
+    }
+    if (jobModel != null && jobModel.getContainers().containsKey(processorId)) {
+      if (coordinatorListener != null) {
+        coordinatorListener.onNewJobModel(processorId, jobModel);
+      }
     } else {
       stop();
     }
@@ -117,7 +127,7 @@ public class StandaloneJobCoordinator implements JobCoordinator {
     for (String systemName: systemConfig.getSystemNames()) {
       String systemFactoryClassName = systemConfig.getSystemFactory(systemName);
       if (systemFactoryClassName == null) {
-        log.error(String.format("A stream uses system %s, which is missing from the configuration.", systemName));
+        LOGGER.error(String.format("A stream uses system %s, which is missing from the configuration.", systemName));
         throw new SamzaException(String.format("A stream uses system %s, which is missing from the configuration.", systemName));
       }
       SystemFactory systemFactory = Util.<SystemFactory>getObj(systemFactoryClassName);
