@@ -20,7 +20,6 @@ package org.apache.samza.coordinator;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
-import org.apache.samza.processor.JobCoordinatorListener;
 
 @InterfaceStability.Evolving
 public interface JobCoordinatorFactory {
