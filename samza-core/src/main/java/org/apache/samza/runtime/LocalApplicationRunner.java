@@ -19,35 +19,36 @@
 
 package org.apache.samza.runtime;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+  import org.apache.commons.lang3.StringUtils;
+  import org.apache.samza.SamzaException;
+  import org.apache.samza.application.StreamApplication;
+  import org.apache.samza.config.ApplicationConfig;
+  import org.apache.samza.config.Config;
+  import org.apache.samza.config.ConfigException;
+  import org.apache.samza.coordinator.CoordinationServiceFactory;
+  import org.apache.samza.coordinator.CoordinationUtils;
+  import org.apache.samza.coordinator.Latch;
+  import org.apache.samza.coordinator.LeaderElector;
+  import org.apache.samza.execution.ExecutionPlan;
+  import org.apache.samza.job.ApplicationStatus;
+  import org.apache.samza.processor.StreamProcessor;
+  import org.apache.samza.processor.StreamProcessorLifecycleListener;
+  import org.apache.samza.system.StreamSpec;
+  import org.apache.samza.task.AsyncStreamTaskFactory;
+  import org.apache.samza.task.StreamTaskFactory;
+  import org.apache.samza.task.TaskFactoryUtil;
+  import org.apache.samza.util.ClassLoaderHelper;
+  import org.eclipse.jetty.util.ConcurrentHashSet;
+  import org.slf4j.Logger;
+  import org.slf4j.LoggerFactory;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.ApplicationConfig;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
-import org.apache.samza.coordinator.CoordinationServiceFactory;
-import org.apache.samza.coordinator.CoordinationUtils;
-import org.apache.samza.coordinator.Latch;
-import org.apache.samza.execution.ExecutionPlan;
-import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.processor.StreamProcessor;
-import org.apache.samza.processor.StreamProcessorLifecycleListener;
-import org.apache.samza.system.StreamSpec;
-import org.apache.samza.task.AsyncStreamTaskFactory;
-import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.task.TaskFactoryUtil;
-import org.apache.samza.util.ClassLoaderHelper;
-import org.eclipse.jetty.util.ConcurrentHashSet;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+  import java.util.ArrayList;
+  import java.util.HashMap;
+  import java.util.List;
+  import java.util.UUID;
+  import java.util.concurrent.CountDownLatch;
+  import java.util.concurrent.TimeUnit;
+  import java.util.concurrent.atomic.AtomicReference;
 
 
 /**
@@ -177,10 +178,12 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     if (!intStreams.isEmpty()) {
       if (coordination != null) {
         Latch initLatch = coordination.getLatch(1, LATCH_INIT);
-        coordination.getLeaderElector().tryBecomeLeader(() -> {
+        LeaderElector leaderElector = coordination.getLeaderElector();
+        leaderElector.setLeaderElectorListener(() -> {
             getStreamManager().createStreams(intStreams);
             initLatch.countDown();
           });
+        leaderElector.tryBecomeLeader();
         initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
       } else {
         // each application process will try creating the streams, which

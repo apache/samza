@@ -153,8 +153,15 @@ public class TestLocalApplicationRunner {
 
     CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
     LeaderElector leaderElector = new LeaderElector() {
+      private LeaderElectorListener leaderElectorListener;
+
       @Override
-      public void tryBecomeLeader(LeaderElectorListener leaderElectorListener) {
+      public void setLeaderElectorListener(LeaderElectorListener listener) {
+        this.leaderElectorListener = listener;
+      }
+
+      @Override
+      public void tryBecomeLeader() {
         leaderElectorListener.onBecomingLeader();
       }
 
@@ -166,6 +173,7 @@ public class TestLocalApplicationRunner {
         return false;
       }
     };
+
     Latch latch = new Latch() {
       boolean done = false;
       @Override

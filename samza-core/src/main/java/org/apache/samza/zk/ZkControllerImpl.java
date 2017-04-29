@@ -22,7 +22,7 @@ package org.apache.samza.zk;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.apache.samza.SamzaException;
-import org.apache.samza.coordinator.LeaderElectorListener;
+import org.apache.samza.coordinator.LeaderElector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +35,7 @@ public class ZkControllerImpl implements ZkController {
   private final String processorIdStr;
   private final ZkUtils zkUtils;
   private final ZkControllerListener zkControllerListener;
-  private final ZkLeaderElector leaderElector;
+  private final LeaderElector leaderElector;
   private final ScheduleAfterDebounceTime debounceTimer;
 
   public ZkControllerImpl(String processorIdStr, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer,
@@ -44,6 +44,12 @@ public class ZkControllerImpl implements ZkController {
     this.zkUtils = zkUtils;
     this.zkControllerListener = zkControllerListener;
     this.leaderElector = new ZkLeaderElector(processorIdStr, zkUtils, debounceTimer);
+    leaderElector.setLeaderElectorListener(() -> {
+        zkUtils.subscribeToProcessorChange(new ZkProcessorChangeHandler(debounceTimer));
+        // inform the caller
+        this.zkControllerListener.onBecomeLeader();
+      });
+
     this.debounceTimer = debounceTimer;
 
     init();
@@ -62,15 +68,7 @@ public class ZkControllerImpl implements ZkController {
   public void register() {
     // TODO - make a loop here with some number of attempts.
     // possibly split into two method - becomeLeader() and becomeParticipant()
-    leaderElector.tryBecomeLeader(new LeaderElectorListener() {
-      @Override
-      public void onBecomingLeader() {
-        listenToProcessorLiveness();
-
-        // inform the caller
-        zkControllerListener.onBecomeLeader();
-      }
-    });
+    leaderElector.tryBecomeLeader();
 
     // subscribe to JobModel version updates
     zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(debounceTimer));
@@ -92,11 +90,6 @@ public class ZkControllerImpl implements ZkController {
       leaderElector.resignLeadership();
     }
     zkUtils.close();
-  }
-
-  @Override
-  public void listenToProcessorLiveness() {
-    zkUtils.subscribeToProcessorChange(new ZkProcessorChangeHandler(debounceTimer));
   }
 
   // Only by Leader

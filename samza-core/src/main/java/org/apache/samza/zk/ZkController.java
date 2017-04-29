@@ -28,5 +28,4 @@ public interface ZkController {
   boolean isLeader();
   void notifyJobModelChange(String version);
   void stop();
-  void listenToProcessorLiveness();
 }

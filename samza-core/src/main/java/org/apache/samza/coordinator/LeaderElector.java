@@ -32,11 +32,16 @@ import org.apache.samza.annotation.InterfaceStability;
 @InterfaceStability.Evolving
 public interface LeaderElector {
   /**
-   * Async method that helps the caller participate in leader election.
+   * Register a LeaderElectorListener
    *
-   * @param leaderElectorListener to be invoked if the caller is chosen as a leader through the leader election process
+   * @param listener {@link LeaderElectorListener} interfaces to be invoked upon completion of leader election participation
    */
-  void tryBecomeLeader(LeaderElectorListener leaderElectorListener);
+  void setLeaderElectorListener(LeaderElectorListener listener);
+
+  /**
+   * Async method that helps the caller participate in leader election.
+   **/
+  void tryBecomeLeader();
 
   /**
    * Method that allows a caller to resign from leadership role. Caller can resign from leadership due to various
