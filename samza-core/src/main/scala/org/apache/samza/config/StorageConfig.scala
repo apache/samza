@@ -50,6 +50,13 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
   def getStorageKeySerde(name: String) = getOption(StorageConfig.KEY_SERDE format name)
   def getStorageMsgSerde(name: String) = getOption(StorageConfig.MSG_SERDE format name)
 
+  def getAccessLogSetting(storeName: String) = {
+    if (containsKey(ACCESSLOG_STATUS format storeName))
+      getBoolean(ACCESSLOG_STATUS format storeName)
+    else
+      false
+  }
+
   def getChangelogStream(name: String) = {
     // If the config specifies 'stores.<storename>.changelog' as '<system>.<stream>' combination - it will take precedence.
     // If this config only specifies <astream> and there is a value in job.changelog.system=<asystem> -
@@ -79,7 +86,8 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
   def getSamplingSetting(storeName: String) = {
     if (containsKey(ACCESSLOG_SAMPLE format storeName))
       getInt(ACCESSLOG_SAMPLE format storeName)
-    DEFAULT_ACCESSLOG_SAMPLE
+    else
+      DEFAULT_ACCESSLOG_SAMPLE
   }
 
   def getChangeLogDeleteRetentionInMs(storeName: String) = {

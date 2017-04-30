@@ -48,6 +48,7 @@ import org.apache.samza.system.SystemFactory
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.system.SystemStreamPartitionMatcher
 import org.apache.samza.system.SystemAdmin
+import org.apache.samza.system.StreamSpec
 import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
 import org.apache.samza.Partition
@@ -138,6 +139,7 @@ object JobModelManager extends Logging {
     changelogManager.writeChangeLogPartitionMapping(newChangelogPartitionMapping.asJava)
 
     createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions)
+    createAccessLogStreams(config, jobModel.maxChangeLogStreamPartitions)
 
     jobModelManager
   }
@@ -295,6 +297,28 @@ object JobModelManager extends Logging {
         ).getAdmin(systemStream.getSystem, config)
 
       systemAdmin.createChangelogStream(systemStream.getStream, changeLogPartitions)
+    }
+  }
+
+  private def createAccessLogStreams(config: StorageConfig, changeLogPartitions: Int): Unit = {
+    val changeLogSystemStreams = config
+      .getStoreNames
+      .filter(config.getChangelogStream(_).isDefined)
+      .map(name => (name, config.getChangelogStream(name).get)).toMap
+      .mapValues(Util.getSystemStreamFromNames(_))
+
+    for ((storeName, systemStream) <- changeLogSystemStreams) {
+      val accessLog = config.getAccessLogSetting(storeName)
+      if (accessLog) {
+        val systemAdmin = Util.getObj[SystemFactory](config
+          .getSystemFactory(systemStream.getSystem)
+          .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemStream.getSystem))
+        ).getAdmin(systemStream.getSystem, config)
+
+        val accessLogSpec = new StreamSpec(config.getAccessLogStream(systemStream.getStream) + "_id",
+          config.getAccessLogStream(systemStream.getStream), systemStream.getSystem, changeLogPartitions)
+        systemAdmin.createStream(accessLogSpec)
+      }
     }
   }
 
