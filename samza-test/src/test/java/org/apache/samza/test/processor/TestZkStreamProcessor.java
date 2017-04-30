@@ -98,11 +98,11 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
 
   private StreamProcessor createStreamProcessor(String pId, Map<String, String> map) {
     map.put(PROCESSOR_ID, pId);
-    Config configs = new MapConfig(map);
+    //Config configs = new MapConfig(map);
 
     StreamProcessor processor = new StreamProcessor(
-        "1",
-        new MapConfig(configs),
+        pId,
+        new MapConfig(map),
         new HashMap<>(),
         TestStreamTask::new,
         listener);
