@@ -139,7 +139,7 @@ class AccessLoggedStore[K, V](
 
     val latency = time2 - time1
     var msg = message
-    val timeStamp = System.nanoTime().toString
+    val timeStamp = System.currentTimeMillis().toString
 
     msg += DELIMITER + latency + DELIMITER + timeStamp
     collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, serializer.toBytes(timeStamp), serializer.toBytes(msg)))
