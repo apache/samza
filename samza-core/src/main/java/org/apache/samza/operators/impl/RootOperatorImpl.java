@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -61,6 +62,16 @@ public final class RootOperatorImpl<M> extends OperatorImpl<M, M> {
       @Override
       public int getOpId() {
         return -1;
+      }
+
+      @Override
+      public Map<String, Object> toJsonMap() {
+        return Collections.EMPTY_MAP;
+      }
+
+      @Override
+      public StackTraceElement getSourceLocation() {
+        return null;
       }
     };
   }

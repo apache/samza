@@ -20,11 +20,9 @@ package org.apache.samza.operators.spec;
 
 import java.util.Collections;
 import java.util.Map;
-import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.util.OperatorJsonUtils;
-import org.apache.samza.task.TaskContext;
 
 
 /**

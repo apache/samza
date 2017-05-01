@@ -20,11 +20,9 @@ package org.apache.samza.operators.spec;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.util.OperatorJsonUtils;
-import org.apache.samza.task.TaskContext;
 
 
 /**
