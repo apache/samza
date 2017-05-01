@@ -26,7 +26,6 @@ import java.util.List;
  * callbacks to the caller of the ZkController
  */
 public interface ZkControllerListener {
-  void onBecomeLeader();
   void onProcessorChange(List<String> processorIds);
 
   void onNewJobModelAvailable(String version); // start job model update (stop current work)

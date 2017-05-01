@@ -28,6 +28,8 @@ import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
+import org.apache.samza.coordinator.LeaderElector;
+import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.system.StreamMetadataCache;
@@ -75,8 +77,10 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         .getCoordinationService(new ApplicationConfig(config).getGlobalAppId(), String.valueOf(processorId), config);
 
     this.zkUtils = ((ZkCoordinationUtils) coordinationUtils).getZkUtils();
-    this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this);
+    LeaderElector leaderElector = new ZkLeaderElector(this.processorId, zkUtils, debounceTimer);
+    leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
 
+    this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this, leaderElector);
     streamMetadataCache = getStreamMetadataCache();
   }
 
@@ -131,24 +135,17 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   //////////////////////////////////////////////// LEADER stuff ///////////////////////////
   @Override
-  public void onBecomeLeader() {
-    log.info("ZkJobCoordinator::onBecomeLeader - I became the leader!");
-
-    List<String> emptyList = new ArrayList<>();
-
-    // actual actions to do are the same as onProcessorChange()
-    debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> onProcessorChange(emptyList));
-  }
-
-  @Override
   public void onProcessorChange(List<String> processors) {
-    log.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
-    // if list of processors is empty - it means we are called from 'onBecomeLeader'
-    generateNewJobModel(processors);
-    if (coordinatorListener != null) {
-      coordinatorListener.onJobModelExpired();
-    }
+    debounceTimer.scheduleAfterDebounceTime(
+        ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
+        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> {
+        log.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
+        // if list of processors is empty - it means we are called from 'onBecomeLeader'
+        generateNewJobModel(processors);
+        if (coordinatorListener != null) {
+          coordinatorListener.onJobModelExpired();
+        }
+      });
   }
 
   @Override
@@ -236,5 +233,15 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     // publish new JobModel version
     zkUtils.publishJobModelVersion(currentJMVersion, nextJMVersion);
     log.info("pid=" + processorId + "published new JobModel ver=" + nextJMVersion);
+  }
+
+  class LeaderElectorListenerImpl implements LeaderElectorListener {
+    @Override
+    public void onBecomingLeader() {
+      log.info("ZkJobCoordinator::onBecomeLeader - I became the leader!");
+      zkController.subscribeToProcessorChange();
+      // actual actions to do are the same as onProcessorChange()
+      onProcessorChange(new ArrayList<>());
+    }
   }
 }

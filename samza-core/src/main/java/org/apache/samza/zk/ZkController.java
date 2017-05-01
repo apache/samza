@@ -22,10 +22,15 @@ package org.apache.samza.zk;
 
 /**
  * Api to the functionality provided by ZK
+ *
+ * Api for JC -&gt; ZK communication
  */
 public interface ZkController {
   void register();
   boolean isLeader();
   void notifyJobModelChange(String version);
   void stop();
+
+  // Leader
+  void subscribeToProcessorChange();
 }

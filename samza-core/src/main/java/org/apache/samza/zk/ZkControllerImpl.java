@@ -35,21 +35,15 @@ public class ZkControllerImpl implements ZkController {
   private final String processorIdStr;
   private final ZkUtils zkUtils;
   private final ZkControllerListener zkControllerListener;
-  private final LeaderElector leaderElector;
+  private final LeaderElector zkLeaderElector;
   private final ScheduleAfterDebounceTime debounceTimer;
 
   public ZkControllerImpl(String processorIdStr, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer,
-      ZkControllerListener zkControllerListener) {
+      ZkControllerListener zkControllerListener, LeaderElector zkLeaderElector) {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
     this.zkControllerListener = zkControllerListener;
-    this.leaderElector = new ZkLeaderElector(processorIdStr, zkUtils, debounceTimer);
-    leaderElector.setLeaderElectorListener(() -> {
-        zkUtils.subscribeToProcessorChange(new ZkProcessorChangeHandler(debounceTimer));
-        // inform the caller
-        this.zkControllerListener.onBecomeLeader();
-      });
-
+    this.zkLeaderElector = zkLeaderElector;
     this.debounceTimer = debounceTimer;
 
     init();
@@ -68,7 +62,7 @@ public class ZkControllerImpl implements ZkController {
   public void register() {
     // TODO - make a loop here with some number of attempts.
     // possibly split into two method - becomeLeader() and becomeParticipant()
-    leaderElector.tryBecomeLeader();
+    zkLeaderElector.tryBecomeLeader();
 
     // subscribe to JobModel version updates
     zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(debounceTimer));
@@ -76,7 +70,7 @@ public class ZkControllerImpl implements ZkController {
 
   @Override
   public boolean isLeader() {
-    return leaderElector.amILeader();
+    return zkLeaderElector.amILeader();
   }
 
   @Override
@@ -87,17 +81,18 @@ public class ZkControllerImpl implements ZkController {
   @Override
   public void stop() {
     if (isLeader()) {
-      leaderElector.resignLeadership();
+      zkLeaderElector.resignLeadership();
     }
     zkUtils.close();
   }
 
+  @Override
+  public void subscribeToProcessorChange() {
+    zkUtils.subscribeToProcessorChange(new ProcessorChangeHandler());
+  }
+
   // Only by Leader
-  class ZkProcessorChangeHandler  implements IZkChildListener {
-    private final ScheduleAfterDebounceTime debounceTimer;
-    public ZkProcessorChangeHandler(ScheduleAfterDebounceTime debounceTimer) {
-      this.debounceTimer = debounceTimer;
-    }
+  class ProcessorChangeHandler implements IZkChildListener {
     /**
      * Called when the children of the given path changed.
      *
@@ -108,10 +103,9 @@ public class ZkControllerImpl implements ZkController {
     @Override
     public void handleChildChange(String parentPath, List<String> currentChildren) throws Exception {
       LOG.info(
-          "ZkControllerImpl::ZkProcessorChangeHandler::handleChildChange - Path: " + parentPath + "  Current Children: "
+          "ZkControllerImpl::ProcessorChangeHandler::handleChildChange - Path: " + parentPath + "  Current Children: "
               + currentChildren);
-      debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-          ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> zkControllerListener.onProcessorChange(currentChildren));
+      zkControllerListener.onProcessorChange(currentChildren);
     }
   }
 
