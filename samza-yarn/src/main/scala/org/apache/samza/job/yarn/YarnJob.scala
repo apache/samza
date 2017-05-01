@@ -140,7 +140,7 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
         client.status(appId).getOrElse(null)
       case None =>
         logger.info("Unable to report status because no applicationId could be found.")
-        null
+        ApplicationStatus.SuccessfulFinish
     }
   }
 
@@ -171,12 +171,16 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
             logger.info("Fetching status from YARN for application name %s" format applicationName)
             val applicationIds = client.getActiveApplicationIds(applicationName)
 
-            applicationIds.foreach(applicationId =>  {
-              logger.info("Found applicationId %s for applicationName %s" format(applicationId, applicationName))
-            })
+            if (applicationIds.nonEmpty) {
+              // Only return latest one, because there should only be one.
+              logger.info("Matching active ids: " + applicationIds.sorted.reverse.toString())
+              applicationIds.sorted.reverse.headOption
+            } else {
+              // Couldn't find an active applicationID. Use one the latest finished ID.
+              val pastApplicationIds = client.getPreviousApplicationIds(applicationName)
+              pastApplicationIds.sorted.reverse.headOption  // Get latest
+            }
 
-            // Only return one, because there should only be one.
-            applicationIds.headOption
           case None =>
             None
         }
