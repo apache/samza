@@ -29,8 +29,6 @@ object SystemConfig {
   // system config constants
   val SYSTEM_PREFIX = "systems.%s."
   val SYSTEM_FACTORY = "systems.%s.samza.factory"
-  val KEY_SERDE = "systems.%s.samza.key.serde"
-  val MSG_SERDE = "systems.%s.samza.msg.serde"
   val CONSUMER_OFFSET_DEFAULT = SYSTEM_PREFIX + "samza.offset.default"
 
   implicit def Config2System(config: Config) = new SystemConfig(config)
@@ -39,9 +37,9 @@ object SystemConfig {
 class SystemConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getSystemFactory(name: String) = getOption(SystemConfig.SYSTEM_FACTORY format name)
 
-  def getSystemKeySerde(name: String) = getNonEmptyOption(SystemConfig.KEY_SERDE format name)
+  def getSystemKeySerde(name: String) = getSystemDefaultStreamProperty(name, StreamConfig.KEY_SERDE)
 
-  def getSystemMsgSerde(name: String) = getNonEmptyOption(SystemConfig.MSG_SERDE format name)
+  def getSystemMsgSerde(name: String) = getSystemDefaultStreamProperty(name, StreamConfig.MSG_SERDE)
 
   def getDefaultSystemOffset(systemName: String) = getOption(SystemConfig.CONSUMER_OFFSET_DEFAULT format (systemName))
 
@@ -53,5 +51,15 @@ class SystemConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     val subConf = config.subset("systems.", true)
     // find all .samza.factory keys, and strip the suffix
     subConf.asScala.keys.filter(k => k.endsWith(".samza.factory")).map(_.replace(".samza.factory", ""))
+  }
+
+  private def getSystemDefaultStreamProperty(name: String, property: String) = {
+    val defaultStreamProperties = new JavaSystemConfig(config).getDefaultStreamProperties(name)
+    val streamDefault = defaultStreamProperties.get(property)
+    if (!(streamDefault == null || streamDefault.isEmpty)) {
+      Option(streamDefault)
+    } else {
+      getNonEmptyOption((SystemConfig.SYSTEM_PREFIX + property) format name)
+    }
   }
 }
