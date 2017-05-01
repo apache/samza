@@ -31,6 +31,7 @@ import java.util.Set;
 
 import org.apache.avro.generic.GenericRecord;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -41,7 +42,7 @@ import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Assert;
 import org.junit.Test;
 
-
+import com.google.common.util.concurrent.UncheckedExecutionException;
 
 
 public class TestHdfsSystemConsumer {
@@ -132,5 +133,38 @@ public class TestHdfsSystemConsumer {
       }
       Assert.assertEquals(messages.get(NUM_EVENTS).getOffset(), IncomingMessageEnvelope.END_OF_STREAM_OFFSET);
     });
+  }
+
+  /*
+   * Ensure that empty staging directory will not break system admin,
+   * but should fail system consumer
+   */
+  @Test
+  public void testEmptyStagingDirectory() throws Exception {
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put(String.format(HdfsConfig.CONSUMER_PARTITIONER_WHITELIST(), SYSTEM_NAME), ".*avro");
+    Config config = new MapConfig(configMap);
+    HdfsSystemFactory systemFactory = new HdfsSystemFactory();
+
+    // create admin and do partitioning
+    HdfsSystemAdmin systemAdmin = systemFactory.getAdmin(SYSTEM_NAME, config);
+    String stream = WORKING_DIRECTORY;
+    Set<String> streamNames = new HashSet<>();
+    streamNames.add(stream);
+    generateAvroDataFiles();
+    Map<String, SystemStreamMetadata> streamMetadataMap = systemAdmin.getSystemStreamMetadata(streamNames);
+    SystemStreamMetadata systemStreamMetadata = streamMetadataMap.get(stream);
+    Assert.assertEquals(NUM_FILES, systemStreamMetadata.getSystemStreamPartitionMetadata().size());
+
+    // create consumer and read from files
+    HdfsSystemConsumer systemConsumer = systemFactory.getConsumer(SYSTEM_NAME, config, new NoOpMetricsRegistry());
+    Partition partition = new Partition(0);
+    SystemStreamPartition ssp = new SystemStreamPartition(SYSTEM_NAME, stream, partition);
+    try {
+      systemConsumer.register(ssp, "0");
+      Assert.fail("Empty staging directory should fail system consumer");
+    } catch (UncheckedExecutionException e) {
+      Assert.assertTrue(e.getCause() instanceof SamzaException);
+    }
   }
 }

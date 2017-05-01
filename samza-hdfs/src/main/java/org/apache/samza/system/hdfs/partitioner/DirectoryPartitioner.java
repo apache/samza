@@ -20,6 +20,7 @@
 package org.apache.samza.system.hdfs.partitioner;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,6 +33,8 @@ import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
@@ -192,12 +195,12 @@ public class DirectoryPartitioner {
   public Map<Partition, SystemStreamPartitionMetadata> getPartitionMetadataMap(String streamName,
     @Nullable Map<Partition, List<String>> existingPartitionDescriptorMap) {
     LOG.info("Trying to obtain metadata for " + streamName);
-    LOG.info("Existing partition descriptor: " + (existingPartitionDescriptorMap == null ? "empty"
+    LOG.info("Existing partition descriptor: " + (MapUtils.isEmpty(existingPartitionDescriptorMap) ? "empty"
       : existingPartitionDescriptorMap));
     Map<Partition, SystemStreamPartitionMetadata> partitionMetadataMap = new HashMap<>();
     partitionDescriptorMap.putIfAbsent(streamName, new HashMap<>());
     List<FileMetadata> filteredFiles = getFilteredFiles(streamName);
-    if (existingPartitionDescriptorMap != null) {
+    if (!MapUtils.isEmpty(existingPartitionDescriptorMap)) {
       filteredFiles = validateAndGetOriginalFilteredFiles(filteredFiles, existingPartitionDescriptorMap);
     }
     List<List<FileMetadata>> groupedPartitions = generatePartitionGroups(filteredFiles);
