@@ -28,7 +28,6 @@ import org.apache.samza.operators.util.OperatorJsonUtils;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 
 
@@ -104,11 +103,6 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
   @Override
   public int getOpId() {
     return this.opId;
-  }
-
-  @Override
-  public void init(Config config, TaskContext context) {
-    this.sinkFn.init(config, context);
   }
 
   @Override

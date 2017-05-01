@@ -18,61 +18,216 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.operators.data.TestMessageEnvelope;
-import org.apache.samza.operators.data.TestOutputMessageEnvelope;
+import java.util.Map;
+import org.apache.samza.config.Config;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.metrics.Timer;
+import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
-import org.hamcrest.core.IsEqual;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.argThat;
+import java.util.Collection;
+import java.util.Collections;
+
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Matchers.anyObject;
+import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 public class TestOperatorImpl {
 
-  TestMessageEnvelope curInputMsg;
-  MessageCollector curCollector;
-  TaskCoordinator curCoordinator;
+  @Test(expected = IllegalStateException.class)
+  public void testMultipleInitShouldThrow() {
+    OperatorImpl<Object, Object> opImpl = new TestOpImpl(mock(Object.class));
+    TaskContext mockTaskContext = mock(TaskContext.class);
+    when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    opImpl.init(mock(Config.class), mockTaskContext);
+    opImpl.init(mock(Config.class), mockTaskContext);
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testRegisterNextOperatorBeforeInitShouldThrow() {
+    OperatorImpl<Object, Object> opImpl = new TestOpImpl(mock(Object.class));
+    opImpl.registerNextOperator(mock(OperatorImpl.class));
+  }
 
   @Test
-  public void testSubscribers() {
-    this.curInputMsg = null;
-    this.curCollector = null;
-    this.curCoordinator = null;
-    OperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope> opImpl = new OperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope>() {
-      @Override
-      public void onNext(TestMessageEnvelope message, MessageCollector collector, TaskCoordinator coordinator) {
-        TestOperatorImpl.this.curInputMsg = message;
-        TestOperatorImpl.this.curCollector = collector;
-        TestOperatorImpl.this.curCoordinator = coordinator;
-      }
-      @Override
-      public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+  public void testOnMessagePropagatesResults() {
+    TaskContext mockTaskContext = mock(TaskContext.class);
+    when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
 
-      }
+    Object mockTestOpImplOutput = mock(Object.class);
+    OperatorImpl<Object, Object> opImpl = new TestOpImpl(mockTestOpImplOutput);
+    opImpl.init(mock(Config.class), mockTaskContext);
 
-      };
-    // verify registerNextOperator() added the mockSub and propagateResult() invoked the mockSub.onNext()
-    OperatorImpl mockSub = mock(OperatorImpl.class);
-    opImpl.registerNextOperator(mockSub);
-    TestOutputMessageEnvelope xOutput = mock(TestOutputMessageEnvelope.class);
+    // register a couple of operators
+    OperatorImpl mockNextOpImpl1 = mock(OperatorImpl.class);
+    when(mockNextOpImpl1.getOperatorSpec()).thenReturn(new TestOpSpec());
+    when(mockNextOpImpl1.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
+    mockNextOpImpl1.init(mock(Config.class), mockTaskContext);
+    opImpl.registerNextOperator(mockNextOpImpl1);
+
+    OperatorImpl mockNextOpImpl2 = mock(OperatorImpl.class);
+    when(mockNextOpImpl2.getOperatorSpec()).thenReturn(new TestOpSpec());
+    when(mockNextOpImpl2.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
+    mockNextOpImpl2.init(mock(Config.class), mockTaskContext);
+    opImpl.registerNextOperator(mockNextOpImpl2);
+
+    // send a message to this operator
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
-    opImpl.propagateResult(xOutput, mockCollector, mockCoordinator);
-    verify(mockSub, times(1)).onNext(
-        argThat(new IsEqual<>(xOutput)),
-        argThat(new IsEqual<>(mockCollector)),
-        argThat(new IsEqual<>(mockCoordinator))
-    );
-    // verify onNext() is invoked correctly
-    TestMessageEnvelope mockInput = mock(TestMessageEnvelope.class);
-    opImpl.onNext(mockInput, mockCollector, mockCoordinator);
-    assertEquals(mockInput, this.curInputMsg);
-    assertEquals(mockCollector, this.curCollector);
-    assertEquals(mockCoordinator, this.curCoordinator);
+    opImpl.onMessage(mock(Object.class), mockCollector, mockCoordinator);
+
+    // verify that it propagates its handleMessage results to next operators
+    verify(mockNextOpImpl1, times(1)).handleMessage(mockTestOpImplOutput, mockCollector, mockCoordinator);
+    verify(mockNextOpImpl2, times(1)).handleMessage(mockTestOpImplOutput, mockCollector, mockCoordinator);
+  }
+
+  @Test
+  public void testOnMessageUpdatesMetrics() {
+    TaskContext mockTaskContext = mock(TaskContext.class);
+    MetricsRegistry mockMetricsRegistry = mock(MetricsRegistry.class);
+    when(mockTaskContext.getMetricsRegistry()).thenReturn(mockMetricsRegistry);
+    Counter mockCounter = mock(Counter.class);
+    Timer mockTimer = mock(Timer.class);
+    when(mockMetricsRegistry.newCounter(anyString(), anyString())).thenReturn(mockCounter);
+    when(mockMetricsRegistry.newTimer(anyString(), anyString())).thenReturn(mockTimer);
+
+    Object mockTestOpImplOutput = mock(Object.class);
+    OperatorImpl<Object, Object> opImpl = new TestOpImpl(mockTestOpImplOutput);
+    opImpl.init(mock(Config.class), mockTaskContext);
+
+    // send a message to this operator
+    MessageCollector mockCollector = mock(MessageCollector.class);
+    TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
+    opImpl.onMessage(mock(Object.class), mockCollector, mockCoordinator);
+
+    // verify that it updates message count and timer metrics
+    verify(mockCounter, times(1)).inc();
+    verify(mockTimer, times(1)).update(anyLong());
+  }
+
+  @Test
+  public void testOnTimerPropagatesResultsAndTimer() {
+    TaskContext mockTaskContext = mock(TaskContext.class);
+    when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+
+    Object mockTestOpImplOutput = mock(Object.class);
+    OperatorImpl<Object, Object> opImpl = new TestOpImpl(mockTestOpImplOutput);
+    opImpl.init(mock(Config.class), mockTaskContext);
+
+    // register a couple of operators
+    OperatorImpl mockNextOpImpl1 = mock(OperatorImpl.class);
+    when(mockNextOpImpl1.getOperatorSpec()).thenReturn(new TestOpSpec());
+    when(mockNextOpImpl1.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
+    mockNextOpImpl1.init(mock(Config.class), mockTaskContext);
+    opImpl.registerNextOperator(mockNextOpImpl1);
+
+    OperatorImpl mockNextOpImpl2 = mock(OperatorImpl.class);
+    when(mockNextOpImpl2.getOperatorSpec()).thenReturn(new TestOpSpec());
+    when(mockNextOpImpl2.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
+    mockNextOpImpl2.init(mock(Config.class), mockTaskContext);
+    opImpl.registerNextOperator(mockNextOpImpl2);
+
+    // send a timer tick to this operator
+    MessageCollector mockCollector = mock(MessageCollector.class);
+    TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
+    opImpl.onTimer(mockCollector, mockCoordinator);
+
+    // verify that it propagates its handleTimer results to next operators
+    verify(mockNextOpImpl1, times(1)).handleMessage(mockTestOpImplOutput, mockCollector, mockCoordinator);
+    verify(mockNextOpImpl2, times(1)).handleMessage(mockTestOpImplOutput, mockCollector, mockCoordinator);
+
+    // verify that it propagates the timer tick to next operators
+    verify(mockNextOpImpl1, times(1)).handleTimer(mockCollector, mockCoordinator);
+    verify(mockNextOpImpl2, times(1)).handleTimer(mockCollector, mockCoordinator);
+  }
+
+  @Test
+  public void testOnTimerUpdatesMetrics() {
+    TaskContext mockTaskContext = mock(TaskContext.class);
+    MetricsRegistry mockMetricsRegistry = mock(MetricsRegistry.class);
+    when(mockTaskContext.getMetricsRegistry()).thenReturn(mockMetricsRegistry);
+    Counter mockMessageCounter = mock(Counter.class);
+    Timer mockTimer = mock(Timer.class);
+    when(mockMetricsRegistry.newCounter(anyString(), anyString())).thenReturn(mockMessageCounter);
+    when(mockMetricsRegistry.newTimer(anyString(), anyString())).thenReturn(mockTimer);
+
+    Object mockTestOpImplOutput = mock(Object.class);
+    OperatorImpl<Object, Object> opImpl = new TestOpImpl(mockTestOpImplOutput);
+    opImpl.init(mock(Config.class), mockTaskContext);
+
+    // send a message to this operator
+    MessageCollector mockCollector = mock(MessageCollector.class);
+    TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
+    opImpl.onTimer(mockCollector, mockCoordinator);
+
+    // verify that it updates metrics
+    verify(mockMessageCounter, times(0)).inc();
+    verify(mockTimer, times(1)).update(anyLong());
+  }
+
+  private static class TestOpImpl extends OperatorImpl<Object, Object> {
+    private final Object mockOutput;
+
+    TestOpImpl(Object mockOutput) {
+      this.mockOutput = mockOutput;
+    }
+
+    @Override
+    protected void handleInit(Config config, TaskContext context) {}
+
+    @Override
+    public Collection<Object> handleMessage(Object message,
+        MessageCollector collector, TaskCoordinator coordinator) {
+      return Collections.singletonList(mockOutput);
+    }
+
+    @Override
+    public Collection<Object> handleTimer(MessageCollector collector, TaskCoordinator coordinator) {
+      return Collections.singletonList(mockOutput);
+    }
+
+    @Override
+    protected OperatorSpec<Object> getOperatorSpec() {
+      return new TestOpSpec();
+    }
+  }
+
+  private static class TestOpSpec implements OperatorSpec<Object> {
+    @Override
+    public MessageStreamImpl<Object> getNextStream() {
+      return null;
+    }
+
+    @Override
+    public OpCode getOpCode() {
+      return OpCode.INPUT;
+    }
+
+    @Override
+    public int getOpId() {
+      return -1;
+    }
+
+    @Override
+    public Map<String, Object> toJsonMap() {
+      return Collections.EMPTY_MAP;
+    }
+
+    @Override
+    public StackTraceElement getSourceLocation() {
+      return null;
+    }
   }
 }
+

@@ -96,11 +96,6 @@ public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
   }
 
   @Override
-  public void init(Config config, TaskContext context) {
-    this.thisPartialJoinFn.init(config, context);
-  }
-
-  @Override
   public StackTraceElement getSourceLocation() {
     return sourceLocation;
   }

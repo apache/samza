@@ -19,6 +19,7 @@
 
 package org.apache.samza.config;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -41,9 +42,13 @@ public class MapConfig extends Config {
   }
 
   public MapConfig(List<Map<String, String>> maps) {
-    this.map = new HashMap<String, String>();
+    this.map = new HashMap<>();
     for (Map<String, String> m: maps)
       this.map.putAll(m);
+  }
+
+  public MapConfig(Map<String, String>... maps) {
+    this(Arrays.asList(maps));
   }
 
   public String get(Object k) {

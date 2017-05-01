@@ -26,7 +26,6 @@ import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.util.OperatorJsonUtils;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
-import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -56,13 +55,6 @@ public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK
     this.window = window;
     this.opId = opId;
     this.sourceLocation = sourceLocation;
-  }
-
-  @Override
-  public void init(Config config, TaskContext context) {
-    if (window.getFoldLeftFunction() != null) {
-      window.getFoldLeftFunction().init(config, context);
-    }
   }
 
   @Override

@@ -79,11 +79,6 @@ public class StreamOperatorSpec<M, OM> implements OperatorSpec<OM> {
   }
 
   @Override
-  public void init(Config config, TaskContext context) {
-    this.transformFn.init(config, context);
-  }
-
-  @Override
   public StackTraceElement getSourceLocation() {
     return sourceLocation;
   }

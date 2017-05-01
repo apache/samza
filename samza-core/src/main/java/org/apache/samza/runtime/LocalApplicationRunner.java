@@ -162,8 +162,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     String clazz = appConfig.getCoordinationServiceFactoryClass();
     if (clazz != null) {
       CoordinationServiceFactory factory = ClassLoaderHelper.fromClassName(clazz);
-      String groupId = String.format("app-%s-%s", appConfig.getAppName(), appConfig.getAppId());
-      return factory.getCoordinationService(groupId, uid, config);
+      return factory.getCoordinationService(appConfig.getGlobalAppId(), uid, config);
     } else {
       return null;
     }
