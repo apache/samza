@@ -689,6 +689,17 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="task-consumer-batch-size">task.consumer.batch.size</td>
+                    <td class="default">1</td>
+                    <td class="description">
+                        If set to a positive integer, the task will try to consume
+                        <a href="../container/streams.html#batching">batches</a> with the given number of messages
+                        from each input stream, rather than consuming round-robin from all the input streams on
+                        each individual message. Setting this property can improve performance in some cases.
+                    </td>
+                </tr>
+
+                <tr>
                     <th colspan="3" class="section" id="systems">Systems</th>
                 </tr>
 
@@ -785,13 +796,77 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="task-consumer-batch-size">task.consumer.batch.size</td>
-                    <td class="default">1</td>
+                    <td class="property" id="systems-samza-key-serde-legacy">systems.<span class="system">system-name</span>.<br>samza.key.serde</td>
+                    <td class="default" rowspan="2"></td>
                     <td class="description">
-                        If set to a positive integer, the task will try to consume
-                        <a href="../container/streams.html#batching">batches</a> with the given number of messages
-                        from each input stream, rather than consuming round-robin from all the input streams on
-                        each individual message. Setting this property can improve performance in some cases.
+                        This is deprecated in favor of <a href="#systems-samza-key-serde" class="property">
+                        systems.<span class="system">system-name</span>.default.stream.samza.key.serde</a>.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.key.serde</td>
+                    <td class="description">
+                        This is deprecated in favor of <a href="#streams-samza-key-serde" class="property">
+                        streams.<span class="stream">stream-id</span>.samza.key.serde</a>.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-msg-serde-legacy">systems.<span class="system">system-name</span>.<br>samza.msg.serde</td>
+                    <td class="default" rowspan="2"></td>
+                    <td class="description">
+                        This is deprecated in favor of <a href="#systems-samza-msg-serde" class="property">
+                        systems.<span class="system">system-name</span>.default.stream.samza.msg.serde</a>.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.msg.serde</td>
+                    <td class="description">
+                        This is deprecated in favor of <a href="#streams-samza-msg-serde" class="property">
+                        streams.<span class="stream">stream-id</span>.samza.msg.serde</a>.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-samza-offset-default-legacy">systems.<span class="system">system-name</span>.<br>samza.offset.default</td>
+                    <td class="default" rowspan="2">upcoming</td>
+                    <td class="description">
+                        This is deprecated in favor of <a href="#systems-samza-offset-default" class="property">
+                        systems.<span class="system">system-name</span>.default.stream.samza.offset.default</a>.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.offset.default</td>
+                    <td class="description">
+                        This is deprecated in favor of <a href="#streams-samza-offset-default" class="property">
+                        streams.<span class="stream">stream-id</span>.samza.offset.default</a>.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-streams-samza-reset-offset-legacy">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.reset.offset</td>
+                    <td>false</td>
+                    <td>
+                        This is deprecated in favor of <a href="#streams-samza-reset-offset" class="property">
+                        streams.<span class="stream">stream-id</span>.samza.reset.offset</a>.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-streams-samza-priority-legacy">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.priority</td>
+                    <td>-1</td>
+                    <td>
+                        This is deprecated in favor of <a href="#streams-samza-priority" class="property">
+                        streams.<span class="stream">stream-id</span>.samza.priority</a>.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="systems-streams-samza-bootstrap-legacy">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>samza.bootstrap</td>
+                    <td>false</td>
+                    <td>
+                        This is deprecated in favor of <a href="#streams-samza-bootstrap" class="property">
+                        streams.<span class="stream">stream-id</span>.samza.bootstrap</a>.
                     </td>
                 </tr>
 
@@ -875,7 +950,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="streams-streams-samza-reset-offset">streams.<span class="stream">stream-id</span>.<br>samza.reset.offset</td>
+                    <td class="property" id="streams-samza-reset-offset">streams.<span class="stream">stream-id</span>.<br>samza.reset.offset</td>
                     <td class="default">false</td>
                     <td class="description">
                         If set to <code>true</code>, when a Samza container starts up, it ignores any
@@ -888,7 +963,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="streams-streams-samza-priority">streams.<span class="stream">stream-id</span>.<br>samza.priority</td>
+                    <td class="property" id="streams-samza-priority">streams.<span class="stream">stream-id</span>.<br>samza.priority</td>
                     <td class="default">-1</td>
                     <td class="description">
                         If one or more streams have a priority set (any positive integer), they will be processed
@@ -901,7 +976,7 @@
                 </tr>
 
                 <tr>
-                    <td class="property" id="streams-streams-samza-bootstrap">streams.<span class="stream">stream-id</span>.<br>samza.bootstrap</td>
+                    <td class="property" id="streams-samza-bootstrap">streams.<span class="stream">stream-id</span>.<br>samza.bootstrap</td>
                     <td class="default">false</td>
                     <td class="description">
                         If set to <code>true</code>, this stream will be processed as a

@@ -103,6 +103,9 @@ public class JavaSystemConfig extends MapConfig {
 
   /**
    * Gets the system-wide defaults for streams.
+   *
+   * @param systemName the name of the system for which the defaults will be returned.
+   * @return a subset of the config with the system prefix removed.
    */
   public Config getDefaultStreamProperties(String systemName) {
     return subset(String.format(SYSTEM_DEFAULT_STREAMS_PREFIX, systemName), true);
