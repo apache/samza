@@ -1,5 +1,9 @@
 package org.apache.samza.test.processor;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -8,6 +12,8 @@ import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import jline.ConsoleReader;
+import jline.ConsoleReaderInputStream;
 import kafka.utils.TestUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -31,6 +37,7 @@ import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
+import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -63,37 +70,111 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     }
   };
 
+
+
   @Test
-  public void testStreamProcessor() {
+  public void testSingleStreamProcessor() {
+    testStreamProcessor(new String [] {"1"});
+  }
+
+  @Test
+  public void testTwoStreamProcessors() {
+    testStreamProcessor(new String [] {"1", "2"});
+  }
+
+  @Test
+  public void testFiveStreamProcessors() {
+    testStreamProcessor(new String [] {"1", "2", "3", "4", "5"});
+  }
+
+
+
+  private void testStreamProcessor(String [] processorIds) {
     final String testSystem = "test-system";
     final String inputTopic = "numbers";
     final String outputTopic = "output";
-    final int messageCount = 20;
+    final int messageCount = 40;
 
-    final Map<String, String> map = createConfigs("1", testSystem, inputTopic, outputTopic, messageCount);
+    final Map<String, String> map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
 
     // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
     // TopicExistsException since StreamProcessor auto-creates them.
     createTopics(inputTopic, outputTopic);
 
-    final StreamProcessor processor1 = createStreamProcessor("1", map);
-    final StreamProcessor processor2 = createStreamProcessor("2", map);
+    // create a latch of the size == number of messages
+    TestStreamTask.endLatch = new CountDownLatch(messageCount);
 
-    produceMessages(inputTopic, messageCount);
+    StreamProcessor [] streamProcessors = new StreamProcessor[processorIds.length];
 
-    Thread t1 = runInThread(processor1, TestStreamTask.endLatch);
-    Thread t2 = runInThread(processor2, TestStreamTask.endLatch);
-    t1.start();
-    t2.start();
+    for(int i=0; i < processorIds.length; i++) {
+      streamProcessors[i] = createStreamProcessor(processorIds[i], map);
+    }
+    produceMessages(0, inputTopic, messageCount);
+
+    Thread [] threads = new Thread[processorIds.length];
+
+    for(int i=0; i < processorIds.length; i++) {
+      threads[i] = runInThread(streamProcessors[i], TestStreamTask.endLatch);
+      threads[i].start();
+    }
 
     try {
-      t1.join(10000);
-      t2.join(10000);
+      for (Thread t : threads) {
+        t.join(10000);
+      }
     } catch (InterruptedException e) {
       e.printStackTrace();
     }
 
     verifyNumMessages(outputTopic, messageCount);
+  }
+
+
+  @Test
+  public void testStreamProcessorWithAdd() {
+    final String testSystem = "test-system";
+    final String inputTopic = "numbers";
+    final String outputTopic = "output";
+    final int messageCount = 40;
+
+    final Map<String, String> map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
+
+    // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
+    // TopicExistsException since StreamProcessor auto-creates them.
+    createTopics(inputTopic, outputTopic);
+
+    // create a latch of the size == number of messages
+    TestStreamTask.endLatch = new CountDownLatch(2*messageCount);
+
+    StreamProcessor sp = createStreamProcessor("1", map);
+
+    produceMessages(0, inputTopic, messageCount);
+
+    Thread t = runInThread(sp, TestStreamTask.endLatch);
+    t.start();
+
+    TestZkUtils.sleepMs(10000);
+
+
+    //map.put("systems.test-system.samza.reset.offset", "true");
+    //map.put("systems.test-system.samza.offset.default", "upcoming");
+    StreamProcessor sp1 = createStreamProcessor("2", map);
+    Thread t1 = runInThread(sp1, TestStreamTask.endLatch);
+    t1.start();
+
+    TestZkUtils.sleepMs(10000);
+
+    // start messages from id messageCount and generate messageCount more
+    produceMessages(messageCount, inputTopic, messageCount);
+
+    try {
+      t.join(10000);
+      t1.join(1000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+
+    verifyNumMessages(outputTopic, 2*messageCount);
   }
 
   private StreamProcessor createStreamProcessor(String pId, Map<String, String> map) {
@@ -111,22 +192,23 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
   }
 
   private void createTopics(String inputTopic, String outputTopic) {
-    TestUtils.createTopic(zkUtils(), inputTopic, 4, 1, servers(), new Properties());
-    TestUtils.createTopic(zkUtils(), outputTopic, 4, 1, servers(), new Properties());
+    TestUtils.createTopic(zkUtils(), inputTopic, 5, 1, servers(), new Properties());
+    TestUtils.createTopic(zkUtils(), outputTopic, 5, 1, servers(), new Properties());
   }
 
-  private Map<String, String> createConfigs(String processorId, String testSystem, String inputTopic, String outputTopic, int messageCount) {
+  private Map<String, String> createConfigs( String testSystem, String inputTopic, String outputTopic, int messageCount) {
     Map<String, String> configs = new HashMap<>();
     configs.putAll(
-        StandaloneTestUtils.getStandaloneConfigs("test-job", "org.apache.samza.test.processor.TestZkStreamProcessor.TestStreamTask"));
-    configs.putAll(StandaloneTestUtils.getKafkaSystemConfigs(testSystem, bootstrapServers(), zkConnect(), null,
-        StandaloneTestUtils.SerdeAlias.STRING, true));
+        StandaloneTestUtils.getStandaloneConfigs("test-job",
+            "org.apache.samza.test.processor.TestZkStreamProcessor.TestStreamTask"));
+    configs.putAll(StandaloneTestUtils
+        .getKafkaSystemConfigs(testSystem, bootstrapServers(), zkConnect(), null, StandaloneTestUtils.SerdeAlias.STRING,
+            true));
     configs.put("task.inputs", String.format("%s.%s", testSystem, inputTopic));
     configs.put("app.messageCount", String.valueOf(messageCount));
     configs.put("app.outputTopic", outputTopic);
     configs.put("app.outputSystem", testSystem);
     configs.put(ZkConfig.ZK_CONNECT, zkConnect());
-    configs.put("processor.id", processorId);
 
     configs.put("job.systemstreampartition.grouper.factory", "org.apache.samza.container.grouper.stream.GroupByPartitionFactory");
     configs.put("task.name.grouper.factory", "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
@@ -140,17 +222,16 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
   /**
    * Produces the provided number of messages to the topic.
    */
-  private void produceMessages(String topic, int numMessages) {
+  private void produceMessages(final int start, String topic, int numMessages) {
     KafkaProducer producer = getKafkaProducer();
-    for (int i = 0; i < numMessages; i++) {
+    for (int i = start; i < numMessages + start; i++) {
       try {
+        System.out.println("producing " + i);
         producer.send(new ProducerRecord(topic, String.valueOf(i).getBytes())).get();
       } catch (InterruptedException | ExecutionException e) {
         e.printStackTrace();
       }
     }
-    // create a latch of the size == number of messages
-    TestStreamTask.endLatch = new CountDownLatch(numMessages);
   }
 
   /**
@@ -166,7 +247,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
         processor.start();
         try {
           //Thread.sleep(10000);
-          latchResult = latch.await(10000, TimeUnit.SECONDS);
+          latchResult = latch.await(100000, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
           e.printStackTrace();
         } finally {
@@ -213,14 +294,15 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
         emptyPollCount++;
       }
     }
+    // filter out numbers we did not get
     long numFalse = map.values().stream().filter(v->!v).count();
     Assert.assertEquals("didn't get this number of events ", 0, numFalse);
-    Assert.assertEquals(count, expectedNumMessages);
+    Assert.assertEquals(expectedNumMessages, count);
   }
 
 
   // StreamTaskClass
-  public static class TestStreamTask implements StreamTask, InitableTask, ClosableTask {
+  public static class TestStreamTask implements StreamTask, InitableTask {
     // static field since there's no other way to share state b/w a task instance and
     // stream processor when constructed from "task.class".
     static CountDownLatch endLatch;
@@ -247,18 +329,12 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
               incomingMessageEnvelope.getMessage()));
       processedMessageCount++;
       String message = (String) incomingMessageEnvelope.getMessage();
-      System.out.println("Stream processor " + processorId + " received " + message );
+      System.out.println("Stream processor " + processorId + ";offset=" + incomingMessageEnvelope.getOffset() + ";received " + message + "; ssp=" + incomingMessageEnvelope.getSystemStreamPartition());
       //if (processedMessageCount == expectedMessageCount) {
-      endLatch.countDown();
+      synchronized (endLatch) {
+        endLatch.countDown();
+      }
       //}
-    }
-
-    @Override
-    public void close()
-        throws Exception {
-      // need to create a new latch after each test since it's a static field.
-      // tests are assumed to run sequentially.
-      endLatch = new CountDownLatch(1);
     }
   }
 }
