@@ -98,6 +98,8 @@ public class JavaStorageConfig extends MapConfig {
    * stores.storeName.changelog=streamName
    *
    * If the former syntax is used, that system name will still be honored. For the latter syntax, this method is used.
+   *
+   * @return the name of the system to use by default for all changelogs, if defined. 
    */
   public String getChangelogSystem() {
     return get(CHANGELOG_SYSTEM,  get(JobConfig.JOB_DEFAULT_SYSTEM(), null));
