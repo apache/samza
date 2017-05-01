@@ -32,5 +32,9 @@ public interface ZkController {
   void stop();
 
   // Leader
+  /**
+   * Allows the {@link ZkJobCoordinator} to subscribe to changes to Zk nodes in the processors subtree
+   * Typically, the leader is interested in such notifications.
+   */
   void subscribeToProcessorChange();
 }

@@ -21,11 +21,15 @@ package org.apache.samza.zk;
 
 import java.util.List;
 
-
 /**
- * callbacks to the caller of the ZkController
+ * Interface to listen for notifications from the {@link ZkController}
  */
 public interface ZkControllerListener {
+  /**
+   * ZkController observes the ZkTree for changes to group membership of processors and notifies the listener
+   *
+   * @param processorIds List of current znodes that are in the processing group
+   */
   void onProcessorChange(List<String> processorIds);
 
   void onNewJobModelAvailable(String version); // start job model update (stop current work)
