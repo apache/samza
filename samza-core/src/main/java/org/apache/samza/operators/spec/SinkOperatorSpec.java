@@ -18,8 +18,6 @@
  */
 package org.apache.samza.operators.spec;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.stream.OutputStreamInternal;
@@ -42,7 +40,7 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
   private OutputStreamInternal<?, ?, M> outputStream; // may be null
   private final OperatorSpec.OpCode opCode;
   private final int opId;
-  private final StackTraceElement sourceLocation;
+  private final String sourceLocation;
 
   /**
    * Constructs a {@link SinkOperatorSpec} with a user defined {@link SinkFunction}.
@@ -54,11 +52,11 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
    *                It could be {@link OpCode#SINK}, {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}.
    * @param opId  the unique ID of this {@link OperatorSpec} in the graph
    */
-  SinkOperatorSpec(SinkFunction<M> sinkFn, OperatorSpec.OpCode opCode, int opId, StackTraceElement sourceLocation) {
+  SinkOperatorSpec(SinkFunction<M> sinkFn, OperatorSpec.OpCode opCode, int opId) {
     this.sinkFn = sinkFn;
     this.opCode = opCode;
     this.opId = opId;
-    this.sourceLocation = sourceLocation;
+    this.sourceLocation = OperatorJsonUtils.getSourceLocation();
   }
 
   /**
@@ -68,8 +66,8 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
    *               It could be {@link OpCode#SINK}, {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}
    * @param opId  the unique ID of this {@link SinkOperatorSpec} in the graph
    */
-  SinkOperatorSpec(OutputStreamInternal<?, ?, M> outputStream, OperatorSpec.OpCode opCode, int opId, StackTraceElement stackTraceElement) {
-    this(createSinkFn(outputStream), opCode, opId, stackTraceElement);
+  SinkOperatorSpec(OutputStreamInternal<?, ?, M> outputStream, OperatorSpec.OpCode opCode, int opId) {
+    this(createSinkFn(outputStream), opCode, opId);
     this.outputStream = outputStream;
   }
 
@@ -105,15 +103,8 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
   }
 
   @Override
-  public StackTraceElement getSourceLocation() {
+  public String getSourceLocation() {
     return sourceLocation;
-  }
-
-  @Override
-  public Map<String, Object> toJsonMap() {
-    Map<String, Object> properties = new HashMap<>();
-    properties.put("outputStreamId", getOutputStream().getStreamSpec().getId());
-    return OperatorJsonUtils.operatorToJson(this, properties);
   }
 
   /**

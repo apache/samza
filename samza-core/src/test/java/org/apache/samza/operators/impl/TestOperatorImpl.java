@@ -18,7 +18,6 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -220,13 +219,8 @@ public class TestOperatorImpl {
     }
 
     @Override
-    public Map<String, Object> toJsonMap() {
-      return Collections.EMPTY_MAP;
-    }
-
-    @Override
-    public StackTraceElement getSourceLocation() {
-      return null;
+    public String getSourceLocation() {
+      return "";
     }
   }
 }

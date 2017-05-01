@@ -74,7 +74,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   @Override
   public <TM> MessageStream<TM> map(MapFunction<? super M, ? extends TM> mapFn) {
     OperatorSpec<TM> op = OperatorSpecs.createMapOperatorSpec(
-        mapFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId(), getSourceLocation());
+        mapFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
     return op.getNextStream();
   }
@@ -82,7 +82,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   @Override
   public MessageStream<M> filter(FilterFunction<? super M> filterFn) {
     OperatorSpec<M> op = OperatorSpecs.createFilterOperatorSpec(filterFn, new MessageStreamImpl<>(this.graph),
-        this.graph.getNextOpId(), getSourceLocation());
+        this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
     return op.getNextStream();
   }
@@ -90,28 +90,28 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   @Override
   public <TM> MessageStream<TM> flatMap(FlatMapFunction<? super M, ? extends TM> flatMapFn) {
     OperatorSpec<TM> op = OperatorSpecs.createStreamOperatorSpec(flatMapFn, new MessageStreamImpl<>(this.graph),
-        this.graph.getNextOpId(), getSourceLocation());
+        this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
     return op.getNextStream();
   }
 
   @Override
   public void sink(SinkFunction<? super M> sinkFn) {
-    SinkOperatorSpec<M> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, this.graph.getNextOpId(), getSourceLocation());
+    SinkOperatorSpec<M> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
   }
 
   @Override
   public <K, V> void sendTo(OutputStream<K, V, M> outputStream) {
     SinkOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec((OutputStreamInternal<K, V, M>) outputStream,
-        this.graph.getNextOpId(), getSourceLocation());
+        this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
   }
 
   @Override
   public <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window) {
     OperatorSpec<WindowPane<K, WV>> wndOp = OperatorSpecs.createWindowOperatorSpec((WindowInternal<M, K, WV>) window,
-        new MessageStreamImpl<>(this.graph), this.graph.getNextOpId(), getSourceLocation());
+        new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(wndOp);
     return wndOp.getNextStream();
   }
@@ -173,11 +173,11 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     };
 
     this.registeredOperatorSpecs.add(OperatorSpecs.createPartialJoinOperatorSpec(
-        thisPartialJoinFn, otherPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId(), getSourceLocation()));
+        thisPartialJoinFn, otherPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId()));
 
     ((MessageStreamImpl<OM>) otherStream).registeredOperatorSpecs.add(OperatorSpecs
         .createPartialJoinOperatorSpec(otherPartialJoinFn, thisPartialJoinFn, ttl.toMillis(), nextStream,
-            this.graph.getNextOpId(), getSourceLocation()));
+            this.graph.getNextOpId()));
 
     return nextStream;
   }
@@ -189,7 +189,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     otherStreams.add(this);
     otherStreams.forEach(other -> {
         OperatorSpec mergeOperatorSepc =
-            OperatorSpecs.createMergeOperatorSpec(nextStream, this.graph.getNextOpId(), getSourceLocation());
+            OperatorSpecs.createMergeOperatorSpec(nextStream, this.graph.getNextOpId());
         ((MessageStreamImpl<M>) other).registeredOperatorSpecs.add(mergeOperatorSepc);
       });
     return nextStream;
@@ -202,7 +202,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     MessageStreamImpl<M> intermediateStream =
         this.graph.<K, M, M>getIntermediateStream(opName, keyExtractor, m -> m, (k, m) -> m);
     SinkOperatorSpec<M> partitionByOperatorSpec = OperatorSpecs.createPartitionByOperatorSpec(
-        (OutputStreamInternal<K, M, M>) intermediateStream, opId, getSourceLocation());
+        (OutputStreamInternal<K, M, M>) intermediateStream, opId);
     this.registeredOperatorSpecs.add(partitionByOperatorSpec);
     return intermediateStream;
   }
@@ -215,19 +215,5 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
    */
   public Collection<OperatorSpec> getRegisteredOperatorSpecs() {
     return Collections.unmodifiableSet(this.registeredOperatorSpecs);
-  }
-
-  /**
-   * Return the location of source code that creates the operator
-   * @return {@link StackTraceElement} of the source location
-   */
-  private StackTraceElement getSourceLocation() {
-    // The stack trace looks like:
-    // [0] Thread.getStackTrace()
-    // [1] MessageStreamImpl.addCallerStackTrace()
-    // [2] MessageStreamImpl.someOperator()
-    // [3] User code that calls [2]
-    // we are only interested in [3] here
-    return Thread.currentThread().getStackTrace()[3];
   }
 }

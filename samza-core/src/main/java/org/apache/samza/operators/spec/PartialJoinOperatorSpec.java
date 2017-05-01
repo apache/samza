@@ -18,8 +18,6 @@
  */
 package org.apache.samza.operators.spec;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.util.OperatorJsonUtils;
@@ -41,7 +39,7 @@ public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
   private final long ttlMs;
   private final MessageStreamImpl<RM> nextStream;
   private final int opId;
-  private final StackTraceElement sourceLocation;
+  private final String sourceLocation;
 
   /**
    * Default constructor for a {@link PartialJoinOperatorSpec}.
@@ -53,17 +51,16 @@ public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
    * @param ttlMs  the ttl in ms for retaining messages in each stream
    * @param nextStream  the output {@link MessageStreamImpl} containing the messages produced from this operator
    * @param opId  the unique ID for this operator
-   * @param sourceLocation location of the source code that creates this operator
    */
   PartialJoinOperatorSpec(PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn,
       PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn, long ttlMs,
-      MessageStreamImpl<RM> nextStream, int opId, StackTraceElement sourceLocation) {
+      MessageStreamImpl<RM> nextStream, int opId) {
     this.thisPartialJoinFn = thisPartialJoinFn;
     this.otherPartialJoinFn = otherPartialJoinFn;
     this.ttlMs = ttlMs;
     this.nextStream = nextStream;
     this.opId = opId;
-    this.sourceLocation = sourceLocation;
+    this.sourceLocation = OperatorJsonUtils.getSourceLocation();
   }
 
   @Override
@@ -94,15 +91,7 @@ public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
   }
 
   @Override
-  public StackTraceElement getSourceLocation() {
+  public String getSourceLocation() {
     return sourceLocation;
   }
-
-  @Override
-  public Map<String, Object> toJsonMap() {
-    Map<String, Object> properties = new HashMap<>();
-    properties.put("ttlMs", ttlMs);
-    return OperatorJsonUtils.operatorToJson(this, properties);
-  }
-
 }

@@ -25,6 +25,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
+import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,22 +37,53 @@ public class OperatorJsonUtils {
   private static final String OP_ID = "opId";
   private static final String SOURCE_LOCATION = "sourceLocation";
   private static final String NEXT_OPERATOR_IDS = "nextOperatorIds";
+  private static final String OUTPUT_STREAM_ID = "outputStreamId";
+  private static final String TTL_MS = "ttlMs";
 
-  public static Map<String, Object> operatorToJson(OperatorSpec spec, Map<String, Object> properties) {
-    Map<String, Object> jsonMap = new HashMap<>();
-    jsonMap.put(OP_CODE, spec.getOpCode().name());
-    jsonMap.put(OP_ID, spec.getOpId());
-    jsonMap.put(SOURCE_LOCATION,
-        String.format("%s:%s", spec.getSourceLocation().getFileName(), spec.getSourceLocation().getLineNumber()));
+  /**
+   * Format the operator properties into a map
+   * @param spec a {@link OperatorSpec} instance
+   * @return map of the operator properties
+   */
+  public static Map<String, Object> operatorToMap(OperatorSpec spec) {
+    Map<String, Object> map = new HashMap<>();
+    map.put(OP_CODE, spec.getOpCode().name());
+    map.put(OP_ID, spec.getOpId());
+    map.put(SOURCE_LOCATION, spec.getSourceLocation());
 
     if (spec.getNextStream() != null) {
       Collection<OperatorSpec> nextOperators = spec.getNextStream().getRegisteredOperatorSpecs();
-      jsonMap.put(NEXT_OPERATOR_IDS, nextOperators.stream().map(OperatorSpec::getOpId).collect(Collectors.toSet()));
+      map.put(NEXT_OPERATOR_IDS, nextOperators.stream().map(OperatorSpec::getOpId).collect(Collectors.toSet()));
     } else {
-      jsonMap.put(NEXT_OPERATOR_IDS, Collections.emptySet());
+      map.put(NEXT_OPERATOR_IDS, Collections.emptySet());
     }
 
-    jsonMap.putAll(properties);
-    return jsonMap;
+    if (spec instanceof SinkOperatorSpec) {
+      map.put(OUTPUT_STREAM_ID, ((SinkOperatorSpec) spec).getOutputStream().getStreamSpec().getId());
+    }
+
+    if (spec instanceof PartialJoinOperatorSpec) {
+      map.put(TTL_MS, ((PartialJoinOperatorSpec) spec).getTtlMs());
+    }
+
+    return map;
+  }
+
+  /**
+   * Return the location of source code that creates the operator.
+   * This function is invoked in the constructor of each operator.
+   * @return formatted source location including file and line number
+   */
+  public static String getSourceLocation() {
+    // The stack trace looks like:
+    // [0] Thread.getStackTrace()
+    // [1] OperatorJsonUtils.getSourceLocation()
+    // [2] SomeOperator.<init>()
+    // [3] OperatorSpecs.createSomeOperator()
+    // [4] MessageStreamImpl.someOperator()
+    // [5] User code that calls [2]
+    // we are only interested in [5] here
+    StackTraceElement location = Thread.currentThread().getStackTrace()[5];
+    return String.format("%s:%s", location.getFileName(), location.getLineNumber());
   }
 }

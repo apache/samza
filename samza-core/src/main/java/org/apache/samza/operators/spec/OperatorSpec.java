@@ -18,7 +18,6 @@
  */
 package org.apache.samza.operators.spec;
 
-import java.util.Map;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.MessageStreamImpl;
 
@@ -64,16 +63,10 @@ public interface OperatorSpec<OM> {
   int getOpId();
 
   /**
-   * Return a map object for JSON representation of the operator
-   * @return a map of JSON POJO objects
-   */
-  Map<String, Object> toJsonMap();
-
-  /**
    * Return the user source code location that creates the operator
    * @return source location
    */
-  StackTraceElement getSourceLocation();
+  String getSourceLocation();
 
   /**
    * Get the name for this operator based on its opCode and opId.

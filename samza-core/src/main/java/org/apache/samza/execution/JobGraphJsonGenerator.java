@@ -36,6 +36,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.util.OperatorJsonUtils;
 import org.codehaus.jackson.annotate.JsonProperty;
 import org.codehaus.jackson.map.ObjectMapper;
 
@@ -197,7 +198,7 @@ import org.codehaus.jackson.map.ObjectMapper;
   private void updateOperatorGraphJson(MessageStreamImpl messageStream, OperatorGraphJson opGraph) {
     Collection<OperatorSpec> specs = messageStream.getRegisteredOperatorSpecs();
     specs.forEach(opSpec -> {
-        opGraph.operators.put(opSpec.getOpId(), opSpec.toJsonMap());
+        opGraph.operators.put(opSpec.getOpId(), OperatorJsonUtils.operatorToMap(opSpec));
 
         if (opSpec.getOpCode() == OperatorSpec.OpCode.JOIN || opSpec.getOpCode() == OperatorSpec.OpCode.MERGE) {
           outputStreamToOpIds.put(opSpec.getNextStream(), opSpec.getOpId());

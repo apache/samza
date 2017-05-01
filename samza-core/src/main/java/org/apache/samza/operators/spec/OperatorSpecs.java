@@ -50,11 +50,10 @@ public class OperatorSpecs {
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
    * @param <OM>  type of output message
-   * @param sourceLocation location of the source code that creates this operator
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createMapOperatorSpec(
-      MapFunction<? super M, ? extends OM> mapFn, MessageStreamImpl<OM> nextStream, int opId, StackTraceElement sourceLocation) {
+      MapFunction<? super M, ? extends OM> mapFn, MessageStreamImpl<OM> nextStream, int opId) {
     return new StreamOperatorSpec<>(new FlatMapFunction<M, OM>() {
       @Override
       public Collection<OM> apply(M message) {
@@ -72,7 +71,7 @@ public class OperatorSpecs {
       public void init(Config config, TaskContext context) {
         mapFn.init(config, context);
       }
-    }, nextStream, OperatorSpec.OpCode.MAP, opId, sourceLocation);
+    }, nextStream, OperatorSpec.OpCode.MAP, opId);
   }
 
   /**
@@ -82,11 +81,10 @@ public class OperatorSpecs {
    * @param nextStream  the output {@link MessageStreamImpl} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
-   * @param sourceLocation location of the source code that creates this operator
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M> StreamOperatorSpec<M, M> createFilterOperatorSpec(
-      FilterFunction<? super M> filterFn, MessageStreamImpl<M> nextStream, int opId, StackTraceElement sourceLocation) {
+      FilterFunction<? super M> filterFn, MessageStreamImpl<M> nextStream, int opId) {
     return new StreamOperatorSpec<>(new FlatMapFunction<M, M>() {
       @Override
       public Collection<M> apply(M message) {
@@ -103,7 +101,7 @@ public class OperatorSpecs {
       public void init(Config config, TaskContext context) {
         filterFn.init(config, context);
       }
-    }, nextStream, OperatorSpec.OpCode.FILTER, opId, sourceLocation);
+    }, nextStream, OperatorSpec.OpCode.FILTER, opId);
   }
 
   /**
@@ -114,12 +112,11 @@ public class OperatorSpecs {
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
    * @param <OM>  type of output message
-   * @param sourceLocation location of the source code that creates this operator
    * @return  the {@link StreamOperatorSpec}
    */
   public static <M, OM> StreamOperatorSpec<M, OM> createStreamOperatorSpec(
-      FlatMapFunction<? super M, ? extends OM> transformFn, MessageStreamImpl<OM> nextStream, int opId, StackTraceElement sourceLocation) {
-    return new StreamOperatorSpec<>((FlatMapFunction<M, OM>) transformFn, nextStream, OperatorSpec.OpCode.FLAT_MAP, opId, sourceLocation);
+      FlatMapFunction<? super M, ? extends OM> transformFn, MessageStreamImpl<OM> nextStream, int opId) {
+    return new StreamOperatorSpec<>((FlatMapFunction<M, OM>) transformFn, nextStream, OperatorSpec.OpCode.FLAT_MAP, opId);
   }
 
   /**
@@ -128,11 +125,10 @@ public class OperatorSpecs {
    * @param sinkFn  the sink function provided by the user
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
-   * @param sourceLocation location of the source code that creates this operator
    * @return  the {@link SinkOperatorSpec} for the sink operator
    */
-  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<? super M> sinkFn, int opId, StackTraceElement sourceLocation) {
-    return new SinkOperatorSpec<>((SinkFunction<M>) sinkFn, OperatorSpec.OpCode.SINK, opId, sourceLocation);
+  public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<? super M> sinkFn, int opId) {
+    return new SinkOperatorSpec<>((SinkFunction<M>) sinkFn, OperatorSpec.OpCode.SINK, opId);
   }
 
   /**
@@ -143,12 +139,11 @@ public class OperatorSpecs {
    * @param <K> the type of key in the outgoing message
    * @param <V> the type of message in the outgoing message
    * @param <M> the type of message in the {@link OutputStreamInternal}
-   * @param sourceLocation location of the source code that creates this operator
    * @return  the {@link SinkOperatorSpec} for the sendTo operator
    */
   public static <K, V, M> SinkOperatorSpec<M> createSendToOperatorSpec(
-      OutputStreamInternal<K, V, M> outputStream, int opId, StackTraceElement sourceLocation) {
-    return new SinkOperatorSpec<>(outputStream, OperatorSpec.OpCode.SEND_TO, opId, sourceLocation);
+      OutputStreamInternal<K, V, M> outputStream, int opId) {
+    return new SinkOperatorSpec<>(outputStream, OperatorSpec.OpCode.SEND_TO, opId);
   }
 
   /**
@@ -159,12 +154,11 @@ public class OperatorSpecs {
    * @param <K> the type of key in the outgoing message
    * @param <V> the type of message in the outgoing message
    * @param <M> the type of message in the {@link OutputStreamInternal}
-   * @param sourceLocation location of the source code that creates this operator
    * @return  the {@link SinkOperatorSpec} for the partitionBy operator
    */
   public static <K, V, M> SinkOperatorSpec<M> createPartitionByOperatorSpec(
-      OutputStreamInternal<K, V, M> outputStream, int opId, StackTraceElement sourceLocation) {
-    return new SinkOperatorSpec<>(outputStream, OperatorSpec.OpCode.PARTITION_BY, opId, sourceLocation);
+      OutputStreamInternal<K, V, M> outputStream, int opId) {
+    return new SinkOperatorSpec<>(outputStream, OperatorSpec.OpCode.PARTITION_BY, opId);
   }
 
   /**
@@ -176,13 +170,12 @@ public class OperatorSpecs {
    * @param <M>  the type of input message
    * @param <WK>  the type of key in the {@link WindowPane}
    * @param <WV>  the type of value in the window
-   * @param sourceLocation location of the source code that creates this operator
    * @return  the {@link WindowOperatorSpec}
    */
 
   public static <M, WK, WV> WindowOperatorSpec<M, WK, WV> createWindowOperatorSpec(
-      WindowInternal<M, WK, WV> window, MessageStreamImpl<WindowPane<WK, WV>> nextStream, int opId, StackTraceElement sourceLocation) {
-    return new WindowOperatorSpec<>(window, nextStream, opId, sourceLocation);
+      WindowInternal<M, WK, WV> window, MessageStreamImpl<WindowPane<WK, WV>> nextStream, int opId) {
+    return new WindowOperatorSpec<>(window, nextStream, opId);
   }
 
   /**
@@ -197,13 +190,12 @@ public class OperatorSpecs {
    * @param <M>  the type of input message
    * @param <JM>  the type of message in the other join stream
    * @param <RM>  the type of message in the join output
-   * @param sourceLocation location of the source code that creates this operator
    * @return  the {@link PartialJoinOperatorSpec}
    */
   public static <K, M, JM, RM> PartialJoinOperatorSpec<K, M, JM, RM> createPartialJoinOperatorSpec(
       PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn, PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn,
-      long ttlMs, MessageStreamImpl<RM> nextStream, int opId, StackTraceElement sourceLocation) {
-    return new PartialJoinOperatorSpec<>(thisPartialJoinFn, otherPartialJoinFn, ttlMs, nextStream, opId, sourceLocation);
+      long ttlMs, MessageStreamImpl<RM> nextStream, int opId) {
+    return new PartialJoinOperatorSpec<>(thisPartialJoinFn, otherPartialJoinFn, ttlMs, nextStream, opId);
   }
 
   /**
@@ -212,16 +204,15 @@ public class OperatorSpecs {
    * @param nextStream  the output {@link MessageStreamImpl} to send messages to
    * @param opId  the unique ID of the operator
    * @param <M>  the type of input message
-   * @param sourceLocation location of the source code that creates this operator
    * @return  the {@link StreamOperatorSpec} for the merge
    */
-  public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(MessageStreamImpl<M> nextStream, int opId, StackTraceElement sourceLocation) {
+  public static <M> StreamOperatorSpec<M, M> createMergeOperatorSpec(MessageStreamImpl<M> nextStream, int opId) {
     return new StreamOperatorSpec<>(message ->
         new ArrayList<M>() {
           {
             this.add(message);
           }
         },
-        nextStream, OperatorSpec.OpCode.MERGE, opId, sourceLocation);
+        nextStream, OperatorSpec.OpCode.MERGE, opId);
   }
 }
