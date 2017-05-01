@@ -178,6 +178,7 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
             } else {
               // Couldn't find an active applicationID. Use one the latest finished ID.
               val pastApplicationIds = client.getPreviousApplicationIds(applicationName)
+              // Don't log because there could be many, many previous app IDs for an application.
               pastApplicationIds.sorted.reverse.headOption  // Get latest
             }
 

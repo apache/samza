@@ -236,37 +236,31 @@ class ClientHelper(conf: Configuration) extends Logging {
     * @return        the active application ids.
     */
   def getActiveApplicationIds(appName: String): List[ApplicationId] = {
-    val getAppsRsp = yarnClient.getApplications
+    val applicationReports = yarnClient.getApplications
 
-    getAppsRsp
+    applicationReports
       .asScala
-        .filter(appRep => ((
-            Running.equals(convertState(appRep.getYarnApplicationState, appRep.getFinalApplicationStatus).get)
-            || New.equals(convertState(appRep.getYarnApplicationState, appRep.getFinalApplicationStatus).get)
-            )
-          && appName.equals(appRep.getName)))
-        .map(appRep => appRep.getApplicationId)
+        .filter(applicationReport => isActiveApplication(applicationReport)
+          && appName.equals(applicationReport.getName))
+        .map(applicationReport => applicationReport.getApplicationId)
         .toList
   }
 
   def getPreviousApplicationIds(appName: String): List[ApplicationId] = {
-    val getAppsRsp = yarnClient.getApplications
+    val applicationReports = yarnClient.getApplications
 
-    getAppsRsp
+    applicationReports
       .asScala
-      .filter(appRep => ( !(
-        Running.equals(convertState(appRep.getYarnApplicationState, appRep.getFinalApplicationStatus).get)
-          || New.equals(convertState(appRep.getYarnApplicationState, appRep.getFinalApplicationStatus).get)
-        )
-        && appName.equals(appRep.getName)))
-      .map(appRep => appRep.getApplicationId)
+      .filter(applicationReport => (!(isActiveApplication(applicationReport))
+        && appName.equals(applicationReport.getName)))
+      .map(applicationReport => applicationReport.getApplicationId)
       .toList
   }
 
   def status(appId: ApplicationId): Option[ApplicationStatus] = {
     val statusResponse = yarnClient.getApplicationReport(appId)
     info("Got state: %s, final status: %s".format(statusResponse.getYarnApplicationState, statusResponse.getFinalApplicationStatus))
-    convertState(statusResponse.getYarnApplicationState, statusResponse.getFinalApplicationStatus)
+    toAppStatus(statusResponse.getYarnApplicationState, statusResponse.getFinalApplicationStatus)
   }
 
   def kill(appId: ApplicationId) {
@@ -286,13 +280,18 @@ class ClientHelper(conf: Configuration) extends Logging {
     status match {
       case Some(status) => getAppsRsp
         .asScala
-        .filter(appRep => status.equals(convertState(appRep.getYarnApplicationState, appRep.getFinalApplicationStatus).get))
+        .filter(appRep => status.equals(toAppStatus(appRep.getYarnApplicationState, appRep.getFinalApplicationStatus).get))
         .toList
       case None => getAppsRsp.asScala.toList
     }
   }
 
-  private def convertState(state: YarnApplicationState, status: FinalApplicationStatus): Option[ApplicationStatus] = {
+  private def isActiveApplication(applicationReport: ApplicationReport): Boolean = {
+    (Running.equals(toAppStatus(applicationReport.getYarnApplicationState, applicationReport.getFinalApplicationStatus).get)
+    || New.equals(toAppStatus(applicationReport.getYarnApplicationState, applicationReport.getFinalApplicationStatus).get))
+  }
+
+  private def toAppStatus(state: YarnApplicationState, status: FinalApplicationStatus): Option[ApplicationStatus] = {
     (state, status) match {
       case (YarnApplicationState.FINISHED, FinalApplicationStatus.SUCCEEDED) | (YarnApplicationState.KILLED, FinalApplicationStatus.KILLED) => Some(SuccessfulFinish)
       case (YarnApplicationState.KILLED, _) | (YarnApplicationState.FAILED, _) | (YarnApplicationState.FINISHED, _) => Some(UnsuccessfulFinish)
