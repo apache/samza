@@ -178,7 +178,7 @@ public final class Windows {
    */
   public static <M, WV> Window<M, Void, WV> tumblingWindow(Duration duration, Supplier<? extends WV> initialValue,
                                                            FoldLeftFunction<? super M, WV> foldFn) {
-    Trigger<M> defaultTrigger = Triggers.repeat(new TimeTrigger<>(duration));
+    Trigger<M> defaultTrigger = new TimeTrigger<>(duration);
     return new WindowInternal<>(defaultTrigger, (Supplier<WV>) initialValue, (FoldLeftFunction<M, WV>) foldFn,
         null, null, WindowType.TUMBLING);
   }
