@@ -49,7 +49,6 @@ public class ZkLeaderElector implements LeaderElector {
   private final String processorIdStr;
   private final ZkKeyBuilder keyBuilder;
   private final String hostName;
-  private final ScheduleAfterDebounceTime debounceTimer;
 
   private AtomicBoolean isLeader = new AtomicBoolean(false);
   private final IZkDataListener previousProcessorChangeListener;
@@ -57,12 +56,11 @@ public class ZkLeaderElector implements LeaderElector {
   private String currentSubscription = null;
   private final Random random = new Random();
 
-  public ZkLeaderElector(String processorIdStr, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer) {
+  public ZkLeaderElector(String processorIdStr, ZkUtils zkUtils) {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
     this.keyBuilder = zkUtils.getKeyBuilder();
     this.hostName = getHostName();
-    this.debounceTimer = (debounceTimer != null) ? debounceTimer : new ScheduleAfterDebounceTime();
     this.previousProcessorChangeListener = new PreviousProcessorChangeListener();
 
     zkUtils.makeSurePersistentPathsExists(new String[]{keyBuilder.getProcessorsPath()});
@@ -71,13 +69,11 @@ public class ZkLeaderElector implements LeaderElector {
   @VisibleForTesting
   public ZkLeaderElector(String processorIdStr,
                          ZkUtils zkUtils,
-                         ScheduleAfterDebounceTime debounceTimer,
                          IZkDataListener previousProcessorChangeListener) {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
     this.keyBuilder = zkUtils.getKeyBuilder();
     this.hostName = getHostName();
-    this.debounceTimer = (debounceTimer != null) ? debounceTimer : new ScheduleAfterDebounceTime();
     this.previousProcessorChangeListener = previousProcessorChangeListener;
   }
 
@@ -121,7 +117,7 @@ public class ZkLeaderElector implements LeaderElector {
       isLeader.getAndSet(true);
       LOG.info(zLog("Eligible to become the leader!"));
       if (leaderElectorListener != null) {
-        debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_BECOMING_LEADER, 1, leaderElectorListener::onBecomingLeader); // inform the caller
+        leaderElectorListener.onBecomingLeader();
       }
       return;
     }

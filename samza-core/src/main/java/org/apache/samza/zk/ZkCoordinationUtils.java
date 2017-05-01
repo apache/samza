@@ -47,7 +47,7 @@ public class ZkCoordinationUtils implements CoordinationUtils {
 
   @Override
   public LeaderElector getLeaderElector() {
-    return new ZkLeaderElector(processorIdStr, zkUtils, debounceTimer);
+    return new ZkLeaderElector(processorIdStr, zkUtils);
   }
 
   @Override

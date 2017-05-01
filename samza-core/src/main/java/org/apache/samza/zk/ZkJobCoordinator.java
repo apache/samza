@@ -77,7 +77,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         .getCoordinationService(new ApplicationConfig(config).getGlobalAppId(), String.valueOf(processorId), config);
 
     this.zkUtils = ((ZkCoordinationUtils) coordinationUtils).getZkUtils();
-    LeaderElector leaderElector = new ZkLeaderElector(this.processorId, zkUtils, debounceTimer);
+    LeaderElector leaderElector = new ZkLeaderElector(this.processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
 
     this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this, leaderElector);
@@ -136,16 +136,17 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   //////////////////////////////////////////////// LEADER stuff ///////////////////////////
   @Override
   public void onProcessorChange(List<String> processors) {
-    debounceTimer.scheduleAfterDebounceTime(
-        ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> {
-        log.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
-        // if list of processors is empty - it means we are called from 'onBecomeLeader'
-        generateNewJobModel(processors);
-        if (coordinatorListener != null) {
-          coordinatorListener.onJobModelExpired();
-        }
-      });
+    log.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
+    debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
+        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> doOnProcessorChange(processors));
+  }
+
+  public void doOnProcessorChange(List<String> processors) {
+    // if list of processors is empty - it means we are called from 'onBecomeLeader'
+    generateNewJobModel(processors);
+    if (coordinatorListener != null) {
+      coordinatorListener.onJobModelExpired();
+    }
   }
 
   @Override
@@ -164,12 +165,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     // update ZK and wait for all the processors to get this new version
     ZkBarrierForVersionUpgrade barrier = (ZkBarrierForVersionUpgrade) coordinationUtils.getBarrier(
         JOB_MODEL_UPGRADE_BARRIER);
-    barrier.waitForBarrier(version, processorId, new Runnable() {
-      @Override
-      public void run() {
-        onNewJobModelConfirmed(version);
-      }
-    });
+    barrier.waitForBarrier(version, processorId, () -> onNewJobModelConfirmed(version));
   }
 
   @Override
@@ -240,8 +236,12 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     public void onBecomingLeader() {
       log.info("ZkJobCoordinator::onBecomeLeader - I became the leader!");
       zkController.subscribeToProcessorChange();
-      // actual actions to do are the same as onProcessorChange()
-      onProcessorChange(new ArrayList<>());
+      debounceTimer.scheduleAfterDebounceTime(
+        ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
+        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> {
+          // actual actions to do are the same as onProcessorChange()
+          doOnProcessorChange(new ArrayList<>());
+        });
     }
   }
 }
