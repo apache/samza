@@ -118,17 +118,19 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   public final void process(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator) {
     SystemStream systemStream = ime.getSystemStreamPartition().getSystemStream();
     InputStreamInternal inputStream = inputSystemStreamToInputStream.get(systemStream);
-    // TODO: SAMZA-1148 - Cast to appropriate input (key, msg) types based on the serde before applying the msgBuilder.
     RootOperatorImpl rootOperatorImpl = operatorImplGraph.getRootOperator(systemStream);
     if (rootOperatorImpl != null) {
-      rootOperatorImpl.onNext(inputStream.getMsgBuilder().apply(ime.getKey(), ime.getMessage()), collector, coordinator);
+      // TODO: SAMZA-1148 - Cast to appropriate input (key, msg) types based on the serde
+      // before applying the msgBuilder.
+      Object message = inputStream.getMsgBuilder().apply(ime.getKey(), ime.getMessage());
+      rootOperatorImpl.onMessage(message, collector, coordinator);
     }
   }
 
   @Override
   public final void window(MessageCollector collector, TaskCoordinator coordinator)  {
     operatorImplGraph.getAllRootOperators()
-        .forEach(rootOperator -> rootOperator.onTick(collector, coordinator));
+        .forEach(rootOperator -> rootOperator.onTimer(collector, coordinator));
   }
 
   @Override

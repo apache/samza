@@ -72,6 +72,14 @@ public class ApplicationConfig extends MapConfig {
     return get(APP_CLASS, null);
   }
 
+  /**
+   * returns full application id
+   * @return full app id
+   */
+  public String getGlobalAppId() {
+    return String.format("app-%s-%s", getAppName(), getAppId());
+  }
+
   @Deprecated
   public String getProcessorId() {
     return get(PROCESSOR_ID, null);

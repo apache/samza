@@ -20,6 +20,7 @@
 package org.apache.samza.zk;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -103,12 +104,11 @@ public class ZkUtils {
    * @param data Object that should be written as data in the registered ephemeral ZK node
    * @return String representing the absolute ephemeralPath of this client in the current session
    */
-  public synchronized String registerProcessorAndGetId(final Object data) {
+  public synchronized String registerProcessorAndGetId(final ProcessorData data) {
     if (ephemeralPath == null) {
-      // TODO: Data should be more than just the hostname. Use Json serialized data
       ephemeralPath =
           zkClient.createEphemeralSequential(
-              keyBuilder.getProcessorsPath() + "/", data);
+              keyBuilder.getProcessorsPath() + "/", data.toString());
 
       LOG.info("newly generated path for " + data +  " is " +  ephemeralPath);
       return ephemeralPath;
@@ -123,17 +123,59 @@ public class ZkUtils {
   }
 
   /**
-   * Method is used to get the <i>sorted</i> list of currently active/registered processors
+   * Method is used to get the <i>sorted</i> list of currently active/registered processors (znodes)
    *
    * @return List of absolute ZK node paths
    */
-  public List<String> getSortedActiveProcessors() {
-    List<String> children = zkClient.getChildren(keyBuilder.getProcessorsPath());
-    if (children.size() > 0) {
-      Collections.sort(children);
-      LOG.info("Found these children - " + children);
+  public List<String> getSortedActiveProcessorsZnodes() {
+    List<String> znodeIds = zkClient.getChildren(keyBuilder.getProcessorsPath());
+    if (znodeIds.size() > 0) {
+      Collections.sort(znodeIds);
+      LOG.info("Found these children - " + znodeIds);
     }
-    return children;
+    return znodeIds;
+  }
+
+  /**
+   * Method is used to read processor's data from the znode
+   * @param fullPath absolute path to the znode
+   * @return processor's data
+   */
+  String readProcessorData(String fullPath) {
+    String data = zkClient.<String>readData(fullPath, true);
+    if (data == null) {
+      throw new SamzaException(String.format("Cannot read ZK node:", fullPath));
+    }
+    return data;
+  }
+
+  /**
+   * Method is used to get the list of currently active/registered processor ids
+   * @return List of processorIds
+   */
+  public List<String> getSortedActiveProcessorsIDs() {
+    return getActiveProcessorsIDs(getSortedActiveProcessorsZnodes());
+  }
+
+  /**
+   * Method is used to get the <i>sorted</i> list of processors ids for a given list of znodes
+   * @param znodeIds - list of relative paths of the children's znodes
+   * @return List of processor ids for a given list of znodes
+   */
+  public List<String> getActiveProcessorsIDs(List<String> znodeIds) {
+    String processorPath = keyBuilder.getProcessorsPath();
+    List<String> processorIds = new ArrayList<>(znodeIds.size());
+    if (znodeIds.size() > 0) {
+
+      for (String child : znodeIds) {
+        String fullPath = String.format("%s/%s", processorPath, child);
+        processorIds.add(readProcessorData(fullPath));
+      }
+
+      LOG.info("Found these children - " + znodeIds);
+      LOG.info("Found these processorIds - " + processorIds);
+    }
+    return processorIds;
   }
 
   /* Wrapper for standard I0Itec methods */

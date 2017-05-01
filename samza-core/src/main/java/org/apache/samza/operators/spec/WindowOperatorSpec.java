@@ -19,11 +19,9 @@
 
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
-import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -50,13 +48,6 @@ public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK
     this.nextStream = nextStream;
     this.window = window;
     this.opId = opId;
-  }
-
-  @Override
-  public void init(Config config, TaskContext context) {
-    if (window.getFoldLeftFunction() != null) {
-      window.getFoldLeftFunction().init(config, context);
-    }
   }
 
   @Override

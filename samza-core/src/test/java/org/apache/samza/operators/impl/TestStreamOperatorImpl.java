@@ -18,10 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -31,7 +28,15 @@ import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
 
-import static org.mockito.Mockito.*;
+import java.util.ArrayList;
+import java.util.Collection;
+
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 public class TestStreamOperatorImpl {
@@ -42,10 +47,10 @@ public class TestStreamOperatorImpl {
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> mockOp = mock(StreamOperatorSpec.class);
     FlatMapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> txfmFn = mock(FlatMapFunction.class);
     when(mockOp.getTransformFn()).thenReturn(txfmFn);
-    MessageStreamImpl<TestMessageEnvelope> mockInput = mock(MessageStreamImpl.class);
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
-    StreamOperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope> opImpl = spy(new StreamOperatorImpl<>(mockOp, mockInput, mockConfig, mockContext));
+    StreamOperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope> opImpl =
+        spy(new StreamOperatorImpl<>(mockOp, mockConfig, mockContext));
     TestMessageEnvelope inMsg = mock(TestMessageEnvelope.class);
     TestOutputMessageEnvelope outMsg = mock(TestOutputMessageEnvelope.class);
     Collection<TestOutputMessageEnvelope> mockOutputs = new ArrayList() { {
@@ -54,8 +59,9 @@ public class TestStreamOperatorImpl {
     when(txfmFn.apply(inMsg)).thenReturn(mockOutputs);
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
-    opImpl.onNext(inMsg, mockCollector, mockCoordinator);
+    Collection<TestOutputMessageEnvelope> results = opImpl
+        .handleMessage(inMsg, mockCollector, mockCoordinator);
     verify(txfmFn, times(1)).apply(inMsg);
-    verify(opImpl, times(1)).propagateResult(outMsg, mockCollector, mockCoordinator);
+    assertEquals(results, mockOutputs);
   }
 }

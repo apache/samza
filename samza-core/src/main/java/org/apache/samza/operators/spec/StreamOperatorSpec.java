@@ -18,10 +18,8 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.FlatMapFunction;
-import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -70,10 +68,5 @@ public class StreamOperatorSpec<M, OM> implements OperatorSpec<OM> {
   @Override
   public int getOpId() {
     return this.opId;
-  }
-
-  @Override
-  public void init(Config config, TaskContext context) {
-    this.transformFn.init(config, context);
   }
 }

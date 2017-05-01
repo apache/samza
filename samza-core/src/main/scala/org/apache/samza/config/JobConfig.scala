@@ -48,8 +48,6 @@ object JobConfig {
   val JOB_CONTAINER_SINGLE_THREAD_MODE = "job.container.single.thread.mode"
   val JOB_INTERMEDIATE_STREAM_PARTITIONS = "job.intermediate.stream.partitions"
 
-  val CHECKPOINT_SEGMENT_BYTES = "task.checkpoint.segment.bytes"
-
   val SSP_GROUPER_FACTORY = "job.systemstreampartition.grouper.factory"
 
   val SSP_MATCHER_CLASS = "job.systemstreampartition.matcher.class"
@@ -111,6 +109,13 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     system
   }
 
+  /**
+    * Gets the System to use for reading/writing the coordinator stream. Uses the following precedence.
+    *
+    * 1. If job.coordinator.system is defined, that value is used.
+    * 2. If job.default.system is defined, that value is used.
+    * 3. None
+    */
   def getCoordinatorSystemNameOrNull =  getOption(JobConfig.JOB_COORDINATOR_SYSTEM).getOrElse(getDefaultSystem.orNull)
 
   def getDefaultSystem = getOption(JobConfig.JOB_DEFAULT_SYSTEM)
