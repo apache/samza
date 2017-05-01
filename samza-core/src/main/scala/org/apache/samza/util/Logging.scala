@@ -29,8 +29,8 @@ trait Logging {
   lazy val startupLogger = LoggerFactory.getLogger(startupLoggerName)
 
   def startupLog(message: => Any): Unit = {
-    logger.info(message)
-    startupLogger.info(message)
+    logger.info(message.toString)
+    startupLogger.info(message.toString)
   }
 
 

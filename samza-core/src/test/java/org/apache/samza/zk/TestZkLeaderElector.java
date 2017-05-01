@@ -100,7 +100,7 @@ public class TestZkLeaderElector {
     ZkUtils mockZkUtils = mock(ZkUtils.class);
     when(mockZkUtils.registerProcessorAndGetId(any())).
         thenReturn(KEY_BUILDER.getProcessorsPath() + "/0000000000");
-    when(mockZkUtils.getSortedActiveProcessors()).thenReturn(activeProcessors);
+    when(mockZkUtils.getSortedActiveProcessorsZnodes()).thenReturn(activeProcessors);
     Mockito.doNothing().when(mockZkUtils).makeSurePersistentPathsExists(any(String[].class));
 
     ZkKeyBuilder kb = mock(ZkKeyBuilder.class);
@@ -123,7 +123,7 @@ public class TestZkLeaderElector {
   public void testUnregisteredProcessorInLeaderElection() {
     String processorId = "1";
     ZkUtils mockZkUtils = mock(ZkUtils.class);
-    when(mockZkUtils.getSortedActiveProcessors()).thenReturn(new ArrayList<String>());
+    when(mockZkUtils.getSortedActiveProcessorsZnodes()).thenReturn(new ArrayList<String>());
     Mockito.doNothing().when(mockZkUtils).makeSurePersistentPathsExists(any(String[].class));
 
     ZkKeyBuilder kb = mock(ZkKeyBuilder.class);
@@ -167,7 +167,7 @@ public class TestZkLeaderElector {
     ZkUtils zkUtils3 = getZkUtilsWithNewClient("3");
     ZkLeaderElector leaderElector3 = new ZkLeaderElector("3", zkUtils3, null);
 
-    Assert.assertEquals(0, testZkUtils.getSortedActiveProcessors().size());
+    Assert.assertEquals(0, testZkUtils.getSortedActiveProcessorsZnodes().size());
 
     leaderElector1.tryBecomeLeader(new LeaderElectorListener() {
       @Override
@@ -192,14 +192,14 @@ public class TestZkLeaderElector {
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> isLeader2.res, 2, 100));
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> isLeader3.res, 2, 100));
 
-    Assert.assertEquals(3, testZkUtils.getSortedActiveProcessors().size());
+    Assert.assertEquals(3, testZkUtils.getSortedActiveProcessorsZnodes().size());
 
     // Clean up
     zkUtils1.close();
     zkUtils2.close();
     zkUtils3.close();
 
-    Assert.assertEquals(new ArrayList<String>(), testZkUtils.getSortedActiveProcessors());
+    Assert.assertEquals(new ArrayList<String>(), testZkUtils.getSortedActiveProcessorsZnodes());
 
   }
 
@@ -223,7 +223,7 @@ public class TestZkLeaderElector {
 
     // Processor-1
     ZkUtils zkUtils1 = getZkUtilsWithNewClient("processor1");
-    zkUtils1.registerProcessorAndGetId("processor1");
+    zkUtils1.registerProcessorAndGetId(new ProcessorData("processor1", "1"));
     ZkLeaderElector leaderElector1 = new ZkLeaderElector("processor1", zkUtils1, null);
 
     leaderElector1.setPreviousProcessorChangeListener(new IZkDataListener() {
@@ -241,7 +241,7 @@ public class TestZkLeaderElector {
 
     // Processor-2
     ZkUtils zkUtils2 = getZkUtilsWithNewClient("processor2");
-    final String path2 = zkUtils2.registerProcessorAndGetId("processor2");
+    final String path2 = zkUtils2.registerProcessorAndGetId(new ProcessorData("processor2", "2"));
     ZkLeaderElector leaderElector2 = new ZkLeaderElector("processor2", zkUtils2, null);
 
     leaderElector2.setPreviousProcessorChangeListener(new IZkDataListener() {
@@ -273,7 +273,7 @@ public class TestZkLeaderElector {
 
     // Processor-3
     ZkUtils zkUtils3  = getZkUtilsWithNewClient("processor3");
-    zkUtils3.registerProcessorAndGetId("processor3");
+    zkUtils3.registerProcessorAndGetId(new ProcessorData("processor3", "3"));
     ZkLeaderElector leaderElector3 = new ZkLeaderElector("processor3", zkUtils3, null);
 
     leaderElector3.setPreviousProcessorChangeListener(new IZkDataListener() {
@@ -317,7 +317,7 @@ public class TestZkLeaderElector {
     Assert.assertFalse(leaderElector2.amILeader());
     Assert.assertFalse(leaderElector3.amILeader());
 
-    List<String> currentActiveProcessors = zkUtils1.getSortedActiveProcessors();
+    List<String> currentActiveProcessors = zkUtils1.getSortedActiveProcessorsZnodes();
     Assert.assertEquals(3, currentActiveProcessors.size());
 
     // Leader Failure
@@ -331,7 +331,7 @@ public class TestZkLeaderElector {
     }
 
     Assert.assertEquals(1, count.get());
-    Assert.assertEquals(currentActiveProcessors, zkUtils2.getSortedActiveProcessors());
+    Assert.assertEquals(currentActiveProcessors, zkUtils2.getSortedActiveProcessorsZnodes());
 
     // Clean up
     zkUtils2.close();
@@ -358,7 +358,7 @@ public class TestZkLeaderElector {
 
     // Processor-1
     ZkUtils zkUtils1 = getZkUtilsWithNewClient("processor1");
-    zkUtils1.registerProcessorAndGetId("processor1");
+    zkUtils1.registerProcessorAndGetId(new ProcessorData("processor1", "1"));
     ZkLeaderElector leaderElector1 = new ZkLeaderElector("processor1", zkUtils1, null);
 
     leaderElector1.setPreviousProcessorChangeListener(new IZkDataListener() {
@@ -378,7 +378,7 @@ public class TestZkLeaderElector {
 
     // Processor-2
     ZkUtils zkUtils2 = getZkUtilsWithNewClient("processor2");
-    zkUtils2.registerProcessorAndGetId("processor2");
+    zkUtils2.registerProcessorAndGetId(new ProcessorData("processor2", "2"));
     ZkLeaderElector leaderElector2 = new ZkLeaderElector("processor2", zkUtils2, null);
 
     leaderElector2.setPreviousProcessorChangeListener(new IZkDataListener() {
@@ -397,7 +397,7 @@ public class TestZkLeaderElector {
 
     // Processor-3
     ZkUtils zkUtils3  = getZkUtilsWithNewClient("processor3");
-    final String path3 = zkUtils3.registerProcessorAndGetId("processor3");
+    final String path3 = zkUtils3.registerProcessorAndGetId(new ProcessorData("processor3", "3"));
     ZkLeaderElector leaderElector3 = new ZkLeaderElector("processor3", zkUtils3, null);
 
     leaderElector3.setPreviousProcessorChangeListener(new IZkDataListener() {
@@ -451,7 +451,7 @@ public class TestZkLeaderElector {
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> isLeader2.res, 2, 100));
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> isLeader3.res, 2, 100));
 
-    List<String> currentActiveProcessors = zkUtils1.getSortedActiveProcessors();
+    List<String> currentActiveProcessors = zkUtils1.getSortedActiveProcessorsZnodes();
     Assert.assertEquals(3, currentActiveProcessors.size());
 
     zkUtils2.close();
@@ -464,7 +464,7 @@ public class TestZkLeaderElector {
     }
 
     Assert.assertEquals(1, count.get());
-    Assert.assertEquals(currentActiveProcessors, zkUtils1.getSortedActiveProcessors());
+    Assert.assertEquals(currentActiveProcessors, zkUtils1.getSortedActiveProcessorsZnodes());
 
     // Clean up
     zkUtils1.close();

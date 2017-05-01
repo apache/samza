@@ -25,9 +25,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
+import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
@@ -47,7 +49,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private static final Logger log = LoggerFactory.getLogger(ZkJobCoordinator.class);
-  private static final String JOB_MODEL_VERSION_BARRIER = "JobModelVersion";
+  private static final String JOB_MODEL_UPGRADE_BARRIER = "jobModelUpgradeBarrier";
 
   private final ZkUtils zkUtils;
   private final String processorId;
@@ -61,23 +63,24 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final CoordinationUtils coordinationUtils;
 
   private JobModel newJobModel;
-  private String newJobModelVersion;  // version published in ZK (by the leader)
   private JobModel jobModel;
 
-  public ZkJobCoordinator(String processorId, String groupId, Config config, ScheduleAfterDebounceTime debounceTimer, ZkUtils zkUtils,
+  public ZkJobCoordinator(String processorId, Config config, ScheduleAfterDebounceTime debounceTimer,
                           SamzaContainerController containerController) {
-    this.processorId = processorId;
-    this.zkUtils = zkUtils;
-    this.keyBuilder = zkUtils.getKeyBuilder();
     this.debounceTimer = debounceTimer;
     this.containerController = containerController;
-    this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this);
     this.config = config;
+    this.processorId = processorId;
+
     this.coordinationUtils = Util.
         <CoordinationServiceFactory>getObj(
             new JobCoordinatorConfig(config)
                 .getJobCoordinationServiceFactoryClassName())
-        .getCoordinationService(groupId, String.valueOf(processorId), config);
+        .getCoordinationService(new ApplicationConfig(config).getGlobalAppId(), String.valueOf(processorId), config);
+
+    this.zkUtils = ((ZkCoordinationUtils) coordinationUtils).getZkUtils();
+    this.keyBuilder = zkUtils.getKeyBuilder();
+    this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this);
 
     streamMetadataCache = getStreamMetadataCache();
   }
@@ -141,28 +144,27 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   }
 
   @Override
-  public void onProcessorChange(List<String> processorIds) {
-    log.info("ZkJobCoordinator::onProcessorChange - Processors changed! List: " + Arrays.toString(processorIds.toArray()));
-    generateNewJobModel();
+  public void onProcessorChange(List<String> processors) {
+    log.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
+    // if list of processors is empty - it means we are called from 'onBecomeLeader'
+    generateNewJobModel(processors);
   }
 
   @Override
   public void onNewJobModelAvailable(final String version) {
-    newJobModelVersion = version;
     log.info("pid=" + processorId + "new JobModel available");
     // stop current work
     containerController.stopContainer();
     log.info("pid=" + processorId + "new JobModel available.Container stopped.");
     // get the new job model
     newJobModel = zkUtils.getJobModel(version);
-    log.info("pid=" + processorId + "new JobModel available. ver=" + version + "; jm = " + newJobModel);
 
-    String currentPath = zkUtils.getEphemeralPath();
-    String zkProcessorId = keyBuilder.parseIdFromPath(currentPath);
+    log.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
 
     // update ZK and wait for all the processors to get this new version
-    ZkBarrierForVersionUpgrade barrier = (ZkBarrierForVersionUpgrade) coordinationUtils.getBarrier(JOB_MODEL_VERSION_BARRIER);
-    barrier.waitForBarrier(version, String.valueOf(zkProcessorId), new Runnable() {
+    ZkBarrierForVersionUpgrade barrier = (ZkBarrierForVersionUpgrade) coordinationUtils.getBarrier(
+        JOB_MODEL_UPGRADE_BARRIER);
+    barrier.waitForBarrier(version, processorId, new Runnable() {
       @Override
       public void run() {
         onNewJobModelConfirmed(version);
@@ -185,9 +187,16 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   /**
    * Generate new JobModel when becoming a leader or the list of processor changed.
    */
-  private void generateNewJobModel() {
-    // get the current list of processors
-    List<String> currentProcessors = zkUtils.getSortedActiveProcessors();
+  private void generateNewJobModel(List<String> processors) {
+    List<String> currentProcessorsIds;
+    if (processors.size() > 0) {
+      // we should use this list
+      // but it needs to be converted into PIDs, which is part of the data
+      currentProcessorsIds = zkUtils.getActiveProcessorsIDs(processors);
+    } else {
+      // get the current list of processors
+      currentProcessorsIds = zkUtils.getSortedActiveProcessorsIDs();
+    }
 
     // get the current version
     String currentJMVersion  = zkUtils.getJobModelVersion();
@@ -200,10 +209,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     }
     log.info("pid=" + processorId + "generating new model. Version = " + nextJMVersion);
 
-    List<String> containerIds = new ArrayList<>();
-    for (String processor : currentProcessors) {
-      String zkProcessorId = ZkKeyBuilder.parseIdFromPath(processor);
-      containerIds.add(zkProcessorId);
+    List<String> containerIds = new ArrayList<>(currentProcessorsIds.size());
+    for (String processorPid : currentProcessorsIds) {
+      containerIds.add(processorPid);
     }
     log.info("generate new job model: processorsIds: " + Arrays.toString(containerIds.toArray()));
 
@@ -217,8 +225,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     log.info("pid=" + processorId + "published new JobModel ver=" + nextJMVersion + ";jm=" + jobModel);
 
     // start the barrier for the job model update
-    ZkBarrierForVersionUpgrade barrier = (ZkBarrierForVersionUpgrade) coordinationUtils.getBarrier(JOB_MODEL_VERSION_BARRIER);
-    barrier.start(nextJMVersion, currentProcessors);
+    BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(
+        JOB_MODEL_UPGRADE_BARRIER);
+    barrier.start(nextJMVersion, currentProcessorsIds);
 
     // publish new JobModel version
     zkUtils.publishJobModelVersion(currentJMVersion, nextJMVersion);

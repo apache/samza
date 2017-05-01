@@ -56,10 +56,11 @@ public class TestZkKeyBuilder {
 
     ZkKeyBuilder builder = new ZkKeyBuilder("test");
 
-    Assert.assertEquals("/test/" + ZkKeyBuilder.JOBMODEL_VERSION_PATH, builder.getJobModelVersionPath());
-    Assert.assertEquals("/test/jobModels", builder.getJobModelPathPrefix());
+    Assert.assertEquals("/test/" + ZkKeyBuilder.JOBMODEL_GENERATION_PATH + "/jobModelVersion", builder.getJobModelVersionPath());
+    Assert.assertEquals("/test/" + ZkKeyBuilder.JOBMODEL_GENERATION_PATH + "/jobModels", builder.getJobModelPathPrefix());
     String version = "2";
-    Assert.assertEquals("/test/jobModels/" + version, builder.getJobModelPath(version));
-    Assert.assertEquals("/test/testBarrier/versionBarriers", builder.getJobModelVersionBarrierPrefix("testBarrier"));
+    Assert.assertEquals("/test/" + ZkKeyBuilder.JOBMODEL_GENERATION_PATH + "/jobModels/" + version, builder.getJobModelPath(version));
+    Assert.assertEquals("/test/" + ZkKeyBuilder.JOBMODEL_GENERATION_PATH + "/testBarrier/versionBarriers", builder.getJobModelVersionBarrierPrefix(
+        "testBarrier"));
   }
 }
