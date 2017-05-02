@@ -70,4 +70,9 @@ public class TriggerKey<WK> {
   public FiringType getType() {
     return type;
   }
+
+  @Override
+  public String toString() {
+    return String.format("TriggerKey: {type=%s, key=%s}", type, key);
+  }
 }
