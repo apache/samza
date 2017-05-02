@@ -21,6 +21,7 @@ package org.apache.samza.system.hdfs;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -116,10 +117,17 @@ public class HdfsSystemAdmin implements SystemAdmin {
   }
 
   static Map<Partition, List<String>> obtainPartitionDescriptorMap(String stagingDirectory, String streamName) {
+    if (StringUtils.isBlank(stagingDirectory)) {
+      LOG.info("Empty or null staging directory: {}", stagingDirectory);
+      return Collections.emptyMap();
+    }
+    if (StringUtils.isBlank(streamName)) {
+      throw new SamzaException(String.format("stream name (%s) is null or empty!", streamName));
+    }
     Path path = PartitionDescriptorUtil.getPartitionDescriptorPath(stagingDirectory, streamName);
     try (FileSystem fs = path.getFileSystem(new Configuration())) {
       if (!fs.exists(path)) {
-        return null;
+        return Collections.emptyMap();
       }
       try (FSDataInputStream fis = fs.open(path)) {
         String json = IOUtils.toString(fis, StandardCharsets.UTF_8);
@@ -135,6 +143,10 @@ public class HdfsSystemAdmin implements SystemAdmin {
    */
   private void persistPartitionDescriptor(String streamName,
     Map<Partition, List<String>> partitionDescriptorMap) {
+    if (StringUtils.isBlank(stagingDirectory) || StringUtils.isBlank(streamName)) {
+      LOG.warn("Staging directory ({}) or stream name ({}) is empty", stagingDirectory, streamName);
+      return;
+    }
     Path targetPath = PartitionDescriptorUtil.getPartitionDescriptorPath(stagingDirectory, streamName);
     try (FileSystem fs = targetPath.getFileSystem(new Configuration())) {
       // Partition descriptor is supposed to be immutable. So don't override it if it exists.
@@ -153,6 +165,10 @@ public class HdfsSystemAdmin implements SystemAdmin {
   }
 
   private boolean partitionDescriptorExists(String streamName) {
+    if (StringUtils.isBlank(stagingDirectory) || StringUtils.isBlank(streamName)) {
+      LOG.warn("Staging directory ({}) or stream name ({}) is empty", stagingDirectory, streamName);
+      return false;
+    }
     Path targetPath = PartitionDescriptorUtil.getPartitionDescriptorPath(stagingDirectory, streamName);
     try (FileSystem fs = targetPath.getFileSystem(new Configuration())) {
       return fs.exists(targetPath);
@@ -161,6 +177,17 @@ public class HdfsSystemAdmin implements SystemAdmin {
     }
   }
 
+  /**
+   *
+   * Fetch metadata from hdfs system for a set of streams. This has the potential side effect
+   * to persist partition description to the staging directory on hdfs if staging directory
+   * is not empty. See getStagingDirectory on {@link HdfsConfig}
+   *
+   * @param streamNames
+   *          The streams to to fetch metadata for.
+   * @return A map from stream name to SystemStreamMetadata for each stream
+   *         requested in the parameter set.
+   */
   @Override
   public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
     Map<String, SystemStreamMetadata> systemStreamMetadataMap = new HashMap<>();

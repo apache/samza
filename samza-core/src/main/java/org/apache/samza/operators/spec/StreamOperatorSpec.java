@@ -20,6 +20,7 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.FlatMapFunction;
+import org.apache.samza.operators.util.OperatorJsonUtils;
 
 
 /**
@@ -34,6 +35,7 @@ public class StreamOperatorSpec<M, OM> implements OperatorSpec<OM> {
   private final MessageStreamImpl<OM> nextStream;
   private final OperatorSpec.OpCode opCode;
   private final int opId;
+  private final String sourceLocation;
 
   /**
    * Constructor for a {@link StreamOperatorSpec} that accepts an output {@link MessageStreamImpl}.
@@ -49,6 +51,7 @@ public class StreamOperatorSpec<M, OM> implements OperatorSpec<OM> {
     this.nextStream = nextStream;
     this.opCode = opCode;
     this.opId = opId;
+    this.sourceLocation = OperatorJsonUtils.getSourceLocation();
   }
 
   @Override
@@ -68,5 +71,10 @@ public class StreamOperatorSpec<M, OM> implements OperatorSpec<OM> {
   @Override
   public int getOpId() {
     return this.opId;
+  }
+
+  @Override
+  public String getSourceLocation() {
+    return sourceLocation;
   }
 }

@@ -169,7 +169,7 @@ public class ZkUtils {
 
       for (String child : znodeIds) {
         String fullPath = String.format("%s/%s", processorPath, child);
-        processorIds.add(readProcessorData(fullPath));
+        processorIds.add(new ProcessorData(readProcessorData(fullPath)).getProcessorId());
       }
 
       LOG.info("Found these children - " + znodeIds);

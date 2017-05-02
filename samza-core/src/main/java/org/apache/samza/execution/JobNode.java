@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 public class JobNode {
   private static final Logger log = LoggerFactory.getLogger(JobNode.class);
   private static final String CONFIG_JOB_PREFIX = "jobs.%s.";
+  private static final String CONFIG_INTERNAL_EXECUTION_PLAN = "samza.internal.execution.plan";
 
   private final String jobName;
   private final String jobId;
@@ -92,13 +93,20 @@ public class JobNode {
     return outEdges;
   }
 
-  public JobConfig generateConfig() {
+  /**
+   * Generate the configs for a job
+   * @param executionPlanJson JSON representation of the execution plan
+   * @return config of the job
+   */
+  public JobConfig generateConfig(String executionPlanJson) {
     Map<String, String> configs = new HashMap<>();
     configs.put(JobConfig.JOB_NAME(), jobName);
 
     List<String> inputs = inEdges.stream().map(edge -> edge.getFormattedSystemStream()).collect(Collectors.toList());
     configs.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
     log.info("Job {} has generated configs {}", jobName, configs);
+
+    configs.put(CONFIG_INTERNAL_EXECUTION_PLAN, executionPlanJson);
 
     String configPrefix = String.format(CONFIG_JOB_PREFIX, jobName);
     // TODO: Disallow user specifying job inputs/outputs. This info comes strictly from the pipeline.

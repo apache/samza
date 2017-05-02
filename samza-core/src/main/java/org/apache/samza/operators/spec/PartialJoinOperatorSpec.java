@@ -20,6 +20,7 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.PartialJoinFunction;
+import org.apache.samza.operators.util.OperatorJsonUtils;
 
 
 /**
@@ -38,6 +39,7 @@ public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
   private final long ttlMs;
   private final MessageStreamImpl<RM> nextStream;
   private final int opId;
+  private final String sourceLocation;
 
   /**
    * Default constructor for a {@link PartialJoinOperatorSpec}.
@@ -58,6 +60,7 @@ public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
     this.ttlMs = ttlMs;
     this.nextStream = nextStream;
     this.opId = opId;
+    this.sourceLocation = OperatorJsonUtils.getSourceLocation();
   }
 
   @Override
@@ -85,5 +88,10 @@ public class PartialJoinOperatorSpec<K, M, JM, RM> implements OperatorSpec<RM> {
   @Override
   public int getOpId() {
     return this.opId;
+  }
+
+  @Override
+  public String getSourceLocation() {
+    return sourceLocation;
   }
 }

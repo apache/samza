@@ -50,6 +50,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     try {
       // 1. initialize and plan
       ExecutionPlan plan = getExecutionPlan(app);
+      writePlanJsonFile(plan.getPlanAsJson());
 
       // 2. create the necessary streams
       getStreamManager().createStreams(plan.getIntermediateStreams());

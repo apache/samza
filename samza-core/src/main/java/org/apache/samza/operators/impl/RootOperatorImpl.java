@@ -62,6 +62,11 @@ public final class RootOperatorImpl<M> extends OperatorImpl<M, M> {
       public int getOpId() {
         return -1;
       }
+
+      @Override
+      public String getSourceLocation() {
+        return "";
+      }
     };
   }
 }
