@@ -58,12 +58,10 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private JobCoordinatorListener coordinatorListener = null;
   private final ScheduleAfterDebounceTime debounceTimer;
   private final StreamMetadataCache  streamMetadataCache;
-  private final ZkKeyBuilder keyBuilder;
   private final Config config;
   private final CoordinationUtils coordinationUtils;
 
   private JobModel newJobModel;
-  private JobModel jobModel;
 
   public ZkJobCoordinator(String processorId, Config config, ScheduleAfterDebounceTime debounceTimer) {
     this.processorId = processorId;
@@ -77,7 +75,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         .getCoordinationService(new ApplicationConfig(config).getGlobalAppId(), String.valueOf(processorId), config);
 
     this.zkUtils = ((ZkCoordinationUtils) coordinationUtils).getZkUtils();
-    this.keyBuilder = zkUtils.getKeyBuilder();
     this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this);
 
     streamMetadataCache = getStreamMetadataCache();
