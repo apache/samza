@@ -51,9 +51,19 @@ public class ScheduleAfterDebounceTime {
 
   public static final int DEBOUNCE_TIME_MS = 2000;
 
+  private final Callback callback;
+
   private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setNameFormat("debounce-thread-%d").setDaemon(true).build());
   private final Map<String, ScheduledFuture> futureHandles = new HashMap<>();
+
+  public ScheduleAfterDebounceTime() {
+    this.callback = null;
+  }
+
+  public ScheduleAfterDebounceTime(Callback errorCallback) {
+    this.callback = errorCallback;
+  }
 
   synchronized public void scheduleAfterDebounceTime(String actionName, long debounceTimeMs, Runnable runnable) {
     // check if this action has been scheduled already
@@ -72,13 +82,29 @@ public class ScheduleAfterDebounceTime {
       futureHandles.remove(actionName);
     }
     // schedule a new task
-    sf = scheduledExecutorService.schedule(runnable, debounceTimeMs, TimeUnit.MILLISECONDS);
-    LOGGER.info("DEBOUNCE: scheduled " + actionName + " in " + debounceTimeMs);
+    sf = scheduledExecutorService.schedule(() -> {
+        try {
+          runnable.run();
+          LOGGER.debug(actionName + " completed successfully.");
+        } catch (Exception e) {
+          LOGGER.error(actionName + " threw an exception.", e);
+          if (callback != null) {
+            callback.onException(e);
+          }
+        }
+      },
+     debounceTimeMs,
+     TimeUnit.MILLISECONDS);
+    LOGGER.info("scheduled " + actionName + " in " + debounceTimeMs);
     futureHandles.put(actionName, sf);
   }
 
   public void stopScheduler() {
     // shutdown executor service
     scheduledExecutorService.shutdown();
+  }
+
+  interface Callback {
+    void onException(Exception e);
   }
 }
