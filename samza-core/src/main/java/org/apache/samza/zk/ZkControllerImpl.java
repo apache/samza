@@ -65,7 +65,7 @@ public class ZkControllerImpl implements ZkController {
     leaderElector.tryBecomeLeader(new LeaderElectorListener() {
       @Override
       public void onBecomingLeader() {
-        listenToProcessorLiveness(); // subscribe for adding new processors
+        listenToProcessorLiveness();
 
         // inform the caller
         zkControllerListener.onBecomeLeader();

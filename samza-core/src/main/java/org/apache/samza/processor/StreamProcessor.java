@@ -86,7 +86,6 @@ public class StreamProcessor {
 
   JobCoordinatorListener createJobCoordinatorListener() {
     return new JobCoordinatorListener() {
-
       @Override
       public void onJobModelExpired() {
         if (container != null && container.getStatus().equals(SamzaContainerStatus.RUNNING)) {
@@ -266,10 +265,28 @@ public class StreamProcessor {
   }
 
   /**
-   * Stops the Streamprocessor's running components.
-   *
-   * Can be invoked by the user of StreamProcessor api or by any of the components in StreamProcessor (JobCoordinator
-   * or SamzaContainer)
+   * Stops the Streamprocessor's running components - {@link SamzaContainer} and {@link JobCoordinator}
+   * <p>
+   * There are multiple ways in which the StreamProcessor stops:
+   * <ul>
+   *   <li>Caller of StreamProcessor invokes stop()</li>
+   *   <li>Samza Container completes processing (eg. bounded input) and shuts down</li>
+   *   <li>Samza Container fails</li>
+   *   <li>Job Coordinator fails</li>
+   * </ul>
+   * When either container or coordinator stops (cleanly or due to exception), it will try to shutdown the StreamProcessor.
+   * This needs to be synchronized so that only one code path gets triggered for shutdown.
+   * </p>
+   * <p>
+   * If container is running,
+   * <ol>
+   *   <li>container is shutdown cleanly and {@link SamzaContainerListener#onContainerStop(boolean)} will trigger
+   *   {@link JobCoordinator#stop()}</li>
+   *   <li>container fails to shutdown cleanly and {@link SamzaContainerListener#onContainerFailed(Throwable)} will
+   *   trigger {@link JobCoordinator#stop()}</li>
+   * </ol>
+   * If container is not running, then this method will simply shutdown the {@link JobCoordinator}.
+   * </p>
    */
   public synchronized void stop() {
     if (container != null) {
