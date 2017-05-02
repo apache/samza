@@ -37,8 +37,8 @@ object StorageConfig {
   val DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1)
   val ACCESSLOG_STREAM_SUFFIX = "access-log"
   val ACCESSLOG_SAMPLING_RATIO = "stores.%s.accesslog.sampling.ratio"
-  val ACCESSLOG_STATUS = "stores.%s.accesslog.status"
-  val DEFAULT_ACCESSLOG_SAMPLE = 50
+  val ACCESSLOG_ENABLED = "stores.%s.accesslog.enabled"
+  val DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50
 
 
   implicit def Config2Storage(config: Config) = new StorageConfig(config)
@@ -51,10 +51,7 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
   def getStorageMsgSerde(name: String) = getOption(StorageConfig.MSG_SERDE format name)
 
   def getAccessLogEnabled(storeName: String) = {
-    if (containsKey(ACCESSLOG_STATUS format storeName))
-      getBoolean(ACCESSLOG_STATUS format storeName)
-    else
-      false
+    getBoolean(ACCESSLOG_ENABLED format storeName, false)
   }
 
   def getChangelogStream(name: String) = {
@@ -84,10 +81,7 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
   }
 
   def getAccessLogSamplingRatio(storeName: String) = {
-    if (containsKey(ACCESSLOG_SAMPLING_RATIO format storeName))
-      getInt(ACCESSLOG_SAMPLING_RATIO format storeName)
-    else
-      DEFAULT_ACCESSLOG_SAMPLE
+    getInt(ACCESSLOG_SAMPLING_RATIO format storeName, DEFAULT_ACCESSLOG_SAMPLING_RATIO)
   }
 
   def getChangeLogDeleteRetentionInMs(storeName: String) = {

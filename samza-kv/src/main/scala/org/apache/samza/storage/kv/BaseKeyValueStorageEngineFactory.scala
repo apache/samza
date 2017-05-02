@@ -82,12 +82,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     val storageConfig = containerContext.config.subset("stores." + storeName + ".", true)
     val storeFactory = storageConfig.get("factory")
     var storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder()
-
-    val accessLog = if (storageConfig.containsKey("accesslog.status")) {
-      storageConfig.getBoolean("accesslog.status")
-    } else {
-      false
-    }
+    val accessLog = storageConfig.getBoolean("accesslog.enabled", false)
 
     if (storeFactory == null) {
       throw new SamzaException("Store factory not defined. Cannot proceed with KV store creation!")

@@ -46,43 +46,43 @@ class AccessLoggedStore[K, V](
   val streamName = storageConfig.getAccessLogStream(changelogSystemStreamPartition.getSystemStream.getStream)
   val systemStream = new SystemStream(changelogSystemStreamPartition.getSystemStream.getSystem, streamName)
   val partitionId: Int = changelogSystemStreamPartition.getPartition.getPartitionId
-  val serializer = new StringSerde("UTF-8")
-  val sample = storageConfig.getAccessLogSamplingRatio(storeName)
+  val serializer = new LongSerde()
+  val samplingRatio = storageConfig.getAccessLogSamplingRatio(storeName)
   val rng = scala.util.Random
 
   def get(key: K): V = {
-    val isRange = 0
+    val isRange = false
     measureLatencyAndWriteToStream(DBOperations.READ, isRange, toBytesOrNull(key), null, store.get(key))
   }
 
   def getAll(keys: util.List[K]): util.Map[K, V] = {
-    val isRange = 1
+    val isRange = true
     measureLatencyAndWriteToStream(DBOperations.READ, isRange, null, toBytesKey(keys.iterator()), store.getAll(keys))
   }
 
   def put(key: K, value: V): Unit = {
-    val isRange = 0
+    val isRange = true
     measureLatencyAndWriteToStream(DBOperations.WRITE, isRange, toBytesOrNull(key), null, store.put(key, value))
   }
 
   def putAll(entries: util.List[Entry[K, V]]): Unit = {
     val iter = entries.iterator
-    val isRange = 1
+    val isRange = true
     measureLatencyAndWriteToStream(DBOperations.WRITE, isRange, null, toBytesKeyFromEntries(iter), store.putAll(entries))
   }
 
   def delete(key: K): Unit = {
-    val isRange = 0
+    val isRange = true
     measureLatencyAndWriteToStream(DBOperations.DELETE, isRange, toBytesOrNull(key), null, store.delete(key))
   }
 
   def deleteAll(keys: util.List[K]): Unit = {
-    val isRange = 1
+    val isRange = true
     measureLatencyAndWriteToStream(DBOperations.DELETE, isRange, null, toBytesKey(keys.iterator()), store.deleteAll(keys))
   }
 
   def range(from: K, to: K): KeyValueIterator[K, V] = {
-    val isRange = 1
+    val isRange = true
     val list : util.ArrayList[K] = new util.ArrayList[K]()
     list.add(from)
     list.add(to)
@@ -129,17 +129,17 @@ class AccessLoggedStore[K, V](
     keysInBytes
   }
 
-  private def measureLatencyAndWriteToStream[R](dBOperations: Int, isRange: Int, singleKey: Array[Byte], keys: util.ArrayList[Array[Byte]], block: => R):R = {
+  private def measureLatencyAndWriteToStream[R](dBOperations: Int, isRange: Boolean, singleKey: Array[Byte], keys: util.ArrayList[Array[Byte]], block: => R):R = {
     val time1 = System.nanoTime()
     val result = block
     val time2 = System.nanoTime()
-    if (rng.nextInt() > sample) {
+    if (rng.nextInt() > samplingRatio) {
       return result
     }
 
-    val latency = time2 - time1
-    val timeStamp = System.currentTimeMillis().toString
-    val message = new AccessLogMessage(dBOperations, isRange, latency, singleKey, keys, timeStamp)
+    val duration = time2 - time1
+    val timeStamp = System.currentTimeMillis()
+    val message = new AccessLogMessage(dBOperations, isRange, duration, singleKey, keys, timeStamp)
     collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, serializer.toBytes(timeStamp), message.serializeMessage()))
     result
   }

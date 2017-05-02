@@ -25,16 +25,16 @@ import java.io.ObjectOutputStream
 import java.util.ArrayList
 
 class AccessLogMessage(val DBOperation: Int,
-    val isRange: Int,
-    val latency: Long,
+    val isRange: Boolean = false,
+    val duration: Long,
     val singleKey: Array[Byte],
     val keys: ArrayList[Array[Byte]],
-    val timestamp: String
+    val timestamp: Long
    ) extends Serializable {
 
 
   def serializeMessage() : Array[Byte] = {
-    val byteStream = new ByteArrayOutputStream(4048)
+    val byteStream = new ByteArrayOutputStream()
     val outputStream = new ObjectOutputStream(byteStream)
     outputStream.writeObject(this)
     outputStream.close
