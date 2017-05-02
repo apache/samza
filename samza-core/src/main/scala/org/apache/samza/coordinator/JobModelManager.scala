@@ -308,14 +308,14 @@ object JobModelManager extends Logging {
       .mapValues(Util.getSystemStreamFromNames(_))
 
     for ((storeName, systemStream) <- changeLogSystemStreams) {
-      val accessLog = config.getAccessLogSetting(storeName)
+      val accessLog = config.getAccessLogEnabled(storeName)
       if (accessLog) {
         val systemAdmin = Util.getObj[SystemFactory](config
           .getSystemFactory(systemStream.getSystem)
           .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemStream.getSystem))
         ).getAdmin(systemStream.getSystem, config)
 
-        val accessLogSpec = new StreamSpec(config.getAccessLogStream(systemStream.getStream) + "_id",
+        val accessLogSpec = new StreamSpec(config.getAccessLogStream(systemStream.getStream),
           config.getAccessLogStream(systemStream.getStream), systemStream.getSystem, changeLogPartitions)
         systemAdmin.createStream(accessLogSpec)
       }

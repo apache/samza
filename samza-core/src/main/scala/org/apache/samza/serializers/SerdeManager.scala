@@ -24,6 +24,7 @@ import org.apache.samza.config.SerializerConfig
 import org.apache.samza.system.SystemStream
 import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.system.IncomingMessageEnvelope
+import org.apache.samza.config.StorageConfig
 
 class SerdeManager(
   serdes: Map[String, Serde[Object]] = Map(),
@@ -33,7 +34,7 @@ class SerdeManager(
   systemStreamMessageSerdes: Map[SystemStream, Serde[Object]] = Map(),
   changeLogSystemStreams: Set[SystemStream] = Set()) {
 
-  val accessLog = "access-log"
+  val accessLog = StorageConfig.ACCESSLOG_STREAM_SUFFIX
 
   def toBytes(obj: Object, serializerName: String) = serdes
     .getOrElse(serializerName, throw new SamzaException("No serde defined for %s" format serializerName))

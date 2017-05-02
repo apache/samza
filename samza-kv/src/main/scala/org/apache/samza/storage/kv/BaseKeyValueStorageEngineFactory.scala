@@ -83,8 +83,8 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     val storeFactory = storageConfig.get("factory")
     var storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder()
 
-    val accessLog = if (storageConfig.containsKey("accesslog")) {
-      storageConfig.getBoolean("accesslog")
+    val accessLog = if (storageConfig.containsKey("accesslog.status")) {
+      storageConfig.getBoolean("accesslog.status")
     } else {
       false
     }
@@ -136,7 +136,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     }
 
     val maybeAccessLoggedStore = if (accessLog) {
-      new AccessLoggedStore(maybeCachedStore, collector, changeLogSystemStreamPartition, storageConfig, storeName)
+      new AccessLoggedStore(maybeCachedStore, collector, changeLogSystemStreamPartition, storageConfig, storeName, keySerde)
     } else {
       maybeCachedStore
     }

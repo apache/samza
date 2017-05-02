@@ -35,9 +35,9 @@ object StorageConfig {
   val CHANGELOG_SYSTEM = "job.changelog.system"
   val CHANGELOG_DELETE_RETENTION_MS = "stores.%s.changelog.delete.retention.ms"
   val DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1)
-  val ACCESSLOG_STREAM = "access-log"
-  val ACCESSLOG_SAMPLE = "stores.%s.accesslog.sample"
-  val ACCESSLOG_STATUS = "stores.%s.accesslog"
+  val ACCESSLOG_STREAM_SUFFIX = "access-log"
+  val ACCESSLOG_SAMPLING_RATIO = "stores.%s.accesslog.sampling.ratio"
+  val ACCESSLOG_STATUS = "stores.%s.accesslog.status"
   val DEFAULT_ACCESSLOG_SAMPLE = 50
 
 
@@ -50,7 +50,7 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
   def getStorageKeySerde(name: String) = getOption(StorageConfig.KEY_SERDE format name)
   def getStorageMsgSerde(name: String) = getOption(StorageConfig.MSG_SERDE format name)
 
-  def getAccessLogSetting(storeName: String) = {
+  def getAccessLogEnabled(storeName: String) = {
     if (containsKey(ACCESSLOG_STATUS format storeName))
       getBoolean(ACCESSLOG_STATUS format storeName)
     else
@@ -78,14 +78,14 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
     systemStreamRes
   }
 
-  //Given a system, this method returns the accesslog system stream
+  //Returns the accesslog stream name given a changelog stream name
   def getAccessLogStream(changeLogStream: String) = {
-    changeLogStream + "-" + ACCESSLOG_STREAM
+    changeLogStream + "-" + ACCESSLOG_STREAM_SUFFIX
   }
 
-  def getSamplingSetting(storeName: String) = {
-    if (containsKey(ACCESSLOG_SAMPLE format storeName))
-      getInt(ACCESSLOG_SAMPLE format storeName)
+  def getAccessLogSamplingRatio(storeName: String) = {
+    if (containsKey(ACCESSLOG_SAMPLING_RATIO format storeName))
+      getInt(ACCESSLOG_SAMPLING_RATIO format storeName)
     else
       DEFAULT_ACCESSLOG_SAMPLE
   }

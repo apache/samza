@@ -19,8 +19,8 @@
 
 package org.apache.samza.storage.kv
 
-import java.util
 
+import java.util
 import org.apache.samza.config.StorageConfig
 import org.apache.samza.task.MessageCollector
 import org.apache.samza.util.Logging
@@ -30,65 +30,63 @@ import org.apache.samza.serializers._
 class AccessLoggedStore[K, V](
     val store: KeyValueStore[K, V],
     val collector: MessageCollector,
-    val systemStreamPartition: SystemStreamPartition,
+    val changelogSystemStreamPartition: SystemStreamPartition,
     val storageConfig: StorageConfig,
-    val storeName: String) extends KeyValueStore[K, V] with Logging {
+    val storeName: String,
+    val keySerde: Serde[K]) extends KeyValueStore[K, V] with Logging {
 
   object DBOperations extends Enumeration {
-    type DBOperations = Value
-    val READ = Value("read")
-    val WRITE = Value("write")
-    val DELETE = Value("delete")
-    val RANGE = Value("range")
-    val READ_ALL = Value("read_all")
-    val WRITE_ALL = Value("write_all")
-    val DELETE_ALL = Value("delete_all")
+    type DBOperations = Int
+    val READ = 1
+    val WRITE = 2
+    val DELETE = 3
+    val RANGE = 4
   }
 
-  val streamName = storageConfig.getAccessLogStream(systemStreamPartition.getSystemStream.getStream)
-  val systemStream = new SystemStream(systemStreamPartition.getSystemStream.getSystem, streamName)
-  val partitionId: Int = systemStreamPartition.getPartition.getPartitionId
+  val streamName = storageConfig.getAccessLogStream(changelogSystemStreamPartition.getSystemStream.getStream)
+  val systemStream = new SystemStream(changelogSystemStreamPartition.getSystemStream.getSystem, streamName)
+  val partitionId: Int = changelogSystemStreamPartition.getPartition.getPartitionId
   val serializer = new StringSerde("UTF-8")
-  val sample = storageConfig.getSamplingSetting(storeName)
-  val generator = scala.util.Random
-  val DELIMITER = " || "
+  val sample = storageConfig.getAccessLogSamplingRatio(storeName)
+  val rng = scala.util.Random
 
   def get(key: K): V = {
-    var message = DBOperations.READ + DELIMITER + key
-    measureLatencyAndWriteToStream(message, store.get(key))
+    val isRange = 0
+    measureLatencyAndWriteToStream(DBOperations.READ, isRange, toBytesOrNull(key), null, store.get(key))
   }
 
   def getAll(keys: util.List[K]): util.Map[K, V] = {
-
-    var message = DBOperations.READ_ALL + DELIMITER + toStringKey(keys.iterator())
-    measureLatencyAndWriteToStream(message, store.getAll(keys))
+    val isRange = 1
+    measureLatencyAndWriteToStream(DBOperations.READ, isRange, null, toBytesKey(keys.iterator()), store.getAll(keys))
   }
 
   def put(key: K, value: V): Unit = {
-    var message = DBOperations.WRITE + DELIMITER  + key
-    measureLatencyAndWriteToStream(message, store.put(key, value))
+    val isRange = 0
+    measureLatencyAndWriteToStream(DBOperations.WRITE, isRange, toBytesOrNull(key), null, store.put(key, value))
   }
 
   def putAll(entries: util.List[Entry[K, V]]): Unit = {
     val iter = entries.iterator
-    var message = DBOperations.WRITE_ALL + DELIMITER  + toStringEntry(iter)
-    measureLatencyAndWriteToStream(message, store.putAll(entries))
+    val isRange = 1
+    measureLatencyAndWriteToStream(DBOperations.WRITE, isRange, null, toBytesKeyFromEntries(iter), store.putAll(entries))
   }
 
-
   def delete(key: K): Unit = {
-    var message = DBOperations.DELETE  + DELIMITER + key
-    measureLatencyAndWriteToStream(message, store.delete(key))
+    val isRange = 0
+    measureLatencyAndWriteToStream(DBOperations.DELETE, isRange, toBytesOrNull(key), null, store.delete(key))
   }
 
   def deleteAll(keys: util.List[K]): Unit = {
-    var message = DBOperations.DELETE_ALL + DELIMITER + toStringKey(keys.iterator())
-    measureLatencyAndWriteToStream(message, store.deleteAll(keys))
+    val isRange = 1
+    measureLatencyAndWriteToStream(DBOperations.DELETE, isRange, null, toBytesKey(keys.iterator()), store.deleteAll(keys))
   }
 
   def range(from: K, to: K): KeyValueIterator[K, V] = {
-    var message = DBOperations.RANGE + DELIMITER +  "(" + from + "," + to + ")"
-    measureLatencyAndWriteToStream(message, store.range(from, to))
+    val isRange = 1
+    val list : util.ArrayList[K] = new util.ArrayList[K]()
+    list.add(from)
+    list.add(to)
+    measureLatencyAndWriteToStream(DBOperations.RANGE, isRange, null, toBytesKey(list.iterator()), store.range(from, to))
   }
 
   def all(): KeyValueIterator[K, V] = {
@@ -109,41 +107,49 @@ class AccessLoggedStore[K, V](
   }
 
 
-  def toStringKey(list: util.Iterator[K]): String = {
-    var serializedValue = "( "
-    while(list.hasNext) {
-      serializedValue += list.next() + ", "
-    }
-    serializedValue += ") "
-    serializedValue
+  def toBytesKey(keys: util.Iterator[K]): util.ArrayList[Array[Byte]] = {
+    val keysInBytes = new util.ArrayList[Array[Byte]]
+    if (keys != null)
+      while(keys.hasNext()) {
+        val entry = keys.next()
+        keysInBytes.add(toBytesOrNull(entry))
+      }
+
+    keysInBytes
   }
 
-  def toStringEntry(iter: util.Iterator[Entry[K, V]]): String = {
-    var serializedValue = "( "
-    while(iter.hasNext) {
-      val entry = iter.next()
-      serializedValue += entry.getKey + ":" + entry.getValue + ", "
-    }
+  def toBytesKeyFromEntries(iter: util.Iterator[Entry[K, V]]): util.ArrayList[Array[Byte]] = {
+    val keysInBytes = new util.ArrayList[Array[Byte]]
+    if (iter != null)
+      while(iter.hasNext()) {
+        val entry = iter.next().getKey
+        keysInBytes.add(toBytesOrNull(entry))
+      }
 
-    serializedValue += ") "
-    serializedValue
+    keysInBytes
   }
 
-  private def measureLatencyAndWriteToStream[R](message: String, block: => R):R = {
+  private def measureLatencyAndWriteToStream[R](dBOperations: Int, isRange: Int, singleKey: Array[Byte], keys: util.ArrayList[Array[Byte]], block: => R):R = {
     val time1 = System.nanoTime()
     val result = block
     val time2 = System.nanoTime()
-    if (generator.nextInt() > sample) {
+    if (rng.nextInt() > sample) {
       return result
     }
 
     val latency = time2 - time1
-    var msg = message
     val timeStamp = System.currentTimeMillis().toString
-
-    msg += DELIMITER + latency + DELIMITER + timeStamp
-    collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, serializer.toBytes(timeStamp), serializer.toBytes(msg)))
+    val message = new AccessLogMessage(dBOperations, isRange, latency, singleKey, keys, timeStamp)
+    collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, serializer.toBytes(timeStamp), message.serializeMessage()))
     result
+  }
+
+  def toBytesOrNull(key: K): Array[Byte] = {
+    if (key == null) {
+      return null
+    }
+    val bytes = keySerde.toBytes(key)
+    return bytes
   }
 
 }
