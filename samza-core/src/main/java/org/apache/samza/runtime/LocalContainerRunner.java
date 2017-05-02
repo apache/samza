@@ -56,6 +56,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(LocalContainerRunner.class);
   private final JobModel jobModel;
   private final String containerId;
+  private volatile Throwable containerException = null;
 
   public LocalContainerRunner(JobModel jobModel, String containerId) {
     super(jobModel.getConfig());
@@ -93,6 +94,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
             @Override
             public void onContainerFailed(Throwable t) {
               log.info("Container Failed");
+              containerException = t;
             }
           });
 
@@ -101,6 +103,10 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
       if (jmxServer != null) {
         jmxServer.stop();
       }
+    }
+    if (containerException != null) {
+      log.error("Container stopped with Exception. Exiting process now.", containerException);
+      System.exit(1);
     }
   }
 

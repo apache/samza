@@ -265,8 +265,9 @@ public class StreamProcessor {
   }
 
   /**
-   * Stops the Streamprocessor's running components - {@link SamzaContainer} and {@link JobCoordinator}
    * <p>
+   * Stops the Streamprocessor's running components - {@link SamzaContainer} and {@link JobCoordinator}
+   * </p>
    * There are multiple ways in which the StreamProcessor stops:
    * <ul>
    *   <li>Caller of StreamProcessor invokes stop()</li>
@@ -276,8 +277,7 @@ public class StreamProcessor {
    * </ul>
    * When either container or coordinator stops (cleanly or due to exception), it will try to shutdown the StreamProcessor.
    * This needs to be synchronized so that only one code path gets triggered for shutdown.
-   * </p>
-   * <p>
+   * <br>
    * If container is running,
    * <ol>
    *   <li>container is shutdown cleanly and {@link SamzaContainerListener#onContainerStop(boolean)} will trigger
@@ -286,7 +286,7 @@ public class StreamProcessor {
    *   trigger {@link JobCoordinator#stop()}</li>
    * </ol>
    * If container is not running, then this method will simply shutdown the {@link JobCoordinator}.
-   * </p>
+   *
    */
   public synchronized void stop() {
     if (container != null) {
