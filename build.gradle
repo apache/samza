@@ -71,6 +71,8 @@ rat {
     '**/non-responsive.less',
     '**/ropa-sans.css',
     '**/syntax.css',
+    '**/d3.v3.min.js',
+    '**/dagre-d3.min.js',
     '.idea/**',
     '.reviewboardrc',
     'docs/_site/**',
@@ -396,6 +398,7 @@ project(":samza-shell") {
     classifier = 'dist'
     from 'src/main/bash'
     from 'src/main/resources'
+    from 'src/main/visualizer'
   }
 
   artifacts {

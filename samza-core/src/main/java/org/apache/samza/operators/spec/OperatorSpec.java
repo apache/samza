@@ -63,6 +63,12 @@ public interface OperatorSpec<OM> {
   int getOpId();
 
   /**
+   * Return the user source code location that creates the operator
+   * @return source location
+   */
+  String getSourceLocation();
+
+  /**
    * Get the name for this operator based on its opCode and opId.
    * @return  the name for this operator
    */
