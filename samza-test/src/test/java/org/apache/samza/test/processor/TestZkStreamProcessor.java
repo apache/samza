@@ -43,7 +43,6 @@ import org.junit.Test;
 
 //import static org.apache.samza.test.processor.TestStreamTask.endLatch;
 
-
 public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
   /**
    * Testing a basic identity stream task - reads data from a topic and writes it to another topic
@@ -70,26 +69,23 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     }
   };
 
-
-
   @Test
   public void testSingleStreamProcessor() {
-    testStreamProcessor(new String [] {"1"});
+    testStreamProcessor(new String[]{"1"});
   }
 
   @Test
   public void testTwoStreamProcessors() {
-    testStreamProcessor(new String [] {"1", "2"});
+    testStreamProcessor(new String[]{"1", "2"});
   }
 
   @Test
   public void testFiveStreamProcessors() {
-    testStreamProcessor(new String [] {"1", "2", "3", "4", "5"});
+    testStreamProcessor(new String[]{"1", "2", "3", "4", "5"});
   }
 
-
-
-  private void testStreamProcessor(String [] processorIds) {
+  // main test method for happy path with fixed number of processors
+  private void testStreamProcessor(String[] processorIds) {
     final String testSystem = "test-system";
     final String inputTopic = "numbers";
     final String outputTopic = "output";
@@ -104,45 +100,56 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     // create a latch of the size == number of messages
     TestStreamTask.endLatch = new CountDownLatch(messageCount);
 
-    StreamProcessor [] streamProcessors = new StreamProcessor[processorIds.length];
-    CountDownLatch [] countDownLatches = new CountDownLatch[processorIds.length];
-    for(int i=0; i < processorIds.length; i++) {
-      countDownLatches[i] = new CountDownLatch(1);
-      streamProcessors[i] = createStreamProcessor(processorIds[i], map, countDownLatches[i], null);
+    StreamProcessor[] streamProcessors = new StreamProcessor[processorIds.length];
+    CountDownLatch[] startCountDownLatches = new CountDownLatch[processorIds.length];
+    for (int i = 0; i < processorIds.length; i++) {
+      startCountDownLatches[i] = new CountDownLatch(1);
+      streamProcessors[i] = createStreamProcessor(processorIds[i], map, startCountDownLatches[i], null);
     }
     produceMessages(0, inputTopic, messageCount);
 
-    Thread [] threads = new Thread[processorIds.length];
+    Thread[] threads = new Thread[processorIds.length];
 
-    for(int i=0; i < processorIds.length; i++) {
+    for (int i = 0; i < processorIds.length; i++) {
       threads[i] = runInThread(streamProcessors[i], TestStreamTask.endLatch);
       threads[i].start();
       // wait until the processor reports that it has started
       try {
-        countDownLatches[i].await(1000, TimeUnit.MILLISECONDS);
+        startCountDownLatches[i].await(1000, TimeUnit.MILLISECONDS);
       } catch (InterruptedException e) {
         Assert.fail("got interrupted while waiting for the " + i + "th processor to start.");
       }
     }
 
+    // wait untill all the events are consumed
+    try {
+      TestStreamTask.endLatch.await(10, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      Assert.fail("endLatch.await failed with an interruption:" + e.getLocalizedMessage());
+    }
+
+    // collect all the threads
     try {
       for (Thread t : threads) {
-        t.join(10000);
+        synchronized (t) {
+          t.notify(); // to stop the thread
+        }
+        t.join(1000);
       }
     } catch (InterruptedException e) {
-      e.printStackTrace();
+      Assert.fail("Failed to join finished thread:" + e.getLocalizedMessage());
     }
 
     // we should get each value one time
     Map<Integer, Boolean> expectedValues = new HashMap<>(messageCount);
-    for(int i = 0; i < messageCount; i++) {
+    for (int i = 0; i < messageCount; i++) {
       expectedValues.put(i, false);
     }
     verifyNumMessages(outputTopic, expectedValues, messageCount);
   }
 
-
   @Test
+  // test with adding another processor
   public void testStreamProcessorWithAdd() {
     final String testSystem = "test-system1";
     final String inputTopic = "numbers";
@@ -155,15 +162,16 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     // TopicExistsException since StreamProcessor auto-creates them.
     createTopics(inputTopic, outputTopic);
 
-    // set number of events we expect two read by both processes in total
-    // p1 - reads messageCount at first and then 0.5 of 2*messageCount, total 2*messageCount
-    // p2 - 0.5 of 2*messageCount, total messageCount
-    int totalEventsToGenerate = 3*messageCount;
+    // set number of events we expect two read by both processes in total:
+    // p1 - reads 'messageCount' at first and then both p1 and p2 read all ('messageCount') together, since they
+    // start from the beginnig.
+    // so we expect total 3 x messageCounts
+    int totalEventsToGenerate = 3 * messageCount;
     TestStreamTask.endLatch = new CountDownLatch(totalEventsToGenerate);
 
     // create first processor
-    CountDownLatch countDownLatch1 = new CountDownLatch(1);
-    StreamProcessor sp = createStreamProcessor("1", map, countDownLatch1, null);
+    CountDownLatch startCountDownLatch1 = new CountDownLatch(1);
+    StreamProcessor sp = createStreamProcessor("1", map, startCountDownLatch1, null);
 
     // produce first batch of messages starting with 0
     produceMessages(0, inputTopic, messageCount);
@@ -174,13 +182,13 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
 
     // wait until the processor reports that it has started
     try {
-      countDownLatch1.await(1000, TimeUnit.MILLISECONDS);
+      startCountDownLatch1.await(1000, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       Assert.fail("got interrupted while waiting for the first processor to start.");
     }
 
     // make sure it consumes all the messages from the first batch
-    int attempts=100;
+    int attempts = 5;
     while (attempts > 0) {
       long leftEventsCount = TestStreamTask.endLatch.getCount();
       System.out.println("current count = " + leftEventsCount);
@@ -188,11 +196,10 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
         System.out.println("read all. current count = " + leftEventsCount);
         break;
       }
-      TestZkUtils.sleepMs(100);
-      attempts --;
+      TestZkUtils.sleepMs(1000);
+      attempts--;
     }
     Assert.assertTrue("Didn't read all the events in the first batch in 5 attempts", attempts > 0);
-
 
     // start the second processor
     CountDownLatch countDownLatch2 = new CountDownLatch(1);
@@ -213,24 +220,46 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
 
+    // wait until all the events are consumed
+    // make sure it consumes all the messages from the first batch
+    attempts = 5;
+    while (attempts > 0) {
+      long leftEventsCount = TestStreamTask.endLatch.getCount(); // how much is left to read
+      System.out.println("2current count = " + leftEventsCount);
+      if (leftEventsCount == 0) { // should read all of them
+        System.out.println("2read all. current count = " + leftEventsCount);
+        break;
+      }
+      TestZkUtils.sleepMs(1000);
+      attempts--;
+    }
+    Assert.assertTrue("Didn't read all the leftover events in 5 attempts", attempts > 0);
+
     try {
+      synchronized (t1) {
+        t1.notify();
+      }
+      synchronized (t2) {
+        t2.notify();
+      }
       t1.join(1000);
       t2.join(1000);
     } catch (InterruptedException e) {
-      e.printStackTrace();
+      Assert.fail("Failed to join finished threads:" + e.getLocalizedMessage());
     }
 
-    // processor1 will read 40 events, and then processor1 and processor 2 will read 80 events together,
+    // processor1 will read 40 events, and then processor1 and processor2 will read 80 events together,
     // but the expected values are the same 0-79 - we should get each value one time.
     // Meanwhile the number of events we gonna get is 80+40=120
-    Map<Integer, Boolean> expectedValues = new HashMap<>(2*messageCount);
-    for(int i = 0; i < 2*messageCount; i++) {
+    Map<Integer, Boolean> expectedValues = new HashMap<>(2 * messageCount);
+    for (int i = 0; i < 2 * messageCount; i++) {
       expectedValues.put(i, false);
     }
     verifyNumMessages(outputTopic, expectedValues, totalEventsToGenerate);
   }
 
   @Test
+  // test with a single processor removed
   public void testStreamProcessorWithRemove() {
     final String testSystem = "test-system2";
     final String inputTopic = "numbers";
@@ -243,10 +272,10 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     // TopicExistsException since StreamProcessor auto-creates them.
     createTopics(inputTopic, outputTopic);
 
-    // set number of events we expect two read by both processes in total
-    // p1 - reads messageCount at first and then 0.5 of 2*messageCount, total 2*messageCount
-    // p2 - 0.5 of 2*messageCount, total messageCount
-    int totalEventsToGenerate = 3*messageCount;
+    // set number of events we expect to read by both processes in total:
+    // p1 and p2 - both read messageCount at first and p1 is shutdown, new batch of events is generated
+    // and p2 will read all of them from the beginning (+ 2 x messageCounts, total 3 x)
+    int totalEventsToGenerate = 3 * messageCount;
     TestStreamTask.endLatch = new CountDownLatch(totalEventsToGenerate);
 
     // create first processor
@@ -258,18 +287,18 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     Thread t1 = runInThread(sp1, TestStreamTask.endLatch);
     t1.start();
 
+    // start the second processor
+    CountDownLatch countDownLatch2 = new CountDownLatch(1);
+    StreamProcessor sp2 = createStreamProcessor("2", map, countDownLatch2, null);
+    Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
+    t2.start();
+
     // wait until the processor reports that it has started
     try {
       startCountDownLatch1.await(1000, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       Assert.fail("got interrupted while waiting for the first processor to start.");
     }
-
-    // start the second processor
-    CountDownLatch countDownLatch2 = new CountDownLatch(1);
-    StreamProcessor sp2 = createStreamProcessor("2", map, countDownLatch2, null);
-    Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
-    t2.start();
 
     // wait until the processor reports that it has started
     try {
@@ -281,8 +310,8 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     // produce first batch of messages starting with 0
     produceMessages(0, inputTopic, messageCount);
 
-    // make sure they consumes all the messages from the first batch
-    int attempts=100;
+    // make sure they consume all the messages from the first batch
+    int attempts = 5;
     while (attempts > 0) {
       long leftEventsCount = TestStreamTask.endLatch.getCount();
       System.out.println("current count = " + leftEventsCount);
@@ -290,8 +319,8 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
         System.out.println("read all. current count = " + leftEventsCount);
         break;
       }
-      TestZkUtils.sleepMs(100);
-      attempts --;
+      TestZkUtils.sleepMs(1000);
+      attempts--;
     }
     Assert.assertTrue("Didn't read all the events in the first batch in 5 attempts", attempts > 0);
 
@@ -299,6 +328,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     synchronized (t1) {
       t1.notify(); // this should stop it
     }
+
     // wait until it's really down
     try {
       stopCountDownLatch1.await(1000, TimeUnit.MILLISECONDS);
@@ -313,46 +343,59 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
 
+    // wait until p2 consumes all the message by itself
+    attempts = 5;
+    while (attempts > 0) {
+      long leftEventsCount = TestStreamTask.endLatch.getCount();
+      System.out.println("2current count = " + leftEventsCount);
+      if (leftEventsCount == 0) { // should read all of them
+        System.out.println("2read all. current count = " + leftEventsCount);
+        break;
+      }
+      TestZkUtils.sleepMs(1000);
+      attempts--;
+    }
+    Assert.assertTrue("Didn't read all the leftover events in 5 attempts", attempts > 0);
+
+    // shutdown p2
+
     try {
+      synchronized (t2) {
+        t2.notify();
+      }
       t2.join(1000);
     } catch (InterruptedException e) {
-      e.printStackTrace();
+      Assert.fail("Failed to join finished thread:" + e.getLocalizedMessage());
     }
 
     // processor1 and 2 will both read 20 events (total 40), and then processor2 read 80 events by itself,
     // but the expected values are the same 0-79 - we should get each value one time.
     // Meanwhile the number of events we gonna get is 40 + 80
-    Map<Integer, Boolean> expectedValues = new HashMap<>(2*messageCount);
-    for(int i = 0; i < 2*messageCount; i++) {
+    Map<Integer, Boolean> expectedValues = new HashMap<>(2 * messageCount);
+    for (int i = 0; i < 2 * messageCount; i++) {
       expectedValues.put(i, false);
     }
     verifyNumMessages(outputTopic, expectedValues, totalEventsToGenerate);
   }
-
-
 
   // auxiliary methods
   private StreamProcessor createStreamProcessor(String pId, Map<String, String> map,
       final CountDownLatch startLatchCountDown, final CountDownLatch stopLatchCountDown) {
     map.put(PROCESSOR_ID, pId);
 
-    StreamProcessor processor = new StreamProcessor(
-        pId,
-        new MapConfig(map),
-        new HashMap<>(),
-        TestStreamTask::new,
+    StreamProcessor processor = new StreamProcessor(pId, new MapConfig(map), new HashMap<>(), TestStreamTask::new,
         new StreamProcessorLifecycleListener() {
 
           @Override
           public void onStart() {
-            if(startLatchCountDown != null) {
+            if (startLatchCountDown != null) {
               startLatchCountDown.countDown();
             }
           }
 
           @Override
           public void onShutdown() {
-            if(stopLatchCountDown != null) {
+            if (stopLatchCountDown != null) {
               stopLatchCountDown.countDown();
             }
           }
@@ -370,11 +413,11 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     TestUtils.createTopic(zkUtils(), outputTopic, 5, 1, servers(), new Properties());
   }
 
-  private Map<String, String> createConfigs( String testSystem, String inputTopic, String outputTopic, int messageCount) {
+  private Map<String, String> createConfigs(String testSystem, String inputTopic, String outputTopic,
+      int messageCount) {
     Map<String, String> configs = new HashMap<>();
-    configs.putAll(
-        StandaloneTestUtils.getStandaloneConfigs("test-job",
-            "org.apache.samza.test.processor.TestZkStreamProcessor.TestStreamTask"));
+    configs.putAll(StandaloneTestUtils
+            .getStandaloneConfigs("test-job", "org.apache.samza.test.processor.TestZkStreamProcessor.TestStreamTask"));
     configs.putAll(StandaloneTestUtils
         .getKafkaSystemConfigs(testSystem, bootstrapServers(), zkConnect(), null, StandaloneTestUtils.SerdeAlias.STRING,
             true));
@@ -384,9 +427,9 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     configs.put("app.outputSystem", testSystem);
     configs.put(ZkConfig.ZK_CONNECT, zkConnect());
 
-    configs.put("job.systemstreampartition.grouper.factory", "org.apache.samza.container.grouper.stream.GroupByPartitionFactory");
+    configs.put("job.systemstreampartition.grouper.factory",
+        "org.apache.samza.container.grouper.stream.GroupByPartitionFactory");
     configs.put("task.name.grouper.factory", "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
-
 
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.zk.ZkJobCoordinatorFactory");
 
@@ -413,7 +456,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
    * and then stopping it.
    */
   private Thread runInThread(final StreamProcessor processor, CountDownLatch latch) {
-    Thread t = new Thread () {
+    Thread t = new Thread() {
 
       @Override
       public void run() {
@@ -430,7 +473,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
           e.printStackTrace();
         } finally {
           //if (!latchResult) {
-           // Assert.fail("StreamTask either failed to process all input or timed out!");
+          // Assert.fail("StreamTask either failed to process all input or timed out!");
           //}
         }
         System.out.println("Stopping the processor");
@@ -470,11 +513,10 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
       }
     }
     // filter out numbers we did not get
-    long numFalse = map.values().stream().filter(v->!v).count();
+    long numFalse = map.values().stream().filter(v -> !v).count();
     Assert.assertEquals("didn't get this number of events ", 0, numFalse);
     Assert.assertEquals(expectedNumMessages, count);
   }
-
 
   // StreamTaskClass
   public static class TestStreamTask implements StreamTask, InitableTask {
@@ -504,7 +546,9 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
           incomingMessageEnvelope.getMessage()));
       processedMessageCount++;
       String message = (String) incomingMessageEnvelope.getMessage();
-      System.out.println("Stream processor " + processorId + ";offset=" + incomingMessageEnvelope.getOffset() + ";received " + message + "; ssp=" + incomingMessageEnvelope.getSystemStreamPartition());
+      System.out.println(
+          "Stream processor " + processorId + ";offset=" + incomingMessageEnvelope.getOffset() + ";received " + message
+              + "; ssp=" + incomingMessageEnvelope.getSystemStreamPartition());
       //if (processedMessageCount == expectedMessageCount) {
       synchronized (endLatch) {
         endLatch.countDown();
