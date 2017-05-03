@@ -22,9 +22,15 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.hadoop.fs.{FileStatus, Path, FileSystem}
 import org.apache.hadoop.yarn.api.records.ApplicationId
+import org.apache.hadoop.yarn.api.records.ApplicationReport
+import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
+import org.apache.hadoop.yarn.api.records.YarnApplicationState
 import org.apache.hadoop.yarn.client.api.YarnClient
 import org.apache.samza.SamzaException
 import org.apache.samza.config.{MapConfig, JobConfig, YarnConfig}
+import org.apache.samza.job.ApplicationStatus
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.mockito.Mockito._
 import org.mockito.Matchers.any
 import org.scalatest.FunSuite
@@ -87,5 +93,32 @@ class TestClientHelper extends FunSuite {
 
     assert(ret.size == 1)
     assert(ret.contains("some.keytab"))
+  }
+
+  test("test toAppStatus") {
+    val appReport = mock[ApplicationReport]
+    when(appReport.getYarnApplicationState).thenReturn(YarnApplicationState.FAILED)
+    when(appReport.getDiagnostics).thenReturn("some yarn diagnostics")
+
+    var appStatus = clientHelper.toAppStatus(appReport).get
+    assertEquals(appStatus, ApplicationStatus.UnsuccessfulFinish)
+    assertNotNull(appStatus.getThrowable)
+
+    when(appReport.getYarnApplicationState).thenReturn(YarnApplicationState.NEW)
+    appStatus = clientHelper.toAppStatus(appReport).get
+    assertEquals(appStatus, ApplicationStatus.New)
+
+    when(appReport.getYarnApplicationState).thenReturn(YarnApplicationState.FINISHED)
+    when(appReport.getFinalApplicationStatus).thenReturn(FinalApplicationStatus.FAILED)
+    appStatus = clientHelper.toAppStatus(appReport).get
+    assertEquals(appStatus, ApplicationStatus.UnsuccessfulFinish)
+
+    when(appReport.getFinalApplicationStatus).thenReturn(FinalApplicationStatus.KILLED)
+    appStatus = clientHelper.toAppStatus(appReport).get
+    assertEquals(appStatus, ApplicationStatus.UnsuccessfulFinish)
+
+    when(appReport.getFinalApplicationStatus).thenReturn(FinalApplicationStatus.SUCCEEDED)
+    appStatus = clientHelper.toAppStatus(appReport).get
+    assertEquals(appStatus, ApplicationStatus.SuccessfulFinish)
   }
 }

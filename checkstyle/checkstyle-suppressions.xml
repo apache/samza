@@ -27,5 +27,8 @@
            files="TestZkProcessorLatch.java"
            lines="91-275"/>
            -->
+  <suppress checks="ConstantName"
+            files="ApplicationStatus.java"
+            lines="26-29"/>
 </suppressions>
 

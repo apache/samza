@@ -84,8 +84,9 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   @Override
   public ApplicationStatus status(StreamApplication app) {
     try {
-      boolean finished = false;
-      boolean unsuccessfulFinish = false;
+      boolean hasNewJobs = false;
+      boolean hasRunningJobs = false;
+      ApplicationStatus unsuccessfulFinishStatus = null;
 
       ExecutionPlan plan = getExecutionPlan(app);
       for (JobConfig jobConfig : plan.getJobConfigs()) {
@@ -93,25 +94,36 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
         ApplicationStatus status = runner.status();
         log.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
 
-        switch (status) {
+        switch (status.getStatusCode()) {
+          case New:
+            hasNewJobs = true;
+            break;
           case Running:
-            return ApplicationStatus.Running;
+            hasRunningJobs = true;
+            break;
           case UnsuccessfulFinish:
-            unsuccessfulFinish = true;
+            unsuccessfulFinishStatus = status;
+            break;
           case SuccessfulFinish:
-            finished = true;
             break;
           default:
             // Do nothing
         }
       }
 
-      if (unsuccessfulFinish) {
-        return ApplicationStatus.UnsuccessfulFinish;
-      } else if (finished) {
+      if (hasNewJobs) {
+        // There are jobs not started, report as New
+        return ApplicationStatus.New;
+      } else if (hasRunningJobs) {
+        // All jobs are started, some are running
+        return ApplicationStatus.Running;
+      } else if (unsuccessfulFinishStatus != null) {
+        // All jobs are finished, some are not successful
+        return unsuccessfulFinishStatus;
+      } else {
+        // All jobs are finished successfully
         return ApplicationStatus.SuccessfulFinish;
       }
-      return ApplicationStatus.New;
     } catch (Throwable t) {
       throw new SamzaException("Failed to get status for application", t);
     }
