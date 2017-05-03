@@ -21,7 +21,7 @@ package org.apache.samza.processor
 import java.util.Collections
 
 import org.apache.samza.config.MapConfig
-import org.apache.samza.container.{RunLoop, SamzaContainer, SamzaContainerContext, SamzaContainerMetrics, TaskInstance, TaskInstanceMetrics, TaskName}
+import org.apache.samza.container.{SamzaContainerListener, RunLoop, SamzaContainer, SamzaContainerContext, SamzaContainerMetrics, TaskInstance, TaskInstanceMetrics, TaskName}
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.system.chooser.RoundRobinChooser
 import org.apache.samza.system.{SystemConsumer, SystemConsumers, SystemProducer, SystemProducers}

@@ -16,11 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.processor;
+package org.apache.samza.container;
 
 /**
- * Listener interface that can be registered with the {@link org.apache.samza.container.SamzaContainer} instance in
- * order to receive notifications.
+ * A Listener for {@link org.apache.samza.container.SamzaContainer} lifecycle events.
  */
 public interface SamzaContainerListener {
 

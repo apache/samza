@@ -24,7 +24,7 @@ import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.processor.JobCoordinatorListener;
+import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
@@ -125,7 +125,8 @@ public class StandaloneJobCoordinator implements JobCoordinator {
       systemAdmins.put(systemName, systemFactory.getAdmin(systemName, this.config));
     }
 
-    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(Util.<String, SystemAdmin>javaMapAsScalaMap(systemAdmins), 5000, SystemClock.instance());
+    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(
+        Util.<String, SystemAdmin>javaMapAsScalaMap(systemAdmins), 5000, SystemClock.instance());
 
     /** TODO:
      Locality Manager seems to be required in JC for reading locality info and grouping tasks intelligently and also,

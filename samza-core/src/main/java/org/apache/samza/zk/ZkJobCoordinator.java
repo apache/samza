@@ -35,7 +35,7 @@ import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.processor.JobCoordinatorListener;
+import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
@@ -53,14 +53,13 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   private final ZkUtils zkUtils;
   private final String processorId;
-
   private final ZkController zkController;
-  private JobCoordinatorListener coordinatorListener = null;
   private final ScheduleAfterDebounceTime debounceTimer;
   private final StreamMetadataCache  streamMetadataCache;
   private final Config config;
   private final CoordinationUtils coordinationUtils;
 
+  private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
 
   public ZkJobCoordinator(String processorId, Config config, ScheduleAfterDebounceTime debounceTimer) {

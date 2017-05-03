@@ -20,7 +20,6 @@ package org.apache.samza.coordinator;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.processor.JobCoordinatorListener;
 
 /**
  *  A JobCoordinator is a pluggable module in each process that provides the JobModel and the ID to the StreamProcessor.
@@ -29,8 +28,8 @@ import org.apache.samza.processor.JobCoordinatorListener;
  *  based on the underlying environment. In some cases, ID assignment is completely config driven, while in other
  *  cases, ID assignment may require coordination with JobCoordinators of other StreamProcessors.
  *
- *  This interface contains methods required for the StreamProcessor to interact with JobCoordinator. StreamProcessor
- *  registers a {@link JobCoordinatorListener} in order to get notified about JobModel changes and Coordinator state change.
+ *  StreamProcessor registers a {@link JobCoordinatorListener} in order to get notified about JobModel changes and
+ *  Coordinator state change.
  *
  * <pre>
  *   {@code

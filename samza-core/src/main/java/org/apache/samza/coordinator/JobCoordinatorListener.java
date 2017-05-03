@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.processor;
+package org.apache.samza.coordinator;
 
 import org.apache.samza.job.model.JobModel;
 
@@ -34,16 +34,17 @@ public interface JobCoordinatorListener {
    */
   void onJobModelExpired();
 
+
   /**
-   * TODO: Can change interface to ContainerModel if maxChangelogStreamPartitions can be made a part of ContainerModel
    * <p>
    *   Method invoked by a {@link org.apache.samza.coordinator.JobCoordinator} when there is new {@link JobModel}
    * available for use by the processor.
    * </p>
-   * @param processorId String, representing the identifier of {@link StreamProcessor}
+   * @param processorId String, representing the identifier of {@link org.apache.samza.processor.StreamProcessor}
    * @param jobModel Current {@link JobModel} containing a {@link org.apache.samza.job.model.ContainerModel} for the
    *                 given processorId
    */
+  // TODO: Can change interface to ContainerModel if maxChangelogStreamPartitions can be made a part of ContainerModel
   void onNewJobModel(String processorId, JobModel jobModel);
 
   /**

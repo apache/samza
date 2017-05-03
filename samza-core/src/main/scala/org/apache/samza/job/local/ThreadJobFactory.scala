@@ -23,11 +23,10 @@ package org.apache.samza.job.local
 import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
-import org.apache.samza.container.SamzaContainer
+import org.apache.samza.container.{SamzaContainerListener, SamzaContainer}
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsReporter}
-import org.apache.samza.processor.SamzaContainerListener
 import org.apache.samza.runtime.LocalContainerRunner
 import org.apache.samza.task.TaskFactoryUtil
 import org.apache.samza.util.Logging
