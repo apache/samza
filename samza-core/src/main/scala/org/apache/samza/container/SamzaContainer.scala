@@ -106,10 +106,6 @@ object SamzaContainer extends Logging {
         classOf[JobModel])
   }
 
-  def getSamzaContainerName(containerId: String): String = {
-    "samza-container-%s" format containerId
-  }
-
   def apply(
     containerModel: ContainerModel,
     config: Config,
@@ -118,7 +114,7 @@ object SamzaContainer extends Logging {
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
     taskFactory: Object) = {
     val containerId = containerModel.getProcessorId()
-    val containerName = getSamzaContainerName(containerId)
+    val containerName = "samza-container-%s" format containerId
 
     var localityManager: LocalityManager = null
     if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {
@@ -633,7 +629,7 @@ class SamzaContainer(
   var shutdownHookThread: Thread = null
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED
-  private var exceptionSeen: Throwable  = null
+  private var exceptionSeen: Throwable = null
   private var paused: Boolean = false
   private var containerListener: SamzaContainerListener = null
 
@@ -670,7 +666,7 @@ class SamzaContainer(
     } catch {
       case e: Throwable =>
         if (status.equals(SamzaContainerStatus.RUNNING)) {
-          error("Caught exception/error in process loop.", e)
+          error("Caught exception/error in run loop.", e)
         } else {
           error("Caught exception/error while initializing container.", e)
         }
@@ -719,13 +715,20 @@ class SamzaContainer(
   }
 
   /**
-   * Triggers shutdown of the run loop
+   * <p>
+   *   Asynchronously shuts down this [[SamzaContainer]]
+   * </p>
+   * <br>
+   * <b>Implementation</b>: Stops the [[RunLoop]], which will eventually transition the container from
+   * [[SamzaContainerStatus.RUNNING]] to either [[SamzaContainerStatus.STOPPED]] or [[SamzaContainerStatus.FAILED]]].
+   * Based on the final `status`, [[SamzaContainerListener#onContainerStop(boolean)]] or
+   * [[SamzaContainerListener#onContainerFailed(Throwable)]] will be invoked respectively.
    *
    * @param pausedByJm Boolean, When StreamProcessor itself is shutting down, this value should be False.
    *                   Otherwise, True.
    * @throws SamzaException, Thrown when the container has already been stopped or failed
    */
-  def shutdown(pausedByJm: Boolean) = {
+  def shutdown(pausedByJm: Boolean): Unit = {
     if (status == SamzaContainerStatus.STOPPED || status == SamzaContainerStatus.FAILED) {
       throw new IllegalContainerStateException("Cannot shutdown a container with status - " + status)
     }

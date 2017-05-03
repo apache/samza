@@ -146,7 +146,12 @@ public class StreamProcessor {
   }
 
   /**
-   * Starts the JobCoordinator in StreamProcessor.
+   * Asynchronously starts this {@link StreamProcessor}.
+   * <p>
+   *   <b>Implementation</b>:
+   *   Starts the {@link JobCoordinator}, which will eventually start the {@link SamzaContainer} when a new
+   *   {@link JobModel} is available.
+   * </p>
    */
   public void start() {
     jobCoordinator.start();
@@ -154,17 +159,18 @@ public class StreamProcessor {
 
   /**
    * <p>
-   * Stops the Streamprocessor's running components - {@link SamzaContainer} and {@link JobCoordinator}
+   * Asynchronously stops the {@link StreamProcessor}'s running components - {@link SamzaContainer}
+   * and {@link JobCoordinator}
    * </p>
    * There are multiple ways in which the StreamProcessor stops:
-   * <ul>
+   * <ol>
    *   <li>Caller of StreamProcessor invokes stop()</li>
    *   <li>Samza Container completes processing (eg. bounded input) and shuts down</li>
    *   <li>Samza Container fails</li>
    *   <li>Job Coordinator fails</li>
-   * </ul>
-   * When either container or coordinator stops (cleanly or due to exception), it will try to shutdown the StreamProcessor.
-   * This needs to be synchronized so that only one code path gets triggered for shutdown.
+   * </ol>
+   * When either container or coordinator stops (cleanly or due to exception), it will try to shutdown the
+   * StreamProcessor. This needs to be synchronized so that only one code path gets triggered for shutdown.
    * <br>
    * If container is running,
    * <ol>
@@ -206,6 +212,7 @@ public class StreamProcessor {
           if (SamzaContainerStatus.NOT_STARTED.equals(status) || SamzaContainerStatus.RUNNING.equals(status)) {
             boolean shutdownComplete = false;
             try {
+              LOGGER.info("Shutting down container in onJobModelExpired.");
               container.shutdown(true);
               shutdownComplete = jcContainerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
             } catch (IllegalContainerStateException icse) {
@@ -234,7 +241,7 @@ public class StreamProcessor {
       @Override
       public void onNewJobModel(String processorId, JobModel jobModel) {
         if (!jobModel.getContainers().containsKey(processorId)) {
-          LOGGER.warn("JobModel did not contain the processorId. Stopping the processor.");
+          LOGGER.warn("JobModel does not contain the processorId: " + processorId + ". Stopping the processor.");
           stop();
         } else {
           jcContainerShutdownLatch = new CountDownLatch(1);
@@ -256,14 +263,11 @@ public class StreamProcessor {
 
             @Override
             public void onContainerStop(boolean pauseByJm) {
-              if (jcContainerShutdownLatch != null) {
-                jcContainerShutdownLatch.countDown();
-              } else {
-                LOGGER.warn("JobCoordinatorLatch was null. It is possible for some component to be waiting.");
-              }
-
               if (pauseByJm) {
                 LOGGER.info("Container " + container.toString() + " stopped due to a request from JobCoordinator.");
+                if (jcContainerShutdownLatch != null) {
+                  jcContainerShutdownLatch.countDown();
+                }
               } else {  // sp.stop was called or container stopped by itself
                 LOGGER.info("Container " + container.toString() + " stopped.");
                 container = null; // this guarantees that stop() doesn't try to stop container again
@@ -278,7 +282,7 @@ public class StreamProcessor {
               } else {
                 LOGGER.warn("JobCoordinatorLatch was null. It is possible for some component to be waiting.");
               }
-              LOGGER.info("Container failed with " + t + ". Stopping the processor.");
+              LOGGER.error("Container failed. Stopping the processor.", t);
               container = null;
               stop();
             }
