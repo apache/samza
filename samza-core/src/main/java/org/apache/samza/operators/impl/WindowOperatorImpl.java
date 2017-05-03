@@ -109,6 +109,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
 
     WindowKey<WK> storeKey =  getStoreKey(message);
     WindowState<WV> existingState = store.get(storeKey);
+    LOG.trace("Store key ({}) has existing state ({})", storeKey, existingState);
     WindowState<WV> newState = applyFoldFunction(existingState, message);
 
     LOG.trace("New window value: {}, earliest timestamp: {}",
@@ -185,7 +186,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
     long earliestTimestamp;
 
     if (existingState == null) {
-      LOG.trace("No existing state found for key");
+      LOG.trace("No existing state found for key. Invoking initializer.");
       wv = window.getInitializer().get();
       earliestTimestamp = clock.currentTimeMillis();
     } else {

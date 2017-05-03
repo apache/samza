@@ -52,7 +52,7 @@ public class WindowKey<K> {
   @Override
   public String toString() {
     String wndKey = "";
-    if (!(key instanceof Void)) {
+    if (!(key instanceof Void) && key != null) {
       wndKey = String.format("%s:", key.toString());
     }
     return String.format("%s%s", wndKey, paneId);
