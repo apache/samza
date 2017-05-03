@@ -48,10 +48,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * StreamProcessor can be embedded in any application or executed in a distributed environment (aka cluster) as an
+ * independent process.
  * <p>
- *   StreamProcessor can be embedded in any application or executed in a distributed environment (aka cluster) as an
- *   independent process.
- * </p>
  *
  * <b>Note</b>: A single JVM can create multiple StreamProcessor instances. It is safe to create StreamProcessor instances in
  * multiple threads.

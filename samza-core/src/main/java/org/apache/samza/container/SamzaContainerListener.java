@@ -24,23 +24,19 @@ package org.apache.samza.container;
 public interface SamzaContainerListener {
 
   /**
-   * <p>
-   *   Method invoked when the {@link org.apache.samza.container.SamzaContainer} has successfully transitioned to
-   *   the {@link org.apache.samza.SamzaContainerStatus#RUNNING} state and is about to start the
-   *   {@link org.apache.samza.container.RunLoop}
-   * </p>
+   *  Method invoked when the {@link org.apache.samza.container.SamzaContainer} has successfully transitioned to
+   *  the {@link org.apache.samza.SamzaContainerStatus#STARTED} state and is about to start the
+   *  {@link org.apache.samza.container.RunLoop}
    */
   void onContainerStart();
 
   /**
-   * <p>
-   *   Method invoked when the {@link org.apache.samza.container.SamzaContainer} has successfully transitioned to
-   *   {@link org.apache.samza.SamzaContainerStatus#STOPPED} state. Details on state transitions can be found in
-   *   {@link org.apache.samza.SamzaContainerStatus}
-   *
-   *   <b>Note</b>: This will be the last call after completely shutting down the SamzaContainer without any
-   *   exceptions/errors.
-   * </p>
+   *  Method invoked when the {@link org.apache.samza.container.SamzaContainer} has successfully transitioned to
+   *  {@link org.apache.samza.SamzaContainerStatus#STOPPED} state. Details on state transitions can be found in
+   *  {@link org.apache.samza.SamzaContainerStatus}
+   *  <br>
+   *  <b>Note</b>: This will be the last call after completely shutting down the SamzaContainer without any
+   *  exceptions/errors.
    * @param pausedByJm boolean indicating why the container was stopped. It should be {@literal true}, iff the container
    *                    was stopped as a result of an expired {@link org.apache.samza.job.model.JobModel}. Otherwise,
    *                    it should be {@literal false}
@@ -48,13 +44,11 @@ public interface SamzaContainerListener {
   void onContainerStop(boolean pausedByJm);
 
   /**
-   * <p>
-   *   Method invoked when the {@link org.apache.samza.container.SamzaContainer} has  transitioned to
-   *   {@link org.apache.samza.SamzaContainerStatus#FAILED} state. Details on state transitions can be found in
-   *   {@link org.apache.samza.SamzaContainerStatus}
-   *
-   *   <b>Note</b>: {@link #onContainerFailed(Throwable)} is mutually exclusive to {@link #onContainerStop(boolean)}.
-   * </p>
+   *  Method invoked when the {@link org.apache.samza.container.SamzaContainer} has  transitioned to
+   *  {@link org.apache.samza.SamzaContainerStatus#FAILED} state. Details on state transitions can be found in
+   *  {@link org.apache.samza.SamzaContainerStatus}
+   *  <br>
+   *  <b>Note</b>: {@link #onContainerFailed(Throwable)} is mutually exclusive to {@link #onContainerStop(boolean)}.
    * @param t Throwable that caused the container failure.
    */
   void onContainerFailed(Throwable t);

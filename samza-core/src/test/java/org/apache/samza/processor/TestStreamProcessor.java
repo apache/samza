@@ -153,7 +153,7 @@ public class TestStreamProcessor {
       processor.start();
       processorListenerStart.await();
 
-      Assert.assertEquals(SamzaContainerStatus.RUNNING, processor.containerReference.getStatus());
+      Assert.assertEquals(SamzaContainerStatus.STARTED, processor.containerReference.getStatus());
 
       // This block is required for the mockRunloop is actually start.
       // Otherwise, processor.stop gets triggered before mockRunloop begins to block
