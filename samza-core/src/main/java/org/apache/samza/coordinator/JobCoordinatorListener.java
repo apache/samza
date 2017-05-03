@@ -33,13 +33,11 @@ public interface JobCoordinatorListener {
    * </ul>
    */
   void onJobModelExpired();
-
-
+  
   /**
-   * <p>
-   *   Method invoked by a {@link org.apache.samza.coordinator.JobCoordinator} when there is new {@link JobModel}
+   * Method invoked by a {@link org.apache.samza.coordinator.JobCoordinator} when there is new {@link JobModel}
    * available for use by the processor.
-   * </p>
+   *
    * @param processorId String, representing the identifier of {@link org.apache.samza.processor.StreamProcessor}
    * @param jobModel Current {@link JobModel} containing a {@link org.apache.samza.job.model.ContainerModel} for the
    *                 given processorId
@@ -48,17 +46,15 @@ public interface JobCoordinatorListener {
   void onNewJobModel(String processorId, JobModel jobModel);
 
   /**
-   * <p>
-   *   Method invoked by a {@link org.apache.samza.coordinator.JobCoordinator} when it is shutting without any errors
-   * </p>
+   * Method invoked by a {@link org.apache.samza.coordinator.JobCoordinator} when it is shutting without any errors
    */
   void onCoordinatorStop();
 
   /**
-   * <p>
-   *   Method invoked by a {@link org.apache.samza.coordinator.JobCoordinator} when it is shutting down with error.
-   *   <b>Note</b>: This should be the last call after completely shutting down the JobCoordinator.
-   * </p>
+   *
+   * Method invoked by a {@link org.apache.samza.coordinator.JobCoordinator} when it is shutting down with error.
+   * <b>Note</b>: This should be the last call after completely shutting down the JobCoordinator.
+   *
    * @param t Throwable that was the cause of the JobCoordinator failure
    */
   void onCoordinatorFailure(Throwable t);
