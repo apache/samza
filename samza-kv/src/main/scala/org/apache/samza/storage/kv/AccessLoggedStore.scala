@@ -35,8 +35,8 @@ class AccessLoggedStore[K, V](
     val storeName: String,
     val keySerde: Serde[K]) extends KeyValueStore[K, V] with Logging {
 
-  object DBOperations extends Enumeration {
-    type DBOperations = Int
+  object DBOperation extends Enumeration {
+    type DBOperation = Int
     val READ = 1
     val WRITE = 2
     val DELETE = 3
@@ -51,42 +51,40 @@ class AccessLoggedStore[K, V](
   val rng = scala.util.Random
 
   def get(key: K): V = {
-    val isRange = false
-    measureLatencyAndWriteToStream(DBOperations.READ, isRange, toBytesOrNull(key), null, store.get(key))
+    val list = new util.ArrayList[Array[Byte]]
+    list.add(toBytesOrNull(key))
+    logAccess(DBOperation.READ, list, store.get(key))
   }
 
   def getAll(keys: util.List[K]): util.Map[K, V] = {
-    val isRange = true
-    measureLatencyAndWriteToStream(DBOperations.READ, isRange, null, toBytesKey(keys.iterator()), store.getAll(keys))
+    logAccess(DBOperation.READ, toBytesKey(keys), store.getAll(keys))
   }
 
   def put(key: K, value: V): Unit = {
-    val isRange = true
-    measureLatencyAndWriteToStream(DBOperations.WRITE, isRange, toBytesOrNull(key), null, store.put(key, value))
+    val list = new util.ArrayList[Array[Byte]]
+    list.add(toBytesOrNull(key))
+    logAccess(DBOperation.WRITE, list, store.put(key, value))
   }
 
   def putAll(entries: util.List[Entry[K, V]]): Unit = {
-    val iter = entries.iterator
-    val isRange = true
-    measureLatencyAndWriteToStream(DBOperations.WRITE, isRange, null, toBytesKeyFromEntries(iter), store.putAll(entries))
+    logAccess(DBOperation.WRITE, toBytesKeyFromEntries(entries), store.putAll(entries))
   }
 
   def delete(key: K): Unit = {
-    val isRange = true
-    measureLatencyAndWriteToStream(DBOperations.DELETE, isRange, toBytesOrNull(key), null, store.delete(key))
+    val list = new util.ArrayList[Array[Byte]]
+    list.add(toBytesOrNull(key))
+    logAccess(DBOperation.DELETE, list, store.delete(key))
   }
 
   def deleteAll(keys: util.List[K]): Unit = {
-    val isRange = true
-    measureLatencyAndWriteToStream(DBOperations.DELETE, isRange, null, toBytesKey(keys.iterator()), store.deleteAll(keys))
+    logAccess(DBOperation.DELETE, toBytesKey(keys), store.deleteAll(keys))
   }
 
   def range(from: K, to: K): KeyValueIterator[K, V] = {
-    val isRange = true
     val list : util.ArrayList[K] = new util.ArrayList[K]()
     list.add(from)
     list.add(to)
-    measureLatencyAndWriteToStream(DBOperations.RANGE, isRange, null, toBytesKey(list.iterator()), store.range(from, to))
+    logAccess(DBOperation.RANGE, toBytesKey(list), store.range(from, to))
   }
 
   def all(): KeyValueIterator[K, V] = {
@@ -107,19 +105,21 @@ class AccessLoggedStore[K, V](
   }
 
 
-  def toBytesKey(keys: util.Iterator[K]): util.ArrayList[Array[Byte]] = {
+  def toBytesKey(keys: util.List[K]): util.ArrayList[Array[Byte]] = {
     val keysInBytes = new util.ArrayList[Array[Byte]]
-    if (keys != null)
-      while(keys.hasNext()) {
-        val entry = keys.next()
+    val iter = keys.iterator
+    if (iter != null)
+      while(iter.hasNext()) {
+        val entry = iter.next()
         keysInBytes.add(toBytesOrNull(entry))
       }
 
     keysInBytes
   }
 
-  def toBytesKeyFromEntries(iter: util.Iterator[Entry[K, V]]): util.ArrayList[Array[Byte]] = {
+  def toBytesKeyFromEntries(list: util.List[Entry[K, V]]): util.ArrayList[Array[Byte]] = {
     val keysInBytes = new util.ArrayList[Array[Byte]]
+    val iter = list.iterator
     if (iter != null)
       while(iter.hasNext()) {
         val entry = iter.next().getKey
@@ -129,18 +129,18 @@ class AccessLoggedStore[K, V](
     keysInBytes
   }
 
-  private def measureLatencyAndWriteToStream[R](dBOperations: Int, isRange: Boolean, singleKey: Array[Byte], keys: util.ArrayList[Array[Byte]], block: => R):R = {
-    val time1 = System.nanoTime()
+  private def logAccess[R](dBOperation: Int, keys: util.ArrayList[Array[Byte]],
+                                                block: => R):R = {
+    val startTimeNs = System.nanoTime()
     val result = block
-    val time2 = System.nanoTime()
-    if (rng.nextInt() > samplingRatio) {
-      return result
+    val endTimeNs = System.nanoTime()
+    if (rng.nextInt() < samplingRatio) {
+      val duration = endTimeNs - startTimeNs
+      val timeStamp = System.currentTimeMillis()
+      val message = new AccessLogMessage(dBOperation, duration, keys, timeStamp)
+      collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, serializer.toBytes(timeStamp), message.serialize()))
     }
 
-    val duration = time2 - time1
-    val timeStamp = System.currentTimeMillis()
-    val message = new AccessLogMessage(dBOperations, isRange, duration, singleKey, keys, timeStamp)
-    collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, serializer.toBytes(timeStamp), message.serializeMessage()))
     result
   }
 
@@ -149,7 +149,7 @@ class AccessLoggedStore[K, V](
       return null
     }
     val bytes = keySerde.toBytes(key)
-    return bytes
+    bytes
   }
 
 }
