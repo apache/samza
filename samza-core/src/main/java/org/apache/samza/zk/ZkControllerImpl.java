@@ -123,7 +123,7 @@ public class ZkControllerImpl implements ZkController {
     @Override
     public void handleDataChange(String dataPath, Object data) throws Exception {
       LOG.info("pid=" + processorIdStr + ". Got notification on version update change. path=" + dataPath + "; data="
-          + (String) data);
+          + data);
 
       debounceTimer
           .scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, () -> notifyJobModelChange((String) data));
