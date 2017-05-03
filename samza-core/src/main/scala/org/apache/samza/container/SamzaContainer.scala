@@ -22,15 +22,15 @@ package org.apache.samza.container
 import java.io.File
 import java.nio.file.Path
 import java.util
-import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, TimeUnit}
+import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 import java.net.{URL, UnknownHostException}
 
-import org.apache.samza.SamzaException
+import org.apache.samza.{SamzaContainerStatus, SamzaException}
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.SerializerConfig.Config2Serializer
-import org.apache.samza.config.{Config, ShellCommandConfig, StorageConfig}
+import org.apache.samza.config.{ClusterManagerConfig, Config, ShellCommandConfig, StorageConfig}
 import org.apache.samza.config.StorageConfig.Config2Storage
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SystemConfig.Config2System
@@ -48,7 +48,6 @@ import org.apache.samza.metrics.JmxServer
 import org.apache.samza.metrics.JvmMetrics
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.MetricsReporter
-import org.apache.samza.runtime.ApplicationRunner
 import org.apache.samza.serializers.SerdeFactory
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.serializers.model.SamzaObjectMapper
@@ -81,8 +80,7 @@ object SamzaContainer extends Logging {
   val DEFAULT_READ_JOBMODEL_DELAY_MS = 100
   val DISK_POLL_INTERVAL_KEY = "container.disk.poll.interval.ms"
 
-  def getLocalityManager(containerId: String, config: Config): LocalityManager = {
-    val containerName = getSamzaContainerName(containerId)
+  def getLocalityManager(containerName: String, config: Config): LocalityManager = {
     val registryMap = new MetricsRegistryMap(containerName)
     val coordinatorSystemProducer =
       new CoordinatorStreamSystemFactory()
@@ -108,20 +106,21 @@ object SamzaContainer extends Logging {
         classOf[JobModel])
   }
 
-  def getSamzaContainerName(containerId: String): String = {
-    "samza-container-%s" format containerId
-  }
-
   def apply(
-    containerId: String,
     containerModel: ContainerModel,
     config: Config,
     maxChangeLogStreamPartitions: Int,
-    localityManager: LocalityManager,
     jmxServer: JmxServer,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
     taskFactory: Object) = {
-    val containerName = getSamzaContainerName(containerId)
+    val containerId = containerModel.getProcessorId()
+    val containerName = "samza-container-%s" format containerId
+
+    var localityManager: LocalityManager = null
+    if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {
+      localityManager = getLocalityManager(containerName, config)
+    }
+
     val containerPID = Util.getContainerPID
 
     info("Setting up Samza container: %s" format containerName)
@@ -627,22 +626,24 @@ class SamzaContainer(
   taskThreadPool: ExecutorService = null) extends Runnable with Logging {
 
   val shutdownMs = containerContext.config.getShutdownMs.getOrElse(5000L)
-  private val runLoopStartLatch: CountDownLatch = new CountDownLatch(1)
   var shutdownHookThread: Thread = null
 
-  def awaitStart(timeoutMs: Long): Boolean = {
-    try {
-      runLoopStartLatch.await(timeoutMs, TimeUnit.MILLISECONDS)
-    } catch {
-      case ie: InterruptedException =>
-        error("Interrupted while waiting for runloop to start!", ie)
-        throw ie
-    }
+  @volatile private var status = SamzaContainerStatus.NOT_STARTED
+  private var exceptionSeen: Throwable = null
+  private var paused: Boolean = false
+  private var containerListener: SamzaContainerListener = null
+
+  def getStatus(): SamzaContainerStatus = status
+
+  def setContainerListener(listener: SamzaContainerListener): Unit = {
+    containerListener = listener
   }
 
   def run {
     try {
       info("Starting container.")
+
+      status = SamzaContainerStatus.STARTING
 
       startMetrics
       startOffsetManager
@@ -656,16 +657,24 @@ class SamzaContainer(
       startSecurityManger
 
       addShutdownHook
-      runLoopStartLatch.countDown()
       info("Entering run loop.")
+      status = SamzaContainerStatus.STARTED
+      if (containerListener != null) {
+        containerListener.onContainerStart()
+      }
       runLoop.run
     } catch {
       case e: Throwable =>
-        error("Caught exception/error in process loop.", e)
-        throw e
-    } finally {
+        if (status.equals(SamzaContainerStatus.STARTED)) {
+          error("Caught exception/error in run loop.", e)
+        } else {
+          error("Caught exception/error while initializing container.", e)
+        }
+        status = SamzaContainerStatus.FAILED
+        exceptionSeen = e
+    }
+    try {
       info("Shutting down.")
-
       removeShutdownHook
 
       shutdownConsumers
@@ -679,11 +688,64 @@ class SamzaContainer(
       shutdownMetrics
       shutdownSecurityManger
 
+      if (!status.equals(SamzaContainerStatus.FAILED)) {
+        status = SamzaContainerStatus.STOPPED
+      }
+
       info("Shutdown complete.")
+    } catch {
+      case e: Throwable =>
+        error("Caught exception/error while shutting down container.", e)
+        if (exceptionSeen == null) {
+          exceptionSeen = e
+        }
+        status = SamzaContainerStatus.FAILED
+    }
+
+    status match {
+      case SamzaContainerStatus.STOPPED =>
+        if (containerListener != null) {
+          containerListener.onContainerStop(paused)
+        }
+      case SamzaContainerStatus.FAILED =>
+        if (containerListener != null) {
+          containerListener.onContainerFailed(exceptionSeen)
+        }
     }
   }
 
-  def shutdown() = {
+  // TODO: We want to introduce a "PAUSED" state for SamzaContainer in the future so that StreamProcessor can pause and
+  // unpause the container when the jobmodel changes.
+  /**
+   * Marks the [[SamzaContainer]] as being paused by the called due to a change in [[JobModel]] and then, asynchronously
+   * shuts down this [[SamzaContainer]]
+   */
+  def pause(): Unit = {
+    paused = true
+    shutdown()
+  }
+
+  /**
+   * <p>
+   *   Asynchronously shuts down this [[SamzaContainer]]
+   * </p>
+   * <br>
+   * <b>Implementation</b>: Stops the [[RunLoop]], which will eventually transition the container from
+   * [[SamzaContainerStatus.STARTED]] to either [[SamzaContainerStatus.STOPPED]] or [[SamzaContainerStatus.FAILED]]].
+   * Based on the final `status`, [[SamzaContainerListener#onContainerStop(boolean)]] or
+   * [[SamzaContainerListener#onContainerFailed(Throwable)]] will be invoked respectively.
+   *
+   * @throws SamzaException, Thrown when the container has already been stopped or failed
+   */
+  def shutdown(): Unit = {
+    if (status == SamzaContainerStatus.STOPPED || status == SamzaContainerStatus.FAILED) {
+      throw new IllegalContainerStateException("Cannot shutdown a container with status - " + status)
+    }
+    shutdownRunLoop()
+  }
+
+  // Shutdown Runloop
+  def shutdownRunLoop() = {
     runLoop match {
       case runLoop: RunLoop => runLoop.shutdown
       case asyncRunLoop: AsyncRunLoop => asyncRunLoop.shutdown()
@@ -809,10 +871,7 @@ class SamzaContainer(
     shutdownHookThread = new Thread("CONTAINER-SHUTDOWN-HOOK") {
       override def run() = {
         info("Shutting down, will wait up to %s ms" format shutdownMs)
-        runLoop match {
-          case runLoop: RunLoop => runLoop.shutdown
-          case asyncRunLoop: AsyncRunLoop => asyncRunLoop.shutdown()
-        }
+        shutdownRunLoop()  //TODO: Pull out shutdown hook to LocalContainerRunner or SP
         try {
           runLoopThread.join(shutdownMs)
         } catch {
@@ -922,4 +981,15 @@ class SamzaContainer(
       hostStatisticsMonitor.stop()
     }
   }
+}
+
+/**
+ * Exception thrown when the SamzaContainer tries to transition to an illegal state.
+ * {@link SamzaContainerStatus} has more details on the state transitions.
+ *
+ * @param s String, Message associated with the exception
+ * @param t Throwable, Wrapped error/exception thrown, if any.
+ */
+class IllegalContainerStateException(s: String, t: Throwable) extends SamzaException(s, t) {
+  def this(s: String) = this(s, null)
 }

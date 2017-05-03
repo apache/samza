@@ -18,18 +18,13 @@
  */
 package org.apache.samza.standalone;
 
-import com.google.common.annotations.VisibleForTesting;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.processor.SamzaContainerController;
-import org.apache.samza.runtime.ProcessorIdGenerator;
+import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
@@ -37,6 +32,10 @@ import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Standalone Job Coordinator does not implement any leader elector module or cluster manager
@@ -62,78 +61,44 @@ import org.slf4j.LoggerFactory;
  * </ul>
  * */
 public class StandaloneJobCoordinator implements JobCoordinator {
-  private static final Logger log = LoggerFactory.getLogger(StandaloneJobCoordinator.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(StandaloneJobCoordinator.class);
   private final String processorId;
   private final Config config;
-  private final JobModel jobModel;
-  private final SamzaContainerController containerController;
+  private JobCoordinatorListener coordinatorListener = null;
 
-  @VisibleForTesting
-  StandaloneJobCoordinator(
-      ProcessorIdGenerator processorIdGenerator,
-      Config config,
-      SamzaContainerController containerController,
-      JobModel jobModel) {
-    this.processorId = processorIdGenerator.generateProcessorId(config);
-    this.config = config;
-    this.containerController = containerController;
-    this.jobModel = jobModel;
-  }
-
-  public StandaloneJobCoordinator(String processorId, Config config, SamzaContainerController containerController) {
-    this.config = config;
-    this.containerController = containerController;
+  public StandaloneJobCoordinator(String processorId, Config config) {
     this.processorId = processorId;
-
-    JavaSystemConfig systemConfig = new JavaSystemConfig(this.config);
-    Map<String, SystemAdmin> systemAdmins = new HashMap<>();
-    for (String systemName: systemConfig.getSystemNames()) {
-      String systemFactoryClassName = systemConfig.getSystemFactory(systemName);
-      if (systemFactoryClassName == null) {
-        log.error(String.format("A stream uses system %s, which is missing from the configuration.", systemName));
-        throw new SamzaException(String.format("A stream uses system %s, which is missing from the configuration.", systemName));
-      }
-      SystemFactory systemFactory = Util.<SystemFactory>getObj(systemFactoryClassName);
-      systemAdmins.put(systemName, systemFactory.getAdmin(systemName, this.config));
-    }
-
-    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(Util.<String, SystemAdmin>javaMapAsScalaMap(systemAdmins), 5000, SystemClock.instance());
-
-    /** TODO:
-     * Locality Manager seems to be required in JC for reading locality info and grouping tasks intelligently and also,
-     * in SamzaContainer for writing locality info to the coordinator stream. This closely couples together
-     * TaskNameGrouper with the LocalityManager! Hence, groupers should be a property of the jobcoordinator
-     * (job.coordinator.task.grouper, instead of task.systemstreampartition.grouper)
-     */
-    this.jobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache, null);
+    this.config = config;
   }
 
   @Override
   public void start() {
     // No-op
-    JobModel jobModel = getJobModel();
-    containerController.startContainer(
-        jobModel.getContainers().get(getProcessorId()),
-        jobModel.getConfig(),
-        jobModel.maxChangeLogStreamPartitions);
+    JobModel jobModel = null;
+    try {
+      jobModel = getJobModel();
+    } catch (Exception e) {
+      LOGGER.error("Exception while trying to getJobModel.", e);
+      if (coordinatorListener != null) {
+        coordinatorListener.onCoordinatorFailure(e);
+      }
+    }
+    if (jobModel != null && jobModel.getContainers().containsKey(processorId)) {
+      if (coordinatorListener != null) {
+        coordinatorListener.onNewJobModel(processorId, jobModel);
+      }
+    } else {
+      stop();
+    }
   }
 
   @Override
   public void stop() {
     // No-op
-    containerController.shutdown();
-  }
-
-  /**
-   * Waits for a specified amount of time for the JobCoordinator to fully start-up, which means it should be ready to
-   * process messages. In a Standalone use-case, it may be sufficient to wait for the container to start-up. In case of
-   * ZK based Standalone use-case, it also includes registration with ZK, the initialization of leader elector module etc.
-   *
-   * @param timeoutMs Maximum time to wait, in milliseconds
-   */
-  @Override
-  public boolean awaitStart(long timeoutMs) throws InterruptedException {
-    return containerController.awaitStart(timeoutMs);
+    if (coordinatorListener != null) {
+      coordinatorListener.onJobModelExpired();
+      coordinatorListener.onCoordinatorStop();
+    }
   }
 
   @Override
@@ -142,7 +107,33 @@ public class StandaloneJobCoordinator implements JobCoordinator {
   }
 
   @Override
+  public void setListener(JobCoordinatorListener listener) {
+    this.coordinatorListener = listener;
+  }
+
+  @Override
   public JobModel getJobModel() {
-    return jobModel;
+    JavaSystemConfig systemConfig = new JavaSystemConfig(this.config);
+    Map<String, SystemAdmin> systemAdmins = new HashMap<>();
+    for (String systemName: systemConfig.getSystemNames()) {
+      String systemFactoryClassName = systemConfig.getSystemFactory(systemName);
+      if (systemFactoryClassName == null) {
+        LOGGER.error(String.format("A stream uses system %s, which is missing from the configuration.", systemName));
+        throw new SamzaException(String.format("A stream uses system %s, which is missing from the configuration.", systemName));
+      }
+      SystemFactory systemFactory = Util.<SystemFactory>getObj(systemFactoryClassName);
+      systemAdmins.put(systemName, systemFactory.getAdmin(systemName, this.config));
+    }
+
+    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(
+        Util.<String, SystemAdmin>javaMapAsScalaMap(systemAdmins), 5000, SystemClock.instance());
+
+    /** TODO:
+     Locality Manager seems to be required in JC for reading locality info and grouping tasks intelligently and also,
+     in SamzaContainer for writing locality info to the coordinator stream. This closely couples together
+     TaskNameGrouper with the LocalityManager! Hence, groupers should be a property of the jobcoordinator
+     (job.coordinator.task.grouper, instead of task.systemstreampartition.grouper)
+     */
+    return JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache, null);
   }
 }

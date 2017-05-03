@@ -35,7 +35,7 @@ import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.processor.SamzaContainerController;
+import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
@@ -53,23 +53,19 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   private final ZkUtils zkUtils;
   private final String processorId;
-
   private final ZkController zkController;
-  private final SamzaContainerController containerController;
   private final ScheduleAfterDebounceTime debounceTimer;
   private final StreamMetadataCache  streamMetadataCache;
-  private final ZkKeyBuilder keyBuilder;
   private final Config config;
   private final CoordinationUtils coordinationUtils;
 
+  private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
- 
-  public ZkJobCoordinator(String processorId, Config config, ScheduleAfterDebounceTime debounceTimer,
-                          SamzaContainerController containerController) {
-    this.debounceTimer = debounceTimer;
-    this.containerController = containerController;
-    this.config = config;
+
+  public ZkJobCoordinator(String processorId, Config config, ScheduleAfterDebounceTime debounceTimer) {
     this.processorId = processorId;
+    this.debounceTimer = debounceTimer;
+    this.config = config;
 
     this.coordinationUtils = Util.
         <CoordinationServiceFactory>getObj(
@@ -78,7 +74,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         .getCoordinationService(new ApplicationConfig(config).getGlobalAppId(), String.valueOf(processorId), config);
 
     this.zkUtils = ((ZkCoordinationUtils) coordinationUtils).getZkUtils();
-    this.keyBuilder = zkUtils.getKeyBuilder();
     this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this);
 
     streamMetadataCache = getStreamMetadataCache();
@@ -109,20 +104,23 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   @Override
   public void stop() {
+    if (coordinatorListener != null) {
+      coordinatorListener.onJobModelExpired();
+    }
     zkController.stop();
-    if (containerController != null)
-      containerController.stopContainer();
-  }
-
-  @Override
-  public boolean awaitStart(long timeoutMs)
-      throws InterruptedException {
-    return containerController.awaitStart(timeoutMs);
+    if (coordinatorListener != null) {
+      coordinatorListener.onCoordinatorStop();
+    }
   }
 
   @Override
   public String getProcessorId() {
     return processorId;
+  }
+
+  @Override
+  public void setListener(JobCoordinatorListener listener) {
+    this.coordinatorListener = listener;
   }
 
   @Override
@@ -147,13 +145,18 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     log.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
     // if list of processors is empty - it means we are called from 'onBecomeLeader'
     generateNewJobModel(processors);
+    if (coordinatorListener != null) {
+      coordinatorListener.onJobModelExpired();
+    }
   }
 
   @Override
   public void onNewJobModelAvailable(final String version) {
     log.info("pid=" + processorId + "new JobModel available");
     // stop current work
-    containerController.stopContainer();
+    if (coordinatorListener != null) {
+      coordinatorListener.onJobModelExpired();
+    }
     log.info("pid=" + processorId + "new JobModel available.Container stopped.");
     // get the new job model
     newJobModel = zkUtils.getJobModel(version);
@@ -179,8 +182,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     log.info("pid=" + processorId + "got the new job model in JobModelConfirmed =" + jobModel);
 
     // start the container with the new model
-    containerController.startContainer(jobModel.getContainers().get(processorId), jobModel.getConfig(),
-        jobModel.maxChangeLogStreamPartitions);
+    if (coordinatorListener != null) {
+      coordinatorListener.onNewJobModel(processorId, jobModel);
+    }
   }
 
   /**

@@ -22,7 +22,6 @@ package org.apache.samza.zk;
 import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
-import org.apache.samza.processor.SamzaContainerController;
 
 public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
   /**
@@ -30,17 +29,15 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
    *
    * @param processorId - id of this processor
    * @param config - configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
-   * @param containerController - controller to allow JobCoordinator control the SamzaContainer.
    * @return An instance of IJobCoordinator
    */
   @Override
-  public JobCoordinator getJobCoordinator(String processorId, Config config, SamzaContainerController containerController) {
+  public JobCoordinator getJobCoordinator(String processorId, Config config) {
     ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
 
     return new ZkJobCoordinator(
         processorId,
         config,
-        debounceTimer,
-        containerController);
+        debounceTimer);
   }
 }

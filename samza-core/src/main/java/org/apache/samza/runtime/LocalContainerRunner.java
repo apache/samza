@@ -33,6 +33,7 @@ import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.ScalaToJavaUtils;
 import org.apache.samza.util.Util;
@@ -55,6 +56,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(LocalContainerRunner.class);
   private final JobModel jobModel;
   private final String containerId;
+  private volatile Throwable containerException = null;
 
   public LocalContainerRunner(JobModel jobModel, String containerId) {
     super(jobModel.getConfig());
@@ -71,20 +73,40 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
       Object taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, this);
 
       SamzaContainer container = SamzaContainer$.MODULE$.apply(
-          containerModel.getProcessorId(),
           containerModel,
           config,
           jobModel.maxChangeLogStreamPartitions,
-          SamzaContainer.getLocalityManager(containerId, config),
           jmxServer,
           Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),
           taskFactory);
+      container.setContainerListener(
+          new SamzaContainerListener() {
+            @Override
+            public void onContainerStart() {
+              log.info("Container Started");
+            }
+
+            @Override
+            public void onContainerStop(boolean invokedExternally) {
+              log.info("Container Stopped");
+            }
+
+            @Override
+            public void onContainerFailed(Throwable t) {
+              log.info("Container Failed");
+              containerException = t;
+            }
+          });
 
       container.run();
     } finally {
       if (jmxServer != null) {
         jmxServer.stop();
       }
+    }
+    if (containerException != null) {
+      log.error("Container stopped with Exception. Exiting process now.", containerException);
+      System.exit(1);
     }
   }
 
