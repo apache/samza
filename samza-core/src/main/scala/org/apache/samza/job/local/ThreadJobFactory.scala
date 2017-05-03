@@ -53,6 +53,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     val containerListener = new SamzaContainerListener {
       override def onContainerFailed(t: Throwable): Unit = {
+        error("Container failed.", t)
         throw t
       }
 

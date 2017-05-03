@@ -33,7 +33,7 @@ public interface JobCoordinatorListener {
    * </ul>
    */
   void onJobModelExpired();
-  
+
   /**
    * Method invoked by a {@link org.apache.samza.coordinator.JobCoordinator} when there is new {@link JobModel}
    * available for use by the processor.
