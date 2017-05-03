@@ -658,14 +658,14 @@ class SamzaContainer(
 
       addShutdownHook
       info("Entering run loop.")
-      status = SamzaContainerStatus.RUNNING
+      status = SamzaContainerStatus.STARTED
       if (containerListener != null) {
         containerListener.onContainerStart()
       }
       runLoop.run
     } catch {
       case e: Throwable =>
-        if (status.equals(SamzaContainerStatus.RUNNING)) {
+        if (status.equals(SamzaContainerStatus.STARTED)) {
           error("Caught exception/error in run loop.", e)
         } else {
           error("Caught exception/error while initializing container.", e)
@@ -720,7 +720,7 @@ class SamzaContainer(
    * </p>
    * <br>
    * <b>Implementation</b>: Stops the [[RunLoop]], which will eventually transition the container from
-   * [[SamzaContainerStatus.RUNNING]] to either [[SamzaContainerStatus.STOPPED]] or [[SamzaContainerStatus.FAILED]]].
+   * [[SamzaContainerStatus.STARTED]] to either [[SamzaContainerStatus.STOPPED]] or [[SamzaContainerStatus.FAILED]]].
    * Based on the final `status`, [[SamzaContainerListener#onContainerStop(boolean)]] or
    * [[SamzaContainerListener#onContainerFailed(Throwable)]] will be invoked respectively.
    *

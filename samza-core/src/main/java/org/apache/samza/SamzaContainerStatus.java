@@ -23,7 +23,7 @@ package org.apache.samza;
  * <pre>
  *                                                                   runloop completed [OR]
  *                  container.run()           runloop.run            container.shutdown()
- *    NOT_STARTED -----------------> STARTING ------------> RUNNING -----------------------> STOPPED
+ *    NOT_STARTED -----------------> STARTING ------------> STARTED -----------------------> STOPPED
  *                                       |      Error in runloop |
  *                                       |      [OR] Error when  |
  *                           Error when  |      stopping         |
@@ -51,7 +51,7 @@ public enum  SamzaContainerStatus {
   /**
    * Indicates that the container started the {@link org.apache.samza.container.RunLoop}
    */
-  RUNNING,
+  STARTED,
 
   /**
    * Indicates that the container was successfully stopped either due to task-initiated shutdown
@@ -62,7 +62,7 @@ public enum  SamzaContainerStatus {
 
   /**
    * Indicates that the container failed during any of its 3 active states -
-   * {@link #STARTING}, {@link #RUNNING}, {@link #STOPPED}
+   * {@link #STARTING}, {@link #STARTED}, {@link #STOPPED}
    */
   FAILED
 }

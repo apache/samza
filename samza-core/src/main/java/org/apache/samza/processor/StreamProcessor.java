@@ -209,7 +209,7 @@ public class StreamProcessor {
       public void onJobModelExpired() {
         if (container != null) {
           SamzaContainerStatus status = container.getStatus();
-          if (SamzaContainerStatus.NOT_STARTED.equals(status) || SamzaContainerStatus.RUNNING.equals(status)) {
+          if (SamzaContainerStatus.NOT_STARTED.equals(status) || SamzaContainerStatus.STARTED.equals(status)) {
             boolean shutdownComplete = false;
             try {
               LOGGER.info("Shutting down container in onJobModelExpired.");

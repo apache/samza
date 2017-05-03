@@ -19,15 +19,9 @@
 
 package org.apache.samza.job.local
 
-import java.lang.Thread.UncaughtExceptionHandler
-
+import org.apache.samza.job.ApplicationStatus.{New, Running, SuccessfulFinish, UnsuccessfulFinish}
+import org.apache.samza.job.{ApplicationStatus, StreamJob}
 import org.apache.samza.util.Logging
-import org.apache.samza.job.StreamJob
-import org.apache.samza.job.ApplicationStatus
-import org.apache.samza.job.ApplicationStatus.New
-import org.apache.samza.job.ApplicationStatus.Running
-import org.apache.samza.job.ApplicationStatus.SuccessfulFinish
-import org.apache.samza.job.ApplicationStatus.UnsuccessfulFinish
 
 class ThreadJob(runnable: Runnable) extends StreamJob with Logging {
   @volatile var jobStatus: Option[ApplicationStatus] = None
