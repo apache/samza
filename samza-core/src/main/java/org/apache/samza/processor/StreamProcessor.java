@@ -186,7 +186,7 @@ public class StreamProcessor {
     if (container != null) {
       try {
         LOGGER.info("Shutting down container " + container.toString() + " from StreamProcessor");
-        container.shutdown(false);
+        container.shutdown();
         containerShutdownInvoked = true;
       } catch (IllegalContainerStateException icse) {
         LOGGER.info("Container was not running", icse);
@@ -221,7 +221,7 @@ public class StreamProcessor {
             boolean shutdownComplete = false;
             try {
               LOGGER.info("Shutting down container in onJobModelExpired.");
-              container.shutdown(true);
+              container.pause();
               shutdownComplete = jcContainerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
             } catch (IllegalContainerStateException icse) {
               // Ignored since container is not running

@@ -714,6 +714,17 @@ class SamzaContainer(
     }
   }
 
+  // TODO: We want to introduce a "PAUSED" state for SamzaContainer in the future so that StreamProcessor can pause and
+  // unpause the container when the jobmodel changes.
+  /**
+   * Marks the [[SamzaContainer]] as being paused by the called due to a change in [[JobModel]] and then, asynchronously
+   * shuts down this [[SamzaContainer]]
+   */
+  def pause(): Unit = {
+    paused = true
+    shutdown()
+  }
+
   /**
    * <p>
    *   Asynchronously shuts down this [[SamzaContainer]]
@@ -724,15 +735,12 @@ class SamzaContainer(
    * Based on the final `status`, [[SamzaContainerListener#onContainerStop(boolean)]] or
    * [[SamzaContainerListener#onContainerFailed(Throwable)]] will be invoked respectively.
    *
-   * @param pausedByJm Boolean, When StreamProcessor itself is shutting down, this value should be False.
-   *                   Otherwise, True.
    * @throws SamzaException, Thrown when the container has already been stopped or failed
    */
-  def shutdown(pausedByJm: Boolean): Unit = {
+  def shutdown(): Unit = {
     if (status == SamzaContainerStatus.STOPPED || status == SamzaContainerStatus.FAILED) {
       throw new IllegalContainerStateException("Cannot shutdown a container with status - " + status)
     }
-    paused = pausedByJm
     shutdownRunLoop()
   }
 
