@@ -22,16 +22,63 @@ package org.apache.samza.job;
 /**
  * Status of a {@link org.apache.samza.job.StreamJob} during and after its run.
  */
-public enum ApplicationStatus {
-  Running("Running"), SuccessfulFinish("SuccessfulFinish"), UnsuccessfulFinish("UnsuccessfulFinish"), New("New");
+public class ApplicationStatus {
+  public static final ApplicationStatus New = new ApplicationStatus(StatusCode.New, null);
+  public static final ApplicationStatus Running = new ApplicationStatus(StatusCode.Running, null);
+  public static final ApplicationStatus SuccessfulFinish = new ApplicationStatus(StatusCode.SuccessfulFinish, null);
+  public static final ApplicationStatus UnsuccessfulFinish = new ApplicationStatus(StatusCode.UnsuccessfulFinish, null);
 
-  private final String str;
-
-  private ApplicationStatus(String str) {
-    this.str = str;
+  public enum StatusCode {
+    New,
+    Running,
+    SuccessfulFinish,
+    UnsuccessfulFinish
   }
 
+  private final StatusCode statusCode;
+  private final Throwable throwable;
+
+  private ApplicationStatus(StatusCode code, Throwable t) {
+    this.statusCode = code;
+    this.throwable = t;
+  }
+
+  public StatusCode getStatusCode() {
+    return statusCode;
+  }
+
+  public Throwable getThrowable() {
+    return throwable;
+  }
+
+  @Override
   public String toString() {
-    return str;
+    return statusCode.name();
+  }
+
+
+  public static ApplicationStatus unsuccessfulFinish(Throwable t) {
+    return new ApplicationStatus(StatusCode.UnsuccessfulFinish, t);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == null) {
+      return false;
+    }
+    if (obj == this) {
+      return true;
+    }
+    if (obj.getClass() != getClass()) {
+      return false;
+    }
+
+    ApplicationStatus rhs = (ApplicationStatus) obj;
+    return statusCode.equals(rhs.statusCode);
+  }
+
+  @Override
+  public int hashCode() {
+    return statusCode.hashCode();
   }
 }

@@ -96,7 +96,7 @@ public abstract class ApplicationRunner {
 
   /**
    * Get the collective status of the Samza jobs represented by {@link StreamApplication}.
-   * Returns {@link ApplicationStatus#Running} if any of the jobs are running.
+   * Returns {@link ApplicationRunner} running if all jobs are running.
    *
    * @param streamApp  the user-defined {@link StreamApplication} object
    * @return the status of the application

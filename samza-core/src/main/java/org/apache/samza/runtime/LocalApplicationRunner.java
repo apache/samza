@@ -133,7 +133,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       awaitComplete();
 
     } catch (Throwable t) {
-      appStatus = ApplicationStatus.UnsuccessfulFinish;
+      appStatus = ApplicationStatus.unsuccessfulFinish(t);
       throw new SamzaException("Failed to run application", t);
     } finally {
       if (coordination != null) {
@@ -247,7 +247,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     latch.await();
 
     if (throwable.get() != null) {
-      appStatus = ApplicationStatus.UnsuccessfulFinish;
       throw throwable.get();
     } else {
       appStatus = ApplicationStatus.SuccessfulFinish;
