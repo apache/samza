@@ -25,6 +25,7 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.container.IllegalContainerStateException;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.coordinator.JobCoordinator;
@@ -156,23 +157,36 @@ public class StreamProcessor {
 
   JobCoordinatorListener createJobCoordinatorListener() {
     return new JobCoordinatorListener() {
+
       @Override
       public void onJobModelExpired() {
-        if (container != null && container.getStatus().equals(SamzaContainerStatus.RUNNING)) {
-          container.shutdown(true);
-          boolean shutdownComplete = false;
-          try {
-            shutdownComplete = jcContainerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
-          } catch (InterruptedException e) {
-            LOGGER.warn("Container shutdown was interrupted!" + container.toString());
-          }
-          if (!shutdownComplete) {
-            LOGGER.warn("Container " + container.toString() + " may not have shutdown successfully. Stopping the processor.");
-            container = null;
-            stop();
+        if (container != null) {
+          SamzaContainerStatus status = container.getStatus();
+          if (SamzaContainerStatus.NOT_STARTED.equals(status) || SamzaContainerStatus.RUNNING.equals(status)) {
+            boolean shutdownComplete = false;
+            try {
+              container.shutdown(true);
+              shutdownComplete = jcContainerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
+            } catch (IllegalContainerStateException icse) {
+              // Ignored since container is not running
+              LOGGER.info("Container was not running.", icse);
+              shutdownComplete = true;
+            } catch (InterruptedException e) {
+              LOGGER.warn("Container shutdown was interrupted!" + container.toString(), e);
+            }
+            if (!shutdownComplete) {
+              LOGGER.warn("Container " + container.toString() + " may not have shutdown successfully. " +
+                  "Stopping the processor.");
+              container = null;
+              stop();
+            } else {
+              LOGGER.debug("Container " + container.toString() + " shutdown successfully");
+            }
           } else {
-            LOGGER.info("Container " + container.toString() + " shutdown successfully");
+            LOGGER.debug("Container " + container.toString() + " is not running.");
           }
+        } else {
+          LOGGER.debug("Container is not instantiated yet.");
         }
       }
 
@@ -194,6 +208,8 @@ public class StreamProcessor {
                 if (processorListener != null) {
                   processorListener.onStart();
                 }
+              } else {
+                LOGGER.debug("StreamProcessorListener was notified of container start previously. Hence, skipping this time.");
               }
             }
 
@@ -222,6 +238,7 @@ public class StreamProcessor {
                 LOGGER.warn("JobCoordinatorLatch was null. It is possible for some component to be waiting.");
               }
               LOGGER.info("Container failed with " + t + ". Stopping the processor.");
+              container = null;
               stop();
             }
           };
@@ -259,7 +276,7 @@ public class StreamProcessor {
       }
     };
   }
-  
+
   /**
    * Starts the JobCoordinator in StreamProcessor.
    */

@@ -723,8 +723,12 @@ class SamzaContainer(
    *
    * @param pausedByJm Boolean, When StreamProcessor itself is shutting down, this value should be False.
    *                   Otherwise, True.
+   * @throws SamzaException, Thrown when the container has already been stopped or failed
    */
   def shutdown(pausedByJm: Boolean) = {
+    if (status == SamzaContainerStatus.STOPPED || status == SamzaContainerStatus.FAILED) {
+      throw new IllegalContainerStateException("Cannot shutdown a container with status - " + status)
+    }
     paused = pausedByJm
     shutdownRunLoop()
   }
@@ -966,4 +970,15 @@ class SamzaContainer(
       hostStatisticsMonitor.stop()
     }
   }
+}
+
+/**
+ * Exception thrown when the SamzaContainer tries to transition to an illegal state.
+ * {@link SamzaContainerStatus} has more details on the state transitions.
+ *
+ * @param s String, Message associated with the exception
+ * @param t Throwable, Wrapped error/exception thrown, if any.
+ */
+class IllegalContainerStateException(s: String, t: Throwable) extends SamzaException(s, t) {
+  def this(s: String) = this(s, null)
 }

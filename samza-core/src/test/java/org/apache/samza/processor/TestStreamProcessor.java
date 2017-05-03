@@ -99,7 +99,7 @@ public class TestStreamProcessor {
 
     TestableStreamProcessor processor = new TestableStreamProcessor(
         new MapConfig(),
-        new HashMap<String, MetricsReporter>(),
+        new HashMap<>(),
         mock(StreamTaskFactory.class),
         new StreamProcessorLifecycleListener() {
           @Override
@@ -167,10 +167,10 @@ public class TestStreamProcessor {
     }
   }
 
+  // TODO:
   // Test multiple start / stop and its ordering
   // test onNewJobModel
   // test onJobModelExpiry
   // test Coordinator failure - correctly shutsdown the streamprocessor
   // test Container failure
-  // test sp.stop
 }
