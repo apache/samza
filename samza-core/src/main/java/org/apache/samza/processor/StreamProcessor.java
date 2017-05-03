@@ -182,13 +182,22 @@ public class StreamProcessor {
    *
    */
   public synchronized void stop() {
+    boolean containerShutdownInvoked = false;
     if (container != null) {
-      LOGGER.info("Shutting down container " + container.toString() + " from StreamProcessor");
-      container.shutdown(false);
-    } else {
+      try {
+        LOGGER.info("Shutting down container " + container.toString() + " from StreamProcessor");
+        container.shutdown(false);
+        containerShutdownInvoked = true;
+      } catch (IllegalContainerStateException icse) {
+        LOGGER.info("Container was not running", icse);
+      }
+    }
+
+    if (!containerShutdownInvoked) {
       LOGGER.info("Shutting down JobCoordinator from StreamProcessor");
       jobCoordinator.stop();
     }
+
   }
 
   SamzaContainer createSamzaContainer(ContainerModel containerModel, int maxChangelogStreamPartitions, JmxServer jmxServer) {

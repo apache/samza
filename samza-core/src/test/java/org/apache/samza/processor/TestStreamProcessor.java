@@ -88,7 +88,7 @@ public class TestStreamProcessor {
   }
 
   /**
-   * Tests stop() method when container and JobCoordinator are running
+   * Tests stop() method when Container AND JobCoordinator are running
    */
   @Test
   public void testStopByProcessor() {
