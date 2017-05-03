@@ -57,7 +57,7 @@ class AccessLoggedStore[K, V](
   }
 
   def getAll(keys: util.List[K]): util.Map[K, V] = {
-    logAccess(DBOperation.READ, toBytesKey(keys), store.getAll(keys))
+    logAccess(DBOperation.READ, serializeKeys(keys), store.getAll(keys))
   }
 
   def put(key: K, value: V): Unit = {
@@ -67,7 +67,7 @@ class AccessLoggedStore[K, V](
   }
 
   def putAll(entries: util.List[Entry[K, V]]): Unit = {
-    logAccess(DBOperation.WRITE, toBytesKeyFromEntries(entries), store.putAll(entries))
+    logAccess(DBOperation.WRITE, serializeKeysFromEntries(entries), store.putAll(entries))
   }
 
   def delete(key: K): Unit = {
@@ -77,14 +77,14 @@ class AccessLoggedStore[K, V](
   }
 
   def deleteAll(keys: util.List[K]): Unit = {
-    logAccess(DBOperation.DELETE, toBytesKey(keys), store.deleteAll(keys))
+    logAccess(DBOperation.DELETE, serializeKeys(keys), store.deleteAll(keys))
   }
 
   def range(from: K, to: K): KeyValueIterator[K, V] = {
     val list : util.ArrayList[K] = new util.ArrayList[K]()
     list.add(from)
     list.add(to)
-    logAccess(DBOperation.RANGE, toBytesKey(list), store.range(from, to))
+    logAccess(DBOperation.RANGE, serializeKeys(list), store.range(from, to))
   }
 
   def all(): KeyValueIterator[K, V] = {
@@ -92,7 +92,7 @@ class AccessLoggedStore[K, V](
   }
 
   def close(): Unit = {
-    trace("Closing.")
+    trace("Closing accessLogged store.")
 
     store.close
   }
@@ -105,7 +105,7 @@ class AccessLoggedStore[K, V](
   }
 
 
-  def toBytesKey(keys: util.List[K]): util.ArrayList[Array[Byte]] = {
+  def serializeKeys(keys: util.List[K]): util.ArrayList[Array[Byte]] = {
     val keysInBytes = new util.ArrayList[Array[Byte]]
     val iter = keys.iterator
     if (iter != null)
@@ -117,7 +117,7 @@ class AccessLoggedStore[K, V](
     keysInBytes
   }
 
-  def toBytesKeyFromEntries(list: util.List[Entry[K, V]]): util.ArrayList[Array[Byte]] = {
+  def serializeKeysFromEntries(list: util.List[Entry[K, V]]): util.ArrayList[Array[Byte]] = {
     val keysInBytes = new util.ArrayList[Array[Byte]]
     val iter = list.iterator
     if (iter != null)
@@ -137,7 +137,7 @@ class AccessLoggedStore[K, V](
     if (rng.nextInt() < samplingRatio) {
       val duration = endTimeNs - startTimeNs
       val timeStamp = System.currentTimeMillis()
-      val message = new AccessLogMessage(dBOperation, duration, keys, timeStamp)
+      val message = new AccessLogMessage(dBOperation, duration, keys)
       collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, serializer.toBytes(timeStamp), message.serialize()))
     }
 

@@ -27,7 +27,7 @@ import java.util.ArrayList
 class AccessLogMessage(val DBOperation: Int,
     val duration: Long,
     val keys: ArrayList[Array[Byte]],
-    val timestamp: Long
+    val timestamp: Long = System.currentTimeMillis()
    ) extends Serializable {
 
 
