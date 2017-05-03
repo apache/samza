@@ -145,6 +145,47 @@ public class StreamProcessor {
     this.jobCoordinator.setListener(createJobCoordinatorListener());
   }
 
+  /**
+   * Starts the JobCoordinator in StreamProcessor.
+   */
+  public void start() {
+    jobCoordinator.start();
+  }
+
+  /**
+   * <p>
+   * Stops the Streamprocessor's running components - {@link SamzaContainer} and {@link JobCoordinator}
+   * </p>
+   * There are multiple ways in which the StreamProcessor stops:
+   * <ul>
+   *   <li>Caller of StreamProcessor invokes stop()</li>
+   *   <li>Samza Container completes processing (eg. bounded input) and shuts down</li>
+   *   <li>Samza Container fails</li>
+   *   <li>Job Coordinator fails</li>
+   * </ul>
+   * When either container or coordinator stops (cleanly or due to exception), it will try to shutdown the StreamProcessor.
+   * This needs to be synchronized so that only one code path gets triggered for shutdown.
+   * <br>
+   * If container is running,
+   * <ol>
+   *   <li>container is shutdown cleanly and {@link SamzaContainerListener#onContainerStop(boolean)} will trigger
+   *   {@link JobCoordinator#stop()}</li>
+   *   <li>container fails to shutdown cleanly and {@link SamzaContainerListener#onContainerFailed(Throwable)} will
+   *   trigger {@link JobCoordinator#stop()}</li>
+   * </ol>
+   * If container is not running, then this method will simply shutdown the {@link JobCoordinator}.
+   *
+   */
+  public synchronized void stop() {
+    if (container != null) {
+      LOGGER.info("Shutting down container " + container.toString() + " from StreamProcessor");
+      container.shutdown(false);
+    } else {
+      LOGGER.info("Shutting down JobCoordinator from StreamProcessor");
+      jobCoordinator.stop();
+    }
+  }
+
   SamzaContainer createSamzaContainer(ContainerModel containerModel, int maxChangelogStreamPartitions, JmxServer jmxServer) {
     return SamzaContainer.apply(
         containerModel,
@@ -275,46 +316,5 @@ public class StreamProcessor {
         }
       }
     };
-  }
-
-  /**
-   * Starts the JobCoordinator in StreamProcessor.
-   */
-  public void start() {
-    jobCoordinator.start();
-  }
-
-  /**
-   * <p>
-   * Stops the Streamprocessor's running components - {@link SamzaContainer} and {@link JobCoordinator}
-   * </p>
-   * There are multiple ways in which the StreamProcessor stops:
-   * <ul>
-   *   <li>Caller of StreamProcessor invokes stop()</li>
-   *   <li>Samza Container completes processing (eg. bounded input) and shuts down</li>
-   *   <li>Samza Container fails</li>
-   *   <li>Job Coordinator fails</li>
-   * </ul>
-   * When either container or coordinator stops (cleanly or due to exception), it will try to shutdown the StreamProcessor.
-   * This needs to be synchronized so that only one code path gets triggered for shutdown.
-   * <br>
-   * If container is running,
-   * <ol>
-   *   <li>container is shutdown cleanly and {@link SamzaContainerListener#onContainerStop(boolean)} will trigger
-   *   {@link JobCoordinator#stop()}</li>
-   *   <li>container fails to shutdown cleanly and {@link SamzaContainerListener#onContainerFailed(Throwable)} will
-   *   trigger {@link JobCoordinator#stop()}</li>
-   * </ol>
-   * If container is not running, then this method will simply shutdown the {@link JobCoordinator}.
-   *
-   */
-  public synchronized void stop() {
-    if (container != null) {
-      LOGGER.info("Shutting down container " + container.toString() + " from StreamProcessor");
-      container.shutdown(false);
-    } else {
-      LOGGER.info("Shutting down JobCoordinator from StreamProcessor");
-      jobCoordinator.stop();
-    }
   }
 }
