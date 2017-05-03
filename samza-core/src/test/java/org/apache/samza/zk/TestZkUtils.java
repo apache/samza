@@ -114,12 +114,8 @@ public class TestZkUtils {
     l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(2, l.size());
 
-    ProcessorData pd = new ProcessorData(l.get(0));
-    Assert.assertEquals(" ID1 didn't match", "1", pd.getProcessorId());
-    Assert.assertEquals(" Host1 didn't match", "host1", pd.getHost());
-    pd = new ProcessorData(l.get(1));
-    Assert.assertEquals(" ID2 didn't match", "2", pd.getProcessorId());
-    Assert.assertEquals(" Host2 didn't match", "host2", pd.getHost());
+    Assert.assertEquals(" ID1 didn't match", "1", l.get(0));
+    Assert.assertEquals(" ID2 didn't match", "2", l.get(1));
   }
   
   @Test

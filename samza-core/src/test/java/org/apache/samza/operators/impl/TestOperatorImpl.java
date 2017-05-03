@@ -217,6 +217,11 @@ public class TestOperatorImpl {
     public int getOpId() {
       return -1;
     }
+
+    @Override
+    public String getSourceLocation() {
+      return "";
+    }
   }
 }
 

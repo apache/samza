@@ -61,6 +61,9 @@ public class ExecutionPlanner {
     // create physical job graph based on stream graph
     JobGraph jobGraph = createJobGraph(streamGraph);
 
+    // fetch the external streams partition info
+    updateExistingPartitions(jobGraph, streamManager);
+
     if (!jobGraph.getIntermediateStreamEdges().isEmpty()) {
       // figure out the partitions for internal streams
       calculatePartitions(streamGraph, jobGraph);
@@ -84,7 +87,7 @@ public class ExecutionPlanner {
     // For this phase, we have a single job node for the whole dag
     String jobName = config.get(JobConfig.JOB_NAME());
     String jobId = config.get(JobConfig.JOB_ID(), "1");
-    JobNode node = jobGraph.getOrCreateNode(jobName, jobId, streamGraph);
+    JobNode node = jobGraph.getOrCreateJobNode(jobName, jobId, streamGraph);
 
     // add sources
     sourceStreams.forEach(spec -> jobGraph.addSource(spec, node));
@@ -104,9 +107,6 @@ public class ExecutionPlanner {
    * Figure out the number of partitions of all streams
    */
   /* package private */ void calculatePartitions(StreamGraphImpl streamGraph, JobGraph jobGraph) {
-    // fetch the external streams partition info
-    updateExistingPartitions(jobGraph, streamManager);
-
     // calculate the partitions for the input streams of join operators
     calculateJoinInputPartitions(streamGraph, jobGraph);
 
@@ -167,7 +167,7 @@ public class ExecutionPlanner {
     Set<OperatorSpec> visited = new HashSet<>();
 
     streamGraph.getInputStreams().entrySet().forEach(entry -> {
-        StreamEdge streamEdge = jobGraph.getOrCreateEdge(entry.getKey());
+        StreamEdge streamEdge = jobGraph.getOrCreateStreamEdge(entry.getKey());
         // Traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
         findReachableJoins(entry.getValue(), streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs,
             outputStreamToJoinSpec, joinQ, visited);

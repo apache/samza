@@ -216,7 +216,8 @@ public class TestStreamConfig {
 
     // Ensure that we can set legacy system properties via the new system wide default
     assertEquals("value1", config.getStreamKeySerde(SYSTEM_STREAM_1).get());
-    assertEquals(1, config.getSerdeStreams(STREAM1_SYSTEM).size());
+    assertEquals(0, config.getSerdeStreams(STREAM1_SYSTEM).size());
+    assertEquals("value1", new SystemConfig(config).getSystemKeySerde(STREAM1_SYSTEM).get());
     assertEquals("newest", config.getDefaultStreamOffset(SYSTEM_STREAM_1).get());
 
     // Property set via systems.x.default.stream.* only
