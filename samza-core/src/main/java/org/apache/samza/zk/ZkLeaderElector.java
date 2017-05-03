@@ -113,7 +113,8 @@ public class ZkLeaderElector implements LeaderElector {
       }
       currentSubscription = predecessor;
       // callback in case if the previous node gets deleted (when previous processor dies)
-      previousProcessorChangeListener =  new PreviousProcessorChangeListener(leaderElectorListener);
+      if (previousProcessorChangeListener == null)
+        previousProcessorChangeListener =  new PreviousProcessorChangeListener(leaderElectorListener);
 
       LOG.info(zLog("Subscribing data change for " + predecessor));
       zkUtils.subscribeDataChanges(keyBuilder.getProcessorsPath() + "/" + currentSubscription,
