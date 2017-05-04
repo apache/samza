@@ -38,9 +38,11 @@ import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.TaskContext;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -183,14 +185,15 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public MessageStream<M> merge(Collection<MessageStream<? extends M>> otherStreams) {
+  public MessageStream<M> merge(Collection<? extends MessageStream<? extends M>> otherStreams) {
     MessageStreamImpl<M> nextStream = new MessageStreamImpl<>(this.graph);
-
-    otherStreams.add(this);
-    otherStreams.forEach(other -> {
-        OperatorSpec mergeOperatorSepc =
+    List<MessageStream<M>> streamsToMerge = new ArrayList<>((Collection<MessageStream<M>>) otherStreams);
+    streamsToMerge.add(this);
+    
+    streamsToMerge.forEach(stream -> {
+        OperatorSpec mergeOperatorSpec =
             OperatorSpecs.createMergeOperatorSpec(nextStream, this.graph.getNextOpId());
-        ((MessageStreamImpl<M>) other).registeredOperatorSpecs.add(mergeOperatorSepc);
+        ((MessageStreamImpl<M>) stream).registeredOperatorSpecs.add(mergeOperatorSpec);
       });
     return nextStream;
   }
