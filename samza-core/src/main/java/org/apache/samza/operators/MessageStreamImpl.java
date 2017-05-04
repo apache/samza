@@ -189,6 +189,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     MessageStreamImpl<M> nextStream = new MessageStreamImpl<>(this.graph);
     List<MessageStream<M>> streamsToMerge = new ArrayList<>((Collection<MessageStream<M>>) otherStreams);
     streamsToMerge.add(this);
+    
     streamsToMerge.forEach(stream -> {
         OperatorSpec mergeOperatorSpec =
             OperatorSpecs.createMergeOperatorSpec(nextStream, this.graph.getNextOpId());
