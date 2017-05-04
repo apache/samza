@@ -137,7 +137,7 @@ public class StreamSpec {
    * @param config          A map of properties for the stream. These may be System-specfic.
    */
   public StreamSpec(String id, String physicalName, String systemName, int partitionCount,  Map<String, String> config) {
-    validateLogicalIdentifier("id", id);
+    validateLogicalIdentifier("streamId", id);
     validateLogicalIdentifier("systemName", systemName);
 
     if (partitionCount < 1) {
@@ -197,7 +197,7 @@ public class StreamSpec {
   }
 
   private void validateLogicalIdentifier(String identifierName, String identifierValue) {
-    if (!identifierValue.matches("[A-Za-z0-9_-]+")) {
+    if (identifierValue == null || !identifierValue.matches("[A-Za-z0-9_-]+")) {
       throw new IllegalArgumentException(String.format("Identifier '%s' is '%s'. It must match the expression [A-Za-z0-9_-]+", identifierName, identifierValue));
     }
   }
