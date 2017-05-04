@@ -19,6 +19,8 @@
 
 package org.apache.samza.job.yarn
 
+
+import org.apache.commons.lang.StringUtils
 import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.samza.config.{Config, JobConfig, YarnConfig}
 import org.apache.samza.coordinator.stream.CoordinatorStreamWriter
@@ -236,22 +238,31 @@ class ClientHelper(conf: Configuration) extends Logging {
     * @return        the active application ids.
     */
   def getActiveApplicationIds(appName: String): List[ApplicationId] = {
-    val getAppsRsp = yarnClient.getApplications
+    val applicationReports = yarnClient.getApplications
 
-    getAppsRsp
+    applicationReports
       .asScala
-        .filter(appRep => ((
-            Running.equals(convertState(appRep.getYarnApplicationState, appRep.getFinalApplicationStatus).get)
-            || New.equals(convertState(appRep.getYarnApplicationState, appRep.getFinalApplicationStatus).get)
-            )
-          && appName.equals(appRep.getName)))
-        .map(appRep => appRep.getApplicationId)
+        .filter(applicationReport => isActiveApplication(applicationReport)
+          && appName.equals(applicationReport.getName))
+        .map(applicationReport => applicationReport.getApplicationId)
         .toList
+  }
+
+  def getPreviousApplicationIds(appName: String): List[ApplicationId] = {
+    val applicationReports = yarnClient.getApplications
+
+    applicationReports
+      .asScala
+      .filter(applicationReport => (!(isActiveApplication(applicationReport))
+        && appName.equals(applicationReport.getName)))
+      .map(applicationReport => applicationReport.getApplicationId)
+      .toList
   }
 
   def status(appId: ApplicationId): Option[ApplicationStatus] = {
     val statusResponse = yarnClient.getApplicationReport(appId)
-    convertState(statusResponse.getYarnApplicationState, statusResponse.getFinalApplicationStatus)
+    info("Got state: %s, final status: %s".format(statusResponse.getYarnApplicationState, statusResponse.getFinalApplicationStatus))
+    toAppStatus(statusResponse)
   }
 
   def kill(appId: ApplicationId) {
@@ -271,16 +282,29 @@ class ClientHelper(conf: Configuration) extends Logging {
     status match {
       case Some(status) => getAppsRsp
         .asScala
-        .filter(appRep => status.equals(convertState(appRep.getYarnApplicationState, appRep.getFinalApplicationStatus).get))
+        .filter(appRep => status.equals(toAppStatus(appRep).get))
         .toList
       case None => getAppsRsp.asScala.toList
     }
   }
 
-  private def convertState(state: YarnApplicationState, status: FinalApplicationStatus): Option[ApplicationStatus] = {
+  private def isActiveApplication(applicationReport: ApplicationReport): Boolean = {
+    (Running.equals(toAppStatus(applicationReport).get)
+    || New.equals(toAppStatus(applicationReport).get))
+  }
+
+  def toAppStatus(applicationReport: ApplicationReport): Option[ApplicationStatus] = {
+    val state = applicationReport.getYarnApplicationState
+    val status = applicationReport.getFinalApplicationStatus
     (state, status) match {
-      case (YarnApplicationState.FINISHED, FinalApplicationStatus.SUCCEEDED) => Some(SuccessfulFinish)
-      case (YarnApplicationState.KILLED, _) | (YarnApplicationState.FAILED, _) | (YarnApplicationState.FINISHED, _) => Some(UnsuccessfulFinish)
+      case (YarnApplicationState.FINISHED, FinalApplicationStatus.SUCCEEDED) | (YarnApplicationState.KILLED, FinalApplicationStatus.KILLED) => Some(SuccessfulFinish)
+      case (YarnApplicationState.KILLED, _) | (YarnApplicationState.FAILED, _) | (YarnApplicationState.FINISHED, _) =>
+        val diagnostics = applicationReport.getDiagnostics
+        if (StringUtils.isEmpty(diagnostics)) {
+          Some(UnsuccessfulFinish)
+        } else {
+          Some(ApplicationStatus.unsuccessfulFinish(new SamzaException(diagnostics)))
+        }
       case (YarnApplicationState.NEW, _) | (YarnApplicationState.SUBMITTED, _) => Some(New)
       case _ => Some(Running)
     }

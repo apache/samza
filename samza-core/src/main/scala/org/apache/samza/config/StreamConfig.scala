@@ -43,7 +43,7 @@ object StreamConfig {
 
   protected val STREAM_ID_PREFIX = STREAMS_PREFIX + "%s."
   protected val SYSTEM_FOR_STREAM_ID = STREAM_ID_PREFIX + SYSTEM
-  protected val PHYSICAL_NAME_FOR_STREAM_ID = STREAM_ID_PREFIX + PHYSICAL_NAME
+  val PHYSICAL_NAME_FOR_STREAM_ID = STREAM_ID_PREFIX + PHYSICAL_NAME
 
   implicit def Config2Stream(config: Config) = new StreamConfig(config)
 }
@@ -220,10 +220,13 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     * @return           the map of properties for the stream
     */
   private def getSystemStreamProperties(systemName: String, streamName: String) = {
-    if (systemName == null || streamName == null) {
+    if (systemName == null) {
       Map()
     }
-    config.subset(StreamConfig.STREAM_PREFIX format(systemName, streamName), true)
+    val systemConfig = new JavaSystemConfig(config);
+    val defaults = systemConfig.getDefaultStreamProperties(systemName);
+    val explicitConfigs = config.subset(StreamConfig.STREAM_PREFIX format(systemName, streamName), true)
+    new MapConfig(defaults, explicitConfigs)
   }
 
   /**

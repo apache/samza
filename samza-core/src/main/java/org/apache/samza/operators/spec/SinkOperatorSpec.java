@@ -18,14 +18,13 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.stream.OutputStreamInternal;
+import org.apache.samza.operators.util.OperatorJsonUtils;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 
 
@@ -41,6 +40,7 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
   private OutputStreamInternal<?, ?, M> outputStream; // may be null
   private final OperatorSpec.OpCode opCode;
   private final int opId;
+  private final String sourceLocation;
 
   /**
    * Constructs a {@link SinkOperatorSpec} with a user defined {@link SinkFunction}.
@@ -56,6 +56,7 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
     this.sinkFn = sinkFn;
     this.opCode = opCode;
     this.opId = opId;
+    this.sourceLocation = OperatorJsonUtils.getSourceLocation();
   }
 
   /**
@@ -102,8 +103,8 @@ public class SinkOperatorSpec<M> implements OperatorSpec {
   }
 
   @Override
-  public void init(Config config, TaskContext context) {
-    this.sinkFn.init(config, context);
+  public String getSourceLocation() {
+    return sourceLocation;
   }
 
   /**

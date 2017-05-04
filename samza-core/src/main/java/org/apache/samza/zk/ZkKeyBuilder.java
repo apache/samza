@@ -26,7 +26,13 @@ import com.google.common.base.Strings;
  * The following ZK hierarchy is maintained for Standalone jobs:
  * <pre>
  *   - /
- *      |- jobName-jobId/
+ *      |- groupId/
+ *          |- JobModelGeneration/
+ *              |- jobModelVersion (data contains the version)
+ *              |- jobModelUpgradeBarrier/ (contains barrier related data)
+ *              |- jobModels/
+ *                 |- 1 (contains job model version 1 as data)
+ *                 |- 2
  *          |- processors/
  *              |- 00000001
  *              |- 00000002
@@ -44,7 +50,7 @@ public class ZkKeyBuilder {
   private final String pathPrefix;
 
   static final String PROCESSORS_PATH = "processors";
-  public static final String JOBMODEL_VERSION_PATH = "jobModelVersion";
+  static final String JOBMODEL_GENERATION_PATH = "JobModelGeneration";
 
   public ZkKeyBuilder(String pathPrefix) {
     if (Strings.isNullOrEmpty(pathPrefix)) {
@@ -77,11 +83,11 @@ public class ZkKeyBuilder {
   }
 
   public String getJobModelVersionPath() {
-    return String.format("/%s/%s", pathPrefix, JOBMODEL_VERSION_PATH);
+    return String.format("%s/%s/jobModelVersion", getRootPath(), JOBMODEL_GENERATION_PATH);
   }
 
   public String getJobModelPathPrefix() {
-    return String.format("/%s/jobModels", pathPrefix);
+    return String.format("%s/%s/jobModels", getRootPath(), JOBMODEL_GENERATION_PATH, pathPrefix);
   }
 
   public String getJobModelPath(String jobModelVersion) {
@@ -89,6 +95,6 @@ public class ZkKeyBuilder {
   }
 
   public String getJobModelVersionBarrierPrefix(String barrierId) {
-    return String.format("/%s/%s/versionBarriers", pathPrefix, barrierId);
+    return String.format("%s/%s/%s/versionBarriers", getRootPath(), JOBMODEL_GENERATION_PATH, barrierId);
   }
 }

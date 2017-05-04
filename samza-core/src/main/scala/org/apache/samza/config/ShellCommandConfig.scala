@@ -53,6 +53,11 @@ object ShellCommandConfig {
    */
   val ENV_LOGGED_STORE_BASE_DIR = "LOGGED_STORE_BASE_DIR"
 
+  /**
+   * The directory path that contains the execution plan
+   */
+  val EXECUTION_PLAN_DIR = "EXECUTION_PLAN_DIR"
+
   val COMMAND_SHELL_EXECUTE = "task.execute"
   val TASK_JVM_OPTS = "task.opts"
   val TASK_JAVA_HOME = "task.java.home"

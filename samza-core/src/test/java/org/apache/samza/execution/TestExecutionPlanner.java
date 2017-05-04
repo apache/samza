@@ -220,11 +220,11 @@ public class TestExecutionPlanner {
     JobGraph jobGraph = planner.createJobGraph(streamGraph);
 
     ExecutionPlanner.updateExistingPartitions(jobGraph, streamManager);
-    assertTrue(jobGraph.getOrCreateEdge(input1).getPartitionCount() == 64);
-    assertTrue(jobGraph.getOrCreateEdge(input2).getPartitionCount() == 16);
-    assertTrue(jobGraph.getOrCreateEdge(input3).getPartitionCount() == 32);
-    assertTrue(jobGraph.getOrCreateEdge(output1).getPartitionCount() == 8);
-    assertTrue(jobGraph.getOrCreateEdge(output2).getPartitionCount() == 16);
+    assertTrue(jobGraph.getOrCreateStreamEdge(input1).getPartitionCount() == 64);
+    assertTrue(jobGraph.getOrCreateStreamEdge(input2).getPartitionCount() == 16);
+    assertTrue(jobGraph.getOrCreateStreamEdge(input3).getPartitionCount() == 32);
+    assertTrue(jobGraph.getOrCreateStreamEdge(output1).getPartitionCount() == 8);
+    assertTrue(jobGraph.getOrCreateStreamEdge(output2).getPartitionCount() == 16);
 
     jobGraph.getIntermediateStreamEdges().forEach(edge -> {
         assertTrue(edge.getPartitionCount() == -1);
@@ -264,11 +264,10 @@ public class TestExecutionPlanner {
   }
 
   @Test
-  public void testCalculateIntStreamPartitions() {
+  public void testCalculateIntStreamPartitions() throws Exception {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     StreamGraphImpl streamGraph = createSimpleGraph();
-    JobGraph jobGraph = planner.createJobGraph(streamGraph);
-    planner.calculatePartitions(streamGraph, jobGraph);
+    JobGraph jobGraph = (JobGraph) planner.plan(streamGraph);
 
     // the partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {

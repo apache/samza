@@ -19,7 +19,13 @@
 package org.apache.samza.coordinator;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.runtime.ProcessorIdGenerator;
+import org.apache.samza.util.*;
+
 
 /**
  *  A JobCoordinator is a pluggable module in each process that provides the JobModel and the ID to the StreamProcessor.
@@ -28,37 +34,54 @@ import org.apache.samza.job.model.JobModel;
  *  based on the underlying environment. In some cases, ID assignment is completely config driven, while in other
  *  cases, ID assignment may require coordination with JobCoordinators of other StreamProcessors.
  *
- *  This interface contains methods required for the StreamProcessor to interact with JobCoordinator.
+ *  StreamProcessor registers a {@link JobCoordinatorListener} in order to get notified about JobModel changes and
+ *  Coordinator state change.
+ *
+ * <pre>
+ *   {@code
+ *  *******************  start()                            ********************
+ *  *                 *----------------------------------->>*                  *
+ *  *                 *         onNewJobModel    ************                  *
+ *  *                 *<<------------------------* Job      *                  *
+ *  *                 *     onJobModelExpired    * Co-      *                  *
+ *  *                 *<<------------------------* ordinator*                  *
+ *  * StreamProcessor *     onCoordinatorStop    * Listener *  JobCoordinator  *
+ *  *                 *<<------------------------*          *                  *
+ *  *                 *  onCoordinatorFailure    *          *                  *
+ *  *                 *<<------------------------************                  *
+ *  *                 *  stop()                             *                  *
+ *  *                 *----------------------------------->>*                  *
+ *  *******************                                     ********************
+ *  }
+ *  </pre>
  */
 @InterfaceStability.Evolving
 public interface JobCoordinator {
   /**
-   * Starts the JobCoordinator which involves one or more of the following:
-   * * LeaderElector Module initialization, if any
-   * * If leader, generate JobModel. Else, read JobModel
+   * Starts the JobCoordinator, which generally consists of participating in LeaderElection and listening for JobModel
+   * changes.
    */
   void start();
 
   /**
-   * Cleanly shutting down the JobCoordinator involves:
-   * * Shutting down the Container
-   * * Shutting down the LeaderElection module (TBD: details depending on leader or not)
+   * Stops the JobCoordinator and notifies the registered {@link JobCoordinatorListener}, if any
    */
   void stop();
 
   /**
-   * Waits for a specified amount of time for the JobCoordinator to fully start-up, which means it should be ready to
-   * process messages.
-   * In a Standalone use-case, it may be sufficient to wait for the container to start-up.
-   * In a ZK based Standalone use-case, it also includes registration with ZK, initialization of the
-   * leader elector module, container start-up etc.
+   * Registers a {@link JobCoordinatorListener} to receive notification on coordinator state changes and job model changes
    *
-   * @param timeoutMs Maximum time to wait, in milliseconds
-   * @return {@code true}, if the JobCoordinator is started within the specified wait time and {@code false} if the
-   * waiting time elapsed
-   * @throws InterruptedException if the current thread is interrupted while waiting for the JobCoordinator to start-up
+   * @param listener An instance of {@link JobCoordinatorListener}
    */
-  boolean awaitStart(long timeoutMs) throws InterruptedException;
+  void setListener(JobCoordinatorListener listener);
+
+  /**
+   * Returns the current JobModel
+   * The implementation of the JobCoordinator in the leader needs to know how to read the config and generate JobModel
+   * In case of a non-leader, the JobCoordinator should simply fetch the jobmodel
+   * @return instance of JobModel that describes the partition distribution among the processors (and hence, tasks)
+   */
+  JobModel getJobModel();
 
   /**
    * Returns the identifier assigned to the processor that is local to the instance of StreamProcessor.
@@ -68,13 +91,19 @@ public interface JobCoordinator {
    *
    * @return String representing a unique logical processor ID
    */
-  String getProcessorId();
-
-  /**
-   * Returns the current JobModel
-   * The implementation of the JobCoordinator in the leader needs to know how to read the config and generate JobModel
-   * In case of a non-leader, the JobCoordinator should simply fetch the jobmodel
-   * @return instance of JobModel that describes the partition distribution among the processors (and hence, tasks)
-   */
-  JobModel getJobModel();
+  default String getProcessorId(Config config) {
+    // TODO: This check to be removed after 0.13+
+    ApplicationConfig appConfig = new ApplicationConfig(config);
+    if (appConfig.getProcessorId() != null) {
+      return appConfig.getProcessorId();
+    } else if (appConfig.getAppProcessorIdGeneratorClass() != null) {
+      ProcessorIdGenerator idGenerator =
+          ClassLoaderHelper.fromClassName(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
+      return idGenerator.generateProcessorId(config);
+    } else {
+      throw new ConfigException(String
+          .format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
+              ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
+    }
+  }
 }

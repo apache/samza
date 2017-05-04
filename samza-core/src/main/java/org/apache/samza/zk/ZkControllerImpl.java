@@ -52,28 +52,23 @@ public class ZkControllerImpl implements ZkController {
   private void init() {
     ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
     zkUtils.makeSurePersistentPathsExists(
-        new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
-            .getJobModelPathPrefix()});
-  }
-
-  private void onBecomeLeader() {
-
-    listenToProcessorLiveness(); // subscribe for adding new processors
-
-    // inform the caller
-    zkControllerListener.onBecomeLeader();
-
+        new String[]{
+            keyBuilder.getProcessorsPath(),
+            keyBuilder.getJobModelVersionPath(),
+            keyBuilder.getJobModelPathPrefix()});
   }
 
   @Override
   public void register() {
-
     // TODO - make a loop here with some number of attempts.
     // possibly split into two method - becomeLeader() and becomeParticipant()
     leaderElector.tryBecomeLeader(new LeaderElectorListener() {
       @Override
       public void onBecomingLeader() {
-        onBecomeLeader();
+        listenToProcessorLiveness();
+
+        // inform the caller
+        zkControllerListener.onBecomeLeader();
       }
     });
 
@@ -114,16 +109,16 @@ public class ZkControllerImpl implements ZkController {
      * Called when the children of the given path changed.
      *
      * @param parentPath    The parent path
-     * @param currentChilds The children or null if the root node (parent path) was deleted.
+     * @param currentChildren The children or null if the root node (parent path) was deleted.
      * @throws Exception
      */
     @Override
-    public void handleChildChange(String parentPath, List<String> currentChilds) throws Exception {
+    public void handleChildChange(String parentPath, List<String> currentChildren) throws Exception {
       LOG.info(
           "ZkControllerImpl::ZkProcessorChangeHandler::handleChildChange - Path: " + parentPath + "  Current Children: "
-              + currentChilds);
+              + currentChildren);
       debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-          ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> zkControllerListener.onProcessorChange(currentChilds));
+          ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> zkControllerListener.onProcessorChange(currentChildren));
     }
   }
 

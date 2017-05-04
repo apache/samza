@@ -41,4 +41,9 @@ public class WindowState<WV> {
   public long getEarliestTimestamp() {
     return earliestRecvTime;
   }
+
+  @Override
+  public String toString() {
+    return String.format("WindowState: {time=%d, value=%s}", earliestRecvTime, wv);
+  }
 }

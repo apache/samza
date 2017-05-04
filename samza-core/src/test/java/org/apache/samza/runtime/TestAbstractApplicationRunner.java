@@ -195,6 +195,26 @@ public class TestAbstractApplicationRunner {
     assertEquals("systemValue2", properties.get("systemProperty2"));
   }
 
+  // Verify that we use a default specified with systems.x.default.stream.*, if specified
+  @Test
+  public void testStreamConfigOverridesWithSystemDefaults() {
+    Config config = addConfigs(buildStreamConfig(STREAM_ID,
+        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
+        StreamConfig.SYSTEM(), TEST_SYSTEM,
+        "segment.bytes", "5309"),
+        String.format("systems.%s.default.stream.replication.factor", TEST_SYSTEM), "4", // System default property
+        String.format("systems.%s.default.stream.segment.bytest", TEST_SYSTEM), "867"
+        );
+
+    AbstractApplicationRunner env = new TestAbstractApplicationRunnerImpl(config);
+    StreamSpec spec = env.getStreamSpec(STREAM_ID);
+
+    Map<String, String> properties = spec.getConfig();
+    assertEquals(3, properties.size());
+    assertEquals("4", properties.get("replication.factor")); // Uses system default
+    assertEquals("5309", properties.get("segment.bytes")); // Overrides system default
+  }
+
   // When the physicalName argument is passed explicitly it should be used, regardless of whether it is also in the config
   @Test
   public void testGetStreamPhysicalNameArgSimple() {

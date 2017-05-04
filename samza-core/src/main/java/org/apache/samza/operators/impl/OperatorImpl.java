@@ -18,9 +18,19 @@
  */
 package org.apache.samza.operators.impl;
 
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MetricsConfig;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.Timer;
+import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.util.HighResolutionClock;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -29,60 +39,140 @@ import java.util.Set;
  * Abstract base class for all stream operator implementations.
  */
 public abstract class OperatorImpl<M, RM> {
+  private static final String METRICS_GROUP = OperatorImpl.class.getName();
 
-  private final Set<OperatorImpl<RM, ?>> nextOperators = new HashSet<>();
+  private boolean initialized;
+  private Set<OperatorImpl<RM, ?>> registeredOperators;
+  private HighResolutionClock highResClock;
+  private Counter numMessage;
+  private Timer handleMessageNs;
+  private Timer handleTimerNs;
 
   /**
-   * Register the next operator in the chain that this operator should propagate its output to.
-   * @param nextOperator  the next operator in the chain.
+   * Initialize this {@link OperatorImpl} and its user-defined functions.
+   *
+   * @param config  the {@link Config} for the task
+   * @param context  the {@link TaskContext} for the task
    */
-  void registerNextOperator(OperatorImpl<RM, ?> nextOperator) {
-    nextOperators.add(nextOperator);
+  public final void init(Config config, TaskContext context) {
+    String opName = getOperatorSpec().getOpName();
+
+    if (initialized) {
+      throw new IllegalStateException(String.format("Attempted to initialize Operator %s more than once.", opName));
+    }
+
+    this.highResClock = createHighResClock(config);
+    registeredOperators = new HashSet<>();
+    MetricsRegistry metricsRegistry = context.getMetricsRegistry();
+    this.numMessage = metricsRegistry.newCounter(METRICS_GROUP, opName + "-messages");
+    this.handleMessageNs = metricsRegistry.newTimer(METRICS_GROUP, opName + "-handle-message-ns");
+    this.handleTimerNs = metricsRegistry.newTimer(METRICS_GROUP, opName + "-handle-timer-ns");
+
+    handleInit(config, context);
+
+    initialized = true;
   }
 
   /**
-   * Perform the transformation required for this operator and call the downstream operators.
+   * Initialize this {@link OperatorImpl} and its user-defined functions.
    *
-   * Must call {@link #propagateResult} to propagate the output to registered downstream operators correctly.
+   * @param config  the {@link Config} for the task
+   * @param context  the {@link TaskContext} for the task
+   */
+  protected abstract void handleInit(Config config, TaskContext context);
+
+  /**
+   * Register an operator that this operator should propagate its results to.
+   *
+   * @param nextOperator  the next operator to propagate results to
+   */
+  void registerNextOperator(OperatorImpl<RM, ?> nextOperator) {
+    if (!initialized) {
+      throw new IllegalStateException(
+          String.format("Attempted to register next operator before initializing operator %s.",
+              getOperatorSpec().getOpName()));
+    }
+    this.registeredOperators.add(nextOperator);
+  }
+
+  /**
+   * Handle the incoming {@code message} for this {@link OperatorImpl} and propagate results to registered operators.
+   * <p>
+   * Delegates to {@link #handleMessage(Object, MessageCollector, TaskCoordinator)} for handling the message.
+   *
+   * @param message  the input message
+   * @param collector  the {@link MessageCollector} for this message
+   * @param coordinator  the {@link TaskCoordinator} for this message
+   */
+  public final void onMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+    this.numMessage.inc();
+    long startNs = this.highResClock.nanoTime();
+    Collection<RM> results = handleMessage(message, collector, coordinator);
+    long endNs = this.highResClock.nanoTime();
+    this.handleMessageNs.update(endNs - startNs);
+
+    results.forEach(rm ->
+        this.registeredOperators.forEach(op ->
+            op.onMessage(rm, collector, coordinator)));
+  }
+
+  /**
+   * Handle the incoming {@code message} and return the results to be propagated to registered operators.
    *
    * @param message  the input message
    * @param collector  the {@link MessageCollector} in the context
    * @param coordinator  the {@link TaskCoordinator} in the context
+   * @return  results of the transformation
    */
-  public abstract void onNext(M message, MessageCollector collector, TaskCoordinator coordinator);
+  protected abstract Collection<RM> handleMessage(M message, MessageCollector collector,
+      TaskCoordinator coordinator);
 
   /**
-   * Invoked at every tick. This method delegates to {@link #onTimer(MessageCollector, TaskCoordinator)}
+   * Handle timer ticks for this {@link OperatorImpl} and propagate the results and timer tick to registered operators.
+   * <p>
+   * Delegates to {@link #handleTimer(MessageCollector, TaskCoordinator)} for handling the timer tick.
    *
    * @param collector  the {@link MessageCollector} in the context
    * @param coordinator  the {@link TaskCoordinator} in the context
    */
-  public final void onTick(MessageCollector collector, TaskCoordinator coordinator) {
-    onTimer(collector, coordinator);
-    nextOperators.forEach(sub -> sub.onTick(collector, coordinator));
+  public final void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+    long startNs = this.highResClock.nanoTime();
+    Collection<RM> results = handleTimer(collector, coordinator);
+    long endNs = this.highResClock.nanoTime();
+    this.handleTimerNs.update(endNs - startNs);
+
+    results.forEach(rm ->
+        this.registeredOperators.forEach(op ->
+            op.onMessage(rm, collector, coordinator)));
+    this.registeredOperators.forEach(op ->
+        op.onTimer(collector, coordinator));
   }
 
   /**
-   * Invoked at every tick. Implementations must call {@link #propagateResult} to propagate any generated output
-   * to registered downstream operators.
+   * Handle the the timer tick for this operator and return the results to be propagated to registered operators.
+   * <p>
+   * Defaults to a no-op implementation.
    *
    * @param collector  the {@link MessageCollector} in the context
    * @param coordinator  the {@link TaskCoordinator} in the context
+   * @return  results of the timed operation
    */
-  public void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+  protected Collection<RM> handleTimer(MessageCollector collector, TaskCoordinator coordinator) {
+    return Collections.emptyList();
   }
 
   /**
-   * Helper method to propagate the output of this operator to all registered downstream operators.
+   * Get the {@link OperatorSpec} for this {@link OperatorImpl}.
    *
-   * This method <b>must</b> be called from {@link #onNext} and {@link #onTimer}
-   * to propagate the operator output correctly.
-   *
-   * @param outputMessage  output message
-   * @param collector  the {@link MessageCollector} in the context
-   * @param coordinator  the {@link TaskCoordinator} in the context
+   * @return the {@link OperatorSpec} for this {@link OperatorImpl}
    */
-  void propagateResult(RM outputMessage, MessageCollector collector, TaskCoordinator coordinator) {
-    nextOperators.forEach(sub -> sub.onNext(outputMessage, collector, coordinator));
+  protected abstract OperatorSpec<RM> getOperatorSpec();
+
+  private HighResolutionClock createHighResClock(Config config) {
+    if (new MetricsConfig(config).getMetricsTimerEnabled()) {
+      return System::nanoTime;
+    } else {
+      return () -> 0;
+    }
   }
 }

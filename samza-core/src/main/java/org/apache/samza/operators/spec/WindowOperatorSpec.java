@@ -19,11 +19,10 @@
 
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.util.OperatorJsonUtils;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
-import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -38,6 +37,7 @@ public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK
   private final WindowInternal<M, WK, WV> window;
   private final MessageStreamImpl<WindowPane<WK, WV>> nextStream;
   private final int opId;
+  private final String sourceLocation;
 
   /**
    * Constructor for {@link WindowOperatorSpec}.
@@ -50,13 +50,7 @@ public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK
     this.nextStream = nextStream;
     this.window = window;
     this.opId = opId;
-  }
-
-  @Override
-  public void init(Config config, TaskContext context) {
-    if (window.getFoldLeftFunction() != null) {
-      window.getFoldLeftFunction().init(config, context);
-    }
+    this.sourceLocation = OperatorJsonUtils.getSourceLocation();
   }
 
   @Override
@@ -76,5 +70,10 @@ public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK
   @Override
   public int getOpId() {
     return this.opId;
+  }
+
+  @Override
+  public String getSourceLocation() {
+    return sourceLocation;
   }
 }

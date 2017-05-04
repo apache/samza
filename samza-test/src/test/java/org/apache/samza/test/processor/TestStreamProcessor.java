@@ -208,7 +208,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     boolean latchResult = false;
     processor.start();
     try {
-      processor.awaitStart(10000);
+      Thread.sleep(10000);
       latchResult = latch.await(10, TimeUnit.SECONDS);
     } catch (InterruptedException e) {
       e.printStackTrace();

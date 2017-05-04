@@ -81,16 +81,16 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public MessageStream<M> filter(FilterFunction<? super M> filterFn) {
-    OperatorSpec<M> op = OperatorSpecs.createFilterOperatorSpec(
-        filterFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
+    OperatorSpec<M> op = OperatorSpecs.createFilterOperatorSpec(filterFn, new MessageStreamImpl<>(this.graph),
+        this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
     return op.getNextStream();
   }
 
   @Override
   public <TM> MessageStream<TM> flatMap(FlatMapFunction<? super M, ? extends TM> flatMapFn) {
-    OperatorSpec<TM> op = OperatorSpecs.createStreamOperatorSpec(
-        flatMapFn, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
+    OperatorSpec<TM> op = OperatorSpecs.createStreamOperatorSpec(flatMapFn, new MessageStreamImpl<>(this.graph),
+        this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
     return op.getNextStream();
   }
@@ -103,15 +103,15 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public <K, V> void sendTo(OutputStream<K, V, M> outputStream) {
-    SinkOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec(
-        (OutputStreamInternal<K, V, M>) outputStream, this.graph.getNextOpId());
+    SinkOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec((OutputStreamInternal<K, V, M>) outputStream,
+        this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(op);
   }
 
   @Override
   public <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window) {
-    OperatorSpec<WindowPane<K, WV>> wndOp = OperatorSpecs.createWindowOperatorSpec(
-        (WindowInternal<M, K, WV>) window, new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
+    OperatorSpec<WindowPane<K, WV>> wndOp = OperatorSpecs.createWindowOperatorSpec((WindowInternal<M, K, WV>) window,
+        new MessageStreamImpl<>(this.graph), this.graph.getNextOpId());
     this.registeredOperatorSpecs.add(wndOp);
     return wndOp.getNextStream();
   }
@@ -175,9 +175,9 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     this.registeredOperatorSpecs.add(OperatorSpecs.createPartialJoinOperatorSpec(
         thisPartialJoinFn, otherPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId()));
 
-    ((MessageStreamImpl<OM>) otherStream).registeredOperatorSpecs
-        .add(OperatorSpecs.createPartialJoinOperatorSpec(
-            otherPartialJoinFn, thisPartialJoinFn, ttl.toMillis(), nextStream, this.graph.getNextOpId()));
+    ((MessageStreamImpl<OM>) otherStream).registeredOperatorSpecs.add(OperatorSpecs
+        .createPartialJoinOperatorSpec(otherPartialJoinFn, thisPartialJoinFn, ttl.toMillis(), nextStream,
+            this.graph.getNextOpId()));
 
     return nextStream;
   }
@@ -187,8 +187,11 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     MessageStreamImpl<M> nextStream = new MessageStreamImpl<>(this.graph);
 
     otherStreams.add(this);
-    otherStreams.forEach(other -> ((MessageStreamImpl<M>) other).registeredOperatorSpecs.
-        add(OperatorSpecs.createMergeOperatorSpec(nextStream, this.graph.getNextOpId())));
+    otherStreams.forEach(other -> {
+        OperatorSpec mergeOperatorSepc =
+            OperatorSpecs.createMergeOperatorSpec(nextStream, this.graph.getNextOpId());
+        ((MessageStreamImpl<M>) other).registeredOperatorSpecs.add(mergeOperatorSepc);
+      });
     return nextStream;
   }
 
@@ -213,5 +216,4 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   public Collection<OperatorSpec> getRegisteredOperatorSpecs() {
     return Collections.unmodifiableSet(this.registeredOperatorSpecs);
   }
-
 }

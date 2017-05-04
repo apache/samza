@@ -31,6 +31,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
@@ -132,6 +133,12 @@ public class HdfsSystemConsumer extends BlockingEnvelopeMap {
         public Map<Partition, List<String>> load(String streamName)
           throws Exception {
           Validate.notEmpty(streamName);
+          if (StringUtils.isBlank(stagingDirectory)) {
+            throw new SamzaException("Staging directory can't be empty. "
+                + "Is this not a yarn job (currently hdfs system consumer only works in "
+                + "the same yarn environment on which hdfs is running)? " + "Is STAGING_DIRECTORY ("
+                + HdfsConfig.STAGING_DIRECTORY() + ") not set (see HdfsConfig.scala)?");
+          }
           return HdfsSystemAdmin.obtainPartitionDescriptorMap(stagingDirectory, streamName);
         }
       });

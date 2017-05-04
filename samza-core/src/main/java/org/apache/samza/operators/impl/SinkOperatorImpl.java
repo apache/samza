@@ -20,10 +20,14 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+
+import java.util.Collection;
+import java.util.Collections;
 
 
 /**
@@ -31,16 +35,29 @@ import org.apache.samza.task.TaskCoordinator;
  */
 class SinkOperatorImpl<M> extends OperatorImpl<M, M> {
 
+  private final SinkOperatorSpec<M> sinkOpSpec;
   private final SinkFunction<M> sinkFn;
 
-  SinkOperatorImpl(SinkOperatorSpec<M> sinkOp, Config config, TaskContext context) {
-    this.sinkFn = sinkOp.getSinkFn();
+  SinkOperatorImpl(SinkOperatorSpec<M> sinkOpSpec, Config config, TaskContext context) {
+    this.sinkOpSpec = sinkOpSpec;
+    this.sinkFn = sinkOpSpec.getSinkFn();
   }
 
   @Override
-  public void onNext(M message, MessageCollector collector, TaskCoordinator coordinator) {
+  protected void handleInit(Config config, TaskContext context) {
+    this.sinkFn.init(config, context);
+  }
+
+  @Override
+  public Collection<M> handleMessage(M message, MessageCollector collector,
+      TaskCoordinator coordinator) {
     this.sinkFn.apply(message, collector, coordinator);
     // there should be no further chained operators since this is a terminal operator.
-    // hence we don't call #propogateResult() here.
+    return Collections.emptyList();
+  }
+
+  @Override
+  protected OperatorSpec<M> getOperatorSpec() {
+    return sinkOpSpec;
   }
 }

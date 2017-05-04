@@ -52,7 +52,7 @@ public class WindowKey<K> {
   @Override
   public String toString() {
     String wndKey = "";
-    if (!(key instanceof Void)) {
+    if (!(key instanceof Void) && key != null) {
       wndKey = String.format("%s:", key.toString());
     }
     return String.format("%s%s", wndKey, paneId);
@@ -65,21 +65,15 @@ public class WindowKey<K> {
 
     WindowKey<?> windowKey = (WindowKey<?>) o;
 
-    if (!key.equals(windowKey.key)) return false;
-
-    if (paneId == null) {
-      return windowKey.paneId == null;
-    }
-
-    return paneId.equals(windowKey.paneId);
+    if (key != null ? !key.equals(windowKey.key) : windowKey.key != null) return false;
+    return !(paneId != null ? !paneId.equals(windowKey.paneId) : windowKey.paneId != null);
 
   }
 
   @Override
   public int hashCode() {
-    int result = key.hashCode();
+    int result = key != null ? key.hashCode() : 0;
     result = 31 * result + (paneId != null ? paneId.hashCode() : 0);
     return result;
   }
-
 }

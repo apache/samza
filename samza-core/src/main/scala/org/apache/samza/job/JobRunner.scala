@@ -137,7 +137,7 @@ class JobRunner(config: Config) extends Logging {
     info("waiting for job to terminate")
 
     // Wait until the job has terminated, then exit.
-    Option(job.waitForStatus(SuccessfulFinish, 5000)) match {
+    Option(job.waitForFinish(5000)) match {
       case Some(appStatus) => {
         if (SuccessfulFinish.equals(appStatus)) {
           info("job terminated successfully - " + appStatus)

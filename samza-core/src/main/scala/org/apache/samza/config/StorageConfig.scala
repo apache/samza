@@ -46,24 +46,8 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
   def getStorageMsgSerde(name: String) = getOption(StorageConfig.MSG_SERDE format name)
 
   def getChangelogStream(name: String) = {
-    // If the config specifies 'stores.<storename>.changelog' as '<system>.<stream>' combination - it will take precedence.
-    // If this config only specifies <astream> and there is a value in job.changelog.system=<asystem> -
-    // these values will be combined into <asystem>.<astream>
-    val systemStream = getOption(CHANGELOG_STREAM format name)
-    val changelogSystem = getOption(CHANGELOG_SYSTEM)
-    val systemStreamRes =
-      if ( systemStream.isDefined  && ! systemStream.getOrElse("").contains('.')) {
-        // contains only stream name
-        if (changelogSystem.isDefined) {
-          Some(changelogSystem.get + "." + systemStream.get)
-        }
-        else {
-          throw new SamzaException("changelog system is not defined:" + systemStream.get)
-        }
-      } else {
-        systemStream
-      }
-    systemStreamRes
+    val javaStorageConfig = new JavaStorageConfig(config)
+    Option(javaStorageConfig.getChangelogStream(name))
   }
 
   def getChangeLogDeleteRetentionInMs(storeName: String) = {

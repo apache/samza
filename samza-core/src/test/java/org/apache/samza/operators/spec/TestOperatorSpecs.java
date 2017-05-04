@@ -57,8 +57,8 @@ public class TestOperatorSpecs {
   @Test
   public void testCreateStreamOperator() {
     FlatMapFunction<Object, TestMessageEnvelope> transformFn = m -> new ArrayList<TestMessageEnvelope>() { {
-          this.add(new TestMessageEnvelope(m.toString(), m.toString(), 12345L));
-        } };
+        this.add(new TestMessageEnvelope(m.toString(), m.toString(), 12345L));
+      } };
     MessageStreamImpl<TestMessageEnvelope> mockOutput = mock(MessageStreamImpl.class);
     StreamOperatorSpec<Object, TestMessageEnvelope> streamOp =
         OperatorSpecs.createStreamOperatorSpec(transformFn, mockOutput, 1);
@@ -78,7 +78,7 @@ public class TestOperatorSpecs {
   public void testCreateSinkOperator() {
     SystemStream testStream = new SystemStream("test-sys", "test-stream");
     SinkFunction<TestMessageEnvelope> sinkFn = (TestMessageEnvelope message, MessageCollector messageCollector,
-          TaskCoordinator taskCoordinator) -> {
+        TaskCoordinator taskCoordinator) -> {
       messageCollector.send(new OutgoingMessageEnvelope(testStream, message.getKey(), message.getMessage()));
     };
     SinkOperatorSpec<TestMessageEnvelope> sinkOp = OperatorSpecs.createSinkOperatorSpec(sinkFn, 1);
