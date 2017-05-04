@@ -22,8 +22,7 @@ package org.apache.samza.config;
 import com.google.common.base.Strings;
 
 public class JobCoordinatorConfig extends MapConfig {
-  public static final String JOB_COORDINATOR_FACTORY = "job-coordinator.factory";
-  public static final String JOB_COORDINATIOIN_SERVICE_FACTORY = "job-coordinationService.factory";
+  public static final String JOB_COORDINATOR_FACTORY = "job.coordinator.factory";
 
   public JobCoordinatorConfig(Config config) {
     super(config);
@@ -37,15 +36,5 @@ public class JobCoordinatorConfig extends MapConfig {
     }
 
     return jobCoordinatorFactoryClassName;
-  }
-
-  public String getJobCoordinationServiceFactoryClassName() {
-    String jobCooridanationFactoryClassName = get(JOB_COORDINATIOIN_SERVICE_FACTORY, "org.apache.samza.zk.ZkCoordinationServiceFactory");
-    if (Strings.isNullOrEmpty(jobCooridanationFactoryClassName)) {
-      throw new ConfigException(
-          String.format("config  '%s' is set to empty. Cannot instantiate coordination utils!", JOB_COORDINATOR_FACTORY));
-    }
-
-    return jobCooridanationFactoryClassName;
   }
 }

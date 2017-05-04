@@ -87,37 +87,36 @@ public class StreamProcessor {
    * <p>
    * <b>Note:</b> Lifecycle of the ExecutorService is fully managed by the StreamProcessor, and NOT exposed to the user
    *
-   * @param processorId            String identifier for this processor
    * @param config                 Instance of config object - contains all configuration required for processing
    * @param customMetricsReporters Map of custom MetricReporter instances that are to be injected in the Samza job
    * @param asyncStreamTaskFactory The {@link AsyncStreamTaskFactory} to be used for creating task instances.
    * @param processorListener         listener to the StreamProcessor life cycle
    */
-  public StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
+  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
                          AsyncStreamTaskFactory asyncStreamTaskFactory, StreamProcessorLifecycleListener processorListener) {
-    this(processorId, config, customMetricsReporters, (Object) asyncStreamTaskFactory, processorListener);
+    this(config, customMetricsReporters, (Object) asyncStreamTaskFactory, processorListener);
   }
 
   /**
-   *Same as {@link #StreamProcessor(String, Config, Map, AsyncStreamTaskFactory, StreamProcessorLifecycleListener)}, except task
+   *Same as {@link #StreamProcessor(Config, Map, AsyncStreamTaskFactory, StreamProcessorLifecycleListener)}, except task
    * instances are created using the provided {@link StreamTaskFactory}.
    * @param config - config
    * @param customMetricsReporters metric Reporter
    * @param streamTaskFactory task factory to instantiate the Task
    * @param processorListener  listener to the StreamProcessor life cycle
    */
-  public StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
+  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
                          StreamTaskFactory streamTaskFactory, StreamProcessorLifecycleListener processorListener) {
-    this(processorId, config, customMetricsReporters, (Object) streamTaskFactory, processorListener);
+    this(config, customMetricsReporters, (Object) streamTaskFactory, processorListener);
   }
 
   /* package private */
-  JobCoordinator getJobCoordinator(String processorId) {
+  JobCoordinator getJobCoordinator() {
     return Util.
         <JobCoordinatorFactory>getObj(
             new JobCoordinatorConfig(config)
                 .getJobCoordinatorFactoryClassName())
-        .getJobCoordinator(processorId, config);
+        .getJobCoordinator(config);
   }
 
   @VisibleForTesting
@@ -133,14 +132,14 @@ public class StreamProcessor {
     this.jobCoordinator.setListener(jobCoordinatorListener);
   }
 
-  private StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters,
+  private StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
                           Object taskFactory, StreamProcessorLifecycleListener processorListener) {
     this.taskFactory = taskFactory;
     this.config = config;
     this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
     this.customMetricsReporter = customMetricsReporters;
     this.processorListener = processorListener;
-    this.jobCoordinator = getJobCoordinator(processorId);
+    this.jobCoordinator = getJobCoordinator();
     this.jobCoordinator.setListener(createJobCoordinatorListener());
   }
 
