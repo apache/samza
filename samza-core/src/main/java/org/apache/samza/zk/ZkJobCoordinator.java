@@ -27,6 +27,7 @@ import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationUtils;
@@ -34,11 +35,11 @@ import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.coordinator.JobCoordinatorListener;
+import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
-import org.apache.samza.util.SystemClock;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,7 +64,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public ZkJobCoordinator(Config config, ScheduleAfterDebounceTime debounceTimer) {
     this.debounceTimer = debounceTimer;
     this.config = config;
-    this.processorId = getProcessorId(config);
+    this.processorId = createProcessorId(config);
     this.coordinationUtils = new ZkCoordinationServiceFactory()
         .getCoordinationService(new ApplicationConfig(config).getGlobalAppId(), String.valueOf(processorId), config);
     this.zkUtils = ((ZkCoordinationUtils) coordinationUtils).getZkUtils();
@@ -113,6 +114,11 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   @Override
   public JobModel getJobModel() {
     return newJobModel;
+  }
+
+  @Override
+  public String getProcessorId() {
+    return processorId;
   }
 
   //////////////////////////////////////////////// LEADER stuff ///////////////////////////
@@ -171,6 +177,22 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     // start the container with the new model
     if (coordinatorListener != null) {
       coordinatorListener.onNewJobModel(processorId, jobModel);
+    }
+  }
+
+  private String createProcessorId(Config config) {
+    // TODO: This check to be removed after 0.13+
+    ApplicationConfig appConfig = new ApplicationConfig(config);
+    if (appConfig.getProcessorId() != null) {
+      return appConfig.getProcessorId();
+    } else if (appConfig.getAppProcessorIdGeneratorClass() != null) {
+      ProcessorIdGenerator idGenerator =
+          ClassLoaderHelper.fromClassName(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
+      return idGenerator.generateProcessorId(config);
+    } else {
+      throw new ConfigException(String
+          .format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
+              ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
     }
   }
 

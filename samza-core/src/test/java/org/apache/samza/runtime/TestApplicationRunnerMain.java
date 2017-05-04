@@ -101,11 +101,6 @@ public class TestApplicationRunnerMain {
       statusCount++;
       return ApplicationStatus.Running;
     }
-
-    @Override
-    public void waitForFinish() {
-
-    }
   }
 
   public static class TestStreamApplicationDummy implements StreamApplication {

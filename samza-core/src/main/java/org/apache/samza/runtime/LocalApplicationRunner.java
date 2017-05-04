@@ -150,8 +150,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
       // 4. start the StreamProcessors
       processors.forEach(StreamProcessor::start);
-    } catch (Throwable t) {
-      throw new SamzaException("Failed to start application", t);
+    } catch (Exception e) {
+      throw new SamzaException("Failed to start application", e);
     }
   }
 
@@ -165,13 +165,15 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     return appStatus;
   }
 
-  @Override
+  /**
+   * Block until the application finishes
+   */
   public void waitForFinish() {
     try {
       shutdownLatch.await();
-    } catch (Throwable t) {
-      log.error("Wait is interrupted by exception", t);
-      throw new SamzaException(t);
+    } catch (Exception e) {
+      log.error("Wait is interrupted by exception", e);
+      throw new SamzaException(e);
     }
   }
 

@@ -19,13 +19,7 @@
 package org.apache.samza.coordinator;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.ApplicationConfig;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.runtime.ProcessorIdGenerator;
-import org.apache.samza.util.*;
-
 
 /**
  *  A JobCoordinator is a pluggable module in each process that provides the JobModel and the ID to the StreamProcessor.
@@ -69,6 +63,16 @@ public interface JobCoordinator {
   void stop();
 
   /**
+   * Returns the identifier assigned to the processor that is local to the instance of StreamProcessor.
+   *
+   * The semantics and format of the identifier returned should adhere to the specification defined in
+   * {@link org.apache.samza.runtime.ProcessorIdGenerator}
+   *
+   * @return String representing a unique logical processor ID
+   */
+  String getProcessorId();
+
+  /**
    * Registers a {@link JobCoordinatorListener} to receive notification on coordinator state changes and job model changes
    *
    * @param listener An instance of {@link JobCoordinatorListener}
@@ -82,29 +86,4 @@ public interface JobCoordinator {
    * @return instance of JobModel that describes the partition distribution among the processors (and hence, tasks)
    */
   JobModel getJobModel();
-
-  /**
-   * Returns the identifier assigned to the processor that is local to the instance of StreamProcessor.
-   *
-   * The semantics and format of the identifier returned should adhere to the specification defined in
-   * {@link org.apache.samza.runtime.ProcessorIdGenerator}
-   *
-   * @param config Job {@link Config}
-   * @return String representing a unique logical processor ID
-   */
-  default String getProcessorId(Config config) {
-    // TODO: This check to be removed after 0.13+
-    ApplicationConfig appConfig = new ApplicationConfig(config);
-    if (appConfig.getProcessorId() != null) {
-      return appConfig.getProcessorId();
-    } else if (appConfig.getAppProcessorIdGeneratorClass() != null) {
-      ProcessorIdGenerator idGenerator =
-          ClassLoaderHelper.fromClassName(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
-      return idGenerator.generateProcessorId(config);
-    } else {
-      throw new ConfigException(String
-          .format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
-              ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
-    }
-  }
 }

@@ -122,11 +122,6 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     throw new UnsupportedOperationException();
   }
 
-  @Override
-  public void waitForFinish() {
-    throw new UnsupportedOperationException("waitForFinish is not supported");
-  }
-
   public static void main(String[] args) throws Exception {
     Thread.setDefaultUncaughtExceptionHandler(
         new SamzaContainerExceptionHandler(() -> {

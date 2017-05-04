@@ -81,7 +81,8 @@ public abstract class ApplicationRunner {
   }
 
   /**
-   * Deploy and run the Samza jobs to execute {@link StreamApplication}
+   * Deploy and run the Samza jobs to execute {@link StreamApplication}.
+   * It is non-blocking so it doesn't wait for the application running.
    *
    * @param streamApp  the user-defined {@link StreamApplication} object
    */
@@ -89,6 +90,7 @@ public abstract class ApplicationRunner {
 
   /**
    * Kill the Samza jobs represented by {@link StreamApplication}
+   * It is non-blocking so it doesn't wait for teh application stopping.
    *
    * @param streamApp  the user-defined {@link StreamApplication} object
    */
@@ -102,11 +104,6 @@ public abstract class ApplicationRunner {
    * @return the status of the application
    */
   public abstract ApplicationStatus status(StreamApplication streamApp);
-
-  /**
-   * Wait until the application completes or fails
-   */
-  public abstract void waitForFinish();
 
   /**
    * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
