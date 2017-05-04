@@ -678,6 +678,8 @@ class SamzaContainer(
       info("Shutting down.")
       removeShutdownHook
 
+      jmxServer.stop
+
       shutdownConsumers
       shutdownTask
       shutdownStores
@@ -702,8 +704,6 @@ class SamzaContainer(
         }
         status = SamzaContainerStatus.FAILED
     }
-
-    jmxServer.stop
 
     status match {
       case SamzaContainerStatus.STOPPED =>
