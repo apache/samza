@@ -24,9 +24,9 @@ import org.apache.samza.config.Config;
 @InterfaceStability.Evolving
 public interface JobCoordinatorFactory {
   /**
-   * @param processorId Identifier for {@link org.apache.samza.processor.StreamProcessor} instance
+   * Return a new instance of {@link JobCoordinator}
    * @param config Configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
-   * @return An instance of IJobCoordinator
+   * @return {@link JobCoordinator} instance
    */
-  JobCoordinator getJobCoordinator(String processorId, Config config);
+  JobCoordinator getJobCoordinator(Config config);
 }

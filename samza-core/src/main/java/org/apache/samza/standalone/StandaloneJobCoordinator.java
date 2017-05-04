@@ -19,17 +19,19 @@
 package org.apache.samza.standalone;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.coordinator.JobCoordinatorListener;
+import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
-import org.apache.samza.util.SystemClock;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,8 +68,8 @@ public class StandaloneJobCoordinator implements JobCoordinator {
   private final Config config;
   private JobCoordinatorListener coordinatorListener = null;
 
-  public StandaloneJobCoordinator(String processorId, Config config) {
-    this.processorId = processorId;
+  public StandaloneJobCoordinator(Config config) {
+    this.processorId = createProcessorId(config);
     this.config = config;
   }
 
@@ -102,11 +104,6 @@ public class StandaloneJobCoordinator implements JobCoordinator {
   }
 
   @Override
-  public String getProcessorId() {
-    return processorId;
-  }
-
-  @Override
   public void setListener(JobCoordinatorListener listener) {
     this.coordinatorListener = listener;
   }
@@ -135,5 +132,26 @@ public class StandaloneJobCoordinator implements JobCoordinator {
      (job.coordinator.task.grouper, instead of task.systemstreampartition.grouper)
      */
     return JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache, null);
+  }
+
+  @Override
+  public String getProcessorId() {
+    return this.processorId;
+  }
+
+  private String createProcessorId(Config config) {
+    // TODO: This check to be removed after 0.13+
+    ApplicationConfig appConfig = new ApplicationConfig(config);
+    if (appConfig.getProcessorId() != null) {
+      return appConfig.getProcessorId();
+    } else if (appConfig.getAppProcessorIdGeneratorClass() != null) {
+      ProcessorIdGenerator idGenerator =
+          ClassLoaderHelper.fromClassName(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
+      return idGenerator.generateProcessorId(config);
+    } else {
+      throw new ConfigException(String
+          .format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
+              ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
+    }
   }
 }

@@ -182,7 +182,7 @@ public class TestLocalApplicationRunner {
     };
     when(coordinationUtils.getLeaderElector()).thenReturn(leaderElector);
     when(coordinationUtils.getLatch(anyInt(), anyString())).thenReturn(latch);
-    doReturn(coordinationUtils).when(spy).getCoordinationUtils();
+    doReturn(coordinationUtils).when(spy).createCoordinationUtils();
 
     try {
       spy.run(app);
@@ -235,13 +235,14 @@ public class TestLocalApplicationRunner {
     doAnswer(i ->
       {
         StreamProcessorLifecycleListener listener = captor.getValue();
+        listener.onStart();
         listener.onShutdown();
         return null;
       }).when(sp).start();
 
 
     LocalApplicationRunner spy = spy(runner);
-    doReturn(sp).when(spy).createStreamProcessor(anyString(), anyObject(), anyObject(), captor.capture());
+    doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
 
     spy.run(app);
 
@@ -293,7 +294,7 @@ public class TestLocalApplicationRunner {
 
 
     LocalApplicationRunner spy = spy(runner);
-    doReturn(sp).when(spy).createStreamProcessor(anyString(), anyObject(), anyObject(), captor.capture());
+    doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
 
     try {
       spy.run(app);

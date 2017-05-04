@@ -24,9 +24,7 @@ import org.apache.samza.annotation.InterfaceStability;
 
 /**
  * This class listens to the life cycle events in a {@link StreamProcessor},
- * and triggers the corresponding callbacks.
  */
-
 @InterfaceStability.Evolving
 public interface StreamProcessorLifecycleListener {
   /**
