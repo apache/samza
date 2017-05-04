@@ -148,4 +148,3 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
   }
 
 }
-
