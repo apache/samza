@@ -89,6 +89,7 @@ public interface JobCoordinator {
    * The semantics and format of the identifier returned should adhere to the specification defined in
    * {@link org.apache.samza.runtime.ProcessorIdGenerator}
    *
+   * @param config Job {@link Config}
    * @return String representing a unique logical processor ID
    */
   default String getProcessorId(Config config) {

@@ -27,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -90,6 +89,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       if (processors.isEmpty()) {
         if (appStatus == ApplicationStatus.Running) {
           appStatus = ApplicationStatus.SuccessfulFinish;
+        } else if (appStatus == ApplicationStatus.New) {
+          // the processor is shutdown before started
+          appStatus = ApplicationStatus.UnsuccessfulFinish;
         }
         shutdownAndNotify();
       }
@@ -104,8 +106,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       if (!processors.isEmpty()) {
         // shut down the other processors
         processors.forEach(StreamProcessor::stop);
-      }
-      else {
+      } else {
         shutdownAndNotify();
       }
     }
@@ -139,12 +140,12 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         throw new SamzaException("No jobs to run.");
       }
       plan.getJobConfigs().forEach(jobConfig -> {
-        log.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
-        LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
-        StreamProcessor processor = createStreamProcessor(jobConfig, app, listener);
-        listener.setProcessor(processor);
-        processors.add(processor);
-      });
+          log.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
+          LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
+          StreamProcessor processor = createStreamProcessor(jobConfig, app, listener);
+          listener.setProcessor(processor);
+          processors.add(processor);
+        });
       numProcessorsToStart.set(processors.size());
 
       // 4. start the StreamProcessors

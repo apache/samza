@@ -383,5 +383,10 @@ public class TestAbstractApplicationRunner {
       // do nothing. We're only testing the stream creation methods at this point.
       return null;
     }
+
+    @Override
+    public void waitForFinish() {
+      // do nothing.
+    }
   }
 }

@@ -22,7 +22,6 @@ package org.apache.samza.runtime;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
@@ -236,6 +235,7 @@ public class TestLocalApplicationRunner {
     doAnswer(i ->
       {
         StreamProcessorLifecycleListener listener = captor.getValue();
+        listener.onStart();
         listener.onShutdown();
         return null;
       }).when(sp).start();
