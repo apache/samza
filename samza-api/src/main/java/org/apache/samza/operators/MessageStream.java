@@ -127,13 +127,11 @@ public interface MessageStream<M> {
 
   /**
    * Merge all {@code otherStreams} with this {@link MessageStream}.
-   * <p>
-   * The merging streams must have the same messages of type {@code M}.
    *
    * @param otherStreams other {@link MessageStream}s to be merged with this {@link MessageStream}
    * @return the merged {@link MessageStream}
    */
-  MessageStream<M> merge(Collection<MessageStream<? extends M>> otherStreams);
+  MessageStream<M> merge(Collection<? extends MessageStream<? extends M>> otherStreams);
 
   /**
    * Sends the messages of type {@code M}in this {@link MessageStream} to a repartitioned output stream and consumes
