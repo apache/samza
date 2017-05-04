@@ -20,17 +20,16 @@ package org.apache.samza.runtime;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.*;
 
 public class TestAbstractApplicationRunner {
   private static final String STREAM_ID = "t3st-Stream_Id";
@@ -119,7 +118,7 @@ public class TestAbstractApplicationRunner {
   }
 
   // System is required. Throw if it cannot be determined.
-  @Test(expected = Exception.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testgetStreamWithOutSystemInConfig() {
     Config config = buildStreamConfig(STREAM_ID,
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME);
@@ -291,8 +290,8 @@ public class TestAbstractApplicationRunner {
     runner.getStreamSpec(STREAM_ID, TEST_PHYSICAL_NAME, "");
   }
 
-  // Null is not allowed for system name.
-  @Test(expected = NullPointerException.class)
+  // Null is not allowed IllegalArgumentException system name.
+  @Test(expected = IllegalArgumentException.class)
   public void testGetStreamSystemNameArgNull() {
     Config config = buildStreamConfig(STREAM_ID,
                                       StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2,
@@ -323,7 +322,7 @@ public class TestAbstractApplicationRunner {
   }
 
   // Null is not allowed for streamId.
-  @Test(expected = NullPointerException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testGetStreamStreamIdNull() {
     Config config = buildStreamConfig(null,
         StreamConfig.SYSTEM(), TEST_SYSTEM);
