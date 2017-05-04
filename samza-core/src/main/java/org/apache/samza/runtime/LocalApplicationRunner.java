@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -64,6 +65,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   private final Set<StreamProcessor> processors = ConcurrentHashMap.newKeySet();
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
+  private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
@@ -87,12 +89,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       processor = null;
 
       if (processors.isEmpty()) {
-        if (appStatus == ApplicationStatus.Running) {
-          appStatus = ApplicationStatus.SuccessfulFinish;
-        } else if (appStatus == ApplicationStatus.New) {
-          // the processor is shutdown before started
-          appStatus = ApplicationStatus.UnsuccessfulFinish;
-        }
         shutdownAndNotify();
       }
     }
@@ -102,16 +98,28 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       processors.remove(processor);
       processor = null;
 
-      appStatus = ApplicationStatus.unsuccessfulFinish(t);
-      if (!processors.isEmpty()) {
-        // shut down the other processors
+      if (failure.compareAndSet(null, t)) {
+        // shutdown the other processors
         processors.forEach(StreamProcessor::stop);
-      } else {
+      }
+
+      if (processors.isEmpty()) {
         shutdownAndNotify();
       }
     }
 
     private void shutdownAndNotify() {
+      if (failure.get() != null) {
+        appStatus = ApplicationStatus.unsuccessfulFinish(failure.get());
+      } else {
+        if (appStatus == ApplicationStatus.Running) {
+          appStatus = ApplicationStatus.SuccessfulFinish;
+        } else if (appStatus == ApplicationStatus.New) {
+          // the processor is shutdown before started
+          appStatus = ApplicationStatus.UnsuccessfulFinish;
+        }
+      }
+
       if (coordinationUtils != null) {
         coordinationUtils.reset();
       }
@@ -178,7 +186,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   /**
-   * Create the {@link CoordinationUtils} needed by the application runner.
+   * Create the {@link CoordinationUtils} needed by the application runner, or null if it's not configured.
    * @return an instance of {@link CoordinationUtils}
    */
   /* package private */ CoordinationUtils createCoordinationUtils() {
@@ -195,7 +203,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   /**
    * Create intermediate streams using {@link org.apache.samza.execution.StreamManager}.
-   * If {@link CoordinationUtils} is provided, this function will first invoke leader election, Pand the leader
+   * If {@link CoordinationUtils} is provided, this function will first invoke leader election, and the leader
    * will create the streams. All the runner processes will wait on the latch that is released after the leader finishes
    * stream creation.
    * @param intStreams list of intermediate {@link StreamSpec}s

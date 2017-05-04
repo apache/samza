@@ -90,7 +90,7 @@ public abstract class ApplicationRunner {
 
   /**
    * Kill the Samza jobs represented by {@link StreamApplication}
-   * It is non-blocking so it doesn't wait for teh application stopping.
+   * It is non-blocking so it doesn't wait for the application stopping.
    *
    * @param streamApp  the user-defined {@link StreamApplication} object
    */
