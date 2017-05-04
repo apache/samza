@@ -202,7 +202,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     ApplicationConfig appConfig = new ApplicationConfig(config);
     if (appConfig.getProcessorId() != null) {
       return appConfig.getProcessorId();
-    } else if (appConfig.getAppProcessorIdGeneratorClass() == null) {
+    } else if (appConfig.getAppProcessorIdGeneratorClass() != null) {
       ProcessorIdGenerator idGenerator =
           ClassLoaderHelper.fromClassName(appConfig.getAppProcessorIdGeneratorClass(),
               ProcessorIdGenerator.class);
