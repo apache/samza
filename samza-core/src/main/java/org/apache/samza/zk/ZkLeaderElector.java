@@ -105,17 +105,17 @@ public class ZkLeaderElector implements LeaderElector {
     LOG.info("Index = " + index + " Not eligible to be a leader yet!");
     String predecessor = children.get(index - 1);
     if (!predecessor.equals(currentSubscription)) {
+
       if (currentSubscription != null) {
-
-        // callback in case if the previous node gets deleted (when previous processor dies)
-        if (previousProcessorChangeListener == null)
-          previousProcessorChangeListener =  new PreviousProcessorChangeListener(leaderElectorListener);
-
         LOG.debug(zLog("Unsubscribing data change for " + currentSubscription));
         zkUtils.unsubscribeDataChanges(keyBuilder.getProcessorsPath() + "/" + currentSubscription,
             previousProcessorChangeListener);
       }
       currentSubscription = predecessor;
+      // callback in case if the previous node gets deleted (when previous processor dies)
+      if (previousProcessorChangeListener == null)
+        previousProcessorChangeListener =  new PreviousProcessorChangeListener(leaderElectorListener);
+
       LOG.info(zLog("Subscribing data change for " + predecessor));
       zkUtils.subscribeDataChanges(keyBuilder.getProcessorsPath() + "/" + currentSubscription,
           previousProcessorChangeListener);

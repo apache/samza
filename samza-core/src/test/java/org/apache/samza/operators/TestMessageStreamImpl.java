@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -260,14 +261,35 @@ public class TestMessageStreamImpl {
   @Test
   public void testMerge() {
     MessageStream<TestMessageEnvelope> merge1 = new MessageStreamImpl<>(mockGraph);
-    Collection<MessageStream<? extends TestMessageEnvelope>> others = new ArrayList<MessageStream<? extends TestMessageEnvelope>>() { {
-        this.add(new MessageStreamImpl<>(mockGraph));
-        this.add(new MessageStreamImpl<>(mockGraph));
-      } };
+    Collection<MessageStream<TestMessageEnvelope>> others = ImmutableList.of(
+        new MessageStreamImpl<>(mockGraph), new MessageStreamImpl<>(mockGraph));
     MessageStream<TestMessageEnvelope> mergeOutput = merge1.merge(others);
     validateMergeOperator(merge1, mergeOutput);
 
+    others.forEach(merge -> validateMergeOperator(merge, mergeOutput));
+  }
+
+  @Test
+  public void testMergeWithRelaxedTypes() {
+    MessageStream<TestMessageEnvelope> input1 = new MessageStreamImpl<>(mockGraph);
+    Collection<MessageStream<? extends TestMessageEnvelope>> others = ImmutableList.of(
+        new MessageStreamImpl<TestInputMessageEnvelope>(mockGraph),
+        new MessageStreamImpl<TestMessageEnvelope>(mockGraph));
+
+    MessageStream<TestMessageEnvelope> mergeOutput = input1.merge(others);
+    validateMergeOperator(input1, mergeOutput);
+
     others.forEach(merge -> validateMergeOperator((MessageStream<TestMessageEnvelope>) merge, mergeOutput));
+  }
+
+  @Test
+  public <T> void testMergeWithNestedTypes() {
+    class MessageEnvelope<TM> { }
+    MessageStream<MessageEnvelope<T>> ms1 = new MessageStreamImpl<>(mock(StreamGraphImpl.class));
+    MessageStream<MessageEnvelope<T>> ms2 = new MessageStreamImpl<>(mock(StreamGraphImpl.class));
+    MessageStream<MessageEnvelope<T>> ms3 = new MessageStreamImpl<>(mock(StreamGraphImpl.class));
+    Collection<MessageStream<MessageEnvelope<T>>> otherStreams = ImmutableList.of(ms2, ms3);
+    ms1.merge(otherStreams);
   }
 
   private void validateMergeOperator(MessageStream<TestMessageEnvelope> mergeSource, MessageStream<TestMessageEnvelope> mergeOutput) {

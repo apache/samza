@@ -22,7 +22,7 @@ package org.apache.samza.config;
 import com.google.common.base.Strings;
 
 public class JobCoordinatorConfig extends MapConfig {
-  public static final String JOB_COORDINATOR_FACTORY = "job-coordinator.factory";
+  public static final String JOB_COORDINATOR_FACTORY = "job.coordinator.factory";
 
   public JobCoordinatorConfig(Config config) {
     super(config);

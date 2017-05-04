@@ -199,7 +199,7 @@ public class TestLocalApplicationRunner {
   @Test
   public void testRunComplete() throws Exception {
     final Map<String, String> config = new HashMap<>();
-    config.put(ApplicationConfig.PROCESSOR_ID, "0");
+    config.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
     LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(config));
     StreamApplication app = mock(StreamApplication.class);
     doNothing().when(app).init(anyObject(), anyObject());
