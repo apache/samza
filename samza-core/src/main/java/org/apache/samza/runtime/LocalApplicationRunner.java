@@ -119,7 +119,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
-  public LocalApplicationRunner(Config config) throws Exception {
+  public LocalApplicationRunner(Config config) {
     super(config);
     uid = UUID.randomUUID().toString();
     coordinationUtils = createCoordinationUtils();
@@ -180,10 +180,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   /**
    * Create the {@link CoordinationUtils} needed by the application runner.
    * @return an instance of {@link CoordinationUtils}
-   * @throws Exception exceptions when creating the instance, such as {@link ClassNotFoundException} and
-   * {@link InstantiationException}
    */
-  /* package private */ CoordinationUtils createCoordinationUtils() throws Exception {
+  /* package private */ CoordinationUtils createCoordinationUtils() {
     String jobCoordinatorFactoryClassName = config.get(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "");
 
     // TODO: we will need a better way to package the configs with application runner
