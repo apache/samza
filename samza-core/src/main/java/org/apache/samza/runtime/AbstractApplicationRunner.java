@@ -21,11 +21,15 @@ package org.apache.samza.runtime;
 import java.io.File;
 import java.io.PrintWriter;
 import java.util.Map;
+
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
@@ -46,6 +50,8 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
 
   public AbstractApplicationRunner(Config config) {
     super(config);
+    validateConfig();
+
     this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
     this.planner = new ExecutionPlanner(config, streamManager);
   }
@@ -133,4 +139,13 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
       log.warn("Failed to write execution plan json to file", e);
     }
   }
+
+  private void validateConfig() {
+    String appClassName = new ApplicationConfig(config).getAppClass();
+    if (appClassName != null && !config.containsKey(TaskConfig.WINDOW_MS())) {
+      throw new SamzaException(String.format("Stream application: %s should have config task.window.ms", appClassName));
+    }
+  }
+
 }
+

@@ -39,7 +39,8 @@ public class TestApplicationRunnerMain {
         "--config-path",
         String.format("file://%s/src/test/resources/test.properties", new File(".").getCanonicalPath()),
         "-config", ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
-        "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts"
+        "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts",
+        "-config", "task.window.ms=1000"
     });
 
     assertEquals(1, TestApplicationRunnerInvocationCounts.runCount);
@@ -55,7 +56,8 @@ public class TestApplicationRunnerMain {
         String.format("file://%s/src/test/resources/test.properties", new File(".").getCanonicalPath()),
         "-config", ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
         "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts",
-        "--operation=kill"
+        "--operation=kill",
+        "-config", "task.window.ms=1000"
     });
 
     assertEquals(1, TestApplicationRunnerInvocationCounts.killCount);
@@ -71,7 +73,8 @@ public class TestApplicationRunnerMain {
         String.format("file://%s/src/test/resources/test.properties", new File(".").getCanonicalPath()),
         "-config", ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
         "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts",
-        "--operation=status"
+        "--operation=status",
+        "-config", "task.window.ms=1000"
     });
 
     assertEquals(1, TestApplicationRunnerInvocationCounts.statusCount);

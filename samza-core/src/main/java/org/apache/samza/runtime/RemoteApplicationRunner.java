@@ -116,5 +116,4 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       throw new SamzaException("Failed to get status for application", t);
     }
   }
-
 }
