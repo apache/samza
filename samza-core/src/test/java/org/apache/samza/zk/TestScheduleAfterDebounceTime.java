@@ -20,79 +20,72 @@
 package org.apache.samza.zk;
 
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class TestScheduleAfterDebounceTime {
-  private static final long DEBOUNCE_TIME = 500;
-  int i = 0;
-  @Before
-  public void setup() {
-
-  }
+  private static final long WAIT_TIME = 500;
 
   class TestObj {
+    private volatile int i = 0;
     public void inc() {
       i++;
     }
     public void setTo(int val) {
       i = val;
     }
-    public void doNothing() {
-
+    public int get() {
+      return i;
     }
   }
+
   @Test
-  public void testSchedule() {
-    ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
+  public void testSchedule() throws InterruptedException {
+    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime();
+    final CountDownLatch latch = new CountDownLatch(1);
 
     final TestObj testObj = new TestScheduleAfterDebounceTime.TestObj();
-    debounceTimer.scheduleAfterDebounceTime("TEST1", DEBOUNCE_TIME, () -> {
+    scheduledQueue.scheduleAfterDebounceTime("TEST1", WAIT_TIME, () -> {
         testObj.inc();
+        latch.countDown();
       });
     // action is delayed
-    Assert.assertEquals(0, i);
+    Assert.assertEquals(0, testObj.get());
 
-    TestZkUtils.sleepMs(DEBOUNCE_TIME + 10);
+    boolean result = latch.await(WAIT_TIME * 2, TimeUnit.MILLISECONDS);
+    Assert.assertTrue("Latch timed-out and task was not scheduled on time.", result);
+    Assert.assertEquals(1, testObj.get());
 
-    // debounce time passed
-    Assert.assertEquals(1, i);
+    scheduledQueue.stopScheduler();
   }
 
   @Test
-  public void testCancelAndSchedule() {
-    ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
+  public void testCancelAndSchedule() throws InterruptedException {
+    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime();
+    final CountDownLatch test1Latch = new CountDownLatch(1);
 
     final TestObj testObj = new TestScheduleAfterDebounceTime.TestObj();
-    debounceTimer.scheduleAfterDebounceTime("TEST1", DEBOUNCE_TIME, () ->
-      {
-        testObj.inc();
-      }
-    );
-    Assert.assertEquals(0, i);
+    scheduledQueue.scheduleAfterDebounceTime("TEST1", WAIT_TIME, testObj::inc);
 
     // next schedule should cancel the previous one with the same name
-    debounceTimer.scheduleAfterDebounceTime("TEST1", 2 * DEBOUNCE_TIME, () ->
+    scheduledQueue.scheduleAfterDebounceTime("TEST1", 2 * WAIT_TIME, () ->
       {
-        testObj.setTo(100);
+        testObj.inc();
+        test1Latch.countDown();
       }
     );
 
-    TestZkUtils.sleepMs(DEBOUNCE_TIME + 10);
-
-    // still should be the old value
-    Assert.assertEquals(0, i);
-
+    final TestObj testObj2 = new TestScheduleAfterDebounceTime.TestObj();
     // this schedule should not cancel the previous one, because it has different name
-    debounceTimer.scheduleAfterDebounceTime("TEST2", DEBOUNCE_TIME, () ->
-      {
-        testObj.doNothing();
-      }
-    );
+    scheduledQueue.scheduleAfterDebounceTime("TEST2", WAIT_TIME, testObj2::inc);
 
-    TestZkUtils.sleepMs(3 * DEBOUNCE_TIME + 10);
+    boolean result = test1Latch.await(4 * WAIT_TIME, TimeUnit.MILLISECONDS);
+    Assert.assertTrue("Latch timed-out. Scheduled tasks were not run correctly.", result);
+    Assert.assertEquals(1, testObj.get());
+    Assert.assertEquals(1, testObj2.get());
 
-    Assert.assertEquals(100, i);
+    scheduledQueue.stopScheduler();
   }
 }
