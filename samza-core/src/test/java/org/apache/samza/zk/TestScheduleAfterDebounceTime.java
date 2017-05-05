@@ -68,7 +68,6 @@ public class TestScheduleAfterDebounceTime {
 
     final TestObj testObj = new TestScheduleAfterDebounceTime.TestObj();
     scheduledQueue.scheduleAfterDebounceTime("TEST1", WAIT_TIME, testObj::inc);
-
     // next schedule should cancel the previous one with the same name
     scheduledQueue.scheduleAfterDebounceTime("TEST1", 2 * WAIT_TIME, () ->
       {
@@ -87,5 +86,31 @@ public class TestScheduleAfterDebounceTime {
     Assert.assertEquals(1, testObj2.get());
 
     scheduledQueue.stopScheduler();
+  }
+
+  @Test
+  public void testRunnableWithExceptionInvokesCallback() throws InterruptedException {
+    final CountDownLatch latch = new CountDownLatch(1);
+    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime(e -> {
+      Assert.assertEquals(RuntimeException.class, e.getClass());
+      latch.countDown();
+    });
+
+    scheduledQueue.scheduleAfterDebounceTime("TEST1", WAIT_TIME, () ->
+      {
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+        throw new RuntimeException("From the runnable!");
+      });
+
+    final TestObj testObj = new TestObj();
+    scheduledQueue.scheduleAfterDebounceTime("TEST2", WAIT_TIME * 2, testObj::inc);
+
+    boolean result = latch.await(3 * WAIT_TIME, TimeUnit.MILLISECONDS);
+    Assert.assertTrue("Latch timed-out.", result);
+    Assert.assertEquals(0, testObj.get());
   }
 }
