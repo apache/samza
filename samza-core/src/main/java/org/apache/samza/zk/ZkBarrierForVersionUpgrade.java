@@ -41,7 +41,6 @@ import org.slf4j.LoggerFactory;
  */
 public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final ZkUtils zkUtils;
-  private final ZkKeyBuilder keyBuilder;
   private final static String BARRIER_DONE = "done";
   private final static String BARRIER_TIMED_OUT = "TIMED_OUT";
   private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
@@ -49,29 +48,19 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final ScheduleAfterDebounceTime debounceTimer;
 
   private final String barrierPrefix;
-  private String barrierPath;
   private String barrierDonePath;
   private String barrierProcessors;
   private static final String VERSION_UPGRADE_TIMEOUT_TIMER = "VersionUpgradeTimeout";
   private final long barrierTimeoutMS;
 
   public ZkBarrierForVersionUpgrade(String barrierId, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer, long barrierTimeoutMS) {
+    if (zkUtils == null) {
+      throw new RuntimeException("Cannot operate ZkBarrierForVersionUpgrade without ZkUtils.");
+    }
     this.zkUtils = zkUtils;
-    keyBuilder = zkUtils.getKeyBuilder();
-
-    barrierPrefix = keyBuilder.getJobModelVersionBarrierPrefix(barrierId);
-
+    barrierPrefix = zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(barrierId);
     this.debounceTimer = debounceTimer;
     this.barrierTimeoutMS = barrierTimeoutMS;
-  }
-
-  /**
-   * set the barrier for the timer. If the timer is not achieved by the timeout - it will fail
-   * @param version for which the barrier is created
-   * @param timeout - time in ms to wait
-   */
-  private void setTimer(final String version, final long timeout, final Stat currentStatOfBarrierDone) {
-    debounceTimer.scheduleAfterDebounceTime(VERSION_UPGRADE_TIMEOUT_TIMER, timeout, ()->timerOff(version, currentStatOfBarrierDone));
   }
 
   protected long getBarrierTimeOutMs() {
@@ -84,7 +73,6 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
       zkUtils.getZkClient().writeData(barrierDonePath, BARRIER_TIMED_OUT, currentStatOfBarrierDone.getVersion());
     } catch (ZkBadVersionException e) {
       // Expected. failed to write, make sure the value is "DONE"
-      ///LOG.("Barrier timeout write failed");
       String done = zkUtils.getZkClient().<String>readData(barrierDonePath);
       LOG.info("Barrier timeout expired, but done=" + done);
       if (!done.equals(BARRIER_DONE)) {
@@ -94,7 +82,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   }
 
   private void setPaths(String version) {
-    barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
+    String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
     barrierDonePath = String.format("%s/barrier_done", barrierPath);
     barrierProcessors = String.format("%s/barrier_processors", barrierPath);
 
@@ -103,7 +91,6 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
   @Override
   public void start(String version, List<String> participants) {
-
     setPaths(version);
 
     // subscribe for processor's list changes
@@ -114,7 +101,10 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     Stat currentStatOfBarrierDone = new Stat();
     zkUtils.getZkClient().readData(barrierDonePath, currentStatOfBarrierDone);
 
-    setTimer(version, getBarrierTimeOutMs(), currentStatOfBarrierDone);
+    debounceTimer.scheduleAfterDebounceTime(
+        VERSION_UPGRADE_TIMEOUT_TIMER,
+        getBarrierTimeOutMs(),
+        () -> timerOff(version, currentStatOfBarrierDone));
   }
 
   @Override

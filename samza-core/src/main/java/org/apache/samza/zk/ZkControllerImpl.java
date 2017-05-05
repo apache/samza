@@ -22,7 +22,7 @@ package org.apache.samza.zk;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.apache.samza.SamzaException;
-import org.apache.samza.coordinator.LeaderElectorListener;
+import org.apache.samza.coordinator.LeaderElector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,16 +35,14 @@ public class ZkControllerImpl implements ZkController {
   private final String processorIdStr;
   private final ZkUtils zkUtils;
   private final ZkControllerListener zkControllerListener;
-  private final ZkLeaderElector leaderElector;
-  private final ScheduleAfterDebounceTime debounceTimer;
+  private final LeaderElector zkLeaderElector;
 
-  public ZkControllerImpl(String processorIdStr, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer,
-      ZkControllerListener zkControllerListener) {
+  public ZkControllerImpl(String processorIdStr, ZkUtils zkUtils,
+      ZkControllerListener zkControllerListener, LeaderElector zkLeaderElector) {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
     this.zkControllerListener = zkControllerListener;
-    this.leaderElector = new ZkLeaderElector(processorIdStr, zkUtils, debounceTimer);
-    this.debounceTimer = debounceTimer;
+    this.zkLeaderElector = zkLeaderElector;
 
     init();
   }
@@ -62,49 +60,32 @@ public class ZkControllerImpl implements ZkController {
   public void register() {
     // TODO - make a loop here with some number of attempts.
     // possibly split into two method - becomeLeader() and becomeParticipant()
-    leaderElector.tryBecomeLeader(new LeaderElectorListener() {
-      @Override
-      public void onBecomingLeader() {
-        listenToProcessorLiveness();
-
-        // inform the caller
-        zkControllerListener.onBecomeLeader();
-      }
-    });
+    zkLeaderElector.tryBecomeLeader();
 
     // subscribe to JobModel version updates
-    zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(debounceTimer));
+    zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler());
   }
 
   @Override
   public boolean isLeader() {
-    return leaderElector.amILeader();
-  }
-
-  @Override
-  public void notifyJobModelChange(String version) {
-    zkControllerListener.onNewJobModelAvailable(version);
+    return zkLeaderElector.amILeader();
   }
 
   @Override
   public void stop() {
     if (isLeader()) {
-      leaderElector.resignLeadership();
+      zkLeaderElector.resignLeadership();
     }
     zkUtils.close();
   }
 
   @Override
-  public void listenToProcessorLiveness() {
-    zkUtils.subscribeToProcessorChange(new ZkProcessorChangeHandler(debounceTimer));
+  public void subscribeToProcessorChange() {
+    zkUtils.subscribeToProcessorChange(new ProcessorChangeHandler());
   }
 
   // Only by Leader
-  class ZkProcessorChangeHandler  implements IZkChildListener {
-    private final ScheduleAfterDebounceTime debounceTimer;
-    public ZkProcessorChangeHandler(ScheduleAfterDebounceTime debounceTimer) {
-      this.debounceTimer = debounceTimer;
-    }
+  class ProcessorChangeHandler implements IZkChildListener {
     /**
      * Called when the children of the given path changed.
      *
@@ -115,18 +96,13 @@ public class ZkControllerImpl implements ZkController {
     @Override
     public void handleChildChange(String parentPath, List<String> currentChildren) throws Exception {
       LOG.info(
-          "ZkControllerImpl::ZkProcessorChangeHandler::handleChildChange - Path: " + parentPath + "  Current Children: "
+          "ZkControllerImpl::ProcessorChangeHandler::handleChildChange - Path: " + parentPath + "  Current Children: "
               + currentChildren);
-      debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-          ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> zkControllerListener.onProcessorChange(currentChildren));
+      zkControllerListener.onProcessorChange(currentChildren);
     }
   }
 
   class ZkJobModelVersionChangeHandler implements IZkDataListener {
-    private final ScheduleAfterDebounceTime debounceTimer;
-    public ZkJobModelVersionChangeHandler(ScheduleAfterDebounceTime debounceTimer) {
-      this.debounceTimer = debounceTimer;
-    }
     /**
      * called when job model version gets updated
      * @param dataPath
@@ -136,22 +112,13 @@ public class ZkControllerImpl implements ZkController {
     @Override
     public void handleDataChange(String dataPath, Object data) throws Exception {
       LOG.info("pid=" + processorIdStr + ". Got notification on version update change. path=" + dataPath + "; data="
-          + (String) data);
-
-      debounceTimer
-          .scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, () -> notifyJobModelChange((String) data));
+          + data);
+      zkControllerListener.onNewJobModelAvailable((String) data);
     }
+
     @Override
     public void handleDataDeleted(String dataPath) throws Exception {
       throw new SamzaException("version update path has been deleted!");
     }
-  }
-
-  public void shutdown() {
-    if (debounceTimer != null)
-      debounceTimer.stopScheduler();
-
-    if (zkUtils != null)
-      zkUtils.close();
   }
 }

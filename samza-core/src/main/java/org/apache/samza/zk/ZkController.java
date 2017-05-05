@@ -22,11 +22,18 @@ package org.apache.samza.zk;
 
 /**
  * Api to the functionality provided by ZK
+ *
+ * Api for JC to ZK communication
  */
 public interface ZkController {
   void register();
   boolean isLeader();
-  void notifyJobModelChange(String version);
   void stop();
-  void listenToProcessorLiveness();
+
+  // Leader
+  /**
+   * Allows the {@link ZkJobCoordinator} to subscribe to changes to Zk nodes in the processors subtree
+   * Typically, the leader is interested in such notifications.
+   */
+  void subscribeToProcessorChange();
 }

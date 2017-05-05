@@ -18,7 +18,6 @@
  */
 package org.apache.samza.zk;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationUtils;
@@ -47,7 +46,7 @@ public class ZkCoordinationUtils implements CoordinationUtils {
 
   @Override
   public LeaderElector getLeaderElector() {
-    return new ZkLeaderElector(processorIdStr, zkUtils, debounceTimer);
+    return new ZkLeaderElector(processorIdStr, zkUtils);
   }
 
   @Override
@@ -59,7 +58,8 @@ public class ZkCoordinationUtils implements CoordinationUtils {
   public BarrierForVersionUpgrade getBarrier(String barrierId) {
     return new ZkBarrierForVersionUpgrade(barrierId, zkUtils, debounceTimer, zkConfig.getZkBarrierTimeoutMs());
   }
-  @VisibleForTesting
+
+  // TODO - SAMZA-1128 CoordinationService should directly depende on ZkUtils and DebounceTimer
   public ZkUtils getZkUtils() {
     return zkUtils;
   }

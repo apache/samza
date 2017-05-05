@@ -498,7 +498,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     @volatile var onContainerFailedThrowable: Throwable = null
 
     val mockRunLoop = mock[RunLoop]
-    when(mockRunLoop.run).then(new Answer[Unit] {
+    when(mockRunLoop.run).thenAnswer(new Answer[Unit] {
       override def answer(invocation: InvocationOnMock): Unit = {
         Thread.sleep(100)
       }

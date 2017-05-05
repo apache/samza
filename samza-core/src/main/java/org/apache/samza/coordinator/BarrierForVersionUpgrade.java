@@ -28,11 +28,12 @@ import java.util.List;
  */
 public interface BarrierForVersionUpgrade {
   /**
-   * Barrier is usually started by the leader.
-   * @param version - for which the barrier is created
-   * @param participatns - list of participants that need to join for barrier to complete
+   * Barrier is usually started by the leader. Creates the Barrier paths in ZK
+   *
+   * @param version - String, representing the version of the JobModel for which the barrier is created
+   * @param participants - {@link List} of participants that need to join for barrier to complete
    */
-  void start(String version, List<String> participatns);
+  void start(String version, List<String> participants);
 
   /**
    * Called by the processor.

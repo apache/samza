@@ -39,12 +39,8 @@ import org.slf4j.LoggerFactory;
  * ZK based standalone app.
  */
 public class ScheduleAfterDebounceTime {
-  public static final Logger LOG = LoggerFactory.getLogger(ScheduleAfterDebounceTime.class);
+  public static final Logger LOGGER = LoggerFactory.getLogger(ScheduleAfterDebounceTime.class);
   public static final long TIMEOUT_MS = 1000 * 10; // timeout to wait for a task to complete
-
-  // Names of actions.
-  // When the same action is scheduled it needs to cancel the previous one.
-  // To accomplish that we keep the previous future in a map, keyed by the action name.
 
   // Here we predefine some actions which are used in the ZK based standalone app.
   // Action name when the JobModel version changes
@@ -56,28 +52,28 @@ public class ScheduleAfterDebounceTime {
   public static final int DEBOUNCE_TIME_MS = 2000;
 
   private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
-      new ThreadFactoryBuilder().setNameFormat("zk-debounce-thread-%d").setDaemon(true).build());
+      new ThreadFactoryBuilder().setNameFormat("debounce-thread-%d").setDaemon(true).build());
   private final Map<String, ScheduledFuture> futureHandles = new HashMap<>();
 
   synchronized public void scheduleAfterDebounceTime(String actionName, long debounceTimeMs, Runnable runnable) {
     // check if this action has been scheduled already
     ScheduledFuture sf = futureHandles.get(actionName);
     if (sf != null && !sf.isDone()) {
-      LOG.info("DEBOUNCE: cancel future for " + actionName);
+      LOGGER.info("cancel future for " + actionName);
       // attempt to cancel
       if (!sf.cancel(false)) {
         try {
           sf.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
           // we ignore the exception
-          LOG.warn("cancel for action " + actionName + " failed with ", e);
+          LOGGER.warn("cancel for action " + actionName + " failed with ", e);
         }
       }
       futureHandles.remove(actionName);
     }
     // schedule a new task
     sf = scheduledExecutorService.schedule(runnable, debounceTimeMs, TimeUnit.MILLISECONDS);
-    LOG.info("DEBOUNCE: scheduled " + actionName + " in " + debounceTimeMs);
+    LOGGER.info("DEBOUNCE: scheduled " + actionName + " in " + debounceTimeMs);
     futureHandles.put(actionName, sf);
   }
 

@@ -35,6 +35,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
+import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
@@ -47,7 +48,6 @@ import org.apache.samza.zk.ZkCoordinationServiceFactory;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 /**
  * This class implements the {@link ApplicationRunner} that runs the applications in standalone environment
@@ -213,10 +213,12 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     if (!intStreams.isEmpty()) {
       if (coordinationUtils != null) {
         Latch initLatch = coordinationUtils.getLatch(1, INIT_LATCH_ID);
-        coordinationUtils.getLeaderElector().tryBecomeLeader(() -> {
+        LeaderElector leaderElector = coordinationUtils.getLeaderElector();
+        leaderElector.setLeaderElectorListener(() -> {
             getStreamManager().createStreams(intStreams);
             initLatch.countDown();
           });
+        leaderElector.tryBecomeLeader();
         initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
       } else {
         // each application process will try creating the streams, which
