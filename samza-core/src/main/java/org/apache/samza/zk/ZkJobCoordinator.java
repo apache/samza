@@ -18,33 +18,27 @@
  */
 package org.apache.samza.zk;
 
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.SystemAdmin;
-import org.apache.samza.system.SystemFactory;
-import org.apache.samza.util.*;
+import org.apache.samza.util.ClassLoaderHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * JobCoordinator for stand alone processor managed via Zookeeper.
@@ -52,6 +46,9 @@ import java.util.Map;
 public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private static final Logger LOGGER = LoggerFactory.getLogger(ZkJobCoordinator.class);
   private static final String JOB_MODEL_UPGRADE_BARRIER = "jobModelUpgradeBarrier";
+  // TODO: MetadataCache timeout has to be 0 for the leader so that it can always have the latest information associated
+  // with locality. Since host-affinity is not yet implemented, this can be fixed as part of SAMZA-1197
+  private static final int METADATA_CACHE_TTL_MS = 5000;
 
   private final ZkUtils zkUtils;
   private final String processorId;
@@ -79,7 +76,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   @Override
   public void start() {
-    streamMetadataCache = getStreamMetadataCache();
+    streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
     debounceTimer = new ScheduleAfterDebounceTime(exception -> {
       LOGGER.error("Received exception from in JobCoordinator Processing!");
       stop();
@@ -230,24 +227,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     // publish new JobModel version
     zkUtils.publishJobModelVersion(currentJMVersion, nextJMVersion);
     LOGGER.info("pid=" + processorId + "published new JobModel ver=" + nextJMVersion);
-  }
-
-  private StreamMetadataCache getStreamMetadataCache() {
-    // model generation - NEEDS TO BE REVIEWED
-    JavaSystemConfig systemConfig = new JavaSystemConfig(this.config);
-    Map<String, SystemAdmin> systemAdmins = new HashMap<>();
-    for (String systemName: systemConfig.getSystemNames()) {
-      String systemFactoryClassName = systemConfig.getSystemFactory(systemName);
-      if (systemFactoryClassName == null) {
-        String msg = String.format("A stream uses system %s, which is missing from the configuration.", systemName);
-        LOGGER.error(msg);
-        throw new SamzaException(msg);
-      }
-      SystemFactory systemFactory = Util.getObj(systemFactoryClassName);
-      systemAdmins.put(systemName, systemFactory.getAdmin(systemName, this.config));
-    }
-
-    return new StreamMetadataCache(Util.<String, SystemAdmin>javaMapAsScalaMap(systemAdmins), 5000, SystemClock.instance());
   }
 
   class LeaderElectorListenerImpl implements LeaderElectorListener {
