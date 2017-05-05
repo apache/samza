@@ -26,7 +26,6 @@ import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
@@ -62,8 +61,7 @@ public class TestStreamProcessor {
     @Override
     SamzaContainer createSamzaContainer(
         ContainerModel containerModel,
-        int maxChangelogStreamPartitions,
-        JmxServer jmxServer) {
+        int maxChangelogStreamPartitions) {
       RunLoop mockRunLoop = mock(RunLoop.class);
       doAnswer(invocation ->
         {

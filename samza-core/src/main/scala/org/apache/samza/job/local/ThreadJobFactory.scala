@@ -69,7 +69,6 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         containerModel,
         config,
         jobModel.maxChangeLogStreamPartitions,
-        jmxServer,
         Map[String, MetricsReporter](),
         taskFactory)
       container.setContainerListener(containerListener)

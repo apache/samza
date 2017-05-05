@@ -191,8 +191,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       runLoop = runLoop,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
-      metrics = new SamzaContainerMetrics,
-      jmxServer = null)
+      metrics = new SamzaContainerMetrics)
 
     val containerListener = new SamzaContainerListener {
       override def onContainerFailed(t: Throwable): Unit = {
@@ -272,8 +271,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       runLoop = mockRunLoop,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
-      metrics = new SamzaContainerMetrics,
-      jmxServer = null)
+      metrics = new SamzaContainerMetrics)
     val containerListener = new SamzaContainerListener {
       override def onContainerFailed(t: Throwable): Unit = {
         onContainerFailedCalled = true
@@ -354,8 +352,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       runLoop = runLoop,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
-      metrics = new SamzaContainerMetrics,
-      jmxServer = null)
+      metrics = new SamzaContainerMetrics)
     val containerListener = new SamzaContainerListener {
       override def onContainerFailed(t: Throwable): Unit = {
         onContainerFailedCalled = true
@@ -437,8 +434,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       runLoop = mockRunLoop,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
-      metrics = new SamzaContainerMetrics,
-      jmxServer = null)
+      metrics = new SamzaContainerMetrics)
       val containerListener = new SamzaContainerListener {
         override def onContainerFailed(t: Throwable): Unit = {
           onContainerFailedCalled = true
@@ -514,8 +510,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       runLoop = mockRunLoop,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
-      metrics = new SamzaContainerMetrics,
-      jmxServer = null)
+      metrics = new SamzaContainerMetrics)
 
     val containerListener = new SamzaContainerListener {
         override def onContainerFailed(t: Throwable): Unit = {
@@ -582,8 +577,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       runLoop = null,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
-      metrics = containerMetrics,
-      jmxServer = null)
+      metrics = containerMetrics)
 
     container.startStores
     assertNotNull(containerMetrics.taskStoreRestorationMetrics)

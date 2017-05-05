@@ -57,8 +57,7 @@ object StreamProcessorTestUtils {
       runLoop = mockRunloop,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
-      metrics = new SamzaContainerMetrics,
-      jmxServer = null)
+      metrics = new SamzaContainerMetrics)
     if (containerListener != null) {
       container.setContainerListener(containerListener)
     }
