@@ -24,7 +24,7 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -50,7 +50,7 @@ public class OrderShipmentJoinExample implements StreamApplication {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
+    LocalApplicationRunner localRunner = new LocalApplicationRunner(config);
     localRunner.run(new OrderShipmentJoinExample());
   }
 
