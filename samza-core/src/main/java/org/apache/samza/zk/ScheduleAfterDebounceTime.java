@@ -57,6 +57,9 @@ public class ScheduleAfterDebounceTime {
       new ThreadFactoryBuilder().setNameFormat("debounce-thread-%d").setDaemon(true).build());
   private final Map<String, ScheduledFuture> futureHandles = new HashMap<>();
 
+  // Ideally, this should be only used for testing. But ZkBarrierForVersionUpgrades uses it. This needs to be fixed.
+  // TODO: Timer shouldn't be passed around the components. It should be associated with the JC or the caller of
+  // coordinationUtils.
   public ScheduleAfterDebounceTime() {
     this.callback = null;
   }
