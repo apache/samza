@@ -110,7 +110,6 @@ object SamzaContainer extends Logging {
     containerModel: ContainerModel,
     config: Config,
     maxChangeLogStreamPartitions: Int,
-    jmxServer: JmxServer,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
     taskFactory: Object) = {
     val containerId = containerModel.getProcessorId()
@@ -601,7 +600,6 @@ object SamzaContainer extends Logging {
       metrics = samzaContainerMetrics,
       reporters = reporters,
       jvm = jvm,
-      jmxServer = jmxServer,
       diskSpaceMonitor = diskSpaceMonitor,
       hostStatisticsMonitor = memoryStatisticsMonitor,
       taskThreadPool = taskThreadPool)
@@ -615,7 +613,6 @@ class SamzaContainer(
   consumerMultiplexer: SystemConsumers,
   producerMultiplexer: SystemProducers,
   metrics: SamzaContainerMetrics,
-  jmxServer: JmxServer,
   diskSpaceMonitor: DiskSpaceMonitor = null,
   hostStatisticsMonitor: SystemStatisticsMonitor = null,
   offsetManager: OffsetManager = new OffsetManager,
@@ -627,6 +624,7 @@ class SamzaContainer(
 
   val shutdownMs = containerContext.config.getShutdownMs.getOrElse(5000L)
   var shutdownHookThread: Thread = null
+  var jmxServer: JmxServer = null
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED
   private var exceptionSeen: Throwable = null
@@ -644,6 +642,8 @@ class SamzaContainer(
       info("Starting container.")
 
       status = SamzaContainerStatus.STARTING
+
+      jmxServer = new JmxServer()
 
       startMetrics
       startOffsetManager
@@ -673,9 +673,12 @@ class SamzaContainer(
         status = SamzaContainerStatus.FAILED
         exceptionSeen = e
     }
+
     try {
       info("Shutting down.")
       removeShutdownHook
+
+      jmxServer.stop
 
       shutdownConsumers
       shutdownTask
