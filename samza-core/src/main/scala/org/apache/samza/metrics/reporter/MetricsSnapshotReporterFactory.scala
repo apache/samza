@@ -47,9 +47,9 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       .getJobId
       .getOrElse(1.toString)
 
-    val taskClass = Option(config
+    val taskClass = config
       .getTaskClass
-      .getOrElse(new ApplicationConfig(config).getAppClass()))
+      .orElse(Option(new ApplicationConfig(config).getAppClass()))
       .getOrElse(throw new SamzaException("No task or app class defined for config."))
 
     val version = Option(Class.forName(taskClass).getPackage.getImplementationVersion)
