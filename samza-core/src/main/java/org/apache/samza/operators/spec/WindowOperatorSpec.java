@@ -20,9 +20,20 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.triggers.AnyTrigger;
+import org.apache.samza.operators.triggers.RepeatingTrigger;
+import org.apache.samza.operators.triggers.TimeBasedTrigger;
+import org.apache.samza.operators.triggers.Trigger;
+import org.apache.samza.operators.util.MathUtils;
 import org.apache.samza.operators.util.OperatorJsonUtils;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 
 /**
@@ -34,6 +45,7 @@ import org.apache.samza.operators.windows.internal.WindowInternal;
  */
 public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK, WV>> {
 
+  private static final Logger LOG = LoggerFactory.getLogger(WindowOperatorSpec.class);
   private final WindowInternal<M, WK, WV> window;
   private final MessageStreamImpl<WindowPane<WK, WV>> nextStream;
   private final int opId;
@@ -75,5 +87,46 @@ public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK
   @Override
   public String getSourceLocation() {
     return sourceLocation;
+  }
+
+  public long getTriggerMs() {
+    List<TimeBasedTrigger> timerTriggers = new ArrayList<>();
+
+    if (window.getDefaultTrigger() != null) {
+      timerTriggers.addAll(getTimeTriggers(window.getDefaultTrigger()));
+    }
+    if (window.getEarlyTrigger() != null) {
+      timerTriggers.addAll(getTimeTriggers(window.getEarlyTrigger()));
+    }
+    if (window.getLateTrigger() != null) {
+      timerTriggers.addAll(getTimeTriggers(window.getLateTrigger()));
+    }
+
+    LOG.info("Got {} timer triggers", timerTriggers.size());
+
+    List<Long> candidateDurations = timerTriggers.stream()
+        .map(timeBasedTrigger -> timeBasedTrigger.getDuration().toMillis())
+        .collect(Collectors.toList());
+
+    return MathUtils.gcd(candidateDurations);
+  }
+
+  private List<TimeBasedTrigger> getTimeTriggers(Trigger rootTrigger) {
+    List<TimeBasedTrigger> timeBasedTriggers = new ArrayList<>();
+    // traverse all triggers in the graph starting at the root trigger
+    if (rootTrigger instanceof TimeBasedTrigger) {
+      timeBasedTriggers.add((TimeBasedTrigger) rootTrigger);
+    } else if (rootTrigger instanceof RepeatingTrigger) {
+      // recurse on the underlying trigger
+      timeBasedTriggers.addAll(getTimeTriggers(((RepeatingTrigger) rootTrigger).getTrigger()));
+    } else if (rootTrigger instanceof AnyTrigger) {
+      List<Trigger> subTriggers = ((AnyTrigger) rootTrigger).getTriggers();
+
+      for (Trigger subTrigger: subTriggers) {
+        // recurse on each sub-trigger
+        timeBasedTriggers.addAll(getTimeTriggers(subTrigger));
+      }
+    }
+    return timeBasedTriggers;
   }
 }

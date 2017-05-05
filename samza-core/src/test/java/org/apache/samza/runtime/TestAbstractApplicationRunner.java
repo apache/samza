@@ -20,22 +20,16 @@ package org.apache.samza.runtime;
 
 import java.util.HashMap;
 import java.util.Map;
-
-import com.google.common.collect.ImmutableMap;
-import org.apache.samza.SamzaException;
-import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 public class TestAbstractApplicationRunner {
@@ -51,29 +45,11 @@ public class TestAbstractApplicationRunner {
   private static final String TEST_SYSTEM_INVALID = "test:System!Name@";
 
   private static final String TEST_DEFAULT_SYSTEM = "testDefaultSystemName";
-  private static final String TEST_APP_CLASS = "testAppClass";
 
 
   @Test(expected = NullPointerException.class)
   public void testConfigValidation() {
     new TestAbstractApplicationRunnerImpl(null);
-  }
-
-
-  @Test(expected = SamzaException.class)
-  public void testConfigValidationWithInvalidWindowMs() {
-    Map<String, String> inValidConfigMap = ImmutableMap.of(ApplicationConfig.APP_CLASS, TEST_APP_CLASS);
-    Config inValidConfig = new MapConfig(inValidConfigMap);
-    new TestAbstractApplicationRunnerImpl(inValidConfig);
-  }
-
-  @Test
-  public void testConfigValidationWithValidWindowMs() {
-    Map<String, String> validConfigMap = ImmutableMap.of(ApplicationConfig.APP_CLASS, TEST_APP_CLASS,
-        TaskConfig.WINDOW_MS(), "1000");
-    Config inValidConfig = new MapConfig(validConfigMap);
-    TestAbstractApplicationRunnerImpl runner = new TestAbstractApplicationRunnerImpl(inValidConfig);
-    assertNotNull(runner);
   }
 
   // The physical name should be pulled from the StreamConfig.PHYSICAL_NAME property value.
@@ -376,7 +352,6 @@ public class TestAbstractApplicationRunner {
     for (int i = 0; i < kvs.length - 1; i += 2) {
       configMap.put(kvs[i], kvs[i + 1]);
     }
-
     return new MapConfig(configMap);
   }
 

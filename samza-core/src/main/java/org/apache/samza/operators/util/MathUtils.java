@@ -16,21 +16,35 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.triggers;
 
-/**
- * A {@link Trigger} that repeats its underlying trigger forever.
- */
-public class RepeatingTrigger<M> implements Trigger<M> {
+package org.apache.samza.operators.util;
 
-  private final Trigger<M> trigger;
+import java.util.List;
 
-  RepeatingTrigger(Trigger<M> trigger) {
-    this.trigger = trigger;
+public class MathUtils {
+
+  public static long gcd(long a, long b) {
+    // use the euclid gcd algorithm
+    while (b > 0) {
+      long temp = b;
+      b = a % b;
+      a = temp;
+    }
+    return a;
   }
 
-  public Trigger<M> getTrigger() {
-    return trigger;
+  public static long gcd(List<Long> numbers) {
+    if (numbers == null) {
+      throw new IllegalArgumentException("Null list provided");
+    }
+    if (numbers.size() == 0) {
+      throw new IllegalArgumentException("List of size 0 provided");
+    }
+
+    long result = numbers.get(0);
+    for (int i = 1; i < numbers.size(); i++) {
+      result = gcd(result, numbers.get(i));
+    }
+    return result;
   }
 }
-

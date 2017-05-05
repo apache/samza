@@ -20,6 +20,7 @@ package org.apache.samza.operators;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.stream.InputStreamInternal;
 import org.apache.samza.operators.stream.InputStreamInternalImpl;
 import org.apache.samza.operators.stream.IntermediateStreamInternalImpl;
@@ -28,11 +29,15 @@ import org.apache.samza.operators.stream.OutputStreamInternalImpl;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * A {@link StreamGraph} that provides APIs for accessing {@link MessageStream}s to be used to
@@ -155,5 +160,37 @@ public class StreamGraphImpl implements StreamGraph {
 
   /* package private */ int getNextOpId() {
     return this.opId++;
+  }
+
+  public Set<OperatorSpec> getAllOperatorSpecs() {
+    Collection<InputStreamInternal> inputStreams = inStreams.values();
+    Set<OperatorSpec> operatorSpecs = new HashSet<>();
+
+    for (InputStreamInternal stream : inputStreams) {
+      doGetOperatorSpecs((MessageStreamImpl) stream, operatorSpecs);
+    }
+    return operatorSpecs;
+  }
+
+  private void doGetOperatorSpecs(MessageStreamImpl stream, Set<OperatorSpec> specs) {
+    Collection<OperatorSpec> registeredOperatorSpecs = stream.getRegisteredOperatorSpecs();
+    for (OperatorSpec spec : registeredOperatorSpecs) {
+      specs.add(spec);
+      MessageStreamImpl nextStream = spec.getNextStream();
+      if (nextStream != null) {
+        //Recursively traverse and obtain all reachable operators
+        doGetOperatorSpecs(nextStream, specs);
+      }
+    }
+  }
+
+  public boolean hasWindowOrJoins() {
+    // Obtain the operator specs from the streamGraph
+    Set<OperatorSpec> operatorSpecs = getAllOperatorSpecs();
+    Set<OperatorSpec> windowOrJoinSpecs = operatorSpecs.stream()
+        .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.WINDOW || spec.getOpCode() == OperatorSpec.OpCode.JOIN)
+        .collect(Collectors.toSet());
+
+    return windowOrJoinSpecs.size() != 0;
   }
 }

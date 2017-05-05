@@ -18,19 +18,19 @@
  */
 package org.apache.samza.operators.triggers;
 
+import org.apache.samza.annotation.InterfaceStability;
+
+import java.time.Duration;
+
 /**
- * A {@link Trigger} that repeats its underlying trigger forever.
+ * A {@link Trigger} whose firing logic is determined by a time duration.
+ *
+ * <p> Use the {@link Triggers} APIs to create a {@link Trigger}.
+ *
+ * @param <M> the type of the incoming message
  */
-public class RepeatingTrigger<M> implements Trigger<M> {
 
-  private final Trigger<M> trigger;
-
-  RepeatingTrigger(Trigger<M> trigger) {
-    this.trigger = trigger;
-  }
-
-  public Trigger<M> getTrigger() {
-    return trigger;
-  }
+@InterfaceStability.Unstable
+public interface TimeBasedTrigger<M> extends Trigger<M> {
+  Duration getDuration();
 }
-
