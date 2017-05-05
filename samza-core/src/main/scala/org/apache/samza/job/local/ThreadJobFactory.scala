@@ -19,7 +19,6 @@
 
 package org.apache.samza.job.local
 
-
 import org.apache.samza.config.Config
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._

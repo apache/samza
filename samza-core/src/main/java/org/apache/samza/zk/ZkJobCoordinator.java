@@ -64,8 +64,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
 
-  public ZkJobCoordinator(Config config, ScheduleAfterDebounceTime debounceTimer) {
-    this.debounceTimer = debounceTimer;
+  public ZkJobCoordinator(Config config) {
+    this.debounceTimer = new ScheduleAfterDebounceTime();
     this.config = config;
     this.processorId = createProcessorId(config);
     this.coordinationUtils = new ZkCoordinationServiceFactory()
@@ -74,7 +74,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     LeaderElector leaderElector = new ZkLeaderElector(this.processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
 
-    this.zkController = new ZkControllerImpl(processorId, zkUtils, debounceTimer, this, leaderElector);
+    this.zkController = new ZkControllerImpl(processorId, zkUtils, this, leaderElector);
     streamMetadataCache = getStreamMetadataCache();
   }
 
@@ -106,6 +106,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     if (coordinatorListener != null) {
       coordinatorListener.onJobModelExpired();
     }
+    debounceTimer.stopScheduler();
     zkController.stop();
     if (coordinatorListener != null) {
       coordinatorListener.onCoordinatorStop();
@@ -145,21 +146,24 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   @Override
   public void onNewJobModelAvailable(final String version) {
-    log.info("pid=" + processorId + "new JobModel available");
-    // stop current work
-    if (coordinatorListener != null) {
-      coordinatorListener.onJobModelExpired();
-    }
-    log.info("pid=" + processorId + "new JobModel available.Container stopped.");
-    // get the new job model
-    newJobModel = zkUtils.getJobModel(version);
+    debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, () ->
+      {
+        log.info("pid=" + processorId + "new JobModel available");
+        // stop current work
+        if (coordinatorListener != null) {
+          coordinatorListener.onJobModelExpired();
+        }
+        log.info("pid=" + processorId + "new JobModel available.Container stopped.");
+        // get the new job model
+        newJobModel = zkUtils.getJobModel(version);
 
-    log.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
+        log.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
 
-    // update ZK and wait for all the processors to get this new version
-    ZkBarrierForVersionUpgrade barrier = (ZkBarrierForVersionUpgrade) coordinationUtils.getBarrier(
-        JOB_MODEL_UPGRADE_BARRIER);
-    barrier.waitForBarrier(version, processorId, () -> onNewJobModelConfirmed(version));
+        // update ZK and wait for all the processors to get this new version
+        ZkBarrierForVersionUpgrade barrier = (ZkBarrierForVersionUpgrade) coordinationUtils.getBarrier(
+            JOB_MODEL_UPGRADE_BARRIER);
+        barrier.waitForBarrier(version, processorId, () -> onNewJobModelConfirmed(version));
+      });
   }
 
   @Override

@@ -36,15 +36,13 @@ public class ZkControllerImpl implements ZkController {
   private final ZkUtils zkUtils;
   private final ZkControllerListener zkControllerListener;
   private final LeaderElector zkLeaderElector;
-  private final ScheduleAfterDebounceTime debounceTimer;
 
-  public ZkControllerImpl(String processorIdStr, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer,
+  public ZkControllerImpl(String processorIdStr, ZkUtils zkUtils,
       ZkControllerListener zkControllerListener, LeaderElector zkLeaderElector) {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
     this.zkControllerListener = zkControllerListener;
     this.zkLeaderElector = zkLeaderElector;
-    this.debounceTimer = debounceTimer;
 
     init();
   }
@@ -65,17 +63,12 @@ public class ZkControllerImpl implements ZkController {
     zkLeaderElector.tryBecomeLeader();
 
     // subscribe to JobModel version updates
-    zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(debounceTimer));
+    zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler());
   }
 
   @Override
   public boolean isLeader() {
     return zkLeaderElector.amILeader();
-  }
-
-  @Override
-  public void notifyJobModelChange(String version) {
-    zkControllerListener.onNewJobModelAvailable(version);
   }
 
   @Override
@@ -110,10 +103,6 @@ public class ZkControllerImpl implements ZkController {
   }
 
   class ZkJobModelVersionChangeHandler implements IZkDataListener {
-    private final ScheduleAfterDebounceTime debounceTimer;
-    public ZkJobModelVersionChangeHandler(ScheduleAfterDebounceTime debounceTimer) {
-      this.debounceTimer = debounceTimer;
-    }
     /**
      * called when job model version gets updated
      * @param dataPath
@@ -124,21 +113,12 @@ public class ZkControllerImpl implements ZkController {
     public void handleDataChange(String dataPath, Object data) throws Exception {
       LOG.info("pid=" + processorIdStr + ". Got notification on version update change. path=" + dataPath + "; data="
           + data);
-
-      debounceTimer
-          .scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, () -> notifyJobModelChange((String) data));
+      zkControllerListener.onNewJobModelAvailable((String) data);
     }
+
     @Override
     public void handleDataDeleted(String dataPath) throws Exception {
       throw new SamzaException("version update path has been deleted!");
     }
-  }
-
-  public void shutdown() {
-    if (debounceTimer != null)
-      debounceTimer.stopScheduler();
-
-    if (zkUtils != null)
-      zkUtils.close();
   }
 }

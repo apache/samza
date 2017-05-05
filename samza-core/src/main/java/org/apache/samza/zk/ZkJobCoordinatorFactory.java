@@ -32,8 +32,6 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
    */
   @Override
   public JobCoordinator getJobCoordinator(Config config) {
-    ScheduleAfterDebounceTime debounceTimer = new ScheduleAfterDebounceTime();
-
-    return new ZkJobCoordinator(config, debounceTimer);
+    return new ZkJobCoordinator(config);
   }
 }
