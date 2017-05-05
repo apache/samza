@@ -31,7 +31,6 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 /**
  * This class allows scheduling a Runnable actions after some debounce time.
  * When the same action is scheduled it needs to cancel the previous one. To accomplish that we keep the previous

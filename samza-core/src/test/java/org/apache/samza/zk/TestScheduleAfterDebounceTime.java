@@ -107,5 +107,6 @@ public class TestScheduleAfterDebounceTime {
     boolean result = latch.await(5 * WAIT_TIME, TimeUnit.MILLISECONDS);
     Assert.assertTrue("Latch timed-out.", result);
     Assert.assertEquals(0, testObj.get());
+    scheduledQueue.stopScheduler();
   }
 }

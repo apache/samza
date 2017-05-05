@@ -63,6 +63,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private JobModel newJobModel;
 
   public ZkJobCoordinator(Config config) {
+    this.debounceTimer = new ScheduleAfterDebounceTime();
     this.config = config;
     this.processorId = createProcessorId(config);
     this.coordinationUtils = new ZkCoordinationServiceFactory()
@@ -70,7 +71,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     this.zkUtils = ((ZkCoordinationUtils) coordinationUtils).getZkUtils();
     LeaderElector leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
-
     this.zkController = new ZkControllerImpl(processorId, zkUtils, this, leaderElector);
   }
 
@@ -241,5 +241,4 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         });
     }
   }
-
 }
