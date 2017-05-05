@@ -47,7 +47,6 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       .getJobId
       .getOrElse(1.toString)
 
-
     val taskClass = Option(config
       .getTaskClass
       .getOrElse(new ApplicationConfig(config).getAppClass()))
