@@ -63,7 +63,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private JobModel newJobModel;
 
   public ZkJobCoordinator(Config config) {
-    this.debounceTimer = new ScheduleAfterDebounceTime();
     this.config = config;
     this.processorId = createProcessorId(config);
     this.coordinationUtils = new ZkCoordinationServiceFactory()
