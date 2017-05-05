@@ -19,6 +19,7 @@
 
 package org.apache.samza.operators.spec;
 
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.triggers.AnyTrigger;
 import org.apache.samza.operators.triggers.RepeatingTrigger;
@@ -89,7 +90,15 @@ public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK
     return sourceLocation;
   }
 
-  public long getTriggerMs() {
+  /**
+   * Get the default triggering interval for this {@link WindowOperatorSpec}
+   *
+   * This is defined as the GCD of all triggering intervals of each {@link TimeBasedTrigger} configured for
+   * this {@link WindowOperatorSpec}.
+   *
+   * @return the default triggering interval
+   */
+  public long getDefaultTriggerMs() {
     List<TimeBasedTrigger> timerTriggers = new ArrayList<>();
 
     if (window.getDefaultTrigger() != null) {

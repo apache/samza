@@ -110,7 +110,7 @@ public class JobNode {
     List<String> inputs = inEdges.stream().map(edge -> edge.getFormattedSystemStream()).collect(Collectors.toList());
     configs.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
 
-    // set triggering interval if a window or join are defined
+    // set triggering interval if a window or join is defined
     if (streamGraph.hasWindowOrJoins() && !config.containsKey(TaskConfig.WINDOW_MS())) {
       long triggerInterval = computeTriggerInterval();
       log.info("Using triggering interval: {} for jobName: {}", triggerInterval, jobName);
@@ -137,7 +137,7 @@ public class JobNode {
     // Filter out window operators, and obtain a list of their triggering interval values
     List<Long> windowTriggerDurations = operatorSpecs.stream()
         .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.WINDOW)
-        .map(spec -> ((WindowOperatorSpec) spec).getTriggerMs())
+        .map(spec -> ((WindowOperatorSpec) spec).getDefaultTriggerMs())
         .collect(Collectors.toList());
 
     // Filter out the join operators, and obtain a list of their ttl values
@@ -150,7 +150,7 @@ public class JobNode {
     List<Long> candidateTriggerIntervals = new ArrayList<>(joinTtlDurations);
     candidateTriggerIntervals.addAll(windowTriggerDurations);
 
-    // Compute the gcd of the list
+    // Compute the gcd of the resultant list
     long triggerInterval = MathUtils.gcd(candidateTriggerIntervals);
     return triggerInterval;
   }

@@ -162,6 +162,11 @@ public class StreamGraphImpl implements StreamGraph {
     return this.opId++;
   }
 
+  /**
+   * Get all {@link OperatorSpec}s available in this {@link StreamGraphImpl}
+   *
+   * @return  a set of all available {@link OperatorSpec}s
+   */
   public Set<OperatorSpec> getAllOperatorSpecs() {
     Collection<InputStreamInternal> inputStreams = inStreams.values();
     Set<OperatorSpec> operatorSpecs = new HashSet<>();
@@ -184,6 +189,11 @@ public class StreamGraphImpl implements StreamGraph {
     }
   }
 
+  /**
+   * Returns <tt>true</tt> iff this {@link StreamGraphImpl} contains a join or a window operator
+   *
+   * @return  <tt>true</tt> iff this {@link StreamGraphImpl} contains a join or a window operator
+   */
   public boolean hasWindowOrJoins() {
     // Obtain the operator specs from the streamGraph
     Set<OperatorSpec> operatorSpecs = getAllOperatorSpecs();

@@ -26,7 +26,6 @@ import org.junit.Test;
 
 import java.util.Collections;
 
-
 public class TestMathUtils {
 
   @Test(expected = IllegalArgumentException.class)

@@ -46,7 +46,7 @@ public class TestWindowOperatorSpec {
     window.setLateTrigger(lateTrigger);
 
     WindowOperatorSpec spec = new WindowOperatorSpec(window, new MessageStreamImpl(null), 0);
-    Assert.assertEquals(spec.getTriggerMs(), 5);
+    Assert.assertEquals(spec.getDefaultTriggerMs(), 5);
   }
 
   @Test
@@ -58,6 +58,6 @@ public class TestWindowOperatorSpec {
     window.setEarlyTrigger(earlyTrigger);
 
     WindowOperatorSpec spec = new WindowOperatorSpec(window, new MessageStreamImpl(null), 0);
-    Assert.assertEquals(spec.getTriggerMs(), 150);
+    Assert.assertEquals(spec.getDefaultTriggerMs(), 150);
   }
 }

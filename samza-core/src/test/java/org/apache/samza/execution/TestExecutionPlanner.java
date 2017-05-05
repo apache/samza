@@ -339,7 +339,7 @@ public class TestExecutionPlanner {
   }
 
   @Test
-  public void testTriggerDurationWhenWindowMsIsConfigured() throws Exception {
+  public void testTriggerIntervalWhenWindowMsIsConfigured() throws Exception {
     Map<String, String> map = new HashMap<>(config);
     map.put(TaskConfig.WINDOW_MS(), "2000");
     map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
