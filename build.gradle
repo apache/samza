@@ -71,6 +71,7 @@ task distTar(dependsOn: build, type: Tar) {
             include "wikipedia-feed.properties"
             include "wikipedia-parser.properties"
             include "wikipedia-stats.properties"
+            include "wikipedia-application.properties"
 
             // expand the Maven tokens with Gradle equivalents.  Also change 'target' (Maven) to 'build/distributions' (Gradle)
             filter { String line ->

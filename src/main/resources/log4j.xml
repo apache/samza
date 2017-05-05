@@ -40,14 +40,13 @@
       <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} [%p] %m%n" />
      </layout>
   </appender>
+  <logger name="STARTUP_LOGGER" additivity="false">
+    <level value="info" />
+    <appender-ref ref="StartupAppender"/>
+  </logger>
   <root>
     <priority value="info" />
     <appender-ref ref="RollingAppender"/>
     <appender-ref ref="jmx" />
   </root>
-  <logger name="STARTUP_LOGGER" additivity="false">
-    <level value="info" />
-    <appender-ref ref="StartupAppender"/>
-  </logger>
-
 </log4j:configuration>

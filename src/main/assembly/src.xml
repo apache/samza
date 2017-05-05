@@ -52,6 +52,11 @@
       <filtered>true</filtered>
     </file>
     <file>
+      <source>${basedir}/src/main/config/wikipedia-application.properties</source>
+      <outputDirectory>config</outputDirectory>
+      <filtered>true</filtered>
+    </file>
+    <file>
       <source>${basedir}/src/main/config/tumbling-pageview-counter.properties</source>
       <outputDirectory>config</outputDirectory>
       <filtered>true</filtered>
