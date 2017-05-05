@@ -64,13 +64,15 @@ public class TestContainerHeartbeatClient {
   @Test
   public void testClientResponseForHeartbeatAlive() {
     output = "{\"alive\": true}";
-    Assert.assertTrue(client.isAlive());
+    ContainerHeartbeatResponse response = client.requestHeartbeat();
+    Assert.assertTrue(response.isAlive());
   }
 
   @Test
   public void testClientResponseForHeartbeatDead() {
     output = "{\"alive\": false}";
-    Assert.assertFalse(client.isAlive());
+    ContainerHeartbeatResponse response = client.requestHeartbeat();
+    Assert.assertFalse(response.isAlive());
   }
 
   @Test
@@ -86,7 +88,8 @@ public class TestContainerHeartbeatClient {
     webApp.addServlet("/containerHeartbeat", servlet);
     webApp.start();
     ContainerHeartbeatClient client = new ContainerHeartbeatClient(webApp.getUrl().toString(), "FAKE_CONTAINER_ID");
-    Assert.assertFalse(client.isAlive());
+    ContainerHeartbeatResponse response = client.requestHeartbeat();
+    Assert.assertFalse(response.isAlive());
     webApp.stop();
   }
 }

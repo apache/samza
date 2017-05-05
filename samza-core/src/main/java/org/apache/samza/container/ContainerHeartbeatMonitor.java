@@ -22,20 +22,20 @@ package org.apache.samza.container;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-
 
 public class ContainerHeartbeatMonitor {
   private static Logger log = LoggerFactory.getLogger(ContainerHeartbeatMonitor.class);
-  private static final ThreadFactory THREAD_FACTORY = new HeartbeatThreadFactoryImpl();
+  private static final ThreadFactory THREAD_FACTORY = new HeartbeatThreadFactory();
   private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY);
   private final Runnable onContainerExpired;
   private final ContainerHeartbeatClient containerHeartbeatClient;
-  private final int scheduleMS = 60000;
+  private static final int SCHEDULE_MS = 60000;
+  private boolean started = false;
 
   public ContainerHeartbeatMonitor(Runnable onContainerExpired, ContainerHeartbeatClient containerHeartbeatClient) {
     this.onContainerExpired = onContainerExpired;
@@ -43,12 +43,18 @@ public class ContainerHeartbeatMonitor {
   }
 
   public void start() {
+    if (started) {
+      log.warn("Skipping attempt to start an already started ContainerHeartbeatMonitor.");
+      return;
+    }
     log.info("Starting ContainerHeartbeatMonitor");
     scheduler.scheduleAtFixedRate(() -> {
-        if (!containerHeartbeatClient.isAlive()) {
+        ContainerHeartbeatResponse response = containerHeartbeatClient.requestHeartbeat();
+        if (!response.isAlive()) {
           onContainerExpired.run();
         }
-      }, 0, scheduleMS, MILLISECONDS);
+      }, 0, SCHEDULE_MS, TimeUnit.MILLISECONDS);
+    started = true;
   }
 
   public void stop() {
@@ -56,10 +62,11 @@ public class ContainerHeartbeatMonitor {
     scheduler.shutdown();
   }
 
-  private static class HeartbeatThreadFactoryImpl implements ThreadFactory {
+  private static class HeartbeatThreadFactory implements ThreadFactory {
     private static final String PREFIX = "Samza-" + ContainerHeartbeatMonitor.class.getSimpleName() + "-";
     private static final AtomicInteger INSTANCE_NUM = new AtomicInteger();
 
+    @Override
     public Thread newThread(Runnable runnable) {
       return new Thread(runnable, PREFIX + INSTANCE_NUM.getAndIncrement());
     }

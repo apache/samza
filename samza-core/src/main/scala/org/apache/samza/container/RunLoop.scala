@@ -22,7 +22,7 @@ package org.apache.samza.container
 import org.apache.samza.task.CoordinatorRequests
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemConsumers, SystemStreamPartition}
 import org.apache.samza.task.ReadableCoordinator
-import org.apache.samza.util._
+import org.apache.samza.util.{Logging, Throttleable, ThrottlingExecutor, TimerUtils}
 
 import scala.collection.JavaConverters._
 

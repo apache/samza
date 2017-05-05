@@ -64,8 +64,7 @@ public class YarnContainerHeartbeatServlet extends HttpServlet {
     ContainerId yarnContainerId;
     try {
       yarnContainerId = ContainerId.fromString(containerIdParam);
-      for (Map.Entry pair : yarnAppState.runningYarnContainers.entrySet()) {
-        YarnContainer yarnContainer = (YarnContainer) pair.getValue();
+      for (YarnContainer yarnContainer : yarnAppState.runningYarnContainers.values()) {
         if (yarnContainer.id().compareTo(yarnContainerId) == 0) {
           alive = true;
         }

@@ -19,30 +19,30 @@
 
 package org.apache.samza.runtime;
 
-    import org.apache.log4j.MDC;
-    import org.apache.samza.SamzaException;
-    import org.apache.samza.application.StreamApplication;
-    import org.apache.samza.config.Config;
-    import org.apache.samza.config.JobConfig;
-    import org.apache.samza.config.ShellCommandConfig;
-    import org.apache.samza.container.ContainerHeartbeatClient;
-    import org.apache.samza.container.ContainerHeartbeatMonitor;
-    import org.apache.samza.container.SamzaContainer;
-    import org.apache.samza.container.SamzaContainer$;
-    import org.apache.samza.container.SamzaContainerExceptionHandler;
-    import org.apache.samza.container.SamzaContainerListener;
-    import org.apache.samza.job.ApplicationStatus;
-    import org.apache.samza.job.model.ContainerModel;
-    import org.apache.samza.job.model.JobModel;
-    import org.apache.samza.metrics.MetricsReporter;
-    import org.apache.samza.task.TaskFactoryUtil;
-    import org.apache.samza.util.ScalaToJavaUtils;
-    import org.apache.samza.util.Util;
-    import org.slf4j.Logger;
-    import org.slf4j.LoggerFactory;
+import org.apache.log4j.MDC;
+import org.apache.samza.SamzaException;
+import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.ShellCommandConfig;
+import org.apache.samza.container.ContainerHeartbeatClient;
+import org.apache.samza.container.ContainerHeartbeatMonitor;
+import org.apache.samza.container.SamzaContainer;
+import org.apache.samza.container.SamzaContainer$;
+import org.apache.samza.container.SamzaContainerExceptionHandler;
+import org.apache.samza.container.SamzaContainerListener;
+import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.task.TaskFactoryUtil;
+import org.apache.samza.util.ScalaToJavaUtils;
+import org.apache.samza.util.Util;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-    import java.util.HashMap;
-    import java.util.Random;
+import java.util.HashMap;
+import java.util.Random;
 
 /**
  * LocalContainerRunner is the local runner for Yarn {@link SamzaContainer}s. It is an intermediate step to
@@ -168,9 +168,9 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     if (executionEnvContainerId != null) {
       log.info("Got execution environment container id: {}", executionEnvContainerId);
       return new ContainerHeartbeatMonitor(() -> {
-        container.shutdown();
-        containerShutdownForced = true;
-      }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
+          container.shutdown();
+          containerShutdownForced = true;
+        }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
     } else {
       log.warn("executionEnvContainerId not set. Container heartbeat monitor will not be started");
       return null;

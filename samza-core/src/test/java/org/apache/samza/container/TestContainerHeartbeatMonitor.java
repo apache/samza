@@ -29,6 +29,8 @@ import static org.mockito.Mockito.*;
 
 public class TestContainerHeartbeatMonitor {
 
+  private ContainerHeartbeatResponse response = new ContainerHeartbeatResponse();
+
   @Test
   public void testCallbackWhenHeartbeatDead()
       throws InterruptedException {
@@ -38,7 +40,8 @@ public class TestContainerHeartbeatMonitor {
       countDownLatch.countDown();
     };
     ContainerHeartbeatMonitor monitor = new ContainerHeartbeatMonitor(onExpired, mockClient);
-    when(mockClient.isAlive()).thenReturn(false);
+    response.setAlive(false);
+    when(mockClient.requestHeartbeat()).thenReturn(response);
     monitor.start();
     boolean success = countDownLatch.await(2, TimeUnit.SECONDS);
     Assert.assertTrue(success);
@@ -53,7 +56,8 @@ public class TestContainerHeartbeatMonitor {
       countDownLatch.countDown();
     };
     ContainerHeartbeatMonitor monitor = new ContainerHeartbeatMonitor(onExpired, client);
-    when(client.isAlive()).thenReturn(true);
+    response.setAlive(true);
+    when(client.requestHeartbeat()).thenReturn(response);
     monitor.start();
     boolean success = countDownLatch.await(2, TimeUnit.SECONDS);
     Assert.assertFalse(success);
