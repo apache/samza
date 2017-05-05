@@ -78,9 +78,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public void start() {
     streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
     debounceTimer = new ScheduleAfterDebounceTime(exception -> {
-      LOGGER.error("Received exception from in JobCoordinator Processing!");
-      stop();
-    });
+        LOGGER.error("Received exception from in JobCoordinator Processing!");
+        stop();
+      });
 
     zkController.register();
   }
@@ -131,23 +131,23 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   @Override
   public void onNewJobModelAvailable(final String version) {
     debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, () ->
-    {
-      LOGGER.info("pid=" + processorId + "new JobModel available");
-      // stop current work
-      if (coordinatorListener != null) {
-        coordinatorListener.onJobModelExpired();
-      }
-      LOGGER.info("pid=" + processorId + "new JobModel available.Container stopped.");
-      // get the new job model
-      newJobModel = zkUtils.getJobModel(version);
+      {
+        LOGGER.info("pid=" + processorId + "new JobModel available");
+        // stop current work
+        if (coordinatorListener != null) {
+          coordinatorListener.onJobModelExpired();
+        }
+        LOGGER.info("pid=" + processorId + "new JobModel available.Container stopped.");
+        // get the new job model
+        newJobModel = zkUtils.getJobModel(version);
 
-      LOGGER.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
+        LOGGER.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
 
-      // update ZK and wait for all the processors to get this new version
-      ZkBarrierForVersionUpgrade barrier = (ZkBarrierForVersionUpgrade) coordinationUtils.getBarrier(
-          JOB_MODEL_UPGRADE_BARRIER);
-      barrier.waitForBarrier(version, processorId, () -> onNewJobModelConfirmed(version));
-    });
+        // update ZK and wait for all the processors to get this new version
+        ZkBarrierForVersionUpgrade barrier =
+            (ZkBarrierForVersionUpgrade) coordinationUtils.getBarrier(JOB_MODEL_UPGRADE_BARRIER);
+        barrier.waitForBarrier(version, processorId, () -> onNewJobModelConfirmed(version));
+      });
   }
 
   @Override
@@ -155,7 +155,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     LOGGER.info("pid=" + processorId + "new version " + version + " of the job model got confirmed");
     // get the new Model
     JobModel jobModel = getJobModel();
-    LOGGER.info("pid=" + processorId + "got the new job model in JobModelConfirmed =" + jobModel);
 
     // start the container with the new model
     if (coordinatorListener != null) {
