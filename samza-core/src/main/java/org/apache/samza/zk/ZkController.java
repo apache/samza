@@ -23,7 +23,7 @@ package org.apache.samza.zk;
 /**
  * Api to the functionality provided by ZK
  *
- * Api for JC -&gt; ZK communication
+ * Api for JC to ZK communication
  */
 public interface ZkController {
   void register();

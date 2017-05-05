@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
  * This class creates a barrier for version upgrade.
  * Barrier is started by the participant responsible for the upgrade. (start())
  * Each participant will mark its readiness and register for a notification when the barrier is reached. (waitFor())
- * If a timer (started in start()) goes off before the barrier is reached, all the participants will un-subscribe
+ * If a timer (started in start()) goes off before the barrier is reached, all the participants will unsubscribe
  * from the notification and the barrier becomes invalid.
  */
 public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
@@ -73,7 +73,6 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
       zkUtils.getZkClient().writeData(barrierDonePath, BARRIER_TIMED_OUT, currentStatOfBarrierDone.getVersion());
     } catch (ZkBadVersionException e) {
       // Expected. failed to write, make sure the value is "DONE"
-      ///LOGGER.("Barrier timeout write failed");
       String done = zkUtils.getZkClient().<String>readData(barrierDonePath);
       LOG.info("Barrier timeout expired, but done=" + done);
       if (!done.equals(BARRIER_DONE)) {

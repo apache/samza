@@ -59,6 +59,7 @@ public class ZkCoordinationUtils implements CoordinationUtils {
     return new ZkBarrierForVersionUpgrade(barrierId, zkUtils, debounceTimer, zkConfig.getZkBarrierTimeoutMs());
   }
 
+  // TODO - SAMZA-1128 CoordinationService should directly depende on ZkUtils and DebounceTimer
   public ZkUtils getZkUtils() {
     return zkUtils;
   }

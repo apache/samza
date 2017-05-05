@@ -18,7 +18,9 @@
  */
 package org.apache.samza.coordinator;
 
-/**  THIS API WILL CHANGE
+import org.apache.samza.annotation.InterfaceStability;
+
+/**
  *
  * Coordination service provides synchronization primitives.
  * The actual implementation (for example ZK based) is left to each implementation class.
@@ -27,6 +29,7 @@ package org.apache.samza.coordinator;
  *   - Latch
  *   - barrier for version upgrades
  */
+@InterfaceStability.Evolving
 public interface CoordinationUtils {
 
   /**
