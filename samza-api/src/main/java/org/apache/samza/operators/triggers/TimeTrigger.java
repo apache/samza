@@ -23,7 +23,7 @@ import java.time.Duration;
 /*
  * A {@link Trigger} that fires after the specified duration in processing time.
  */
-public class TimeTrigger<M> implements Trigger<M> {
+public class TimeTrigger<M> implements Trigger<M>, TimeBasedTrigger<M> {
 
   private final Duration duration;
   private final DurationCharacteristic characteristic = DurationCharacteristic.PROCESSING_TIME;
@@ -32,6 +32,7 @@ public class TimeTrigger<M> implements Trigger<M> {
     this.duration = duration;
   }
 
+  @Override
   public Duration getDuration() {
     return duration;
   }
