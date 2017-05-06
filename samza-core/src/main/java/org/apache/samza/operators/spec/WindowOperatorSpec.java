@@ -101,13 +101,13 @@ public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK
     List<TimeBasedTrigger> timerTriggers = new ArrayList<>();
 
     if (window.getDefaultTrigger() != null) {
-      timerTriggers.addAll(getTimeTriggers(window.getDefaultTrigger()));
+      timerTriggers.addAll(getTimeBasedTriggers(window.getDefaultTrigger()));
     }
     if (window.getEarlyTrigger() != null) {
-      timerTriggers.addAll(getTimeTriggers(window.getEarlyTrigger()));
+      timerTriggers.addAll(getTimeBasedTriggers(window.getEarlyTrigger()));
     }
     if (window.getLateTrigger() != null) {
-      timerTriggers.addAll(getTimeTriggers(window.getLateTrigger()));
+      timerTriggers.addAll(getTimeBasedTriggers(window.getLateTrigger()));
     }
 
     LOG.info("Got {} timer triggers", timerTriggers.size());
@@ -119,20 +119,20 @@ public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK
     return MathUtils.gcd(candidateDurations);
   }
 
-  private List<TimeBasedTrigger> getTimeTriggers(Trigger rootTrigger) {
+  private List<TimeBasedTrigger> getTimeBasedTriggers(Trigger rootTrigger) {
     List<TimeBasedTrigger> timeBasedTriggers = new ArrayList<>();
     // traverse all triggers in the graph starting at the root trigger
     if (rootTrigger instanceof TimeBasedTrigger) {
       timeBasedTriggers.add((TimeBasedTrigger) rootTrigger);
     } else if (rootTrigger instanceof RepeatingTrigger) {
       // recurse on the underlying trigger
-      timeBasedTriggers.addAll(getTimeTriggers(((RepeatingTrigger) rootTrigger).getTrigger()));
+      timeBasedTriggers.addAll(getTimeBasedTriggers(((RepeatingTrigger) rootTrigger).getTrigger()));
     } else if (rootTrigger instanceof AnyTrigger) {
       List<Trigger> subTriggers = ((AnyTrigger) rootTrigger).getTriggers();
 
       for (Trigger subTrigger: subTriggers) {
         // recurse on each sub-trigger
-        timeBasedTriggers.addAll(getTimeTriggers(subTrigger));
+        timeBasedTriggers.addAll(getTimeBasedTriggers(subTrigger));
       }
     }
     return timeBasedTriggers;

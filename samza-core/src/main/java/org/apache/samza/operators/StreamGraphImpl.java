@@ -167,7 +167,7 @@ public class StreamGraphImpl implements StreamGraph {
    *
    * @return  a set of all available {@link OperatorSpec}s
    */
-  public Set<OperatorSpec> getAllOperatorSpecs() {
+  public Collection<OperatorSpec> getAllOperatorSpecs() {
     Collection<InputStreamInternal> inputStreams = inStreams.values();
     Set<OperatorSpec> operatorSpecs = new HashSet<>();
 
@@ -196,7 +196,8 @@ public class StreamGraphImpl implements StreamGraph {
    */
   public boolean hasWindowOrJoins() {
     // Obtain the operator specs from the streamGraph
-    Set<OperatorSpec> operatorSpecs = getAllOperatorSpecs();
+    Collection<OperatorSpec> operatorSpecs = getAllOperatorSpecs();
+
     Set<OperatorSpec> windowOrJoinSpecs = operatorSpecs.stream()
         .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.WINDOW || spec.getOpCode() == OperatorSpec.OpCode.JOIN)
         .collect(Collectors.toSet());

@@ -325,6 +325,24 @@ public class TestExecutionPlanner {
   }
 
   @Test
+  public void testTriggerIntervalWithInvalidWindowMs() throws Exception {
+    Map<String, String> map = new HashMap<>(config);
+    map.put(TaskConfig.WINDOW_MS(), "-1");
+    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
+    Config cfg = new MapConfig(map);
+
+    ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
+    StreamGraphImpl streamGraph = createStreamGraphWithJoinAndWindow();
+    ExecutionPlan plan = planner.plan(streamGraph);
+    List<JobConfig> jobConfigs = plan.getJobConfigs();
+    assertEquals(jobConfigs.size(), 1);
+
+    // GCD of 8, 16, 1600 and 252 is 4
+    assertEquals(jobConfigs.get(0).get(TaskConfig.WINDOW_MS()), "4");
+  }
+
+
+  @Test
   public void testTriggerIntervalForStatelessOperators() throws Exception {
     Map<String, String> map = new HashMap<>(config);
     map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
