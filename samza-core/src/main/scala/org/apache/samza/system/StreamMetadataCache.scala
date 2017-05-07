@@ -36,7 +36,6 @@ object StreamMetadataCache {
       val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
       systemName -> systemFactory.getAdmin(systemName, config)
     }).toMap
-    systemAdmins
 
     new StreamMetadataCache(systemAdmins, cacheTtlMs, SystemClock.instance)
   }

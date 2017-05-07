@@ -50,7 +50,7 @@ public class ScheduleAfterDebounceTime {
 
   public static final int DEBOUNCE_TIME_MS = 2000;
 
-  private final Callback callback;
+  private final ScheduledTaskFailureCallback scheduledTaskFailureCallback;
 
   private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setNameFormat("debounce-thread-%d").setDaemon(true).build());
@@ -60,11 +60,11 @@ public class ScheduleAfterDebounceTime {
   // TODO: Timer shouldn't be passed around the components. It should be associated with the JC or the caller of
   // coordinationUtils.
   public ScheduleAfterDebounceTime() {
-    this.callback = null;
+    this.scheduledTaskFailureCallback = null;
   }
 
-  public ScheduleAfterDebounceTime(Callback errorCallback) {
-    this.callback = errorCallback;
+  public ScheduleAfterDebounceTime(ScheduledTaskFailureCallback errorScheduledTaskFailureCallback) {
+    this.scheduledTaskFailureCallback = errorScheduledTaskFailureCallback;
   }
 
   synchronized public void scheduleAfterDebounceTime(String actionName, long debounceTimeMs, Runnable runnable) {
@@ -90,8 +90,8 @@ public class ScheduleAfterDebounceTime {
           LOGGER.debug(actionName + " completed successfully.");
         } catch (Exception e) {
           LOGGER.error(actionName + " threw an exception.", e);
-          if (callback != null) {
-            callback.onException(e);
+          if (scheduledTaskFailureCallback != null) {
+            scheduledTaskFailureCallback.onException(e);
           }
         }
       },
@@ -106,7 +106,7 @@ public class ScheduleAfterDebounceTime {
     scheduledExecutorService.shutdown();
   }
 
-  interface Callback {
+  interface ScheduledTaskFailureCallback {
     void onException(Exception e);
   }
 }
