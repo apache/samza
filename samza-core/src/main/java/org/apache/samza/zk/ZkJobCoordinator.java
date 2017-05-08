@@ -44,7 +44,7 @@ import java.util.List;
  * JobCoordinator for stand alone processor managed via Zookeeper.
  */
 public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
-  private static final Logger LOGGER = LoggerFactory.getLogger(ZkJobCoordinator.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ZkJobCoordinator.class);
   private static final String JOB_MODEL_UPGRADE_BARRIER = "jobModelUpgradeBarrier";
   // TODO: MetadataCache timeout has to be 0 for the leader so that it can always have the latest information associated
   // with locality. Since host-affinity is not yet implemented, this can be fixed as part of SAMZA-1197
@@ -77,7 +77,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public void start() {
     streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
     debounceTimer = new ScheduleAfterDebounceTime(exception -> {
-        LOGGER.error("Received exception from in JobCoordinator Processing!");
+        LOG.error("Received exception from in JobCoordinator Processing!");
         stop();
       });
 
@@ -114,7 +114,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   //////////////////////////////////////////////// LEADER stuff ///////////////////////////
   @Override
   public void onProcessorChange(List<String> processors) {
-    LOGGER.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
+    LOG.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
     debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
         ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> doOnProcessorChange(processors));
   }
@@ -131,16 +131,16 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public void onNewJobModelAvailable(final String version) {
     debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, () ->
       {
-        LOGGER.info("pid=" + processorId + "new JobModel available");
+        LOG.info("pid=" + processorId + "new JobModel available");
         // stop current work
         if (coordinatorListener != null) {
           coordinatorListener.onJobModelExpired();
         }
-        LOGGER.info("pid=" + processorId + "new JobModel available.Container stopped.");
+        LOG.info("pid=" + processorId + "new JobModel available.Container stopped.");
         // get the new job model
         newJobModel = zkUtils.getJobModel(version);
 
-        LOGGER.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
+        LOG.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
 
         // update ZK and wait for all the processors to get this new version
         ZkBarrierForVersionUpgrade barrier =
@@ -151,7 +151,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   @Override
   public void onNewJobModelConfirmed(String version) {
-    LOGGER.info("pid=" + processorId + "new version " + version + " of the job model got confirmed");
+    LOG.info("pid=" + processorId + "new version " + version + " of the job model got confirmed");
     // get the new Model
     JobModel jobModel = getJobModel();
 
@@ -195,27 +195,26 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     String currentJMVersion  = zkUtils.getJobModelVersion();
     String nextJMVersion;
     if (currentJMVersion == null) {
-      LOGGER.info("pid=" + processorId + "generating first version of the model");
+      LOG.info("pid=" + processorId + "generating first version of the model");
       nextJMVersion = "1";
     } else {
       nextJMVersion = Integer.toString(Integer.valueOf(currentJMVersion) + 1);
     }
-    LOGGER.info("pid=" + processorId + "generating new model. Version = " + nextJMVersion);
+    LOG.info("pid=" + processorId + "generating new model. Version = " + nextJMVersion);
 
     List<String> containerIds = new ArrayList<>(currentProcessorsIds.size());
     for (String processorPid : currentProcessorsIds) {
       containerIds.add(processorPid);
     }
-    LOGGER.info("generate new job model: processorsIds: " + Arrays.toString(containerIds.toArray()));
+    LOG.info("generate new job model: processorsIds: " + Arrays.toString(containerIds.toArray()));
 
     JobModel jobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache,
         containerIds);
 
-    LOGGER.info("pid=" + processorId + "Generated jobModel: " + jobModel);
+    LOG.info("pid=" + processorId + "Generated jobModel: " + jobModel);
 
     // publish the new job model first
     zkUtils.publishJobModel(nextJMVersion, jobModel);
-    LOGGER.info("pid=" + processorId + "published new JobModel ver=" + nextJMVersion + ";jm=" + jobModel);
 
     // start the barrier for the job model update
     BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(
@@ -224,13 +223,13 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
     // publish new JobModel version
     zkUtils.publishJobModelVersion(currentJMVersion, nextJMVersion);
-    LOGGER.info("pid=" + processorId + "published new JobModel ver=" + nextJMVersion);
+    LOG.info("pid=" + processorId + "published new JobModel ver=" + nextJMVersion);
   }
 
   class LeaderElectorListenerImpl implements LeaderElectorListener {
     @Override
     public void onBecomingLeader() {
-      LOGGER.info("ZkJobCoordinator::onBecomeLeader - I became the leader!");
+      LOG.info("ZkJobCoordinator::onBecomeLeader - I became the leader!");
       zkController.subscribeToProcessorChange();
       debounceTimer.scheduleAfterDebounceTime(
         ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
