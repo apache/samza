@@ -176,7 +176,7 @@ public final class Windows {
    * }
    * </pre>
    *
-   * @param duration the duration in processing time
+   * @param interval the duration in processing time
    * @param initialValue the initial value supplier for the aggregator. Invoked when a new window is created.
    * @param aggregator the function to incrementally update the window value. Invoked when a new message
    *                   arrives for the window.
@@ -184,9 +184,9 @@ public final class Windows {
    * @param <WV> the type of the {@link WindowPane} output value
    * @return the created {@link Window} function
    */
-  public static <M, WV> Window<M, Void, WV> tumblingWindow(Duration duration, Supplier<? extends WV> initialValue,
+  public static <M, WV> Window<M, Void, WV> tumblingWindow(Duration interval, Supplier<? extends WV> initialValue,
       FoldLeftFunction<? super M, WV> aggregator) {
-    Trigger<M> defaultTrigger = new TimeTrigger<>(duration);
+    Trigger<M> defaultTrigger = new TimeTrigger<>(interval);
     return new WindowInternal<>(defaultTrigger, (Supplier<WV>) initialValue, (FoldLeftFunction<M, WV>) aggregator,
         null, null, WindowType.TUMBLING);
   }

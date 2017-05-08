@@ -27,7 +27,7 @@ public interface FoldLeftFunction<M, WV> extends InitableFunction {
   /**
    * Incrementally updates the window value as messages are added to the window.
    *
-   * @param message the message being to the window
+   * @param message the message being added to the window
    * @param oldValue the previous value associated with the window
    * @return the new value
    */

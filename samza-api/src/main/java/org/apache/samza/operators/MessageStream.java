@@ -79,7 +79,10 @@ public interface MessageStream<M> {
    * <p>
    * Offers more control over processing and sending messages than {@link #sendTo(OutputStream)} since
    * the {@link SinkFunction} has access to the {@link org.apache.samza.task.MessageCollector} and
-   * {@link org.apache.samza.task.TaskCoordinator}
+   * {@link org.apache.samza.task.TaskCoordinator}.
+   * <p>
+   * This can also be used to send output to a system (e.g. a database) that doesn't have a corresponding
+   * Samza SystemProducer implementation.
    *
    * @param sinkFn the function to send messages in this stream to an external system
    */
@@ -101,7 +104,7 @@ public interface MessageStream<M> {
    * <p>
    * Use the {@link org.apache.samza.operators.windows.Windows} helper methods to create the appropriate windows.
    * <p>
-   * <b>Note:</b> Currently messages in windows are kept in memory and may be lost in case of failures.
+   * <b>Note:</b> As of version 0.13.0, messages in windows are kept in memory and may be lost in case of failures.
    *
    * @param window the window to group and process messages from this {@link MessageStream}
    * @param <K> the type of key in the message in this {@link MessageStream}. If a key is specified,
@@ -118,7 +121,7 @@ public interface MessageStream<M> {
    * Messages in each stream are retained for the provided {@code ttl} and join results are
    * emitted as matches are found.
    * <p>
-   * <b>Note:</b> Currently messages in joins are kept in memory and may be lost in case of failures.
+   * <b>Note:</b> As of version 0.13.0, messages in joins are kept in memory and may be lost in case of failures.
    *
    * @param otherStream the other {@link MessageStream} to be joined with
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
