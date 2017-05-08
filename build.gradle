@@ -324,6 +324,10 @@ project(":samza-yarn_$scalaVersion") {
     compile "org.scala-lang:scala-compiler:$scalaLibVersion"
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     compile "commons-httpclient:commons-httpclient:$commonsHttpClientVersion"
+    compile "org.apache.httpcomponents:httpcore:$httpClientVersion"
+    compile "org.apache.httpcomponents:httpclient:$httpClientVersion"
+    compile "org.bouncycastle:bcpkix-jdk15on:$bouncyCastleVersion"
+    compile "org.bouncycastle:bcprov-jdk15on:$bouncyCastleVersion"
     compile("org.apache.hadoop:hadoop-yarn-api:$yarnVersion") {
       exclude module: 'slf4j-log4j12'
     }

@@ -39,5 +39,6 @@
   commonsCollectionVersion = "3.2.1"
   httpClientVersion="4.4.1"
   commonsLang3Version="3.4"
+  bouncyCastleVersion="1.54"
   apacheCommonsCollections4Version="4.0"
 }
