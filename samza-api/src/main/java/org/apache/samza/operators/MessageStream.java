@@ -33,11 +33,11 @@ import java.util.function.Function;
 
 
 /**
- * Represents a stream of messages.
+ * A stream of messages that can be transformed into another {@link MessageStream}.
  * <p>
- * A {@link MessageStream} can be transformed into another {@link MessageStream} by applying the transforms in this API.
+ * A {@link MessageStream} corresponding to an input stream can be obtained using {@link StreamGraph#getInputStream}.
  *
- * @param <M>  type of messages in this stream
+ * @param <M> the type of messages in this stream
  */
 @InterfaceStability.Unstable
 public interface MessageStream<M> {
@@ -47,46 +47,46 @@ public interface MessageStream<M> {
    * transformed {@link MessageStream}.
    *
    * @param mapFn the function to transform a message to another message
-   * @param <TM> the type of messages in the transformed {@link MessageStream}
+   * @param <OM> the type of messages in the transformed {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  <TM> MessageStream<TM> map(MapFunction<? super M, ? extends TM> mapFn);
+  <OM> MessageStream<OM> map(MapFunction<? super M, ? extends OM> mapFn);
 
   /**
    * Applies the provided 1:n function to transform a message in this {@link MessageStream}
    * to n messages in the transformed {@link MessageStream}
    *
    * @param flatMapFn the function to transform a message to zero or more messages
-   * @param <TM> the type of messages in the transformed {@link MessageStream}
+   * @param <OM> the type of messages in the transformed {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  <TM> MessageStream<TM> flatMap(FlatMapFunction<? super M, ? extends TM> flatMapFn);
+  <OM> MessageStream<OM> flatMap(FlatMapFunction<? super M, ? extends OM> flatMapFn);
 
   /**
    * Applies the provided function to messages in this {@link MessageStream} and returns the
-   * transformed {@link MessageStream}.
+   * filtered {@link MessageStream}.
    * <p>
    * The {@link Function} is a predicate which determines whether a message in this {@link MessageStream}
-   * should be retained in the transformed {@link MessageStream}.
+   * should be retained in the filtered {@link MessageStream}.
    *
-   * @param filterFn the predicate to filter messages from this {@link MessageStream}
+   * @param filterFn the predicate to filter messages from this {@link MessageStream}.
    * @return the transformed {@link MessageStream}
    */
   MessageStream<M> filter(FilterFunction<? super M> filterFn);
 
   /**
    * Allows sending messages in this {@link MessageStream} to an output system using the provided {@link SinkFunction}.
-   *
-   * NOTE: If the output is for a {@link org.apache.samza.system.SystemStream}, use
-   * {@link #sendTo(OutputStream)} instead. This transform should only be used to output to
-   * non-stream systems (e.g., an external database).
+   * <p>
+   * Offers more control over processing and sending messages than {@link #sendTo(OutputStream)} since
+   * the {@link SinkFunction} has access to the {@link org.apache.samza.task.MessageCollector} and
+   * {@link org.apache.samza.task.TaskCoordinator}
    *
    * @param sinkFn the function to send messages in this stream to an external system
    */
   void sink(SinkFunction<? super M> sinkFn);
 
   /**
-   * Allows sending messages in this {@link MessageStream} to an output {@link MessageStream}.
+   * Allows sending messages in this {@link MessageStream} to an {@link OutputStream}.
    *
    * @param outputStream the output stream to send messages to
    * @param <K> the type of key in the outgoing message
@@ -100,6 +100,8 @@ public interface MessageStream<M> {
    * {@link WindowPane}s.
    * <p>
    * Use the {@link org.apache.samza.operators.windows.Windows} helper methods to create the appropriate windows.
+   * <p>
+   * <b>Note:</b> Currently messages in windows are kept in memory and may be lost in case of failures.
    *
    * @param window the window to group and process messages from this {@link MessageStream}
    * @param <K> the type of key in the message in this {@link MessageStream}. If a key is specified,
@@ -110,23 +112,27 @@ public interface MessageStream<M> {
   <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window);
 
   /**
-   * Joins this {@link MessageStream} with another {@link MessageStream} using the provided pairwise {@link JoinFunction}.
+   * Joins this {@link MessageStream} with another {@link MessageStream} using the provided
+   * pairwise {@link JoinFunction}.
    * <p>
-   * Messages in each stream are retained (currently, in memory) for the provided {@code ttl} and join results are
+   * Messages in each stream are retained for the provided {@code ttl} and join results are
    * emitted as matches are found.
+   * <p>
+   * <b>Note:</b> Currently messages in joins are kept in memory and may be lost in case of failures.
    *
    * @param otherStream the other {@link MessageStream} to be joined with
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
    * @param ttl the ttl for messages in each stream
    * @param <K> the type of join key
-   * @param <OM> the type of messages in the other stream
-   * @param <TM> the type of messages resulting from the {@code joinFn}
+   * @param <JM> the type of messages in the other stream
+   * @param <OM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, OM, TM> MessageStream<TM> join(MessageStream<OM> otherStream, JoinFunction<? extends K, ? super M, ? super OM, ? extends TM> joinFn, Duration ttl);
+  <K, JM, OM> MessageStream<OM> join(MessageStream<JM> otherStream,
+      JoinFunction<? extends K, ? super M, ? super JM, ? extends OM> joinFn, Duration ttl);
 
   /**
-   * Merge all {@code otherStreams} with this {@link MessageStream}.
+   * Merges all {@code otherStreams} with this {@link MessageStream}.
    *
    * @param otherStreams other {@link MessageStream}s to be merged with this {@link MessageStream}
    * @return the merged {@link MessageStream}
@@ -136,6 +142,9 @@ public interface MessageStream<M> {
   /**
    * Sends the messages of type {@code M}in this {@link MessageStream} to a repartitioned output stream and consumes
    * them as an input {@link MessageStream} again. Uses keys returned by the {@code keyExtractor} as the partition key.
+   * <p>
+   * <b>Note</b>: Repartitioned streams are created automatically in the default system. The key and message Serdes
+   * configured for the default system must be able to serialize and deserialize types K and M respectively.
    *
    * @param keyExtractor the {@link Function} to extract the output message key and partition key from
    *                     the input message

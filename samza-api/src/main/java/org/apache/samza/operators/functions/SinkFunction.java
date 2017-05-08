@@ -24,7 +24,8 @@ import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * A function that allows sending a message to an output system.
+ * Allows sending a message to an output system.
+ *
  * @param <M>  type of the input message
  */
 @InterfaceStability.Unstable

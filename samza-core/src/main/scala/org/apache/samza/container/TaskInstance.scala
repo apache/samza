@@ -64,6 +64,7 @@ class TaskInstance(
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
   val context = new TaskContext {
+    var userContext: Object = null;
     def getMetricsRegistry = metrics.registry
     def getSystemStreamPartitions = systemStreamPartitions.asJava
     def getStore(storeName: String) = if (storageManager != null) {
@@ -79,6 +80,14 @@ class TaskInstance(
     override def setStartingOffset(ssp: SystemStreamPartition, offset: String): Unit = {
       val startingOffsets = offsetManager.startingOffsets
       offsetManager.startingOffsets += taskName -> (startingOffsets(taskName) + (ssp -> offset))
+    }
+
+    override def setUserContext(context: Object): Unit = {
+      userContext = context
+    }
+
+    override def getUserContext: Object = {
+      userContext
     }
   }
   // store the (ssp -> if this ssp is catched up) mapping. "catched up"

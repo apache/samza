@@ -22,7 +22,8 @@ import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * A function that specifies whether a message should be retained for further processing or filtered out.
+ * Specifies whether a message should be retained for further processing.
+ *
  * @param <M>  type of the input message
  */
 @InterfaceStability.Unstable
@@ -31,7 +32,8 @@ public interface FilterFunction<M> extends InitableFunction {
 
   /**
    * Returns a boolean indicating whether this message should be retained or filtered out.
-   * @param message  the input message to be checked. This object should not be mutated.
+   *
+   * @param message  the input message to be checked
    * @return  true if {@code message} should be retained
    */
   boolean apply(M message);

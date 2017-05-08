@@ -20,16 +20,15 @@
 package org.apache.samza.operators.functions;
 
 /**
- * A fold function that incrementally combines and aggregates values for a window.
+ * Incrementally updates the window value as messages are added to the window.
  */
 public interface FoldLeftFunction<M, WV> extends InitableFunction {
 
   /**
-   * Incrementally combine and aggregate values for the window. Guaranteed to be invoked for every
-   * message added to the window.
+   * Incrementally updates the window value as messages are added to the window.
    *
-   * @param message the incoming message that is added to the window. This object should not be mutated.
-   * @param oldValue the previous value
+   * @param message the message being to the window
+   * @param oldValue the previous value associated with the window
    * @return the new value
    */
   WV apply(M message, WV oldValue);
