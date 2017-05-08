@@ -65,7 +65,7 @@ class ExponentialSleepStrategy(
    * succeeded, you must call <code>done</code> on the RetryLoop object to indicate
    * success. This method returns the return value of the successful loopOperation.
    *
-   * If an exception is thrown during the execution of loopOperation, the onError
+   * If an exception is thrown during the execution of loopOperation, the onException
    * handler is called. You can choose to re-throw the exception (so that it aborts
    * the run loop and bubbles up), or ignore it (the operation will be retried),
    * or call <code>done</code> (give up, don't retry).
