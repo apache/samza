@@ -40,16 +40,6 @@ public abstract class ApplicationRunner {
   protected final Config config;
 
   /**
-   * Static method to create the local {@link ApplicationRunner}.
-   *
-   * @param config  configuration passed in to initialize the Samza local process
-   * @return  the local {@link ApplicationRunner} to run the user-defined stream applications
-   */
-  public static ApplicationRunner getLocalRunner(Config config) {
-    return null;
-  }
-
-  /**
    * Static method to load the {@link ApplicationRunner}
    *
    * @param config  configuration passed in to initialize the Samza processes
