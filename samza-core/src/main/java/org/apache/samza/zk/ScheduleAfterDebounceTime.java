@@ -88,10 +88,10 @@ public class ScheduleAfterDebounceTime {
         try {
           runnable.run();
           LOGGER.debug(actionName + " completed successfully.");
-        } catch (Exception e) {
-          LOGGER.error(actionName + " threw an exception.", e);
+        } catch (Throwable t) {
+          LOGGER.error(actionName + " threw an exception.", t);
           if (scheduledTaskFailureCallback != null) {
-            scheduledTaskFailureCallback.onException(e);
+            scheduledTaskFailureCallback.onError(t);
           }
         }
       },
@@ -107,6 +107,6 @@ public class ScheduleAfterDebounceTime {
   }
 
   interface ScheduledTaskFailureCallback {
-    void onException(Exception e);
+    void onError(Throwable throwable);
   }
 }

@@ -76,8 +76,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   @Override
   public void start() {
     streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
-    debounceTimer = new ScheduleAfterDebounceTime(exception -> {
-        LOG.error("Received exception from in JobCoordinator Processing!");
+    debounceTimer = new ScheduleAfterDebounceTime(throwable -> {
+        LOG.error("Received exception from in JobCoordinator Processing!", throwable);
         stop();
       });
 
