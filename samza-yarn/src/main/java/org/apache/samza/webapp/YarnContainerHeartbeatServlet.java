@@ -27,6 +27,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.samza.container.ContainerHeartbeatResponse;
+import org.apache.samza.job.yarn.SamzaAppMasterMetrics;
 import org.apache.samza.job.yarn.YarnAppState;
 import org.apache.samza.job.yarn.YarnContainer;
 import org.apache.samza.metrics.Counter;
@@ -50,8 +51,8 @@ public class YarnContainerHeartbeatServlet extends HttpServlet {
   private static final String YARN_CONTAINER_ID = "executionContainerId";
   private static final Logger log = LoggerFactory.getLogger(YarnContainerHeartbeatServlet.class);
   public static final String APPLICATION_JSON = "application/json";
-  public static final String GROUP = "ContainerHeartbeat";
-  private final Counter heartbeatsInvalidCount;
+  public static final String GROUP = SamzaAppMasterMetrics.class.getName();
+  private final Counter heartbeatsExpiredCount;
 
   private YarnAppState yarnAppState;
   private ObjectMapper mapper;
@@ -59,7 +60,7 @@ public class YarnContainerHeartbeatServlet extends HttpServlet {
   public YarnContainerHeartbeatServlet(YarnAppState yarnAppState, ReadableMetricsRegistry registry) {
     this.yarnAppState = yarnAppState;
     this.mapper = new ObjectMapper();
-    this.heartbeatsInvalidCount = registry.newCounter(GROUP, "heartbeats-invalid");
+    this.heartbeatsExpiredCount = registry.newCounter(GROUP, "heartbeats-expired");
   }
 
   @Override
@@ -79,7 +80,7 @@ public class YarnContainerHeartbeatServlet extends HttpServlet {
         }
       }
       if (!alive) {
-        heartbeatsInvalidCount.inc();
+        heartbeatsExpiredCount.inc();
       }
       response = new ContainerHeartbeatResponse(alive);
       printWriter.write(mapper.writeValueAsString(response));
