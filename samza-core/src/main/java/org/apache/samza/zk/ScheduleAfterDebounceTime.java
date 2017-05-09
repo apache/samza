@@ -31,7 +31,6 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 /**
  * This class allows scheduling a Runnable actions after some debounce time.
  * When the same action is scheduled it needs to cancel the previous one. To accomplish that we keep the previous
@@ -39,7 +38,7 @@ import org.slf4j.LoggerFactory;
  * ZK based standalone app.
  */
 public class ScheduleAfterDebounceTime {
-  public static final Logger LOGGER = LoggerFactory.getLogger(ScheduleAfterDebounceTime.class);
+  public static final Logger LOG = LoggerFactory.getLogger(ScheduleAfterDebounceTime.class);
   public static final long TIMEOUT_MS = 1000 * 10; // timeout to wait for a task to complete
 
   // Here we predefine some actions which are used in the ZK based standalone app.
@@ -51,34 +50,63 @@ public class ScheduleAfterDebounceTime {
 
   public static final int DEBOUNCE_TIME_MS = 2000;
 
+  private final ScheduledTaskFailureCallback scheduledTaskFailureCallback;
+
   private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setNameFormat("debounce-thread-%d").setDaemon(true).build());
   private final Map<String, ScheduledFuture> futureHandles = new HashMap<>();
+
+  // Ideally, this should be only used for testing. But ZkBarrierForVersionUpgrades uses it. This needs to be fixed.
+  // TODO: Timer shouldn't be passed around the components. It should be associated with the JC or the caller of
+  // coordinationUtils.
+  public ScheduleAfterDebounceTime() {
+    this.scheduledTaskFailureCallback = null;
+  }
+
+  public ScheduleAfterDebounceTime(ScheduledTaskFailureCallback errorScheduledTaskFailureCallback) {
+    this.scheduledTaskFailureCallback = errorScheduledTaskFailureCallback;
+  }
 
   synchronized public void scheduleAfterDebounceTime(String actionName, long debounceTimeMs, Runnable runnable) {
     // check if this action has been scheduled already
     ScheduledFuture sf = futureHandles.get(actionName);
     if (sf != null && !sf.isDone()) {
-      LOGGER.info("cancel future for " + actionName);
+      LOG.info("cancel future for " + actionName);
       // attempt to cancel
       if (!sf.cancel(false)) {
         try {
           sf.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
           // we ignore the exception
-          LOGGER.warn("cancel for action " + actionName + " failed with ", e);
+          LOG.warn("cancel for action " + actionName + " failed with ", e);
         }
       }
       futureHandles.remove(actionName);
     }
     // schedule a new task
-    sf = scheduledExecutorService.schedule(runnable, debounceTimeMs, TimeUnit.MILLISECONDS);
-    LOGGER.info("DEBOUNCE: scheduled " + actionName + " in " + debounceTimeMs);
+    sf = scheduledExecutorService.schedule(() -> {
+        try {
+          runnable.run();
+          LOG.debug(actionName + " completed successfully.");
+        } catch (Throwable t) {
+          LOG.error(actionName + " threw an exception.", t);
+          if (scheduledTaskFailureCallback != null) {
+            scheduledTaskFailureCallback.onError(t);
+          }
+        }
+      },
+     debounceTimeMs,
+     TimeUnit.MILLISECONDS);
+    LOG.info("scheduled " + actionName + " in " + debounceTimeMs);
     futureHandles.put(actionName, sf);
   }
 
   public void stopScheduler() {
     // shutdown executor service
     scheduledExecutorService.shutdown();
+  }
+
+  interface ScheduledTaskFailureCallback {
+    void onError(Throwable throwable);
   }
 }

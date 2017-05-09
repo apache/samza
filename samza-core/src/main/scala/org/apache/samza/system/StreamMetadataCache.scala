@@ -19,11 +19,27 @@
 
 package org.apache.samza.system
 
-import org.apache.samza.util.Logging
+import org.apache.samza.config.Config
+import org.apache.samza.util.{Util, Logging, Clock, SystemClock}
 import org.apache.samza.SamzaException
-import org.apache.samza.util.{Clock, SystemClock}
 import scala.collection.JavaConverters._
+import org.apache.samza.config.SystemConfig.Config2System
 
+object StreamMetadataCache {
+  def apply(cacheTtlMs: Int = 5000, config: Config): StreamMetadataCache = {
+    val systemNames = config.getSystemNames.toSet
+    // Map the name of each system to the corresponding SystemAdmin
+    val systemAdmins = systemNames.map(systemName => {
+      val systemFactoryClassName = config
+        .getSystemFactory(systemName)
+        .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
+      val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
+      systemName -> systemFactory.getAdmin(systemName, config)
+    }).toMap
+
+    new StreamMetadataCache(systemAdmins, cacheTtlMs, SystemClock.instance)
+  }
+}
 /**
  * Caches requests to SystemAdmin.getSystemStreamMetadata for a short while (by default
  * 5 seconds), so that we can make many metadata requests in quick succession without
