@@ -25,12 +25,16 @@ import java.util.Properties;
 import kafka.log.LogConfig;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.system.StreamSpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
  * Extends StreamSpec with the ability to easily get the topic replication factor.
  */
 public class KafkaStreamSpec extends StreamSpec {
+  private static Logger LOG = LoggerFactory.getLogger(KafkaStreamSpec.class);
+
   private static final int DEFAULT_REPLICATION_FACTOR = 2;
 
   /**
@@ -75,8 +79,12 @@ public class KafkaStreamSpec extends StreamSpec {
     Map<String, String> filteredConfig = new HashMap<>();
     for (Map.Entry<String, String> entry: originalConfig.entrySet()) {
       // Kafka requires replication factor, but not as a property, so we have to filter it out.
-      if (LogConfig.configNames().contains(entry.getKey())) {
-        filteredConfig.put(entry.getKey(), entry.getValue());
+      if (!KafkaConfig.TOPIC_REPLICATION_FACTOR().equals(entry.getKey())) {
+        if (LogConfig.configNames().contains(entry.getKey())) {
+          filteredConfig.put(entry.getKey(), entry.getValue());
+        } else {
+          LOG.warn("Property '{}' is not a valid Kafka topic config. It will be ignored.");
+        }
       }
     }
     return filteredConfig;
@@ -130,7 +138,7 @@ public class KafkaStreamSpec extends StreamSpec {
    * @param systemName        The System name on which this stream will exist. Corresponds to a named implementation of the
    *                          Samza System abstraction. See {@link org.apache.samza.system.SystemFactory}
    *
-   * @param partitionCount    The number of partitionts for the stream. A value of {@code 1} indicates unpartitioned.
+   * @param partitionCount    The number of partitions for the stream. A value of {@code 1} indicates unpartitioned.
    *
    * @param replicationFactor The number of topic replicas in the Kafka cluster for durability.
    *
