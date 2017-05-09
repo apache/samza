@@ -118,6 +118,31 @@ task.max.concurrency=4
 
 **NOTE:** In case of AsyncStreamTask, processAsync() is still invoked in the order of the message arrivals, but the completion can go out of order. In case of StreamTask with multithreading, process() can run out-of-order since they are dispatched to a thread pool. This option should **NOT** be used when strict ordering of the output is required.
 
+### Non blocking commit
+
+Async processing in samza is accomplished by simultaneous processing(via processAsync) of messages in batches(where batch size is defined by task.max.concurrency.size). Committing processed messages will wait when processing of a message batch have not completed.
+
+In some scenarios, each message batch will take a lot of time to complete. For instance, making high latency remote service calls while processing messages in batch will affect the execution frequency of commit(since only one can happen at a time). This incurs a additional delay in publishing the processed messages from a samza job to downstream samza jobs.
+
+Non blocking commit enables a samza task to commit when processing of messages(pending processAsync calls) in batch have not completed and vice-versa.
+
+#### Benefits.
+
+A) Reduces delay in publishing the processed messages by enabling the task to commit aggressively(a commit is no longer blocked by ongoing processAsync calls).
+
+B) Increases the throughput of processAsync calls, since it is not blocked by a ongoing commit.
+
+C) Decreases the time between fetching and processing a message.
+
+#### NOTE:
+
+This should be used only when all the side effects incurred while processing a message in samza task are idempotent.
+
+{% highlight jproperties %}
+# Turned off by default. Users should explicitly set following config to turn it on.
+task.async.commit = true
+{% endhighlight %}
+
 ### Guaranteed Semantics
 
 In any of the scenarios, Samza guarantees the following semantics:
