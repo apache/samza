@@ -20,76 +20,62 @@
 package org.apache.samza.container;
 
 import java.io.IOException;
-import java.io.PrintWriter;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import java.net.URL;
 import junit.framework.Assert;
-import org.apache.samza.coordinator.server.HttpServer;
-import org.eclipse.jetty.servlet.DefaultServlet;
-import org.eclipse.jetty.servlet.ServletHolder;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
-
 public class TestContainerHeartbeatClient {
-
-  private String output;
-  private HttpServer webApp;
-  private ContainerHeartbeatClient client;
-
-  @Before
-  public void setup() {
-    webApp = new HttpServer("/", 0, "", new ServletHolder(new DefaultServlet()));
-    HttpServlet servlet = new HttpServlet() {
-      @Override
-      protected void doGet(HttpServletRequest req, HttpServletResponse resp)
-          throws ServletException, IOException {
-        PrintWriter printWriter = resp.getWriter();
-        printWriter.write(output);
-      }
-    };
-    webApp.addServlet("/containerHeartbeat", servlet);
-    webApp.start();
-    client = new ContainerHeartbeatClient(webApp.getUrl().toString(), "FAKE_CONTAINER_ID");
-  }
-
-  @After
-  public void teardown() {
-    webApp.stop();
-  }
+  private MockContainerHeartbeatClient client =
+      new MockContainerHeartbeatClient("http://fake-endpoint/", "FAKE_CONTAINER_ID");
 
   @Test
-  public void testClientResponseForHeartbeatAlive() {
-    output = "{\"alive\": true}";
+  public void testClientResponseForHeartbeatAlive()
+      throws IOException {
+    client.setHttpOutput("{\"alive\": true}");
     ContainerHeartbeatResponse response = client.requestHeartbeat();
     Assert.assertTrue(response.isAlive());
   }
 
   @Test
-  public void testClientResponseForHeartbeatDead() {
-    output = "{\"alive\": false}";
+  public void testClientResponseForHeartbeatDead()
+      throws IOException {
+    client.setHttpOutput("{\"alive\": false}");
     ContainerHeartbeatResponse response = client.requestHeartbeat();
     Assert.assertFalse(response.isAlive());
   }
 
   @Test
-  public void testClientResponseOnBadRequest() {
-    HttpServer webApp = new HttpServer("/", 0, "", new ServletHolder(new DefaultServlet()));
-    HttpServlet servlet = new HttpServlet() {
-      @Override
-      protected void doGet(HttpServletRequest req, HttpServletResponse resp)
-          throws ServletException, IOException {
-        resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "BAD_REQUEST");
-      }
-    };
-    webApp.addServlet("/containerHeartbeat", servlet);
-    webApp.start();
-    ContainerHeartbeatClient client = new ContainerHeartbeatClient(webApp.getUrl().toString(), "FAKE_CONTAINER_ID");
+  public void testClientResponseOnBadRequest()
+      throws IOException {
+    client.setThrowException(true);
     ContainerHeartbeatResponse response = client.requestHeartbeat();
     Assert.assertFalse(response.isAlive());
-    webApp.stop();
+  }
+
+  private class MockContainerHeartbeatClient extends ContainerHeartbeatClient {
+    private String httpOutput;
+    private boolean throwException = false;
+
+    public void setThrowException(boolean throwException) {
+      this.throwException = throwException;
+    }
+
+    public void setHttpOutput(String httpOutput) {
+      this.httpOutput = httpOutput;
+    }
+
+    MockContainerHeartbeatClient(String coordinatorUrl, String executionEnvContainerId) {
+      super(coordinatorUrl, executionEnvContainerId);
+    }
+
+    @Override
+    String httpGet(URL url)
+        throws IOException {
+      if (!throwException) {
+        return httpOutput;
+      } else {
+        throw new IOException("Exception thrown");
+      }
+    }
   }
 }

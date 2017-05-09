@@ -48,15 +48,14 @@ public class TestYarnContainerHeartbeatServlet {
   private YarnAppState yarnAppState;
   private HttpServer webApp;
   private ObjectMapper mapper;
-  private ReadableMetricsRegistry registry;
 
-  public ContainerHeartbeatResponse heartbeat;
+  private ContainerHeartbeatResponse heartbeat;
 
   @Before
   public void setup()
       throws Exception {
     container = mock(YarnContainer.class);
-    registry = new MetricsRegistryMap("test-registry");
+    ReadableMetricsRegistry registry = new MetricsRegistryMap("test-registry");
 
     yarnAppState =
         new YarnAppState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "testHost", 1, 1);

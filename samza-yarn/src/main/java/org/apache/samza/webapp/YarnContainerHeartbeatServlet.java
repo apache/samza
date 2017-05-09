@@ -21,47 +21,56 @@ package org.apache.samza.webapp;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Map;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.hadoop.yarn.api.records.ContainerId;
+import org.apache.samza.container.ContainerHeartbeatResponse;
 import org.apache.samza.job.yarn.YarnAppState;
 import org.apache.samza.job.yarn.YarnContainer;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
-import org.codehaus.jettison.json.JSONException;
-import org.codehaus.jettison.json.JSONObject;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Responds to heartbeat requests from the containers with a {@link ContainerHeartbeatResponse}.
+ * The heartbeat request contains the <code> executionContainerId </code>
+ * which in YARN's case is the YARN container Id.
+ * This servlet validates the container Id against the list
+ * of running containers maintained in the {@link YarnAppState}.
+ * The returned {@link ContainerHeartbeatResponse#isAlive()} is
+ * <code> true </code> iff. the container Id exists in {@link YarnAppState#runningYarnContainers}.
+ */
 public class YarnContainerHeartbeatServlet extends HttpServlet {
 
   private static final String YARN_CONTAINER_ID = "executionContainerId";
   private static final Logger log = LoggerFactory.getLogger(YarnContainerHeartbeatServlet.class);
   public static final String APPLICATION_JSON = "application/json";
   public static final String GROUP = "ContainerHeartbeat";
-  private final Counter heartbeatInvalidCount;
+  private final Counter heartbeatsInvalidCount;
 
   private YarnAppState yarnAppState;
-  private JSONObject jsonResponse;
+  private ObjectMapper mapper;
 
   public YarnContainerHeartbeatServlet(YarnAppState yarnAppState, ReadableMetricsRegistry registry) {
     this.yarnAppState = yarnAppState;
-    this.jsonResponse = new JSONObject();
-    this.heartbeatInvalidCount = registry.newCounter(GROUP, "heartbeats-invalid");
+    this.mapper = new ObjectMapper();
+    this.heartbeatsInvalidCount = registry.newCounter(GROUP, "heartbeats-invalid");
   }
 
   @Override
   protected void doGet(HttpServletRequest req, HttpServletResponse resp)
       throws ServletException, IOException {
+    ContainerId yarnContainerId;
     PrintWriter printWriter = resp.getWriter();
     String containerIdParam = req.getParameter(YARN_CONTAINER_ID);
+    ContainerHeartbeatResponse response;
     resp.setContentType(APPLICATION_JSON);
     boolean alive = false;
-    ContainerId yarnContainerId;
     try {
       yarnContainerId = ContainerId.fromString(containerIdParam);
       for (YarnContainer yarnContainer : yarnAppState.runningYarnContainers.values()) {
@@ -70,17 +79,13 @@ public class YarnContainerHeartbeatServlet extends HttpServlet {
         }
       }
       if (!alive) {
-        heartbeatInvalidCount.inc();
+        heartbeatsInvalidCount.inc();
       }
-      this.jsonResponse.put("alive", alive);
-      printWriter.write(jsonResponse.toString());
+      response = new ContainerHeartbeatResponse(alive);
+      printWriter.write(mapper.writeValueAsString(response));
     } catch (IllegalArgumentException e) {
       log.error("Container ID {} passed is invalid", containerIdParam);
       resp.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
-    } catch (JSONException e) {
-      log.error("Unable to serialize JSON heartbeat response for container ID {} with status {}", containerIdParam,
-          alive);
-      resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
     }
   }
 }

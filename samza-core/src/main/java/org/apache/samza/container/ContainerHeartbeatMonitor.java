@@ -27,14 +27,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 public class ContainerHeartbeatMonitor {
-  private static Logger log = LoggerFactory.getLogger(ContainerHeartbeatMonitor.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ContainerHeartbeatMonitor.class);
   private static final ThreadFactory THREAD_FACTORY = new HeartbeatThreadFactory();
+  private static final int SCHEDULE_MS = 60000;
   private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY);
   private final Runnable onContainerExpired;
   private final ContainerHeartbeatClient containerHeartbeatClient;
-  private static final int SCHEDULE_MS = 60000;
   private boolean started = false;
 
   public ContainerHeartbeatMonitor(Runnable onContainerExpired, ContainerHeartbeatClient containerHeartbeatClient) {
@@ -44,10 +43,10 @@ public class ContainerHeartbeatMonitor {
 
   public void start() {
     if (started) {
-      log.warn("Skipping attempt to start an already started ContainerHeartbeatMonitor.");
+      LOG.warn("Skipping attempt to start an already started ContainerHeartbeatMonitor.");
       return;
     }
-    log.info("Starting ContainerHeartbeatMonitor");
+    LOG.info("Starting ContainerHeartbeatMonitor");
     scheduler.scheduleAtFixedRate(() -> {
         ContainerHeartbeatResponse response = containerHeartbeatClient.requestHeartbeat();
         if (!response.isAlive()) {
@@ -58,8 +57,10 @@ public class ContainerHeartbeatMonitor {
   }
 
   public void stop() {
-    log.info("Stopping ContainerHeartbeatMonitor");
-    scheduler.shutdown();
+    if (started) {
+      LOG.info("Stopping ContainerHeartbeatMonitor");
+      scheduler.shutdown();
+    }
   }
 
   private static class HeartbeatThreadFactory implements ThreadFactory {

@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.samza.util.Util;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -33,68 +32,81 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * The client responsible to make requests to the heartbeat endpoint on the JobCoordinator side
- * and receives a response stating if the container is valid.
- * The expected endpoint on the JobCoordinator side is `/containerHeartbeat`
- * which takes `executionContainerId` (eg: YARN container Id) as a query parameter to validate against.
+ * Issues a heartbeat to the coordinator and returns a
+ * {@link ContainerHeartbeatResponse}.
+ * Here's the description of the protocol between the
+ * container and the coordinator:
+ *
+ * The heartbeat request contains a <code> executionContainerId
+ * </code> that identifies the container from which the
+ * request is made. The coordinator validates the provided
+ * executionContainerId against its list of containers that should be
+ * running and returns a {@link ContainerHeartbeatResponse}.
+ *
+ * The returned {@link ContainerHeartbeatResponse#isAlive()} is
+ * <code> true </code> iff. the coordinator has determined
+ * that the container is valid and should continue running.
  */
 public class ContainerHeartbeatClient {
-  private static Logger log = LoggerFactory.getLogger(ContainerHeartbeatClient.class);
-  private final String coordinatorUrl;
-  private final String executionEnvContainerId;
-  private final String heartbeatEndpoint = "%scontainerHeartbeat?executionContainerId=%s";
-  private static final int NUMBER_OF_RETRIES = 3;
-  private static final int TIMEOUT = 5000;
-  private static final int HTTP_OK = 200;
+  private static final Logger LOG = LoggerFactory.getLogger(ContainerHeartbeatClient.class);
+  private final String heartbeatEndpoint;
+  private static final int NUM_RETRIES = 3;
+  private static final int TIMEOUT_MS = 5000;
   private static final int BACKOFF_MULTIPLIER = 2;
 
   public ContainerHeartbeatClient(String coordinatorUrl, String executionEnvContainerId) {
-    this.coordinatorUrl = coordinatorUrl;
-    this.executionEnvContainerId = executionEnvContainerId;
+    this.heartbeatEndpoint =
+        String.format("%scontainerHeartbeat?executionContainerId=%s", coordinatorUrl, executionEnvContainerId);
   }
 
+  /**
+   * Called by the user of the {@link ContainerHeartbeatClient}
+   * to send a request to the heartbeat endpoint.
+   */
   public ContainerHeartbeatResponse requestHeartbeat() {
-    String queryUrl = String.format(heartbeatEndpoint, coordinatorUrl, executionEnvContainerId);
     ObjectMapper mapper = new ObjectMapper();
     ContainerHeartbeatResponse response;
     String reply = "";
     try {
-      reply = httpGet(new URL(queryUrl));
-      log.debug("Container Heartbeat got response {}", reply);
+      reply = httpGet(new URL(heartbeatEndpoint));
+      LOG.debug("Container Heartbeat got response {}", reply);
       response = mapper.readValue(reply, ContainerHeartbeatResponse.class);
       return response;
     } catch (IOException e) {
-      log.error("Error in container heart beat protocol. Query url: {} response: {}", queryUrl, reply);
-      response = new ContainerHeartbeatResponse();
-      response.setAlive(false);
-      return response;
+      LOG.error("Error in container heart beat protocol. Query url: {} response: {}", heartbeatEndpoint, reply);
     }
+    response = new ContainerHeartbeatResponse(false);
+    return response;
   }
 
-
-
-  private String httpGet(URL url) throws IOException {
-    int currentTry;
+  String httpGet(URL url) throws IOException {
     HttpURLConnection conn;
-    int delaySeconds = 1;
+    int delayMillis = 1000;
 
-    for (currentTry = 0; currentTry < NUMBER_OF_RETRIES; currentTry++) {
-      conn = Util.getHttpConnection(url, TIMEOUT);
+    for (int currentTry = 0; currentTry < NUM_RETRIES; currentTry++) {
+      conn = Util.getHttpConnection(url, TIMEOUT_MS);
       try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
-        if (conn.getResponseCode() != HTTP_OK) {
-          log.warn("HTTP error fetching url {}. Returned status code {}", url.toString(), conn.getResponseCode());
-          throw new IOException(String.format("HTTP error fetching url %s. Returned status code %d", url.toString(), conn.getResponseCode()));
+        if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+          throw new IOException(String.format("HTTP error fetching url %s. Returned status code %d", url.toString(),
+              conn.getResponseCode()));
         } else {
           return br.lines().collect(Collectors.joining());
         }
       } catch (Exception e) {
-        try {
-          Thread.sleep(TimeUnit.SECONDS.toMillis(delaySeconds));
-          delaySeconds = delaySeconds * BACKOFF_MULTIPLIER;
-        } catch (InterruptedException ignored) { }
+        LOG.error("Error in heartbeat request", e);
+        sleepUninterruptibly(delayMillis);
+        delayMillis = delayMillis * BACKOFF_MULTIPLIER;
       }
     }
-    throw new IOException("Could not get a response from the container heartbeat endpoint");
+    throw new IOException(String.format("Error fetching url: %s. Tried %d time(s).", url.toString(), NUM_RETRIES));
+  }
+
+  private void sleepUninterruptibly(int delayMillis) {
+    try {
+      Thread.sleep(delayMillis);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 }
 

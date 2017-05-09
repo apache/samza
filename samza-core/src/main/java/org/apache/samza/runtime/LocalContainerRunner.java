@@ -60,7 +60,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
   private volatile Throwable containerException = null;
   private ContainerHeartbeatMonitor containerHeartbeatMonitor;
   private SamzaContainer container;
-  private volatile boolean containerShutdownForced = false;
+  private volatile boolean heartbeatExpired = false;
 
   public LocalContainerRunner(JobModel jobModel, String containerId) {
     super(jobModel.getConfig());
@@ -68,8 +68,17 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     this.containerId = containerId;
   }
 
-  private boolean isContainerShutdownForced() {
-    return containerShutdownForced;
+  /**
+  * The variable <code>heartbeatExpired</code> is used by
+  * {@link ContainerHeartbeatMonitor} to tell the
+  * {@link LocalContainerRunner} that the heartbeat between the container
+  * and the JobCoordinator has expired.
+  * The {@link LocalContainerRunner} exits with a non-zero
+  * exit code iff. {@link LocalContainerRunner#isHeartbeatExpired()}
+  * returns <code>true</code>
+  * */
+  private boolean isHeartbeatExpired() {
+    return heartbeatExpired;
   }
 
   @Override
@@ -101,17 +110,9 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
             containerException = t;
           }
         });
-
-    containerHeartbeatMonitor = createContainerHeartbeatMonitor();
-    if (containerHeartbeatMonitor != null) {
-      containerHeartbeatMonitor.start();
-    }
-
+    startContainerHeartbeatMonitor();
     container.run();
-
-    if (containerHeartbeatMonitor != null) {
-      containerHeartbeatMonitor.stop();
-    }
+    stopContainerHeartbeatMonitor();
     if (containerException != null) {
       log.error("Container stopped with Exception. Exiting process now.", containerException);
       System.exit(1);
@@ -156,25 +157,31 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
     LocalContainerRunner localContainerRunner = new LocalContainerRunner(jobModel, containerId);
     localContainerRunner.run(streamApp);
-    if (localContainerRunner.isContainerShutdownForced()) {
-      log.info("Exiting process due to forced shutdown.");
+    if (localContainerRunner.isHeartbeatExpired()) {
+      log.info("Exiting process due to heartbeat expiration.");
       System.exit(1);
     }
   }
 
-  private ContainerHeartbeatMonitor createContainerHeartbeatMonitor() {
+  private void startContainerHeartbeatMonitor() {
     String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
     String executionEnvContainerId = System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID());
     if (executionEnvContainerId != null) {
       log.info("Got execution environment container id: {}", executionEnvContainerId);
-      return new ContainerHeartbeatMonitor(() -> {
+      containerHeartbeatMonitor = new ContainerHeartbeatMonitor(() -> {
           container.shutdown();
-          containerShutdownForced = true;
+          heartbeatExpired = true;
         }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
+      containerHeartbeatMonitor.start();
     } else {
+      containerHeartbeatMonitor = null;
       log.warn("executionEnvContainerId not set. Container heartbeat monitor will not be started");
-      return null;
+    }
+  }
+
+  private void stopContainerHeartbeatMonitor() {
+    if (containerHeartbeatMonitor != null) {
+      containerHeartbeatMonitor.stop();
     }
   }
 }
-

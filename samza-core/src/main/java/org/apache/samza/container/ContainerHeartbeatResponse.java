@@ -19,15 +19,24 @@
 
 package org.apache.samza.container;
 
+import org.codehaus.jackson.annotate.JsonProperty;
+
+
+/**
+ * Used to represent the heartbeat response between
+ * the JobCoordinator and the containers.
+ * {@link ContainerHeartbeatResponse#isAlive()} is set to <code>true</code>
+ * iff. the heartbeat is valid.
+ */
 public class ContainerHeartbeatResponse {
 
-  private boolean alive;
+  private final boolean alive;
+
+  public ContainerHeartbeatResponse(@JsonProperty("alive") boolean alive) {
+    this.alive = alive;
+  }
 
   public boolean isAlive() {
     return alive;
-  }
-
-  public void setAlive(boolean alive) {
-    this.alive = alive;
   }
 }

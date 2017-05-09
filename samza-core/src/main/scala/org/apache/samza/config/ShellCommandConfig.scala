@@ -48,7 +48,6 @@ object ShellCommandConfig {
   /**
     * The ID assigned to the container by the execution environment (eg: YARN Container Id)
     */
-
   val ENV_EXECUTION_ENV_CONTAINER_ID = "EXECUTION_ENV_CONTAINER_ID"
 
   /*
