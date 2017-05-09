@@ -152,6 +152,15 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   }
 
   /**
+   * Gets the stream IDs of all the streams defined in the config
+   * @return collection of stream IDs
+   */
+  def getStreamIds(): Iterable[String] = {
+    // StreamIds are not allowed to have '.' so the first index of '.' marks the end of the streamId.
+    subset(StreamConfig.STREAMS_PREFIX).asScala.keys.map(key => key.substring(0, key.indexOf(".")))
+  }
+
+  /**
     * Gets the specified Samza property for a SystemStream. A Samza property is a property that controls how Samza
     * interacts with the stream, as opposed to a property of the stream itself.
     *
@@ -244,11 +253,6 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     val allProperties = subset(StreamConfig.STREAM_ID_PREFIX format streamId)
     val inheritedLegacyProperties:java.util.Map[String, String] = getSystemStreamProperties(getSystem(streamId), getPhysicalName(streamId))
     new MapConfig(java.util.Arrays.asList(inheritedLegacyProperties, allProperties))
-  }
-
-  private def getStreamIds(): Iterable[String] = {
-    // StreamIds are not allowed to have '.' so the first index of '.' marks the end of the streamId.
-    subset(StreamConfig.STREAMS_PREFIX).asScala.keys.map(key => key.substring(0, key.indexOf(".")))
   }
 
   private def getStreamIdsForSystem(system: String): Iterable[String] = {
