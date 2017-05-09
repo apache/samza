@@ -22,6 +22,7 @@ package org.apache.samza.system.kafka;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import kafka.log.LogConfig;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.system.StreamSpec;
 
@@ -62,6 +63,26 @@ public class KafkaStreamSpec extends StreamSpec {
   }
 
   /**
+   * Filter out properties from the original config that are not supported by Kafka.
+   * For example, we allow users to set replication.factor as a property of the streams
+   * and then parse it out so we can pass it separately as Kafka requires. But Kafka
+   * will also throw if replication.factor is passed as a property on a new topic.
+   *
+   * @param originalConfig  The original config to filter
+   * @return                The filtered config
+   */
+  private static Map<String, String> filterUnsupportedProperties(Map<String, String> originalConfig) {
+    Map<String, String> filteredConfig = new HashMap<>();
+    for (Map.Entry<String, String> entry: originalConfig.entrySet()) {
+      // Kafka requires replication factor, but not as a property, so we have to filter it out.
+      if (LogConfig.configNames().contains(entry.getKey())) {
+        filteredConfig.put(entry.getKey(), entry.getValue());
+      }
+    }
+    return filteredConfig;
+  }
+
+  /**
    * Converts any StreamSpec to a KafkaStreamSpec.
    * If the original spec already is a KafkaStreamSpec, it is simply returned.
    *
@@ -81,7 +102,7 @@ public class KafkaStreamSpec extends StreamSpec {
                                 originalSpec.getSystemName(),
                                 originalSpec.getPartitionCount(),
                                 replicationFactor,
-                                mapToProperties(originalSpec.getConfig()));
+                                mapToProperties(filterUnsupportedProperties(originalSpec.getConfig())));
   }
 
   /**
