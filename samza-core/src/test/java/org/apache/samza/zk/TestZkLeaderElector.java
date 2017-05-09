@@ -79,7 +79,7 @@ public class TestZkLeaderElector {
 
   @After
   public void testTeardown() {
-    testZkUtils.deleteRoot();
+    testZkUtils.getZkClient().deleteRecursive(KEY_BUILDER.getRootPath());
     testZkUtils.close();
   }
 
