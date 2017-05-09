@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
  * ZK based standalone app.
  */
 public class ScheduleAfterDebounceTime {
-  public static final Logger LOGGER = LoggerFactory.getLogger(ScheduleAfterDebounceTime.class);
+  public static final Logger LOG = LoggerFactory.getLogger(ScheduleAfterDebounceTime.class);
   public static final long TIMEOUT_MS = 1000 * 10; // timeout to wait for a task to complete
 
   // Here we predefine some actions which are used in the ZK based standalone app.
@@ -71,14 +71,14 @@ public class ScheduleAfterDebounceTime {
     // check if this action has been scheduled already
     ScheduledFuture sf = futureHandles.get(actionName);
     if (sf != null && !sf.isDone()) {
-      LOGGER.info("cancel future for " + actionName);
+      LOG.info("cancel future for " + actionName);
       // attempt to cancel
       if (!sf.cancel(false)) {
         try {
           sf.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
           // we ignore the exception
-          LOGGER.warn("cancel for action " + actionName + " failed with ", e);
+          LOG.warn("cancel for action " + actionName + " failed with ", e);
         }
       }
       futureHandles.remove(actionName);
@@ -87,9 +87,9 @@ public class ScheduleAfterDebounceTime {
     sf = scheduledExecutorService.schedule(() -> {
         try {
           runnable.run();
-          LOGGER.debug(actionName + " completed successfully.");
+          LOG.debug(actionName + " completed successfully.");
         } catch (Throwable t) {
-          LOGGER.error(actionName + " threw an exception.", t);
+          LOG.error(actionName + " threw an exception.", t);
           if (scheduledTaskFailureCallback != null) {
             scheduledTaskFailureCallback.onError(t);
           }
@@ -97,7 +97,7 @@ public class ScheduleAfterDebounceTime {
       },
      debounceTimeMs,
      TimeUnit.MILLISECONDS);
-    LOGGER.info("scheduled " + actionName + " in " + debounceTimeMs);
+    LOG.info("scheduled " + actionName + " in " + debounceTimeMs);
     futureHandles.put(actionName, sf);
   }
 
