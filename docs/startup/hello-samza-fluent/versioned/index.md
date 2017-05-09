@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Hello Samza
+title: Hello Samza Fluent Application
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -18,7 +18,7 @@ title: Hello Samza
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-The [hello-samza](https://github.com/apache/samza-hello-samza) project is a stand-alone project designed to help you run your first Samza job.
+The [hello-samza](https://github.com/apache/samza-hello-samza) project is a stand-alone project designed to help you run your first Samza application. It has examples of applications using the low-level task API as well as the high-level fluent API. The [Hello Samza tutorial] (../hello-samza/{{site.version}}/index.html) demonstrates 3 jobs created with the task API, whereas this tutorial demonstrates an equivalent application created with the fluent API. You may notice that both tutorials are remarkably similar. Indeed, from a black-box perspective, the primary difference is that we accomplish the equivalent of 3 separate jobs with a single application and we skip the intermediate topics for simplicity. 
 
 ### Get the Code
 
@@ -46,9 +46,9 @@ If you get a complaint that JAVA_HOME is not set, then you'll need to set it to 
 
 Once the grid command completes, you can verify that YARN is up and running by going to [http://localhost:8088](http://localhost:8088). This is the YARN UI.
 
-### Build a Samza Job Package
+### Build a Samza Application Package
 
-Before you can run a Samza job, you need to build a package for it. This package is what YARN uses to deploy your jobs on the grid.
+Before you can run a Samza application, you need to build a package for it. This package is what YARN uses to deploy your jobs on the grid.
 
 NOTE: if you are building from the latest branch of hello-samza project, make sure that you run the following step from your local Samza project first:
 
@@ -64,18 +64,18 @@ mkdir -p deploy/samza
 tar -xvf ./target/hello-samza-0.13.0-SNAPSHOT-dist.tar.gz -C deploy/samza
 {% endhighlight %}
 
-### Run a Samza Job
+### Run a Samza Application
 
 After you've built your Samza package, you can start a job on the grid using the run-app.sh script.
 
 {% highlight bash %}
-deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties
+deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-application.properties
 {% endhighlight %}
 
 The job will consume a feed of real-time edits from Wikipedia, and produce them to a Kafka topic called "wikipedia-raw". Give the job a minute to startup, and then tail the Kafka topic:
 
 {% highlight bash %}
-deploy/kafka/bin/kafka-console-consumer.sh  --zookeeper localhost:2181 --topic wikipedia-raw
+deploy/kafka/bin/kafka-console-consumer.sh  --zookeeper localhost:2181 --topic wikipedia-stats
 {% endhighlight %}
 
 Pretty neat, right? Now, check out the YARN UI again ([http://localhost:8088](http://localhost:8088)). This time around, you'll see your Samza job is running!
@@ -85,11 +85,6 @@ If you can not see any output from Kafka consumer, you may have connection probl
 ### Generate Wikipedia Statistics
 
 Let's calculate some statistics based on the messages in the wikipedia-raw topic. Start two more jobs:
-
-{% highlight bash %}
-deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-parser.properties
-deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-stats.properties
-{% endhighlight %}
 
 The first job (wikipedia-parser) parses the messages in wikipedia-raw, and extracts information about the size of the edit, who made the change, etc. You can take a look at its output with:
 
@@ -127,4 +122,6 @@ After you're done, you can clean everything up using the same grid script.
 bin/grid stop all
 {% endhighlight %}
 
-Congratulations! You've now setup a local grid that includes YARN, Kafka, and ZooKeeper, and run a Samza job on it. Next up, check out the [Background](/learn/documentation/{{site.version}}/introduction/background.html) and [API Overview](/learn/documentation/{{site.version}}/api/overview.html) pages.
+Congratulations! You've now setup a local grid that includes YARN, Kafka, and ZooKeeper, and run a Samza job on it. Curious how this application was built? See the code walk-through TODODODODODODODO
+
+Next up, check out the [Background](/learn/documentation/{{site.version}}/introduction/background.html) and [API Overview](/learn/documentation/{{site.version}}/api/overview.html) pages.
