@@ -1,5 +1,5 @@
 {
-  "url_kafka": "http://archive.apache.org/dist/kafka/0.10.0.1/kafka_2.10-0.10.0.1.tgz",
+  "url_kafka": "http://archive.apache.org/dist/kafka/0.10.1.1/kafka_2.10-0.10.1.1.tgz",
   "url_zookeeper": "http://archive.apache.org/dist/zookeeper/zookeeper-3.4.6/zookeeper-3.4.6.tar.gz",
   "url_hadoop": "https://archive.apache.org/dist/hadoop/common/hadoop-2.6.1/hadoop-2.6.1.tar.gz"
 }
