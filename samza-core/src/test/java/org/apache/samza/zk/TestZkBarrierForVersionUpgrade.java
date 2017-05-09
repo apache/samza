@@ -79,7 +79,7 @@ public class TestZkBarrierForVersionUpgrade {
   public void testZkBarrierForVersionUpgrade() {
     String barrierId = "b1";
     String ver = "1";
-    List<String> processors = new ArrayList<String>();
+    List<String> processors = new ArrayList<>();
     processors.add("p1");
     processors.add("p2");
 
@@ -104,7 +104,7 @@ public class TestZkBarrierForVersionUpgrade {
   public void testNegativeZkBarrierForVersionUpgrade() {
     String barrierId = "negativeZkBarrierForVersionUpgrade";
     String ver = "1";
-    List<String> processors = new ArrayList<String>();
+    List<String> processors = new ArrayList<>();
     processors.add("p1");
     processors.add("p2");
     processors.add("p3");
@@ -120,19 +120,9 @@ public class TestZkBarrierForVersionUpgrade {
 
     barrier.start(ver, processors);
 
-    barrier.waitForBarrier(ver, "p1", new Runnable() {
-      @Override
-      public void run() {
-        s.p1 = true;
-      }
-    });
+    barrier.waitForBarrier(ver, "p1", () -> s.p1 = true);
 
-    barrier.waitForBarrier(ver, "p2", new Runnable() {
-      @Override
-      public void run() {
-        s.p2 = true;
-      }
-    });
+    barrier.waitForBarrier(ver, "p2", () -> s.p2 = true);
 
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> s.p1 && s.p2 && s.p3, 2, 100));
   }
@@ -141,7 +131,7 @@ public class TestZkBarrierForVersionUpgrade {
   public void testZkBarrierForVersionUpgradeWithTimeOut() {
     String barrierId = "barrierTimeout";
     String ver = "1";
-    List<String> processors = new ArrayList<String>();
+    List<String> processors = new ArrayList<>();
     processors.add("p1");
     processors.add("p2");
     processors.add("p3");
@@ -163,9 +153,9 @@ public class TestZkBarrierForVersionUpgrade {
 
     // this node will join "too late"
     barrier.waitForBarrier(ver, "p3", () -> {
-      TestZkUtils.sleepMs(300);
-      s.p3 = true;
-    });
+        TestZkUtils.sleepMs(300);
+        s.p3 = true;
+      });
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> s.p1 && s.p2 && s.p3, 2, 400));
   }
 }
