@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import com.google.common.annotations.VisibleForTesting;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
@@ -300,6 +302,7 @@ public class ZkUtils {
     zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
   }
 
+  @VisibleForTesting
   public void deleteRoot() {
     String rootPath = keyBuilder.getRootPath();
     if (rootPath != null && !rootPath.isEmpty() && zkClient.exists(rootPath)) {
