@@ -49,10 +49,10 @@ import org.slf4j.LoggerFactory;
  */
 public class ContainerHeartbeatClient {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerHeartbeatClient.class);
-  private final String heartbeatEndpoint;
   private static final int NUM_RETRIES = 3;
   private static final int TIMEOUT_MS = 5000;
   private static final int BACKOFF_MULTIPLIER = 2;
+  private final String heartbeatEndpoint;
 
   public ContainerHeartbeatClient(String coordinatorUrl, String executionEnvContainerId) {
     this.heartbeatEndpoint =
@@ -60,8 +60,8 @@ public class ContainerHeartbeatClient {
   }
 
   /**
-   * Called by the user of the {@link ContainerHeartbeatClient}
-   * to send a request to the heartbeat endpoint.
+   * Issues a heartbeat request to the coordinator and
+   * returns the corresponding {@link ContainerHeartbeatResponse}.
    */
   public ContainerHeartbeatResponse requestHeartbeat() {
     ObjectMapper mapper = new ObjectMapper();

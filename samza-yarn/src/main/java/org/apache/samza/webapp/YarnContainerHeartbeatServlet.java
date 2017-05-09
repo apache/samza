@@ -36,7 +36,6 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 /**
  * Responds to heartbeat requests from the containers with a {@link ContainerHeartbeatResponse}.
  * The heartbeat request contains the <code> executionContainerId </code>
@@ -77,6 +76,7 @@ public class YarnContainerHeartbeatServlet extends HttpServlet {
       for (YarnContainer yarnContainer : yarnAppState.runningYarnContainers.values()) {
         if (yarnContainer.id().compareTo(yarnContainerId) == 0) {
           alive = true;
+          break;
         }
       }
       if (!alive) {

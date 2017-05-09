@@ -47,7 +47,7 @@ public class TestContainerHeartbeatClient {
   @Test
   public void testClientResponseOnBadRequest()
       throws IOException {
-    client.setThrowException(true);
+    client.shouldThrowException(true);
     ContainerHeartbeatResponse response = client.requestHeartbeat();
     Assert.assertFalse(response.isAlive());
   }
@@ -56,7 +56,7 @@ public class TestContainerHeartbeatClient {
     private String httpOutput;
     private boolean throwException = false;
 
-    public void setThrowException(boolean throwException) {
+    public void shouldThrowException(boolean throwException) {
       this.throwException = throwException;
     }
 
