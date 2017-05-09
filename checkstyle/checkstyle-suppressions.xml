@@ -30,5 +30,7 @@
   <suppress checks="ConstantName"
             files="ApplicationStatus.java"
             lines="26-29"/>
+  <suppress checks="UnusedImports"
+            files="StreamApplication.java"/>
 </suppressions>
 

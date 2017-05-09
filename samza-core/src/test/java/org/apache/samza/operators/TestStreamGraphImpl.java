@@ -28,7 +28,6 @@ import org.apache.samza.operators.stream.IntermediateStreamInternalImpl;
 import org.apache.samza.operators.stream.OutputStreamInternalImpl;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.task.TaskContext;
 import org.junit.Test;
 
 import java.util.function.BiFunction;
@@ -134,33 +133,6 @@ public class TestStreamGraphImpl {
         getMsgExtractor().apply(xInputMsg).getEventTime(), 33333L);
     assertEquals(((OutputStreamInternalImpl<String, MyMessageType, TestInputMessageEnvelope>) mOutputStream).
         getMsgExtractor().apply(xInputMsg).outputId, "test-output-id-1");
-  }
-
-  @Test
-  public void testWithContextManager() {
-    ApplicationRunner mockRunner = mock(ApplicationRunner.class);
-    Config mockConfig = mock(Config.class);
-
-    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
-
-    // ensure that default is noop
-    TaskContext mockContext = mock(TaskContext.class);
-    assertEquals(graph.getContextManager().initTaskContext(mockConfig, mockContext), mockContext);
-
-    ContextManager testContextManager = new ContextManager() {
-      @Override
-      public TaskContext initTaskContext(Config config, TaskContext context) {
-        return null;
-      }
-
-      @Override
-      public void finalizeTaskContext() {
-
-      }
-    };
-
-    graph.withContextManager(testContextManager);
-    assertEquals(graph.getContextManager(), testContextManager);
   }
 
   @Test

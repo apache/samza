@@ -22,14 +22,19 @@ package org.apache.samza.system.kafka;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import kafka.log.LogConfig;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.system.StreamSpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
  * Extends StreamSpec with the ability to easily get the topic replication factor.
  */
 public class KafkaStreamSpec extends StreamSpec {
+  private static Logger LOG = LoggerFactory.getLogger(KafkaStreamSpec.class);
+
   private static final int DEFAULT_REPLICATION_FACTOR = 2;
 
   /**
@@ -62,6 +67,30 @@ public class KafkaStreamSpec extends StreamSpec {
   }
 
   /**
+   * Filter out properties from the original config that are not supported by Kafka.
+   * For example, we allow users to set replication.factor as a property of the streams
+   * and then parse it out so we can pass it separately as Kafka requires. But Kafka
+   * will also throw if replication.factor is passed as a property on a new topic.
+   *
+   * @param originalConfig  The original config to filter
+   * @return                The filtered config
+   */
+  private static Map<String, String> filterUnsupportedProperties(Map<String, String> originalConfig) {
+    Map<String, String> filteredConfig = new HashMap<>();
+    for (Map.Entry<String, String> entry: originalConfig.entrySet()) {
+      // Kafka requires replication factor, but not as a property, so we have to filter it out.
+      if (!KafkaConfig.TOPIC_REPLICATION_FACTOR().equals(entry.getKey())) {
+        if (LogConfig.configNames().contains(entry.getKey())) {
+          filteredConfig.put(entry.getKey(), entry.getValue());
+        } else {
+          LOG.warn("Property '{}' is not a valid Kafka topic config. It will be ignored.");
+        }
+      }
+    }
+    return filteredConfig;
+  }
+
+  /**
    * Converts any StreamSpec to a KafkaStreamSpec.
    * If the original spec already is a KafkaStreamSpec, it is simply returned.
    *
@@ -81,7 +110,7 @@ public class KafkaStreamSpec extends StreamSpec {
                                 originalSpec.getSystemName(),
                                 originalSpec.getPartitionCount(),
                                 replicationFactor,
-                                mapToProperties(originalSpec.getConfig()));
+                                mapToProperties(filterUnsupportedProperties(originalSpec.getConfig())));
   }
 
   /**
@@ -109,7 +138,7 @@ public class KafkaStreamSpec extends StreamSpec {
    * @param systemName        The System name on which this stream will exist. Corresponds to a named implementation of the
    *                          Samza System abstraction. See {@link org.apache.samza.system.SystemFactory}
    *
-   * @param partitionCount    The number of partitionts for the stream. A value of {@code 1} indicates unpartitioned.
+   * @param partitionCount    The number of partitions for the stream. A value of {@code 1} indicates unpartitioned.
    *
    * @param replicationFactor The number of topic replicas in the Kafka cluster for durability.
    *

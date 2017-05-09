@@ -56,7 +56,7 @@ public class StreamGraphImpl implements StreamGraph {
   private final ApplicationRunner runner;
   private final Config config;
 
-  private ContextManager contextManager = new ContextManager() { };
+  private ContextManager contextManager = null;
 
   public StreamGraphImpl(ApplicationRunner runner, Config config) {
     // TODO: SAMZA-1118 - Move StreamSpec and ApplicationRunner out of StreamGraphImpl once Systems

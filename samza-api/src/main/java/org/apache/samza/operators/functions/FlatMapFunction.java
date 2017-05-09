@@ -24,8 +24,8 @@ import java.util.Collection;
 
 
 /**
- * A function that transforms an input message into a collection of 0 or more messages,
- * possibly of a different type.
+ * Transforms an input message into a collection of 0 or more messages, possibly of a different type.
+ *
  * @param <M>  type of the input message
  * @param <OM>  type of the transformed messages
  */
@@ -35,6 +35,7 @@ public interface FlatMapFunction<M, OM>  extends InitableFunction {
 
   /**
    * Transforms the provided message into a collection of 0 or more messages.
+   *
    * @param message  the input message to be transformed
    * @return  a collection of 0 or more transformed messages
    */

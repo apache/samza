@@ -39,7 +39,8 @@ class TestProcessJob {
     job.waitForFinish(999999)
   }
 
-  @Test
+  // TODO: fix in SAMZA-1261
+  // @Test
   def testProcessJobKillShouldWork {
     val commandBuilder = new CommandBuilder {
       override def buildCommand = "sleep 999999999"

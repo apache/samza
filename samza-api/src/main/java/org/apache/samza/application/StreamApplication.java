@@ -20,54 +20,69 @@ package org.apache.samza.application;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.ContextManager;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
-
+import org.apache.samza.operators.functions.InitableFunction;
+import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.TaskContext;
 
 /**
- * This interface defines a template for stream application that user will implement to initialize operator DAG in {@link StreamGraph}.
- *
+ * Describes and initializes the transforms for processing message streams and generating results.
  * <p>
- * User program implements {@link StreamApplication#init(StreamGraph, Config)} method to initialize the transformation logic
- * from all input streams to output streams. A simple user code example is shown below:
- * </p>
- *
+ * The following example removes page views older than 1 hour from the input stream:
  * <pre>{@code
- * public class PageViewCounterExample implements StreamApplication {
- *   // max timeout is 60 seconds
- *   private static final MAX_TIMEOUT = 60000;
- *
+ * public class PageViewCounter implements StreamApplication {
  *   public void init(StreamGraph graph, Config config) {
- *     MessageStream<PageViewEvent> pageViewEvents = graph.getInputStream("pageViewEventStream", (k, m) -> (PageViewEvent) m);
- *     OutputStream<String, PageViewEvent, PageViewEvent> pageViewEventFilteredStream = graph
- *       .getOutputStream("pageViewEventFiltered", m -> m.memberId, m -> m);
+ *     MessageStream<PageViewEvent> pageViewEvents =
+ *       graph.getInputStream("pageViewEvents", (k, m) -> (PageViewEvent) m);
+ *     OutputStream<String, PageViewEvent, PageViewEvent> recentPageViewEvents =
+ *       graph.getOutputStream("recentPageViewEvents", m -> m.memberId, m -> m);
  *
  *     pageViewEvents
- *       .filter(m -> !(m.getMessage().getEventTime() < System.currentTimeMillis() - MAX_TIMEOUT))
- *       .sendTo(pageViewEventFilteredStream);
+ *       .filter(m -> m.getCreationTime() > System.currentTimeMillis() - Duration.ofHours(1).toMillis())
+ *       .sendTo(filteredPageViewEvents);
  *   }
- *
- *   // local execution mode
+ * }
+ * }</pre>
+ *<p>
+ * The example above can be run using an ApplicationRunner:
+ * <pre>{@code
  *   public static void main(String[] args) {
  *     CommandLine cmdLine = new CommandLine();
  *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
- *     PageViewCounterExample userApp = new PageViewCounterExample();
- *     ApplicationRunner localRunner = ApplicationRunner.getLocalRunner(config);
- *     localRunner.run(userApp);
+ *     PageViewCounter app = new PageViewCounter();
+ *     LocalApplicationRunner runner = new LocalApplicationRunner(config);
+ *     runner.run(app);
+ *     runner.waitForFinish();
  *   }
- *
- * }
  * }</pre>
- *
+ * <p>
+ * Implementation Notes: Currently StreamApplications are wrapped in a {@link StreamTask} during execution.
+ * A new StreamApplication instance will be created and initialized when planning the execution, as well as for each
+ * {@link StreamTask} instance used for processing incoming messages. Execution is synchronous and thread-safe
+ * within each {@link StreamTask}.
  */
 @InterfaceStability.Unstable
 public interface StreamApplication {
 
   /**
-   * Users are required to implement this abstract method to initialize the processing logic of the application, in terms
-   * of a DAG of {@link org.apache.samza.operators.MessageStream}s and operators
+   * Describes and initializes the transforms for processing message streams and generating results.
+   * <p>
+   * The {@link StreamGraph} provides access to input and output streams. Input {@link MessageStream}s can be
+   * transformed into other {@link MessageStream}s or sent to an {@link OutputStream} using the {@link MessageStream}
+   * operators.
+   * <p>
+   * Most operators accept custom functions for doing the transformations. These functions are {@link InitableFunction}s
+   * and are provided the {@link Config} and {@link TaskContext} during their own initialization. The config and the
+   * context can be used, for example, to create custom metrics or access durable state stores.
+   * <p>
+   * A shared context between {@link InitableFunction}s for different operators within a task instance can be set
+   * up by providing a {@link ContextManager} using {@link StreamGraph#withContextManager}.
    *
-   * @param graph  an empty {@link StreamGraph} object to be initialized
-   * @param config  the {@link Config} of the application
+   * @param graph the {@link StreamGraph} to get input/output streams from
+   * @param config the configuration for the application
    */
   void init(StreamGraph graph, Config config);
 
