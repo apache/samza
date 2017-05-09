@@ -62,7 +62,6 @@ public class TestZkBarrierForVersionUpgrade {
 
     CoordinationServiceFactory serviceFactory = new ZkCoordinationServiceFactory();
     coordinationUtils = serviceFactory.getCoordinationService(groupId, processorId, config);
-    coordinationUtils.reset();
   }
 
   @After
@@ -94,27 +93,16 @@ public class TestZkBarrierForVersionUpgrade {
 
     barrier.start(ver, processors);
 
-    barrier.waitForBarrier(ver, "p1", new Runnable() {
-      @Override
-      public void run() {
-        s.p1 = true;
-      }
-    });
+    barrier.waitForBarrier(ver, "p1", () -> s.p1 = true);
 
-    barrier.waitForBarrier(ver, "p2", new Runnable() {
-      @Override
-      public void run() {
-        s.p2 = true;
-      }
-    });
+    barrier.waitForBarrier(ver, "p2", () -> s.p2 = true);
 
     Assert.assertTrue(TestZkUtils.testWithDelayBackOff(() -> s.p1 && s.p2, 2, 100));
   }
 
   @Test
   public void testNegativeZkBarrierForVersionUpgrade() {
-
-    String barrierId = "b1";
+    String barrierId = "negativeZkBarrierForVersionUpgrade";
     String ver = "1";
     List<String> processors = new ArrayList<String>();
     processors.add("p1");
@@ -151,7 +139,7 @@ public class TestZkBarrierForVersionUpgrade {
 
   @Test
   public void testZkBarrierForVersionUpgradeWithTimeOut() {
-    String barrierId = "b1";
+    String barrierId = "barrierTimeout";
     String ver = "1";
     List<String> processors = new ArrayList<String>();
     processors.add("p1");
@@ -169,27 +157,14 @@ public class TestZkBarrierForVersionUpgrade {
 
     barrier.start(ver, processors);
 
-    barrier.waitForBarrier(ver, "p1", new Runnable() {
-      @Override
-      public void run() {
-        s.p1 = true;
-      }
-    });
+    barrier.waitForBarrier(ver, "p1", () -> s.p1 = true);
 
-    barrier.waitForBarrier(ver, "p2", new Runnable() {
-      @Override
-      public void run() {
-        s.p2 = true;
-      }
-    });
+    barrier.waitForBarrier(ver, "p2", () -> s.p2 = true);
 
     // this node will join "too late"
-    barrier.waitForBarrier(ver, "p3", new Runnable() {
-      @Override
-      public void run() {
-        TestZkUtils.sleepMs(300);
-        s.p3 = true;
-      }
+    barrier.waitForBarrier(ver, "p3", () -> {
+      TestZkUtils.sleepMs(300);
+      s.p3 = true;
     });
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> s.p1 && s.p2 && s.p3, 2, 400));
   }
