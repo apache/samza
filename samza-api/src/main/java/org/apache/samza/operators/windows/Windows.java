@@ -44,7 +44,7 @@ import java.util.function.Supplier;
  *
  * <p> A window can have early triggers that allow emitting {@link WindowPane}s speculatively before all data
  * for the window has arrived, or late triggers that allow handling late arrivals of data.
- *
+ * <pre>
  *                                     window wk1
  *                                      +--------------------------------+
  *                                      ------------+--------+-----------+
@@ -68,7 +68,7 @@ import java.util.function.Supplier;
  *                                      |          |           |         |
  *                                      +----------+-----------+---------+
  *
- *
+ * </pre>
  * <p> A {@link Window} can be one of the following types:
  * <ul>
  *   <li>
