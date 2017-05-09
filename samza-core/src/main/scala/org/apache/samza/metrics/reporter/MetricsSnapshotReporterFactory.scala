@@ -21,7 +21,7 @@ package org.apache.samza.metrics.reporter
 
 import org.apache.samza.util.Logging
 import org.apache.samza.SamzaException
-import org.apache.samza.config.Config
+import org.apache.samza.config.{ApplicationConfig, Config}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.SystemConfig.Config2System
@@ -49,7 +49,8 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
     val taskClass = config
       .getTaskClass
-      .getOrElse(throw new SamzaException("No task class defined for config."))
+      .orElse(Option(new ApplicationConfig(config).getAppClass()))
+      .getOrElse(throw new SamzaException("No task or app class defined for config."))
 
     val version = Option(Class.forName(taskClass).getPackage.getImplementationVersion)
       .getOrElse({

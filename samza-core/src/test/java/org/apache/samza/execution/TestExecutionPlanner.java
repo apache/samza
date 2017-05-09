@@ -23,10 +23,12 @@ import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
@@ -40,12 +42,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -151,6 +155,32 @@ public class TestExecutionPlanner {
 
     m1.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).sendTo(output1);
     m3.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(output2);
+
+    return streamGraph;
+  }
+
+  private StreamGraphImpl createStreamGraphWithJoinAndWindow() {
+
+    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    BiFunction msgBuilder = mock(BiFunction.class);
+    MessageStream m1 = streamGraph.getInputStream("input1", msgBuilder).map(m -> m);
+    MessageStream m2 = streamGraph.getInputStream("input2", msgBuilder).partitionBy(m -> "haha").filter(m -> true);
+    MessageStream m3 = streamGraph.getInputStream("input3", msgBuilder).filter(m -> true).partitionBy(m -> "hehe").map(m -> m);
+    Function mockFn = mock(Function.class);
+    OutputStream<Object, Object, Object> output1 = streamGraph.getOutputStream("output1", mockFn, mockFn);
+    OutputStream<Object, Object, Object> output2 = streamGraph.getOutputStream("output2", mockFn, mockFn);
+
+    m1.map(m -> m)
+        .filter(m->true)
+        .window(Windows.<Object, Object>keyedTumblingWindow(m -> m, Duration.ofMillis(8)));
+
+    m2.map(m -> m)
+        .filter(m->true)
+        .window(Windows.<Object, Object>keyedTumblingWindow(m -> m, Duration.ofMillis(16)));
+
+    m1.join(m2, mock(JoinFunction.class), Duration.ofMillis(1600)).sendTo(output1);
+    m3.join(m2, mock(JoinFunction.class), Duration.ofMillis(100)).sendTo(output2);
+    m3.join(m2, mock(JoinFunction.class), Duration.ofMillis(252)).sendTo(output2);
 
     return streamGraph;
   }
@@ -261,6 +291,84 @@ public class TestExecutionPlanner {
     jobGraph.getIntermediateStreams().forEach(edge -> {
         assertTrue(edge.getPartitionCount() == DEFAULT_PARTITIONS);
       });
+  }
+
+  @Test
+  public void testTriggerIntervalForJoins() throws Exception {
+    Map<String, String> map = new HashMap<>(config);
+    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
+    Config cfg = new MapConfig(map);
+
+    ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
+    StreamGraphImpl streamGraph = createStreamGraphWithJoin();
+    ExecutionPlan plan = planner.plan(streamGraph);
+    List<JobConfig> jobConfigs = plan.getJobConfigs();
+    for (JobConfig config : jobConfigs) {
+      System.out.println(config);
+    }
+  }
+
+  @Test
+  public void testTriggerIntervalForWindowsAndJoins() throws Exception {
+    Map<String, String> map = new HashMap<>(config);
+    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
+    Config cfg = new MapConfig(map);
+
+    ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
+    StreamGraphImpl streamGraph = createStreamGraphWithJoinAndWindow();
+    ExecutionPlan plan = planner.plan(streamGraph);
+    List<JobConfig> jobConfigs = plan.getJobConfigs();
+    assertEquals(jobConfigs.size(), 1);
+
+    // GCD of 8, 16, 1600 and 252 is 4
+    assertEquals(jobConfigs.get(0).get(TaskConfig.WINDOW_MS()), "4");
+  }
+
+  @Test
+  public void testTriggerIntervalWithInvalidWindowMs() throws Exception {
+    Map<String, String> map = new HashMap<>(config);
+    map.put(TaskConfig.WINDOW_MS(), "-1");
+    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
+    Config cfg = new MapConfig(map);
+
+    ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
+    StreamGraphImpl streamGraph = createStreamGraphWithJoinAndWindow();
+    ExecutionPlan plan = planner.plan(streamGraph);
+    List<JobConfig> jobConfigs = plan.getJobConfigs();
+    assertEquals(jobConfigs.size(), 1);
+
+    // GCD of 8, 16, 1600 and 252 is 4
+    assertEquals(jobConfigs.get(0).get(TaskConfig.WINDOW_MS()), "4");
+  }
+
+
+  @Test
+  public void testTriggerIntervalForStatelessOperators() throws Exception {
+    Map<String, String> map = new HashMap<>(config);
+    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
+    Config cfg = new MapConfig(map);
+
+    ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
+    StreamGraphImpl streamGraph = createSimpleGraph();
+    ExecutionPlan plan = planner.plan(streamGraph);
+    List<JobConfig> jobConfigs = plan.getJobConfigs();
+    assertEquals(jobConfigs.size(), 1);
+    assertFalse(jobConfigs.get(0).containsKey(TaskConfig.WINDOW_MS()));
+  }
+
+  @Test
+  public void testTriggerIntervalWhenWindowMsIsConfigured() throws Exception {
+    Map<String, String> map = new HashMap<>(config);
+    map.put(TaskConfig.WINDOW_MS(), "2000");
+    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
+    Config cfg = new MapConfig(map);
+
+    ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
+    StreamGraphImpl streamGraph = createSimpleGraph();
+    ExecutionPlan plan = planner.plan(streamGraph);
+    List<JobConfig> jobConfigs = plan.getJobConfigs();
+    assertEquals(jobConfigs.size(), 1);
+    assertEquals(jobConfigs.get(0).get(TaskConfig.WINDOW_MS()), "2000");
   }
 
   @Test

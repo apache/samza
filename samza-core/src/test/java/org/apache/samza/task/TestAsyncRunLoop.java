@@ -52,11 +52,11 @@ import scala.collection.JavaConverters;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyObject;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.atLeastOnce;
 
 // TODO(spvenkat) SAMZA-1183: Fix all commented out tests.
 public class TestAsyncRunLoop {
@@ -341,7 +341,8 @@ public class TestAsyncRunLoop {
     assertEquals(4, task1.windowCount);
   }
 
-  //@Test
+  // TODO fix in SAMZA-1183
+  // @Test
   public void testCommitSingleTask() throws Exception {
     CountDownLatch task0ProcessedMessagesLatch = new CountDownLatch(1);
     CountDownLatch task1ProcessedMessagesLatch = new CountDownLatch(1);

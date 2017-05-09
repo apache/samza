@@ -19,45 +19,37 @@
 
 package org.apache.samza.metrics
 
-import org.junit.Assert._
-import org.junit.Test
+import javax.management.remote.JMXConnectorServer
+import javax.management.remote.JMXConnectorServerFactory
 import org.apache.samza.util.Logging
+import org.junit.runner.RunWith
+import org.junit.Test
+import org.mockito.Matchers.anyObject
+import org.mockito.Mockito.atLeastOnce
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.when
+import org.powermock.api.mockito.PowerMockito
+import org.powermock.core.classloader.annotations.PowerMockIgnore
+import org.powermock.core.classloader.annotations.PrepareForTest
+import org.powermock.modules.junit4.PowerMockRunner
 
-import java.io.IOException
-
-import javax.management.remote.{JMXConnector, JMXConnectorFactory, JMXServiceURL}
-
+@RunWith(classOf[PowerMockRunner])
+@PrepareForTest(Array(classOf[JMXConnectorServerFactory]))
+@PowerMockIgnore(Array("javax.management.*"))
 class TestJmxServer extends Logging {
 
-  // TODO: Fix in SAMZA-1206
-  //@Test
-  def serverStartsUp {
-    var jmxServer: JmxServer = null
+  @Test
+  def serverStartsUp() {
+    val mockJMXConnectorServer: JMXConnectorServer = mock(classOf[JMXConnectorServer])
 
-    try {
-      jmxServer = new JmxServer
+    PowerMockito.mockStatic(classOf[JMXConnectorServerFactory])
+    when(JMXConnectorServerFactory.newJMXConnectorServer(anyObject(), anyObject(), anyObject())).thenReturn(mockJMXConnectorServer)
 
-      println("JmxServer = %s" format jmxServer)
-      println("Got jmxServer on port " + jmxServer.getRegistryPort)
+    val jmxServer: JmxServer = new JmxServer
+    jmxServer.stop
 
-      val jmxURL = new JMXServiceURL(jmxServer.getJmxUrl)
-      var jmxConnector:JMXConnector = null
-      try {
-        jmxConnector = JMXConnectorFactory.connect(jmxURL, null)
-        val connection = jmxConnector.getMBeanServerConnection()
-        assertTrue("Connected but mbean count is somehow 0", connection.getMBeanCount.intValue() > 0)
-      } catch {
-        case ioe:IOException => fail("Couldn't open connection to local JMX server")
-      } finally {
-        if (jmxConnector != null) {
-          jmxConnector.close
-        }
-      }
-
-    } finally {
-      if (jmxServer != null) {
-        jmxServer.stop
-      }
-    }
+    verify(mockJMXConnectorServer, atLeastOnce()).start()
+    verify(mockJMXConnectorServer, atLeastOnce()).stop()
   }
 }

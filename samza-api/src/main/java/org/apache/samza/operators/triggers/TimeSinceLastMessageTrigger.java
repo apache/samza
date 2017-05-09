@@ -24,7 +24,7 @@ import java.time.Duration;
  * A {@link Trigger} that fires when there are no new {@link MessageEnvelope}s in the window pane for the specified duration.
  * @param <M> the type of the incoming {@link MessageEnvelope}
  */
-public class TimeSinceLastMessageTrigger<M> implements Trigger<M> {
+public class TimeSinceLastMessageTrigger<M> implements Trigger<M>, TimeBasedTrigger<M> {
 
   private final Duration duration;
   private final DurationCharacteristic characteristic = DurationCharacteristic.PROCESSING_TIME;
@@ -33,6 +33,7 @@ public class TimeSinceLastMessageTrigger<M> implements Trigger<M> {
     this.duration = duration;
   }
 
+  @Override
   public Duration getDuration() {
     return duration;
   }

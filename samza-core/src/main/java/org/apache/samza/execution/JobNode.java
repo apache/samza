@@ -21,6 +21,7 @@ package org.apache.samza.execution;
 
 import com.google.common.base.Joiner;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,10 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
+import org.apache.samza.operators.spec.WindowOperatorSpec;
+import org.apache.samza.operators.util.MathUtils;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -104,6 +109,17 @@ public class JobNode {
 
     List<String> inputs = inEdges.stream().map(edge -> edge.getFormattedSystemStream()).collect(Collectors.toList());
     configs.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
+
+    // set triggering interval if a window or join is defined
+    if (streamGraph.hasWindowOrJoins()) {
+      if ("-1".equals(config.get(TaskConfig.WINDOW_MS(), "-1"))) {
+        long triggerInterval = computeTriggerInterval();
+        log.info("Using triggering interval: {} for jobName: {}", triggerInterval, jobName);
+
+        configs.put(TaskConfig.WINDOW_MS(), String.valueOf(triggerInterval));
+      }
+    }
+
     log.info("Job {} has generated configs {}", jobName, configs);
 
     configs.put(CONFIG_INTERNAL_EXECUTION_PLAN, executionPlanJson);
@@ -111,6 +127,34 @@ public class JobNode {
     String configPrefix = String.format(CONFIG_JOB_PREFIX, jobName);
     // TODO: Disallow user specifying job inputs/outputs. This info comes strictly from the pipeline.
     return new JobConfig(Util.rewriteConfig(extractScopedConfig(config, new MapConfig(configs), configPrefix)));
+  }
+
+  /**
+   * Computes the triggering interval to use during the execution of this {@link JobNode}
+   */
+  private long computeTriggerInterval() {
+    // Obtain the operator specs from the streamGraph
+    Collection<OperatorSpec> operatorSpecs = streamGraph.getAllOperatorSpecs();
+
+    // Filter out window operators, and obtain a list of their triggering interval values
+    List<Long> windowTimerIntervals = operatorSpecs.stream()
+        .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.WINDOW)
+        .map(spec -> ((WindowOperatorSpec) spec).getDefaultTriggerMs())
+        .collect(Collectors.toList());
+
+    // Filter out the join operators, and obtain a list of their ttl values
+    List<Long> joinTtlIntervals = operatorSpecs.stream()
+        .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.JOIN)
+        .map(spec -> ((PartialJoinOperatorSpec) spec).getTtlMs())
+        .collect(Collectors.toList());
+
+    // Combine both the above lists
+    List<Long> candidateTimerIntervals = new ArrayList<>(joinTtlIntervals);
+    candidateTimerIntervals.addAll(windowTimerIntervals);
+
+    // Compute the gcd of the resultant list
+    long timerInterval = MathUtils.gcd(candidateTimerIntervals);
+    return timerInterval;
   }
 
   /**
