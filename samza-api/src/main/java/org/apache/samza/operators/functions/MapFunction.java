@@ -22,7 +22,8 @@ import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * A function that transforms an input message into another message, possibly of a different type.
+ * Transforms an input message into another message, possibly of a different type.
+ *
  * @param <M>  type of the input message
  * @param <OM>  type of the transformed message
  */
@@ -33,7 +34,7 @@ public interface MapFunction<M, OM>  extends InitableFunction {
   /**
    * Transforms the provided message into another message.
    *
-   * @param message  the input message to be transformed. This object should not be mutated.
+   * @param message  the input message to be transformed
    * @return  the transformed message
    */
   OM apply(M message);

@@ -24,16 +24,17 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * Provides APIs for accessing {@link MessageStream}s to be used to create the DAG of transforms.
+ * Provides access to {@link MessageStream}s and {@link OutputStream}s used to describe the processing logic.
  */
 @InterfaceStability.Unstable
 public interface StreamGraph {
 
   /**
-   * Gets the input {@link MessageStream} corresponding to the logical {@code streamId}. Multiple invocations of
-   * this method with the same {@code streamId} will throw an {@link IllegalStateException}
+   * Gets the input {@link MessageStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
-   * @param streamId the unique logical ID for the stream
+   * @param streamId the unique ID for the stream
    * @param msgBuilder the {@link BiFunction} to convert the incoming key and message to a message
    *                   in the input {@link MessageStream}
    * @param <K> the type of key in the incoming message
@@ -45,10 +46,11 @@ public interface StreamGraph {
   <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<? super K, ? super V, ? extends M> msgBuilder);
 
   /**
-   * Gets the {@link OutputStream} corresponding to the logical {@code streamId}. Multiple invocations of
-   * this method with the same {@code streamId} will throw an {@link IllegalStateException}
+   * Gets the {@link OutputStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
-   * @param streamId the unique logical ID for the stream
+   * @param streamId the unique ID for the stream
    * @param keyExtractor the {@link Function} to extract the outgoing key from the output message
    * @param msgExtractor the {@link Function} to extract the outgoing message from the output message
    * @param <K> the type of key in the outgoing message
@@ -62,12 +64,12 @@ public interface StreamGraph {
 
   /**
    * Sets the {@link ContextManager} for this {@link StreamGraph}.
-   *
-   * The provided {@code contextManager} will be initialized before the transformation functions
-   * and can be used to setup shared context between them.
+   * <p>
+   * The provided {@link ContextManager} can be used to setup shared context between the operator functions
+   * within a task instance
    *
    * @param contextManager the {@link ContextManager} to use for the {@link StreamGraph}
-   * @return the {@link StreamGraph} with the {@code contextManager} as its {@link ContextManager}
+   * @return the {@link StreamGraph} with {@code contextManager} set as its {@link ContextManager}
    */
   StreamGraph withContextManager(ContextManager contextManager);
 

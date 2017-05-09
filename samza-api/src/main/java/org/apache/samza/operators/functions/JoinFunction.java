@@ -22,8 +22,8 @@ import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * A function that joins messages from two {@link org.apache.samza.operators.MessageStream}s and produces
- * a joined message.
+ * Joins incoming messages in two streams by key.
+ *
  * @param <K>  type of the join key
  * @param <M>  type of the input message
  * @param <JM>  type of the message to join with
@@ -33,7 +33,8 @@ import org.apache.samza.annotation.InterfaceStability;
 public interface JoinFunction<K, M, JM, RM>  extends InitableFunction {
 
   /**
-   * Join the provided input messages and produces the joined messages.
+   * Joins the provided messages and returns the joined message.
+   *
    * @param message  the input message
    * @param otherMessage  the message to join with
    * @return  the joined message
@@ -41,17 +42,17 @@ public interface JoinFunction<K, M, JM, RM>  extends InitableFunction {
   RM apply(M message, JM otherMessage);
 
   /**
-   * Method to get the join key in the messages from the first input stream
+   * Get the join key for messages in the first input stream.
    *
-   * @param message  the input message from the first input stream
+   * @param message  the message in the first input stream
    * @return  the join key
    */
   K getFirstKey(M message);
 
   /**
-   * Method to get the join key in the messages from the second input stream
+   * Get the join key for messages in the second input stream.
    *
-   * @param message  the input message from the second input stream
+   * @param message  the message in the second input stream
    * @return  the join key
    */
   K getSecondKey(JM message);

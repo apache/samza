@@ -24,16 +24,16 @@ import org.apache.samza.task.TaskContext;
 
 
 /**
- * interface defined to initalize the context of message transformation functions
+ * A function that can be initialized before execution.
  */
 @InterfaceStability.Unstable
 public interface InitableFunction {
 
   /**
-   * Interface method to initialize the context for a specific message transformation function.
+   * Initializes the function before any messages are processed.
    *
-   * @param config  the {@link Config} object for this task
-   * @param context  the {@link TaskContext} object for this task
+   * @param config the {@link Config} for the application
+   * @param context the {@link TaskContext} for this task
    */
   default void init(Config config, TaskContext context) { }
 

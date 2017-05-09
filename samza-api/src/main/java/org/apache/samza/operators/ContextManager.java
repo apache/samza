@@ -24,24 +24,26 @@ import org.apache.samza.task.TaskContext;
 
 
 /**
- * Interface class defining methods to initialize and finalize the context used by the transformation functions.
+ * Manages custom context that is shared across multiple operator functions in a task.
  */
 @InterfaceStability.Unstable
 public interface ContextManager {
-  /**
-   * The initialization method to create shared context for the whole task in Samza. Default to NO-OP
-   *
-   * @param config  the configuration object for the task
-   * @param context  the {@link TaskContext} object
-   * @return  User-defined task-wide context object
-   */
-  default TaskContext initTaskContext(Config config, TaskContext context) {
-    return context;
-  }
 
   /**
-   * The finalize method to allow users to close resource initialized in {@link #initTaskContext} method. Default to NO-OP.
+   * Allows initializing and setting a custom context that is shared across multiple operator functions in a task.
+   * <p>
+   * This method is invoked before any {@link org.apache.samza.operators.functions.InitableFunction}s are initialized.
+   * Use {@link TaskContext#setUserContext(Object)} to set the context here and {@link TaskContext#getUserContext()} to
+   * get it in InitableFunctions.
    *
+   * @param config the {@link Config} for the application
+   * @param context the {@link TaskContext} for this task
    */
-  default void finalizeTaskContext() { }
+  void init(Config config, TaskContext context);
+
+  /**
+   * Allows closing the custom context that is shared across multiple operator functions in a task.
+   */
+  void close();
+
 }

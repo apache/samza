@@ -86,13 +86,15 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     // initialize the user-implemented stream application.
     this.streamApplication.init(streamGraph, config);
 
-    // get the user-implemented context manager and initialize the task-specific context.
+    // get the user-implemented context manager and initialize it
     this.contextManager = streamGraph.getContextManager();
-    TaskContext initializedTaskContext = this.contextManager.initTaskContext(config, context);
+    if (this.contextManager != null) {
+      this.contextManager.init(config, context);
+    }
 
     // create the operator impl DAG corresponding to the logical operator spec DAG
     OperatorImplGraph operatorImplGraph = new OperatorImplGraph(clock);
-    operatorImplGraph.init(streamGraph, config, initializedTaskContext);
+    operatorImplGraph.init(streamGraph, config, context);
     this.operatorImplGraph = operatorImplGraph;
 
     // TODO: SAMZA-1118 - Remove mapping after SystemConsumer starts returning logical streamId with incoming messages
@@ -135,6 +137,8 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   @Override
   public void close() throws Exception {
-    this.contextManager.finalizeTaskContext();
+    if (this.contextManager != null) {
+      this.contextManager.close();
+    }
   }
 }
