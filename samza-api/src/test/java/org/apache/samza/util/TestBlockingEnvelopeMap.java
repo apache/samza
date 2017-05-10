@@ -213,7 +213,7 @@ public class TestBlockingEnvelopeMap {
     }
 
     public MockBlockingEnvelopeMap(boolean fetchLimitByBytesEnabled) {
-      super(new NoOpMetricsRegistry(), CLOCK, null, fetchLimitByBytesEnabled);
+      super(new NoOpMetricsRegistry(), CLOCK, null);
       injectedQueue = new MockQueue();
     }
 
