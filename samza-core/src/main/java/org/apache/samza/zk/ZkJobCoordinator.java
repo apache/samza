@@ -115,6 +115,12 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   //////////////////////////////////////////////// LEADER stuff ///////////////////////////
   @Override
   public void onProcessorChange(List<String> processors) {
+    if(processors == null) {
+      // this may happen only in case of some exception in ZK. Exception should be visible in the logs.
+      // it makes no sense to pass it further down.
+      LOG.error("onProcessorChange in ZkJobCoordinator was invoked with NULL list of children");
+      return;
+    }
     LOG.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
     debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
         ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> doOnProcessorChange(processors));
