@@ -35,6 +35,11 @@ object StorageConfig {
   val CHANGELOG_SYSTEM = "job.changelog.system"
   val CHANGELOG_DELETE_RETENTION_MS = "stores.%s.changelog.delete.retention.ms"
   val DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1)
+  val ACCESSLOG_STREAM = "access-log"
+  val ACCESSLOG_SAMPLE = "stores.%s.accesslog.sample"
+  val ACCESSLOG_STATUS = "stores.%s.accesslog"
+  val DEFAULT_ACCESSLOG_SAMPLE = 80
+
 
   implicit def Config2Storage(config: Config) = new StorageConfig(config)
 }
@@ -48,6 +53,17 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
   def getChangelogStream(name: String) = {
     val javaStorageConfig = new JavaStorageConfig(config)
     Option(javaStorageConfig.getChangelogStream(name))
+  }
+
+  //Given a system, this method returns the accesslog system stream
+  def getAccessLogStream(changeLogStream: String) = {
+    changeLogStream + "-" + ACCESSLOG_STREAM
+  }
+
+  def getSamplingSetting(storeName: String) = {
+    if (containsKey(ACCESSLOG_SAMPLE format storeName))
+      getInt(ACCESSLOG_SAMPLE format storeName)
+    DEFAULT_ACCESSLOG_SAMPLE
   }
 
   def getChangeLogDeleteRetentionInMs(storeName: String) = {

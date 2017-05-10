@@ -38,7 +38,8 @@ class SerdeManager(
     .toBytes(obj)
 
   def toBytes(envelope: OutgoingMessageEnvelope): OutgoingMessageEnvelope = {
-    val key = if (changeLogSystemStreams.contains(envelope.getSystemStream)) {
+    val key = if (changeLogSystemStreams.contains(envelope.getSystemStream)
+      || envelope.getSystemStream.getStream.endsWith("access-log")) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getKey
     } else if (envelope.getKeySerializerName != null) {
@@ -55,7 +56,8 @@ class SerdeManager(
       envelope.getKey
     }
 
-    val message = if (changeLogSystemStreams.contains(envelope.getSystemStream)) {
+    val message = if (changeLogSystemStreams.contains(envelope.getSystemStream)
+      || envelope.getSystemStream.getStream.endsWith("access-log")) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getMessage
     } else if (envelope.getMessageSerializerName != null) {
@@ -90,7 +92,8 @@ class SerdeManager(
     .fromBytes(bytes)
 
   def fromBytes(envelope: IncomingMessageEnvelope) = {
-    val key = if (changeLogSystemStreams.contains(envelope.getSystemStreamPartition.getSystemStream)) {
+    val key = if (changeLogSystemStreams.contains(envelope.getSystemStreamPartition.getSystemStream)
+      || envelope.getSystemStreamPartition.getStream.endsWith("access-log") ) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getKey
     } else if (systemStreamKeySerdes.contains(envelope.getSystemStreamPartition)) {
@@ -104,7 +107,8 @@ class SerdeManager(
       envelope.getKey
     }
 
-    val message = if (changeLogSystemStreams.contains(envelope.getSystemStreamPartition.getSystemStream)) {
+    val message = if (changeLogSystemStreams.contains(envelope.getSystemStreamPartition.getSystemStream)
+      || envelope.getSystemStreamPartition.getStream.endsWith("access-log")) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getMessage
     } else if (systemStreamMessageSerdes.contains(envelope.getSystemStreamPartition)) {
