@@ -104,7 +104,7 @@ public interface MessageStream<M> {
    * <p>
    * Use the {@link org.apache.samza.operators.windows.Windows} helper methods to create the appropriate windows.
    * <p>
-   * <b>Note:</b> As of version 0.13.0, messages in windows are kept in memory and may be lost in case of failures.
+   * <b>Note:</b> As of version 0.13.0, messages in windows are kept in memory and will be lost during restarts.
    *
    * @param window the window to group and process messages from this {@link MessageStream}
    * @param <K> the type of key in the message in this {@link MessageStream}. If a key is specified,
@@ -121,7 +121,7 @@ public interface MessageStream<M> {
    * Messages in each stream are retained for the provided {@code ttl} and join results are
    * emitted as matches are found.
    * <p>
-   * <b>Note:</b> As of version 0.13.0, messages in joins are kept in memory and may be lost in case of failures.
+   * <b>Note:</b> As of version 0.13.0, messages in joins are kept in memory and will be lost during restarts.
    *
    * @param otherStream the other {@link MessageStream} to be joined with
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
