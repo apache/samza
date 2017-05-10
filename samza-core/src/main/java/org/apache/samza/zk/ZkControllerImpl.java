@@ -76,7 +76,6 @@ public class ZkControllerImpl implements ZkController {
     if (isLeader()) {
       zkLeaderElector.resignLeadership();
     }
-    zkUtils.close();
   }
 
   @Override
