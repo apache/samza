@@ -39,6 +39,7 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -52,8 +53,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
@@ -303,6 +307,21 @@ public class TestMessageStreamImpl {
         mockMsg);
     assertEquals(outputs.size(), 1);
     assertEquals(outputs.iterator().next(), mockMsg);
+  }
+
+  @Test
+  public void testMergeAll() {
+    MessageStream<TestMessageEnvelope> input1 = mock(MessageStreamImpl.class);
+    MessageStream<TestMessageEnvelope> input2 = mock(MessageStreamImpl.class);
+    MessageStream<TestMessageEnvelope> input3 = mock(MessageStreamImpl.class);
+
+    MessageStream.mergeAll(ImmutableList.of(input1, input2, input3));
+
+    ArgumentCaptor<Collection> otherStreamsCaptor = ArgumentCaptor.forClass(Collection.class);
+    verify(input1, times(1)).merge(otherStreamsCaptor.capture());
+    assertEquals(2, otherStreamsCaptor.getValue().size());
+    assertTrue(otherStreamsCaptor.getValue().contains(input2));
+    assertTrue(otherStreamsCaptor.getValue().contains(input3));
   }
 
   @Test
