@@ -283,6 +283,7 @@ public class TestMessageStreamImpl {
         new MessageStreamImpl<TestInputMessageEnvelope>(mockGraph),
         new MessageStreamImpl<TestMessageEnvelope>(mockGraph));
 
+    // should compile
     MessageStream<TestMessageEnvelope> mergeOutput = input1.merge(others);
     validateMergeOperator(input1, mergeOutput);
 
@@ -296,6 +297,8 @@ public class TestMessageStreamImpl {
     MessageStream<MessageEnvelope<T>> ms2 = new MessageStreamImpl<>(mock(StreamGraphImpl.class));
     MessageStream<MessageEnvelope<T>> ms3 = new MessageStreamImpl<>(mock(StreamGraphImpl.class));
     Collection<MessageStream<MessageEnvelope<T>>> otherStreams = ImmutableList.of(ms2, ms3);
+
+    // should compile
     ms1.merge(otherStreams);
   }
 
@@ -318,6 +321,37 @@ public class TestMessageStreamImpl {
     MessageStream<TestMessageEnvelope> input2 = mock(MessageStreamImpl.class);
     MessageStream<TestMessageEnvelope> input3 = mock(MessageStreamImpl.class);
 
+    MessageStream.mergeAll(ImmutableList.of(input1, input2, input3));
+
+    ArgumentCaptor<Collection> otherStreamsCaptor = ArgumentCaptor.forClass(Collection.class);
+    verify(input1, times(1)).merge(otherStreamsCaptor.capture());
+    assertEquals(2, otherStreamsCaptor.getValue().size());
+    assertTrue(otherStreamsCaptor.getValue().contains(input2));
+    assertTrue(otherStreamsCaptor.getValue().contains(input3));
+  }
+
+  @Test
+  public void testMergeAllWithRelaxedTypes() {
+    MessageStreamImpl<TestInputMessageEnvelope> input1 = mock(MessageStreamImpl.class);
+    MessageStreamImpl<TestMessageEnvelope> input2 = mock(MessageStreamImpl.class);
+    Collection<MessageStream<? extends TestMessageEnvelope>> streams = ImmutableList.of(input1, input2);
+
+    // should compile
+    MessageStream.mergeAll(streams);
+    ArgumentCaptor<Collection> otherStreamsCaptor = ArgumentCaptor.forClass(Collection.class);
+    verify(input1, times(1)).merge(otherStreamsCaptor.capture());
+    assertEquals(1, otherStreamsCaptor.getValue().size());
+    assertTrue(otherStreamsCaptor.getValue().contains(input2));
+  }
+
+  @Test
+  public <T> void testMergeAllWithNestedTypes() {
+    class MessageEnvelope<TM> { }
+    MessageStream<MessageEnvelope<T>> input1 = mock(MessageStreamImpl.class);
+    MessageStream<MessageEnvelope<T>> input2 = mock(MessageStreamImpl.class);
+    MessageStream<MessageEnvelope<T>> input3 = mock(MessageStreamImpl.class);
+
+    // should compile
     MessageStream.mergeAll(ImmutableList.of(input1, input2, input3));
 
     ArgumentCaptor<Collection> otherStreamsCaptor = ArgumentCaptor.forClass(Collection.class);

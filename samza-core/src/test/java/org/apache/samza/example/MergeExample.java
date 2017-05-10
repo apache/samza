@@ -47,6 +47,6 @@ public class MergeExample implements StreamApplication {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     LocalApplicationRunner localRunner = new LocalApplicationRunner(config);
-    localRunner.run(new BroadcastExample());
+    localRunner.run(new MergeExample());
   }
 }
