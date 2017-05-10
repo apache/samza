@@ -28,6 +28,7 @@ import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.function.Function;
 
@@ -104,7 +105,7 @@ public interface MessageStream<M> {
    * <p>
    * Use the {@link org.apache.samza.operators.windows.Windows} helper methods to create the appropriate windows.
    * <p>
-   * <b>Note:</b> As of version 0.13.0, messages in windows are kept in memory and will be lost during restarts.
+   * <b>Warning:</b> As of version 0.13.0, messages in windows are kept in memory and will be lost during restarts.
    *
    * @param window the window to group and process messages from this {@link MessageStream}
    * @param <K> the type of key in the message in this {@link MessageStream}. If a key is specified,
@@ -121,7 +122,9 @@ public interface MessageStream<M> {
    * Messages in each stream are retained for the provided {@code ttl} and join results are
    * emitted as matches are found.
    * <p>
-   * <b>Note:</b> As of version 0.13.0, messages in joins are kept in memory and will be lost during restarts.
+   * Both inputs being joined must have the same number of partitions, and should be partitioned by the join key.
+   * <p>
+   * <b>Warning:</b> As of version 0.13.0, messages in joins are kept in memory and will be lost during restarts.
    *
    * @param otherStream the other {@link MessageStream} to be joined with
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
@@ -136,6 +139,8 @@ public interface MessageStream<M> {
 
   /**
    * Merges all {@code otherStreams} with this {@link MessageStream}.
+   * <p>
+   * The merged stream contains messages from all streams in the order they arrive.
    *
    * @param otherStreams other {@link MessageStream}s to be merged with this {@link MessageStream}
    * @return the merged {@link MessageStream}
@@ -143,11 +148,38 @@ public interface MessageStream<M> {
   MessageStream<M> merge(Collection<? extends MessageStream<? extends M>> otherStreams);
 
   /**
-   * Sends the messages of type {@code M}in this {@link MessageStream} to a repartitioned output stream and consumes
-   * them as an input {@link MessageStream} again. Uses keys returned by the {@code keyExtractor} as the partition key.
+   * Merges all {@code streams}.
    * <p>
-   * <b>Note</b>: Repartitioned streams are created automatically in the default system. The key and message Serdes
-   * configured for the default system must be able to serialize and deserialize types K and M respectively.
+   * The merged {@link MessageStream} contains messages from all {@code streams} in the order they arrive.
+   *
+   * @param streams {@link MessageStream}s to be merged
+   * @return the merged {@link MessageStream}
+   * @throws IllegalArgumentException if {@code streams} is empty
+   */
+  static <T> MessageStream<T> mergeAll(Collection<? extends MessageStream<? extends T>> streams) {
+    if (streams.isEmpty()) {
+      throw new IllegalArgumentException("No streams to merge.");
+    }
+    ArrayList<MessageStream<T>> messageStreams = new ArrayList<>((Collection<MessageStream<T>>) streams);
+    MessageStream<T> firstStream = messageStreams.remove(0);
+    return firstStream.merge(messageStreams);
+  }
+
+  /**
+   * Re-partitions this {@link MessageStream} using keys from the {@code keyExtractor} by creating a new
+   * intermediate stream on the {@code job.default.system}. This intermediate stream is both an output and
+   * input to the job.
+   * <p>
+   * The key and message Serdes configured for the default system must be able to serialize and deserialize
+   * types K and M respectively.
+   * <p>
+   * The number of partitions for this intermediate stream is determined as follows:
+   * If the stream is an eventual input to a {@link #join}, and the number of partitions for the other stream is known,
+   * then number of partitions for this stream is set to the number of partitions in the other input stream.
+   * Else, the number of partitions is set to the value of the {@code job.intermediate.stream.partitions}
+   * configuration, if present.
+   * Else, the number of partitions is set to to the max of number of partitions for all input and output streams
+   * (excluding intermediate streams).
    *
    * @param keyExtractor the {@link Function} to extract the output message key and partition key from
    *                     the input message
