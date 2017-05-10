@@ -387,71 +387,19 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     verifyNumMessages(outputTopic, expectedValues, totalEventsToGenerate);
   }
 
-  @Test
+  @Test(expected = org.apache.samza.SamzaException.class)
   public void testZkUnavailable() {
     final String testSystem = "test-system";
     final String inputTopic = "numbers";
     final String outputTopic = "output";
     final int messageCount = 40;
 
-    String [] processorIds = new String [] { "1", "2" };
-
     final Map<String, String> map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
-    map.put(ZkConfig.ZK_CONNECT, "localhost:2222");
+    map.put(ZkConfig.ZK_CONNECT, "localhost:2222"); // non-existing zk
+    map.put(ZkConfig.ZK_CONNECTION_TIMEOUT_MS, "3000");
 
-    // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
-    // TopicExistsException since StreamProcessor auto-creates them.
-    createTopics(inputTopic, outputTopic);
-
-    // create a latch of the size == number of messages
-    TestStreamTask.endLatch = new CountDownLatch(messageCount);
-
-    StreamProcessor[] streamProcessors = new StreamProcessor[processorIds.length];
-    CountDownLatch[] startCountDownLatches = new CountDownLatch[processorIds.length];
-    for (int i = 0; i < processorIds.length; i++) {
-      startCountDownLatches[i] = new CountDownLatch(1);
-      streamProcessors[i] = createStreamProcessor(processorIds[i], map, startCountDownLatches[i], null);
-    }
-    produceMessages(0, inputTopic, messageCount);
-
-    Thread[] threads = new Thread[processorIds.length];
-
-    for (int i = 0; i < processorIds.length; i++) {
-      threads[i] = runInThread(streamProcessors[i], TestStreamTask.endLatch);
-      threads[i].start();
-      // wait until the processor reports that it has started
-      try {
-        startCountDownLatches[i].await(1000, TimeUnit.MILLISECONDS);
-      } catch (InterruptedException e) {
-        Assert.fail("got interrupted while waiting for the " + i + "th processor to start.");
-      }
-    }
-
-    // wait until all the events are consumed
-    try {
-      TestStreamTask.endLatch.await(10, TimeUnit.SECONDS);
-    } catch (InterruptedException e) {
-      Assert.fail("endLatch.await failed with an interruption:" + e.getLocalizedMessage());
-    }
-
-    // collect all the threads
-    try {
-      for (Thread t : threads) {
-        synchronized (t) {
-          t.notify(); // to stop the thread
-        }
-        t.join(1000);
-      }
-    } catch (InterruptedException e) {
-      Assert.fail("Failed to join finished thread:" + e.getLocalizedMessage());
-    }
-
-    // we should get each value one time
-    Map<Integer, Boolean> expectedValues = new HashMap<>(messageCount);
-    for (int i = 0; i < messageCount; i++) {
-      expectedValues.put(i, false);
-    }
-    verifyNumMessages(outputTopic, expectedValues, messageCount);
+    CountDownLatch startLatch = new CountDownLatch(1);
+    createStreamProcessor("1", map, startLatch, null); // this should fail with timeout exception
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////
