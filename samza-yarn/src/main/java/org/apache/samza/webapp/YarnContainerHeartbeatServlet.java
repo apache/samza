@@ -48,9 +48,9 @@ import org.slf4j.LoggerFactory;
 public class YarnContainerHeartbeatServlet extends HttpServlet {
 
   private static final String YARN_CONTAINER_ID = "executionContainerId";
-  private static final Logger log = LoggerFactory.getLogger(YarnContainerHeartbeatServlet.class);
-  public static final String APPLICATION_JSON = "application/json";
-  public static final String GROUP = SamzaAppMasterMetrics.class.getName();
+  private static final Logger LOG = LoggerFactory.getLogger(YarnContainerHeartbeatServlet.class);
+  private static final String APPLICATION_JSON = "application/json";
+  private static final String GROUP = SamzaAppMasterMetrics.class.getName();
   private final Counter heartbeatsExpiredCount;
 
   private YarnAppState yarnAppState;
@@ -85,7 +85,7 @@ public class YarnContainerHeartbeatServlet extends HttpServlet {
       response = new ContainerHeartbeatResponse(alive);
       printWriter.write(mapper.writeValueAsString(response));
     } catch (IllegalArgumentException e) {
-      log.error("Container ID {} passed is invalid", containerIdParam);
+      LOG.error("Container ID {} passed is invalid", containerIdParam);
       resp.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
     }
   }
