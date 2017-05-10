@@ -94,6 +94,12 @@ public class ZkControllerImpl implements ZkController {
      */
     @Override
     public void handleChildChange(String parentPath, List<String> currentChildren) throws Exception {
+      if (currentChildren == null) {
+        // this may happen only in case of some exception in ZK. Exception should be visible in the logs.
+        // it makes no sense to pass it further down.
+        LOG.error("handleChildChange on path " + parentPath + " was invoked with NULL list of children");
+        return;
+      }
       LOG.info(
           "ZkControllerImpl::ProcessorChangeHandler::handleChildChange - Path: " + parentPath + "  Current Children: "
               + currentChildren);
