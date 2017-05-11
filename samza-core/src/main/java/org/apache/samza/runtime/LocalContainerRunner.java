@@ -25,6 +25,8 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
+import org.apache.samza.container.ContainerHeartbeatClient;
+import org.apache.samza.container.ContainerHeartbeatMonitor;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
 import org.apache.samza.container.SamzaContainerExceptionHandler;
@@ -55,7 +57,9 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(LocalContainerRunner.class);
   private final JobModel jobModel;
   private final String containerId;
-  private volatile Throwable containerException = null;
+  private volatile Throwable containerRunnerException = null;
+  private ContainerHeartbeatMonitor containerHeartbeatMonitor;
+  private SamzaContainer container;
 
   public LocalContainerRunner(JobModel jobModel, String containerId) {
     super(jobModel.getConfig());
@@ -68,7 +72,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     ContainerModel containerModel = jobModel.getContainers().get(containerId);
     Object taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, this);
 
-    SamzaContainer container = SamzaContainer$.MODULE$.apply(
+    container = SamzaContainer$.MODULE$.apply(
         containerModel,
         config,
         jobModel.maxChangeLogStreamPartitions,
@@ -89,14 +93,14 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
           @Override
           public void onContainerFailed(Throwable t) {
             log.info("Container Failed");
-            containerException = t;
+            containerRunnerException = t;
           }
         });
-
+    startContainerHeartbeatMonitor();
     container.run();
-
-    if (containerException != null) {
-      log.error("Container stopped with Exception. Exiting process now.", containerException);
+    stopContainerHeartbeatMonitor();
+    if (containerRunnerException != null) {
+      log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
       System.exit(1);
     }
   }
@@ -137,6 +141,29 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     MDC.put("jobId", jobId);
 
     StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
-    new LocalContainerRunner(jobModel, containerId).run(streamApp);
+    LocalContainerRunner localContainerRunner = new LocalContainerRunner(jobModel, containerId);
+    localContainerRunner.run(streamApp);
+  }
+
+  private void startContainerHeartbeatMonitor() {
+    String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
+    String executionEnvContainerId = System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID());
+    if (executionEnvContainerId != null) {
+      log.info("Got execution environment container id: {}", executionEnvContainerId);
+      containerHeartbeatMonitor = new ContainerHeartbeatMonitor(() -> {
+          container.shutdown();
+          containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
+        }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
+      containerHeartbeatMonitor.start();
+    } else {
+      containerHeartbeatMonitor = null;
+      log.warn("executionEnvContainerId not set. Container heartbeat monitor will not be started");
+    }
+  }
+
+  private void stopContainerHeartbeatMonitor() {
+    if (containerHeartbeatMonitor != null) {
+      containerHeartbeatMonitor.stop();
+    }
   }
 }

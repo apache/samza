@@ -76,7 +76,6 @@ public class ZkControllerImpl implements ZkController {
     if (isLeader()) {
       zkLeaderElector.resignLeadership();
     }
-    zkUtils.close();
   }
 
   @Override
@@ -95,6 +94,13 @@ public class ZkControllerImpl implements ZkController {
      */
     @Override
     public void handleChildChange(String parentPath, List<String> currentChildren) throws Exception {
+      if (currentChildren == null) {
+        // this may happen only in case of exception in ZK. It happens if the zkNode has been deleted.
+        // So the notification will pass 'null' as the list of children. Exception should be visible in the logs.
+        // It makes no sense to pass it further down.
+        LOG.error("handleChildChange on path " + parentPath + " was invoked with NULL list of children");
+        return;
+      }
       LOG.info(
           "ZkControllerImpl::ProcessorChangeHandler::handleChildChange - Path: " + parentPath + "  Current Children: "
               + currentChildren);
