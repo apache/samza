@@ -86,6 +86,10 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   @Override
   public synchronized void stop() {
+    if (coordinatorListener != null) {
+      coordinatorListener.onJobModelExpired();
+    }
+
     debounceTimer.stopScheduler();
     zkController.stop();
 
