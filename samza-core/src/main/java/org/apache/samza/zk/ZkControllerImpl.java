@@ -76,6 +76,11 @@ public class ZkControllerImpl implements ZkController {
     if (isLeader()) {
       zkLeaderElector.resignLeadership();
     }
+
+    // close zk connection
+    if (zkUtils != null) {
+      zkUtils.getZkClient().close();
+    }
   }
 
   @Override
