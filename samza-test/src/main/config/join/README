@@ -1,77 +1,86 @@
 INTEGRATION TEST
 
 * What does the test do? *
-This is a correctness test that attempts to do partitioned messaging and use state. It is meant to be run while killing samsa and kafka machines to test fault-tolerance.
-It runs in iterations and each iteration has a correctness criteria that is checked before launching the next iteration. Here are the jobs and their function
+This is a correctness test that attempts to do partitioned messaging and use state.
+It is meant to be run while killing samza and kafka machines to test fault-tolerance.
+It runs in iterations and each iteration has a correctness criteria that is checked before launching the next iteration.
 
+Here are the jobs and their function:
 emitter.samza:
   This job takes input from the "epoch" topic. Epochs are number 0, 1, 2,...
   For each new epoch each emitter task does something like the following:
      for i = 0...count:
        send("emitted", i, partition)
   where partition is the task partition id.
-  
+
 joiner.samza:
   This job takes in the emitted values from emitter and joins them together by key.
   When it has received an emitted value from each partition it outputs the key to the topic "completed".
-  To track which partitions have emitted their value it keeps a store with | seperated numbers. 
+  To track which partitions have emitted their value it keeps a store with | seperated numbers.
   The first entry is the epoch and the remaining entries are partitions that have emitted the key.
-  
+
 checker.samza:
-  This job has a single partition and stores all the completed keys. When all the keys are completed it sends an incremented epoch to the epoch topic, kicking off a new round.
-  
+  This job has a single partition and stores all the completed keys.
+  When all the keys are completed it sends an incremented epoch to the epoch topic, kicking off a new round.
+
 watcher.samza:
   This job watches the epoch topic. If the epoch doesn't advance within some SLA this job sends an alert email.
-  
-The state maintained by some of these jobs is slightly complex because of the need to make everything idempotent. So, for example, instead of keeping the partition count
-in the joiner job we keep the set of partitions so that double counting can not occur.
 
-To run, simply start all four jobs at once.
+The state maintained by some of these jobs is slightly complex because of the need to make everything idempotent.
+So, for example, instead of keeping the partition count in the joiner job we keep the set of partitions
+so that double counting can not occur.
 
-* How to setup test ? *
+* How to setup this test? *
 
-NOTE: You will need to have Paramiko installed in order to run these tests.
+You need to have Paramiko installed in order to run these tests. (pip install paramiko)
+This test is meant to be used with hello-samza's bin/grid script (https://github.com/apache/samza-hello-samza).
 
-This test is meant to be used with hello-samza's bin/grid script. If you use hello-samza, and bin/grid bootstrap, then DEPLOY_DIR can be set to samza-hello-samza/deploy/samza,
-and you can run the integration tests with ./bin/setup-int-test.sh path/to/samza-hello-samza/deploy.
+First, set up a few environment variables:
+> export SAMZA_SRC=/path/to/samza
+> export HELLO_SAMZA_SRC=/path/to/samza-hello-samza
+> export DEPLOY_DIR=$HELLO_SAMZA_SRC/deploy
 
-The steps to setup the integration tests is similar to the samza-hello-samza setup, using the grid script.
-Once you deploy Zookeeper, YARN and Kafka, you have to generate the tar ball with the tests.
-Before generating the tar ball, update the "yarn.package.path" in $SAMZA_SRC/src/config/join/common.properties file to the path where the published tar will be made available.
+Deploy Zookeeper, YARN and Kafka:
+> cd $HELLO_SAMZA_SRC
+> bin/grid bootstrap
 
---> Release the tar
-cd $SAMZA_SRC
-./gradlew releaseTestJobs
-cp ~/samza-test/build/distributions/samza-test_*.tgz $DEPLOY_DIR
-tar -xvf $DEPLOY_DIR/samza-test_*.tgz -C $DEPLOY_DIR/samza
+Generate the tarball with the test jobs:
+First, update the "yarn.package.path" to $DEPLOY_DIR/samza-test_2.11-0.13.0.tgz
+> cd $SAMZA_SRC
+> vi samza-test/src/main/config/join/common.properties
+yarn.package.path=file:///path/to/samza-hello-samza/deploy/samza-test_2.11-0.13.0.tgz
 
---> Create the topics and start the samza jobs
-./bin/setup-int-test.sh $DEPLOY_DIR
+Then release and extract the test tarball:
+> cd $SAMZA_SRC
+> ./gradlew releaseTestJobs
+> cp samza-test/build/distributions/samza-test_2.11-0.13.0.tgz $DEPLOY_DIR
+> mkdir $DEPLOY_DIR/samza
+> tar -xvf $DEPLOY_DIR/samza-test_2.11-0.13.0.tgz -C $DEPLOY_DIR/samza
 
-Now, you should be able to view all 4 jobs running in the Yarn UI.
+Finally, create the kafka topics and start the samza jobs:
+> ./bin/setup-int-test.sh $DEPLOY_DIR
 
-FAILURE TESTING:
+You should now be able to view all 4 RUNNING jobs in the Yarn UI at http://localhost:8088/cluster
+
+FAILURE TEST
 
 * What does the test do? *
-This is used to test the resilience of the system. It periodically brings down a random container or kafka broker in the system and waits to see if it recovers correctly.
+This test is used to test the resilience of the system.
+It periodically brings down a random container or kafka broker in the system and waits to see if it recovers correctly.
 
-* How to setup test? *
-Ensure that the 4 jobs are running via the YARN UI.
-In order to trigger the failure testing, run the python script: $SAMZA_SRC/samza-test/src/main/python/samza_failure_testing.py
+* How to setup this test? *
+Verify that the 4 jobs are running via the YARN UI.
 
-Usage: samza_failure_testing.py [options]
+Create a file listing the hosts that kafka and yarn containers are running on. For local deployments:
+> echo "localhost" > /tmp/nodes.txt
 
-Options:
-  -h, --help            show this help message and exit
-  --node-list=nodes.txt
-                        A list of nodes in the YARN cluster
-  --kill-time=s         The time in seconds to sleep between
-  --kafka-dir=dir       The directory in which to find kafka
-  --kafka-host=localhost
-                        Host on which Kafka is installed
-  --yarn-dir=dir        The directory in which to find yarn
-  --kill-kafka          Should we kill Kafka?
-  --kill-container      Should we kill Application Container?
-  --yarn-host=localhost
-                        Host that will respond to Yarn REST queries
-
+Then run the python script to start the test:
+> python $SAMZA_SRC/samza-test/src/main/python/samza_failure_testing.py \
+    --node-list=/tmp/nodes.txt \
+    --kill-time=60 \
+    --kafka-dir=$DEPLOY_DIR/kafka \
+    --kafka-host=localhost \
+    --yarn-dir=$DEPLOY_DIR/yarn \
+    --yarn-host=localhost \
+    --kill-kafka \
+    --kill-container
