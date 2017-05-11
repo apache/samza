@@ -19,11 +19,13 @@ title: Feature Preview
    limitations under the License.
 -->
 
+Samza 0.13.0 includes a preview of a new programming model and a new deployment model. Both are functional and usable but not quite ready for production applications yet. They're being released as a preview because they represent major enhancements to how developers work with Samza, so it's beneficial for both early adopters and the Samza development community to experiment with it and gather feedback. The following sections introduce the new features and link to tutorials which demonstrate each of them.
+
 This page shows you how to run a Samza stream application with fluent API under different environments.
 
 ### Fluent API Guide
 
-<img src="/img/{{site.version}}/learn/documentation/introduction/fluent-arch.png" alt="Fluent architecture diagram" style="max-width: 100%; height: auto;"/>
+<img src="/img/{{site.version}}/learn/documentation/introduction/fluent-arch.png" alt="Fluent architecture diagram" style="max-width: 100%; height: auto;" onclick="window.open(this.src)">
 
 Above diagram shows an overview of Apache Samza architecture with Fluent API. There are four layers in the architecture:
 
@@ -64,6 +66,15 @@ public static void main(String[] args) throws Exception {
  System.out.println("Application completed with status " + localRunner.status(app));
 }
 {% endhighlight %}
+
+When the ApplicationRunner runs the StreamApplication, it first generates an execution plan. To visualize this plan, Samza provides _plan.html_ with javascripts to render the plan json. All the files needed for visualization are in the samza-shell tgz. Once the job is deployed, the plan can be viewed as follows:
+
+* For the applications using _run-app.sh_, Samza will automatically create a _plan_ folder under your application deployment directory and write the _plan.json_ file there.
+* For the applications using your own script (this is mostly for LocalApplicationRunner), please create a _plan_ folder under the same directory as _bin_, and export an env var named **EXECUTION_PLAN_DIR** which is the _plan_ folder path.
+
+To view the plan, you can simply open the _bin/plan.html file in a browser. The visualization of a sample plan looks like the following:
+
+<img src="/img/{{site.version}}/learn/documentation/introduction/execution-plan.png" alt="Execution plan" style="max-width: 100%; height: auto;" onclick="window.open(this.src)"/>
 
 #### III. Deployment
 

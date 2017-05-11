@@ -301,7 +301,7 @@ The [SimpleYarnJobProxy](../javadocs/org/apache/samza/rest/proxy/job/SimpleYarnJ
 
 The following is a depiction of the implementation that ships with Samza REST:
 
-<img src="/img/{{site.version}}/learn/documentation/rest/JobsResource.png" alt="Jobs resource component diagram" style="max-width: 100%; height: auto;"/>
+<img src="/img/{{site.version}}/learn/documentation/rest/JobsResource.png" alt="Jobs resource component diagram" style="max-width: 100%; height: auto;" onclick="window.open(this.src)"/>
 
 ## Configuration
 The JobsResource properties should be specified in the same file as the Samza REST configuration. They are specified here for clarity.

@@ -45,7 +45,7 @@ ls ${container_working_dir}/state/${store-name}/${task_name}/
 
 This allows the Node Manager's (NM) DeletionService to clean-up the working directory once the application completes or fails. In order to re-use local state store, the state store needs to be persisted outside the scope of NM's deletion service. The cluster administrator should set this location as an environment variable in Yarn - <code>LOGGED\_STORE\_BASE\_DIR</code>.
 
-<img src="/img/{{site.version}}/learn/documentation/yarn/samza-host-affinity.png" alt="Yarn host affinity component diagram" style="max-width: 100%; height: auto;"/>
+<img src="/img/{{site.version}}/learn/documentation/yarn/samza-host-affinity.png" alt="Yarn host affinity component diagram" style="max-width: 100%; height: auto;" onclick="window.open(this.src)"/>
 
 Each time a task commits, Samza writes the last materialized offset from the changelog stream to the checksumed file on disk. This is also done on container shutdown. Thus, there is an *OFFSET* file associated with each state stores' changelog partitions, that is consumed by the tasks in the container.
 

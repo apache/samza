@@ -100,6 +100,13 @@ The messages in the stats topic look like this:
 
 Pretty neat, right? Now, check out the YARN UI again ([http://localhost:8088](http://localhost:8088)). This time around, you'll see your Samza job is running!
 
+Finally, each StreamApplication goes through an execution planner and you can visualize the execution plan after starting the job by opening the following file in a browser
+`deploy/samza/bin/plan.html`
+
+This plan will make more sense after the [code walkthrough](hello-samza-fluent-code.html). For now, just take note that this visualization is available and it is useful for visibility into the structure of the application. For this tutorial, the plan should look something like this;
+<img src="/img/{{site.version}}/learn/tutorials/hello-samza-fluent/wikipedia-execution-plan.png" alt="Execution plan" style="max-width: 100%; height: auto;" onclick="window.open(this.src)"/>
+
+
 ### Shutdown
 
 To shutdown the app, use the same script with an extra `--operation=kill` argument
