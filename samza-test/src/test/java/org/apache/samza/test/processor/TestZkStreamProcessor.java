@@ -55,7 +55,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
-  public static int BAD_MESSAGE_KEY = 1000;
+  public static int BAD_MESSAGE_START = 1000;
   /**
    * Testing a basic identity stream task - reads data from a topic and writes it to another topic
    * (without any modifications)
@@ -459,7 +459,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     Assert.assertTrue("Didn't read all the events in the first batch in 5 attempts", attempts > 0);
 
     // produce a bad message
-    produceMessages(BAD_MESSAGE_KEY, inputTopic, 4);
+    produceMessages(BAD_MESSAGE_START, inputTopic, 4);
 
     // wait for at least one full debounce time to let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(3000);
@@ -499,7 +499,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
       expectedValues.put(i, false);
     }
 
-    for (int i = BAD_MESSAGE_KEY; i < numBadMessages + BAD_MESSAGE_KEY; i++) {
+    for (int i = BAD_MESSAGE_START; i < numBadMessages + BAD_MESSAGE_START; i++) {
       expectedValues.put(i, false);
     }
     verifyNumMessages(outputTopic, expectedValues, totalEventsToGenerate);
@@ -673,7 +673,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
       processedMessageCount++;
 
       // inject a failure
-      if(Integer.valueOf((String)message) >= BAD_MESSAGE_KEY) {
+      if(Integer.valueOf((String)message) >= BAD_MESSAGE_START) {
         if(processorId.equals("1")) {
           System.out.println("================================ FAILING for msg=" + message);
           throw new Exception("Processing in the processor " + processorId + " failed ");
