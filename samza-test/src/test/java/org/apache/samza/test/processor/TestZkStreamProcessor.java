@@ -61,6 +61,8 @@ import org.junit.Test;
  */
 public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
 
+  private final static int ATTEMPTS_NUMBER = 5; // to avoid long sleeps, we rather use multiple attempts with shorter sleeps
+  
   @Before
   public void setupTest() {
 
@@ -142,13 +144,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
       Assert.fail("Failed to join finished thread:" + e.getLocalizedMessage());
     }
 
-    // we should get each value one time
-    // create a map of all expected values to validate
-    Map<Integer, Boolean> expectedValues = new HashMap<>(messageCount);
-    for (int i = 0; i < messageCount; i++) {
-      expectedValues.put(i, false);
-    }
-    verifyNumMessages(outputTopic, expectedValues, messageCount);
+    verifyNumMessages(outputTopic, messageCount, messageCount);
   }
 
   @Test
@@ -193,7 +189,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     }
 
     // make sure it consumes all the messages from the first batch
-    int attempts = 5;
+    int attempts = ATTEMPTS_NUMBER;
     while (attempts > 0) {
       long leftEventsCount = TestStreamTask.endLatch.getCount();
       System.out.println("messages left to consume = " + leftEventsCount);
@@ -204,7 +200,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
       TestZkUtils.sleepMs(1000);
       attempts--;
     }
-    Assert.assertTrue("Didn't read all the events in the first batch in 5 attempts", attempts > 0);
+    Assert.assertTrue("Didn't read all the events in the first batch in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
 
     // start the second processor
     CountDownLatch countDownLatch2 = new CountDownLatch(1);
@@ -227,7 +223,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
 
     // wait until all the events are consumed
     // make sure it consumes all the messages from the first batch
-    attempts = 5;
+    attempts = ATTEMPTS_NUMBER;
     while (attempts > 0) {
       long leftEventsCount = TestStreamTask.endLatch.getCount(); // how much is left to read
       System.out.println("2 processors together. left to consume = " + leftEventsCount);
@@ -238,7 +234,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
       TestZkUtils.sleepMs(1000);
       attempts--;
     }
-    Assert.assertTrue("Didn't read all the leftover events in 5 attempts", attempts > 0);
+    Assert.assertTrue("Didn't read all the leftover events in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
 
     // shutdown both
     try {
@@ -255,13 +251,9 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     }
 
     // p1 will read messageCount events, and then p1 and p2 will read 2xmessageCount events together,
-    // but the expected values are the same 0-79, they will appear in the output more then onces, but we should mark then only one time.
+    // but the expected values are the same 0-79, they will appear in the output more then once, but we should mark then only one time.
     // total number of events we gonna get is 80+40=120
-    Map<Integer, Boolean> expectedValues = new HashMap<>(2 * messageCount);
-    for (int i = 0; i < 2 * messageCount; i++) {
-      expectedValues.put(i, false);
-    }
-    verifyNumMessages(outputTopic, expectedValues, totalEventsToGenerate);
+    verifyNumMessages(outputTopic, 2*messageCount, totalEventsToGenerate);
   }
 
   @Test
@@ -319,7 +311,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     produceMessages(0, inputTopic, messageCount);
 
     // make sure they consume all the messages from the first batch
-    int attempts = 5;
+    int attempts = ATTEMPTS_NUMBER;
     while (attempts > 0) {
       long leftEventsCount = TestStreamTask.endLatch.getCount();
       System.out.println("current count = " + leftEventsCount);
@@ -330,7 +322,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
       TestZkUtils.sleepMs(1000);
       attempts--;
     }
-    Assert.assertTrue("Didn't read all the events in the first batch in 5 attempts", attempts > 0);
+    Assert.assertTrue("Didn't read all the events in the first batch in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
 
     // stop the first processor
     synchronized (t1) {
@@ -351,8 +343,8 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
 
-    // wait until p2 consumes all the message by itself
-    attempts = 5;
+    // wait until p2 consumes all the message by itself;
+    attempts = ATTEMPTS_NUMBER;
     while (attempts > 0) {
       long leftEventsCount = TestStreamTask.endLatch.getCount();
       System.out.println("2current count = " + leftEventsCount);
@@ -363,7 +355,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
       TestZkUtils.sleepMs(1000);
       attempts--;
     }
-    Assert.assertTrue("Didn't read all the leftover events in 5 attempts", attempts > 0);
+    Assert.assertTrue("Didn't read all the leftover events in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
 
     // shutdown p2
 
@@ -379,11 +371,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     // processor1 and 2 will both read 20 events (total 40), and then processor2 read 80 events by itself,
     // but the expected values are the same 0-79 - we should get each value one time.
     // Meanwhile the number of events we gonna get is 40 + 80
-    Map<Integer, Boolean> expectedValues = new HashMap<>(2 * messageCount);
-    for (int i = 0; i < 2 * messageCount; i++) {
-      expectedValues.put(i, false);
-    }
-    verifyNumMessages(outputTopic, expectedValues, totalEventsToGenerate);
+    verifyNumMessages(outputTopic, 2 * messageCount, totalEventsToGenerate);
   }
 
 
@@ -490,6 +478,17 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     return t;
   }
 
+  // for sequential values we can generate them automatically
+  private void verifyNumMessages(String topic, int numberOfSequentialValues, int exectedNumMessages) {
+    // we should get each value one time
+    // create a map of all expected values to validate
+    Map<Integer, Boolean> expectedValues = new HashMap<>(numberOfSequentialValues);
+    for (int i = 0; i < numberOfSequentialValues; i++) {
+      expectedValues.put(i, false);
+    }
+    verifyNumMessages(topic, expectedValues, exectedNumMessages);
+  }
+
   /**
    * Consumes data from the topic until there are no new messages for a while
    * and asserts that the number of consumed messages is as expected.
@@ -508,7 +507,6 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
         Iterator<ConsumerRecord> iterator = records.iterator();
         while (iterator.hasNext()) {
           ConsumerRecord record = iterator.next();
-          //Assert.assertEquals(new String((byte[]) record.value()), String.valueOf(count));
           String val = new String((byte[]) record.value());
           System.out.println("Got value " + val);
           map.put(Integer.valueOf(val), true);
