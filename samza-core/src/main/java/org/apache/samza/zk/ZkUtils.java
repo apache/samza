@@ -21,14 +21,12 @@ package org.apache.samza.zk;
 
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
-import org.I0Itec.zkclient.IZkStateListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
-import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.data.Stat;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
@@ -73,27 +71,6 @@ public class ZkUtils {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkClient = zkClient;
-
-    // subscribe for state changes
-    zkClient.subscribeStateChanges(new IZkStateListener() {
-      @Override
-      public void handleStateChanged(Watcher.Event.KeeperState state)
-          throws Exception {
-        System.out.printf("=========================NEW STATE CHANGE:" + state.name());
-      }
-
-      @Override
-      public void handleNewSession()
-          throws Exception {
-        System.out.printf("==========================NEW SESSION");
-      }
-
-      @Override
-      public void handleSessionEstablishmentError(Throwable error)
-          throws Exception {
-        System.out.printf("===========================NEW EstablishementError");
-      }
-    });
   }
 
   public void connect() throws ZkInterruptedException {

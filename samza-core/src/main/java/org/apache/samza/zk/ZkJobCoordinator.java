@@ -50,9 +50,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   // with locality. Since host-affinity is not yet implemented, this can be fixed as part of SAMZA-1197
   private static final int METADATA_CACHE_TTL_MS = 5000;
 
-  private  ZkUtils zkUtils;
+  private final ZkUtils zkUtils;
   private final String processorId;
-  private ZkController zkController;
+  private final ZkController zkController;
 
   private final Config config;
   private final CoordinationUtils coordinationUtils;
@@ -67,10 +67,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     this.processorId = createProcessorId(config);
     this.coordinationUtils = new ZkCoordinationServiceFactory()
         .getCoordinationService(new ApplicationConfig(config).getGlobalAppId(), String.valueOf(processorId), config);
-
-  }
-
-  private void init() {
     this.zkUtils = ((ZkCoordinationUtils) coordinationUtils).getZkUtils();
     LeaderElector leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
@@ -79,8 +75,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   @Override
   public void start() {
-    init();
-
     streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
     debounceTimer = new ScheduleAfterDebounceTime(throwable -> {
         LOG.error("Received exception from in JobCoordinator Processing!", throwable);
@@ -92,9 +86,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   @Override
   public synchronized void stop() {
-    if (coordinatorListener != null) {
-      coordinatorListener.onJobModelExpired();
-    }
     debounceTimer.stopScheduler();
     zkController.stop();
 
