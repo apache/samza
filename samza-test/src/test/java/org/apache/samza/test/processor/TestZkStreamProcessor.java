@@ -253,7 +253,7 @@ public class TestZkStreamProcessor extends StandaloneIntegrationTestHarness {
     // p1 will read messageCount events, and then p1 and p2 will read 2xmessageCount events together,
     // but the expected values are the same 0-79, they will appear in the output more then once, but we should mark then only one time.
     // total number of events we gonna get is 80+40=120
-    verifyNumMessages(outputTopic, 2*messageCount, totalEventsToGenerate);
+    verifyNumMessages(outputTopic, 2 * messageCount, totalEventsToGenerate);
   }
 
   @Test
