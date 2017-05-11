@@ -19,11 +19,22 @@ title: Feature Preview
    limitations under the License.
 -->
 
+# Overview
 Samza 0.13.0 includes a preview of a new programming model and a new deployment model. Both are functional and usable but not quite ready for production applications yet. They're being released as a preview because they represent major enhancements to how developers work with Samza, so it's beneficial for both early adopters and the Samza development community to experiment with it and gather feedback. The following sections introduce the new features and link to tutorials which demonstrate each of them.
 
-This page shows you how to run a Samza stream application with fluent API under different environments.
+# Fluent API
+
+### Introduction
+TODO
+
+### Try it Out
+Let's jump straight in. There are two tutorials prepared to help you get acquainted with running Samza applications and programming with the fluent API:
+
+* [Hello Samza Fluent](/learn/tutorials/{{site.version}}/hello-samza-fluent.html) - run a pre-built wikipedia application and observe the output
+* [Hello Samza Fluent Code](/learn/tutorials/{{site.version}}/hello-samza-fluent-code.html) - walk through building the wikipedia application, step by step.
 
 ### Fluent API Guide
+This page shows you how to run a Samza stream application with fluent API under different environments.
 
 <img src="/img/{{site.version}}/learn/documentation/introduction/fluent-arch.png" alt="Fluent architecture diagram" style="max-width: 100%; height: auto;" onclick="window.open(this.src)">
 

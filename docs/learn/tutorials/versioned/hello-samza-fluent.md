@@ -20,7 +20,7 @@ title: Hello Samza Fluent
 -->
 The [hello-samza](https://github.com/apache/samza-hello-samza) project is a stand-alone project designed to help you run your first Samza application. It has examples of applications using the low-level task API as well as the high-level fluent API.
 
-The [Hello Samza tutorial] (/startup/hello-samza/{{site.version}}/index.html) demonstrates 3 jobs created with the task API. This tutorial demonstrates an equivalent application created with the fluent API. The tutorials are remarkably similar. The primary difference is that with the fluent API we accomplish the equivalent of 3 separate jobs with a single application and we skip the intermediate topics for simplicity.
+This tutorial demonstrates a simple wikipedia application created with the fluent API. The [Hello Samza tutorial] (/startup/hello-samza/{{site.version}}/index.html) is the low-level analog to this tutorial. It demonstrates the same logic but is created with the task API. The tutorials are remarkably similar. The primary differences are that with the fluent API we accomplish the equivalent of 3 separate low-level jobs with a single application, we skip the intermediate topics for simplicity, and we can visualize the execution plan after we start the application.
 
 ### Get the Code
 
@@ -100,16 +100,20 @@ The messages in the stats topic look like this:
 
 Pretty neat, right? Now, check out the YARN UI again ([http://localhost:8088](http://localhost:8088)). This time around, you'll see your Samza job is running!
 
-Finally, each StreamApplication goes through an execution planner and you can visualize the execution plan after starting the job by opening the following file in a browser
-`deploy/samza/bin/plan.html`
+### View the Execution Plan
+Each application goes through an execution planner and you can visualize the execution plan after starting the job by opening the following file in a browser
+{% highlight bash %}
+deploy/samza/bin/plan.html
+{% endhighlight %}
 
-This plan will make more sense after the [code walkthrough](hello-samza-fluent-code.html). For now, just take note that this visualization is available and it is useful for visibility into the structure of the application. For this tutorial, the plan should look something like this;
+This plan will make more sense after the [code walkthrough](hello-samza-fluent-code.html). For now, just take note that this visualization is available and it is useful for visibility into the structure of the application. For this tutorial, the plan should look something like this:
+
 <img src="/img/{{site.version}}/learn/tutorials/hello-samza-fluent/wikipedia-execution-plan.png" alt="Execution plan" style="max-width: 100%; height: auto;" onclick="window.open(this.src)"/>
 
 
 ### Shutdown
 
-To shutdown the app, use the same script with an extra `--operation=kill` argument
+To shutdown the app, use the same _run-app.sh_ script with an extra _--operation=kill_ argument
 {% highlight bash %}
 deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-application.properties --operation=kill
 {% endhighlight %}
