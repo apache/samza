@@ -113,7 +113,7 @@ public class TestJobGraphJsonGenerator {
     OutputStream<Object, Object, Object> outputStream2 = streamGraph.getOutputStream("output2", mockFn, mockFn);
 
     m1.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).sendTo(outputStream1);
-    m2.sink((message, collector, coordinator) -> {});
+    m2.sink((message, collector, coordinator) -> { });
     m3.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(outputStream2);
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
