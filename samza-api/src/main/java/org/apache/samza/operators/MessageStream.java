@@ -153,6 +153,7 @@ public interface MessageStream<M> {
    * The merged {@link MessageStream} contains messages from all {@code streams} in the order they arrive.
    *
    * @param streams {@link MessageStream}s to be merged
+   * @param <T> the common type of messages in the streams
    * @return the merged {@link MessageStream}
    * @throws IllegalArgumentException if {@code streams} is empty
    */
