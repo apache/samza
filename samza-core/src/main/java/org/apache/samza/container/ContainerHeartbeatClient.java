@@ -60,7 +60,7 @@ public class ContainerHeartbeatClient {
   }
 
   /**
-   * Issues a heartbeat request to the coordinator and
+   * Issues a heartbeat request to the coordinator
    * @return the corresponding {@link ContainerHeartbeatResponse}.
    */
   public ContainerHeartbeatResponse requestHeartbeat() {
