@@ -143,12 +143,13 @@ public class ZkUtils {
    * @return processor's data
    */
   String readProcessorData(String fullPath) {
-    String data = zkClient.<String>readData(fullPath, true);
-    metrics.reads.inc();
-    if (data == null) {
-      throw new SamzaException(String.format("Cannot read ZK node:", fullPath));
+    try {
+      String data = zkClient.readData(fullPath, false);
+      metrics.reads.inc();
+      return data;
+    } catch (Exception e) {
+      throw new SamzaException(String.format("Cannot read ZK node: %s", fullPath), e);
     }
-    return data;
   }
 
   /**
