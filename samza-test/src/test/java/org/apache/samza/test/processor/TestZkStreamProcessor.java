@@ -28,14 +28,16 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+
 /**
  * Happy path tests.
  * Start 1, 2, 5 processors and make sure they all consume all the events.
  */
 public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
-  private final static int ATTEMPTS_NUMBER = 5; // to avoid long sleeps, we rather use multiple attempts with shorter sleeps
-  
+  private final static int ATTEMPTS_NUMBER = 5;
+      // to avoid long sleeps, we rather use multiple attempts with shorter sleeps
+
   @Before
   public void setupTest() {
 
@@ -122,8 +124,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
   @Test
   /**
    * Similar to the previous tests, but add another processor in the middle
-   */
-  public void testStreamProcessorWithAdd() {
+   */ public void testStreamProcessorWithAdd() {
     final String testSystem = "test-system1";
     final String inputTopic = "numbers_add";
     final String outputTopic = "output_add";
@@ -172,7 +173,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
       TestZkUtils.sleepMs(1000);
       attempts--;
     }
-    Assert.assertTrue("Didn't read all the events in the first batch in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
+    Assert
+        .assertTrue("Didn't read all the events in the first batch in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
 
     // start the second processor
     CountDownLatch countDownLatch2 = new CountDownLatch(1);
@@ -231,8 +233,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
   @Test
   /**
    * same as other happy path messages, but with one processor removed in the middle
-   */
-  public void testStreamProcessorWithRemove() {
+   */ public void testStreamProcessorWithRemove() {
     final String testSystem = "test-system2";
     final String inputTopic = "numbers_rm";
     final String outputTopic = "output_rm";
@@ -294,7 +295,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
       TestZkUtils.sleepMs(1000);
       attempts--;
     }
-    Assert.assertTrue("Didn't read all the events in the first batch in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
+    Assert
+        .assertTrue("Didn't read all the events in the first batch in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
 
     // stop the first processor
     synchronized (t1) {

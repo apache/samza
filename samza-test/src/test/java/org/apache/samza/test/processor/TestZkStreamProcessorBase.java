@@ -57,7 +57,6 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
               stopLatchCountDown.countDown();
             }
             System.out.println("ON STOP. PID = " + pId + " in thread " + Thread.currentThread());
-
           }
 
           @Override
@@ -217,7 +216,6 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
       System.out.println(processorId + " is writing out " + message);
       messageCollector.send(new OutgoingMessageEnvelope(new SystemStream(outputSystem, outputTopic), message));
       processedMessageCount++;
-
 
       System.out.println(
           "Stream processor " + processorId + ";offset=" + incomingMessageEnvelope.getOffset() + "; totalRcvd="
