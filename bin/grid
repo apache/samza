@@ -39,7 +39,7 @@ DOWNLOAD_KAFKA=http://www.us.apache.org/dist/kafka/0.10.1.1/kafka_2.11-0.10.1.1.
 DOWNLOAD_YARN=https://archive.apache.org/dist/hadoop/common/hadoop-2.6.1/hadoop-2.6.1.tar.gz
 DOWNLOAD_ZOOKEEPER=http://archive.apache.org/dist/zookeeper/zookeeper-3.4.3/zookeeper-3.4.3.tar.gz
 
-SERVICE_WAIT_TIMEOUT_SEC=10
+SERVICE_WAIT_TIMEOUT_SEC=20
 ZOOKEEPER_PORT=2181
 RESOURCEMANAGER_PORT=8032
 NODEMANAGER_PORT=8042
@@ -55,10 +55,26 @@ bootstrap() {
   exit 0
 }
 
+standalone() {
+  echo "Setting up the ystem..."
+  stop_all
+  rm -rf "$DEPLOY_ROOT_DIR"
+  mkdir "$DEPLOY_ROOT_DIR"
+  install_all_without_yarn
+  start_all_without_yarn
+  exit 0
+}
+
 install_all() {
   $DIR/grid install samza
   $DIR/grid install zookeeper
   $DIR/grid install yarn
+  $DIR/grid install kafka
+}
+
+install_all_without_yarn() {
+  $DIR/grid install samza
+  $DIR/grid install zookeeper
   $DIR/grid install kafka
 }
 
@@ -125,6 +141,11 @@ install() {
 start_all() {
   $DIR/grid start zookeeper
   $DIR/grid start yarn
+  $DIR/grid start kafka
+}
+
+start_all_without_yarn() {
+  $DIR/grid start zookeeper
   $DIR/grid start kafka
 }
 
@@ -218,6 +239,9 @@ stop_kafka() {
 if [ "$COMMAND" == "bootstrap" ] && test -z "$SYSTEM"; then
   bootstrap
   exit 0
+elif [ "$COMMAND" == "standalone" ] && test -z "$SYSTEM"; then
+  standalone
+  exit 0
 elif (test -z "$COMMAND" && test -z "$SYSTEM") \
   || ( [ "$COMMAND" == "help" ] || test -z "$COMMAND" || test -z "$SYSTEM"); then
   echo
@@ -225,6 +249,7 @@ elif (test -z "$COMMAND" && test -z "$SYSTEM") \
   echo
   echo "  $ grid"
   echo "  $ grid bootstrap"
+  echo "  $ grid standalone"
   echo "  $ grid install [yarn|kafka|zookeeper|samza|all]"
   echo "  $ grid start [yarn|kafka|zookeeper|all]"
   echo "  $ grid stop [yarn|kafka|zookeeper|all]"

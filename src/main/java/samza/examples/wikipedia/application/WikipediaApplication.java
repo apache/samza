@@ -88,7 +88,7 @@ public class WikipediaApplication implements StreamApplication {
     OutputStream<Void, Map<String, Integer>, Map<String, Integer>> wikipediaStats = graph.getOutputStream(STATS_STREAM_ID, m -> null, m -> m);
 
     // Merge inputs
-    MessageStream<WikipediaFeedEvent> allWikipediaEvents = wikipediaEvents.merge(ImmutableList.of(wiktionaryEvents, wikiNewsEvents));
+    MessageStream<WikipediaFeedEvent> allWikipediaEvents = MessageStream.mergeAll(ImmutableList.of(wikipediaEvents, wiktionaryEvents, wikiNewsEvents));
 
     // Parse, update stats, prepare output, and send
     allWikipediaEvents.map(WikipediaParser::parseEvent)
