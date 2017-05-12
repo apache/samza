@@ -18,7 +18,7 @@ title: Hello Samza
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-The [hello-samza](https://github.com/apache/samza-hello-samza) project is a stand-alone project designed to help you run your first Samza job.
+The [hello-samza](https://github.com/apache/samza-hello-samza) project is an example project designed to help you run your first Samza job.
 
 ### Get the Code
 
