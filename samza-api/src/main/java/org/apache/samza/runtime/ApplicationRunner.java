@@ -29,7 +29,7 @@ import java.lang.reflect.Constructor;
 
 
 /**
- * The primary means of interacting with the {@link org.apache.samza.application.StreamApplication} at runtime.
+ * The primary means of managing execution of the {@link org.apache.samza.application.StreamApplication} at runtime.
  */
 @InterfaceStability.Unstable
 public abstract class ApplicationRunner {
