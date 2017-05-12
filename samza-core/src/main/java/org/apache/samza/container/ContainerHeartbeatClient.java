@@ -60,8 +60,8 @@ public class ContainerHeartbeatClient {
   }
 
   /**
-   * Issues a heartbeat request to the coordinator and
-   * returns the corresponding {@link ContainerHeartbeatResponse}.
+   * Issues a heartbeat request to the coordinator
+   * @return the corresponding {@link ContainerHeartbeatResponse}.
    */
   public ContainerHeartbeatResponse requestHeartbeat() {
     ObjectMapper mapper = new ObjectMapper();
