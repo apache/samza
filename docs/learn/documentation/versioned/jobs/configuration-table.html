@@ -59,7 +59,7 @@
                 font-family: monospace;
             }
 
-            span.system, span.stream, span.store, span.serde, span.rewriter, span.listener, span.reporter {
+            span.system, span.stream, span.store, span.serde, span.rewriter, span.listener, span.reporter, span.resource {
                 padding: 1px;
                 margin: 1px;
                 border-width: 1px;
@@ -100,6 +100,11 @@
             span.reporter {
                 background-color: #dff;
                 border-color: #bdd;
+            }
+
+            span.resource {
+                background-color: #ded;
+                border-color: #bcb;
             }
         </style>
     </head>
@@ -1883,6 +1888,42 @@
                     <td class="default"></td>
                     <td class="description">
                         The time interval by which the Application Master re-authenticates and renew the delegation tokens. This value should be smaller than the length of time a delegation token is valid on hadoop namenodes before expiration.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-resources-resource-name-path">yarn.resources.<span class="resource">resource-name</span>.path</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The path for localizing the resource for <span class="resource">resource-name</span>. The scheme (e.g. http, ftp, hdsf, file, etc) in the path should be configured in YARN core-site.xml as fs.&lt;scheme&gt;.impl and is associated with a <a href="https://hadoop.apache.org/docs/stable/api/index.html?org/apache/hadoop/fs/FileSystem.html">FileSystem</a>.
+                        If defined, the resource will be localized in the Samza application directory before the Samza job runs. More details can be found <a href="../yarn/yarn-resource-localization.html">here</a>.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-resources-resource-name-local-name">yarn.resources.<span class="resource">resource-name</span>.local.name</td>
+                    <td class="default"><span class="resource">resource-name</span></td>
+                    <td class="description">
+                        The new local name for the resource after localization.
+                        This configuration only applies when yarn.resources.<span class="resource">resource-name</span>.path is configured.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-resources-resource-name-local-type">yarn.resources.<span class="resource">resource-name</span>.local.name</td>
+                    <td class="default">FILE</td>
+                    <td class="description">
+                        The type for the resource after localization. It can be ARCHIVE (archived directory), FILE, or PATTERN (the entries extracted from the archive with the pattern).
+                        This configuration only applies when yarn.resources.<span class="resource">resource-name</span>.path is configured.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-resources-resource-name-local-visibility">yarn.resources.<span class="resource">resource-name</span>.local.name</td>
+                    <td class="default">APPLICATION</td>
+                    <td class="description">
+                        The visibility for the resource after localization. It can be PUBLIC (visible to everyone), PRIVATE (visible to all Samza applications of the same account user as this application), or APPLICATION (visible to only this Samza application).
+                        This configuration only applies when yarn.resources.<span class="resource">resource-name</span>.path is configured.
                     </td>
                 </tr>
 
