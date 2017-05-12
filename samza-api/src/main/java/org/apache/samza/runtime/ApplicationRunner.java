@@ -29,7 +29,7 @@ import java.lang.reflect.Constructor;
 
 
 /**
- * A physical execution engine to deploy the config and jobs to run the {@link org.apache.samza.operators.StreamGraph}
+ * The primary means of interacting with the {@link org.apache.samza.application.StreamApplication} at runtime.
  */
 @InterfaceStability.Unstable
 public abstract class ApplicationRunner {
