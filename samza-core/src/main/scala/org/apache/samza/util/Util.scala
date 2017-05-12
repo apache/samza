@@ -172,7 +172,7 @@ object Util extends Logging {
     readStream(httpConn.getInputStream)
   }
 
-  private def getHttpConnection(url: URL, timeout: Int): HttpURLConnection = {
+  def getHttpConnection(url: URL, timeout: Int): HttpURLConnection = {
     val conn = url.openConnection()
     conn.setConnectTimeout(timeout)
     conn.setReadTimeout(timeout)
