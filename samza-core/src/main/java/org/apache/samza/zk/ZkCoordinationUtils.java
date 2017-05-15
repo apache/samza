@@ -19,7 +19,6 @@
 package org.apache.samza.zk;
 
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
@@ -52,11 +51,6 @@ public class ZkCoordinationUtils implements CoordinationUtils {
   @Override
   public Latch getLatch(int size, String latchId) {
     return new ZkProcessorLatch(size, latchId, processorIdStr, zkUtils);
-  }
-
-  @Override
-  public BarrierForVersionUpgrade getBarrier(String barrierId) {
-    return new ZkBarrierForVersionUpgrade(barrierId, zkUtils, debounceTimer, zkConfig.getZkBarrierTimeoutMs());
   }
 
   // TODO - SAMZA-1128 CoordinationService should directly depend on ZkUtils and DebounceTimer

@@ -53,12 +53,17 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private static final String VERSION_UPGRADE_TIMEOUT_TIMER = "VersionUpgradeTimeout";
   private final long barrierTimeoutMS;
 
-  public ZkBarrierForVersionUpgrade(String barrierId, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer, long barrierTimeoutMS) {
+  // TODO: Used only in testing for now - should become same as the other constructor at the end of SAMZA-1128 changes
+  public ZkBarrierForVersionUpgrade(String barrierPrefix, ZkUtils zkUtils, long barrierTimeoutMS) {
+    this(barrierPrefix, zkUtils, new ScheduleAfterDebounceTime(), barrierTimeoutMS);
+  }
+
+  public ZkBarrierForVersionUpgrade(String barrierPrefix, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer, long barrierTimeoutMS) {
     if (zkUtils == null) {
       throw new RuntimeException("Cannot operate ZkBarrierForVersionUpgrade without ZkUtils.");
     }
     this.zkUtils = zkUtils;
-    barrierPrefix = zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(barrierId);
+    this.barrierPrefix = barrierPrefix;
     this.debounceTimer = debounceTimer;
     this.barrierTimeoutMS = barrierTimeoutMS;
   }

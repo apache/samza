@@ -18,11 +18,6 @@
  */
 package org.apache.samza.zk;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import junit.framework.Assert;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -35,6 +30,12 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+
 
 public class TestZkBarrierForVersionUpgrade {
   private static EmbeddedZookeeper zkServer = null;
@@ -46,7 +47,6 @@ public class TestZkBarrierForVersionUpgrade {
 
   @Before
   public void testSetup() {
-
     zkServer = new EmbeddedZookeeper();
     zkServer.setup();
     testZkConnectionString = "127.0.0.1:" + zkServer.getPort();
@@ -70,13 +70,13 @@ public class TestZkBarrierForVersionUpgrade {
 
   @Test
   public void testZkBarrierForVersionUpgrade() {
-    String barrierId = "b1";
+    String barrierId = zkUtils.getKeyBuilder().getRootPath() + "/b1";
     String ver = "1";
     List<String> processors = new ArrayList<>();
     processors.add("p1");
     processors.add("p2");
 
-    BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(barrierId);
+    BarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, ZkConfig.DEFAULT_BARRIER_TIMEOUT_MS);
 
     class Status {
       boolean p1 = false;
@@ -95,14 +95,14 @@ public class TestZkBarrierForVersionUpgrade {
 
   @Test
   public void testNegativeZkBarrierForVersionUpgrade() {
-    String barrierId = "negativeZkBarrierForVersionUpgrade";
+    String barrierId = zkUtils.getKeyBuilder().getRootPath() + "/negativeZkBarrierForVersionUpgrade";
     String ver = "1";
     List<String> processors = new ArrayList<>();
     processors.add("p1");
     processors.add("p2");
     processors.add("p3");
 
-    BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(barrierId);
+    BarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, ZkConfig.DEFAULT_BARRIER_TIMEOUT_MS);
 
     class Status {
       boolean p1 = false;
@@ -122,14 +122,14 @@ public class TestZkBarrierForVersionUpgrade {
 
   @Test
   public void testZkBarrierForVersionUpgradeWithTimeOut() {
-    String barrierId = "barrierTimeout";
+    String barrierId = zkUtils.getKeyBuilder().getRootPath() + "/barrierTimeout";
     String ver = "1";
     List<String> processors = new ArrayList<>();
     processors.add("p1");
     processors.add("p2");
     processors.add("p3");
 
-    BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(barrierId);
+    BarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, ZkConfig.DEFAULT_BARRIER_TIMEOUT_MS);
 
     class Status {
       boolean p1 = false;

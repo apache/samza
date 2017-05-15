@@ -42,6 +42,4 @@ public interface CoordinationUtils {
   LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
 
   Latch getLatch(int size, String latchId);
-
-  BarrierForVersionUpgrade getBarrier(String barrierId);
 }

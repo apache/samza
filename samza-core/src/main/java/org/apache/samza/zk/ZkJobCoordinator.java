@@ -21,6 +21,7 @@ package org.apache.samza.zk;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
+import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
@@ -45,7 +46,6 @@ import java.util.List;
  */
 public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private static final Logger LOG = LoggerFactory.getLogger(ZkJobCoordinator.class);
-  private static final String JOB_MODEL_UPGRADE_BARRIER = "jobModelUpgradeBarrier";
   // TODO: MetadataCache timeout has to be 0 for the leader so that it can always have the latest information associated
   // with locality. Since host-affinity is not yet implemented, this can be fixed as part of SAMZA-1197
   private static final int METADATA_CACHE_TTL_MS = 5000;
@@ -56,6 +56,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   private final Config config;
   private final CoordinationUtils coordinationUtils;
+  private final BarrierForVersionUpgrade barrier;
 
   private StreamMetadataCache streamMetadataCache = null;
   private ScheduleAfterDebounceTime debounceTimer = null;
@@ -71,6 +72,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     LeaderElector leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
     this.zkController = new ZkControllerImpl(processorId, zkUtils, this, leaderElector);
+    this.barrier =  new ZkBarrierForVersionUpgrade(zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(), zkUtils, debounceTimer, (new ZkConfig(config)).getZkBarrierTimeoutMs());
   }
 
   @Override
@@ -145,8 +147,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         LOG.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
 
         // update ZK and wait for all the processors to get this new version
-        ZkBarrierForVersionUpgrade barrier =
-            (ZkBarrierForVersionUpgrade) coordinationUtils.getBarrier(JOB_MODEL_UPGRADE_BARRIER);
         barrier.waitForBarrier(version, processorId, () -> onNewJobModelConfirmed(version));
       });
   }
@@ -219,8 +219,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     zkUtils.publishJobModel(nextJMVersion, jobModel);
 
     // start the barrier for the job model update
-    BarrierForVersionUpgrade barrier = coordinationUtils.getBarrier(
-        JOB_MODEL_UPGRADE_BARRIER);
     barrier.start(nextJMVersion, currentProcessorsIds);
 
     // publish new JobModel version
