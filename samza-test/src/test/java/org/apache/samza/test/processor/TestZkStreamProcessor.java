@@ -36,13 +36,10 @@ import org.junit.Test;
  */
 public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
-  // to avoid long sleeps, we rather use multiple attempts with shorter sleeps
-  private final static int ATTEMPTS_NUMBER = 5;
-
   private AtomicInteger counter = new AtomicInteger(1);
-  private String testSystem = "test-system";
-  private String inputTopic = "numbers";
-  private String outputTopic = "output";
+  private String testSystem;
+  private String inputTopic;
+  private String outputTopic;
   private int messageCount = 40;
 
   private Map<String, String> map;
@@ -162,19 +159,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     }
 
     // make sure it consumes all the messages from the first batch
-    int attempts = ATTEMPTS_NUMBER;
-    while (attempts > 0) {
-      long leftEventsCount = TestStreamTask.endLatch.getCount();
-      System.out.println("messages left to consume = " + leftEventsCount);
-      if (leftEventsCount == totalEventsToGenerate - messageCount) { // read first batch
-        System.out.println("read first batch. left to consume = " + leftEventsCount);
-        break;
-      }
-      TestZkUtils.sleepMs(1000);
-      attempts--;
-    }
-    Assert
-        .assertTrue("Didn't read all the events in the first batch in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
+    waitUntilConsumedN(totalEventsToGenerate - messageCount);
 
     // start the second processor
     CountDownLatch countDownLatch2 = new CountDownLatch(1);
@@ -197,18 +182,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // wait until all the events are consumed
     // make sure it consumes all the messages from the first batch
-    attempts = ATTEMPTS_NUMBER;
-    while (attempts > 0) {
-      long leftEventsCount = TestStreamTask.endLatch.getCount(); // how much is left to read
-      System.out.println("2 processors together. left to consume = " + leftEventsCount);
-      if (leftEventsCount == 0) { // should read all of them
-        System.out.println("2 processors together. read all. left " + leftEventsCount);
-        break;
-      }
-      TestZkUtils.sleepMs(1000);
-      attempts--;
-    }
-    Assert.assertTrue("Didn't read all the leftover events in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
+    waitUntilConsumedN(0);
 
     // shutdown both
     try {
@@ -274,19 +248,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     produceMessages(0, inputTopic, messageCount);
 
     // make sure they consume all the messages from the first batch
-    int attempts = ATTEMPTS_NUMBER;
-    while (attempts > 0) {
-      long leftEventsCount = TestStreamTask.endLatch.getCount();
-      System.out.println("current count = " + leftEventsCount);
-      if (leftEventsCount == totalEventsToGenerate - messageCount) { // read first batch
-        System.out.println("read all. current count = " + leftEventsCount);
-        break;
-      }
-      TestZkUtils.sleepMs(1000);
-      attempts--;
-    }
-    Assert
-        .assertTrue("Didn't read all the events in the first batch in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
+    waitUntilConsumedN(totalEventsToGenerate - messageCount);
 
     // stop the first processor
     synchronized (t1) {
@@ -308,18 +270,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     produceMessages(messageCount, inputTopic, messageCount);
 
     // wait until p2 consumes all the message by itself;
-    attempts = ATTEMPTS_NUMBER;
-    while (attempts > 0) {
-      long leftEventsCount = TestZkStreamProcessorBase.TestStreamTask.endLatch.getCount();
-      System.out.println("2current count = " + leftEventsCount);
-      if (leftEventsCount == 0) { // should read all of them
-        System.out.println("2read all. current count = " + leftEventsCount);
-        break;
-      }
-      TestZkUtils.sleepMs(1000);
-      attempts--;
-    }
-    Assert.assertTrue("Didn't read all the leftover events in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
+    waitUntilConsumedN(0);
 
     // shutdown p2
 
