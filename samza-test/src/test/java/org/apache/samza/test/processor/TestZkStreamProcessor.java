@@ -22,6 +22,7 @@ package org.apache.samza.test.processor;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
@@ -35,12 +36,31 @@ import org.junit.Test;
  */
 public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
+  // to avoid long sleeps, we rather use multiple attempts with shorter sleeps
   private final static int ATTEMPTS_NUMBER = 5;
-      // to avoid long sleeps, we rather use multiple attempts with shorter sleeps
+
+  private AtomicInteger counter = new AtomicInteger(1);
+  private String testSystem = "test-system";
+  private String inputTopic = "numbers";
+  private String outputTopic = "output";
+  private int messageCount = 40;
+
+  private Map<String, String> map;
+
 
   @Before
   public void setupTest() {
+    // for each tests - make the common parts unique
+    int seqNum = counter.getAndAdd(1);
+    testSystem = "test-system" + seqNum;
+    inputTopic = "numbers" + seqNum;
+    outputTopic = "output" + seqNum;
 
+    map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
+
+    // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
+    // TopicExistsException since StreamProcessor auto-creates them.
+    createTopics(inputTopic, outputTopic);
   }
 
   @Test
@@ -60,16 +80,6 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
   // main test method for happy path with fixed number of processors
   private void testStreamProcessor(String[] processorIds) {
-    final String testSystem = "test-system" + processorIds.length; // making system unique per test
-    final String inputTopic = "numbers" + processorIds.length; // making input topic unique per test
-    final String outputTopic = "output" + processorIds.length; // making output topic unique per test
-    final int messageCount = 40;
-
-    final Map<String, String> map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
-
-    // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
-    // TopicExistsException since StreamProcessor auto-creates them.
-    createTopics(inputTopic, outputTopic);
 
     // create a latch of the size == number of messages
     TestZkStreamProcessorBase.TestStreamTask.endLatch = new CountDownLatch(messageCount);
@@ -125,16 +135,6 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
   /**
    * Similar to the previous tests, but add another processor in the middle
    */ public void testStreamProcessorWithAdd() {
-    final String testSystem = "test-system1";
-    final String inputTopic = "numbers_add";
-    final String outputTopic = "output_add";
-    final int messageCount = 40;
-
-    final Map<String, String> map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
-
-    // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
-    // TopicExistsException since StreamProcessor auto-creates them.
-    createTopics(inputTopic, outputTopic);
 
     // set number of events we expect wo read by both processes in total:
     // p1 - reads 'messageCount' at first
@@ -234,16 +234,6 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
   /**
    * same as other happy path messages, but with one processor removed in the middle
    */ public void testStreamProcessorWithRemove() {
-    final String testSystem = "test-system2";
-    final String inputTopic = "numbers_rm";
-    final String outputTopic = "output_rm";
-    final int messageCount = 40;
-
-    final Map<String, String> map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
-
-    // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
-    // TopicExistsException since StreamProcessor auto-creates them.
-    createTopics(inputTopic, outputTopic);
 
     // set number of events we expect to read by both processes in total:
     // p1 and p2 - both read messageCount at first and p1 is shutdown, new batch of events is generated

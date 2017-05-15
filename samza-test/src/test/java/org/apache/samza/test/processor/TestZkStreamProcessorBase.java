@@ -31,9 +31,12 @@ import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
 import org.junit.Assert;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness {
+  public final static Logger LOG = LoggerFactory.getLogger(TestZkStreamProcessorBase.class);
   public final static int BAD_MESSAGE_KEY = 1000;
 
   // auxiliary methods
@@ -56,12 +59,12 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
             if (stopLatchCountDown != null) {
               stopLatchCountDown.countDown();
             }
-            System.out.println("ON STOP. PID = " + pId + " in thread " + Thread.currentThread());
+            LOG.info("onShutdown is called for pid=" + pId);
           }
 
           @Override
           public void onFailure(Throwable t) {
-
+            LOG.info("onFailure is called for pid=" + pId);
           }
         });
 
@@ -103,7 +106,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     KafkaProducer producer = getKafkaProducer();
     for (int i = start; i < numMessages + start; i++) {
       try {
-        System.out.println("producing " + i);
+        LOG.info("producing " + i);
         producer.send(new ProducerRecord(topic, String.valueOf(i).getBytes())).get();
       } catch (InterruptedException | ExecutionException e) {
         e.printStackTrace();
@@ -126,11 +129,11 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
           synchronized (this) {
             this.wait(100000);
           }
-          System.out.println("notified. Abandon the wait.");
+          LOG.info("notified. Abandon the wait.");
         } catch (InterruptedException e) {
-          System.out.println("wait interrupted" + e);
+          LOG.error("wait interrupted" + e);
         }
-        System.out.println("Stopping the processor");
+        LOG.info("Stopping the processor");
         processor.stop();
       }
     };
@@ -167,13 +170,13 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
         while (iterator.hasNext()) {
           ConsumerRecord record = iterator.next();
           String val = new String((byte[]) record.value());
-          System.out.println("Got value " + val);
+          LOG.info("Got value " + val);
           map.put(Integer.valueOf(val), true);
           count++;
         }
       } else {
         emptyPollCount++;
-        System.out.println("empty polls " + emptyPollCount);
+        LOG.warn("empty polls " + emptyPollCount);
       }
     }
     // filter out numbers we did not get
@@ -209,15 +212,14 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
 
       // inject a failure
       if (Integer.valueOf((String) message) >= BAD_MESSAGE_KEY && processorId.equals("1")) {
-        System.out.println("================================ FAILING for msg=" + message);
+        LOG.info("process method will fail for msg=" + message);
         throw new Exception("Processing in the processor " + processorId + " failed ");
       }
 
-      System.out.println(processorId + " is writing out " + message);
       messageCollector.send(new OutgoingMessageEnvelope(new SystemStream(outputSystem, outputTopic), message));
       processedMessageCount++;
 
-      System.out.println(
+      LOG.info(
           "Stream processor " + processorId + ";offset=" + incomingMessageEnvelope.getOffset() + "; totalRcvd="
               + processedMessageCount + ";received " + message + "; ssp=" + incomingMessageEnvelope
               .getSystemStreamPartition());
