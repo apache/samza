@@ -19,11 +19,6 @@
 
 package org.apache.samza.zk;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
@@ -36,6 +31,12 @@ import org.apache.zookeeper.data.Stat;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Util class to help manage Zk connection and ZkClient.
@@ -298,13 +299,5 @@ public class ZkUtils {
   public void subscribeToProcessorChange(IZkChildListener listener) {
     LOG.info("subscribing for child change at:" + keyBuilder.getProcessorsPath());
     zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
-  }
-
-  public void deleteRoot() {
-    String rootPath = keyBuilder.getRootPath();
-    if (rootPath != null && !rootPath.isEmpty() && zkClient.exists(rootPath)) {
-      LOG.info("Deleteing root: " + rootPath);
-      zkClient.deleteRecursive(rootPath);
-    }
   }
 }

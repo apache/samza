@@ -35,6 +35,11 @@ object StorageConfig {
   val CHANGELOG_SYSTEM = "job.changelog.system"
   val CHANGELOG_DELETE_RETENTION_MS = "stores.%s.changelog.delete.retention.ms"
   val DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1)
+  val ACCESSLOG_STREAM_SUFFIX = "access-log"
+  val ACCESSLOG_SAMPLING_RATIO = "stores.%s.accesslog.sampling.ratio"
+  val ACCESSLOG_ENABLED = "stores.%s.accesslog.enabled"
+  val DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50
+
 
   implicit def Config2Storage(config: Config) = new StorageConfig(config)
 }
@@ -45,9 +50,22 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
   def getStorageKeySerde(name: String) = getOption(StorageConfig.KEY_SERDE format name)
   def getStorageMsgSerde(name: String) = getOption(StorageConfig.MSG_SERDE format name)
 
+  def getAccessLogEnabled(storeName: String) = {
+    getBoolean(ACCESSLOG_ENABLED format storeName, false)
+  }
+
   def getChangelogStream(name: String) = {
     val javaStorageConfig = new JavaStorageConfig(config)
     Option(javaStorageConfig.getChangelogStream(name))
+  }
+
+  //Returns the accesslog stream name given a changelog stream name
+  def getAccessLogStream(changeLogStream: String) = {
+    changeLogStream + "-" + ACCESSLOG_STREAM_SUFFIX
+  }
+
+  def getAccessLogSamplingRatio(storeName: String) = {
+    getInt(ACCESSLOG_SAMPLING_RATIO format storeName, DEFAULT_ACCESSLOG_SAMPLING_RATIO)
   }
 
   def getChangeLogDeleteRetentionInMs(storeName: String) = {

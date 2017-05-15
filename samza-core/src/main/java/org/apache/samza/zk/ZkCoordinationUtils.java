@@ -41,7 +41,7 @@ public class ZkCoordinationUtils implements CoordinationUtils {
 
   @Override
   public void reset() {
-    zkUtils.deleteRoot();
+    zkUtils.close();
   }
 
   @Override
@@ -59,7 +59,7 @@ public class ZkCoordinationUtils implements CoordinationUtils {
     return new ZkBarrierForVersionUpgrade(barrierId, zkUtils, debounceTimer, zkConfig.getZkBarrierTimeoutMs());
   }
 
-  // TODO - SAMZA-1128 CoordinationService should directly depende on ZkUtils and DebounceTimer
+  // TODO - SAMZA-1128 CoordinationService should directly depend on ZkUtils and DebounceTimer
   public ZkUtils getZkUtils() {
     return zkUtils;
   }

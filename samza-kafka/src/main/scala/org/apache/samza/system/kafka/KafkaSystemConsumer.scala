@@ -127,8 +127,7 @@ private[kafka] class KafkaSystemConsumer(
     new Clock {
       def currentTimeMillis = clock()
     },
-    classOf[KafkaSystemConsumerMetrics].getName,
-    fetchLimitByBytesEnabled) with Toss with Logging {
+    classOf[KafkaSystemConsumerMetrics].getName) with Toss with Logging {
 
   type HostPort = (String, Int)
   val brokerProxies = scala.collection.mutable.Map[HostPort, BrokerProxy]()
