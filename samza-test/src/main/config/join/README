@@ -16,7 +16,7 @@ emitter.samza:
 joiner.samza:
   This job takes in the emitted values from emitter and joins them together by key.
   When it has received an emitted value from each partition it outputs the key to the topic "completed".
-  To track which partitions have emitted their value it keeps a store with | seperated numbers.
+  To track which partitions have emitted their value it keeps a store with | separated numbers.
   The first entry is the epoch and the remaining entries are partitions that have emitted the key.
 
 checker.samza:
@@ -42,10 +42,9 @@ First, set up a few environment variables:
 
 Deploy Zookeeper, YARN and Kafka:
 > cd $HELLO_SAMZA_SRC
-> bin/grid bootstrap
+> for i in zookeeper kafka yarn; do ./bin/grid install $i; ./bin/grid start $i; done
 
-Generate the tarball with the test jobs:
-First, update the "yarn.package.path" to $DEPLOY_DIR/samza-test_2.11-0.13.0.tgz
+Update the "yarn.package.path" to $DEPLOY_DIR/samza-test_2.11-0.13.0.tgz
 > cd $SAMZA_SRC
 > vi samza-test/src/main/config/join/common.properties
 yarn.package.path=file:///path/to/samza-hello-samza/deploy/samza-test_2.11-0.13.0.tgz
