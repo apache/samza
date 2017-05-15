@@ -18,6 +18,11 @@
  */
 package org.apache.samza.zk;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import junit.framework.Assert;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -29,13 +34,7 @@ import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 
 public class TestZkBarrierForVersionUpgrade {
@@ -43,17 +42,17 @@ public class TestZkBarrierForVersionUpgrade {
   private static String testZkConnectionString = null;
   private static CoordinationUtils coordinationUtils;
 
+  private static AtomicInteger counter = new AtomicInteger(1);
 
-  @BeforeClass
-  public static void setup() throws InterruptedException {
-    zkServer = new EmbeddedZookeeper();
-    zkServer.setup();
-    testZkConnectionString = "127.0.0.1:" + zkServer.getPort();
-  }
 
   @Before
   public void testSetup() {
-    String groupId = "group1";
+
+    zkServer = new EmbeddedZookeeper();
+    zkServer.setup();
+    testZkConnectionString = "127.0.0.1:" + zkServer.getPort();
+
+    String groupId = "group" + counter.getAndAdd(1);
     String processorId = "p1";
     Map<String, String> map = new HashMap<>();
     map.put(ZkConfig.ZK_CONNECT, testZkConnectionString);
