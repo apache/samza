@@ -66,10 +66,6 @@ public class TestZkBarrierForVersionUpgrade {
   @After
   public void testTearDown() {
     coordinationUtils.reset();
-  }
-
-  @AfterClass
-  public static void teardown() {
     zkServer.teardown();
   }
 
