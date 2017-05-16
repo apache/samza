@@ -113,6 +113,7 @@ public class TestJobGraphJsonGenerator {
     OutputStream<Object, Object, Object> outputStream2 = streamGraph.getOutputStream("output2", mockFn, mockFn);
 
     m1.join(m2, mock(JoinFunction.class), Duration.ofHours(2)).sendTo(outputStream1);
+    m2.sink((message, collector, coordinator) -> { });
     m3.join(m2, mock(JoinFunction.class), Duration.ofHours(1)).sendTo(outputStream2);
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
@@ -124,7 +125,7 @@ public class TestJobGraphJsonGenerator {
     ObjectMapper mapper = new ObjectMapper();
     JobGraphJsonGenerator.JobGraphJson nodes = mapper.readValue(json, JobGraphJsonGenerator.JobGraphJson.class);
     assertTrue(nodes.jobs.get(0).operatorGraph.inputStreams.size() == 5);
-    assertTrue(nodes.jobs.get(0).operatorGraph.operators.size() == 12);
+    assertTrue(nodes.jobs.get(0).operatorGraph.operators.size() == 13);
     assertTrue(nodes.sourceStreams.size() == 3);
     assertTrue(nodes.sinkStreams.size() == 2);
     assertTrue(nodes.intermediateStreams.size() == 2);

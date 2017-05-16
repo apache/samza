@@ -83,7 +83,7 @@
   <p id="summary"/>
 </section>
 
-<svg id="svg-canvas" width=1200 height=1000><g/></svg>
+<svg id="svg-canvas" width=1920 height=1200><g/></svg>
 
 <script id="js">
   var data = JSON.parse(plan);
@@ -112,7 +112,7 @@
   // Run the renderer. This is what draws the final graph.
   render(inner, g);
 
-  var initialScale = 0.65;
+  var initialScale = 0.75;
   zoom.scale(initialScale).event(svg);
   svg.attr('height', g.graph().height * initialScale + 100);
 </script>

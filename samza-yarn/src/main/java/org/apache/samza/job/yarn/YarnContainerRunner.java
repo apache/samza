@@ -38,6 +38,7 @@ import org.apache.hadoop.yarn.util.Records;
 import org.apache.samza.clustermanager.SamzaContainerLaunchException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.YarnConfig;
 import org.apache.samza.job.CommandBuilder;
 import org.apache.samza.util.Util;
@@ -110,6 +111,7 @@ public class YarnContainerRunner {
     log.info("Container ID {} using command {}", samzaContainerId, command);
 
     Map<String, String> env = getEscapedEnvironmentVariablesMap(cmdBuilder);
+    env.put(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID(), Util.envVarEscape(container.getId().toString()));
     printContainerEnvironmentVariables(samzaContainerId, env);
 
     log.info("Samza FWK path: " + command + "; env=" + env);
