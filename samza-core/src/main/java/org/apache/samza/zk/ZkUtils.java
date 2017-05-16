@@ -255,7 +255,7 @@ public class ZkUtils {
 
     if (currentVersion != null && !currentVersion.equals(oldVersion)) {
       throw new SamzaException(
-          "Someone change JobModelVersion while the leader was generating one: expected" + oldVersion + ", got " + currentVersion);
+          "Someone changed JobModelVersion while the leader was generating one: expected" + oldVersion + ", got " + currentVersion);
     }
     // data version is the ZK version of the data from the ZK.
     int dataVersion = stat.getVersion();
@@ -264,7 +264,7 @@ public class ZkUtils {
     } catch (Exception e) {
       String msg = "publish job model version failed for new version = " + newVersion + "; old version = " + oldVersion;
       LOG.error(msg, e);
-      throw new SamzaException(msg);
+      throw new SamzaException(e);
     }
     LOG.info("published new version: " + newVersion + "; expected data version = " + (dataVersion  + 1) +
         "(actual data version after update = " + stat.getVersion() +    ")");

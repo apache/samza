@@ -41,11 +41,9 @@ import java.util.List;
  * from the notification and the barrier becomes invalid.
  */
 public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
-  private final ZkUtils zkUtils;
-  private final static String BARRIER_DONE = "done";
-  private final static String BARRIER_TIMED_OUT = "TIMED_OUT";
   private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
 
+  private final ZkUtils zkUtils;
   private final String barrierPrefix;
 
   private BarrierForVersionUpgradeListener barrierListener;

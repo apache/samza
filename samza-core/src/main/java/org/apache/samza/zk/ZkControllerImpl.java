@@ -114,12 +114,7 @@ public class ZkControllerImpl implements ZkController {
   }
 
   class ZkJobModelVersionChangeHandler implements IZkDataListener {
-    /**
-     * called when job model version gets updated
-     * @param dataPath
-     * @param data
-     * @throws Exception
-     */
+
     @Override
     public void handleDataChange(String dataPath, Object data) throws Exception {
       LOG.info("pid=" + processorIdStr + ". Got notification on version update change. path=" + dataPath + "; data="
