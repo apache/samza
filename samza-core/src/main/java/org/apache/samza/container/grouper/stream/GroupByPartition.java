@@ -53,6 +53,20 @@ public class GroupByPartition implements SystemStreamPartitionGrouper {
 
   @Override
   public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps) {
+    return group(new HashMap<>(), ssps);
+  }
+
+  @Override
+  public Map<TaskName, Set<SystemStreamPartition>> group(Map<SystemStreamPartition, String> previousSystemStreamPartitionMapping,
+                                                         Set<SystemStreamPartition> ssps) {
+    Map<String, Set<String>> previousTaskSetByStream = new HashMap<>();
+    for (Map.Entry<SystemStreamPartition, String> entry: previousSystemStreamPartitionMapping.entrySet()) {
+      SystemStreamPartition ssp = entry.getKey();
+      if (!previousTaskSetByStream.containsKey(ssp.getStream()))
+        previousTaskSetByStream.put(ssp.getStream(), new HashSet<>());
+      previousTaskSetByStream.get(ssp.getStream()).add(entry.getValue());
+    }
+
     Map<TaskName, Set<SystemStreamPartition>> groupedMap = new HashMap<TaskName, Set<SystemStreamPartition>>();
 
     for (SystemStreamPartition ssp : ssps) {
@@ -61,9 +75,14 @@ public class GroupByPartition implements SystemStreamPartitionGrouper {
         continue;
       }
 
-      TaskName taskName = new TaskName("Partition " + ssp.getPartition().getPartitionId());
+      int partitionId = ssp.getPartition().getPartitionId();
+      Set<String> previousTaskSet = previousTaskSetByStream.get(ssp.getStream());
+      int previousPartitionCount = previousTaskSet != null ? previousTaskSet.size() : 0;
+      int bucketId = previousPartitionCount > 0 ? partitionId % previousPartitionCount : partitionId;
+
+      TaskName taskName = new TaskName("Partition " + bucketId);
       if (!groupedMap.containsKey(taskName)) {
-        groupedMap.put(taskName, new HashSet<SystemStreamPartition>());
+        groupedMap.put(taskName, new HashSet<>());
       }
       groupedMap.get(taskName).add(ssp);
     }

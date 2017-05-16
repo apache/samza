@@ -149,11 +149,10 @@ public class YarnContainerRunner {
    *    specified by packagePath.
    */
   private void startContainer(Path packagePath,
-                                Container container,
-                                Map<String, String> env,
-                                final String cmd) throws SamzaContainerLaunchException {
-    log.info("starting container {} {} {} {}",
-        new Object[]{packagePath, container, env, cmd});
+                              Container container,
+                              Map<String, String> env,
+                              final String cmd) throws SamzaContainerLaunchException {
+    log.info("starting container {} {} {} {}", new Object[]{packagePath, container, env, cmd});
 
     // TODO: SAMZA-1144 remove the customized approach for package resource and use the common one.
     // But keep it now for backward compatibility.
@@ -213,6 +212,7 @@ public class YarnContainerRunner {
     log.debug("setting localResourceMap to {}", localResourceMap);
     log.debug("setting context to {}", context);
 
+    // Dong: is startContainerRequest used?
     StartContainerRequest startContainerRequest = Records.newRecord(StartContainerRequest.class);
     startContainerRequest.setContainerLaunchContext(context);
     try {

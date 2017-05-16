@@ -28,7 +28,7 @@ import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.Config
 import org.apache.samza.config.StorageConfig
-import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
+import org.apache.samza.container.grouper.stream.{SystemStreamPartitionAssignmentManager, SystemStreamPartitionGrouperFactory}
 import org.apache.samza.container.grouper.task.BalancingTaskNameGrouper
 import org.apache.samza.container.grouper.task.TaskNameGrouperFactory
 import org.apache.samza.container.LocalityManager
@@ -98,11 +98,14 @@ object JobModelManager extends Logging {
     info("Got config: %s" format config)
     val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, SOURCE)
     changelogManager.start()
+
     val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
     // We don't need to start() localityManager as they share the same instances with checkpoint and changelog managers.
     // TODO: This code will go away with refactoring - SAMZA-678
-
     localityManager.start()
+
+    val sspAssignmentManager = new SystemStreamPartitionAssignmentManager(coordinatorSystemProducer, coordinatorSystemConsumer)
+    sspAssignmentManager.start()
 
     // Map the name of each system to the corresponding SystemAdmin
     val systemAdmins = getSystemAdmins(config)
@@ -122,8 +125,11 @@ object JobModelManager extends Logging {
           config.getMonitorPartitionChangeFrequency)
       }
     }
+    // Dong: why do we get previousChangelogPartitionMapping if tasks and input streams are not allowed to change for a given job?
     val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
-    val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, localityManager, streamMetadataCache, streamPartitionCountMonitor, null)
+    val previousSystemStreamPartitionMapping = sspAssignmentManager.readSystemStreamPartitionAssignment()
+    val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, previousSystemStreamPartitionMapping,
+      localityManager, streamMetadataCache, streamPartitionCountMonitor, null)
     val jobModel = jobModelManager.jobModel
     // Save the changelog mapping back to the ChangelogPartitionmanager
     // newChangelogPartitionMapping is the merging of all current task:changelog
@@ -132,11 +138,18 @@ object JobModelManager extends Logging {
     // maxChangelogPartitionId always has the absolute max, not the current
     // max (in case the task with the highest changelog partition mapping
     // disappears.
+    // Dong: why do we append previousChangelogPartitionMapping?
     val newChangelogPartitionMapping = jobModel.getContainers.asScala.flatMap(_._2.getTasks.asScala).map{case (taskName,taskModel) => {
       taskName -> Integer.valueOf(taskModel.getChangelogPartition.getPartitionId)
     }}.toMap ++ previousChangelogPartitionMapping.asScala
     info("Saving task-to-changelog partition mapping: %s" format newChangelogPartitionMapping)
     changelogManager.writeChangeLogPartitionMapping(newChangelogPartitionMapping.asJava)
+
+    val newSystemStreamPartitionMapping = jobModel.getContainers.asScala.values.flatMap(_.getTasks.values().asScala).flatMap(taskModel =>
+      taskModel.getSystemStreamPartitions.asScala.map(ssp => ssp -> taskModel.getTaskName.getTaskName)
+    ).toMap
+    info("Saving ssp-to-task mapping: %s" format newSystemStreamPartitionMapping)
+    sspAssignmentManager.writeSSPTaskMapping(newSystemStreamPartitionMapping.asJava)
 
     createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions)
     createAccessLogStreams(config, jobModel.maxChangeLogStreamPartitions)
@@ -149,12 +162,14 @@ object JobModelManager extends Logging {
    * Build a JobModelManager using a Samza job's configuration.
    */
   private def getJobModelManager(config: Config,
-                                changeLogMapping: util.Map[TaskName, Integer],
-                                localityManager: LocalityManager,
-                                streamMetadataCache: StreamMetadataCache,
-                                streamPartitionCountMonitor: StreamPartitionCountMonitor,
-                                containerIds: java.util.List[String]) = {
-    val jobModel: JobModel = readJobModel(config, changeLogMapping, localityManager, streamMetadataCache, containerIds)
+                                 changeLogMapping: util.Map[TaskName, Integer],
+                                 previousSystemStreamPartitionMapping: util.Map[SystemStreamPartition, String],
+                                 localityManager: LocalityManager,
+                                 streamMetadataCache: StreamMetadataCache,
+                                 streamPartitionCountMonitor: StreamPartitionCountMonitor,
+                                 containerIds: java.util.List[String]) = {
+    val jobModel: JobModel = readJobModel(config, changeLogMapping, previousSystemStreamPartitionMapping,
+      localityManager, streamMetadataCache, containerIds)
     jobModelRef.set(jobModel)
 
     val server = new HttpServer
@@ -219,6 +234,7 @@ object JobModelManager extends Logging {
    */
   def readJobModel(config: Config,
                    changeLogPartitionMapping: util.Map[TaskName, Integer],
+                   previousSystemStreamPartitionMapping: util.Map[SystemStreamPartition, String],
                    localityManager: LocalityManager,
                    streamMetadataCache: StreamMetadataCache,
                    containerIds: java.util.List[String]): JobModel = {
