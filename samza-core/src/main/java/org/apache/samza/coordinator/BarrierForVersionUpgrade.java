@@ -42,7 +42,12 @@ public interface BarrierForVersionUpgrade {
    * The call is async. The callback will be invoked when the barrier is reached.
    * @param version - for which the barrier waits
    * @param thisProcessorsName as it appears in the list of processors.
-   * @param callback  will be invoked, when barrier is reached.
    */
-  void waitForBarrier(String version, String thisProcessorsName, Runnable callback);
+  void joinBarrier(String version, String thisProcessorsName);
+
+  void expireBarrier(String version);
+
+  enum State {
+    STARTED, TIMED_OUT, DONE, ERROR
+  }
 }

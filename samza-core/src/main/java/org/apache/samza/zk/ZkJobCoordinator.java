@@ -23,6 +23,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
+import org.apache.samza.coordinator.BarrierForVersionUpgradeListener;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
@@ -40,6 +41,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * JobCoordinator for stand alone processor managed via Zookeeper.
@@ -49,6 +52,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   // TODO: MetadataCache timeout has to be 0 for the leader so that it can always have the latest information associated
   // with locality. Since host-affinity is not yet implemented, this can be fixed as part of SAMZA-1197
   private static final int METADATA_CACHE_TTL_MS = 5000;
+  private static final String VERSION_UPGRADE_TIMEOUT = "VersionUpgradeTimeout";
 
   private final ZkUtils zkUtils;
   private final String processorId;
@@ -56,7 +60,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   private final Config config;
   private final CoordinationUtils coordinationUtils;
-  private final BarrierForVersionUpgrade barrier;
+  private final ZkBarrierForVersionUpgrade barrier;
+  private final long barrierTimeoutMs;
 
   private StreamMetadataCache streamMetadataCache = null;
   private ScheduleAfterDebounceTime debounceTimer = null;
@@ -72,7 +77,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     LeaderElector leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
     this.zkController = new ZkControllerImpl(processorId, zkUtils, this, leaderElector);
-    this.barrier =  new ZkBarrierForVersionUpgrade(zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(), zkUtils, debounceTimer, (new ZkConfig(config)).getZkBarrierTimeoutMs());
+    this.barrierTimeoutMs = (new ZkConfig(config)).getZkBarrierTimeoutMs();
+    this.barrier =  new ZkBarrierForVersionUpgrade(zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(), zkUtils, new ZkBarrierForVersionUpgradeListener());
   }
 
   @Override
@@ -147,7 +153,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         LOG.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
 
         // update ZK and wait for all the processors to get this new version
-        barrier.waitForBarrier(version, processorId, () -> onNewJobModelConfirmed(version));
+        barrier.joinBarrier(version, processorId);
       });
   }
 
@@ -237,6 +243,50 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
           // actual actions to do are the same as onProcessorChange()
           doOnProcessorChange(new ArrayList<>());
         });
+    }
+  }
+
+  class ZkBarrierForVersionUpgradeListener implements BarrierForVersionUpgradeListener {
+    @Override
+    public void onBarrierStart(final String version) {
+      LOG.info(String.format("Barrier %s started with timeout %sms", barrier.toString(), barrierTimeoutMs));
+      Timer timer = new Timer("TIMEOUT");
+      timer.schedule(new TimerTask() {
+        @Override
+        public void run() {
+          debounceTimer.scheduleAfterDebounceTime(
+              VERSION_UPGRADE_TIMEOUT,
+              0,
+              () -> barrier.expireBarrier(version));
+          timer.cancel();
+          }
+      }, barrierTimeoutMs);
+    }
+
+    @Override
+    public void onBarrierComplete(final String version, final BarrierForVersionUpgrade.State barrierState) {
+      switch (barrierState) {
+        case DONE:
+          // cancel any version upgrade timeout timer task
+          debounceTimer.scheduleAfterDebounceTime(
+              ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE,
+              0,
+              () -> onNewJobModelConfirmed(version)
+          );
+          break;
+        case TIMED_OUT:
+          //do nothing for now since it is already handled in the timer above
+          break;
+        case STARTED:
+        default:
+          // No - op
+      }
+
+    }
+
+    @Override
+    public void onBarrierError(String version, Throwable t) {
+
     }
   }
 }

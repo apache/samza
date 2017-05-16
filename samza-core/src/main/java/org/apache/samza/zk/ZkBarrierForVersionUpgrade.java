@@ -19,17 +19,18 @@
 
 package org.apache.samza.zk;
 
-import java.util.Arrays;
-import java.util.List;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.exception.ZkBadVersionException;
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
+import org.apache.samza.coordinator.BarrierForVersionUpgradeListener;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Arrays;
+import java.util.List;
 
 
 /**
@@ -45,44 +46,31 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final static String BARRIER_TIMED_OUT = "TIMED_OUT";
   private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
 
-  private final ScheduleAfterDebounceTime debounceTimer;
-
   private final String barrierPrefix;
+
+  private BarrierForVersionUpgradeListener barrierListener;
   private String barrierDonePath;
   private String barrierProcessors;
-  private static final String VERSION_UPGRADE_TIMEOUT_TIMER = "VersionUpgradeTimeout";
-  private final long barrierTimeoutMS;
+  private Stat barrierDoneStat;
 
-  // TODO: Used only in testing for now - should become same as the other constructor at the end of SAMZA-1128 changes
-  public ZkBarrierForVersionUpgrade(String barrierPrefix, ZkUtils zkUtils, long barrierTimeoutMS) {
-    this(barrierPrefix, zkUtils, new ScheduleAfterDebounceTime(), barrierTimeoutMS);
-  }
-
-  public ZkBarrierForVersionUpgrade(String barrierPrefix, ZkUtils zkUtils, ScheduleAfterDebounceTime debounceTimer, long barrierTimeoutMS) {
+  public ZkBarrierForVersionUpgrade(String barrierPrefix, ZkUtils zkUtils, BarrierForVersionUpgradeListener barrierListener) {
     if (zkUtils == null) {
       throw new RuntimeException("Cannot operate ZkBarrierForVersionUpgrade without ZkUtils.");
     }
     this.zkUtils = zkUtils;
     this.barrierPrefix = barrierPrefix;
-    this.debounceTimer = debounceTimer;
-    this.barrierTimeoutMS = barrierTimeoutMS;
+    this.barrierListener = barrierListener;
   }
 
-  protected long getBarrierTimeOutMs() {
-    return barrierTimeoutMS;
-  }
-
-  private void timerOff(final String version, final Stat currentStatOfBarrierDone) {
+  @Override
+  public void expireBarrier(final String version) {
     try {
       // write a new value "TIMED_OUT", if the value was changed since previous value, make sure it was changed to "DONE"
-      zkUtils.getZkClient().writeData(barrierDonePath, BARRIER_TIMED_OUT, currentStatOfBarrierDone.getVersion());
+      zkUtils.getZkClient().writeData(barrierDonePath, State.TIMED_OUT.toString(), barrierDoneStat.getVersion());
     } catch (ZkBadVersionException e) {
       // Expected. failed to write, make sure the value is "DONE"
       String done = zkUtils.getZkClient().<String>readData(barrierDonePath);
       LOG.info("Barrier timeout expired, but done=" + done);
-      if (!done.equals(BARRIER_DONE)) {
-        throw new SamzaException("Failed to write to the barrier_done, version=" + version, e);
-      }
     }
   }
 
@@ -103,22 +91,21 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     zkUtils.getZkClient().subscribeChildChanges(barrierProcessors, new ZkBarrierChangeHandler(participants));
 
     // create a timer for time-out
-    Stat currentStatOfBarrierDone = new Stat();
-    zkUtils.getZkClient().readData(barrierDonePath, currentStatOfBarrierDone);
+    this.barrierDoneStat = new Stat();
+    zkUtils.getZkClient().readData(barrierDonePath, barrierDoneStat);
 
-    debounceTimer.scheduleAfterDebounceTime(
-        VERSION_UPGRADE_TIMEOUT_TIMER,
-        getBarrierTimeOutMs(),
-        () -> timerOff(version, currentStatOfBarrierDone));
+    if (barrierListener != null) {
+      barrierListener.onBarrierStart(version);
+    }
   }
 
   @Override
-  public void waitForBarrier(String version, String participantName, Runnable callback) {
+  public void joinBarrier(String version, String participantName) {
     setPaths(version);
     final String barrierProcessorThis = String.format("%s/%s", barrierProcessors, participantName);
 
     // now subscribe for the barrier
-    zkUtils.getZkClient().subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, debounceTimer, callback));
+    zkUtils.getZkClient().subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, version));
 
     // update the barrier for this processor
     LOG.info("Creating a child for barrier at " + barrierProcessorThis);
@@ -138,7 +125,6 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
     @Override
     public void handleChildChange(String parentPath, List<String> currentChildren) throws Exception {
-
       if (currentChildren == null) {
         LOG.info("Got handleChildChange with null currentChildren");
         return;
@@ -150,35 +136,42 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
       if (CollectionUtils.containsAll(names, currentChildren)) {
         LOG.info("ALl nodes reached the barrier");
         LOG.info("Writing BARRIER DONE to " + barrierDonePath);
-        zkUtils.getZkClient().writeData(barrierDonePath, BARRIER_DONE); // this will trigger notifications
+        zkUtils.getZkClient().writeData(barrierDonePath, State.DONE.toString()); // this will trigger notifications
+        zkUtils.getZkClient().unsubscribeChildChanges(barrierDonePath, this);
       }
     }
   }
 
   class ZkBarrierReachedHandler implements IZkDataListener {
-    private final ScheduleAfterDebounceTime debounceTimer;
     private final String barrierPathDone;
-    private final Runnable callback;
+    private final String barrierVersion;
 
-    public ZkBarrierReachedHandler(String barrierPathDone, ScheduleAfterDebounceTime debounceTimer, Runnable callback) {
+    public ZkBarrierReachedHandler(String barrierPathDone, String version) {
       this.barrierPathDone = barrierPathDone;
-      this.callback = callback;
-      this.debounceTimer = debounceTimer;
+      this.barrierVersion = version;
     }
 
     @Override
     public void handleDataChange(String dataPath, Object data)
         throws Exception {
-      String done = (String) data;
-      LOG.info("got notification about barrier path=" + barrierPathDone + "; done=" + done);
-      if (done.equals(BARRIER_DONE)) {
-        debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, callback);
-      } else if (done.equals(BARRIER_TIMED_OUT)) {
-        // timed out
-        LOG.warn("Barrier for " + dataPath + " timed out");
+      LOG.info("got notification about barrier path=" + barrierPathDone + "; done=" + data);
+      State state;
+      try {
+        state = State.valueOf((String) data);
+      } catch (IllegalArgumentException e) {
+        if (barrierListener != null) {
+          barrierListener.onBarrierError(barrierVersion, e);
+        }
+        return;
+      } finally {
+        // in any case we unsubscribe
+        zkUtils.unsubscribeDataChanges(barrierPathDone, this);
       }
-      // in any case we unsubscribe
-      zkUtils.unsubscribeDataChanges(barrierPathDone, this);
+
+      // valid state
+      if (barrierListener != null) {
+        barrierListener.onBarrierComplete(barrierVersion, state);
+      }
     }
 
     @Override

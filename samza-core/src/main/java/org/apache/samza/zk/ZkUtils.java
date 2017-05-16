@@ -114,10 +114,6 @@ public class ZkUtils {
     }
   }
 
-  public synchronized String getEphemeralPath() {
-    return ephemeralPath;
-  }
-
   /**
    * Method is used to get the <i>sorted</i> list of currently active/registered processors (znodes)
    *
