@@ -30,13 +30,7 @@ public class ZkCoordinationServiceFactory implements CoordinationServiceFactory 
   // TODO - Why should this method be synchronized?
   synchronized public CoordinationUtils getCoordinationService(String groupId, String participantId, Config config) {
     ZkConfig zkConfig = new ZkConfig(config);
-    ZkClient zkClient;
-    try {
-      zkClient = new ZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
-    } catch (Exception e) {
-      throw new SamzaException("zkClient failed to connect to ZK at :" + zkConfig.getZkConnect(), e);
-    }
-
+    ZkClient zkClient = ZkUtils.createZkClient(zkConfig);
     ZkUtils zkUtils = new ZkUtils(new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs());
     return new ZkCoordinationUtils(participantId, zkConfig, zkUtils, new ScheduleAfterDebounceTime());
   }

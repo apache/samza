@@ -25,6 +25,7 @@ import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ZkConfig;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.zookeeper.data.Stat;
@@ -116,6 +117,22 @@ public class ZkUtils {
     } else {
       LOG.info("existing path for " + data +  " is " +  ephemeralPath);
       return ephemeralPath;
+    }
+  }
+
+  /**
+   * create an instance of ZkClient
+   * @param zkConfig
+   * @return an instance of zkClient
+   */
+  public static ZkClient createZkClient(ZkConfig zkConfig) {
+    try {
+      ZkClient zkClient =
+          new ZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
+      return zkClient;
+    } catch (Exception e) {
+      // ZkClient constructor may throw a varaity of different exceptions, not all of them Zk based.
+      throw new SamzaException("zkClient failed to connect to ZK at :" + zkConfig.getZkConnect(), e);
     }
   }
 
