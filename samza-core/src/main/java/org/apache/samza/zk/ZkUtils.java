@@ -122,7 +122,7 @@ public class ZkUtils {
 
   /**
    * create an instance of ZkClient
-   * @param zkConfig
+   * @param zkConfig Zookeeper config
    * @return an instance of zkClient
    */
   public static ZkClient createZkClient(ZkConfig zkConfig) {
