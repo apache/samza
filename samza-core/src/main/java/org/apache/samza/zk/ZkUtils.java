@@ -127,8 +127,7 @@ public class ZkUtils {
    */
   public static ZkClient createZkClient(ZkConfig zkConfig) {
     try {
-      ZkClient zkClient =
-          new ZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
+      ZkClient zkClient = new ZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
       return zkClient;
     } catch (Exception e) {
       // ZkClient constructor may throw a varaity of different exceptions, not all of them Zk based.
