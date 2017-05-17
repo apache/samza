@@ -16,29 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.stream;
+package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.system.StreamSpec;
 
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
-public class IntermediateStreamInternalImpl<K, V, M> extends MessageStreamImpl<M>
-    implements InputStreamInternal<K, V, M>, OutputStreamInternal<K, V, M> {
+/**
+ * The spec for an operator that receives incoming messages from an input stream
+ * and converts them to the input message.
+ *
+ * @param <K> the type of key in the incoming message
+ * @param <V> the type of message in the incoming message
+ * @param <M> the type of input message
+ */
+public class InputOperatorSpec<K, V, M> extends OperatorSpec<Pair<K, V>, M> {
 
   private final StreamSpec streamSpec;
-  private final Function<M, K> keyExtractor;
-  private final Function<M, V> msgExtractor;
   private final BiFunction<K, V, M> msgBuilder;
 
-  public IntermediateStreamInternalImpl(StreamGraphImpl graph, StreamSpec streamSpec, Function<M, K> keyExtractor,
-      Function<M, V> msgExtractor, BiFunction<K, V, M> msgBuilder) {
-    super(graph);
+  public InputOperatorSpec(StreamSpec streamSpec, BiFunction<K, V, M> msgBuilder, int opId) {
+    super(OpCode.INPUT, opId);
     this.streamSpec = streamSpec;
-    this.keyExtractor = keyExtractor;
-    this.msgExtractor = msgExtractor;
     this.msgBuilder = msgBuilder;
   }
 
@@ -46,15 +46,6 @@ public class IntermediateStreamInternalImpl<K, V, M> extends MessageStreamImpl<M
     return this.streamSpec;
   }
 
-  public Function<M, K> getKeyExtractor() {
-    return this.keyExtractor;
-  }
-
-  public Function<M, V> getMsgExtractor() {
-    return this.msgExtractor;
-  }
-
-  @Override
   public BiFunction<K, V, M> getMsgBuilder() {
     return this.msgBuilder;
   }

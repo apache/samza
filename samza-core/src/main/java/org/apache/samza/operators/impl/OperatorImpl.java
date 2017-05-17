@@ -43,11 +43,12 @@ public abstract class OperatorImpl<M, RM> {
 
   private boolean initialized;
   private boolean closed;
-  private Set<OperatorImpl<RM, ?>> registeredOperators;
   private HighResolutionClock highResClock;
   private Counter numMessage;
   private Timer handleMessageNs;
   private Timer handleTimerNs;
+
+  Set<OperatorImpl<RM, ?>> registeredOperators;
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
@@ -56,7 +57,7 @@ public abstract class OperatorImpl<M, RM> {
    * @param context  the {@link TaskContext} for the task
    */
   public final void init(Config config, TaskContext context) {
-    String opName = getOperatorSpec().getOpName();
+    String opName = getOperatorName();
 
     if (initialized) {
       throw new IllegalStateException(String.format("Attempted to initialize Operator %s more than once.", opName));
@@ -95,7 +96,7 @@ public abstract class OperatorImpl<M, RM> {
     if (!initialized) {
       throw new IllegalStateException(
           String.format("Attempted to register next operator before initializing operator %s.",
-              getOperatorSpec().getOpName()));
+              getOperatorName()));
     }
     this.registeredOperators.add(nextOperator);
   }
@@ -183,7 +184,20 @@ public abstract class OperatorImpl<M, RM> {
    *
    * @return the {@link OperatorSpec} for this {@link OperatorImpl}
    */
-  protected abstract OperatorSpec<RM> getOperatorSpec();
+  protected abstract OperatorSpec<M, RM> getOperatorSpec();
+
+  /**
+   * Get the name for this {@link OperatorImpl}.
+   *
+   * Some {@link OperatorImpl}s don't have a 1:1 mapping with their {@link OperatorSpec}. E.g., there are
+   * 2 PartialJoinOperatorImpls for a JoinOperatorSpec. Overriding this method allows them to provide an
+   * implementation specific name, e.g., for use in metrics.
+   *
+   * @return the operator name
+   */
+  protected String getOperatorName() {
+    return getOperatorSpec().getOpName();
+  }
 
   private HighResolutionClock createHighResClock(Config config) {
     if (new MetricsConfig(config).getMetricsTimerEnabled()) {

@@ -19,9 +19,11 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
+import org.apache.samza.operators.spec.OutputOperatorSpec;
+import org.apache.samza.operators.spec.OutputStreamImpl;
+import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -31,37 +33,36 @@ import java.util.Collections;
 
 
 /**
- * An operator that sends incoming messages to an arbitrary output system using the provided {@link SinkFunction}.
+ * An operator that sends incoming messages to an output {@link SystemStream}.
  */
-class SinkOperatorImpl<M> extends OperatorImpl<M, Void> {
+class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
 
-  private final SinkOperatorSpec<M> sinkOpSpec;
-  private final SinkFunction<M> sinkFn;
+  private final OutputOperatorSpec<M> outputOpSpec;
+  private final OutputStreamImpl<?, ?, M> outputStream;
 
-  SinkOperatorImpl(SinkOperatorSpec<M> sinkOpSpec, Config config, TaskContext context) {
-    this.sinkOpSpec = sinkOpSpec;
-    this.sinkFn = sinkOpSpec.getSinkFn();
+  OutputOperatorImpl(OutputOperatorSpec<M> outputOpSpec, Config config, TaskContext context) {
+    this.outputOpSpec = outputOpSpec;
+    this.outputStream = outputOpSpec.getOutputStream();
   }
 
   @Override
   protected void handleInit(Config config, TaskContext context) {
-    this.sinkFn.init(config, context);
   }
 
   @Override
   public Collection<Void> handleMessage(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
-    this.sinkFn.apply(message, collector, coordinator);
-    // there should be no further chained operators since this is a terminal operator.
+    // TODO: SAMZA-1148 - need to find a way to directly pass in the serde class names
+    SystemStream systemStream = new SystemStream(outputStream.getStreamSpec().getSystemName(),
+        outputStream.getStreamSpec().getPhysicalName());
+    Object key = outputStream.getKeyExtractor().apply(message);
+    Object msg = outputStream.getMsgExtractor().apply(message);
+    collector.send(new OutgoingMessageEnvelope(systemStream, key, msg));
     return Collections.emptyList();
   }
 
   @Override
-  protected void handleClose() {
-    this.sinkFn.close();
-  }
-
   protected OperatorSpec<M, Void> getOperatorSpec() {
-    return sinkOpSpec;
+    return outputOpSpec;
   }
 }

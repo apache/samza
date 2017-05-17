@@ -20,12 +20,10 @@ package org.apache.samza.operators;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.operators.spec.InputOperatorSpec;
+import org.apache.samza.operators.spec.OutputStreamImpl;
+import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.stream.InputStreamInternal;
-import org.apache.samza.operators.stream.InputStreamInternalImpl;
-import org.apache.samza.operators.stream.IntermediateStreamInternalImpl;
-import org.apache.samza.operators.stream.OutputStreamInternal;
-import org.apache.samza.operators.stream.OutputStreamInternalImpl;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 
@@ -51,9 +49,9 @@ public class StreamGraphImpl implements StreamGraph {
    */
   private int opId = 0;
 
-  // Using LHM for deterministic order in initializing and closing operators.
-  private final Map<StreamSpec, InputStreamInternal> inStreams = new LinkedHashMap<>();
-  private final Map<StreamSpec, OutputStreamInternal> outStreams = new LinkedHashMap<>();
+  // We use a LHM for deterministic order in initializing and closing operators.
+  private final Map<StreamSpec, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
+  private final Map<StreamSpec, OutputStreamImpl> outputStreams = new LinkedHashMap<>();
   private final ApplicationRunner runner;
   private final Config config;
 
@@ -67,17 +65,21 @@ public class StreamGraphImpl implements StreamGraph {
   }
 
   @Override
-  public <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
+  public <K, V, M> MessageStream<M> getInputStream(String streamId,
+      BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
     if (msgBuilder == null) {
       throw new IllegalArgumentException("msgBuilder can't be null for an input stream");
     }
 
-    if (inStreams.containsKey(runner.getStreamSpec(streamId))) {
-      throw new IllegalStateException("Cannot invoke getInputStream() multiple times with the same streamId: " + streamId);
+    if (inputOperators.containsKey(runner.getStreamSpec(streamId))) {
+      throw new IllegalStateException("getInputStream() invoked multiple times "
+          + "with the same streamId: " + streamId);
     }
 
-    return inStreams.computeIfAbsent(runner.getStreamSpec(streamId),
-        streamSpec -> new InputStreamInternalImpl<>(this, streamSpec, (BiFunction<K, V, M>) msgBuilder));
+    StreamSpec streamSpec = runner.getStreamSpec(streamId);
+    inputOperators.put(streamSpec,
+        new InputOperatorSpec<>(streamSpec, (BiFunction<K, V, M>) msgBuilder, this.getNextOpId()));
+    return new MessageStreamImpl<>(this, inputOperators.get(streamSpec));
   }
 
   @Override
@@ -91,12 +93,15 @@ public class StreamGraphImpl implements StreamGraph {
       throw new IllegalArgumentException("msgExtractor can't be null for an output stream.");
     }
 
-    if (outStreams.containsKey(runner.getStreamSpec(streamId))) {
-      throw new IllegalStateException("Cannot invoke getOutputStream() multiple times with the same streamId: " + streamId);
+    if (outputStreams.containsKey(runner.getStreamSpec(streamId))) {
+      throw new IllegalStateException("getOutputStream() invoked multiple times "
+          + "with the same streamId: " + streamId);
     }
 
-    return outStreams.computeIfAbsent(runner.getStreamSpec(streamId),
-        streamSpec -> new OutputStreamInternalImpl<>(this, streamSpec, (Function<M, K>) keyExtractor, (Function<M, V>) msgExtractor));
+    StreamSpec streamSpec = runner.getStreamSpec(streamId);
+    outputStreams.put(streamSpec,
+        new OutputStreamImpl<>(streamSpec, (Function<M, K>) keyExtractor, (Function<M, V>) msgExtractor));
+    return outputStreams.get(streamSpec);
   }
 
   @Override
@@ -120,8 +125,9 @@ public class StreamGraphImpl implements StreamGraph {
    * @param <M> the type of messages in the intermediate {@link MessageStream}
    * @return  the intermediate {@link MessageStreamImpl}
    */
-  <K, V, M> MessageStreamImpl<M> getIntermediateStream(String streamName,
-      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
+  <K, V, M> IntermediateMessageStreamImpl<K, V, M> getIntermediateStream(String streamName,
+      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor,
+      BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
     String streamId = String.format("%s-%s-%s",
         config.get(JobConfig.JOB_NAME()),
         config.get(JobConfig.JOB_ID(), "1"),
@@ -129,30 +135,28 @@ public class StreamGraphImpl implements StreamGraph {
     if (msgBuilder == null) {
       throw new IllegalArgumentException("msgBuilder cannot be null for an intermediate stream");
     }
-
     if (keyExtractor == null) {
       throw new IllegalArgumentException("keyExtractor can't be null for an output stream.");
     }
     if (msgExtractor == null) {
       throw new IllegalArgumentException("msgExtractor can't be null for an output stream.");
     }
-
     StreamSpec streamSpec = runner.getStreamSpec(streamId);
-    IntermediateStreamInternalImpl<K, V, M> intStream =
-        (IntermediateStreamInternalImpl<K, V, M>) inStreams
-            .computeIfAbsent(streamSpec,
-                k -> new IntermediateStreamInternalImpl<>(this, streamSpec, (Function<M, K>) keyExtractor,
-                    (Function<M, V>) msgExtractor, (BiFunction<K, V, M>) msgBuilder));
-    outStreams.putIfAbsent(streamSpec, intStream);
-    return intStream;
+    if (inputOperators.containsKey(streamSpec) || outputStreams.containsKey(streamSpec)) {
+      throw new IllegalStateException("getIntermediateStream() invoked multiple times "
+          + "with the same streamId: " + streamId);
+    }
+    inputOperators.put(streamSpec, new InputOperatorSpec(streamSpec, msgBuilder, this.getNextOpId()));
+    outputStreams.put(streamSpec, new OutputStreamImpl(streamSpec, keyExtractor, msgExtractor));
+    return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamSpec), outputStreams.get(streamSpec));
   }
 
-  public Map<StreamSpec, InputStreamInternal> getInputStreams() {
-    return Collections.unmodifiableMap(inStreams);
+  public Map<StreamSpec, InputOperatorSpec> getInputOperators() {
+    return Collections.unmodifiableMap(inputOperators);
   }
 
-  public Map<StreamSpec, OutputStreamInternal> getOutputStreams() {
-    return Collections.unmodifiableMap(outStreams);
+  public Map<StreamSpec, OutputStreamImpl> getOutputStreams() {
+    return Collections.unmodifiableMap(outputStreams);
   }
 
   public ContextManager getContextManager() {
@@ -169,24 +173,20 @@ public class StreamGraphImpl implements StreamGraph {
    * @return  a set of all available {@link OperatorSpec}s
    */
   public Collection<OperatorSpec> getAllOperatorSpecs() {
-    Collection<InputStreamInternal> inputStreams = inStreams.values();
+    Collection<InputOperatorSpec> inputOperatorSpecs = inputOperators.values();
     Set<OperatorSpec> operatorSpecs = new HashSet<>();
 
-    for (InputStreamInternal stream : inputStreams) {
-      doGetOperatorSpecs((MessageStreamImpl) stream, operatorSpecs);
+    for (InputOperatorSpec inputOperatorSpec: inputOperatorSpecs) {
+      doGetOperatorSpecs(inputOperatorSpec, operatorSpecs);
     }
     return operatorSpecs;
   }
 
-  private void doGetOperatorSpecs(MessageStreamImpl stream, Set<OperatorSpec> specs) {
-    Collection<OperatorSpec> registeredOperatorSpecs = stream.getRegisteredOperatorSpecs();
-    for (OperatorSpec spec : registeredOperatorSpecs) {
-      specs.add(spec);
-      MessageStreamImpl nextStream = spec.getNextStream();
-      if (nextStream != null) {
-        //Recursively traverse and obtain all reachable operators
-        doGetOperatorSpecs(nextStream, specs);
-      }
+  private void doGetOperatorSpecs(OperatorSpec operatorSpec, Set<OperatorSpec> specs) {
+    Collection<OperatorSpec> registeredOperatorSpecs = operatorSpec.getRegisteredOperatorSpecs();
+    for (OperatorSpec registeredOperatorSpec: registeredOperatorSpecs) {
+      specs.add(registeredOperatorSpec);
+      doGetOperatorSpecs(registeredOperatorSpec, specs);
     }
   }
 
