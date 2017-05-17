@@ -67,19 +67,19 @@ public class TestZkBarrierForVersionUpgrade {
     processors.add("p1");
     processors.add("p2");
     final CountDownLatch latch = new CountDownLatch(2);
-    BarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, new BarrierForVersionUpgradeListener() {
+    BarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, 1000, zkUtils, new BarrierForVersionUpgradeListener() {
       @Override
-      public void onBarrierStart(String version) {
-        // do nothing
-      }
-
-      @Override
-      public void onBarrierComplete(String version, BarrierForVersionUpgrade.State barrierState) {
+      public void onBarrierComplete(String version) {
         latch.countDown();
       }
 
       @Override
       public void onBarrierError(String version, Throwable t) {
+
+      }
+
+      @Override
+      public void onBarrierTimeout(String version) {
 
       }
     });
@@ -87,19 +87,19 @@ public class TestZkBarrierForVersionUpgrade {
     processor1Barrier.start(ver, processors);
     processor1Barrier.joinBarrier(ver, "p1");
 
-    BarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, new BarrierForVersionUpgradeListener() {
+    BarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, 1000, zkUtils, new BarrierForVersionUpgradeListener() {
       @Override
-      public void onBarrierStart(String version) {
-        // do nothing
-      }
-
-      @Override
-      public void onBarrierComplete(String version, BarrierForVersionUpgrade.State barrierState) {
+      public void onBarrierComplete(String version) {
         latch.countDown();
       }
 
       @Override
       public void onBarrierError(String version, Throwable t) {
+
+      }
+
+      @Override
+      public void onBarrierTimeout(String version) {
 
       }
     });
@@ -145,7 +145,7 @@ public class TestZkBarrierForVersionUpgrade {
 
     Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> s.p1 && s.p2 && s.p3, 2, 100));
   }
-
+*/
   @Test
   public void testZkBarrierForVersionUpgradeWithTimeOut() {
     String barrierId = zkUtils.getKeyBuilder().getRootPath() + "/barrierTimeout";
@@ -153,28 +153,46 @@ public class TestZkBarrierForVersionUpgrade {
     List<String> processors = new ArrayList<>();
     processors.add("p1");
     processors.add("p2");
-    processors.add("p3");
 
-    BarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, ZkConfig.DEFAULT_BARRIER_TIMEOUT_MS);
+    final CountDownLatch latch = new CountDownLatch(1);
+    BarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(
+        barrierId,
+        1000,
+        zkUtils,
+        new BarrierForVersionUpgradeListener() {
+          @Override
+          public void onBarrierComplete(String version) {
 
-    class Status {
-      boolean p1 = false;
-      boolean p2 = false;
-      boolean p3 = false;
+          }
+
+          @Override
+          public void onBarrierError(String version, Throwable t) {
+
+          }
+
+          @Override
+          public void onBarrierTimeout(String version) {
+            Assert.assertEquals("1", version);
+            List<String> children = zkUtils.getZkClient().getChildren(barrierId + "/barrier_v1/barrier_processors");
+            Assert.assertNotNull(children);
+            Assert.assertEquals(1, children.size());
+            processors.remove("p2");
+            Assert.assertEquals(processors, children);
+            latch.countDown();
+          }
+        });
+    processor1Barrier.start(ver, processors);
+    processor1Barrier.joinBarrier(ver, "p1");
+    boolean result = false;
+    try {
+      result = latch.await(5000, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      System.out.println("Exception - " + e);
+      e.printStackTrace();
+    } catch (Exception ce) {
+      System.out.println("General exception - " + ce);
+    } finally {
+      Assert.assertEquals("Barrier timeout didn't work as expected. Test incomplete.", true, result);
     }
-    final Status s = new Status();
-
-    barrier.start(ver, processors);
-
-    barrier.joinBarrier(ver, "p1", () -> s.p1 = true);
-
-    barrier.joinBarrier(ver, "p2", () -> s.p2 = true);
-
-    // this node will join "too late"
-    barrier.joinBarrier(ver, "p3", () -> {
-      TestZkUtils.sleepMs(300);
-      s.p3 = true;
-    });
-    Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> s.p1 && s.p2 && s.p3, 2, 400));
-  }*/
+  }
 }

@@ -45,8 +45,6 @@ public interface BarrierForVersionUpgrade {
    */
   void joinBarrier(String version, String thisProcessorsName);
 
-  void expireBarrier(String version);
-
   enum State {
     STARTED, TIMED_OUT, DONE, ERROR
   }

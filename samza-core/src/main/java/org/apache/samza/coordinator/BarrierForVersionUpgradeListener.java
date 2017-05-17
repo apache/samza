@@ -19,10 +19,9 @@
 package org.apache.samza.coordinator;
 
 public interface BarrierForVersionUpgradeListener {
-
-  void onBarrierStart(String version);
-
-  void onBarrierComplete(String version, BarrierForVersionUpgrade.State barrierState);
+  void onBarrierComplete(String version);
 
   void onBarrierError(String version, Throwable t);
+
+  void onBarrierTimeout(String version);
 }
