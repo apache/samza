@@ -25,6 +25,7 @@ import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.BarrierForVersionUpgradeListener;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -33,12 +34,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class TestZkBarrierForVersionUpgrade {
   private static EmbeddedZookeeper zkServer = null;
   private static String testZkConnectionString = null;
   private ZkUtils zkUtils;
+  private ZkUtils zkUtils1;
 
   @BeforeClass
   public static void test() {
@@ -51,14 +53,21 @@ public class TestZkBarrierForVersionUpgrade {
   public void testSetup() {
     ZkClient zkClient = new ZkClient(testZkConnectionString, ZkConfig.DEFAULT_SESSION_TIMEOUT_MS, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS);
     this.zkUtils = new ZkUtils(new ZkKeyBuilder("group1"), zkClient, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS);
+    ZkClient zkClient1 = new ZkClient(testZkConnectionString, ZkConfig.DEFAULT_SESSION_TIMEOUT_MS, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS);
+    this.zkUtils1 = new ZkUtils(new ZkKeyBuilder("group1"), zkClient1, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS);
   }
 
   @After
   public void testTearDown() {
+    zkUtils.close();
+    zkUtils1.close();
+  }
+
+  @AfterClass
+  public static void teardown() {
     zkServer.teardown();
   }
 
-  // TODO: SAMZA-1193 fix the following flaky test and re-enable it
   @Test
   public void testZkBarrierForVersionUpgrade() {
     String barrierId = zkUtils.getKeyBuilder().getRootPath() + "/b1";
@@ -66,20 +75,23 @@ public class TestZkBarrierForVersionUpgrade {
     List<String> processors = new ArrayList<>();
     processors.add("p1");
     processors.add("p2");
-    final CountDownLatch latch = new CountDownLatch(2);
-    BarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, 1000, zkUtils, new BarrierForVersionUpgradeListener() {
+    final CountDownLatch latch = new CountDownLatch(1);
+    final AtomicInteger stateChangedCalled = new AtomicInteger(0);
+
+    BarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, new BarrierForVersionUpgradeListener() {
       @Override
-      public void onBarrierComplete(String version) {
-        latch.countDown();
+      public void onBarrierCreated(String version) {
+      }
+
+      @Override
+      public void onBarrierStateChanged(String version, BarrierForVersionUpgrade.State state) {
+        if (state.equals(BarrierForVersionUpgrade.State.DONE)) {
+          stateChangedCalled.incrementAndGet();
+        }
       }
 
       @Override
       public void onBarrierError(String version, Throwable t) {
-
-      }
-
-      @Override
-      public void onBarrierTimeout(String version) {
 
       }
     });
@@ -87,28 +99,34 @@ public class TestZkBarrierForVersionUpgrade {
     processor1Barrier.start(ver, processors);
     processor1Barrier.joinBarrier(ver, "p1");
 
-    BarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, 1000, zkUtils, new BarrierForVersionUpgradeListener() {
+    BarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils1, new BarrierForVersionUpgradeListener() {
       @Override
-      public void onBarrierComplete(String version) {
-        latch.countDown();
+      public void onBarrierCreated(String version) {
+      }
+
+      @Override
+      public void onBarrierStateChanged(String version, BarrierForVersionUpgrade.State state) {
+        if (state.equals(BarrierForVersionUpgrade.State.DONE)) {
+          latch.countDown();
+          stateChangedCalled.incrementAndGet();
+        }
       }
 
       @Override
       public void onBarrierError(String version, Throwable t) {
 
       }
-
-      @Override
-      public void onBarrierTimeout(String version) {
-
-      }
     });
     processor2Barrier.joinBarrier(ver, "p2");
+
+    boolean result = false;
     try {
-      latch.await(2000, TimeUnit.MILLISECONDS);
+      result = latch.await(5000, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       e.printStackTrace();
     }
+    Assert.assertTrue("Barrier failed to complete within test timeout.", result);
+
     try {
       List<String> children = zkUtils.getZkClient().getChildren(barrierId + "/barrier_v1/barrier_processors");
       Assert.assertNotNull(children);
@@ -117,52 +135,36 @@ public class TestZkBarrierForVersionUpgrade {
     } catch (Exception e) {
       // no-op
     }
+    Assert.assertEquals(2, stateChangedCalled.get());
   }
 
- /* @Test
-  public void testNegativeZkBarrierForVersionUpgrade() {
-    String barrierId = zkUtils.getKeyBuilder().getRootPath() + "/negativeZkBarrierForVersionUpgrade";
-    String ver = "1";
-    List<String> processors = new ArrayList<>();
-    processors.add("p1");
-    processors.add("p2");
-    processors.add("p3");
-
-    BarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, ZkConfig.DEFAULT_BARRIER_TIMEOUT_MS);
-
-    class Status {
-      boolean p1 = false;
-      boolean p2 = false;
-      boolean p3 = false;
-    }
-    final Status s = new Status();
-
-    barrier.start(ver, processors);
-
-    barrier.waitForBarrier(ver, "p1", () -> s.p1 = true);
-
-    barrier.waitForBarrier(ver, "p2", () -> s.p2 = true);
-
-    Assert.assertFalse(TestZkUtils.testWithDelayBackOff(() -> s.p1 && s.p2 && s.p3, 2, 100));
-  }
-*/
   @Test
   public void testZkBarrierForVersionUpgradeWithTimeOut() {
-    String barrierId = zkUtils.getKeyBuilder().getRootPath() + "/barrierTimeout";
+    String barrierId = zkUtils1.getKeyBuilder().getRootPath() + "/barrierTimeout";
     String ver = "1";
     List<String> processors = new ArrayList<>();
     processors.add("p1");
     processors.add("p2");
+    processors.add("p3"); // Simply to prevent barrier from completion for testing purposes
 
-    final CountDownLatch latch = new CountDownLatch(1);
-    BarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(
+    final AtomicInteger timeoutStateChangeCalled = new AtomicInteger(0);
+    final CountDownLatch latch = new CountDownLatch(2);
+    final ZkBarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(
         barrierId,
-        1000,
         zkUtils,
+        null);
+    processor1Barrier.setBarrierForVersionUpgrade(
         new BarrierForVersionUpgradeListener() {
           @Override
-          public void onBarrierComplete(String version) {
+          public void onBarrierCreated(String version) {
+          }
 
+          @Override
+          public void onBarrierStateChanged(String version, BarrierForVersionUpgrade.State state) {
+            if (BarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
+              timeoutStateChangeCalled.incrementAndGet();
+              latch.countDown();
+            }
           }
 
           @Override
@@ -170,29 +172,54 @@ public class TestZkBarrierForVersionUpgrade {
 
           }
 
-          @Override
-          public void onBarrierTimeout(String version) {
-            Assert.assertEquals("1", version);
-            List<String> children = zkUtils.getZkClient().getChildren(barrierId + "/barrier_v1/barrier_processors");
-            Assert.assertNotNull(children);
-            Assert.assertEquals(1, children.size());
-            processors.remove("p2");
-            Assert.assertEquals(processors, children);
-            latch.countDown();
-          }
         });
     processor1Barrier.start(ver, processors);
     processor1Barrier.joinBarrier(ver, "p1");
+
+    final ZkBarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(
+        barrierId,
+        zkUtils1,
+        null);
+    processor2Barrier.setBarrierForVersionUpgrade(
+        new BarrierForVersionUpgradeListener() {
+          @Override
+          public void onBarrierCreated(String version) {
+          }
+
+          @Override
+          public void onBarrierStateChanged(String version, BarrierForVersionUpgrade.State state) {
+            if (BarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
+              timeoutStateChangeCalled.incrementAndGet();
+              latch.countDown();
+            }
+          }
+
+          @Override
+          public void onBarrierError(String version, Throwable t) {
+
+          }
+
+        });
+
+    processor2Barrier.joinBarrier(ver, "p2");
+
+    processor1Barrier.expireBarrier(ver);
     boolean result = false;
     try {
-      result = latch.await(5000, TimeUnit.MILLISECONDS);
+      result = latch.await(6000, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
-      System.out.println("Exception - " + e);
       e.printStackTrace();
-    } catch (Exception ce) {
-      System.out.println("General exception - " + ce);
-    } finally {
-      Assert.assertEquals("Barrier timeout didn't work as expected. Test incomplete.", true, result);
     }
+    Assert.assertTrue("Barrier Timeout test failed to complete within test timeout.", result);
+
+    try {
+      List<String> children = zkUtils.getZkClient().getChildren(barrierId + "/barrier_v1/barrier_processors");
+      Assert.assertNotNull(children);
+      Assert.assertEquals("Unexpected barrier state. Didn't find two processors.", 2, children.size());
+      Assert.assertEquals("Unexpected barrier state. Didn't find the expected members.", processors, children);
+    } catch (Exception e) {
+      // no-op
+    }
+    Assert.assertEquals(2, timeoutStateChangeCalled.get());
   }
 }

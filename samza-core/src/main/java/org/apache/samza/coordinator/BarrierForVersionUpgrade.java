@@ -44,8 +44,10 @@ public interface BarrierForVersionUpgrade {
    * @param thisProcessorsName as it appears in the list of processors.
    */
   void joinBarrier(String version, String thisProcessorsName);
+  void expireBarrier(String version);
+  void setBarrierForVersionUpgrade(BarrierForVersionUpgradeListener listener);
 
   enum State {
-    STARTED, TIMED_OUT, DONE, ERROR
+    TIMED_OUT, DONE
   }
 }

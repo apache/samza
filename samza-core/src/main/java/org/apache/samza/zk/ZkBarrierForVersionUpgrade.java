@@ -21,18 +21,14 @@ package org.apache.samza.zk;
 
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
-import org.I0Itec.zkclient.exception.ZkBadVersionException;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.BarrierForVersionUpgradeListener;
-import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
 
 
 /**
@@ -47,20 +43,18 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
   private final ZkUtils zkUtils;
   private final String barrierPrefix;
-  private final long barrierTimeoutMs;
 
   private BarrierForVersionUpgradeListener barrierListener;
   private String barrierDonePath;
   private String barrierProcessors;
 
-  public ZkBarrierForVersionUpgrade(String barrierPrefix, long barrierTimeoutMs, ZkUtils zkUtils, BarrierForVersionUpgradeListener barrierListener) {
+  public ZkBarrierForVersionUpgrade(String barrierPrefix, ZkUtils zkUtils, BarrierForVersionUpgradeListener barrierListener) {
     if (zkUtils == null) {
       throw new RuntimeException("Cannot operate ZkBarrierForVersionUpgrade without ZkUtils.");
     }
     this.zkUtils = zkUtils;
     this.barrierPrefix = barrierPrefix;
     this.barrierListener = barrierListener;
-    this.barrierTimeoutMs = barrierTimeoutMs;
   }
 
   private void setPaths(String version) {
@@ -79,26 +73,18 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     LOG.info("Subscribing for child changes at " + barrierProcessors);
     zkUtils.getZkClient().subscribeChildChanges(barrierProcessors, new ZkBarrierChangeHandler(participants));
 
-    // create a timer for time-out
-    final Stat barrierDoneStat = new Stat();
-    zkUtils.getZkClient().<String>readData(barrierDonePath, barrierDoneStat);
-
-    new Timer().schedule(new TimerTask() {
-      @Override
-      public void run() {
-        try {
-          zkUtils.getZkClient().writeDataReturnStat(barrierDonePath, State.TIMED_OUT, barrierDoneStat.getVersion());
-        } catch (ZkBadVersionException e) {
-          LOG.info("Barrier timer expired. But barrier version " + version
-              + "is already marked as complete. Nothing to do here");
-        }
-      }
-    }, barrierTimeoutMs);
+    if (barrierListener != null) {
+      barrierListener.onBarrierCreated(version);
+    }
   }
 
   @Override
   public void joinBarrier(String version, String participantName) {
-    setPaths(version);
+//    setPaths(version);
+    String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
+    barrierDonePath = String.format("%s/barrier_done", barrierPath);
+    barrierProcessors = String.format("%s/barrier_processors", barrierPath);
+
     final String barrierProcessorThis = String.format("%s/%s", barrierProcessors, participantName);
 
     // now subscribe for the barrier
@@ -109,6 +95,17 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     zkUtils.getZkClient().createPersistent(barrierProcessorThis);
   }
 
+  @Override
+  public void setBarrierForVersionUpgrade(BarrierForVersionUpgradeListener listener) {
+    this.barrierListener = listener;
+  }
+
+  public void expireBarrier(String version) {
+    zkUtils.getZkClient().writeData(
+        barrierDonePath,
+        BarrierForVersionUpgrade.State.TIMED_OUT);
+
+  }
   /**
    * Listener for the subscription for the list of participants.
    * This method will mark the barrier as DONE when all the participants have joined.
@@ -121,7 +118,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     }
 
     @Override
-    public void handleChildChange(String parentPath, List<String> currentChildren) throws Exception {
+    public void handleChildChange(String parentPath, List<String> currentChildren) {
       if (currentChildren == null) {
         LOG.info("Got handleChildChange with null currentChildren");
         return;
@@ -133,8 +130,8 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
       if (CollectionUtils.containsAll(currentChildren, names)) {
         LOG.info("ALl nodes reached the barrier");
         LOG.info("Writing BARRIER DONE to " + barrierDonePath);
-//        zkUtils.getZkClient().unsubscribeChildChanges(barrierDonePath, this);
         zkUtils.getZkClient().writeData(barrierDonePath, State.DONE.toString()); // this will trigger notifications
+        zkUtils.getZkClient().unsubscribeChildChanges(barrierDonePath, this);
       }
     }
   }
@@ -149,29 +146,10 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     }
 
     @Override
-    public void handleDataChange(String dataPath, Object data)
-        throws Exception {
+    public void handleDataChange(String dataPath, Object data) {
       LOG.info("got notification about barrier path=" + barrierPathDone + "; done=" + data);
-      State state;
-      try {
-        state = State.valueOf((String) data);
-      } catch (IllegalArgumentException e) {
-        if (barrierListener != null) {
-          barrierListener.onBarrierError(barrierVersion, e);
-        }
-        zkUtils.unsubscribeDataChanges(barrierPathDone, this);
-        return;
-      }
-
       if (barrierListener != null) {
-        switch (state) {
-          case DONE:
-            barrierListener.onBarrierComplete(barrierVersion);
-            break;
-          case TIMED_OUT:
-            barrierListener.onBarrierTimeout(barrierVersion);
-            break;
-        }
+        barrierListener.onBarrierStateChanged(barrierVersion, (State) data);
       }
         // in any case we unsubscribe
         zkUtils.unsubscribeDataChanges(barrierPathDone, this);

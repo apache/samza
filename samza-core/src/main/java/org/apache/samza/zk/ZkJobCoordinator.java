@@ -22,6 +22,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.ZkConfig;
+import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.BarrierForVersionUpgradeListener;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
@@ -73,7 +74,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     this.zkController = new ZkControllerImpl(processorId, zkUtils, this, leaderElector);
     this.barrier =  new ZkBarrierForVersionUpgrade(
         zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(),
-        (new ZkConfig(config)).getZkBarrierTimeoutMs(),
         zkUtils,
         new ZkBarrierForVersionUpgradeListener());
   }
@@ -236,27 +236,38 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   }
 
   class ZkBarrierForVersionUpgradeListener implements BarrierForVersionUpgradeListener {
+    private final String BARRIER_ACTION = "BarrierAction";
     @Override
-    public void onBarrierComplete(final String version) {
-      LOG.info("JobModel version " + version + " obtained consensus successfully!");
+    public void onBarrierCreated(String version) {
       debounceTimer.scheduleAfterDebounceTime(
-        ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE,
-        0,
-        () -> onNewJobModelConfirmed(version));
+        BARRIER_ACTION,
+        (new ZkConfig(config)).getZkBarrierTimeoutMs(),
+        () -> barrier.expireBarrier(version)
+      );
+    }
+
+    public void onBarrierStateChanged(final String version, BarrierForVersionUpgrade.State state) {
+      LOG.info("JobModel version " + version + " obtained consensus successfully!");
+      if (BarrierForVersionUpgrade.State.DONE.equals(state)) {
+        debounceTimer.scheduleAfterDebounceTime(
+          BARRIER_ACTION,
+          0,
+          () -> onNewJobModelConfirmed(version));
+      } else {
+        if (BarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
+          // no-op
+          // In our consensus model, if the Barrier is timed-out, then it means that one or more initial
+          // participants failed to join. That means, they should have de-registered from "processors" list
+          // and that would have triggered onProcessorChange action -> a new round of consensus.
+          LOG.info("Barrier for version " + version + " timed out.");
+        }
+      }
     }
 
     @Override
     public void onBarrierError(String version, Throwable t) {
       LOG.error("Encountered error while attaining consensus on JobModel version " + version);
       stop();
-    }
-
-    @Override
-    public void onBarrierTimeout(String version) {
-      LOG.warn("Encountered error while attaining consensus on JobModel version " + version);
-      // In our consensus model, if the Barrier is timed-out, then it means that one or more initial
-      // participants failed to join. That means, they should have de-registered from "processors" list
-      // and that would have triggered onProcessorChange action -> a new round of consensus.
     }
   }
 }
