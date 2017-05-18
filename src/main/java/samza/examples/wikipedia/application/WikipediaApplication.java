@@ -66,14 +66,19 @@ import samza.examples.wikipedia.system.WikipediaFeed.WikipediaFeedEvent;
 public class WikipediaApplication implements StreamApplication {
   private static final Logger log = LoggerFactory.getLogger(WikipediaApplication.class);
 
-  private static final String STATS_STORE_NAME = "wikipedia-stats";
-  private static final String EDIT_COUNT_KEY = "count-edits-all-time";
-
+  // Inputs
   private static final String WIKIPEDIA_STREAM_ID = "en-wikipedia";
   private static final String WIKTIONARY_STREAM_ID = "en-wiktionary";
   private static final String WIKINEWS_STREAM_ID = "en-wikinews";
 
+  // Outputs
   private static final String STATS_STREAM_ID = "wikipedia-stats";
+
+  // Stores
+  private static final String STATS_STORE_NAME = "wikipedia-stats";
+
+  // Metrics
+  private static final String EDIT_COUNT_KEY = "count-edits-all-time";
 
   @Override
   public void init(StreamGraph graph, Config config) {
