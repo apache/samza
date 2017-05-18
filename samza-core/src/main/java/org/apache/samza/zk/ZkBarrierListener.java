@@ -16,13 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
+package org.apache.samza.zk;
 
-import org.apache.samza.zk.ZkBarrierForVersionUpgrade;
-
-public interface BarrierForVersionUpgradeListener {
+public interface ZkBarrierListener {
   void onBarrierCreated(String version);
-  void onBarrierStateChanged(String version, ZkBarrierForVersionUpgrade.State state);
+  void onBarrierStateChanged(String version, ZkBarrier.State state);
 
   void onBarrierError(String version, Throwable t);
 }

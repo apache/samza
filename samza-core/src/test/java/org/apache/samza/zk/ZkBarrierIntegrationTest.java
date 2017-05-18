@@ -21,7 +21,6 @@ package org.apache.samza.zk;
 import junit.framework.Assert;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.BarrierForVersionUpgradeListener;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -78,14 +77,14 @@ public class ZkBarrierIntegrationTest {
     final CountDownLatch latch = new CountDownLatch(2);
     final AtomicInteger stateChangedCalled = new AtomicInteger(0);
 
-    ZkBarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, new BarrierForVersionUpgradeListener() {
+    ZkBarrier processor1Barrier = new ZkBarrier(barrierId, zkUtils, new ZkBarrierListener() {
       @Override
       public void onBarrierCreated(String version) {
       }
 
       @Override
-      public void onBarrierStateChanged(String version, ZkBarrierForVersionUpgrade.State state) {
-        if (state.equals(ZkBarrierForVersionUpgrade.State.DONE)) {
+      public void onBarrierStateChanged(String version, ZkBarrier.State state) {
+        if (state.equals(ZkBarrier.State.DONE)) {
           latch.countDown();
           stateChangedCalled.incrementAndGet();
         }
@@ -97,17 +96,17 @@ public class ZkBarrierIntegrationTest {
       }
     });
 
-    processor1Barrier.start(ver, processors);
-    processor1Barrier.joinBarrier(ver, "p1");
+    processor1Barrier.create(ver, processors);
+    processor1Barrier.join(ver, "p1");
 
-    ZkBarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils1, new BarrierForVersionUpgradeListener() {
+    ZkBarrier processor2Barrier = new ZkBarrier(barrierId, zkUtils1, new ZkBarrierListener() {
       @Override
       public void onBarrierCreated(String version) {
       }
 
       @Override
-      public void onBarrierStateChanged(String version, ZkBarrierForVersionUpgrade.State state) {
-        if (state.equals(ZkBarrierForVersionUpgrade.State.DONE)) {
+      public void onBarrierStateChanged(String version, ZkBarrier.State state) {
+        if (state.equals(ZkBarrier.State.DONE)) {
           latch.countDown();
           stateChangedCalled.incrementAndGet();
         }
@@ -118,7 +117,7 @@ public class ZkBarrierIntegrationTest {
 
       }
     });
-    processor2Barrier.joinBarrier(ver, "p2");
+    processor2Barrier.join(ver, "p2");
 
     boolean result = false;
     try {
@@ -150,17 +149,17 @@ public class ZkBarrierIntegrationTest {
 
     final AtomicInteger timeoutStateChangeCalled = new AtomicInteger(0);
     final CountDownLatch latch = new CountDownLatch(2);
-    final ZkBarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(
+    final ZkBarrier processor1Barrier = new ZkBarrier(
         barrierId,
         zkUtils,
-        new BarrierForVersionUpgradeListener() {
+        new ZkBarrierListener() {
           @Override
           public void onBarrierCreated(String version) {
           }
 
           @Override
-          public void onBarrierStateChanged(String version, ZkBarrierForVersionUpgrade.State state) {
-            if (ZkBarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
+          public void onBarrierStateChanged(String version, ZkBarrier.State state) {
+            if (ZkBarrier.State.TIMED_OUT.equals(state)) {
               timeoutStateChangeCalled.incrementAndGet();
               latch.countDown();
             }
@@ -172,20 +171,20 @@ public class ZkBarrierIntegrationTest {
           }
 
         });
-    processor1Barrier.start(ver, processors);
-    processor1Barrier.joinBarrier(ver, "p1");
+    processor1Barrier.create(ver, processors);
+    processor1Barrier.join(ver, "p1");
 
-    final ZkBarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(
+    final ZkBarrier processor2Barrier = new ZkBarrier(
         barrierId,
         zkUtils1,
-        new BarrierForVersionUpgradeListener() {
+        new ZkBarrierListener() {
           @Override
           public void onBarrierCreated(String version) {
           }
 
           @Override
-          public void onBarrierStateChanged(String version, ZkBarrierForVersionUpgrade.State state) {
-            if (ZkBarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
+          public void onBarrierStateChanged(String version, ZkBarrier.State state) {
+            if (ZkBarrier.State.TIMED_OUT.equals(state)) {
               timeoutStateChangeCalled.incrementAndGet();
               latch.countDown();
             }
@@ -198,9 +197,9 @@ public class ZkBarrierIntegrationTest {
 
         });
 
-    processor2Barrier.joinBarrier(ver, "p2");
+    processor2Barrier.join(ver, "p2");
 
-    processor1Barrier.expireBarrier(ver);
+    processor1Barrier.expire(ver);
     boolean result = false;
     try {
       result = latch.await(10000, TimeUnit.MILLISECONDS);

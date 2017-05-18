@@ -22,7 +22,6 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.BarrierForVersionUpgradeListener;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
@@ -55,7 +54,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   private final Config config;
   private final CoordinationUtils coordinationUtils;
-  private final ZkBarrierForVersionUpgrade barrier;
+  private final ZkBarrier barrier;
 
   private StreamMetadataCache streamMetadataCache = null;
   private ScheduleAfterDebounceTime debounceTimer = null;
@@ -71,10 +70,10 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     LeaderElector leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
     this.zkController = new ZkControllerImpl(processorId, zkUtils, this, leaderElector);
-    this.barrier =  new ZkBarrierForVersionUpgrade(
+    this.barrier =  new ZkBarrier(
         zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(),
         zkUtils,
-        new ZkBarrierForVersionUpgradeListener());
+        new ZkZkBarrierListener());
   }
 
   @Override
@@ -146,7 +145,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     zkUtils.publishJobModel(nextJMVersion, jobModel);
 
     // Start the barrier for the job model update
-    barrier.start(nextJMVersion, currentProcessorIds);
+    barrier.create(nextJMVersion, currentProcessorIds);
 
     // Notify all processors about the new JobModel by updating JobModel Version number
     zkUtils.publishJobModelVersion(currentJMVersion, nextJMVersion);
@@ -169,7 +168,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         LOG.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
 
         // update ZK and wait for all the processors to get this new version
-        barrier.joinBarrier(version, processorId);
+        barrier.join(version, processorId);
       });
   }
 
@@ -234,26 +233,26 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     }
   }
 
-  class ZkBarrierForVersionUpgradeListener implements BarrierForVersionUpgradeListener {
+  class ZkZkBarrierListener implements ZkBarrierListener {
     private final String barrierAction = "BarrierAction";
     @Override
     public void onBarrierCreated(String version) {
       debounceTimer.scheduleAfterDebounceTime(
           barrierAction,
         (new ZkConfig(config)).getZkBarrierTimeoutMs(),
-        () -> barrier.expireBarrier(version)
+        () -> barrier.expire(version)
       );
     }
 
-    public void onBarrierStateChanged(final String version, ZkBarrierForVersionUpgrade.State state) {
+    public void onBarrierStateChanged(final String version, ZkBarrier.State state) {
       LOG.info("JobModel version " + version + " obtained consensus successfully!");
-      if (ZkBarrierForVersionUpgrade.State.DONE.equals(state)) {
+      if (ZkBarrier.State.DONE.equals(state)) {
         debounceTimer.scheduleAfterDebounceTime(
             barrierAction,
           0,
           () -> onNewJobModelConfirmed(version));
       } else {
-        if (ZkBarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
+        if (ZkBarrier.State.TIMED_OUT.equals(state)) {
           // no-op
           // In our consensus model, if the Barrier is timed-out, then it means that one or more initial
           // participants failed to join. That means, they should have de-registered from "processors" list

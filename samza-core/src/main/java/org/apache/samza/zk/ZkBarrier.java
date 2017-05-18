@@ -22,7 +22,6 @@ package org.apache.samza.zk;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.samza.coordinator.BarrierForVersionUpgradeListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,11 +30,17 @@ import java.util.List;
 
 
 /**
- * This class creates a barrier for version upgrade.
- * Barrier is started by the participant responsible for the upgrade. (start())
- * Each participant will mark its readiness and register for a notification when the barrier is reached. (waitFor())
- * If a timer (started in start()) goes off before the barrier is reached, all the participants will unsubscribe
- * from the notification and the barrier becomes invalid.
+ * ZkBarrier is an implementation of distributed barrier, which guarantees that the expected barrier size and barrier
+ * participants match before marking the barrier as complete. It also allows the caller to expire the barrier.
+ *
+ * This implementation is specifically tailored towards barrier support during jobmodel version upgrades. The participant
+ * responsible for the version upgrade starts the barrier by invoking {@link #create(String, List)}.
+ * Each participant in the list, then, joins the new barrier. When all listed participants {@link #join(String, String)}
+ * the barrier, the creator marks the barrier as done which signals the end of barrier.
+ * The creator of the barrier can invoke {@link #expire(String)} to indicate that the barrier has timed_out or
+ * is no longer valid.
+ *
+ * The caller can listen to events associated with the barrier by registering a {@link ZkBarrierListener}.
  *
  * Zk Tree Reference:
  * /barrierRoot/
@@ -48,19 +53,20 @@ import java.util.List;
  *  |   |   |- {id2}
  *  |   |   |-  ...
  */
-public class ZkBarrierForVersionUpgrade {
-  private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
+public class ZkBarrier {
+  private final static Logger LOG = LoggerFactory.getLogger(ZkBarrier.class);
   private static final String BARRIER_PARTICIPANTS = "/barrier_participants";
   private static final String BARRIER_STATE = "/barrier_state";
-  public enum State {
-    TIMED_OUT, DONE
-  }
   private final ZkUtils zkUtils;
   private final BarrierKeyBuilder keyBuilder;
 
-  private BarrierForVersionUpgradeListener barrierListener;
+  public enum State {
+    TIMED_OUT, DONE
+  }
 
-  public ZkBarrierForVersionUpgrade(String barrierRoot, ZkUtils zkUtils, BarrierForVersionUpgradeListener barrierListener) {
+  private ZkBarrierListener barrierListener;
+
+  public ZkBarrier(String barrierRoot, ZkUtils zkUtils, ZkBarrierListener barrierListener) {
     if (zkUtils == null) {
       throw new RuntimeException("Cannot operate ZkBarrierForVersionUpgrade without ZkUtils.");
     }
@@ -69,7 +75,13 @@ public class ZkBarrierForVersionUpgrade {
     this.barrierListener = barrierListener;
   }
 
-  public void start(final String version, List<String> participants) {
+  /**
+   * Creates a shared barrier sub-tree in ZK
+   *
+   * @param version Version associated with the Barrier
+   * @param participants List of expected participated for this barrier to complete
+   */
+  public void create(final String version, List<String> participants) {
     String barrierRoot = keyBuilder.getBarrierRoot();
     zkUtils.makeSurePersistentPathsExists(new String[]{
         barrierRoot,
@@ -87,23 +99,35 @@ public class ZkBarrierForVersionUpgrade {
     }
   }
 
-  public void joinBarrier(String version, String participantId) {
+  /**
+   * Joins a shared barrier by registering under the barrier sub-tree in ZK
+   *
+   * @param version Version associated with the Barrier
+   * @param participantId Identifier of the participant
+   */
+  public void join(String version, String participantId) {
     String barrierDonePath = keyBuilder.getBarrierStatePath(version);
     zkUtils.getZkClient().subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, version));
 
+    // TODO: Handle ZkNodeExistsException
     zkUtils.getZkClient().createPersistent(
         String.format("%s/%s", keyBuilder.getBarrierParticipantsPath(version), participantId));
   }
 
-  public void expireBarrier(String version) {
+  /**
+   * Expires the barrier version by marking it as TIMED_OUT
+   *
+   * @param version Version associated with the Barrier
+   */
+  public void expire(String version) {
     zkUtils.getZkClient().writeData(
         keyBuilder.getBarrierStatePath(version),
         State.TIMED_OUT);
 
   }
   /**
-   * Listener for the subscription for the list of participants.
-   * This method will mark the barrier as DONE when all the participants have joined.
+   * Listener for changes to the list of participants. It is meant to be subscribed only by the creator of the barrier
+   * node. It checks to see when the barrier is ready to be marked as completed.
    */
   class ZkBarrierChangeHandler implements IZkChildListener {
     private final String barrierVersion;
@@ -133,19 +157,25 @@ public class ZkBarrierForVersionUpgrade {
     }
   }
 
+  /**
+   * Listener for changes to the Barrier state. It is subscribed by all participants of the barrier, including the
+   * participant that creates the barrier.
+   * Barrier state can be of types - DONE or TIMED_OUT. It only registers to receive on valid state change notification.
+   * Once a valid state change notification is received, it will un-subscribe from further notifications.
+   */
   class ZkBarrierReachedHandler implements IZkDataListener {
-    private final String barrierPathDone;
+    private final String barrierStatePath;
     private final String barrierVersion;
 
-    public ZkBarrierReachedHandler(String barrierPathDone, String version) {
-      this.barrierPathDone = barrierPathDone;
+    public ZkBarrierReachedHandler(String barrierStatePath, String version) {
+      this.barrierStatePath = barrierStatePath;
       this.barrierVersion = version;
     }
 
     @Override
     public void handleDataChange(String dataPath, Object data) {
-      LOG.info("got notification about barrier " + barrierPathDone + "; done=" + data);
-      zkUtils.unsubscribeDataChanges(barrierPathDone, this);
+      LOG.info("got notification about barrier " + barrierStatePath + "; done=" + data);
+      zkUtils.unsubscribeDataChanges(barrierStatePath, this);
       if (barrierListener != null) {
         barrierListener.onBarrierStateChanged(barrierVersion, (State) data);
       }
