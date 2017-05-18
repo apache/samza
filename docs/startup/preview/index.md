@@ -22,25 +22,25 @@ title: Feature Preview
 # Overview
 Samza 0.13.0 includes a preview of a new programming model and a new deployment model. Both are functional and usable but not quite ready for production applications yet. They're being released as a preview because they represent major enhancements to how developers work with Samza, so it's beneficial for both early adopters and the Samza development community to experiment with it and gather feedback. The following sections introduce the new features and link to tutorials which demonstrate each of them.
 
-# Fluent API
+# High Level API
 
 ### Introduction
 TODO
 
 ### Try it Out
-Let's jump straight in. There are two tutorials prepared to help you get acquainted with running Samza applications and programming with the fluent API:
+Let's jump straight in. There are two tutorials prepared to help you get acquainted with running Samza applications and programming with the high level API:
 
-* [Hello Samza Fluent](/learn/tutorials/{{site.version}}/hello-samza-fluent.html) - run a pre-built wikipedia application and observe the output
-* [Hello Samza Fluent Code](/learn/tutorials/{{site.version}}/hello-samza-fluent-code.html) - walk through building the wikipedia application, step by step.
+* [Hello Samza High Level API Yarn Deployment](/learn/tutorials/{{site.version}}/hello-samza-high-level-yarn.html) - run a pre-built wikipedia application on YARN and observe the output
+* [Hello Samza High Level API Code](/learn/tutorials/{{site.version}}/hello-samza-high-level-code.html) - walk through building the wikipedia application, step by step.
 
 ### Fluent API Guide
 This page shows you how to run a Samza stream application with fluent API under different environments.
 
-<img src="/img/{{site.version}}/learn/documentation/introduction/fluent-arch.png" alt="Fluent architecture diagram" style="max-width: 100%; height: auto;" onclick="window.open(this.src)">
+<img src="/img/{{site.version}}/learn/documentation/introduction/fluent-arch.png" alt="Architecture diagram" style="max-width: 100%; height: auto;" onclick="window.open(this.src)">
 
-Above diagram shows an overview of Apache Samza architecture with Fluent API. There are four layers in the architecture:
+Above diagram shows an overview of Apache Samza architecture with the high level API. There are four layers in the architecture:
 
-#### I. Fluent API
+#### I. High Level API
 
 Samza fluent API provides a unified way to handle both streaming and batch data. It provides operators like map, filter, window and join to allow the user to describe the whole end-to-end data processing in a single program. It can consume data from various sources and publish to different sinks.
 
@@ -58,7 +58,7 @@ To use RemoteApplicationRunner, config the following property with your [StreamA
 app.class=Your.StreamApplication.Class
 {% endhighlight %}
 
-Then you can use _run-app.sh_ to run the application in remote cluster as described in tutorial [here](/learn/tutorials/{{site.version}}/hello-samza-fluent.html).
+Then you can use _run-app.sh_ to run the application in remote cluster as described in tutorial [here](/learn/tutorials/{{site.version}}/hello-samza-high-level-yarn.html).
 
 To use LocalApplicationRunner, you can run it with the StreamApplication in your program. The following shows an example of how to run it in main():
 

@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Hello Samza Fluent
+title: Hello Samza High Level API - YARN Deployment
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -18,9 +18,9 @@ title: Hello Samza Fluent
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-The [hello-samza](https://github.com/apache/samza-hello-samza) project is an example project designed to help you run your first Samza application. It has examples of applications using the low-level task API as well as the high-level fluent API.
+The [hello-samza](https://github.com/apache/samza-hello-samza) project is an example project designed to help you run your first Samza application. It has examples of applications using the low level task API as well as the high level API.
 
-This tutorial demonstrates a simple wikipedia application created with the fluent API. The [Hello Samza tutorial] (/startup/hello-samza/{{site.version}}/index.html) is the low-level analog to this tutorial. It demonstrates the same logic but is created with the task API. The tutorials are designed to be as similar as possible. The primary differences are that with the fluent API we accomplish the equivalent of 3 separate low-level jobs with a single application, we skip the intermediate topics for simplicity, and we can visualize the execution plan after we start the application.
+This tutorial demonstrates a simple wikipedia application created with the high level API. The [Hello Samza tutorial] (/startup/hello-samza/{{site.version}}/index.html) is the low-level analog to this tutorial. It demonstrates the same logic but is created with the task API. The tutorials are designed to be as similar as possible. The primary differences are that with the high level API we accomplish the equivalent of 3 separate low-level jobs with a single application, we skip the intermediate topics for simplicity, and we can visualize the execution plan after we start the application.
 
 ### Get the Code
 
@@ -81,7 +81,7 @@ The app will do all of the following:
 4. Calculate counts, every ten seconds, for all edits that were made during that window 
 5. Output the counts to the wikipedia-stats topic
 
-For details about how the app works, take a look at the [code walkthrough](hello-samza-fluent-code.html).
+For details about how the app works, take a look at the [code walkthrough](hello-samza-high-level-code.html).
 
 Give the job a minute to startup, and then tail the Kafka topic:
 
@@ -106,9 +106,9 @@ Each application goes through an execution planner and you can visualize the exe
 deploy/samza/bin/plan.html
 {% endhighlight %}
 
-This plan will make more sense after the [code walkthrough](hello-samza-fluent-code.html). For now, just take note that this visualization is available and it is useful for visibility into the structure of the application. For this tutorial, the plan should look something like this:
+This plan will make more sense after the [code walkthrough](hello-samza-high-level-code.html). For now, just take note that this visualization is available and it is useful for visibility into the structure of the application. For this tutorial, the plan should look something like this:
 
-<img src="/img/{{site.version}}/learn/tutorials/hello-samza-fluent/wikipedia-execution-plan.png" alt="Execution plan" style="max-width: 100%; height: auto;" onclick="window.open(this.src)"/>
+<img src="/img/{{site.version}}/learn/tutorials/hello-samza-high-level/wikipedia-execution-plan.png" alt="Execution plan" style="max-width: 100%; height: auto;" onclick="window.open(this.src)"/>
 
 
 ### Shutdown
@@ -124,4 +124,4 @@ After you're done, you can clean everything up using the same grid script.
 bin/grid stop all
 {% endhighlight %}
 
-Congratulations! You've now setup a local grid that includes YARN, Kafka, and ZooKeeper, and run a Samza application on it. Curious how this application was built? See the [code walk-through](hello-samza-fluent-code.html).
+Congratulations! You've now setup a local grid that includes YARN, Kafka, and ZooKeeper, and run a Samza application on it. Curious how this application was built? See the [code walk-through](hello-samza-high-level-code.html).
