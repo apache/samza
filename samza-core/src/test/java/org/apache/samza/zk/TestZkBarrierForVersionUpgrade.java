@@ -75,7 +75,7 @@ public class TestZkBarrierForVersionUpgrade {
     List<String> processors = new ArrayList<>();
     processors.add("p1");
     processors.add("p2");
-    final CountDownLatch latch = new CountDownLatch(1);
+    final CountDownLatch latch = new CountDownLatch(2);
     final AtomicInteger stateChangedCalled = new AtomicInteger(0);
 
     BarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, new BarrierForVersionUpgradeListener() {
@@ -86,6 +86,7 @@ public class TestZkBarrierForVersionUpgrade {
       @Override
       public void onBarrierStateChanged(String version, BarrierForVersionUpgrade.State state) {
         if (state.equals(BarrierForVersionUpgrade.State.DONE)) {
+          latch.countDown();
           stateChangedCalled.incrementAndGet();
         }
       }
