@@ -21,7 +21,6 @@ package org.apache.samza.zk;
 import junit.framework.Assert;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.BarrierForVersionUpgradeListener;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
@@ -79,7 +78,7 @@ public class ZkBarrierIntegrationTest {
     final CountDownLatch latch = new CountDownLatch(2);
     final AtomicInteger stateChangedCalled = new AtomicInteger(0);
 
-    BarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, new BarrierForVersionUpgradeListener() {
+    ZkBarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils, new BarrierForVersionUpgradeListener() {
       @Override
       public void onBarrierCreated(String version) {
       }
@@ -101,7 +100,7 @@ public class ZkBarrierIntegrationTest {
     processor1Barrier.start(ver, processors);
     processor1Barrier.joinBarrier(ver, "p1");
 
-    BarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils1, new BarrierForVersionUpgradeListener() {
+    ZkBarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(barrierId, zkUtils1, new BarrierForVersionUpgradeListener() {
       @Override
       public void onBarrierCreated(String version) {
       }

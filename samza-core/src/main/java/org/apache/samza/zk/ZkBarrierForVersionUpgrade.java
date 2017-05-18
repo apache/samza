@@ -22,7 +22,6 @@ package org.apache.samza.zk;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.BarrierForVersionUpgradeListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +48,7 @@ import java.util.List;
  *  |   |   |- {id2}
  *  |   |   |-  ...
  */
-public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
+public class ZkBarrierForVersionUpgrade {
   private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
   private static final String BARRIER_PARTICIPANTS = "/barrier_participants";
   private static final String BARRIER_STATE = "/barrier_state";
@@ -70,7 +69,6 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     this.barrierListener = barrierListener;
   }
 
-  @Override
   public void start(final String version, List<String> participants) {
     String barrierRoot = keyBuilder.getBarrierRoot();
     zkUtils.makeSurePersistentPathsExists(new String[]{
@@ -89,7 +87,6 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     }
   }
 
-  @Override
   public void joinBarrier(String version, String participantId) {
     String barrierDonePath = keyBuilder.getBarrierStatePath(version);
     zkUtils.getZkClient().subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, version));
@@ -98,7 +95,6 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
         String.format("%s/%s", keyBuilder.getBarrierParticipantsPath(version), participantId));
   }
 
-  @Override
   public void expireBarrier(String version) {
     zkUtils.getZkClient().writeData(
         keyBuilder.getBarrierStatePath(version),
