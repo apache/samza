@@ -236,11 +236,11 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   }
 
   class ZkBarrierForVersionUpgradeListener implements BarrierForVersionUpgradeListener {
-    private final String BARRIER_ACTION = "BarrierAction";
+    private final String barrierAction = "BarrierAction";
     @Override
     public void onBarrierCreated(String version) {
       debounceTimer.scheduleAfterDebounceTime(
-        BARRIER_ACTION,
+          barrierAction,
         (new ZkConfig(config)).getZkBarrierTimeoutMs(),
         () -> barrier.expireBarrier(version)
       );
@@ -250,7 +250,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       LOG.info("JobModel version " + version + " obtained consensus successfully!");
       if (BarrierForVersionUpgrade.State.DONE.equals(state)) {
         debounceTimer.scheduleAfterDebounceTime(
-          BARRIER_ACTION,
+            barrierAction,
           0,
           () -> onNewJobModelConfirmed(version));
       } else {

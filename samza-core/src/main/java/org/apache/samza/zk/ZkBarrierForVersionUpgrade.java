@@ -37,6 +37,17 @@ import java.util.List;
  * Each participant will mark its readiness and register for a notification when the barrier is reached. (waitFor())
  * If a timer (started in start()) goes off before the barrier is reached, all the participants will unsubscribe
  * from the notification and the barrier becomes invalid.
+ *
+ * Zk Tree Reference:
+ * /barrierRoot/
+ *  |
+ *  |- barrier_{version1}/
+ *  |   |- barrier_done/
+ *  |   |  ([DONE|TIMED_OUT])
+ *  |   |- barrier_processors/
+ *  |   |   |- {id1}
+ *  |   |   |- {id2}
+ *  |   |   |-  ...
  */
 public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
@@ -76,12 +87,11 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
   @Override
   public void joinBarrier(String version, String participantName) {
-    final String barrierProcessorThis = String.format("%s/%s", keyBuilder.getBarrierProcessorsPath(version), participantName);
-    zkUtils.getZkClient().createPersistent(barrierProcessorThis);
-
-    // now subscribe for the barrier
     String barrierDonePath = keyBuilder.getBarrierDonePath(version);
     zkUtils.getZkClient().subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, version));
+
+    zkUtils.getZkClient().createPersistent(
+        String.format("%s/%s", keyBuilder.getBarrierProcessorsPath(version), participantName));
   }
 
   @Override
@@ -111,13 +121,13 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     @Override
     public void handleChildChange(String parentPath, List<String> currentChildren) {
       if (currentChildren == null) {
-        LOG.info("Got handleChildChange with null currentChildren");
+        LOG.info("Got ZkBarrierChangeHandler handleChildChange with null currentChildren");
         return;
       }
-      LOG.info("list of children in the barrier = " + parentPath + ":" + Arrays.toString(currentChildren.toArray()));
-      LOG.info("list of children to compare against = " + parentPath + ":" + Arrays.toString(names.toArray()));
+      LOG.debug("list of children in the barrier = " + parentPath + ":" + Arrays.toString(currentChildren.toArray()));
+      LOG.debug("list of children to compare against = " + parentPath + ":" + Arrays.toString(names.toArray()));
 
-      // check if all the names are in
+      // check if all the expected participants are in
       if (CollectionUtils.containsAll(currentChildren, names)) {
         String barrierDonePath = keyBuilder.getBarrierDonePath(barrierVersion);
         LOG.info("Writing BARRIER DONE to " + barrierDonePath);
@@ -138,12 +148,11 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
     @Override
     public void handleDataChange(String dataPath, Object data) {
-      LOG.info("got notification about barrier path=" + barrierPathDone + "; done=" + data);
+      LOG.info("got notification about barrier " + barrierPathDone + "; done=" + data);
+      zkUtils.unsubscribeDataChanges(barrierPathDone, this);
       if (barrierListener != null) {
         barrierListener.onBarrierStateChanged(barrierVersion, (State) data);
       }
-        // in any case we unsubscribe
-        zkUtils.unsubscribeDataChanges(barrierPathDone, this);
     }
 
     @Override
