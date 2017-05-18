@@ -36,7 +36,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class TestZkBarrierForVersionUpgrade {
+
+public class ZkBarrierIntegrationTest {
   private static EmbeddedZookeeper zkServer = null;
   private static String testZkConnectionString = null;
   private ZkUtils zkUtils;

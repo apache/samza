@@ -44,7 +44,7 @@ import java.util.List;
  *  |- barrier_{version1}/
  *  |   |- barrier_done/
  *  |   |  ([DONE|TIMED_OUT])
- *  |   |- barrier_processors/
+ *  |   |- barrier_participants/
  *  |   |   |- {id1}
  *  |   |   |- {id2}
  *  |   |   |-  ...
@@ -72,13 +72,13 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     zkUtils.makeSurePersistentPathsExists(new String[]{
         barrierRoot,
         keyBuilder.getBarrierPath(version),
-        keyBuilder.getBarrierProcessorsPath(version),
+        keyBuilder.getBarrierParticipantsPath(version),
         keyBuilder.getBarrierDonePath(version)});
 
-    // subscribe for processor's list changes
-    String barrierProcessors = keyBuilder.getBarrierProcessorsPath(version);
-    LOG.info("Subscribing for child changes at " + barrierProcessors);
-    zkUtils.getZkClient().subscribeChildChanges(barrierProcessors, new ZkBarrierChangeHandler(version, participants));
+    // subscribe for participant's list changes
+    String barrierParticipantsPath = keyBuilder.getBarrierParticipantsPath(version);
+    LOG.info("Subscribing for child changes at " + barrierParticipantsPath);
+    zkUtils.getZkClient().subscribeChildChanges(barrierParticipantsPath, new ZkBarrierChangeHandler(version, participants));
 
     if (barrierListener != null) {
       barrierListener.onBarrierCreated(version);
@@ -91,7 +91,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     zkUtils.getZkClient().subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, version));
 
     zkUtils.getZkClient().createPersistent(
-        String.format("%s/%s", keyBuilder.getBarrierProcessorsPath(version), participantName));
+        String.format("%s/%s", keyBuilder.getBarrierParticipantsPath(version), participantName));
   }
 
   @Override
@@ -176,8 +176,8 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
       return String.format("%s/barrier_%s", barrierRoot, version);
     }
 
-    String getBarrierProcessorsPath(String version) {
-      return getBarrierPath(version) + "/barrier_processors";
+    String getBarrierParticipantsPath(String version) {
+      return getBarrierPath(version) + "/barrier_participants";
     }
 
     String getBarrierDonePath(String version) {
