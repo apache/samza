@@ -122,7 +122,7 @@ public class TestZkBarrierForVersionUpgrade {
 
     boolean result = false;
     try {
-      result = latch.await(5000, TimeUnit.MILLISECONDS);
+      result = latch.await(10000, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       e.printStackTrace();
     }
@@ -207,7 +207,7 @@ public class TestZkBarrierForVersionUpgrade {
     processor1Barrier.expireBarrier(ver);
     boolean result = false;
     try {
-      result = latch.await(6000, TimeUnit.MILLISECONDS);
+      result = latch.await(10000, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       e.printStackTrace();
     }

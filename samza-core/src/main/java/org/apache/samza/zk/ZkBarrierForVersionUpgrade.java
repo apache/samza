@@ -42,35 +42,32 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
 
   private final ZkUtils zkUtils;
-  private final String barrierPrefix;
+  private final BarrierKeyBuilder keyBuilder;
 
   private BarrierForVersionUpgradeListener barrierListener;
-  private String barrierDonePath;
-  private String barrierProcessors;
 
-  public ZkBarrierForVersionUpgrade(String barrierPrefix, ZkUtils zkUtils, BarrierForVersionUpgradeListener barrierListener) {
+  public ZkBarrierForVersionUpgrade(String barrierRoot, ZkUtils zkUtils, BarrierForVersionUpgradeListener barrierListener) {
     if (zkUtils == null) {
       throw new RuntimeException("Cannot operate ZkBarrierForVersionUpgrade without ZkUtils.");
     }
     this.zkUtils = zkUtils;
-    this.barrierPrefix = barrierPrefix;
+    this.keyBuilder = new BarrierKeyBuilder(barrierRoot);
     this.barrierListener = barrierListener;
-  }
-
-  private void setPaths(String version) {
-    String barrierPath = String.format("%s/barrier_%s", barrierPrefix, version);
-    barrierDonePath = String.format("%s/barrier_done", barrierPath);
-    barrierProcessors = String.format("%s/barrier_processors", barrierPath);
   }
 
   @Override
   public void start(final String version, List<String> participants) {
-    setPaths(version);
-    zkUtils.makeSurePersistentPathsExists(new String[]{barrierPrefix, String.format("%s/barrier_%s", barrierPrefix, version), barrierProcessors, barrierDonePath});
+    String barrierRoot = keyBuilder.getBarrierRoot();
+    zkUtils.makeSurePersistentPathsExists(new String[]{
+        barrierRoot,
+        keyBuilder.getBarrierPath(version),
+        keyBuilder.getBarrierProcessorsPath(version),
+        keyBuilder.getBarrierDonePath(version)});
 
     // subscribe for processor's list changes
+    String barrierProcessors = keyBuilder.getBarrierProcessorsPath(version);
     LOG.info("Subscribing for child changes at " + barrierProcessors);
-    zkUtils.getZkClient().subscribeChildChanges(barrierProcessors, new ZkBarrierChangeHandler(participants));
+    zkUtils.getZkClient().subscribeChildChanges(barrierProcessors, new ZkBarrierChangeHandler(version, participants));
 
     if (barrierListener != null) {
       barrierListener.onBarrierCreated(version);
@@ -79,16 +76,12 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
   @Override
   public void joinBarrier(String version, String participantName) {
-    setPaths(version);
-
-    final String barrierProcessorThis = String.format("%s/%s", barrierProcessors, participantName);
+    final String barrierProcessorThis = String.format("%s/%s", keyBuilder.getBarrierProcessorsPath(version), participantName);
+    zkUtils.getZkClient().createPersistent(barrierProcessorThis);
 
     // now subscribe for the barrier
+    String barrierDonePath = keyBuilder.getBarrierDonePath(version);
     zkUtils.getZkClient().subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, version));
-
-    // update the barrier for this processor
-    LOG.info("Creating a child for barrier at " + barrierProcessorThis);
-    zkUtils.getZkClient().createPersistent(barrierProcessorThis);
   }
 
   @Override
@@ -98,7 +91,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
   public void expireBarrier(String version) {
     zkUtils.getZkClient().writeData(
-        barrierDonePath,
+        keyBuilder.getBarrierDonePath(version),
         BarrierForVersionUpgrade.State.TIMED_OUT);
 
   }
@@ -107,9 +100,11 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
    * This method will mark the barrier as DONE when all the participants have joined.
    */
   class ZkBarrierChangeHandler implements IZkChildListener {
+    private final String barrierVersion;
     private final List<String> names;
 
-    public ZkBarrierChangeHandler(List<String> names) {
+    public ZkBarrierChangeHandler(String barrierVersion, List<String> names) {
+      this.barrierVersion = barrierVersion;
       this.names = names;
     }
 
@@ -124,7 +119,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
       // check if all the names are in
       if (CollectionUtils.containsAll(currentChildren, names)) {
-        LOG.info("ALl nodes reached the barrier");
+        String barrierDonePath = keyBuilder.getBarrierDonePath(barrierVersion);
         LOG.info("Writing BARRIER DONE to " + barrierDonePath);
         zkUtils.getZkClient().writeData(barrierDonePath, State.DONE); // this will trigger notifications
         zkUtils.getZkClient().unsubscribeChildChanges(barrierDonePath, this);
@@ -157,4 +152,28 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
       LOG.warn("barrier done got deleted at " + dataPath);
     }
   }
+
+  class BarrierKeyBuilder {
+    private final String barrierRoot;
+    BarrierKeyBuilder(String barrierRoot) {
+      this.barrierRoot = barrierRoot;
+    }
+
+    String getBarrierRoot() {
+      return barrierRoot;
+    }
+
+    String getBarrierPath(String version) {
+      return String.format("%s/barrier_%s", barrierRoot, version);
+    }
+
+    String getBarrierProcessorsPath(String version) {
+      return getBarrierPath(version) + "/barrier_processors";
+    }
+
+    String getBarrierDonePath(String version) {
+      return getBarrierPath(version) + "/barrier_done";
+    }
+  }
+
 }
