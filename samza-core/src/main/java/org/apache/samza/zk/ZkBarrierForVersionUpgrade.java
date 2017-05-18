@@ -42,7 +42,7 @@ import java.util.List;
  * /barrierRoot/
  *  |
  *  |- barrier_{version1}/
- *  |   |- barrier_done/
+ *  |   |- barrier_state/
  *  |   |  ([DONE|TIMED_OUT])
  *  |   |- barrier_participants/
  *  |   |   |- {id1}
@@ -51,6 +51,8 @@ import java.util.List;
  */
 public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
+  private static final String BARRIER_PARTICIPANTS = "/barrier_participants";
+  private static final String BARRIER_STATE = "/barrier_state";
 
   private final ZkUtils zkUtils;
   private final BarrierKeyBuilder keyBuilder;
@@ -73,7 +75,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
         barrierRoot,
         keyBuilder.getBarrierPath(version),
         keyBuilder.getBarrierParticipantsPath(version),
-        keyBuilder.getBarrierDonePath(version)});
+        keyBuilder.getBarrierStatePath(version)});
 
     // subscribe for participant's list changes
     String barrierParticipantsPath = keyBuilder.getBarrierParticipantsPath(version);
@@ -86,12 +88,12 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   }
 
   @Override
-  public void joinBarrier(String version, String participantName) {
-    String barrierDonePath = keyBuilder.getBarrierDonePath(version);
+  public void joinBarrier(String version, String participantId) {
+    String barrierDonePath = keyBuilder.getBarrierStatePath(version);
     zkUtils.getZkClient().subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, version));
 
     zkUtils.getZkClient().createPersistent(
-        String.format("%s/%s", keyBuilder.getBarrierParticipantsPath(version), participantName));
+        String.format("%s/%s", keyBuilder.getBarrierParticipantsPath(version), participantId));
   }
 
   @Override
@@ -101,7 +103,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
   public void expireBarrier(String version) {
     zkUtils.getZkClient().writeData(
-        keyBuilder.getBarrierDonePath(version),
+        keyBuilder.getBarrierStatePath(version),
         BarrierForVersionUpgrade.State.TIMED_OUT);
 
   }
@@ -129,7 +131,7 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
 
       // check if all the expected participants are in
       if (CollectionUtils.containsAll(currentChildren, names)) {
-        String barrierDonePath = keyBuilder.getBarrierDonePath(barrierVersion);
+        String barrierDonePath = keyBuilder.getBarrierStatePath(barrierVersion);
         LOG.info("Writing BARRIER DONE to " + barrierDonePath);
         zkUtils.getZkClient().writeData(barrierDonePath, State.DONE); // this will trigger notifications
         zkUtils.getZkClient().unsubscribeChildChanges(barrierDonePath, this);
@@ -177,11 +179,11 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
     }
 
     String getBarrierParticipantsPath(String version) {
-      return getBarrierPath(version) + "/barrier_participants";
+      return getBarrierPath(version) + BARRIER_PARTICIPANTS;
     }
 
-    String getBarrierDonePath(String version) {
-      return getBarrierPath(version) + "/barrier_done";
+    String getBarrierStatePath(String version) {
+      return getBarrierPath(version) + BARRIER_STATE;
     }
   }
 

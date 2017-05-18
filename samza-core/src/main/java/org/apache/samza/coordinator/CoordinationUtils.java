@@ -27,7 +27,6 @@ import org.apache.samza.annotation.InterfaceStability;
  * This service provide three primitives:
  *   - LeaderElection
  *   - Latch
- *   - barrier for version upgrades
  */
 @InterfaceStability.Evolving
 public interface CoordinationUtils {

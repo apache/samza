@@ -41,9 +41,9 @@ public interface BarrierForVersionUpgrade {
    * joined.
    * The call is async. The callback will be invoked when the barrier is reached.
    * @param version - for which the barrier waits
-   * @param thisProcessorsName as it appears in the list of processors.
+   * @param participantId as it appears in the list of processors.
    */
-  void joinBarrier(String version, String thisProcessorsName);
+  void joinBarrier(String version, String participantId);
   void expireBarrier(String version);
   void setBarrierForVersionUpgrade(BarrierForVersionUpgradeListener listener);
 

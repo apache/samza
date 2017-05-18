@@ -130,7 +130,7 @@ public class ZkBarrierIntegrationTest {
     Assert.assertTrue("Barrier failed to complete within test timeout.", result);
 
     try {
-      List<String> children = zkUtils.getZkClient().getChildren(barrierId + "/barrier_v1/barrier_processors");
+      List<String> children = zkUtils.getZkClient().getChildren(barrierId + "/barrier_v1/barrier_participants");
       Assert.assertNotNull(children);
       Assert.assertEquals("Unexpected barrier state. Didn't find two processors.", 2, children.size());
       Assert.assertEquals("Unexpected barrier state. Didn't find the expected members.", processors, children);
@@ -215,7 +215,7 @@ public class ZkBarrierIntegrationTest {
     Assert.assertTrue("Barrier Timeout test failed to complete within test timeout.", result);
 
     try {
-      List<String> children = zkUtils.getZkClient().getChildren(barrierId + "/barrier_v1/barrier_processors");
+      List<String> children = zkUtils.getZkClient().getChildren(barrierId + "/barrier_v1/barrier_participants");
       Assert.assertNotNull(children);
       Assert.assertEquals("Unexpected barrier state. Didn't find two processors.", 2, children.size());
       Assert.assertEquals("Unexpected barrier state. Didn't find the expected members.", processors, children);
