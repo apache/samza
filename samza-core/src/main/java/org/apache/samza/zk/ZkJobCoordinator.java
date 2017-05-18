@@ -22,7 +22,6 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.JobModelManager;
@@ -53,7 +52,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final ZkController zkController;
 
   private final Config config;
-  private final CoordinationUtils coordinationUtils;
   private final ZkBarrier barrier;
 
   private StreamMetadataCache streamMetadataCache = null;
@@ -63,17 +61,23 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   public ZkJobCoordinator(Config config) {
     this.config = config;
+    ZkConfig zkConfig = new ZkConfig(config);
+    ZkKeyBuilder keyBuilder = new ZkKeyBuilder(new ApplicationConfig(config).getAppId());
+    this.zkUtils = new ZkUtils(
+        keyBuilder,
+        ZkUtils.createZkClient(
+            ZkUtils.createZkConnection(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs()),
+            zkConfig.getZkConnectionTimeoutMs()),
+        zkConfig.getZkConnectionTimeoutMs());
+
     this.processorId = createProcessorId(config);
-    this.coordinationUtils = new ZkCoordinationServiceFactory()
-        .getCoordinationService(new ApplicationConfig(config).getGlobalAppId(), String.valueOf(processorId), config);
-    this.zkUtils = ((ZkCoordinationUtils) coordinationUtils).getZkUtils();
     LeaderElector leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
     this.zkController = new ZkControllerImpl(processorId, zkUtils, this, leaderElector);
     this.barrier =  new ZkBarrier(
-        zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(),
+        keyBuilder.getJobModelVersionBarrierPrefix(),
         zkUtils,
-        new ZkZkBarrierListener());
+        new ZkBarrierListenerImpl());
   }
 
   @Override
@@ -233,7 +237,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     }
   }
 
-  class ZkZkBarrierListener implements ZkBarrierListener {
+  class ZkBarrierListenerImpl implements ZkBarrierListener {
     private final String barrierAction = "BarrierAction";
     @Override
     public void onBarrierCreated(String version) {
