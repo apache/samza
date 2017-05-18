@@ -32,11 +32,18 @@ import org.apache.samza.util.Util;
  */
 public class WikipediaZkLocalApplication {
 
-  public static void main(String[] args) throws Exception {
+  /**
+   * Executes the application using the local application runner.
+   * It takes two required command line arguments
+   *  config-factory: a fully {@link org.apache.samza.config.factories.PropertiesConfigFactory} class name
+   *  config-path: path to application properties
+   *
+   * @param args command line arguments
+   */
+  public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     OptionSet options = cmdLine.parser().parse(args);
-    Config orgConfig = cmdLine.loadConfig(options);
-    Config config = Util.rewriteConfig(orgConfig);
+    Config config = cmdLine.loadConfig(options);
 
     LocalApplicationRunner runner = new LocalApplicationRunner(config);
     WikipediaApplication app = new WikipediaApplication();

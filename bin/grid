@@ -56,7 +56,7 @@ bootstrap() {
 }
 
 standalone() {
-  echo "Setting up the ystem..."
+  echo "Setting up the system..."
   stop_all
   rm -rf "$DEPLOY_ROOT_DIR"
   mkdir "$DEPLOY_ROOT_DIR"
