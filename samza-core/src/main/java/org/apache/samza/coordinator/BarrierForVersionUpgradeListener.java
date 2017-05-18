@@ -18,9 +18,11 @@
  */
 package org.apache.samza.coordinator;
 
+import org.apache.samza.zk.ZkBarrierForVersionUpgrade;
+
 public interface BarrierForVersionUpgradeListener {
   void onBarrierCreated(String version);
-  void onBarrierStateChanged(String version, BarrierForVersionUpgrade.State state);
+  void onBarrierStateChanged(String version, ZkBarrierForVersionUpgrade.State state);
 
   void onBarrierError(String version, Throwable t);
 }

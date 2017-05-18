@@ -85,8 +85,8 @@ public class ZkBarrierIntegrationTest {
       }
 
       @Override
-      public void onBarrierStateChanged(String version, BarrierForVersionUpgrade.State state) {
-        if (state.equals(BarrierForVersionUpgrade.State.DONE)) {
+      public void onBarrierStateChanged(String version, ZkBarrierForVersionUpgrade.State state) {
+        if (state.equals(ZkBarrierForVersionUpgrade.State.DONE)) {
           latch.countDown();
           stateChangedCalled.incrementAndGet();
         }
@@ -107,8 +107,8 @@ public class ZkBarrierIntegrationTest {
       }
 
       @Override
-      public void onBarrierStateChanged(String version, BarrierForVersionUpgrade.State state) {
-        if (state.equals(BarrierForVersionUpgrade.State.DONE)) {
+      public void onBarrierStateChanged(String version, ZkBarrierForVersionUpgrade.State state) {
+        if (state.equals(ZkBarrierForVersionUpgrade.State.DONE)) {
           latch.countDown();
           stateChangedCalled.incrementAndGet();
         }
@@ -154,16 +154,14 @@ public class ZkBarrierIntegrationTest {
     final ZkBarrierForVersionUpgrade processor1Barrier = new ZkBarrierForVersionUpgrade(
         barrierId,
         zkUtils,
-        null);
-    processor1Barrier.setBarrierForVersionUpgrade(
         new BarrierForVersionUpgradeListener() {
           @Override
           public void onBarrierCreated(String version) {
           }
 
           @Override
-          public void onBarrierStateChanged(String version, BarrierForVersionUpgrade.State state) {
-            if (BarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
+          public void onBarrierStateChanged(String version, ZkBarrierForVersionUpgrade.State state) {
+            if (ZkBarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
               timeoutStateChangeCalled.incrementAndGet();
               latch.countDown();
             }
@@ -181,16 +179,14 @@ public class ZkBarrierIntegrationTest {
     final ZkBarrierForVersionUpgrade processor2Barrier = new ZkBarrierForVersionUpgrade(
         barrierId,
         zkUtils1,
-        null);
-    processor2Barrier.setBarrierForVersionUpgrade(
         new BarrierForVersionUpgradeListener() {
           @Override
           public void onBarrierCreated(String version) {
           }
 
           @Override
-          public void onBarrierStateChanged(String version, BarrierForVersionUpgrade.State state) {
-            if (BarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
+          public void onBarrierStateChanged(String version, ZkBarrierForVersionUpgrade.State state) {
+            if (ZkBarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
               timeoutStateChangeCalled.incrementAndGet();
               latch.countDown();
             }

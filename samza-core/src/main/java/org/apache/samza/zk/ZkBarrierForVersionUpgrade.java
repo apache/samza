@@ -53,7 +53,9 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
   private static final String BARRIER_PARTICIPANTS = "/barrier_participants";
   private static final String BARRIER_STATE = "/barrier_state";
-
+  public enum State {
+    TIMED_OUT, DONE
+  }
   private final ZkUtils zkUtils;
   private final BarrierKeyBuilder keyBuilder;
 
@@ -97,14 +99,10 @@ public class ZkBarrierForVersionUpgrade implements BarrierForVersionUpgrade {
   }
 
   @Override
-  public void setBarrierForVersionUpgrade(BarrierForVersionUpgradeListener listener) {
-    this.barrierListener = listener;
-  }
-
   public void expireBarrier(String version) {
     zkUtils.getZkClient().writeData(
         keyBuilder.getBarrierStatePath(version),
-        BarrierForVersionUpgrade.State.TIMED_OUT);
+        State.TIMED_OUT);
 
   }
   /**

@@ -246,15 +246,15 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       );
     }
 
-    public void onBarrierStateChanged(final String version, BarrierForVersionUpgrade.State state) {
+    public void onBarrierStateChanged(final String version, ZkBarrierForVersionUpgrade.State state) {
       LOG.info("JobModel version " + version + " obtained consensus successfully!");
-      if (BarrierForVersionUpgrade.State.DONE.equals(state)) {
+      if (ZkBarrierForVersionUpgrade.State.DONE.equals(state)) {
         debounceTimer.scheduleAfterDebounceTime(
             barrierAction,
           0,
           () -> onNewJobModelConfirmed(version));
       } else {
-        if (BarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
+        if (ZkBarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
           // no-op
           // In our consensus model, if the Barrier is timed-out, then it means that one or more initial
           // participants failed to join. That means, they should have de-registered from "processors" list

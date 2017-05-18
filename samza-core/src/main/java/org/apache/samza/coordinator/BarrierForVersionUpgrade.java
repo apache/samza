@@ -45,9 +45,4 @@ public interface BarrierForVersionUpgrade {
    */
   void joinBarrier(String version, String participantId);
   void expireBarrier(String version);
-  void setBarrierForVersionUpgrade(BarrierForVersionUpgradeListener listener);
-
-  enum State {
-    TIMED_OUT, DONE
-  }
 }
