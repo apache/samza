@@ -18,6 +18,9 @@
  */
 package org.apache.samza.config;
 
+import org.apache.samza.runtime.UUIDGenerator;
+
+
 /**
  * Accessors for configs associated with Application scope
  */
@@ -52,7 +55,7 @@ public class ApplicationConfig extends MapConfig {
   }
 
   public String getAppProcessorIdGeneratorClass() {
-    return get(APP_PROCESSOR_ID_GENERATOR_CLASS, null);
+    return get(APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
   }
 
   public String getAppName() {

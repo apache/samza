@@ -27,12 +27,9 @@ import java.util.stream.Collectors;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.samza.operators.stream.OutputStreamInternal;
 
 public class OperatorJsonUtils {
-  private static final Logger log = LoggerFactory.getLogger(OperatorJsonUtils.class);
-
   private static final String OP_CODE = "opCode";
   private static final String OP_ID = "opId";
   private static final String SOURCE_LOCATION = "sourceLocation";
@@ -59,7 +56,10 @@ public class OperatorJsonUtils {
     }
 
     if (spec instanceof SinkOperatorSpec) {
-      map.put(OUTPUT_STREAM_ID, ((SinkOperatorSpec) spec).getOutputStream().getStreamSpec().getId());
+      OutputStreamInternal outputStream = ((SinkOperatorSpec) spec).getOutputStream();
+      if (outputStream != null) {
+        map.put(OUTPUT_STREAM_ID, outputStream.getStreamSpec().getId());
+      }
     }
 
     if (spec instanceof PartialJoinOperatorSpec) {
