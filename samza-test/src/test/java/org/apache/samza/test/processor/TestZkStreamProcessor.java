@@ -77,16 +77,6 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
   // main test method for happy path with fixed number of processors
   private void testStreamProcessor(String[] processorIds) {
-    final String testSystem = "test-system" + processorIds.length; // making system unique per test
-    final String inputTopic = "numbers" + processorIds.length; // making input topic unique per test
-    final String outputTopic = "output" + processorIds.length; // making output topic unique per test
-    final int messageCount = 40;
-
-    final Map<String, String> map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
-
-    // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
-    // TopicExistsException since StreamProcessor auto-creates them.
-    createTopics(inputTopic, outputTopic);
 
     // create a latch of the size == number of messages
     TestZkStreamProcessorBase.TestStreamTask.endLatch = new CountDownLatch(messageCount);
