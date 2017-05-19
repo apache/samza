@@ -85,8 +85,30 @@ public class ZkUtils {
     return new ZkConnection(zkConnectString, sessionTimeoutMs);
   }
 
-  public static ZkClient createZkClient(ZkConnection zkConnection, int connectionTimeoutMs) {
-    return new ZkClient(zkConnection, connectionTimeoutMs);
+  /**
+   * helper method to create zkClient
+   * @param connectString - zkConnect string
+   * @param sessionTimeoutMS - session timeout
+   * @param connectionTimeoutMs - connection timeout
+   * @return zkClient object
+   */
+  public static ZkClient createZkClient(String connectString, int sessionTimeoutMS, int connectionTimeoutMs) {
+    return new ZkClient(connectString, sessionTimeoutMS, connectionTimeoutMs);
+  }
+
+  /**
+   * create an instance of ZkClient
+   * @param zkConfig Zookeeper config
+   * @return an instance of zkClient
+   */
+  public static ZkClient createZkClient(ZkConfig zkConfig) {
+    try {
+      ZkClient zkClient = createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
+      return zkClient;
+    } catch (Exception e) {
+      // ZkClient constructor may throw a variety of different exceptions, not all of them Zk based.
+      throw new SamzaException("zkClient failed to connect to ZK at :" + zkConfig.getZkConnect(), e);
+    }
   }
 
   ZkClient getZkClient() {
@@ -117,21 +139,6 @@ public class ZkUtils {
     } else {
       LOG.info("existing path for " + data +  " is " +  ephemeralPath);
       return ephemeralPath;
-    }
-  }
-
-  /**
-   * create an instance of ZkClient
-   * @param zkConfig Zookeeper config
-   * @return an instance of zkClient
-   */
-  public static ZkClient createZkClient(ZkConfig zkConfig) {
-    try {
-      ZkClient zkClient = new ZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
-      return zkClient;
-    } catch (Exception e) {
-      // ZkClient constructor may throw a varaity of different exceptions, not all of them Zk based.
-      throw new SamzaException("zkClient failed to connect to ZK at :" + zkConfig.getZkConnect(), e);
     }
   }
 

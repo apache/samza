@@ -19,6 +19,7 @@
 package org.apache.samza.zk;
 
 import org.I0Itec.zkclient.ZkClient;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.CoordinationServiceFactory;
