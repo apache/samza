@@ -416,11 +416,11 @@
 			Class to use for job coordination. Currently available values are:
                        <dl>
                             <dt><code>org.apache.samza.standalone.StandaloneJobCoordinatorFactory</code></dt>
-                            <dd>Fixed partition mapping application. No Zoookeeper. </dd>
+                            <dd>Fixed partition mapping. No Zoookeeper. </dd>
                             <dt><code>org.apache.samza.zk.ZkJobCoordinatorFactory</code></dt>
-                            <dd>Zookeeper-based coordination application. </dd>
+                            <dd>Zookeeper-based coordination. </dd>
                         </dl>
-                        Required only for non-cluster-managed applications. Please see the required value for <a href=#task-name-grouper-factory>task-name-groupper-factory </a>
+                        Required only for non-cluster-managed applications. Please see the required value for <a href=#task-name-grouper-factory>task-name-grouper-factory </a>
                     </td>
                 </tr>
 
@@ -432,8 +432,7 @@
                     <td class="property" id="coordinator.zk.connect">job.coordinator.zk.connect</td>
                     <td class="default"></td>
                     <td class="description">
-                        <strong>Required</strong> for Zookeeper-based StandAlone applicaiton. Zookeeper coordinates to be used by
-                        the application coordination. Usually in "host:port" format.
+                        <strong>Required</strong> for applications with Zookeeper-based coordination. Zookeeper coordinates (in "host:port[/znode]" format) to be used for coordination.
                     </td>
                 </tr>
                 <tr>
@@ -447,11 +446,11 @@
                     <td class="property" id="coordinator.zk.connection-timeout-ms">job.coordinator.zk.connection.timeout.ms</td>
                     <td class="default"> 60000 </td>
                     <td class="description">
-                        Zookeeper connection timeout in milliseconds. Zk connection timout controls how long client tries to connect to ZK server before giving up.
+                        Zookeeper connection timeout in milliseconds. Zk connection timeout controls how long client tries to connect to ZK server before giving up.
                     </td>
                 </tr>
                 <tr>
-                    <td class="property" id="coordinator.zk.new-jobmodel-consensus-timeout-ms">job.coordinator.zk.consensus.timeout.ms</td>
+                    <td class="property" id="coordinator.zk.new-consensus-timeout-ms">job.coordinator.zk.consensus.timeout.ms</td>
                     <td class="default"> 40000 </td>
                     <td class="description">
 			How long each processor will wait for all the processors to report acceptance of the new job model before rolling back.

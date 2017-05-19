@@ -24,14 +24,12 @@ public class ZkConfig extends MapConfig {
   public static final String ZK_CONNECT = "job.coordinator.zk.connect";
   public static final String ZK_SESSION_TIMEOUT_MS = "job.coordinator.zk.session.timeout.ms";
   public static final String ZK_CONNECTION_TIMEOUT_MS = "job.coordinator.zk.connection.timeout.ms";
+  public static final String ZK_CONSENSUS_TIMEOUT_MS = "job.coordinator.zk.consensus.timeout.ms";
 
   public static final int DEFAULT_CONNECTION_TIMEOUT_MS = 60000;
   public static final int DEFAULT_SESSION_TIMEOUT_MS = 30000;
-
-
-  public static final String ZK_CONSENSUS_TIMEOUT_MS = "job.coordinator.zk.consensus.timeout.ms";
   public static final int DEFAULT_CONSENSUS_TIMEOUT_MS = 40000;
-
+  
   public ZkConfig(Config config) {
     super(config);
   }
