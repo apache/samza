@@ -30,7 +30,7 @@ public class ZkConfig extends MapConfig {
 
 
   public static final String ZK_CONSENSUS_TIMEOUT_MS = "job.coordinator.zk.consensus.timeout.ms";
-  public static final int DEFAULT_BARRIER_TIMEOUT_MS = 40000;
+  public static final int DEFAULT_CONSENSUS_TIMEOUT_MS = 40000;
 
   public ZkConfig(Config config) {
     super(config);
@@ -52,6 +52,6 @@ public class ZkConfig extends MapConfig {
   }
 
   public int getZkBarrierTimeoutMs() {
-    return getInt(ZK_CONSENSUS_TIMEOUT_MS, DEFAULT_BARRIER_TIMEOUT_MS);
+    return getInt(ZK_CONSENSUS_TIMEOUT_MS, DEFAULT_CONSENSUS_TIMEOUT_MS);
   }
 }
