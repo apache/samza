@@ -25,7 +25,6 @@ import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.ZkConfig;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.zookeeper.data.Stat;
@@ -85,30 +84,8 @@ public class ZkUtils {
     return new ZkConnection(zkConnectString, sessionTimeoutMs);
   }
 
-  /**
-   * helper method to create zkClient
-   * @param connectString - zkConnect string
-   * @param sessionTimeoutMS - session timeout
-   * @param connectionTimeoutMs - connection timeout
-   * @return zkClient object
-   */
-  public static ZkClient createZkClient(String connectString, int sessionTimeoutMS, int connectionTimeoutMs) {
-    return new ZkClient(connectString, sessionTimeoutMS, connectionTimeoutMs);
-  }
-
-  /**
-   * create an instance of ZkClient
-   * @param zkConfig Zookeeper config
-   * @return an instance of zkClient
-   */
-  public static ZkClient createZkClient(ZkConfig zkConfig) {
-    try {
-      ZkClient zkClient = createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
-      return zkClient;
-    } catch (Exception e) {
-      // ZkClient constructor may throw a variety of different exceptions, not all of them Zk based.
-      throw new SamzaException("zkClient failed to connect to ZK at :" + zkConfig.getZkConnect(), e);
-    }
+  public static ZkClient createZkClient(ZkConnection zkConnection, int connectionTimeoutMs) {
+    return new ZkClient(zkConnection, connectionTimeoutMs);
   }
 
   ZkClient getZkClient() {
