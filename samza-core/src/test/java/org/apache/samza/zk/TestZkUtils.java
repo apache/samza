@@ -18,7 +18,10 @@
  */
 package org.apache.samza.zk;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BooleanSupplier;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
@@ -34,10 +37,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.BooleanSupplier;
 
 public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
@@ -85,6 +84,26 @@ public class TestZkUtils {
   @AfterClass
   public static void teardown() {
     zkServer.teardown();
+  }
+
+
+  @Test
+  public void testInitZkPath() {
+    String zkConnect = "127.0.0.1:" + zkServer.getPort() + "/samza1";
+    ZkUtils.initZkPath(zkConnect, zkClient);
+
+    Assert.assertTrue(zkClient.exists("/samza1"));
+
+    zkConnect = "127.0.0.1:" + zkServer.getPort() + "/samza1/samza2";
+    ZkUtils.initZkPath(zkConnect, zkClient);
+
+    Assert.assertTrue(zkClient.exists("/samza1/samza2"));
+
+
+    zkConnect = "127.0.0.1:" + zkServer.getPort(); // empty path.
+    ZkUtils.initZkPath(zkConnect, zkClient);
+
+    Assert.assertTrue(zkClient.exists("/"));
   }
 
   @Test

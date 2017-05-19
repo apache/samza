@@ -19,6 +19,12 @@
 
 package org.apache.samza.zk;
 
+import com.google.common.base.Strings;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
@@ -28,16 +34,11 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
+import org.apache.zookeeper.client.ConnectStringParser;
 import org.apache.zookeeper.data.Stat;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Util class to help manage Zk connection and ZkClient.
@@ -104,10 +105,30 @@ public class ZkUtils {
   public static ZkClient createZkClient(ZkConfig zkConfig) {
     try {
       ZkClient zkClient = createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
+      initZkPath(zkConfig.getZkConnect(), zkClient);
       return zkClient;
     } catch (Exception e) {
       // ZkClient constructor may throw a variety of different exceptions, not all of them Zk based.
       throw new SamzaException("zkClient failed to connect to ZK at :" + zkConfig.getZkConnect(), e);
+    }
+  }
+
+  /**
+   * if ZkConnectString contains some path at the end, it needs to be created when connecting for the first time.
+   * @param zkConnect - connect string
+   * @param zkClient - zkClient object to talk to the ZK
+   */
+  public static void initZkPath(String zkConnect, ZkClient zkClient) {
+    ConnectStringParser parser = new ConnectStringParser(zkConnect);
+
+    String path = parser.getChrootPath();
+    LOG.info("path =" + path);
+    if (!Strings.isNullOrEmpty(path)) {
+      // create this path in zk
+      LOG.info("first connect. creating path =" + path + " in ZK " + parser.getServerAddresses());
+      if (!zkClient.exists(path)) {
+        zkClient.createPersistent(path, true); // will create parents if needed and will not throw exception if exists
+      }
     }
   }
 
