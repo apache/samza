@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Hello Samza Standalone
+title: Hello Samza High Level API - Zookeeper Deployment
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more

@@ -92,7 +92,7 @@ Here's a brief summary of what we configured so far.
 * **job.default.system**: the default system to use for input, output, and internal metadata streams. This can be overridden on a per-stream basis. The _kafka_ system will be defined in the next section.
 * **yarn.package.path**: tells YARN where to find the [job package](/learn/documentation/{{site.version}}/jobs/packaging.html) so the Node Managers can download it.
 
-These configurations would be enough to launch the application on YARN. Of course, a stream application is not very interesting if it doesn't consume any streams, so it would input validation would fail with an exception. 
+These basic configurations are enough to launch the application on YARN but we haven’t defined any streaming systems for Samza to use, so the application would not process anything.
 
 Next, let's define the streaming systems with which the application will interact. 
 
