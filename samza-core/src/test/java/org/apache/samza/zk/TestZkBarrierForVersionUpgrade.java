@@ -55,7 +55,7 @@ public class TestZkBarrierForVersionUpgrade {
     String processorId = "p1";
     Map<String, String> map = new HashMap<>();
     map.put(ZkConfig.ZK_CONNECT, testZkConnectionString);
-    map.put(ZkConfig.ZK_BARRIER_TIMEOUT_MS, "200");
+    map.put(ZkConfig.ZK_CONSENSUS_TIMEOUT_MS, "200");
     Config config = new MapConfig(map);
 
     CoordinationServiceFactory serviceFactory = new ZkCoordinationServiceFactory();
