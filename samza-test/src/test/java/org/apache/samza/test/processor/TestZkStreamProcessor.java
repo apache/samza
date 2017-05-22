@@ -19,14 +19,11 @@
 
 package org.apache.samza.test.processor;
 
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
 
