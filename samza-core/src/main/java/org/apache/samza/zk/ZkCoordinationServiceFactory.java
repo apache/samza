@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 
 
 public class ZkCoordinationServiceFactory implements CoordinationServiceFactory {
-  public final static Logger LOG = LoggerFactory.getLogger(ZkCoordinationServiceFactory.class);
+  private final static Logger LOG = LoggerFactory.getLogger(ZkCoordinationServiceFactory.class);
 
   // TODO - Why should this method be synchronized?
   synchronized public CoordinationUtils getCoordinationService(String groupId, String participantId, Config config) {
