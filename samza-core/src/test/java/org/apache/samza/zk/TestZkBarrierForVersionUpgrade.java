@@ -18,6 +18,11 @@
  */
 package org.apache.samza.zk;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import junit.framework.Assert;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -27,15 +32,8 @@ import org.apache.samza.coordinator.CoordinationServiceFactory;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 
 public class TestZkBarrierForVersionUpgrade {
@@ -43,21 +41,21 @@ public class TestZkBarrierForVersionUpgrade {
   private static String testZkConnectionString = null;
   private static CoordinationUtils coordinationUtils;
 
+  private static AtomicInteger counter = new AtomicInteger(1);
 
-  @BeforeClass
-  public static void setup() throws InterruptedException {
-    zkServer = new EmbeddedZookeeper();
-    zkServer.setup();
-    testZkConnectionString = "127.0.0.1:" + zkServer.getPort();
-  }
 
   @Before
   public void testSetup() {
-    String groupId = "group1";
+
+    zkServer = new EmbeddedZookeeper();
+    zkServer.setup();
+    testZkConnectionString = "127.0.0.1:" + zkServer.getPort();
+
+    String groupId = "group" + counter.getAndAdd(1);
     String processorId = "p1";
     Map<String, String> map = new HashMap<>();
     map.put(ZkConfig.ZK_CONNECT, testZkConnectionString);
-    map.put(ZkConfig.ZK_BARRIER_TIMEOUT_MS, "200");
+    map.put(ZkConfig.ZK_CONSENSUS_TIMEOUT_MS, "200");
     Config config = new MapConfig(map);
 
     CoordinationServiceFactory serviceFactory = new ZkCoordinationServiceFactory();
@@ -67,15 +65,10 @@ public class TestZkBarrierForVersionUpgrade {
   @After
   public void testTearDown() {
     coordinationUtils.reset();
-  }
-
-  @AfterClass
-  public static void teardown() {
     zkServer.teardown();
   }
 
-  // TODO: SAMZA-1193 fix the following flaky test and re-enable it
-  // @Test
+  @Test
   public void testZkBarrierForVersionUpgrade() {
     String barrierId = "b1";
     String ver = "1";

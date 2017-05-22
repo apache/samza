@@ -409,6 +409,53 @@
                         <a href="#stores-changelog" class="property">stores.store-name.changelog</a>.
                     </td>
                 </tr>
+                 <tr>
+                    <td class="property" id="job.coordinator.factory">job.coordinator.factory</td>
+                    <td class="default"></td>
+                    <td class="description">
+			Class to use for job coordination. Currently available values are:
+                       <dl>
+                            <dt><code>org.apache.samza.standalone.StandaloneJobCoordinatorFactory</code></dt>
+                            <dd>Fixed partition mapping. No Zoookeeper. </dd>
+                            <dt><code>org.apache.samza.zk.ZkJobCoordinatorFactory</code></dt>
+                            <dd>Zookeeper-based coordination. </dd>
+                        </dl>
+                        Required only for non-cluster-managed applications. Please see the required value for <a href=#task-name-grouper-factory>task-name-grouper-factory </a>
+                    </td>
+                </tr>
+
+                <tr>
+                                              <!-- change link to StandAlone design/tutorial doc. SAMZA-1299 -->
+                <th colspan="3" class="section" id="ZkBasedJobCoordination"><a href="../index.html">Zookeeper-based job configuration</a></th>
+                </tr>
+                <tr>
+                    <td class="property" id="job.coordinator.zk.connect">job.coordinator.zk.connect</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required</strong> for applications with Zookeeper-based coordination. Zookeeper coordinates (in "host:port[/znode]" format) to be used for coordination.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="job.coordinator.zk.session.timeout.ms">job.coordinator.zk.session.timeout.ms</td>
+                    <td class="default"> 30000 </td>
+                    <td class="description">
+                        Zookeeper session timeout for all the ZK connections in milliseconds. Session timeout controls how long zk client will wait before throwing an exception, when it cannot talk to one of ZK servers.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="job.coordinator.zk.connection.timeout.ms">job.coordinator.zk.connection.timeout.ms</td>
+                    <td class="default"> 60000 </td>
+                    <td class="description">
+                        Zookeeper connection timeout in milliseconds. Zk connection timeout controls how long client tries to connect to ZK server before giving up.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="job.coordinator.zk.new.consensus.timeout.ms">job.coordinator.zk.consensus.timeout.ms</td>
+                    <td class="default"> 40000 </td>
+                    <td class="description">
+			How long each processor will wait for all the processors to report acceptance of the new job model before rolling back.
+                    </td>
+                </tr>
                 <tr>
                     <th colspan="3" class="section" id="task"><a href="../api/overview.html">Task configuration</a></th>
                 </tr>
@@ -647,6 +694,7 @@
                         The fully-qualified name of the Java class which determines the factory class which will build the TaskNameGrouper.
                         The default configuration value if the property is not present is <code>task.name.grouper.factory=org.apache.samza.container.grouper.task.GroupByContainerCountFactory</code>.<br>
                         The user can specify a custom implementation of the TaskNameGrouperFactory where a custom logic is implemented for grouping the tasks.
+                    <p><strong>Note:</strong> For non-cluster applications (ones using coordination service) one must use <i>org.apache.samza.container.grouper.task.GroupByContainerIdsFactory</i>
                     </td>
                 </tr>
 
