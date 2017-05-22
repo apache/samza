@@ -36,30 +36,6 @@ import org.junit.Test;
  */
 public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
-  private AtomicInteger counter = new AtomicInteger(1);
-  private String testSystem;
-  private String inputTopic;
-  private String outputTopic;
-  private int messageCount = 40;
-
-  private Map<String, String> map;
-
-
-  @Before
-  public void setupTest() {
-    // for each tests - make the common parts unique
-    int seqNum = counter.getAndAdd(1);
-    testSystem = "test-system" + seqNum;
-    inputTopic = "numbers" + seqNum;
-    outputTopic = "output" + seqNum;
-
-    map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
-
-    // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
-    // TopicExistsException since StreamProcessor auto-creates them.
-    createTopics(inputTopic, outputTopic);
-  }
-
   @Test
   public void testSingleStreamProcessor() {
     testStreamProcessor(new String[]{"1"});
@@ -132,6 +108,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
   /**
    * Similar to the previous tests, but add another processor in the middle
    */ public void testStreamProcessorWithAdd() {
+
     // set number of events we expect wo read by both processes in total:
     // p1 - reads 'messageCount' at first
     // p1 and p2 read all messageCount together, since they start from the beginning.

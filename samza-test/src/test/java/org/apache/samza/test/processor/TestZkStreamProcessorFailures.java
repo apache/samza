@@ -33,53 +33,39 @@ import org.junit.Test;
 
 /**
  * Failure tests:
- * ZK unavailable
- * One processor fails
+ * ZK unavailable.
+ * One processor fails in process.
  */
 public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
-  private final static int ATTEMPTS_NUMBER = 5;
-  // to avoid long sleeps, we rather use multiple attempts with shorter sleeps
   private final static int BAD_MESSAGE_KEY = 1000;
 
   @Before
-  public void setupTest() {
+  public void setUp() {
+    super.setUp();
   }
 
   @Test(expected = org.apache.samza.SamzaException.class)
   public void testZkUnavailable() {
-    final String testSystem = "test-system-zkUn";
-    final String inputTopic = "numbers_zkUn";
-    final String outputTopic = "output_zkUn";
-    final int messageCount = 40;
-
-    final Map<String, String> map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
     map.put(ZkConfig.ZK_CONNECT, "localhost:2222"); // non-existing zk
-    map.put(ZkConfig.ZK_CONNECTION_TIMEOUT_MS, "3000");
+    map.put(ZkConfig.ZK_CONNECTION_TIMEOUT_MS, "3000"); // shorter timeout
     CountDownLatch startLatch = new CountDownLatch(1);
     createStreamProcessor("1", map, startLatch, null); // this should fail with timeout exception
+    Assert.fail("should've thrown and exception");
   }
 
   @Test
   // test with a single processor failing
+  // One processor fails (to simulate the failure we inject a special message (id > 1000) which causes the processor to
+  // throw an exception.
   public void testFailStreamProcessor() {
-    final String testSystem = "test-system2";
-    final String inputTopic = "numbers_failP";
-    final String outputTopic = "output_failP";
-
-    final int messageCount = 40;
     final int numBadMessages = 4; // either of these bad messages will cause p1 to throw and exception
-
-    final Map<String, String> map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
-    // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
-    // TopicExistsException since StreamProcessor auto-creates them.
-    createTopics(inputTopic, outputTopic);
 
     // set number of events we expect to read by both processes in total:
     // p1 will read messageCount/2 messages
     // p2 will read messageCount/2 messages
-    // numBadMessages bad messages will be generated
-    // p2 will read 2 of them
+    // numBadMessages "bad" messages will be generated
+    // p2 will read 2 of the "bad" messages
     // p1 will fail on the first of them
     // a new job model will be generated
     // and p2 will read all 2 * messageCount messages again, + numBadMessages (all of them this time)
@@ -118,19 +104,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     produceMessages(0, inputTopic, messageCount);
 
     // make sure they consume all the messages
-    int attempts = ATTEMPTS_NUMBER;
-    while (attempts > 0) {
-      // we wait until messageCount is consumed
-      long leftEventsCount = TestStreamTask.endLatch.getCount();
-      System.out.println("left to read = " + leftEventsCount);
-      if (leftEventsCount == totalEventsToBeConsumed - messageCount) { // read first batch
-        System.out.println("read all available. left to read = " + leftEventsCount);
-        break;
-      }
-      TestZkUtils.sleepMs(1000);
-      attempts--;
-    }
-    Assert.assertTrue("Didn't read all the events in the first batch in 5 attempts", attempts > 0);
+    waitUntilConsumedN(totalEventsToBeConsumed - messageCount);
 
     // produce the bad messages
     produceMessages(BAD_MESSAGE_KEY, inputTopic, 4);
@@ -142,18 +116,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     produceMessages(messageCount, inputTopic, messageCount);
 
     // wait until p2 consumes all the message by itself
-    attempts = ATTEMPTS_NUMBER;
-    while (attempts > 0) {
-      long leftEventsCount = TestStreamTask.endLatch.getCount();
-      System.out.println("2nd left to read = " + leftEventsCount);
-      if (leftEventsCount == 0) { // should've read all of them
-        System.out.println("2nd read all, left to read  = " + leftEventsCount);
-        break;
-      }
-      TestZkUtils.sleepMs(1000);
-      attempts--;
-    }
-    Assert.assertTrue("Didn't read all the leftover events in 5 attempts", attempts > 0);
+    waitUntilConsumedN(0);
 
     // shutdown p2
     try {

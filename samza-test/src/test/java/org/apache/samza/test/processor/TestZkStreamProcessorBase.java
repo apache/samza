@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import kafka.utils.TestUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -51,6 +52,7 @@ import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
 import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
+import org.junit.Before;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,8 +61,33 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
   public final static Logger LOG = LoggerFactory.getLogger(TestZkStreamProcessorBase.class);
   public final static int BAD_MESSAGE_KEY = 1000;
   // to avoid long sleeps, we rather use multiple attempts with shorter sleeps
-  private final static int ATTEMPTS_NUMBER = 5;
+  protected final static int ATTEMPTS_NUMBER = 5;
 
+  protected AtomicInteger counter = new AtomicInteger(1);
+  protected String testSystem;
+  protected String inputTopic;
+  protected String outputTopic;
+  protected int messageCount = 40;
+
+  protected Map<String, String> map;
+
+
+  @Before
+  public void setUp() {
+    super.setUp();
+    // for each tests - make the common parts unique
+    int seqNum = counter.getAndAdd(1);
+    testSystem = "test-system" + seqNum;
+    inputTopic = "numbers" + seqNum;
+    outputTopic = "output" + seqNum;
+
+    map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
+
+    // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
+    // TopicExistsException since StreamProcessor auto-creates them.
+    createTopics(inputTopic, outputTopic);
+  }
+  
   // auxiliary methods
   protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map,
       final CountDownLatch startLatchCountDown, final CountDownLatch stopLatchCountDown) {
@@ -212,10 +239,10 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     // static field since there's no other way to share state b/w a task instance and
     // stream processor when constructed from "task.class".
     static CountDownLatch endLatch;
-    private int processedMessageCount = 0;
-    private String processorId;
-    private String outputTopic;
-    private String outputSystem;
+    protected int processedMessageCount = 0;
+    protected String processorId;
+    protected String outputTopic;
+    protected String outputSystem;
 
     @Override
     public void init(Config config, TaskContext taskContext)
