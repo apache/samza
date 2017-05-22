@@ -48,7 +48,7 @@ Now that we understand the Wikipedia system and the types of inputs we'll be pro
 
 ### Create the Initial Config
 In the hello-samza project, configs are kept in the _src/main/config/_ path. This is where we will add the config for our application.
-Add a new file named _my-wikipedia-application.properties_ in this location.
+Create a new file named _my-wikipedia-application.properties_ in this location.
 
 #### Core Configuration
 Let's start by adding some of the core properties to the file:
@@ -162,7 +162,7 @@ Since all the Kafka streams for cases 2-3 are on the default system and do not i
 With the core configuration settled, we turn our attention to code.
 
 ### Define Application Logic
-Let's create the app class we configured above. The next 8 sections walk you through writing the code for the Wikipedia application.
+Let's create the application class we configured above. The next 8 sections walk you through writing the code for the Wikipedia application.
 
 Create a new class named `MyWikipediaApplication` in the `samza.examples.wikipedia.application` package. The class must implement `StreamApplication` and should look like this:
 
@@ -397,7 +397,7 @@ In the WikipediaStatsAggregator, declare a counter member variable.
 private Counter repeatEdits;
 {% endhighlight %}
 
-Then add the following the `init` method do initialize the counter.
+Then add the following to the `init` method to initialize the counter.
 {% highlight java %}
 repeatEdits = context.getMetricsRegistry().newCounter("edit-counters", "repeat-edits");
 {% endhighlight %}
