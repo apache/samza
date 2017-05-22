@@ -66,7 +66,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     // p2 will read messageCount/2 messages
     // numBadMessages "bad" messages will be generated
     // p2 will read 2 of the "bad" messages
-    // p1 will fail on the first of them
+    // p1 will fail on the first of the "bad" messages
     // a new job model will be generated
     // and p2 will read all 2 * messageCount messages again, + numBadMessages (all of them this time)
     // total 2 x messageCount / 2 + numBadMessages/2 + 2 * messageCount + numBadMessages
@@ -109,7 +109,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     // produce the bad messages
     produceMessages(BAD_MESSAGE_KEY, inputTopic, 4);
 
-    // wait for at least one full debounce time to let the system to publish and distribute the new job model
+    // wait for at least one full de-bounce time to let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(3000);
 
     // produce the second batch of the messages, starting with 'messageCount'
