@@ -72,7 +72,7 @@ Make sure the scheme used in the `yarn.resources.<resourceName>.path` is configu
 </configuration>
 {% endhighlight %}
 
-If you are using your own scheme (for example, `yarn.resources.myResource.path=myScheme://host.com/test`), you can implement your own [FileSystem](https://hadoop.apache.org/docs/stable/api/index.html?org/apache/hadoop/fs/FileSystem.html) and link it with your scheme.
+If you are using your own scheme (for example, `yarn.resources.myResource.path=myScheme://host.com/test`), you can link your [FileSystem](https://hadoop.apache.org/docs/stable/api/index.html?org/apache/hadoop/fs/FileSystem.html) implementation with it as follows.
 
 {% highlight xml %}
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
