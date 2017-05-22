@@ -76,7 +76,7 @@ The above command executes the helper script which invokes the *WikipediaZkLocal
 that initializes the application and passes it to the local runner for execution. It is blocking and waits for the *LocalApplicationRunner* to finish.
 
 To run your own application using zookeeper deployment model, you would need something similar to *WikipediaZkLocalApplication* class that initializes your application
-and uses the *LocalApplicationRunner* to run it. To learn more about the internals checkout [deployment-models](/learn/documentation/{{site.version}}/introduction/background.html) documentation and the [configurations](/learn/documentation/{{site.version}}/jobs/configuration-table.html) table.
+and uses the *LocalApplicationRunner* to run it. To learn more about the internals checkout [deployment-models](/startup/preview/) documentation and the [configurations](/learn/documentation/{{site.version}}/jobs/configuration-table.html) table.
 
 Getting back to our example, the application consumes a feed of real-time edits from Wikipedia, and produces them to a Kafka topic called "wikipedia-stats". Give the job a minute to startup, and then tail the Kafka topic
 
@@ -96,7 +96,7 @@ The messages in the stats topic should look like the sample below
 Excellent! Now that the job is running, open *plan.html* under *deploy/samza/bin* directory to take a look at the execution plan for the Wikipedia application.
 The execution plan is a colorful graphic representing various stages of your application and how they are connected. Here is a sample plan visualization:
 
-<img src="/img/{{site.version}}/learn/documentation/introduction/execution-plan.png" alt="Execution plan" style="max-width: 100%; height: auto;" onclick="window.open(this.src)"/>
+<img src="/img/{{site.version}}/learn/tutorials/hello-samza-high-level/wikipedia-execution-plan.png" alt="Execution plan" style="max-width: 100%; height: auto;" onclick="window.open(this.src)"/>
 
 
 ### Shutdown
@@ -108,4 +108,4 @@ We can use the *grid* script to tear down the local environment ([Kafka](http://
 bin/grid stop all
 {% endhighlight %}
 
-Congratulations! You've now successfully run a Samza application using zookeeper deployment model. Next up, check out the [deployment-models](/learn/documentation/{{site.version}}/introduction/background.html) and [high level API](/learn/documentation/{{site.version}}/api/overview.html) pages.
+Congratulations! You've now successfully run a Samza application using zookeeper deployment model. Next up, check out the [deployment-models](/startup/preview/) and [high level API](/startup/preview.html) pages.

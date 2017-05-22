@@ -109,7 +109,7 @@ To use standalone coordination, the following configs are needed:
 job.coordinator.factory=org.apache.samza.standalone.StandaloneJobCoordinatorFactory
 {% endhighlight %}
 
-For more details of local deployment using Zookeeper, please take a look at this [tutorial](/learn/tutorials/{{site.version}}/hello-samza-standalone.html).
+For more details of local deployment using Zookeeper, please take a look at this [tutorial](/learn/tutorials/{{site.version}}/hello-samza-high-level-zk.html).
 
 #### IV. Processor
 
