@@ -20,7 +20,7 @@ package org.apache.samza.zk;
 
 public interface ZkBarrierListener {
   void onBarrierCreated(String version);
-  void onBarrierStateChanged(String version, ZkBarrier.State state);
+  void onBarrierStateChanged(String version, ZkBarrierForVersionUpgrade.State state);
 
   void onBarrierError(String version, Throwable t);
 }

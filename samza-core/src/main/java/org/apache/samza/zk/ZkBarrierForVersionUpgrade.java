@@ -53,8 +53,8 @@ import java.util.List;
  *  |   |   |- {id2}
  *  |   |   |-  ...
  */
-public class ZkBarrier {
-  private final static Logger LOG = LoggerFactory.getLogger(ZkBarrier.class);
+public class ZkBarrierForVersionUpgrade {
+  private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
   private static final String BARRIER_PARTICIPANTS = "/barrier_participants";
   private static final String BARRIER_STATE = "/barrier_state";
   private final ZkUtils zkUtils;
@@ -66,7 +66,7 @@ public class ZkBarrier {
 
   private ZkBarrierListener barrierListener;
 
-  public ZkBarrier(String barrierRoot, ZkUtils zkUtils, ZkBarrierListener barrierListener) {
+  public ZkBarrierForVersionUpgrade(String barrierRoot, ZkUtils zkUtils, ZkBarrierListener barrierListener) {
     if (zkUtils == null) {
       throw new RuntimeException("Cannot operate ZkBarrierForVersionUpgrade without ZkUtils.");
     }
