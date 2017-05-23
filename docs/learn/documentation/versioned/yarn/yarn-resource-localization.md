@@ -26,14 +26,14 @@ For Samza jobs running on YARN, resource localization leverages the YARN node ma
 
 Depending on where and how the resource comes from, fetching the resource is associated with a scheme in the path (such as `http`, `https`, `hdfs`, `ftp`, `file`, etc). The scheme maps to a corresponding `FileSystem` implementation for handling the localization. 
 
-There are some predefined `FileSystem` implementations in Hadoop or Samza, which are provided if you run Samza jobs on YARN:
+There are some predefined `FileSystem` implementations in Hadoop and Samza, which are provided if you run Samza jobs on YARN:
 
-* `org.apache.samza.util.hadoop.HttpFileSystem`: used for fetching resources based on http, or https without client side authentication.
+* `org.apache.samza.util.hadoop.HttpFileSystem`: used for fetching resources based on http or https without client side authentication.
 * `org.apache.hadoop.hdfs.DistributedFileSystem`: used for fetching resource from DFS system on Hadoop.
 * `org.apache.hadoop.fs.LocalFileSystem`: used for copying resources from local file system to the job directory.
 * `org.apache.hadoop.fs.ftp.FTPFileSystem`: used for fetching resources based on ftp.
 
-If you would like to have your own file system, you should implement a class which extends from `org.apache.hadoop.fs.FileSystem`. 
+You can create your own file system implementation by creating a class which extends from `org.apache.hadoop.fs.FileSystem`. 
 
 ### Resource Configuration
 You can specify a resource to be localized by the following configuration.
@@ -60,7 +60,7 @@ You can specify a resource to be localized by the following configuration.
     * If it is not set, the default value is `APPLICATION`
 
 ### YARN Configuration
-Make sure the scheme used in the `yarn.resources.<resourceName>.path` is configured with a corresponding FileSystem implementation YARN core-site.xml.
+Make sure the scheme used in the `yarn.resources.<resourceName>.path` is configured with a corresponding FileSystem implementation in YARN core-site.xml.
 
 {% highlight xml %}
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
