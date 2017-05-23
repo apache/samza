@@ -100,7 +100,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     TestUtils.createTopic(zkUtils(), outputTopic, 5, 1, servers(), new Properties());
   }
 
-  protected Map<String, String> createConfigs(String testSystem, String inputTopic, String outputTopic,
+  protected Map<String, String> createConfigs(int seqNum, String testSystem, String inputTopic, String outputTopic,
       int messageCount) {
     Map<String, String> configs = new HashMap<>();
     configs.putAll(StandaloneTestUtils

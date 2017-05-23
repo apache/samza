@@ -53,7 +53,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     inputTopic = "numbers" + seqNum;
     outputTopic = "output" + seqNum;
 
-    map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
+    map = createConfigs(seqNum, testSystem, inputTopic, outputTopic, messageCount);
 
     // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
     // TopicExistsException since StreamProcessor auto-creates them.
