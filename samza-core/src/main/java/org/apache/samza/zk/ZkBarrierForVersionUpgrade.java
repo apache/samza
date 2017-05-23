@@ -27,11 +27,12 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.List;
-
+import java.util.Optional;
 
 /**
- * ZkBarrier is an implementation of distributed barrier, which guarantees that the expected barrier size and barrier
- * participants match before marking the barrier as complete. It also allows the caller to expire the barrier.
+ * ZkBarrierForVersionUpgrade is an implementation of distributed barrier, which guarantees that the expected barrier
+ * size and barrier participants match before marking the barrier as complete.
+ * It also allows the caller to expire the barrier.
  *
  * This implementation is specifically tailored towards barrier support during jobmodel version upgrades. The participant
  * responsible for the version upgrade starts the barrier by invoking {@link #create(String, List)}.
@@ -55,16 +56,14 @@ import java.util.List;
  */
 public class ZkBarrierForVersionUpgrade {
   private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
-  private static final String BARRIER_PARTICIPANTS = "/barrier_participants";
-  private static final String BARRIER_STATE = "/barrier_state";
   private final ZkUtils zkUtils;
   private final BarrierKeyBuilder keyBuilder;
+  private final Optional<ZkBarrierListener> barrierListener;
 
   public enum State {
     TIMED_OUT, DONE
   }
 
-  private ZkBarrierListener barrierListener;
 
   public ZkBarrierForVersionUpgrade(String barrierRoot, ZkUtils zkUtils, ZkBarrierListener barrierListener) {
     if (zkUtils == null) {
@@ -72,7 +71,7 @@ public class ZkBarrierForVersionUpgrade {
     }
     this.zkUtils = zkUtils;
     this.keyBuilder = new BarrierKeyBuilder(barrierRoot);
-    this.barrierListener = barrierListener;
+    this.barrierListener = Optional.ofNullable(barrierListener);
   }
 
   /**
@@ -83,20 +82,18 @@ public class ZkBarrierForVersionUpgrade {
    */
   public void create(final String version, List<String> participants) {
     String barrierRoot = keyBuilder.getBarrierRoot();
+    String barrierParticipantsPath = keyBuilder.getBarrierParticipantsPath(version);
     zkUtils.makeSurePersistentPathsExists(new String[]{
         barrierRoot,
         keyBuilder.getBarrierPath(version),
-        keyBuilder.getBarrierParticipantsPath(version),
+        barrierParticipantsPath,
         keyBuilder.getBarrierStatePath(version)});
 
     // subscribe for participant's list changes
-    String barrierParticipantsPath = keyBuilder.getBarrierParticipantsPath(version);
     LOG.info("Subscribing for child changes at " + barrierParticipantsPath);
     zkUtils.getZkClient().subscribeChildChanges(barrierParticipantsPath, new ZkBarrierChangeHandler(version, participants));
 
-    if (barrierListener != null) {
-      barrierListener.onBarrierCreated(version);
-    }
+    barrierListener.ifPresent(zkBarrierListener -> zkBarrierListener.onBarrierCreated(version));
   }
 
   /**
@@ -109,7 +106,7 @@ public class ZkBarrierForVersionUpgrade {
     String barrierDonePath = keyBuilder.getBarrierStatePath(version);
     zkUtils.getZkClient().subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, version));
 
-    // TODO: Handle ZkNodeExistsException
+    // TODO: Handle ZkNodeExistsException - SAMZA-1304
     zkUtils.getZkClient().createPersistent(
         String.format("%s/%s", keyBuilder.getBarrierParticipantsPath(version), participantId));
   }
@@ -148,7 +145,7 @@ public class ZkBarrierForVersionUpgrade {
       LOG.debug("list of children to compare against = " + parentPath + ":" + Arrays.toString(names.toArray()));
 
       // check if all the expected participants are in
-      if (CollectionUtils.containsAll(currentChildren, names)) {
+      if (currentChildren.size() == names.size() && CollectionUtils.containsAll(currentChildren, names)) {
         String barrierDonePath = keyBuilder.getBarrierStatePath(barrierVersion);
         LOG.info("Writing BARRIER DONE to " + barrierDonePath);
         zkUtils.getZkClient().writeData(barrierDonePath, State.DONE); // this will trigger notifications
@@ -176,9 +173,8 @@ public class ZkBarrierForVersionUpgrade {
     public void handleDataChange(String dataPath, Object data) {
       LOG.info("got notification about barrier " + barrierStatePath + "; done=" + data);
       zkUtils.unsubscribeDataChanges(barrierStatePath, this);
-      if (barrierListener != null) {
-        barrierListener.onBarrierStateChanged(barrierVersion, (State) data);
-      }
+      barrierListener.ifPresent(
+          zkBarrierListener -> zkBarrierListener.onBarrierStateChanged(barrierVersion, (State) data));
     }
 
     @Override
@@ -190,6 +186,8 @@ public class ZkBarrierForVersionUpgrade {
 
   class BarrierKeyBuilder {
     private final String barrierRoot;
+    private final String BARRIER_PARTICIPANTS = "/barrier_participants";
+    private final String BARRIER_STATE = "/barrier_state";
     BarrierKeyBuilder(String barrierRoot) {
       this.barrierRoot = barrierRoot;
     }

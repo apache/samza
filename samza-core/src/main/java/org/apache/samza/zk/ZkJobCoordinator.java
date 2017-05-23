@@ -131,6 +131,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   void doOnProcessorChange(List<String> processors) {
     // if list of processors is empty - it means we are called from 'onBecomeLeader'
+    // TODO: Handle empty currentProcessorIds or duplicate processorIds in the list
     List<String> currentProcessorIds = getActualProcessorIds(processors);
 
     // Generate the JobModel
