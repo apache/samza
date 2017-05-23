@@ -264,7 +264,7 @@ public class ZkUtils {
     } catch (Exception e) {
       String msg = "publish job model version failed for new version = " + newVersion + "; old version = " + oldVersion;
       LOG.error(msg, e);
-      throw new SamzaException(e);
+      throw new SamzaException(msg, e);
     }
     LOG.info("published new version: " + newVersion + "; expected data version = " + (dataVersion  + 1) +
         "(actual data version after update = " + stat.getVersion() +    ")");
