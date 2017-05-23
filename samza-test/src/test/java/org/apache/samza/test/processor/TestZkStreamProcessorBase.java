@@ -112,7 +112,8 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     configs.put("app.messageCount", String.valueOf(messageCount));
     configs.put("app.outputTopic", outputTopic);
     configs.put("app.outputSystem", testSystem);
-    configs.put(ZkConfig.ZK_CONNECT, zkConnect());
+    configs.put(ZkConfig.ZK_CONNECT, zkConnect() + "/" + String.valueOf(seqNum));
+    System.out.println("--------------------------Zk connect = " + configs.get(ZkConfig.ZK_CONNECT));
 
     configs.put("job.systemstreampartition.grouper.factory",
         "org.apache.samza.container.grouper.stream.GroupByPartitionFactory");
