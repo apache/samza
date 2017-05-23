@@ -185,9 +185,9 @@ public class ZkBarrierForVersionUpgrade {
   }
 
   class BarrierKeyBuilder {
+    private static final String BARRIER_PARTICIPANTS = "/barrier_participants";
+    private static final String BARRIER_STATE = "/barrier_state";
     private final String barrierRoot;
-    private final String BARRIER_PARTICIPANTS = "/barrier_participants";
-    private final String BARRIER_STATE = "/barrier_state";
     BarrierKeyBuilder(String barrierRoot) {
       this.barrierRoot = barrierRoot;
     }
