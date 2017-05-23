@@ -46,7 +46,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
 
   @Before
-  public void setupTest() {
+  public void setUp() {
+    super.setUp();
     // for each tests - make the common parts unique
     int seqNum = counter.getAndAdd(1);
     testSystem = "test-system" + seqNum;
