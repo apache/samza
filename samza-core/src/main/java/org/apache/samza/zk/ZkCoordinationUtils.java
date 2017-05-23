@@ -28,14 +28,11 @@ public class ZkCoordinationUtils implements CoordinationUtils {
   public final ZkConfig zkConfig;
   public final ZkUtils zkUtils;
   public final String processorIdStr;
-  public final ScheduleAfterDebounceTime debounceTimer;
 
-  public ZkCoordinationUtils(String processorId, ZkConfig zkConfig, ZkUtils zkUtils,
-      ScheduleAfterDebounceTime debounceTimer) {
+  public ZkCoordinationUtils(String processorId, ZkConfig zkConfig, ZkUtils zkUtils) {
     this.zkConfig = zkConfig;
     this.zkUtils = zkUtils;
     this.processorIdStr = processorId;
-    this.debounceTimer = debounceTimer;
   }
 
   @Override

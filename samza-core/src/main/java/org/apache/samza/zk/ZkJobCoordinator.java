@@ -65,8 +65,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     ZkKeyBuilder keyBuilder = new ZkKeyBuilder(new ApplicationConfig(config).getAppId());
     this.zkUtils = new ZkUtils(
         keyBuilder,
-        ZkUtils.createZkClient(
-            ZkUtils.createZkConnection(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs()),
+        ZkCoordinationServiceFactory.createZkClient(
+            zkConfig.getZkConnect(),
+            zkConfig.getZkSessionTimeoutMs(),
             zkConfig.getZkConnectionTimeoutMs()),
         zkConfig.getZkConnectionTimeoutMs());
 
