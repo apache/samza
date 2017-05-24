@@ -28,7 +28,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-
 public class ZkControllerImpl implements ZkController {
   private static final Logger LOG = LoggerFactory.getLogger(ZkControllerImpl.class);
 
@@ -114,6 +113,10 @@ public class ZkControllerImpl implements ZkController {
   }
 
   class ZkJobModelVersionChangeHandler implements IZkDataListener {
+    /**
+     * Called when there is a change to the data in JobModel version path
+     * To the subscribers, it signifies that a new version of JobModel is available.
+     */
     @Override
     public void handleDataChange(String dataPath, Object data) throws Exception {
       LOG.info("pid=" + processorIdStr + ". Got notification on version update change. path=" + dataPath + "; data="

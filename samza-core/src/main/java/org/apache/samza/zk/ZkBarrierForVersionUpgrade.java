@@ -37,8 +37,10 @@ import java.util.Optional;
  * This implementation is specifically tailored towards barrier support during jobmodel version upgrades. The participant
  * responsible for the version upgrade starts the barrier by invoking {@link #create(String, List)}.
  * Each participant in the list, then, joins the new barrier. When all listed participants {@link #join(String, String)}
- * the barrier, the creator marks the barrier as done which signals the end of barrier.
- * The creator of the barrier can invoke {@link #expire(String)} to indicate that the barrier has timed_out or
+ * the barrier, the creator marks the barrier as {@link org.apache.samza.zk.ZkBarrierForVersionUpgrade.State#DONE}
+ * which signals the end of barrier.
+ * The creator of the barrier can expire the barrier by invoking {@link #expire(String)}. This will mark the barrier
+ * with value {@link org.apache.samza.zk.ZkBarrierForVersionUpgrade.State#TIMED_OUT} and indicates to everyone that it
  * is no longer valid.
  *
  * The caller can listen to events associated with the barrier by registering a {@link ZkBarrierListener}.
@@ -141,8 +143,8 @@ public class ZkBarrierForVersionUpgrade {
         LOG.info("Got ZkBarrierChangeHandler handleChildChange with null currentChildren");
         return;
       }
-      LOG.debug("list of children in the barrier = " + parentPath + ":" + Arrays.toString(currentChildren.toArray()));
-      LOG.debug("list of children to compare against = " + parentPath + ":" + Arrays.toString(names.toArray()));
+      LOG.info("list of children in the barrier = " + parentPath + ":" + Arrays.toString(currentChildren.toArray()));
+      LOG.info("list of children to compare against = " + parentPath + ":" + Arrays.toString(names.toArray()));
 
       // check if all the expected participants are in
       if (currentChildren.size() == names.size() && CollectionUtils.containsAll(currentChildren, names)) {
@@ -157,7 +159,7 @@ public class ZkBarrierForVersionUpgrade {
   /**
    * Listener for changes to the Barrier state. It is subscribed by all participants of the barrier, including the
    * participant that creates the barrier.
-   * Barrier state can be of types - DONE or TIMED_OUT. It only registers to receive on valid state change notification.
+   * Barrier state values are either DONE or TIMED_OUT. It only registers to receive on valid state change notification.
    * Once a valid state change notification is received, it will un-subscribe from further notifications.
    */
   class ZkBarrierReachedHandler implements IZkDataListener {
@@ -189,6 +191,9 @@ public class ZkBarrierForVersionUpgrade {
     private static final String BARRIER_STATE = "/barrier_state";
     private final String barrierRoot;
     BarrierKeyBuilder(String barrierRoot) {
+      if (barrierRoot == null || barrierRoot.trim().isEmpty() || !barrierRoot.trim().startsWith("/")) {
+        throw new IllegalArgumentException("Barrier root path cannot be null or empty and the path has to start with '/'");
+      }
       this.barrierRoot = barrierRoot;
     }
 
