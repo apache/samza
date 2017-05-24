@@ -32,7 +32,7 @@ import org.apache.samza.webapp.{ApplicationMasterRestServlet, ApplicationMasterW
 
 /**
   * Samza's application master runs a very basic HTTP/JSON service to allow
-  * dashboards to check on the status of a job. SamzaAppMasterService starts
+  * dashboards to check on the status of a job. SamzaYarnAppMasterService starts
   * up the web service when initialized.
   */
 //This class is used in the refactored code path as called by run-jc.sh

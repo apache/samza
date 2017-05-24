@@ -19,6 +19,7 @@
 
 package org.apache.samza.container.grouper.stream;
 
+import java.util.HashMap;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -47,7 +48,13 @@ class AllSspToSingleTaskGrouper implements SystemStreamPartitionGrouper {
   }
 
   @Override
-  public Map<TaskName, Set<SystemStreamPartition>> group(final Set<SystemStreamPartition> ssps) {
+  public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps) {
+    return group(new HashMap<>(), ssps);
+  }
+
+  @Override
+  public Map<TaskName, Set<SystemStreamPartition>> group(Map<SystemStreamPartition, String> previousSystemStreamPartitionMapping,
+                                                         Set<SystemStreamPartition> ssps) {
     if (ssps == null) {
       throw new SamzaException("ssp set cannot be null!");
     }

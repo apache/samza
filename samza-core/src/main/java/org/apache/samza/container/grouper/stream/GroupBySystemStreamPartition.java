@@ -47,6 +47,13 @@ public class GroupBySystemStreamPartition implements SystemStreamPartitionGroupe
 
   @Override
   public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps) {
+    return group(new HashMap<>(), ssps);
+  }
+
+  @Override
+  public Map<TaskName, Set<SystemStreamPartition>> group(Map<SystemStreamPartition, String> previousSystemStreamPartitionMapping,
+                                                         Set<SystemStreamPartition> ssps) {
+    // Dong: do we need to throw exception if partition number has increased for this grouper?
     Map<TaskName, Set<SystemStreamPartition>> groupedMap = new HashMap<TaskName, Set<SystemStreamPartition>>();
 
     for (SystemStreamPartition ssp : ssps) {
