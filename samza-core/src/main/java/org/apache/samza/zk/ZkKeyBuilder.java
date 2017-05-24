@@ -19,7 +19,6 @@
 
 package org.apache.samza.zk;
 
-import org.apache.samza.SamzaException;
 import com.google.common.base.Strings;
 
 /**
@@ -53,10 +52,11 @@ public class ZkKeyBuilder {
   static final String JOBMODEL_GENERATION_PATH = "JobModelGeneration";
 
   public ZkKeyBuilder(String pathPrefix) {
-    if (Strings.isNullOrEmpty(pathPrefix)) {
-      throw new SamzaException("Zk PathPrefix cannot be null or empty!");
+    if (pathPrefix != null && !pathPrefix.trim().isEmpty()) {
+      this.pathPrefix = pathPrefix.trim();
+    } else {
+      throw new IllegalArgumentException("Zk PathPrefix cannot be null or empty!");
     }
-    this.pathPrefix = pathPrefix.trim();
   }
 
   public String getRootPath() {
@@ -87,7 +87,7 @@ public class ZkKeyBuilder {
   }
 
   public String getJobModelPathPrefix() {
-    return String.format("%s/%s/jobModels", getRootPath(), JOBMODEL_GENERATION_PATH, pathPrefix);
+    return String.format("%s/%s/jobModels", getRootPath(), JOBMODEL_GENERATION_PATH);
   }
 
   public String getJobModelPath(String jobModelVersion) {
