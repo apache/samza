@@ -19,7 +19,6 @@
 
 package org.apache.samza.zk;
 
-import org.apache.samza.SamzaException;
 import com.google.common.base.Strings;
 
 /**
