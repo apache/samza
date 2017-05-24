@@ -100,7 +100,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     TestUtils.createTopic(zkUtils(), outputTopic, 5, 1, servers(), new Properties());
   }
 
-  protected Map<String, String> createConfigs(int seqNum, String testSystem, String inputTopic, String outputTopic,
+  protected Map<String, String> createConfigs(String testSystem, String inputTopic, String outputTopic,
       int messageCount) {
     Map<String, String> configs = new HashMap<>();
     configs.putAll(StandaloneTestUtils
@@ -113,7 +113,6 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     configs.put("app.outputTopic", outputTopic);
     configs.put("app.outputSystem", testSystem);
     configs.put(ZkConfig.ZK_CONNECT, zkConnect());
-    System.out.println("----------Zk connect = " + configs.get(ZkConfig.ZK_CONNECT));
 
     configs.put("job.systemstreampartition.grouper.factory",
         "org.apache.samza.container.grouper.stream.GroupByPartitionFactory");
