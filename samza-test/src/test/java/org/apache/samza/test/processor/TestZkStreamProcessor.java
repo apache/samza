@@ -44,7 +44,6 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
   private Map<String, String> map;
 
-
   @Before
   public void setUp() {
     super.setUp();
