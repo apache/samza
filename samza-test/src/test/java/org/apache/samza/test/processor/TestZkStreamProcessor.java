@@ -131,7 +131,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
   @Test
   /**
    * Similar to the previous tests, but add another processor in the middle
-   */ public void testStreamProcessorWithAdd() {
+   */ 
+   public void testStreamProcessorWithAdd() {
 
     // set number of events we expect wo read by both processes in total:
     // p1 - reads 'messageCount' at first
