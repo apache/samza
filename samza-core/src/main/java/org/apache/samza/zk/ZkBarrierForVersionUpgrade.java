@@ -60,7 +60,7 @@ public class ZkBarrierForVersionUpgrade {
   private final static Logger LOG = LoggerFactory.getLogger(ZkBarrierForVersionUpgrade.class);
   private final ZkUtils zkUtils;
   private final BarrierKeyBuilder keyBuilder;
-  private final Optional<ZkBarrierListener> barrierListener;
+  private final Optional<ZkBarrierListener> barrierListenerOptional;
 
   public enum State {
     TIMED_OUT, DONE
@@ -73,7 +73,7 @@ public class ZkBarrierForVersionUpgrade {
     }
     this.zkUtils = zkUtils;
     this.keyBuilder = new BarrierKeyBuilder(barrierRoot);
-    this.barrierListener = Optional.ofNullable(barrierListener);
+    this.barrierListenerOptional = Optional.ofNullable(barrierListener);
   }
 
   /**
@@ -95,7 +95,7 @@ public class ZkBarrierForVersionUpgrade {
     LOG.info("Subscribing for child changes at " + barrierParticipantsPath);
     zkUtils.getZkClient().subscribeChildChanges(barrierParticipantsPath, new ZkBarrierChangeHandler(version, participants));
 
-    barrierListener.ifPresent(zkBarrierListener -> zkBarrierListener.onBarrierCreated(version));
+    barrierListenerOptional.ifPresent(zkBarrierListener -> zkBarrierListener.onBarrierCreated(version));
   }
 
   /**
@@ -175,7 +175,7 @@ public class ZkBarrierForVersionUpgrade {
     public void handleDataChange(String dataPath, Object data) {
       LOG.info("got notification about barrier " + barrierStatePath + "; done=" + data);
       zkUtils.unsubscribeDataChanges(barrierStatePath, this);
-      barrierListener.ifPresent(
+      barrierListenerOptional.ifPresent(
           zkBarrierListener -> zkBarrierListener.onBarrierStateChanged(barrierVersion, (State) data));
     }
 
