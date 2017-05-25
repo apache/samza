@@ -21,6 +21,7 @@ package org.apache.samza.zk;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.coordinator.BarrierForVersionUpgrade;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.JobCoordinator;
@@ -62,6 +63,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
 
+  private int debounceTimeMs;
+
   public ZkJobCoordinator(Config config) {
     this.config = config;
     this.processorId = createProcessorId(config);
@@ -71,11 +74,13 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     LeaderElector leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
     this.zkController = new ZkControllerImpl(processorId, zkUtils, this, leaderElector);
+    this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs(ScheduleAfterDebounceTime.DEFAULT_DEBOUNCE_TIME_MS);
   }
 
   @Override
   public void start() {
     streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
+
     debounceTimer = new ScheduleAfterDebounceTime(throwable -> {
         LOG.error("Received exception from in JobCoordinator Processing!", throwable);
         stop();
@@ -118,7 +123,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public void onProcessorChange(List<String> processors) {
     LOG.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
     debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> doOnProcessorChange(processors));
+        debounceTimeMs, () -> doOnProcessorChange(processors));
   }
 
   public void doOnProcessorChange(List<String> processors) {
@@ -235,8 +240,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       zkController.subscribeToProcessorChange();
       debounceTimer.scheduleAfterDebounceTime(
         ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> {
-          // actual actions to do are the same as onProcessorChange()
+        debounceTimeMs, () -> {
+          // actual actions to do are the same as onProcessorChange
           doOnProcessorChange(new ArrayList<>());
         });
     }
