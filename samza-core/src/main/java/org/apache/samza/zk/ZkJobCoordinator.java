@@ -166,20 +166,21 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   @Override
   public void onNewJobModelAvailable(final String version) {
-    debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, () -> {
-      LOG.info("pid=" + processorId + "new JobModel available");
-      // stop current work
-      if (coordinatorListener != null) {
-        coordinatorListener.onJobModelExpired();
-      }
-      // get the new job model from ZK
-      newJobModel = zkUtils.getJobModel(version);
+    debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, () ->
+      {
+        LOG.info("pid=" + processorId + "new JobModel available");
+        // stop current work
+        if (coordinatorListener != null) {
+          coordinatorListener.onJobModelExpired();
+        }
+        // get the new job model from ZK
+        newJobModel = zkUtils.getJobModel(version);
 
-      LOG.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
+        LOG.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
 
-      // update ZK and wait for all the processors to get this new version
-      barrier.join(version, processorId);
-    });
+        // update ZK and wait for all the processors to get this new version
+        barrier.join(version, processorId);
+      });
   }
 
   @Override
