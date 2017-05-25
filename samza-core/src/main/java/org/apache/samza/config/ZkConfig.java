@@ -29,7 +29,7 @@ public class ZkConfig extends MapConfig {
   public static final int DEFAULT_CONNECTION_TIMEOUT_MS = 60000;
   public static final int DEFAULT_SESSION_TIMEOUT_MS = 30000;
   public static final int DEFAULT_CONSENSUS_TIMEOUT_MS = 40000;
-  
+
   public ZkConfig(Config config) {
     super(config);
   }
