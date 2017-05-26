@@ -24,15 +24,21 @@ title: Feature Preview
 4. [High Level API](#high-level-api)
 5. [Flexible Deployment Model](#flexible-deployment-model)
 
+---
+
 # Overview
 Samza 0.13.0 introduces a new programming model and a new deployment model. They're being released as a preview because they represent major enhancements to how developers work with Samza, so it is beneficial for both early adopters and the Samza development community to experiment with release and provide feedback. The following sections introduce the new features and link to tutorials which demonstrate how to use them. Please try them and send feedback to the [dev mailing list](mailto:dev@samza.apache.org)
+
+---
 
 ### Try it Out
 Want to skip all the details and get some hands on experience? There are three tutorials to help you get acquainted with running Samza applications in both YARN and embedded modes and programming with the high level API:
 
-* [Hello Samza - Yarn Deployment](/learn/tutorials/{{site.version}}/hello-samza-high-level-yarn.html) - run a pre-built wikipedia application on YARN and observe the output
-* [Hello Samza - High Level API Code Walkthrough](/learn/tutorials/{{site.version}}/hello-samza-high-level-code.html) - walk through building the wikipedia application, step by step.
-* [Hello Samza - Zookeeper Deployment](/learn/tutorials/{{site.version}}/hello-samza-high-level-zk.html) - run a pre-built wikipedia application with Zookeeper coordination and observe the output
+* [Yarn Deployment](/learn/tutorials/{{site.version}}/hello-samza-high-level-yarn.html) - run a pre-existing wikipedia application on YARN and observe the output
+* [High Level API Code Walkthrough](/learn/tutorials/{{site.version}}/hello-samza-high-level-code.html) - walk through building the wikipedia application, step by step.
+* [Zookeeper Deployment](/learn/tutorials/{{site.version}}/hello-samza-high-level-zk.html) - run a pre-existing wikipedia application with Zookeeper coordination and observe the output
+
+---
 
 ## Architecture
 
@@ -40,7 +46,7 @@ Want to skip all the details and get some hands on experience? There are three t
 The Samza high level API provides a unified way to handle both streaming and batch data. You can describe the end-to-end application logic in a single program with operators like map, filter, window and join to accomplish what previously required multiple jobs.The API is designed to be portable. The same application code can be deployed in batch or streaming modes, embedded or with a cluster manager environments, and can switch between Kafka, Kinesis, HDFS or other systems with a simple configuration change. This portability is enabled by a new architecture which is described in the sections below.
 
 ### Concepts
-The Samza architecture has been overhauled with distinct layers to handle each stage of application development. The following diagram shows an overview of Apache Samza architecture with high level API.
+The Samza architecture has been overhauled with distinct layers to handle each stage of application development. The following diagram shows an overview of Apache Samza architecture with the high level API.
 
 <img src="/img/{{site.version}}/learn/documentation/introduction/layered-arch.png" alt="Architecture diagram" style="max-width: 100%; height: auto;" onclick="window.open(this.src)">
 
@@ -50,7 +56,7 @@ There are four layers in the architecture. The following sections describe each 
 
 The high level API provides the libraries to define your application logic. The [StreamApplication](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html) is the central abstraction which your application must implement. You start by declaring your inputs as instances of [MessageStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html). Then you can apply operators on each MessageStream like map, filter, window and join to define the whole end-to-end data processing in a single program.
 
-For a deeper dive into the high level API, see [high level API](#high-level-api) section below.
+For a deeper dive into the high level API, see [high level API section](#high-level-api) below.
 
 #### II. ApplicationRunner
 
@@ -111,6 +117,8 @@ For more details on running Samza in embedded mode, take a look at the [flexible
 #### IV. Processor
 
 The lowest execution unit of a Samza application is the StreamProcessor. It reads the configs generated from the [ApplicationRunner](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/runtime/ApplicationRunner.html)) and processes the input stream partitions assigned by the JobCoordinator. It can access local state using a [KeyValueStore]((/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/storage/KeyValueStore.html)) either RocksDb or memory and remote state using multithreading.
+
+---
 
 ## High Level API
 Since the 0.13.0 release, Samza provides a new high level API that simplifies your applications. This API supports operations like re-partitioning, windowing, and joining on streams. You can now express your application logic concisely in few lines of code and accomplish what previously required multiple jobs.
@@ -391,6 +399,7 @@ MessageStream<WindowPane<Void, Integer>> windowedStream =
 ### Known Issues
 Currently, both window and join operators buffer messages in-memory. So, messages could be lost on failures and re-starts.
 
+---
 
 ## Flexible Deployment Model
 
