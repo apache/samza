@@ -75,37 +75,24 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
     TestStreamTask.endLatch = new CountDownLatch(totalEventsToBeConsumed);
     // create first processor
-    Object mutexStart1 = new Object();
-    Object mutexStop1 = new Object();
-    StreamProcessor sp1 = createStreamProcessor("1", map, mutexStart1, mutexStop1);
+    Object waitStart1 = new Object();
+    Object waitStop1 = new Object();
+    StreamProcessor sp1 = createStreamProcessor("1", map, waitStart1, waitStop1);
     // start the first processor
     Thread t1 = runInThread(sp1, TestStreamTask.endLatch);
     t1.start();
 
     // start the second processor
-    Object mutexStart2 = new Object();
-    StreamProcessor sp2 = createStreamProcessor("2", map, mutexStart2, null);
+    Object waitStart2 = new Object();
+    StreamProcessor sp2 = createStreamProcessor("2", map, waitStart2, null);
     Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
     t2.start();
 
-    // wait until the processor reports that it has started
-    try {
-      synchronized (mutexStart1) {
-        mutexStart1.wait(1000);
-      }
-    } catch (InterruptedException e) {
-      Assert.fail("got interrupted while waiting for the first processor to start.");
-    }
+    // wait until the 1st processor reports that it has started
+    waitForProcessorToStartStop(waitStart1);
+
     // wait until the 2nd processor reports that it has started
-    try {
-      synchronized (mutexStart2) {
-        synchronized (mutexStart2) {
-          mutexStart2.wait(1000);
-        }
-      }
-    } catch (InterruptedException e) {
-      Assert.fail("got interrupted while waiting for the 2nd processor to start.");
-    }
+    waitForProcessorToStartStop(waitStart2);
 
     // produce first batch of messages starting with 0
     produceMessages(0, inputTopic, messageCount);
@@ -117,13 +104,8 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     produceMessages(BAD_MESSAGE_KEY, inputTopic, 4);
 
     // wait until the processor reports that it has re-started
-    try {
-      synchronized (mutexStart2) {
-        mutexStart2.wait(1000);
-      }
-    } catch (InterruptedException e) {
-      Assert.fail("got interrupted while waiting for the first processor to start.");
-    }
+    waitForProcessorToStartStop(waitStart2);
+
     // wait for at least one full de-bounce time to let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(200);
 

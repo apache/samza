@@ -297,4 +297,14 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     }
     Assert.assertTrue("Didn't read all the leftover events in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
   }
+
+  protected void waitForProcessorToStartStop(Object waitObject) {
+    try {
+      synchronized (waitObject) {
+        waitObject.wait(1000);
+      }
+    } catch (InterruptedException e) {
+      Assert.fail("got interrupted while waiting for the first processor to start.");
+    }
+  }
 }

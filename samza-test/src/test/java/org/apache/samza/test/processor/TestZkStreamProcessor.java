@@ -127,13 +127,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     t1.start();
 
     // wait until the processor reports that it has started
-    try {
-      synchronized (startWait1) {
-        startWait1.wait(1000);
-      }
-    } catch (InterruptedException e) {
-      Assert.fail("got interrupted while waiting for the first processor to start.");
-    }
+    waitForProcessorToStartStop(startWait1);
 
     // make sure it consumes all the messages from the first batch
     waitUntilConsumedN(totalEventsToGenerate - messageCount);
@@ -154,13 +148,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     }
 
     // wait until the 1st processor reports that it has re-started
-    try {
-      synchronized (startWait1) {
-        startWait1.wait(1000);
-      }
-    } catch (InterruptedException e) {
-      Assert.fail("got interrupted while waiting for the first processor to start.");
-    }
+    waitForProcessorToStartStop(startWait1);
 
     // let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(300);
@@ -218,13 +206,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     t2.start();
 
     // wait until the processor reports that it has started
-    try {
-      synchronized (waitStart1) {
-        waitStart1.wait(1000);
-      }
-    } catch (InterruptedException e) {
-      Assert.fail("got interrupted while waiting for the first processor to start.");
-    }
+    waitForProcessorToStartStop(waitStart1);
 
     // wait until the processor reports that it has started
     try {
@@ -258,14 +240,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     }
 
     // processor1 will stop and start again
-    try {
-      synchronized (waitStart1) {
-        waitStart1.wait(1000);
-      }
-    } catch (InterruptedException e) {
-      Assert.fail("got interrupted while waiting for the first processor to start.");
-    }
-
+    waitForProcessorToStartStop(waitStart1);
 
     // wait for at least one full debounce time to let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(300);
