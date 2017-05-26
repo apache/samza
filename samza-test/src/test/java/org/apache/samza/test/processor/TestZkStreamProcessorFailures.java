@@ -105,7 +105,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
     waitForProcessorToStartStop(waitStop1);
 
-    // wait until the processor reports that it has re-started
+    // wait until the 2nd processor reports that it has re-started
     waitForProcessorToStartStop(waitStart2);
 
     // wait for at least one full de-bounce time to let the system to publish and distribute the new job model
