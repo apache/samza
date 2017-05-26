@@ -51,22 +51,22 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
   // main test method for happy path with fixed number of processors
   private void testStreamProcessor(String[] processorIds) {
 
-    // create a latch of the size == number of messages
+    // create a latch of the size equals to the number of messages
     TestZkStreamProcessorBase.TestStreamTask.endLatch = new CountDownLatch(messageCount);
 
-    // initialize the the processors
-    // we need startLatch to know when the processor has been completely initialized
+    // initialize the processors
     StreamProcessor[] streamProcessors = new StreamProcessor[processorIds.length];
+    // we need to know when the processor has started
     Object [] startWait = new Object[processorIds.length];
     for (int i = 0; i < processorIds.length; i++) {
       startWait[i] = new Object();
       streamProcessors[i] = createStreamProcessor(processorIds[i], map, startWait[i], null);
     }
 
-    // produce messageCount messages, starting with key '0'
+    // produce messageCount messages, starting with key 0
     produceMessages(0, inputTopic, messageCount);
 
-    // run the processors in a separate threads
+    // run the processors in separate threads
     Thread[] threads = new Thread[processorIds.length];
     for (int i = 0; i < processorIds.length; i++) {
       threads[i] = runInThread(streamProcessors[i], TestZkStreamProcessorBase.TestStreamTask.endLatch);
@@ -108,7 +108,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
    * Similar to the previous tests, but add another processor in the middle
    */ public void testStreamProcessorWithAdd() {
 
-    // set number of events we expect wo read by both processes in total:
+    // set number of events we expect to read by both processes in total:
     // p1 - reads 'messageCount' at first
     // p1 and p2 read all messageCount together, since they start from the beginning.
     // so we expect total 3 x messageCounts
@@ -153,7 +153,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
       Assert.fail("got interrupted while waiting for the 2nd processor to start.");
     }
 
-    // wait until the processor reports that it has re-started
+    // wait until the 1st processor reports that it has re-started
     try {
       synchronized (startWait1) {
         startWait1.wait(1000);
