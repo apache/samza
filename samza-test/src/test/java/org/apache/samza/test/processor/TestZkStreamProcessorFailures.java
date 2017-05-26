@@ -103,11 +103,13 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     // produce the bad messages
     produceMessages(BAD_MESSAGE_KEY, inputTopic, 4);
 
+    waitForProcessorToStartStop(waitStop1);
+
     // wait until the processor reports that it has re-started
     waitForProcessorToStartStop(waitStart2);
 
     // wait for at least one full de-bounce time to let the system to publish and distribute the new job model
-    TestZkUtils.sleepMs(200);
+    TestZkUtils.sleepMs(500);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
