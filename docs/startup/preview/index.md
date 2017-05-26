@@ -441,6 +441,7 @@ Let’s take a closer look at how dynamic coordination works.
 #### Coordination service
 
 Dynamic coordination of the processors assumes presence of a coordination service. The main responsibilities of the service are:
+
 * **Leader Election** - electing a single processor, which will be responsible for JobModel calculation and distribution or for intermediate streams creation.
 * **Central barrier and latch** - coordination primitives used by the processors.
 * **JobModel notifications** - notifying the processors about availability of a new JobModel.
@@ -448,6 +449,7 @@ Dynamic coordination of the processors assumes presence of a coordination servic
 The coordination service is pluggable by overriding the “job.coordinator.factory” property in your config. Samza ships with a `ZkJobCoordinatorFactory implementation. The default coordination service is ZooKeeper-based.
 
 Let’s walk through the coordination sequence for a Zookeeper based embedded application:
+
 * Each processor (participant) will register with the pluggable coordination service. During the registration it will provide its own participantId.
 * One of the participants will be elected as the Leader.
 * The Leader monitors the list of all the active participants.
@@ -461,6 +463,7 @@ The following diagram shows the relationships of the coordinators in the Zookeep
 Image HERE
 
 Here are a few important details about the coordination service:
+
 * In order to ensure that no two partitions are processed twice by different processors, processing is paused and the processors synchronize on a barrier. Once all the processors are paused, the new JobModel is applied and the processing resumes. The barrier is implemented using the coordination service.
 * During startup and shutdown the processors will be joining/leaving one after another. To avoid redundant JobModel re-calculation, there is a debounce timer which waits for some short period of time (2 seconds by default, configurable in a future release) for more processors to join or leave. Each time a processor joins or leaves, the timer is reset. When the timer expires the JobModel is finally recalculated.
 * If the processors require local store for adjacent or temporary data, we would want to keep its mapping across restarts. For this we uses some extra information about each processor, which uniquely identifies it and its location. If the same processor is restarted on the same location we will try to assign it the same partitions. This locality information should survive the restarts, so it is stored on a common storage (currently using Zookeeper).
