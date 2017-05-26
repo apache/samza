@@ -446,6 +446,7 @@ Dynamic coordination of the processors assumes presence of a coordination servic
 * **Central barrier and latch** - coordination primitives used by the processors.
 * **JobModel notifications** - notifying the processors about availability of a new JobModel.
 * **Central storage for the JobModel** (not strictly a coordination util, more of a storage facility).
+
 The coordination service is pluggable by overriding the “job.coordinator.factory” property in your config. Samza ships with a `ZkJobCoordinatorFactory implementation. The default coordination service is ZooKeeper-based.
 
 Let’s walk through the coordination sequence for a Zookeeper based embedded application:
@@ -460,7 +461,7 @@ Let’s walk through the coordination sequence for a Zookeeper based embedded ap
 
 The following diagram shows the relationships of the coordinators in the Zookeeper coordination service implementation.
 
-Image HERE
+<img src="/img/{{site.version}}/learn/documentation/introduction/coordination-service.png" alt="Coordination service diagram" style="max-width: 100%; height: auto;" onclick="window.open(this.src)">
 
 Here are a few important details about the coordination service:
 
