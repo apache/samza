@@ -22,9 +22,9 @@ import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 
-public class StandaloneJobCoordinatorFactory implements JobCoordinatorFactory {
+public class PassthroughJobCoordinatorFactory implements JobCoordinatorFactory {
   @Override
   public JobCoordinator getJobCoordinator(Config config) {
-    return new StandaloneJobCoordinator(config);
+    return new PassthroughJobCoordinator(config);
   }
 }
