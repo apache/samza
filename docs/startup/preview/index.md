@@ -126,23 +126,22 @@ For more details on running Samza in embedded mode, take a look at the [flexible
 The lowest execution unit of a Samza application is the StreamProcessor. It reads the configs generated from the [ApplicationRunner](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/runtime/ApplicationRunner.html)) and processes the input stream partitions assigned by the JobCoordinator. It can access local state using a [KeyValueStore]((/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/storage/KeyValueStore.html)) either RocksDb or memory and remote state using multithreading.
 
 ## High Level API
-
 Since the 0.13 release, Samza provides a new high level API that simplifies your applications. This new  API supports operations like re-partitioning, windowing, and joining on streams. You can now express your application logic concisely in few lines of code and accomplish what previously required multiple jobs.
 
 ## Code examples
 
 Check out some examples to see the high-level API in action.
 
-1.  [Pageview AdClick Joiner](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/PageViewAdClickJoiner.java) demonstrates joining a stream of PageViews with a stream of AdClicks, e.g. to analyze which pages get the most ad clicks.
-2.  [Pageview Repartitioner](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/PageViewFilterApp.java) illustrates re-partitioning the incoming stream of PageViews.
-3.  [Pageview Sessionizer](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/PageViewSessionizerApp.java) groups the incoming stream of events into sessions based on user activity.
-4.  [Pageview by Region](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/TumblingPageViewCounterApp.java) counts the number of views per-region over tumbling time intervals.
+1.  [Pageview AdClick Joiner](https://github.com/apache/samza-hello-samza/blob/c87ed565fbaebf2ac88376143c65e9f52f7a8801/src/main/java/samza/examples/cookbook/PageViewAdClickJoiner.java) demonstrates joining a stream of PageViews with a stream of AdClicks, e.g. to analyze which pages get the most ad clicks.
+2.  [Pageview Repartitioner](https://github.com/apache/samza-hello-samza/blob/c87ed565fbaebf2ac88376143c65e9f52f7a8801/src/main/java/samza/examples/cookbook/PageViewFilterApp.java) illustrates re-partitioning the incoming stream of PageViews.
+3.  [Pageview Sessionizer](https://github.com/apache/samza-hello-samza/blob/c87ed565fbaebf2ac88376143c65e9f52f7a8801/src/main/java/samza/examples/cookbook/PageViewSessionizerApp.java) groups the incoming stream of events into sessions based on user activity.
+4.  [Pageview by Region](https://github.com/apache/samza-hello-samza/blob/c87ed565fbaebf2ac88376143c65e9f52f7a8801/src/main/java/samza/examples/cookbook/TumblingPageViewCounterApp.java) counts the number of views per-region over tumbling time intervals.
 
 
 ## Key concepts
 
 ### StreamApplication
-When writing your stream processing application using the Samza high-level API, you should implement a [StreamApplication](https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/application/StreamApplication.java)  and define your processing logic in the init method.
+When writing your stream processing application using the Samza high-level API, you should implement a [StreamApplication](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html)  and define your processing logic in the init method.
 {% highlight java %}
 public void init(StreamGraph graph, Config config) { … }
 {% endhighlight %}
@@ -222,7 +221,7 @@ The high level API supports common operators like map, flatmap, filter, merge, j
 
 
 ### Map
-Applies the provided 1:1 [MapFunction](https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/operators/functions/MapFunction.java) to each element in the MessageStream and returns the transformed MessageStream. The MapFunction takes in a single message and returns a single message (potentially of a different type)
+Applies the provided 1:1 [MapFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/MapFunction.html) to each element in the MessageStream and returns the transformed MessageStream. The MapFunction takes in a single message and returns a single message (potentially of a different type)
 
 {% highlight java %}
 MessageStream<Integer> numbers = ..
@@ -231,7 +230,7 @@ MessageStream<String> stringified = numbers.map(m -> String.valueOf(m))
 {% endhighlight %}
 
 ### Flatmap
-Applies the provided 1:n [FlatMapFunction](https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/operators/functions/FlatMapFunction.java) to each element in the MessageStream and returns the transformed MessageStream. The FlatMapFunction takes in a single message and returns one or more messages.
+Applies the provided 1:n [FlatMapFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/FlatMapFunction.html) to each element in the MessageStream and returns the transformed MessageStream. The FlatMapFunction takes in a single message and returns one or more messages.
 
 {% highlight java %}
 MessageStream<String> sentence = ..
@@ -241,7 +240,7 @@ MessageStream<String> words = sentence.flatMap(sentence ->
 {% endhighlight %}
 
 ### Filter
-Applies the provided [FilterFunction](https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/operators/functions/Filter.java) to the MessageStream and returns the filtered MessageStream. The FilterFunction is a predicate that specifies whether a message should be retained in the filtered stream. Messages for which the FilterFunction returns false are filtered out.
+Applies the provided [FilterFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/FilterFunction.html) to the MessageStream and returns the filtered MessageStream. The FilterFunction is a predicate that specifies whether a message should be retained in the filtered stream. Messages for which the FilterFunction returns false are filtered out.
 {% highlight java %}
 MessageStream<String> words = .
 // Extract only the long words
@@ -289,7 +288,7 @@ pageView.sendTo(userRegions);
 
 
 ### Sink
-Allows sending messages from this MessageStream to an output system using the provided [SinkFunction](https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/operators/functions/SinkFunction.java).
+Allows sending messages from this MessageStream to an output system using the provided [SinkFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/SinkFunction.html).
 
 This offers more control than sendTo since the SinkFunction has access to the `MessageCollector` and the `TaskCoordinator`. For instance, you can choose to manually commit offsets, or shut-down the job using the TaskCoordinator APIs. This operator can also be used to send messages to non-Samza systems (e.g. remote databases or REST services etc.)
 
@@ -305,7 +304,7 @@ pageViews.sink( (msg, collector, coordinator) -> {
 
 ### Join
 
-The Join operator joins messages from two MessageStreams using the provided pairwise [JoinFunction](https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/operators/functions/JoinFunction.java). Messages are joined when the keys extracted from messages from the first stream match keys extracted from messages in the second stream. Messages in each stream are retained for the provided ttl duration and join results are emitted as matches are found.
+The Join operator joins messages from two MessageStreams using the provided pairwise [JoinFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/JoinFunction.html). Messages are joined when the keys extracted from messages from the first stream match keys extracted from messages in the second stream. Messages in each stream are retained for the provided ttl duration and join results are emitted as matches are found.
 
 {% highlight java %}
 // Joins a stream of OrderRecord with a stream of ShipmentRecord by orderId with a TTL of 20 minutes.
@@ -345,7 +344,7 @@ MessageStream<FulfilledOrderRecord> shippedOrders = orders.join(shipments, new O
 
 A window can have one or more associated triggers which determine when results from the window are emitted. Triggers can be either  [early triggers](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/windows/Window.html#setEarlyTrigger-org.apache.samza.operators.triggers.Trigger-) that allow emitting results speculatively before all data for the window has arrived, or late triggers that allow handling late messages for the window.
 
-**Aggregator Function**: By default, the emitted WindowPane will contain all the messages for the window. Instead of retaining all messages, you typically define a more compact data structure for the WindowPane and update it incrementally as new messages arrive, e.g. for keeping a count of messages in the window. To do this, you can provide an aggregating [FoldLeftFunction](https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/operators/functions/FoldLeftFunction.java) which is invoked for each incoming message added to the window and defines how to update the WindowPane for that message.
+**Aggregator Function**: By default, the emitted WindowPane will contain all the messages for the window. Instead of retaining all messages, you typically define a more compact data structure for the WindowPane and update it incrementally as new messages arrive, e.g. for keeping a count of messages in the window. To do this, you can provide an aggregating [FoldLeftFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/FoldLeftFunction.html) which is invoked for each incoming message added to the window and defines how to update the WindowPane for that message.
 
 **Accumulation Mode**: A window’s accumulation mode determines how results emitted from a window relate to previously emitted results. The accumulation mode can either be discarding or accumulating.
 
@@ -402,6 +401,9 @@ MessageStream<WindowPane<Void, Integer>> windowedStream =
 
 {% endhighlight %}
 
+### Known Issue
+Currently, both window and join operators buffer messages in-memory. So, messages could be lost on failures and re-starts.
+
 ### Known Issues
 Currently, both window and join operators buffer messages in-memory. So, messages could be lost on failures and re-starts.
 
@@ -409,17 +411,120 @@ Currently, both window and join operators buffer messages in-memory. So, message
 ## Flexible Deployment Model
 
 ### Introduction
-Prior to Samza 0.13.0, Samza deployment was coupled with YARN. Now the deployment model has been decoupled. By default, Samza is deployed as an embedded library and is coordinated with Zookeeper. The YARN deployment model is still available for those who prefer it, and you can implement your own extension to deploy Samza on other cluster management systems. This section will focus on the new embedded deployment capability.
+Prior to Samza 0.13.0, Samza only supported deployment with [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html). The YARN deployment model is still available but now you can also implement your own extension to deploy Samza on other cluster management systems.
 
-Samza allows processing message streams, one message at a time. It allows users to specify only what needs to be done with each message, without bothering themselves with any boiler plate stuff: configuring consumers, parallelizing the execution and partitioning the job on Yarn, actual Yarn deployment details.
-But in some cases users do not want to use Yarn, or any other framework, and want to use Samza inside their own application.
+With Samza 0.13.0, the deployment model has been simplified and decoupled from cluster management systems. Samza now ships with the ability to deploy applications as a simple embedded library with pluggable coordination. With embedded mode, you can leverage Samza processors directly in your application and deploy it in whatever way you prefer. Samza has a pluggable job coordinator layer to perform leader election and assign work to the processors.
 
-For these use cases Samza provides StandAlone module.
-StandAlone module allows to integrate Samza in someone’s existing application, and use it as a library. User will be responsible for starting/stopping, configuration and deployment of the application, while Samza’s code will do the processing.
-StandAlone will take care of mapping between stream’s partition and tasks (or in this case they are called processors)
+This section will focus on the new embedded deployment capability.
 
-### Try It Out
-* Here is a simple example on how to use the StandAlone with Samza hello-world example.  [Hello Samza High Level API Zookeeper Deployment](/learn/tutorials/{{site.version}}/hello-samza-high-level-zk.html) - run a pre-built wikipedia application in embedded mode using Zookeeper coordination and observe the output
-Concepts
-* How does it work?
-Let’s have a closer look at how StandAlone works. StandAlone comes under global umbrella of the new Samza common API offering. Here is the global picture of all the components:
+### Concepts
+Let’s take a closer look at how embedded deployment works.
+
+The [architecture](#architecture) section above provided an overview of the layers that enable the flexible deployment model. As you can see embedded mode comes into the picture at the *deployment* layer. The deployment layer also includes assignment of input partitions to the available processors.
+
+There are two types of partition assignment models:
+
+#### No Partition Management
+With “no partition management”, Samza doesn’t manage the partitioning by itself. Instead it  allows two kinds of partitioning mechanisms:
+      * Fixed partitioning - mapping between processors and partitions is done statically (before starting the app), delivered through the configs and never changes. In this case each processor will only process its own partitions. If one of the processors fails its partitions will remain unprocessed, until it is restarted.
+       * Using high level kafka consumer - in this case partitioning is done by the kafka consumer itself.
+Samza ships with a `StandaloneJobCoordinatorFactory` implementation of this type of coordination.
+
+#### Dynamic Partitioning
+
+With, dynamic partitioning, partitions are distributed between the available processors at runtime. If the number of available processors changes (some got shut down, or added) the mapping will be regenerated and re-distributed to all the processors.
+Information about current mapping is contained in a special structure called JobModel.
+There is one leader processor which generates the JobModel and distributes it to the other processors. The leader is determined by a “leader election” process.
+
+Let’s take a closer look at how dynamic coordination works.
+
+#### Coordination service
+
+Dynamic coordination of the processors assumes presence of a coordination service. The main responsibilities of the service are:
+* **Leader Election** - electing a single processor, which will be responsible for JobModel calculation and distribution or for intermediate streams creation.
+* **Central barrier and latch** - coordination primitives used by the processors.
+* **JobModel notifications** - notifying the processors about availability of a new JobModel.
+* **Central storage for the JobModel** (not strictly a coordination util, more of a storage facility).
+The coordination service is pluggable by overriding the “job.coordinator.factory” property in your config. Samza ships with a `ZkJobCoordinatorFactory implementation. The default coordination service is ZooKeeper-based.
+
+Let’s walk through the coordination sequence for a Zookeeper based embedded application:
+* Each processor (participant) will register with the pluggable coordination service. During the registration it will provide its own participantId.
+* One of the participants will be elected as the Leader.
+* The Leader monitors the list of all the active participants.
+* Whenever the list of the participants changes, the Leader will generate a new JobModel for the current participants.
+* The new JobModel will be pushed to a common storage. The default implementation uses Zookeeper for this purpose.
+* Participants are notified that the new JobModel is available. Notification is done through the coordination services, e.g. Zookeeper.
+* The participants will stop processing, apply the new JobModel, and then resume processing.
+
+The following diagram shows the relationships of the coordinators in the Zookeeper coordination service implementation.
+
+Image HERE
+
+Here are a few important details about the coordination service:
+* In order to ensure that no two partitions are processed twice by different processors, processing is paused and the processors synchronize on a barrier. Once all the processors are paused, the new JobModel is applied and the processing resumes. The barrier is implemented using the coordination service.
+* During startup and shutdown the processors will be joining/leaving one after another. To avoid redundant JobModel re-calculation, there is a debounce timer which waits for some short period of time (2 seconds by default, configurable in a future release) for more processors to join or leave. Each time a processor joins or leaves, the timer is reset. When the timer expires the JobModel is finally recalculated.
+* If the processors require local store for adjacent or temporary data, we would want to keep its mapping across restarts. For this we uses some extra information about each processor, which uniquely identifies it and its location. If the same processor is restarted on the same location we will try to assign it the same partitions. This locality information should survive the restarts, so it is stored on a common storage (currently using Zookeeper).
+
+### User guide
+As mentioned before, embedded deployment is designed to help users who want more control over the deployment of their application. So it is user’s responsibility to configure and deploy the processors. In case of Zookeeper coordination, you also need to configure the URL for an instance of Zookeeper.
+
+Additionally, each processor requires a unique ID to be used with the coordination service. If location affinity is important, this ID should be unique for each processor, on a specific hostname (assuming local Storage services). To address this requirement, Samza uses  a ProcessorIdGenerator implementation class to provide the ID for each processor.  If no generator is explicitly configured, the default one will use UUID for each processor.
+
+#### Configuration
+To run an embedded Samza processor, you need to configure the coordinator service using the `job.coordinator.factory` property. Also, there is currently one taskname grouper that supports embedded mode, so you have to configure that explicitly.
+
+Let’s take a look at how to configure the two coordination service implementations that ship with Samza.
+
+To use Zookeeper-based coordination, the following configs are required:
+
+{% highlight jproperties %}
+job.coordinator.factory=org.apache.samza.zk.ZkJobCoordinatorFactory
+job.coordinator.zk.connect=yourzkconnection
+task.name.grouper.factory=org.apache.samza.container.grouper.task.GroupByContainerIdsFactory
+{% endhighlight %}
+
+To use standalone coordination, the following configs are needed:
+
+{% highlight properties %}
+job.coordinator.factory=org.apache.samza.standalone.StandaloneJobCoordinatorFactory
+task.name.grouper.factory=org.apache.samza.container.grouper.task.GroupByContainerIdsFactory
+{% endhighlight %}
+
+#### API
+As mentioned in the [architecture](#architecture) section above, you use the LocalApplicationRunner to launch your processors from your application code, like this:
+
+{% highlight java %}
+public class WikipediaZkLocalApplication {
+
+ public static void main(String[] args) {
+   CommandLine cmdLine = new CommandLine();
+   OptionSet options = cmdLine.parser().parse(args);
+   Config config = cmdLine.loadConfig(options);
+
+   LocalApplicationRunner runner = new LocalApplicationRunner(config);
+   WikipediaApplication app = new WikipediaApplication();
+
+   runner.run(app);
+   runner.waitForFinish();
+ }
+}
+{% endhighlight %}
+
+Where `WikipediaApplication` is an application written with the [high level API](#high-level-api).
+
+Check out the [tutorial](/learn/tutorials/{{site.version}}/hello-samza-high-level-zk.html) to run this application on your machine now.
+
+#### Deployment and Scaling
+You can deploy the application instances in any way. If using coordination service, you can add or remove instances at any time and the leader’s job coordinator (elected via the CoordinationService) will automatically recalculate the JobModel after the debounce time and apply it to the available processors. So, to scale up your application, you simply start more processors.
+
+### Known issues
+Take note of the following issues with the embedded deployment feature for the 0.13.0 release. They will be fixed in a subsequent release.
+
+* The GroupByContainerCount default taskname grouper isn’t supported.
+* Host affinity is not enabled.
+* ZkJobCoordinator metrics are not provided yet. Metrics will soon be added for
+    * Number of JobModel recalculations
+    * Number of Read/Writes
+    * Leader reelections
+    * more..
+* The LocalApplicationRunner does not yet support the low level API. This means you cannot use StreamTask with LocalApplicationRunner.
