@@ -47,6 +47,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   // with locality. Since host-affinity is not yet implemented, this can be fixed as part of SAMZA-1197
   private static final int METADATA_CACHE_TTL_MS = 5000;
 
+
   private final ZkUtils zkUtils;
   private final String processorId;
   private final ZkController zkController;
@@ -81,7 +82,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         keyBuilder.getJobModelVersionBarrierPrefix(),
         zkUtils,
         new ZkBarrierListenerImpl());
-    this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs(ScheduleAfterDebounceTime.DEFAULT_DEBOUNCE_TIME_MS);
+    this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
 
   }
 
