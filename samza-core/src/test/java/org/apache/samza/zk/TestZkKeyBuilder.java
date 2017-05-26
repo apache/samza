@@ -18,22 +18,19 @@
  */
 package org.apache.samza.zk;
 
-import org.apache.samza.SamzaException;
 import org.junit.Assert;
 import org.junit.Test;
 
 public class TestZkKeyBuilder {
 
-  @Test
-  public void pathPrefixCannotBeNullOrEmpty() {
-    try {
-      new ZkKeyBuilder("");
-      Assert.fail("Key Builder was created with empty path prefix!");
-      new ZkKeyBuilder(null);
-      Assert.fail("Key Builder was created with null path prefix!");
-    } catch (SamzaException e) {
-      // Expected
-    }
+  @Test(expected = IllegalArgumentException.class)
+  public void pathPrefixCannotBeNull() {
+    new ZkKeyBuilder(null);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void pathPrefixCannotBeEmpty() {
+    new ZkKeyBuilder("    ");
   }
 
   @Test
@@ -53,14 +50,12 @@ public class TestZkKeyBuilder {
 
   @Test
   public void testJobModelPath() {
-
     ZkKeyBuilder builder = new ZkKeyBuilder("test");
 
     Assert.assertEquals("/test/" + ZkKeyBuilder.JOBMODEL_GENERATION_PATH + "/jobModelVersion", builder.getJobModelVersionPath());
     Assert.assertEquals("/test/" + ZkKeyBuilder.JOBMODEL_GENERATION_PATH + "/jobModels", builder.getJobModelPathPrefix());
     String version = "2";
     Assert.assertEquals("/test/" + ZkKeyBuilder.JOBMODEL_GENERATION_PATH + "/jobModels/" + version, builder.getJobModelPath(version));
-    Assert.assertEquals("/test/" + ZkKeyBuilder.JOBMODEL_GENERATION_PATH + "/testBarrier/versionBarriers", builder.getJobModelVersionBarrierPrefix(
-        "testBarrier"));
+    Assert.assertEquals("/test/" + ZkKeyBuilder.JOBMODEL_GENERATION_PATH + "/" + ZkKeyBuilder.JOB_MODEL_UPGRADE_BARRIER + "/versionBarriers", builder.getJobModelVersionBarrierPrefix());
   }
 }

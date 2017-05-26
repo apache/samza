@@ -19,53 +19,8 @@ title: Committers
    limitations under the License.
 -->
 
-**Jakob Homan**<br/>
-Apache Member, Committer, and PMC member<br/>
-<a href="http://www.linkedin.com/in/jghoman" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
-<a href="http://twitter.com/blueboxtraveler" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
-
-**Jay Kreps**<br/>
-Committer, and PMC member<br/>
-<a href="http://www.linkedin.com/in/jaykreps" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
-<a href="http://twitter.com/jaykreps" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
-
-**Chris Riccomini**<br/>
-Committer, and PMC member<br/>
-<a href="http://www.linkedin.com/in/riccomini" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
-<a href="http://twitter.com/criccomini" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
-
-**Sriram Subramanian**<br/>
-Committer, and PMC member<br/>
-<a href="http://www.linkedin.com/pub/sriram-subramanian/3/52a/162" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
-<a href="http://twitter.com/sriramsub1" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
-
-**Garry Turkington**<br/>
-Committer, and PMC member<br/>
-<a href="http://uk.linkedin.com/in/garryturkington" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
-<a href="http://twitter.com/garryturk" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
-
-**Martin Kleppmann**<br/>
-Committer, and PMC member<br/>
-<a href="https://www.linkedin.com/in/martinkleppmann" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
-<a href="https://twitter.com/martinkl" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
-
-**Zhijie Shen**<br/>
-Committer, and PMC member<br/>
-<a href="https://www.linkedin.com/in/zjshen" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
-<a href="https://twitter.com/zhijieshen" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
-
-**Yan Fang**<br/>
-Committer, and PMC member<br/>
-<a href="https://www.linkedin.com/in/yanfangus" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
-<a href="https://twitter.com/yanfang724" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
-
-**Chinmay Soman**<br/>
-Committer, and PMC member<br/>
-<a href="https://www.linkedin.com/pub/chinmay-soman/5/610/35" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
-<a href="https://twitter.com/ChinmaySoman" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
-
 **Yi Pan**<br/>
-Committer, and PMC member<br/>
+Committer, PMC member and VP of Apache Samza<br/>
 <a href="https://www.linkedin.com/pub/yi-pan/9/85a/238" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
 <a href="https://twitter.com/nickpan47" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
 
@@ -74,16 +29,70 @@ Committer, and PMC member<br/>
 <a href="https://www.linkedin.com/in/rnavina" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
 <a href="https://twitter.com/navina_r" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
 
-**Jake Maes**<br/>
-Committer<br/>
-<a href="www.linkedin.com/in/jacobmaes" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
-<a href="https://twitter.com/jakemaes" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
-
 **Jagadish Venkatraman**<br/>
 Committer<br/>
 <a href="https://www.linkedin.com/in/jagadishvenkat" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
 <a href="https://twitter.com/vjagadish1989" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
 
+**Jake Maes**<br/>
+Committer<br/>
+<a href="www.linkedin.com/in/jacobmaes" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="https://twitter.com/jakemaes" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
+
 **Xinyu Liu**<br/>
 Committer<br/>
 <a href="https://www.linkedin.com/in/xinyu-liu-b0b21648" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+
+**Chris Riccomini**<br/>
+Committer, and PMC member<br/>
+<a href="http://www.linkedin.com/in/riccomini" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="http://twitter.com/criccomini" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
+
+**Chinmay Soman**<br/>
+Committer, and PMC member<br/>
+<a href="https://www.linkedin.com/pub/chinmay-soman/5/610/35" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="https://twitter.com/ChinmaySoman" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
+
+**Yan Fang**<br/>
+Committer, and PMC member<br/>
+<a href="https://www.linkedin.com/in/yanfangus" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="https://twitter.com/yanfang724" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
+
+**Garry Turkington**<br/>
+Committer, and PMC member<br/>
+<a href="http://uk.linkedin.com/in/garryturkington" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="http://twitter.com/garryturk" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
+
+**Jakob Homan**<br/>
+Apache Member, Committer, and PMC member<br/>
+<a href="http://www.linkedin.com/in/jghoman" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="http://twitter.com/blueboxtraveler" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
+
+**Martin Kleppmann**<br/>
+Committer, and PMC member<br/>
+<a href="https://www.linkedin.com/in/martinkleppmann" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="https://twitter.com/martinkl" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
+
+**Jay Kreps**<br/>
+Committer, and PMC member<br/>
+<a href="http://www.linkedin.com/in/jaykreps" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="http://twitter.com/jaykreps" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
+
+**Sriram Subramanian**<br/>
+Committer, and PMC member<br/>
+<a href="http://www.linkedin.com/pub/sriram-subramanian/3/52a/162" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="http://twitter.com/sriramsub1" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
+
+**Zhijie Shen**<br/>
+Committer, and PMC member<br/>
+<a href="https://www.linkedin.com/in/zjshen" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+<a href="https://twitter.com/zhijieshen" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
+
+
+
+
+
+
+
+
+

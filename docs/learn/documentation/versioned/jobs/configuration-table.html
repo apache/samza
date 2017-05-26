@@ -59,7 +59,7 @@
                 font-family: monospace;
             }
 
-            span.system, span.stream, span.store, span.serde, span.rewriter, span.listener, span.reporter {
+            span.system, span.stream, span.store, span.serde, span.rewriter, span.listener, span.reporter, span.resource {
                 padding: 1px;
                 margin: 1px;
                 border-width: 1px;
@@ -100,6 +100,11 @@
             span.reporter {
                 background-color: #dff;
                 border-color: #bdd;
+            }
+
+            span.resource {
+                background-color: #ded;
+                border-color: #bcb;
             }
         </style>
     </head>
@@ -409,6 +414,53 @@
                         <a href="#stores-changelog" class="property">stores.store-name.changelog</a>.
                     </td>
                 </tr>
+                 <tr>
+                    <td class="property" id="job.coordinator.factory">job.coordinator.factory</td>
+                    <td class="default"></td>
+                    <td class="description">
+			Class to use for job coordination. Currently available values are:
+                       <dl>
+                            <dt><code>org.apache.samza.standalone.PassthroughJobCoordinatorFactory</code></dt>
+                            <dd>Fixed partition mapping. No Zoookeeper. </dd>
+                            <dt><code>org.apache.samza.zk.ZkJobCoordinatorFactory</code></dt>
+                            <dd>Zookeeper-based coordination. </dd>
+                        </dl>
+                        Required only for non-cluster-managed applications. Please see the required value for <a href=#task-name-grouper-factory>task-name-grouper-factory </a>
+                    </td>
+                </tr>
+
+                <tr>
+                                              <!-- change link to StandAlone design/tutorial doc. SAMZA-1299 -->
+                <th colspan="3" class="section" id="ZkBasedJobCoordination"><a href="../index.html">Zookeeper-based job configuration</a></th>
+                </tr>
+                <tr>
+                    <td class="property" id="job.coordinator.zk.connect">job.coordinator.zk.connect</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        <strong>Required</strong> for applications with Zookeeper-based coordination. Zookeeper coordinates (in "host:port[/znode]" format) to be used for coordination.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="job.coordinator.zk.session.timeout.ms">job.coordinator.zk.session.timeout.ms</td>
+                    <td class="default"> 30000 </td>
+                    <td class="description">
+                        Zookeeper session timeout for all the ZK connections in milliseconds. Session timeout controls how long zk client will wait before throwing an exception, when it cannot talk to one of ZK servers.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="job.coordinator.zk.connection.timeout.ms">job.coordinator.zk.connection.timeout.ms</td>
+                    <td class="default"> 60000 </td>
+                    <td class="description">
+                        Zookeeper connection timeout in milliseconds. Zk connection timeout controls how long client tries to connect to ZK server before giving up.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="job.coordinator.zk.new.consensus.timeout.ms">job.coordinator.zk.consensus.timeout.ms</td>
+                    <td class="default"> 40000 </td>
+                    <td class="description">
+			How long each processor will wait for all the processors to report acceptance of the new job model before rolling back.
+                    </td>
+                </tr>
                 <tr>
                     <th colspan="3" class="section" id="task"><a href="../api/overview.html">Task configuration</a></th>
                 </tr>
@@ -647,6 +699,7 @@
                         The fully-qualified name of the Java class which determines the factory class which will build the TaskNameGrouper.
                         The default configuration value if the property is not present is <code>task.name.grouper.factory=org.apache.samza.container.grouper.task.GroupByContainerCountFactory</code>.<br>
                         The user can specify a custom implementation of the TaskNameGrouperFactory where a custom logic is implemented for grouping the tasks.
+                    <p><strong>Note:</strong> For non-cluster applications (ones using coordination service) one must use <i>org.apache.samza.container.grouper.task.GroupByContainerIdsFactory</i>
                     </td>
                 </tr>
 
@@ -1883,6 +1936,42 @@
                     <td class="default"></td>
                     <td class="description">
                         The time interval by which the Application Master re-authenticates and renew the delegation tokens. This value should be smaller than the length of time a delegation token is valid on hadoop namenodes before expiration.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-resources-resource-name-path">yarn.resources.<span class="resource">resource-name</span>.path</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        The path for localizing the resource for <span class="resource">resource-name</span>. The scheme (e.g. http, ftp, hdsf, file, etc) in the path should be configured in YARN core-site.xml as fs.&lt;scheme&gt;.impl and is associated with a <a href="https://hadoop.apache.org/docs/stable/api/index.html?org/apache/hadoop/fs/FileSystem.html">FileSystem</a>.
+                        If defined, the resource will be localized in the Samza application directory before the Samza job runs. More details can be found <a href="../yarn/yarn-resource-localization.html">here</a>.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-resources-resource-name-local-name">yarn.resources.<span class="resource">resource-name</span>.local.name</td>
+                    <td class="default"><span class="resource">resource-name</span></td>
+                    <td class="description">
+                        The new local name for the resource after localization.
+                        This configuration only applies when yarn.resources.<span class="resource">resource-name</span>.path is configured.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-resources-resource-name-local-type">yarn.resources.<span class="resource">resource-name</span>.local.type</td>
+                    <td class="default">FILE</td>
+                    <td class="description">
+                        The type for the resource after localization. It can be ARCHIVE (archived directory), FILE, or PATTERN (the entries extracted from the archive with the pattern).
+                        This configuration only applies when yarn.resources.<span class="resource">resource-name</span>.path is configured.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-resources-resource-name-local-visibility">yarn.resources.<span class="resource">resource-name</span>.local.visibility</td>
+                    <td class="default">APPLICATION</td>
+                    <td class="description">
+                        The visibility for the resource after localization. It can be PUBLIC (visible to everyone), PRIVATE (visible to all Samza applications of the same account user as this application), or APPLICATION (visible to only this Samza application).
+                        This configuration only applies when yarn.resources.<span class="resource">resource-name</span>.path is configured.
                     </td>
                 </tr>
 

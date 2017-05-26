@@ -19,6 +19,11 @@
 
 package org.apache.samza.zk;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
@@ -31,12 +36,6 @@ import org.apache.zookeeper.data.Stat;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Util class to help manage Zk connection and ZkClient.
@@ -84,10 +83,6 @@ public class ZkUtils {
     return new ZkConnection(zkConnectString, sessionTimeoutMs);
   }
 
-  public static ZkClient createZkClient(ZkConnection zkConnection, int connectionTimeoutMs) {
-    return new ZkClient(zkConnection, connectionTimeoutMs);
-  }
-
   ZkClient getZkClient() {
     return zkClient;
   }
@@ -117,10 +112,6 @@ public class ZkUtils {
       LOG.info("existing path for " + data +  " is " +  ephemeralPath);
       return ephemeralPath;
     }
-  }
-
-  public synchronized String getEphemeralPath() {
-    return ephemeralPath;
   }
 
   /**
@@ -264,7 +255,7 @@ public class ZkUtils {
 
     if (currentVersion != null && !currentVersion.equals(oldVersion)) {
       throw new SamzaException(
-          "Someone change JobModelVersion while the leader was generating one: expected" + oldVersion + ", got " + currentVersion);
+          "Someone changed JobModelVersion while the leader was generating one: expected" + oldVersion + ", got " + currentVersion);
     }
     // data version is the ZK version of the data from the ZK.
     int dataVersion = stat.getVersion();
@@ -273,7 +264,7 @@ public class ZkUtils {
     } catch (Exception e) {
       String msg = "publish job model version failed for new version = " + newVersion + "; old version = " + oldVersion;
       LOG.error(msg, e);
-      throw new SamzaException(msg);
+      throw new SamzaException(msg, e);
     }
     LOG.info("published new version: " + newVersion + "; expected data version = " + (dataVersion  + 1) +
         "(actual data version after update = " + stat.getVersion() +    ")");
