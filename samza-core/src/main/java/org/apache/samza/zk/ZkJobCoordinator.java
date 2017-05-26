@@ -18,9 +18,13 @@
  */
 package org.apache.samza.zk;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
@@ -34,10 +38,6 @@ import org.apache.samza.util.ClassLoaderHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 /**
  * JobCoordinator for stand alone processor managed via Zookeeper.
  */
@@ -46,6 +46,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   // TODO: MetadataCache timeout has to be 0 for the leader so that it can always have the latest information associated
   // with locality. Since host-affinity is not yet implemented, this can be fixed as part of SAMZA-1197
   private static final int METADATA_CACHE_TTL_MS = 5000;
+
 
   private final ZkUtils zkUtils;
   private final String processorId;
@@ -58,6 +59,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private ScheduleAfterDebounceTime debounceTimer = null;
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
+
+  private int debounceTimeMs;
 
   public ZkJobCoordinator(Config config) {
     this.config = config;
@@ -79,11 +82,14 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         keyBuilder.getJobModelVersionBarrierPrefix(),
         zkUtils,
         new ZkBarrierListenerImpl());
+    this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
+
   }
 
   @Override
   public void start() {
     streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
+
     debounceTimer = new ScheduleAfterDebounceTime(throwable -> {
         LOG.error("Received exception from in JobCoordinator Processing!", throwable);
         stop();
@@ -126,7 +132,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public void onProcessorChange(List<String> processors) {
     LOG.info("ZkJobCoordinator::onProcessorChange - list of processors changed! List size=" + processors.size());
     debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> doOnProcessorChange(processors));
+        debounceTimeMs, () -> doOnProcessorChange(processors));
   }
 
   void doOnProcessorChange(List<String> processors) {
@@ -232,8 +238,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       zkController.subscribeToProcessorChange();
       debounceTimer.scheduleAfterDebounceTime(
         ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
-        ScheduleAfterDebounceTime.DEBOUNCE_TIME_MS, () -> {
-          // actual actions to do are the same as onProcessorChange()
+        debounceTimeMs, () -> {
+          // actual actions to do are the same as onProcessorChange
           doOnProcessorChange(new ArrayList<>());
         });
     }
