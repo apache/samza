@@ -406,7 +406,7 @@ Let’s take a closer look at how embedded deployment works.
 
 The [architecture](#architecture) section above provided an overview of the layers that enable the flexible deployment model. As you can see embedded mode comes into the picture at the *deployment* layer. The deployment layer also includes assignment of input partitions to the available processors.
 
-There are two types of partition assignment models:
+There are two types of partition assignment models which are controlled with the *job.coordinator.factory* in configuration:
 
 #### External Partition Management
 With external partition management, Samza doesn’t manage the partitioning by itself. Instead it uses a `PassthroughJobCoordinator` which honors whatever mapping is provided by the [SystemStreamPartitionGrouper](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/container/grouper/stream/SystemStreamPartitionGrouper.html). There are two common patterns for external partition management:
@@ -431,9 +431,9 @@ Dynamic coordination of the processors assumes presence of a coordination servic
 * **Leader Election** - electing a single processor, which will be responsible for JobModel calculation and distribution or for intermediate streams creation.
 * **Central barrier and latch** - coordination primitives used by the processors.
 * **JobModel notifications** - notifying the processors about availability of a new JobModel.
-* **Central storage for the JobModel** (not strictly a coordination util, more of a storage facility).
+* **JobModel storage** the coordination service dictates where the JobModel is persisted.
 
-The coordination service is pluggable by overriding the *job.coordinator.factory* property in your config. Samza ships with a `ZkJobCoordinatorFactory` implementation. The default coordination service is ZooKeeper-based.
+The coordination service is currently derived from the job coordinator factory. Samza ships with a `ZkJobCoordinatorFactory` implementation which has a corresponding `ZkCorrdinationServiceFactory`.
 
 Let’s walk through the coordination sequence for a Zookeeper based embedded application:
 
