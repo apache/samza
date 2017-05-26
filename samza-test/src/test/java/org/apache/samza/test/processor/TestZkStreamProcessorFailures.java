@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.zk.TestZkUtils;
@@ -60,6 +61,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
   // throw an exception.
   public void testFailStreamProcessor() {
     final int numBadMessages = 4; // either of these bad messages will cause p1 to throw and exception
+    map.put(JobConfig.JOB_DEBOUNCE_TIME_MS(), "100");
 
     // set number of events we expect to read by both processes in total:
     // p1 will read messageCount/2 messages
@@ -74,28 +76,32 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
     TestStreamTask.endLatch = new CountDownLatch(totalEventsToBeConsumed);
     // create first processor
-    CountDownLatch startCountDownLatch1 = new CountDownLatch(1);
-    CountDownLatch stopCountDownLatch1 = new CountDownLatch(1);
-    StreamProcessor sp1 = createStreamProcessor("1", map, startCountDownLatch1, stopCountDownLatch1);
+    Object mutexStart1 = new Object();
+    Object mutexStop1 = new Object();
+    StreamProcessor sp1 = createStreamProcessor("1", map, mutexStart1, mutexStop1);
     // start the first processor
     Thread t1 = runInThread(sp1, TestStreamTask.endLatch);
     t1.start();
 
     // start the second processor
-    CountDownLatch countDownLatch2 = new CountDownLatch(1);
-    StreamProcessor sp2 = createStreamProcessor("2", map, countDownLatch2, null);
+    Object mutexStart2 = new CountDownLatch(1);
+    StreamProcessor sp2 = createStreamProcessor("2", map, mutexStart2, null);
     Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
     t2.start();
 
     // wait until the processor reports that it has started
     try {
-      startCountDownLatch1.await(1000, TimeUnit.MILLISECONDS);
+      synchronized (mutexStart1) {
+        mutexStart1.wait(1000);
+      }
     } catch (InterruptedException e) {
       Assert.fail("got interrupted while waiting for the first processor to start.");
     }
     // wait until the 2nd processor reports that it has started
     try {
-      countDownLatch2.await(1000, TimeUnit.MILLISECONDS);
+      synchronized (mutexStart2) {
+        mutexStart2.wait(1000);
+      }
     } catch (InterruptedException e) {
       Assert.fail("got interrupted while waiting for the 2nd processor to start.");
     }
@@ -110,7 +116,13 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     produceMessages(BAD_MESSAGE_KEY, inputTopic, 4);
 
     // wait for at least one full de-bounce time to let the system to publish and distribute the new job model
-    TestZkUtils.sleepMs(3000);
+    // wait until the processor reports that it has started
+    try {
+      mutexStart1.wait(1000);
+    } catch (InterruptedException e) {
+      Assert.fail("got interrupted while waiting for the first processor to start.");
+    }
+    TestZkUtils.sleepMs(600);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);

@@ -90,7 +90,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
   
   // auxiliary methods
   protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map,
-      final CountDownLatch startLatchCountDown, final CountDownLatch stopLatchCountDown) {
+      final Object mutexStart, final Object mutexStop) {
     map.put(ApplicationConfig.PROCESSOR_ID, pId);
 
     StreamProcessor processor = new StreamProcessor(new MapConfig(map), new HashMap<>(), TestStreamTask::new,
@@ -98,15 +98,16 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
 
           @Override
           public void onStart() {
-            if (startLatchCountDown != null) {
-              startLatchCountDown.countDown();
+            if (mutexStart != null) {
+              mutexStart.notifyAll();
             }
+            LOG.info("onStart is called for pid=" + pId);
           }
 
           @Override
           public void onShutdown() {
-            if (stopLatchCountDown != null) {
-              stopLatchCountDown.countDown();
+            if (mutexStop != null) {
+              mutexStart.notify();
             }
             LOG.info("onShutdown is called for pid=" + pId);
           }
@@ -219,7 +220,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
         while (iterator.hasNext()) {
           ConsumerRecord record = iterator.next();
           String val = new String((byte[]) record.value());
-          LOG.info("Got value " + val);
+          LOG.info("Got value " + val + "; count = " + count + "; out of " + expectedNumMessages);
           map.put(Integer.valueOf(val), true);
           count++;
         }
