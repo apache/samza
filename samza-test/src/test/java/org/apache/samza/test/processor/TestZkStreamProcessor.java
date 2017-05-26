@@ -162,15 +162,13 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
       Assert.fail("got interrupted while waiting for the first processor to start.");
     }
 
-
-    // wait for at least one full debounce time to let the system to publish and distribute the new job model
+    // let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(300);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
 
     // wait until all the events are consumed
-    // make sure it consumes all the messages from both batches
     waitUntilConsumedN(0);
 
     // shutdown both
