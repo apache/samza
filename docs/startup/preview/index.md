@@ -32,7 +32,7 @@ Want to skip all the details and get some hands on experience? There are three t
 
 * [Hello Samza - Yarn Deployment](/learn/tutorials/{{site.version}}/hello-samza-high-level-yarn.html) - run a pre-built wikipedia application on YARN and observe the output
 * [Hello Samza - High Level API Code Walkthrough](/learn/tutorials/{{site.version}}/hello-samza-high-level-code.html) - walk through building the wikipedia application, step by step.
-* [Hello Samza - Zookeeper Deployment](/learn/tutorials/{{site.version}}/hello-samza-high-level-zk.html) - run a pre-built wikipedia application in embedded mode using Zookeeper coordination and observe the output
+* [Hello Samza - Zookeeper Deployment](/learn/tutorials/{{site.version}}/hello-samza-high-level-zk.html) - run a pre-built wikipedia application with Zookeeper coordination and observe the output
 
 ## Architecture
 
@@ -401,9 +401,6 @@ MessageStream<WindowPane<Void, Integer>> windowedStream =
 
 {% endhighlight %}
 
-### Known Issue
-Currently, both window and join operators buffer messages in-memory. So, messages could be lost on failures and re-starts.
-
 ### Known Issues
 Currently, both window and join operators buffer messages in-memory. So, messages could be lost on failures and re-starts.
 
@@ -447,7 +444,7 @@ Dynamic coordination of the processors assumes presence of a coordination servic
 * **JobModel notifications** - notifying the processors about availability of a new JobModel.
 * **Central storage for the JobModel** (not strictly a coordination util, more of a storage facility).
 
-The coordination service is pluggable by overriding the “job.coordinator.factory” property in your config. Samza ships with a `ZkJobCoordinatorFactory implementation. The default coordination service is ZooKeeper-based.
+The coordination service is pluggable by overriding the *job.coordinator.factory* property in your config. Samza ships with a `ZkJobCoordinatorFactory` implementation. The default coordination service is ZooKeeper-based.
 
 Let’s walk through the coordination sequence for a Zookeeper based embedded application:
 
@@ -475,7 +472,7 @@ As mentioned before, embedded deployment is designed to help users who want more
 Additionally, each processor requires a unique ID to be used with the coordination service. If location affinity is important, this ID should be unique for each processor, on a specific hostname (assuming local Storage services). To address this requirement, Samza uses  a ProcessorIdGenerator implementation class to provide the ID for each processor.  If no generator is explicitly configured, the default one will use UUID for each processor.
 
 #### Configuration
-To run an embedded Samza processor, you need to configure the coordinator service using the `job.coordinator.factory` property. Also, there is currently one taskname grouper that supports embedded mode, so you have to configure that explicitly.
+To run an embedded Samza processor, you need to configure the coordinator service using the *job.coordinator.factory* property. Also, there is currently one taskname grouper that supports embedded mode, so you have to configure that explicitly.
 
 Let’s take a look at how to configure the two coordination service implementations that ship with Samza.
 
@@ -514,12 +511,12 @@ public class WikipediaZkLocalApplication {
 }
 {% endhighlight %}
 
-Where `WikipediaApplication` is an application written with the [high level API](#high-level-api).
+In the code above, `WikipediaApplication` is an application written with the [high level API](#high-level-api).
 
-Check out the [tutorial](/learn/tutorials/{{site.version}}/hello-samza-high-level-zk.html) to run this application on your machine now.
+Check out the [tutorial](/learn/tutorials/{{site.version}}/hello-samza-high-level-zk.html) to run this application with Zookeeper coordination on your machine now.
 
 #### Deployment and Scaling
-You can deploy the application instances in any way. If using coordination service, you can add or remove instances at any time and the leader’s job coordinator (elected via the CoordinationService) will automatically recalculate the JobModel after the debounce time and apply it to the available processors. So, to scale up your application, you simply start more processors.
+You can deploy the application instances in any way you prefer. If using coordination service, you can add or remove instances at any time and the leader’s job coordinator (elected via the CoordinationService) will automatically recalculate the JobModel after the debounce time and apply it to the available processors. So, to scale up your application, you simply start more processors.
 
 ### Known issues
 Take note of the following issues with the embedded deployment feature for the 0.13.0 release. They will be fixed in a subsequent release.
