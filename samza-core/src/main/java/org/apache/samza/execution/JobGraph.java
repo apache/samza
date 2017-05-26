@@ -133,6 +133,7 @@ import org.slf4j.LoggerFactory;
     StreamEdge edge = getOrCreateStreamEdge(streamSpec);
     edge.addSourceNode(from);
     edge.addTargetNode(to);
+    edge.setIsIntermediate(true);
     from.addOutEdge(edge);
     to.addInEdge(edge);
     intermediateStreams.add(edge);

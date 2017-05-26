@@ -25,6 +25,8 @@ import java.util
 import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 import java.net.{URL, UnknownHostException}
 
+import org.apache.samza.serializers.IntermediateMessageSerde
+import org.apache.samza.serializers.StringSerde
 import org.apache.samza.{SamzaContainerStatus, SamzaException}
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
@@ -287,13 +289,38 @@ object SamzaContainer extends Logging {
 
     info("Got change log system streams: %s" format changeLogSystemStreams)
 
+    val intermediateStreams = config
+      .getStreamIds
+      .filter(config.getIsIntermediate(_))
+      .toList
+
+    info("Got intermediate streams: %s" format intermediateStreams)
+
+    val controlMessageKeySerdes = intermediateStreams
+      .flatMap(streamId => {
+        val systemStream = config.streamIdToSystemStream(streamId)
+        systemStreamKeySerdes.get(systemStream)
+                .orElse(systemKeySerdes.get(systemStream.getSystem))
+                .map(serde => (systemStream, new StringSerde("UTF-8")))
+      }).toMap
+
+    val intermedidateStreamMessageSerdes = intermediateStreams
+      .flatMap(streamId => {
+        val systemStream = config.streamIdToSystemStream(streamId)
+        systemStreamMessageSerdes.get(systemStream)
+                .orElse(systemMessageSerdes.get(systemStream.getSystem))
+                .map(serde => (systemStream, new IntermediateMessageSerde(serde)))
+      }).toMap
+
     val serdeManager = new SerdeManager(
       serdes = serdes,
       systemKeySerdes = systemKeySerdes,
       systemMessageSerdes = systemMessageSerdes,
       systemStreamKeySerdes = systemStreamKeySerdes,
       systemStreamMessageSerdes = systemStreamMessageSerdes,
-      changeLogSystemStreams = changeLogSystemStreams.values.toSet)
+      changeLogSystemStreams = changeLogSystemStreams.values.toSet,
+      controlMessageKeySerdes = controlMessageKeySerdes,
+      intermediateMessageSerdes = intermedidateStreamMessageSerdes)
 
     info("Setting up JVM metrics.")
 

@@ -36,14 +36,16 @@ object StreamConfig {
   val CONSUMER_OFFSET_DEFAULT = SAMZA_PROPERTY + "offset.default"
   val BOOTSTRAP =               SAMZA_PROPERTY + "bootstrap"
   val PRIORITY =                SAMZA_PROPERTY + "priority"
+  val IS_INTERMEDIATE =         SAMZA_PROPERTY + "intermediate"
 
   // We don't want any external dependencies on these patterns while both exist. Use getProperty to ensure proper values.
   private val STREAMS_PREFIX = "streams."
   private val STREAM_PREFIX = "systems.%s.streams.%s."
 
-  protected val STREAM_ID_PREFIX = STREAMS_PREFIX + "%s."
-  protected val SYSTEM_FOR_STREAM_ID = STREAM_ID_PREFIX + SYSTEM
+  val STREAM_ID_PREFIX = STREAMS_PREFIX + "%s."
+  val SYSTEM_FOR_STREAM_ID = STREAM_ID_PREFIX + SYSTEM
   val PHYSICAL_NAME_FOR_STREAM_ID = STREAM_ID_PREFIX + PHYSICAL_NAME
+  val IS_INTERMEDIATE_FROM_STREAM_ID = STREAM_ID_PREFIX + IS_INTERMEDIATE
 
   implicit def Config2Stream(config: Config) = new StreamConfig(config)
 }
@@ -149,6 +151,10 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getPhysicalName(streamId: String) = {
     // use streamId as the default physical name
     get(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID format streamId, streamId)
+  }
+
+  def getIsIntermediate(streamId: String) = {
+    getBoolean(StreamConfig.IS_INTERMEDIATE_FROM_STREAM_ID format streamId, false)
   }
 
   /**
@@ -259,7 +265,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     getStreamIds().filter(streamId => system.equals(getSystem(streamId)))
   }
 
-  private def systemStreamToStreamId(systemStream: SystemStream): String = {
+  def systemStreamToStreamId(systemStream: SystemStream): String = {
    val streamIds = getStreamIdsForSystem(systemStream.getSystem).filter(streamId => systemStream.getStream().equals(getPhysicalName(streamId)))
     if (streamIds.size > 1) {
       throw new IllegalStateException("There was more than one stream found for system stream %s" format(systemStream))
@@ -276,7 +282,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     * A streamId is translated to a SystemStream by looking up its System and physicalName. It
     * will use the streamId as the stream name if the physicalName doesn't exist.
     */
-  private def streamIdToSystemStream(streamId: String): SystemStream = {
+  def streamIdToSystemStream(streamId: String): SystemStream = {
     new SystemStream(getSystem(streamId), getPhysicalName(streamId))
   }
 
