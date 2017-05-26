@@ -99,7 +99,9 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
           @Override
           public void onStart() {
             if (mutexStart != null) {
-              mutexStart.notifyAll();
+              synchronized (mutexStart) {
+                mutexStart.notifyAll();
+              }
             }
             LOG.info("onStart is called for pid=" + pId);
           }
@@ -107,7 +109,9 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
           @Override
           public void onShutdown() {
             if (mutexStop != null) {
-              mutexStart.notify();
+              synchronized (mutexStart) {
+                mutexStart.notify();
+              }
             }
             LOG.info("onShutdown is called for pid=" + pId);
           }
@@ -284,8 +288,8 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     while (attempts > 0) {
       long leftEventsCount = TestZkStreamProcessorBase.TestStreamTask.endLatch.getCount();
       //System.out.println("2current count = " + leftEventsCount);
-      if (leftEventsCount == untilLeft) { // should read all of them
-        //System.out.println("2read all. current count = " + leftEventsCount);
+      if (leftEventsCount == untilLeft) { // that much should be left
+        System.out.println("2read all. current count = " + leftEventsCount);
         break;
       }
       TestZkUtils.sleepMs(1000);

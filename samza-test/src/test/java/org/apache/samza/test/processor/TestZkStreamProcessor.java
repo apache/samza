@@ -43,12 +43,12 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
   @Test
   public void testTwoStreamProcessors() {
-    testStreamProcessor(new String[]{"1", "2"});
+    testStreamProcessor(new String[]{"2", "3"});
   }
 
   @Test
   public void testFiveStreamProcessors() {
-    testStreamProcessor(new String[]{"1", "2", "3", "4", "5"});
+    testStreamProcessor(new String[]{"4", "5", "6", "7", "8"});
   }
 
   // main test method for happy path with fixed number of processors
@@ -60,10 +60,10 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     // initialize the the processors
     // we need startLatch to know when the processor has been completely initialized
     StreamProcessor[] streamProcessors = new StreamProcessor[processorIds.length];
-    CountDownLatch[] startCountDownLatches = new CountDownLatch[processorIds.length];
+    Object [] startWait = new Object[processorIds.length];
     for (int i = 0; i < processorIds.length; i++) {
-      startCountDownLatches[i] = new CountDownLatch(1);
-      streamProcessors[i] = createStreamProcessor(processorIds[i], map, startCountDownLatches[i], null);
+      startWait[i] = new Object();
+      streamProcessors[i] = createStreamProcessor(processorIds[i], map, startWait[i], null);
     }
 
     // produce messageCount messages, starting with key '0'
@@ -76,7 +76,9 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
       threads[i].start();
       // wait until the processor reports that it has started
       try {
-        startCountDownLatches[i].await(1000, TimeUnit.MILLISECONDS);
+        synchronized (startWait[i]) {
+          startWait[i].wait(1000);
+        }
       } catch (InterruptedException e) {
         Assert.fail("got interrupted while waiting for the " + i + "th processor to start.");
       }
@@ -117,8 +119,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     TestStreamTask.endLatch = new CountDownLatch(totalEventsToGenerate);
 
     // create first processor
-    CountDownLatch startCountDownLatch1 = new CountDownLatch(1);
-    StreamProcessor sp = createStreamProcessor("1", map, startCountDownLatch1, null);
+    Object startWait1 = new Object();
+    StreamProcessor sp = createStreamProcessor("20", map, startWait1, null);
 
     // produce first batch of messages starting with 0
     produceMessages(0, inputTopic, messageCount);
@@ -129,7 +131,9 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // wait until the processor reports that it has started
     try {
-      startCountDownLatch1.await(1000, TimeUnit.MILLISECONDS);
+      synchronized (startWait1) {
+        startWait1.wait(1000);
+      }
     } catch (InterruptedException e) {
       Assert.fail("got interrupted while waiting for the first processor to start.");
     }
@@ -138,26 +142,38 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     waitUntilConsumedN(totalEventsToGenerate - messageCount);
 
     // start the second processor
-    CountDownLatch countDownLatch2 = new CountDownLatch(1);
-    StreamProcessor sp2 = createStreamProcessor("2", map, countDownLatch2, null);
+    Object startWait2 = new Object();
+    StreamProcessor sp2 = createStreamProcessor("21", map, startWait2, null);
     Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
     t2.start();
 
     // wait until the processor reports that it has started
     try {
-      countDownLatch2.await(1000, TimeUnit.MILLISECONDS);
+      synchronized (startWait2) {
+        startWait2.wait(1000);
+      }
     } catch (InterruptedException e) {
       Assert.fail("got interrupted while waiting for the 2nd processor to start.");
     }
 
+    // wait until the processor reports that it has re-started
+    try {
+      synchronized (startWait1) {
+        startWait1.wait(1000);
+      }
+    } catch (InterruptedException e) {
+      Assert.fail("got interrupted while waiting for the first processor to start.");
+    }
+
+
     // wait for at least one full debounce time to let the system to publish and distribute the new job model
-    TestZkUtils.sleepMs(3000);
+    TestZkUtils.sleepMs(300);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
 
     // wait until all the events are consumed
-    // make sure it consumes all the messages from the first batch
+    // make sure it consumes all the messages from both batches
     waitUntilConsumedN(0);
 
     // shutdown both
@@ -192,33 +208,38 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     TestStreamTask.endLatch = new CountDownLatch(totalEventsToGenerate);
 
     // create first processor
-    CountDownLatch startCountDownLatch1 = new CountDownLatch(1);
-    CountDownLatch stopCountDownLatch1 = new CountDownLatch(1);
-    StreamProcessor sp1 = createStreamProcessor("1", map, startCountDownLatch1, stopCountDownLatch1);
+    Object waitStart1 = new Object();
+    Object waitSotp1 = new Object();
+    StreamProcessor sp1 = createStreamProcessor("30", map, waitStart1, waitSotp1);
 
     // start the first processor
     Thread t1 = runInThread(sp1, TestStreamTask.endLatch);
     t1.start();
 
     // start the second processor
-    CountDownLatch countDownLatch2 = new CountDownLatch(1);
-    StreamProcessor sp2 = createStreamProcessor("2", map, countDownLatch2, null);
+    Object waitStart2 = new Object();
+    StreamProcessor sp2 = createStreamProcessor("31", map, waitStart2, null);
     Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
     t2.start();
 
     // wait until the processor reports that it has started
     try {
-      startCountDownLatch1.await(1000, TimeUnit.MILLISECONDS);
+      synchronized (waitStart1) {
+        waitStart1.wait(1000);
+      }
     } catch (InterruptedException e) {
       Assert.fail("got interrupted while waiting for the first processor to start.");
     }
 
     // wait until the processor reports that it has started
     try {
-      countDownLatch2.await(1000, TimeUnit.MILLISECONDS);
+      synchronized (waitStart2) {
+        waitStart2.wait(1000);
+      }
     } catch (InterruptedException e) {
       Assert.fail("got interrupted while waiting for the 2nd processor to start.");
     }
+
 
     // produce first batch of messages starting with 0
     produceMessages(0, inputTopic, messageCount);
@@ -233,14 +254,26 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // wait until it's really down
     try {
-      stopCountDownLatch1.await(1000, TimeUnit.MILLISECONDS);
+      synchronized (waitSotp1) {
+        waitSotp1.wait(1000);
+      }
       System.out.println("Processor 1 is down");
     } catch (InterruptedException e) {
       Assert.fail("got interrupted while waiting for the 1st processor to stop.");
     }
 
+    // processor1 will stop and start again
+    try {
+      synchronized (waitStart1) {
+        waitStart1.wait(1000);
+      }
+    } catch (InterruptedException e) {
+      Assert.fail("got interrupted while waiting for the first processor to start.");
+    }
+
+
     // wait for at least one full debounce time to let the system to publish and distribute the new job model
-    TestZkUtils.sleepMs(3000);
+    TestZkUtils.sleepMs(300);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);

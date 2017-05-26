@@ -84,7 +84,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     t1.start();
 
     // start the second processor
-    Object mutexStart2 = new CountDownLatch(1);
+    Object mutexStart2 = new Object();
     StreamProcessor sp2 = createStreamProcessor("2", map, mutexStart2, null);
     Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
     t2.start();
@@ -100,7 +100,9 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     // wait until the 2nd processor reports that it has started
     try {
       synchronized (mutexStart2) {
-        mutexStart2.wait(1000);
+        synchronized (mutexStart2) {
+          mutexStart2.wait(1000);
+        }
       }
     } catch (InterruptedException e) {
       Assert.fail("got interrupted while waiting for the 2nd processor to start.");
@@ -115,14 +117,16 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     // produce the bad messages
     produceMessages(BAD_MESSAGE_KEY, inputTopic, 4);
 
-    // wait for at least one full de-bounce time to let the system to publish and distribute the new job model
-    // wait until the processor reports that it has started
+    // wait until the processor reports that it has re-started
     try {
-      mutexStart1.wait(1000);
+      synchronized (mutexStart2) {
+        mutexStart2.wait(1000);
+      }
     } catch (InterruptedException e) {
       Assert.fail("got interrupted while waiting for the first processor to start.");
     }
-    TestZkUtils.sleepMs(600);
+    // wait for at least one full de-bounce time to let the system to publish and distribute the new job model
+    TestZkUtils.sleepMs(200);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
