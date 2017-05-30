@@ -45,7 +45,7 @@
       <outputDirectory>lib</outputDirectory>
     </file>
     <file>
-      <source>${basedir}/bin/run-wikipedia-standalone-application.sh</source>
+      <source>${basedir}/bin/run-wikipedia-zk-application.sh</source>
       <outputDirectory>bin</outputDirectory>
     </file>
   </files>
