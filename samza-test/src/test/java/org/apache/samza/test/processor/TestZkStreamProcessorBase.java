@@ -161,7 +161,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     for (int i = start; i < numMessages + start; i++) {
       try {
         LOG.info("producing " + i);
-        producer.send(new ProducerRecord(topic, String.valueOf(i).getBytes())).get();
+        producer.send(new ProducerRecord(topic, (i%2), String.valueOf(i), String.valueOf(i).getBytes())).get();
       } catch (InterruptedException | ExecutionException e) {
         e.printStackTrace();
       }
@@ -226,9 +226,10 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
           String val = new String((byte[]) record.value());
           LOG.info("Got value " + val + "; count = " + count + "; out of " + expectedNumMessages);
           Integer valI = Integer.valueOf(val);
-          map.put(valI, true);
-          if(valI < BAD_MESSAGE_KEY)
+          if(valI < BAD_MESSAGE_KEY) {
+            map.put(valI, true);
             count++;
+          }
         }
       } else {
         emptyPollCount++;
@@ -250,6 +251,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     protected String processorId;
     protected String outputTopic;
     protected String outputSystem;
+    protected String processorIdToFail;
 
     @Override
     public void init(Config config, TaskContext taskContext)
@@ -257,6 +259,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
       this.processorId = config.get(ApplicationConfig.PROCESSOR_ID);
       this.outputTopic = config.get("app.outputTopic", "output");
       this.outputSystem = config.get("app.outputSystem", "test-system");
+      this.processorIdToFail = config.get("processor.id.to.fail", "1");
     }
 
     @Override
@@ -266,8 +269,15 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
 
       Object message = incomingMessageEnvelope.getMessage();
 
+      String key = (new String((byte [])incomingMessageEnvelope.getKey()));
+      Integer val = Integer.valueOf((String) message);
+
+      LOG.info("Stream processor " + processorId + ";key=" + key + ";offset=" + incomingMessageEnvelope.getOffset() + "; totalRcvd="
+          + processedMessageCount + ";val=" + val + "; ssp=" + incomingMessageEnvelope
+          .getSystemStreamPartition());
+
       // inject a failure
-      if (Integer.valueOf((String) message) >= BAD_MESSAGE_KEY && processorId.equals("1")) {
+      if (val >= BAD_MESSAGE_KEY && processorId.equals(processorIdToFail)) {
         LOG.info("process method will fail for msg=" + message);
         throw new Exception("Processing in the processor " + processorId + " failed ");
       }
@@ -275,17 +285,16 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
       messageCollector.send(new OutgoingMessageEnvelope(new SystemStream(outputSystem, outputTopic), message));
       processedMessageCount++;
 
-      LOG.info("Stream processor " + processorId + ";offset=" + incomingMessageEnvelope.getOffset() + "; totalRcvd="
-              + processedMessageCount + ";received " + message + "; ssp=" + incomingMessageEnvelope
-              .getSystemStreamPartition());
 
       synchronized (endLatch) {
-        endLatch.countDown();
+        if(Integer.valueOf(key) < BAD_MESSAGE_KEY) {
+          endLatch.countDown();
+        }
       }
     }
   }
 
-  protected void waitUntilConsumedN(int untilLeft) {
+  protected void waitUntilMessagesLeftN(int untilLeft) {
     int attempts = ATTEMPTS_NUMBER;
     while (attempts > 0) {
       long leftEventsCount = TestZkStreamProcessorBase.TestStreamTask.endLatch.getCount();

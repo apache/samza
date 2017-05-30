@@ -128,7 +128,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     waitForProcessorToStartStop(startWait1);
 
     // make sure it consumes all the messages from the first batch
-    waitUntilConsumedN(totalEventsToGenerate - messageCount);
+    waitUntilMessagesLeftN(totalEventsToGenerate - messageCount);
 
     // start the second processor
     Object startWait2 = new Object();
@@ -149,7 +149,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     produceMessages(messageCount, inputTopic, messageCount);
 
     // wait until all the events are consumed
-    waitUntilConsumedN(0);
+    waitUntilMessagesLeftN(0);
 
     // shutdown both
     try {
@@ -203,7 +203,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     produceMessages(0, inputTopic, messageCount);
 
     // make sure they consume all the messages from the first batch
-    waitUntilConsumedN(totalEventsToGenerate - messageCount);
+    waitUntilMessagesLeftN(totalEventsToGenerate - messageCount);
 
     // stop the first processor
     stopProcessor(t1);
@@ -221,7 +221,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     produceMessages(messageCount, inputTopic, messageCount);
 
     // wait until p2 consumes all the message by itself;
-    waitUntilConsumedN(0);
+    waitUntilMessagesLeftN(0);
 
     // shutdown p2
 

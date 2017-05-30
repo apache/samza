@@ -61,6 +61,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
   public void testFailStreamProcessor() {
     final int numBadMessages = 4; // either of these bad messages will cause p1 to throw and exception
     map.put(JobConfig.JOB_DEBOUNCE_TIME_MS(), "100");
+    map.put("processor.id.to.fail", "101");
 
     // set number of events we expect to read by both processes in total:
     // p1 will read messageCount/2 messages
@@ -77,14 +78,14 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     // create first processor
     Object waitStart1 = new Object();
     Object waitStop1 = new Object();
-    StreamProcessor sp1 = createStreamProcessor("1", map, waitStart1, waitStop1);
+    StreamProcessor sp1 = createStreamProcessor("101", map, waitStart1, waitStop1);
     // start the first processor
     Thread t1 = runInThread(sp1, TestStreamTask.endLatch);
     t1.start();
 
     // start the second processor
     Object waitStart2 = new Object();
-    StreamProcessor sp2 = createStreamProcessor("2", map, waitStart2, null);
+    StreamProcessor sp2 = createStreamProcessor("102", map, waitStart2, null);
     Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
     t2.start();
 
@@ -98,7 +99,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     produceMessages(0, inputTopic, messageCount);
 
     // make sure they consume all the messages
-    waitUntilConsumedN(totalEventsToBeConsumed - messageCount);
+    waitUntilMessagesLeftN(totalEventsToBeConsumed - messageCount);
 
     // produce the bad messages
     produceMessages(BAD_MESSAGE_KEY, inputTopic, 4);
@@ -108,14 +109,14 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     // wait until the 2nd processor reports that it has re-started
     waitForProcessorToStartStop(waitStart2);
 
-    // wait for at least one full de-bounce time to let the system to publish and distribute the new job model
+    // give some extra time to let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(500);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
 
     // wait until p2 consumes all the message by itself
-    waitUntilConsumedN(0);
+    waitUntilMessagesLeftN(0);
 
     // shutdown p2
     try {
@@ -125,7 +126,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
       Assert.fail("Failed to join finished thread:" + e.getLocalizedMessage());
     }
 
-    // number of unique values we gonna read is 0-(2*messageCount - 1) + numBadMessages
+    // number of unique values we gonna read is from 0 to (2*messageCount - 1)
     Map<Integer, Boolean> expectedValues = new HashMap<>(2 * messageCount );
     for (int i = 0; i < 2 * messageCount; i++) {
       expectedValues.put(i, false);
