@@ -39,7 +39,7 @@ This project contains everything you'll need to run your first Samza application
 A Samza grid usually comprises three different systems: [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html), [Kafka](http://kafka.apache.org/), and [ZooKeeper](http://zookeeper.apache.org/). The hello-samza project comes with a script called "grid" to help you setup these systems. Start by running:
 
 {% highlight bash %}
-bin/grid bootstrap
+./bin/grid bootstrap
 {% endhighlight %}
 
 This command will download, install, and start ZooKeeper, Kafka, and YARN. It will also check out the latest version of Samza and build it. All package files will be put in a sub-directory called "deploy" inside hello-samza's root folder.
@@ -71,7 +71,7 @@ tar -xvf ./target/hello-samza-0.13.0-SNAPSHOT-dist.tar.gz -C deploy/samza
 After you've built your Samza package, you can start the app on the grid using the run-app.sh script.
 
 {% highlight bash %}
-deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-application.properties
+./deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-application.properties
 {% endhighlight %}
 
 The app will do all of the following:
@@ -86,7 +86,7 @@ For details about how the app works, take a look at the [code walkthrough](hello
 Give the job a minute to startup, and then tail the Kafka topic:
 
 {% highlight bash %}
-deploy/kafka/bin/kafka-console-consumer.sh  --zookeeper localhost:2181 --topic wikipedia-stats
+./deploy/kafka/bin/kafka-console-consumer.sh  --zookeeper localhost:2181 --topic wikipedia-stats
 {% endhighlight %}
 
 The messages in the stats topic look like this:
@@ -115,13 +115,13 @@ This plan will make more sense after the [code walkthrough](hello-samza-high-lev
 
 To shutdown the app, use the same _run-app.sh_ script with an extra _--operation=kill_ argument
 {% highlight bash %}
-deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-application.properties --operation=kill
+./deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-application.properties --operation=kill
 {% endhighlight %}
 
 After you're done, you can clean everything up using the same grid script.
 
 {% highlight bash %}
-bin/grid stop all
+./bin/grid stop all
 {% endhighlight %}
 
 Congratulations! You've now setup a local grid that includes YARN, Kafka, and ZooKeeper, and run a Samza application on it. Curious how this application was built? See the [code walk-through](hello-samza-high-level-code.html).
