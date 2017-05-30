@@ -225,8 +225,10 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
           ConsumerRecord record = iterator.next();
           String val = new String((byte[]) record.value());
           LOG.info("Got value " + val + "; count = " + count + "; out of " + expectedNumMessages);
-          map.put(Integer.valueOf(val), true);
-          count++;
+          Integer valI = Integer.valueOf(val);
+          map.put(valI, true);
+          if(valI < BAD_MESSAGE_KEY)
+            count++;
         }
       } else {
         emptyPollCount++;
