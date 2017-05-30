@@ -22,31 +22,23 @@ package org.apache.samza.message;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
-
+/**
+ *  The WatermarkMessage is a control message that is sent out to next stage
+ *  with a watermark timestamp and the task that produces the watermark.
+ */
 public class WatermarkMessage extends ControlMessage {
   private final long timestamp;
-  private final String taskName;
-  private final int taskCount;
 
   @JsonCreator
-  public WatermarkMessage(@JsonProperty("timestamp") long timestamp, @JsonProperty("task-name") String taskName, @JsonProperty("task-count") int taskCount) {
+  public WatermarkMessage(@JsonProperty("timestamp") long timestamp,
+                          @JsonProperty("task-name") String taskName,
+                          @JsonProperty("task-count") int taskCount) {
+    super(taskName, taskCount);
     this.timestamp = timestamp;
-    this.taskName = taskName;
-    this.taskCount = taskCount;
   }
 
   @JsonProperty("timestamp")
   public long getTimestamp() {
     return timestamp;
-  }
-
-  @JsonProperty("task-name")
-  public String getTaskName() {
-    return taskName;
-  }
-
-  @JsonProperty("task-count")
-  public int getTaskCount() {
-    return taskCount;
   }
 }

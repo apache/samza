@@ -19,11 +19,21 @@
 
 package org.apache.samza.message;
 
+/**
+ * The type of the intermediate stream message. The enum will be encoded using its ordinal value and
+ * put in the first byte of the serialization of intermediate message.
+ * For more details, see {@link org.apache.samza.serializers.IntermediateMessageSerde}
+ */
 public enum MessageType {
   USER_MESSAGE,
   WATERMARK,
   END_OF_STREAM;
 
+  /**
+   * Returns the {@link MessageType} of a particular intermediate stream message.
+   * @param message an intermediate stream message
+   * @return type of the message
+   */
   public static MessageType of(Object message) {
     if (message instanceof WatermarkMessage) {
       return WATERMARK;

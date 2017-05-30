@@ -21,9 +21,28 @@ package org.apache.samza.message;
 
 import org.codehaus.jackson.annotate.JsonProperty;
 
-
+/**
+ * The abstract class of all control messages, containing
+ * the task that produces the control message, the total number of producer tasks,
+ * and a version number.
+ */
 public abstract class ControlMessage {
+  private final String taskName;
+  private final int taskCount;
   private int version = 1;
+
+  public ControlMessage(String taskName, int taskCount) {
+    this.taskName = taskName;
+    this.taskCount = taskCount;
+  }
+
+  public String getTaskName() {
+    return taskName;
+  }
+
+  public int getTaskCount() {
+    return taskCount;
+  }
 
   @JsonProperty("version")
   public void setVersion(int version) {

@@ -29,15 +29,25 @@ import org.codehaus.jackson.type.TypeReference;
 
 
 /**
- * The message format of an intermediate stream:
+ * This class provides serialization/deserialziation of the intermediate messages.
+ *
+ * The message format of an intermediate stream is below:
  *
  * IntermediateStreamMessage => {
  *   MessageType => int8
- *   MessageData => bytes
+ *   MessageData => byte[]
  * }
  *
- * For user message, it will use the user message serde;
- * For system message, it will use json serde.
+ * MessageType => [0(UserMessage), 1(Watermark), 2(EndOfStream)]
+ * MessageData => [UserMessage/ControlMessage]
+ * ControlMessage =>
+ *   Version   => int
+ *   TaskName  => string
+ *   TaskCount => int
+ *   Other Message Data (based on different types of control message)
+ *
+ * For user message, we use the user message serde.
+ * For control message, we use json serde.
  */
 public class IntermediateMessageSerde implements Serde<Object> {
 
@@ -98,8 +108,7 @@ public class IntermediateMessageSerde implements Serde<Object> {
       return object;
 
     } catch (Exception e) {
-      // this message is not using the customized serde
-      // fall back to user provided serde
+      // For backward compatibility, we fall back to user-provided serde
       return userMessageSerde.fromBytes(bytes);
     }
   }

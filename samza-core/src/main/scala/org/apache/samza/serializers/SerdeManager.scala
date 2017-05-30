@@ -48,7 +48,7 @@ class SerdeManager(
       envelope.getKey
     } else if (envelope.getMessage.isInstanceOf[ControlMessage]
       && controlMessageKeySerdes.contains(envelope.getSystemStream)) {
-      // If the message is a control message and it hasn't been serialized
+      // If the message is a control message and the key needs to serialize
       controlMessageKeySerdes(envelope.getSystemStream).toBytes(envelope.getKey.asInstanceOf[String])
     } else if (envelope.getKeySerializerName != null) {
       // If a serde is defined, use it.
@@ -69,7 +69,7 @@ class SerdeManager(
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getMessage
     } else if (intermediateMessageSerdes.contains(envelope.getSystemStream)) {
-      // If the stream has a serde defined, use it.
+      // If the stream is an intermediate stream, use the intermediate message serde
       intermediateMessageSerdes(envelope.getSystemStream).toBytes(envelope.getMessage)
     } else if (envelope.getMessageSerializerName != null) {
       // If a serde is defined, use it.
@@ -110,7 +110,7 @@ class SerdeManager(
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getMessage
     } else if (intermediateMessageSerdes.contains(systemStream)) {
-      // If the stream is an intermediate stream, use the wrapper serde
+      // If the stream is an intermediate stream, use the intermediate message serde
       intermediateMessageSerdes(systemStream).fromBytes(envelope.getMessage.asInstanceOf[Array[Byte]])
     } else if (systemStreamMessageSerdes.contains(systemStream)) {
       // If the stream has a serde defined, use it.
@@ -129,7 +129,7 @@ class SerdeManager(
       envelope.getKey
     } else if (message.isInstanceOf[ControlMessage]
       && controlMessageKeySerdes.contains(systemStream)) {
-      // If the message is a control message and it hasn't been deserialized
+      // If the message is a control message and the key needs to deserialize
       controlMessageKeySerdes(systemStream).fromBytes(envelope.getKey.asInstanceOf[Array[Byte]])
     } else if (systemStreamKeySerdes.contains(systemStream)) {
       // If the stream has a serde defined, use it.

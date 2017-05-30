@@ -22,24 +22,23 @@ package org.apache.samza.message;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
-
+/**
+ *  The EndOfStreamMessage is a control message that is sent out to next stage
+ *  once the task has consumed to the end of a bounded stream.
+ */
 public class EndOfStreamMessage extends ControlMessage {
-  private final String taskName;
-  private final int taskCount;
+  private final String streamId;  //Id of the bounded stream that reaches to the end
 
   @JsonCreator
-  public EndOfStreamMessage(@JsonProperty("task-name") String taskName, @JsonProperty("task-count") int taskCount) {
-    this.taskName = taskName;
-    this.taskCount = taskCount;
+  public EndOfStreamMessage(@JsonProperty("stream-id") String streamId,
+                            @JsonProperty("task-name") String taskName,
+                            @JsonProperty("task-count") int taskCount) {
+    super(taskName, taskCount);
+    this.streamId = streamId;
   }
 
-  @JsonProperty("task-name")
-  public String getTaskName() {
-    return taskName;
-  }
-
-  @JsonProperty("task-count")
-  public int getTaskCount() {
-    return taskCount;
+  @JsonProperty("stream-id")
+  public String getStreamId() {
+    return streamId;
   }
 }

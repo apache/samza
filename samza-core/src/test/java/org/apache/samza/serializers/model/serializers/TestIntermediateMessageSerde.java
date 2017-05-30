@@ -118,12 +118,15 @@ public class TestIntermediateMessageSerde {
   @Test
   public void testEndOfStreamMessageSerde() {
     IntermediateMessageSerde imserde= new IntermediateMessageSerde(new ObjectSerde());
+    String streamId = "test-stream";
     String taskName = "task-1";
-    EndOfStreamMessage eos = new EndOfStreamMessage(taskName, 8);
+    EndOfStreamMessage eos = new EndOfStreamMessage(streamId, taskName, 8);
     byte[] bytes = imserde.toBytes(eos);
     EndOfStreamMessage de = (EndOfStreamMessage) imserde.fromBytes(bytes);
     assertEquals(MessageType.of(de), MessageType.END_OF_STREAM);
+    assertEquals(de.getStreamId(), streamId);
     assertEquals(de.getTaskName(), taskName);
     assertEquals(de.getTaskCount(), 8);
+    assertEquals(de.getVersion(), 1);
   }
 }
