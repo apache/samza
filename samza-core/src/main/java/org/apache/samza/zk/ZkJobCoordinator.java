@@ -83,6 +83,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         zkUtils,
         new ZkBarrierListenerImpl());
     this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
+
   }
 
   @Override
