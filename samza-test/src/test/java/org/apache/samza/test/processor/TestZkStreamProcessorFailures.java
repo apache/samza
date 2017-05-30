@@ -127,7 +127,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     }
 
     // number of unique values we gonna read is from 0 to (2*messageCount - 1)
-    Map<Integer, Boolean> expectedValues = new HashMap<>(2 * messageCount );
+    Map<Integer, Boolean> expectedValues = new HashMap<>(2 * messageCount);
     for (int i = 0; i < 2 * messageCount; i++) {
       expectedValues.put(i, false);
     }

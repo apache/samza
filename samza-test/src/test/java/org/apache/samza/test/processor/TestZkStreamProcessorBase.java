@@ -71,7 +71,6 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
 
   protected Map<String, String> map;
 
-
   @Before
   public void setUp() {
     super.setUp();
@@ -87,10 +86,10 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     // TopicExistsException since StreamProcessor auto-creates them.
     createTopics(inputTopic, outputTopic);
   }
-  
+
   // auxiliary methods
-  protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map,
-      final Object mutexStart, final Object mutexStop) {
+  protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map, final Object mutexStart,
+      final Object mutexStop) {
     map.put(ApplicationConfig.PROCESSOR_ID, pId);
 
     StreamProcessor processor = new StreamProcessor(new MapConfig(map), new HashMap<>(), TestStreamTask::new,
@@ -161,7 +160,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     for (int i = start; i < numMessages + start; i++) {
       try {
         LOG.info("producing " + i);
-        producer.send(new ProducerRecord(topic, (i%2), String.valueOf(i), String.valueOf(i).getBytes())).get();
+        producer.send(new ProducerRecord(topic, i % 2, String.valueOf(i), String.valueOf(i).getBytes())).get();
       } catch (InterruptedException | ExecutionException e) {
         e.printStackTrace();
       }
@@ -226,7 +225,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
           String val = new String((byte[]) record.value());
           LOG.info("Got value " + val + "; count = " + count + "; out of " + expectedNumMessages);
           Integer valI = Integer.valueOf(val);
-          if(valI < BAD_MESSAGE_KEY) {
+          if (valI < BAD_MESSAGE_KEY) {
             map.put(valI, true);
             count++;
           }
@@ -269,11 +268,11 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
 
       Object message = incomingMessageEnvelope.getMessage();
 
-      String key = (new String((byte [])incomingMessageEnvelope.getKey()));
+      String key = new String((byte[]) incomingMessageEnvelope.getKey());
       Integer val = Integer.valueOf((String) message);
 
-      LOG.info("Stream processor " + processorId + ";key=" + key + ";offset=" + incomingMessageEnvelope.getOffset() + "; totalRcvd="
-          + processedMessageCount + ";val=" + val + "; ssp=" + incomingMessageEnvelope
+      LOG.info("Stream processor " + processorId + ";key=" + key + ";offset=" + incomingMessageEnvelope.getOffset()
+          + "; totalRcvd=" + processedMessageCount + ";val=" + val + "; ssp=" + incomingMessageEnvelope
           .getSystemStreamPartition());
 
       // inject a failure
@@ -285,9 +284,8 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
       messageCollector.send(new OutgoingMessageEnvelope(new SystemStream(outputSystem, outputTopic), message));
       processedMessageCount++;
 
-
       synchronized (endLatch) {
-        if(Integer.valueOf(key) < BAD_MESSAGE_KEY) {
+        if (Integer.valueOf(key) < BAD_MESSAGE_KEY) {
           endLatch.countDown();
         }
       }
