@@ -62,13 +62,13 @@ import java.util.Map;
  *   </li>
  * </ul>
  * */
-public class StandaloneJobCoordinator implements JobCoordinator {
-  private static final Logger LOGGER = LoggerFactory.getLogger(StandaloneJobCoordinator.class);
+public class PassthroughJobCoordinator implements JobCoordinator {
+  private static final Logger LOGGER = LoggerFactory.getLogger(PassthroughJobCoordinator.class);
   private final String processorId;
   private final Config config;
   private JobCoordinatorListener coordinatorListener = null;
 
-  public StandaloneJobCoordinator(Config config) {
+  public PassthroughJobCoordinator(Config config) {
     this.processorId = createProcessorId(config);
     this.config = config;
   }
