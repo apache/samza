@@ -20,7 +20,7 @@ title: Hello Samza High Level API - Zookeeper Deployment
 -->
 
 The [hello-samza](https://github.com/apache/samza-hello-samza) project is designed to get started with your first Samza job.
-In this tutorial, we will learn how to run a Samza application using zookeeper deployment model.
+In this tutorial, we will learn how to run a Samza application using ZooKeeper deployment model.
 
 ### Get the Code
 
@@ -75,7 +75,7 @@ In order to run the application, we will use the *run-wikipedia-zk-application* 
 The above command executes the helper script which invokes the *WikipediaZkLocalApplication* main class with the appropriate job configurations as command line arguments. The main class is an application wrapper
 that initializes the application and passes it to the local runner for execution. It is blocking and waits for the *LocalApplicationRunner* to finish.
 
-To run your own application using zookeeper deployment model, you would need something similar to *WikipediaZkLocalApplication* class that initializes your application
+To run your own application using ZooKeeper deployment model, you would need something similar to *WikipediaZkLocalApplication* class that initializes your application
 and uses the *LocalApplicationRunner* to run it. To learn more about the internals checkout [deployment-models](/startup/preview/) documentation and the [configurations](/learn/documentation/{{site.version}}/jobs/configuration-table.html) table.
 
 Getting back to our example, the application consumes a feed of real-time edits from Wikipedia, and produces them to a Kafka topic called "wikipedia-stats". Give the job a minute to startup, and then tail the Kafka topic. To do so, run the following command:
@@ -108,4 +108,4 @@ We can use the *grid* script to tear down the local environment ([Kafka](http://
 bin/grid stop all
 {% endhighlight %}
 
-Congratulations! You've now successfully run a Samza application using zookeeper deployment model. Next up, check out the [deployment-models](/startup/preview/) and [high level API](/startup/preview.html) pages.
+Congratulations! You've now successfully run a Samza application using ZooKeeper deployment model. Next up, check out the [deployment-models](/startup/preview/) and [high level API](/startup/preview.html) pages.

@@ -72,7 +72,7 @@ job.factory.class=org.apache.samza.job.yarn.YarnJobFactory
 
 Then use _run-app.sh_ to run the application in the remote cluster. The script will invoke the RemoteApplicationRunner, which will launch one or more jobs using the factory specified with *job.factory.class*. Follow the [yarn deployment tutorial](/learn/tutorials/{{site.version}}/hello-samza-high-level-yarn.html) to try it out.
 
-**LocalApplicationRunner** - runs the application in the JVM process of the runner. For example, to launch your application on multiple machines using ZooKeeper for coordination, you can run multiple instances of LocalApplicationRunner on various machines. After the applications load they will start cordinatinating their actions through the Zookeeper. Here is an example to run the StreamApplication in your program using the LocalApplicationRunner:
+**LocalApplicationRunner** - runs the application in the JVM process of the runner. For example, to launch your application on multiple machines using ZooKeeper for coordination, you can run multiple instances of LocalApplicationRunner on various machines. After the applications load they will start cordinatinating their actions through ZooKeeper. Here is an example to run the StreamApplication in your program using the LocalApplicationRunner:
 
 {% highlight java %}
 public static void main(String[] args) throws Exception {
@@ -88,7 +88,7 @@ System.out.println("Application completed with status " + localRunner.status(app
 }
 {% endhighlight %}
 
-Follow the [zookeeper deployment tutorial](/learn/tutorials/{{site.version}}/hello-samza-high-level-zk.html) to try it out.
+Follow the [ZooKeeper deployment tutorial](/learn/tutorials/{{site.version}}/hello-samza-high-level-zk.html) to try it out.
 
 ##### Execution Plan
 
@@ -110,7 +110,7 @@ In cluster based execution, Samza will run and manage your application on a mult
 In the embedded execution model, you can use Samza as a lightweight library within your application. You can spin up multiple instances of your application which will distribute and coordinate processing among themselves. This mode provides flexibility for running your applications in arbitrary hosting environments:It also supports pluggable coordination logic with out-of-the-box support for two types of coordination:
 
 * **ZooKeeper based coordination** - Samza can be configured to use ZooKeeper to manage group membership and partition assignment among instances of your application. This allows the you to dynamically scale your application by spinning up more instances or scaling down by shutting some down.
-* **Standalone coordination** - Samza can run your application in a single JVM locally without coordination, or multiple JVMs with a static partition assignment. This is helpful when running in containerized environments like Kubernetes or Amazon ECS.
+* **External coordination** - Samza can run your application in a single JVM locally without coordination, or multiple JVMs with a static partition assignment. This is helpful when running in containerized environments like Kubernetes or Amazon ECS.
 
 For more details on running Samza in embedded mode, take a look at the [flexible deployment model](#flexible-deployment-model) section below.
 
@@ -450,7 +450,7 @@ Let’s walk through the coordination sequence for a ZooKeeper based embedded ap
 * The leader monitors the list of all the active participants.
 * Whenever the list of the participants changes, the leader will generate a new JobModel for the current participants.
 * The new JobModel will be pushed to a common storage. The default implementation uses ZooKeeper for this purpose.
-* Participants are notified that the new JobModel is available. Notification is done through the coordination services, e.g. Zookeeper.
+* Participants are notified that the new JobModel is available. Notification is done through the coordination services, e.g. ZooKeeper.
 * The participants will stop processing, apply the new JobModel, and then resume processing.
 
 The following diagram shows the relationships of the coordinators in the ZooKeeper coordination service implementation.
@@ -461,10 +461,10 @@ Here are a few important details about the coordination service:
 
 * In order to ensure that no two partitions are processed twice by different processors, processing is paused and the processors synchronize on a barrier. Once all the processors are paused, the new JobModel is applied and the processing resumes. The barrier is implemented using the coordination service.
 * During startup and shutdown the processors will be joining/leaving one after another. To avoid redundant JobModel re-calculation, there is a debounce timer which waits for some short period of time (2 seconds by default, configurable in a future release) for more processors to join or leave. Each time a processor joins or leaves, the timer is reset. When the timer expires the JobModel is finally recalculated.
-* If the processors require local store for adjacent or temporary data, we would want to keep its mapping across restarts. For this we uses some extra information about each processor, which uniquely identifies it and its location. If the same processor is restarted on the same location we will try to assign it the same partitions. This locality information should survive the restarts, so it is stored on a common storage (currently using Zookeeper).
+* If the processors require local store for adjacent or temporary data, we would want to keep its mapping across restarts. For this we uses some extra information about each processor, which uniquely identifies it and its location. If the same processor is restarted on the same location we will try to assign it the same partitions. This locality information should survive the restarts, so it is stored on a common storage (currently using ZooKeeper).
 
 ### User guide
-As mentioned before, embedded deployment is designed to help users who want more control over the deployment of their application. So it is user’s responsibility to configure and deploy the processors. In case of ZooKeeper coordination, you also need to configure the URL for an instance of Zookeeper.
+As mentioned before, embedded deployment is designed to help users who want more control over the deployment of their application. So it is user’s responsibility to configure and deploy the processors. In case of ZooKeeper coordination, you also need to configure the URL for an instance of ZooKeeper.
 
 Additionally, each processor requires a unique ID to be used with the coordination service. If location affinity is important, this ID should be unique for each processor, on a specific hostname (assuming local Storage services). To address this requirement, Samza uses a ProcessorIdGenerator implementation class to provide the ID for each processor. If no generator is explicitly configured, the default one will create a UUID for each processor.
 
@@ -473,7 +473,7 @@ To run an embedded Samza processor, you need to configure the coordinator servic
 
 Let’s take a look at how to configure the two coordination service implementations that ship with Samza.
 
-To use Zookeeper-based coordination, the following configs are required:
+To use ZooKeeper-based coordination, the following configs are required:
 
 {% highlight jproperties %}
 job.coordinator.factory=org.apache.samza.zk.ZkJobCoordinatorFactory
@@ -481,10 +481,10 @@ job.coordinator.zk.connect=yourzkconnection
 task.name.grouper.factory=org.apache.samza.container.grouper.task.GroupByContainerIdsFactory
 {% endhighlight %}
 
-To use standalone coordination, the following configs are needed:
+To use external coordination, the following configs are needed:
 
 {% highlight properties %}
-job.coordinator.factory=org.apache.samza.standalone.StandaloneJobCoordinatorFactory
+job.coordinator.factory=org.apache.samza.standalone.PassthroughJobCoordinatorFactory
 task.name.grouper.factory=org.apache.samza.container.grouper.task.GroupByContainerIdsFactory
 {% endhighlight %}
 
