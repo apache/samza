@@ -307,4 +307,10 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
       Assert.fail("got interrupted while waiting for the first processor to start.");
     }
   }
+
+  protected void stopProcessor(Thread threadName) {
+    synchronized (threadName) {
+      threadName.notify();
+    }
+  }
 }

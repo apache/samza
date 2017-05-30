@@ -91,9 +91,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     // collect all the threads
     try {
       for (Thread t : threads) {
-        synchronized (t) {
-          t.notify(); // to stop the thread
-        }
+        stopProcessor(t);
         t.join(1000);
       }
     } catch (InterruptedException e) {
@@ -138,14 +136,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
     t2.start();
 
-    // wait until the processor reports that it has started
-    try {
-      synchronized (startWait2) {
-        startWait2.wait(1000);
-      }
-    } catch (InterruptedException e) {
-      Assert.fail("got interrupted while waiting for the 2nd processor to start.");
-    }
+    // wait until 2nd processor reports that it has started
+    waitForProcessorToStartStop(startWait2);
 
     // wait until the 1st processor reports that it has re-started
     waitForProcessorToStartStop(startWait1);
@@ -161,12 +153,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // shutdown both
     try {
-      synchronized (t1) {
-        t1.notify();
-      }
-      synchronized (t2) {
-        t2.notify();
-      }
+      stopProcessor(t1);
+      stopProcessor(t2);
       t1.join(1000);
       t2.join(1000);
     } catch (InterruptedException e) {
@@ -192,8 +180,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // create first processor
     Object waitStart1 = new Object();
-    Object waitSotp1 = new Object();
-    StreamProcessor sp1 = createStreamProcessor("30", map, waitStart1, waitSotp1);
+    Object waitStop1 = new Object();
+    StreamProcessor sp1 = createStreamProcessor("30", map, waitStart1, waitStop1);
 
     // start the first processor
     Thread t1 = runInThread(sp1, TestStreamTask.endLatch);
@@ -209,14 +197,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     waitForProcessorToStartStop(waitStart1);
 
     // wait until the processor reports that it has started
-    try {
-      synchronized (waitStart2) {
-        waitStart2.wait(1000);
-      }
-    } catch (InterruptedException e) {
-      Assert.fail("got interrupted while waiting for the 2nd processor to start.");
-    }
-
+    waitForProcessorToStartStop(waitStart2);
 
     // produce first batch of messages starting with 0
     produceMessages(0, inputTopic, messageCount);
@@ -225,19 +206,10 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     waitUntilConsumedN(totalEventsToGenerate - messageCount);
 
     // stop the first processor
-    synchronized (t1) {
-      t1.notify(); // this should stop it
-    }
+    stopProcessor(t1);
 
     // wait until it's really down
-    try {
-      synchronized (waitSotp1) {
-        waitSotp1.wait(1000);
-      }
-      System.out.println("Processor 1 is down");
-    } catch (InterruptedException e) {
-      Assert.fail("got interrupted while waiting for the 1st processor to stop.");
-    }
+    waitForProcessorToStartStop(waitStop1);
 
     // processor1 will stop and start again
     waitForProcessorToStartStop(waitStart1);
@@ -254,9 +226,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     // shutdown p2
 
     try {
-      synchronized (t2) {
-        t2.notify();
-      }
+      stopProcessor(t2);
       t2.join(1000);
     } catch (InterruptedException e) {
       Assert.fail("Failed to join finished thread:" + e.getLocalizedMessage());

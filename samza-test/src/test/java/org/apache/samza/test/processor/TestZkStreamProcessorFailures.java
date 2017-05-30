@@ -119,9 +119,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
     // shutdown p2
     try {
-      synchronized (t2) {
-        t2.notify();
-      }
+      stopProcessor(t2);
       t2.join(1000);
     } catch (InterruptedException e) {
       Assert.fail("Failed to join finished thread:" + e.getLocalizedMessage());
