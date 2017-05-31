@@ -257,7 +257,7 @@ public class StreamProcessor {
               if (!processorOnStartCalled) {
                 // processorListener is called on start only the first time the container starts.
                 // It is not called after every re-balance of partitions among the processors
-                //processorOnStartCalled = true;
+                // processorOnStartCalled = true;
                 if (processorListener != null) {
                   processorListener.onStart();
                 }
