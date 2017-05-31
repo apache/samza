@@ -91,7 +91,7 @@ public class TestIntermediateMessageSerde {
 
   @Test
   public void testUserMessageSerde() {
-    IntermediateMessageSerde imserde= new IntermediateMessageSerde(new ObjectSerde());
+    IntermediateMessageSerde imserde = new IntermediateMessageSerde(new ObjectSerde());
     String msg = "this is a test message";
     TestUserMessage userMessage = new TestUserMessage(msg, 0, System.currentTimeMillis());
     byte[] bytes = imserde.toBytes(userMessage);
@@ -104,9 +104,9 @@ public class TestIntermediateMessageSerde {
 
   @Test
   public void testWatermarkMessageSerde() {
-    IntermediateMessageSerde imserde= new IntermediateMessageSerde(new ObjectSerde());
+    IntermediateMessageSerde imserde = new IntermediateMessageSerde(new ObjectSerde());
     String taskName = "task-1";
-    WatermarkMessage watermark = new WatermarkMessage(System.currentTimeMillis(),taskName, 8);
+    WatermarkMessage watermark = new WatermarkMessage(System.currentTimeMillis(), taskName, 8);
     byte[] bytes = imserde.toBytes(watermark);
     WatermarkMessage de = (WatermarkMessage) imserde.fromBytes(bytes);
     assertEquals(MessageType.of(de), MessageType.WATERMARK);
@@ -117,7 +117,7 @@ public class TestIntermediateMessageSerde {
 
   @Test
   public void testEndOfStreamMessageSerde() {
-    IntermediateMessageSerde imserde= new IntermediateMessageSerde(new ObjectSerde());
+    IntermediateMessageSerde imserde = new IntermediateMessageSerde(new ObjectSerde());
     String streamId = "test-stream";
     String taskName = "task-1";
     EndOfStreamMessage eos = new EndOfStreamMessage(streamId, taskName, 8);

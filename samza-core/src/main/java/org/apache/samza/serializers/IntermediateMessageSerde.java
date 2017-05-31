@@ -20,7 +20,6 @@
 package org.apache.samza.serializers;
 
 import java.util.Arrays;
-import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.message.EndOfStreamMessage;
 import org.apache.samza.message.MessageType;
@@ -33,17 +32,17 @@ import org.codehaus.jackson.type.TypeReference;
  *
  * The message format of an intermediate stream is below:
  *
- * IntermediateStreamMessage => {
- *   MessageType => int8
- *   MessageData => byte[]
+ * IntermediateStreamMessage: {
+ *   MessageType : int8
+ *   MessageData : byte[]
  * }
  *
- * MessageType => [0(UserMessage), 1(Watermark), 2(EndOfStream)]
- * MessageData => [UserMessage/ControlMessage]
- * ControlMessage =>
- *   Version   => int
- *   TaskName  => string
- *   TaskCount => int
+ * MessageType: [0(UserMessage), 1(Watermark), 2(EndOfStream)]
+ * MessageData: [UserMessage/ControlMessage]
+ * ControlMessage:
+ *   Version   : int
+ *   TaskName  : string
+ *   TaskCount : int
  *   Other Message Data (based on different types of control message)
  *
  * For user message, we use the user message serde.
@@ -55,9 +54,8 @@ public class IntermediateMessageSerde implements Serde<Object> {
     @Override
     public WatermarkMessage fromBytes(byte[] bytes) {
       try {
-        return mapper().readValue(new String(bytes, "UTF-8"), new TypeReference<WatermarkMessage>() {});
-      }
-      catch (Exception e) {
+        return mapper().readValue(new String(bytes, "UTF-8"), new TypeReference<WatermarkMessage>() { });
+      } catch (Exception e) {
         throw new SamzaException(e);
       }
     }
@@ -67,9 +65,8 @@ public class IntermediateMessageSerde implements Serde<Object> {
     @Override
     public EndOfStreamMessage fromBytes(byte[] bytes) {
       try {
-        return mapper().readValue(new String(bytes, "UTF-8"), new TypeReference<EndOfStreamMessage>() {});
-      }
-      catch (Exception e) {
+        return mapper().readValue(new String(bytes, "UTF-8"), new TypeReference<EndOfStreamMessage>() { });
+      } catch (Exception e) {
         throw new SamzaException(e);
       }
     }
@@ -122,10 +119,10 @@ public class IntermediateMessageSerde implements Serde<Object> {
         data = userMessageSerde.toBytes(object);
         break;
       case WATERMARK:
-        data = watermarkSerde.toBytes((WatermarkMessage)object);
+        data = watermarkSerde.toBytes((WatermarkMessage) object);
         break;
       case END_OF_STREAM:
-        data = eosSerde.toBytes((EndOfStreamMessage)object);
+        data = eosSerde.toBytes((EndOfStreamMessage) object);
         break;
       default:
         throw new SamzaException("Unknown message type: " + type.name());
