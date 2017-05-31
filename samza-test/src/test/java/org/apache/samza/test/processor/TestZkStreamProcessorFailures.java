@@ -40,6 +40,11 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
   private final static int BAD_MESSAGE_KEY = 1000;
 
+
+  @Override
+  protected String prefix() {
+    return "test_ZK_failure_";
+  }
   @Before
   public void setUp() {
     super.setUp();

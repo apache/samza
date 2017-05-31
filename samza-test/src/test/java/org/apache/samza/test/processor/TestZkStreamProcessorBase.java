@@ -71,14 +71,18 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
 
   protected Map<String, String> map;
 
+  protected String prefix() {
+    return "";
+  }
+
   @Before
   public void setUp() {
     super.setUp();
     // for each tests - make the common parts unique
     int seqNum = counter.getAndAdd(1);
-    testSystem = "test-system" + seqNum;
-    inputTopic = "numbers" + seqNum;
-    outputTopic = "output" + seqNum;
+    testSystem = prefix() + "test-system" + seqNum;
+    inputTopic = prefix() + "numbers" + seqNum;
+    outputTopic = prefix() + "output" + seqNum;
 
     map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
 
@@ -194,14 +198,14 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
   }
 
   // for sequential values we can generate them automatically
-  protected void verifyNumMessages(String topic, int numberOfSequentialValues, int exectedNumMessages) {
+  protected void verifyNumMessages(String topic, int numberOfSequentialValues, int expectedNumMessages) {
     // we should get each value one time
     // create a map of all expected values to validate
     Map<Integer, Boolean> expectedValues = new HashMap<>(numberOfSequentialValues);
     for (int i = 0; i < numberOfSequentialValues; i++) {
       expectedValues.put(i, false);
     }
-    verifyNumMessages(topic, expectedValues, exectedNumMessages);
+    verifyNumMessages(topic, expectedValues, expectedNumMessages);
   }
 
   /**

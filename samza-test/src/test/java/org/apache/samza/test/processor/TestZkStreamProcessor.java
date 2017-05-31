@@ -33,6 +33,11 @@ import org.junit.Test;
  */
 public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
+  @Override
+  protected String prefix() {
+    return "test_ZK_";
+  }
+
   @Test
   public void testSingleStreamProcessor() {
     testStreamProcessor(new String[]{"1"});
@@ -170,7 +175,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
   @Test
   /**
    * same as other happy path messages, but with one processor removed in the middle
-   */ public void testStreamProcessorWithRemove() {
+   */
+  public void testStreamProcessorWithRemove() {
 
     // set number of events we expect to read by both processes in total:
     // p1 and p2 - both read messageCount at first and p1 is shutdown, new batch of events is generated
