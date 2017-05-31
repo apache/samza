@@ -172,7 +172,7 @@ You can obtain the MessageStream for your input stream ID (“page-views”) usi
     MessageStream<PageView> pageViewInput = graph.getInputStream(“page-views”, (k,v) -> v);
     {% endhighlight %}
 
-The first parameter `page-views` is the logical stream ID. Each stream ID is associated with a physical name and a system. By default, Samza uses the stream ID as the physical stream name and accesses the stream on the default system which is specified with the property “job.default.system”. However, the physical name and system properties can be overridden in configuration. For example, the following configuration defines page-views as an alias for the PageViewEvent topic in a local Kafka cluster.
+The first parameter `page-views` is the logical stream ID. Each stream ID is associated with a *physical name* and a *system*. By default, Samza uses the stream ID as the physical stream name and accesses the stream on the default system which is specified with the property “job.default.system”. However, the *physical name* and *system* properties can be overridden in configuration. For example, the following configuration defines the stream ID "page-views" as an alias for the PageViewEvent topic in a local Kafka cluster.
 
 {% highlight jproperties %}
 streams.page-views.samza.system=kafka
@@ -204,7 +204,7 @@ decoratedPageViews.sendTo(
                                                 dpv -> dpv));
 {% endhighlight %}
 
-The first parameter “decorated-page-views” is a logical stream ID. The properties for this stream ID can be overridden just like the stream IDs for input streams. For example,
+The first parameter `decorated-page-views` is a logical stream ID. The properties for this stream ID can be overridden just like the stream IDs for input streams. For example,
 {% highlight jproperties %}
 streams.decorated-page-views.samza.system=kafka
 streams.decorated-page-views.samza.physical.name=DecoratedPageViewEvent
@@ -267,7 +267,7 @@ MessageStream<ServiceCall> serviceCallMerged = serviceCall1.merge(serviceCall2)
 
 The merge transform preserves the order of each MessageStream, so if message `m1` appears before `m2` in any provided stream, then, `m1` also appears before `m2` in the merged stream.
 
-Alternatively, you also can use the `MessageStream#mergeAll` static method to merge MessageStreams without operating on an initial stream.
+As an alternative to the `merge` instance method, you also can use the [MessageStream#mergeAll](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#mergeAll-java.util.Collection-) static method to merge MessageStreams without operating on an initial stream.
 
 ### SendTo
 Sends all messages from this MessageStream to the provided OutputStream. You can specify the key and the value to be used for the outgoing message.

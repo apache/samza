@@ -42,7 +42,7 @@ This tutorial will provide step by step instructions to recreate the existing wi
 ### Introduction to Wikipedia Consumer
 In order to consume events from Wikipedia, the hello-samza project includes a `WikipediaSystemFactory` implementation of the Samza [SystemFactory](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/system/SystemFactory.html) that provides a `WikipediaConsumer`.
 
-The WikipediaConsumer is a [SystemConsumer](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/system/SystemConsumer.html) implementation that can consume events from Wikipedia. It is also a listener for events from the `WikipediaFeed`. It's important to note that the events received in `onEvent` are of the type `WikipediaFeedEvent`, so we will expect that type for messages on our input streams. For other systems, the messages may come in the form of `byte[]`. In that case you may want to configure a samza [serde](/learn/documentation/{{site.version}}/container/serialization.html) and the application should expect the output type of that serde.
+The WikipediaConsumer is an implementation of [SystemConsumer](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/system/SystemConsumer.html) that can consume events from Wikipedia. It is also a listener for events from the `WikipediaFeed`. It's important to note that the events received in `onEvent` are of the type `WikipediaFeedEvent`, so we will expect that type for messages on our input streams. For other systems, the messages may come in the form of `byte[]`. In that case you may want to configure a samza [serde](/learn/documentation/{{site.version}}/container/serialization.html) and the application should expect the output type of that serde.
 
 Now that we understand the Wikipedia system and the types of inputs we'll be processing, we can proceed with creating our application.
 
@@ -215,7 +215,7 @@ MessageStream<WikipediaFeedEvent> wikiNewsEvents = streamGraph.getInputStream("e
 
 The first argument to the [getInputStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/StreamGraph.html#getInputStream-java.lang.String-java.util.function.BiFunction-) method is the stream ID. Each ID must match the corresponding stream IDs we configured earlier.
 
-The second argument is the MessageBuilder. It converts the input key and message to the appropriate type. In this case, we don't have a key and want to sent the events as-is, so we have a very simple builder that just forwards the input value.
+The second argument is the *message builder*. It converts the input key and message to the appropriate type. In this case, we don't have a key and want to sent the events as-is, so we have a very simple builder that just forwards the input value.
 
 Note the streams are all MessageStreams of type WikipediaFeedEvent. [MessageStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html) is the in-memory representation of a stream in Samza. It uses generics to ensure type safety across the streams and operations. We knew the WikipediaFeedEvent type by inspecting the WikipediaConsumer above and we made it explicit with the cast on the output of the MessageBuilder. If our inputs used a serde, we would know the type based on which serde is configured for the input streams.
 
@@ -227,7 +227,7 @@ Add the following snippet to the [init](/learn/documentation/{{site.version}}/ap
 MessageStream<WikipediaFeed.WikipediaFeedEvent> allWikipediaEvents = MessageStream.mergeAll(ImmutableList.of(wikipediaEvents, wiktionaryEvents, wikiNewsEvents));
 {% endhighlight %}
 
-Note there is a [merge](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#merge-java.util.Collection-) operator class method on MessageStream, but the static [mergeAll](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#mergeAll-java.util.Collection-) method is a more convenient alternative if you need to merge many streams.
+Note there is a [merge](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#merge-java.util.Collection-) operator instance method on MessageStream, but the static [mergeAll](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#mergeAll-java.util.Collection-) method is a more convenient alternative if you need to merge many streams.
 
 #### Parse
 The next step is to parse the events and extract some information. We will use the pre-existing `WikipediaParser.parseEvent()' method to do this. The parser extracts some flags we want to monitor as well as some metadata about the event. Inspect the method signature. The input is a WikipediaFeedEvents and the output is a Map<String, Object>. These types will be reflected in the types of the streams before and after the operation.
@@ -320,7 +320,7 @@ The [OutputStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache
 
 The first parameter of [getOutputStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/StreamGraph.html#getOutputStream-java.lang.String-java.util.function.Function-java.util.function.Function-) is the output stream ID. We will use _wikipedia-stats_ and since it contains no special characters, we won't bother configuring a physical name so Samza will use the stream ID as the topic name.
 
-The second and third parameters are the key extractor and the message extractor, respectively. We have no key, so the key extractor simply produces null. The message extractor simply passes the message because it's already the correct type for the _json_ serde. Note: we could have skipped the previous [map](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#map-org.apache.samza.operators.functions.MapFunction-) operator and invoked our formatter here, but we kept them separate for pedagogical purposes.
+The second and third parameters are the *key extractor* and the *message extractor*, respectively. We have no key, so the *key extractor* simply produces null. The *message extractor* simply passes the message because it's already the correct type for the _json_ serde. Note: we could have skipped the previous [map](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#map-org.apache.samza.operators.functions.MapFunction-) operator and invoked our formatter here, but we kept them separate for pedagogical purposes.
 
 Finally, we can send our output to the output stream using the [sendTo](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html#sendTo-org.apache.samza.operators.OutputStream-) operator:
 {% highlight java %}
@@ -357,7 +357,7 @@ To use the store in the application, we need to get it from the [TaskContext](/l
 private KeyValueStore<String, Integer> store;
 {% endhighlight %}
 
-Then override the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.operators.StreamGraph-org.apache.samza.config.Config-) method in `WikipediaStatsAggregator` to initialize the store.
+Then override the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/InitableFunction.html#init-org.apache.samza.config.Config-org.apache.samza.task.TaskContext-) method in `WikipediaStatsAggregator` to initialize the store.
 {% highlight java %}
 @Override
 public void init(Config config, TaskContext context) {
@@ -397,7 +397,7 @@ In the WikipediaStatsAggregator, declare a counter member variable.
 private Counter repeatEdits;
 {% endhighlight %}
 
-Then add the following to the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html#init-org.apache.samza.operators.StreamGraph-org.apache.samza.config.Config-) method to initialize the counter.
+Then add the following to the `WikipediaStatsAggregator#init` method to initialize the counter.
 {% highlight java %}
 repeatEdits = context.getMetricsRegistry().newCounter("edit-counters", "repeat-edits");
 {% endhighlight %}
