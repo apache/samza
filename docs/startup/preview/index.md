@@ -92,7 +92,7 @@ Follow the [ZooKeeper deployment tutorial](/learn/tutorials/{{site.version}}/hel
 
 ##### Execution Plan
 
-The ApplicationRunner generates a physical execution plan for your processing logic before it starts executing it. The plan represents the runtime structure of the application. Particularly, it also provides visibility into the generated intermediate streams. Once the job is deployed, the plan can be viewed as follows:
+The ApplicationRunner generates a physical execution plan for your processing logic before it starts executing it. The plan represents the runtime structure of the application. Particularly, it provides visibility into the generated intermediate streams. Once the job is deployed, the plan can be viewed as follows:
 
 * For applications launched using _run-app.sh_, Samza will create a _plan_ directory under your application deployment directory and write the _plan.json_ file there.
 * For the applications launched using your own script (e.g. for LocalApplicationRunner), please create a _plan_ directory at the same level as _bin_, and point the `EXECUTION_PLAN_DIR` environment variable to its location.
@@ -116,7 +116,7 @@ For more details on running Samza in embedded mode, take a look at the [flexible
 
 #### IV. Processor
 
-The lowest execution unit of a Samza application is the StreamProcessor. It reads the configs generated from the [ApplicationRunner](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/runtime/ApplicationRunner.html)) and processes the input stream partitions assigned by the JobCoordinator. It can access local state using a [KeyValueStore]((/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/storage/KeyValueStore.html)) either RocksDB or memory and remote state using multithreading.
+The lowest execution unit of a Samza application is the processor. It reads the configs generated from the [ApplicationRunner](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/runtime/ApplicationRunner.html) and processes the input stream partitions assigned by the JobCoordinator. It can access local state using a [KeyValueStore]((/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/storage/KeyValueStore.html)) implementation (e.g. RocksDB or in-memory) and remote state (e.g. REST service) using multithreading.
 
 ---
 
@@ -204,7 +204,7 @@ decoratedPageViews.sendTo(
                                                 dpv -> dpv));
 {% endhighlight %}
 
-The first parameter `decorated-page-views` is a logical stream ID. The properties for this stream ID can be overridden just like the stream IDs for input streams. For example,
+The first parameter `decorated-page-views` is a logical stream ID. The properties for this stream ID can be overridden just like the stream IDs for input streams. For example:
 {% highlight jproperties %}
 streams.decorated-page-views.samza.system=kafka
 streams.decorated-page-views.samza.physical.name=DecoratedPageViewEvent
