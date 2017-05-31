@@ -34,9 +34,9 @@ Samza 0.13.0 introduces a new programming model and a new deployment model. They
 ### Try it Out
 Want to skip all the details and get some hands on experience? There are three tutorials to help you get acquainted with running Samza applications in both YARN and embedded modes and programming with the high level API:
 
-* [Yarn Deployment](/learn/tutorials/{{site.version}}/hello-samza-high-level-yarn.html) - run a pre-existing Wikipedia application on YARN and observe the output
+* [Yarn Deployment](/learn/tutorials/{{site.version}}/hello-samza-high-level-yarn.html) - run a pre-existing Wikipedia application on YARN and observe the output.
 * [High Level API Code Walkthrough](/learn/tutorials/{{site.version}}/hello-samza-high-level-code.html) - walk through building the Wikipedia application, step by step.
-* [ZooKeeper Deployment](/learn/tutorials/{{site.version}}/hello-samza-high-level-zk.html) - run a pre-existing Wikipedia application with ZooKeeper coordination and observe the output
+* [ZooKeeper Deployment](/learn/tutorials/{{site.version}}/hello-samza-high-level-zk.html) - run a pre-existing Wikipedia application with ZooKeeper coordination and observe the output.
 
 ---
 
