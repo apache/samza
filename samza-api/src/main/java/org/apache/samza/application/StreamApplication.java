@@ -69,7 +69,7 @@ import org.apache.samza.task.TaskContext;
  * Functions implemented for transforms in StreamApplications ({@link org.apache.samza.operators.functions.MapFunction},
  * {@link org.apache.samza.operators.functions.FilterFunction} for e.g.) are initable and closable. They are initialized
  * before messages are delivered to them and closed after their execution when the {@link StreamTask} instance is closed.
- * See {@link InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}
+ * See {@link InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
  */
 @InterfaceStability.Unstable
 public interface StreamApplication {

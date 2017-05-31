@@ -22,7 +22,7 @@ package org.apache.samza.operators.functions;
 import org.apache.samza.annotation.InterfaceStability;
 
 /**
- * A function that can be closed after its execution
+ * A function that can be closed after its execution.
  *
  * <p> Implement {@link #close()} to free resources used during the execution of the function, clean up state etc.
  *
