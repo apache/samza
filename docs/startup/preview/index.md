@@ -167,7 +167,7 @@ A MessageStream, as the name implies, represents a stream of messages. A StreamA
 There are 3 simple steps to write your stream processing applications using the Samza high-level API.
 
 ### Step 1: Obtain the input streams:
-You can obtain the MessageStream for your input streamId (“page-views”) using StreamGraph.getInputStream.
+You can obtain the MessageStream for your input stream ID (“page-views”) using StreamGraph.getInputStream.
     {% highlight java %}
     MessageStream<PageView> pageViewInput = graph.getInputStream(“page-views”, (k,v) -> v);
     {% endhighlight %}
@@ -182,15 +182,15 @@ systems.kafka.producer.bootstrap.servers=localhost:9092
 streams.page-views.samza.physical.name=PageViewEvent
 {% endhighlight %}
 
-The second parameter `(k,v) -> v`` is the MessageBuilder function that is used to construct a message from the incoming key and value.
+The second parameter `(k,v) -> v` is the MessageBuilder function that is used to construct a message from the incoming key and value.
 
 ### Step 2: Define your transformation logic:
 You are now ready to define your StreamApplication logic as a series of transformations on MessageStreams.
 
 {% highlight java %}
-MessageStream<DecoratedPageViews>  decoratedPageViews
-                                        = pageViewInput.filter(this::isValidPageView)
-                        .map(this::addProfileInformation);
+MessageStream<DecoratedPageViews> decoratedPageViews
+                                   = pageViewInput.filter(this::isValidPageView)
+                                                  .map(this::addProfileInformation);
 {% endhighlight %}
 
 ### Step 3: Write the output to an output stream:
@@ -199,7 +199,9 @@ Finally, you can create an OutputStream using StreamGraph.getOutputStream and se
 {% highlight java %}
 // Send messages with userId as the key to “decorated-page-views”.
 decoratedPageViews.sendTo(
-graph.getOutputStream(“decorated-page-views”, dpv -> dpv.getUserId(), dpv -> dpv));
+                          graph.getOutputStream(“decorated-page-views”,
+                                                dpv -> dpv.getUserId(),
+                                                dpv -> dpv));
 {% endhighlight %}
 
 The first parameter “decorated-page-views” is a logical stream ID. The properties for this stream ID can be overridden just like the stream IDs for input streams. For example,
@@ -211,7 +213,7 @@ streams.decorated-page-views.samza.physical.name=DecoratedPageViewEvent
 The second and third parameters define extractors to split the upstream data type into a separate key and value, respectively.
 
 ## Operators
-The high level API supports common operators like map, flatmap, filter, merge, joins, and windowing on streams. Most of these operators accept corresponding Functions and these functions are Initable.
+The high level API supports common operators like map, flatmap, filter, merge, joins, and windowing on streams. Most of these operators accept corresponding Functions and these functions are [Initable](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/InitableFunction.html).
 
 
 ### Map
@@ -244,7 +246,7 @@ MessageStream<String> shortWords = words.filter(word -> word.size() < 3);
 {% endhighlight %}
 
 ### PartitionBy
-Re-partitions this MessageStream using the key returned by the provided keyExtractor and returns the transformed MessageStream. Messages are sent through an intermediate Kafka topic during repartitioning.
+Re-partitions this MessageStream using the key returned by the provided keyExtractor and returns the transformed MessageStream. Messages are sent through an intermediate stream during repartitioning.
 
 {% highlight java %}
 // Repartition pageView by userId
@@ -254,7 +256,7 @@ MessageStream<PageView> partitionedPageViews =
 {% endhighlight %}
 
 ### Merge
-Merges this MessageStream with all the provided MessageStreams and returns the merged stream.
+Merges the MessageStream with all the provided MessageStreams and returns the merged stream.
 
 {% highlight java %}
 MessageStream<ServiceCall> serviceCall1 = ...
@@ -263,9 +265,9 @@ MessageStream<ServiceCall> serviceCall2 = ...
 MessageStream<ServiceCall> serviceCallMerged = serviceCall1.merge(serviceCall2)
 {% endhighlight %}
 
-The merge transform preserves the relative order of messages in the provided MessageStreams ie. If message `m1` appears before `m2` in any provided stream, then, `m1` also appears before `m2` in the merged stream.
+The merge transform preserves the order of each MessageStream, so if message `m1` appears before `m2` in any provided stream, then, `m1` also appears before `m2` in the merged stream.
 
-Alternately, You also can use `MessageStream#mergeAll` to merge all provided MessageStreams into a single MessageStream.
+Alternatively, you also can use the `MessageStream#mergeAll` static method to merge MessageStreams without operating on an initial stream.
 
 ### SendTo
 Sends all messages from this MessageStream to the provided OutputStream. You can specify the key and the value to be used for the outgoing message.
@@ -275,8 +277,8 @@ Sends all messages from this MessageStream to the provided OutputStream. You can
 MessageStream<PageView> pageViews = ...
 OutputStream<String, String, PageView> userRegions
                            = graph.getOutputStream(“user-region”,
-                                                      pageView->pageView.getUserId(),
-                                                     pageView -> pageView.getRegion())
+                                                   pageView -> pageView.getUserId(),
+                                                   pageView -> pageView.getRegion())
 pageView.sendTo(userRegions);
 {% endhighlight %}
 
@@ -306,11 +308,9 @@ The Join operator joins messages from two MessageStreams using the provided pair
 MessageStream<OrderRecord> orders = …
 MessageStream<ShipmentRecord> shipments = …
 
-
 MessageStream<FulfilledOrderRecord> shippedOrders = orders.join(shipments, new OrderShipmentJoiner(), Duration.ofMinutes(20) )
 
 // Constructs a new FulfilledOrderRecord by extracting the order timestamp from the OrderRecord and the shipment timestamp from the ShipmentRecord.
-
  class OrderShipmentJoiner implements JoinFunction<String, OrderRecord, ShipmentRecord, FulFilledOrderRecord> {
    @Override
    public FulFilledOrderRecord apply(OrderRecord message, ShipmentRecord otherMessage) {
@@ -342,9 +342,9 @@ A window can have one or more associated triggers which determine when results f
 
 **Accumulation Mode**: A window’s accumulation mode determines how results emitted from a window relate to previously emitted results. The accumulation mode can either be discarding or accumulating.
 
-A discarding window clears all state for the window at every emission. Each emission will only correspond to new messages that arrived since the previous emission for the window.
+A *discarding window* clears all state for the window at every emission. Each emission will only correspond to new messages that arrived since the previous emission for the window.
 
-An accumulating window retains window results from previous emissions. Each emission will contain all messages that arrived since the beginning of the window.
+An *accumulating window* retains window results from previous emissions. Each emission will contain all messages that arrived since the beginning of the window.
 
 #### Window Types:
 The Samza high-level API currently supports tumbling and session windows.
@@ -403,21 +403,23 @@ Currently, both window and join operators buffer messages in-memory. So, message
 ## Flexible Deployment Model
 
 ### Introduction
-Prior to Samza 0.13.0, Samza only supported deployment with [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html). The YARN deployment model is still available but now you can also implement your own extension to deploy Samza on other cluster management systems.
+Prior to Samza 0.13.0, Samza only supported cluster-managed deployment with [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html).
 
-With Samza 0.13.0, the deployment model has been simplified and decoupled from cluster management systems. Samza now ships with the ability to deploy applications as a simple embedded library with pluggable coordination. With embedded mode, you can leverage Samza processors directly in your application and deploy it in whatever way you prefer. Samza has a pluggable job coordinator layer to perform leader election and assign work to the processors.
+With Samza 0.13.0, the deployment model has been simplified and decoupled from YARN. If you prefer cluster management, you can still use YARN or you can implement your own extension to deploy Samza on other cluster management systems. But what if you want to avoid cluster management systems altogether?
+
+Samza now ships with the ability to deploy applications as a simple embedded library with pluggable coordination. With embedded mode, you can leverage Samza processors directly in your application and deploy it in whatever way you prefer. Samza has a pluggable job coordinator layer to perform leader election and assign work to the processors.
 
 This section will focus on the new embedded deployment capability.
 
 ### Concepts
 Let’s take a closer look at how embedded deployment works.
 
-The [architecture](#architecture) section above provided an overview of the layers that enable the flexible deployment model. As you can see embedded mode comes into the picture at the *deployment* layer. The deployment layer also includes assignment of input partitions to the available processors.
+The [architecture](#architecture) section above provided an overview of the layers that enable the flexible deployment model. The new embedded mode comes into the picture at the *deployment* layer. The deployment layer includes assignment of input partitions to the available processors.
 
 There are two types of partition assignment models which are controlled with the *job.coordinator.factory* in configuration:
 
 #### External Partition Management
-With external partition management, Samza doesn’t manage the partitioning by itself. Instead it uses a `PassthroughJobCoordinator` which honors whatever mapping is provided by the [SystemStreamPartitionGrouper](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/container/grouper/stream/SystemStreamPartitionGrouper.html). There are two common patterns for external partition management:
+With external partition management, Samza doesn’t manage the partitioning by itself. Instead it uses a `PassthroughJobCoordinator` which honors whatever partition mapping is provided by the [SystemStreamPartitionGrouper](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/container/grouper/stream/SystemStreamPartitionGrouper.html). There are two common patterns for external partition management:
 
 * **Using high level Kafka consumer** - partition assignment is done by the high level Kafka consumer itself. To use this model, you need to implement and configure a SystemFactory which provides the Kafka high level consumer. Then you need to configure *job.systemstreampartition.grouper.factory* to *org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouper* so Kafka's partition assignments all go to one task.
 * **Customized partitioning** - partition assignment is done with a custom grouper. The grouper logic is completely up to you. A practical example of this model is to implement a custom grouper which reads static partition assignments from the configuration.
@@ -441,11 +443,11 @@ Dynamic coordination of the processors assumes presence of a coordination servic
 * **JobModel notifications** - notifying the processors about availability of a new JobModel.
 * **JobModel storage** the coordination service dictates where the JobModel is persisted.
 
-The coordination service is currently derived from the job coordinator factory. Samza ships with a `ZkJobCoordinatorFactory` implementation which has a corresponding `ZkCorrdinationServiceFactory`.
+The coordination service is currently derived from the job coordinator factory. Samza ships with a `ZkJobCoordinatorFactory` implementation which has a corresponding `ZkCoordinationServiceFactory`.
 
 Let’s walk through the coordination sequence for a ZooKeeper based embedded application:
 
-* Each processor (participant) will register with the pluggable coordination service. During the registration it will provide its own participantId.
+* Each processor (participant) will register with the pluggable coordination service. During the registration it will provide its own participant ID.
 * One of the participants will be elected as the leader.
 * The leader monitors the list of all the active participants.
 * Whenever the list of the participants changes, the leader will generate a new JobModel for the current participants.
@@ -464,9 +466,9 @@ Here are a few important details about the coordination service:
 * If the processors require local store for adjacent or temporary data, we would want to keep its mapping across restarts. For this we uses some extra information about each processor, which uniquely identifies it and its location. If the same processor is restarted on the same location we will try to assign it the same partitions. This locality information should survive the restarts, so it is stored on a common storage (currently using ZooKeeper).
 
 ### User guide
-As mentioned before, embedded deployment is designed to help users who want more control over the deployment of their application. So it is user’s responsibility to configure and deploy the processors. In case of ZooKeeper coordination, you also need to configure the URL for an instance of ZooKeeper.
+Embedded deployment is designed to help users who want more control over the deployment of their application. So it is the user's responsibility to configure and deploy the processors. In case of ZooKeeper coordination, you also need to configure the URL for an instance of ZooKeeper.
 
-Additionally, each processor requires a unique ID to be used with the coordination service. If location affinity is important, this ID should be unique for each processor, on a specific hostname (assuming local Storage services). To address this requirement, Samza uses a ProcessorIdGenerator implementation class to provide the ID for each processor. If no generator is explicitly configured, the default one will create a UUID for each processor.
+Additionally, each processor requires a unique ID to be used with the coordination service. If location affinity is important, this ID should be unique for each processor on a specific hostname (assuming local Storage services). To address this requirement, Samza uses a [ProcessorIdGenerator](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/runtime/ProcessorIdGenerator.html) to provide the ID for each processor. If no generator is explicitly configured, the default one will create a UUID for each processor.
 
 #### Configuration
 To run an embedded Samza processor, you need to configure the coordinator service using the *job.coordinator.factory* property. Also, there is currently one taskname grouper that supports embedded mode, so you must configure that explicitly.
