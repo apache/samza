@@ -58,6 +58,11 @@ class StreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
   }
 
   @Override
+  protected void handleClose() {
+    this.transformFn.close();
+  }
+
+  @Override
   protected OperatorSpec<RM> getOperatorSpec() {
     return streamOpSpec;
   }

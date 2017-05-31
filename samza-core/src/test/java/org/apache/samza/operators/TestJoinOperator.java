@@ -57,7 +57,7 @@ public class TestJoinOperator {
 
   @Test
   public void join() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), new TestJoinStreamApplication());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -71,8 +71,27 @@ public class TestJoinOperator {
   }
 
   @Test
+  public void testJoinFnInitAndClose() throws Exception {
+    TestJoinFunction joinFn = new TestJoinFunction();
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), new TestJoinStreamApplication(joinFn));
+    List<Integer> output = new ArrayList<>();
+    MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
+
+    // push messages to first stream
+    numbers.forEach(n -> sot.process(new FirstStreamIME(n, n), messageCollector, taskCoordinator));
+
+    // close should not be called till now
+    assertEquals(joinFn.getNumCloseCalls(), 0);
+    sot.close();
+
+    // close should be called from sot.close()
+    assertEquals(joinFn.getNumInitCalls(), 1);
+    assertEquals(joinFn.getNumCloseCalls(), 1);
+  }
+
+  @Test
   public void joinReverse() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), new TestJoinStreamApplication());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -87,7 +106,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinNoMatch() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), new TestJoinStreamApplication());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -101,7 +120,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinNoMatchReverse() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), new TestJoinStreamApplication());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -115,7 +134,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsLatestMessageForKey() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), new TestJoinStreamApplication());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -132,7 +151,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsLatestMessageForKeyReverse() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), new TestJoinStreamApplication());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -149,7 +168,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsMatchedMessages() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), new TestJoinStreamApplication());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -171,7 +190,7 @@ public class TestJoinOperator {
 
   @Test
   public void joinRetainsMatchedMessagesReverse() throws Exception {
-    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock());
+    StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), new TestJoinStreamApplication());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -194,7 +213,7 @@ public class TestJoinOperator {
   @Test
   public void joinRemovesExpiredMessages() throws Exception {
     TestClock testClock = new TestClock();
-    StreamOperatorTask sot = createStreamOperatorTask(testClock);
+    StreamOperatorTask sot = createStreamOperatorTask(testClock, new TestJoinStreamApplication());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -214,7 +233,7 @@ public class TestJoinOperator {
   @Test
   public void joinRemovesExpiredMessagesReverse() throws Exception {
     TestClock testClock = new TestClock();
-    StreamOperatorTask sot = createStreamOperatorTask(testClock);
+    StreamOperatorTask sot = createStreamOperatorTask(testClock, new TestJoinStreamApplication());
     List<Integer> output = new ArrayList<>();
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
@@ -230,7 +249,7 @@ public class TestJoinOperator {
     assertTrue(output.isEmpty());
   }
 
-  private StreamOperatorTask createStreamOperatorTask(Clock clock) throws Exception {
+  private StreamOperatorTask createStreamOperatorTask(Clock clock, StreamApplication app) throws Exception {
     ApplicationRunner runner = mock(ApplicationRunner.class);
     when(runner.getStreamSpec("instream")).thenReturn(new StreamSpec("instream", "instream", "insystem"));
     when(runner.getStreamSpec("instream2")).thenReturn(new StreamSpec("instream2", "instream2", "insystem2"));
@@ -243,13 +262,23 @@ public class TestJoinOperator {
 
     Config config = mock(Config.class);
 
-    StreamApplication sgb = new TestStreamApplication();
-    StreamOperatorTask sot = new StreamOperatorTask(sgb, runner, clock);
+    StreamOperatorTask sot = new StreamOperatorTask(app, runner, clock);
     sot.init(config, taskContext);
     return sot;
   }
 
-  private static class TestStreamApplication implements StreamApplication {
+  private static class TestJoinStreamApplication implements StreamApplication {
+
+    private final TestJoinFunction joinFn;
+
+    TestJoinStreamApplication(TestJoinFunction joinFn) {
+      this.joinFn = joinFn;
+    }
+
+    TestJoinStreamApplication() {
+      this(new TestJoinFunction());
+    }
+
     @Override
     public void init(StreamGraph graph, Config config) {
       MessageStream<FirstStreamIME> inStream =
@@ -259,7 +288,7 @@ public class TestJoinOperator {
 
       SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
       inStream
-          .join(inStream2, new TestJoinFunction(), JOIN_TTL)
+          .join(inStream2, joinFn, JOIN_TTL)
           .sink((message, messageCollector, taskCoordinator) -> {
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
             });
@@ -267,6 +296,15 @@ public class TestJoinOperator {
   }
 
   private static class TestJoinFunction implements JoinFunction<Integer, FirstStreamIME, SecondStreamIME, Integer> {
+
+    private int numInitCalls = 0;
+    private int numCloseCalls = 0;
+
+    @Override
+    public void init(Config config, TaskContext context) {
+      numInitCalls++;
+    }
+
     @Override
     public Integer apply(FirstStreamIME message, SecondStreamIME otherMessage) {
       return (Integer) message.getMessage() + (Integer) otherMessage.getMessage();
@@ -280,6 +318,19 @@ public class TestJoinOperator {
     @Override
     public Integer getSecondKey(SecondStreamIME message) {
       return (Integer) message.getKey();
+    }
+
+    @Override
+    public void close() {
+      numCloseCalls++;
+    }
+
+    public int getNumInitCalls() {
+      return numInitCalls;
+    }
+
+    public int getNumCloseCalls() {
+      return numCloseCalls;
     }
   }
 

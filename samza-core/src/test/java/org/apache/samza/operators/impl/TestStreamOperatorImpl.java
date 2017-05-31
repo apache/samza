@@ -63,5 +63,11 @@ public class TestStreamOperatorImpl {
         .handleMessage(inMsg, mockCollector, mockCoordinator);
     verify(txfmFn, times(1)).apply(inMsg);
     assertEquals(results, mockOutputs);
+
+    // ensure that close is not called yet
+    verify(txfmFn, times(0)).close();
+    opImpl.handleClose();
+    // ensure that close is called once inside handleClose()
+    verify(txfmFn, times(1)).close();
   }
 }

@@ -42,6 +42,7 @@ public abstract class OperatorImpl<M, RM> {
   private static final String METRICS_GROUP = OperatorImpl.class.getName();
 
   private boolean initialized;
+  private boolean closed;
   private Set<OperatorImpl<RM, ?>> registeredOperators;
   private HighResolutionClock highResClock;
   private Counter numMessage;
@@ -59,6 +60,10 @@ public abstract class OperatorImpl<M, RM> {
 
     if (initialized) {
       throw new IllegalStateException(String.format("Attempted to initialize Operator %s more than once.", opName));
+    }
+
+    if (closed) {
+      throw new IllegalStateException(String.format("Attempted to initialize Operator %s after it was closed.", opName));
     }
 
     this.highResClock = createHighResClock(config);
@@ -160,6 +165,19 @@ public abstract class OperatorImpl<M, RM> {
   protected Collection<RM> handleTimer(MessageCollector collector, TaskCoordinator coordinator) {
     return Collections.emptyList();
   }
+
+  public void close() {
+
+    String opName = getOperatorSpec().getOpName();
+
+    if (closed) {
+      throw new IllegalStateException(String.format("Attempted to close Operator %s more than once.", opName));
+    }
+    handleClose();
+    closed = true;
+  }
+
+  protected abstract void handleClose();
 
   /**
    * Get the {@link OperatorSpec} for this {@link OperatorImpl}.

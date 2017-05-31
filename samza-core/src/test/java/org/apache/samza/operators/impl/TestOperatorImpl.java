@@ -197,6 +197,9 @@ public class TestOperatorImpl {
     }
 
     @Override
+    protected void handleClose() {}
+
+    @Override
     protected OperatorSpec<Object> getOperatorSpec() {
       return new TestOpSpec();
     }

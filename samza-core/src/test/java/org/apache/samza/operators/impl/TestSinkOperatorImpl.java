@@ -49,5 +49,12 @@ public class TestSinkOperatorImpl {
 
     sinkImpl.handleMessage(mockMsg, mockCollector, mockCoordinator);
     verify(sinkFn, times(1)).apply(mockMsg, mockCollector, mockCoordinator);
+
+    // ensure that close is not called yet
+    verify(sinkFn, times(0)).close();
+
+    sinkImpl.handleClose();
+    // ensure that close is called once from handleClose()
+    verify(sinkFn, times(1)).close();
   }
 }

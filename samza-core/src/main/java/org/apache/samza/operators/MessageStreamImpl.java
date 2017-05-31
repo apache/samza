@@ -148,6 +148,12 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
         thisStreamState = new InternalInMemoryStore<>();
       }
+
+      @Override
+      public void close() {
+        // joinFn#close() must only be called once, so we do it in this partial join function's #close.
+        joinFn.close();
+      }
     };
 
     PartialJoinFunction<K, OM, M, TM> otherPartialJoinFn = new PartialJoinFunction<K, OM, M, TM>() {
