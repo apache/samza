@@ -167,7 +167,6 @@ public abstract class OperatorImpl<M, RM> {
   }
 
   public void close() {
-
     String opName = getOperatorSpec().getOpName();
 
     if (closed) {

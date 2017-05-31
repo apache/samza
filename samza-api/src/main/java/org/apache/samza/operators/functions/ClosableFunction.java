@@ -22,12 +22,10 @@ package org.apache.samza.operators.functions;
 import org.apache.samza.annotation.InterfaceStability;
 
 /**
- * A function that can be closed
+ * A function that can be closed after its execution
  *
- * <p>
- *   The {@link #close()} method is typically used to free resources used during the execution of the function,
- *   clean up state etc.
- * </p>
+ * <p> Implement {@link #close()} to free resources used during the execution of the function, clean up state etc.
+ *
  */
 @InterfaceStability.Unstable
 public interface ClosableFunction {
