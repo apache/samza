@@ -277,7 +277,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
 
       // inject a failure
       if (val >= BAD_MESSAGE_KEY && processorId.equals(processorIdToFail)) {
-        LOG.info("process method will fail for msg=" + message);
+        LOG.info("process method failing for msg=" + message);
         throw new Exception("Processing in the processor " + processorId + " failed ");
       }
 
