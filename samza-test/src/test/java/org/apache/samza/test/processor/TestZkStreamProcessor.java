@@ -145,7 +145,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     waitForProcessorToStartStop(startWait2);
 
     // wait until the 1st processor reports that it has re-started
-    waitForProcessorToStartStop(startWait1);
+    //waitForProcessorToStartStop(startWait1);
 
     // let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(300);
@@ -218,7 +218,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     waitForProcessorToStartStop(waitStop1);
 
     // processor1 will stop and start again
-    waitForProcessorToStartStop(waitStart1);
+   // waitForProcessorToStartStop(waitStart1);
 
     // wait for at least one full debounce time to let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(300);

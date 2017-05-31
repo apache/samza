@@ -112,7 +112,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     waitForProcessorToStartStop(waitStop1);
 
     // wait until the 2nd processor reports that it has re-started
-    waitForProcessorToStartStop(waitStart2);
+    //waitForProcessorToStartStop(waitStart2);
 
     // give some extra time to let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(500);
