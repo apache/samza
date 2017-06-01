@@ -60,7 +60,7 @@ job.container.thread.pool.size=16
 
 ### Asynchronous Process with AsyncStreamTask API
 
-If your job process is asynchronous, e.g. making non-blocking remote IO calls, [AsyncStreamTask](javadocs/org/apache/samza/task/AsyncStreamTask.html) interface provides the support for it. In the following example AsyncRestTask makes asynchronous rest call and triggers callback once it's complete. 
+If your job process is asynchronous, e.g. making non-blocking remote IO calls, [AsyncStreamTask](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/task/AsyncStreamTask.html) interface provides the support for it. In the following example AsyncRestTask makes asynchronous rest call and triggers callback once it's complete.
 
 {% highlight java %}
 public class AsyncRestTask implements AsyncStreamTask, InitableTask, ClosableTask {
@@ -98,7 +98,7 @@ public class AsyncRestTask implements AsyncStreamTask, InitableTask, ClosableTas
 }
 {% endhighlight %}
 
-In the above example, the process is not complete when processAsync() returns. In the callback thread from Jersey client, we trigger [TaskCallback](javadocs/org/apache/samza/task/TaskCallback.html) to indicate the process is done. In order to make sure the callback will be triggered within certain time interval, e.g. 5 seconds, you can config the following property:
+In the above example, the process is not complete when processAsync() returns. In the callback thread from Jersey client, we trigger [TaskCallback](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/task/TaskCallback.html) to indicate the process is done. In order to make sure the callback will be triggered within certain time interval, e.g. 5 seconds, you can config the following property:
 
 {% highlight jproperties %}
 # Timeout for processAsync() callback. When the timeout happens, it will throw a TaskCallbackTimeoutException and shut down the container.
