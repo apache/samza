@@ -53,7 +53,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final ZkController zkController;
 
   private final Config config;
-  private final ZkBarrierForVersionUpgrade barrier;
+  final ZkBarrierForVersionUpgrade barrier;
 
   private StreamMetadataCache streamMetadataCache = null;
   private ScheduleAfterDebounceTime debounceTimer = null;

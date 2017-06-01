@@ -22,6 +22,7 @@ package org.apache.samza.test.processor;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.processor.StreamProcessor;
+import org.apache.samza.processor.TestZkStreamProcessorBase;
 import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -62,7 +63,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     // initialize the processors
     StreamProcessor[] streamProcessors = new StreamProcessor[processorIds.length];
     // we need to know when the processor has started
-    Object [] startWait = new Object[processorIds.length];
+    Object[] startWait = new Object[processorIds.length];
     for (int i = 0; i < processorIds.length; i++) {
       startWait[i] = new Object();
       streamProcessors[i] = createStreamProcessor(processorIds[i], map, startWait[i], null);
@@ -120,7 +121,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // create first processor
     Object startWait1 = new Object();
-    StreamProcessor sp = createStreamProcessor("20", map, startWait1, null);
+    Object stopWait1 = new Object();
+    StreamProcessor sp = createStreamProcessor("20", map, startWait1, stopWait1);
 
     // produce first batch of messages starting with 0
     produceMessages(0, inputTopic, messageCount);
@@ -144,11 +146,11 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     // wait until 2nd processor reports that it has started
     waitForProcessorToStartStop(startWait2);
 
-    // wait until the 1st processor reports that it has re-started
-    //waitForProcessorToStartStop(startWait1);
+    // wait until the 1st processor reports that it has stopped
+    waitForProcessorToStartStop(stopWait1);
 
     // let the system to publish and distribute the new job model
-    TestZkUtils.sleepMs(300);
+    TestZkUtils.sleepMs(600);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
@@ -175,8 +177,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
   @Test
   /**
    * same as other happy path messages, but with one processor removed in the middle
-   */
-  public void testStreamProcessorWithRemove() {
+   */ public void testStreamProcessorWithRemove() {
 
     // set number of events we expect to read by both processes in total:
     // p1 and p2 - both read messageCount at first and p1 is shutdown, new batch of events is generated
@@ -195,7 +196,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // start the second processor
     Object waitStart2 = new Object();
-    StreamProcessor sp2 = createStreamProcessor("31", map, waitStart2, null);
+    Object waitStop2 = new Object();
+    StreamProcessor sp2 = createStreamProcessor("31", map, waitStart2, waitStop2);
     Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
     t2.start();
 
@@ -217,10 +219,10 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     // wait until it's really down
     waitForProcessorToStartStop(waitStop1);
 
-    // processor1 will stop and start again
-   // waitForProcessorToStartStop(waitStart1);
+    // processor1 will stop and start again. We wait for its stop to make sure we can count EXACTLY how many messages it reads.
+    waitForProcessorToStartStop(waitStop2);
 
-    // wait for at least one full debounce time to let the system to publish and distribute the new job model
+    // let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(300);
 
     // produce the second batch of the messages, starting with 'messageCount'

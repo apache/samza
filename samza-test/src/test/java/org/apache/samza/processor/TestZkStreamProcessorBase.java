@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.test.processor;
+package org.apache.samza.processor;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,18 +38,20 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.processor.StreamProcessor;
-import org.apache.samza.processor.StreamProcessorLifecycleListener;
+import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
+import org.apache.samza.util.Util;
 import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
 import org.junit.Before;
@@ -96,34 +98,41 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
       final Object mutexStop) {
     map.put(ApplicationConfig.PROCESSOR_ID, pId);
 
-    StreamProcessor processor = new StreamProcessor(new MapConfig(map), new HashMap<>(), TestStreamTask::new,
-        new StreamProcessorLifecycleListener() {
+    Config config = new MapConfig(map);
+    JobCoordinator jobCoordinator =
+        Util.<JobCoordinatorFactory>getObj(new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName())
+            .getJobCoordinator(config);
 
-          @Override
-          public void onStart() {
-            if (mutexStart != null) {
-              synchronized (mutexStart) {
-                mutexStart.notifyAll();
-              }
-            }
-            LOG.info("onStart is called for pid=" + pId);
-          }
+    StreamProcessorLifecycleListener listener = new StreamProcessorLifecycleListener() {
 
-          @Override
-          public void onShutdown() {
-            if (mutexStop != null) {
-              synchronized (mutexStart) {
-                mutexStart.notify();
-              }
-            }
-            LOG.info("onShutdown is called for pid=" + pId);
+      @Override
+      public void onStart() {
+        if (mutexStart != null) {
+          synchronized (mutexStart) {
+            mutexStart.notifyAll();
           }
+        }
+        LOG.info("onStart is called for pid=" + pId);
+      }
 
-          @Override
-          public void onFailure(Throwable t) {
-            LOG.info("onFailure is called for pid=" + pId);
+      @Override
+      public void onShutdown() {
+        if (mutexStop != null) {
+          synchronized (mutexStart) {
+            mutexStart.notify();
           }
-        });
+        }
+        LOG.info("onShutdown is called for pid=" + pId);
+      }
+
+      @Override
+      public void onFailure(Throwable t) {
+        LOG.info("onFailure is called for pid=" + pId);
+      }
+    };
+
+    StreamProcessor processor =
+        new StreamProcessor(config, new HashMap<>(), (StreamTaskFactory) TestStreamTask::new, listener, jobCoordinator);
 
     return processor;
   }
@@ -249,7 +258,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
   public static class TestStreamTask implements StreamTask, InitableTask {
     // static field since there's no other way to share state b/w a task instance and
     // stream processor when constructed from "task.class".
-    static CountDownLatch endLatch;
+    public static CountDownLatch endLatch;
     protected int processedMessageCount = 0;
     protected String processorId;
     protected String outputTopic;

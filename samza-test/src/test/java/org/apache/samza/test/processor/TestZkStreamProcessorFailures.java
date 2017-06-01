@@ -25,6 +25,7 @@ import java.util.concurrent.CountDownLatch;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.processor.StreamProcessor;
+import org.apache.samza.processor.TestZkStreamProcessorBase;
 import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
 import org.junit.Before;
@@ -40,11 +41,11 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
   private final static int BAD_MESSAGE_KEY = 1000;
 
-
   @Override
   protected String prefix() {
     return "test_ZK_failure_";
   }
+
   @Before
   public void setUp() {
     super.setUp();
@@ -90,7 +91,8 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
     // start the second processor
     Object waitStart2 = new Object();
-    StreamProcessor sp2 = createStreamProcessor("102", map, waitStart2, null);
+    Object waitStop2 = new Object();
+    StreamProcessor sp2 = createStreamProcessor("102", map, waitStart2, waitStop2);
     Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
     t2.start();
 
@@ -111,11 +113,11 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
     waitForProcessorToStartStop(waitStop1);
 
-    // wait until the 2nd processor reports that it has re-started
-    //waitForProcessorToStartStop(waitStart2);
+    // wait until the 2nd processor reports that it has stopped
+    waitForProcessorToStartStop(waitStop2);
 
     // give some extra time to let the system to publish and distribute the new job model
-    TestZkUtils.sleepMs(500);
+    TestZkUtils.sleepMs(300);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
