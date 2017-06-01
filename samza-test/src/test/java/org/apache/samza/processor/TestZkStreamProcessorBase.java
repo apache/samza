@@ -103,7 +103,6 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
             .getJobCoordinator(config);
 
     StreamProcessorLifecycleListener listener = new StreamProcessorLifecycleListener() {
-
       @Override
       public void onStart() {
         if (mutexStart != null) {
