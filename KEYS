@@ -6,7 +6,7 @@ Developers:
   Create a key:
     gpg --gen-key
 
-  Adding you key to this file:
+  Adding your key to this file:
     (gpg --list-sigs <key id> && gpg --armor --export <key id>) >> this file.
 
   Publish the key:
@@ -538,3 +538,60 @@ iI+q9qfZFuNUNv6bhwFG77cTA6k=
 =/o0l
 -----END PGP PUBLIC KEY BLOCK-----
 
+pub   4096R/940AFC5A 2017-06-01 [expires: 2021-06-01]
+uid       [ultimate] Jake Maes <jmakes@apache.org>
+sig 3        940AFC5A 2017-06-01  Jake Maes <jmakes@apache.org>
+sub   4096R/D6B6587F 2017-06-01 [expires: 2021-06-01]
+sig          940AFC5A 2017-06-01  Jake Maes <jmakes@apache.org>
+
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+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
+4T0llIDYLg==
+=66aV
+-----END PGP PUBLIC KEY BLOCK-----
