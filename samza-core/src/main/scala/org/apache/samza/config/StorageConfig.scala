@@ -68,6 +68,15 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
     getInt(ACCESSLOG_SAMPLING_RATIO format storeName, DEFAULT_ACCESSLOG_SAMPLING_RATIO)
   }
 
+  //Returns the accesslog stream name given a changelog stream name
+  def getAccessLogStream(changeLogStream: String) = {
+    changeLogStream + "-" + ACCESSLOG_STREAM_SUFFIX
+  }
+
+  def getAccessLogSamplingRatio(storeName: String) = {
+    getInt(ACCESSLOG_SAMPLING_RATIO format storeName, DEFAULT_ACCESSLOG_SAMPLING_RATIO)
+  }
+
   def getChangeLogDeleteRetentionInMs(storeName: String) = {
     getLong(CHANGELOG_DELETE_RETENTION_MS format storeName, DEFAULT_CHANGELOG_DELETE_RETENTION_MS)
   }
