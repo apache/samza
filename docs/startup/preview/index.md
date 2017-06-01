@@ -311,10 +311,10 @@ MessageStream<ShipmentRecord> shipments = …
 MessageStream<FulfilledOrderRecord> shippedOrders = orders.join(shipments, new OrderShipmentJoiner(), Duration.ofMinutes(20) )
 
 // Constructs a new FulfilledOrderRecord by extracting the order timestamp from the OrderRecord and the shipment timestamp from the ShipmentRecord.
- class OrderShipmentJoiner implements JoinFunction<String, OrderRecord, ShipmentRecord, FulFilledOrderRecord> {
+ class OrderShipmentJoiner implements JoinFunction<String, OrderRecord, ShipmentRecord, FulfilledOrderRecord> {
    @Override
-   public FulFilledOrderRecord apply(OrderRecord message, ShipmentRecord otherMessage) {
-     return new FulFilledOrderRecord(message.orderId, message.orderTimestamp, otherMessage.shipTimestamp);
+   public FulfilledOrderRecord apply(OrderRecord message, ShipmentRecord otherMessage) {
+     return new FulfilledOrderRecord(message.orderId, message.orderTimestamp, otherMessage.shipTimestamp);
    }
 
    @Override
@@ -340,7 +340,7 @@ A window can have one or more associated triggers which determine when results f
 
 **Aggregator Function**: By default, the emitted WindowPane will contain all the messages for the window. Instead of retaining all messages, you typically define a more compact data structure for the WindowPane and update it incrementally as new messages arrive, e.g. for keeping a count of messages in the window. To do this, you can provide an aggregating [FoldLeftFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/FoldLeftFunction.html) which is invoked for each incoming message added to the window and defines how to update the WindowPane for that message.
 
-**Accumulation Mode**: A window’s accumulation mode determines how results emitted from a window relate to previously emitted results. The accumulation mode can either be discarding or accumulating.
+**Accumulation Mode**: A window’s accumulation mode determines how results emitted from a window relate to previously emitted results for the same window. This is particularly useful when the window is configured with early or late triggers. The accumulation mode can either be discarding or accumulating.
 
 A *discarding window* clears all state for the window at every emission. Each emission will only correspond to new messages that arrived since the previous emission for the window.
 
