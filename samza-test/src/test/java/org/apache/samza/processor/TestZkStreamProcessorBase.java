@@ -93,7 +93,6 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     createTopics(inputTopic, outputTopic);
   }
 
-  // auxiliary methods
   protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map, final Object mutexStart,
       final Object mutexStop) {
     map.put(ApplicationConfig.PROCESSOR_ID, pId);
