@@ -44,9 +44,9 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
   private Map<String, String> map;
 
-
   @Before
-  public void setupTest() {
+  public void setUp() {
+    super.setUp();
     // for each tests - make the common parts unique
     int seqNum = counter.getAndAdd(1);
     testSystem = "test-system" + seqNum;
@@ -67,12 +67,12 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
   @Test
   public void testTwoStreamProcessors() {
-    testStreamProcessor(new String[]{"1", "2"});
+    testStreamProcessor(new String[]{"2", "3"});
   }
 
   @Test
   public void testFiveStreamProcessors() {
-    testStreamProcessor(new String[]{"1", "2", "3", "4", "5"});
+    testStreamProcessor(new String[]{"4", "5", "6", "7", "8"});
   }
 
   // main test method for happy path with fixed number of processors
@@ -131,7 +131,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
   @Test
   /**
    * Similar to the previous tests, but add another processor in the middle
-   */ public void testStreamProcessorWithAdd() {
+   */ 
+   public void testStreamProcessorWithAdd() {
 
     // set number of events we expect wo read by both processes in total:
     // p1 - reads 'messageCount' at first
