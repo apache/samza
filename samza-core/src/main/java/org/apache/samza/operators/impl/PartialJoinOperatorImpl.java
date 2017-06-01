@@ -112,6 +112,11 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
   }
 
   @Override
+  protected void handleClose() {
+    this.thisPartialJoinFn.close();
+  }
+
+  @Override
   protected OperatorSpec<RM> getOperatorSpec() {
     return partialJoinOpSpec;
   }

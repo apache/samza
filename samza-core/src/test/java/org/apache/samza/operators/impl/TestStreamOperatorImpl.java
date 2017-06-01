@@ -64,4 +64,22 @@ public class TestStreamOperatorImpl {
     verify(txfmFn, times(1)).apply(inMsg);
     assertEquals(results, mockOutputs);
   }
+
+  @Test
+  public void testSimpleOperatorClose() {
+    StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> mockOp = mock(StreamOperatorSpec.class);
+    FlatMapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> txfmFn = mock(FlatMapFunction.class);
+    when(mockOp.getTransformFn()).thenReturn(txfmFn);
+    Config mockConfig = mock(Config.class);
+    TaskContext mockContext = mock(TaskContext.class);
+
+    StreamOperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope> opImpl =
+        spy(new StreamOperatorImpl<>(mockOp, mockConfig, mockContext));
+
+    // ensure that close is not called yet
+    verify(txfmFn, times(0)).close();
+    opImpl.handleClose();
+    // ensure that close is called once inside handleClose()
+    verify(txfmFn, times(1)).close();
+  }
 }

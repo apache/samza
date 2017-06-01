@@ -100,6 +100,15 @@ public class OperatorImplGraph {
   }
 
   /**
+   * Get all {@link OperatorImpl}s for the graph.
+   *
+   * @return  an unmodifiable view of all {@link OperatorImpl}s for the graph
+   */
+  public Collection<OperatorImpl> getAllOperators() {
+    return Collections.unmodifiableCollection(this.operatorImpls.values());
+  }
+
+  /**
    * Traverses the DAG of {@link OperatorSpec}s starting from the provided {@link MessageStreamImpl},
    * creates the corresponding DAG of {@link OperatorImpl}s, and returns its root {@link RootOperatorImpl} node.
    *

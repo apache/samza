@@ -30,7 +30,7 @@ import org.apache.samza.annotation.InterfaceStability;
  * @param <RM>  type of the joined message
  */
 @InterfaceStability.Unstable
-public interface JoinFunction<K, M, JM, RM>  extends InitableFunction {
+public interface JoinFunction<K, M, JM, RM>  extends InitableFunction, ClosableFunction {
 
   /**
    * Joins the provided messages and returns the joined message.

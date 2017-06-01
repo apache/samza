@@ -16,26 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
 
-
 /**
- * Specifies whether a message should be retained for further processing.
+ * A function that can be closed after its execution.
  *
- * @param <M>  type of the input message
+ * <p> Implement {@link #close()} to free resources used during the execution of the function, clean up state etc.
+ *
  */
 @InterfaceStability.Unstable
-@FunctionalInterface
-public interface FilterFunction<M> extends InitableFunction, ClosableFunction {
-
-  /**
-   * Returns a boolean indicating whether this message should be retained or filtered out.
-   *
-   * @param message  the input message to be checked
-   * @return  true if {@code message} should be retained
-   */
-  boolean apply(M message);
-
+public interface ClosableFunction {
+  default void close() {}
 }

@@ -22,7 +22,7 @@ package org.apache.samza.operators.functions;
 /**
  * Incrementally updates the window value as messages are added to the window.
  */
-public interface FoldLeftFunction<M, WV> extends InitableFunction {
+public interface FoldLeftFunction<M, WV> extends InitableFunction, ClosableFunction {
 
   /**
    * Incrementally updates the window value as messages are added to the window.
