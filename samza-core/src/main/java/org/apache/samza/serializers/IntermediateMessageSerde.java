@@ -28,7 +28,7 @@ import org.codehaus.jackson.type.TypeReference;
 
 
 /**
- * This class provides serialization/deserialziation of the intermediate messages.
+ * This class provides serialization/deserialization of the intermediate messages.
  *
  * The message format of an intermediate stream is below:
  *
@@ -99,13 +99,17 @@ public class IntermediateMessageSerde implements Serde<Object> {
           object = eosSerde.fromBytes(data);
           break;
         default:
-          object = null;
-          break;
+          throw new UnsupportedOperationException(String.format("Message type %s is not supported", type.name()));
       }
       return object;
 
+    } catch (UnsupportedOperationException ue) {
+      throw new SamzaException(ue);
     } catch (Exception e) {
-      // For backward compatibility, we fall back to user-provided serde
+      // This will catch the following exceptions:
+      // 1) the first byte is not a valid type so it will cause ArrayOutOfBound exception
+      // 2) the first byte happens to be a valid type, but the deserialization fails with certain exception
+      // For these cases, we fall back to user-provided serde
       return userMessageSerde.fromBytes(bytes);
     }
   }

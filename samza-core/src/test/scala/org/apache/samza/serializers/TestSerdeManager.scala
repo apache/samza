@@ -83,13 +83,12 @@ class TestSerdeManager {
     val eosStreamId = "eos-stream"
     val taskName = "task 1"
     val taskCount = 8
-    outEnvelope = new OutgoingMessageEnvelope(intermediate, "eos", new EndOfStreamMessage(eosStreamId, taskName, taskCount))
+    outEnvelope = new OutgoingMessageEnvelope(intermediate, "eos", new EndOfStreamMessage(taskName, taskCount))
     se = serdeManager.toBytes(outEnvelope)
     inEnvelope = new IncomingMessageEnvelope(new SystemStreamPartition(intermediate, new Partition(0)), "offset", se.getKey, se.getMessage)
     de = serdeManager.fromBytes(inEnvelope)
     assertEquals(de.getKey, "eos")
     val eosMsg = de.getMessage.asInstanceOf[EndOfStreamMessage]
-    assertEquals(eosMsg.getStreamId, eosStreamId)
     assertEquals(eosMsg.getTaskName, taskName)
     assertEquals(eosMsg.getTaskCount, taskCount)
 

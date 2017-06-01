@@ -19,8 +19,6 @@
 
 package org.apache.samza.message;
 
-import org.codehaus.jackson.annotate.JsonProperty;
-
 /**
  * The abstract class of all control messages, containing
  * the task that produces the control message, the total number of producer tasks,
@@ -44,12 +42,10 @@ public abstract class ControlMessage {
     return taskCount;
   }
 
-  @JsonProperty("version")
   public void setVersion(int version) {
     this.version = version;
   }
 
-  @JsonProperty("version")
   public int getVersion() {
     return version;
   }

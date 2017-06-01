@@ -27,18 +27,10 @@ import org.codehaus.jackson.annotate.JsonProperty;
  *  once the task has consumed to the end of a bounded stream.
  */
 public class EndOfStreamMessage extends ControlMessage {
-  private final String streamId;  //Id of the bounded stream that reaches to the end
 
   @JsonCreator
-  public EndOfStreamMessage(@JsonProperty("stream-id") String streamId,
-                            @JsonProperty("task-name") String taskName,
+  public EndOfStreamMessage(@JsonProperty("task-name") String taskName,
                             @JsonProperty("task-count") int taskCount) {
     super(taskName, taskCount);
-    this.streamId = streamId;
-  }
-
-  @JsonProperty("stream-id")
-  public String getStreamId() {
-    return streamId;
   }
 }

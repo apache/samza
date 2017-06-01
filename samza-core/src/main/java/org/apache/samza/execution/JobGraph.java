@@ -130,10 +130,9 @@ import org.slf4j.LoggerFactory;
    * @param to the target node
    */
   void addIntermediateStream(StreamSpec streamSpec, JobNode from, JobNode to) {
-    StreamEdge edge = getOrCreateStreamEdge(streamSpec);
+    StreamEdge edge = getOrCreateStreamEdge(streamSpec, true);
     edge.addSourceNode(from);
     edge.addTargetNode(to);
-    edge.setIsIntermediate(true);
     from.addOutEdge(edge);
     to.addInEdge(edge);
     intermediateStreams.add(edge);
@@ -161,14 +160,30 @@ import org.slf4j.LoggerFactory;
    * @return stream edge
    */
   StreamEdge getOrCreateStreamEdge(StreamSpec streamSpec) {
+    return getOrCreateStreamEdge(streamSpec, false);
+  }
+
+  /**
+   * Get the {@link StreamEdge} for a {@link StreamSpec}. Create one if it does not exist.
+   * @param streamSpec  spec of the StreamEdge
+   * @param isIntermediate  boolean flag indicating whether it's an intermediate stream
+   * @return stream edge
+   */
+  StreamEdge getOrCreateStreamEdge(StreamSpec streamSpec, boolean isIntermediate) {
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
-      edge = new StreamEdge(streamSpec);
+      edge = new StreamEdge(streamSpec, isIntermediate);
       edges.put(streamId, edge);
     }
     return edge;
   }
+
+  /**
+   * Get the {@link StreamEdge} for a {@link StreamSpec}. Create one if it does not exist.
+   * @param streamSpec spec of the StreamEdge
+   * @return stream edge
+   */
 
   /**
    * Returns the job nodes to be executed in the topological order

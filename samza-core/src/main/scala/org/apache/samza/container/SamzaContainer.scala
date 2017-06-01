@@ -304,7 +304,7 @@ object SamzaContainer extends Logging {
                 .map(serde => (systemStream, new StringSerde("UTF-8")))
       }).toMap
 
-    val intermedidateStreamMessageSerdes = intermediateStreams
+    val intermediateStreamMessageSerdes = intermediateStreams
       .flatMap(streamId => {
         val systemStream = config.streamIdToSystemStream(streamId)
         systemStreamMessageSerdes.get(systemStream)
@@ -320,7 +320,7 @@ object SamzaContainer extends Logging {
       systemStreamMessageSerdes = systemStreamMessageSerdes,
       changeLogSystemStreams = changeLogSystemStreams.values.toSet,
       controlMessageKeySerdes = controlMessageKeySerdes,
-      intermediateMessageSerdes = intermedidateStreamMessageSerdes)
+      intermediateMessageSerdes = intermediateStreamMessageSerdes)
 
     info("Setting up JVM metrics.")
 

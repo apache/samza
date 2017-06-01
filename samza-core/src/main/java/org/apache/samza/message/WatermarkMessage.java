@@ -37,7 +37,6 @@ public class WatermarkMessage extends ControlMessage {
     this.timestamp = timestamp;
   }
 
-  @JsonProperty("timestamp")
   public long getTimestamp() {
     return timestamp;
   }

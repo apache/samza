@@ -122,12 +122,12 @@ public class JobNode {
       }
     }
 
-    log.info("Job {} has generated configs {}", jobName, configs);
-
     configs.put(CONFIG_INTERNAL_EXECUTION_PLAN, executionPlanJson);
 
     // write input/output streams to configs
-    inEdges.stream().filter(StreamEdge::isIntermeidate).forEach(e -> addStreamConfig(e, configs));
+    inEdges.stream().filter(StreamEdge::isIntermediate).forEach(edge -> addStreamConfig(edge, configs));
+
+    log.info("Job {} has generated configs {}", jobName, configs);
 
     String configPrefix = String.format(CONFIG_JOB_PREFIX, jobName);
     // TODO: Disallow user specifying job inputs/outputs. This info comes strictly from the pipeline.
@@ -194,7 +194,7 @@ public class JobNode {
     StreamSpec spec = edge.getStreamSpec();
     config.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), spec.getId()), spec.getSystemName());
     config.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), spec.getId()), spec.getPhysicalName());
-    if (edge.isIntermeidate()) {
+    if (edge.isIntermediate()) {
       config.put(String.format(StreamConfig.IS_INTERMEDIATE_FROM_STREAM_ID(), spec.getId()), "true");
     }
     spec.getConfig().forEach((property, value) -> {
