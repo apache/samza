@@ -252,6 +252,37 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     Assert.assertEquals(expectedNumMessages, count);
   }
 
+  protected void waitUntilMessagesLeftN(int untilLeft) {
+    int attempts = ATTEMPTS_NUMBER;
+    while (attempts > 0) {
+      long leftEventsCount = TestZkStreamProcessorBase.TestStreamTask.endLatch.getCount();
+      //System.out.println("2current count = " + leftEventsCount);
+      if (leftEventsCount == untilLeft) { // that much should be left
+        System.out.println("2read all. current count = " + leftEventsCount);
+        break;
+      }
+      TestZkUtils.sleepMs(1000);
+      attempts--;
+    }
+    Assert.assertTrue("Didn't read all the leftover events in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
+  }
+
+  protected void waitForProcessorToStartStop(Object waitObject) {
+    try {
+      synchronized (waitObject) {
+        waitObject.wait(1000);
+      }
+    } catch (InterruptedException e) {
+      Assert.fail("got interrupted while waiting for the first processor to start.");
+    }
+  }
+
+  protected void stopProcessor(Thread threadName) {
+    synchronized (threadName) {
+      threadName.notify();
+    }
+  }
+
   // StreamTaskClass
   public static class TestStreamTask implements StreamTask, InitableTask {
     // static field since there's no other way to share state b/w a task instance and
@@ -300,37 +331,6 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
           endLatch.countDown();
         }
       }
-    }
-  }
-
-  protected void waitUntilMessagesLeftN(int untilLeft) {
-    int attempts = ATTEMPTS_NUMBER;
-    while (attempts > 0) {
-      long leftEventsCount = TestZkStreamProcessorBase.TestStreamTask.endLatch.getCount();
-      //System.out.println("2current count = " + leftEventsCount);
-      if (leftEventsCount == untilLeft) { // that much should be left
-        System.out.println("2read all. current count = " + leftEventsCount);
-        break;
-      }
-      TestZkUtils.sleepMs(1000);
-      attempts--;
-    }
-    Assert.assertTrue("Didn't read all the leftover events in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
-  }
-
-  protected void waitForProcessorToStartStop(Object waitObject) {
-    try {
-      synchronized (waitObject) {
-        waitObject.wait(1000);
-      }
-    } catch (InterruptedException e) {
-      Assert.fail("got interrupted while waiting for the first processor to start.");
-    }
-  }
-
-  protected void stopProcessor(Thread threadName) {
-    synchronized (threadName) {
-      threadName.notify();
     }
   }
 }
