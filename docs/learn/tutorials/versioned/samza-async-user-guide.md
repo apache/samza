@@ -118,6 +118,31 @@ task.max.concurrency=4
 
 **NOTE:** In case of AsyncStreamTask, processAsync() is still invoked in the order of the message arrivals, but the completion can go out of order. In case of StreamTask with multithreading, process() can run out-of-order since they are dispatched to a thread pool. This option should **NOT** be used when strict ordering of the output is required.
 
+### Non blocking commit
+
+By default in samza, concurrent execution of process and commit is not supported. This was designed with a motive to prevent commit flushing to disk and process updating the local store at the same time.
+
+In some scenarios, process calls will take a lot of time to complete. For instance, having high latency remote service calls in process will affect the execution frequency of commit(since only one can happen at a time). This incurs a additional delay in publishing the processed messages from a samza job to downstream samza jobs.
+
+Non blocking commit supports simultaneous processes and commits and is essential to prevent the starvation of commit from slow process completions.
+
+####Benefits.
+
+A) Reduces delay in publishing the processed messages by enabling the task to commit aggressively(a commit is no longer blocked by ongoing process calls).
+
+B) Increases the throughput of process calls, since process is not blocked by a ongoing commit.
+
+C) Decreases the time between fetching and processing the message.
+
+###NOTE:
+
+This should be used only when all the local store operations from a samza task are idempotent. Otherwise, during commit writes from messages in flight will be flushed to disk. 
+
+{% highlight jproperties %}
+# Turned off by default. Users should explicitly set following config to turn it on.
+task.async.commit = true
+{% endhighlight %}
+
 ### Guaranteed Semantics
 
 In any of the scenarios, Samza guarantees the following semantics:
