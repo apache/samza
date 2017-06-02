@@ -41,7 +41,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
@@ -61,8 +61,10 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   /**
    * The set of operators that consume the messages in this {@link MessageStream}
+   *
+   * Use a LinkedHashSet since we need deterministic ordering in initializing/closing operators.
    */
-  private final Set<OperatorSpec> registeredOperatorSpecs = new HashSet<>();
+  private final Set<OperatorSpec> registeredOperatorSpecs = new LinkedHashSet<>();
 
   /**
    * Default constructor

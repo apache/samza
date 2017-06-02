@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
+import com.google.common.collect.Lists;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraphImpl;
@@ -31,9 +32,12 @@ import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 
@@ -47,8 +51,10 @@ public class OperatorImplGraph {
    * A mapping from {@link OperatorSpec}s to their {@link OperatorImpl}s in this graph. Used to avoid creating
    * multiple {@link OperatorImpl}s for an {@link OperatorSpec}, e.g., when it's reached from different
    * input {@link MessageStreamImpl}s.
+   *
+   * Using LHM for deterministic ordering in initializing and closing operators.
    */
-  private final Map<OperatorSpec, OperatorImpl> operatorImpls = new HashMap<>();
+  private final Map<OperatorSpec, OperatorImpl> operatorImpls = new LinkedHashMap<>();
 
   /**
    * A mapping from input {@link SystemStream}s to their {@link OperatorImpl} sub-DAG in this graph.
@@ -99,13 +105,10 @@ public class OperatorImplGraph {
     return Collections.unmodifiableCollection(this.rootOperators.values());
   }
 
-  /**
-   * Get all {@link OperatorImpl}s for the graph.
-   *
-   * @return  an unmodifiable view of all {@link OperatorImpl}s for the graph
-   */
-  public Collection<OperatorImpl> getAllOperators() {
-    return Collections.unmodifiableCollection(this.operatorImpls.values());
+  public void close() {
+    List<OperatorImpl> initializationOrder = new ArrayList<>(operatorImpls.values());
+    List<OperatorImpl> finalizationOrder = Lists.reverse(initializationOrder);
+    finalizationOrder.forEach(OperatorImpl::close);
   }
 
   /**

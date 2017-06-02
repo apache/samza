@@ -22,7 +22,6 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.operators.impl.OperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
 import org.apache.samza.operators.impl.RootOperatorImpl;
 import org.apache.samza.operators.stream.InputStreamInternal;
@@ -32,7 +31,6 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -142,8 +140,6 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     if (this.contextManager != null) {
       this.contextManager.close();
     }
-
-    Collection<OperatorImpl> allOperators = operatorImplGraph.getAllOperators();
-    allOperators.forEach(OperatorImpl::close);
+    operatorImplGraph.close();
   }
 }
