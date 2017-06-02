@@ -35,6 +35,10 @@ import scala.collection.JavaConverters._
 
 
 object KafkaSystemAdmin extends Logging {
+  // Use a dummy string for the stream id. The physical name and partition count are all that matter for changelog creation, so the dummy string should not be used.
+  // We cannot use the topic name, as it may include special chars which are not allowed in stream IDs. See SAMZA-1317
+  val CHANGELOG_STREAMID = "unused-temp-changelog-stream-id"
+
   /**
    * A helper method that takes oldest, newest, and upcoming offsets for each
    * system stream partition, and creates a single map from stream name to
@@ -490,10 +494,10 @@ class KafkaSystemAdmin(
   class KafkaChangelogException(s: String, t: Throwable) extends SamzaException(s, t) {
     def this(s: String) = this(s, null)
   }
-
+  
   override def createChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
     val topicMeta = topicMetaInformation.getOrElse(topicName, throw new KafkaChangelogException("Unable to find topic information for topic " + topicName))
-    val spec = new KafkaStreamSpec(topicName, topicName, systemName, numKafkaChangelogPartitions, topicMeta.replicationFactor, topicMeta.kafkaProps)
+    val spec = new KafkaStreamSpec(CHANGELOG_STREAMID, topicName, systemName, numKafkaChangelogPartitions, topicMeta.replicationFactor, topicMeta.kafkaProps)
 
     if (createStream(spec)) {
       info("Created changelog stream %s." format topicName)
