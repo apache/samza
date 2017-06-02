@@ -23,8 +23,11 @@ Before you start, here are a few prerequisite steps that would be useful later:
 And before you proceed, do the following steps:
 
    * create a branch $VERSION from the latest master branch
+   * checkout the $VERSION branch
    * update the gradle.property s.t. the following property is $VERSION w/o the suffix '-SNAPSHOT':
       version=$VERSION
+   * change the samza_executable variable in samza-test/src/main/python/configs/tests.json to point to a Samza version w/o the suffix '-SNAPSHOT'
+   * push the changes to the $VERSION branch
 
 Validate that all Samza source files have proper license information in their header.
 
