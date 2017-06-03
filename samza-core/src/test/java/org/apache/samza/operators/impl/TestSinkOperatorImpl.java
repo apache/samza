@@ -36,18 +36,42 @@ import static org.mockito.Mockito.when;
 public class TestSinkOperatorImpl {
 
   @Test
-  public void testSinkOperator() {
-    SinkOperatorSpec<TestOutputMessageEnvelope> sinkOp = mock(SinkOperatorSpec.class);
+  public void testSinkOperatorSinkFunction() {
     SinkFunction<TestOutputMessageEnvelope> sinkFn = mock(SinkFunction.class);
-    when(sinkOp.getSinkFn()).thenReturn(sinkFn);
-    Config mockConfig = mock(Config.class);
-    TaskContext mockContext = mock(TaskContext.class);
-    SinkOperatorImpl<TestOutputMessageEnvelope> sinkImpl = new SinkOperatorImpl<>(sinkOp, mockConfig, mockContext);
+    SinkOperatorImpl<TestOutputMessageEnvelope> sinkImpl = createSinkOperator(sinkFn);
     TestOutputMessageEnvelope mockMsg = mock(TestOutputMessageEnvelope.class);
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
 
     sinkImpl.handleMessage(mockMsg, mockCollector, mockCoordinator);
     verify(sinkFn, times(1)).apply(mockMsg, mockCollector, mockCoordinator);
+  }
+
+  @Test
+  public void testSinkOperatorClose() {
+    TestOutputMessageEnvelope mockMsg = mock(TestOutputMessageEnvelope.class);
+    MessageCollector mockCollector = mock(MessageCollector.class);
+    TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
+    SinkFunction<TestOutputMessageEnvelope> sinkFn = mock(SinkFunction.class);
+
+    SinkOperatorImpl<TestOutputMessageEnvelope> sinkImpl = createSinkOperator(sinkFn);
+    sinkImpl.handleMessage(mockMsg, mockCollector, mockCoordinator);
+    verify(sinkFn, times(1)).apply(mockMsg, mockCollector, mockCoordinator);
+
+    // ensure that close is not called yet
+    verify(sinkFn, times(0)).close();
+
+    sinkImpl.handleClose();
+    // ensure that close is called once from handleClose()
+    verify(sinkFn, times(1)).close();
+  }
+
+  private SinkOperatorImpl createSinkOperator(SinkFunction<TestOutputMessageEnvelope> sinkFn) {
+    SinkOperatorSpec<TestOutputMessageEnvelope> sinkOp = mock(SinkOperatorSpec.class);
+    when(sinkOp.getSinkFn()).thenReturn(sinkFn);
+
+    Config mockConfig = mock(Config.class);
+    TaskContext mockContext = mock(TaskContext.class);
+    return new SinkOperatorImpl<>(sinkOp, mockConfig, mockContext);
   }
 }

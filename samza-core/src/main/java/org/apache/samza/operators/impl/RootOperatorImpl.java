@@ -44,6 +44,10 @@ public final class RootOperatorImpl<M> extends OperatorImpl<M, M> {
     return Collections.singletonList(message);
   }
 
+  @Override
+  protected void handleClose() {
+  }
+
   // TODO: SAMZA-1221 - Change to InputOperatorSpec that also builds the message
   @Override
   protected OperatorSpec<M> getOperatorSpec() {

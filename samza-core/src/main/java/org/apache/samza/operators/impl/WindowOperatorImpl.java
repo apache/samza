@@ -158,6 +158,15 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
     return windowOpSpec;
   }
 
+  @Override
+  protected void handleClose() {
+    WindowInternal<M, WK, WV> window = windowOpSpec.getWindow();
+
+    if (window.getFoldLeftFunction() != null) {
+      window.getFoldLeftFunction().close();
+    }
+  }
+
   /**
    * Get the key to be used for lookups in the store for this message.
    */

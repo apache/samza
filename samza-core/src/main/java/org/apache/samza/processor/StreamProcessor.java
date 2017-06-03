@@ -20,6 +20,11 @@ package org.apache.samza.processor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.apache.samza.SamzaContainerStatus;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
@@ -39,12 +44,6 @@ import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 /**
  * StreamProcessor can be embedded in any application or executed in a distributed environment (aka cluster) as an
@@ -93,7 +92,7 @@ public class StreamProcessor {
    */
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
                          AsyncStreamTaskFactory asyncStreamTaskFactory, StreamProcessorLifecycleListener processorListener) {
-    this(config, customMetricsReporters, (Object) asyncStreamTaskFactory, processorListener);
+    this(config, customMetricsReporters, (Object) asyncStreamTaskFactory, processorListener, null);
   }
 
   /**
@@ -106,7 +105,7 @@ public class StreamProcessor {
    */
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
                          StreamTaskFactory streamTaskFactory, StreamProcessorLifecycleListener processorListener) {
-    this(config, customMetricsReporters, (Object) streamTaskFactory, processorListener);
+    this(config, customMetricsReporters, (Object) streamTaskFactory, processorListener, null);
   }
 
   /* package private */
@@ -118,7 +117,6 @@ public class StreamProcessor {
         .getJobCoordinator(config);
   }
 
-  @VisibleForTesting
   StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, Object taskFactory,
                   StreamProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
     this.taskFactory = taskFactory;
@@ -126,20 +124,9 @@ public class StreamProcessor {
     this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
     this.customMetricsReporter = customMetricsReporters;
     this.processorListener = processorListener;
-    this.jobCoordinator = jobCoordinator;
+    this.jobCoordinator = (jobCoordinator != null) ? jobCoordinator : getJobCoordinator();
     this.jobCoordinatorListener = createJobCoordinatorListener();
     this.jobCoordinator.setListener(jobCoordinatorListener);
-  }
-
-  private StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
-                          Object taskFactory, StreamProcessorLifecycleListener processorListener) {
-    this.taskFactory = taskFactory;
-    this.config = config;
-    this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
-    this.customMetricsReporter = customMetricsReporters;
-    this.processorListener = processorListener;
-    this.jobCoordinator = getJobCoordinator();
-    this.jobCoordinator.setListener(createJobCoordinatorListener());
   }
 
   /**

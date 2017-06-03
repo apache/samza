@@ -57,6 +57,11 @@ class SinkOperatorImpl<M> extends OperatorImpl<M, M> {
   }
 
   @Override
+  protected void handleClose() {
+    this.sinkFn.close();
+  }
+
+  @Override
   protected OperatorSpec<M> getOperatorSpec() {
     return sinkOpSpec;
   }

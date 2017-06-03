@@ -83,7 +83,7 @@ public class KafkaStreamSpec extends StreamSpec {
         if (LogConfig.configNames().contains(entry.getKey())) {
           filteredConfig.put(entry.getKey(), entry.getValue());
         } else {
-          LOG.warn("Property '{}' is not a valid Kafka topic config. It will be ignored.");
+          LOG.warn("Property '{}' is not a valid Kafka topic config. It will be ignored.", entry.getKey());
         }
       }
     }
