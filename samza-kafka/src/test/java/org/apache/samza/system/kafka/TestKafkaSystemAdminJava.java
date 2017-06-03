@@ -132,6 +132,25 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   }
 
   @Test
+  public void testValidateChangelogStreamDelegatesToCreateStream_specialCharsInTopicName() {
+    final String STREAM = "test.Change_Log.Validate";
+    Properties coordProps = new Properties();
+    Map<String, ChangelogInfo> changeLogMap = new HashMap<>();
+    changeLogMap.put(STREAM, new ChangelogInfo(3, new Properties()));
+
+    KafkaSystemAdmin systemAdmin = createSystemAdmin(coordProps, 3, Util.javaMapAsScalaMap(changeLogMap));
+    SystemAdmin admin = Mockito.spy(systemAdmin);
+    StreamSpec spec = new StreamSpec("testId", STREAM, "testSystem", 12);
+
+    admin.createChangelogStream(spec.getPhysicalName(), spec.getPartitionCount());
+    admin.validateStream(spec);
+    admin.validateChangelogStream(STREAM, spec.getPartitionCount()); // Should not throw
+
+    Mockito.verify(admin).createStream(Mockito.any());
+    Mockito.verify(admin, Mockito.times(3)).validateStream(Mockito.any());
+  }
+
+  @Test
   public void testCreateStream() {
     SystemAdmin admin = this.basicSystemAdmin;
     StreamSpec spec = new StreamSpec("testId", "testStream", "testSystem", 8);

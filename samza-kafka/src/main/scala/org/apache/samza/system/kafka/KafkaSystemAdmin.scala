@@ -21,6 +21,7 @@ package org.apache.samza.system.kafka
 
 import java.util
 import java.util.{Properties, UUID}
+
 import kafka.admin.AdminUtils
 import kafka.api._
 import kafka.common.TopicAndPartition
@@ -31,6 +32,7 @@ import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadat
 import org.apache.samza.system._
 import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, KafkaUtil, Logging}
 import org.apache.samza.{Partition, SamzaException}
+
 import scala.collection.JavaConverters._
 
 
@@ -514,7 +516,7 @@ class KafkaSystemAdmin(
     * will auto-create a new topic.
     */
   override def validateChangelogStream(topicName: String, numKafkaChangelogPartitions: Int) = {
-    validateStream(new KafkaStreamSpec(topicName, systemName, numKafkaChangelogPartitions))
+    validateStream(new KafkaStreamSpec(CHANGELOG_STREAMID, topicName, systemName, numKafkaChangelogPartitions))
   }
 
   /**
