@@ -27,6 +27,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.coordinator.stream.CoordinatorStreamWriter;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.StreamMetadataCache;
@@ -52,6 +56,7 @@ public class StreamPartitionCountMonitor {
   private final int monitorPeriodMs;
   private final Map<SystemStream, Gauge<Integer>> gauges;
   private final Map<SystemStream, SystemStreamMetadata> initialMetadata;
+  private final Config config;
 
   // Used to guard write access to state.
   private final Object lock = new Object();
@@ -87,15 +92,16 @@ public class StreamPartitionCountMonitor {
    * @param streamsToMonitor  a set of SystemStreams to monitor.
    * @param metadataCache     the metadata cache which will be used to fetch metadata for partition counts.
    * @param metrics           the metrics registry to which the metrics should be added.
-   * @param monitorPeriodMs   the period at which the monitor will run in milliseconds.
+   * @param config            a key/value map
    */
   public StreamPartitionCountMonitor(Set<SystemStream> streamsToMonitor, StreamMetadataCache metadataCache,
-      MetricsRegistryMap metrics, int monitorPeriodMs) {
+      MetricsRegistryMap metrics, Config config) {
     this.streamsToMonitor = streamsToMonitor;
     this.metadataCache = metadataCache;
     this.metrics = metrics;
-    this.monitorPeriodMs = monitorPeriodMs;
+    this.monitorPeriodMs = new JobConfig(config).getMonitorPartitionChangeFrequency();
     this.initialMetadata = getMetadata(streamsToMonitor, metadataCache);
+    this.config = config;
 
     // Pre-populate the gauges
     Map<SystemStream, Gauge<Integer>> mutableGauges = new HashMap<>();
@@ -115,6 +121,7 @@ public class StreamPartitionCountMonitor {
   void updatePartitionCountMetric() {
     try {
       Map<SystemStream, SystemStreamMetadata> currentMetadata = getMetadata(streamsToMonitor, metadataCache);
+      boolean partitionCountIncreased = false;
 
       for (Map.Entry<SystemStream, SystemStreamMetadata> metadataEntry : initialMetadata.entrySet()) {
         SystemStream systemStream = metadataEntry.getKey();
@@ -125,7 +132,18 @@ public class StreamPartitionCountMonitor {
 
         Gauge gauge = gauges.get(systemStream);
         gauge.set(currentPartitionCount - prevPartitionCount);
+        if (currentPartitionCount - prevPartitionCount > 0)
+          partitionCountIncreased = true;
       }
+
+      if (partitionCountIncreased) {
+        CoordinatorStreamWriter coordinatorStreamWriter  = new CoordinatorStreamWriter(config);
+        coordinatorStreamWriter.start();
+        // Dong: this is a temporary solution to show how we can restart job upon partition expansion
+        coordinatorStreamWriter.sendMessage(SetConfig.TYPE, "job-model-changed", "true");
+        coordinatorStreamWriter.stop();
+      }
+
     } catch (Exception e) {
       log.error("Exception while updating partition count metric.", e);
     }

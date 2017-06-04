@@ -141,7 +141,7 @@ public class YarnContainerRunner {
             containerIdStr}
     );
 
-      log.info("Started container ID {}", samzaContainerId);
+    log.info("Started container ID {}", samzaContainerId);
   }
 
   /**
@@ -149,11 +149,10 @@ public class YarnContainerRunner {
    *    specified by packagePath.
    */
   private void startContainer(Path packagePath,
-                                Container container,
-                                Map<String, String> env,
-                                final String cmd) throws SamzaContainerLaunchException {
-    log.info("starting container {} {} {} {}",
-        new Object[]{packagePath, container, env, cmd});
+                              Container container,
+                              Map<String, String> env,
+                              final String cmd) throws SamzaContainerLaunchException {
+    log.info("starting container {} {} {} {}", new Object[]{packagePath, container, env, cmd});
 
     // TODO: SAMZA-1144 remove the customized approach for package resource and use the common one.
     // But keep it now for backward compatibility.

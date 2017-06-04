@@ -82,6 +82,7 @@ public class ConfigManager {
   private final String pollingIntervalOpt = "configManager.polling.interval";
   private static final String SERVER_URL_OPT = "samza.autoscaling.server.url";
   private static final String YARN_CONTAINER_COUNT_OPT = "yarn.container.count";
+  private static final String JOB_MODEL_CHANGED_OPT = "job-model-changed";
 
   public ConfigManager(Config config) {
 
@@ -193,6 +194,7 @@ public class ConfigManager {
     List<String> keysToProcess = new LinkedList<>();
     keysToProcess.add(YARN_CONTAINER_COUNT_OPT);
     keysToProcess.add(SERVER_URL_OPT);
+    keysToProcess.add(JOB_MODEL_CHANGED_OPT);
     processConfigMessages(keysToProcess);
   }
 
@@ -224,10 +226,12 @@ public class ConfigManager {
         log.debug("Received set-config message with key: " + key + " and value: " + value);
 
         if (keysToProcess.contains(key)) {
-          if (key.equals(YARN_CONTAINER_COUNT_OPT)) {
-            handleYarnContainerChange(value);
-          } else if (key.equals(SERVER_URL_OPT)) {
+          if (key.equals(SERVER_URL_OPT)) {
             handleServerURLChange(value);
+          } else if (key.equals(YARN_CONTAINER_COUNT_OPT)) {
+            handleYarnContainerChange(value);
+          } else if (key.equals(JOB_MODEL_CHANGED_OPT)) {
+            handleJobModelChange();
           } else {
             log.info("Setting the " + key + " configuration is currently not supported, skipping the message");
           }
@@ -258,8 +262,6 @@ public class ConfigManager {
    * @param containerCountAsString the new number of containers in a String format
    */
   private void handleYarnContainerChange(String containerCountAsString) throws IOException, YarnException {
-    String applicationId = yarnUtil.getRunningAppId(jobName, jobID);
-
     int containerCount = Integer.valueOf(containerCountAsString);
 
     //checking the input is valid
@@ -269,17 +271,27 @@ public class ConfigManager {
       log.error("The new number of containers is equal to the current number of containers, skipping this message");
       return;
     }
+
     if (containerCount <= 0) {
       log.error("The number of containers cannot be zero or less, skipping this message");
       return;
     }
-
 
     if (containerCount > currentNumTask) {
       log.error("The number of containers cannot be more than the number of task, skipping this message");
       return;
     }
 
+    restartJob();
+  }
+
+  private void handleJobModelChange() throws IOException, YarnException {
+    log.info("Received request to reset job model");
+    restartJob();
+  }
+
+  private void restartJob() throws IOException, YarnException {
+    String applicationId = yarnUtil.getRunningAppId(jobName, jobID);
 
     //killing the current job
     log.info("Killing the current job");

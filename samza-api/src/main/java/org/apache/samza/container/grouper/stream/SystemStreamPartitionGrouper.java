@@ -37,5 +37,9 @@ import java.util.Set;
  * the TaskNames.
  */
 public interface SystemStreamPartitionGrouper {
-  public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps);
+  @Deprecated
+  Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> sspSet);
+
+  Map<TaskName, Set<SystemStreamPartition>> group(Map<SystemStreamPartition, String> previousSSPTaskAssignment,
+                                                  Set<SystemStreamPartition> sspSet);
 }
