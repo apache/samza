@@ -71,6 +71,11 @@ public class OperatorSpecs {
       public void init(Config config, TaskContext context) {
         mapFn.init(config, context);
       }
+
+      @Override
+      public void close() {
+        mapFn.close();
+      }
     }, nextStream, OperatorSpec.OpCode.MAP, opId);
   }
 
@@ -101,6 +106,12 @@ public class OperatorSpecs {
       public void init(Config config, TaskContext context) {
         filterFn.init(config, context);
       }
+
+      @Override
+      public void close() {
+        filterFn.close();
+      }
+
     }, nextStream, OperatorSpec.OpCode.FILTER, opId);
   }
 

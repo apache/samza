@@ -31,8 +31,8 @@ import org.apache.samza.system.StreamSpec;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiFunction;
@@ -51,8 +51,9 @@ public class StreamGraphImpl implements StreamGraph {
    */
   private int opId = 0;
 
-  private final Map<StreamSpec, InputStreamInternal> inStreams = new HashMap<>();
-  private final Map<StreamSpec, OutputStreamInternal> outStreams = new HashMap<>();
+  // Using LHM for deterministic order in initializing and closing operators.
+  private final Map<StreamSpec, InputStreamInternal> inStreams = new LinkedHashMap<>();
+  private final Map<StreamSpec, OutputStreamInternal> outStreams = new LinkedHashMap<>();
   private final ApplicationRunner runner;
   private final Config config;
 

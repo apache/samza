@@ -18,11 +18,13 @@
  */
 package org.apache.samza.operators;
 
+import junit.framework.Assert;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.data.MessageType;
 import org.apache.samza.operators.data.TestInputMessageEnvelope;
 import org.apache.samza.operators.data.TestMessageEnvelope;
+import org.apache.samza.operators.stream.InputStreamInternal;
 import org.apache.samza.operators.stream.InputStreamInternalImpl;
 import org.apache.samza.operators.stream.IntermediateStreamInternalImpl;
 import org.apache.samza.operators.stream.OutputStreamInternalImpl;
@@ -30,6 +32,7 @@ import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -193,4 +196,30 @@ public class TestStreamGraphImpl {
     assertEquals(graph.getNextOpId(), 1);
   }
 
+  @Test
+  public void testGetInputStreamPreservesInsertionOrder() {
+    ApplicationRunner mockRunner = mock(ApplicationRunner.class);
+    Config mockConfig = mock(Config.class);
+
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
+
+    StreamSpec testStreamSpec1 = new StreamSpec("test-stream-1", "physical-stream-1", "test-system");
+    when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(testStreamSpec1);
+
+    StreamSpec testStreamSpec2 = new StreamSpec("test-stream-2", "physical-stream-2", "test-system");
+    when(mockRunner.getStreamSpec("test-stream-2")).thenReturn(testStreamSpec2);
+
+    StreamSpec testStreamSpec3 = new StreamSpec("test-stream-3", "physical-stream-3", "test-system");
+    when(mockRunner.getStreamSpec("test-stream-3")).thenReturn(testStreamSpec3);
+
+    graph.getInputStream("test-stream-1", (k, v) -> v);
+    graph.getInputStream("test-stream-2", (k, v) -> v);
+    graph.getInputStream("test-stream-3", (k, v) -> v);
+
+    ArrayList<InputStreamInternal> inputMessageStreams = new ArrayList<>(graph.getInputStreams().values());
+    Assert.assertEquals(inputMessageStreams.size(), 3);
+    Assert.assertEquals(inputMessageStreams.get(0).getStreamSpec(), testStreamSpec1);
+    Assert.assertEquals(inputMessageStreams.get(1).getStreamSpec(), testStreamSpec2);
+    Assert.assertEquals(inputMessageStreams.get(2).getStreamSpec(), testStreamSpec3);
+  }
 }
