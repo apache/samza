@@ -70,7 +70,7 @@ Following can be done when updating the gradle.properties file
 
     * modify the docs/_config.yml to make the "version" and "latest-release" to x.x.x
 
-    * remove "git checkout latest" in each of the tutorials
+    * remove "git checkout latest" line and the "-SNAPSHOT" version suffix in each of the tutorials
       * docs/startup/hello-samza/versioned/index.md
       * docs/learn/tutorials/versioned/hello-samza-high-level-code.md
       * docs/learn/tutorials/versioned/hello-samza-high-level-yarn.md
