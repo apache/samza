@@ -70,17 +70,27 @@ Following can be done when updating the gradle.properties file
 
     * modify the docs/_config.yml to make the "version" and "latest-release" to x.x.x
 
-    * remove "git checkout latest" in docs/startup/hello-samza/versioned/index.md
+    * remove "git checkout latest" in each of the tutorials
+      * docs/startup/hello-samza/versioned/index.md
+      * docs/learn/tutorials/versioned/hello-samza-high-level-code.md
+      * docs/learn/tutorials/versioned/hello-samza-high-level-yarn.md
+      * docs/learn/tutorials/versioned/hello-samza-high-level-zk.md
 
 2. in master branch,
 
     * modify the docs/_config.yml to make the "latest-release" to x.x.x
 
-    * add the x.x.x release to Archive category in docs/_layout/default.html and x.x.x release part in docs/archive/index.html
+    * add the x.x.x release to Archive category in docs/_layouts/default.html and x.x.x release part in docs/archive/index.html
 
     * update the download page to use x.x.x release
+      * docs/startup/download/index.md
 
-    * update the version number in "tar -xvf ./target/hello-samza-y.y.y-dist.tar.gz -C deploy/samza" in docs/startup/hello-samza/versioned/index.md
+    * update the version number in "tar -xvf ./target/hello-samza-y.y.y-dist.tar.gz -C deploy/samza" in each of the tutorials (and search for other uses of version x.x.x which may need to be replaced with y.y.y)
+      * docs/startup/hello-samza/versioned/index.md
+      * docs/learn/tutorials/versioned/hello-samza-high-level-code.md
+      * docs/learn/tutorials/versioned/hello-samza-high-level-yarn.md
+      * docs/learn/tutorials/versioned/hello-samza-high-level-zk.md
+      * docs/learn/tutorials/versioned/samza-rest-getting-started.md
 
 After apache mirrors pick up the new release,
 
