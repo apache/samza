@@ -145,7 +145,7 @@ vi src/main/config/wikipedia-feed.properties
 Change the yarn.package.path property to be:
 
 {% highlight jproperties %}
-yarn.package.path=http://yourHostname:8000/target/hello-samza-0.14.0-dist.tar.gz
+yarn.package.path=http://yourHostname:8000/target/hello-samza-0.13.1-dist.tar.gz
 {% endhighlight %}
 
 3\. Compile hello-samza.
@@ -153,7 +153,7 @@ yarn.package.path=http://yourHostname:8000/target/hello-samza-0.14.0-dist.tar.gz
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-0.14.0-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-0.13.1-dist.tar.gz -C deploy/samza
 {% endhighlight %}
 
 4\. Deploy Samza job package to Http server..
