@@ -168,10 +168,9 @@ public abstract class OperatorImpl<M, RM> {
   }
 
   public void close() {
-    String opName = getOperatorSpec().getOpName();
-
     if (closed) {
-      throw new IllegalStateException(String.format("Attempted to close Operator %s more than once.", opName));
+      throw new IllegalStateException(
+          String.format("Attempted to close Operator %s more than once.", getOperatorSpec().getOpName()));
     }
     handleClose();
     closed = true;

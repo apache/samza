@@ -62,6 +62,10 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
   }
 
   @Override
+  protected void handleClose() {
+  }
+
+  @Override
   protected OperatorSpec<M, Void> getOperatorSpec() {
     return outputOpSpec;
   }

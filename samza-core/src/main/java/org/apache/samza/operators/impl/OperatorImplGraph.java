@@ -52,12 +52,12 @@ import java.util.Map;
 public class OperatorImplGraph {
 
   /**
-   * A mapping from {@link OperatorSpec}s to their {@link OperatorImpl}s in this graph. Used to avoid creating
+   * A mapping from operator names to their {@link OperatorImpl}s in this graph. Used to avoid creating
    * multiple {@link OperatorImpl}s for an {@link OperatorSpec} when it's reached from different
    * {@link OperatorSpec}s during DAG traversals (e.g., for the merge operator).
    * We use a LHM for deterministic ordering in initializing and closing operators.
    */
-  private final Map<OperatorSpec, OperatorImpl> operatorImpls = new LinkedHashMap<>();
+  private final Map<String, OperatorImpl> operatorImpls = new LinkedHashMap<>();
 
   /**
    * A mapping from input {@link SystemStream}s to their {@link InputOperatorImpl} sub-DAG in this graph.
@@ -134,7 +134,7 @@ public class OperatorImplGraph {
       // and we need to create 2 partial join operator impls for it. Initialize and register the sub-DAG.
       OperatorImpl operatorImpl = createOperatorImpl(prevOperatorSpec, operatorSpec, config, context);
       operatorImpl.init(config, context);
-      operatorImpls.put(operatorSpec, operatorImpl);
+      operatorImpls.put(operatorImpl.getOperatorName(), operatorImpl);
 
       Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
       registeredSpecs.forEach(registeredSpec -> {
@@ -178,14 +178,14 @@ public class OperatorImplGraph {
 
   private PartialJoinOperatorImpl createPartialJoinOperatorImpl(OperatorSpec prevOperatorSpec,
       JoinOperatorSpec joinOpSpec, Config config, TaskContext context, Clock clock) {
-    Pair<PartialJoinFunction, PartialJoinFunction> joinFunctions = getOrCreatePartialJoinFunctions(joinOpSpec);
+    Pair<PartialJoinFunction, PartialJoinFunction> partialJoinFunctions = getOrCreatePartialJoinFunctions(joinOpSpec);
 
     if (joinOpSpec.getLeftInputOpSpec().equals(prevOperatorSpec)) { // we got here from the left side of the join
       return new PartialJoinOperatorImpl(joinOpSpec, /* isLeftSide */ true,
-          joinFunctions.getLeft(), joinFunctions.getRight(), config, context, clock);
+          partialJoinFunctions.getLeft(), partialJoinFunctions.getRight(), config, context, clock);
     } else { // we got here from the right side of the join
       return new PartialJoinOperatorImpl(joinOpSpec, /* isLeftSide */ false,
-          joinFunctions.getRight(), joinFunctions.getLeft(), config, context, clock);
+          partialJoinFunctions.getRight(), partialJoinFunctions.getLeft(), config, context, clock);
     }
   }
 

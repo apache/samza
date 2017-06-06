@@ -118,5 +118,4 @@ public abstract class OperatorSpec<M, OM> {
   public final String getOpName() {
     return String.format("%s-%s", getOpCode().name().toLowerCase(), getOpId());
   }
-
 }

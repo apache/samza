@@ -74,18 +74,18 @@ public class TestJoinOperator {
   public void testJoinFnInitAndClose() throws Exception {
     TestJoinFunction joinFn = new TestJoinFunction();
     StreamOperatorTask sot = createStreamOperatorTask(new SystemClock(), new TestJoinStreamApplication(joinFn));
-    assertEquals(joinFn.getNumInitCalls(), 1);
+    assertEquals(1, joinFn.getNumInitCalls());
     MessageCollector messageCollector = mock(MessageCollector.class);
 
     // push messages to first stream
     numbers.forEach(n -> sot.process(new FirstStreamIME(n, n), messageCollector, taskCoordinator));
 
     // close should not be called till now
-    assertEquals(joinFn.getNumCloseCalls(), 0);
+    assertEquals(0, joinFn.getNumCloseCalls());
     sot.close();
 
     // close should be called from sot.close()
-    assertEquals(joinFn.getNumCloseCalls(), 1);
+    assertEquals(1, joinFn.getNumCloseCalls());
   }
 
   @Test

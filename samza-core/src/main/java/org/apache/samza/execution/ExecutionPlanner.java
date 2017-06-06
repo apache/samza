@@ -203,7 +203,8 @@ public class ExecutionPlanner {
   }
 
   /**
-   * This function traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
+   * This function traverses the {@link OperatorSpec} graph to find and update mappings for all Joins reachable
+   * from this input {@link StreamEdge}.
    * @param operatorSpec the {@link OperatorSpec} to traverse
    * @param sourceStreamEdge source {@link StreamEdge}
    * @param joinSpecToStreamEdges mapping from join spec to its source {@link StreamEdge}s

@@ -60,6 +60,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@SuppressWarnings("unchecked")
 public class TestMessageStreamImpl {
 
   @Test
@@ -74,9 +75,9 @@ public class TestMessageStreamImpl {
     ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
     OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
-    FlatMapFunction transformFn = ((StreamOperatorSpec) registeredOpSpec).getTransformFn();
-
     assertTrue(registeredOpSpec instanceof StreamOperatorSpec);
+
+    FlatMapFunction transformFn = ((StreamOperatorSpec) registeredOpSpec).getTransformFn();
     assertNotNull(transformFn);
     assertEquals(OpCode.MAP, registeredOpSpec.getOpCode());
 
@@ -136,9 +137,9 @@ public class TestMessageStreamImpl {
     ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
     OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
-    FlatMapFunction transformFn = ((StreamOperatorSpec) registeredOpSpec).getTransformFn();
-
     assertTrue(registeredOpSpec instanceof StreamOperatorSpec);
+
+    FlatMapFunction transformFn = ((StreamOperatorSpec) registeredOpSpec).getTransformFn();
     assertNotNull(transformFn);
     assertEquals(OpCode.FILTER, registeredOpSpec.getOpCode());
 
@@ -284,6 +285,7 @@ public class TestMessageStreamImpl {
     ArgumentCaptor<OperatorSpec> registeredOpCaptor1 = ArgumentCaptor.forClass(OperatorSpec.class);
     verify(mockOpSpec1).registerNextOperatorSpec(registeredOpCaptor1.capture());
     OperatorSpec<?, TestMessageEnvelope> registeredOpSpec1 = registeredOpCaptor1.getValue();
+    assertTrue(registeredOpSpec1 instanceof StreamOperatorSpec);
     FlatMapFunction transformFn = ((StreamOperatorSpec) registeredOpSpec1).getTransformFn();
 
     ArgumentCaptor<OperatorSpec> registeredOpCaptor2 = ArgumentCaptor.forClass(OperatorSpec.class);
@@ -297,7 +299,7 @@ public class TestMessageStreamImpl {
     assertEquals(registeredOpSpec1, registeredOpSpec2);
     assertEquals(registeredOpSpec2, registeredOpSpec3);
     assertEquals(OpCode.MERGE, registeredOpSpec1.getOpCode());
-    assertTrue(registeredOpSpec1 instanceof StreamOperatorSpec);
+
     assertNotNull(transformFn);
     TestMessageEnvelope mockInput = mock(TestMessageEnvelope.class);
     assertTrue(transformFn.apply(mockInput).contains(mockInput));

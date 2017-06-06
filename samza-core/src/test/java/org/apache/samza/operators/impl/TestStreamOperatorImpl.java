@@ -69,7 +69,7 @@ public class TestStreamOperatorImpl {
     TaskContext mockContext = mock(TaskContext.class);
 
     StreamOperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope> opImpl =
-        spy(new StreamOperatorImpl<>(mockOp, mockConfig, mockContext));
+        new StreamOperatorImpl<>(mockOp, mockConfig, mockContext);
 
     // ensure that close is not called yet
     verify(txfmFn, times(0)).close();
