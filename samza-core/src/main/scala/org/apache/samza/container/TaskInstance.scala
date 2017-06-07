@@ -23,6 +23,8 @@ package org.apache.samza.container
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
+import org.apache.samza.control.ControlMessageAggregator
+import org.apache.samza.message.ControlMessage
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.IncomingMessageEnvelope
@@ -97,6 +99,8 @@ class TaskInstance(
     scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2catchedupMapping += _ -> false)
 
+  val controlAggregator = new ControlMessageAggregator(systemStreamPartitions.asJava, collector)
+
   def registerMetrics {
     debug("Registering metrics for taskName: %s" format taskName)
 
@@ -150,20 +154,28 @@ class TaskInstance(
     })
   }
 
-  def process(envelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator,
+  def process(msgEnvelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator,
     callbackFactory: TaskCallbackFactory = null) {
     metrics.processes.inc
 
-    if (!ssp2catchedupMapping.getOrElse(envelope.getSystemStreamPartition,
-      throw new SamzaException(envelope.getSystemStreamPartition + " is not registered!"))) {
-      checkCaughtUp(envelope)
+    if (!ssp2catchedupMapping.getOrElse(msgEnvelope.getSystemStreamPartition,
+      throw new SamzaException(msgEnvelope.getSystemStreamPartition + " is not registered!"))) {
+      checkCaughtUp(msgEnvelope)
     }
 
-    if (ssp2catchedupMapping(envelope.getSystemStreamPartition)) {
+    if (ssp2catchedupMapping(msgEnvelope.getSystemStreamPartition)) {
       metrics.messagesActuallyProcessed.inc
 
       trace("Processing incoming message envelope for taskName and SSP: %s, %s"
-        format (taskName, envelope.getSystemStreamPartition))
+        format (taskName, msgEnvelope.getSystemStreamPartition))
+
+      val envelope = if (msgEnvelope.getMessage.isInstanceOf[ControlMessage]) {
+        controlAggregator.aggregate(envelope)
+      } else {
+        msgEnvelope
+      }
+
+      if (envelope == null) return
 
       if (isAsyncTask) {
         exceptionHandler.maybeHandle {
