@@ -22,8 +22,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction.PartialJoinMessage;
+import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.storage.kv.KeyValueStore;
@@ -31,8 +31,6 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.util.Clock;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -40,18 +38,18 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Implementation of a {@link PartialJoinOperatorSpec} that joins messages of type {@code M} in this stream
- * with buffered messages of type {@code JM} in the other stream.
+ * Implementation of one side of a {@link JoinOperatorSpec} that buffers and joins its input messages of
+ * type {@code M} with buffered input messages of type {@code JM} in the paired {@link PartialJoinOperatorImpl}.
  *
- * @param <M>  type of messages in the input stream
- * @param <JM>  type of messages in the stream to join with
- * @param <RM>  type of messages in the joined stream
+ * @param <K> the type of join key
+ * @param <M> the type of input messages on this side of the join
+ * @param <JM> the type of input message on the other side of the join
+ * @param <RM> the type of join result
  */
 class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(PartialJoinOperatorImpl.class);
-
-  private final PartialJoinOperatorSpec<K, M, JM, RM> partialJoinOpSpec;
+  private final JoinOperatorSpec<K, M, JM, RM> joinOpSpec;
+  private final boolean isLeftSide; // whether this operator impl is for the left side of the join
   private final PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn;
   private final PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn;
   private final long ttlMs;
@@ -59,19 +57,22 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
 
   private Counter keysRemoved;
 
-  PartialJoinOperatorImpl(PartialJoinOperatorSpec<K, M, JM, RM> partialJoinOpSpec,
+  PartialJoinOperatorImpl(JoinOperatorSpec<K, M, JM, RM> joinOpSpec, boolean isLeftSide,
+      PartialJoinFunction<K, M, JM, RM> thisPartialJoinFn,
+      PartialJoinFunction<K, JM, M, RM> otherPartialJoinFn,
       Config config, TaskContext context, Clock clock) {
-    this.partialJoinOpSpec = partialJoinOpSpec;
-    this.thisPartialJoinFn = partialJoinOpSpec.getThisPartialJoinFn();
-    this.otherPartialJoinFn = partialJoinOpSpec.getOtherPartialJoinFn();
-    this.ttlMs = partialJoinOpSpec.getTtlMs();
+    this.joinOpSpec = joinOpSpec;
+    this.isLeftSide = isLeftSide;
+    this.thisPartialJoinFn = thisPartialJoinFn;
+    this.otherPartialJoinFn = otherPartialJoinFn;
+    this.ttlMs = joinOpSpec.getTtlMs();
     this.clock = clock;
   }
 
   @Override
   protected void handleInit(Config config, TaskContext context) {
     keysRemoved = context.getMetricsRegistry()
-        .newCounter(OperatorImpl.class.getName(), this.partialJoinOpSpec.getOpName() + "-keys-removed");
+        .newCounter(OperatorImpl.class.getName(), getOperatorName() + "-keys-removed");
     this.thisPartialJoinFn.init(config, context);
   }
 
@@ -116,8 +117,19 @@ class PartialJoinOperatorImpl<K, M, JM, RM> extends OperatorImpl<M, RM> {
     this.thisPartialJoinFn.close();
   }
 
+  protected OperatorSpec<M, RM> getOperatorSpec() {
+    return (OperatorSpec<M, RM>) joinOpSpec;
+  }
+
+  /**
+   * The name for this {@link PartialJoinOperatorImpl} that includes information about which
+   * side of the join it is for.
+   *
+   * @return the {@link PartialJoinOperatorImpl} name.
+   */
   @Override
-  protected OperatorSpec<RM> getOperatorSpec() {
-    return partialJoinOpSpec;
+  protected String getOperatorName() {
+    String side = isLeftSide ? "L" : "R";
+    return this.joinOpSpec.getOpName() + "-" + side;
   }
 }

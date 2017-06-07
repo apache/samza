@@ -19,13 +19,11 @@
 
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.triggers.AnyTrigger;
 import org.apache.samza.operators.triggers.RepeatingTrigger;
 import org.apache.samza.operators.triggers.TimeBasedTrigger;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.util.MathUtils;
-import org.apache.samza.operators.util.OperatorJsonUtils;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.slf4j.Logger;
@@ -37,56 +35,30 @@ import java.util.stream.Collectors;
 
 
 /**
- * Default window operator spec object
+ * The spec for an operator that groups messages into finite windows for processing
  *
  * @param <M>  the type of input message to the window
  * @param <WK>  the type of key of the window
  * @param <WV>  the type of aggregated value in the window output {@link WindowPane}
  */
-public class WindowOperatorSpec<M, WK, WV> implements OperatorSpec<WindowPane<WK, WV>> {
+public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK, WV>> {
 
   private static final Logger LOG = LoggerFactory.getLogger(WindowOperatorSpec.class);
   private final WindowInternal<M, WK, WV> window;
-  private final MessageStreamImpl<WindowPane<WK, WV>> nextStream;
-  private final int opId;
-  private final String sourceLocation;
 
   /**
    * Constructor for {@link WindowOperatorSpec}.
    *
    * @param window  the window function
-   * @param nextStream  the output {@link MessageStreamImpl} containing the messages produced from this operator
    * @param opId  auto-generated unique ID of this operator
    */
-  WindowOperatorSpec(WindowInternal<M, WK, WV> window, MessageStreamImpl<WindowPane<WK, WV>> nextStream, int opId) {
-    this.nextStream = nextStream;
+  WindowOperatorSpec(WindowInternal<M, WK, WV> window, int opId) {
+    super(OpCode.WINDOW, opId);
     this.window = window;
-    this.opId = opId;
-    this.sourceLocation = OperatorJsonUtils.getSourceLocation();
-  }
-
-  @Override
-  public MessageStreamImpl<WindowPane<WK, WV>> getNextStream() {
-    return this.nextStream;
   }
 
   public WindowInternal<M, WK, WV> getWindow() {
     return window;
-  }
-
-  @Override
-  public OpCode getOpCode() {
-    return OpCode.WINDOW;
-  }
-
-  @Override
-  public int getOpId() {
-    return this.opId;
-  }
-
-  @Override
-  public String getSourceLocation() {
-    return sourceLocation;
   }
 
   /**

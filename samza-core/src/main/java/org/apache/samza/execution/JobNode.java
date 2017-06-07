@@ -31,8 +31,8 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.util.MathUtils;
 import org.apache.samza.util.Util;
@@ -145,7 +145,7 @@ public class JobNode {
     // Filter out the join operators, and obtain a list of their ttl values
     List<Long> joinTtlIntervals = operatorSpecs.stream()
         .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.JOIN)
-        .map(spec -> ((PartialJoinOperatorSpec) spec).getTtlMs())
+        .map(spec -> ((JoinOperatorSpec) spec).getTtlMs())
         .collect(Collectors.toList());
 
     // Combine both the above lists
