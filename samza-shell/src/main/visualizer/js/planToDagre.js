@@ -42,15 +42,11 @@ function planToDagre(data) {
 
   var jobs = data.jobs;
   for (var i = 0; i < jobs.length; i++) {
-    var canonicalOpIds = jobs[i].operatorGraph.canonicalOpIds;
     var operators = jobs[i].operatorGraph.operators;
     for (var opId in operators) {
       var operator = operators[opId];
       var labelVal = "<div><h3 class=\"topbar\">" + operator.opCode + "</h3><ul class=\"detailBox\">";
       var opId = operator.opId;
-      if (!(opId in canonicalOpIds)) {
-        canonicalOpIds[opId] = opId.toString();
-      }
       labelVal +=  "<li>ID: " + opId + "</li>";
       labelVal +=  "<li>@" + operator.sourceLocation + "</li>";
 
@@ -62,7 +58,7 @@ function planToDagre(data) {
       }
 
       labelVal += "</ul></div>";
-      g.setNode(canonicalOpIds[opId],  { label: labelVal, labelType: "html", rx: 5, ry: 5 });
+      g.setNode(opId,  { label: labelVal, labelType: "html", rx: 5, ry: 5 });
     }
   }
 
@@ -71,7 +67,7 @@ function planToDagre(data) {
     for (var k = 0; k < inputs.length; k++) {
       var input = inputs[k];
       for (var m = 0; m < input.nextOperatorIds.length; m++) {
-        g.setEdge(input.streamId, canonicalOpIds[input.nextOperatorIds[m]]);
+        g.setEdge(input.streamId, input.nextOperatorIds[m]);
       }
     }
 
@@ -79,10 +75,10 @@ function planToDagre(data) {
     for (var opId in operators) {
       var operator = operators[opId];
       for (var j = 0; j < operator.nextOperatorIds.length; j++) {
-        g.setEdge(canonicalOpIds[opId], canonicalOpIds[operator.nextOperatorIds[j]]);
+        g.setEdge(opId, operator.nextOperatorIds[j]);
       }
       if (typeof(operator.outputStreamId) !== 'undefined') {
-        g.setEdge(canonicalOpIds[opId], operator.outputStreamId);
+        g.setEdge(opId, operator.outputStreamId);
       }
     }
   }

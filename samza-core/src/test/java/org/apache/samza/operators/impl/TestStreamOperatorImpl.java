@@ -28,12 +28,10 @@ import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
 
-import java.util.ArrayList;
 import java.util.Collection;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,12 +48,9 @@ public class TestStreamOperatorImpl {
     Config mockConfig = mock(Config.class);
     TaskContext mockContext = mock(TaskContext.class);
     StreamOperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope> opImpl =
-        spy(new StreamOperatorImpl<>(mockOp, mockConfig, mockContext));
+        new StreamOperatorImpl<>(mockOp, mockConfig, mockContext);
     TestMessageEnvelope inMsg = mock(TestMessageEnvelope.class);
-    TestOutputMessageEnvelope outMsg = mock(TestOutputMessageEnvelope.class);
-    Collection<TestOutputMessageEnvelope> mockOutputs = new ArrayList() { {
-        this.add(outMsg);
-      } };
+    Collection<TestOutputMessageEnvelope> mockOutputs = mock(Collection.class);
     when(txfmFn.apply(inMsg)).thenReturn(mockOutputs);
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
@@ -74,7 +69,7 @@ public class TestStreamOperatorImpl {
     TaskContext mockContext = mock(TaskContext.class);
 
     StreamOperatorImpl<TestMessageEnvelope, TestOutputMessageEnvelope> opImpl =
-        spy(new StreamOperatorImpl<>(mockOp, mockConfig, mockContext));
+        new StreamOperatorImpl<>(mockOp, mockConfig, mockContext);
 
     // ensure that close is not called yet
     verify(txfmFn, times(0)).close();
