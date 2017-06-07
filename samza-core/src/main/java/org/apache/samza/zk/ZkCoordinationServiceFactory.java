@@ -61,7 +61,7 @@ public class ZkCoordinationServiceFactory implements CoordinationServiceFactory 
     }
 
     // make sure the namespace in zk exists (if specified)
-    createZkNameSpace(connectString, zkClient);
+    validateZkNameSpace(connectString, zkClient);
 
     return zkClient;
   }
@@ -71,7 +71,7 @@ public class ZkCoordinationServiceFactory implements CoordinationServiceFactory 
    * @param zkConnect - connect string
    * @param zkClient - zkClient object to talk to the ZK
    */
-  public static void createZkNameSpace(String zkConnect, ZkClient zkClient) {
+  public static void validateZkNameSpace(String zkConnect, ZkClient zkClient) {
     ConnectStringParser parser = new ConnectStringParser(zkConnect);
 
     String path = parser.getChrootPath();
@@ -83,7 +83,7 @@ public class ZkCoordinationServiceFactory implements CoordinationServiceFactory 
 
     // if namespace specified (path above) but "/" does not exists, we will fail
     if (!zkClient.exists("/")) {
-      throw new RuntimeException("Zookeeper namespace: " + path + " does not exist for zk at " + zkConnect);
+      throw new SamzaException("Zookeeper namespace: " + path + " does not exist for zk at " + zkConnect);
     }
   }
 }
