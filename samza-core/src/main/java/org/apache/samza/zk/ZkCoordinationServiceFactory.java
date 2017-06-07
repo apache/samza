@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
 public class ZkCoordinationServiceFactory implements CoordinationServiceFactory {
   private final static Logger LOG = LoggerFactory.getLogger(ZkCoordinationServiceFactory.class);
 
-  // TODO - Why should this method be synchronized?
   synchronized public CoordinationUtils getCoordinationService(String groupId, String participantId, Config config) {
     ZkConfig zkConfig = new ZkConfig(config);
 
@@ -82,9 +81,9 @@ public class ZkCoordinationServiceFactory implements CoordinationServiceFactory 
 
     LOG.info("connectString = " + zkConnect + "; path =" + path);
 
-    // if namespace specified (path above) but "/" does not exists, we need to create it
+    // if namespace specified (path above) but "/" does not exists, we will fail
     if (!zkClient.exists("/")) {
-      throw new RuntimeException("Zookeeper namespace: " + zkConnect + " does not exist");
+      throw new RuntimeException("Zookeeper namespace: " + path + " does not exist for zk at " + zkConnect);
     }
   }
 }
