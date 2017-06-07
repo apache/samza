@@ -85,28 +85,7 @@ public class TestZkUtils {
   public static void teardown() {
     zkServer.teardown();
   }
-
-
-  @Test
-  public void testInitZkPath() {
-
-    String zkConnect = "127.0.0.1:" + zkServer.getPort() + "/samza1";
-    ZkCoordinationServiceFactory.createZkNameSpace(zkConnect, zkClient);
-
-    Assert.assertTrue(zkClient.exists("/samza1"));
-
-    zkConnect = "127.0.0.1:" + zkServer.getPort() + "/samza1/samza2";
-    ZkCoordinationServiceFactory.createZkNameSpace(zkConnect, zkClient);
-
-    Assert.assertTrue(zkClient.exists("/samza1/samza2"));
-
-
-    zkConnect = "127.0.0.1:" + zkServer.getPort(); // empty path.
-    ZkCoordinationServiceFactory.createZkNameSpace(zkConnect, zkClient);
-
-    Assert.assertTrue(zkClient.exists("/"));
-  }
-
+  
   @Test
   public void testRegisterProcessorId() {
     String assignedPath = zkUtils.registerProcessorAndGetId(new ProcessorData("host", "1"));
