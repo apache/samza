@@ -37,11 +37,8 @@ public class ZkCoordinationServiceFactory implements CoordinationServiceFactory 
   synchronized public CoordinationUtils getCoordinationService(String groupId, String participantId, Config config) {
     ZkConfig zkConfig = new ZkConfig(config);
 
-    ZkClient zkClient = createZkClient(zkConfig.getZkConnect(),
-        zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
-
-    // make sure the 'path' exists
-    createZkPath(zkConfig.getZkConnect(), zkClient);
+    ZkClient zkClient =
+        createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
 
     ZkUtils zkUtils = new ZkUtils(new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs());
 
@@ -56,31 +53,38 @@ public class ZkCoordinationServiceFactory implements CoordinationServiceFactory 
    * @return zkClient object
    */
   public static ZkClient createZkClient(String connectString, int sessionTimeoutMS, int connectionTimeoutMs) {
+    ZkClient zkClient;
     try {
-      return new ZkClient(connectString, sessionTimeoutMS, connectionTimeoutMs);
+      zkClient = new ZkClient(connectString, sessionTimeoutMS, connectionTimeoutMs);
     } catch (Exception e) {
       // ZkClient constructor may throw a variety of different exceptions, not all of them Zk based.
       throw new SamzaException("zkClient failed to connect to ZK at :" + connectString, e);
     }
+
+    // make sure the namespace in zk exists (if specified)
+    createZkNameSpace(connectString, zkClient);
+
+    return zkClient;
   }
 
   /**
-   * if ZkConnectString contains some path at the end, it needs to be created when connecting for the first time.
+   * if ZkConnectString contains namespace path at the end, it needs to be created when connecting for the first time.
    * @param zkConnect - connect string
    * @param zkClient - zkClient object to talk to the ZK
    */
-  public static void createZkPath(String zkConnect, ZkClient zkClient) {
+  public static void createZkNameSpace(String zkConnect, ZkClient zkClient) {
     ConnectStringParser parser = new ConnectStringParser(zkConnect);
 
     String path = parser.getChrootPath();
-    LOG.info("path =" + path);
-    if (!Strings.isNullOrEmpty(path)) {
-      // create this path in zk
-      LOG.info("first connect. creating path =" + path + " in ZK " + parser.getServerAddresses());
-      if (!zkClient.exists(path)) {
-        zkClient.createPersistent(path, true); // will create parents if needed and will not throw exception if exists
-      }
+    if (Strings.isNullOrEmpty(path)) {
+      return; // no namespace path
+    }
+
+    LOG.info("connectString = " + zkConnect + "; path =" + path);
+
+    // if namespace specified (path above) but "/" does not exists, we need to create it
+    if (!zkClient.exists("/")) {
+      throw new RuntimeException("Zookeeper namespace: " + zkConnect + " does not exist");
     }
   }
-
 }
