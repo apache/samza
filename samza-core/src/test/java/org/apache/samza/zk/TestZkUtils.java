@@ -89,19 +89,20 @@ public class TestZkUtils {
 
   @Test
   public void testInitZkPath() {
+
     String zkConnect = "127.0.0.1:" + zkServer.getPort() + "/samza1";
-    ZkCoordinationServiceFactory.createZkPath(zkConnect, zkClient);
+    ZkCoordinationServiceFactory.createZkNameSpace(zkConnect, zkClient);
 
     Assert.assertTrue(zkClient.exists("/samza1"));
 
     zkConnect = "127.0.0.1:" + zkServer.getPort() + "/samza1/samza2";
-    ZkCoordinationServiceFactory.createZkPath(zkConnect, zkClient);
+    ZkCoordinationServiceFactory.createZkNameSpace(zkConnect, zkClient);
 
     Assert.assertTrue(zkClient.exists("/samza1/samza2"));
 
 
     zkConnect = "127.0.0.1:" + zkServer.getPort(); // empty path.
-    ZkCoordinationServiceFactory.createZkPath(zkConnect, zkClient);
+    ZkCoordinationServiceFactory.createZkNameSpace(zkConnect, zkClient);
 
     Assert.assertTrue(zkClient.exists("/"));
   }
