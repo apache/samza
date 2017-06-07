@@ -19,9 +19,11 @@
 
 package org.apache.samza.coordinator
 
+import java.util
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import org.apache.samza.Partition
+import org.apache.samza.config.{Config, JobConfig, MapConfig}
 import org.apache.samza.metrics.{Gauge, MetricsRegistryMap}
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system.{StreamMetadataCache, SystemAdmin, SystemStream, SystemStreamMetadata}
@@ -70,11 +72,15 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
 
     val metrics = new MetricsRegistryMap()
 
+    val configMap = new util.HashMap[String, String]
+    configMap.put(JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS, "5")
+    val config = new MapConfig(configMap)
+
     val partitionCountMonitor = new StreamPartitionCountMonitor(
       inputSystemStreamSet.asJava,
       mockMetadataCache,
       metrics,
-      5
+      config
     )
 
     partitionCountMonitor.updatePartitionCountMetric()
@@ -94,11 +100,16 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
     val mockMetadataCache = new MockStreamMetadataCache
     val inputSystemStream = new SystemStream("test-system", "test-stream")
     val inputSystemStreamSet = Set[SystemStream](inputSystemStream)
+
+    val configMap = new util.HashMap[String, String]
+    configMap.put(JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS, "50")
+    val config = new MapConfig(configMap)
+
     val monitor = new StreamPartitionCountMonitor(
       inputSystemStreamSet.asJava,
       mockMetadataCache,
       new MetricsRegistryMap(),
-      50
+      config
     )
 
     assertFalse(monitor.isRunning())
@@ -139,11 +150,15 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
     val inputSystemStreamSet = Set[SystemStream](inputSystemStream)
     val sampleCount = new CountDownLatch(2); // Verify 2 invocations
 
+    val configMap = new util.HashMap[String, String]
+    configMap.put(JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS, "50")
+    val config = new MapConfig(configMap)
+
     val monitor = new StreamPartitionCountMonitor(
       inputSystemStreamSet.asJava,
       mockMetadataCache,
       new MetricsRegistryMap(),
-      50
+      config
     ) {
       override def updatePartitionCountMetric(): Unit = {
         sampleCount.countDown()

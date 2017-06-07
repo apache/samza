@@ -74,7 +74,7 @@ object JobConfig {
   val JOB_FAIL_CHECKPOINT_VALIDATION = "job.checkpoint.validation.enabled"
   val MONITOR_PARTITION_CHANGE = "job.coordinator.monitor-partition-change"
   val MONITOR_PARTITION_CHANGE_FREQUENCY_MS = "job.coordinator.monitor-partition-change.frequency.ms"
-  val DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS = 300000
+  val DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS = 60000
   val JOB_SECURITY_MANAGER_FACTORY = "job.security.manager.factory"
 
   // Processor Config Constants

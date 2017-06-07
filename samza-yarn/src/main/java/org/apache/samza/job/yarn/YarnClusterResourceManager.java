@@ -390,7 +390,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
 
       //remove the container from the list of running containers, if failed with a non-zero exit code, add it to the list of
       //failed containers.
-      if(!completedContainerID.equals(INVALID_YARN_CONTAINER_ID)){
+      if(!completedContainerID.equals(INVALID_YARN_CONTAINER_ID)) {
         if(state.runningYarnContainers.containsKey(completedContainerID)) {
           log.info("Removing container ID {} from completed containers", completedContainerID);
           state.runningYarnContainers.remove(completedContainerID);

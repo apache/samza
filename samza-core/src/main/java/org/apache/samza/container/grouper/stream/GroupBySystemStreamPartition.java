@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.TaskName;
@@ -46,25 +47,46 @@ public class GroupBySystemStreamPartition implements SystemStreamPartitionGroupe
   }
 
   @Override
-  public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps) {
-    Map<TaskName, Set<SystemStreamPartition>> groupedMap = new HashMap<TaskName, Set<SystemStreamPartition>>();
+  public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> sspSet) {
+    return group(new HashMap<>(), sspSet);
+  }
 
-    for (SystemStreamPartition ssp : ssps) {
+  @Override
+  public Map<TaskName, Set<SystemStreamPartition>> group(Map<SystemStreamPartition, String> previousSSPTaskAssignment,
+                                                         Set<SystemStreamPartition> sspSet) {
+    Map<String, Set<String>> previousTaskSetByStream = new HashMap<>();
+    for (Map.Entry<SystemStreamPartition, String> entry: previousSSPTaskAssignment.entrySet()) {
+      SystemStreamPartition ssp = entry.getKey();
+      if (!previousTaskSetByStream.containsKey(ssp.getStream()))
+        previousTaskSetByStream.put(ssp.getStream(), new HashSet<>());
+      previousTaskSetByStream.get(ssp.getStream()).add(entry.getValue());
+    }
+
+    Map<TaskName, Set<SystemStreamPartition>> groupedMap = new HashMap<>();
+
+    for (SystemStreamPartition ssp : sspSet) {
       if (broadcastStreams.contains(ssp)) {
         continue;
       }
 
-      HashSet<SystemStreamPartition> sspSet = new HashSet<SystemStreamPartition>();
-      sspSet.add(ssp);
-      groupedMap.put(new TaskName(ssp.toString()), sspSet);
+      int currentPartitionId = ssp.getPartition().getPartitionId();
+      TaskName taskName = new TaskName(ssp.toString());
+      Set<String> previousTaskSet = previousTaskSetByStream.get(ssp.getStream());
+
+      if (previousTaskSet != null) {
+        int previousPartitionId = currentPartitionId % previousTaskSet.size();
+        SystemStreamPartition previousSSP = new SystemStreamPartition(ssp.getSystemStream(), new Partition(previousPartitionId));
+        taskName = new TaskName(previousSSPTaskAssignment.get(previousSSP));
+      }
+
+      groupedMap.put(taskName, new HashSet<>());
+      groupedMap.get(taskName).add(ssp);
     }
 
     // assign the broadcast streams to all the taskNames
     if (!broadcastStreams.isEmpty()) {
       for (Set<SystemStreamPartition> value : groupedMap.values()) {
-        for (SystemStreamPartition ssp : broadcastStreams) {
-          value.add(ssp);
-        }
+        value.addAll(broadcastStreams);
       }
     }
 

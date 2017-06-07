@@ -131,7 +131,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
      TaskNameGrouper with the LocalityManager! Hence, groupers should be a property of the jobcoordinator
      (job.coordinator.task.grouper, instead of task.systemstreampartition.grouper)
      */
-    return JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache, null);
+    return JobModelManager.readJobModel(this.config, Collections.emptyMap(), Collections.emptyMap(), null, streamMetadataCache, null);
   }
 
   @Override

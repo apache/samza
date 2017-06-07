@@ -227,7 +227,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
    * Generate new JobModel when becoming a leader or the list of processor changed.
    */
   private JobModel generateNewJobModel(List<String> processors) {
-    return JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache,
+    return JobModelManager.readJobModel(this.config, Collections.emptyMap(), Collections.emptyMap(), null, streamMetadataCache,
         processors);
   }
 

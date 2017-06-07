@@ -22,13 +22,13 @@ package org.apache.samza.coordinator
 
 import java.util
 import java.util.concurrent.atomic.AtomicReference
-
+import java.lang.{NoSuchMethodException, NoSuchMethodError}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.Config
 import org.apache.samza.config.StorageConfig
-import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
+import org.apache.samza.container.grouper.stream.{SystemStreamPartitionAssignmentManager, SystemStreamPartitionGrouperFactory}
 import org.apache.samza.container.grouper.task.BalancingTaskNameGrouper
 import org.apache.samza.container.grouper.task.TaskNameGrouperFactory
 import org.apache.samza.container.LocalityManager
@@ -98,11 +98,14 @@ object JobModelManager extends Logging {
     info("Got config: %s" format config)
     val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, SOURCE)
     changelogManager.start()
+
     val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
     // We don't need to start() localityManager as they share the same instances with checkpoint and changelog managers.
     // TODO: This code will go away with refactoring - SAMZA-678
-
     localityManager.start()
+
+    val sspAssignmentManager = new SystemStreamPartitionAssignmentManager(coordinatorSystemProducer, coordinatorSystemConsumer)
+    sspAssignmentManager.start()
 
     // Map the name of each system to the corresponding SystemAdmin
     val systemAdmins = getSystemAdmins(config)
@@ -119,11 +122,13 @@ object JobModelManager extends Logging {
           inputStreamsToMonitor.asJava,
           streamMetadataCache,
           metricsRegistryMap,
-          config.getMonitorPartitionChangeFrequency)
+          config)
       }
     }
     val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
-    val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, localityManager, streamMetadataCache, streamPartitionCountMonitor, null)
+    val previousSSPTaskAssignment = sspAssignmentManager.readSSPTaskAssignment()
+    val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, previousSSPTaskAssignment,
+      localityManager, streamMetadataCache, streamPartitionCountMonitor, null)
     val jobModel = jobModelManager.jobModel
     // Save the changelog mapping back to the ChangelogPartitionmanager
     // newChangelogPartitionMapping is the merging of all current task:changelog
@@ -138,6 +143,12 @@ object JobModelManager extends Logging {
     info("Saving task-to-changelog partition mapping: %s" format newChangelogPartitionMapping)
     changelogManager.writeChangeLogPartitionMapping(newChangelogPartitionMapping.asJava)
 
+    val newSSPTaskAssignment = jobModel.getContainers.asScala.values.flatMap(_.getTasks.values().asScala).flatMap(taskModel =>
+      taskModel.getSystemStreamPartitions.asScala.map(ssp => ssp -> taskModel.getTaskName.getTaskName)
+    ).toMap
+    info("Saving ssp-to-task mapping: %s" format newSSPTaskAssignment)
+    sspAssignmentManager.writeSSPTaskAssignment(newSSPTaskAssignment.asJava)
+
     createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions)
     createAccessLogStreams(config, jobModel.maxChangeLogStreamPartitions)
 
@@ -149,12 +160,14 @@ object JobModelManager extends Logging {
    * Build a JobModelManager using a Samza job's configuration.
    */
   private def getJobModelManager(config: Config,
-                                changeLogMapping: util.Map[TaskName, Integer],
-                                localityManager: LocalityManager,
-                                streamMetadataCache: StreamMetadataCache,
-                                streamPartitionCountMonitor: StreamPartitionCountMonitor,
-                                containerIds: java.util.List[String]) = {
-    val jobModel: JobModel = readJobModel(config, changeLogMapping, localityManager, streamMetadataCache, containerIds)
+                                 changeLogMapping: util.Map[TaskName, Integer],
+                                 previousSSPTaskAssignment: util.Map[SystemStreamPartition, String],
+                                 localityManager: LocalityManager,
+                                 streamMetadataCache: StreamMetadataCache,
+                                 streamPartitionCountMonitor: StreamPartitionCountMonitor,
+                                 containerIds: java.util.List[String]) = {
+    val jobModel: JobModel = readJobModel(config, changeLogMapping, previousSSPTaskAssignment,
+      localityManager, streamMetadataCache, containerIds)
     jobModelRef.set(jobModel)
 
     val server = new HttpServer
@@ -219,13 +232,21 @@ object JobModelManager extends Logging {
    */
   def readJobModel(config: Config,
                    changeLogPartitionMapping: util.Map[TaskName, Integer],
+                   previousSSPTaskAssignment: util.Map[SystemStreamPartition, String],
                    localityManager: LocalityManager,
                    streamMetadataCache: StreamMetadataCache,
                    containerIds: java.util.List[String]): JobModel = {
     // Do grouping to fetch TaskName to SSP mapping
     val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache)
     val grouper = getSystemStreamPartitionGrouper(config)
-    val groups = grouper.group(allSystemStreamPartitions.asJava)
+
+    val groups = try {
+      grouper.group(previousSSPTaskAssignment, allSystemStreamPartitions.asJava)
+    } catch {
+      case e @ ( _ : NoSuchMethodException | _ : NoSuchMethodError) =>
+        grouper.group(allSystemStreamPartitions.asJava)
+    }
+
     info("SystemStreamPartitionGrouper %s has grouped the SystemStreamPartitions into %d tasks with the following taskNames: %s" format(grouper, groups.size(), groups.keySet()))
 
     // If no mappings are present(first time the job is running) we return -1, this will allow 0 to be the first change
