@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.samza.control.ControlMessageAggregator.ControlMessageManager;
 import org.apache.samza.message.EndOfStreamMessage;
+import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
@@ -93,6 +94,12 @@ public class EndOfStreamManager implements ControlMessageManager {
     @Override
     public void updateEndOfStream(SystemStream systemStream) {
       //TODO: broadcast the watermark message to all the partitions of this system stream
+    }
+  }
+
+  public static final class EndOfStreamDispatcher {
+    public EndOfStreamDispatcher(StreamGraph streamGraph) {
+
     }
   }
 
