@@ -19,13 +19,9 @@
 
 package org.apache.samza.execution;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -33,10 +29,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.config.ApplicationConfig;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.util.OperatorJsonUtils;
+import org.apache.samza.operators.spec.OperatorSpec.OpCode;
+import org.apache.samza.operators.spec.OutputOperatorSpec;
+import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.codehaus.jackson.annotate.JsonProperty;
 import org.codehaus.jackson.map.ObjectMapper;
 
@@ -73,8 +70,6 @@ import org.codehaus.jackson.map.ObjectMapper;
     List<StreamJson> outputStreams;
     @JsonProperty("operators")
     Map<Integer, Map<String, Object>> operators = new HashMap<>();
-    @JsonProperty("canonicalOpIds")
-    Map<Integer, String> canonicalOpIds = new HashMap<>();
   }
 
   static final class StreamJson {
@@ -107,11 +102,6 @@ import org.codehaus.jackson.map.ObjectMapper;
     @JsonProperty("applicationId")
     String applicationId;
   }
-
-  // Mapping from the output stream to the ids.
-  // Logically they belong to the same operator, but in code we generate one operator for each input.
-  // This is to associate the operators that output to the same MessageStream.
-  Multimap<MessageStream, Integer> outputStreamToOpIds = HashMultimap.create();
 
   /**
    * Returns the JSON representation of a {@link JobGraph}
@@ -157,28 +147,21 @@ import org.codehaus.jackson.map.ObjectMapper;
   }
 
   /**
-   * Traverse the {@StreamGraph} and build the operator graph JSON POJO.
+   * Traverse the {@link OperatorSpec} graph and build the operator graph JSON POJO.
    * @param jobNode job node in the {@link JobGraph}
    * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.OperatorGraphJson}
    */
   private OperatorGraphJson buildOperatorGraphJson(JobNode jobNode) {
     OperatorGraphJson opGraph = new OperatorGraphJson();
     opGraph.inputStreams = new ArrayList<>();
-    jobNode.getStreamGraph().getInputStreams().forEach((streamSpec, stream) -> {
+    jobNode.getStreamGraph().getInputOperators().forEach((streamSpec, operatorSpec) -> {
         StreamJson inputJson = new StreamJson();
         opGraph.inputStreams.add(inputJson);
         inputJson.streamId = streamSpec.getId();
-        Collection<OperatorSpec> specs = ((MessageStreamImpl) stream).getRegisteredOperatorSpecs();
+        Collection<OperatorSpec> specs = operatorSpec.getRegisteredOperatorSpecs();
         inputJson.nextOperatorIds = specs.stream().map(OperatorSpec::getOpId).collect(Collectors.toSet());
 
-        updateOperatorGraphJson((MessageStreamImpl) stream, opGraph);
-
-        for (Map.Entry<MessageStream, Collection<Integer>> entry : outputStreamToOpIds.asMap().entrySet()) {
-          List<Integer> sortedIds = new ArrayList<>(entry.getValue());
-          Collections.sort(sortedIds);
-          String canonicalId = Joiner.on(',').join(sortedIds);
-          sortedIds.stream().forEach(id -> opGraph.canonicalOpIds.put(id, canonicalId));
-        }
+        updateOperatorGraphJson(operatorSpec, opGraph);
       });
 
     opGraph.outputStreams = new ArrayList<>();
@@ -191,23 +174,43 @@ import org.codehaus.jackson.map.ObjectMapper;
   }
 
   /**
-   * Traverse the {@StreamGraph} recursively and update the operator graph JSON POJO.
-   * @param messageStream input
+   * Traverse the {@link OperatorSpec} graph recursively and update the operator graph JSON POJO.
+   * @param operatorSpec input
    * @param opGraph operator graph to build
    */
-  private void updateOperatorGraphJson(MessageStreamImpl messageStream, OperatorGraphJson opGraph) {
-    Collection<OperatorSpec> specs = messageStream.getRegisteredOperatorSpecs();
-    specs.forEach(opSpec -> {
-        opGraph.operators.put(opSpec.getOpId(), OperatorJsonUtils.operatorToMap(opSpec));
+  private void updateOperatorGraphJson(OperatorSpec operatorSpec, OperatorGraphJson opGraph) {
+    // TODO xiliu: render input operators instead of input streams
+    if (operatorSpec.getOpCode() != OpCode.INPUT) {
+      opGraph.operators.put(operatorSpec.getOpId(), operatorToMap(operatorSpec));
+    }
+    Collection<OperatorSpec> specs = operatorSpec.getRegisteredOperatorSpecs();
+    specs.forEach(opSpec -> updateOperatorGraphJson(opSpec, opGraph));
+  }
 
-        if (opSpec.getOpCode() == OperatorSpec.OpCode.JOIN || opSpec.getOpCode() == OperatorSpec.OpCode.MERGE) {
-          outputStreamToOpIds.put(opSpec.getNextStream(), opSpec.getOpId());
-        }
+  /**
+   * Format the operator properties into a map
+   * @param spec a {@link OperatorSpec} instance
+   * @return map of the operator properties
+   */
+  private Map<String, Object> operatorToMap(OperatorSpec spec) {
+    Map<String, Object> map = new HashMap<>();
+    map.put("opCode", spec.getOpCode().name());
+    map.put("opId", spec.getOpId());
+    map.put("sourceLocation", spec.getSourceLocation());
 
-        if (opSpec.getNextStream() != null) {
-          updateOperatorGraphJson(opSpec.getNextStream(), opGraph);
-        }
-      });
+    Collection<OperatorSpec> nextOperators = spec.getRegisteredOperatorSpecs();
+    map.put("nextOperatorIds", nextOperators.stream().map(OperatorSpec::getOpId).collect(Collectors.toSet()));
+
+    if (spec instanceof OutputOperatorSpec) {
+      OutputStreamImpl outputStream = ((OutputOperatorSpec) spec).getOutputStream();
+      map.put("outputStreamId", outputStream.getStreamSpec().getId());
+    }
+
+    if (spec instanceof JoinOperatorSpec) {
+      map.put("ttlMs", ((JoinOperatorSpec) spec).getTtlMs());
+    }
+
+    return map;
   }
 
   /**

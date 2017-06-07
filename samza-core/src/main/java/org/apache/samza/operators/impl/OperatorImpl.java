@@ -42,11 +42,13 @@ public abstract class OperatorImpl<M, RM> {
   private static final String METRICS_GROUP = OperatorImpl.class.getName();
 
   private boolean initialized;
-  private Set<OperatorImpl<RM, ?>> registeredOperators;
+  private boolean closed;
   private HighResolutionClock highResClock;
   private Counter numMessage;
   private Timer handleMessageNs;
   private Timer handleTimerNs;
+
+  Set<OperatorImpl<RM, ?>> registeredOperators;
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
@@ -55,10 +57,14 @@ public abstract class OperatorImpl<M, RM> {
    * @param context  the {@link TaskContext} for the task
    */
   public final void init(Config config, TaskContext context) {
-    String opName = getOperatorSpec().getOpName();
+    String opName = getOperatorName();
 
     if (initialized) {
       throw new IllegalStateException(String.format("Attempted to initialize Operator %s more than once.", opName));
+    }
+
+    if (closed) {
+      throw new IllegalStateException(String.format("Attempted to initialize Operator %s after it was closed.", opName));
     }
 
     this.highResClock = createHighResClock(config);
@@ -90,7 +96,7 @@ public abstract class OperatorImpl<M, RM> {
     if (!initialized) {
       throw new IllegalStateException(
           String.format("Attempted to register next operator before initializing operator %s.",
-              getOperatorSpec().getOpName()));
+              getOperatorName()));
     }
     this.registeredOperators.add(nextOperator);
   }
@@ -161,12 +167,36 @@ public abstract class OperatorImpl<M, RM> {
     return Collections.emptyList();
   }
 
+  public void close() {
+    if (closed) {
+      throw new IllegalStateException(
+          String.format("Attempted to close Operator %s more than once.", getOperatorSpec().getOpName()));
+    }
+    handleClose();
+    closed = true;
+  }
+
+  protected abstract void handleClose();
+
   /**
    * Get the {@link OperatorSpec} for this {@link OperatorImpl}.
    *
    * @return the {@link OperatorSpec} for this {@link OperatorImpl}
    */
-  protected abstract OperatorSpec<RM> getOperatorSpec();
+  protected abstract OperatorSpec<M, RM> getOperatorSpec();
+
+  /**
+   * Get the name for this {@link OperatorImpl}.
+   *
+   * Some {@link OperatorImpl}s don't have a 1:1 mapping with their {@link OperatorSpec}. E.g., there are
+   * 2 PartialJoinOperatorImpls for a JoinOperatorSpec. Overriding this method allows them to provide an
+   * implementation specific name, e.g., for use in metrics.
+   *
+   * @return the operator name
+   */
+  protected String getOperatorName() {
+    return getOperatorSpec().getOpName();
+  }
 
   private HighResolutionClock createHighResClock(Config config) {
     if (new MetricsConfig(config).getMetricsTimerEnabled()) {

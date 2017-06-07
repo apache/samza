@@ -23,7 +23,6 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.Timer;
-import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
@@ -177,9 +176,11 @@ public class TestOperatorImpl {
 
   private static class TestOpImpl extends OperatorImpl<Object, Object> {
     private final Object mockOutput;
+    private final TestOpSpec testOpSpec;
 
     TestOpImpl(Object mockOutput) {
       this.mockOutput = mockOutput;
+      this.testOpSpec = new TestOpSpec();
     }
 
     @Override
@@ -197,30 +198,16 @@ public class TestOperatorImpl {
     }
 
     @Override
-    protected OperatorSpec<Object> getOperatorSpec() {
-      return new TestOpSpec();
+    protected void handleClose() {}
+
+    protected OperatorSpec<Object, Object> getOperatorSpec() {
+      return testOpSpec;
     }
   }
 
-  private static class TestOpSpec implements OperatorSpec<Object> {
-    @Override
-    public MessageStreamImpl<Object> getNextStream() {
-      return null;
-    }
-
-    @Override
-    public OpCode getOpCode() {
-      return OpCode.INPUT;
-    }
-
-    @Override
-    public int getOpId() {
-      return -1;
-    }
-
-    @Override
-    public String getSourceLocation() {
-      return "";
+  private static class TestOpSpec extends OperatorSpec<Object, Object> {
+    TestOpSpec() {
+     super(OpCode.INPUT, 1);
     }
   }
 }

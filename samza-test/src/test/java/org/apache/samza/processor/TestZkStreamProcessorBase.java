@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.test.processor;
+package org.apache.samza.processor;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import kafka.utils.TestUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -37,20 +38,23 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.processor.StreamProcessor;
-import org.apache.samza.processor.StreamProcessorLifecycleListener;
+import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
+import org.apache.samza.util.Util;
 import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
+import org.junit.Before;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,38 +63,74 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
   public final static Logger LOG = LoggerFactory.getLogger(TestZkStreamProcessorBase.class);
   public final static int BAD_MESSAGE_KEY = 1000;
   // to avoid long sleeps, we rather use multiple attempts with shorter sleeps
-  private final static int ATTEMPTS_NUMBER = 5;
+  protected final static int ATTEMPTS_NUMBER = 5;
 
+  protected AtomicInteger counter = new AtomicInteger(1);
+  protected String testSystem;
+  protected String inputTopic;
+  protected String outputTopic;
+  protected int messageCount = 40;
 
+  protected Map<String, String> map;
 
-  // auxiliary methods
-  protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map,
-      final CountDownLatch startLatchCountDown, final CountDownLatch stopLatchCountDown) {
+  protected String prefix() {
+    return "";
+  }
+
+  @Before
+  public void setUp() {
+    super.setUp();
+    // for each tests - make the common parts unique
+    int seqNum = counter.getAndAdd(1);
+    testSystem = prefix() + "test-system" + seqNum;
+    inputTopic = prefix() + "numbers" + seqNum;
+    outputTopic = prefix() + "output" + seqNum;
+
+    map = createConfigs(testSystem, inputTopic, outputTopic, messageCount);
+
+    // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
+    // TopicExistsException since StreamProcessor auto-creates them.
+    createTopics(inputTopic, outputTopic);
+  }
+
+  protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map, final Object mutexStart,
+      final Object mutexStop) {
     map.put(ApplicationConfig.PROCESSOR_ID, pId);
 
-    StreamProcessor processor = new StreamProcessor(new MapConfig(map), new HashMap<>(), TestStreamTask::new,
-        new StreamProcessorLifecycleListener() {
+    Config config = new MapConfig(map);
+    JobCoordinator jobCoordinator =
+        Util.<JobCoordinatorFactory>getObj(new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName())
+            .getJobCoordinator(config);
 
-          @Override
-          public void onStart() {
-            if (startLatchCountDown != null) {
-              startLatchCountDown.countDown();
-            }
+    StreamProcessorLifecycleListener listener = new StreamProcessorLifecycleListener() {
+      @Override
+      public void onStart() {
+        if (mutexStart != null) {
+          synchronized (mutexStart) {
+            mutexStart.notifyAll();
           }
+        }
+        LOG.info("onStart is called for pid=" + pId);
+      }
 
-          @Override
-          public void onShutdown() {
-            if (stopLatchCountDown != null) {
-              stopLatchCountDown.countDown();
-            }
-            LOG.info("onShutdown is called for pid=" + pId);
+      @Override
+      public void onShutdown() {
+        if (mutexStop != null) {
+          synchronized (mutexStart) {
+            mutexStart.notify();
           }
+        }
+        LOG.info("onShutdown is called for pid=" + pId);
+      }
 
-          @Override
-          public void onFailure(Throwable t) {
-            LOG.info("onFailure is called for pid=" + pId);
-          }
-        });
+      @Override
+      public void onFailure(Throwable t) {
+        LOG.info("onFailure is called for pid=" + pId);
+      }
+    };
+
+    StreamProcessor processor =
+        new StreamProcessor(config, new HashMap<>(), (StreamTaskFactory) TestStreamTask::new, listener, jobCoordinator);
 
     return processor;
   }
@@ -131,7 +171,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     for (int i = start; i < numMessages + start; i++) {
       try {
         LOG.info("producing " + i);
-        producer.send(new ProducerRecord(topic, String.valueOf(i).getBytes())).get();
+        producer.send(new ProducerRecord(topic, i % 2, String.valueOf(i), String.valueOf(i).getBytes())).get();
       } catch (InterruptedException | ExecutionException e) {
         e.printStackTrace();
       }
@@ -165,14 +205,14 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
   }
 
   // for sequential values we can generate them automatically
-  protected void verifyNumMessages(String topic, int numberOfSequentialValues, int exectedNumMessages) {
+  protected void verifyNumMessages(String topic, int numberOfSequentialValues, int expectedNumMessages) {
     // we should get each value one time
     // create a map of all expected values to validate
     Map<Integer, Boolean> expectedValues = new HashMap<>(numberOfSequentialValues);
     for (int i = 0; i < numberOfSequentialValues; i++) {
       expectedValues.put(i, false);
     }
-    verifyNumMessages(topic, expectedValues, exectedNumMessages);
+    verifyNumMessages(topic, expectedValues, expectedNumMessages);
   }
 
   /**
@@ -194,9 +234,12 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
         while (iterator.hasNext()) {
           ConsumerRecord record = iterator.next();
           String val = new String((byte[]) record.value());
-          LOG.info("Got value " + val);
-          map.put(Integer.valueOf(val), true);
-          count++;
+          LOG.info("Got value " + val + "; count = " + count + "; out of " + expectedNumMessages);
+          Integer valI = Integer.valueOf(val);
+          if (valI < BAD_MESSAGE_KEY) {
+            map.put(valI, true);
+            count++;
+          }
         }
       } else {
         emptyPollCount++;
@@ -209,15 +252,47 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     Assert.assertEquals(expectedNumMessages, count);
   }
 
+  protected void waitUntilMessagesLeftN(int untilLeft) {
+    int attempts = ATTEMPTS_NUMBER;
+    while (attempts > 0) {
+      long leftEventsCount = TestZkStreamProcessorBase.TestStreamTask.endLatch.getCount();
+      //System.out.println("2current count = " + leftEventsCount);
+      if (leftEventsCount == untilLeft) { // that much should be left
+        System.out.println("2read all. current count = " + leftEventsCount);
+        break;
+      }
+      TestZkUtils.sleepMs(1000);
+      attempts--;
+    }
+    Assert.assertTrue("Didn't read all the leftover events in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
+  }
+
+  protected void waitForProcessorToStartStop(Object waitObject) {
+    try {
+      synchronized (waitObject) {
+        waitObject.wait(1000);
+      }
+    } catch (InterruptedException e) {
+      Assert.fail("got interrupted while waiting for the first processor to start.");
+    }
+  }
+
+  protected void stopProcessor(Thread threadName) {
+    synchronized (threadName) {
+      threadName.notify();
+    }
+  }
+
   // StreamTaskClass
   public static class TestStreamTask implements StreamTask, InitableTask {
     // static field since there's no other way to share state b/w a task instance and
     // stream processor when constructed from "task.class".
-    static CountDownLatch endLatch;
-    private int processedMessageCount = 0;
-    private String processorId;
-    private String outputTopic;
-    private String outputSystem;
+    public static CountDownLatch endLatch;
+    protected int processedMessageCount = 0;
+    protected String processorId;
+    protected String outputTopic;
+    protected String outputSystem;
+    protected String processorIdToFail;
 
     @Override
     public void init(Config config, TaskContext taskContext)
@@ -225,6 +300,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
       this.processorId = config.get(ApplicationConfig.PROCESSOR_ID);
       this.outputTopic = config.get("app.outputTopic", "output");
       this.outputSystem = config.get("app.outputSystem", "test-system");
+      this.processorIdToFail = config.get("processor.id.to.fail", "1");
     }
 
     @Override
@@ -234,37 +310,27 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
 
       Object message = incomingMessageEnvelope.getMessage();
 
+      String key = new String((byte[]) incomingMessageEnvelope.getKey());
+      Integer val = Integer.valueOf((String) message);
+
+      LOG.info("Stream processor " + processorId + ";key=" + key + ";offset=" + incomingMessageEnvelope.getOffset()
+          + "; totalRcvd=" + processedMessageCount + ";val=" + val + "; ssp=" + incomingMessageEnvelope
+          .getSystemStreamPartition());
+
       // inject a failure
-      if (Integer.valueOf((String) message) >= BAD_MESSAGE_KEY && processorId.equals("1")) {
-        LOG.info("process method will fail for msg=" + message);
+      if (val >= BAD_MESSAGE_KEY && processorId.equals(processorIdToFail)) {
+        LOG.info("process method failing for msg=" + message);
         throw new Exception("Processing in the processor " + processorId + " failed ");
       }
 
       messageCollector.send(new OutgoingMessageEnvelope(new SystemStream(outputSystem, outputTopic), message));
       processedMessageCount++;
 
-      LOG.info("Stream processor " + processorId + ";offset=" + incomingMessageEnvelope.getOffset() + "; totalRcvd="
-              + processedMessageCount + ";received " + message + "; ssp=" + incomingMessageEnvelope
-              .getSystemStreamPartition());
-
       synchronized (endLatch) {
-        endLatch.countDown();
+        if (Integer.valueOf(key) < BAD_MESSAGE_KEY) {
+          endLatch.countDown();
+        }
       }
     }
-  }
-
-  protected void waitUntilConsumedN(int untilLeft) {
-    int attempts = ATTEMPTS_NUMBER;
-    while (attempts > 0) {
-      long leftEventsCount = TestZkStreamProcessorBase.TestStreamTask.endLatch.getCount();
-      //System.out.println("2current count = " + leftEventsCount);
-      if (leftEventsCount == untilLeft) { // should read all of them
-        //System.out.println("2read all. current count = " + leftEventsCount);
-        break;
-      }
-      TestZkUtils.sleepMs(1000);
-      attempts--;
-    }
-    Assert.assertTrue("Didn't read all the leftover events in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
   }
 }

@@ -19,7 +19,6 @@
 
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.internal.WindowInternal;
@@ -38,14 +37,15 @@ public class TestWindowOperatorSpec {
         Triggers.any(Triggers.count(23),
             Triggers.timeSinceFirstMessage(Duration.ofMillis(15)),
             Triggers.any(Triggers.any(Triggers.count(6),
-                Triggers.timeSinceFirstMessage(Duration.ofMillis(15)), Triggers.timeSinceFirstMessage(Duration.ofMillis(25)),
+                Triggers.timeSinceFirstMessage(Duration.ofMillis(15)),
+                Triggers.timeSinceFirstMessage(Duration.ofMillis(25)),
                 Triggers.timeSinceLastMessage(Duration.ofMillis(15))))));
 
     WindowInternal window = new WindowInternal(defaultTrigger, null, null, null, null, WindowType.SESSION);
     window.setEarlyTrigger(earlyTrigger);
     window.setLateTrigger(lateTrigger);
 
-    WindowOperatorSpec spec = new WindowOperatorSpec(window, new MessageStreamImpl(null), 0);
+    WindowOperatorSpec spec = new WindowOperatorSpec(window, 0);
     Assert.assertEquals(spec.getDefaultTriggerMs(), 5);
   }
 
@@ -57,7 +57,7 @@ public class TestWindowOperatorSpec {
     WindowInternal window = new WindowInternal(defaultTrigger, null, null, null, null, WindowType.SESSION);
     window.setEarlyTrigger(earlyTrigger);
 
-    WindowOperatorSpec spec = new WindowOperatorSpec(window, new MessageStreamImpl(null), 0);
+    WindowOperatorSpec spec = new WindowOperatorSpec(window, 0);
     Assert.assertEquals(spec.getDefaultTriggerMs(), 150);
   }
 }

@@ -30,10 +30,10 @@ import java.util.Collection;
 
 
 /**
- * A StreamOperator that accepts a 1:n transform function and applies it to each incoming message.
+ * A simple operator that accepts a 1:n transform function and applies it to each incoming message.
  *
- * @param <M>  type of message in the input stream
- * @param <RM>  type of message in the output stream
+ * @param <M>  the type of input message
+ * @param <RM>  the type of result
  */
 class StreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
 
@@ -58,7 +58,11 @@ class StreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
   }
 
   @Override
-  protected OperatorSpec<RM> getOperatorSpec() {
+  protected void handleClose() {
+    this.transformFn.close();
+  }
+
+  protected OperatorSpec<M, RM> getOperatorSpec() {
     return streamOpSpec;
   }
 }

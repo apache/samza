@@ -28,7 +28,7 @@ import org.apache.samza.annotation.InterfaceStability;
  */
 @InterfaceStability.Unstable
 @FunctionalInterface
-public interface FilterFunction<M> extends InitableFunction {
+public interface FilterFunction<M> extends InitableFunction, ClosableFunction {
 
   /**
    * Returns a boolean indicating whether this message should be retained or filtered out.

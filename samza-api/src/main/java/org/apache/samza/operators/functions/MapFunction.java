@@ -29,7 +29,7 @@ import org.apache.samza.annotation.InterfaceStability;
  */
 @InterfaceStability.Unstable
 @FunctionalInterface
-public interface MapFunction<M, OM>  extends InitableFunction {
+public interface MapFunction<M, OM>  extends InitableFunction, ClosableFunction {
 
   /**
    * Transforms the provided message into another message.
