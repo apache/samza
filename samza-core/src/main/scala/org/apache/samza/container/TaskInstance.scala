@@ -169,8 +169,8 @@ class TaskInstance(
       trace("Processing incoming message envelope for taskName and SSP: %s, %s"
         format (taskName, msgEnvelope.getSystemStreamPartition))
 
-      val envelope = if (msgEnvelope.getMessage.isInstanceOf[ControlMessage]) {
-        controlAggregator.aggregate(envelope)
+      val envelope: IncomingMessageEnvelope = if (msgEnvelope.getMessage.isInstanceOf[ControlMessage]) {
+        controlAggregator.aggregate(msgEnvelope)
       } else {
         msgEnvelope
       }
