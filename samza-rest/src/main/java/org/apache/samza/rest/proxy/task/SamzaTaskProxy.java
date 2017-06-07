@@ -95,9 +95,9 @@ public class SamzaTaskProxy implements TaskProxy {
   protected CoordinatorStreamSystemConsumer initializeCoordinatorStreamConsumer(JobInstance jobInstance) {
     CoordinatorStreamSystemFactory coordinatorStreamSystemFactory = new CoordinatorStreamSystemFactory();
     Config coordinatorSystemConfig = getCoordinatorSystemConfig(jobInstance);
-    LOG.info("Using config: {} to create coordinatorStream consumer.", coordinatorSystemConfig);
+    LOG.debug("Using config: {} to create coordinatorStream consumer.", coordinatorSystemConfig);
     CoordinatorStreamSystemConsumer consumer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(coordinatorSystemConfig, METRICS_REGISTRY);
-    LOG.info("Registering coordinator system stream consumer.");
+    LOG.debug("Registering coordinator system stream consumer.");
     consumer.register();
     LOG.debug("Starting coordinator system stream consumer.");
     consumer.start();
