@@ -21,10 +21,10 @@ package org.apache.samza.task;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.control.EndOfStream;
+import org.apache.samza.system.EndOfStream;
 import org.apache.samza.control.EndOfStreamManager;
 import org.apache.samza.control.EndOfStreamManager.EndOfStreamDispatcher;
-import org.apache.samza.control.MessageType;
+import org.apache.samza.system.MessageType;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.impl.InputOperatorImpl;
@@ -98,7 +98,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   /**
    * Passes the incoming message envelopes along to the {@link InputOperatorImpl} node
    * for the input {@link SystemStream}.
-   * <p
+   * <p>
    * From then on, each {@link org.apache.samza.operators.impl.OperatorImpl} propagates its transformed output to
    * its chained {@link org.apache.samza.operators.impl.OperatorImpl}s itself.
    *

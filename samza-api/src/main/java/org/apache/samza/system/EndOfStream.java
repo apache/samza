@@ -17,11 +17,8 @@
  * under the License.
  */
 
-package org.apache.samza.control;
-
-import org.apache.samza.system.SystemStream;
-
+package org.apache.samza.system;
 
 public interface EndOfStream {
-  SystemStream get();
+  SystemStreamPartition get();
 }

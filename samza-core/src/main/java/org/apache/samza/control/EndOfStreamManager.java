@@ -30,6 +30,7 @@ import org.apache.samza.message.EndOfStreamMessage;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.util.IOGraphUtil.IONode;
+import org.apache.samza.system.EndOfStream;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemAdmin;
@@ -71,10 +72,10 @@ public class EndOfStreamManager implements ControlMessageManager {
 
     // if all the partitions for this system stream is end-of-stream, we generate
     // EndOfStream for the streamId
-    SystemStream systemStream = envelope.getSystemStreamPartition().getSystemStream();
+    SystemStreamPartition ssp = envelope.getSystemStreamPartition();
+    SystemStream systemStream = ssp.getSystemStream();
     if (isEndOfStream(systemStream)) {
-      SystemStreamPartition ssp = new SystemStreamPartition(systemStream, null);
-      EndOfStream eos = new EndOfStreamImpl(systemStream, this);
+      EndOfStream eos = new EndOfStreamImpl(ssp, this);
       return new IncomingMessageEnvelope(ssp, IncomingMessageEnvelope.END_OF_STREAM_OFFSET, envelope.getKey(), eos);
     } else {
       return null;
@@ -102,17 +103,17 @@ public class EndOfStreamManager implements ControlMessageManager {
   }
 
   private static final class EndOfStreamImpl implements EndOfStream {
-    private final SystemStream systemStream;
+    private final SystemStreamPartition ssp;
     private final EndOfStreamManager manager;
 
-    private EndOfStreamImpl(SystemStream systemStream, EndOfStreamManager manager) {
-      this.systemStream = systemStream;
+    private EndOfStreamImpl(SystemStreamPartition ssp, EndOfStreamManager manager) {
+      this.ssp = ssp;
       this.manager = manager;
     }
 
     @Override
-    public SystemStream get() {
-      return systemStream;
+    public SystemStreamPartition get() {
+      return ssp;
     }
 
     EndOfStreamManager getManager() {
@@ -141,24 +142,24 @@ public class EndOfStreamManager implements ControlMessageManager {
 
     private EndOfStreamDispatcher(StreamGraphImpl streamGraph) {
       streamGraph.toIOGraph().forEach(node -> {
-        node.getInputs().forEach(stream -> {
-          ioGraph.put(new SystemStream(stream.getSystemName(), stream.getPhysicalName()), node);
+          node.getInputs().forEach(stream -> {
+              ioGraph.put(new SystemStream(stream.getSystemName(), stream.getPhysicalName()), node);
+            });
         });
-      });
     }
 
     public void sendToDownstream(EndOfStream endOfStream) {
       EndOfStreamManager manager = ((EndOfStreamImpl) endOfStream).getManager();
       ioGraph.get(endOfStream.get()).forEach(node -> {
-        if (node.getOutputOpSpec().getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
-          boolean isEndOfStream =
-              node.getInputs().stream().allMatch(spec -> manager.isEndOfStream(spec.toSystemStream()));
-          if (isEndOfStream) {
-            // broadcast the end-of-stream message to the intermediate stream
-            manager.sendEndOfStream(node.getOutput().toSystemStream());
+          if (node.getOutputOpSpec().getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
+            boolean isEndOfStream =
+                node.getInputs().stream().allMatch(spec -> manager.isEndOfStream(spec.toSystemStream()));
+            if (isEndOfStream) {
+              // broadcast the end-of-stream message to the intermediate stream
+              manager.sendEndOfStream(node.getOutput().toSystemStream());
+            }
           }
-        }
-      });
+        });
     }
   }
 
