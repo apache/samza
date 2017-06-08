@@ -16,14 +16,34 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.data;
+package org.apache.samza.operators.impl;
 
-public class TestExtOutputMessageEnvelope extends TestOutputMessageEnvelope {
-  private final String outputId;
+/**
+ * Wraps the value stored for a particular {@link org.apache.samza.operators.windows.WindowKey} with additional metadata.
+ */
+class WindowState<WV> {
 
-  public TestExtOutputMessageEnvelope(String key, Integer value, String outputId) {
-    super(key, value);
-    this.outputId = outputId;
+  private final WV wv;
+  /**
+   * Time of the first message in the window
+   */
+  private final long earliestRecvTime;
+
+  WindowState(WV wv, long earliestRecvTime) {
+    this.wv = wv;
+    this.earliestRecvTime = earliestRecvTime;
   }
 
+  WV getWindowValue() {
+    return wv;
+  }
+
+  long getEarliestTimestamp() {
+    return earliestRecvTime;
+  }
+
+  @Override
+  public String toString() {
+    return String.format("WindowState: {time=%d, value=%s}", earliestRecvTime, wv);
+  }
 }

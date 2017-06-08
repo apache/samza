@@ -224,12 +224,12 @@ public class TestExecutionPlanner {
     when(runner.getStreamSpec("output2")).thenReturn(output2);
 
     // intermediate streams used in tests
-    when(runner.getStreamSpec("test-app-1-partition_by-0"))
-        .thenReturn(new StreamSpec("test-app-1-partition_by-0", "test-app-1-partition_by-0", "default-system"));
     when(runner.getStreamSpec("test-app-1-partition_by-1"))
         .thenReturn(new StreamSpec("test-app-1-partition_by-1", "test-app-1-partition_by-1", "default-system"));
-    when(runner.getStreamSpec("test-app-1-partition_by-4"))
-        .thenReturn(new StreamSpec("test-app-1-partition_by-4", "test-app-1-partition_by-4", "default-system"));
+    when(runner.getStreamSpec("test-app-1-partition_by-3"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-3", "test-app-1-partition_by-3", "default-system"));
+    when(runner.getStreamSpec("test-app-1-partition_by-8"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-8", "test-app-1-partition_by-8", "default-system"));
   }
 
   @Test
@@ -272,7 +272,7 @@ public class TestExecutionPlanner {
 
     // the partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
-        assertTrue(edge.getPartitionCount() == 64);
+        assertEquals(64, edge.getPartitionCount());
       });
   }
 

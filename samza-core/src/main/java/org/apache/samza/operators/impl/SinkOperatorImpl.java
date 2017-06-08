@@ -31,9 +31,9 @@ import java.util.Collections;
 
 
 /**
- * Implementation for {@link SinkOperatorSpec}
+ * An operator that sends incoming messages to an arbitrary output system using the provided {@link SinkFunction}.
  */
-class SinkOperatorImpl<M> extends OperatorImpl<M, M> {
+class SinkOperatorImpl<M> extends OperatorImpl<M, Void> {
 
   private final SinkOperatorSpec<M> sinkOpSpec;
   private final SinkFunction<M> sinkFn;
@@ -49,7 +49,7 @@ class SinkOperatorImpl<M> extends OperatorImpl<M, M> {
   }
 
   @Override
-  public Collection<M> handleMessage(M message, MessageCollector collector,
+  public Collection<Void> handleMessage(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
     this.sinkFn.apply(message, collector, coordinator);
     // there should be no further chained operators since this is a terminal operator.
@@ -57,7 +57,11 @@ class SinkOperatorImpl<M> extends OperatorImpl<M, M> {
   }
 
   @Override
-  protected OperatorSpec<M> getOperatorSpec() {
+  protected void handleClose() {
+    this.sinkFn.close();
+  }
+
+  protected OperatorSpec<M, Void> getOperatorSpec() {
     return sinkOpSpec;
   }
 }

@@ -16,22 +16,35 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.data;
+package org.apache.samza.operators.spec;
 
-public class MessageType {
-  private final String value;
-  private final long eventTime;
+import org.apache.samza.operators.OutputStream;
+import org.apache.samza.system.StreamSpec;
 
-  public MessageType(String value, long eventTime) {
-    this.value = value;
-    this.eventTime = eventTime;
+import java.util.function.Function;
+
+public class OutputStreamImpl<K, V, M> implements OutputStream<K, V, M> {
+
+  private final StreamSpec streamSpec;
+  private final Function<M, K> keyExtractor;
+  private final Function<M, V> msgExtractor;
+
+  public OutputStreamImpl(StreamSpec streamSpec,
+      Function<M, K> keyExtractor, Function<M, V> msgExtractor) {
+    this.streamSpec = streamSpec;
+    this.keyExtractor = keyExtractor;
+    this.msgExtractor = msgExtractor;
   }
 
-  public long getEventTime() {
-    return eventTime;
+  public StreamSpec getStreamSpec() {
+    return streamSpec;
   }
 
-  public String getValue() {
-    return value;
+  public Function<M, K> getKeyExtractor() {
+    return keyExtractor;
+  }
+
+  public Function<M, V> getMsgExtractor() {
+    return msgExtractor;
   }
 }

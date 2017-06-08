@@ -16,17 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.data;
+package org.apache.samza.standalone;
 
-public class TestInputMessageEnvelope extends TestMessageEnvelope {
-  private final String inputId;
+import org.apache.samza.config.Config;
+import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.coordinator.JobCoordinatorFactory;
 
-  public TestInputMessageEnvelope(String key, String value, long eventTime, String inputId) {
-    super(key, value, eventTime);
-    this.inputId = inputId;
-  }
-
-  public String getInputId() {
-    return this.inputId;
+public class PassthroughJobCoordinatorFactory implements JobCoordinatorFactory {
+  @Override
+  public JobCoordinator getJobCoordinator(Config config) {
+    return new PassthroughJobCoordinator(config);
   }
 }

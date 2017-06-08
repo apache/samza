@@ -31,11 +31,9 @@ import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
@@ -77,7 +75,7 @@ public class ExecutionPlanner {
    */
   /* package private */ JobGraph createJobGraph(StreamGraphImpl streamGraph) {
     JobGraph jobGraph = new JobGraph(config);
-    Set<StreamSpec> sourceStreams = new HashSet<>(streamGraph.getInputStreams().keySet());
+    Set<StreamSpec> sourceStreams = new HashSet<>(streamGraph.getInputOperators().keySet());
     Set<StreamSpec> sinkStreams = new HashSet<>(streamGraph.getOutputStreams().keySet());
     Set<StreamSpec> intStreams = new HashSet<>(sourceStreams);
     intStreams.retainAll(sinkStreams);
@@ -120,7 +118,7 @@ public class ExecutionPlanner {
   /**
    * Fetch the partitions of source/sink streams and update the StreamEdges.
    * @param jobGraph {@link JobGraph}
-   * @param streamManager the {@StreamManager} to interface with the streams.
+   * @param streamManager the {@link StreamManager} to interface with the streams.
    */
   /* package private */ static void updateExistingPartitions(JobGraph jobGraph, StreamManager streamManager) {
     Set<StreamEdge> existingStreams = new HashSet<>();
@@ -157,20 +155,16 @@ public class ExecutionPlanner {
     Multimap<OperatorSpec, StreamEdge> joinSpecToStreamEdges = HashMultimap.create();
     // reverse mapping of the above
     Multimap<StreamEdge, OperatorSpec> streamEdgeToJoinSpecs = HashMultimap.create();
-    // Mapping from the output stream to the join spec. Since StreamGraph creates two partial join operators for a join and they
-    // will have the same output stream, this mapping is used to choose one of them as the unique join spec representing this join
-    // (who register first in the map wins).
-    Map<MessageStream, OperatorSpec> outputStreamToJoinSpec = new HashMap<>();
     // A queue of joins with known input partitions
     Queue<OperatorSpec> joinQ = new LinkedList<>();
     // The visited set keeps track of the join specs that have been already inserted in the queue before
     Set<OperatorSpec> visited = new HashSet<>();
 
-    streamGraph.getInputStreams().entrySet().forEach(entry -> {
+    streamGraph.getInputOperators().entrySet().forEach(entry -> {
         StreamEdge streamEdge = jobGraph.getOrCreateStreamEdge(entry.getKey());
         // Traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
         findReachableJoins(entry.getValue(), streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs,
-            outputStreamToJoinSpec, joinQ, visited);
+            joinQ, visited);
       });
 
     // At this point, joinQ contains joinSpecs where at least one of the input stream edge partitions is known.
@@ -209,44 +203,33 @@ public class ExecutionPlanner {
   }
 
   /**
-   * This function traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
-   * @param inputMessageStream next input MessageStream to traverse {@link MessageStream}
+   * This function traverses the {@link OperatorSpec} graph to find and update mappings for all Joins reachable
+   * from this input {@link StreamEdge}.
+   * @param operatorSpec the {@link OperatorSpec} to traverse
    * @param sourceStreamEdge source {@link StreamEdge}
    * @param joinSpecToStreamEdges mapping from join spec to its source {@link StreamEdge}s
    * @param streamEdgeToJoinSpecs mapping from source {@link StreamEdge} to the join specs that consumes it
-   * @param outputStreamToJoinSpec mapping from the output stream to the join spec
    * @param joinQ queue that contains joinSpecs where at least one of the input stream edge partitions is known.
    */
-  private static void findReachableJoins(MessageStream inputMessageStream, StreamEdge sourceStreamEdge,
-      Multimap<OperatorSpec, StreamEdge> joinSpecToStreamEdges, Multimap<StreamEdge, OperatorSpec> streamEdgeToJoinSpecs,
-      Map<MessageStream, OperatorSpec> outputStreamToJoinSpec, Queue<OperatorSpec> joinQ, Set<OperatorSpec> visited) {
-    Collection<OperatorSpec> specs = ((MessageStreamImpl) inputMessageStream).getRegisteredOperatorSpecs();
-    for (OperatorSpec spec : specs) {
-      if (spec instanceof PartialJoinOperatorSpec) {
-        // every join will have two partial join operators
-        // we will choose one of them in order to consolidate the inputs
-        // the first one who registered with the outputStreamToJoinSpec will win
-        MessageStream output = spec.getNextStream();
-        OperatorSpec joinSpec = outputStreamToJoinSpec.get(output);
-        if (joinSpec == null) {
-          joinSpec = spec;
-          outputStreamToJoinSpec.put(output, joinSpec);
-        }
+  private static void findReachableJoins(OperatorSpec operatorSpec, StreamEdge sourceStreamEdge,
+      Multimap<OperatorSpec, StreamEdge> joinSpecToStreamEdges,
+      Multimap<StreamEdge, OperatorSpec> streamEdgeToJoinSpecs,
+      Queue<OperatorSpec> joinQ, Set<OperatorSpec> visited) {
+    if (operatorSpec instanceof JoinOperatorSpec) {
+      joinSpecToStreamEdges.put(operatorSpec, sourceStreamEdge);
+      streamEdgeToJoinSpecs.put(sourceStreamEdge, operatorSpec);
 
-        joinSpecToStreamEdges.put(joinSpec, sourceStreamEdge);
-        streamEdgeToJoinSpecs.put(sourceStreamEdge, joinSpec);
-
-        if (!visited.contains(joinSpec) && sourceStreamEdge.getPartitionCount() > 0) {
-          // put the joins with known input partitions into the queue
-          joinQ.add(joinSpec);
-          visited.add(joinSpec);
-        }
+      if (!visited.contains(operatorSpec) && sourceStreamEdge.getPartitionCount() > 0) {
+        // put the joins with known input partitions into the queue and mark as visited
+        joinQ.add(operatorSpec);
+        visited.add(operatorSpec);
       }
+    }
 
-      if (spec.getNextStream() != null) {
-        findReachableJoins(spec.getNextStream(), sourceStreamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs, outputStreamToJoinSpec, joinQ,
-            visited);
-      }
+    Collection<OperatorSpec> registeredOperatorSpecs = operatorSpec.getRegisteredOperatorSpecs();
+    for (OperatorSpec registeredOpSpec : registeredOperatorSpecs) {
+      findReachableJoins(registeredOpSpec, sourceStreamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs, joinQ,
+          visited);
     }
   }
 

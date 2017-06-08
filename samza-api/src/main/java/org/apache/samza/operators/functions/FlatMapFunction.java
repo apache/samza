@@ -31,7 +31,7 @@ import java.util.Collection;
  */
 @InterfaceStability.Unstable
 @FunctionalInterface
-public interface FlatMapFunction<M, OM>  extends InitableFunction {
+public interface FlatMapFunction<M, OM>  extends InitableFunction, ClosableFunction {
 
   /**
    * Transforms the provided message into a collection of 0 or more messages.

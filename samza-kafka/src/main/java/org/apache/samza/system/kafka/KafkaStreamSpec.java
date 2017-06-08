@@ -83,7 +83,7 @@ public class KafkaStreamSpec extends StreamSpec {
         if (LogConfig.configNames().contains(entry.getKey())) {
           filteredConfig.put(entry.getKey(), entry.getValue());
         } else {
-          LOG.warn("Property '{}' is not a valid Kafka topic config. It will be ignored.");
+          LOG.warn("Property '{}' is not a valid Kafka topic config. It will be ignored.", entry.getKey());
         }
       }
     }
@@ -116,12 +116,15 @@ public class KafkaStreamSpec extends StreamSpec {
   /**
    * Convenience constructor to create a KafkaStreamSpec with just a topicName, systemName, and partitionCount.
    *
+   * @param id              The application-unique logical identifier for the stream. It is used to distinguish between
+   *                        streams in a Samza application so it must be unique in the context of one deployable unit.
+   *                        It does not need to be globally unique or unique with respect to a host.
    * @param topicName       The name of the topic.
    * @param systemName      The name of the System. See {@link org.apache.samza.system.SystemFactory}
    * @param partitionCount  The number of partitions.
    */
-  public KafkaStreamSpec(String topicName, String systemName, int partitionCount) {
-    this(topicName, topicName, systemName, partitionCount, DEFAULT_REPLICATION_FACTOR, new Properties());
+  public KafkaStreamSpec(String id, String topicName, String systemName, int partitionCount) {
+    this(id, topicName, systemName, partitionCount, DEFAULT_REPLICATION_FACTOR, new Properties());
   }
 
   /**

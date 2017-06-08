@@ -19,300 +19,341 @@
 package org.apache.samza.operators;
 
 import com.google.common.collect.ImmutableList;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.operators.data.MessageType;
-import org.apache.samza.operators.data.TestExtOutputMessageEnvelope;
-import org.apache.samza.operators.data.TestInputMessageEnvelope;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
+import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.OperatorSpec.OpCode;
+import org.apache.samza.operators.spec.OutputOperatorSpec;
+import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
-import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
-import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.system.OutgoingMessageEnvelope;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
-import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.operators.spec.WindowOperatorSpec;
+import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
+import org.apache.samza.operators.windows.Window;
+import org.apache.samza.operators.windows.WindowPane;
+import org.apache.samza.operators.windows.Windows;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.Collections;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Matchers.anyObject;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-
+@SuppressWarnings("unchecked")
 public class TestMessageStreamImpl {
-
-  private StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
 
   @Test
   public void testMap() {
-    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph);
-    MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> xMap = (TestMessageEnvelope m)  ->
-        new TestOutputMessageEnvelope(m.getKey(), m.getMessage().getValue().length() + 1);
-    MessageStream<TestOutputMessageEnvelope> outputStream = inputStream.map(xMap);
-    Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
-    assertEquals(subs.size(), 1);
-    OperatorSpec<TestOutputMessageEnvelope> mapOp = subs.iterator().next();
-    assertTrue(mapOp instanceof StreamOperatorSpec);
-    assertEquals(mapOp.getNextStream(), outputStream);
-    // assert that the transformation function is what we defined above
-    TestMessageEnvelope xTestMsg = mock(TestMessageEnvelope.class);
-    MessageType mockInnerTestMessage = mock(MessageType.class);
-    when(xTestMsg.getKey()).thenReturn("test-msg-key");
-    when(xTestMsg.getMessage()).thenReturn(mockInnerTestMessage);
-    when(mockInnerTestMessage.getValue()).thenReturn("123456789");
+    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    OperatorSpec mockOpSpec = mock(OperatorSpec.class);
+    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
-    Collection<TestOutputMessageEnvelope> cOutputMsg = ((StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) mapOp).getTransformFn().apply(xTestMsg);
-    assertEquals(cOutputMsg.size(), 1);
-    TestOutputMessageEnvelope outputMessage = cOutputMsg.iterator().next();
-    assertEquals(outputMessage.getKey(), xTestMsg.getKey());
-    assertEquals(outputMessage.getMessage(), Integer.valueOf(xTestMsg.getMessage().getValue().length() + 1));
+    MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> mockMapFn = mock(MapFunction.class);
+    inputStream.map(mockMapFn);
+
+    ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
+    OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
+    assertTrue(registeredOpSpec instanceof StreamOperatorSpec);
+
+    FlatMapFunction transformFn = ((StreamOperatorSpec) registeredOpSpec).getTransformFn();
+    assertNotNull(transformFn);
+    assertEquals(OpCode.MAP, registeredOpSpec.getOpCode());
+
+    TestOutputMessageEnvelope mockOutput = mock(TestOutputMessageEnvelope.class);
+    when(mockMapFn.apply(anyObject())).thenReturn(mockOutput);
+    assertTrue(transformFn.apply(new Object()).contains(mockOutput));
+    when(mockMapFn.apply(anyObject())).thenReturn(null);
+    assertTrue(transformFn.apply(null).isEmpty());
   }
 
   @Test
   public void testFlatMap() {
-    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph);
-    List<TestOutputMessageEnvelope> flatOuts = new ArrayList<TestOutputMessageEnvelope>() { {
-        this.add(mock(TestOutputMessageEnvelope.class));
-        this.add(mock(TestOutputMessageEnvelope.class));
-        this.add(mock(TestOutputMessageEnvelope.class));
-      } };
-    final List<TestMessageEnvelope> inputMsgs = new ArrayList<>();
-    FlatMapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> xFlatMap = (TestMessageEnvelope message) -> {
-      inputMsgs.add(message);
-      return flatOuts;
-    };
-    MessageStream<TestOutputMessageEnvelope> outputStream = inputStream.flatMap(xFlatMap);
-    Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
-    assertEquals(subs.size(), 1);
-    OperatorSpec<TestOutputMessageEnvelope> flatMapOp = subs.iterator().next();
-    assertTrue(flatMapOp instanceof StreamOperatorSpec);
-    assertEquals(flatMapOp.getNextStream(), outputStream);
-    assertEquals(((StreamOperatorSpec) flatMapOp).getTransformFn(), xFlatMap);
+    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    OperatorSpec mockOpSpec = mock(OperatorSpec.class);
+    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
-    TestMessageEnvelope mockInput  = mock(TestMessageEnvelope.class);
-    // assert that the transformation function is what we defined above
-    List<TestOutputMessageEnvelope> result = (List<TestOutputMessageEnvelope>)
-        ((StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) flatMapOp).getTransformFn().apply(mockInput);
-    assertEquals(flatOuts, result);
-    assertEquals(inputMsgs.size(), 1);
-    assertEquals(inputMsgs.get(0), mockInput);
+    inputStream.flatMap(mock(FlatMapFunction.class));
+
+    ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
+    OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
+
+    assertTrue(registeredOpSpec instanceof StreamOperatorSpec);
+    assertNotNull(((StreamOperatorSpec) registeredOpSpec).getTransformFn());
+    assertEquals(OpCode.FLAT_MAP, registeredOpSpec.getOpCode());
   }
 
   @Test
   public void testFlatMapWithRelaxedTypes() {
-    MessageStreamImpl<TestInputMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph);
-    List<TestExtOutputMessageEnvelope> flatOuts = new ArrayList<TestExtOutputMessageEnvelope>() { {
-        this.add(new TestExtOutputMessageEnvelope("output-key-1", 1, "output-id-001"));
-        this.add(new TestExtOutputMessageEnvelope("output-key-2", 2, "output-id-002"));
-        this.add(new TestExtOutputMessageEnvelope("output-key-3", 3, "output-id-003"));
-      } };
+    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    OperatorSpec mockOpSpec = mock(OperatorSpec.class);
+    MessageStreamImpl<TestInputMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
-    class MyFlatMapFunction implements FlatMapFunction<TestMessageEnvelope, TestExtOutputMessageEnvelope> {
-      public final List<TestMessageEnvelope> inputMsgs = new ArrayList<>();
+    FlatMapFunction flatMapFunction =
+        (FlatMapFunction<TestMessageEnvelope, TestOutputMessageEnvelope>) message -> Collections.emptyList();
+    // should compile since TestInputMessageEnvelope extends TestMessageEnvelope
+    inputStream.flatMap(flatMapFunction);
 
-      @Override
-      public Collection<TestExtOutputMessageEnvelope> apply(TestMessageEnvelope message) {
-        inputMsgs.add(message);
-        return flatOuts;
-      }
+    ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
+    OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
 
-      @Override
-      public void init(Config config, TaskContext context) {
-        inputMsgs.clear();
-      }
-    }
-
-    MyFlatMapFunction xFlatMap = new MyFlatMapFunction();
-
-    MessageStream<TestOutputMessageEnvelope> outputStream = inputStream.flatMap(xFlatMap);
-    Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
-    assertEquals(subs.size(), 1);
-    OperatorSpec<TestOutputMessageEnvelope> flatMapOp = subs.iterator().next();
-    assertTrue(flatMapOp instanceof StreamOperatorSpec);
-    assertEquals(flatMapOp.getNextStream(), outputStream);
-    assertEquals(((StreamOperatorSpec) flatMapOp).getTransformFn(), xFlatMap);
-
-    TestMessageEnvelope mockInput  = mock(TestMessageEnvelope.class);
-    // assert that the transformation function is what we defined above
-    List<TestOutputMessageEnvelope> result = (List<TestOutputMessageEnvelope>)
-        ((StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope>) flatMapOp).getTransformFn().apply(mockInput);
-    assertEquals(flatOuts, result);
-    assertEquals(xFlatMap.inputMsgs.size(), 1);
-    assertEquals(xFlatMap.inputMsgs.get(0), mockInput);
+    assertTrue(registeredOpSpec instanceof StreamOperatorSpec);
+    assertNotNull(((StreamOperatorSpec) registeredOpSpec).getTransformFn());
+    assertEquals(OpCode.FLAT_MAP, registeredOpSpec.getOpCode());
   }
 
   @Test
   public void testFilter() {
-    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph);
-    FilterFunction<TestMessageEnvelope> xFilter = (TestMessageEnvelope m) -> m.getMessage().getEventTime() > 123456L;
-    MessageStream<TestMessageEnvelope> outputStream = inputStream.filter(xFilter);
-    Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
-    assertEquals(subs.size(), 1);
-    OperatorSpec<TestMessageEnvelope> filterOp = subs.iterator().next();
-    assertTrue(filterOp instanceof StreamOperatorSpec);
-    assertEquals(filterOp.getNextStream(), outputStream);
-    // assert that the transformation function is what we defined above
-    FlatMapFunction<TestMessageEnvelope, TestMessageEnvelope> txfmFn = ((StreamOperatorSpec<TestMessageEnvelope, TestMessageEnvelope>) filterOp).getTransformFn();
-    TestMessageEnvelope mockMsg = mock(TestMessageEnvelope.class);
-    MessageType mockInnerTestMessage = mock(MessageType.class);
-    when(mockMsg.getMessage()).thenReturn(mockInnerTestMessage);
-    when(mockInnerTestMessage.getEventTime()).thenReturn(11111L);
-    Collection<TestMessageEnvelope> output = txfmFn.apply(mockMsg);
-    assertTrue(output.isEmpty());
-    when(mockMsg.getMessage()).thenReturn(mockInnerTestMessage);
-    when(mockInnerTestMessage.getEventTime()).thenReturn(999999L);
-    output = txfmFn.apply(mockMsg);
-    assertEquals(output.size(), 1);
-    assertEquals(output.iterator().next(), mockMsg);
+    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    OperatorSpec mockOpSpec = mock(OperatorSpec.class);
+    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
+
+    FilterFunction<Object> mockFilterFn = mock(FilterFunction.class);
+    inputStream.filter(mockFilterFn);
+
+    ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
+    OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
+    assertTrue(registeredOpSpec instanceof StreamOperatorSpec);
+
+    FlatMapFunction transformFn = ((StreamOperatorSpec) registeredOpSpec).getTransformFn();
+    assertNotNull(transformFn);
+    assertEquals(OpCode.FILTER, registeredOpSpec.getOpCode());
+
+    Object mockInput = new Object();
+    when(mockFilterFn.apply(anyObject())).thenReturn(true);
+    assertTrue(transformFn.apply(mockInput).contains(mockInput));
+    when(mockFilterFn.apply(anyObject())).thenReturn(false);
+    assertTrue(transformFn.apply(mockInput).isEmpty());
   }
 
   @Test
   public void testSink() {
-    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph);
-    SystemStream testStream = new SystemStream("test-sys", "test-stream");
-    SinkFunction<TestMessageEnvelope> xSink = (TestMessageEnvelope m, MessageCollector mc, TaskCoordinator tc) -> {
-      mc.send(new OutgoingMessageEnvelope(testStream, m.getMessage()));
-      tc.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
-    };
-    inputStream.sink(xSink);
-    Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
-    assertEquals(subs.size(), 1);
-    OperatorSpec<TestMessageEnvelope> sinkOp = subs.iterator().next();
-    assertTrue(sinkOp instanceof SinkOperatorSpec);
-    assertEquals(((SinkOperatorSpec) sinkOp).getSinkFn(), xSink);
+    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    OperatorSpec mockOpSpec = mock(OperatorSpec.class);
+    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
-    TestMessageEnvelope mockTest1 = mock(TestMessageEnvelope.class);
-    MessageType mockMsgBody = mock(MessageType.class);
-    when(mockTest1.getMessage()).thenReturn(mockMsgBody);
-    final List<OutgoingMessageEnvelope> outMsgs = new ArrayList<>();
-    MessageCollector mockCollector = mock(MessageCollector.class);
-    doAnswer(invocation -> {
-        outMsgs.add((OutgoingMessageEnvelope) invocation.getArguments()[0]);
-        return null;
-      }).when(mockCollector).send(any());
-    TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
-    ((SinkOperatorSpec) sinkOp).getSinkFn().apply(mockTest1, mockCollector, mockCoordinator);
-    assertEquals(1, outMsgs.size());
-    assertEquals(testStream, outMsgs.get(0).getSystemStream());
-    assertEquals(mockMsgBody, outMsgs.get(0).getMessage());
+    inputStream.sink(mock(SinkFunction.class));
+
+    ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
+    OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
+
+    assertTrue(registeredOpSpec instanceof SinkOperatorSpec);
+    assertNotNull(((SinkOperatorSpec) registeredOpSpec).getSinkFn());
+    assertEquals(OpCode.SINK, registeredOpSpec.getOpCode());
+  }
+
+  @Test
+  public void testSendTo() {
+    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    OperatorSpec mockOpSpec = mock(OperatorSpec.class);
+    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
+
+    OutputStreamImpl mockOutputOpSpec = mock(OutputStreamImpl.class);
+    inputStream.sendTo(mockOutputOpSpec);
+
+    ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
+    OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
+
+    assertTrue(registeredOpSpec instanceof OutputOperatorSpec);
+    assertEquals(OpCode.SEND_TO, registeredOpSpec.getOpCode());
+    assertEquals(mockOutputOpSpec, ((OutputOperatorSpec) registeredOpSpec).getOutputStream());
+  }
+
+  @Test
+  public void testPartitionBy() {
+    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    OperatorSpec mockOpSpec = mock(OperatorSpec.class);
+
+    String streamName = String.format("%s-%s", OperatorSpec.OpCode.PARTITION_BY.name().toLowerCase(), 0);
+    Function<TestMessageEnvelope, String> mockKeyFn = mock(Function.class);
+    OutputStreamImpl mockOutputOpSpec = mock(OutputStreamImpl.class);
+    IntermediateMessageStreamImpl mockIntermediateStream = mock(IntermediateMessageStreamImpl.class);
+    when(mockGraph.getIntermediateStream(eq(streamName), eq(mockKeyFn), any(Function.class), any(BiFunction.class)))
+        .thenReturn(mockIntermediateStream);
+    when(mockIntermediateStream.getOutputStream())
+        .thenReturn(mockOutputOpSpec);
+
+    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
+    inputStream.partitionBy(mockKeyFn);
+
+    ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
+    OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
+
+    assertTrue(registeredOpSpec instanceof OutputOperatorSpec);
+    assertEquals(OpCode.PARTITION_BY, registeredOpSpec.getOpCode());
+    assertEquals(mockOutputOpSpec, ((OutputOperatorSpec) registeredOpSpec).getOutputStream());
+  }
+
+  @Test
+  public void testWindowWithRelaxedTypes() throws Exception {
+    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    OperatorSpec mockOpSpec = mock(OperatorSpec.class);
+    MessageStream<TestInputMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
+
+    Function<TestMessageEnvelope, String> keyExtractor = m -> m.getKey();
+    FoldLeftFunction<TestMessageEnvelope, Integer> aggregator = (m, c) -> c + 1;
+    Supplier<Integer> initialValue = () -> 0;
+
+    // should compile since TestMessageEnvelope (input for functions) is base class of TestInputMessageEnvelope (M)
+    Window<TestInputMessageEnvelope, String, Integer> window = Windows
+        .keyedTumblingWindow(keyExtractor, Duration.ofHours(1), initialValue, aggregator);
+    MessageStream<WindowPane<String, Integer>> windowedStream = inputStream.window(window);
+
+    ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
+    OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
+
+    assertTrue(registeredOpSpec instanceof WindowOperatorSpec);
+    assertEquals(OpCode.WINDOW, registeredOpSpec.getOpCode());
+    assertEquals(window, ((WindowOperatorSpec) registeredOpSpec).getWindow());
   }
 
   @Test
   public void testJoin() {
-    MessageStreamImpl<TestMessageEnvelope> source1 = new MessageStreamImpl<>(mockGraph);
-    MessageStreamImpl<TestMessageEnvelope> source2 = new MessageStreamImpl<>(mockGraph);
-    JoinFunction<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> joiner =
-      new JoinFunction<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope>() {
-        @Override
-        public TestOutputMessageEnvelope apply(TestMessageEnvelope m1, TestMessageEnvelope m2) {
-          return new TestOutputMessageEnvelope(m1.getKey(), m1.getMessage().getValue().length() + m2.getMessage().getValue().length());
-        }
+    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    OperatorSpec leftInputOpSpec = mock(OperatorSpec.class);
+    MessageStreamImpl<TestMessageEnvelope> source1 = new MessageStreamImpl<>(mockGraph, leftInputOpSpec);
+    OperatorSpec rightInputOpSpec = mock(OperatorSpec.class);
+    MessageStreamImpl<TestMessageEnvelope> source2 = new MessageStreamImpl<>(mockGraph, rightInputOpSpec);
 
-        @Override
-        public String getFirstKey(TestMessageEnvelope message) {
-          return message.getKey();
-        }
+    JoinFunction<String, TestMessageEnvelope, TestMessageEnvelope, TestOutputMessageEnvelope> mockJoinFn =
+        mock(JoinFunction.class);
 
-        @Override
-        public String getSecondKey(TestMessageEnvelope message) {
-          return message.getKey();
-        }
-      };
+    Duration joinTtl = Duration.ofMinutes(1);
+    source1.join(source2, mockJoinFn, joinTtl);
 
-    MessageStream<TestOutputMessageEnvelope> joinOutput = source1.join(source2, joiner, Duration.ofMinutes(1));
-    Collection<OperatorSpec> subs = source1.getRegisteredOperatorSpecs();
-    assertEquals(subs.size(), 1);
-    OperatorSpec<TestMessageEnvelope> joinOp1 = subs.iterator().next();
-    assertTrue(joinOp1 instanceof PartialJoinOperatorSpec);
-    assertEquals(((PartialJoinOperatorSpec) joinOp1).getNextStream(), joinOutput);
-    subs = source2.getRegisteredOperatorSpecs();
-    assertEquals(subs.size(), 1);
-    OperatorSpec<TestMessageEnvelope> joinOp2 = subs.iterator().next();
-    assertTrue(joinOp2 instanceof PartialJoinOperatorSpec);
-    assertEquals(((PartialJoinOperatorSpec) joinOp2).getNextStream(), joinOutput);
-    TestMessageEnvelope joinMsg1 = new TestMessageEnvelope("test-join-1", "join-msg-001", 11111L);
-    TestMessageEnvelope joinMsg2 = new TestMessageEnvelope("test-join-2", "join-msg-002", 22222L);
-    TestOutputMessageEnvelope xOut = (TestOutputMessageEnvelope) ((PartialJoinOperatorSpec) joinOp1).getThisPartialJoinFn().apply(joinMsg1, joinMsg2);
-    assertEquals(xOut.getKey(), "test-join-1");
-    assertEquals(xOut.getMessage(), Integer.valueOf(24));
-    xOut = (TestOutputMessageEnvelope) ((PartialJoinOperatorSpec) joinOp2).getThisPartialJoinFn().apply(joinMsg2, joinMsg1);
-    assertEquals(xOut.getKey(), "test-join-1");
-    assertEquals(xOut.getMessage(), Integer.valueOf(24));
+    ArgumentCaptor<OperatorSpec> leftRegisteredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(leftInputOpSpec).registerNextOperatorSpec(leftRegisteredOpCaptor.capture());
+    OperatorSpec<?, TestMessageEnvelope> leftRegisteredOpSpec = leftRegisteredOpCaptor.getValue();
+
+    ArgumentCaptor<OperatorSpec> rightRegisteredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(rightInputOpSpec).registerNextOperatorSpec(rightRegisteredOpCaptor.capture());
+    OperatorSpec<?, TestMessageEnvelope> rightRegisteredOpSpec = rightRegisteredOpCaptor.getValue();
+
+    assertEquals(leftRegisteredOpSpec, rightRegisteredOpSpec);
+    assertEquals(OpCode.JOIN, leftRegisteredOpSpec.getOpCode());
+    assertTrue(leftRegisteredOpSpec instanceof JoinOperatorSpec);
+    assertEquals(mockJoinFn, ((JoinOperatorSpec) leftRegisteredOpSpec).getJoinFn());
+    assertEquals(joinTtl.toMillis(), ((JoinOperatorSpec) leftRegisteredOpSpec).getTtlMs());
+    assertEquals(leftInputOpSpec, ((JoinOperatorSpec) leftRegisteredOpSpec).getLeftInputOpSpec());
+    assertEquals(rightInputOpSpec, ((JoinOperatorSpec) leftRegisteredOpSpec).getRightInputOpSpec());
   }
 
   @Test
   public void testMerge() {
-    MessageStream<TestMessageEnvelope> merge1 = new MessageStreamImpl<>(mockGraph);
-    Collection<MessageStream<TestMessageEnvelope>> others = ImmutableList.of(
-        new MessageStreamImpl<>(mockGraph), new MessageStreamImpl<>(mockGraph));
-    MessageStream<TestMessageEnvelope> mergeOutput = merge1.merge(others);
-    validateMergeOperator(merge1, mergeOutput);
+    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    OperatorSpec mockOpSpec1 = mock(OperatorSpec.class);
+    MessageStream<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec1);
 
-    others.forEach(merge -> validateMergeOperator(merge, mergeOutput));
+    // other streams have the same message type T as input stream message type M
+    OperatorSpec mockOpSpec2 = mock(OperatorSpec.class);
+    OperatorSpec mockOpSpec3 = mock(OperatorSpec.class);
+    Collection<MessageStream<TestMessageEnvelope>> otherStreams1 = ImmutableList.of(
+        new MessageStreamImpl<>(mockGraph, mockOpSpec2),
+        new MessageStreamImpl<>(mockGraph, mockOpSpec3)
+    );
+
+    inputStream.merge(otherStreams1);
+
+    ArgumentCaptor<OperatorSpec> registeredOpCaptor1 = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(mockOpSpec1).registerNextOperatorSpec(registeredOpCaptor1.capture());
+    OperatorSpec<?, TestMessageEnvelope> registeredOpSpec1 = registeredOpCaptor1.getValue();
+    assertTrue(registeredOpSpec1 instanceof StreamOperatorSpec);
+    FlatMapFunction transformFn = ((StreamOperatorSpec) registeredOpSpec1).getTransformFn();
+
+    ArgumentCaptor<OperatorSpec> registeredOpCaptor2 = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(mockOpSpec2).registerNextOperatorSpec(registeredOpCaptor2.capture());
+    OperatorSpec<?, TestMessageEnvelope> registeredOpSpec2 = registeredOpCaptor2.getValue();
+
+    ArgumentCaptor<OperatorSpec> registeredOpCaptor3 = ArgumentCaptor.forClass(OperatorSpec.class);
+    verify(mockOpSpec3).registerNextOperatorSpec(registeredOpCaptor3.capture());
+    OperatorSpec<?, TestMessageEnvelope> registeredOpSpec3 = registeredOpCaptor3.getValue();
+
+    assertEquals(registeredOpSpec1, registeredOpSpec2);
+    assertEquals(registeredOpSpec2, registeredOpSpec3);
+    assertEquals(OpCode.MERGE, registeredOpSpec1.getOpCode());
+
+    assertNotNull(transformFn);
+    TestMessageEnvelope mockInput = mock(TestMessageEnvelope.class);
+    assertTrue(transformFn.apply(mockInput).contains(mockInput));
+    assertEquals(1, transformFn.apply(mockInput).size());
   }
 
   @Test
   public void testMergeWithRelaxedTypes() {
-    MessageStream<TestMessageEnvelope> input1 = new MessageStreamImpl<>(mockGraph);
-    Collection<MessageStream<? extends TestMessageEnvelope>> others = ImmutableList.of(
-        new MessageStreamImpl<TestInputMessageEnvelope>(mockGraph),
-        new MessageStreamImpl<TestMessageEnvelope>(mockGraph));
+    StreamGraphImpl mockGraph = mock(StreamGraphImpl.class);
+    MessageStream<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mock(OperatorSpec.class));
 
-    // should compile
-    MessageStream<TestMessageEnvelope> mergeOutput = input1.merge(others);
-    validateMergeOperator(input1, mergeOutput);
+    // other streams have the same message type T as input stream message type M
+    Collection<MessageStream<TestMessageEnvelope>> otherStreams1 = ImmutableList.of(
+        new MessageStreamImpl<>(mockGraph, mock(OperatorSpec.class)),
+        new MessageStreamImpl<>(mockGraph, mock(OperatorSpec.class))
+    );
 
-    others.forEach(merge -> validateMergeOperator((MessageStream<TestMessageEnvelope>) merge, mergeOutput));
+    // other streams have the same message type T that extends as input stream message type M
+    Collection<MessageStream<TestInputMessageEnvelope>> otherStreams2 = ImmutableList.of(
+        new MessageStreamImpl<TestInputMessageEnvelope>(mockGraph, mock(OperatorSpec.class)),
+        new MessageStreamImpl<TestInputMessageEnvelope>(mockGraph, mock(OperatorSpec.class))
+    );
+
+    // other streams have a mix of message types such that T extends input stream message type M
+    Collection<MessageStream<TestMessageEnvelope>> otherStreams3 = ImmutableList.of(
+        new MessageStreamImpl<TestMessageEnvelope>(mockGraph, mock(OperatorSpec.class)),
+        // unchecked cast required for the next stream
+        (MessageStream) new MessageStreamImpl<TestInputMessageEnvelope>(mockGraph, mock(OperatorSpec.class))
+    );
+
+    // not supported:
+    // other streams have a mix of message types such that T extends input stream message type M
+    Collection<MessageStream<? extends TestMessageEnvelope>> otherStreams4 = ImmutableList.of(
+        new MessageStreamImpl<TestMessageEnvelope>(mockGraph, mock(OperatorSpec.class)),
+        new MessageStreamImpl<TestInputMessageEnvelope>(mockGraph, mock(OperatorSpec.class))
+    );
+
+    // check if all type combinations compile
+    inputStream.merge(otherStreams1);
+    inputStream.merge(otherStreams2);
+    inputStream.merge(otherStreams3);
+    inputStream.merge(otherStreams4);
   }
 
   @Test
   public <T> void testMergeWithNestedTypes() {
     class MessageEnvelope<TM> { }
-    MessageStream<MessageEnvelope<T>> ms1 = new MessageStreamImpl<>(mock(StreamGraphImpl.class));
-    MessageStream<MessageEnvelope<T>> ms2 = new MessageStreamImpl<>(mock(StreamGraphImpl.class));
-    MessageStream<MessageEnvelope<T>> ms3 = new MessageStreamImpl<>(mock(StreamGraphImpl.class));
+    MessageStream<MessageEnvelope<T>> ms1 = mock(MessageStreamImpl.class);
+    MessageStream<MessageEnvelope<T>> ms2 = mock(MessageStreamImpl.class);
+    MessageStream<MessageEnvelope<T>> ms3 = mock(MessageStreamImpl.class);
     Collection<MessageStream<MessageEnvelope<T>>> otherStreams = ImmutableList.of(ms2, ms3);
 
     // should compile
     ms1.merge(otherStreams);
-  }
-
-  private void validateMergeOperator(MessageStream<TestMessageEnvelope> mergeSource, MessageStream<TestMessageEnvelope> mergeOutput) {
-    Collection<OperatorSpec> subs = ((MessageStreamImpl<TestMessageEnvelope>) mergeSource).getRegisteredOperatorSpecs();
-    assertEquals(subs.size(), 1);
-    OperatorSpec<TestMessageEnvelope> mergeOp = subs.iterator().next();
-    assertTrue(mergeOp instanceof StreamOperatorSpec);
-    assertEquals(((StreamOperatorSpec) mergeOp).getNextStream(), mergeOutput);
-    TestMessageEnvelope mockMsg = mock(TestMessageEnvelope.class);
-    Collection<TestMessageEnvelope> outputs = ((StreamOperatorSpec<TestMessageEnvelope, TestMessageEnvelope>) mergeOp).getTransformFn().apply(
-        mockMsg);
-    assertEquals(outputs.size(), 1);
-    assertEquals(outputs.iterator().next(), mockMsg);
   }
 
   @Test
@@ -361,26 +402,9 @@ public class TestMessageStreamImpl {
     assertTrue(otherStreamsCaptor.getValue().contains(input3));
   }
 
-  @Test
-  public void testPartitionBy() {
-    Map<String, String> map = new HashMap<>();
-    map.put(JobConfig.JOB_DEFAULT_SYSTEM(), "testsystem");
-    Config config = new MapConfig(map);
-    ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
-    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(streamGraph);
-    Function<TestMessageEnvelope, String> keyExtractorFunc = m -> "222";
-    inputStream.partitionBy(keyExtractorFunc);
-    assertTrue(streamGraph.getInputStreams().size() == 1);
-    assertTrue(streamGraph.getOutputStreams().size() == 1);
-
-    Collection<OperatorSpec> subs = inputStream.getRegisteredOperatorSpecs();
-    assertEquals(subs.size(), 1);
-    OperatorSpec<TestMessageEnvelope> partitionByOp = subs.iterator().next();
-    assertTrue(partitionByOp instanceof SinkOperatorSpec);
-    assertNull(partitionByOp.getNextStream());
-
-    ((SinkOperatorSpec) partitionByOp).getSinkFn().apply(new TestMessageEnvelope("111", "test", 1000),
-        envelope -> assertTrue(envelope.getPartitionKey().equals("222")), null);
+  class TestInputMessageEnvelope extends TestMessageEnvelope {
+    public TestInputMessageEnvelope(String key, Object value) {
+      super(key, value);
+    }
   }
 }
