@@ -131,7 +131,7 @@ public class TestZkNamespace {
     tearDownZk();
   }
 
-  //@Test
+  @Test
   public void testValidateNotFailZkNameSpace() {
     // now positive tests - with existing namespace
     testDoNotFailIfNameSpacePresent("/zkNameSpace1");
@@ -140,7 +140,7 @@ public class TestZkNamespace {
 
     testDoNotFailIfNameSpacePresent("");
 
-    teardown();
+    tearDownZk();
   }
 }
 
