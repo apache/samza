@@ -23,6 +23,7 @@ package org.apache.samza.container
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
+import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.control.ControlMessageAggregator
 import org.apache.samza.message.ControlMessage
 import org.apache.samza.metrics.MetricsReporter
@@ -104,6 +105,7 @@ class TaskInstance(
                                                        systemStreamPartitions.asJava,
                                                        systemAdmins.asJava,
                                                        collector)
+  val hasIntermediateStreams = config.getStreamIds.exists(config.getIsIntermediate(_))
 
   def registerMetrics {
     debug("Registering metrics for taskName: %s" format taskName)
