@@ -18,8 +18,9 @@
  */
 package org.apache.samza.operators.impl;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
@@ -30,17 +31,28 @@ import java.util.Collections;
 
 
 /**
- * A no-op operator implementation that forwards incoming messages to all of its subscribers.
- * @param <M>  type of incoming messages
+ * An operator that builds the input message from the incoming message.
+ *
+ * @param <K> the type of key in the incoming message
+ * @param <V> the type of message in the incoming message
+ * @param <M> the type of input message
  */
-public final class RootOperatorImpl<M> extends OperatorImpl<M, M> {
+public final class InputOperatorImpl<K, V, M> extends OperatorImpl<Pair<K, V>, M> {
+
+  private final InputOperatorSpec<K, V, M> inputOpSpec;
+
+  InputOperatorImpl(InputOperatorSpec<K, V, M> inputOpSpec) {
+    this.inputOpSpec = inputOpSpec;
+  }
 
   @Override
   protected void handleInit(Config config, TaskContext context) {
   }
 
   @Override
-  public Collection<M> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+  public Collection<M> handleMessage(Pair<K, V> pair, MessageCollector collector, TaskCoordinator coordinator) {
+    // TODO: SAMZA-1148 - Cast to appropriate input (key, msg) types based on the serde before applying the msgBuilder.
+    M message = this.inputOpSpec.getMsgBuilder().apply(pair.getKey(), pair.getValue());
     return Collections.singletonList(message);
   }
 
@@ -48,29 +60,7 @@ public final class RootOperatorImpl<M> extends OperatorImpl<M, M> {
   protected void handleClose() {
   }
 
-  // TODO: SAMZA-1221 - Change to InputOperatorSpec that also builds the message
-  @Override
-  protected OperatorSpec<M> getOperatorSpec() {
-    return new OperatorSpec<M>() {
-      @Override
-      public MessageStreamImpl<M> getNextStream() {
-        return null;
-      }
-
-      @Override
-      public OpCode getOpCode() {
-        return OpCode.INPUT;
-      }
-
-      @Override
-      public int getOpId() {
-        return -1;
-      }
-
-      @Override
-      public String getSourceLocation() {
-        return "";
-      }
-    };
+  protected OperatorSpec<Pair<K, V>, M> getOperatorSpec() {
+    return this.inputOpSpec;
   }
 }

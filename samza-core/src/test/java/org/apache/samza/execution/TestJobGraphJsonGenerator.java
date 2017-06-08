@@ -39,7 +39,7 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Test;
 
 import static org.apache.samza.execution.TestExecutionPlanner.createSystemAdmin;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -50,13 +50,16 @@ public class TestJobGraphJsonGenerator {
   public void test() throws Exception {
 
     /**
-     * the graph looks like the following. number of partitions in parentheses. quotes indicate expected value.
+     * the graph looks like the following.
+     * number in parentheses () indicates number of stream partitions.
+     * number in parentheses in quotes ("") indicates expected partition count.
+     * number in square brackets [] indicates operator ID.
      *
-     *                               input1 (64) -> map -> join -> output1 (8)
-     *                                                       |
-     *          input2 (16) -> partitionBy ("64") -> filter -|
-     *                                                       |
-     * input3 (32) -> filter -> partitionBy ("64") -> map -> join -> output2 (16)
+     * input3 (32) -> filter [7] -> partitionBy [8] ("64") -> map [10] -> join [14] -> sendTo(output2) [15] (16)
+     *                                                                   |
+     *              input2 (16) -> partitionBy [3] ("64") -> filter [5] -| -> sink [13]
+     *                                                                   |
+     *                                         input1 (64) -> map [1] -> join [11] -> sendTo(output1) [12] (8)
      *
      */
 
@@ -80,12 +83,10 @@ public class TestJobGraphJsonGenerator {
     when(runner.getStreamSpec("output2")).thenReturn(output2);
 
     // intermediate streams used in tests
-    when(runner.getStreamSpec("test-app-1-partition_by-0"))
-        .thenReturn(new StreamSpec("test-app-1-partition_by-0", "test-app-1-partition_by-0", "default-system"));
-    when(runner.getStreamSpec("test-app-1-partition_by-1"))
-        .thenReturn(new StreamSpec("test-app-1-partition_by-1", "test-app-1-partition_by-1", "default-system"));
-    when(runner.getStreamSpec("test-app-1-partition_by-4"))
-        .thenReturn(new StreamSpec("test-app-1-partition_by-4", "test-app-1-partition_by-4", "default-system"));
+    when(runner.getStreamSpec("test-app-1-partition_by-3"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-3", "test-app-1-partition_by-3", "default-system"));
+    when(runner.getStreamSpec("test-app-1-partition_by-8"))
+        .thenReturn(new StreamSpec("test-app-1-partition_by-8", "test-app-1-partition_by-8", "default-system"));
 
     // set up external partition count
     Map<String, Integer> system1Map = new HashMap<>();
@@ -124,10 +125,10 @@ public class TestJobGraphJsonGenerator {
     // deserialize
     ObjectMapper mapper = new ObjectMapper();
     JobGraphJsonGenerator.JobGraphJson nodes = mapper.readValue(json, JobGraphJsonGenerator.JobGraphJson.class);
-    assertTrue(nodes.jobs.get(0).operatorGraph.inputStreams.size() == 5);
-    assertTrue(nodes.jobs.get(0).operatorGraph.operators.size() == 13);
-    assertTrue(nodes.sourceStreams.size() == 3);
-    assertTrue(nodes.sinkStreams.size() == 2);
-    assertTrue(nodes.intermediateStreams.size() == 2);
+    assertEquals(5, nodes.jobs.get(0).operatorGraph.inputStreams.size());
+    assertEquals(11, nodes.jobs.get(0).operatorGraph.operators.size());
+    assertEquals(3, nodes.sourceStreams.size());
+    assertEquals(2, nodes.sinkStreams.size());
+    assertEquals(2, nodes.intermediateStreams.size());
   }
 }

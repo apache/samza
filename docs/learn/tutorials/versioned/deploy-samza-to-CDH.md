@@ -34,7 +34,7 @@ mvn clean package -Dhadoop.version=cdh5.4.0
 There are a few ways of uploading the package to the cluster's HDFS. If you do not have the job package in your cluster, **scp** from you local machine to the cluster. Then run
 
 {% highlight bash %}
-hadoop fs -put path/to/hello-samza-0.12.0-dist.tar.gz /path/for/tgz
+hadoop fs -put path/to/hello-samza-0.13.1-dist.tar.gz /path/for/tgz
 {% endhighlight %}
 
 ### Get Deploying Scripts
@@ -42,7 +42,7 @@ hadoop fs -put path/to/hello-samza-0.12.0-dist.tar.gz /path/for/tgz
 Untar the job package (assume you will run from the current directory)
 
 {% highlight bash %}
-tar -xvf path/to/samza-job-package-0.12.0-dist.tar.gz -C ./
+tar -xvf path/to/samza-job-package-0.13.1-dist.tar.gz -C ./
 {% endhighlight %}
 
 ### Add Package Path to Properties File

@@ -19,19 +19,23 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.MessageStreamImpl;
 
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * A stream operator specification that holds all the information required to transform 
- * the input {@link MessageStreamImpl} and produce the output {@link MessageStreamImpl}.
+ * the input {@link org.apache.samza.operators.MessageStreamImpl} and produce the output
+ * {@link org.apache.samza.operators.MessageStreamImpl}.
  *
+ * @param <M>  the type of input message to the operator
  * @param <OM>  the type of output message from the operator
  */
 @InterfaceStability.Unstable
-public interface OperatorSpec<OM> {
+public abstract class OperatorSpec<M, OM> {
 
-  enum OpCode {
+  public enum OpCode {
     INPUT,
     MAP,
     FLAT_MAP,
@@ -41,39 +45,77 @@ public interface OperatorSpec<OM> {
     JOIN,
     WINDOW,
     MERGE,
-    PARTITION_BY
+    PARTITION_BY,
+    OUTPUT
+  }
+
+  private final int opId;
+  private final OpCode opCode;
+  private StackTraceElement[] creationStackTrace;
+
+  /**
+   * The set of operators that consume the messages produced from this operator.
+   * <p>
+   * We use a LinkedHashSet since we need deterministic ordering in initializing/closing operators.
+   */
+  private final Set<OperatorSpec<OM, ?>> nextOperatorSpecs = new LinkedHashSet<>();
+
+  public OperatorSpec(OpCode opCode, int opId) {
+    this.opCode = opCode;
+    this.opId = opId;
+    this.creationStackTrace = Thread.currentThread().getStackTrace();
   }
 
   /**
-   * Get the next {@link MessageStreamImpl} that receives the transformed messages produced by this operator.
-   * @return  the next {@link MessageStreamImpl}
+   * Register the next operator spec in the chain that this operator should propagate its output to.
+   * @param nextOperatorSpec  the next operator in the chain.
    */
-  MessageStreamImpl<OM> getNextStream();
+  public void registerNextOperatorSpec(OperatorSpec<OM, ?> nextOperatorSpec) {
+    nextOperatorSpecs.add(nextOperatorSpec);
+  }
+
+  public Collection<OperatorSpec<OM, ?>> getRegisteredOperatorSpecs() {
+    return nextOperatorSpecs;
+  }
 
   /**
    * Get the {@link OpCode} for this operator.
    * @return  the {@link OpCode} for this operator
    */
-  OpCode getOpCode();
+  public final OpCode getOpCode() {
+    return this.opCode;
+  }
 
   /**
    * Get the unique ID of this operator in the {@link org.apache.samza.operators.StreamGraph}.
    * @return  the unique operator ID
    */
-  int getOpId();
+  public final int getOpId() {
+    return this.opId;
+  }
 
   /**
-   * Return the user source code location that creates the operator
-   * @return source location
+   * Get the user source code location that created the operator.
+   * @return  source code location for the operator
    */
-  String getSourceLocation();
+  public final String getSourceLocation() {
+    // The stack trace for most operators looks like:
+    // [0] Thread.getStackTrace()
+    // [1] OperatorSpec.init<>()
+    // [2] SomeOperatorSpec.<init>()
+    // [3] OperatorSpecs.createSomeOperatorSpec()
+    // [4] MessageStreamImpl.someOperator()
+    // [5] User code that calls [4]
+    // we are interested in [5] here
+    StackTraceElement element = this.creationStackTrace[5];
+    return String.format("%s:%s", element.getFileName(), element.getLineNumber());
+  }
 
   /**
    * Get the name for this operator based on its opCode and opId.
    * @return  the name for this operator
    */
-  default String getOpName() {
+  public final String getOpName() {
     return String.format("%s-%s", getOpCode().name().toLowerCase(), getOpId());
   }
-
 }
