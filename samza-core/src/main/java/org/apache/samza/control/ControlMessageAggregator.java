@@ -23,8 +23,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import org.apache.samza.message.MessageType;
+import org.apache.samza.message.IntermediateMessageType;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
 
@@ -35,16 +36,20 @@ public class ControlMessageAggregator {
     IncomingMessageEnvelope update(IncomingMessageEnvelope envelope);
   }
 
-  private final Map<MessageType, ControlMessageManager> managers;
+  private final Map<IntermediateMessageType, ControlMessageManager> managers;
 
-  public ControlMessageAggregator(Set<SystemStreamPartition> ssps, MessageCollector collector) {
-    Map<MessageType, ControlMessageManager> managerMap = new HashMap<>();
-    managerMap.put(MessageType.END_OF_STREAM, new EndOfStreamManager(ssps, collector));
+  public ControlMessageAggregator(String taskName,
+      int taskCount,
+      Set<SystemStreamPartition> ssps,
+      Map<String, SystemAdmin> sysAdmins,
+      MessageCollector collector) {
+    Map<IntermediateMessageType, ControlMessageManager> managerMap = new HashMap<>();
+    managerMap.put(IntermediateMessageType.END_OF_STREAM_MESSAGE, new EndOfStreamManager(taskName, taskCount, ssps, sysAdmins, collector));
     this.managers = Collections.unmodifiableMap(managerMap);
   }
 
   public IncomingMessageEnvelope aggregate(IncomingMessageEnvelope controlMessage) {
-    MessageType type = MessageType.of(controlMessage.getMessage());
+    IntermediateMessageType type = IntermediateMessageType.of(controlMessage.getMessage());
     return managers.get(type).update(controlMessage);
   }
 }

@@ -23,8 +23,5 @@ import org.apache.samza.system.SystemStream;
 
 
 public interface EndOfStream {
-
-  boolean isEndOfStream(SystemStream systemStream);
-
-  void updateEndOfStream(SystemStream systemStream);
+  SystemStream get();
 }

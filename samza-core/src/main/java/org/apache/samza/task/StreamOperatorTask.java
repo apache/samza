@@ -21,6 +21,10 @@ package org.apache.samza.task;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.control.EndOfStream;
+import org.apache.samza.control.EndOfStreamManager;
+import org.apache.samza.control.EndOfStreamManager.EndOfStreamDispatcher;
+import org.apache.samza.control.MessageType;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.impl.InputOperatorImpl;
@@ -44,6 +48,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   private OperatorImplGraph operatorImplGraph;
   private ContextManager contextManager;
+  private EndOfStreamDispatcher eosDispatcher;
 
   /**
    * Constructs an adaptor task to run the user-implemented {@link StreamApplication}.
@@ -87,12 +92,13 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
     // create the operator impl DAG corresponding to the logical operator spec DAG
     this.operatorImplGraph = new OperatorImplGraph(streamGraph, config, context, clock);
+    this.eosDispatcher = EndOfStreamManager.createDispatcher(streamGraph);
   }
 
   /**
    * Passes the incoming message envelopes along to the {@link InputOperatorImpl} node
    * for the input {@link SystemStream}.
-   * <p>
+   * <p
    * From then on, each {@link org.apache.samza.operators.impl.OperatorImpl} propagates its transformed output to
    * its chained {@link org.apache.samza.operators.impl.OperatorImpl}s itself.
    *
@@ -103,9 +109,23 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   @Override
   public final void process(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator) {
     SystemStream systemStream = ime.getSystemStreamPartition().getSystemStream();
-    InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
-    if (inputOpImpl != null) {
-      inputOpImpl.onMessage(Pair.of(ime.getKey(), ime.getMessage()), collector, coordinator);
+    Object message = ime.getMessage();
+
+    switch (MessageType.of(message)) {
+      case DATA:
+        InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
+        if (inputOpImpl != null) {
+          inputOpImpl.onMessage(Pair.of(ime.getKey(), message), collector, coordinator);
+        }
+        break;
+
+      case END_OF_STREAM:
+        eosDispatcher.sendToDownstream((EndOfStream) message);
+        break;
+
+      case WATERMARK:
+        //TODO: support watermark here
+        break;
     }
   }
 

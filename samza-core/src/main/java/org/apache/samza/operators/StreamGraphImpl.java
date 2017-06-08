@@ -24,6 +24,8 @@ import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.util.IOGraphUtil;
+import org.apache.samza.operators.util.IOGraphUtil.IONode;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 
@@ -204,5 +206,9 @@ public class StreamGraphImpl implements StreamGraph {
         .collect(Collectors.toSet());
 
     return windowOrJoinSpecs.size() != 0;
+  }
+
+  public Collection<IONode> toIOGraph() {
+    return IOGraphUtil.buildIOGraph(this);
   }
 }

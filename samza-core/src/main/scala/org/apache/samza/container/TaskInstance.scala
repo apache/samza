@@ -99,7 +99,11 @@ class TaskInstance(
     scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2catchedupMapping += _ -> false)
 
-  val controlAggregator = new ControlMessageAggregator(systemStreamPartitions.asJava, collector)
+  val controlAggregator = new ControlMessageAggregator(taskName.getTaskName,
+                                                       containerContext.taskNames.size(),
+                                                       systemStreamPartitions.asJava,
+                                                       systemAdmins.asJava,
+                                                       collector)
 
   def registerMetrics {
     debug("Registering metrics for taskName: %s" format taskName)

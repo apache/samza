@@ -19,40 +19,42 @@
 
 package org.apache.samza.control;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.control.ControlMessageAggregator.ControlMessageManager;
 import org.apache.samza.message.EndOfStreamMessage;
-import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.util.IOGraphUtil.IONode;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
 
+
 public class EndOfStreamManager implements ControlMessageManager {
+  private static final String EOS_KEY_FORMAT = "%s-%s-EOS"; //stream-task-EOS
 
-  private final static class EndOfStreamState {
-    private Set<String> tasks;
-    private int expectedTotal = Integer.MAX_VALUE;
-    private boolean isEndOfStream = false;
+  private final String taskName;
+  private final int taskCount;
+  private final MessageCollector collector;
+  private final Map<SystemStreamPartition, EndOfStreamState> inputStates;
+  private final Map<String, SystemAdmin> sysAdmins;
 
-    void update(String taskName, int taskCount) {
-      tasks.add(taskName);
-      expectedTotal = taskCount;
-      isEndOfStream = tasks.size() == expectedTotal;
-    }
-
-    boolean isEndOfStream() {
-      return isEndOfStream;
-    }
-  }
-
-  MessageCollector collector;
-  Map<SystemStreamPartition, EndOfStreamState> inputStates = new HashMap<>();
-
-  public EndOfStreamManager(Set<SystemStreamPartition> ssps, MessageCollector collector) {
+  public EndOfStreamManager(String taskName,
+      int taskCount,
+      Set<SystemStreamPartition> ssps,
+      Map<String, SystemAdmin> sysAdmins, MessageCollector collector) {
+    this.taskName = taskName;
+    this.taskCount = taskCount;
+    this.sysAdmins = sysAdmins;
     this.collector = collector;
     Map<SystemStreamPartition, EndOfStreamState> states = new HashMap<>();
     ssps.forEach(ssp -> {
@@ -72,34 +74,91 @@ public class EndOfStreamManager implements ControlMessageManager {
     SystemStream systemStream = envelope.getSystemStreamPartition().getSystemStream();
     if (isEndOfStream(systemStream)) {
       SystemStreamPartition ssp = new SystemStreamPartition(systemStream, null);
-      EndOfStream eos = new EndOfStreamImpl();
+      EndOfStream eos = new EndOfStreamImpl(systemStream, this);
       return new IncomingMessageEnvelope(ssp, IncomingMessageEnvelope.END_OF_STREAM_OFFSET, envelope.getKey(), eos);
     } else {
       return null;
     }
   }
 
-  private boolean isEndOfStream(SystemStream systemStream) {
+  public boolean isEndOfStream(SystemStream systemStream) {
     return inputStates.entrySet().stream()
         .filter(entry -> entry.getKey().getSystemStream().equals(systemStream))
         .allMatch(entry -> entry.getValue().isEndOfStream());
   }
 
-  private final class EndOfStreamImpl implements EndOfStream {
-    @Override
-    public boolean isEndOfStream(SystemStream systemStream) {
-      return isEndOfStream(systemStream);
+  public void sendEndOfStream(SystemStream systemStream) {
+    String stream = systemStream.getStream();
+    SystemStreamMetadata metadata = sysAdmins.get(systemStream.getSystem())
+        .getSystemStreamMetadata(Collections.singleton(stream))
+        .get(stream);
+    int partitionCount = metadata.getSystemStreamPartitionMetadata().size();
+    for (int i = 0; i < partitionCount; i++) {
+      String key = String.format(EOS_KEY_FORMAT, stream, taskName);
+      EndOfStreamMessage message = new EndOfStreamMessage(taskName, taskCount);
+      OutgoingMessageEnvelope envelopeOut = new OutgoingMessageEnvelope(systemStream, i, key, message);
+      collector.send(envelopeOut);
+    }
+  }
+
+  private static final class EndOfStreamImpl implements EndOfStream {
+    private final SystemStream systemStream;
+    private final EndOfStreamManager manager;
+
+    private EndOfStreamImpl(SystemStream systemStream, EndOfStreamManager manager) {
+      this.systemStream = systemStream;
+      this.manager = manager;
     }
 
     @Override
-    public void updateEndOfStream(SystemStream systemStream) {
-      //TODO: broadcast the watermark message to all the partitions of this system stream
+    public SystemStream get() {
+      return systemStream;
+    }
+
+    EndOfStreamManager getManager() {
+      return manager;
+    }
+  }
+
+  private final static class EndOfStreamState {
+    private Set<String> tasks;
+    private int expectedTotal = Integer.MAX_VALUE;
+    private boolean isEndOfStream = false;
+
+    void update(String taskName, int taskCount) {
+      tasks.add(taskName);
+      expectedTotal = taskCount;
+      isEndOfStream = tasks.size() == expectedTotal;
+    }
+
+    boolean isEndOfStream() {
+      return isEndOfStream;
     }
   }
 
   public static final class EndOfStreamDispatcher {
-    public EndOfStreamDispatcher(StreamGraph streamGraph) {
+    private final Multimap<SystemStream, IONode> ioGraph = HashMultimap.create();
 
+    private EndOfStreamDispatcher(StreamGraphImpl streamGraph) {
+      streamGraph.toIOGraph().forEach(node -> {
+        node.getInputs().forEach(stream -> {
+          ioGraph.put(new SystemStream(stream.getSystemName(), stream.getPhysicalName()), node);
+        });
+      });
+    }
+
+    public void sendToDownstream(EndOfStream endOfStream) {
+      EndOfStreamManager manager = ((EndOfStreamImpl) endOfStream).getManager();
+      ioGraph.get(endOfStream.get()).forEach(node -> {
+        if (node.getOutputOpSpec().getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
+          boolean isEndOfStream =
+              node.getInputs().stream().allMatch(spec -> manager.isEndOfStream(spec.toSystemStream()));
+          if (isEndOfStream) {
+            // broadcast the end-of-stream message to the intermediate stream
+            manager.sendEndOfStream(node.getOutput().toSystemStream());
+          }
+        }
+      });
     }
   }
 
@@ -111,5 +170,9 @@ public class EndOfStreamManager implements ControlMessageManager {
    */
   public static IncomingMessageEnvelope buildEndOfStreamEnvelope(SystemStreamPartition ssp) {
     return new IncomingMessageEnvelope(ssp, IncomingMessageEnvelope.END_OF_STREAM_OFFSET, null, new EndOfStreamMessage(null, 0));
+  }
+
+  public static EndOfStreamDispatcher createDispatcher(StreamGraphImpl streamGraph) {
+    return new EndOfStreamDispatcher(streamGraph);
   }
 }

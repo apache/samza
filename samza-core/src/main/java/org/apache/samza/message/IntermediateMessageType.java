@@ -24,21 +24,21 @@ package org.apache.samza.message;
  * put in the first byte of the serialization of intermediate message.
  * For more details, see {@link org.apache.samza.serializers.IntermediateMessageSerde}
  */
-public enum MessageType {
+public enum IntermediateMessageType {
   USER_MESSAGE,
-  WATERMARK,
-  END_OF_STREAM;
+  WATERMARK_MESSAGE,
+  END_OF_STREAM_MESSAGE;
 
   /**
-   * Returns the {@link MessageType} of a particular intermediate stream message.
+   * Returns the {@link IntermediateMessageType} of a particular intermediate stream message.
    * @param message an intermediate stream message
    * @return type of the message
    */
-  public static MessageType of(Object message) {
+  public static IntermediateMessageType of(Object message) {
     if (message instanceof WatermarkMessage) {
-      return WATERMARK;
+      return WATERMARK_MESSAGE;
     } else if (message instanceof EndOfStreamMessage) {
-      return END_OF_STREAM;
+      return END_OF_STREAM_MESSAGE;
     } else {
       return USER_MESSAGE;
     }
