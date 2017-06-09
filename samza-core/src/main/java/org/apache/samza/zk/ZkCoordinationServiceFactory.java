@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 public class ZkCoordinationServiceFactory implements CoordinationServiceFactory {
   private final static Logger LOG = LoggerFactory.getLogger(ZkCoordinationServiceFactory.class);
 
-  synchronized public CoordinationUtils getCoordinationService(String groupId, String participantId, Config config) {
+  public CoordinationUtils getCoordinationService(String groupId, String participantId, Config config) {
     ZkConfig zkConfig = new ZkConfig(config);
 
     ZkClient zkClient =
@@ -67,7 +67,7 @@ public class ZkCoordinationServiceFactory implements CoordinationServiceFactory 
   }
 
   /**
-   * if ZkConnectString contains namespace path at the end, it needs to be created when connecting for the first time.
+   * if ZkConnectString contains namespace path at the end, but it does not exist we should fail
    * @param zkConnect - connect string
    * @param zkClient - zkClient object to talk to the ZK
    */

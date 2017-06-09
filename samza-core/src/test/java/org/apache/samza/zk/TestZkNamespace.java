@@ -29,7 +29,9 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-
+// zk namespace is similar to chroot in unix. It is defined in ZK, but user doesn't see it.
+// For user "/" is the root, but in ZK tree it is actually host:port/namespace. If namespace is not created, then accessing
+// "/" by user will fail.
 public class TestZkNamespace {
   private static EmbeddedZookeeper zkServer = null;
   private ZkClient zkClient = null;
@@ -83,13 +85,6 @@ public class TestZkNamespace {
     zkClient1.createPersistent(pathToCreate, true);
   }
 
-  // auxiliary method - create connection, validate the zk connection (should fail, because namespace does not exist
-  private void testFailIfNameSpaceMissing(String zkNameSpace) {
-    String zkConnect = "127.0.0.1:" + zkServer.getPort() + zkNameSpace;
-    initZk(zkConnect);
-    ZkCoordinationServiceFactory.validateZkNameSpace(zkConnect, zkClient);
-  }
-
   // create namespace, create connection, validate the connection
   private void testDoNotFailIfNameSpacePresent(String zkNameSpace) {
     String zkConnect = "127.0.0.1:" + zkServer.getPort() + zkNameSpace;
@@ -107,27 +102,39 @@ public class TestZkNamespace {
   }
 
   @Test
-  public void testValidateFailZkNameSpace() {
+  public void testValidateFailZkNameSpace1LevelPath() {
     try {
-      testFailIfNameSpaceMissing("/zkNameSpace");
-      Assert.fail("Should fail with exception, because namespace doesn't exist");
+      String zkConnect = "127.0.0.1:" + zkServer.getPort() + "/zkNameSpace";
+      initZk(zkConnect);
+      ZkCoordinationServiceFactory.validateZkNameSpace(zkConnect, zkClient);
+      Assert.fail("1.Should fail with exception, because namespace doesn't exist");
     } catch (SamzaException e) {
       // expected
     } finally {
       tearDownZk();
     }
+  }
 
+  @Test
+  public void testValidateFailZkNameSpace2LevelPath() {
     try {
-      testFailIfNameSpaceMissing("/zkNameSpace/xyz");
-      Assert.fail("Should fail with exception, because namespace doesn't exist");
+      String zkConnect = "127.0.0.1:" + zkServer.getPort() + "/zkNameSpace/xyz";
+      initZk(zkConnect);
+      ZkCoordinationServiceFactory.validateZkNameSpace(zkConnect, zkClient);
+      Assert.fail("2.Should fail with exception, because namespace doesn't exist");
     } catch (SamzaException e) {
       // expected
     } finally {
       tearDownZk();
     }
+  }
 
+  @Test
+  public void testValidateFailZkNameSpaceEmptyPath() {
     // should succeed, because no namespace provided
-    testFailIfNameSpaceMissing("");
+    String zkConnect = "127.0.0.1:" + zkServer.getPort() + "";
+    initZk(zkConnect);
+    ZkCoordinationServiceFactory.validateZkNameSpace(zkConnect, zkClient);
     tearDownZk();
   }
 
