@@ -121,6 +121,14 @@ In order to ensure that the release is available in public mirrors, wait for the
 to show up in [maven central](http://search.maven.org/#search%7Cga%7C1%7Csamza). A full list of mirrors can be found [here](http://www.apache.org/dyn/closer.cgi).
 Do not publish the website or any public document until the release jars are available for download.
 
-## Steps to Update Public Document
+## Steps to Publish Artifacts for other Scala Versions
+The above instructions publish the artifacts for scala 2.11. To publish for scala 2.10 and 2.12:
+
+* Set the desired `scalaVersion` in `gradle.properties`.
+* Run `./gradlew clean uploadArchives` to generate and upload the artifacts to a staging repository.
+* Go to the [repository web interface](https://repository.apache.org/), log in with
+your Apache LDAP credentials, "close" the created repository and "release" it.
+
+## Steps to Update Public Documentation
 
 Please refer to docs/README.md, specifically "Release-new-version Website Checklist" section. 
