@@ -24,13 +24,26 @@
 <log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
   <appender name="jmx" class="org.apache.samza.logging.log4j.JmxAppender" />
 
-  <appender name="RollingAppender" class="org.apache.log4j.DailyRollingFileAppender">
+  <appender name="RollingAppender" class="org.apache.log4j.RollingFileAppender">
      <param name="File" value="${samza.log.dir}/${samza.container.name}.log" />
-     <param name="DatePattern" value="'.'yyyy-MM-dd" />
+     <param name="MaxFileSize" value="256MB" />
+     <param name="MaxBackupIndex" value="20" />
      <layout class="org.apache.log4j.PatternLayout">
-      <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss} %c{1} [%p] %m%n" />
+      <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} [%p] %m%n" />
      </layout>
   </appender>
+  <appender name="StartupAppender" class="org.apache.log4j.RollingFileAppender">
+     <param name="File" value="${samza.log.dir}/${samza.container.name}-startup.log" />
+     <param name="MaxFileSize" value="256MB" />
+     <param name="MaxBackupIndex" value="1" />
+     <layout class="org.apache.log4j.PatternLayout">
+      <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} [%p] %m%n" />
+     </layout>
+  </appender>
+  <logger name="STARTUP_LOGGER" additivity="false">
+    <level value="info" />
+    <appender-ref ref="StartupAppender"/>
+  </logger>
   <root>
     <priority value="info" />
     <appender-ref ref="RollingAppender"/>

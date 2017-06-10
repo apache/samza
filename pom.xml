@@ -27,7 +27,7 @@ under the License.
 
   <groupId>org.apache.samza</groupId>
   <artifactId>hello-samza</artifactId>
-  <version>0.12.0</version>
+  <version>0.13.0</version>
   <packaging>jar</packaging>
   <name>Samza Example</name>
   <description>
@@ -81,7 +81,7 @@ under the License.
     <dependency>
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka_2.11</artifactId>
-      <version>0.10.0.1</version>
+      <version>0.10.1.1</version>
     </dependency>
     <dependency>
       <groupId>org.schwering</groupId>
@@ -143,7 +143,7 @@ under the License.
   <properties>
     <!-- maven specific properties -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <samza.version>0.12.0</samza.version>
+    <samza.version>0.13.0</samza.version>
     <hadoop.version>2.6.1</hadoop.version>
   </properties>
 
@@ -240,8 +240,8 @@ under the License.
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.1</version>
         <configuration>
-          <source>1.7</source>
-          <target>1.7</target>
+          <source>1.8</source>
+          <target>1.8</target>
         </configuration>
       </plugin>
       <plugin>

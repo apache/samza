@@ -28,28 +28,25 @@
         <include>NOTICE*</include>
       </includes>
     </fileSet>
+    <fileSet>
+      <directory>${basedir}/src/main/config</directory>
+      <includes>
+        <include>*.properties</include>
+      </includes>
+      <outputDirectory>config</outputDirectory>
+      <!-- filtered=true, so we do variable expansion so the yarn package path
+      always points to the correct spot on any machine -->
+      <filtered>true</filtered>
+    </fileSet>
   </fileSets>
   <files>
     <file>
       <source>${basedir}/src/main/resources/log4j.xml</source>
       <outputDirectory>lib</outputDirectory>
     </file>
-    <!-- filtered=true, so we do variable expansion so the yarn package path
-      always points to the correct spot on any machine -->
     <file>
-      <source>${basedir}/src/main/config/wikipedia-feed.properties</source>
-      <outputDirectory>config</outputDirectory>
-      <filtered>true</filtered>
-    </file>
-    <file>
-      <source>${basedir}/src/main/config/wikipedia-parser.properties</source>
-      <outputDirectory>config</outputDirectory>
-      <filtered>true</filtered>
-    </file>
-    <file>
-      <source>${basedir}/src/main/config/wikipedia-stats.properties</source>
-      <outputDirectory>config</outputDirectory>
-      <filtered>true</filtered>
+      <source>${basedir}/bin/run-wikipedia-zk-application.sh</source>
+      <outputDirectory>bin</outputDirectory>
     </file>
   </files>
   <dependencySets>

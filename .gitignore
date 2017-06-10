@@ -30,3 +30,4 @@ deploy
 *.swp
 build/
 .gradle/
+state

@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.config.Config;
+import org.apache.samza.metrics.Counter;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -36,14 +37,20 @@ import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.task.WindowableTask;
 
 public class WikipediaStatsStreamTask implements StreamTask, InitableTask, WindowableTask {
+  private static final SystemStream OUTPUT_STREAM = new SystemStream("kafka", "wikipedia-stats");
+
   private int edits = 0;
   private int byteDiff = 0;
   private Set<String> titles = new HashSet<String>();
   private Map<String, Integer> counts = new HashMap<String, Integer>();
   private KeyValueStore<String, Integer> store;
 
+  // Example metric. Running counter of the number of repeat edits of the same title within a single window.
+  private Counter repeatEdits;
+
   public void init(Config config, TaskContext context) {
     this.store = (KeyValueStore<String, Integer>) context.getStore("wikipedia-stats");
+    this.repeatEdits = context.getMetricsRegistry().newCounter("edit-counters", "repeat-edits");
   }
 
   @SuppressWarnings("unchecked")
@@ -57,20 +64,17 @@ public class WikipediaStatsStreamTask implements StreamTask, InitableTask, Windo
     store.put("count-edits-all-time", editsAllTime + 1);
 
     edits += 1;
-    titles.add((String) edit.get("title"));
     byteDiff += (Integer) edit.get("diff-bytes");
+    boolean newTitle = titles.add((String) edit.get("title"));
 
     for (Map.Entry<String, Boolean> flag : flags.entrySet()) {
       if (Boolean.TRUE.equals(flag.getValue())) {
-        Integer count = counts.get(flag.getKey());
-
-        if (count == null) {
-          count = 0;
-        }
-
-        count += 1;
-        counts.put(flag.getKey(), count);
+        counts.compute(flag.getKey(), (k, v) -> v == null ? 0 : v + 1);
       }
+    }
+
+    if (!newTitle) {
+      repeatEdits.inc();
     }
   }
 
@@ -81,7 +85,7 @@ public class WikipediaStatsStreamTask implements StreamTask, InitableTask, Windo
     counts.put("unique-titles", titles.size());
     counts.put("edits-all-time", store.get("count-edits-all-time"));
 
-    collector.send(new OutgoingMessageEnvelope(new SystemStream("kafka", "wikipedia-stats"), counts));
+    collector.send(new OutgoingMessageEnvelope(OUTPUT_STREAM, counts));
 
     // Reset counts after windowing.
     edits = 0;
