@@ -20,27 +20,20 @@ package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.ContextManager;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.runtime.LocalApplicationRunner;
-import org.apache.samza.task.TaskContext;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
-import java.util.function.Supplier;
 
 
 /**
  * Example code to implement window-based counter
  */
-public class PageViewCounterExample {
+public class PageViewCounterStreamSpecExample {
 
   // local execution mode
   public static void main(String[] args) {
@@ -49,7 +42,9 @@ public class PageViewCounterExample {
 
     StreamApplication app = StreamApplication.create(config);
 
-    app.getInputStream("pageViewEventStream", (k, m) -> (PageViewEvent) m)
+    StreamSpec inputSpec = StreamSpec.create("pageViewEventStream").from();
+
+    app.<String, Object, PageViewEvent>input(inputSpec, (k, m) -> (PageViewEvent) m)
         .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10),
             () -> 0, (m, c) -> c + 1)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))

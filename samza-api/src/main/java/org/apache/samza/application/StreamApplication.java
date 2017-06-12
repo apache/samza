@@ -20,13 +20,18 @@ package org.apache.samza.application;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
+import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.InitableFunction;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskContext;
+
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
  * Describes and initializes the transforms for processing message streams and generating results.
@@ -72,25 +77,146 @@ import org.apache.samza.task.TaskContext;
  * See {@link InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
  */
 @InterfaceStability.Unstable
-public interface StreamApplication {
+public class StreamApplication {
+
+  private final StreamGraph graph;
+  private final ApplicationRunner runner;
+
+  public static StreamApplication create(Config config) {
+    StreamGraph graph = new StreamGraph() {
+      @Override
+      public <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
+        return null;
+      }
+
+      @Override
+      public <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId, Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
+        return null;
+      }
+
+      @Override
+      public StreamGraph withContextManager(ContextManager contextManager) {
+        return null;
+      }
+    };
+
+    ApplicationRunner runner = ApplicationRunner.fromConfig(config);
+
+    return new StreamApplication(graph, runner);
+
+  }
+
+  private StreamApplication(StreamGraph graph, ApplicationRunner runner) {
+    this.graph = graph;
+    this.runner = runner;
+  }
 
   /**
-   * Describes and initializes the transforms for processing message streams and generating results.
+   * Gets the input {@link MessageStream} corresponding to the {@code streamId}.
    * <p>
-   * The {@link StreamGraph} provides access to input and output streams. Input {@link MessageStream}s can be
-   * transformed into other {@link MessageStream}s or sent to an {@link OutputStream} using the {@link MessageStream}
-   * operators.
-   * <p>
-   * Most operators accept custom functions for doing the transformations. These functions are {@link InitableFunction}s
-   * and are provided the {@link Config} and {@link TaskContext} during their own initialization. The config and the
-   * context can be used, for example, to create custom metrics or access durable state stores.
-   * <p>
-   * A shared context between {@link InitableFunction}s for different operators within a task instance can be set
-   * up by providing a {@link ContextManager} using {@link StreamGraph#withContextManager}.
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
-   * @param graph the {@link StreamGraph} to get input/output streams from
-   * @param config the configuration for the application
+   * @param streamId the unique ID for the stream
+   * @param msgBuilder the {@link BiFunction} to convert the incoming key and message to a message
+   *                   in the input {@link MessageStream}
+   * @param <K> the type of key in the incoming message
+   * @param <V> the type of message in the incoming message
+   * @param <M> the type of message in the input {@link MessageStream}
+   * @return the input {@link MessageStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  void init(StreamGraph graph, Config config);
+  public <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
+    return this.graph.getInputStream(streamId, msgBuilder);
+  }
+
+  public <K, V, M> MessageStream<M> input(StreamSpec streamSpec, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
+    return this.graph.getInputStream(streamSpec.getId(), msgBuilder);
+  }
+
+  /**
+   * Gets the {@link OutputStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param streamId the unique ID for the stream
+   * @param keyExtractor the {@link Function} to extract the outgoing key from the output message
+   * @param msgExtractor the {@link Function} to extract the outgoing message from the output message
+   * @param <K> the type of key in the outgoing message
+   * @param <V> the type of message in the outgoing message
+   * @param <M> the type of message in the {@link OutputStream}
+   * @return the output {@link MessageStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   */
+  public <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId,
+    Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
+    return this.graph.getOutputStream(streamId, keyExtractor, msgExtractor);
+  }
+
+  /**
+   * Sets the {@link ContextManager} for this {@link StreamGraph}.
+   * <p>
+   * The provided {@link ContextManager} can be used to setup shared context between the operator functions
+   * within a task instance
+   *
+   * @param contextManager the {@link ContextManager} to use for the {@link StreamGraph}
+   */
+  public void withContextManager(ContextManager contextManager) {
+    this.graph.withContextManager(contextManager);
+  }
+
+  /**
+   * Deploy and run the Samza jobs to execute {@link StreamApplication}.
+   * It is non-blocking so it doesn't wait for the application running.
+   *
+   */
+  public void run() {
+    this.runner.run(this);
+  }
+
+  /**
+   * Kill the Samza jobs represented by {@link StreamApplication}
+   * It is non-blocking so it doesn't wait for the application stopping.
+   *
+   */
+  public void kill() {
+    this.runner.kill(this);
+  }
+
+  /**
+   * Get the collective status of the Samza jobs represented by {@link StreamApplication}.
+   * Returns {@link ApplicationRunner} running if all jobs are running.
+   *
+   * @return the status of the application
+   */
+  public ApplicationStatus status() {
+    return this.runner.status(this);
+  }
+
+  public void waitForFinish() {
+    this.runner.waitForFinish();
+  }
+
+  /**
+   * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
+   *
+   * The stream configurations are read from the following properties in the config:
+   * {@code streams.{$streamId}.*}
+   * <br>
+   * All properties matching this pattern are assumed to be system-specific with two exceptions. The following two
+   * properties are Samza properties which are used to bind the stream to a system and a physical resource on that system.
+   *
+   * <ul>
+   *   <li>samza.system -         The name of the System on which this stream will be used. If this property isn't defined
+   *                              the stream will be associated with the System defined in {@code job.default.system}</li>
+   *   <li>samza.physical.name -  The system-specific name for this stream. It could be a file URN, topic name, or other identifer.
+   *                              If this property isn't defined the physical.name will be set to the streamId</li>
+   * </ul>
+   *
+   * @param streamId  The logical identifier for the stream in Samza.
+   * @return          The {@link StreamSpec} instance.
+   */
+  public StreamSpec getStreamSpec(String streamId) {
+    return this.runner.getStreamSpec(streamId);
+  }
 
 }

@@ -41,7 +41,6 @@ import java.util.function.Supplier;
  */
 public class WindowExample implements StreamApplication {
 
-  @Override
   public void init(StreamGraph graph, Config config) {
     Supplier<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> counter = (m, c) -> c == null ? 1 : c + 1;

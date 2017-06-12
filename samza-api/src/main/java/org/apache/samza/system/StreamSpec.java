@@ -220,4 +220,7 @@ public class StreamSpec {
   public int hashCode() {
     return id.hashCode();
   }
+
+  public static StreamSpec create(String streamId) {
+  }
 }

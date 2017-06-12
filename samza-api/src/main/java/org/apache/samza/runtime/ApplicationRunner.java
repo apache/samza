@@ -18,6 +18,7 @@
  */
 package org.apache.samza.runtime;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
@@ -105,6 +106,11 @@ public abstract class ApplicationRunner {
    * @return the status of the application
    */
   public abstract ApplicationStatus status(StreamApplication streamApp);
+
+  /**
+   * Block until the application finishes
+   */
+  public abstract void waitForFinish();
 
   /**
    * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
