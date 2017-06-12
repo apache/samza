@@ -21,10 +21,12 @@ package org.apache.samza.zk;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
@@ -32,9 +34,13 @@ import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.metrics.ReadableMetricsRegistry;
 import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.util.ClassLoaderHelper;
+import org.apache.samza.util.MetricsReporterLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +60,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   private final Config config;
   private final ZkBarrierForVersionUpgrade barrier;
+  private final ZkJobCoordinatorMetrics metrics;
+  private final Map<String, MetricsReporter> reporters;
 
   private StreamMetadataCache streamMetadataCache = null;
   private ScheduleAfterDebounceTime debounceTimer = null;
@@ -84,10 +92,15 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         new ZkBarrierListenerImpl());
     this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
 
+    ReadableMetricsRegistry metricsRegistry = new MetricsRegistryMap();
+    this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
+    this.reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), "samza-container-"+processorId);
+
   }
 
   @Override
   public void start() {
+    startMetrics();
     streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
 
     debounceTimer = new ScheduleAfterDebounceTime(throwable -> {
@@ -102,13 +115,28 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public synchronized void stop() {
     if (coordinatorListener != null) {
       coordinatorListener.onJobModelExpired();
+      metrics.jobModelExpired.inc();
     }
 
     debounceTimer.stopScheduler();
     zkController.stop();
 
+    shutdownMetrics();
     if (coordinatorListener != null) {
       coordinatorListener.onCoordinatorStop();
+    }
+  }
+
+  public void startMetrics() {
+    for (MetricsReporter reporter:reporters.values()) {
+      reporter.register("samza-container-"+processorId, metrics.getMetricsRegistry());
+      reporter.start();
+    }
+  }
+
+  public void shutdownMetrics() {
+    for (MetricsReporter reporter:reporters.values()) {
+      reporter.stop();
     }
   }
 
@@ -173,6 +201,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         // stop current work
         if (coordinatorListener != null) {
           coordinatorListener.onJobModelExpired();
+          metrics.jobModelExpired.inc();
         }
         // get the new job model from ZK
         newJobModel = zkUtils.getJobModel(version);
@@ -235,6 +264,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     @Override
     public void onBecomingLeader() {
       LOG.info("ZkJobCoordinator::onBecomeLeader - I became the leader!");
+      metrics.leaderElection.inc();
       zkController.subscribeToProcessorChange();
       debounceTimer.scheduleAfterDebounceTime(
         ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
