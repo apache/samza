@@ -224,6 +224,5 @@ public class StreamSpec {
   }
 
   public StreamSpec() {
-
   }
 }

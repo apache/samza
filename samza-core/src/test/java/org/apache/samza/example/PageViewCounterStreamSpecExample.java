@@ -68,7 +68,7 @@ public class PageViewCounterStreamSpecExample {
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING))
         .map(PageViewCount::new)
-        .sendTo(app.output(output, m -> m.memberId, m -> m));
+        .sendTo(app.getOutputStream("pageViewEventPerMemberStream", m -> m.memberId, m -> m));
 
     app.run();
     app.waitForFinish();

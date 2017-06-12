@@ -18,7 +18,6 @@
  */
 package org.apache.samza.runtime;
 
-import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
