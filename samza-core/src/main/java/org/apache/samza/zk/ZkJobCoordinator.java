@@ -94,7 +94,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
     ReadableMetricsRegistry metricsRegistry = new MetricsRegistryMap();
     this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
-    this.reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), "samza-container-"+processorId);
+    this.reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), "samza-container-" + processorId);
 
   }
 
@@ -129,7 +129,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   public void startMetrics() {
     for (MetricsReporter reporter:reporters.values()) {
-      reporter.register("samza-container-"+processorId, metrics.getMetricsRegistry());
+      reporter.register("samza-container-" + processorId, metrics.getMetricsRegistry());
       reporter.start();
     }
   }
