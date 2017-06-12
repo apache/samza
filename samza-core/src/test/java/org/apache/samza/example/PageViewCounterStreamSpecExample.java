@@ -20,10 +20,16 @@ package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.operators.IOSystem;
+import org.apache.samza.operators.KafkaSystem;
+import org.apache.samza.operators.StreamIO;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.util.CommandLine;
 
@@ -42,15 +48,27 @@ public class PageViewCounterStreamSpecExample {
 
     StreamApplication app = StreamApplication.create(config);
 
-    StreamSpec inputSpec = StreamSpec.create("pageViewEventStream").from();
+    KafkaSystem kafkaSystem = KafkaSystem.create("kafka")
+        .withBootstrapServers("localhost:9192")
+        .withConsumerProperties(config)
+        .withProducerProperties(config);
 
-    app.<String, Object, PageViewEvent>input(inputSpec, (k, m) -> (PageViewEvent) m)
+    StreamIO.Input input = StreamIO.<String, PageViewEvent>read("myPageViewEvent")
+        .withKeySerde(new StringSerde("UTF-8"))
+        .withMsgSerde(new JsonSerde<PageViewEvent>())
+        .from(kafkaSystem);
+    StreamIO.Output output = StreamIO.<String, PageViewCount>write("pageViewEventPerMemberStream")
+        .withKeySerde(new StringSerde("UTF-8"))
+        .withMsgSerde(new JsonSerde<PageViewCount>()).
+        to(kafkaSystem);
+
+    app.<String, Object, PageViewEvent>input(input, (k, m) -> (PageViewEvent) m)
         .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10),
             () -> 0, (m, c) -> c + 1)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING))
         .map(PageViewCount::new)
-        .sendTo(app.getOutputStream("pageViewEventPerMemberStream", m -> m.memberId, m -> m));
+        .sendTo(app.output(output, m -> m.memberId, m -> m));
 
     app.run();
     app.waitForFinish();
