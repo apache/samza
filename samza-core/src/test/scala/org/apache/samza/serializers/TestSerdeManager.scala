@@ -19,7 +19,12 @@
 
 package org.apache.samza.serializers
 
+
+import org.apache.samza.message.EndOfStreamMessage
+import org.apache.samza.message.WatermarkMessage
 import org.junit.Assert._
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.system.SystemStream
@@ -41,5 +46,62 @@ class TestSerdeManager {
     val original = new IncomingMessageEnvelope(ssp, "123", null, "message")
     val deserialized = new SerdeManager().fromBytes(original)
     assertSame(original, deserialized)
+  }
+
+  @Test
+  def testIntermediateMessageSerde {
+    val output = new SystemStream("my-system", "output")
+    val intermediate = new SystemStream("my-system", "intermediate")
+    val intSerde = (new IntegerSerde).asInstanceOf[Serde[Object]]
+    val systemStreamKeySerdes: Map[SystemStream, Serde[Object]] = Map(output -> intSerde)
+    val systemStreamMessageSerdes: Map[SystemStream, Serde[Object]] = Map(output -> intSerde)
+    val controlMessageKeySerdes: Map[SystemStream, Serde[String]] = Map(intermediate -> new StringSerde("UTF-8"))
+    val intermediateMessageSerdes: Map[SystemStream, Serde[Object]] = Map(intermediate -> new IntermediateMessageSerde(intSerde))
+
+    val serdeManager = new SerdeManager(systemStreamKeySerdes = systemStreamKeySerdes,
+                                        systemStreamMessageSerdes = systemStreamMessageSerdes,
+                                        controlMessageKeySerdes = controlMessageKeySerdes,
+                                        intermediateMessageSerdes = intermediateMessageSerdes)
+
+    // test user message sent to output stream
+    var outEnvelope = new OutgoingMessageEnvelope(output, 1, 1000)
+    var se = serdeManager.toBytes(outEnvelope)
+    var inEnvelope = new IncomingMessageEnvelope(new SystemStreamPartition(output, new Partition(0)), "offset", se.getKey, se.getMessage)
+    var de = serdeManager.fromBytes(inEnvelope)
+    assertEquals(de.getKey, 1)
+    assertEquals(de.getMessage, 1000)
+
+    // test user message sent to intermediate stream
+    outEnvelope = new OutgoingMessageEnvelope(intermediate, 1, 1000)
+    se = serdeManager.toBytes(outEnvelope)
+    inEnvelope = new IncomingMessageEnvelope(new SystemStreamPartition(intermediate, new Partition(0)), "offset", se.getKey, se.getMessage)
+    de = serdeManager.fromBytes(inEnvelope)
+    assertEquals(de.getKey, 1)
+    assertEquals(de.getMessage, 1000)
+
+    // test end-of-stream message sent to intermediate stream
+    val eosStreamId = "eos-stream"
+    val taskName = "task 1"
+    val taskCount = 8
+    outEnvelope = new OutgoingMessageEnvelope(intermediate, "eos", new EndOfStreamMessage(taskName, taskCount))
+    se = serdeManager.toBytes(outEnvelope)
+    inEnvelope = new IncomingMessageEnvelope(new SystemStreamPartition(intermediate, new Partition(0)), "offset", se.getKey, se.getMessage)
+    de = serdeManager.fromBytes(inEnvelope)
+    assertEquals(de.getKey, "eos")
+    val eosMsg = de.getMessage.asInstanceOf[EndOfStreamMessage]
+    assertEquals(eosMsg.getTaskName, taskName)
+    assertEquals(eosMsg.getTaskCount, taskCount)
+
+    // test watermark message sent to intermediate stream
+    val timestamp = System.currentTimeMillis()
+    outEnvelope = new OutgoingMessageEnvelope(intermediate, "watermark", new WatermarkMessage(timestamp, taskName, taskCount))
+    se = serdeManager.toBytes(outEnvelope)
+    inEnvelope = new IncomingMessageEnvelope(new SystemStreamPartition(intermediate, new Partition(0)), "offset", se.getKey, se.getMessage)
+    de = serdeManager.fromBytes(inEnvelope)
+    assertEquals(de.getKey, "watermark")
+    val watermarkMsg = de.getMessage.asInstanceOf[WatermarkMessage]
+    assertEquals(watermarkMsg.getTimestamp, timestamp)
+    assertEquals(watermarkMsg.getTaskName, taskName)
+    assertEquals(watermarkMsg.getTaskCount, taskCount)
   }
 }
