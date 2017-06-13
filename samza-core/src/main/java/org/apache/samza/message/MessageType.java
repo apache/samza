@@ -16,24 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.rest.resources.mock;
 
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.samza.rest.proxy.installation.InstallationFinder;
-import org.apache.samza.rest.proxy.installation.InstallationRecord;
-import org.apache.samza.rest.proxy.job.JobInstance;
+package org.apache.samza.message;
 
+/**
+ * The type of the intermediate stream message. The enum will be encoded using its ordinal value and
+ * put in the first byte of the serialization of intermediate message.
+ * For more details, see {@link org.apache.samza.serializers.IntermediateMessageSerde}
+ */
+public enum MessageType {
+  USER_MESSAGE,
+  WATERMARK,
+  END_OF_STREAM;
 
-public class MockInstallationFinder implements InstallationFinder {
-
-  @Override
-  public boolean isInstalled(JobInstance jobInstance) {
-    return !jobInstance.getJobId().contains("Bad") && !jobInstance.getJobName().contains("Bad");
-  }
-
-  @Override
-  public Map<JobInstance, InstallationRecord> getAllInstalledJobs() {
-    return new HashMap<>();
+  /**
+   * Returns the {@link MessageType} of a particular intermediate stream message.
+   * @param message an intermediate stream message
+   * @return type of the message
+   */
+  public static MessageType of(Object message) {
+    if (message instanceof WatermarkMessage) {
+      return WATERMARK;
+    } else if (message instanceof EndOfStreamMessage) {
+      return END_OF_STREAM;
+    } else {
+      return USER_MESSAGE;
+    }
   }
 }

@@ -29,17 +29,19 @@ import org.junit.Test;
 public class TestSnapshot {
 
   @Test
-  public void testGetMaxMinAverageSize() {
+  public void testGetMaxMinAverageSumSize() {
     Snapshot snapshot = new Snapshot(Arrays.asList(1L, 2L, 3L, 4L, 5L));
     assertEquals(5, snapshot.getMax());
     assertEquals(1, snapshot.getMin());
     assertEquals(3, snapshot.getAverage(), 0);
+    assertEquals(15, snapshot.getSum(), 0);
     assertEquals(5, snapshot.getSize());
 
-    Snapshot emptySnapshot = new Snapshot(new ArrayList<Long>());
+    Snapshot emptySnapshot = new Snapshot(new ArrayList<>());
     assertEquals(0, emptySnapshot.getMax());
     assertEquals(0, emptySnapshot.getMin());
     assertEquals(0, emptySnapshot.getAverage(), 0);
+    assertEquals(0, emptySnapshot.getSum(), 0);
     assertEquals(0, emptySnapshot.getSize());
   }
 }
