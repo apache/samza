@@ -188,16 +188,16 @@ public class EndOfStreamManager implements ControlManager {
     public void propagate(EndOfStream endOfStream, TaskCoordinator coordinator) {
       EndOfStreamManager manager = ((EndOfStreamImpl) endOfStream).getManager();
       ioGraph.get(endOfStream.get().getSystemStream()).forEach(node -> {
-        // find the intermediate streams that need broadcast the eos messages
-        if (node.getOutputOpSpec().getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
-          boolean inputsEndOfStream =
-              node.getInputs().stream().allMatch(spec -> manager.isEndOfStream(spec.toSystemStream()));
-          if (inputsEndOfStream) {
-            // broadcast the end-of-stream message to the intermediate stream
-            manager.sendEndOfStream(node.getOutput().toSystemStream());
+          // find the intermediate streams that need broadcast the eos messages
+          if (node.getOutputOpSpec().getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
+            boolean inputsEndOfStream =
+                node.getInputs().stream().allMatch(spec -> manager.isEndOfStream(spec.toSystemStream()));
+            if (inputsEndOfStream) {
+              // broadcast the end-of-stream message to the intermediate stream
+              manager.sendEndOfStream(node.getOutput().toSystemStream());
+            }
           }
-        }
-      });
+        });
 
       boolean allEndOfStream = manager.inputStates.values().stream().allMatch(EndOfStreamState::isEndOfStream);
       if (allEndOfStream) {
