@@ -23,9 +23,10 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import org.apache.samza.control.ControlMessageAggregator.ControlMessageManager;
+import org.apache.samza.control.ControlMessageManager.ControlManager;
 import org.apache.samza.message.EndOfStreamMessage;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -38,9 +39,17 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskCoordinator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
-public class EndOfStreamManager implements ControlMessageManager {
+/**
+ * This class handles the end-of-stream control message. It aggregates the end-of-stream state for each input ssps of
+ * a task, and propagate the eos messages to downstream intermediate streams if needed.
+ */
+public class EndOfStreamManager implements ControlManager {
+  private static final Logger log = LoggerFactory.getLogger(EndOfStreamManager.class);
   private static final String EOS_KEY_FORMAT = "%s-%s-EOS"; //stream-task-EOS
 
   private final String taskName;
@@ -69,12 +78,14 @@ public class EndOfStreamManager implements ControlMessageManager {
     EndOfStreamState state = inputStates.get(envelope.getSystemStreamPartition());
     EndOfStreamMessage message = (EndOfStreamMessage) envelope.getMessage();
     state.update(message.getTaskName(), message.getTaskCount());
+    log.info("Received end-of-stream from task " + message.getTaskName() + " in " + envelope.getSystemStreamPartition());
 
-    // if all the partitions for this system stream is end-of-stream, we generate
-    // EndOfStream for the streamId
+    // If all the partitions for this system stream is end-of-stream, we create an aggregate
+    // EndOfStream message for the streamId
     SystemStreamPartition ssp = envelope.getSystemStreamPartition();
     SystemStream systemStream = ssp.getSystemStream();
     if (isEndOfStream(systemStream)) {
+      log.info("End-of-stream of input " + systemStream + " for " + ssp);
       EndOfStream eos = new EndOfStreamImpl(ssp, this);
       return new IncomingMessageEnvelope(ssp, IncomingMessageEnvelope.END_OF_STREAM_OFFSET, envelope.getKey(), eos);
     } else {
@@ -89,6 +100,7 @@ public class EndOfStreamManager implements ControlMessageManager {
   }
 
   public void sendEndOfStream(SystemStream systemStream) {
+    log.info("Send end-of-stream messages to all partitions of " + systemStream);
     String stream = systemStream.getStream();
     SystemStreamMetadata metadata = sysAdmins.get(systemStream.getSystem())
         .getSystemStreamMetadata(Collections.singleton(stream))
@@ -102,6 +114,10 @@ public class EndOfStreamManager implements ControlMessageManager {
     }
   }
 
+  /**
+   * Implementation of the EndOfStream object inside {@link IncomingMessageEnvelope}.
+   * It wraps the end-of-stream ssp and the {@link EndOfStreamManager}.
+   */
   private static final class EndOfStreamImpl implements EndOfStream {
     private final SystemStreamPartition ssp;
     private final EndOfStreamManager manager;
@@ -121,13 +137,18 @@ public class EndOfStreamManager implements ControlMessageManager {
     }
   }
 
+  /**
+   * This class keeps the internal state for a ssp to be end-of-stream.
+   */
   private final static class EndOfStreamState {
-    private Set<String> tasks;
+    private final Set<String> tasks = new HashSet<>();
     private int expectedTotal = Integer.MAX_VALUE;
     private boolean isEndOfStream = false;
 
     void update(String taskName, int taskCount) {
-      tasks.add(taskName);
+      if (taskName != null) {
+        tasks.add(taskName);
+      }
       expectedTotal = taskCount;
       isEndOfStream = tasks.size() == expectedTotal;
     }
@@ -137,9 +158,18 @@ public class EndOfStreamManager implements ControlMessageManager {
     }
   }
 
+  /**
+   * This class propagates the end-of-stream control messages.
+   * It uses the the input/output of the StreamGraph to decide the output intermediate streams, and shuts down
+   * the task if all inputs reach end-of-stream.
+   */
   public static final class EndOfStreamDispatcher {
     private final Multimap<SystemStream, IONode> ioGraph = HashMultimap.create();
 
+    /**
+     * Create the dispatcher for end-of-stream messages based on the IOGraph built on StreamGraph
+     * @param streamGraph user {@link org.apache.samza.operators.StreamGraph}
+     */
     private EndOfStreamDispatcher(StreamGraphImpl streamGraph) {
       streamGraph.toIOGraph().forEach(node -> {
           node.getInputs().forEach(stream -> {
@@ -148,18 +178,33 @@ public class EndOfStreamManager implements ControlMessageManager {
         });
     }
 
-    public void sendToDownstream(EndOfStream endOfStream) {
+    /**
+     * Propagate end-of-stream to any downstream intermediate streams which have not reached end-of-stream.
+     * If all the inputs have been end-of-stream, shut down the current task.
+     *
+     * @param endOfStream End-of-stream message
+     * @param coordinator coordinator among tasks
+     */
+    public void propagate(EndOfStream endOfStream, TaskCoordinator coordinator) {
       EndOfStreamManager manager = ((EndOfStreamImpl) endOfStream).getManager();
-      ioGraph.get(endOfStream.get()).forEach(node -> {
-          if (node.getOutputOpSpec().getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
-            boolean isEndOfStream =
-                node.getInputs().stream().allMatch(spec -> manager.isEndOfStream(spec.toSystemStream()));
-            if (isEndOfStream) {
-              // broadcast the end-of-stream message to the intermediate stream
-              manager.sendEndOfStream(node.getOutput().toSystemStream());
-            }
+      ioGraph.get(endOfStream.get().getSystemStream()).forEach(node -> {
+        // find the intermediate streams that need broadcast the eos messages
+        if (node.getOutputOpSpec().getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
+          boolean inputsEndOfStream =
+              node.getInputs().stream().allMatch(spec -> manager.isEndOfStream(spec.toSystemStream()));
+          if (inputsEndOfStream) {
+            // broadcast the end-of-stream message to the intermediate stream
+            manager.sendEndOfStream(node.getOutput().toSystemStream());
           }
-        });
+        }
+      });
+
+      boolean allEndOfStream = manager.inputStates.values().stream().allMatch(EndOfStreamState::isEndOfStream);
+      if (allEndOfStream) {
+        // all inputs have been end-of-stream, shut down the task
+        log.info("All input streams have reached the end for task " + manager.taskName);
+        coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+      }
     }
   }
 
@@ -173,6 +218,11 @@ public class EndOfStreamManager implements ControlMessageManager {
     return new IncomingMessageEnvelope(ssp, IncomingMessageEnvelope.END_OF_STREAM_OFFSET, null, new EndOfStreamMessage(null, 0));
   }
 
+  /**
+   * Create a end-of-stream dispatcher.
+   * @param streamGraph user-defined {@link org.apache.samza.operators.StreamGraph}
+   * @return the dispatcher
+   */
   public static EndOfStreamDispatcher createDispatcher(StreamGraphImpl streamGraph) {
     return new EndOfStreamDispatcher(streamGraph);
   }

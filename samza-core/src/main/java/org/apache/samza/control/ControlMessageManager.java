@@ -30,25 +30,25 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
 
 
-public class ControlMessageAggregator {
+/**
+ * This class delegates a control message to the corresponding manager.
+ */
+public class ControlMessageManager {
 
-  interface ControlMessageManager {
+  interface ControlManager {
     IncomingMessageEnvelope update(IncomingMessageEnvelope envelope);
   }
 
-  private final Map<IntermediateMessageType, ControlMessageManager> managers;
+  private final Map<IntermediateMessageType, ControlManager> managers;
 
-  public ControlMessageAggregator(String taskName,
-      int taskCount,
-      Set<SystemStreamPartition> ssps,
-      Map<String, SystemAdmin> sysAdmins,
-      MessageCollector collector) {
-    Map<IntermediateMessageType, ControlMessageManager> managerMap = new HashMap<>();
+  public ControlMessageManager(String taskName, int taskCount, Set<SystemStreamPartition> ssps,
+      Map<String, SystemAdmin> sysAdmins, MessageCollector collector) {
+    Map<IntermediateMessageType, ControlManager> managerMap = new HashMap<>();
     managerMap.put(IntermediateMessageType.END_OF_STREAM_MESSAGE, new EndOfStreamManager(taskName, taskCount, ssps, sysAdmins, collector));
     this.managers = Collections.unmodifiableMap(managerMap);
   }
 
-  public IncomingMessageEnvelope aggregate(IncomingMessageEnvelope controlMessage) {
+  public IncomingMessageEnvelope update(IncomingMessageEnvelope controlMessage) {
     IntermediateMessageType type = IntermediateMessageType.of(controlMessage.getMessage());
     return managers.get(type).update(controlMessage);
   }

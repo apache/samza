@@ -24,7 +24,7 @@ import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.control.ControlMessageAggregator
+import org.apache.samza.control.ControlMessageManager
 import org.apache.samza.message.ControlMessage
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.storage.TaskStorageManager
@@ -100,7 +100,7 @@ class TaskInstance(
     scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2catchedupMapping += _ -> false)
 
-  val controlAggregator = new ControlMessageAggregator(taskName.getTaskName,
+  val controlManager = new ControlMessageManager(taskName.getTaskName,
                                                        containerContext.taskNames.size(),
                                                        systemStreamPartitions.asJava,
                                                        systemAdmins.asJava,
@@ -176,7 +176,7 @@ class TaskInstance(
         format (taskName, msgEnvelope.getSystemStreamPartition))
 
       val envelope: IncomingMessageEnvelope = if (msgEnvelope.getMessage.isInstanceOf[ControlMessage]) {
-        controlAggregator.aggregate(msgEnvelope)
+        controlManager.update(msgEnvelope)
       } else {
         msgEnvelope
       }

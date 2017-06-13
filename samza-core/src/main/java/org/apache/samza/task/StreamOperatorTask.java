@@ -120,7 +120,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
         break;
 
       case END_OF_STREAM:
-        eosDispatcher.sendToDownstream((EndOfStream) message);
+        eosDispatcher.propagate((EndOfStream) message, coordinator);
         break;
 
       case WATERMARK:
