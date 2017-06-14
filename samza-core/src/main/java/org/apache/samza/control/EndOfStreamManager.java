@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.control.ControlMessageManager.ControlManager;
+import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.message.EndOfStreamMessage;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -53,17 +54,17 @@ public class EndOfStreamManager implements ControlManager {
   private static final String EOS_KEY_FORMAT = "%s-%s-EOS"; //stream-task-EOS
 
   private final String taskName;
-  private final int taskCount;
   private final MessageCollector collector;
   private final Map<SystemStreamPartition, EndOfStreamState> inputStates;
   private final Map<String, SystemAdmin> sysAdmins;
+  private final Multimap<SystemStream, String> streamToTasks;
 
   public EndOfStreamManager(String taskName,
-      int taskCount,
+      ContainerModel containerModel,
       Set<SystemStreamPartition> ssps,
       Map<String, SystemAdmin> sysAdmins, MessageCollector collector) {
     this.taskName = taskName;
-    this.taskCount = taskCount;
+    this.streamToTasks = buildStreamToTasks(containerModel);
     this.sysAdmins = sysAdmins;
     this.collector = collector;
     Map<SystemStreamPartition, EndOfStreamState> states = new HashMap<>();
@@ -99,7 +100,7 @@ public class EndOfStreamManager implements ControlManager {
         .allMatch(entry -> entry.getValue().isEndOfStream());
   }
 
-  public void sendEndOfStream(SystemStream systemStream) {
+  public void sendEndOfStream(SystemStream systemStream, int taskCount) {
     log.info("Send end-of-stream messages to all partitions of " + systemStream);
     String stream = systemStream.getStream();
     SystemStreamMetadata metadata = sysAdmins.get(systemStream.getSystem())
@@ -112,6 +113,18 @@ public class EndOfStreamManager implements ControlManager {
       OutgoingMessageEnvelope envelopeOut = new OutgoingMessageEnvelope(systemStream, i, key, message);
       collector.send(envelopeOut);
     }
+  }
+
+  private Multimap<SystemStream, String> buildStreamToTasks(ContainerModel containerModel) {
+    Multimap<SystemStream, String> streamToTasks = HashMultimap.create();
+    if (containerModel != null) {
+      containerModel.getTasks().values().forEach(taskModel -> {
+          taskModel.getSystemStreamPartitions().forEach(ssp -> {
+              streamToTasks.put(ssp.getSystemStream(), taskModel.getTaskName().toString());
+            });
+        });
+    }
+    return streamToTasks;
   }
 
   /**
@@ -195,7 +208,10 @@ public class EndOfStreamManager implements ControlManager {
                 node.getInputs().stream().allMatch(spec -> manager.isEndOfStream(spec.toSystemStream()));
             if (inputsEndOfStream) {
               // broadcast the end-of-stream message to the intermediate stream
-              manager.sendEndOfStream(node.getOutput().toSystemStream());
+              int count = (int) node.getInputs().stream()
+                  .flatMap(spec -> manager.streamToTasks.get(spec.toSystemStream()).stream())
+                  .count();
+              manager.sendEndOfStream(node.getOutput().toSystemStream(), count);
             }
           }
         });

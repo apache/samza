@@ -25,6 +25,7 @@ import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.control.ControlMessageManager
+import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.message.ControlMessage
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.storage.TaskStorageManager
@@ -59,7 +60,8 @@ class TaskInstance(
   storageManager: TaskStorageManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
-  val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler) extends Logging {
+  val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler,
+  containerModel: ContainerModel = null) extends Logging {
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
@@ -101,7 +103,7 @@ class TaskInstance(
   systemStreamPartitions.foreach(ssp2catchedupMapping += _ -> false)
 
   val controlManager = new ControlMessageManager(taskName.getTaskName,
-                                                       containerContext.taskNames.size(),
+                                                       containerModel,
                                                        systemStreamPartitions.asJava,
                                                        systemAdmins.asJava,
                                                        collector)

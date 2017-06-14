@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.message.IntermediateMessageType;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemAdmin;
@@ -42,12 +43,12 @@ public class ControlMessageManager {
   private final Map<IntermediateMessageType, ControlManager> managers;
 
   public ControlMessageManager(String taskName,
-      int taskCount,
+      ContainerModel containerModel,
       Set<SystemStreamPartition> ssps,
       Map<String, SystemAdmin> sysAdmins,
       MessageCollector collector) {
     Map<IntermediateMessageType, ControlManager> managerMap = new HashMap<>();
-    managerMap.put(IntermediateMessageType.END_OF_STREAM_MESSAGE, new EndOfStreamManager(taskName, taskCount, ssps, sysAdmins, collector));
+    managerMap.put(IntermediateMessageType.END_OF_STREAM_MESSAGE, new EndOfStreamManager(taskName, containerModel, ssps, sysAdmins, collector));
     this.managers = Collections.unmodifiableMap(managerMap);
   }
 

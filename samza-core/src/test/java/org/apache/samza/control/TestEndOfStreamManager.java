@@ -29,6 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
+import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.message.EndOfStreamMessage;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.OperatorSpecs;
@@ -55,6 +58,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
@@ -69,7 +73,10 @@ public class TestEndOfStreamManager {
   @Test
   public void testUpdateFromInputSource() {
     SystemStreamPartition ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
-    EndOfStreamManager manager = new EndOfStreamManager("Task 0", 1, Collections.singleton(ssp), null, null);
+    TaskName taskName = new TaskName("Task 0");
+    TaskModel taskModel = new TaskModel(taskName, Collections.singleton(ssp), null);
+    ContainerModel containerModel = new ContainerModel("1", 0, Collections.singletonMap(taskName, taskModel));
+    EndOfStreamManager manager = new EndOfStreamManager("Task 0", containerModel, Collections.singleton(ssp), null, null);
     IncomingMessageEnvelope envelope = manager.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssp));
     assertEquals(envelope.getSystemStreamPartition(), ssp);
     assertEquals(envelope.getOffset(), IncomingMessageEnvelope.END_OF_STREAM_OFFSET);
@@ -82,7 +89,12 @@ public class TestEndOfStreamManager {
     ssps[0] = new SystemStreamPartition("test-system", "test-stream-1", new Partition(0));
     ssps[1] = new SystemStreamPartition("test-system", "test-stream-2", new Partition(0));
     ssps[2] = new SystemStreamPartition("test-system", "test-stream-2", new Partition(1));
-    EndOfStreamManager manager = new EndOfStreamManager("Task 0", 1, new HashSet<>(Arrays.asList(ssps)), null, null);
+
+    TaskName taskName = new TaskName("Task 0");
+    TaskModel taskModel = new TaskModel(taskName, new HashSet<>(Arrays.asList(ssps)), null);
+    ContainerModel containerModel = new ContainerModel("1", 0, Collections.singletonMap(taskName, taskModel));
+
+    EndOfStreamManager manager = new EndOfStreamManager("Task 0", containerModel, new HashSet<>(Arrays.asList(ssps)), null, null);
     int envelopeCount = 4;
     IncomingMessageEnvelope[] envelopes = new IncomingMessageEnvelope[envelopeCount];
     for (int i = 0; i < envelopeCount; i++) {
@@ -142,8 +154,13 @@ public class TestEndOfStreamManager {
     partitionMetadata.put(new Partition(3), mock(SystemStreamMetadata.SystemStreamPartitionMetadata.class));
     when(metadata.getSystemStreamPartitionMetadata()).thenReturn(partitionMetadata);
     MessageCollector collector = mock(MessageCollector.class);
+
+    TaskName taskName = new TaskName("Task 0");
+    TaskModel taskModel = new TaskModel(taskName, Collections.EMPTY_SET, null);
+    ContainerModel containerModel = new ContainerModel("1", 0, Collections.singletonMap(taskName, taskModel));
+
     EndOfStreamManager manager = new EndOfStreamManager("task 0",
-        8,
+        containerModel,
         Collections.EMPTY_SET,
         Collections.singletonMap(ints.getSystem(), admin),
         collector);
@@ -158,7 +175,7 @@ public class TestEndOfStreamManager {
         return null;
       }).when(collector).send(any());
 
-    manager.sendEndOfStream(ints);
+    manager.sendEndOfStream(ints, 8);
     assertEquals(partitions.size(), 4);
   }
 
@@ -185,21 +202,26 @@ public class TestEndOfStreamManager {
     ssps[1] = new SystemStreamPartition(input2, new Partition(0));
     ssps[2] = new SystemStreamPartition(ints, new Partition(0));
 
+    Set<SystemStreamPartition> sspSet = new HashSet<>(Arrays.asList(ssps));
+    TaskName taskName = new TaskName("task 0");
+    TaskModel taskModel = new TaskModel(taskName, sspSet, null);
+    ContainerModel containerModel = new ContainerModel("1", 0, Collections.singletonMap(taskName, taskModel));
+
     EndOfStreamManager manager = spy(
-        new EndOfStreamManager("task 0", 4, new HashSet<>(Arrays.asList(ssps)), null, null));
+        new EndOfStreamManager("task 0", containerModel, sspSet, null, null));
     TaskCoordinator coordinator = mock(TaskCoordinator.class);
 
     // ssp1 end-of-stream, wait for ssp2
     IncomingMessageEnvelope envelope = manager.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssps[0]));
     dispatcher.propagate((EndOfStream) envelope.getMessage(), coordinator);
-    verify(manager, never()).sendEndOfStream(any());
+    verify(manager, never()).sendEndOfStream(any(), anyInt());
 
     // ssp2 end-of-stream, propagate to intermediate
     envelope = manager.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssps[1]));
-    doNothing().when(manager).sendEndOfStream(any());
+    doNothing().when(manager).sendEndOfStream(any(), anyInt());
     dispatcher.propagate((EndOfStream) envelope.getMessage(), coordinator);
     ArgumentCaptor<SystemStream> argument = ArgumentCaptor.forClass(SystemStream.class);
-    verify(manager).sendEndOfStream(argument.capture());
+    verify(manager).sendEndOfStream(argument.capture(), anyInt());
     assertEquals(ints, argument.getValue());
 
     // intermediate end-of-stream, shutdown the task
@@ -208,6 +230,68 @@ public class TestEndOfStreamManager {
     dispatcher.propagate((EndOfStream) envelope.getMessage(), coordinator);
     ArgumentCaptor<TaskCoordinator.RequestScope> arg = ArgumentCaptor.forClass(TaskCoordinator.RequestScope.class);
     verify(coordinator).shutdown(arg.capture());
+    assertEquals(TaskCoordinator.RequestScope.CURRENT_TASK, arg.getValue());
+  }
+
+  /**
+   * Test the case when the publishing tasks to intermediate stream is a subset of total tasks
+   */
+  @Test
+  public void testDispatcherForTaskCount() {
+    StreamSpec outputSpec = new StreamSpec("int-stream", "int-stream", "test-system");
+    OutputStreamImpl outputStream = new OutputStreamImpl(outputSpec, null, null);
+    OutputOperatorSpec partitionByOp = OperatorSpecs.createPartitionByOperatorSpec(outputStream, 0);
+
+    List<StreamSpec> inputs = new ArrayList<>();
+    inputs.add(new StreamSpec("input-stream-1", "input-stream-1", "test-system"));
+    Collection<IONode> ioGraph = TestIOGraphUtil.buildSimpleIOGraphOfPartitionBy(inputs, partitionByOp);
+
+    StreamGraphImpl streamGraph = mock(StreamGraphImpl.class);
+    when(streamGraph.toIOGraph()).thenReturn(ioGraph);
+    EndOfStreamManager.EndOfStreamDispatcher dispatcher = EndOfStreamManager.createDispatcher(streamGraph);
+
+    SystemStream input1 = new SystemStream("test-system", "input-stream-1");
+    SystemStream ints = new SystemStream("test-system", "int-stream");
+    SystemStreamPartition ssp1 = new SystemStreamPartition(input1, new Partition(0));
+    SystemStreamPartition ssp2 = new SystemStreamPartition(ints, new Partition(0));
+
+    Map<TaskName, TaskModel> taskModels = new HashMap<>();
+    TaskName t0 = new TaskName("task 0");
+    taskModels.put(t0, new TaskModel(t0, Collections.singleton(ssp1), null));
+    TaskName t1 = new TaskName("task 1");
+    taskModels.put(t1, new TaskModel(t1, Collections.singleton(ssp2), null));
+
+    ContainerModel containerModel = new ContainerModel("1", 0, taskModels);
+
+    EndOfStreamManager manager0 = spy(
+        new EndOfStreamManager(t0.getTaskName(), containerModel, Collections.singleton(ssp1), null, null));
+    EndOfStreamManager manager1 = spy(
+        new EndOfStreamManager(t1.getTaskName(), containerModel, Collections.singleton(ssp2), null, null));
+
+    TaskCoordinator coordinator1 = mock(TaskCoordinator.class);
+    TaskCoordinator coordinator2 = mock(TaskCoordinator.class);
+
+    // ssp1 end-of-stream
+    IncomingMessageEnvelope envelope = manager0.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssp1));
+    doNothing().when(manager0).sendEndOfStream(any(), anyInt());
+    doNothing().when(coordinator1).shutdown(any());
+    dispatcher.propagate((EndOfStream) envelope.getMessage(), coordinator1);
+    ArgumentCaptor<Integer> argument = ArgumentCaptor.forClass(Integer.class);
+    verify(manager0).sendEndOfStream(any(), argument.capture());
+    //verify task count is 1
+    assertTrue(argument.getValue() == 1);
+    ArgumentCaptor<TaskCoordinator.RequestScope> arg = ArgumentCaptor.forClass(TaskCoordinator.RequestScope.class);
+    verify(coordinator1).shutdown(arg.capture());
+    assertEquals(TaskCoordinator.RequestScope.CURRENT_TASK, arg.getValue());
+
+    // int1 end-of-stream
+    IncomingMessageEnvelope intEos = new IncomingMessageEnvelope(ssp2, null, null, new EndOfStreamMessage(t0.getTaskName(), 1));
+    envelope = manager1.update(intEos);
+    doNothing().when(coordinator2).shutdown(any());
+    dispatcher.propagate((EndOfStream) envelope.getMessage(), coordinator2);
+    verify(manager1, never()).sendEndOfStream(any(), anyInt());
+    arg = ArgumentCaptor.forClass(TaskCoordinator.RequestScope.class);
+    verify(coordinator2).shutdown(arg.capture());
     assertEquals(TaskCoordinator.RequestScope.CURRENT_TASK, arg.getValue());
   }
 }

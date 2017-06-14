@@ -21,6 +21,9 @@ package org.apache.samza.control;
 
 import java.util.Collections;
 import org.apache.samza.Partition;
+import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Before;
@@ -37,7 +40,10 @@ public class TestControlMessageManager {
   @Before
   public void setup() {
     ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
-    manager = new ControlMessageManager("Partition 0", 1, Collections.singleton(ssp), null, null);
+    TaskName taskName = new TaskName("Task 0");
+    TaskModel taskModel = new TaskModel(taskName, Collections.singleton(ssp), null);
+    ContainerModel containerModel = new ContainerModel("1", 0, Collections.singletonMap(taskName, taskModel));
+    manager = new ControlMessageManager("Partition 0", containerModel, Collections.singleton(ssp), null, null);
   }
 
   @Test
