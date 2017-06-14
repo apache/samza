@@ -79,6 +79,7 @@ install_all_without_yarn() {
 }
 
 install_samza() {
+  echo "Building samza from master..."
   mkdir -p "$DEPLOY_ROOT_DIR"
   if [ -d "$DOWNLOAD_CACHE_DIR/samza/.git" ]; then
     pushd "$DOWNLOAD_CACHE_DIR/samza"
