@@ -41,8 +41,11 @@ public class ControlMessageManager {
 
   private final Map<IntermediateMessageType, ControlManager> managers;
 
-  public ControlMessageManager(String taskName, int taskCount, Set<SystemStreamPartition> ssps,
-      Map<String, SystemAdmin> sysAdmins, MessageCollector collector) {
+  public ControlMessageManager(String taskName,
+      int taskCount,
+      Set<SystemStreamPartition> ssps,
+      Map<String, SystemAdmin> sysAdmins,
+      MessageCollector collector) {
     Map<IntermediateMessageType, ControlManager> managerMap = new HashMap<>();
     managerMap.put(IntermediateMessageType.END_OF_STREAM_MESSAGE, new EndOfStreamManager(taskName, taskCount, ssps, sysAdmins, collector));
     this.managers = Collections.unmodifiableMap(managerMap);

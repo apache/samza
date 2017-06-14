@@ -86,7 +86,7 @@ public class EndOfStreamManager implements ControlManager {
     SystemStream systemStream = ssp.getSystemStream();
     if (isEndOfStream(systemStream)) {
       log.info("End-of-stream of input " + systemStream + " for " + ssp);
-      EndOfStream eos = new EndOfStreamImpl(ssp, this);
+      EndOfStream eos = new EndOfStreamImpl(systemStream, this);
       return new IncomingMessageEnvelope(ssp, IncomingMessageEnvelope.END_OF_STREAM_OFFSET, envelope.getKey(), eos);
     } else {
       return null;
@@ -118,18 +118,19 @@ public class EndOfStreamManager implements ControlManager {
    * Implementation of the EndOfStream object inside {@link IncomingMessageEnvelope}.
    * It wraps the end-of-stream ssp and the {@link EndOfStreamManager}.
    */
+  /* package private */
   private static final class EndOfStreamImpl implements EndOfStream {
-    private final SystemStreamPartition ssp;
+    private final SystemStream systemStream;
     private final EndOfStreamManager manager;
 
-    private EndOfStreamImpl(SystemStreamPartition ssp, EndOfStreamManager manager) {
-      this.ssp = ssp;
+    private EndOfStreamImpl(SystemStream systemStream, EndOfStreamManager manager) {
+      this.systemStream = systemStream;
       this.manager = manager;
     }
 
     @Override
-    public SystemStreamPartition get() {
-      return ssp;
+    public SystemStream get() {
+      return systemStream;
     }
 
     EndOfStreamManager getManager() {
@@ -187,7 +188,7 @@ public class EndOfStreamManager implements ControlManager {
      */
     public void propagate(EndOfStream endOfStream, TaskCoordinator coordinator) {
       EndOfStreamManager manager = ((EndOfStreamImpl) endOfStream).getManager();
-      ioGraph.get(endOfStream.get().getSystemStream()).forEach(node -> {
+      ioGraph.get(endOfStream.get()).forEach(node -> {
           // find the intermediate streams that need broadcast the eos messages
           if (node.getOutputOpSpec().getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
             boolean inputsEndOfStream =

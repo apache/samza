@@ -47,7 +47,7 @@ public class IOGraphUtil {
     }
 
     public Set<StreamSpec> getInputs() {
-      return inputs;
+      return Collections.unmodifiableSet(inputs);
     }
 
     public StreamSpec getOutput() {
@@ -66,7 +66,8 @@ public class IOGraphUtil {
     return Collections.unmodifiableCollection(ioGraph.values());
   }
 
-  private static void buildIONodes(StreamSpec input, OperatorSpec opSpec, Map<Integer, IONode> ioGraph) {
+  /* package private */
+  static void buildIONodes(StreamSpec input, OperatorSpec opSpec, Map<Integer, IONode> ioGraph) {
     if (opSpec instanceof OutputOperatorSpec) {
       OutputOperatorSpec outputOpSpec = (OutputOperatorSpec) opSpec;
       IONode node = ioGraph.get(opSpec.getOpId());

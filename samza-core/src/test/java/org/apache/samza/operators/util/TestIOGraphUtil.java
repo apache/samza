@@ -17,8 +17,21 @@
  * under the License.
  */
 
-package org.apache.samza.system;
+package org.apache.samza.operators.util;
 
-public interface EndOfStream {
-  SystemStream get();
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.samza.operators.spec.OutputOperatorSpec;
+import org.apache.samza.system.StreamSpec;
+
+
+public class TestIOGraphUtil {
+
+  public static Collection<IOGraphUtil.IONode> buildSimpleIOGraphOfPartitionBy(List<StreamSpec> inputs, OutputOperatorSpec partitionBy) {
+    Map<Integer, IOGraphUtil.IONode> graph = new HashMap<>();
+    inputs.forEach(input -> IOGraphUtil.buildIONodes(input, partitionBy, graph));
+    return graph.values();
+  }
 }
