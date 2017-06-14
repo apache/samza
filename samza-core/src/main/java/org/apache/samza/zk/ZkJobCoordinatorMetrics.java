@@ -28,15 +28,20 @@ import org.apache.samza.metrics.ReadableMetricsRegistry;
 public class ZkJobCoordinatorMetrics extends MetricsBase {
 
   private final ReadableMetricsRegistry metricsRegistry;
-  public final Counter jobModelExpired;
+  public final Counter newJobModel;
   public final Counter leaderElection;
-
+  public final Counter barrierCreation;
+  public final Counter barrierStateChange;
+  public final Counter barrierError;
 
   public ZkJobCoordinatorMetrics(ReadableMetricsRegistry metricsRegistry) {
     super(metricsRegistry);
     this.metricsRegistry = metricsRegistry;
-    this.jobModelExpired = newCounter("job-model-expired");
+    this.newJobModel = newCounter("new-job-model-generated");
     this.leaderElection = newCounter("leader-election");
+    this.barrierCreation = newCounter("barrier-creation");
+    this.barrierStateChange = newCounter("barrier-state-change");
+    this.barrierError = newCounter("barrier-error");
   }
 
   public ReadableMetricsRegistry getMetricsRegistry() {

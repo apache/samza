@@ -115,7 +115,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public synchronized void stop() {
     if (coordinatorListener != null) {
       coordinatorListener.onJobModelExpired();
-      metrics.jobModelExpired.inc();
     }
 
     debounceTimer.stopScheduler();
@@ -170,7 +169,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
     // Generate the JobModel
     JobModel jobModel = generateNewJobModel(currentProcessorIds);
-
     // Assign the next version of JobModel
     String currentJMVersion  = zkUtils.getJobModelVersion();
     String nextJMVersion;
@@ -198,10 +196,11 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, () ->
       {
         LOG.info("pid=" + processorId + "new JobModel available");
+        metrics.newJobModel.inc();
+
         // stop current work
         if (coordinatorListener != null) {
           coordinatorListener.onJobModelExpired();
-          metrics.jobModelExpired.inc();
         }
         // get the new job model from ZK
         newJobModel = zkUtils.getJobModel(version);
@@ -279,6 +278,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     private final String barrierAction = "BarrierAction";
     @Override
     public void onBarrierCreated(String version) {
+      metrics.barrierCreation.inc();
       debounceTimer.scheduleAfterDebounceTime(
           barrierAction,
         (new ZkConfig(config)).getZkBarrierTimeoutMs(),
@@ -288,6 +288,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
     public void onBarrierStateChanged(final String version, ZkBarrierForVersionUpgrade.State state) {
       LOG.info("JobModel version " + version + " obtained consensus successfully!");
+      metrics.barrierStateChange.inc();
       if (ZkBarrierForVersionUpgrade.State.DONE.equals(state)) {
         debounceTimer.scheduleAfterDebounceTime(
             barrierAction,
@@ -307,6 +308,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     @Override
     public void onBarrierError(String version, Throwable t) {
       LOG.error("Encountered error while attaining consensus on JobModel version " + version);
+      metrics.barrierError.inc();
       stop();
     }
   }
