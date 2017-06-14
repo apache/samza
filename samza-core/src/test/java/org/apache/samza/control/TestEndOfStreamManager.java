@@ -99,7 +99,7 @@ public class TestEndOfStreamManager {
     assertNotNull(envelope);
     assertEquals(envelope.getOffset(), IncomingMessageEnvelope.END_OF_STREAM_OFFSET);
     assertTrue(envelope.getMessage() instanceof EndOfStream);
-    assertEquals(((EndOfStream) envelope.getMessage()).get(), ssps[0].getSystemStream());
+    assertEquals(((EndOfStream) envelope.getMessage()).getSystemStream(), ssps[0].getSystemStream());
     assertTrue(manager.isEndOfStream(ssps[0].getSystemStream()));
     assertFalse(manager.isEndOfStream(ssps[1].getSystemStream()));
 
@@ -125,7 +125,7 @@ public class TestEndOfStreamManager {
     assertNotNull(envelope);
     assertEquals(envelope.getOffset(), IncomingMessageEnvelope.END_OF_STREAM_OFFSET);
     assertTrue(envelope.getMessage() instanceof EndOfStream);
-    assertEquals(((EndOfStream) envelope.getMessage()).get(), ssps[1].getSystemStream());
+    assertEquals(((EndOfStream) envelope.getMessage()).getSystemStream(), ssps[1].getSystemStream());
     assertTrue(manager.isEndOfStream(ssps[1].getSystemStream()));
   }
 

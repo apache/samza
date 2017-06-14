@@ -129,7 +129,7 @@ public class EndOfStreamManager implements ControlManager {
     }
 
     @Override
-    public SystemStream get() {
+    public SystemStream getSystemStream() {
       return systemStream;
     }
 
@@ -188,7 +188,7 @@ public class EndOfStreamManager implements ControlManager {
      */
     public void propagate(EndOfStream endOfStream, TaskCoordinator coordinator) {
       EndOfStreamManager manager = ((EndOfStreamImpl) endOfStream).getManager();
-      ioGraph.get(endOfStream.get()).forEach(node -> {
+      ioGraph.get(endOfStream.getSystemStream()).forEach(node -> {
           // find the intermediate streams that need broadcast the eos messages
           if (node.getOutputOpSpec().getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
             boolean inputsEndOfStream =
@@ -210,7 +210,7 @@ public class EndOfStreamManager implements ControlManager {
   }
 
   /**
-   * Builds an end-of-stream envelope for an SSP.
+   * Build an end-of-stream envelope for an ssp of a source input.
    *
    * @param ssp The SSP that is at end-of-stream.
    * @return an IncomingMessageEnvelope corresponding to end-of-stream for that SSP.

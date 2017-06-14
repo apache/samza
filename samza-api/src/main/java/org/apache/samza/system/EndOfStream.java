@@ -19,6 +19,19 @@
 
 package org.apache.samza.system;
 
+/**
+ * A end-of-stream represents a {@link SystemStream} has been fully consumed to the end. There will be
+ * no more messages after it for the stream.
+ *
+ * <p>This class defines the end-of-stream message object in the IncomingMessageEnvelope.
+ * Once the task received this message, it indicates the stream has reached to the end for this task.
+ */
 public interface EndOfStream {
-  SystemStream get();
+
+  /**
+   * Returns the {@link SystemStream} that reaches to the end for this task.
+   * Note that if the task consumes more than one partitions of this stream, all the partitions are ended.
+   * @return the stream that reaches the end
+   */
+  SystemStream getSystemStream();
 }

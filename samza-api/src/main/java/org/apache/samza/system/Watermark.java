@@ -19,6 +19,24 @@
 
 package org.apache.samza.system;
 
+/**
+ * A watermark is a monotonically increasing value, which represents the point up to which the
+ * system believes it has received all of the data before the watermark timestamp. Data that arrives
+ * with a timestamp that is before the watermark is considered late.
+ *
+ * <p>This class defines the watermark object in the {@link IncomingMessageEnvelope#getMessage()}
+ * It returns the next watermark timestamp from a stream.
+ */
 public interface Watermark {
-  //TODO: add interface methods here
+  /**
+   * Returns the timestamp of the watermark
+   * @return timestamp
+   */
+  long getTimestamp();
+
+  /**
+   * Returns the {@link SystemStream} that generates the watermark.
+   * @return stream of the watermark
+   */
+  SystemStream getSystemStream();
 }
