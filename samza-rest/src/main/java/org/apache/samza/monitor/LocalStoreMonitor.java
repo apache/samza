@@ -85,7 +85,7 @@ public class LocalStoreMonitor implements Monitor {
         JobStatus jobStatus = jobsClient.getJobStatus(jobInstance);
         LOG.info("Job: {} has the status: {}.", jobInstance, jobStatus);
         for (Task task : jobsClient.getTasks(jobInstance)) {
-          LOG.info("  Evaluating stores for job: ({}) task: ({})", jobInstance, task);
+          LOG.info("  Evaluating stores for task: {}", task);  // Indentation for readability
           for (String storeName : jobDir.list(DirectoryFileFilter.DIRECTORY)) {
             /**
              *  A task store is active if all of the following conditions are true:
@@ -96,9 +96,9 @@ public class LocalStoreMonitor implements Monitor {
             if (jobStatus.hasBeenStarted()
                 && task.getStoreNames().contains(storeName)
                 && task.getPreferredHost().equals(localHostName)) {
-              LOG.info(String.format("  Local store %s is actively used by the task: %s.", storeName, task.getTaskName()));
+              LOG.info(String.format("  Local store: %s is actively used by the task: %s.", storeName, task.getTaskName())); // Indentation for readability
             } else {
-              LOG.info(String.format("  Local store %s not used by the task: %s.", storeName, task.getTaskName()));
+              LOG.info(String.format("  Local store: %s not used by the task: %s.", storeName, task.getTaskName())); // Indentation for readability
               markSweepTaskStore(TaskStorageManager.getStorePartitionDir(jobDir, storeName, new TaskName(task.getTaskName())));
             }
           }
