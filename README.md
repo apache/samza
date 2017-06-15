@@ -1,18 +1,16 @@
 ## What is Samza?  [![Build Status](https://builds.apache.org/view/S-Z/view/Samza/job/samza-freestyle-build/badge/icon)](https://builds.apache.org/view/S-Z/view/Samza/job/samza-freestyle-build/)
 
-[Apache Samza](http://samza.apache.org/) is a distributed stream processing framework. It uses [Apache Kafka](http://kafka.apache.org) for messaging, and [Apache Hadoop YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) to provide fault tolerance, processor isolation, security, and resource management.
+[Apache Samza](http://samza.apache.org/) is a distributed stream processing framework. Samza's key features include:
 
-Samza's key features include:
-
-* **Simple API:** Unlike most low-level messaging system APIs, Samza provides a very simple callback-based "process message" API comparable to MapReduce.
+* **Low and high level APIs:** Samza provides a very simple callback-based "process message" API, as well as a high level Fluent API for operating on message streams.
 * **Managed state:** Samza manages snapshotting and restoration of a stream processor's state. When the processor is restarted, Samza restores its state to a consistent snapshot. Samza is built to handle large amounts of state (many gigabytes per partition).
-* **Fault tolerance:** Whenever a machine in the cluster fails, Samza works with YARN to transparently migrate your tasks to another machine.
-* **Durability:** Samza uses Kafka to guarantee that messages are processed in the order they were written to a partition, and that no messages are ever lost.
-* **Scalability:** Samza is partitioned and distributed at every level. Kafka provides ordered, partitioned, replayable, fault-tolerant streams. YARN provides a distributed environment for Samza containers to run in.
-* **Pluggable:** Though Samza works out of the box with Kafka and YARN, Samza provides a pluggable API that lets you run Samza with other messaging systems and execution environments.
-* **Processor isolation:** Samza works with Apache YARN, which supports Hadoop's security model, and resource isolation through Linux CGroups.
+* **Fault tolerance:** Whenever a machine in the cluster fails, Samza works with your execution environment to transparently migrate your tasks to another machine.
+* **Durability:** Samza guarantees that messages are processed in the order they were written to a partition, and that no messages are ever lost.
+* **Scalability:** Samza is partitioned and distributed at every level. It provides ordered, partitioned, replayable, fault-tolerant stream processing in a distributed environment.
+* **Pluggable:** Samza works out of the box with Kafka and YARN and provides pluggable APIs that lets you run Samza with other messaging systems and execution environments.
+* **Processor isolation:** When used with Apache YARN, Samza supports Hadoop's security model, and resource isolation through Linux CGroups.
 
-Check out [Hello Samza](https://samza.apache.org/startup/hello-samza/0.11/) to try Samza. Read the [Background](https://samza.apache.org/learn/documentation/0.8/introduction/background.html) page to learn more about Samza.
+Check out [Hello Samza](https://samza.apache.org/startup/hello-samza/latest/) to try Samza. Read the [Background](https://samza.apache.org/learn/documentation/latest/introduction/background.html) page to learn more about Samza.
 
 ### Building Samza
 
@@ -28,9 +26,9 @@ After the bootstrap script has completed, the regular gradlew instructions below
 
 #### Scala and YARN
 
-Samza builds with [Scala](http://www.scala-lang.org/) 2.10 or 2.11 and [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) 2.6.1, by default. Use the -PscalaVersion switches to change Scala versions. Samza supports building Scala with 2.10 and 2.11.
+Samza builds with [Scala](http://www.scala-lang.org/) 2.11 and [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) 2.6.1 by default. Use the -PscalaVersion switches to change Scala versions. Samza supports building with Scala 2.10, 2.11 and 2.12.
 
-    ./gradlew -PscalaVersion=2.11 clean build
+    ./gradlew -PscalaVersion=2.12 clean build
 
 ### Testing Samza
 
