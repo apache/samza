@@ -267,9 +267,9 @@ object JobModelManager extends Logging {
     val containerMap = containerModels.asScala.map { case (containerModel) => containerModel.getProcessorId -> containerModel }.toMap
 
     if (isHostAffinityEnabled) {
-      new JobModel(config, containerMap.asJava)
-    } else {
       new JobModel(config, containerMap.asJava, localityManager)
+    } else {
+      new JobModel(config, containerMap.asJava)
     }
   }
 

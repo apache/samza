@@ -23,14 +23,12 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
-import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.JobModelManager;
+import org.apache.samza.coordinator.JobModelManagerTestUtil;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
-import org.apache.samza.job.model.ContainerModel;
-import org.apache.samza.job.model.JobModel;
-import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.testUtils.MockHttpServer;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.After;
@@ -79,7 +77,7 @@ public class TestContainerProcessManager {
   private Config getConfigWithHostAffinity() {
     Map<String, String> map = new HashMap<>();
     map.putAll(config);
-    map.put("yarn.samza.host-affinity.enabled", "true");
+    map.put("job.host-affinity.enabled", "true");
     return new MapConfig(map);
   }
 
@@ -87,30 +85,24 @@ public class TestContainerProcessManager {
 
   private SamzaApplicationState state = null;
 
-  private JobModelManager getCoordinator(int containerCount) {
-    Map<String, ContainerModel> containers = new java.util.HashMap<>();
-    for (int i = 0; i < containerCount; i++) {
-      ContainerModel container = new ContainerModel(String.valueOf(i), i, new HashMap<TaskName, TaskModel>());
-      containers.put(String.valueOf(i), container);
-    }
+  private JobModelManager getJobModelManagerWithHostAffinity(int containerCount) {
     Map<String, Map<String, String>> localityMap = new HashMap<>();
     localityMap.put("0", new HashMap<String, String>() { {
         put(SetContainerHostMapping.HOST_KEY, "abc");
-      }
-    });
+      } });
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readContainerLocality()).thenReturn(localityMap);
 
-    JobModel jobModel = new JobModel(getConfig(), containers, mockLocalityManager);
-    JobModelManager.jobModelRef().getAndSet(jobModel);
+    return JobModelManagerTestUtil.getJobModelManagerWithLocalityManager(getConfig(), containerCount, mockLocalityManager, this.server);
+  }
 
-    return new JobModelManager(jobModel, this.server, null);
+  private JobModelManager getJobModelManagerWithoutHostAffinity(int containerCount) {
+    return JobModelManagerTestUtil.getJobModelManager(getConfig(), containerCount, this.server);
   }
 
   @Before
   public void setup() throws Exception {
     server = new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class));
-    state = new SamzaApplicationState(getCoordinator(1));
   }
 
   private Field getPrivateFieldFromTaskManager(String fieldName, ContainerProcessManager object) throws Exception {
@@ -127,6 +119,7 @@ public class TestContainerProcessManager {
     conf.put("yarn.container.memory.mb", "500");
     conf.put("yarn.container.cpu.cores", "5");
 
+    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
@@ -146,6 +139,7 @@ public class TestContainerProcessManager {
     conf.put("yarn.container.memory.mb", "500");
     conf.put("yarn.container.cpu.cores", "5");
 
+    state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(1));
     taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
@@ -164,6 +158,8 @@ public class TestContainerProcessManager {
   @Test
   public void testOnInit() throws Exception {
     Config conf = getConfig();
+    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
@@ -200,6 +196,8 @@ public class TestContainerProcessManager {
   @Test
   public void testOnShutdown() throws Exception {
     Config conf = getConfig();
+    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+
     ContainerProcessManager taskManager =  new ContainerProcessManager(
         new MapConfig(conf),
         state,
@@ -226,6 +224,8 @@ public class TestContainerProcessManager {
   @Test
   public void testTaskManagerShouldStopWhenContainersFinish() {
     Config conf = getConfig();
+    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+
     ContainerProcessManager taskManager =  new ContainerProcessManager(
         new MapConfig(conf),
         state,
@@ -251,6 +251,7 @@ public class TestContainerProcessManager {
   @Test
   public void testNewContainerRequestedOnFailureWithUnknownCode() throws Exception {
     Config conf = getConfig();
+    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
@@ -330,6 +331,8 @@ public class TestContainerProcessManager {
     config.putAll(getConfig());
     config.remove("yarn.container.retry.count");
 
+    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
@@ -393,8 +396,11 @@ public class TestContainerProcessManager {
 
   @Test
   public void testAppMasterWithFwk() {
+    Config conf = getConfig();
+    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+
     ContainerProcessManager taskManager = new ContainerProcessManager(
-        new MapConfig(config),
+        new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
         manager
