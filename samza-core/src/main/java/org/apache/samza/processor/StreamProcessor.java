@@ -67,6 +67,7 @@ public class StreamProcessor {
   private ExecutorService executorService;
 
   private volatile SamzaContainer container = null;
+
   // Latch used to synchronize between the JobCoordinator thread and the container thread, when the container is
   // stopped due to re-balancing
   private volatile CountDownLatch jcContainerShutdownLatch = new CountDownLatch(1);
@@ -74,6 +75,7 @@ public class StreamProcessor {
 
   @VisibleForTesting
   JobCoordinatorListener jobCoordinatorListener = null;
+  volatile Throwable containerException = null;
 
   /**
    * Create an instance of StreamProcessor that encapsulates a JobCoordinator and Samza Container
@@ -274,7 +276,8 @@ public class StreamProcessor {
               } else {
                 LOGGER.warn("JobCoordinatorLatch was null. It is possible for some component to be waiting.");
               }
-              LOGGER.error("Container failed. Stopping the processor.", t);
+              containerException = t;
+              LOGGER.error("Container failed. Stopping the processor.", containerException);
               container = null;
               stop();
             }
@@ -298,7 +301,10 @@ public class StreamProcessor {
           executorService.shutdownNow();
         }
         if (processorListener != null) {
-          processorListener.onShutdown();
+          if (containerException != null)
+            processorListener.onFailure(containerException);
+          else
+            processorListener.onShutdown();
         }
       }
 
