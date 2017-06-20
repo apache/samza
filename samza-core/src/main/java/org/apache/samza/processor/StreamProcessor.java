@@ -67,7 +67,8 @@ public class StreamProcessor {
   private ExecutorService executorService;
 
   private volatile SamzaContainer container = null;
-
+  private volatile Throwable containerException = null;
+  
   // Latch used to synchronize between the JobCoordinator thread and the container thread, when the container is
   // stopped due to re-balancing
   private volatile CountDownLatch jcContainerShutdownLatch = new CountDownLatch(1);
@@ -75,7 +76,6 @@ public class StreamProcessor {
 
   @VisibleForTesting
   JobCoordinatorListener jobCoordinatorListener = null;
-  volatile Throwable containerException = null;
 
   /**
    * Create an instance of StreamProcessor that encapsulates a JobCoordinator and Samza Container
