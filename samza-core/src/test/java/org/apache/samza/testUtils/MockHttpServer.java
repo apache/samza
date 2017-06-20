@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.clustermanager;
+package org.apache.samza.testUtils;
 
 import org.apache.samza.coordinator.server.HttpServer;
 import org.eclipse.jetty.servlet.ServletHolder;
