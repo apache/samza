@@ -138,7 +138,7 @@ public class ZkBarrierForVersionUpgrade {
 
     @Override
     public void handleChildChange(String parentPath, List<String> currentChildren) {
-      if(skip("ZkBarrierChangeHandler")) {
+      if (skip("ZkBarrierChangeHandler")) {
         return;
       }
       if (currentChildren == null) {
@@ -177,7 +177,7 @@ public class ZkBarrierForVersionUpgrade {
     @Override
     public void handleDataChange(String dataPath, Object data) {
       LOG.info("got notification about barrier " + barrierStatePath + "; done=" + data);
-      if(skip("ZkBarrierReachedHandler"))
+      if (skip("ZkBarrierReachedHandler"))
         return;
 
       zkUtils.unsubscribeDataChanges(barrierStatePath, this);
@@ -189,7 +189,7 @@ public class ZkBarrierForVersionUpgrade {
     public void handleDataDeleted(String dataPath)
         throws Exception {
       LOG.warn("barrier done got deleted at " + dataPath);
-      if(skip("ZkBarrierReachedHandler"))
+      if (skip("ZkBarrierReachedHandler"))
         return;
     }
   }

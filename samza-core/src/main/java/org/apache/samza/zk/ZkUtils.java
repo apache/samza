@@ -24,12 +24,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Stack;
 import java.util.concurrent.TimeUnit;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
-import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.job.model.JobModel;
@@ -77,7 +75,7 @@ public class ZkUtils {
   }
 
   public synchronized void incGeneration() {
-    currentGeneration ++;
+    currentGeneration++;
   }
 
   public synchronized int getGeneration() {
@@ -219,8 +217,9 @@ public class ZkUtils {
 
     protected boolean skip(String listenerName) {
       int curGeneration = zkUtils.getGeneration();
-      if(curGeneration != generation) {
-        LOG.warn("SKIPPING handleDataChanged for " + listenerName + " from wrong generation. curGen=" + curGeneration + "; cb gen= " + generation );
+      if (curGeneration != generation) {
+        LOG.warn("SKIPPING handleDataChanged for " + listenerName +
+            " from wrong generation. curGen=" + curGeneration + "; cb gen= " + generation);
         return true;
       }
       return false;
@@ -238,8 +237,9 @@ public class ZkUtils {
 
     protected boolean skip(String listenerName) {
       int curGeneration = zkUtils.getGeneration();
-      if(curGeneration != generation) {
-        LOG.warn("SKIPPING handleDataChanged for " + listenerName + " from wrong generation. curGen=" + curGeneration + "; cb gen= " + generation );
+      if (curGeneration != generation) {
+        LOG.warn("SKIPPING handleDataChanged for " + listenerName +
+            " from wrong generation. curGen=" + curGeneration + "; cb gen= " + generation);
         return true;
       }
       return false;

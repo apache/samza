@@ -92,10 +92,11 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public void start() {
     streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
 
-    debounceTimer = new ScheduleAfterDebounceTime(throwable -> {
-      LOG.error("Received exception from in JobCoordinator Processing!", throwable);
-      stop();
-    });
+    debounceTimer = new ScheduleAfterDebounceTime(throwable ->
+      {
+        LOG.error("Received exception from in JobCoordinator Processing!", throwable);
+        stop();
+      });
 
     zkController.register();
   }
@@ -237,10 +238,11 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     public void onBecomingLeader() {
       LOG.info("ZkJobCoordinator::onBecomeLeader - I became the leader!");
       zkController.subscribeToProcessorChange();
-      debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE, debounceTimeMs, () -> {
-            // actual actions to do are the same as onProcessorChange
-            doOnProcessorChange(new ArrayList<>());
-          });
+      debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE, debounceTimeMs, () ->
+        {
+          // actual actions to do are the same as onProcessorChange
+          doOnProcessorChange(new ArrayList<>());
+        });
     }
   }
 
