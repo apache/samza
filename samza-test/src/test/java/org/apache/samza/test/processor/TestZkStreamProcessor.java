@@ -24,7 +24,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.TestZkStreamProcessorBase;
 import org.apache.samza.zk.TestZkUtils;
-import org.apache.samza.zk.ZkJobCoordinator;
 import org.junit.Assert;
 import org.junit.Test;
 

@@ -73,7 +73,7 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
       startWait[i] = new Object();
       stopWait[i] = new Object();
       streamProcessors[i] = createStreamProcessor(processorIds[i], map, startWait[i], stopWait[i]);
-      jobCoordinators[i] = (ZkJobCoordinator)streamProcessors[i].getCurrentJobCoordinator();
+      jobCoordinators[i] = (ZkJobCoordinator) streamProcessors[i].getCurrentJobCoordinator();
     }
 
     // produce messageCount messages, starting with key 0
