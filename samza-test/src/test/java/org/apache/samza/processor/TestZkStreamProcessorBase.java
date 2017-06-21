@@ -19,6 +19,7 @@
 
 package org.apache.samza.processor;
 
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -28,6 +29,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import kafka.utils.TestUtils;
+import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -53,6 +56,8 @@ import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
 import org.apache.samza.util.Util;
 import org.apache.samza.zk.TestZkUtils;
+import org.apache.zookeeper.ZooKeeper;
+import org.apache.zookeeper.server.ZooKeeperServer;
 import org.junit.Assert;
 import org.junit.Before;
 import org.slf4j.Logger;
@@ -91,6 +96,41 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     // Note: createTopics needs to be called before creating a StreamProcessor. Otherwise it fails with a
     // TopicExistsException since StreamProcessor auto-creates them.
     createTopics(inputTopic, outputTopic);
+  }
+
+  protected Thread expireSession1(ZkClient zkClient) {
+    ZooKeeperServer zkServer = zookeeper().zookeeper();
+    Thread t = null;
+    try {
+      Field privateField = ZkClient.class.getDeclaredField("_zookeeperEventThread");
+      privateField.setAccessible(true);
+      t = (Thread) privateField.get(zkClient);
+      t.suspend();
+      LOG.info("Thread suspended: " + t);
+    } catch (NoSuchFieldException | IllegalAccessException e) {
+      Assert.fail(e.toString());
+    }
+    return t;
+  }
+
+  // session expiration simulation
+  // have to use the reflection to get the session id
+  protected void expireSession(ZkClient zkClient) {
+    ZkConnection zkConnection = null;
+    try {
+      Field privateField = ZkClient.class.getDeclaredField("_connection");
+      privateField.setAccessible(true);
+      zkConnection = (ZkConnection) privateField.get(zkClient);
+    } catch (NoSuchFieldException | IllegalAccessException e) {
+      Assert.fail(e.toString());
+    }
+
+    ZooKeeper zookeeper = zkConnection.getZookeeper();
+    long sessionId = zookeeper.getSessionId();
+
+    LOG.info("Closing/expiring session:" + sessionId);
+    ZooKeeperServer zkServer = zookeeper().zookeeper();
+    zkServer.closeSession(sessionId);
   }
 
   protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map, final Object mutexStart,

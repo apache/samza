@@ -22,7 +22,9 @@ package org.apache.samza.zk;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Stack;
 import java.util.concurrent.TimeUnit;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
@@ -65,11 +67,21 @@ public class ZkUtils {
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
+  private int currentGeneration;
 
   public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs) {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkClient = zkClient;
+    currentGeneration = 0;
+  }
+
+  public synchronized void incGeneration() {
+    currentGeneration ++;
+  }
+
+  public synchronized int getGeneration() {
+    return currentGeneration;
   }
 
   public void connect() throws ZkInterruptedException {
@@ -79,11 +91,12 @@ public class ZkUtils {
     }
   }
 
-  public static ZkConnection createZkConnection(String zkConnectString, int sessionTimeoutMs) {
-    return new ZkConnection(zkConnectString, sessionTimeoutMs);
+  // reset all zk-session specific state
+  public void unregister() {
+    ephemeralPath = null;
   }
 
-  ZkClient getZkClient() {
+  public ZkClient getZkClient() {
     return zkClient;
   }
 
@@ -163,7 +176,12 @@ public class ZkUtils {
         String fullPath = String.format("%s/%s", processorPath, child);
         processorIds.add(new ProcessorData(readProcessorData(fullPath)).getProcessorId());
       }
-
+      Collections.sort(processorIds, new Comparator<String>() {
+        @Override
+        public int compare(String o1, String o2) {
+          return Integer.valueOf(o1) - Integer.valueOf(o2);
+        }
+      });
       LOG.info("Found these children - " + znodeIds);
       LOG.info("Found these processorIds - " + processorIds);
     }
@@ -187,11 +205,53 @@ public class ZkUtils {
     zkClient.close();
   }
 
+  // Generation enforcing zk listener abstract class.
+  // Helps listeners, which extend it,  to skip old generation events.
+  // We cannot use 'sessionId' for this because it is not available through ZkClient (at leaste without reflection)
+  public abstract static class GenIZkChildListener implements IZkChildListener {
+    private final int generation;
+    private final ZkUtils zkUtils;
+
+    public GenIZkChildListener(ZkUtils zkUtils) {
+      generation = zkUtils.getGeneration();
+      this.zkUtils = zkUtils;
+    }
+
+    protected boolean skip(String listenerName) {
+      int curGeneration = zkUtils.getGeneration();
+      if(curGeneration != generation) {
+        LOG.warn("SKIPPING handleDataChanged for " + listenerName + " from wrong generation. curGen=" + curGeneration + "; cb gen= " + generation );
+        return true;
+      }
+      return false;
+    }
+  }
+
+  public abstract static class GenIZkDataListener implements IZkDataListener {
+    private final int generation;
+    private final ZkUtils zkUtils;
+
+    public GenIZkDataListener(ZkUtils zkUtils) {
+      generation = zkUtils.getGeneration();
+      this.zkUtils = zkUtils;
+    }
+
+    protected boolean skip(String listenerName) {
+      int curGeneration = zkUtils.getGeneration();
+      if(curGeneration != generation) {
+        LOG.warn("SKIPPING handleDataChanged for " + listenerName + " from wrong generation. curGen=" + curGeneration + "; cb gen= " + generation );
+        return true;
+      }
+      return false;
+    }
+
+  }
+
   /**
     * subscribe for changes of JobModel version
     * @param dataListener describe this
     */
-  public void subscribeToJobModelVersionChange(IZkDataListener dataListener) {
+  public void subscribeToJobModelVersionChange(GenIZkDataListener dataListener) {
     LOG.info(" subscribing for jm version change at:" + keyBuilder.getJobModelVersionPath());
     zkClient.subscribeDataChanges(keyBuilder.getJobModelVersionPath(), dataListener);
   }

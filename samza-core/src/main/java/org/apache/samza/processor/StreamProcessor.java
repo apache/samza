@@ -57,7 +57,7 @@ import org.slf4j.LoggerFactory;
 public class StreamProcessor {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamProcessor.class);
 
-  private final JobCoordinator jobCoordinator;
+  private JobCoordinator jobCoordinator;
   private final StreamProcessorLifecycleListener processorListener;
   private final Object taskFactory;
   private final Map<String, MetricsReporter> customMetricsReporter;
@@ -115,6 +115,11 @@ public class StreamProcessor {
             new JobCoordinatorConfig(config)
                 .getJobCoordinatorFactoryClassName())
         .getJobCoordinator(config);
+  }
+
+  @VisibleForTesting
+  public JobCoordinator getCurrentJobCoordinator() {
+    return jobCoordinator;
   }
 
   StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, Object taskFactory,

@@ -19,8 +19,6 @@
 
 package org.apache.samza.zk;
 
-import org.I0Itec.zkclient.IZkChildListener;
-import org.I0Itec.zkclient.IZkDataListener;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.LeaderElector;
 import org.slf4j.Logger;
@@ -49,10 +47,8 @@ public class ZkControllerImpl implements ZkController {
   private void init() {
     ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
     zkUtils.makeSurePersistentPathsExists(
-        new String[]{
-            keyBuilder.getProcessorsPath(),
-            keyBuilder.getJobModelVersionPath(),
-            keyBuilder.getJobModelPathPrefix()});
+        new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
+            .getJobModelPathPrefix()});
   }
 
   @Override
@@ -62,7 +58,7 @@ public class ZkControllerImpl implements ZkController {
     zkLeaderElector.tryBecomeLeader();
 
     // subscribe to JobModel version updates
-    zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler());
+    zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(zkUtils));
   }
 
   @Override
@@ -84,11 +80,16 @@ public class ZkControllerImpl implements ZkController {
 
   @Override
   public void subscribeToProcessorChange() {
-    zkUtils.subscribeToProcessorChange(new ProcessorChangeHandler());
+    zkUtils.subscribeToProcessorChange(new ProcessorChangeHandler(zkUtils));
   }
 
   // Only by Leader
-  class ProcessorChangeHandler implements IZkChildListener {
+  class ProcessorChangeHandler extends ZkUtils.GenIZkChildListener {
+
+    public ProcessorChangeHandler(ZkUtils zkUtils) {
+      super(zkUtils);
+    }
+
     /**
      * Called when the children of the given path changed.
      *
@@ -97,7 +98,11 @@ public class ZkControllerImpl implements ZkController {
      * @throws Exception
      */
     @Override
-    public void handleChildChange(String parentPath, List<String> currentChildren) throws Exception {
+    public void handleChildChange(String parentPath, List<String> currentChildren)
+        throws Exception {
+      if(skip("ProcessorChangeHandler"))
+        return;
+
       if (currentChildren == null) {
         // this may happen only in case of exception in ZK. It happens if the zkNode has been deleted.
         // So the notification will pass 'null' as the list of children. Exception should be visible in the logs.
@@ -106,19 +111,26 @@ public class ZkControllerImpl implements ZkController {
         return;
       }
       LOG.info(
-          "ZkControllerImpl::ProcessorChangeHandler::handleChildChange - Path: " + parentPath + "  Current Children: "
-              + currentChildren);
+          "ZkControllerImpl::ProcessorChangeHandler::handleChildChange - Path: " + parentPath + "  Current Children: " + currentChildren);
       zkControllerListener.onProcessorChange(currentChildren);
+
     }
   }
 
-  class ZkJobModelVersionChangeHandler implements IZkDataListener {
+  class ZkJobModelVersionChangeHandler extends ZkUtils.GenIZkDataListener {
+
+    public ZkJobModelVersionChangeHandler(ZkUtils zkUtils) {
+      super(zkUtils);
+    }
     /**
      * Called when there is a change to the data in JobModel version path
      * To the subscribers, it signifies that a new version of JobModel is available.
      */
     @Override
     public void handleDataChange(String dataPath, Object data) throws Exception {
+      if(skip("ZkJobModelVersionChangeHandler"))
+        return;
+
       LOG.info("pid=" + processorIdStr + ". Got notification on version update change. path=" + dataPath + "; data="
           + data);
       zkControllerListener.onNewJobModelAvailable((String) data);
@@ -126,6 +138,9 @@ public class ZkControllerImpl implements ZkController {
 
     @Override
     public void handleDataDeleted(String dataPath) throws Exception {
+      if(skip("ZkJobModelVersionChangeHandler"))
+        return;
+
       throw new SamzaException("version update path has been deleted!");
     }
   }
