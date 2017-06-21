@@ -25,7 +25,7 @@ import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamIO;
+import org.apache.samza.operators.StreamDescriptor;
 import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
@@ -130,8 +130,8 @@ public class StreamApplication {
     return this.graph.getInputStream(streamId, msgBuilder);
   }
 
-  public <K, V, M> MessageStream<M> input(StreamIO.Input input, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
-    return this.graph.getInputStream(input.getId(), msgBuilder);
+  public <K, V, M> MessageStream<M> open(StreamDescriptor<K, V> input, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
+    return this.graph.getInputStream(input.getStreamId(), msgBuilder);
   }
 
   /**
@@ -153,9 +153,9 @@ public class StreamApplication {
     return this.graph.getOutputStream(streamId, keyExtractor, msgExtractor);
   }
 
-  public <K, V, M> OutputStream<K, V, M> output(StreamIO.Output output, Function<? super M, ? extends K> keyExtractor,
-                                                Function<? super M, ? extends V> msgExtractor) {
-    return this.graph.getOutputStream(output.getId(), keyExtractor, msgExtractor);
+  public <K, V, M> OutputStream<K, V, M> open(StreamDescriptor<K, V> output, Function<? super M, ? extends K> keyExtractor,
+                                              Function<? super M, ? extends V> msgExtractor) {
+    return this.graph.getOutputStream(output.getStreamId(), keyExtractor, msgExtractor);
   }
 
   /**
