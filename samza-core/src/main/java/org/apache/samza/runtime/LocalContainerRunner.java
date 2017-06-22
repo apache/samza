@@ -68,6 +68,11 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
   }
 
   @Override
+  public void runTask() {
+    throw new SamzaException("Running StreamTask is not implemented for LocalContainerRunner");
+  }
+
+  @Override
   public void run(StreamApplication streamApp) {
     ContainerModel containerModel = jobModel.getContainers().get(containerId);
     Object taskFactory = TaskFactoryUtil.createTaskFactory(config, streamApp, this);

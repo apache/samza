@@ -45,22 +45,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public void runTask() {
-    JobConfig jobConfig = new JobConfig(this.config);
-
-    // validation
-    String taskName = new TaskConfig(config).getTaskClass().get();
-    if (taskName == null) {
-      throw new SamzaException("Neither APP nor task.class are defined defined");
-    }
-    LOG.info("LocalApplicationRunner will run " + taskName);
-
-    try {
-      LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
-      JobRunner runner = new JobRunner(jobConfig);
-      runner.run(true);
-    } catch (Throwable t) {
-      throw new SamzaException("Failed to runTask() application", t);
-    }
+    throw new SamzaException("Running StreamTask is not implemented for RemoteReplicationRunner");
   }
 
   /**

@@ -140,7 +140,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     JobConfig jobConfig = new JobConfig(this.config);
 
     // validation
-    String taskName = new TaskConfig(config).getTaskClass().get();
+    String taskName = new TaskConfig(config).getTaskClass().getOrElse(null);
     if (taskName == null) {
       throw new SamzaException("Neither APP nor task.class are defined defined");
     }
