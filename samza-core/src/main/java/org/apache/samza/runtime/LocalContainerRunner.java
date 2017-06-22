@@ -74,6 +74,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
 
     container = SamzaContainer$.MODULE$.apply(
         containerModel,
+        jobModel,
         config,
         jobModel.maxChangeLogStreamPartitions,
         Util.<String, MetricsReporter>javaMapAsScalaMap(new HashMap<>()),

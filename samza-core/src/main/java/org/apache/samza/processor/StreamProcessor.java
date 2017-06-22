@@ -185,9 +185,10 @@ public class StreamProcessor {
 
   }
 
-  SamzaContainer createSamzaContainer(ContainerModel containerModel, int maxChangelogStreamPartitions) {
+  SamzaContainer createSamzaContainer(ContainerModel containerModel, JobModel jobModel, int maxChangelogStreamPartitions) {
     return SamzaContainer.apply(
         containerModel,
+        jobModel,
         config,
         maxChangelogStreamPartitions,
         Util.<String, MetricsReporter>javaMapAsScalaMap(customMetricsReporter),
@@ -282,6 +283,7 @@ public class StreamProcessor {
 
           container = createSamzaContainer(
               jobModel.getContainers().get(processorId),
+              jobModel,
               jobModel.maxChangeLogStreamPartitions);
           container.setContainerListener(containerListener);
           LOGGER.info("Starting container " + container.toString());

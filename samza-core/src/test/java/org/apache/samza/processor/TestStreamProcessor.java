@@ -61,6 +61,7 @@ public class TestStreamProcessor {
     @Override
     SamzaContainer createSamzaContainer(
         ContainerModel containerModel,
+        JobModel jobModel,
         int maxChangelogStreamPartitions) {
       RunLoop mockRunLoop = mock(RunLoop.class);
       doAnswer(invocation ->

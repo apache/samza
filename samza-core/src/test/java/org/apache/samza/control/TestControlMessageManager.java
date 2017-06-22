@@ -21,8 +21,10 @@ package org.apache.samza.control;
 
 import java.util.Collections;
 import org.apache.samza.Partition;
+import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
@@ -30,6 +32,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertNotNull;
+import static org.mockito.Mockito.mock;
 
 
 public class TestControlMessageManager {
@@ -41,9 +44,10 @@ public class TestControlMessageManager {
   public void setup() {
     ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
     TaskName taskName = new TaskName("Task 0");
-    TaskModel taskModel = new TaskModel(taskName, Collections.singleton(ssp), null);
+    TaskModel taskModel = new TaskModel(taskName, Collections.singleton(ssp), new Partition(0));
     ContainerModel containerModel = new ContainerModel("1", 0, Collections.singletonMap(taskName, taskModel));
-    manager = new ControlMessageManager("Partition 0", containerModel, Collections.singleton(ssp), null, null);
+    JobModel jobModel = new JobModel(mock(Config.class), Collections.singletonMap("c0", containerModel));
+    manager = new ControlMessageManager("Partition 0", jobModel, Collections.singleton(ssp), null, null);
   }
 
   @Test

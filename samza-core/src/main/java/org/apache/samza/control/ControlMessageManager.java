@@ -25,7 +25,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.message.ControlMessage;
 import org.apache.samza.message.IntermediateMessageType;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -49,13 +49,15 @@ public class ControlMessageManager {
   private final Map<IntermediateMessageType, ControlManager> managers;
 
   public ControlMessageManager(String taskName,
-      ContainerModel containerModel,
+      JobModel jobModel,
       Set<SystemStreamPartition> ssps,
       Map<String, SystemAdmin> sysAdmins,
       MessageCollector collector) {
     Map<IntermediateMessageType, ControlManager> managerMap = new HashMap<>();
-    managerMap.put(IntermediateMessageType.END_OF_STREAM_MESSAGE, new EndOfStreamManager(taskName, containerModel, ssps, sysAdmins, collector));
-    managerMap.put(IntermediateMessageType.WATERMARK_MESSAGE, new WatermarkManager(taskName, containerModel, ssps, sysAdmins, collector));
+    managerMap.put(IntermediateMessageType.END_OF_STREAM_MESSAGE,
+        new EndOfStreamManager(taskName, buildStreamToTasks(jobModel), ssps, sysAdmins, collector));
+    managerMap.put(IntermediateMessageType.WATERMARK_MESSAGE,
+        new WatermarkManager(taskName, buildStreamToTasks(jobModel), ssps, sysAdmins, collector));
     this.managers = Collections.unmodifiableMap(managerMap);
   }
 
@@ -94,15 +96,17 @@ public class ControlMessageManager {
 
   /**
    * Build a map from a stream to its consumer tasks
-   * @param containerModel container model which contains ssp -> task assignment
+   * @param jobModel job model which contains ssp -> task assignment
    * @return the map of input stream to tasks
    */
-  static Multimap<SystemStream, String> buildStreamToTasks(ContainerModel containerModel) {
+  static Multimap<SystemStream, String> buildStreamToTasks(JobModel jobModel) {
     Multimap<SystemStream, String> streamToTasks = HashMultimap.create();
-    if (containerModel != null) {
-      containerModel.getTasks().values().forEach(taskModel -> {
-          taskModel.getSystemStreamPartitions().forEach(ssp -> {
-              streamToTasks.put(ssp.getSystemStream(), taskModel.getTaskName().toString());
+    if (jobModel != null) {
+      jobModel.getContainers().values().forEach(containerModel -> {
+          containerModel.getTasks().values().forEach(taskModel -> {
+              taskModel.getSystemStreamPartitions().forEach(ssp -> {
+                  streamToTasks.put(ssp.getSystemStream(), taskModel.getTaskName().toString());
+                });
             });
         });
     }

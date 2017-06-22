@@ -25,8 +25,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.control.ControlMessageManager.ControlManager;
-import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.message.WatermarkMessage;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -55,13 +55,13 @@ public class WatermarkManager implements ControlManager {
   private final MessageCollector collector;
 
   public WatermarkManager(String taskName,
-      ContainerModel containerModel,
+      Multimap<SystemStream, String> streamToTasks,
       Set<SystemStreamPartition> ssps,
       Map<String, SystemAdmin> sysAdmins,
       MessageCollector collector) {
     this.taskName = taskName;
     this.watermarkPerStream = new HashMap<>();
-    this.streamToTasks = ControlMessageManager.buildStreamToTasks(containerModel);
+    this.streamToTasks = streamToTasks;
     this.sysAdmins = sysAdmins;
     this.collector = collector;
 
@@ -108,6 +108,10 @@ public class WatermarkManager implements ControlManager {
     }
 
     return null;
+  }
+
+  public long getWatermarkTime(SystemStreamPartition ssp) {
+    return watermarkStates.get(ssp).getWatermarkTime();
   }
 
   /**
@@ -202,7 +206,8 @@ public class WatermarkManager implements ControlManager {
       streamGraph.toIOGraph().forEach(node -> {
           int count = (int) node.getInputs().stream()
               .flatMap(spec -> streamToTasks.get(spec.toSystemStream()).stream())
-              .count();
+              .collect(Collectors.toSet())
+              .size();
           outputTaskCount.put(node.getOutput().toSystemStream(), count);
         });
       return outputTaskCount;

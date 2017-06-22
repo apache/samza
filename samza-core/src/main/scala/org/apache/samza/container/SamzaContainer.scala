@@ -110,6 +110,7 @@ object SamzaContainer extends Logging {
 
   def apply(
     containerModel: ContainerModel,
+    jobModel: JobModel,
     config: Config,
     maxChangeLogStreamPartitions: Int,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
@@ -559,7 +560,7 @@ object SamzaContainer extends Logging {
           reporters = reporters,
           systemStreamPartitions = systemStreamPartitions,
           exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config),
-          containerModel = containerModel)
+          jobModel = jobModel)
 
       val taskInstance = createTaskInstance(task)
 

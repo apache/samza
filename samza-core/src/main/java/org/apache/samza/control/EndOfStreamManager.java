@@ -26,8 +26,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.control.ControlMessageManager.ControlManager;
-import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.message.EndOfStreamMessage;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -58,11 +58,11 @@ public class EndOfStreamManager implements ControlManager {
   private final Multimap<SystemStream, String> streamToTasks;
 
   public EndOfStreamManager(String taskName,
-      ContainerModel containerModel,
+      Multimap<SystemStream, String> streamToTasks,
       Set<SystemStreamPartition> ssps,
       Map<String, SystemAdmin> sysAdmins, MessageCollector collector) {
     this.taskName = taskName;
-    this.streamToTasks = ControlMessageManager.buildStreamToTasks(containerModel);
+    this.streamToTasks = streamToTasks;
     this.sysAdmins = sysAdmins;
     this.collector = collector;
     Map<SystemStreamPartition, EndOfStreamState> states = new HashMap<>();
@@ -187,7 +187,8 @@ public class EndOfStreamManager implements ControlManager {
               // broadcast the end-of-stream message to the intermediate stream
               int count = (int) node.getInputs().stream()
                   .flatMap(spec -> manager.streamToTasks.get(spec.toSystemStream()).stream())
-                  .count();
+                  .collect(Collectors.toSet())
+                  .size();
               manager.sendEndOfStream(node.getOutput().toSystemStream(), count);
             }
           }

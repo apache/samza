@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
@@ -64,7 +63,6 @@ import org.apache.samza.task.TestStreamOperatorTask;
 import org.apache.samza.test.controlmessages.TestData.PageView;
 import org.apache.samza.test.controlmessages.TestData.PageViewJsonSerdeFactory;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
-import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.SimpleSystemAdmin;
 import org.apache.samza.test.util.TestStreamConsumer;
 import org.junit.Test;
@@ -75,7 +73,7 @@ import static org.junit.Assert.assertEquals;
 
 public class TestWatermark extends AbstractIntegrationTestHarness {
 
-  private static int OFFSET = 1;
+  private static int offset = 1;
   private static final String TEST_SYSTEM = "test";
   private static final String TEST_STREAM = "PageView";
   private static final int PARTITION_COUNT = 2;
@@ -114,7 +112,7 @@ public class TestWatermark extends AbstractIntegrationTestHarness {
   }
 
   private static IncomingMessageEnvelope createIncomingMessage(Object message, SystemStreamPartition ssp) {
-    return new IncomingMessageEnvelope(ssp, String.valueOf(OFFSET++), "", message);
+    return new IncomingMessageEnvelope(ssp, String.valueOf(offset++), "", message);
   }
 
   @Test
@@ -147,8 +145,8 @@ public class TestWatermark extends AbstractIntegrationTestHarness {
       streamGraph.getInputStream("PageView", (k, v) -> (PageView) v)
           .partitionBy(PageView::getMemberId)
           .sink((m, collector, coordinator) -> {
-            received.add(m);
-          });
+              received.add(m);
+            });
     };
     runner.run(app);
     Map<String, StreamOperatorTask> tasks = getTaskOperationGraphs(runner);
@@ -179,7 +177,7 @@ public class TestWatermark extends AbstractIntegrationTestHarness {
     SamzaContainer container = TestStreamProcessorUtil.getContainer(processor);
     Map<TaskName, TaskInstance> taskInstances = JavaConverters.mapAsJavaMapConverter(container.getTaskInstances()).asJava();
     Map<String, StreamOperatorTask> tasks = new HashMap<>();
-    for(Map.Entry<TaskName, TaskInstance> entry : taskInstances.entrySet()) {
+    for (Map.Entry<TaskName, TaskInstance> entry : taskInstances.entrySet()) {
       AsyncStreamTaskAdapter adapter = (AsyncStreamTaskAdapter) entry.getValue().task();
       Field field = AsyncStreamTaskAdapter.class.getDeclaredField("wrappedTask");
       field.setAccessible(true);
@@ -189,18 +187,18 @@ public class TestWatermark extends AbstractIntegrationTestHarness {
     return tasks;
   }
 
-   OperatorImpl getOperator(OperatorImplGraph graph, OperatorSpec.OpCode opCode) {
-     for (InputOperatorImpl input : graph.getAllInputOperators()) {
-       Set<OperatorImpl> nextOps = TestOperatorImpl.getNextOperators(input);
-       while (!nextOps.isEmpty()) {
-         OperatorImpl op = nextOps.iterator().next();
-         if (TestOperatorImpl.getOpCode(op) == opCode) {
-           return op;
-         } else {
-           nextOps = TestOperatorImpl.getNextOperators(op);
-         }
-       }
-     }
-     return null;
-   }
+  OperatorImpl getOperator(OperatorImplGraph graph, OperatorSpec.OpCode opCode) {
+    for (InputOperatorImpl input : graph.getAllInputOperators()) {
+      Set<OperatorImpl> nextOps = TestOperatorImpl.getNextOperators(input);
+      while (!nextOps.isEmpty()) {
+        OperatorImpl op = nextOps.iterator().next();
+        if (TestOperatorImpl.getOpCode(op) == opCode) {
+          return op;
+        } else {
+          nextOps = TestOperatorImpl.getNextOperators(op);
+        }
+      }
+    }
+    return null;
+  }
 }

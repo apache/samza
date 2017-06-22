@@ -296,11 +296,10 @@ public class TestLocalApplicationRunner {
         ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
 
     doAnswer(i -> {
-      StreamProcessorLifecycleListener listener = captor.getValue();
-      listener.onFailure(t);
-      return null;
-    }).when(sp).start();
-
+        StreamProcessorLifecycleListener listener = captor.getValue();
+        listener.onFailure(t);
+        return null;
+      }).when(sp).start();
 
     LocalApplicationRunner spy = spy(runner);
     doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());

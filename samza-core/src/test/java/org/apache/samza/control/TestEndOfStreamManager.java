@@ -19,6 +19,8 @@
 
 package org.apache.samza.control;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -30,7 +32,6 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.message.EndOfStreamMessage;
 import org.apache.samza.operators.StreamGraphImpl;
@@ -74,9 +75,9 @@ public class TestEndOfStreamManager {
   public void testUpdateFromInputSource() {
     SystemStreamPartition ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
     TaskName taskName = new TaskName("Task 0");
-    TaskModel taskModel = new TaskModel(taskName, Collections.singleton(ssp), null);
-    ContainerModel containerModel = new ContainerModel("1", 0, Collections.singletonMap(taskName, taskModel));
-    EndOfStreamManager manager = new EndOfStreamManager("Task 0", containerModel, Collections.singleton(ssp), null, null);
+    Multimap<SystemStream, String> streamToTasks = HashMultimap.create();
+    streamToTasks.put(ssp.getSystemStream(), taskName.getTaskName());
+    EndOfStreamManager manager = new EndOfStreamManager("Task 0", streamToTasks, Collections.singleton(ssp), null, null);
     IncomingMessageEnvelope envelope = manager.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssp));
     assertEquals(envelope.getSystemStreamPartition(), ssp);
     assertEquals(envelope.getOffset(), IncomingMessageEnvelope.END_OF_STREAM_OFFSET);
@@ -91,10 +92,11 @@ public class TestEndOfStreamManager {
     ssps[2] = new SystemStreamPartition("test-system", "test-stream-2", new Partition(1));
 
     TaskName taskName = new TaskName("Task 0");
-    TaskModel taskModel = new TaskModel(taskName, new HashSet<>(Arrays.asList(ssps)), null);
-    ContainerModel containerModel = new ContainerModel("1", 0, Collections.singletonMap(taskName, taskModel));
-
-    EndOfStreamManager manager = new EndOfStreamManager("Task 0", containerModel, new HashSet<>(Arrays.asList(ssps)), null, null);
+    Multimap<SystemStream, String> streamToTasks = HashMultimap.create();
+    for (SystemStreamPartition ssp : ssps) {
+      streamToTasks.put(ssp.getSystemStream(), taskName.getTaskName());
+    }
+    EndOfStreamManager manager = new EndOfStreamManager("Task 0", streamToTasks, new HashSet<>(Arrays.asList(ssps)), null, null);
     int envelopeCount = 4;
     IncomingMessageEnvelope[] envelopes = new IncomingMessageEnvelope[envelopeCount];
     for (int i = 0; i < envelopeCount; i++) {
@@ -156,11 +158,8 @@ public class TestEndOfStreamManager {
     MessageCollector collector = mock(MessageCollector.class);
 
     TaskName taskName = new TaskName("Task 0");
-    TaskModel taskModel = new TaskModel(taskName, Collections.EMPTY_SET, null);
-    ContainerModel containerModel = new ContainerModel("1", 0, Collections.singletonMap(taskName, taskModel));
-
     EndOfStreamManager manager = new EndOfStreamManager("task 0",
-        containerModel,
+        HashMultimap.create(),
         Collections.EMPTY_SET,
         Collections.singletonMap(ints.getSystem(), admin),
         collector);
@@ -204,11 +203,12 @@ public class TestEndOfStreamManager {
 
     Set<SystemStreamPartition> sspSet = new HashSet<>(Arrays.asList(ssps));
     TaskName taskName = new TaskName("task 0");
-    TaskModel taskModel = new TaskModel(taskName, sspSet, null);
-    ContainerModel containerModel = new ContainerModel("1", 0, Collections.singletonMap(taskName, taskModel));
-
+    Multimap<SystemStream, String> streamToTasks = HashMultimap.create();
+    for (SystemStreamPartition ssp : ssps) {
+      streamToTasks.put(ssp.getSystemStream(), taskName.getTaskName());
+    }
     EndOfStreamManager manager = spy(
-        new EndOfStreamManager("task 0", containerModel, sspSet, null, null));
+        new EndOfStreamManager("task 0", streamToTasks, sspSet, null, null));
     TaskCoordinator coordinator = mock(TaskCoordinator.class);
 
     // ssp1 end-of-stream, wait for ssp2
@@ -261,12 +261,15 @@ public class TestEndOfStreamManager {
     TaskName t1 = new TaskName("task 1");
     taskModels.put(t1, new TaskModel(t1, Collections.singleton(ssp2), null));
 
-    ContainerModel containerModel = new ContainerModel("1", 0, taskModels);
+
+    Multimap<SystemStream, String> streamToTasks = HashMultimap.create();
+    streamToTasks.put(ssp1.getSystemStream(), t0.getTaskName());
+    streamToTasks.put(ssp2.getSystemStream(), t1.getTaskName());
 
     EndOfStreamManager manager0 = spy(
-        new EndOfStreamManager(t0.getTaskName(), containerModel, Collections.singleton(ssp1), null, null));
+        new EndOfStreamManager(t0.getTaskName(), streamToTasks, Collections.singleton(ssp1), null, null));
     EndOfStreamManager manager1 = spy(
-        new EndOfStreamManager(t1.getTaskName(), containerModel, Collections.singleton(ssp2), null, null));
+        new EndOfStreamManager(t1.getTaskName(), streamToTasks, Collections.singleton(ssp2), null, null));
 
     TaskCoordinator coordinator1 = mock(TaskCoordinator.class);
     TaskCoordinator coordinator2 = mock(TaskCoordinator.class);
