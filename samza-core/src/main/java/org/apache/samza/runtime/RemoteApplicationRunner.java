@@ -41,6 +41,11 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     super(config);
   }
 
+  @Override
+  public void runTask() {
+    throw new SamzaException("runTask() is not implemented for the RemoteApplicationRunner");
+  }
+
   /**
    * Run the {@link StreamApplication} on the remote cluster
    * @param app a StreamApplication

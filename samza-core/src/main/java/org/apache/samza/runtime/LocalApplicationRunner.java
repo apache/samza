@@ -135,12 +135,13 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     coordinationUtils = createCoordinationUtils();
   }
 
-  private void runStreamTask() {
+  @Override
+  public void runTask() {
     JobConfig jobConfig = new JobConfig(this.config);
 
     // validation
     String taskName = new TaskConfig(config).getTaskClass().get();
-    if(taskName == null) {
+    if (taskName == null) {
       throw new SamzaException("Neither APP nor Task class are defined defined");
     }
     LOG.info("LocalApplicationRunner will run " + taskName);
@@ -154,13 +155,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public void run(StreamApplication app) {
-    if(app == null) {
-      // if app is null we are running TASK.CLASS StreamTask
-      numProcessorsToStart.set(1); // single processor
-      runStreamTask();
-      return;
-    }
-
     try {
       // 1. initialize and plan
       ExecutionPlan plan = getExecutionPlan(app);

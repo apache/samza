@@ -71,6 +71,14 @@ public abstract class ApplicationRunner {
   }
 
   /**
+   * Deploy and run the Samza jobs to execute {@link org.apache.samza.task.StreamTask}.
+   * It is non-blocking so it doesn't wait for the application running.
+   * This method assumes you task.class is specified in the configs.
+   */
+  public abstract void runTask();
+
+
+  /**
    * Deploy and run the Samza jobs to execute {@link StreamApplication}.
    * It is non-blocking so it doesn't wait for the application running.
    *
