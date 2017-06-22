@@ -142,7 +142,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     // validation
     String taskName = new TaskConfig(config).getTaskClass().get();
     if (taskName == null) {
-      throw new SamzaException("Neither APP nor Task class are defined defined");
+      throw new SamzaException("Neither APP nor task.class are defined defined");
     }
     LOG.info("LocalApplicationRunner will run " + taskName);
     LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();

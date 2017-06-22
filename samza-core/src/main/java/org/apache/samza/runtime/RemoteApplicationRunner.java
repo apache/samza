@@ -23,9 +23,11 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
+import org.apache.samza.processor.StreamProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +37,7 @@ import org.slf4j.LoggerFactory;
  */
 public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
-  private static final Logger log = LoggerFactory.getLogger(RemoteApplicationRunner.class);
+  private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
 
   public RemoteApplicationRunner(Config config) {
     super(config);
@@ -43,7 +45,22 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public void runTask() {
-    throw new SamzaException("runTask() is not implemented for the RemoteApplicationRunner");
+    JobConfig jobConfig = new JobConfig(this.config);
+
+    // validation
+    String taskName = new TaskConfig(config).getTaskClass().get();
+    if (taskName == null) {
+      throw new SamzaException("Neither APP nor task.class are defined defined");
+    }
+    LOG.info("LocalApplicationRunner will run " + taskName);
+
+    try {
+      LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
+      JobRunner runner = new JobRunner(jobConfig);
+      runner.run(true);
+    } catch (Throwable t) {
+      throw new SamzaException("Failed to runTask() application", t);
+    }
   }
 
   /**
@@ -62,7 +79,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
       // 3. submit jobs for remote execution
       plan.getJobConfigs().forEach(jobConfig -> {
-          log.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
+          LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
           JobRunner runner = new JobRunner(jobConfig);
           runner.run(true);
         });
@@ -77,7 +94,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       ExecutionPlan plan = getExecutionPlan(app);
 
       plan.getJobConfigs().forEach(jobConfig -> {
-          log.info("Killing job {}", jobConfig.getName());
+          LOG.info("Killing job {}", jobConfig.getName());
           JobRunner runner = new JobRunner(jobConfig);
           runner.kill();
         });
@@ -97,7 +114,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       for (JobConfig jobConfig : plan.getJobConfigs()) {
         JobRunner runner = new JobRunner(jobConfig);
         ApplicationStatus status = runner.status();
-        log.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
+        LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
 
         switch (status.getStatusCode()) {
           case New:
