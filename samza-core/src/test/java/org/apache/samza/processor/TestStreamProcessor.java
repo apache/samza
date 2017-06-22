@@ -25,7 +25,6 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.RunLoop;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.coordinator.JobCoordinator;
-import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
@@ -33,8 +32,6 @@ import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
 import org.junit.Assert;
 import org.junit.Test;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,7 +39,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -74,22 +70,22 @@ public class TestStreamProcessor {
       if (container == null) {
         RunLoop mockRunLoop = mock(RunLoop.class);
         doAnswer(invocation ->
-        {
-          try {
-            runLoopStartForMain.countDown();
-            containerStop.await();
-          } catch (InterruptedException e) {
-            System.out.println("In exception" + e);
-            e.printStackTrace();
-          }
-          return null;
-        }).when(mockRunLoop).run();
+          {
+            try {
+              runLoopStartForMain.countDown();
+              containerStop.await();
+            } catch (InterruptedException e) {
+              System.out.println("In exception" + e);
+              e.printStackTrace();
+            }
+            return null;
+          }).when(mockRunLoop).run();
 
         doAnswer(invocation ->
-        {
-          containerStop.countDown();
-          return null;
-        }).when(mockRunLoop).shutdown();
+          {
+            containerStop.countDown();
+            return null;
+          }).when(mockRunLoop).shutdown();
         container = StreamProcessorTestUtils.getDummyContainer(mockRunLoop, mock(StreamTask.class));
       }
       return container;
@@ -184,7 +180,7 @@ public class TestStreamProcessor {
    * through the StreamProcessor
    *
    * Assertions:
-   * - JobCoordinator has been stopped can be asserted from the JobCoordinatorListener callback
+   * - JobCoordinator has been stopped from the JobCoordinatorListener callback
    * - StreamProcessorLifecycleListener#onFailure(Throwable) has been invoked
    */
   @Test
@@ -194,16 +190,17 @@ public class TestStreamProcessor {
     AtomicReference<Throwable> actualThrowable = new AtomicReference<>();
     final CountDownLatch runLoopStartedLatch = new CountDownLatch(1);
     RunLoop failingRunLoop = mock(RunLoop.class);
-    doAnswer(invocation -> {
-      try {
-        Thread.sleep(10);
-        runLoopStartedLatch.countDown();
-        throw expectedThrowable;
-      } catch (InterruptedException ie) {
-        ie.printStackTrace();
-      }
-      return null;
-    }).when(failingRunLoop).run();
+    doAnswer(invocation ->
+      {
+        try {
+          Thread.sleep(10);
+          runLoopStartedLatch.countDown();
+          throw expectedThrowable;
+        } catch (InterruptedException ie) {
+          ie.printStackTrace();
+        }
+        return null;
+      }).when(failingRunLoop).run();
 
     SamzaContainer mockContainer = StreamProcessorTestUtils.getDummyContainer(failingRunLoop, mock(StreamTask.class));
 
@@ -231,25 +228,25 @@ public class TestStreamProcessor {
 
     final CountDownLatch coordinatorStop = new CountDownLatch(1);
     doAnswer(invocation ->
-    {
-      coordinatorStop.countDown();
-      return null;
-    }).when(mockJobCoordinator).stop();
+      {
+        coordinatorStop.countDown();
+        return null;
+      }).when(mockJobCoordinator).stop();
 
     doAnswer(invocation ->
-    {
-      new Thread(() ->
       {
-        try {
-          processor.jobCoordinatorListener.onNewJobModel("1", getMockJobModel());
-          coordinatorStop.await();
-          processor.jobCoordinatorListener.onCoordinatorStop();
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-        }
-      }).start();
-      return null;
-    }).when(mockJobCoordinator).start();
+        new Thread(() ->
+          {
+            try {
+              processor.jobCoordinatorListener.onNewJobModel("1", getMockJobModel());
+              coordinatorStop.await();
+              processor.jobCoordinatorListener.onCoordinatorStop();
+            } catch (InterruptedException e) {
+              e.printStackTrace();
+            }
+          }).start();
+        return null;
+      }).when(mockJobCoordinator).start();
 
     try {
       processor.start();
