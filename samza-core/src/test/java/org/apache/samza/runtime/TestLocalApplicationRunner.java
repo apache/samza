@@ -23,6 +23,7 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
@@ -204,6 +205,35 @@ public class TestLocalApplicationRunner {
     assertEquals(streamSpecs.get(0).getId(), "test-stream");
   }
 
+  @Test
+  public void testRunStreamTask() throws Exception {
+    final Map<String, String> config = new HashMap<>();
+    config.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
+    config.put(TaskConfig.TASK_CLASS(), "org.apache.samza.test.processor.IdentityStreamTask");
+
+
+    LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(config));
+
+    StreamProcessor sp = mock(StreamProcessor.class);
+    ArgumentCaptor<StreamProcessorLifecycleListener> captor =
+        ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
+
+    doAnswer(i ->
+    {
+      StreamProcessorLifecycleListener listener = captor.getValue();
+      listener.onStart();
+      listener.onShutdown();
+      return null;
+    }).when(sp).start();
+
+    LocalApplicationRunner spy = spy(runner);
+    doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
+
+    spy.run(null);
+
+    assertEquals(ApplicationStatus.SuccessfulFinish, spy.status(null));
+
+  }
   @Test
   public void testRunComplete() throws Exception {
     final Map<String, String> config = new HashMap<>();

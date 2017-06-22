@@ -32,7 +32,9 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
@@ -54,7 +56,7 @@ import org.slf4j.LoggerFactory;
  */
 public class LocalApplicationRunner extends AbstractApplicationRunner {
 
-  private static final Logger log = LoggerFactory.getLogger(LocalApplicationRunner.class);
+  private static final Logger LOG = LoggerFactory.getLogger(LocalApplicationRunner.class);
   // Latch id that's used for awaiting the init of application before creating the StreamProcessors
   private static final String INIT_LATCH_ID = "init";
   // Latch timeout is set to 10 min
@@ -133,8 +135,32 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     coordinationUtils = createCoordinationUtils();
   }
 
+  private void runStreamTask() {
+    JobConfig jobConfig = new JobConfig(this.config);
+
+    // validation
+    String taskName = new TaskConfig(config).getTaskClass().get();
+    if(taskName == null) {
+      throw new SamzaException("Neither APP nor Task class are defined defined");
+    }
+    LOG.info("LocalApplicationRunner will run " + taskName);
+    LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
+
+    StreamProcessor processor = createStreamProcessor(jobConfig, null, listener);
+
+    listener.setProcessor(processor);
+    processor.start();
+  }
+
   @Override
   public void run(StreamApplication app) {
+    if(app == null) {
+      // if app is null we are running TASK.CLASS StreamTask
+      numProcessorsToStart.set(1); // single processor
+      runStreamTask();
+      return;
+    }
+
     try {
       // 1. initialize and plan
       ExecutionPlan plan = getExecutionPlan(app);
@@ -148,7 +174,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
         throw new SamzaException("No jobs to run.");
       }
       plan.getJobConfigs().forEach(jobConfig -> {
-          log.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
+          LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
           LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
           StreamProcessor processor = createStreamProcessor(jobConfig, app, listener);
           listener.setProcessor(processor);
@@ -180,7 +206,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     try {
       shutdownLatch.await();
     } catch (Exception e) {
-      log.error("Wait is interrupted by exception", e);
+      LOG.error("Wait is interrupted by exception", e);
       throw new SamzaException(e);
     }
   }
