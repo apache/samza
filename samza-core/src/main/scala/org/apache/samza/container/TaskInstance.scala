@@ -48,7 +48,7 @@ import org.apache.samza.util.Logging
 import scala.collection.JavaConverters._
 
 class TaskInstance(
-  task: Any,
+  val task: Any,
   val taskName: TaskName,
   config: Config,
   val metrics: TaskInstanceMetrics,

@@ -34,10 +34,8 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.util.IOGraphUtil.IONode;
 import org.apache.samza.system.EndOfStream;
 import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
@@ -64,7 +62,7 @@ public class EndOfStreamManager implements ControlManager {
       Set<SystemStreamPartition> ssps,
       Map<String, SystemAdmin> sysAdmins, MessageCollector collector) {
     this.taskName = taskName;
-    this.streamToTasks = buildStreamToTasks(containerModel);
+    this.streamToTasks = ControlMessageManager.buildStreamToTasks(containerModel);
     this.sysAdmins = sysAdmins;
     this.collector = collector;
     Map<SystemStreamPartition, EndOfStreamState> states = new HashMap<>();
@@ -102,29 +100,8 @@ public class EndOfStreamManager implements ControlManager {
 
   public void sendEndOfStream(SystemStream systemStream, int taskCount) {
     log.info("Send end-of-stream messages to all partitions of " + systemStream);
-    String stream = systemStream.getStream();
-    SystemStreamMetadata metadata = sysAdmins.get(systemStream.getSystem())
-        .getSystemStreamMetadata(Collections.singleton(stream))
-        .get(stream);
-    int partitionCount = metadata.getSystemStreamPartitionMetadata().size();
-    for (int i = 0; i < partitionCount; i++) {
-      String key = String.format(EOS_KEY_FORMAT, stream, taskName);
-      EndOfStreamMessage message = new EndOfStreamMessage(taskName, taskCount);
-      OutgoingMessageEnvelope envelopeOut = new OutgoingMessageEnvelope(systemStream, i, key, message);
-      collector.send(envelopeOut);
-    }
-  }
-
-  private Multimap<SystemStream, String> buildStreamToTasks(ContainerModel containerModel) {
-    Multimap<SystemStream, String> streamToTasks = HashMultimap.create();
-    if (containerModel != null) {
-      containerModel.getTasks().values().forEach(taskModel -> {
-          taskModel.getSystemStreamPartitions().forEach(ssp -> {
-              streamToTasks.put(ssp.getSystemStream(), taskModel.getTaskName().toString());
-            });
-        });
-    }
-    return streamToTasks;
+    final EndOfStreamMessage message = new EndOfStreamMessage(taskName, taskCount);
+    ControlMessageManager.sendControlMessage(message, systemStream, sysAdmins, collector);
   }
 
   /**

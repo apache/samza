@@ -20,10 +20,14 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
+import org.apache.samza.control.WatermarkManager;
+import org.apache.samza.control.WatermarkManager.WatermarkDispatcher;
+import org.apache.samza.control.WatermarkManager.WatermarkImpl;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.system.Watermark;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -47,8 +51,11 @@ public abstract class OperatorImpl<M, RM> {
   private Counter numMessage;
   private Timer handleMessageNs;
   private Timer handleTimerNs;
+  private long inputWatermarkTime = WatermarkManager.WATERMARK_NOT_EXIST;
+  private long outputWatermarkTime = WatermarkManager.WATERMARK_NOT_EXIST;
 
   Set<OperatorImpl<RM, ?>> registeredOperators;
+  Set<OperatorImpl<?, M>> prevOperators;
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
@@ -69,6 +76,7 @@ public abstract class OperatorImpl<M, RM> {
 
     this.highResClock = createHighResClock(config);
     registeredOperators = new HashSet<>();
+    prevOperators = new HashSet<>();
     MetricsRegistry metricsRegistry = context.getMetricsRegistry();
     this.numMessage = metricsRegistry.newCounter(METRICS_GROUP, opName + "-messages");
     this.handleMessageNs = metricsRegistry.newTimer(METRICS_GROUP, opName + "-handle-message-ns");
@@ -99,6 +107,11 @@ public abstract class OperatorImpl<M, RM> {
               getOperatorName()));
     }
     this.registeredOperators.add(nextOperator);
+    nextOperator.registerPrevOperator(this);
+  }
+
+  void registerPrevOperator(OperatorImpl<?, M> prevOperator) {
+    this.prevOperators.add(prevOperator);
   }
 
   /**
@@ -117,9 +130,7 @@ public abstract class OperatorImpl<M, RM> {
     long endNs = this.highResClock.nanoTime();
     this.handleMessageNs.update(endNs - startNs);
 
-    results.forEach(rm ->
-        this.registeredOperators.forEach(op ->
-            op.onMessage(rm, collector, coordinator)));
+    results.forEach(rm -> this.registeredOperators.forEach(op -> op.onMessage(rm, collector, coordinator)));
   }
 
   /**
@@ -165,6 +176,60 @@ public abstract class OperatorImpl<M, RM> {
    */
   protected Collection<RM> handleTimer(MessageCollector collector, TaskCoordinator coordinator) {
     return Collections.emptyList();
+  }
+
+  /**
+   * Populate the watermarks based on the following equations:
+   *
+   * <ul>
+   *   <li>InputWatermark(op) = min { OutputWatermark(op') | op1 is upstream of op}</li>
+   *   <li>OutputWatermark(op) = min { InputWatermark(op), OldestWorkTime(op) }</li>
+   * </ul>
+   * @param watermark
+   * @param collector
+   * @param coordinator
+   */
+  public final void onWatermark(Watermark watermark,
+      WatermarkDispatcher dispatcher,
+      MessageCollector collector,
+      TaskCoordinator coordinator) {
+    long inputWm = watermark.getTimestamp();
+    if (!prevOperators.isEmpty()) {
+      // InputWatermark(op) = min { OutputWatermark(op') | op1 is upstream of op}
+      inputWm = prevOperators.stream().map(op -> op.getOutputWatermarkTime()).min(Long::compare).get();
+    }
+
+    if (inputWatermarkTime < inputWm) {
+      inputWatermarkTime = inputWm;
+      WatermarkManager manager = ((WatermarkImpl) watermark).getManager();
+      Watermark inputWatermark = manager.createWatermark(inputWatermarkTime);
+      // OutputWatermark(op) = min { InputWatermark(op), OldestWorkTime(op) }
+      long outputWm = Math.min(inputWatermarkTime, handleWatermark(inputWatermark, dispatcher, collector, coordinator));
+
+      if (outputWatermarkTime < outputWm) {
+        // populate the watermark to downstream
+        outputWatermarkTime = outputWm;
+        Watermark outputWatermark = manager.createWatermark(outputWatermarkTime);
+        this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, dispatcher, collector, coordinator));
+      }
+    }
+  }
+
+  protected long handleWatermark(Watermark inputWatermark,
+      WatermarkDispatcher dispatcher,
+      MessageCollector collector,
+      TaskCoordinator coordinator) {
+    return inputWatermark.getTimestamp();
+  }
+
+  /* package private */
+  long getInputWatermarkTime() {
+    return this.inputWatermarkTime;
+  }
+
+  /* package private */
+  long getOutputWatermarkTime() {
+    return this.outputWatermarkTime;
   }
 
   public void close() {

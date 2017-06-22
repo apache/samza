@@ -21,6 +21,8 @@ package org.apache.samza.task;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.control.WatermarkManager;
+import org.apache.samza.control.WatermarkManager.WatermarkDispatcher;
 import org.apache.samza.system.EndOfStream;
 import org.apache.samza.control.EndOfStreamManager;
 import org.apache.samza.control.EndOfStreamManager.EndOfStreamDispatcher;
@@ -32,6 +34,7 @@ import org.apache.samza.operators.impl.OperatorImplGraph;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.Watermark;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
 
@@ -49,6 +52,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   private OperatorImplGraph operatorImplGraph;
   private ContextManager contextManager;
   private EndOfStreamDispatcher eosDispatcher;
+  private WatermarkDispatcher watermarkDispatcher;
 
   /**
    * Constructs an adaptor task to run the user-implemented {@link StreamApplication}.
@@ -93,6 +97,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     // create the operator impl DAG corresponding to the logical operator spec DAG
     this.operatorImplGraph = new OperatorImplGraph(streamGraph, config, context, clock);
     this.eosDispatcher = EndOfStreamManager.createDispatcher(streamGraph);
+    this.watermarkDispatcher = WatermarkManager.createDispatcher(streamGraph);
   }
 
   /**
@@ -124,7 +129,10 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
         break;
 
       case WATERMARK:
-        //TODO: support watermark here
+        inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
+        if (inputOpImpl != null) {
+          inputOpImpl.onWatermark((Watermark) message, watermarkDispatcher, collector, coordinator);
+        }
         break;
     }
   }
@@ -141,5 +149,10 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
       this.contextManager.close();
     }
     operatorImplGraph.close();
+  }
+
+  /* package private for testing */
+  OperatorImplGraph getOperatorImplGraph() {
+    return this.operatorImplGraph;
   }
 }

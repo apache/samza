@@ -661,6 +661,8 @@ class SamzaContainer(
 
   def getStatus(): SamzaContainerStatus = status
 
+  def getTaskInstances() = taskInstances
+
   def setContainerListener(listener: SamzaContainerListener): Unit = {
     containerListener = listener
   }

@@ -19,31 +19,24 @@
 
 package org.apache.samza.test.controlmessages;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.runtime.LocalApplicationRunner;
-import org.apache.samza.serializers.Serde;
-import org.apache.samza.serializers.SerdeFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
+import org.apache.samza.test.controlmessages.TestData.PageView;
+import org.apache.samza.test.controlmessages.TestData.PageViewJsonSerdeFactory;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.type.TypeReference;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -55,57 +48,6 @@ import static org.junit.Assert.assertEquals;
  */
 public class TestControlMessages extends AbstractIntegrationTestHarness {
 
-  public static class PageView implements Serializable {
-    @JsonProperty("pageKey")
-    final String pageKey;
-    @JsonProperty("memberId")
-    final int memberId;
-
-    @JsonProperty("pageKey")
-    public String getPageKey() {
-      return pageKey;
-    }
-
-    @JsonProperty("memberId")
-    public int getMemberId() {
-      return memberId;
-    }
-
-    @JsonCreator
-    public PageView(@JsonProperty("pageKey") String pageKey, @JsonProperty("memberId") int memberId) {
-      this.pageKey = pageKey;
-      this.memberId = memberId;
-    }
-  }
-
-  public static class PageViewJsonSerdeFactory implements SerdeFactory<PageView> {
-    @Override
-    public Serde<PageView> getSerde(String name, Config config) {
-      return new PageViewJsonSerde();
-    }
-  }
-
-  public static class PageViewJsonSerde implements Serde<PageView> {
-    ObjectMapper mapper = new ObjectMapper();
-
-    @Override
-    public PageView fromBytes(byte[] bytes) {
-      try {
-        return mapper.readValue(new String(bytes, "UTF-8"), new TypeReference<PageView>() { });
-      } catch (Exception e) {
-        throw new SamzaException(e);
-      }
-    }
-
-    @Override
-    public byte[] toBytes(PageView pv) {
-      try {
-        return mapper.writeValueAsString(pv).getBytes("UTF-8");
-      } catch (Exception e) {
-        throw new SamzaException(e);
-      }
-    }
-  }
 
   private static final String[] PAGEKEYS = {"inbox", "home", "search", "pymk", "group", "job"};
 

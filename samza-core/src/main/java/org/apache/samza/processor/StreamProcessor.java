@@ -312,4 +312,9 @@ public class StreamProcessor {
       }
     };
   }
+
+  /* package private for testing */
+  SamzaContainer getContainer() {
+    return container;
+  }
 }

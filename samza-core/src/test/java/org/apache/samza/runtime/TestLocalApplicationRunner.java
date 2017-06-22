@@ -19,6 +19,7 @@
 
 package org.apache.samza.runtime;
 
+import java.util.Set;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
@@ -295,10 +296,10 @@ public class TestLocalApplicationRunner {
         ArgumentCaptor.forClass(StreamProcessorLifecycleListener.class);
 
     doAnswer(i -> {
-        StreamProcessorLifecycleListener listener = captor.getValue();
-        listener.onFailure(t);
-        return null;
-      }).when(sp).start();
+      StreamProcessorLifecycleListener listener = captor.getValue();
+      listener.onFailure(t);
+      return null;
+    }).when(sp).start();
 
 
     LocalApplicationRunner spy = spy(runner);
@@ -311,6 +312,10 @@ public class TestLocalApplicationRunner {
     }
 
     assertEquals(spy.status(app), ApplicationStatus.UnsuccessfulFinish);
+  }
+
+  public static Set<StreamProcessor> getProcessors(LocalApplicationRunner runner) {
+    return runner.getProcessors();
   }
 
 }

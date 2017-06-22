@@ -251,4 +251,9 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
           taskFactory.getClass().getCanonicalName()));
     }
   }
+
+  /* package private for testing */
+  Set<StreamProcessor> getProcessors() {
+    return processors;
+  }
 }
