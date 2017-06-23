@@ -23,11 +23,9 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
-import org.apache.samza.processor.StreamProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +43,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
   @Override
   public void runTask() {
-    throw new SamzaException("Running StreamTask is not implemented for RemoteReplicationRunner");
+    throw new UnsupportedOperationException("Running StreamTask is not implemented for RemoteReplicationRunner");
   }
 
   /**
