@@ -87,6 +87,11 @@ public class TestApplicationRunnerMain {
     }
 
     @Override
+    public void runTask() {
+      throw new UnsupportedOperationException("runTask() not supported in this test");
+    }
+
+    @Override
     public void run(StreamApplication streamApp) {
       runCount++;
     }
