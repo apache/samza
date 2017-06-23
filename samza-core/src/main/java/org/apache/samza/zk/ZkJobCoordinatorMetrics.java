@@ -22,26 +22,37 @@ package org.apache.samza.zk;
 
 import org.apache.samza.metrics.MetricsBase;
 import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
+import org.apache.samza.metrics.Timer;
 
 
 public class ZkJobCoordinatorMetrics extends MetricsBase {
 
   private final ReadableMetricsRegistry metricsRegistry;
-  public final Counter newJobModel;
-  public final Counter leaderElection;
+
+  public final Counter reads;
+  public final Counter writes;
+  public final Counter subscriptions;
+  public final Counter zkConnectionError;
+  public final Gauge<Integer> isLeader;
   public final Counter barrierCreation;
   public final Counter barrierStateChange;
   public final Counter barrierError;
+  public final Timer singleBarrierRebalancingTime;
 
   public ZkJobCoordinatorMetrics(ReadableMetricsRegistry metricsRegistry) {
     super(metricsRegistry);
     this.metricsRegistry = metricsRegistry;
-    this.newJobModel = newCounter("new-job-model-generated");
-    this.leaderElection = newCounter("leader-election");
+    this.reads = newCounter("reads");
+    this.writes = newCounter("writes");
+    this.subscriptions = newCounter("subscriptions");
+    this.zkConnectionError = newCounter("zk-connection-error");
+    this.isLeader = newGauge("is-leader", 0);
     this.barrierCreation = newCounter("barrier-creation");
     this.barrierStateChange = newCounter("barrier-state-change");
     this.barrierError = newCounter("barrier-error");
+    this.singleBarrierRebalancingTime = newTimer("single-barrier-rebalancing-time");
   }
 
   public ReadableMetricsRegistry getMetricsRegistry() {

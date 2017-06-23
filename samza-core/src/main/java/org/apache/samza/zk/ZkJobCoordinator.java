@@ -67,20 +67,24 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private ScheduleAfterDebounceTime debounceTimer = null;
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
-
   private int debounceTimeMs;
+  long startTime;
 
   public ZkJobCoordinator(Config config) {
     this.config = config;
     ZkConfig zkConfig = new ZkConfig(config);
     ZkKeyBuilder keyBuilder = new ZkKeyBuilder(new ApplicationConfig(config).getAppId());
+
+    ReadableMetricsRegistry metricsRegistry = new MetricsRegistryMap();
+    this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
+
     this.zkUtils = new ZkUtils(
         keyBuilder,
         ZkCoordinationServiceFactory.createZkClient(
             zkConfig.getZkConnect(),
             zkConfig.getZkSessionTimeoutMs(),
             zkConfig.getZkConnectionTimeoutMs()),
-        zkConfig.getZkConnectionTimeoutMs());
+        zkConfig.getZkConnectionTimeoutMs(), metrics);
 
     this.processorId = createProcessorId(config);
     LeaderElector leaderElector = new ZkLeaderElector(processorId, zkUtils);
@@ -91,9 +95,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         zkUtils,
         new ZkBarrierListenerImpl());
     this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
-
-    ReadableMetricsRegistry metricsRegistry = new MetricsRegistryMap();
-    this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
     this.reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), "samza-container-" + processorId);
 
   }
@@ -117,6 +118,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       coordinatorListener.onJobModelExpired();
     }
 
+    metrics.isLeader.set(0);
     debounceTimer.stopScheduler();
     zkController.stop();
 
@@ -167,6 +169,9 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     // TODO: Handle empty currentProcessorIds or duplicate processorIds in the list
     List<String> currentProcessorIds = getActualProcessorIds(processors);
 
+    // Start the timer for rebalancing
+    startTime = System.nanoTime();
+
     // Generate the JobModel
     JobModel jobModel = generateNewJobModel(currentProcessorIds);
     // Assign the next version of JobModel
@@ -196,7 +201,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, () ->
       {
         LOG.info("pid=" + processorId + "new JobModel available");
-        metrics.newJobModel.inc();
 
         // stop current work
         if (coordinatorListener != null) {
@@ -263,7 +267,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     @Override
     public void onBecomingLeader() {
       LOG.info("ZkJobCoordinator::onBecomeLeader - I became the leader!");
-      metrics.leaderElection.inc();
+      metrics.isLeader.set(1);
       zkController.subscribeToProcessorChange();
       debounceTimer.scheduleAfterDebounceTime(
         ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
@@ -290,6 +294,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       LOG.info("JobModel version " + version + " obtained consensus successfully!");
       metrics.barrierStateChange.inc();
       if (ZkBarrierForVersionUpgrade.State.DONE.equals(state)) {
+        metrics.singleBarrierRebalancingTime.update(System.nanoTime() - startTime);
         debounceTimer.scheduleAfterDebounceTime(
             barrierAction,
           0,

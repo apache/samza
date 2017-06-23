@@ -37,6 +37,7 @@ class SamzaContainerMetrics(
   val processNs = newTimer("process-ns")
   val commitNs = newTimer("commit-ns")
   val blockNs = newTimer("block-ns")
+  val containerStartupTime = newTimer("container-startup-time")
   val utilization = newGauge("event-loop-utilization", 0.0F)
   val diskUsageBytes = newGauge("disk-usage-bytes", 0L)
   val diskQuotaBytes = newGauge("disk-quota-bytes", Long.MaxValue)

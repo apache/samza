@@ -21,6 +21,7 @@ package org.apache.samza.zk;
 import junit.framework.Assert;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.ZkConfig;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -52,9 +53,10 @@ public class TestZkBarrierForVersionUpgrade {
   @Before
   public void testSetup() {
     ZkClient zkClient = new ZkClient(testZkConnectionString, ZkConfig.DEFAULT_SESSION_TIMEOUT_MS, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS);
-    this.zkUtils = new ZkUtils(new ZkKeyBuilder("group1"), zkClient, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS);
+    ZkJobCoordinatorMetrics metrics = new ZkJobCoordinatorMetrics(new MetricsRegistryMap());
+    this.zkUtils = new ZkUtils(new ZkKeyBuilder("group1"), zkClient, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS, metrics);
     ZkClient zkClient1 = new ZkClient(testZkConnectionString, ZkConfig.DEFAULT_SESSION_TIMEOUT_MS, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS);
-    this.zkUtils1 = new ZkUtils(new ZkKeyBuilder("group1"), zkClient1, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS);
+    this.zkUtils1 = new ZkUtils(new ZkKeyBuilder("group1"), zkClient1, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS, metrics);
   }
 
   @After

@@ -30,6 +30,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -67,10 +68,11 @@ public class TestZkUtils {
       // Do nothing
     }
 
+    ZkJobCoordinatorMetrics metrics = new ZkJobCoordinatorMetrics(new MetricsRegistryMap());
     zkUtils = new ZkUtils(
         KEY_BUILDER,
         zkClient,
-        SESSION_TIMEOUT_MS);
+        SESSION_TIMEOUT_MS, metrics);
 
     zkUtils.connect();
   }
@@ -136,7 +138,7 @@ public class TestZkUtils {
     Assert.assertEquals(" ID1 didn't match", "1", l.get(0));
     Assert.assertEquals(" ID2 didn't match", "2", l.get(1));
   }
-  
+
   @Test
   public void testSubscribeToJobModelVersionChange() {
 
