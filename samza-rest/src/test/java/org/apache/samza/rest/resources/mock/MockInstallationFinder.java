@@ -29,7 +29,7 @@ public class MockInstallationFinder implements InstallationFinder {
 
   @Override
   public boolean isInstalled(JobInstance jobInstance) {
-    return true;
+    return !jobInstance.getJobId().contains("Bad") && !jobInstance.getJobName().contains("Bad");
   }
 
   @Override

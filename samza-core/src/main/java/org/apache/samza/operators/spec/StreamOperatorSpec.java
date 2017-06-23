@@ -18,63 +18,32 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.FlatMapFunction;
-import org.apache.samza.operators.util.OperatorJsonUtils;
 
 
 /**
- * The spec for a linear stream operator that outputs 0 or more messages for each input message.
+ * The spec for a simple stream operator that outputs 0 or more messages for each input message.
  *
  * @param <M>  the type of input message
  * @param <OM>  the type of output message
  */
-public class StreamOperatorSpec<M, OM> implements OperatorSpec<OM> {
+public class StreamOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
 
   private final FlatMapFunction<M, OM> transformFn;
-  private final MessageStreamImpl<OM> nextStream;
-  private final OperatorSpec.OpCode opCode;
-  private final int opId;
-  private final String sourceLocation;
 
   /**
-   * Constructor for a {@link StreamOperatorSpec} that accepts an output {@link MessageStreamImpl}.
+   * Constructor for a {@link StreamOperatorSpec}.
    *
    * @param transformFn  the transformation function
-   * @param nextStream  the output {@link MessageStreamImpl} containing the messages produced from this operator
    * @param opCode  the {@link OpCode} for this {@link StreamOperatorSpec}
-   * @param opId  the unique id for this {@link StreamOperatorSpec} in a {@link org.apache.samza.operators.StreamGraph}
+   * @param opId  the unique ID for this {@link StreamOperatorSpec}
    */
-  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, MessageStreamImpl<OM> nextStream,
-      OperatorSpec.OpCode opCode, int opId) {
+  StreamOperatorSpec(FlatMapFunction<M, OM> transformFn, OperatorSpec.OpCode opCode, int opId) {
+    super(opCode, opId);
     this.transformFn = transformFn;
-    this.nextStream = nextStream;
-    this.opCode = opCode;
-    this.opId = opId;
-    this.sourceLocation = OperatorJsonUtils.getSourceLocation();
-  }
-
-  @Override
-  public MessageStreamImpl<OM> getNextStream() {
-    return this.nextStream;
   }
 
   public FlatMapFunction<M, OM> getTransformFn() {
     return this.transformFn;
-  }
-
-  @Override
-  public OperatorSpec.OpCode getOpCode() {
-    return this.opCode;
-  }
-
-  @Override
-  public int getOpId() {
-    return this.opId;
-  }
-
-  @Override
-  public String getSourceLocation() {
-    return sourceLocation;
   }
 }

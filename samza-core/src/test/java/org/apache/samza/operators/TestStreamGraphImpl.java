@@ -18,23 +18,24 @@
  */
 package org.apache.samza.operators;
 
+import junit.framework.Assert;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.operators.data.MessageType;
-import org.apache.samza.operators.data.TestInputMessageEnvelope;
 import org.apache.samza.operators.data.TestMessageEnvelope;
-import org.apache.samza.operators.stream.InputStreamInternalImpl;
-import org.apache.samza.operators.stream.IntermediateStreamInternalImpl;
-import org.apache.samza.operators.stream.OutputStreamInternalImpl;
+import org.apache.samza.operators.spec.InputOperatorSpec;
+import org.apache.samza.operators.spec.OperatorSpec.OpCode;
+import org.apache.samza.operators.spec.OutputStreamImpl;
+import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -43,154 +44,169 @@ public class TestStreamGraphImpl {
   @Test
   public void testGetInputStream() {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
-    Config mockConfig = mock(Config.class);
-    StreamSpec testStreamSpec = new StreamSpec("test-stream-1", "physical-stream-1", "test-system");
-    when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(testStreamSpec);
+    StreamSpec mockStreamSpec = mock(StreamSpec.class);
+    when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
+    BiFunction<String, String, TestMessageEnvelope> mockMsgBuilder = mock(BiFunction.class);
 
-    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
-    BiFunction<String, MessageType, TestInputMessageEnvelope> xMsgBuilder =
-        (k, v) -> new TestInputMessageEnvelope(k, v.getValue(), v.getEventTime(), "input-id-1");
-    MessageStream<TestMessageEnvelope> mInputStream = graph.getInputStream("test-stream-1", xMsgBuilder);
-    assertEquals(graph.getInputStreams().get(testStreamSpec), mInputStream);
-    assertTrue(mInputStream instanceof InputStreamInternalImpl);
-    assertEquals(((InputStreamInternalImpl) mInputStream).getMsgBuilder(), xMsgBuilder);
+    MessageStream<TestMessageEnvelope> inputStream = graph.getInputStream("test-stream-1", mockMsgBuilder);
 
-    String key = "test-input-key";
-    MessageType msgBody = new MessageType("test-msg-value", 333333L);
-    TestMessageEnvelope xInputMsg = ((InputStreamInternalImpl<String, MessageType, TestMessageEnvelope>) mInputStream).
-        getMsgBuilder().apply(key, msgBody);
-    assertEquals(xInputMsg.getKey(), key);
-    assertEquals(xInputMsg.getMessage().getValue(), msgBody.getValue());
-    assertEquals(xInputMsg.getMessage().getEventTime(), msgBody.getEventTime());
-    assertEquals(((TestInputMessageEnvelope) xInputMsg).getInputId(), "input-id-1");
+    InputOperatorSpec<String, String, TestMessageEnvelope> inputOpSpec =
+        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
+    assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
+    assertEquals(graph.getInputOperators().get(mockStreamSpec), inputOpSpec);
+    assertEquals(mockMsgBuilder, inputOpSpec.getMsgBuilder());
+    assertEquals(mockStreamSpec, inputOpSpec.getStreamSpec());
+  }
+
+  @Test
+  public void testGetInputStreamWithRelaxedTypes() {
+    ApplicationRunner mockRunner = mock(ApplicationRunner.class);
+    StreamSpec mockStreamSpec = mock(StreamSpec.class);
+    when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
+    BiFunction<String, String, TestMessageEnvelope> mockMsgBuilder = mock(BiFunction.class);
+
+    MessageStream<TestMessageEnvelope> inputStream = graph.getInputStream("test-stream-1", mockMsgBuilder);
+
+    InputOperatorSpec<String, String, TestMessageEnvelope> inputOpSpec =
+        (InputOperatorSpec) ((MessageStreamImpl<TestMessageEnvelope>) inputStream).getOperatorSpec();
+    assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
+    assertEquals(graph.getInputOperators().get(mockStreamSpec), inputOpSpec);
+    assertEquals(mockMsgBuilder, inputOpSpec.getMsgBuilder());
+    assertEquals(mockStreamSpec, inputOpSpec.getStreamSpec());
+  }
+
+  @Test
+  public void testMultipleGetInputStreams() {
+    ApplicationRunner mockRunner = mock(ApplicationRunner.class);
+    StreamSpec mockStreamSpec1 = mock(StreamSpec.class);
+    StreamSpec mockStreamSpec2 = mock(StreamSpec.class);
+    when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec1);
+    when(mockRunner.getStreamSpec("test-stream-2")).thenReturn(mockStreamSpec2);
+
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
+    MessageStream<Object> inputStream1 = graph.getInputStream("test-stream-1", mock(BiFunction.class));
+    MessageStream<Object> inputStream2 = graph.getInputStream("test-stream-2", mock(BiFunction.class));
+
+    InputOperatorSpec<String, String, TestMessageEnvelope> inputOpSpec1 =
+        (InputOperatorSpec) ((MessageStreamImpl<Object>) inputStream1).getOperatorSpec();
+    InputOperatorSpec<String, String, TestMessageEnvelope> inputOpSpec2 =
+        (InputOperatorSpec) ((MessageStreamImpl<Object>) inputStream2).getOperatorSpec();
+
+    assertEquals(graph.getInputOperators().size(), 2);
+    assertEquals(graph.getInputOperators().get(mockStreamSpec1), inputOpSpec1);
+    assertEquals(graph.getInputOperators().get(mockStreamSpec2), inputOpSpec2);
   }
 
   @Test(expected = IllegalStateException.class)
-  public void testMultipleGetInputStream() {
+  public void testGetSameInputStreamTwice() {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
-    Config mockConfig = mock(Config.class);
+    when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mock(StreamSpec.class));
 
-    StreamSpec testStreamSpec1 = new StreamSpec("test-stream-1", "physical-stream-1", "test-system");
-    StreamSpec testStreamSpec2 = new StreamSpec("test-stream-2", "physical-stream-2", "test-system");
-    StreamSpec nonExistentStreamSpec = new StreamSpec("non-existent-stream", "physical-stream-1", "test-system");
-
-    when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(testStreamSpec1);
-    when(mockRunner.getStreamSpec("test-stream-2")).thenReturn(testStreamSpec2);
-
-    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
-    BiFunction<String, MessageType, TestInputMessageEnvelope> xMsgBuilder =
-        (k, v) -> new TestInputMessageEnvelope(k, v.getValue(), v.getEventTime(), "input-id-1");
-
-    //create 2 streams for the corresponding streamIds
-    MessageStream<TestInputMessageEnvelope> inputStream1 = graph.getInputStream("test-stream-1", xMsgBuilder);
-    MessageStream<TestInputMessageEnvelope> inputStream2 = graph.getInputStream("test-stream-2", xMsgBuilder);
-
-    //assert that the streamGraph contains only the above 2 streams
-    assertEquals(graph.getInputStreams().get(testStreamSpec1), inputStream1);
-    assertEquals(graph.getInputStreams().get(testStreamSpec2), inputStream2);
-    assertEquals(graph.getInputStreams().get(nonExistentStreamSpec), null);
-    assertEquals(graph.getInputStreams().size(), 2);
-
-    //should throw IllegalStateException
-    graph.getInputStream("test-stream-1", xMsgBuilder);
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
+    graph.getInputStream("test-stream-1", mock(BiFunction.class));
+    graph.getInputStream("test-stream-1", mock(BiFunction.class)); // should throw exception
   }
-
 
   @Test
   public void testGetOutputStream() {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
-    Config mockConfig = mock(Config.class);
-    StreamSpec testStreamSpec = new StreamSpec("test-stream-1", "physical-stream-1", "test-system");
-    when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(testStreamSpec);
+    StreamSpec mockStreamSpec = mock(StreamSpec.class);
+    when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mockStreamSpec);
 
-    class MyMessageType extends MessageType {
-      public final String outputId;
 
-      public MyMessageType(String value, long eventTime, String outputId) {
-        super(value, eventTime);
-        this.outputId = outputId;
-      }
-    }
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
+    Function<TestMessageEnvelope, String> mockKeyExtractor = mock(Function.class);
+    Function<TestMessageEnvelope, String> mockMsgExtractor = mock(Function.class);
 
-    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
-    Function<TestMessageEnvelope, String> xKeyExtractor = x -> x.getKey();
-    Function<TestMessageEnvelope, MyMessageType> xMsgExtractor =
-        x -> new MyMessageType(x.getMessage().getValue(), x.getMessage().getEventTime(), "test-output-id-1");
+    OutputStream<String, String, TestMessageEnvelope> outputStream =
+        graph.getOutputStream("test-stream-1", mockKeyExtractor, mockMsgExtractor);
 
-    OutputStream<String, MyMessageType, TestInputMessageEnvelope> mOutputStream =
-        graph.getOutputStream("test-stream-1", xKeyExtractor, xMsgExtractor);
-    assertEquals(graph.getOutputStreams().get(testStreamSpec), mOutputStream);
-    assertTrue(mOutputStream instanceof OutputStreamInternalImpl);
-    assertEquals(((OutputStreamInternalImpl) mOutputStream).getKeyExtractor(), xKeyExtractor);
-    assertEquals(((OutputStreamInternalImpl) mOutputStream).getMsgExtractor(), xMsgExtractor);
+    OutputStreamImpl<String, String, TestMessageEnvelope> outputOpSpec = (OutputStreamImpl) outputStream;
+    assertEquals(graph.getOutputStreams().get(mockStreamSpec), outputOpSpec);
+    assertEquals(mockKeyExtractor, outputOpSpec.getKeyExtractor());
+    assertEquals(mockMsgExtractor, outputOpSpec.getMsgExtractor());
+    assertEquals(mockStreamSpec, outputOpSpec.getStreamSpec());
+  }
 
-    TestInputMessageEnvelope xInputMsg = new TestInputMessageEnvelope("test-key-1", "test-msg-1", 33333L, "input-id-1");
-    assertEquals(((OutputStreamInternalImpl<String, MyMessageType, TestInputMessageEnvelope>) mOutputStream).
-        getKeyExtractor().apply(xInputMsg), "test-key-1");
-    assertEquals(((OutputStreamInternalImpl<String, MyMessageType, TestInputMessageEnvelope>) mOutputStream).
-        getMsgExtractor().apply(xInputMsg).getValue(), "test-msg-1");
-    assertEquals(((OutputStreamInternalImpl<String, MyMessageType, TestInputMessageEnvelope>) mOutputStream).
-        getMsgExtractor().apply(xInputMsg).getEventTime(), 33333L);
-    assertEquals(((OutputStreamInternalImpl<String, MyMessageType, TestInputMessageEnvelope>) mOutputStream).
-        getMsgExtractor().apply(xInputMsg).outputId, "test-output-id-1");
+  @Test(expected = IllegalStateException.class)
+  public void testGetSameOutputStreamTwice() {
+    ApplicationRunner mockRunner = mock(ApplicationRunner.class);
+    when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mock(StreamSpec.class));
+
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
+    graph.getOutputStream("test-stream-1", mock(Function.class), mock(Function.class));
+    graph.getOutputStream("test-stream-1", mock(Function.class), mock(Function.class)); // should throw exception
   }
 
   @Test
   public void testGetIntermediateStream() {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
     Config mockConfig = mock(Config.class);
-    StreamSpec testStreamSpec = new StreamSpec("myJob-i001-test-stream-1", "physical-stream-1", "test-system");
-    when(mockRunner.getStreamSpec("myJob-i001-test-stream-1")).thenReturn(testStreamSpec);
+    StreamSpec mockStreamSpec = mock(StreamSpec.class);
     when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("myJob");
     when(mockConfig.get(JobConfig.JOB_ID(), "1")).thenReturn("i001");
-
-    class MyMessageType extends MessageType {
-      public final String outputId;
-
-      public MyMessageType(String value, long eventTime, String outputId) {
-        super(value, eventTime);
-        this.outputId = outputId;
-      }
-    }
+    when(mockRunner.getStreamSpec("myJob-i001-test-stream-1")).thenReturn(mockStreamSpec);
 
     StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
-    Function<TestMessageEnvelope, String> xKeyExtractor = x -> x.getKey();
-    Function<TestMessageEnvelope, MyMessageType> xMsgExtractor =
-        x -> new MyMessageType(x.getMessage().getValue(), x.getMessage().getEventTime(), "test-output-id-1");
-    BiFunction<String, MessageType, TestInputMessageEnvelope> xMsgBuilder =
-        (k, v) -> new TestInputMessageEnvelope(k, v.getValue(), v.getEventTime(), "input-id-1");
+    Function<TestMessageEnvelope, String> mockKeyExtractor = mock(Function.class);
+    Function<TestMessageEnvelope, String> mockMsgExtractor = mock(Function.class);
+    BiFunction<String, String, TestMessageEnvelope> mockMsgBuilder = mock(BiFunction.class);
 
-    MessageStream<TestMessageEnvelope> mIntermediateStream =
-        graph.getIntermediateStream("test-stream-1", xKeyExtractor, xMsgExtractor, xMsgBuilder);
-    assertEquals(graph.getOutputStreams().get(testStreamSpec), mIntermediateStream);
-    assertTrue(mIntermediateStream instanceof IntermediateStreamInternalImpl);
-    assertEquals(((IntermediateStreamInternalImpl) mIntermediateStream).getKeyExtractor(), xKeyExtractor);
-    assertEquals(((IntermediateStreamInternalImpl) mIntermediateStream).getMsgExtractor(), xMsgExtractor);
-    assertEquals(((IntermediateStreamInternalImpl) mIntermediateStream).getMsgBuilder(), xMsgBuilder);
+    IntermediateMessageStreamImpl<?, ?, TestMessageEnvelope> intermediateStreamImpl =
+        graph.getIntermediateStream("test-stream-1", mockKeyExtractor, mockMsgExtractor, mockMsgBuilder);
 
-    TestMessageEnvelope xInputMsg = new TestMessageEnvelope("test-key-1", "test-msg-1", 33333L);
-    assertEquals(((IntermediateStreamInternalImpl<String, MessageType, TestMessageEnvelope>) mIntermediateStream).
-        getKeyExtractor().apply(xInputMsg), "test-key-1");
-    assertEquals(((IntermediateStreamInternalImpl<String, MessageType, TestMessageEnvelope>) mIntermediateStream).
-        getMsgExtractor().apply(xInputMsg).getValue(), "test-msg-1");
-    assertEquals(((IntermediateStreamInternalImpl<String, MessageType, TestMessageEnvelope>) mIntermediateStream).
-        getMsgExtractor().apply(xInputMsg).getEventTime(), 33333L);
-    assertEquals(((IntermediateStreamInternalImpl<String, MessageType, TestMessageEnvelope>) mIntermediateStream).
-        getMsgBuilder().apply("test-key-1", new MyMessageType("test-msg-1", 33333L, "test-output-id-1")).getKey(), "test-key-1");
-    assertEquals(((IntermediateStreamInternalImpl<String, MessageType, TestMessageEnvelope>) mIntermediateStream).
-        getMsgBuilder().apply("test-key-1", new MyMessageType("test-msg-1", 33333L, "test-output-id-1")).getMessage().getValue(), "test-msg-1");
-    assertEquals(((IntermediateStreamInternalImpl<String, MessageType, TestMessageEnvelope>) mIntermediateStream).
-        getMsgBuilder().apply("test-key-1", new MyMessageType("test-msg-1", 33333L, "test-output-id-1")).getMessage().getEventTime(), 33333L);
+    assertEquals(graph.getInputOperators().get(mockStreamSpec), intermediateStreamImpl.getOperatorSpec());
+    assertEquals(graph.getOutputStreams().get(mockStreamSpec), intermediateStreamImpl.getOutputStream());
+    assertEquals(mockStreamSpec, intermediateStreamImpl.getStreamSpec());
+    assertEquals(mockKeyExtractor, intermediateStreamImpl.getOutputStream().getKeyExtractor());
+    assertEquals(mockMsgExtractor, intermediateStreamImpl.getOutputStream().getMsgExtractor());
+    assertEquals(mockMsgBuilder, ((InputOperatorSpec) intermediateStreamImpl.getOperatorSpec()).getMsgBuilder());
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testGetSameIntermediateStreamTwice() {
+    ApplicationRunner mockRunner = mock(ApplicationRunner.class);
+    when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(mock(StreamSpec.class));
+
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
+    graph.getIntermediateStream("test-stream-1", mock(Function.class), mock(Function.class), mock(BiFunction.class));
+    graph.getIntermediateStream("test-stream-1", mock(Function.class), mock(Function.class), mock(BiFunction.class));
   }
 
   @Test
-  public void testGetNextOpId() {
+  public void testGetNextOpIdIncrementsId() {
     ApplicationRunner mockRunner = mock(ApplicationRunner.class);
-    Config mockConfig = mock(Config.class);
-
-    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mock(Config.class));
     assertEquals(graph.getNextOpId(), 0);
     assertEquals(graph.getNextOpId(), 1);
   }
 
+  @Test
+  public void testGetInputStreamPreservesInsertionOrder() {
+    ApplicationRunner mockRunner = mock(ApplicationRunner.class);
+    Config mockConfig = mock(Config.class);
+
+    StreamGraphImpl graph = new StreamGraphImpl(mockRunner, mockConfig);
+
+    StreamSpec testStreamSpec1 = new StreamSpec("test-stream-1", "physical-stream-1", "test-system");
+    when(mockRunner.getStreamSpec("test-stream-1")).thenReturn(testStreamSpec1);
+
+    StreamSpec testStreamSpec2 = new StreamSpec("test-stream-2", "physical-stream-2", "test-system");
+    when(mockRunner.getStreamSpec("test-stream-2")).thenReturn(testStreamSpec2);
+
+    StreamSpec testStreamSpec3 = new StreamSpec("test-stream-3", "physical-stream-3", "test-system");
+    when(mockRunner.getStreamSpec("test-stream-3")).thenReturn(testStreamSpec3);
+
+    graph.getInputStream("test-stream-1", (k, v) -> v);
+    graph.getInputStream("test-stream-2", (k, v) -> v);
+    graph.getInputStream("test-stream-3", (k, v) -> v);
+
+    List<InputOperatorSpec> inputSpecs = new ArrayList<>(graph.getInputOperators().values());
+    Assert.assertEquals(inputSpecs.size(), 3);
+    Assert.assertEquals(inputSpecs.get(0).getStreamSpec(), testStreamSpec1);
+    Assert.assertEquals(inputSpecs.get(1).getStreamSpec(), testStreamSpec2);
+    Assert.assertEquals(inputSpecs.get(2).getStreamSpec(), testStreamSpec3);
+  }
 }

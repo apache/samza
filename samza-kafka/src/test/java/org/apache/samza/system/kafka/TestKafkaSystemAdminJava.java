@@ -19,6 +19,9 @@
 
 package org.apache.samza.system.kafka;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
 import org.apache.samza.system.SystemAdmin;
@@ -27,13 +30,7 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 
 public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
@@ -67,7 +64,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     changeLogMap.put(STREAM, new ChangelogInfo(REP_FACTOR, changeLogProps));
 
     SystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 3, Util.javaMapAsScalaMap(changeLogMap)));
-    StreamSpec spec = new StreamSpec(STREAM, STREAM, SYSTEM(), PARTITIONS);
+    StreamSpec spec = new StreamSpec(KafkaSystemAdmin.CHANGELOG_STREAMID(), STREAM, SYSTEM(), PARTITIONS);
     admin.createChangelogStream(STREAM, PARTITIONS);
     admin.validateStream(spec);
 
@@ -76,7 +73,38 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
 
     StreamSpec internalSpec = specCaptor.getValue();
     assertTrue(internalSpec instanceof KafkaStreamSpec);  // KafkaStreamSpec is used to carry replication factor
-    assertEquals(STREAM, internalSpec.getId());
+    assertEquals(KafkaSystemAdmin.CHANGELOG_STREAMID(), internalSpec.getId());
+    assertEquals(SYSTEM(), internalSpec.getSystemName());
+    assertEquals(STREAM, internalSpec.getPhysicalName());
+    assertEquals(REP_FACTOR, ((KafkaStreamSpec) internalSpec).getReplicationFactor());
+    assertEquals(PARTITIONS, internalSpec.getPartitionCount());
+    assertEquals(changeLogProps, ((KafkaStreamSpec) internalSpec).getProperties());
+  }
+
+  @Test
+  public void testCreateChangelogStreamDelegatesToCreateStream_specialCharsInTopicName() {
+    final String STREAM = "test.Change_Log.Stream";
+    final int PARTITIONS = 12;
+    final int REP_FACTOR = 3;
+
+    Properties coordProps = new Properties();
+    Properties changeLogProps = new Properties();
+    changeLogProps.setProperty("cleanup.policy", "compact");
+    changeLogProps.setProperty("segment.bytes", "139");
+    Map<String, ChangelogInfo> changeLogMap = new HashMap<>();
+    changeLogMap.put(STREAM, new ChangelogInfo(REP_FACTOR, changeLogProps));
+
+    SystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 3, Util.javaMapAsScalaMap(changeLogMap)));
+    StreamSpec spec = new StreamSpec(KafkaSystemAdmin.CHANGELOG_STREAMID(), STREAM, SYSTEM(), PARTITIONS);
+    admin.createChangelogStream(STREAM, PARTITIONS);
+    admin.validateStream(spec);
+
+    ArgumentCaptor<StreamSpec> specCaptor = ArgumentCaptor.forClass(StreamSpec.class);
+    Mockito.verify(admin).createStream(specCaptor.capture());
+
+    StreamSpec internalSpec = specCaptor.getValue();
+    assertTrue(internalSpec instanceof KafkaStreamSpec);  // KafkaStreamSpec is used to carry replication factor
+    assertEquals(KafkaSystemAdmin.CHANGELOG_STREAMID(), internalSpec.getId());
     assertEquals(SYSTEM(), internalSpec.getSystemName());
     assertEquals(STREAM, internalSpec.getPhysicalName());
     assertEquals(REP_FACTOR, ((KafkaStreamSpec) internalSpec).getReplicationFactor());
@@ -98,6 +126,25 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     admin.createChangelogStream(spec.getPhysicalName(), spec.getPartitionCount());
     admin.validateStream(spec);
     admin.validateChangelogStream(spec.getPhysicalName(), spec.getPartitionCount());
+
+    Mockito.verify(admin).createStream(Mockito.any());
+    Mockito.verify(admin, Mockito.times(3)).validateStream(Mockito.any());
+  }
+
+  @Test
+  public void testValidateChangelogStreamDelegatesToCreateStream_specialCharsInTopicName() {
+    final String STREAM = "test.Change_Log.Validate";
+    Properties coordProps = new Properties();
+    Map<String, ChangelogInfo> changeLogMap = new HashMap<>();
+    changeLogMap.put(STREAM, new ChangelogInfo(3, new Properties()));
+
+    KafkaSystemAdmin systemAdmin = createSystemAdmin(coordProps, 3, Util.javaMapAsScalaMap(changeLogMap));
+    SystemAdmin admin = Mockito.spy(systemAdmin);
+    StreamSpec spec = new StreamSpec("testId", STREAM, "testSystem", 12);
+
+    admin.createChangelogStream(spec.getPhysicalName(), spec.getPartitionCount());
+    admin.validateStream(spec);
+    admin.validateChangelogStream(STREAM, spec.getPartitionCount()); // Should not throw
 
     Mockito.verify(admin).createStream(Mockito.any());
     Mockito.verify(admin, Mockito.times(3)).validateStream(Mockito.any());

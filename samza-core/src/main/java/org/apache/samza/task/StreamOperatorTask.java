@@ -18,23 +18,18 @@
  */
 package org.apache.samza.task;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.operators.impl.OperatorImpl;
+import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
-import org.apache.samza.operators.impl.RootOperatorImpl;
-import org.apache.samza.operators.stream.InputStreamInternal;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
-
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
 
 /**
@@ -49,7 +44,6 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   private OperatorImplGraph operatorImplGraph;
   private ContextManager contextManager;
-  private Map<SystemStream, InputStreamInternal> inputSystemStreamToInputStream;
 
   /**
    * Constructs an adaptor task to run the user-implemented {@link StreamApplication}.
@@ -72,11 +66,8 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
    * <p>
    * Implementation: Initializes the user-implemented {@link StreamApplication}. The {@link StreamApplication} sets
    * the input and output streams and the task-wide context manager using the {@link StreamGraphImpl} APIs,
-   * and the logical transforms using the {@link org.apache.samza.operators.MessageStream} APIs.
-   *<p>
-   * It then uses the {@link StreamGraphImpl} to create the {@link OperatorImplGraph} corresponding to the logical
-   * DAG. It also saves the mapping between input {@link SystemStream}s and their corresponding
-   * {@link InputStreamInternal}s for delivering incoming messages to the appropriate sub-DAG.
+   * and the logical transforms using the {@link org.apache.samza.operators.MessageStream} APIs. It then uses
+   * the {@link StreamGraphImpl} to create the {@link OperatorImplGraph} corresponding to the logical DAG.
    *
    * @param config allows accessing of fields in the configuration files that this StreamTask is specified in
    * @param context allows initializing and accessing contextual data of this StreamTask
@@ -95,20 +86,11 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     }
 
     // create the operator impl DAG corresponding to the logical operator spec DAG
-    OperatorImplGraph operatorImplGraph = new OperatorImplGraph(clock);
-    operatorImplGraph.init(streamGraph, config, context);
-    this.operatorImplGraph = operatorImplGraph;
-
-    // TODO: SAMZA-1118 - Remove mapping after SystemConsumer starts returning logical streamId with incoming messages
-    inputSystemStreamToInputStream = new HashMap<>();
-    streamGraph.getInputStreams().forEach((streamSpec, inputStream)-> {
-        SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
-        inputSystemStreamToInputStream.put(systemStream, inputStream);
-      });
+    this.operatorImplGraph = new OperatorImplGraph(streamGraph, config, context, clock);
   }
 
   /**
-   * Passes the incoming message envelopes along to the {@link org.apache.samza.operators.impl.RootOperatorImpl} node
+   * Passes the incoming message envelopes along to the {@link InputOperatorImpl} node
    * for the input {@link SystemStream}.
    * <p>
    * From then on, each {@link org.apache.samza.operators.impl.OperatorImpl} propagates its transformed output to
@@ -121,20 +103,16 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   @Override
   public final void process(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator) {
     SystemStream systemStream = ime.getSystemStreamPartition().getSystemStream();
-    InputStreamInternal inputStream = inputSystemStreamToInputStream.get(systemStream);
-    RootOperatorImpl rootOperatorImpl = operatorImplGraph.getRootOperator(systemStream);
-    if (rootOperatorImpl != null) {
-      // TODO: SAMZA-1148 - Cast to appropriate input (key, msg) types based on the serde
-      // before applying the msgBuilder.
-      Object message = inputStream.getMsgBuilder().apply(ime.getKey(), ime.getMessage());
-      rootOperatorImpl.onMessage(message, collector, coordinator);
+    InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
+    if (inputOpImpl != null) {
+      inputOpImpl.onMessage(Pair.of(ime.getKey(), ime.getMessage()), collector, coordinator);
     }
   }
 
   @Override
   public final void window(MessageCollector collector, TaskCoordinator coordinator)  {
-    operatorImplGraph.getAllRootOperators()
-        .forEach(rootOperator -> rootOperator.onTimer(collector, coordinator));
+    operatorImplGraph.getAllInputOperators()
+        .forEach(inputOperator -> inputOperator.onTimer(collector, coordinator));
   }
 
   @Override
@@ -142,8 +120,6 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
     if (this.contextManager != null) {
       this.contextManager.close();
     }
-
-    Collection<OperatorImpl> allOperators = operatorImplGraph.getAllOperators();
-    allOperators.forEach(OperatorImpl::close);
+    operatorImplGraph.close();
   }
 }

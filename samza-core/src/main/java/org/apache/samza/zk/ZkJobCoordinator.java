@@ -74,10 +74,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     this.config = config;
     ZkConfig zkConfig = new ZkConfig(config);
     ZkKeyBuilder keyBuilder = new ZkKeyBuilder(new ApplicationConfig(config).getAppId());
-
     ReadableMetricsRegistry metricsRegistry = new MetricsRegistryMap();
     this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
-
     this.zkUtils = new ZkUtils(
         keyBuilder,
         ZkCoordinationServiceFactory.createZkClient(

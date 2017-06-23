@@ -21,7 +21,6 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.WindowState;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.operators.triggers.FiringType;
@@ -154,7 +153,7 @@ public class WindowOperatorImpl<M, WK, WV> extends OperatorImpl<M, WindowPane<WK
   }
 
   @Override
-  protected OperatorSpec<WindowPane<WK, WV>> getOperatorSpec() {
+  protected OperatorSpec<M, WindowPane<WK, WV>> getOperatorSpec() {
     return windowOpSpec;
   }
 
