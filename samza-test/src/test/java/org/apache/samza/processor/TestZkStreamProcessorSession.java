@@ -17,12 +17,10 @@
  * under the License.
  */
 
-package org.apache.samza.test.processor;
+package org.apache.samza.processor;
 
 import java.util.concurrent.CountDownLatch;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.processor.StreamProcessor;
-import org.apache.samza.processor.TestZkStreamProcessorBase;
 import org.apache.samza.zk.ZkJobCoordinator;
 import org.junit.Assert;
 import org.junit.Test;
@@ -67,11 +65,11 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
     StreamProcessor[] streamProcessors = new StreamProcessor[processorIds.length];
     ZkJobCoordinator[] jobCoordinators = new ZkJobCoordinator[processorIds.length];
     // we need to know when the processor has started
-    Object[] startWait = new Object[processorIds.length];
-    Object[] stopWait = new Object[processorIds.length];
+    CountDownLatch[] startWait = new CountDownLatch[processorIds.length];
+    CountDownLatch[] stopWait = new CountDownLatch[processorIds.length];
     for (int i = 0; i < processorIds.length; i++) {
-      startWait[i] = new Object();
-      stopWait[i] = new Object();
+      startWait[i] = new CountDownLatch(1);
+      stopWait[i] = new CountDownLatch(1);
       streamProcessors[i] = createStreamProcessor(processorIds[i], map, startWait[i], stopWait[i]);
       jobCoordinators[i] = (ZkJobCoordinator) streamProcessors[i].getCurrentJobCoordinator();
     }

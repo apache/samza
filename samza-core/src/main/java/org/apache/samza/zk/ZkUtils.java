@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
@@ -51,6 +52,14 @@ import org.slf4j.LoggerFactory;
  * </p>
  *
  * <p>
+ *  <b>Note on Session disconnect handling:</b>
+ *  After the session has timed out, and restored we may still get some notifications from before (from the old
+ *  session). To avoid this, we add a currentGeneration member, which starts with 0, and is increased each time
+ *  a new session is established. Current value of this member is passed to each Listener when it is created.
+ *  So if the Callback from this Listener comes with an old generation id - we ignore it.
+ * </p>
+ *
+ * <p>
  *   <b>Note on Session Management:</b>
  *   Session management, if needed, should be handled by the caller. This can be done by implementing
  *   {@link org.I0Itec.zkclient.IZkStateListener} and subscribing this listener to the current ZkClient. Note: The connection state change
@@ -65,21 +74,21 @@ public class ZkUtils {
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
-  private int currentGeneration;
+  private AtomicInteger currentGeneration;
 
   public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs) {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkClient = zkClient;
-    currentGeneration = 0;
+    currentGeneration = new AtomicInteger(0);
   }
 
   public synchronized void incGeneration() {
-    currentGeneration++;
+    currentGeneration.incrementAndGet();
   }
 
   public synchronized int getGeneration() {
-    return currentGeneration;
+    return currentGeneration.get();
   }
 
   public void connect() throws ZkInterruptedException {

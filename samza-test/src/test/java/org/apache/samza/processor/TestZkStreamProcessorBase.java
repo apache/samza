@@ -98,21 +98,6 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     createTopics(inputTopic, outputTopic);
   }
 
-  protected Thread expireSession1(ZkClient zkClient) {
-    ZooKeeperServer zkServer = zookeeper().zookeeper();
-    Thread t = null;
-    try {
-      Field privateField = ZkClient.class.getDeclaredField("_zookeeperEventThread");
-      privateField.setAccessible(true);
-      t = (Thread) privateField.get(zkClient);
-      t.suspend();
-      LOG.info("Thread suspended: " + t);
-    } catch (NoSuchFieldException | IllegalAccessException e) {
-      Assert.fail(e.toString());
-    }
-    return t;
-  }
-
   // session expiration simulation
   // have to use the reflection to get the session id
   protected void expireSession(ZkClient zkClient) {
@@ -133,8 +118,8 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     zkServer.closeSession(sessionId);
   }
 
-  protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map, final Object mutexStart,
-      final Object mutexStop) {
+  protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map, final CountDownLatch mutexStart,
+      final CountDownLatch mutexStop) {
     map.put(ApplicationConfig.PROCESSOR_ID, pId);
 
     Config config = new MapConfig(map);
@@ -146,9 +131,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
       @Override
       public void onStart() {
         if (mutexStart != null) {
-          synchronized (mutexStart) {
-            mutexStart.notifyAll();
-          }
+            mutexStart.countDown();
         }
         LOG.info("onStart is called for pid=" + pId);
       }
@@ -156,9 +139,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
       @Override
       public void onShutdown() {
         if (mutexStop != null) {
-          synchronized (mutexStart) {
-            mutexStart.notify();
-          }
+          mutexStart.countDown();
         }
         LOG.info("onShutdown is called for pid=" + pId);
       }
@@ -184,7 +165,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
       int messageCount) {
     Map<String, String> configs = new HashMap<>();
     configs.putAll(StandaloneTestUtils
-        .getStandaloneConfigs("test-job", "org.apache.samza.test.processor.TestZkStreamProcessor.TestStreamTask"));
+        .getStandaloneConfigs("test-job", "org.apache.samza.processor.TestZkStreamProcessor.TestStreamTask"));
     configs.putAll(StandaloneTestUtils
         .getKafkaSystemConfigs(testSystem, bootstrapServers(), zkConnect(), null, StandaloneTestUtils.SerdeAlias.STRING,
             true));

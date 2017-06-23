@@ -17,12 +17,10 @@
  * under the License.
  */
 
-package org.apache.samza.test.processor;
+package org.apache.samza.processor;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import org.apache.samza.processor.StreamProcessor;
-import org.apache.samza.processor.TestZkStreamProcessorBase;
 import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -63,9 +61,9 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     // initialize the processors
     StreamProcessor[] streamProcessors = new StreamProcessor[processorIds.length];
     // we need to know when the processor has started
-    Object[] startWait = new Object[processorIds.length];
+    CountDownLatch[] startWait = new CountDownLatch[processorIds.length];
     for (int i = 0; i < processorIds.length; i++) {
-      startWait[i] = new Object();
+      startWait[i] = new CountDownLatch(1);
       streamProcessors[i] = createStreamProcessor(processorIds[i], map, startWait[i], null);
     }
 
@@ -79,9 +77,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
       threads[i].start();
       // wait until the processor reports that it has started
       try {
-        synchronized (startWait[i]) {
-          startWait[i].wait(1000);
-        }
+        startWait[i].await(1000, TimeUnit.MILLISECONDS);
       } catch (InterruptedException e) {
         Assert.fail("got interrupted while waiting for the " + i + "th processor to start.");
       }
@@ -120,8 +116,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     TestStreamTask.endLatch = new CountDownLatch(totalEventsToGenerate);
 
     // create first processor
-    Object startWait1 = new Object();
-    Object stopWait1 = new Object();
+    CountDownLatch startWait1 = new CountDownLatch(1);
+    CountDownLatch stopWait1 = new CountDownLatch(1);
     StreamProcessor sp = createStreamProcessor("20", map, startWait1, stopWait1);
 
     // produce first batch of messages starting with 0
@@ -138,7 +134,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     waitUntilMessagesLeftN(totalEventsToGenerate - messageCount);
 
     // start the second processor
-    Object startWait2 = new Object();
+    CountDownLatch startWait2 = new CountDownLatch(1);
     StreamProcessor sp2 = createStreamProcessor("21", map, startWait2, null);
     Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
     t2.start();
@@ -186,8 +182,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     TestStreamTask.endLatch = new CountDownLatch(totalEventsToGenerate);
 
     // create first processor
-    Object waitStart1 = new Object();
-    Object waitStop1 = new Object();
+    CountDownLatch waitStart1 = new CountDownLatch(1);
+    CountDownLatch waitStop1 = new CountDownLatch(1);
     StreamProcessor sp1 = createStreamProcessor("30", map, waitStart1, waitStop1);
 
     // start the first processor
@@ -195,8 +191,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     t1.start();
 
     // start the second processor
-    Object waitStart2 = new Object();
-    Object waitStop2 = new Object();
+    CountDownLatch waitStart2 = new CountDownLatch(1);
+    CountDownLatch waitStop2 = new CountDownLatch(1);
     StreamProcessor sp2 = createStreamProcessor("31", map, waitStart2, waitStop2);
     Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
     t2.start();
