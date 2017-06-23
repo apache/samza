@@ -30,7 +30,9 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.HashMap;
@@ -46,6 +48,26 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class TestStreamProcessor {
+  private Map<String, Boolean> processorListenerState;
+  private static final String ON_START = "onStart";
+  private static final String ON_SHUTDOWN = "onShutdown";
+  private static final String ON_FAILURE = "onFailure";
+
+  @Before
+  public void before() {
+    processorListenerState = new HashMap<String, Boolean>() {
+      {
+        put(ON_START, false);
+        put(ON_FAILURE, false);
+        put(ON_SHUTDOWN, false);
+      }
+    };
+  }
+
+  @After
+  public void after() {
+    processorListenerState.clear();
+  }
 
   class TestableStreamProcessor extends StreamProcessor {
     private final CountDownLatch containerStop = new CountDownLatch(1);
@@ -104,7 +126,7 @@ public class TestStreamProcessor {
    * Tests stop() method when Container AND JobCoordinator are running
    */
   @Test
-  public void testStopByProcessor() {
+  public void testStopByProcessor() throws InterruptedException {
     JobCoordinator mockJobCoordinator = mock(JobCoordinator.class);
 
     final CountDownLatch processorListenerStop = new CountDownLatch(1);
@@ -117,17 +139,19 @@ public class TestStreamProcessor {
         new StreamProcessorLifecycleListener() {
           @Override
           public void onStart() {
+            processorListenerState.put(ON_START, true);
             processorListenerStart.countDown();
           }
 
           @Override
           public void onShutdown() {
+            processorListenerState.put(ON_SHUTDOWN, true);
             processorListenerStop.countDown();
           }
 
           @Override
           public void onFailure(Throwable t) {
-
+            processorListenerState.put(ON_FAILURE, true);
           }
         },
         mockJobCoordinator,
@@ -157,22 +181,23 @@ public class TestStreamProcessor {
         return null;
       }).when(mockJobCoordinator).start();
 
-    try {
-      processor.start();
-      processorListenerStart.await();
+    processor.start();
+    processorListenerStart.await();
 
-      Assert.assertEquals(SamzaContainerStatus.STARTED, processor.container.getStatus());
+    Assert.assertEquals(SamzaContainerStatus.STARTED, processor.container.getStatus());
 
-      // This block is required for the mockRunloop is actually start.
-      // Otherwise, processor.stop gets triggered before mockRunloop begins to block
-      processor.runLoopStartForMain.await();
+    // This block is required for the mockRunloop is actually start.
+    // Otherwise, processor.stop gets triggered before mockRunloop begins to block
+    processor.runLoopStartForMain.await();
 
-      processor.stop();
+    processor.stop();
 
-      processorListenerStop.await();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
+    processorListenerStop.await();
+
+    // Assertions on which callbacks are expected to be invoked
+    Assert.assertTrue(processorListenerState.get(ON_START));
+    Assert.assertTrue(processorListenerState.get(ON_SHUTDOWN));
+    Assert.assertFalse(processorListenerState.get(ON_FAILURE));
   }
 
   /**
@@ -184,7 +209,7 @@ public class TestStreamProcessor {
    * - StreamProcessorLifecycleListener#onFailure(Throwable) has been invoked
    */
   @Test
-  public void testContainerFailureCorrectlyStopsProcessor() {
+  public void testContainerFailureCorrectlyStopsProcessor() throws InterruptedException {
     JobCoordinator mockJobCoordinator = mock(JobCoordinator.class);
     Throwable expectedThrowable =  new SamzaException("Failure in Container!");
     AtomicReference<Throwable> actualThrowable = new AtomicReference<>();
@@ -193,7 +218,6 @@ public class TestStreamProcessor {
     doAnswer(invocation ->
       {
         try {
-          Thread.sleep(10);
           runLoopStartedLatch.countDown();
           throw expectedThrowable;
         } catch (InterruptedException ie) {
@@ -203,7 +227,6 @@ public class TestStreamProcessor {
       }).when(failingRunLoop).run();
 
     SamzaContainer mockContainer = StreamProcessorTestUtils.getDummyContainer(failingRunLoop, mock(StreamTask.class));
-
     final CountDownLatch processorListenerFailed = new CountDownLatch(1);
 
     TestableStreamProcessor processor = new TestableStreamProcessor(
@@ -212,13 +235,18 @@ public class TestStreamProcessor {
         mock(StreamTaskFactory.class),
         new StreamProcessorLifecycleListener() {
           @Override
-          public void onStart() { }
+          public void onStart() {
+            processorListenerState.put(ON_START, true);
+          }
 
           @Override
-          public void onShutdown() { }
+          public void onShutdown() {
+            processorListenerState.put(ON_SHUTDOWN, true);
+          }
 
           @Override
           public void onFailure(Throwable t) {
+            processorListenerState.put(ON_FAILURE, true);
             actualThrowable.getAndSet(t);
             processorListenerFailed.countDown();
           }
@@ -248,20 +276,19 @@ public class TestStreamProcessor {
         return null;
       }).when(mockJobCoordinator).start();
 
-    try {
-      processor.start();
+    processor.start();
 
-      // This block is required for the mockRunloop is actually start.
-      // Otherwise, processor.stop gets triggered before mockRunloop begins to block
-      runLoopStartedLatch.await();
-      Assert.assertTrue(
-          "Container failed and processor listener failed was not invoked within timeout!",
-          processorListenerFailed.await(30, TimeUnit.SECONDS));
-      Assert.assertEquals(expectedThrowable, actualThrowable.get());
+    // This block is required for the mockRunloop is actually started.
+    // Otherwise, processor.stop gets triggered before mockRunloop begins to block
+    runLoopStartedLatch.await();
+    Assert.assertTrue(
+        "Container failed and processor listener failed was not invoked within timeout!",
+        processorListenerFailed.await(30, TimeUnit.SECONDS));
+    Assert.assertEquals(expectedThrowable, actualThrowable.get());
 
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
+    Assert.assertFalse(processorListenerState.get(ON_SHUTDOWN));
+    Assert.assertTrue(processorListenerState.get(ON_START));
+    Assert.assertTrue(processorListenerState.get(ON_FAILURE));
   }
 
   // TODO:
