@@ -149,6 +149,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
     StreamProcessor processor = createStreamProcessor(jobConfig, null, listener);
 
+    numProcessorsToStart.set(1);
     listener.setProcessor(processor);
     processor.start();
   }

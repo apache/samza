@@ -229,7 +229,7 @@ public class TestLocalApplicationRunner {
     LocalApplicationRunner spy = spy(runner);
     doReturn(sp).when(spy).createStreamProcessor(anyObject(), anyObject(), captor.capture());
 
-    spy.run(null);
+    spy.runTask();
 
     assertEquals(ApplicationStatus.SuccessfulFinish, spy.status(null));
 
