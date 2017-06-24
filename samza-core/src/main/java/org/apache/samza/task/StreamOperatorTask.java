@@ -24,7 +24,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.control.ControlMessageListener;
 import org.apache.samza.control.EndOfStream;
 import org.apache.samza.control.EndOfStreamDispatcher;
-import org.apache.samza.control.MessageType;
 import org.apache.samza.control.Watermark;
 import org.apache.samza.control.WatermarkDispatcher;
 import org.apache.samza.operators.ContextManager;
