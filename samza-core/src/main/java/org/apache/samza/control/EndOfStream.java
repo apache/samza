@@ -17,14 +17,17 @@
  * under the License.
  */
 
-package org.apache.samza.system;
+package org.apache.samza.control;
+
+import org.apache.samza.system.SystemStream;
+
 
 /**
  * A end-of-stream represents a {@link SystemStream} has been fully consumed to the end. There will be
- * no more messages after it for the stream.
+ * no more messages after it of the stream for the current task.
  *
- * <p>This class defines the end-of-stream message object in the IncomingMessageEnvelope.
- * Once the task received this message, it indicates the stream has reached to the end for this task.
+ * <p>This is the aggregate result from the {@link EndOfStreamManager}, which keeps track of the control message
+ * {@link org.apache.samza.message.EndOfStreamMessage} and aggregates it for each partition.
  */
 public interface EndOfStream {
 

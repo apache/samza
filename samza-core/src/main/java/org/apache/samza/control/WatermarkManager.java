@@ -25,15 +25,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
-import org.apache.samza.control.ControlMessageManager.ControlManager;
 import org.apache.samza.message.WatermarkMessage;
-import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.system.Watermark;
 import org.apache.samza.task.MessageCollector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,26 +39,26 @@ import org.slf4j.LoggerFactory;
  * This class manages watermarks. It aggregates the watermark control messages from the upstage tasks
  * for each SSP into an envelope of {@link Watermark}, and provide a dispatcher to propagate it to downstream.
  */
-public class WatermarkManager implements ControlManager {
+public class WatermarkManager {
   private static final Logger log = LoggerFactory.getLogger(WatermarkManager.class);
   public static final long WATERMARK_NOT_EXIST = -1;
 
   private final String taskName;
   private final Map<SystemStreamPartition, WatermarkState> watermarkStates;
   private final Map<SystemStream, Long> watermarkPerStream;
-  private final Map<String, SystemAdmin> sysAdmins;
+  private final StreamMetadataCache metadataCache;
   private final Multimap<SystemStream, String> streamToTasks;
   private final MessageCollector collector;
 
   public WatermarkManager(String taskName,
       Multimap<SystemStream, String> streamToTasks,
       Set<SystemStreamPartition> ssps,
-      Map<String, SystemAdmin> sysAdmins,
+      StreamMetadataCache metadataCache,
       MessageCollector collector) {
     this.taskName = taskName;
     this.watermarkPerStream = new HashMap<>();
     this.streamToTasks = streamToTasks;
-    this.sysAdmins = sysAdmins;
+    this.metadataCache = metadataCache;
     this.collector = collector;
 
     Map<SystemStreamPartition, WatermarkState> states = new HashMap<>();
@@ -85,8 +81,7 @@ public class WatermarkManager implements ControlManager {
    * @param envelope the envelope contains {@link WatermarkMessage}
    * @return watermark envelope if there is a new aggregate watermark for the stream
    */
-  @Override
-  public IncomingMessageEnvelope update(IncomingMessageEnvelope envelope) {
+  public Watermark update(IncomingMessageEnvelope envelope) {
     SystemStreamPartition ssp = envelope.getSystemStreamPartition();
     WatermarkState state = watermarkStates.get(ssp);
     WatermarkMessage message = (WatermarkMessage) envelope.getMessage();
@@ -101,9 +96,7 @@ public class WatermarkManager implements ControlManager {
       Long curWatermark = watermarkPerStream.get(ssp.getSystemStream());
       if (curWatermark == null || curWatermark < minTimestamp) {
         watermarkPerStream.put(ssp.getSystemStream(), minTimestamp);
-
-        Watermark watermark = createWatermark(minTimestamp);
-        return new IncomingMessageEnvelope(ssp, null, "", watermark);
+        return createWatermark(minTimestamp, ssp.getSystemStream());
       }
     }
 
@@ -123,18 +116,23 @@ public class WatermarkManager implements ControlManager {
   public void sendWatermark(long timestamp, SystemStream systemStream, int taskCount) {
     log.info("Send end-of-stream messages to all partitions of " + systemStream);
     final WatermarkMessage watermarkMessage = new WatermarkMessage(timestamp, taskName, taskCount);
-    ControlMessageManager.sendControlMessage(watermarkMessage, systemStream, sysAdmins, collector);
+    ControlMessageUtils.sendControlMessage(watermarkMessage, systemStream, metadataCache, collector);
   }
 
-  public Watermark createWatermark(long timestamp) {
-    return new WatermarkImpl(timestamp);
+  public Watermark createWatermark(long timestamp, SystemStream systemStream) {
+    return new WatermarkImpl(timestamp, systemStream);
+  }
+
+  /* package private */
+  Multimap<SystemStream, String> getStreamToTasks() {
+    return streamToTasks;
   }
 
   /**
    * Per ssp state of the watermarks. This class keeps track of the latest watermark timestamp
    * from each upstream producer tasks, and use the min to update the aggregated watermark time.
    */
-  private final static class WatermarkState {
+  final static class WatermarkState {
     private int expectedTotal = Integer.MAX_VALUE;
     private final Map<String, Long> timestamps = new HashMap<>();
     private long watermarkTime = WATERMARK_NOT_EXIST;
@@ -161,9 +159,11 @@ public class WatermarkManager implements ControlManager {
    */
   public final class WatermarkImpl implements Watermark {
     private final long timestamp;
+    private final SystemStream systemStream;
 
-    WatermarkImpl(long timestamp) {
+    WatermarkImpl(long timestamp, SystemStream systemStream) {
       this.timestamp = timestamp;
+      this.systemStream = systemStream;
     }
 
     @Override
@@ -171,46 +171,13 @@ public class WatermarkManager implements ControlManager {
       return timestamp;
     }
 
+    @Override
+    public SystemStream getSystemStream() {
+      return systemStream;
+    }
+
     public WatermarkManager getManager() {
       return WatermarkManager.this;
-    }
-  }
-
-  /**
-   * The dispatcher class propagates the watermark messages to downstream.
-   * It calculates the producer task count to each stream, and send the watermark message with
-   * (timestamp, current task, task count) to all partitions of the intermediate streams.
-   */
-  public static final class WatermarkDispatcher {
-    private final StreamGraphImpl streamGraph;
-    private Map<SystemStream, Integer> outputTaskCount = null;
-
-    /**
-     * Create the dispatcher for end-of-stream messages based on the IOGraph built on StreamGraph
-     * @param streamGraph user {@link org.apache.samza.operators.StreamGraph}
-     */
-    private WatermarkDispatcher(StreamGraphImpl streamGraph) {
-      this.streamGraph = streamGraph;
-    }
-
-    public void propagate(Watermark watermark, SystemStream systemStream) {
-      final WatermarkManager manager = ((WatermarkImpl) watermark).getManager();
-      if (outputTaskCount == null) {
-        outputTaskCount = buildOutputToTaskCountMap(manager.streamToTasks);
-      }
-      manager.sendWatermark(watermark.getTimestamp(), systemStream, outputTaskCount.get(systemStream));
-    }
-
-    private Map<SystemStream, Integer> buildOutputToTaskCountMap(Multimap<SystemStream, String> streamToTasks) {
-      Map<SystemStream, Integer> outputTaskCount = new HashMap<>();
-      streamGraph.toIOGraph().forEach(node -> {
-          int count = (int) node.getInputs().stream()
-              .flatMap(spec -> streamToTasks.get(spec.toSystemStream()).stream())
-              .collect(Collectors.toSet())
-              .size();
-          outputTaskCount.put(node.getOutput().toSystemStream(), count);
-        });
-      return outputTaskCount;
     }
   }
 
@@ -222,14 +189,5 @@ public class WatermarkManager implements ControlManager {
    */
   public static IncomingMessageEnvelope buildWatermarkEnvelope(long timestamp, SystemStreamPartition ssp) {
     return new IncomingMessageEnvelope(ssp, null, "", new WatermarkMessage(timestamp, null, 0));
-  }
-
-  /**
-   * Create a watermark dispatcher.
-   * @param streamGraph logical {@link StreamGraphImpl}
-   * @return the dispatcher
-   */
-  public static WatermarkDispatcher createDispatcher(StreamGraphImpl streamGraph) {
-    return new WatermarkDispatcher(streamGraph);
   }
 }

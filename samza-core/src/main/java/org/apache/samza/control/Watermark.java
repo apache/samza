@@ -17,20 +17,32 @@
  * under the License.
  */
 
-package org.apache.samza.system;
+package org.apache.samza.control;
+
+import org.apache.samza.system.SystemStream;
+
 
 /**
  * A watermark is a monotonically increasing value, which represents the point up to which the
  * system believes it has received all of the data before the watermark timestamp. Data that arrives
  * with a timestamp that is before the watermark is considered late.
  *
- * <p>This class defines the watermark object in the {@link IncomingMessageEnvelope#getMessage()}
- * It returns the next watermark timestamp from a stream.
+ * <p>This is the aggregate result from the WatermarkManager, which keeps track of the control message
+ * {@link org.apache.samza.message.WatermarkMessage} and aggregate by returning the min of all watermark timestamp
+ * in each partition.
  */
 public interface Watermark {
   /**
    * Returns the timestamp of the watermark
+   * Note that if the task consumes more than one partitions of this stream, the watermark emitted is the min of
+   * watermarks across all partitions.
    * @return timestamp
    */
   long getTimestamp();
+
+  /**
+   * Returns the {@link SystemStream} that emits the watermark.
+   * @return the stream of the watermark
+   */
+  SystemStream getSystemStream();
 }

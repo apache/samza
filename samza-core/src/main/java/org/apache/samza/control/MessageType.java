@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.system;
+package org.apache.samza.control;
 
 /**
  * The type of the message inside {@link org.apache.samza.system.IncomingMessageEnvelope}

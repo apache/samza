@@ -24,17 +24,25 @@ import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.control.ControlMessageManager
+import org.apache.samza.control.ControlMessageListener
+import org.apache.samza.control.ControlMessageUtils
+import org.apache.samza.control.EndOfStream
+import org.apache.samza.control.EndOfStreamManager
+import org.apache.samza.control.WatermarkManager
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.message.ControlMessage
+import org.apache.samza.message.MessageType
+import org.apache.samza.message.WatermarkMessage
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.IncomingMessageEnvelope
+import org.apache.samza.system.StreamMetadataCache
 import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemConsumers
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.AsyncStreamTask
+import org.apache.samza.task.AsyncStreamTaskAdapter
 import org.apache.samza.task.ClosableTask
 import org.apache.samza.task.EndOfStreamListenerTask
 import org.apache.samza.task.InitableTask
@@ -62,12 +70,14 @@ class TaskInstance(
   reporters: Map[String, MetricsReporter] = Map(),
   val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
   val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler,
-  jobModel: JobModel = null) extends Logging {
+  jobModel: JobModel = null,
+  streamMetadataCache: StreamMetadataCache = null) extends Logging {
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
+  val isControlMessageListener = task.isInstanceOf[ControlMessageListener]
 
   val context = new TaskContext {
     var userContext: Object = null;
@@ -99,15 +109,22 @@ class TaskInstance(
   // store the (ssp -> if this ssp is catched up) mapping. "catched up"
   // means the same ssp in other taskInstances have the same offset as
   // the one here.
-  var ssp2catchedupMapping: scala.collection.mutable.Map[SystemStreamPartition, Boolean] =
+  var ssp2CaughtupMapping: scala.collection.mutable.Map[SystemStreamPartition, Boolean] =
     scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
-  systemStreamPartitions.foreach(ssp2catchedupMapping += _ -> false)
+  systemStreamPartitions.foreach(ssp2CaughtupMapping += _ -> false)
 
-  val controlManager = new ControlMessageManager(taskName.getTaskName,
-                                                       jobModel,
-                                                       systemStreamPartitions.asJava,
-                                                       systemAdmins.asJava,
-                                                       collector)
+  val streamToTasksMapping = ControlMessageUtils.buildStreamToTasks(jobModel)
+  val endOfStreamManager = new EndOfStreamManager(taskName.getTaskName,
+                                                  streamToTasksMapping,
+                                                  systemStreamPartitions.asJava,
+                                                  streamMetadataCache,
+                                                  collector)
+  val watermarkManager = new WatermarkManager(taskName.getTaskName,
+                                              streamToTasksMapping,
+                                              systemStreamPartitions.asJava,
+                                              streamMetadataCache,
+                                              collector)
+
   val hasIntermediateStreams = config.getStreamIds.exists(config.getIsIntermediate(_))
 
   def registerMetrics {
@@ -163,43 +180,78 @@ class TaskInstance(
     })
   }
 
-  def process(msgEnvelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator,
+  def process(envelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator,
     callbackFactory: TaskCallbackFactory = null) {
     metrics.processes.inc
 
-    if (!ssp2catchedupMapping.getOrElse(msgEnvelope.getSystemStreamPartition,
-      throw new SamzaException(msgEnvelope.getSystemStreamPartition + " is not registered!"))) {
-      checkCaughtUp(msgEnvelope)
+    if (!ssp2CaughtupMapping.getOrElse(envelope.getSystemStreamPartition,
+      throw new SamzaException(envelope.getSystemStreamPartition + " is not registered!"))) {
+      checkCaughtUp(envelope)
     }
 
-    if (ssp2catchedupMapping(msgEnvelope.getSystemStreamPartition)) {
+    if (ssp2CaughtupMapping(envelope.getSystemStreamPartition)) {
       metrics.messagesActuallyProcessed.inc
 
       trace("Processing incoming message envelope for taskName and SSP: %s, %s"
-        format (taskName, msgEnvelope.getSystemStreamPartition))
+        format (taskName, envelope.getSystemStreamPartition))
 
-      val envelope: IncomingMessageEnvelope = if (msgEnvelope.getMessage.isInstanceOf[ControlMessage]) {
-        controlManager.update(msgEnvelope)
-      } else {
-        msgEnvelope
-      }
+      MessageType.of(envelope.getMessage) match {
+        case MessageType.USER_MESSAGE =>
+          if (isAsyncTask) {
+            exceptionHandler.maybeHandle {
+             val callback = callbackFactory.createCallback()
+             task.asInstanceOf[AsyncStreamTask].processAsync(envelope, collector, coordinator, callback)
+            }
+          }
+          else {
+            exceptionHandler.maybeHandle {
+             task.asInstanceOf[StreamTask].process(envelope, collector, coordinator)
+            }
 
-      if (envelope == null) return
+            trace("Updating offset map for taskName, SSP and offset: %s, %s, %s"
+              format(taskName, envelope.getSystemStreamPartition, envelope.getOffset))
 
-      if (isAsyncTask) {
-        exceptionHandler.maybeHandle {
-          val callback = callbackFactory.createCallback()
-          task.asInstanceOf[AsyncStreamTask].processAsync(envelope, collector, coordinator, callback)
-        }
-      } else {
-        exceptionHandler.maybeHandle {
-         task.asInstanceOf[StreamTask].process(envelope, collector, coordinator)
-        }
+            offsetManager.update(taskName, envelope.getSystemStreamPartition, envelope.getOffset)
+          }
 
-        trace("Updating offset map for taskName, SSP and offset: %s, %s, %s"
-          format (taskName, envelope.getSystemStreamPartition, envelope.getOffset))
+        case MessageType.END_OF_STREAM =>
+          // currently we only support control messages on the StreamTask, which is wrapped inside
+          // AsyncStreamTaskAdaptor
+          if (isControlMessageListener) {
+            val endOfStream = endOfStreamManager.update(envelope)
+            if (endOfStream != null) {
+              // handle end-of-stream synchronously in the run loop thread.
+              val callback = callbackFactory.createCallback()
+              try {
+                task.asInstanceOf[ControlMessageListener].onEndOfStream(endOfStream, collector, coordinator)
+                callback.complete()
+              } catch {
+                case t: Throwable => callback.failure(t)
+              }
+            }
+          } else {
+            warn("End-of-stream control message is only supported on StreamTask. Ignore end-of-stream message due to %s not implementing ControlMessageListener."
+              format(task.getClass.toString))
+          }
 
-        offsetManager.update(taskName, envelope.getSystemStreamPartition, envelope.getOffset)
+        case MessageType.WATERMARK =>
+          if (isControlMessageListener) {
+            val watermark = watermarkManager.update(envelope)
+            if (watermark != null) {
+              // handle watermark synchronously in the run loop thread.
+              // we might consider running it asynchronously later
+              val callback = callbackFactory.createCallback()
+              try {
+                task.asInstanceOf[ControlMessageListener].onWatermark(watermark, collector, coordinator)
+                callback.complete()
+              } catch {
+                case t: Throwable => callback.failure(t)
+              }
+            }
+          } else {
+            warn("Ignore watermark message due to %s not implementing ControlMessageListener."
+              format(task.getClass.toString))
+          }
       }
     }
   }
@@ -276,7 +328,7 @@ class TaskInstance(
     systemAdmins match {
       case null => {
         warn("systemAdmin is null. Set all SystemStreamPartitions to catched-up")
-        ssp2catchedupMapping(envelope.getSystemStreamPartition) = true
+        ssp2CaughtupMapping(envelope.getSystemStreamPartition) = true
       }
       case others => {
         val startingOffset = offsetManager.getStartingOffset(taskName, envelope.getSystemStreamPartition)
@@ -285,12 +337,12 @@ class TaskInstance(
         others(system).offsetComparator(envelope.getOffset, startingOffset) match {
           case null => {
             info("offsets in " + system + " is not comparable. Set all SystemStreamPartitions to catched-up")
-            ssp2catchedupMapping(envelope.getSystemStreamPartition) = true // not comparable
+            ssp2CaughtupMapping(envelope.getSystemStreamPartition) = true // not comparable
           }
           case result => {
             if (result >= 0) {
               info(envelope.getSystemStreamPartition.toString + " is catched up.")
-              ssp2catchedupMapping(envelope.getSystemStreamPartition) = true
+              ssp2CaughtupMapping(envelope.getSystemStreamPartition) = true
             }
           }
         }

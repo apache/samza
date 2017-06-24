@@ -33,7 +33,6 @@ import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.message.WatermarkMessage;
-import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
@@ -41,12 +40,11 @@ import org.apache.samza.operators.util.IOGraphUtil;
 import org.apache.samza.operators.util.TestIOGraphUtil;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.system.Watermark;
 import org.apache.samza.task.MessageCollector;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -54,10 +52,11 @@ import org.mockito.ArgumentCaptor;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyLong;
+import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
@@ -76,10 +75,9 @@ public class TestWatermarkManager {
     streamToTasks.put(ssp.getSystemStream(), taskName.getTaskName());
     WatermarkManager manager = new WatermarkManager("Task 0", streamToTasks, Collections.singleton(ssp), null, null);
     long time = System.currentTimeMillis();
-    IncomingMessageEnvelope envelope = manager.update(WatermarkManager.buildWatermarkEnvelope(time, ssp));
-    assertEquals(envelope.getSystemStreamPartition(), ssp);
-    Watermark watermark = (Watermark) envelope.getMessage();
+    Watermark watermark = manager.update(WatermarkManager.buildWatermarkEnvelope(time, ssp));
     assertEquals(watermark.getTimestamp(), time);
+    assertEquals(watermark.getSystemStream(), ssp.getSystemStream());
   }
 
   @Test
@@ -109,10 +107,9 @@ public class TestWatermarkManager {
     // verify the first three messages won't result in end-of-stream
     assertEquals(manager.getWatermarkTime(ssps[0]), WatermarkManager.WATERMARK_NOT_EXIST);
     // the fourth message will generate a watermark
-    IncomingMessageEnvelope envelope = manager.update(envelopes[3]);
-    assertNotNull(envelope);
-    assertTrue(envelope.getMessage() instanceof Watermark);
-    assertEquals(((Watermark) envelope.getMessage()).getTimestamp(), 100);
+    Watermark watermark = manager.update(envelopes[3]);
+    assertNotNull(watermark);
+    assertEquals(watermark.getTimestamp(), 100);
     assertEquals(manager.getWatermarkTime(ssps[1]), WatermarkManager.WATERMARK_NOT_EXIST);
     assertEquals(manager.getWatermarkTime(ssps[2]), WatermarkManager.WATERMARK_NOT_EXIST);
 
@@ -138,31 +135,31 @@ public class TestWatermarkManager {
     }
     assertEquals(manager.getWatermarkTime(ssps[2]), WatermarkManager.WATERMARK_NOT_EXIST);
     // the fourth message will generate the watermark
-    envelope = manager.update(envelopes[3]);
-    assertNotNull(envelope);
+    watermark = manager.update(envelopes[3]);
+    assertNotNull(watermark);
     assertEquals(manager.getWatermarkTime(ssps[2]), 80L);
-    assertTrue(envelope.getMessage() instanceof Watermark);
-    assertEquals(((Watermark) envelope.getMessage()).getTimestamp(), 80L);
+    assertEquals(watermark.getTimestamp(), 80L);
   }
 
   @Test
   public void testSendWatermark() {
     SystemStream ints = new SystemStream("test-system", "int-stream");
-    SystemAdmin admin = mock(SystemAdmin.class);
     SystemStreamMetadata metadata = mock(SystemStreamMetadata.class);
-    when(admin.getSystemStreamMetadata(any())).thenReturn(Collections.singletonMap("int-stream", metadata));
     Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = new HashMap<>();
     partitionMetadata.put(new Partition(0), mock(SystemStreamMetadata.SystemStreamPartitionMetadata.class));
     partitionMetadata.put(new Partition(1), mock(SystemStreamMetadata.SystemStreamPartitionMetadata.class));
     partitionMetadata.put(new Partition(2), mock(SystemStreamMetadata.SystemStreamPartitionMetadata.class));
     partitionMetadata.put(new Partition(3), mock(SystemStreamMetadata.SystemStreamPartitionMetadata.class));
     when(metadata.getSystemStreamPartitionMetadata()).thenReturn(partitionMetadata);
+    StreamMetadataCache metadataCache = mock(StreamMetadataCache.class);
+    when(metadataCache.getSystemStreamMetadata(anyObject(), anyBoolean())).thenReturn(metadata);
+
     MessageCollector collector = mock(MessageCollector.class);
 
     WatermarkManager manager = new WatermarkManager("task 0",
         HashMultimap.create(),
         Collections.EMPTY_SET,
-        Collections.singletonMap(ints.getSystem(), admin),
+        metadataCache,
         collector);
 
     long time = System.currentTimeMillis();
@@ -191,10 +188,7 @@ public class TestWatermarkManager {
     inputs.add(new StreamSpec("input-stream-1", "input-stream-1", "test-system"));
     inputs.add(new StreamSpec("input-stream-2", "input-stream-2", "test-system"));
     Collection<IOGraphUtil.IONode> ioGraph = TestIOGraphUtil.buildSimpleIOGraphOfPartitionBy(inputs, partitionByOp);
-
-    StreamGraphImpl streamGraph = mock(StreamGraphImpl.class);
-    when(streamGraph.toIOGraph()).thenReturn(ioGraph);
-    WatermarkManager.WatermarkDispatcher dispatcher = WatermarkManager.createDispatcher(streamGraph);
+    WatermarkDispatcher dispatcher = new WatermarkDispatcher(ioGraph);
 
     SystemStream input1 = new SystemStream("test-system", "input-stream-1");
     SystemStream input2 = new SystemStream("test-system", "input-stream-2");
@@ -220,7 +214,7 @@ public class TestWatermarkManager {
     }
     WatermarkManager manager = spy(new WatermarkManager(t0.getTaskName(), streamToTasks, new HashSet<>(Arrays.asList(ssps0)), null, null));
     long time = System.currentTimeMillis();
-    Watermark watermark = manager.createWatermark(time);
+    Watermark watermark = manager.createWatermark(time, input1);
     doNothing().when(manager).sendWatermark(anyLong(), any(), anyInt());
     dispatcher.propagate(watermark, ints);
     ArgumentCaptor<Long> arg1 = ArgumentCaptor.forClass(Long.class);

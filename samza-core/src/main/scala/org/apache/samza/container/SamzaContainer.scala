@@ -560,7 +560,8 @@ object SamzaContainer extends Logging {
           reporters = reporters,
           systemStreamPartitions = systemStreamPartitions,
           exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config),
-          jobModel = jobModel)
+          jobModel = jobModel,
+          streamMetadataCache = streamMetadataCache)
 
       val taskInstance = createTaskInstance(task)
 

@@ -20,14 +20,15 @@ package org.apache.samza.operators.impl;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
+import org.apache.samza.control.WatermarkDispatcher;
 import org.apache.samza.control.WatermarkManager;
-import org.apache.samza.control.WatermarkManager.WatermarkDispatcher;
 import org.apache.samza.control.WatermarkManager.WatermarkImpl;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.system.Watermark;
+import org.apache.samza.control.Watermark;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
@@ -158,9 +159,7 @@ public abstract class OperatorImpl<M, RM> {
     long endNs = this.highResClock.nanoTime();
     this.handleTimerNs.update(endNs - startNs);
 
-    results.forEach(rm ->
-        this.registeredOperators.forEach(op ->
-            op.onMessage(rm, collector, coordinator)));
+    results.forEach(rm -> this.registeredOperators.forEach(op -> op.onMessage(rm, collector, coordinator)));
     this.registeredOperators.forEach(op ->
         op.onTimer(collector, coordinator));
   }
@@ -185,15 +184,17 @@ public abstract class OperatorImpl<M, RM> {
    *   <li>InputWatermark(op) = min { OutputWatermark(op') | op1 is upstream of op}</li>
    *   <li>OutputWatermark(op) = min { InputWatermark(op), OldestWorkTime(op) }</li>
    * </ul>
-   * @param watermark
-   * @param collector
-   * @param coordinator
+   * @param watermark incoming watermark
+   * @param dispatcher watermark dispatcher to send watermark to downstreams
+   * @param collector message collector
+   * @param coordinator task coordinator
    */
   public final void onWatermark(Watermark watermark,
       WatermarkDispatcher dispatcher,
       MessageCollector collector,
       TaskCoordinator coordinator) {
     long inputWm = watermark.getTimestamp();
+    SystemStream systemStream = watermark.getSystemStream();
     if (!prevOperators.isEmpty()) {
       // InputWatermark(op) = min { OutputWatermark(op') | op1 is upstream of op}
       inputWm = prevOperators.stream().map(op -> op.getOutputWatermarkTime()).min(Long::compare).get();
@@ -202,14 +203,14 @@ public abstract class OperatorImpl<M, RM> {
     if (inputWatermarkTime < inputWm) {
       inputWatermarkTime = inputWm;
       WatermarkManager manager = ((WatermarkImpl) watermark).getManager();
-      Watermark inputWatermark = manager.createWatermark(inputWatermarkTime);
+      Watermark inputWatermark = manager.createWatermark(inputWatermarkTime, systemStream);
       // OutputWatermark(op) = min { InputWatermark(op), OldestWorkTime(op) }
       long outputWm = Math.min(inputWatermarkTime, handleWatermark(inputWatermark, dispatcher, collector, coordinator));
 
       if (outputWatermarkTime < outputWm) {
         // populate the watermark to downstream
         outputWatermarkTime = outputWm;
-        Watermark outputWatermark = manager.createWatermark(outputWatermarkTime);
+        Watermark outputWatermark = manager.createWatermark(outputWatermarkTime, systemStream);
         this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, dispatcher, collector, coordinator));
       }
     }

@@ -21,12 +21,12 @@ package org.apache.samza.task;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.control.WatermarkManager;
-import org.apache.samza.control.WatermarkManager.WatermarkDispatcher;
-import org.apache.samza.system.EndOfStream;
-import org.apache.samza.control.EndOfStreamManager;
-import org.apache.samza.control.EndOfStreamManager.EndOfStreamDispatcher;
-import org.apache.samza.system.MessageType;
+import org.apache.samza.control.ControlMessageListener;
+import org.apache.samza.control.EndOfStream;
+import org.apache.samza.control.EndOfStreamDispatcher;
+import org.apache.samza.control.MessageType;
+import org.apache.samza.control.Watermark;
+import org.apache.samza.control.WatermarkDispatcher;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.impl.InputOperatorImpl;
@@ -34,7 +34,6 @@ import org.apache.samza.operators.impl.OperatorImplGraph;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.Watermark;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
 
@@ -43,7 +42,7 @@ import org.apache.samza.util.SystemClock;
  * A {@link StreamTask} implementation that brings all the operator API implementation components together and
  * feeds the input messages into the user-defined transformation chains in {@link StreamApplication}.
  */
-public final class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
+public final class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask, ControlMessageListener {
 
   private final StreamApplication streamApplication;
   private final ApplicationRunner runner;
@@ -96,8 +95,8 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
     // create the operator impl DAG corresponding to the logical operator spec DAG
     this.operatorImplGraph = new OperatorImplGraph(streamGraph, config, context, clock);
-    this.eosDispatcher = EndOfStreamManager.createDispatcher(streamGraph);
-    this.watermarkDispatcher = WatermarkManager.createDispatcher(streamGraph);
+    this.eosDispatcher = new EndOfStreamDispatcher(streamGraph.toIOGraph());
+    this.watermarkDispatcher = new WatermarkDispatcher(streamGraph.toIOGraph());
   }
 
   /**
@@ -114,26 +113,9 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   @Override
   public final void process(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator) {
     SystemStream systemStream = ime.getSystemStreamPartition().getSystemStream();
-    Object message = ime.getMessage();
-
-    switch (MessageType.of(message)) {
-      case DATA:
-        InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
-        if (inputOpImpl != null) {
-          inputOpImpl.onMessage(Pair.of(ime.getKey(), message), collector, coordinator);
-        }
-        break;
-
-      case END_OF_STREAM:
-        eosDispatcher.propagate((EndOfStream) message, coordinator);
-        break;
-
-      case WATERMARK:
-        inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
-        if (inputOpImpl != null) {
-          inputOpImpl.onWatermark((Watermark) message, watermarkDispatcher, collector, coordinator);
-        }
-        break;
+    InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
+    if (inputOpImpl != null) {
+      inputOpImpl.onMessage(Pair.of(ime.getKey(), ime.getMessage()), collector, coordinator);
     }
   }
 
@@ -141,6 +123,19 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   public final void window(MessageCollector collector, TaskCoordinator coordinator)  {
     operatorImplGraph.getAllInputOperators()
         .forEach(inputOperator -> inputOperator.onTimer(collector, coordinator));
+  }
+
+  @Override
+  public final void onEndOfStream(EndOfStream endOfStream, MessageCollector collector, TaskCoordinator coordinator) {
+    eosDispatcher.propagate(endOfStream, coordinator);
+  }
+
+  @Override
+  public final void onWatermark(Watermark watermark, MessageCollector collector, TaskCoordinator coordinator) {
+    InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(watermark.getSystemStream());
+    if (inputOpImpl != null) {
+      inputOpImpl.onWatermark(watermark, watermarkDispatcher, collector, coordinator);
+    }
   }
 
   @Override

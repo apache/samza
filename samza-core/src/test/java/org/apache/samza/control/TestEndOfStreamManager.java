@@ -34,17 +34,15 @@ import org.apache.samza.Partition;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.message.EndOfStreamMessage;
-import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.util.IOGraphUtil.IONode;
 import org.apache.samza.operators.util.TestIOGraphUtil;
-import org.apache.samza.system.EndOfStream;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
@@ -59,7 +57,9 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
@@ -78,10 +78,8 @@ public class TestEndOfStreamManager {
     Multimap<SystemStream, String> streamToTasks = HashMultimap.create();
     streamToTasks.put(ssp.getSystemStream(), taskName.getTaskName());
     EndOfStreamManager manager = new EndOfStreamManager("Task 0", streamToTasks, Collections.singleton(ssp), null, null);
-    IncomingMessageEnvelope envelope = manager.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssp));
-    assertEquals(envelope.getSystemStreamPartition(), ssp);
-    assertEquals(envelope.getOffset(), IncomingMessageEnvelope.END_OF_STREAM_OFFSET);
-    assertTrue(envelope.getMessage() instanceof EndOfStream);
+    EndOfStream eos = manager.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssp));
+    assertEquals(eos.getSystemStream(), ssp.getSystemStream());
   }
 
   @Test
@@ -109,11 +107,9 @@ public class TestEndOfStreamManager {
       assertFalse(manager.isEndOfStream(ssps[0].getSystemStream()));
     }
     // the fourth message will end the stream
-    IncomingMessageEnvelope envelope = manager.update(envelopes[3]);
-    assertNotNull(envelope);
-    assertEquals(envelope.getOffset(), IncomingMessageEnvelope.END_OF_STREAM_OFFSET);
-    assertTrue(envelope.getMessage() instanceof EndOfStream);
-    assertEquals(((EndOfStream) envelope.getMessage()).getSystemStream(), ssps[0].getSystemStream());
+    EndOfStream eos = manager.update(envelopes[3]);
+    assertNotNull(eos);
+    assertEquals(eos.getSystemStream(), ssps[0].getSystemStream());
     assertTrue(manager.isEndOfStream(ssps[0].getSystemStream()));
     assertFalse(manager.isEndOfStream(ssps[1].getSystemStream()));
 
@@ -135,33 +131,32 @@ public class TestEndOfStreamManager {
       assertFalse(manager.isEndOfStream(ssps[1].getSystemStream()));
     }
     // the fourth message will end the stream
-    envelope = manager.update(envelopes[3]);
-    assertNotNull(envelope);
-    assertEquals(envelope.getOffset(), IncomingMessageEnvelope.END_OF_STREAM_OFFSET);
-    assertTrue(envelope.getMessage() instanceof EndOfStream);
-    assertEquals(((EndOfStream) envelope.getMessage()).getSystemStream(), ssps[1].getSystemStream());
+    eos = manager.update(envelopes[3]);
+    assertNotNull(eos);
+    assertEquals(eos.getSystemStream(), ssps[1].getSystemStream());
     assertTrue(manager.isEndOfStream(ssps[1].getSystemStream()));
   }
 
   @Test
   public void testSendEndOfStream() {
     SystemStream ints = new SystemStream("test-system", "int-stream");
-    SystemAdmin admin = mock(SystemAdmin.class);
     SystemStreamMetadata metadata = mock(SystemStreamMetadata.class);
-    when(admin.getSystemStreamMetadata(any())).thenReturn(Collections.singletonMap("int-stream", metadata));
     Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = new HashMap<>();
     partitionMetadata.put(new Partition(0), mock(SystemStreamMetadata.SystemStreamPartitionMetadata.class));
     partitionMetadata.put(new Partition(1), mock(SystemStreamMetadata.SystemStreamPartitionMetadata.class));
     partitionMetadata.put(new Partition(2), mock(SystemStreamMetadata.SystemStreamPartitionMetadata.class));
     partitionMetadata.put(new Partition(3), mock(SystemStreamMetadata.SystemStreamPartitionMetadata.class));
     when(metadata.getSystemStreamPartitionMetadata()).thenReturn(partitionMetadata);
+    StreamMetadataCache metadataCache = mock(StreamMetadataCache.class);
+    when(metadataCache.getSystemStreamMetadata(anyObject(), anyBoolean())).thenReturn(metadata);
+
     MessageCollector collector = mock(MessageCollector.class);
 
     TaskName taskName = new TaskName("Task 0");
     EndOfStreamManager manager = new EndOfStreamManager("task 0",
         HashMultimap.create(),
         Collections.EMPTY_SET,
-        Collections.singletonMap(ints.getSystem(), admin),
+        metadataCache,
         collector);
 
     Set<Integer> partitions = new HashSet<>();
@@ -188,10 +183,7 @@ public class TestEndOfStreamManager {
     inputs.add(new StreamSpec("input-stream-1", "input-stream-1", "test-system"));
     inputs.add(new StreamSpec("input-stream-2", "input-stream-2", "test-system"));
     Collection<IONode> ioGraph = TestIOGraphUtil.buildSimpleIOGraphOfPartitionBy(inputs, partitionByOp);
-
-    StreamGraphImpl streamGraph = mock(StreamGraphImpl.class);
-    when(streamGraph.toIOGraph()).thenReturn(ioGraph);
-    EndOfStreamManager.EndOfStreamDispatcher dispatcher = EndOfStreamManager.createDispatcher(streamGraph);
+    EndOfStreamDispatcher dispatcher = new EndOfStreamDispatcher(ioGraph);
 
     SystemStream input1 = new SystemStream("test-system", "input-stream-1");
     SystemStream input2 = new SystemStream("test-system", "input-stream-2");
@@ -212,22 +204,22 @@ public class TestEndOfStreamManager {
     TaskCoordinator coordinator = mock(TaskCoordinator.class);
 
     // ssp1 end-of-stream, wait for ssp2
-    IncomingMessageEnvelope envelope = manager.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssps[0]));
-    dispatcher.propagate((EndOfStream) envelope.getMessage(), coordinator);
+    EndOfStream eos = manager.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssps[0]));
+    dispatcher.propagate(eos, coordinator);
     verify(manager, never()).sendEndOfStream(any(), anyInt());
 
     // ssp2 end-of-stream, propagate to intermediate
-    envelope = manager.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssps[1]));
+    eos = manager.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssps[1]));
     doNothing().when(manager).sendEndOfStream(any(), anyInt());
-    dispatcher.propagate((EndOfStream) envelope.getMessage(), coordinator);
+    dispatcher.propagate(eos, coordinator);
     ArgumentCaptor<SystemStream> argument = ArgumentCaptor.forClass(SystemStream.class);
     verify(manager).sendEndOfStream(argument.capture(), anyInt());
     assertEquals(ints, argument.getValue());
 
     // intermediate end-of-stream, shutdown the task
-    envelope = manager.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssps[2]));
+    eos = manager.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssps[2]));
     doNothing().when(coordinator).shutdown(any());
-    dispatcher.propagate((EndOfStream) envelope.getMessage(), coordinator);
+    dispatcher.propagate(eos, coordinator);
     ArgumentCaptor<TaskCoordinator.RequestScope> arg = ArgumentCaptor.forClass(TaskCoordinator.RequestScope.class);
     verify(coordinator).shutdown(arg.capture());
     assertEquals(TaskCoordinator.RequestScope.CURRENT_TASK, arg.getValue());
@@ -245,10 +237,7 @@ public class TestEndOfStreamManager {
     List<StreamSpec> inputs = new ArrayList<>();
     inputs.add(new StreamSpec("input-stream-1", "input-stream-1", "test-system"));
     Collection<IONode> ioGraph = TestIOGraphUtil.buildSimpleIOGraphOfPartitionBy(inputs, partitionByOp);
-
-    StreamGraphImpl streamGraph = mock(StreamGraphImpl.class);
-    when(streamGraph.toIOGraph()).thenReturn(ioGraph);
-    EndOfStreamManager.EndOfStreamDispatcher dispatcher = EndOfStreamManager.createDispatcher(streamGraph);
+    EndOfStreamDispatcher dispatcher = new EndOfStreamDispatcher(ioGraph);
 
     SystemStream input1 = new SystemStream("test-system", "input-stream-1");
     SystemStream ints = new SystemStream("test-system", "int-stream");
@@ -275,10 +264,10 @@ public class TestEndOfStreamManager {
     TaskCoordinator coordinator2 = mock(TaskCoordinator.class);
 
     // ssp1 end-of-stream
-    IncomingMessageEnvelope envelope = manager0.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssp1));
+    EndOfStream eos = manager0.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssp1));
     doNothing().when(manager0).sendEndOfStream(any(), anyInt());
     doNothing().when(coordinator1).shutdown(any());
-    dispatcher.propagate((EndOfStream) envelope.getMessage(), coordinator1);
+    dispatcher.propagate(eos, coordinator1);
     ArgumentCaptor<Integer> argument = ArgumentCaptor.forClass(Integer.class);
     verify(manager0).sendEndOfStream(any(), argument.capture());
     //verify task count is 1
@@ -289,9 +278,9 @@ public class TestEndOfStreamManager {
 
     // int1 end-of-stream
     IncomingMessageEnvelope intEos = new IncomingMessageEnvelope(ssp2, null, null, new EndOfStreamMessage(t0.getTaskName(), 1));
-    envelope = manager1.update(intEos);
+    eos = manager1.update(intEos);
     doNothing().when(coordinator2).shutdown(any());
-    dispatcher.propagate((EndOfStream) envelope.getMessage(), coordinator2);
+    dispatcher.propagate(eos, coordinator2);
     verify(manager1, never()).sendEndOfStream(any(), anyInt());
     arg = ArgumentCaptor.forClass(TaskCoordinator.RequestScope.class);
     verify(coordinator2).shutdown(arg.capture());
