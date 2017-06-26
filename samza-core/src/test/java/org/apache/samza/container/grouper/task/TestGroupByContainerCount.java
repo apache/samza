@@ -857,4 +857,33 @@ public class TestGroupByContainerCount {
     new GroupByContainerCount(3).balance(taskModels, localityManager); //Should throw
 
   }
+
+  @Test
+  public void testBalancerWithNullLocalityManager() {
+    Set<TaskModel> taskModels = generateTaskModels(3);
+    Set<ContainerModel> containers = new GroupByContainerCount(3).balance(taskModels, null);
+
+    // Results should be the same as calling group()
+    Map<String, ContainerModel> containersMap = new HashMap<>();
+    for (ContainerModel container : containers) {
+      containersMap.put(container.getProcessorId(), container);
+    }
+    assertEquals(3, containers.size());
+    ContainerModel container0 = containersMap.get("0");
+    ContainerModel container1 = containersMap.get("1");
+    ContainerModel container2 = containersMap.get("2");
+    assertNotNull(container0);
+    assertNotNull(container1);
+    assertNotNull(container2);
+    assertEquals("0", container0.getProcessorId());
+    assertEquals("1", container1.getProcessorId());
+    assertEquals("2", container2.getProcessorId());
+    assertEquals(1, container0.getTasks().size());
+    assertEquals(1, container1.getTasks().size());
+    assertEquals(1, container2.getTasks().size());
+
+    assertTrue(container0.getTasks().containsKey(getTaskName(0)));
+    assertTrue(container1.getTasks().containsKey(getTaskName(1)));
+    assertTrue(container2.getTasks().containsKey(getTaskName(2)));
+  }
 }
