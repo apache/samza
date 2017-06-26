@@ -89,6 +89,11 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
 
     validateTasks(tasks);
 
+    if (localityManager == null) {
+      log.info("Locality manager is null. Cannot read or write task assignments. Invoking grouper.");
+      return group(tasks);
+    }
+
     TaskAssignmentManager taskAssignmentManager = localityManager.getTaskAssignmentManager();
     List<TaskGroup> containers = getPreviousContainers(taskAssignmentManager, tasks.size());
     if (containers == null || containers.size() == 1 || containerCount == 1) {
