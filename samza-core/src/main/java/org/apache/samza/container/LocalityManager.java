@@ -54,6 +54,7 @@ public class LocalityManager extends AbstractCoordinatorStreamManager {
     this.taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamProducer, coordinatorStreamConsumer);
   }
 
+
   /**
    * Special constructor that creates a write-only {@link LocalityManager} that only writes
    * to coordinator stream in {@link SamzaContainer}
