@@ -30,8 +30,8 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
+import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -68,7 +68,7 @@ public class TestZkUtils {
       // Do nothing
     }
 
-    ZkJobCoordinatorMetrics metrics = new ZkJobCoordinatorMetrics(new MetricsRegistryMap());
+    ZkJobCoordinatorMetrics metrics = new ZkJobCoordinatorMetrics(new NoOpMetricsRegistry());
     zkUtils = new ZkUtils(
         KEY_BUILDER,
         zkClient,

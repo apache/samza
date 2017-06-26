@@ -23,39 +23,60 @@ package org.apache.samza.zk;
 import org.apache.samza.metrics.MetricsBase;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
-import org.apache.samza.metrics.ReadableMetricsRegistry;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 
 
 public class ZkJobCoordinatorMetrics extends MetricsBase {
 
-  private final ReadableMetricsRegistry metricsRegistry;
+  private final MetricsRegistry metricsRegistry;
 
   public final Counter reads;
   public final Counter writes;
   public final Counter subscriptions;
   public final Counter zkConnectionError;
-  public final Gauge<Integer> isLeader;
+
+  /**
+   * Denotes if the processor is a leader or not
+   */
+  public final Gauge<Boolean> isLeader;
+
+  /**
+   * Number of times a barrier was created by the leader
+   */
   public final Counter barrierCreation;
+
+  /**
+   * Number of times the barrier state changed
+   */
   public final Counter barrierStateChange;
+
+  /**
+   * Number of times the barrier encountered an error while attaining consensus on the job model version
+   */
   public final Counter barrierError;
+
+  /**
+   * Average time taken for all the processors to get the latest version of the job model after single
+   * processor change (without the occurence of a barrier timeout)
+   */
   public final Timer singleBarrierRebalancingTime;
 
-  public ZkJobCoordinatorMetrics(ReadableMetricsRegistry metricsRegistry) {
+  public ZkJobCoordinatorMetrics(MetricsRegistry metricsRegistry) {
     super(metricsRegistry);
     this.metricsRegistry = metricsRegistry;
     this.reads = newCounter("reads");
     this.writes = newCounter("writes");
     this.subscriptions = newCounter("subscriptions");
     this.zkConnectionError = newCounter("zk-connection-error");
-    this.isLeader = newGauge("is-leader", 0);
+    this.isLeader = newGauge("is-leader", false);
     this.barrierCreation = newCounter("barrier-creation");
     this.barrierStateChange = newCounter("barrier-state-change");
     this.barrierError = newCounter("barrier-error");
     this.singleBarrierRebalancingTime = newTimer("single-barrier-rebalancing-time");
   }
 
-  public ReadableMetricsRegistry getMetricsRegistry() {
+  public MetricsRegistry getMetricsRegistry() {
     return this.metricsRegistry;
   }
 

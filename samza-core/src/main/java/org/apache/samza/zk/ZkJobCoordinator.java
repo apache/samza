@@ -34,8 +34,8 @@ import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
 import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
@@ -68,14 +68,11 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
   private int debounceTimeMs;
-  long startTime;
 
-  public ZkJobCoordinator(Config config) {
+  public ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry) {
     this.config = config;
     ZkConfig zkConfig = new ZkConfig(config);
     ZkKeyBuilder keyBuilder = new ZkKeyBuilder(new ApplicationConfig(config).getAppId());
-
-    ReadableMetricsRegistry metricsRegistry = new MetricsRegistryMap();
     this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
 
     this.zkUtils = new ZkUtils(
@@ -95,7 +92,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         zkUtils,
         new ZkBarrierListenerImpl());
     this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
-    this.reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), "samza-container-" + processorId);
+    this.reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), processorId);
 
   }
 
@@ -117,8 +114,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     if (coordinatorListener != null) {
       coordinatorListener.onJobModelExpired();
     }
-
-    metrics.isLeader.set(0);
+    //Setting the isLeader metric to false when the stream processor shuts down because it does not remain the leader anymore
+    metrics.isLeader.set(false);
     debounceTimer.stopScheduler();
     zkController.stop();
 
@@ -128,15 +125,15 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     }
   }
 
-  public void startMetrics() {
-    for (MetricsReporter reporter:reporters.values()) {
-      reporter.register("samza-container-" + processorId, metrics.getMetricsRegistry());
+  private void startMetrics() {
+    for (MetricsReporter reporter: reporters.values()) {
+      reporter.register("job-coordinator-" + processorId, (ReadableMetricsRegistry) metrics.getMetricsRegistry());
       reporter.start();
     }
   }
 
-  public void shutdownMetrics() {
-    for (MetricsReporter reporter:reporters.values()) {
+  private void shutdownMetrics() {
+    for (MetricsReporter reporter: reporters.values()) {
       reporter.stop();
     }
   }
@@ -168,9 +165,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     // if list of processors is empty - it means we are called from 'onBecomeLeader'
     // TODO: Handle empty currentProcessorIds or duplicate processorIds in the list
     List<String> currentProcessorIds = getActualProcessorIds(processors);
-
-    // Start the timer for rebalancing
-    startTime = System.nanoTime();
 
     // Generate the JobModel
     JobModel jobModel = generateNewJobModel(currentProcessorIds);
@@ -267,7 +261,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     @Override
     public void onBecomingLeader() {
       LOG.info("ZkJobCoordinator::onBecomeLeader - I became the leader!");
-      metrics.isLeader.set(1);
+      metrics.isLeader.set(true);
       zkController.subscribeToProcessorChange();
       debounceTimer.scheduleAfterDebounceTime(
         ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE,
@@ -280,8 +274,13 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   class ZkBarrierListenerImpl implements ZkBarrierListener {
     private final String barrierAction = "BarrierAction";
+    private long startTime = 0;
+
     @Override
     public void onBarrierCreated(String version) {
+      // Start the timer for rebalancing
+      startTime = System.nanoTime();
+
       metrics.barrierCreation.inc();
       debounceTimer.scheduleAfterDebounceTime(
           barrierAction,
@@ -305,6 +304,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
           // In our consensus model, if the Barrier is timed-out, then it means that one or more initial
           // participants failed to join. That means, they should have de-registered from "processors" list
           // and that would have triggered onProcessorChange action -> a new round of consensus.
+          metrics.singleBarrierRebalancingTime.update(System.nanoTime() - startTime);
           LOG.info("Barrier for version " + version + " timed out.");
         }
       }

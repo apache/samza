@@ -641,7 +641,7 @@ class SamzaContainer(
     try {
       info("Starting container.")
 
-      var startTime = System.nanoTime()
+      val startTime = System.nanoTime()
       status = SamzaContainerStatus.STARTING
 
       jmxServer = new JmxServer()
