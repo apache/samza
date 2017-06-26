@@ -40,10 +40,16 @@ public class StreamEdge {
 
   private String name = "";
   private int partitions = PARTITIONS_UNKNOWN;
+  private final boolean isIntermediate;
 
   StreamEdge(StreamSpec streamSpec) {
+    this(streamSpec, false);
+  }
+
+  StreamEdge(StreamSpec streamSpec, boolean isIntermediate) {
     this.streamSpec = streamSpec;
     this.name = Util.getNameFromSystemStream(getSystemStream());
+    this.isIntermediate = isIntermediate;
   }
 
   void addSourceNode(JobNode sourceNode) {
@@ -92,5 +98,9 @@ public class StreamEdge {
 
   void setName(String name) {
     this.name = name;
+  }
+
+  boolean isIntermediate() {
+    return isIntermediate;
   }
 }

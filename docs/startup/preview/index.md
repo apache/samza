@@ -60,7 +60,7 @@ For a deeper dive into the high level API, see [high level API section](#high-le
 
 #### II. ApplicationRunner
 
-Samza uses an [ApplicationRunner]((/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/runtime/ApplicationRunner.html)) to run a stream application. The ApplicationRunner generates the configs (such as input/output streams), creates intermediate streams, and starts the execution. There are two types of ApplicationRunner:
+Samza uses an [ApplicationRunner](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/runtime/ApplicationRunner.html) to run a stream application. The ApplicationRunner generates the configs (such as input/output streams), creates intermediate streams, and starts the execution. There are two types of ApplicationRunner:
 
 **RemoteApplicationRunner** - submits the application to a remote cluster. This runner is invoked via the _run-app.sh_ script. To use RemoteApplicationRunner, set the following configurations
 
@@ -116,7 +116,7 @@ For more details on running Samza in embedded mode, take a look at the [flexible
 
 #### IV. Processor
 
-The lowest execution unit of a Samza application is the processor. It reads the configs generated from the [ApplicationRunner](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/runtime/ApplicationRunner.html) and processes the input stream partitions assigned by the JobCoordinator. It can access local state using a [KeyValueStore]((/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/storage/KeyValueStore.html)) implementation (e.g. RocksDB or in-memory) and remote state (e.g. REST service) using multithreading.
+The lowest execution unit of a Samza application is the processor. It reads the configs generated from the [ApplicationRunner](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/runtime/ApplicationRunner.html) and processes the input stream partitions assigned by the JobCoordinator. It can access local state using a [KeyValueStore](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/storage/KeyValueStore.html) implementation (e.g. RocksDB or in-memory) and remote state (e.g. REST service) using multithreading.
 
 ---
 
@@ -528,3 +528,4 @@ Take note of the following issues with the embedded deployment feature for the 0
     * Leader reelections
     * more..
 * The LocalApplicationRunner does not yet support the low level API. This means you cannot use StreamTask with LocalApplicationRunner.
+* Currently, 'app.id' config must be unique for all the application using this zk cluster.

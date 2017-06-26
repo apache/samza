@@ -16,14 +16,37 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.data;
 
-public class TestExtOutputMessageEnvelope extends TestOutputMessageEnvelope {
-  private final String outputId;
+package org.apache.samza.message;
 
-  public TestExtOutputMessageEnvelope(String key, Integer value, String outputId) {
-    super(key, value);
-    this.outputId = outputId;
+/**
+ * The abstract class of all control messages, containing
+ * the task that produces the control message, the total number of producer tasks,
+ * and a version number.
+ */
+public abstract class ControlMessage {
+  private final String taskName;
+  private final int taskCount;
+  private int version = 1;
+
+  public ControlMessage(String taskName, int taskCount) {
+    this.taskName = taskName;
+    this.taskCount = taskCount;
   }
 
+  public String getTaskName() {
+    return taskName;
+  }
+
+  public int getTaskCount() {
+    return taskCount;
+  }
+
+  public void setVersion(int version) {
+    this.version = version;
+  }
+
+  public int getVersion() {
+    return version;
+  }
 }

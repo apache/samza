@@ -17,40 +17,20 @@
  * under the License.
  */
 
-package org.apache.samza.clustermanager;
+package org.apache.samza.message;
 
-import org.apache.samza.coordinator.server.HttpServer;
-import org.eclipse.jetty.servlet.ServletHolder;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
-import java.net.MalformedURLException;
-import java.net.URL;
+/**
+ *  The EndOfStreamMessage is a control message that is sent out to next stage
+ *  once the task has consumed to the end of a bounded stream.
+ */
+public class EndOfStreamMessage extends ControlMessage {
 
-public class MockHttpServer extends HttpServer {
-
-  public MockHttpServer(String rootPath, int port, String resourceBasePath, ServletHolder defaultHolder) {
-    super(rootPath, port, resourceBasePath, defaultHolder);
-    start();
-  }
-
-  @Override
-  public void start() {
-    super.running_$eq(true);
-  }
-
-  @Override
-  public void stop() {
-    super.running_$eq(false);
-  }
-
-  @Override
-  public URL getUrl() {
-    if (running()) {
-      try {
-        return new URL("http://localhost:12345/");
-      } catch (MalformedURLException mue) {
-        mue.printStackTrace();
-      }
-    }
-    return null;
+  @JsonCreator
+  public EndOfStreamMessage(@JsonProperty("task-name") String taskName,
+                            @JsonProperty("task-count") int taskCount) {
+    super(taskName, taskCount);
   }
 }

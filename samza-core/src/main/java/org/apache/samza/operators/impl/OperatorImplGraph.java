@@ -18,156 +18,135 @@
  */
 package org.apache.samza.operators.impl;
 
+import com.google.common.collect.Lists;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.operators.functions.PartialJoinFunction;
+import org.apache.samza.operators.spec.InputOperatorSpec;
+import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
-import org.apache.samza.operators.spec.PartialJoinOperatorSpec;
+import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
+import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
+import org.apache.samza.operators.util.InternalInMemoryStore;
+import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.Clock;
-import org.apache.samza.util.SystemClock;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 
 /**
- * Instantiates the DAG of {@link OperatorImpl}s corresponding to the {@link OperatorSpec}s for the input
- * {@link MessageStreamImpl}s.
+ * The DAG of {@link OperatorImpl}s corresponding to the DAG of {@link OperatorSpec}s.
  */
 public class OperatorImplGraph {
 
   /**
-   * A mapping from {@link OperatorSpec}s to their {@link OperatorImpl}s in this graph. Used to avoid creating
-   * multiple {@link OperatorImpl}s for an {@link OperatorSpec}, e.g., when it's reached from different
-   * input {@link MessageStreamImpl}s.
+   * A mapping from operator names to their {@link OperatorImpl}s in this graph. Used to avoid creating
+   * multiple {@link OperatorImpl}s for an {@link OperatorSpec} when it's reached from different
+   * {@link OperatorSpec}s during DAG traversals (e.g., for the merge operator).
+   * We use a LHM for deterministic ordering in initializing and closing operators.
    */
-  private final Map<OperatorSpec, OperatorImpl> operatorImpls = new HashMap<>();
+  private final Map<String, OperatorImpl> operatorImpls = new LinkedHashMap<>();
 
   /**
-   * A mapping from input {@link SystemStream}s to their {@link OperatorImpl} sub-DAG in this graph.
+   * A mapping from input {@link SystemStream}s to their {@link InputOperatorImpl} sub-DAG in this graph.
    */
-  private final Map<SystemStream, RootOperatorImpl> rootOperators = new HashMap<>();
+  private final Map<SystemStream, InputOperatorImpl> inputOperators = new HashMap<>();
+
+  /**
+   * A mapping from {@link JoinOperatorSpec}s to their two {@link PartialJoinFunction}s. Used to associate
+   * the two {@link PartialJoinOperatorImpl}s for a {@link JoinOperatorSpec} with each other since they're
+   * reached from different {@link OperatorSpec} during DAG traversals.
+   */
+  private final Map<Integer, Pair<PartialJoinFunction, PartialJoinFunction>> joinFunctions = new HashMap<>();
 
   private final Clock clock;
 
-  public OperatorImplGraph(Clock clock) {
-    this.clock = clock;
-  }
-
-  /* package private */ OperatorImplGraph() {
-    this(SystemClock.instance());
-  }
-
   /**
-   * Initialize the DAG of {@link OperatorImpl}s for the input {@link MessageStreamImpl} in the provided
-   * {@link StreamGraphImpl}.
+   * Constructs the DAG of {@link OperatorImpl}s corresponding to the the DAG of {@link OperatorSpec}s
+   * in the {@code streamGraph}.
    *
-   * @param streamGraph  the logical {@link StreamGraphImpl}
+   * @param streamGraph  the {@link StreamGraphImpl} containing the logical {@link OperatorSpec} DAG
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
+   * @param clock  the {@link Clock} to get current time
    */
-  public void init(StreamGraphImpl streamGraph, Config config, TaskContext context) {
-    streamGraph.getInputStreams().forEach((streamSpec, inputStream) -> {
+  public OperatorImplGraph(StreamGraphImpl streamGraph, Config config, TaskContext context, Clock clock) {
+    this.clock = clock;
+    streamGraph.getInputOperators().forEach((streamSpec, inputOpSpec) -> {
         SystemStream systemStream = new SystemStream(streamSpec.getSystemName(), streamSpec.getPhysicalName());
-        this.rootOperators.put(systemStream, this.createOperatorImpls((MessageStreamImpl) inputStream, config, context));
+        InputOperatorImpl inputOperatorImpl =
+            (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, config, context);
+        this.inputOperators.put(systemStream, inputOperatorImpl);
       });
   }
 
   /**
-   * Get the {@link RootOperatorImpl} corresponding to the provided input {@code systemStream}.
+   * Get the {@link InputOperatorImpl} corresponding to the provided input {@code systemStream}.
    *
    * @param systemStream  input {@link SystemStream}
-   * @return  the {@link RootOperatorImpl} that starts processing the input message
+   * @return  the {@link InputOperatorImpl} that starts processing the input message
    */
-  public RootOperatorImpl getRootOperator(SystemStream systemStream) {
-    return this.rootOperators.get(systemStream);
+  public InputOperatorImpl getInputOperator(SystemStream systemStream) {
+    return this.inputOperators.get(systemStream);
+  }
+
+  public void close() {
+    List<OperatorImpl> initializationOrder = new ArrayList<>(operatorImpls.values());
+    List<OperatorImpl> finalizationOrder = Lists.reverse(initializationOrder);
+    finalizationOrder.forEach(OperatorImpl::close);
   }
 
   /**
-   * Get all {@link RootOperatorImpl}s for the graph.
+   * Get all {@link InputOperatorImpl}s for the graph.
    *
-   * @return  an unmodifiable view of all {@link RootOperatorImpl}s for the graph
+   * @return  an unmodifiable view of all {@link InputOperatorImpl}s for the graph
    */
-  public Collection<RootOperatorImpl> getAllRootOperators() {
-    return Collections.unmodifiableCollection(this.rootOperators.values());
+  public Collection<InputOperatorImpl> getAllInputOperators() {
+    return Collections.unmodifiableCollection(this.inputOperators.values());
   }
 
   /**
-   * Get all {@link OperatorImpl}s for the graph.
+   * Traverses the DAG of {@link OperatorSpec}s starting from the provided {@link OperatorSpec},
+   * creates the corresponding DAG of {@link OperatorImpl}s, and returns the root {@link OperatorImpl} node.
    *
-   * @return  an unmodifiable view of all {@link OperatorImpl}s for the graph
-   */
-  public Collection<OperatorImpl> getAllOperators() {
-    return Collections.unmodifiableCollection(this.operatorImpls.values());
-  }
-
-  /**
-   * Traverses the DAG of {@link OperatorSpec}s starting from the provided {@link MessageStreamImpl},
-   * creates the corresponding DAG of {@link OperatorImpl}s, and returns its root {@link RootOperatorImpl} node.
-   *
-   * @param source  the input {@link MessageStreamImpl} to instantiate {@link OperatorImpl}s for
-   * @param config  the {@link Config} required to instantiate operators
-   * @param context  the {@link TaskContext} required to instantiate operators
-   * @param <M>  the type of messages in the {@code source} {@link MessageStreamImpl}
-   * @return  root node for the {@link OperatorImpl} DAG
-   */
-  private <M> RootOperatorImpl<M> createOperatorImpls(MessageStreamImpl<M> source,
-      Config config, TaskContext context) {
-    // since the source message stream might have multiple operator specs registered on it,
-    // create a new root node as a single point of entry for the DAG.
-    RootOperatorImpl<M> rootOperator = new RootOperatorImpl<>();
-    rootOperator.init(config, context);
-    // create the pipeline/topology starting from the source
-    source.getRegisteredOperatorSpecs().forEach(registeredOperator -> {
-        // pass in the context so that operator implementations can initialize their functions
-        OperatorImpl<M, ?> operatorImpl =
-            createAndRegisterOperatorImpl(registeredOperator, config, context);
-        rootOperator.registerNextOperator(operatorImpl);
-      });
-    return rootOperator;
-  }
-
-  /**
-   * Helper method to recursively traverse the {@link OperatorSpec} DAG and instantiate and link the corresponding
-   * {@link OperatorImpl}s.
-   *
+   * @param prevOperatorSpec  the parent of the current {@code operatorSpec} in the traversal
    * @param operatorSpec  the operatorSpec to create the {@link OperatorImpl} for
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
-   * @param <M>  type of input message
    * @return  the operator implementation for the operatorSpec
    */
-  private <M> OperatorImpl<M, ?> createAndRegisterOperatorImpl(OperatorSpec operatorSpec,
+  OperatorImpl createAndRegisterOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
       Config config, TaskContext context) {
-    if (!operatorImpls.containsKey(operatorSpec)) {
-      OperatorImpl<M, ?> operatorImpl = createOperatorImpl(operatorSpec, config, context);
-      if (operatorImpls.putIfAbsent(operatorSpec, operatorImpl) == null) {
-        // this is the first time we've added the operatorImpl corresponding to the operatorSpec,
-        // so traverse and initialize and register the rest of the DAG.
-        // initialize the corresponding operator function
-        operatorImpl.init(config, context);
-        MessageStreamImpl nextStream = operatorSpec.getNextStream();
-        if (nextStream != null) {
-          Collection<OperatorSpec> registeredSpecs = nextStream.getRegisteredOperatorSpecs();
-          registeredSpecs.forEach(registeredSpec -> {
-              OperatorImpl subImpl = createAndRegisterOperatorImpl(registeredSpec, config, context);
-              operatorImpl.registerNextOperator(subImpl);
-            });
-        }
-        return operatorImpl;
-      }
-    }
+    if (!operatorImpls.containsKey(operatorSpec) || operatorSpec instanceof JoinOperatorSpec) {
+      // Either this is the first time we've seen this operatorSpec, or this is a join operator spec
+      // and we need to create 2 partial join operator impls for it. Initialize and register the sub-DAG.
+      OperatorImpl operatorImpl = createOperatorImpl(prevOperatorSpec, operatorSpec, config, context);
+      operatorImpl.init(config, context);
+      operatorImpls.put(operatorImpl.getOperatorName(), operatorImpl);
 
-    // the implementation corresponding to operatorSpec has already been instantiated
-    // and registered, so we do not need to traverse the DAG further.
-    return operatorImpls.get(operatorSpec);
+      Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
+      registeredSpecs.forEach(registeredSpec -> {
+          OperatorImpl nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, config, context);
+          operatorImpl.registerNextOperator(nextImpl);
+        });
+      return operatorImpl;
+    } else {
+      // the implementation corresponding to operatorSpec has already been instantiated
+      // and registered, so we do not need to traverse the DAG further.
+      return operatorImpls.get(operatorSpec);
+    }
   }
 
   /**
@@ -176,20 +155,96 @@ public class OperatorImplGraph {
    * @param operatorSpec  the immutable {@link OperatorSpec} definition.
    * @param config  the {@link Config} required to instantiate operators
    * @param context  the {@link TaskContext} required to instantiate operators
-   * @param <M>  type of input message
    * @return  the {@link OperatorImpl} implementation instance
    */
-  private <M> OperatorImpl<M, ?> createOperatorImpl(OperatorSpec operatorSpec, Config config, TaskContext context) {
-    if (operatorSpec instanceof StreamOperatorSpec) {
-      return new StreamOperatorImpl<>((StreamOperatorSpec<M, ?>) operatorSpec, config, context);
+  OperatorImpl createOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec,
+      Config config, TaskContext context) {
+    if (operatorSpec instanceof InputOperatorSpec) {
+      return new InputOperatorImpl((InputOperatorSpec) operatorSpec);
+    } else if (operatorSpec instanceof StreamOperatorSpec) {
+      return new StreamOperatorImpl((StreamOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof SinkOperatorSpec) {
-      return new SinkOperatorImpl<>((SinkOperatorSpec<M>) operatorSpec, config, context);
+      return new SinkOperatorImpl((SinkOperatorSpec) operatorSpec, config, context);
+    } else if (operatorSpec instanceof OutputOperatorSpec) {
+      return new OutputOperatorImpl((OutputOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
-      return new WindowOperatorImpl((WindowOperatorSpec<M, ?, ?>) operatorSpec, clock);
-    } else if (operatorSpec instanceof PartialJoinOperatorSpec) {
-      return new PartialJoinOperatorImpl<>((PartialJoinOperatorSpec) operatorSpec, config, context, clock);
+      return new WindowOperatorImpl((WindowOperatorSpec) operatorSpec, clock);
+    } else if (operatorSpec instanceof JoinOperatorSpec) {
+      return createPartialJoinOperatorImpl(prevOperatorSpec, (JoinOperatorSpec) operatorSpec, config, context, clock);
     }
     throw new IllegalArgumentException(
         String.format("Unsupported OperatorSpec: %s", operatorSpec.getClass().getName()));
+  }
+
+  private PartialJoinOperatorImpl createPartialJoinOperatorImpl(OperatorSpec prevOperatorSpec,
+      JoinOperatorSpec joinOpSpec, Config config, TaskContext context, Clock clock) {
+    Pair<PartialJoinFunction, PartialJoinFunction> partialJoinFunctions = getOrCreatePartialJoinFunctions(joinOpSpec);
+
+    if (joinOpSpec.getLeftInputOpSpec().equals(prevOperatorSpec)) { // we got here from the left side of the join
+      return new PartialJoinOperatorImpl(joinOpSpec, /* isLeftSide */ true,
+          partialJoinFunctions.getLeft(), partialJoinFunctions.getRight(), config, context, clock);
+    } else { // we got here from the right side of the join
+      return new PartialJoinOperatorImpl(joinOpSpec, /* isLeftSide */ false,
+          partialJoinFunctions.getRight(), partialJoinFunctions.getLeft(), config, context, clock);
+    }
+  }
+
+  private Pair<PartialJoinFunction, PartialJoinFunction> getOrCreatePartialJoinFunctions(JoinOperatorSpec joinOpSpec) {
+    return joinFunctions.computeIfAbsent(joinOpSpec.getOpId(),
+        joinOpId -> Pair.of(createLeftJoinFn(joinOpSpec.getJoinFn()), createRightJoinFn(joinOpSpec.getJoinFn())));
+  }
+
+  private PartialJoinFunction<Object, Object, Object, Object> createLeftJoinFn(JoinFunction joinFn) {
+    return new PartialJoinFunction<Object, Object, Object, Object>() {
+      private KeyValueStore<Object, PartialJoinMessage<Object>> leftStreamState = new InternalInMemoryStore<>();
+
+      @Override
+      public Object apply(Object m, Object jm) {
+        return joinFn.apply(m, jm);
+      }
+
+      @Override
+      public Object getKey(Object message) {
+        return joinFn.getFirstKey(message);
+      }
+
+      @Override
+      public KeyValueStore<Object, PartialJoinMessage<Object>> getState() {
+        return leftStreamState;
+      }
+
+      @Override
+      public void init(Config config, TaskContext context) {
+        // user-defined joinFn should only be initialized once, so we do it only in left partial join function.
+        joinFn.init(config, context);
+      }
+
+      @Override
+      public void close() {
+        // joinFn#close() must only be called once, so we do it it only in left partial join function.
+        joinFn.close();
+      }
+    };
+  }
+
+  private PartialJoinFunction<Object, Object, Object, Object> createRightJoinFn(JoinFunction joinFn) {
+    return new PartialJoinFunction<Object, Object, Object, Object>() {
+      private KeyValueStore<Object, PartialJoinMessage<Object>> rightStreamState = new InternalInMemoryStore<>();
+
+      @Override
+      public Object apply(Object m, Object jm) {
+        return joinFn.apply(jm, m);
+      }
+
+      @Override
+      public Object getKey(Object message) {
+        return joinFn.getSecondKey(message);
+      }
+
+      @Override
+      public KeyValueStore<Object, PartialJoinMessage<Object>> getState() {
+        return rightStreamState;
+      }
+    };
   }
 }

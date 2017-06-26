@@ -16,22 +16,41 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.data;
 
-public class MessageType {
-  private final String value;
-  private final long eventTime;
+package org.apache.samza.testUtils;
 
-  public MessageType(String value, long eventTime) {
-    this.value = value;
-    this.eventTime = eventTime;
+import org.apache.samza.coordinator.server.HttpServer;
+import org.eclipse.jetty.servlet.ServletHolder;
+
+import java.net.MalformedURLException;
+import java.net.URL;
+
+public class MockHttpServer extends HttpServer {
+
+  public MockHttpServer(String rootPath, int port, String resourceBasePath, ServletHolder defaultHolder) {
+    super(rootPath, port, resourceBasePath, defaultHolder);
+    start();
   }
 
-  public long getEventTime() {
-    return eventTime;
+  @Override
+  public void start() {
+    super.running_$eq(true);
   }
 
-  public String getValue() {
-    return value;
+  @Override
+  public void stop() {
+    super.running_$eq(false);
+  }
+
+  @Override
+  public URL getUrl() {
+    if (running()) {
+      try {
+        return new URL("http://localhost:12345/");
+      } catch (MalformedURLException mue) {
+        mue.printStackTrace();
+      }
+    }
+    return null;
   }
 }

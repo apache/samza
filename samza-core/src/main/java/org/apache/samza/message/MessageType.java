@@ -16,30 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators.stream;
 
-import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.system.StreamSpec;
+package org.apache.samza.message;
 
-import java.util.function.BiFunction;
+/**
+ * The type of the intermediate stream message. The enum will be encoded using its ordinal value and
+ * put in the first byte of the serialization of intermediate message.
+ * For more details, see {@link org.apache.samza.serializers.IntermediateMessageSerde}
+ */
+public enum MessageType {
+  USER_MESSAGE,
+  WATERMARK,
+  END_OF_STREAM;
 
-public class InputStreamInternalImpl<K, V, M> extends MessageStreamImpl<M> implements InputStreamInternal<K, V, M> {
-
-  private final StreamSpec streamSpec;
-  private final BiFunction<K, V, M> msgBuilder;
-
-  public InputStreamInternalImpl(StreamGraphImpl graph, StreamSpec streamSpec, BiFunction<K, V, M> msgBuilder) {
-    super(graph);
-    this.streamSpec = streamSpec;
-    this.msgBuilder = msgBuilder;
-  }
-
-  public StreamSpec getStreamSpec() {
-    return this.streamSpec;
-  }
-
-  public BiFunction<K, V, M> getMsgBuilder() {
-    return this.msgBuilder;
+  /**
+   * Returns the {@link MessageType} of a particular intermediate stream message.
+   * @param message an intermediate stream message
+   * @return type of the message
+   */
+  public static MessageType of(Object message) {
+    if (message instanceof WatermarkMessage) {
+      return WATERMARK;
+    } else if (message instanceof EndOfStreamMessage) {
+      return END_OF_STREAM;
+    } else {
+      return USER_MESSAGE;
+    }
   }
 }

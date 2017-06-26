@@ -53,7 +53,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   // with locality. Since host-affinity is not yet implemented, this can be fixed as part of SAMZA-1197
   private static final int METADATA_CACHE_TTL_MS = 5000;
 
-
   private final ZkUtils zkUtils;
   private final String processorId;
   private final ZkController zkController;
@@ -74,7 +73,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     ZkConfig zkConfig = new ZkConfig(config);
     ZkKeyBuilder keyBuilder = new ZkKeyBuilder(new ApplicationConfig(config).getAppId());
     this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
-
     this.zkUtils = new ZkUtils(
         keyBuilder,
         ZkCoordinationServiceFactory.createZkClient(

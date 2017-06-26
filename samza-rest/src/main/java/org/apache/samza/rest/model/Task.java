@@ -134,4 +134,9 @@ public class Task {
     result = 31 * result + storeNames.hashCode();
     return result;
   }
+
+  @Override
+  public String toString() {
+    return String.format("taskName:%s container:%s preferredHost:%s stores:%s", taskName, containerId, preferredHost, storeNames.toString());
+  }
 }

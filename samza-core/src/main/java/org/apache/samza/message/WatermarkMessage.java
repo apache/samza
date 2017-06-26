@@ -16,34 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+
+package org.apache.samza.message;
+
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 /**
- * Wraps the value stored for a particular {@link org.apache.samza.operators.windows.WindowKey} with additional metadata.
+ *  The WatermarkMessage is a control message that is sent out to next stage
+ *  with a watermark timestamp and the task that produces the watermark.
  */
-public class WindowState<WV> {
+public class WatermarkMessage extends ControlMessage {
+  private final long timestamp;
 
-  final WV wv;
-  /**
-   * Time of the first message in the window
-   */
-  final long earliestRecvTime;
-
-  public WindowState(WV wv, long earliestRecvTime) {
-    this.wv = wv;
-    this.earliestRecvTime = earliestRecvTime;
+  @JsonCreator
+  public WatermarkMessage(@JsonProperty("timestamp") long timestamp,
+                          @JsonProperty("task-name") String taskName,
+                          @JsonProperty("task-count") int taskCount) {
+    super(taskName, taskCount);
+    this.timestamp = timestamp;
   }
 
-  public WV getWindowValue() {
-    return wv;
-  }
-
-  public long getEarliestTimestamp() {
-    return earliestRecvTime;
-  }
-
-  @Override
-  public String toString() {
-    return String.format("WindowState: {time=%d, value=%s}", earliestRecvTime, wv);
+  public long getTimestamp() {
+    return timestamp;
   }
 }
