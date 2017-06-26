@@ -35,8 +35,11 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -48,18 +51,18 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class TestStreamProcessor {
-  private Map<String, Boolean> processorListenerState;
-  private static final String ON_START = "onStart";
-  private static final String ON_SHUTDOWN = "onShutdown";
-  private static final String ON_FAILURE = "onFailure";
+  private ConcurrentMap<Listener_Callback, Boolean> processorListenerState;
+  private enum Listener_Callback {
+    ON_START, ON_SHUTDOWN, ON_FAILURE
+  }
 
   @Before
   public void before() {
-    processorListenerState = new HashMap<String, Boolean>() {
+    processorListenerState = new ConcurrentHashMap<Listener_Callback, Boolean>() {
       {
-        put(ON_START, false);
-        put(ON_FAILURE, false);
-        put(ON_SHUTDOWN, false);
+        put(Listener_Callback.ON_START, false);
+        put(Listener_Callback.ON_FAILURE, false);
+        put(Listener_Callback.ON_SHUTDOWN, false);
       }
     };
   }
@@ -112,6 +115,11 @@ public class TestStreamProcessor {
       }
       return container;
     }
+
+    SamzaContainerStatus getContainerStatus() {
+      if (container != null)  return container.getStatus();
+      return null;
+    }
   }
 
   private JobModel getMockJobModel() {
@@ -139,19 +147,19 @@ public class TestStreamProcessor {
         new StreamProcessorLifecycleListener() {
           @Override
           public void onStart() {
-            processorListenerState.put(ON_START, true);
+            processorListenerState.put(Listener_Callback.ON_START, true);
             processorListenerStart.countDown();
           }
 
           @Override
           public void onShutdown() {
-            processorListenerState.put(ON_SHUTDOWN, true);
+            processorListenerState.put(Listener_Callback.ON_SHUTDOWN, true);
             processorListenerStop.countDown();
           }
 
           @Override
           public void onFailure(Throwable t) {
-            processorListenerState.put(ON_FAILURE, true);
+            processorListenerState.put(Listener_Callback.ON_FAILURE, true);
           }
         },
         mockJobCoordinator,
@@ -184,7 +192,7 @@ public class TestStreamProcessor {
     processor.start();
     processorListenerStart.await();
 
-    Assert.assertEquals(SamzaContainerStatus.STARTED, processor.container.getStatus());
+    Assert.assertEquals(SamzaContainerStatus.STARTED, processor.getContainerStatus());
 
     // This block is required for the mockRunloop is actually start.
     // Otherwise, processor.stop gets triggered before mockRunloop begins to block
@@ -195,9 +203,9 @@ public class TestStreamProcessor {
     processorListenerStop.await();
 
     // Assertions on which callbacks are expected to be invoked
-    Assert.assertTrue(processorListenerState.get(ON_START));
-    Assert.assertTrue(processorListenerState.get(ON_SHUTDOWN));
-    Assert.assertFalse(processorListenerState.get(ON_FAILURE));
+    Assert.assertTrue(processorListenerState.get(Listener_Callback.ON_START));
+    Assert.assertTrue(processorListenerState.get(Listener_Callback.ON_SHUTDOWN));
+    Assert.assertFalse(processorListenerState.get(Listener_Callback.ON_FAILURE));
   }
 
   /**
@@ -236,17 +244,17 @@ public class TestStreamProcessor {
         new StreamProcessorLifecycleListener() {
           @Override
           public void onStart() {
-            processorListenerState.put(ON_START, true);
+            processorListenerState.put(Listener_Callback.ON_START, true);
           }
 
           @Override
           public void onShutdown() {
-            processorListenerState.put(ON_SHUTDOWN, true);
+            processorListenerState.put(Listener_Callback.ON_SHUTDOWN, true);
           }
 
           @Override
           public void onFailure(Throwable t) {
-            processorListenerState.put(ON_FAILURE, true);
+            processorListenerState.put(Listener_Callback.ON_FAILURE, true);
             actualThrowable.getAndSet(t);
             processorListenerFailed.countDown();
           }
@@ -286,9 +294,9 @@ public class TestStreamProcessor {
         processorListenerFailed.await(30, TimeUnit.SECONDS));
     Assert.assertEquals(expectedThrowable, actualThrowable.get());
 
-    Assert.assertFalse(processorListenerState.get(ON_SHUTDOWN));
-    Assert.assertTrue(processorListenerState.get(ON_START));
-    Assert.assertTrue(processorListenerState.get(ON_FAILURE));
+    Assert.assertFalse(processorListenerState.get(Listener_Callback.ON_SHUTDOWN));
+    Assert.assertTrue(processorListenerState.get(Listener_Callback.ON_START));
+    Assert.assertTrue(processorListenerState.get(Listener_Callback.ON_FAILURE));
   }
 
   // TODO:
