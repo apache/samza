@@ -46,12 +46,6 @@ public class GroupByContainerIds implements TaskNameGrouper {
 
   @Override
   public Set<ContainerModel> group(Set<TaskModel> tasks) {
-    if (tasks.isEmpty())
-      throw new IllegalArgumentException("cannot group an empty set");
-
-    if (startContainerCount > tasks.size())
-      throw new IllegalArgumentException("number of containers="  + startContainerCount + " is bigger than number of tasks=" + tasks.size());
-
     List<String> containerIds = new ArrayList<>(startContainerCount);
     for (int i = 0; i < startContainerCount; i++) {
       containerIds.add(String.valueOf(i));
@@ -60,15 +54,18 @@ public class GroupByContainerIds implements TaskNameGrouper {
   }
 
   public Set<ContainerModel> group(Set<TaskModel> tasks, List<String> containersIds) {
+    if (containersIds == null)
+      return this.group(tasks);
+
+    if (containersIds.isEmpty())
+      throw new IllegalArgumentException("Must have at least one container");
+
     if (tasks.isEmpty())
       throw new IllegalArgumentException("cannot group an empty set. containersIds=" + Arrays
           .toString(containersIds.toArray()));
 
     if (containersIds.size() > tasks.size())
       throw new IllegalArgumentException("number of containers "  + containersIds.size() + " is bigger than number of tasks " + tasks.size());
-
-    if (containersIds == null)
-      return this.group(tasks);
 
     int containerCount = containersIds.size();
 
