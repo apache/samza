@@ -68,11 +68,10 @@ public class TestZkUtils {
       // Do nothing
     }
 
-    ZkJobCoordinatorMetrics metrics = new ZkJobCoordinatorMetrics(new NoOpMetricsRegistry());
     zkUtils = new ZkUtils(
         KEY_BUILDER,
         zkClient,
-        SESSION_TIMEOUT_MS, metrics);
+        SESSION_TIMEOUT_MS, new ZkJobCoordinatorMetrics(new NoOpMetricsRegistry()));
 
     zkUtils.connect();
   }

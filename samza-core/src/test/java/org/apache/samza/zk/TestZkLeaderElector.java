@@ -434,10 +434,9 @@ public class TestZkLeaderElector {
 
   private ZkUtils getZkUtilsWithNewClient() {
     ZkClient zkClient = ZkCoordinationServiceFactory.createZkClient(testZkConnectionString, SESSION_TIMEOUT_MS, CONNECTION_TIMEOUT_MS);
-    ZkJobCoordinatorMetrics metrics = new ZkJobCoordinatorMetrics(new NoOpMetricsRegistry());
     return new ZkUtils(
         KEY_BUILDER,
         zkClient,
-        CONNECTION_TIMEOUT_MS, metrics);
+        CONNECTION_TIMEOUT_MS, new ZkJobCoordinatorMetrics(new NoOpMetricsRegistry()));
   }
 }

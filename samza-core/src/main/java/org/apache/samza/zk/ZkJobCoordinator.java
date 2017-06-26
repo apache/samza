@@ -71,7 +71,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   public ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry) {
     this.config = config;
     ZkConfig zkConfig = new ZkConfig(config);
-    ZkKeyBuilder keyBuilder = new ZkKeyBuilder(new ApplicationConfig(config).getAppId());
+    ZkKeyBuilder keyBuilder = new ZkKeyBuilder(new ApplicationConfig(config).getGlobalAppId());
     this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
     this.zkUtils = new ZkUtils(
         keyBuilder,
@@ -290,8 +290,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     public void onBarrierStateChanged(final String version, ZkBarrierForVersionUpgrade.State state) {
       LOG.info("JobModel version " + version + " obtained consensus successfully!");
       metrics.barrierStateChange.inc();
+      metrics.singleBarrierRebalancingTime.update(System.nanoTime() - startTime);
       if (ZkBarrierForVersionUpgrade.State.DONE.equals(state)) {
-        metrics.singleBarrierRebalancingTime.update(System.nanoTime() - startTime);
         debounceTimer.scheduleAfterDebounceTime(
             barrierAction,
           0,
@@ -302,7 +302,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
           // In our consensus model, if the Barrier is timed-out, then it means that one or more initial
           // participants failed to join. That means, they should have de-registered from "processors" list
           // and that would have triggered onProcessorChange action -> a new round of consensus.
-          metrics.singleBarrierRebalancingTime.update(System.nanoTime() - startTime);
           LOG.info("Barrier for version " + version + " timed out.");
         }
       }
