@@ -528,3 +528,4 @@ Take note of the following issues with the embedded deployment feature for the 0
     * Leader reelections
     * more..
 * The LocalApplicationRunner does not yet support the low level API. This means you cannot use StreamTask with LocalApplicationRunner.
+* Currently, 'app.id' config must be unique for all the application using this zk cluster.

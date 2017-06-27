@@ -21,12 +21,9 @@ package org.apache.samza.clustermanager;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.JobModelManager;
-import org.apache.samza.coordinator.server.HttpServer;
-import org.apache.samza.job.model.ContainerModel;
-import org.apache.samza.job.model.JobModel;
-import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.coordinator.JobModelManagerTestUtil;
+import org.apache.samza.testUtils.MockHttpServer;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.After;
@@ -47,8 +44,9 @@ public class TestContainerAllocator {
   private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
   private final MockClusterResourceManager manager = new MockClusterResourceManager(callback);
   private final Config config = getConfig();
-  private final JobModelManager reader = getJobModelReader(1);
-  private final SamzaApplicationState state = new SamzaApplicationState(reader);
+  private final JobModelManager jobModelManager = JobModelManagerTestUtil.getJobModelManager(config, 1,
+      new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class)));
+  private final SamzaApplicationState state = new SamzaApplicationState(jobModelManager);
   private ContainerAllocator containerAllocator;
   private MockContainerRequestState requestState;
   private Thread allocatorThread;
@@ -67,7 +65,7 @@ public class TestContainerAllocator {
 
   @After
   public void teardown() throws Exception {
-    reader.stop();
+    jobModelManager.stop();
     containerAllocator.stop();
   }
 
@@ -93,19 +91,6 @@ public class TestContainerAllocator {
     return new MapConfig(map);
   }
 
-  private static JobModelManager getJobModelReader(int containerCount) {
-    //Ideally, the JobModelReader should be constructed independent of HttpServer.
-    //That way it becomes easier to mock objects. Save it for later.
-
-    HttpServer server = new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class));
-    Map<String, ContainerModel> containers = new java.util.HashMap<>();
-    for (int i = 0; i < containerCount; i++) {
-      ContainerModel container = new ContainerModel(String.valueOf(i), i, new HashMap<TaskName, TaskModel>());
-      containers.put(String.valueOf(i), container);
-    }
-    JobModel jobModel = new JobModel(getConfig(), containers);
-    return new JobModelManager(jobModel, server, null);
-  }
 
 
   /**
@@ -132,10 +117,10 @@ public class TestContainerAllocator {
   public void testRequestContainers() throws Exception {
     Map<String, String> containersToHostMapping = new HashMap<String, String>() {
       {
-        put("0", "abc");
-        put("1", "def");
+        put("0", null);
+        put("1", null);
         put("2", null);
-        put("3", "abc");
+        put("3", null);
       }
     };
 

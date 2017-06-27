@@ -44,7 +44,7 @@ public class JobModel {
   private final Map<String, ContainerModel> containers;
 
   private final LocalityManager localityManager;
-  private Map<String, String> localityMappings = new HashMap<String, String>();
+  private final Map<String, String> localityMappings;
 
   public int maxChangeLogStreamPartitions;
 
@@ -57,6 +57,8 @@ public class JobModel {
     this.containers = Collections.unmodifiableMap(containers);
     this.localityManager = localityManager;
 
+    // initialize container localityMappings
+    this.localityMappings = new HashMap<>();
     if (localityManager == null) {
       for (String containerId : containers.keySet()) {
         localityMappings.put(containerId, null);

@@ -17,23 +17,40 @@
  * under the License.
  */
 
-package org.apache.samza.zk;
+package org.apache.samza.testUtils;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.coordinator.JobCoordinator;
-import org.apache.samza.coordinator.JobCoordinatorFactory;
-import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.coordinator.server.HttpServer;
+import org.eclipse.jetty.servlet.ServletHolder;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 
-public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
-  /**
-   * Method to instantiate an implementation of JobCoordinator
-   *
-   * @param config - configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
-   * @return An instance of IJobCoordinator
-   */
+public class MockHttpServer extends HttpServer {
+
+  public MockHttpServer(String rootPath, int port, String resourceBasePath, ServletHolder defaultHolder) {
+    super(rootPath, port, resourceBasePath, defaultHolder);
+    start();
+  }
+
   @Override
-  public JobCoordinator getJobCoordinator(Config config) {
-    return new ZkJobCoordinator(config, new MetricsRegistryMap());
+  public void start() {
+    super.running_$eq(true);
+  }
+
+  @Override
+  public void stop() {
+    super.running_$eq(false);
+  }
+
+  @Override
+  public URL getUrl() {
+    if (running()) {
+      try {
+        return new URL("http://localhost:12345/");
+      } catch (MalformedURLException mue) {
+        mue.printStackTrace();
+      }
+    }
+    return null;
   }
 }

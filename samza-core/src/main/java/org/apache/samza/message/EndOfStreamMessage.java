@@ -17,23 +17,20 @@
  * under the License.
  */
 
-package org.apache.samza.zk;
+package org.apache.samza.message;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.coordinator.JobCoordinator;
-import org.apache.samza.coordinator.JobCoordinatorFactory;
-import org.apache.samza.metrics.MetricsRegistryMap;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
+/**
+ *  The EndOfStreamMessage is a control message that is sent out to next stage
+ *  once the task has consumed to the end of a bounded stream.
+ */
+public class EndOfStreamMessage extends ControlMessage {
 
-public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
-  /**
-   * Method to instantiate an implementation of JobCoordinator
-   *
-   * @param config - configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
-   * @return An instance of IJobCoordinator
-   */
-  @Override
-  public JobCoordinator getJobCoordinator(Config config) {
-    return new ZkJobCoordinator(config, new MetricsRegistryMap());
+  @JsonCreator
+  public EndOfStreamMessage(@JsonProperty("task-name") String taskName,
+                            @JsonProperty("task-count") int taskCount) {
+    super(taskName, taskCount);
   }
 }

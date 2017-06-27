@@ -17,40 +17,36 @@
  * under the License.
  */
 
-package org.apache.samza.clustermanager;
+package org.apache.samza.message;
 
-import org.apache.samza.coordinator.server.HttpServer;
-import org.eclipse.jetty.servlet.ServletHolder;
+/**
+ * The abstract class of all control messages, containing
+ * the task that produces the control message, the total number of producer tasks,
+ * and a version number.
+ */
+public abstract class ControlMessage {
+  private final String taskName;
+  private final int taskCount;
+  private int version = 1;
 
-import java.net.MalformedURLException;
-import java.net.URL;
-
-public class MockHttpServer extends HttpServer {
-
-  public MockHttpServer(String rootPath, int port, String resourceBasePath, ServletHolder defaultHolder) {
-    super(rootPath, port, resourceBasePath, defaultHolder);
-    start();
+  public ControlMessage(String taskName, int taskCount) {
+    this.taskName = taskName;
+    this.taskCount = taskCount;
   }
 
-  @Override
-  public void start() {
-    super.running_$eq(true);
+  public String getTaskName() {
+    return taskName;
   }
 
-  @Override
-  public void stop() {
-    super.running_$eq(false);
+  public int getTaskCount() {
+    return taskCount;
   }
 
-  @Override
-  public URL getUrl() {
-    if (running()) {
-      try {
-        return new URL("http://localhost:12345/");
-      } catch (MalformedURLException mue) {
-        mue.printStackTrace();
-      }
-    }
-    return null;
+  public void setVersion(int version) {
+    this.version = version;
+  }
+
+  public int getVersion() {
+    return version;
   }
 }

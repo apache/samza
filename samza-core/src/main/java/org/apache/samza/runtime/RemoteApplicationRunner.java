@@ -35,10 +35,15 @@ import org.slf4j.LoggerFactory;
  */
 public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
-  private static final Logger log = LoggerFactory.getLogger(RemoteApplicationRunner.class);
+  private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
 
   public RemoteApplicationRunner(Config config) {
     super(config);
+  }
+
+  @Override
+  public void runTask() {
+    throw new UnsupportedOperationException("Running StreamTask is not implemented for RemoteReplicationRunner");
   }
 
   /**
@@ -57,7 +62,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
 
       // 3. submit jobs for remote execution
       plan.getJobConfigs().forEach(jobConfig -> {
-          log.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
+          LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
           JobRunner runner = new JobRunner(jobConfig);
           runner.run(true);
         });
@@ -72,7 +77,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       ExecutionPlan plan = getExecutionPlan(app);
 
       plan.getJobConfigs().forEach(jobConfig -> {
-          log.info("Killing job {}", jobConfig.getName());
+          LOG.info("Killing job {}", jobConfig.getName());
           JobRunner runner = new JobRunner(jobConfig);
           runner.kill();
         });
@@ -92,7 +97,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       for (JobConfig jobConfig : plan.getJobConfigs()) {
         JobRunner runner = new JobRunner(jobConfig);
         ApplicationStatus status = runner.status();
-        log.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
+        LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
 
         switch (status.getStatusCode()) {
           case New:
