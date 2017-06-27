@@ -224,9 +224,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertEquals("2", currentJobModelVersion);
   }
 
-  // Checks enforcing property that all processors should have unique Id.
-  // Depends upon SAMZA-1302
-  // @Test(expected = Exception.class)
+  @Test(expected = Exception.class)
   public void shouldFailWhenNewProcessorJoinsWithSameIdAsExistingProcessor() throws InterruptedException {
     // Set up kafka topics.
     publishKafkaEvents(inputKafkaTopic, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);

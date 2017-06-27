@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -162,8 +163,16 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   void doOnProcessorChange(List<String> processors) {
     // if list of processors is empty - it means we are called from 'onBecomeLeader'
-    // TODO: Handle empty currentProcessorIds or duplicate processorIds in the list
+    // TODO: Handle empty currentProcessorIds.
     List<String> currentProcessorIds = getActualProcessorIds(processors);
+    List<String> uniqueProcessorIds = currentProcessorIds.stream()
+                                                         .distinct()
+                                                         .collect(Collectors.toList());
+
+    if (currentProcessorIds.size() != uniqueProcessorIds.size()) {
+      LOG.info("Processors: {} has duplicates. Not generating job model.", currentProcessorIds);
+      return;
+    }
 
     // Generate the JobModel
     JobModel jobModel = generateNewJobModel(currentProcessorIds);

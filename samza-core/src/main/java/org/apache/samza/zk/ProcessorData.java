@@ -19,9 +19,12 @@
 
 package org.apache.samza.zk;
 
+import java.util.Objects;
 import org.apache.samza.SamzaException;
 
-
+/**
+ * Represents processor data stored in zookeeper processors node.
+ */
 public class ProcessorData {
   private final String processorId;
   private final String host;
@@ -50,5 +53,18 @@ public class ProcessorData {
 
   public String getProcessorId() {
     return processorId;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(processorId, host);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == null) return false;
+    if (getClass() != obj.getClass()) return false;
+    final ProcessorData other = (ProcessorData) obj;
+    return processorId.equals(other.processorId) && host.equals(other.host);
   }
 }

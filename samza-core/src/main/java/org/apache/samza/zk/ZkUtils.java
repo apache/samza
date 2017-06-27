@@ -19,15 +19,18 @@
 
 package org.apache.samza.zk;
 
+import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
-import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.job.model.JobModel;
@@ -83,10 +86,6 @@ public class ZkUtils {
     }
   }
 
-  public static ZkConnection createZkConnection(String zkConnectString, int sessionTimeoutMs) {
-    return new ZkConnection(zkConnectString, sessionTimeoutMs);
-  }
-
   ZkClient getZkClient() {
     return zkClient;
   }
@@ -105,17 +104,92 @@ public class ZkUtils {
    * @return String representing the absolute ephemeralPath of this client in the current session
    */
   public synchronized String registerProcessorAndGetId(final ProcessorData data) {
+    String processorId = data.getProcessorId();
     if (ephemeralPath == null) {
-      ephemeralPath =
-          zkClient.createEphemeralSequential(
-              keyBuilder.getProcessorsPath() + "/", data.toString());
-
-      LOG.info("newly generated path for " + data +  " is " +  ephemeralPath);
-      return ephemeralPath;
+      /**
+       * If there is an existing processor with same processorId as incoming processorId, throw up and fail.
+       * Caller of this api should handle exception and kill the stream processor.
+       */
+      Preconditions.checkState(getProcessorCount(processorId) == 0,
+                               "Processor: %s is duplicate in the group. Registration failed.", processorId);
+      ephemeralPath = registerProcessor(data);
     } else {
-      LOG.info("existing path for " + data +  " is " +  ephemeralPath);
-      return ephemeralPath;
+      LOG.info("Ephemeral path: {} exists for processor: {} in zookeeper.", ephemeralPath, data);
     }
+    return ephemeralPath;
+  }
+
+  /**
+   * Registers a processor with zookeeper. Creates a sequential ephemeral node in zookeeper(which will be deleted
+   * on zkClient session timeout) for the processor under processors directory.
+   * @param processorData to register in zookeeper.
+   * @return the sequential ephemeral path created in zookeeper.
+   */
+  String registerProcessor(final ProcessorData processorData) {
+    // Create ephemeral path in zookeeper corresponding to this processor.
+    ephemeralPath = zkClient.createEphemeralSequential(keyBuilder.getProcessorsPath() + "/", processorData.toString());
+    LOG.info("Created ephemeral path: {} for processor: {} in zookeeper.", ephemeralPath, processorData);
+    ProcessorNode processorNode = new ProcessorNode(processorData, ephemeralPath);
+    String processorId = processorData.getProcessorId();
+    // Determine if there are duplicate processors with this.processorId after registration.
+    if (getProcessorCount(processorId) > 1 && shouldStopProcessor(processorNode)) {
+      LOG.info("Processor: {} is duplicate. Deleting zookeeper node at path: {}.", processorData, ephemeralPath);
+      zkClient.delete(ephemeralPath);
+      throw new SamzaException(String.format("Processor: %s is duplicate in the group. Registration failed.", processorId));
+    }
+    return ephemeralPath;
+  }
+
+  /**
+   * Determines if a processor should be stopped.
+   * @param processor to check for stop condition in processors group.
+   * @return true if processor should be stopped. false otherwise.
+   */
+  private boolean shouldStopProcessor(final ProcessorNode processor) {
+    /**
+     * If there are multiple processors registered with same processorId,
+     * allow only the processor with lexicographically smallest zookeeperPath to live
+     * and all the remaining processors should be stopped.
+     *
+     * Two processors will not have smallest zookeeperPath because of sequentialId guarantees
+     * of zookeeper for ephemeral nodes.
+     */
+    List<ProcessorNode> processorNodes = getAllProcessorNodes();
+    LOG.debug("All existing processor nodes in zookeeper: {}.", processorNodes);
+    TreeSet<String> sortedProcessorPaths = processorNodes.stream()
+                                                         .filter(processorNode -> processorNode.getProcessorData().getProcessorId().equals(processor.getProcessorData().getProcessorId()))
+                                                         .map(ProcessorNode::getEphemeralPath)
+                                                         .collect(Collectors.toCollection(TreeSet::new));
+    return !sortedProcessorPaths.first().equals(processor.getEphemeralPath());
+  }
+
+  /**
+   * Find the number of processors having the provided processorId.
+   * @param processorId to use for equality check.
+   * @return the count of matched processors.
+   */
+  private long getProcessorCount(final String processorId) {
+    List<ProcessorNode> processorNodes = getAllProcessorNodes();
+    long processorCount = processorNodes.stream()
+                                        .filter(processorNode -> processorNode.processorData.getProcessorId().equals(processorId))
+                                        .count();
+    LOG.debug("Number of processors with id: {} = {}.", processorId, processorCount);
+    return processorCount;
+  }
+
+  /**
+   * Fetches all the ephemeral processor nodes of a standalone job from zookeeper.
+   * @return a list of {@link ProcessorNode}, where each ProcessorNode represents a registered stream processor.
+   */
+  private List<ProcessorNode> getAllProcessorNodes() {
+    List<String> processorZNodes = getSortedActiveProcessorsZnodes();
+    LOG.debug("Active ProcessorZNodes in zookeeper: {}.", processorZNodes);
+    return processorZNodes.stream()
+                          .map(processorZNode -> {
+                              String ephemeralProcessorPath = String.format("%s/%s", keyBuilder.getProcessorsPath(), processorZNode);
+                              String data = zkClient.readData(ephemeralProcessorPath);
+                              return new ProcessorNode(new ProcessorData(data), ephemeralProcessorPath);
+                            }).collect(Collectors.toList());
   }
 
   /**
@@ -320,5 +394,46 @@ public class ZkUtils {
     LOG.info("subscribing for child change at:" + keyBuilder.getProcessorsPath());
     zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
     metrics.subscriptions.inc();
+  }
+
+  /**
+   * Represents zookeeper processor node.
+   */
+  private static class ProcessorNode {
+    private final ProcessorData processorData;
+
+    // Ex: /test/processors/0000000000
+    private final String ephemeralProcessorPath;
+
+    ProcessorNode(ProcessorData processorData, String ephemeralProcessorPath) {
+      this.processorData = processorData;
+      this.ephemeralProcessorPath = ephemeralProcessorPath;
+    }
+
+    ProcessorData getProcessorData() {
+      return processorData;
+    }
+
+    String getEphemeralPath() {
+      return ephemeralProcessorPath;
+    }
+
+    @Override
+    public String toString() {
+      return String.format("[ProcessorData: %s, ephemeralProcessorPath: %s]", processorData, ephemeralProcessorPath);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(processorData, ephemeralProcessorPath);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj == null) return false;
+      if (getClass() != obj.getClass()) return false;
+      final ProcessorNode other = (ProcessorNode) obj;
+      return processorData.equals(other.processorData) && ephemeralProcessorPath.equals(other.ephemeralProcessorPath);
+    }
   }
 }
