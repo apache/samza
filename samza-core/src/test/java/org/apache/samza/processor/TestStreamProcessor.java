@@ -35,7 +35,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,18 +50,18 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class TestStreamProcessor {
-  private ConcurrentMap<Listener_Callback, Boolean> processorListenerState;
-  private enum Listener_Callback {
+  private ConcurrentMap<ListenerCallback, Boolean> processorListenerState;
+  private enum ListenerCallback {
     ON_START, ON_SHUTDOWN, ON_FAILURE
   }
 
   @Before
   public void before() {
-    processorListenerState = new ConcurrentHashMap<Listener_Callback, Boolean>() {
+    processorListenerState = new ConcurrentHashMap<ListenerCallback, Boolean>() {
       {
-        put(Listener_Callback.ON_START, false);
-        put(Listener_Callback.ON_FAILURE, false);
-        put(Listener_Callback.ON_SHUTDOWN, false);
+        put(ListenerCallback.ON_START, false);
+        put(ListenerCallback.ON_FAILURE, false);
+        put(ListenerCallback.ON_SHUTDOWN, false);
       }
     };
   }
@@ -147,19 +146,19 @@ public class TestStreamProcessor {
         new StreamProcessorLifecycleListener() {
           @Override
           public void onStart() {
-            processorListenerState.put(Listener_Callback.ON_START, true);
+            processorListenerState.put(ListenerCallback.ON_START, true);
             processorListenerStart.countDown();
           }
 
           @Override
           public void onShutdown() {
-            processorListenerState.put(Listener_Callback.ON_SHUTDOWN, true);
+            processorListenerState.put(ListenerCallback.ON_SHUTDOWN, true);
             processorListenerStop.countDown();
           }
 
           @Override
           public void onFailure(Throwable t) {
-            processorListenerState.put(Listener_Callback.ON_FAILURE, true);
+            processorListenerState.put(ListenerCallback.ON_FAILURE, true);
           }
         },
         mockJobCoordinator,
@@ -203,9 +202,9 @@ public class TestStreamProcessor {
     processorListenerStop.await();
 
     // Assertions on which callbacks are expected to be invoked
-    Assert.assertTrue(processorListenerState.get(Listener_Callback.ON_START));
-    Assert.assertTrue(processorListenerState.get(Listener_Callback.ON_SHUTDOWN));
-    Assert.assertFalse(processorListenerState.get(Listener_Callback.ON_FAILURE));
+    Assert.assertTrue(processorListenerState.get(ListenerCallback.ON_START));
+    Assert.assertTrue(processorListenerState.get(ListenerCallback.ON_SHUTDOWN));
+    Assert.assertFalse(processorListenerState.get(ListenerCallback.ON_FAILURE));
   }
 
   /**
@@ -244,17 +243,17 @@ public class TestStreamProcessor {
         new StreamProcessorLifecycleListener() {
           @Override
           public void onStart() {
-            processorListenerState.put(Listener_Callback.ON_START, true);
+            processorListenerState.put(ListenerCallback.ON_START, true);
           }
 
           @Override
           public void onShutdown() {
-            processorListenerState.put(Listener_Callback.ON_SHUTDOWN, true);
+            processorListenerState.put(ListenerCallback.ON_SHUTDOWN, true);
           }
 
           @Override
           public void onFailure(Throwable t) {
-            processorListenerState.put(Listener_Callback.ON_FAILURE, true);
+            processorListenerState.put(ListenerCallback.ON_FAILURE, true);
             actualThrowable.getAndSet(t);
             processorListenerFailed.countDown();
           }
@@ -294,9 +293,9 @@ public class TestStreamProcessor {
         processorListenerFailed.await(30, TimeUnit.SECONDS));
     Assert.assertEquals(expectedThrowable, actualThrowable.get());
 
-    Assert.assertFalse(processorListenerState.get(Listener_Callback.ON_SHUTDOWN));
-    Assert.assertTrue(processorListenerState.get(Listener_Callback.ON_START));
-    Assert.assertTrue(processorListenerState.get(Listener_Callback.ON_FAILURE));
+    Assert.assertFalse(processorListenerState.get(ListenerCallback.ON_SHUTDOWN));
+    Assert.assertTrue(processorListenerState.get(ListenerCallback.ON_START));
+    Assert.assertTrue(processorListenerState.get(ListenerCallback.ON_FAILURE));
   }
 
   // TODO:
