@@ -20,8 +20,6 @@
 package org.apache.samza.processor;
 
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.zk.ZkJobCoordinator;
 import org.junit.Assert;
