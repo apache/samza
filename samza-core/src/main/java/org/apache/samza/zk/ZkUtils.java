@@ -84,11 +84,11 @@ public class ZkUtils {
     currentGeneration = new AtomicInteger(0);
   }
 
-  public synchronized void incGeneration() {
+  public void incGeneration() {
     currentGeneration.incrementAndGet();
   }
 
-  public synchronized int getGeneration() {
+  public int getGeneration() {
     return currentGeneration.get();
   }
 

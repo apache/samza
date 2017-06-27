@@ -20,6 +20,8 @@
 package org.apache.samza.processor;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.zk.ZkJobCoordinator;
 import org.junit.Assert;
@@ -83,13 +85,7 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
       threads[i] = runInThread(streamProcessors[i], TestZkStreamProcessorBase.TestStreamTask.endLatch);
       threads[i].start();
       // wait until the processor reports that it has started
-      try {
-        synchronized (startWait[i]) {
-          startWait[i].wait(1000);
-        }
-      } catch (InterruptedException e) {
-        Assert.fail("got interrupted while waiting for the " + i + "th processor to start.");
-      }
+      waitForProcessorToStartStop(startWait[i]);
     }
 
     // make sure it consumes all the messages from the first batch
@@ -102,13 +98,7 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
     // wait until all other processors stop
     for (int i = 0; i < processorIds.length; i++) {
       // wait until all other processor reports that they have stopped
-      try {
-        synchronized (stopWait[i]) {
-          stopWait[i].wait(3000);
-        }
-      } catch (InterruptedException e) {
-        Assert.fail("got interrupted while waiting for the " + i + "th processor to stop.");
-      }
+      waitForProcessorToStartStop(stopWait[i]);
     }
 
     produceMessages(messageCount, inputTopic, messageCount);
