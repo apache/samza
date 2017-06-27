@@ -46,7 +46,7 @@ import static org.junit.Assert.assertEquals;
  * This test uses an array as a bounded input source, and does a partitionBy() and sink() after reading the input.
  * It verifies the pipeline will stop and the number of output messages should equal to the input.
  */
-public class TestEndOfStream extends AbstractIntegrationTestHarness {
+public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
 
 
   private static final String[] PAGEKEYS = {"inbox", "home", "search", "pymk", "group", "job"};

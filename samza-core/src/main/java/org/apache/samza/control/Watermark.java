@@ -41,8 +41,15 @@ public interface Watermark {
   long getTimestamp();
 
   /**
-   * Returns the {@link SystemStream} that emits the watermark.
-   * @return the stream of the watermark
+   * Propagates the watermark to an intermediate stream
+   * @param systemStream intermediate stream
    */
-  SystemStream getSystemStream();
+  void propagate(SystemStream systemStream);
+
+  /**
+   * Create a copy of the watermark with the timestamp
+   * @param timestamp new timestamp
+   * @return new watermark
+   */
+  Watermark copyWithTimestamp(long timestamp);
 }

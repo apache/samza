@@ -17,8 +17,10 @@
  * under the License.
  */
 
-package org.apache.samza.operators.util;
+package org.apache.samza.control;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,17 +31,22 @@ import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemStream;
 
-public class IOGraphUtil {
+
+/**
+ * This class provides the topology of stream inputs to outputs.
+ */
+public class IOGraph {
 
   public static final class IONode {
     private final Set<StreamSpec> inputs = new HashSet<>();
     private final StreamSpec output;
-    private final OutputOperatorSpec outputOpSpec;
+    private final boolean isOutputIntermediate;
 
-    IONode(StreamSpec output, OutputOperatorSpec outputOpSpec) {
+    IONode(StreamSpec output, boolean isOutputIntermediate) {
       this.output = output;
-      this.outputOpSpec = outputOpSpec;
+      this.isOutputIntermediate = isOutputIntermediate;
     }
 
     void addInput(StreamSpec input) {
@@ -54,16 +61,37 @@ public class IOGraphUtil {
       return output;
     }
 
-    public OutputOperatorSpec getOutputOpSpec() {
-      return outputOpSpec;
+    public boolean isOutputIntermediate() {
+      return isOutputIntermediate;
     }
   }
 
-  public static Collection<IONode> buildIOGraph(StreamGraphImpl streamGraph) {
-    Map<Integer, IONode> ioGraph = new HashMap<>();
+  Collection<IONode> nodes;
+  Multimap<SystemStream, IONode> inputToNodes;
+
+  public IOGraph(Collection<IONode> nodes) {
+    this.nodes = Collections.unmodifiableCollection(nodes);
+    this.inputToNodes = HashMultimap.create();
+    nodes.forEach(node -> {
+        node.getInputs().forEach(stream -> {
+            inputToNodes.put(new SystemStream(stream.getSystemName(), stream.getPhysicalName()), node);
+          });
+      });
+  }
+
+  public Collection<IONode> getNodes() {
+    return this.nodes;
+  }
+
+  public Collection<IONode> getNodesOfInput(SystemStream input) {
+    return inputToNodes.get(input);
+  }
+
+  public static IOGraph buildIOGraph(StreamGraphImpl streamGraph) {
+    Map<Integer, IONode> nodes = new HashMap<>();
     streamGraph.getInputOperators().entrySet().stream()
-        .forEach(entry -> buildIONodes(entry.getKey(), entry.getValue(), ioGraph));
-    return Collections.unmodifiableCollection(ioGraph.values());
+        .forEach(entry -> buildIONodes(entry.getKey(), entry.getValue(), nodes));
+    return new IOGraph(nodes.values());
   }
 
   /* package private */
@@ -73,7 +101,7 @@ public class IOGraphUtil {
       IONode node = ioGraph.get(opSpec.getOpId());
       if (node == null) {
         StreamSpec output = outputOpSpec.getOutputStream().getStreamSpec();
-        node = new IONode(output, outputOpSpec);
+        node = new IONode(output, outputOpSpec.getOpCode() == OperatorSpec.OpCode.PARTITION_BY);
         ioGraph.put(opSpec.getOpId(), node);
       }
       node.addInput(input);

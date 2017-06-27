@@ -41,32 +41,40 @@ import org.slf4j.LoggerFactory;
  */
 public class WatermarkManager {
   private static final Logger log = LoggerFactory.getLogger(WatermarkManager.class);
-  public static final long WATERMARK_NOT_EXIST = -1;
+  public static final long TIME_NOT_EXIST = -1;
 
   private final String taskName;
   private final Map<SystemStreamPartition, WatermarkState> watermarkStates;
   private final Map<SystemStream, Long> watermarkPerStream;
   private final StreamMetadataCache metadataCache;
-  private final Multimap<SystemStream, String> streamToTasks;
+  // mapping from input stream to its downstream tasks
+  private final Multimap<SystemStream, String> inputToTasks;
   private final MessageCollector collector;
 
+  // mapping from output stream to its upstream task count
+  private Map<SystemStream, Integer> upstreamTaskCounts;
+
   public WatermarkManager(String taskName,
-      Multimap<SystemStream, String> streamToTasks,
+      Multimap<SystemStream, String> inputToTasks,
       Set<SystemStreamPartition> ssps,
       StreamMetadataCache metadataCache,
       MessageCollector collector) {
     this.taskName = taskName;
     this.watermarkPerStream = new HashMap<>();
-    this.streamToTasks = streamToTasks;
+    this.inputToTasks = inputToTasks;
     this.metadataCache = metadataCache;
     this.collector = collector;
 
     Map<SystemStreamPartition, WatermarkState> states = new HashMap<>();
     ssps.forEach(ssp -> {
         states.put(ssp, new WatermarkState());
-        watermarkPerStream.put(ssp.getSystemStream(), WATERMARK_NOT_EXIST);
+        watermarkPerStream.put(ssp.getSystemStream(), TIME_NOT_EXIST);
       });
     this.watermarkStates = Collections.unmodifiableMap(states);
+  }
+
+  public void init(IOGraph ioGraph) {
+    this.upstreamTaskCounts = ControlMessageUtils.calculateUpstreamTaskCounts(inputToTasks, ioGraph);
   }
 
   /**
@@ -87,7 +95,7 @@ public class WatermarkManager {
     WatermarkMessage message = (WatermarkMessage) envelope.getMessage();
     state.update(message.getTimestamp(), message.getTaskName(), message.getTaskCount());
 
-    if (state.getWatermarkTime() != WATERMARK_NOT_EXIST) {
+    if (state.getWatermarkTime() != TIME_NOT_EXIST) {
       long minTimestamp = watermarkStates.entrySet().stream()
           .filter(entry -> entry.getKey().getSystemStream().equals(ssp.getSystemStream()))
           .map(entry -> entry.getValue().getWatermarkTime())
@@ -96,14 +104,15 @@ public class WatermarkManager {
       Long curWatermark = watermarkPerStream.get(ssp.getSystemStream());
       if (curWatermark == null || curWatermark < minTimestamp) {
         watermarkPerStream.put(ssp.getSystemStream(), minTimestamp);
-        return createWatermark(minTimestamp, ssp.getSystemStream());
+        return new WatermarkImpl(minTimestamp);
       }
     }
 
     return null;
   }
 
-  public long getWatermarkTime(SystemStreamPartition ssp) {
+  /* package private */
+  long getWatermarkTime(SystemStreamPartition ssp) {
     return watermarkStates.get(ssp).getWatermarkTime();
   }
 
@@ -111,21 +120,11 @@ public class WatermarkManager {
    * Send the watermark message to all partitions of an intermediate stream
    * @param timestamp watermark timestamp
    * @param systemStream intermediate stream
-   * @param taskCount total number of producer tasks
    */
-  public void sendWatermark(long timestamp, SystemStream systemStream, int taskCount) {
+  void sendWatermark(long timestamp, SystemStream systemStream, int taskCount) {
     log.info("Send end-of-stream messages to all partitions of " + systemStream);
     final WatermarkMessage watermarkMessage = new WatermarkMessage(timestamp, taskName, taskCount);
     ControlMessageUtils.sendControlMessage(watermarkMessage, systemStream, metadataCache, collector);
-  }
-
-  public Watermark createWatermark(long timestamp, SystemStream systemStream) {
-    return new WatermarkImpl(timestamp, systemStream);
-  }
-
-  /* package private */
-  Multimap<SystemStream, String> getStreamToTasks() {
-    return streamToTasks;
   }
 
   /**
@@ -135,7 +134,7 @@ public class WatermarkManager {
   final static class WatermarkState {
     private int expectedTotal = Integer.MAX_VALUE;
     private final Map<String, Long> timestamps = new HashMap<>();
-    private long watermarkTime = WATERMARK_NOT_EXIST;
+    private long watermarkTime = TIME_NOT_EXIST;
 
     void update(long timestamp, String taskName, int taskCount) {
       if (taskName != null) {
@@ -157,13 +156,11 @@ public class WatermarkManager {
   /**
    * Implementation of the Watermark. It keeps a reference to the {@link WatermarkManager}
    */
-  public final class WatermarkImpl implements Watermark {
+  class WatermarkImpl implements Watermark {
     private final long timestamp;
-    private final SystemStream systemStream;
 
-    WatermarkImpl(long timestamp, SystemStream systemStream) {
+    WatermarkImpl(long timestamp) {
       this.timestamp = timestamp;
-      this.systemStream = systemStream;
     }
 
     @Override
@@ -172,12 +169,13 @@ public class WatermarkManager {
     }
 
     @Override
-    public SystemStream getSystemStream() {
-      return systemStream;
+    public void propagate(SystemStream systemStream) {
+      sendWatermark(timestamp, systemStream, upstreamTaskCounts.get(systemStream));
     }
 
-    public WatermarkManager getManager() {
-      return WatermarkManager.this;
+    @Override
+    public Watermark copyWithTimestamp(long time) {
+      return new WatermarkImpl(time);
     }
   }
 

@@ -17,11 +17,12 @@
  * under the License.
  */
 
-package org.apache.samza.operators.util;
+package org.apache.samza.control;
 
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,24 +32,24 @@ import java.util.function.Function;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.control.IOGraph.IONode;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.OutputOperatorSpec;
-import org.apache.samza.operators.util.IOGraphUtil.IONode;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 
-public class TestIOGraphUtil {
+public class TestIOGraph {
   StreamSpec input1;
   StreamSpec input2;
   StreamSpec input3;
@@ -114,34 +115,72 @@ public class TestIOGraphUtil {
 
   @Test
   public void testBuildIOGraph() {
-    Collection<IONode> ioGraph = streamGraph.toIOGraph();
-    assertEquals(ioGraph.size(), 4);
+    IOGraph ioGraph = streamGraph.toIOGraph();
+    assertEquals(ioGraph.getNodes().size(), 4);
 
-    for (IONode node : ioGraph) {
+    for (IONode node : ioGraph.getNodes()) {
       if (node.getOutput().equals(output1)) {
         assertEquals(node.getInputs().size(), 2);
-        assertEquals(node.getOutputOpSpec().getOpCode(), OperatorSpec.OpCode.SEND_TO);
+        assertFalse(node.isOutputIntermediate());
         StreamSpec[] inputs = sort(node.getInputs());
         assertEquals(inputs[0], input1);
         assertEquals(inputs[1], int1);
       } else if (node.getOutput().equals(output2)) {
         assertEquals(node.getInputs().size(), 2);
-        assertEquals(node.getOutputOpSpec().getOpCode(), OperatorSpec.OpCode.SEND_TO);
+        assertFalse(node.isOutputIntermediate());
         StreamSpec[] inputs = sort(node.getInputs());
         assertEquals(inputs[0], int1);
         assertEquals(inputs[1], int2);
       } else if (node.getOutput().equals(int1)) {
         assertEquals(node.getInputs().size(), 1);
-        assertEquals(node.getOutputOpSpec().getOpCode(), OperatorSpec.OpCode.PARTITION_BY);
+        assertTrue(node.isOutputIntermediate());
         StreamSpec[] inputs = sort(node.getInputs());
         assertEquals(inputs[0], input2);
       } else if (node.getOutput().equals(int2)) {
         assertEquals(node.getInputs().size(), 1);
-        assertEquals(node.getOutputOpSpec().getOpCode(), OperatorSpec.OpCode.PARTITION_BY);
+        assertTrue(node.isOutputIntermediate());
         StreamSpec[] inputs = sort(node.getInputs());
         assertEquals(inputs[0], input3);
       }
     }
+  }
+
+  @Test
+  public void testNodesOfInput() {
+    IOGraph ioGraph = streamGraph.toIOGraph();
+    Collection<IONode> nodes = ioGraph.getNodesOfInput(input1.toSystemStream());
+    assertEquals(nodes.size(), 1);
+    IONode node = nodes.iterator().next();
+    assertEquals(node.getOutput(), output1);
+    assertEquals(node.getInputs().size(), 2);
+    assertFalse(node.isOutputIntermediate());
+
+    nodes = ioGraph.getNodesOfInput(input2.toSystemStream());
+    assertEquals(nodes.size(), 1);
+    node = nodes.iterator().next();
+    assertEquals(node.getOutput(), int1);
+    assertEquals(node.getInputs().size(), 1);
+    assertTrue(node.isOutputIntermediate());
+
+    nodes = ioGraph.getNodesOfInput(int1.toSystemStream());
+    assertEquals(nodes.size(), 2);
+    nodes.forEach(n -> {
+        assertEquals(n.getInputs().size(), 2);
+      });
+
+    nodes = ioGraph.getNodesOfInput(input3.toSystemStream());
+    assertEquals(nodes.size(), 1);
+    node = nodes.iterator().next();
+    assertEquals(node.getOutput(), int2);
+    assertEquals(node.getInputs().size(), 1);
+    assertTrue(node.isOutputIntermediate());
+
+    nodes = ioGraph.getNodesOfInput(int2.toSystemStream());
+    assertEquals(nodes.size(), 1);
+    node = nodes.iterator().next();
+    assertEquals(node.getOutput(), output2);
+    assertEquals(node.getInputs().size(), 2);
+    assertFalse(node.isOutputIntermediate());
   }
 
   private static StreamSpec[] sort(Set<StreamSpec> specs) {
@@ -151,11 +190,11 @@ public class TestIOGraphUtil {
     return array;
   }
 
-
-
-  public static Collection<IOGraphUtil.IONode> buildSimpleIOGraphOfPartitionBy(List<StreamSpec> inputs, OutputOperatorSpec partitionBy) {
-    Map<Integer, IOGraphUtil.IONode> graph = new HashMap<>();
-    inputs.forEach(input -> IOGraphUtil.buildIONodes(input, partitionBy, graph));
-    return graph.values();
+  public static IOGraph buildSimpleIOGraph(List<StreamSpec> inputs,
+      StreamSpec output,
+      boolean isOutputIntermediate) {
+    IONode node = new IONode(output, isOutputIntermediate);
+    inputs.forEach(input -> node.addInput(input));
+    return new IOGraph(Collections.singleton(node));
   }
 }

@@ -18,20 +18,18 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.Collection;
+import java.util.Collections;
 import org.apache.samza.config.Config;
-import org.apache.samza.control.WatermarkDispatcher;
+import org.apache.samza.control.Watermark;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.control.Watermark;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
-
-import java.util.Collection;
-import java.util.Collections;
 
 
 /**
@@ -74,11 +72,10 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
 
   @Override
   protected long handleWatermark(Watermark inputWatermark,
-      WatermarkDispatcher dispatcher,
       MessageCollector collector,
       TaskCoordinator coordinator) {
     if (outputOpSpec.getOpCode() == OperatorSpec.OpCode.PARTITION_BY) {
-      dispatcher.propagate(inputWatermark, outputStream.getStreamSpec().toSystemStream());
+      inputWatermark.propagate(outputStream.getStreamSpec().toSystemStream());
     }
     return inputWatermark.getTimestamp();
   }

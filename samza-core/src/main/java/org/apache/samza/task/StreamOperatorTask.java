@@ -22,14 +22,12 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.control.ControlMessageListener;
-import org.apache.samza.control.EndOfStream;
-import org.apache.samza.control.EndOfStreamDispatcher;
 import org.apache.samza.control.Watermark;
-import org.apache.samza.control.WatermarkDispatcher;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
+import org.apache.samza.control.IOGraph;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
@@ -49,8 +47,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   private OperatorImplGraph operatorImplGraph;
   private ContextManager contextManager;
-  private EndOfStreamDispatcher eosDispatcher;
-  private WatermarkDispatcher watermarkDispatcher;
+  private IOGraph ioGraph;
 
   /**
    * Constructs an adaptor task to run the user-implemented {@link StreamApplication}.
@@ -94,8 +91,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
     // create the operator impl DAG corresponding to the logical operator spec DAG
     this.operatorImplGraph = new OperatorImplGraph(streamGraph, config, context, clock);
-    this.eosDispatcher = new EndOfStreamDispatcher(streamGraph.toIOGraph());
-    this.watermarkDispatcher = new WatermarkDispatcher(streamGraph.toIOGraph());
+    this.ioGraph = streamGraph.toIOGraph();
   }
 
   /**
@@ -125,15 +121,18 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   }
 
   @Override
-  public final void onEndOfStream(EndOfStream endOfStream, MessageCollector collector, TaskCoordinator coordinator) {
-    eosDispatcher.propagate(endOfStream, coordinator);
+  public IOGraph getIOGraph() {
+    return ioGraph;
   }
 
   @Override
-  public final void onWatermark(Watermark watermark, MessageCollector collector, TaskCoordinator coordinator) {
-    InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(watermark.getSystemStream());
+  public final void onWatermark(Watermark watermark,
+      SystemStream systemStream,
+      MessageCollector collector,
+      TaskCoordinator coordinator) {
+    InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
     if (inputOpImpl != null) {
-      inputOpImpl.onWatermark(watermark, watermarkDispatcher, collector, coordinator);
+      inputOpImpl.onWatermark(watermark, collector, coordinator);
     }
   }
 

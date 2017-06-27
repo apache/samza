@@ -26,14 +26,10 @@ import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.control.ControlMessageListener
 import org.apache.samza.control.ControlMessageUtils
-import org.apache.samza.control.EndOfStream
 import org.apache.samza.control.EndOfStreamManager
 import org.apache.samza.control.WatermarkManager
-import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
-import org.apache.samza.message.ControlMessage
 import org.apache.samza.message.MessageType
-import org.apache.samza.message.WatermarkMessage
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.IncomingMessageEnvelope
@@ -42,7 +38,6 @@ import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemConsumers
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.AsyncStreamTask
-import org.apache.samza.task.AsyncStreamTaskAdapter
 import org.apache.samza.task.ClosableTask
 import org.apache.samza.task.EndOfStreamListenerTask
 import org.apache.samza.task.InitableTask
@@ -113,7 +108,7 @@ class TaskInstance(
     scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2CaughtupMapping += _ -> false)
 
-  val streamToTasksMapping = ControlMessageUtils.buildStreamToTasks(jobModel)
+  val streamToTasksMapping = ControlMessageUtils.buildInputToTasks(jobModel)
   val endOfStreamManager = new EndOfStreamManager(taskName.getTaskName,
                                                   streamToTasksMapping,
                                                   systemStreamPartitions.asJava,
@@ -156,6 +151,15 @@ class TaskInstance(
       task.asInstanceOf[InitableTask].init(config, context)
     } else {
       debug("Skipping task initialization for taskName: %s" format taskName)
+    }
+
+    if (isControlMessageListener) {
+      debug("Initializing topology for taskName: %s" format taskName)
+      val ioGraph = task.asInstanceOf[ControlMessageListener].getIOGraph
+      if (ioGraph != null) {
+        endOfStreamManager.init(ioGraph)
+        watermarkManager.init(ioGraph)
+      }
     }
   }
 
@@ -215,37 +219,25 @@ class TaskInstance(
           }
 
         case MessageType.END_OF_STREAM =>
-          // currently we only support control messages on the StreamTask, which is wrapped inside
-          // AsyncStreamTaskAdaptor
           if (isControlMessageListener) {
-            val endOfStream = endOfStreamManager.update(envelope)
-            if (endOfStream != null) {
-              // handle end-of-stream synchronously in the run loop thread.
-              val callback = callbackFactory.createCallback()
-              try {
-                task.asInstanceOf[ControlMessageListener].onEndOfStream(endOfStream, collector, coordinator)
-                callback.complete()
-              } catch {
-                case t: Throwable => callback.failure(t)
-              }
+            // handle eos synchronously.
+            runSync(callbackFactory) {
+              endOfStreamManager.update(envelope, coordinator)
             }
           } else {
-            warn("End-of-stream control message is only supported on StreamTask. Ignore end-of-stream message due to %s not implementing ControlMessageListener."
+            warn("Ignore end-of-stream message due to %s not implementing ControlMessageListener."
               format(task.getClass.toString))
           }
 
         case MessageType.WATERMARK =>
           if (isControlMessageListener) {
-            val watermark = watermarkManager.update(envelope)
-            if (watermark != null) {
-              // handle watermark synchronously in the run loop thread.
-              // we might consider running it asynchronously later
-              val callback = callbackFactory.createCallback()
-              try {
-                task.asInstanceOf[ControlMessageListener].onWatermark(watermark, collector, coordinator)
-                callback.complete()
-              } catch {
-                case t: Throwable => callback.failure(t)
+            // handle watermark synchronously in the run loop thread.
+            // we might consider running it asynchronously later
+            runSync(callbackFactory) {
+              val watermark = watermarkManager.update(envelope)
+              if (watermark != null) {
+                val stream = envelope.getSystemStreamPartition.getSystemStream
+                task.asInstanceOf[ControlMessageListener].onWatermark(watermark, stream, collector, coordinator)
               }
             }
           } else {
@@ -347,6 +339,16 @@ class TaskInstance(
           }
         }
       }
+    }
+  }
+
+  private def runSync(callbackFactory: TaskCallbackFactory)(runCodeBlock: => Unit) = {
+    val callback = callbackFactory.createCallback()
+    try {
+      runCodeBlock
+      callback.complete()
+    } catch {
+      case t: Throwable => callback.failure(t)
     }
   }
 }

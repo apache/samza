@@ -21,6 +21,9 @@ package org.apache.samza.control;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.message.ControlMessage;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -31,7 +34,7 @@ import org.apache.samza.task.MessageCollector;
 
 
 /**
- * This class delegates a control message to the corresponding manager.
+ * This class privates static utils for handling control messages
  */
 public class ControlMessageUtils {
 
@@ -42,7 +45,7 @@ public class ControlMessageUtils {
    * @param metadataCache stream metadata cache
    * @param collector collector to send the message
    */
-  static void sendControlMessage(ControlMessage message,
+  public static void sendControlMessage(ControlMessage message,
       SystemStream systemStream,
       StreamMetadataCache metadataCache,
       MessageCollector collector) {
@@ -59,7 +62,7 @@ public class ControlMessageUtils {
    * @param jobModel job model which contains ssp-to-task assignment
    * @return the map of input stream to tasks
    */
-  public static Multimap<SystemStream, String> buildStreamToTasks(JobModel jobModel) {
+  public static Multimap<SystemStream, String> buildInputToTasks(JobModel jobModel) {
     Multimap<SystemStream, String> streamToTasks = HashMultimap.create();
     if (jobModel != null) {
       jobModel.getContainers().values().forEach(containerModel -> {
@@ -71,5 +74,22 @@ public class ControlMessageUtils {
         });
     }
     return streamToTasks;
+  }
+
+  /**
+   * Calculate the mapping from an output stream to the number of upstream tasks that will produce to the output stream
+   * @param inputToTasks input stream to its consumer tasks mapping
+   * @param ioGraph topology of the stream inputs and outputs
+   * @return mapping from output to upstream task count
+   */
+  public static Map<SystemStream, Integer> calculateUpstreamTaskCounts(Multimap<SystemStream, String> inputToTasks,
+      IOGraph ioGraph) {
+    Map<SystemStream, Integer> outputTaskCount = new HashMap<>();
+    ioGraph.getNodes().forEach(node -> {
+        int count = node.getInputs().stream().flatMap(spec -> inputToTasks.get(spec.toSystemStream()).stream())
+            .collect(Collectors.toSet()).size();
+        outputTaskCount.put(node.getOutput().toSystemStream(), count);
+      });
+    return outputTaskCount;
   }
 }

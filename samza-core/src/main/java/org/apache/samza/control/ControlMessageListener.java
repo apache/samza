@@ -19,28 +19,29 @@
 
 package org.apache.samza.control;
 
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * This interface provides the callback listener for the aggregation result of control messages
+ * The listener interface for the aggregation result of control messages
  */
 public interface ControlMessageListener {
 
   /**
-   * Invoked when an EndOfStream comes
-   * @param endOfStream contains the stream that reaches to the end.
-   * @param collector message collector
-   * @param coordinator task coordinator
+   * Returns the topology of the streams. Any control message listener needs to
+   * provide this topology so Samza can propagate the control message to downstreams.
+   * @return {@link IOGraph} of input to output streams
    */
-  void onEndOfStream(EndOfStream endOfStream, MessageCollector collector, TaskCoordinator coordinator);
+  IOGraph getIOGraph();
 
   /**
-   * Invoked when a Watermark comes
+   * Invoked when a Watermark comes.
    * @param watermark contains the watermark timestamp
+   * @param systemStream source of stream that emits the watermark
    * @param collector message collector
    * @param coordinator task coordinator
    */
-  void onWatermark(Watermark watermark, MessageCollector collector, TaskCoordinator coordinator);
+  void onWatermark(Watermark watermark, SystemStream systemStream, MessageCollector collector, TaskCoordinator coordinator);
 }

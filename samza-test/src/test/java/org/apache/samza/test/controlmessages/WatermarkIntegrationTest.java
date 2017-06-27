@@ -71,7 +71,7 @@ import scala.collection.JavaConverters;
 import static org.junit.Assert.assertEquals;
 
 
-public class TestWatermark extends AbstractIntegrationTestHarness {
+public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
 
   private static int offset = 1;
   private static final String TEST_SYSTEM = "test";

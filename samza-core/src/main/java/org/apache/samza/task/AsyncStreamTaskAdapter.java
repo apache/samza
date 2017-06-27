@@ -22,9 +22,10 @@ package org.apache.samza.task;
 import java.util.concurrent.ExecutorService;
 import org.apache.samza.config.Config;
 import org.apache.samza.control.ControlMessageListener;
-import org.apache.samza.control.EndOfStream;
 import org.apache.samza.control.Watermark;
+import org.apache.samza.control.IOGraph;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.SystemStream;
 
 
 /**
@@ -101,16 +102,18 @@ public class AsyncStreamTaskAdapter implements AsyncStreamTask, InitableTask, Wi
   }
 
   @Override
-  public void onWatermark(Watermark watermark, MessageCollector collector, TaskCoordinator coordinator) {
+  public IOGraph getIOGraph() {
     if (wrappedTask instanceof ControlMessageListener) {
-      ((ControlMessageListener) wrappedTask).onWatermark(watermark, collector, coordinator);
+      return ((ControlMessageListener) wrappedTask).getIOGraph();
     }
+    return null;
   }
 
   @Override
-  public void onEndOfStream(EndOfStream endOfStream, MessageCollector collector, TaskCoordinator coordinator) {
+  public void onWatermark(Watermark watermark, SystemStream stream, MessageCollector collector, TaskCoordinator coordinator) {
     if (wrappedTask instanceof ControlMessageListener) {
-      ((ControlMessageListener) wrappedTask).onEndOfStream(endOfStream, collector, coordinator);
+      ((ControlMessageListener) wrappedTask).onWatermark(watermark, stream, collector, coordinator);
     }
   }
+
 }

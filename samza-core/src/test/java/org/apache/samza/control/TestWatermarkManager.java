@@ -23,7 +23,6 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -33,11 +32,6 @@ import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.message.WatermarkMessage;
-import org.apache.samza.operators.spec.OperatorSpecs;
-import org.apache.samza.operators.spec.OutputOperatorSpec;
-import org.apache.samza.operators.spec.OutputStreamImpl;
-import org.apache.samza.operators.util.IOGraphUtil;
-import org.apache.samza.operators.util.TestIOGraphUtil;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamMetadataCache;
@@ -46,6 +40,7 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
+import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -67,6 +62,21 @@ import static org.mockito.Mockito.when;
 
 public class TestWatermarkManager {
 
+  StreamMetadataCache metadataCache;
+
+  @Before
+  public void setup() {
+    SystemStreamMetadata metadata = mock(SystemStreamMetadata.class);
+    Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = new HashMap<>();
+    partitionMetadata.put(new Partition(0), mock(SystemStreamMetadata.SystemStreamPartitionMetadata.class));
+    partitionMetadata.put(new Partition(1), mock(SystemStreamMetadata.SystemStreamPartitionMetadata.class));
+    partitionMetadata.put(new Partition(2), mock(SystemStreamMetadata.SystemStreamPartitionMetadata.class));
+    partitionMetadata.put(new Partition(3), mock(SystemStreamMetadata.SystemStreamPartitionMetadata.class));
+    when(metadata.getSystemStreamPartitionMetadata()).thenReturn(partitionMetadata);
+    metadataCache = mock(StreamMetadataCache.class);
+    when(metadataCache.getSystemStreamMetadata(anyObject(), anyBoolean())).thenReturn(metadata);
+  }
+
   @Test
   public void testUpdateFromInputSource() {
     SystemStreamPartition ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
@@ -77,7 +87,6 @@ public class TestWatermarkManager {
     long time = System.currentTimeMillis();
     Watermark watermark = manager.update(WatermarkManager.buildWatermarkEnvelope(time, ssp));
     assertEquals(watermark.getTimestamp(), time);
-    assertEquals(watermark.getSystemStream(), ssp.getSystemStream());
   }
 
   @Test
@@ -105,13 +114,13 @@ public class TestWatermarkManager {
       assertNull(manager.update(envelopes[i]));
     }
     // verify the first three messages won't result in end-of-stream
-    assertEquals(manager.getWatermarkTime(ssps[0]), WatermarkManager.WATERMARK_NOT_EXIST);
+    assertEquals(manager.getWatermarkTime(ssps[0]), WatermarkManager.TIME_NOT_EXIST);
     // the fourth message will generate a watermark
     Watermark watermark = manager.update(envelopes[3]);
     assertNotNull(watermark);
     assertEquals(watermark.getTimestamp(), 100);
-    assertEquals(manager.getWatermarkTime(ssps[1]), WatermarkManager.WATERMARK_NOT_EXIST);
-    assertEquals(manager.getWatermarkTime(ssps[2]), WatermarkManager.WATERMARK_NOT_EXIST);
+    assertEquals(manager.getWatermarkTime(ssps[1]), WatermarkManager.TIME_NOT_EXIST);
+    assertEquals(manager.getWatermarkTime(ssps[2]), WatermarkManager.TIME_NOT_EXIST);
 
 
     // stream2 has two partitions assigned to this task, so it requires a message from each partition to calculate watermarks
@@ -133,7 +142,7 @@ public class TestWatermarkManager {
     for (int i = 0; i < 3; i++) {
       assertNull(manager.update(envelopes[i]));
     }
-    assertEquals(manager.getWatermarkTime(ssps[2]), WatermarkManager.WATERMARK_NOT_EXIST);
+    assertEquals(manager.getWatermarkTime(ssps[2]), WatermarkManager.TIME_NOT_EXIST);
     // the fourth message will generate the watermark
     watermark = manager.update(envelopes[3]);
     assertNotNull(watermark);
@@ -179,44 +188,59 @@ public class TestWatermarkManager {
   }
 
   @Test
-  public void testDispatcher() {
+  public void testPropagate() {
     StreamSpec outputSpec = new StreamSpec("int-stream", "int-stream", "test-system");
-    OutputStreamImpl outputStream = new OutputStreamImpl(outputSpec, null, null);
-    OutputOperatorSpec partitionByOp = OperatorSpecs.createPartitionByOperatorSpec(outputStream, 0);
-
     List<StreamSpec> inputs = new ArrayList<>();
     inputs.add(new StreamSpec("input-stream-1", "input-stream-1", "test-system"));
     inputs.add(new StreamSpec("input-stream-2", "input-stream-2", "test-system"));
-    Collection<IOGraphUtil.IONode> ioGraph = TestIOGraphUtil.buildSimpleIOGraphOfPartitionBy(inputs, partitionByOp);
-    WatermarkDispatcher dispatcher = new WatermarkDispatcher(ioGraph);
+
+    IOGraph ioGraph = TestIOGraph.buildSimpleIOGraph(inputs, outputSpec, true);
 
     SystemStream input1 = new SystemStream("test-system", "input-stream-1");
     SystemStream input2 = new SystemStream("test-system", "input-stream-2");
+    SystemStream input3 = new SystemStream("test-system", "input-stream-3");
     SystemStream ints = new SystemStream("test-system", "int-stream");
     SystemStreamPartition[] ssps0 = new SystemStreamPartition[3];
     ssps0[0] = new SystemStreamPartition(input1, new Partition(0));
     ssps0[1] = new SystemStreamPartition(input2, new Partition(0));
     ssps0[2] = new SystemStreamPartition(ints, new Partition(0));
 
-    SystemStreamPartition[] ssps1 = new SystemStreamPartition[3];
+    SystemStreamPartition[] ssps1 = new SystemStreamPartition[4];
     ssps1[0] = new SystemStreamPartition(input1, new Partition(1));
     ssps1[1] = new SystemStreamPartition(input2, new Partition(1));
-    ssps1[2] = new SystemStreamPartition(ints, new Partition(1));
+    ssps1[2] = new SystemStreamPartition(input3, new Partition(1));
+    ssps1[3] = new SystemStreamPartition(ints, new Partition(1));
 
-    TaskName t0 = new TaskName("task 0");
-    TaskName t1 = new TaskName("task 1");
-    Multimap<SystemStream, String> streamToTasks = HashMultimap.create();
+    SystemStreamPartition[] ssps2 = new SystemStreamPartition[2];
+    ssps2[0] = new SystemStreamPartition(input3, new Partition(2));
+    ssps2[1] = new SystemStreamPartition(ints, new Partition(2));
+
+
+    TaskName t0 = new TaskName("task 0"); //consume input1 and input2
+    TaskName t1 = new TaskName("task 1"); //consume input 1 and input2 and input 3
+    TaskName t2 = new TaskName("task 2"); //consume input2 and input 3
+    Multimap<SystemStream, String> inputToTasks = HashMultimap.create();
     for (SystemStreamPartition ssp : ssps0) {
-      streamToTasks.put(ssp.getSystemStream(), t0.getTaskName());
+      inputToTasks.put(ssp.getSystemStream(), t0.getTaskName());
     }
     for (SystemStreamPartition ssp : ssps1) {
-      streamToTasks.put(ssp.getSystemStream(), t1.getTaskName());
+      inputToTasks.put(ssp.getSystemStream(), t1.getTaskName());
     }
-    WatermarkManager manager = spy(new WatermarkManager(t0.getTaskName(), streamToTasks, new HashSet<>(Arrays.asList(ssps0)), null, null));
-    long time = System.currentTimeMillis();
-    Watermark watermark = manager.createWatermark(time, input1);
+    for (SystemStreamPartition ssp : ssps2) {
+      inputToTasks.put(ssp.getSystemStream(), t2.getTaskName());
+    }
+
+    WatermarkManager manager = spy(
+        new WatermarkManager(t0.getTaskName(), inputToTasks, new HashSet<>(Arrays.asList(ssps0)), null, null));
+    manager.init(ioGraph);
+
+    IncomingMessageEnvelope envelope = WatermarkManager.buildWatermarkEnvelope(System.currentTimeMillis(), ssps0[0]);
     doNothing().when(manager).sendWatermark(anyLong(), any(), anyInt());
-    dispatcher.propagate(watermark, ints);
+    Watermark watermark = manager.update(envelope);
+    assertNotNull(watermark);
+    long time = System.currentTimeMillis();
+    Watermark updatedWatermark = watermark.copyWithTimestamp(time);
+    updatedWatermark.propagate(ints);
     ArgumentCaptor<Long> arg1 = ArgumentCaptor.forClass(Long.class);
     ArgumentCaptor<SystemStream> arg2 = ArgumentCaptor.forClass(SystemStream.class);
     ArgumentCaptor<Integer> arg3 = ArgumentCaptor.forClass(Integer.class);

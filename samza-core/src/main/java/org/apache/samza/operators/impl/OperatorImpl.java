@@ -18,26 +18,22 @@
  */
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.config.MetricsConfig;
-import org.apache.samza.control.WatermarkDispatcher;
-import org.apache.samza.control.WatermarkManager;
-import org.apache.samza.control.WatermarkManager.WatermarkImpl;
-import org.apache.samza.metrics.Counter;
-import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.metrics.Timer;
-import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.control.Watermark;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
-import org.apache.samza.task.TaskCoordinator;
-import org.apache.samza.util.HighResolutionClock;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MetricsConfig;
+import org.apache.samza.control.Watermark;
+import org.apache.samza.control.WatermarkManager;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.Timer;
+import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskContext;
+import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.util.HighResolutionClock;
 
 
 /**
@@ -52,8 +48,8 @@ public abstract class OperatorImpl<M, RM> {
   private Counter numMessage;
   private Timer handleMessageNs;
   private Timer handleTimerNs;
-  private long inputWatermarkTime = WatermarkManager.WATERMARK_NOT_EXIST;
-  private long outputWatermarkTime = WatermarkManager.WATERMARK_NOT_EXIST;
+  private long inputWatermarkTime = WatermarkManager.TIME_NOT_EXIST;
+  private long outputWatermarkTime = WatermarkManager.TIME_NOT_EXIST;
 
   Set<OperatorImpl<RM, ?>> registeredOperators;
   Set<OperatorImpl<?, M>> prevOperators;
@@ -184,40 +180,49 @@ public abstract class OperatorImpl<M, RM> {
    *   <li>InputWatermark(op) = min { OutputWatermark(op') | op1 is upstream of op}</li>
    *   <li>OutputWatermark(op) = min { InputWatermark(op), OldestWorkTime(op) }</li>
    * </ul>
+   *
    * @param watermark incoming watermark
-   * @param dispatcher watermark dispatcher to send watermark to downstreams
    * @param collector message collector
    * @param coordinator task coordinator
    */
   public final void onWatermark(Watermark watermark,
-      WatermarkDispatcher dispatcher,
       MessageCollector collector,
       TaskCoordinator coordinator) {
-    long inputWm = watermark.getTimestamp();
-    SystemStream systemStream = watermark.getSystemStream();
-    if (!prevOperators.isEmpty()) {
+    final long inputWatermarkMin;
+    if (prevOperators.isEmpty()) {
+      // for input operator, use the watermark time coming from the source input
+      inputWatermarkMin = watermark.getTimestamp();
+    } else {
       // InputWatermark(op) = min { OutputWatermark(op') | op1 is upstream of op}
-      inputWm = prevOperators.stream().map(op -> op.getOutputWatermarkTime()).min(Long::compare).get();
+      inputWatermarkMin = prevOperators.stream().map(op -> op.getOutputWatermarkTime()).min(Long::compare).get();
     }
 
-    if (inputWatermarkTime < inputWm) {
-      inputWatermarkTime = inputWm;
-      WatermarkManager manager = ((WatermarkImpl) watermark).getManager();
-      Watermark inputWatermark = manager.createWatermark(inputWatermarkTime, systemStream);
-      // OutputWatermark(op) = min { InputWatermark(op), OldestWorkTime(op) }
-      long outputWm = Math.min(inputWatermarkTime, handleWatermark(inputWatermark, dispatcher, collector, coordinator));
+    if (inputWatermarkTime < inputWatermarkMin) {
+      // advance the watermark time of this operator
+      inputWatermarkTime = inputWatermarkMin;
+      Watermark inputWatermark = watermark.copyWithTimestamp(inputWatermarkTime);
+      long oldestWorkTime = handleWatermark(inputWatermark, collector, coordinator);
 
-      if (outputWatermarkTime < outputWm) {
+      // OutputWatermark(op) = min { InputWatermark(op), OldestWorkTime(op) }
+      long outputWatermarkMin = Math.min(inputWatermarkTime, oldestWorkTime);
+      if (outputWatermarkTime < outputWatermarkMin) {
         // populate the watermark to downstream
-        outputWatermarkTime = outputWm;
-        Watermark outputWatermark = manager.createWatermark(outputWatermarkTime, systemStream);
-        this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, dispatcher, collector, coordinator));
+        outputWatermarkTime = outputWatermarkMin;
+        Watermark outputWatermark = watermark.copyWithTimestamp(outputWatermarkTime);
+        this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
       }
     }
   }
 
+  /**
+   * Returns the oldest time of the envelops that haven't been processed by this operator
+   * Default implementation of handling watermark, which returns the input watermark time
+   * @param inputWatermark input watermark
+   * @param collector message collector
+   * @param coordinator task coordinator
+   * @return time of oldest processing envelope
+   */
   protected long handleWatermark(Watermark inputWatermark,
-      WatermarkDispatcher dispatcher,
       MessageCollector collector,
       TaskCoordinator coordinator) {
     return inputWatermark.getTimestamp();
