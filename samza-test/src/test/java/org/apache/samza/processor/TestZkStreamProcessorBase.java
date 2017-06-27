@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import kafka.utils.TestUtils;
 import org.I0Itec.zkclient.ZkClient;
@@ -288,13 +290,13 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     Assert.assertTrue("Didn't read all the leftover events in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
   }
 
-  protected void waitForProcessorToStartStop(Object waitObject) {
+  protected void waitForProcessorToStartStop(CountDownLatch waitObject) {
     try {
-      synchronized (waitObject) {
-        waitObject.wait(1000);
+      if (!waitObject.await(3000, TimeUnit.MILLISECONDS)) {
+        Assert.fail("timedout while waiting for the first processor to start/stop.");
       }
     } catch (InterruptedException e) {
-      Assert.fail("got interrupted while waiting for the first processor to start.");
+      Assert.fail("got interrupted while waiting for the first processor to start/stop.");
     }
   }
 

@@ -303,17 +303,15 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       // reset all the values that might've been from the previous session (e.g ephemeral node path)
       zkUtils.unregister();
 
-      if (zkController != null) {
-        LOG.info("register zk controller for the new session");
-        zkController.register();
-      }
+      LOG.info("register zk controller for the new session");
+      zkController.register();
     }
 
     @Override
     public void handleSessionEstablishmentError(Throwable error)
         throws Exception {
       // this means we cannot connect to zookeeper
-      LOG.info("=================================================handleSessionEstablishmentError received for processor=" + processorId, error);
+      LOG.info("handleSessionEstablishmentError received for processor=" + processorId, error);
       stop();
     }
   }
