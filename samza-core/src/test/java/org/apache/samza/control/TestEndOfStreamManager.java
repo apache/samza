@@ -80,15 +80,15 @@ public class TestEndOfStreamManager {
     when(metadataCache.getSystemStreamMetadata(anyObject(), anyBoolean())).thenReturn(metadata);
   }
 
-
   @Test
   public void testUpdateFromInputSource() {
     SystemStreamPartition ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
     TaskName taskName = new TaskName("Task 0");
     Multimap<SystemStream, String> streamToTasks = HashMultimap.create();
     streamToTasks.put(ssp.getSystemStream(), taskName.getTaskName());
-    EndOfStreamManager manager = new EndOfStreamManager("Task 0", streamToTasks, Collections.singleton(ssp), null, null);
-    manager.init(new IOGraph(Collections.emptyList()));
+    ControlMessageListenerTask listener = mock(ControlMessageListenerTask.class);
+    when(listener.getIOGraph()).thenReturn(new IOGraph(Collections.emptyList()));
+    EndOfStreamManager manager = new EndOfStreamManager("Task 0", listener, streamToTasks, Collections.singleton(ssp), null, null);
     manager.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssp), mock(TaskCoordinator.class));
     assertTrue(manager.isEndOfStream(ssp.getSystemStream()));
   }
@@ -105,8 +105,9 @@ public class TestEndOfStreamManager {
     for (SystemStreamPartition ssp : ssps) {
       streamToTasks.put(ssp.getSystemStream(), taskName.getTaskName());
     }
-    EndOfStreamManager manager = new EndOfStreamManager("Task 0", streamToTasks, new HashSet<>(Arrays.asList(ssps)), null, null);
-    manager.init(new IOGraph(Collections.EMPTY_LIST));
+    ControlMessageListenerTask listener = mock(ControlMessageListenerTask.class);
+    when(listener.getIOGraph()).thenReturn(new IOGraph(Collections.emptyList()));
+    EndOfStreamManager manager = new EndOfStreamManager("Task 0", listener, streamToTasks, new HashSet<>(Arrays.asList(ssps)), null, null);
 
     int envelopeCount = 4;
     IncomingMessageEnvelope[] envelopes = new IncomingMessageEnvelope[envelopeCount];
@@ -148,6 +149,48 @@ public class TestEndOfStreamManager {
   }
 
   @Test
+  public void testUpdateFromIntermediateStreamWith2Tasks() {
+    SystemStreamPartition[] ssps0 = new SystemStreamPartition[2];
+    ssps0[0] = new SystemStreamPartition("test-system", "test-stream-1", new Partition(0));
+    ssps0[1] = new SystemStreamPartition("test-system", "test-stream-2", new Partition(0));
+
+    SystemStreamPartition ssp1 = new SystemStreamPartition("test-system", "test-stream-2", new Partition(1));
+
+    TaskName t0 = new TaskName("Task 0");
+    Multimap<SystemStream, String> streamToTasks = HashMultimap.create();
+    for (SystemStreamPartition ssp : ssps0) {
+      streamToTasks.put(ssp.getSystemStream(), t0.getTaskName());
+    }
+
+    TaskName t1 = new TaskName("Task 1");
+    streamToTasks.put(ssp1, t1.getTaskName());
+
+    List<StreamSpec> inputs = new ArrayList<>();
+    inputs.add(new StreamSpec("test-stream-1", "test-stream-1", "test-system"));
+    inputs.add(new StreamSpec("test-stream-2", "test-stream-2", "test-system"));
+    StreamSpec outputSpec = new StreamSpec("int-stream", "int-stream", "test-system");
+    IOGraph ioGraph = TestIOGraph.buildSimpleIOGraph(inputs, outputSpec, true);
+
+    ControlMessageListenerTask listener = mock(ControlMessageListenerTask.class);
+    when(listener.getIOGraph()).thenReturn(ioGraph);
+
+    EndOfStreamManager manager0 = spy(new EndOfStreamManager("Task 0", listener, streamToTasks, new HashSet<>(Arrays.asList(ssps0)), null, null));
+    manager0.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssps0[0]), mock(TaskCoordinator.class));
+    assertTrue(manager0.isEndOfStream(ssps0[0].getSystemStream()));
+    doNothing().when(manager0).sendEndOfStream(any(), anyInt());
+    manager0.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssps0[1]), mock(TaskCoordinator.class));
+    assertTrue(manager0.isEndOfStream(ssps0[1].getSystemStream()));
+    verify(manager0).sendEndOfStream(any(), anyInt());
+
+    EndOfStreamManager manager1 = spy(new EndOfStreamManager("Task 1", listener, streamToTasks, Collections.singleton(
+        ssp1), null, null));
+    doNothing().when(manager1).sendEndOfStream(any(), anyInt());
+    manager1.update(EndOfStreamManager.buildEndOfStreamEnvelope(ssp1), mock(TaskCoordinator.class));
+    assertTrue(manager1.isEndOfStream(ssp1.getSystemStream()));
+    verify(manager1).sendEndOfStream(any(), anyInt());
+  }
+
+  @Test
   public void testSendEndOfStream() {
     StreamSpec ints = new StreamSpec("int-stream", "int-stream", "test-system");
     StreamSpec input = new StreamSpec("input-stream", "input-stream", "test-system");
@@ -160,13 +203,14 @@ public class TestEndOfStreamManager {
 
     MessageCollector collector = mock(MessageCollector.class);
     TaskName taskName = new TaskName("Task 0");
+    ControlMessageListenerTask listener = mock(ControlMessageListenerTask.class);
+    when(listener.getIOGraph()).thenReturn(ioGraph);
     EndOfStreamManager manager = new EndOfStreamManager(taskName.getTaskName(),
+        listener,
         inputToTasks,
         Collections.EMPTY_SET,
         metadataCache,
         collector);
-
-    manager.init(ioGraph);
 
     Set<Integer> partitions = new HashSet<>();
     doAnswer(invocation -> {
@@ -206,9 +250,10 @@ public class TestEndOfStreamManager {
 
     IOGraph ioGraph = TestIOGraph.buildSimpleIOGraph(inputs, outputSpec, true);
     MessageCollector collector = mock(MessageCollector.class);
+    ControlMessageListenerTask listener = mock(ControlMessageListenerTask.class);
+    when(listener.getIOGraph()).thenReturn(ioGraph);
     EndOfStreamManager manager = spy(
-        new EndOfStreamManager("task 0", streamToTasks, sspSet, metadataCache, collector));
-    manager.init(ioGraph);
+        new EndOfStreamManager("task 0", listener, streamToTasks, sspSet, metadataCache, collector));
     TaskCoordinator coordinator = mock(TaskCoordinator.class);
 
     // ssp1 end-of-stream, wait for ssp2
@@ -232,7 +277,7 @@ public class TestEndOfStreamManager {
 
   //  Test the case when the publishing tasks to intermediate stream is a subset of total tasks
   @Test
-  public void testDispatcherForTaskCount() {
+  public void testPropogateWith2Tasks() {
     StreamSpec outputSpec = new StreamSpec("int-stream", "int-stream", "test-system");
     OutputStreamImpl outputStream = new OutputStreamImpl(outputSpec, null, null);
     OutputOperatorSpec partitionByOp = OperatorSpecs.createPartitionByOperatorSpec(outputStream, 0);
@@ -253,12 +298,13 @@ public class TestEndOfStreamManager {
     streamToTasks.put(ssp1.getSystemStream(), t0.getTaskName());
     streamToTasks.put(ssp2.getSystemStream(), t1.getTaskName());
 
+    ControlMessageListenerTask listener = mock(ControlMessageListenerTask.class);
+    when(listener.getIOGraph()).thenReturn(ioGraph);
+
     EndOfStreamManager manager0 = spy(
-        new EndOfStreamManager(t0.getTaskName(), streamToTasks, Collections.singleton(ssp1), metadataCache, null));
-    manager0.init(ioGraph);
+        new EndOfStreamManager(t0.getTaskName(), listener, streamToTasks, Collections.singleton(ssp1), metadataCache, null));
     EndOfStreamManager manager1 = spy(
-        new EndOfStreamManager(t1.getTaskName(), streamToTasks, Collections.singleton(ssp2), metadataCache, null));
-    manager1.init(ioGraph);
+        new EndOfStreamManager(t1.getTaskName(), listener, streamToTasks, Collections.singleton(ssp2), metadataCache, null));
 
     TaskCoordinator coordinator0 = mock(TaskCoordinator.class);
     TaskCoordinator coordinator1 = mock(TaskCoordinator.class);

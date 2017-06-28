@@ -19,6 +19,7 @@
 
 package org.apache.samza.control;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.system.SystemStream;
 
 
@@ -31,6 +32,7 @@ import org.apache.samza.system.SystemStream;
  * {@link org.apache.samza.message.WatermarkMessage} and aggregate by returning the min of all watermark timestamp
  * in each partition.
  */
+@InterfaceStability.Unstable
 public interface Watermark {
   /**
    * Returns the timestamp of the watermark

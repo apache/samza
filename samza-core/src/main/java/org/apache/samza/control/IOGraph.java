@@ -66,8 +66,8 @@ public class IOGraph {
     }
   }
 
-  Collection<IONode> nodes;
-  Multimap<SystemStream, IONode> inputToNodes;
+  final Collection<IONode> nodes;
+  final Multimap<SystemStream, IONode> inputToNodes;
 
   public IOGraph(Collection<IONode> nodes) {
     this.nodes = Collections.unmodifiableCollection(nodes);

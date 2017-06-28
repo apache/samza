@@ -59,10 +59,7 @@ public class TestStreamProcessor {
     }
 
     @Override
-    SamzaContainer createSamzaContainer(
-        ContainerModel containerModel,
-        JobModel jobModel,
-        int maxChangelogStreamPartitions) {
+    SamzaContainer createSamzaContainer(String processorId, JobModel jobModel) {
       RunLoop mockRunLoop = mock(RunLoop.class);
       doAnswer(invocation ->
         {

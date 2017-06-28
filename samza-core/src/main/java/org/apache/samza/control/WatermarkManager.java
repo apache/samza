@@ -38,6 +38,8 @@ import org.slf4j.LoggerFactory;
 /**
  * This class manages watermarks. It aggregates the watermark control messages from the upstage tasks
  * for each SSP into an envelope of {@link Watermark}, and provide a dispatcher to propagate it to downstream.
+ *
+ * Internal use only.
  */
 public class WatermarkManager {
   private static final Logger log = LoggerFactory.getLogger(WatermarkManager.class);
@@ -47,23 +49,21 @@ public class WatermarkManager {
   private final Map<SystemStreamPartition, WatermarkState> watermarkStates;
   private final Map<SystemStream, Long> watermarkPerStream;
   private final StreamMetadataCache metadataCache;
-  // mapping from input stream to its downstream tasks
-  private final Multimap<SystemStream, String> inputToTasks;
   private final MessageCollector collector;
-
   // mapping from output stream to its upstream task count
-  private Map<SystemStream, Integer> upstreamTaskCounts;
+  private final Map<SystemStream, Integer> upstreamTaskCounts;
 
   public WatermarkManager(String taskName,
+      ControlMessageListenerTask listener,
       Multimap<SystemStream, String> inputToTasks,
       Set<SystemStreamPartition> ssps,
       StreamMetadataCache metadataCache,
       MessageCollector collector) {
     this.taskName = taskName;
     this.watermarkPerStream = new HashMap<>();
-    this.inputToTasks = inputToTasks;
     this.metadataCache = metadataCache;
     this.collector = collector;
+    this.upstreamTaskCounts = ControlMessageUtils.calculateUpstreamTaskCounts(inputToTasks, listener.getIOGraph());
 
     Map<SystemStreamPartition, WatermarkState> states = new HashMap<>();
     ssps.forEach(ssp -> {
@@ -71,10 +71,6 @@ public class WatermarkManager {
         watermarkPerStream.put(ssp.getSystemStream(), TIME_NOT_EXIST);
       });
     this.watermarkStates = Collections.unmodifiableMap(states);
-  }
-
-  public void init(IOGraph ioGraph) {
-    this.upstreamTaskCounts = ControlMessageUtils.calculateUpstreamTaskCounts(inputToTasks, ioGraph);
   }
 
   /**

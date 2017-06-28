@@ -21,7 +21,7 @@ package org.apache.samza.task;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.control.ControlMessageListener;
+import org.apache.samza.control.ControlMessageListenerTask;
 import org.apache.samza.control.Watermark;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.StreamGraphImpl;
@@ -39,7 +39,7 @@ import org.apache.samza.util.SystemClock;
  * A {@link StreamTask} implementation that brings all the operator API implementation components together and
  * feeds the input messages into the user-defined transformation chains in {@link StreamApplication}.
  */
-public final class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask, ControlMessageListener {
+public final class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask, ControlMessageListenerTask {
 
   private final StreamApplication streamApplication;
   private final ApplicationRunner runner;

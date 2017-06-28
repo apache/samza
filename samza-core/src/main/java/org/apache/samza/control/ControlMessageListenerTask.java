@@ -25,14 +25,16 @@ import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * The listener interface for the aggregation result of control messages
+ * The listener interface for the aggregation result of control messages.
+ * Any task that handles control messages such as {@link org.apache.samza.message.EndOfStreamMessage}
+ * and {@link org.apache.samza.message.WatermarkMessage} needs to implement this interface.
  */
-public interface ControlMessageListener {
+public interface ControlMessageListenerTask {
 
   /**
    * Returns the topology of the streams. Any control message listener needs to
    * provide this topology so Samza can propagate the control message to downstreams.
-   * @return {@link IOGraph} of input to output streams
+   * @return {@link IOGraph} of input to output streams. It
    */
   IOGraph getIOGraph();
 

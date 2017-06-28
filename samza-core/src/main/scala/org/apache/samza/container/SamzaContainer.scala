@@ -109,14 +109,14 @@ object SamzaContainer extends Logging {
   }
 
   def apply(
-    containerModel: ContainerModel,
+    containerId: String,
     jobModel: JobModel,
     config: Config,
-    maxChangeLogStreamPartitions: Int,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
     taskFactory: Object) = {
-    val containerId = containerModel.getProcessorId()
+    val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
+    val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
 
     var localityManager: LocalityManager = null
     if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {

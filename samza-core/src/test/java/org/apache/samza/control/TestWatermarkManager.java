@@ -83,7 +83,9 @@ public class TestWatermarkManager {
     TaskName taskName = new TaskName("Task 0");
     Multimap<SystemStream, String> streamToTasks = HashMultimap.create();
     streamToTasks.put(ssp.getSystemStream(), taskName.getTaskName());
-    WatermarkManager manager = new WatermarkManager("Task 0", streamToTasks, Collections.singleton(ssp), null, null);
+    ControlMessageListenerTask listener = mock(ControlMessageListenerTask.class);
+    when(listener.getIOGraph()).thenReturn(new IOGraph(Collections.emptyList()));
+    WatermarkManager manager = new WatermarkManager("Task 0", listener, streamToTasks, Collections.singleton(ssp), null, null);
     long time = System.currentTimeMillis();
     Watermark watermark = manager.update(WatermarkManager.buildWatermarkEnvelope(time, ssp));
     assertEquals(watermark.getTimestamp(), time);
@@ -101,8 +103,10 @@ public class TestWatermarkManager {
     for (SystemStreamPartition ssp : ssps) {
       streamToTasks.put(ssp.getSystemStream(), taskName.getTaskName());
     }
+    ControlMessageListenerTask listener = mock(ControlMessageListenerTask.class);
+    when(listener.getIOGraph()).thenReturn(new IOGraph(Collections.emptyList()));
 
-    WatermarkManager manager = new WatermarkManager("Task 0", streamToTasks, new HashSet<>(Arrays.asList(ssps)), null, null);
+    WatermarkManager manager = new WatermarkManager("Task 0", listener, streamToTasks, new HashSet<>(Arrays.asList(ssps)), null, null);
     int envelopeCount = 4;
     IncomingMessageEnvelope[] envelopes = new IncomingMessageEnvelope[envelopeCount];
 
@@ -164,8 +168,11 @@ public class TestWatermarkManager {
     when(metadataCache.getSystemStreamMetadata(anyObject(), anyBoolean())).thenReturn(metadata);
 
     MessageCollector collector = mock(MessageCollector.class);
+    ControlMessageListenerTask listener = mock(ControlMessageListenerTask.class);
+    when(listener.getIOGraph()).thenReturn(new IOGraph(Collections.emptyList()));
 
     WatermarkManager manager = new WatermarkManager("task 0",
+        listener,
         HashMultimap.create(),
         Collections.EMPTY_SET,
         metadataCache,
@@ -230,9 +237,10 @@ public class TestWatermarkManager {
       inputToTasks.put(ssp.getSystemStream(), t2.getTaskName());
     }
 
+    ControlMessageListenerTask listener = mock(ControlMessageListenerTask.class);
+    when(listener.getIOGraph()).thenReturn(ioGraph);
     WatermarkManager manager = spy(
-        new WatermarkManager(t0.getTaskName(), inputToTasks, new HashSet<>(Arrays.asList(ssps0)), null, null));
-    manager.init(ioGraph);
+        new WatermarkManager(t0.getTaskName(), listener, inputToTasks, new HashSet<>(Arrays.asList(ssps0)), null, null));
 
     IncomingMessageEnvelope envelope = WatermarkManager.buildWatermarkEnvelope(System.currentTimeMillis(), ssps0[0]);
     doNothing().when(manager).sendWatermark(anyLong(), any(), anyInt());

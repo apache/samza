@@ -20,11 +20,13 @@
 package org.apache.samza.container
 
 
+import com.google.common.collect.HashMultimap
+import com.google.common.collect.Multimap
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.control.ControlMessageListener
+import org.apache.samza.control.ControlMessageListenerTask
 import org.apache.samza.control.ControlMessageUtils
 import org.apache.samza.control.EndOfStreamManager
 import org.apache.samza.control.WatermarkManager
@@ -36,6 +38,7 @@ import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.StreamMetadataCache
 import org.apache.samza.system.SystemAdmin
 import org.apache.samza.system.SystemConsumers
+import org.apache.samza.system.SystemStream
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.AsyncStreamTask
 import org.apache.samza.task.ClosableTask
@@ -50,6 +53,28 @@ import org.apache.samza.task.WindowableTask
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
+import scala.collection.JavaConversions._
+
+object TaskInstance {
+  /**
+   * Build a map from a stream to its consumer tasks
+   * @param jobModel job model which contains ssp-to-task assignment
+   * @return the map of input stream to tasks
+   */
+  def buildInputToTasks(jobModel: JobModel): Multimap[SystemStream, String] = {
+    val streamToTasks: Multimap[SystemStream, String] = HashMultimap.create[SystemStream, String]
+    if (jobModel != null) {
+      for (containerModel <- jobModel.getContainers.values) {
+        for (taskModel <- containerModel.getTasks.values) {
+          for (ssp <- taskModel.getSystemStreamPartitions) {
+            streamToTasks.put(ssp.getSystemStream, taskModel.getTaskName.toString)
+          }
+        }
+      }
+    }
+    return streamToTasks
+  }
+}
 
 class TaskInstance(
   val task: Any,
@@ -72,7 +97,7 @@ class TaskInstance(
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
-  val isControlMessageListener = task.isInstanceOf[ControlMessageListener]
+  val isControlMessageListener = task.isInstanceOf[ControlMessageListenerTask]
 
   val context = new TaskContext {
     var userContext: Object = null;
@@ -108,17 +133,9 @@ class TaskInstance(
     scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2CaughtupMapping += _ -> false)
 
-  val streamToTasksMapping = ControlMessageUtils.buildInputToTasks(jobModel)
-  val endOfStreamManager = new EndOfStreamManager(taskName.getTaskName,
-                                                  streamToTasksMapping,
-                                                  systemStreamPartitions.asJava,
-                                                  streamMetadataCache,
-                                                  collector)
-  val watermarkManager = new WatermarkManager(taskName.getTaskName,
-                                              streamToTasksMapping,
-                                              systemStreamPartitions.asJava,
-                                              streamMetadataCache,
-                                              collector)
+  val inputToTasksMapping = TaskInstance.buildInputToTasks(jobModel)
+  var endOfStreamManager: EndOfStreamManager = null
+  var watermarkManager: WatermarkManager = null
 
   val hasIntermediateStreams = config.getStreamIds.exists(config.getIsIntermediate(_))
 
@@ -154,12 +171,19 @@ class TaskInstance(
     }
 
     if (isControlMessageListener) {
-      debug("Initializing topology for taskName: %s" format taskName)
-      val ioGraph = task.asInstanceOf[ControlMessageListener].getIOGraph
-      if (ioGraph != null) {
-        endOfStreamManager.init(ioGraph)
-        watermarkManager.init(ioGraph)
-      }
+      endOfStreamManager = new EndOfStreamManager(taskName.getTaskName,
+                                                  task.asInstanceOf[ControlMessageListenerTask],
+                                                  inputToTasksMapping,
+                                                  systemStreamPartitions.asJava,
+                                                  streamMetadataCache,
+                                                  collector)
+
+      watermarkManager = new WatermarkManager(taskName.getTaskName,
+                                                  task.asInstanceOf[ControlMessageListenerTask],
+                                                  inputToTasksMapping,
+                                                  systemStreamPartitions.asJava,
+                                                  streamMetadataCache,
+                                                  collector)
     }
   }
 
@@ -237,7 +261,7 @@ class TaskInstance(
               val watermark = watermarkManager.update(envelope)
               if (watermark != null) {
                 val stream = envelope.getSystemStreamPartition.getSystemStream
-                task.asInstanceOf[ControlMessageListener].onWatermark(watermark, stream, collector, coordinator)
+                task.asInstanceOf[ControlMessageListenerTask].onWatermark(watermark, stream, collector, coordinator)
               }
             }
           } else {

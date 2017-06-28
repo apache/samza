@@ -90,6 +90,14 @@ public class IncomingMessageEnvelope {
     return END_OF_STREAM_OFFSET.equals(offset);
   }
 
+  /**
+   * This method is deprecated in favor of WatermarkManager.buildEndOfStreamEnvelope(SystemStreamPartition ssp).
+   */
+  @Deprecated
+  public static IncomingMessageEnvelope buildEndOfStreamEnvelope(SystemStreamPartition ssp) {
+    return new IncomingMessageEnvelope(ssp, END_OF_STREAM_OFFSET, null, null);
+  }
+
   @Override
   public int hashCode() {
     final int prime = 31;

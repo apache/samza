@@ -39,6 +39,8 @@ import org.slf4j.LoggerFactory;
 /**
  * This class handles the end-of-stream control message. It aggregates the end-of-stream state for each input ssps of
  * a task, and propagate the eos messages to downstream intermediate streams if needed.
+ *
+ * Internal use only.
  */
 public class EndOfStreamManager {
   private static final Logger log = LoggerFactory.getLogger(EndOfStreamManager.class);
@@ -48,21 +50,19 @@ public class EndOfStreamManager {
   // end-of-stream state per ssp
   private final Map<SystemStreamPartition, EndOfStreamState> eosStates;
   private final StreamMetadataCache metadataCache;
-  // mapping from input stream to its downstream tasks
-  private final Multimap<SystemStream, String> inputToTasks;
-
   // topology information. Set during init()
-  private IOGraph ioGraph;
+  private final ControlMessageListenerTask listener;
   // mapping from output stream to its upstream task count
-  private Map<SystemStream, Integer> upstreamTaskCounts;
+  private final Map<SystemStream, Integer> upstreamTaskCounts;
 
   public EndOfStreamManager(String taskName,
+      ControlMessageListenerTask listener,
       Multimap<SystemStream, String> inputToTasks,
       Set<SystemStreamPartition> ssps,
       StreamMetadataCache metadataCache,
       MessageCollector collector) {
     this.taskName = taskName;
-    this.inputToTasks = inputToTasks;
+    this.listener = listener;
     this.metadataCache = metadataCache;
     this.collector = collector;
     Map<SystemStreamPartition, EndOfStreamState> states = new HashMap<>();
@@ -70,11 +70,7 @@ public class EndOfStreamManager {
         states.put(ssp, new EndOfStreamState());
       });
     this.eosStates = Collections.unmodifiableMap(states);
-  }
-
-  public void init(IOGraph ioGraph) {
-    this.ioGraph = ioGraph;
-    this.upstreamTaskCounts = ControlMessageUtils.calculateUpstreamTaskCounts(inputToTasks, ioGraph);
+    this.upstreamTaskCounts = ControlMessageUtils.calculateUpstreamTaskCounts(inputToTasks, listener.getIOGraph());
   }
 
   public void update(IncomingMessageEnvelope envelope, TaskCoordinator coordinator) {
@@ -83,14 +79,13 @@ public class EndOfStreamManager {
     state.update(message.getTaskName(), message.getTaskCount());
     log.info("Received end-of-stream from task " + message.getTaskName() + " in " + envelope.getSystemStreamPartition());
 
-    // If all the partitions for this system stream is end-of-stream, we create an aggregate
-    // EndOfStream message for the streamId
     SystemStream systemStream = envelope.getSystemStreamPartition().getSystemStream();
     if (isEndOfStream(systemStream)) {
       log.info("End-of-stream of input " + systemStream + " for " + systemStream);
-      ioGraph.getNodesOfInput(systemStream).forEach(node -> {
+      listener.getIOGraph().getNodesOfInput(systemStream).forEach(node -> {
           // find the intermediate streams that need broadcast the eos messages
           if (node.isOutputIntermediate()) {
+            // check all the input stream partitions assigned to the task are end-of-stream
             boolean inputsEndOfStream = node.getInputs().stream().allMatch(spec -> isEndOfStream(spec.toSystemStream()));
             if (inputsEndOfStream) {
               // broadcast the end-of-stream message to the intermediate stream
