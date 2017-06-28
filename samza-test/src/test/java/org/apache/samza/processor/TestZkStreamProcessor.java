@@ -187,8 +187,6 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     CountDownLatch waitStop1 = new CountDownLatch(1);
     StreamProcessor sp1 = createStreamProcessor("30", map, waitStart1, waitStop1);
 
-    CountDownLatch containerStopped1 = sp1.jcContainerShutdownLatch;
-
     // start the first processor
     Thread t1 = runInThread(sp1, TestStreamTask.endLatch);
     t1.start();
@@ -197,6 +195,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     CountDownLatch waitStart2 = new CountDownLatch(1);
     CountDownLatch waitStop2 = new CountDownLatch(1);
     StreamProcessor sp2 = createStreamProcessor("31", map, waitStart2, waitStop2);
+    CountDownLatch containerStopped2 = sp2.jcContainerShutdownLatch;
+
     Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
     t2.start();
 
@@ -218,8 +218,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     // wait until it's really down
     waitForProcessorToStartStop(waitStop1);
 
-    // processor1 will stop and start again. We wait for its stop to make sure we can count EXACTLY how many messages it reads.
-    waitForProcessorToStartStop(containerStopped1);
+    // processor2 will stop it container and start again. We wait for its stop to make sure we can count EXACTLY how many messages it reads.
+    waitForProcessorToStartStop(containerStopped2);
 
     // let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(300);
