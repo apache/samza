@@ -119,8 +119,8 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     zkServer.closeSession(sessionId);
   }
 
-  protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map, final CountDownLatch mutexStart,
-      final CountDownLatch mutexStop) {
+  protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map, final CountDownLatch waitStart,
+      final CountDownLatch waitStop) {
     map.put(ApplicationConfig.PROCESSOR_ID, pId);
 
     Config config = new MapConfig(map);
@@ -131,16 +131,16 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     StreamProcessorLifecycleListener listener = new StreamProcessorLifecycleListener() {
       @Override
       public void onStart() {
-        if (mutexStart != null) {
-            mutexStart.countDown();
+        if (waitStart != null) {
+            waitStart.countDown();
         }
         LOG.info("onStart is called for pid=" + pId);
       }
 
       @Override
       public void onShutdown() {
-        if (mutexStop != null) {
-          mutexStart.countDown();
+        if (waitStop != null) {
+          waitStop.countDown();
         }
         LOG.info("onShutdown is called for pid=" + pId);
       }
@@ -292,10 +292,10 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
   protected void waitForProcessorToStartStop(CountDownLatch waitObject) {
     try {
       if (!waitObject.await(3000, TimeUnit.MILLISECONDS)) {
-        Assert.fail("timedout while waiting for the first processor to start/stop.");
+        Assert.fail("Timed out while waiting for the processor to start/stop.");
       }
     } catch (InterruptedException e) {
-      Assert.fail("got interrupted while waiting for the first processor to start/stop.");
+      Assert.fail("Got interrupted while waiting for the processor to start/stop.");
     }
   }
 

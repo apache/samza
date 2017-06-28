@@ -173,7 +173,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
   @Test
   /**
    * same as other happy path messages, but with one processor removed in the middle
-   */ public void testStreamProcessorWithRemove() {
+   */
+  public void testStreamProcessorWithRemove() {
 
     // set number of events we expect to read by both processes in total:
     // p1 and p2 - both read messageCount at first and p1 is shutdown, new batch of events is generated
@@ -185,6 +186,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     CountDownLatch waitStart1 = new CountDownLatch(1);
     CountDownLatch waitStop1 = new CountDownLatch(1);
     StreamProcessor sp1 = createStreamProcessor("30", map, waitStart1, waitStop1);
+
+    CountDownLatch containerStopped1 = sp1.jcContainerShutdownLatch;
 
     // start the first processor
     Thread t1 = runInThread(sp1, TestStreamTask.endLatch);
@@ -216,7 +219,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     waitForProcessorToStartStop(waitStop1);
 
     // processor1 will stop and start again. We wait for its stop to make sure we can count EXACTLY how many messages it reads.
-    waitForProcessorToStartStop(waitStop2);
+    waitForProcessorToStartStop(containerStopped1);
 
     // let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(300);

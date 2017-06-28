@@ -69,7 +69,7 @@ public class StreamProcessor {
   private volatile SamzaContainer container = null;
   // Latch used to synchronize between the JobCoordinator thread and the container thread, when the container is
   // stopped due to re-balancing
-  private volatile CountDownLatch jcContainerShutdownLatch = new CountDownLatch(1);
+  /* package private */volatile CountDownLatch jcContainerShutdownLatch = new CountDownLatch(1);
   private volatile boolean processorOnStartCalled = false;
 
   @VisibleForTesting

@@ -77,13 +77,6 @@ public class ZkUtils {
   private AtomicInteger currentGeneration;
   private ZkJobCoordinatorMetrics metrics;
 
-  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs) {
-    this.keyBuilder = zkKeyBuilder;
-    this.connectionTimeoutMs = connectionTimeoutMs;
-    this.zkClient = zkClient;
-    currentGeneration = new AtomicInteger(0);
-  }
-
   public void incGeneration() {
     currentGeneration.incrementAndGet();
   }
@@ -97,11 +90,12 @@ public class ZkUtils {
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkClient = zkClient;
     this.metrics = metrics;
+    currentGeneration = new AtomicInteger(0);
   }
 
   public void connect() throws ZkInterruptedException {
     boolean isConnected = zkClient.waitUntilConnected(connectionTimeoutMs, TimeUnit.MILLISECONDS);
-    if (!isConnected) {
+    if (!isConnected && metrics != null) {
       metrics.zkConnectionError.inc();
       throw new RuntimeException("Unable to connect to Zookeeper within connectionTimeout " + connectionTimeoutMs + "ms. Shutting down!");
     }
@@ -164,7 +158,9 @@ public class ZkUtils {
    */
   String readProcessorData(String fullPath) {
     String data = zkClient.<String>readData(fullPath, true);
-    metrics.reads.inc();
+    if (metrics != null) {
+      metrics.reads.inc();
+    }
     if (data == null) {
       throw new SamzaException(String.format("Cannot read ZK node:", fullPath));
     }
@@ -212,12 +208,16 @@ public class ZkUtils {
 
   public void subscribeDataChanges(String path, IZkDataListener dataListener) {
     zkClient.subscribeDataChanges(path, dataListener);
-    metrics.subscriptions.inc();
+    if (metrics != null) {
+      metrics.subscriptions.inc();
+    }
   }
 
   public void subscribeChildChanges(String path, IZkChildListener listener) {
     zkClient.subscribeChildChanges(path, listener);
-    metrics.subscriptions.inc();
+    if (metrics != null) {
+      metrics.subscriptions.inc();
+    }
   }
 
   public void unsubscribeChildChanges(String path, IZkChildListener childListener) {
@@ -226,7 +226,9 @@ public class ZkUtils {
 
   public void writeData(String path, Object object) {
     zkClient.writeData(path, object);
-    metrics.writes.inc();
+    if (metrics != null) {
+      metrics.writes.inc();
+    }
   }
 
   public boolean exists(String path) {
@@ -288,7 +290,9 @@ public class ZkUtils {
   public void subscribeToJobModelVersionChange(GenIZkDataListener dataListener) {
     LOG.info(" subscribing for jm version change at:" + keyBuilder.getJobModelVersionPath());
     zkClient.subscribeDataChanges(keyBuilder.getJobModelVersionPath(), dataListener);
-    metrics.subscriptions.inc();
+    if (metrics != null) {
+      metrics.subscriptions.inc();
+    }
   }
 
   /**
