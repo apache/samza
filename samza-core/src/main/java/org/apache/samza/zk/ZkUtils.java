@@ -155,16 +155,19 @@ public class ZkUtils {
    * Method is used to read processor's data from the znode
    * @param fullPath absolute path to the znode
    * @return processor's data
+   * @throws SamzaException when fullPath doesn't exist in zookeeper
+   * or problems with connecting to zookeeper.
    */
   String readProcessorData(String fullPath) {
-    String data = zkClient.<String>readData(fullPath, true);
-    if (metrics != null) {
-      metrics.reads.inc();
+    try {
+      String data = zkClient.readData(fullPath, false);
+      if (metrics != null) {
+        metrics.reads.inc();
+      }
+      return data;
+    } catch (Exception e) {
+      throw new SamzaException(String.format("Cannot read ZK node: %s", fullPath), e);
     }
-    if (data == null) {
-      throw new SamzaException(String.format("Cannot read ZK node:", fullPath));
-    }
-    return data;
   }
 
   /**
