@@ -23,6 +23,7 @@ package org.apache.samza.coordinator
 import java.util
 import java.util.concurrent.atomic.AtomicReference
 
+import org.apache.samza.config.ClusterManagerConfig
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
@@ -98,6 +99,7 @@ object JobModelManager extends Logging {
     info("Got config: %s" format config)
     val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, SOURCE)
     changelogManager.start()
+
     val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
     // We don't need to start() localityManager as they share the same instances with checkpoint and changelog managers.
     // TODO: This code will go away with refactoring - SAMZA-678
@@ -228,6 +230,8 @@ object JobModelManager extends Logging {
     val groups = grouper.group(allSystemStreamPartitions.asJava)
     info("SystemStreamPartitionGrouper %s has grouped the SystemStreamPartitions into %d tasks with the following taskNames: %s" format(grouper, groups.size(), groups.keySet()))
 
+    val isHostAffinityEnabled = new ClusterManagerConfig(config).getHostAffinityEnabled
+
     // If no mappings are present(first time the job is running) we return -1, this will allow 0 to be the first change
     // mapping.
     var maxChangelogPartitionId = changeLogPartitionMapping.asScala.values.map(_.toInt).toList.sorted.lastOption.getOrElse(-1)
@@ -256,13 +260,17 @@ object JobModelManager extends Logging {
     val containerGrouper = containerGrouperFactory.build(config)
     val containerModels = {
       containerGrouper match {
-        case grouper: BalancingTaskNameGrouper => grouper.balance(taskModels.asJava, localityManager)
+        case grouper: BalancingTaskNameGrouper if isHostAffinityEnabled => grouper.balance(taskModels.asJava, localityManager)
         case _ => containerGrouper.group(taskModels.asJava, containerIds)
       }
     }
     val containerMap = containerModels.asScala.map { case (containerModel) => containerModel.getProcessorId -> containerModel }.toMap
 
-    new JobModel(config, containerMap.asJava, localityManager)
+    if (isHostAffinityEnabled) {
+      new JobModel(config, containerMap.asJava, localityManager)
+    } else {
+      new JobModel(config, containerMap.asJava)
+    }
   }
 
   /**

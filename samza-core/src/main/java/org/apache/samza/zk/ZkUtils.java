@@ -65,6 +65,7 @@ public class ZkUtils {
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
+  private ZkJobCoordinatorMetrics metrics;
 
   public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs) {
     this.keyBuilder = zkKeyBuilder;
@@ -72,9 +73,17 @@ public class ZkUtils {
     this.zkClient = zkClient;
   }
 
+  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs, ZkJobCoordinatorMetrics metrics) {
+    this.keyBuilder = zkKeyBuilder;
+    this.connectionTimeoutMs = connectionTimeoutMs;
+    this.zkClient = zkClient;
+    this.metrics = metrics;
+  }
+
   public void connect() throws ZkInterruptedException {
     boolean isConnected = zkClient.waitUntilConnected(connectionTimeoutMs, TimeUnit.MILLISECONDS);
     if (!isConnected) {
+      metrics.zkConnectionError.inc();
       throw new RuntimeException("Unable to connect to Zookeeper within connectionTimeout " + connectionTimeoutMs + "ms. Shutting down!");
     }
   }
@@ -132,13 +141,17 @@ public class ZkUtils {
    * Method is used to read processor's data from the znode
    * @param fullPath absolute path to the znode
    * @return processor's data
+   * @throws SamzaException when fullPath doesn't exist in zookeeper
+   * or problems with connecting to zookeeper.
    */
   String readProcessorData(String fullPath) {
-    String data = zkClient.<String>readData(fullPath, true);
-    if (data == null) {
-      throw new SamzaException(String.format("Cannot read ZK node:", fullPath));
+    try {
+      String data = zkClient.readData(fullPath, false);
+      metrics.reads.inc();
+      return data;
+    } catch (Exception e) {
+      throw new SamzaException(String.format("Cannot read ZK node: %s", fullPath), e);
     }
-    return data;
   }
 
   /**
@@ -177,6 +190,21 @@ public class ZkUtils {
 
   public void subscribeDataChanges(String path, IZkDataListener dataListener) {
     zkClient.subscribeDataChanges(path, dataListener);
+    metrics.subscriptions.inc();
+  }
+
+  public void subscribeChildChanges(String path, IZkChildListener listener) {
+    zkClient.subscribeChildChanges(path, listener);
+    metrics.subscriptions.inc();
+  }
+
+  public void unsubscribeChildChanges(String path, IZkChildListener childListener) {
+    zkClient.unsubscribeChildChanges(path, childListener);
+  }
+
+  public void writeData(String path, Object object) {
+    zkClient.writeData(path, object);
+    metrics.writes.inc();
   }
 
   public boolean exists(String path) {
@@ -194,6 +222,7 @@ public class ZkUtils {
   public void subscribeToJobModelVersionChange(IZkDataListener dataListener) {
     LOG.info(" subscribing for jm version change at:" + keyBuilder.getJobModelVersionPath());
     zkClient.subscribeDataChanges(keyBuilder.getJobModelVersionPath(), dataListener);
+    metrics.subscriptions.inc();
   }
 
   /**
@@ -224,6 +253,7 @@ public class ZkUtils {
   public JobModel getJobModel(String jobModelVersion) {
     LOG.info("read the model ver=" + jobModelVersion + " from " + keyBuilder.getJobModelPath(jobModelVersion));
     Object data = zkClient.readData(keyBuilder.getJobModelPath(jobModelVersion));
+    metrics.reads.inc();
     ObjectMapper mmapper = SamzaObjectMapper.getObjectMapper();
     JobModel jm;
     try {
@@ -250,6 +280,7 @@ public class ZkUtils {
   public void publishJobModelVersion(String oldVersion, String newVersion) {
     Stat stat = new Stat();
     String currentVersion = zkClient.<String>readData(keyBuilder.getJobModelVersionPath(), stat);
+    metrics.reads.inc();
     LOG.info("publishing new version: " + newVersion + "; oldVersion = " + oldVersion + "(" + stat
         .getVersion() + ")");
 
@@ -261,6 +292,7 @@ public class ZkUtils {
     int dataVersion = stat.getVersion();
     try {
       stat = zkClient.writeDataReturnStat(keyBuilder.getJobModelVersionPath(), newVersion, dataVersion);
+      metrics.writes.inc();
     } catch (Exception e) {
       String msg = "publish job model version failed for new version = " + newVersion + "; old version = " + oldVersion;
       LOG.error(msg, e);
@@ -290,5 +322,6 @@ public class ZkUtils {
   public void subscribeToProcessorChange(IZkChildListener listener) {
     LOG.info("subscribing for child change at:" + keyBuilder.getProcessorsPath());
     zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
+    metrics.subscriptions.inc();
   }
 }

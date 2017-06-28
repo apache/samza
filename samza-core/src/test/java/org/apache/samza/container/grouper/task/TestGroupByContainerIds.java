@@ -20,6 +20,7 @@
 package org.apache.samza.container.grouper.task;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -111,6 +112,40 @@ public class TestGroupByContainerIds {
     assertTrue(container0.getTasks().containsKey(getTaskName(4)));
     assertTrue(container1.getTasks().containsKey(getTaskName(1)));
     assertTrue(container1.getTasks().containsKey(getTaskName(3)));
+  }
+
+  @Test
+  public void testGroupWithNullContainerIds() {
+    Set<TaskModel> taskModels = generateTaskModels(5);
+
+    Set<ContainerModel> containers = buildSimpleGrouper(2).group(taskModels, null);
+
+    Map<String, ContainerModel> containersMap = new HashMap<>();
+    for (ContainerModel container : containers) {
+      containersMap.put(container.getProcessorId(), container);
+    }
+
+    assertEquals(2, containers.size());
+    ContainerModel container0 = containersMap.get("0");
+    ContainerModel container1 = containersMap.get("1");
+    assertNotNull(container0);
+    assertNotNull(container1);
+    assertEquals("0", container0.getProcessorId());
+    assertEquals("1", container1.getProcessorId());
+    assertEquals(3, container0.getTasks().size());
+    assertEquals(2, container1.getTasks().size());
+    assertTrue(container0.getTasks().containsKey(getTaskName(0)));
+    assertTrue(container0.getTasks().containsKey(getTaskName(2)));
+    assertTrue(container0.getTasks().containsKey(getTaskName(4)));
+    assertTrue(container1.getTasks().containsKey(getTaskName(1)));
+    assertTrue(container1.getTasks().containsKey(getTaskName(3)));
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGroupWithEmptyContainerIds() {
+    Set<TaskModel> taskModels = generateTaskModels(5);
+
+    buildSimpleGrouper(2).group(taskModels, Collections.emptyList());
   }
 
   @Test

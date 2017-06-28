@@ -93,7 +93,7 @@ public class ZkBarrierForVersionUpgrade {
 
     // subscribe for participant's list changes
     LOG.info("Subscribing for child changes at " + barrierParticipantsPath);
-    zkUtils.getZkClient().subscribeChildChanges(barrierParticipantsPath, new ZkBarrierChangeHandler(version, participants));
+    zkUtils.subscribeChildChanges(barrierParticipantsPath, new ZkBarrierChangeHandler(version, participants));
 
     barrierListenerOptional.ifPresent(zkBarrierListener -> zkBarrierListener.onBarrierCreated(version));
   }
@@ -106,7 +106,7 @@ public class ZkBarrierForVersionUpgrade {
    */
   public void join(String version, String participantId) {
     String barrierDonePath = keyBuilder.getBarrierStatePath(version);
-    zkUtils.getZkClient().subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, version));
+    zkUtils.subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, version));
 
     // TODO: Handle ZkNodeExistsException - SAMZA-1304
     zkUtils.getZkClient().createPersistent(
@@ -119,7 +119,7 @@ public class ZkBarrierForVersionUpgrade {
    * @param version Version associated with the Barrier
    */
   public void expire(String version) {
-    zkUtils.getZkClient().writeData(
+    zkUtils.writeData(
         keyBuilder.getBarrierStatePath(version),
         State.TIMED_OUT);
 
@@ -150,8 +150,8 @@ public class ZkBarrierForVersionUpgrade {
       if (currentChildren.size() == names.size() && CollectionUtils.containsAll(currentChildren, names)) {
         String barrierDonePath = keyBuilder.getBarrierStatePath(barrierVersion);
         LOG.info("Writing BARRIER DONE to " + barrierDonePath);
-        zkUtils.getZkClient().writeData(barrierDonePath, State.DONE); // this will trigger notifications
-        zkUtils.getZkClient().unsubscribeChildChanges(barrierDonePath, this);
+        zkUtils.writeData(barrierDonePath, State.DONE); // this will trigger notifications
+        zkUtils.unsubscribeChildChanges(barrierDonePath, this);
       }
     }
   }

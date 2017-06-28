@@ -19,6 +19,8 @@
 
 package org.apache.samza.runtime;
 
+import java.util.HashMap;
+import java.util.Random;
 import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
@@ -39,9 +41,6 @@ import org.apache.samza.util.ScalaToJavaUtils;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.HashMap;
-import java.util.Random;
 
 /**
  * LocalContainerRunner is the local runner for Yarn {@link SamzaContainer}s. It is an intermediate step to
@@ -64,6 +63,11 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     super(jobModel.getConfig());
     this.jobModel = jobModel;
     this.containerId = containerId;
+  }
+
+  @Override
+  public void runTask() {
+    throw new UnsupportedOperationException("Running StreamTask is not implemented for LocalContainerRunner");
   }
 
   @Override

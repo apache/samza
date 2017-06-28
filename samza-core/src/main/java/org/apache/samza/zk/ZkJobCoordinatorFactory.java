@@ -22,6 +22,8 @@ package org.apache.samza.zk;
 import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
+import org.apache.samza.metrics.MetricsRegistryMap;
+
 
 public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
   /**
@@ -32,6 +34,6 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
    */
   @Override
   public JobCoordinator getJobCoordinator(Config config) {
-    return new ZkJobCoordinator(config);
+    return new ZkJobCoordinator(config, new MetricsRegistryMap());
   }
 }
