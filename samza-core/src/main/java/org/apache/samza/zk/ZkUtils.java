@@ -65,13 +65,7 @@ public class ZkUtils {
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
-  private ZkJobCoordinatorMetrics metrics;
-
-  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs) {
-    this.keyBuilder = zkKeyBuilder;
-    this.connectionTimeoutMs = connectionTimeoutMs;
-    this.zkClient = zkClient;
-  }
+  private final ZkJobCoordinatorMetrics metrics;
 
   public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs, ZkJobCoordinatorMetrics metrics) {
     this.keyBuilder = zkKeyBuilder;
