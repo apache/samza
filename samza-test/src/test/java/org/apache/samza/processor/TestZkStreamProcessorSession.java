@@ -75,7 +75,6 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
 
     for (int i = 0; i < processorIds.length; i++) {
       startWait[i] = new CountDownLatch(1);
-      //stopWait[i] = new CountDownLatch(1);
       streamProcessors[i] = createStreamProcessor(processorIds[i], map, startWait[i], null);
       jobCoordinators[i] = (ZkJobCoordinator) streamProcessors[i].getCurrentJobCoordinator();
     }
@@ -112,7 +111,6 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
     for (int i = 0; i < processorIds.length; i++) {
       waitForProcessorToStartStop(containerStopLatches[i]);
     }
-    LOG.info("ABOUT to produce second batch");
 
     produceMessages(messageCount, inputTopic, messageCount);
 
