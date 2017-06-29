@@ -71,7 +71,7 @@ public class StreamProcessor {
   
   // Latch used to synchronize between the JobCoordinator thread and the container thread, when the container is
   // stopped due to re-balancing
-  /* package private */volatile CountDownLatch jcContainerShutdownLatch = new CountDownLatch(1);
+  /* package private */volatile CountDownLatch jcContainerShutdownLatch;
   private volatile boolean processorOnStartCalled = false;
 
   @VisibleForTesting
@@ -110,6 +110,10 @@ public class StreamProcessor {
     this(config, customMetricsReporters, (Object) streamTaskFactory, processorListener, null);
   }
 
+  public String toString() {
+    return "Processor" + getCurrentJobCoordinator().getProcessorId();
+  }
+
   /* package private */
   JobCoordinator getJobCoordinator() {
     return Util.
@@ -134,7 +138,10 @@ public class StreamProcessor {
     this.jobCoordinator = (jobCoordinator != null) ? jobCoordinator : getJobCoordinator();
     this.jobCoordinatorListener = createJobCoordinatorListener();
     this.jobCoordinator.setListener(jobCoordinatorListener);
+    //this.jcContainerShutdownLatch= new CountDownLatch(1);
+    //LOGGER.info("latch for pid " + jobCoordinator.getProcessorId() + " = " + jcContainerShutdownLatch);
   }
+
 
   /**
    * Asynchronously starts this {@link StreamProcessor}.
@@ -202,6 +209,7 @@ public class StreamProcessor {
   }
 
   JobCoordinatorListener createJobCoordinatorListener() {
+    final String pid = this.toString();
     return new JobCoordinatorListener() {
 
       @Override
@@ -211,9 +219,10 @@ public class StreamProcessor {
           if (SamzaContainerStatus.NOT_STARTED.equals(status) || SamzaContainerStatus.STARTED.equals(status)) {
             boolean shutdownComplete = false;
             try {
-              LOGGER.info("Shutting down container in onJobModelExpired.");
+              LOGGER.info("Shutting down container in onJobModelExpired for processor:" + pid);
               container.pause();
               shutdownComplete = jcContainerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
+              LOGGER.info("Latch " + jcContainerShutdownLatch + " returned. ShutdownCompete=" + shutdownComplete + ";pid=" + pid + ";cd=" + jcContainerShutdownLatch.getCount());
             } catch (IllegalContainerStateException icse) {
               // Ignored since container is not running
               LOGGER.info("Container was not running.", icse);
@@ -221,6 +230,7 @@ public class StreamProcessor {
             } catch (InterruptedException e) {
               LOGGER.warn("Container shutdown was interrupted!" + container.toString(), e);
             }
+            LOGGER.info("Shutting down container done for pid=" + pid + "; complete =" + shutdownComplete);
             if (!shutdownComplete) {
               LOGGER.warn("Container " + container.toString() + " may not have shutdown successfully. " +
                   "Stopping the processor.");

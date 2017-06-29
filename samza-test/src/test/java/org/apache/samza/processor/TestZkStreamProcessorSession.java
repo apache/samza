@@ -64,9 +64,13 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
     // initialize the processors
     StreamProcessor[] streamProcessors = new StreamProcessor[processorIds.length];
     ZkJobCoordinator[] jobCoordinators = new ZkJobCoordinator[processorIds.length];
+    Thread[] threads = new Thread[processorIds.length];
+    CountDownLatch[] threadStopLatches = new CountDownLatch[processorIds.length];
+    CountDownLatch[] containerStopLatches = new CountDownLatch[processorIds.length];
     // we need to know when the processor has started
     CountDownLatch[] startWait = new CountDownLatch[processorIds.length];
     CountDownLatch[] stopWait = new CountDownLatch[processorIds.length];
+
     for (int i = 0; i < processorIds.length; i++) {
       startWait[i] = new CountDownLatch(1);
       stopWait[i] = new CountDownLatch(1);
@@ -74,29 +78,35 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
       jobCoordinators[i] = (ZkJobCoordinator) streamProcessors[i].getCurrentJobCoordinator();
     }
 
-    // produce messageCount messages, starting with key 0
-    produceMessages(0, inputTopic, messageCount);
-
     // run the processors in separate threads
-    Thread[] threads = new Thread[processorIds.length];
     for (int i = 0; i < processorIds.length; i++) {
-      threads[i] = runInThread(streamProcessors[i], TestZkStreamProcessorBase.TestStreamTask.endLatch);
+      threadStopLatches[i] = new CountDownLatch(1);
+      threads[i] = runInThread(streamProcessors[i], threadStopLatches[i]);
       threads[i].start();
       // wait until the processor reports that it has started
       waitForProcessorToStartStop(startWait[i]);
     }
 
+    // produce messageCount messages, starting with key 0
+    produceMessages(0, inputTopic, messageCount);
+
     // make sure it consumes all the messages from the first batch
     waitUntilMessagesLeftN(totalEventsToGenerate - messageCount);
 
+    // get the container stop latches to be able to check when a container is stopped
+    // new jcContainerShutdownLatch is created after each onNewJobModel
+    // so we need to get the current one, before it changed
+    for (int i = 0; i < processorIds.length; i++) {
+      containerStopLatches[i] = streamProcessors[i].jcContainerShutdownLatch;
+    }
+
     // expire zk session of one of the processors
     int pidToStop = (processorIds.length > 1) ? 1 : 0;
-    expireSession(jobCoordinators[pidToStop].getZkUtils().getZkClient());
+    expireSession(jobCoordinators[0].getZkUtils().getZkClient());
 
-    // wait until all other processors stop
+    // wait until all other processors report that they have stopped their containers
     for (int i = 0; i < processorIds.length; i++) {
-      // wait until all other processor reports that they have stopped
-      waitForProcessorToStartStop(stopWait[i]);
+      waitForProcessorToStartStop(containerStopLatches[i]);
     }
 
     produceMessages(messageCount, inputTopic, messageCount);
@@ -105,9 +115,9 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
 
     // collect all the threads
     try {
-      for (Thread t : threads) {
-        stopProcessor(t);
-        t.join(1000);
+      for (int i = 0; i < threads.length; i++) {
+        stopProcessor(threadStopLatches[i]);
+        threads[i].join(1000);
       }
     } catch (InterruptedException e) {
       Assert.fail("Failed to join finished thread:" + e.getLocalizedMessage());

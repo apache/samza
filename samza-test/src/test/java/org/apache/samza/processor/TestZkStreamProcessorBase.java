@@ -204,23 +204,27 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
    * Runs the provided stream processor by starting it, waiting on the provided latch with a timeout,
    * and then stopping it.
    */
-  protected Thread runInThread(final StreamProcessor processor, CountDownLatch latch) {
+  protected Thread runInThread(final StreamProcessor processor, CountDownLatch stopStartLatch) {
     Thread t = new Thread() {
 
       @Override
       public void run() {
+        LOG.info("about to start processor " + processor);
         processor.start();
+        LOG.info("started processor " + processor);
         try {
           // just wait
-          synchronized (this) {
-            this.wait(100000);
+          if (!stopStartLatch.await(1000000, TimeUnit.MILLISECONDS)) {
+            LOG.warn("Wait timed out for processor " + processor);
+            Assert.fail("Wait timed out for processor " + processor);
           }
-          LOG.info("notified. Abandon the wait.");
+          LOG.info("notified. Abandon the wait for processor " + processor);
         } catch (InterruptedException e) {
           LOG.error("wait interrupted" + e);
         }
-        LOG.info("Stopping the processor");
+        LOG.info("Stopping the processor" + processor);
         processor.stop();
+        LOG.info("Stopped the processor" + processor);
       }
     };
     return t;
@@ -283,15 +287,16 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
         System.out.println("2read all. current count = " + leftEventsCount);
         break;
       }
-      TestZkUtils.sleepMs(1000);
+      TestZkUtils.sleepMs(3000);
       attempts--;
     }
     Assert.assertTrue("Didn't read all the leftover events in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
   }
 
   protected void waitForProcessorToStartStop(CountDownLatch waitObject) {
+    LOG.info("Waiting on " + waitObject);
     try {
-      if (!waitObject.await(3000, TimeUnit.MILLISECONDS)) {
+      if (!waitObject.await(30000, TimeUnit.MILLISECONDS)) {
         Assert.fail("Timed out while waiting for the processor to start/stop.");
       }
     } catch (InterruptedException e) {
@@ -299,10 +304,8 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     }
   }
 
-  protected void stopProcessor(Thread threadName) {
-    synchronized (threadName) {
-      threadName.notify();
-    }
+  protected void stopProcessor(CountDownLatch stopLatch) {
+    stopLatch.countDown();
   }
 
   // StreamTaskClass

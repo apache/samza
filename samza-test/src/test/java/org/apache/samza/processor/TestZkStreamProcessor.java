@@ -72,8 +72,10 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // run the processors in separate threads
     Thread[] threads = new Thread[processorIds.length];
+    CountDownLatch[] stopLatches = new CountDownLatch[processorIds.length];
     for (int i = 0; i < processorIds.length; i++) {
-      threads[i] = runInThread(streamProcessors[i], TestZkStreamProcessorBase.TestStreamTask.endLatch);
+      stopLatches[i] = new CountDownLatch(1);
+      threads[i] = runInThread(streamProcessors[i], stopLatches[i]);
       threads[i].start();
       // wait until the processor reports that it has started
       try {
@@ -92,9 +94,9 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // collect all the threads
     try {
-      for (Thread t : threads) {
-        stopProcessor(t);
-        t.join(1000);
+      for (int i = 0; i < threads.length; i++) {
+        stopProcessor(stopLatches[i]);
+        threads[i].join(1000);
       }
     } catch (InterruptedException e) {
       Assert.fail("Failed to join finished thread:" + e.getLocalizedMessage());
@@ -118,13 +120,14 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     // create first processor
     CountDownLatch startWait1 = new CountDownLatch(1);
     CountDownLatch stopWait1 = new CountDownLatch(1);
-    StreamProcessor sp = createStreamProcessor("20", map, startWait1, stopWait1);
+    StreamProcessor sp1 = createStreamProcessor("20", map, startWait1, stopWait1);
 
     // produce first batch of messages starting with 0
     produceMessages(0, inputTopic, messageCount);
 
     // start the first processor
-    Thread t1 = runInThread(sp, TestStreamTask.endLatch);
+    CountDownLatch stopLatch1 = new CountDownLatch(1);
+    Thread t1 = runInThread(sp1, stopLatch1);
     t1.start();
 
     // wait until the processor reports that it has started
@@ -132,18 +135,22 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // make sure it consumes all the messages from the first batch
     waitUntilMessagesLeftN(totalEventsToGenerate - messageCount);
+    CountDownLatch containerStopped1 = sp1.jcContainerShutdownLatch;
 
     // start the second processor
     CountDownLatch startWait2 = new CountDownLatch(1);
     StreamProcessor sp2 = createStreamProcessor("21", map, startWait2, null);
-    Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
+
+    CountDownLatch stopLatch2 = new CountDownLatch(1);
+    Thread t2 = runInThread(sp2, stopLatch2);
     t2.start();
 
     // wait until 2nd processor reports that it has started
     waitForProcessorToStartStop(startWait2);
 
-    // wait until the 1st processor reports that it has stopped
-    waitForProcessorToStartStop(stopWait1);
+    // wait until the 1st processor reports that it has stopped its container
+    LOG.info("containerStopped latch = " + containerStopped1);
+    waitForProcessorToStartStop(containerStopped1);
 
     // let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(600);
@@ -156,8 +163,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // shutdown both
     try {
-      stopProcessor(t1);
-      stopProcessor(t2);
+      stopProcessor(stopLatch1);
+      stopProcessor(stopLatch2);
       t1.join(1000);
       t2.join(1000);
     } catch (InterruptedException e) {
@@ -173,8 +180,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
   @Test
   /**
    * same as other happy path messages, but with one processor removed in the middle
-   */
-  public void testStreamProcessorWithRemove() {
+   */ public void testStreamProcessorWithRemove() {
 
     // set number of events we expect to read by both processes in total:
     // p1 and p2 - both read messageCount at first and p1 is shutdown, new batch of events is generated
@@ -188,16 +194,17 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     StreamProcessor sp1 = createStreamProcessor("30", map, waitStart1, waitStop1);
 
     // start the first processor
-    Thread t1 = runInThread(sp1, TestStreamTask.endLatch);
+    CountDownLatch stopLatch1 = new CountDownLatch(1);
+    Thread t1 = runInThread(sp1, stopLatch1);
     t1.start();
 
     // start the second processor
     CountDownLatch waitStart2 = new CountDownLatch(1);
     CountDownLatch waitStop2 = new CountDownLatch(1);
     StreamProcessor sp2 = createStreamProcessor("31", map, waitStart2, waitStop2);
-    CountDownLatch containerStopped2 = sp2.jcContainerShutdownLatch;
 
-    Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
+    CountDownLatch stopLatch2 = new CountDownLatch(1);
+    Thread t2 = runInThread(sp2, stopLatch2);
     t2.start();
 
     // wait until the processor reports that it has started
@@ -211,14 +218,18 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
     // make sure they consume all the messages from the first batch
     waitUntilMessagesLeftN(totalEventsToGenerate - messageCount);
+    CountDownLatch containerStopped2 = sp2.jcContainerShutdownLatch;
 
     // stop the first processor
-    stopProcessor(t1);
+    stopProcessor(stopLatch1);
 
     // wait until it's really down
     waitForProcessorToStartStop(waitStop1);
 
-    // processor2 will stop it container and start again. We wait for its stop to make sure we can count EXACTLY how many messages it reads.
+    // processor2 will stop it container and start again.
+    // We wait for the container's stop to make sure we can count EXACTLY how many messages it reads.
+
+    LOG.info("containerStopped latch = " + containerStopped2);
     waitForProcessorToStartStop(containerStopped2);
 
     // let the system to publish and distribute the new job model
@@ -233,7 +244,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     // shutdown p2
 
     try {
-      stopProcessor(t2);
+      stopProcessor(stopLatch2);
       t2.join(1000);
     } catch (InterruptedException e) {
       Assert.fail("Failed to join finished thread:" + e.getLocalizedMessage());
