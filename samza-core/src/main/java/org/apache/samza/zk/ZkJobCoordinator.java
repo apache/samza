@@ -22,10 +22,9 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.I0Itec.zkclient.IZkStateListener;
-import org.I0Itec.zkclient.ZkClient;
 import java.util.Map;
 import org.I0Itec.zkclient.IZkStateListener;
+import org.I0Itec.zkclient.ZkClient;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -39,13 +38,12 @@ import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
 import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.util.ClassLoaderHelper;
-import org.apache.zookeeper.Watcher;
 import org.apache.samza.util.MetricsReporterLoader;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
@@ -338,10 +336,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       zkUtils.incGeneration();
 
       if (coordinatorListener != null) {
-<<<<<<< HEAD
-        LOG.info("about to call on jobMOdelExpired for " + processorId);
-=======
->>>>>>> SessionFailReregister
         coordinatorListener.onJobModelExpired();
       }
       // reset all the values that might've been from the previous session (e.g ephemeral node path)
