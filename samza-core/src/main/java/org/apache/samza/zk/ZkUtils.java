@@ -397,25 +397,4 @@ public class ZkUtils {
     zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
     metrics.subscriptions.inc();
   }
-
-  private void cleanupZK(int numVersionsToLeave) {
-    // read current list of barriers
-    List<String> znodeIds = zkClient.getChildren(keyBuilder.getJobModelVersionBarrierPrefix());
-    if (znodeIds.size() > numVersionsToLeave) {
-      // cleanup version
-      Collections.sort(znodeIds); // default comparator should be fine
-      int i = 0;
-      int size = znodeIds.size();
-      LOG.info("starting cleaning of barrier versions. size=" + size + "; num to leave=" +  numVersionsToLeave);
-      for (String znodeId: znodeIds) {
-        i++;
-        if (size - i < numVersionsToLeave) {
-          break;
-        }
-        LOG.info(znodeId);
-        zkClient.delete(znodeId);
-      }
-
-    }
-  }
 }
