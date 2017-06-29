@@ -18,10 +18,12 @@
  */
 package org.apache.samza.zk;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import org.I0Itec.zkclient.IZkStateListener;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -42,6 +44,7 @@ import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.util.MetricsReporterLoader;
+import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -191,22 +194,21 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   @Override
   public void onNewJobModelAvailable(final String version) {
-    debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, () ->
-      {
-        LOG.info("pid=" + processorId + "new JobModel available");
+    debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.JOB_MODEL_VERSION_CHANGE, 0, () -> {
+      LOG.info("pid=" + processorId + "new JobModel available");
 
-        // stop current work
-        if (coordinatorListener != null) {
-          coordinatorListener.onJobModelExpired();
-        }
-        // get the new job model from ZK
-        newJobModel = zkUtils.getJobModel(version);
+      // stop current work
+      if (coordinatorListener != null) {
+        coordinatorListener.onJobModelExpired();
+      }
+      // get the new job model from ZK
+      newJobModel = zkUtils.getJobModel(version);
 
-        LOG.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
+      LOG.info("pid=" + processorId + ": new JobModel available. ver=" + version + "; jm = " + newJobModel);
 
-        // update ZK and wait for all the processors to get this new version
-        barrier.join(version, processorId);
-      });
+      // update ZK and wait for all the processors to get this new version
+      barrier.join(version, processorId);
+    });
   }
 
   @Override
@@ -314,5 +316,50 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       metrics.barrierError.inc();
       stop();
     }
+  }
+
+  /// listener to handle session expiration
+  public class ZkSessionStateChangedListener implements IZkStateListener {
+
+    @Override
+    public void handleStateChanged(Watcher.Event.KeeperState state)
+        throws Exception {
+      if (state == Watcher.Event.KeeperState.Expired) {
+        // if the session has expired it means that all the registration's ephemeral nodes are gone.
+        LOG.warn("Got session expired event for processor=" + processorId);
+      }
+    }
+
+    @Override
+    public void handleNewSession()
+        throws Exception {
+      LOG.info("Got new session created event for processor=" + processorId);
+
+      // increase generation of the ZK connection. All the callbacks from the previous generation will be ignored.
+      zkUtils.incGeneration();
+
+      if (coordinatorListener != null) {
+        LOG.info("about to call on jobMOdelExpired for " + processorId);
+        coordinatorListener.onJobModelExpired();
+      }
+      // reset all the values that might've been from the previous session (e.g ephemeral node path)
+      zkUtils.unregister();
+
+      LOG.info("register zk controller for the new session");
+      zkController.register();
+    }
+
+    @Override
+    public void handleSessionEstablishmentError(Throwable error)
+        throws Exception {
+      // this means we cannot connect to zookeeper
+      LOG.info("handleSessionEstablishmentError received for processor=" + processorId, error);
+      stop();
+    }
+  }
+
+  @VisibleForTesting
+  public ZkUtils getZkUtils() {
+    return zkUtils;
   }
 }
