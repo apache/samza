@@ -20,7 +20,6 @@
 package org.apache.samza.processor;
 
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
 import org.junit.Test;
