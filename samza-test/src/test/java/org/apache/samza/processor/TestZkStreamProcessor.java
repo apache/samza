@@ -67,8 +67,6 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
       streamProcessors[i] = createStreamProcessor(processorIds[i], map, startWait[i], null);
     }
 
-    // produce messageCount messages, starting with key 0
-    produceMessages(0, inputTopic, messageCount);
 
     // run the processors in separate threads
     Thread[] threads = new Thread[processorIds.length];
@@ -77,20 +75,17 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
       stopLatches[i] = new CountDownLatch(1);
       threads[i] = runInThread(streamProcessors[i], stopLatches[i]);
       threads[i].start();
-      // wait until the processor reports that it has started
-      try {
-        startWait[i].await(1000, TimeUnit.MILLISECONDS);
-      } catch (InterruptedException e) {
-        Assert.fail("got interrupted while waiting for the " + i + "th processor to start.");
-      }
+    }
+    // wait until the processor reports that it has started
+    for (int i = 0; i < processorIds.length; i++) {
+      waitForProcessorToStartStop(startWait[i]);
     }
 
+    // produce messageCount messages, starting with key 0
+    produceMessages(0, inputTopic, messageCount);
+
     // wait until all the events are consumed
-    try {
-      TestZkStreamProcessorBase.TestStreamTask.endLatch.await(10, TimeUnit.SECONDS);
-    } catch (InterruptedException e) {
-      Assert.fail("endLatch.await failed with an interruption:" + e.getLocalizedMessage());
-    }
+    waitUntilMessagesLeftN(0);
 
     // collect all the threads
     try {

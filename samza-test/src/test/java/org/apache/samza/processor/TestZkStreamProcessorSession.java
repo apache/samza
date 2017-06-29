@@ -83,6 +83,9 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
       threadStopLatches[i] = new CountDownLatch(1);
       threads[i] = runInThread(streamProcessors[i], threadStopLatches[i]);
       threads[i].start();
+    }
+
+    for (int i = 0; i < processorIds.length; i++) {
       // wait until the processor reports that it has started
       waitForProcessorToStartStop(startWait[i]);
     }
@@ -93,15 +96,14 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
     // make sure it consumes all the messages from the first batch
     waitUntilMessagesLeftN(totalEventsToGenerate - messageCount);
 
-    // get the container stop latches to be able to check when a container is stopped
-    // new jcContainerShutdownLatch is created after each onNewJobModel
-    // so we need to get the current one, before it changed
+    // Get the container stop latch to be able to check when a container is stopped.
+    // New jcContainerShutdownLatch is created after each onNewJobModel,
+    // so we need to get the current one, before it changed..
     for (int i = 0; i < processorIds.length; i++) {
       containerStopLatches[i] = streamProcessors[i].jcContainerShutdownLatch;
     }
 
     // expire zk session of one of the processors
-    int pidToStop = (processorIds.length > 1) ? 1 : 0;
     expireSession(jobCoordinators[0].getZkUtils().getZkClient());
 
     // wait until all other processors report that they have stopped their containers
