@@ -38,7 +38,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     info("Creating a ThreadJob, which is only meant for debugging.")
     val coordinator = JobModelManager(config)
     val jobModel = coordinator.jobModel
-    val containerModel = jobModel.getContainers.get("0")
+    val containerId = "0"
     val jmxServer = new JmxServer
     val streamApp = TaskFactoryUtil.createStreamApplication(config)
     val appRunner = new LocalContainerRunner(jobModel, "0")
@@ -66,9 +66,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     try {
       coordinator.start
       val container = SamzaContainer(
-        containerModel,
+        containerId,
+        jobModel,
         config,
-        jobModel.maxChangeLogStreamPartitions,
         Map[String, MetricsReporter](),
         taskFactory)
       container.setContainerListener(containerListener)

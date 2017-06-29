@@ -21,10 +21,13 @@ package org.apache.samza.task;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.control.ControlMessageListenerTask;
+import org.apache.samza.control.Watermark;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
+import org.apache.samza.control.IOGraph;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
@@ -36,7 +39,7 @@ import org.apache.samza.util.SystemClock;
  * A {@link StreamTask} implementation that brings all the operator API implementation components together and
  * feeds the input messages into the user-defined transformation chains in {@link StreamApplication}.
  */
-public final class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
+public final class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask, ControlMessageListenerTask {
 
   private final StreamApplication streamApplication;
   private final ApplicationRunner runner;
@@ -44,6 +47,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
   private OperatorImplGraph operatorImplGraph;
   private ContextManager contextManager;
+  private IOGraph ioGraph;
 
   /**
    * Constructs an adaptor task to run the user-implemented {@link StreamApplication}.
@@ -87,6 +91,7 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
 
     // create the operator impl DAG corresponding to the logical operator spec DAG
     this.operatorImplGraph = new OperatorImplGraph(streamGraph, config, context, clock);
+    this.ioGraph = streamGraph.toIOGraph();
   }
 
   /**
@@ -116,10 +121,31 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   }
 
   @Override
+  public IOGraph getIOGraph() {
+    return ioGraph;
+  }
+
+  @Override
+  public final void onWatermark(Watermark watermark,
+      SystemStream systemStream,
+      MessageCollector collector,
+      TaskCoordinator coordinator) {
+    InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
+    if (inputOpImpl != null) {
+      inputOpImpl.onWatermark(watermark, collector, coordinator);
+    }
+  }
+
+  @Override
   public void close() throws Exception {
     if (this.contextManager != null) {
       this.contextManager.close();
     }
     operatorImplGraph.close();
+  }
+
+  /* package private for testing */
+  OperatorImplGraph getOperatorImplGraph() {
+    return this.operatorImplGraph;
   }
 }
