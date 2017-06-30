@@ -138,10 +138,7 @@ public class StreamProcessor {
     this.jobCoordinator = (jobCoordinator != null) ? jobCoordinator : getJobCoordinator();
     this.jobCoordinatorListener = createJobCoordinatorListener();
     this.jobCoordinator.setListener(jobCoordinatorListener);
-    //this.jcContainerShutdownLatch= new CountDownLatch(1);
-    //LOGGER.info("latch for pid " + jobCoordinator.getProcessorId() + " = " + jcContainerShutdownLatch);
   }
-
 
   /**
    * Asynchronously starts this {@link StreamProcessor}.
@@ -222,7 +219,7 @@ public class StreamProcessor {
               LOGGER.info("Shutting down container in onJobModelExpired for processor:" + pid);
               container.pause();
               shutdownComplete = jcContainerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
-              LOGGER.info("Latch " + jcContainerShutdownLatch + " returned. ShutdownCompete=" + shutdownComplete + ";pid=" + pid + ";cd=" + jcContainerShutdownLatch.getCount());
+              LOGGER.info("ShutdownCompete=" + shutdownComplete + ";pid=" + pid);
             } catch (IllegalContainerStateException icse) {
               // Ignored since container is not running
               LOGGER.info("Container was not running.", icse);

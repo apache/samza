@@ -187,17 +187,11 @@ public class ZkUtils {
     String processorPath = keyBuilder.getProcessorsPath();
     List<String> processorIds = new ArrayList<>(znodeIds.size());
     if (znodeIds.size() > 0) {
-
       for (String child : znodeIds) {
         String fullPath = String.format("%s/%s", processorPath, child);
         processorIds.add(new ProcessorData(readProcessorData(fullPath)).getProcessorId());
       }
-      Collections.sort(processorIds, new Comparator<String>() {
-        @Override
-        public int compare(String o1, String o2) {
-          return Integer.valueOf(o1) - Integer.valueOf(o2);
-        }
-      });
+      Collections.sort(processorIds);
       LOG.info("Found these children - " + znodeIds);
       LOG.info("Found these processorIds - " + processorIds);
     }
@@ -258,7 +252,7 @@ public class ZkUtils {
       int curGeneration = zkUtils.getGeneration();
       if (curGeneration != generation) {
         LOG.warn("SKIPPING handleDataChanged for " + listenerName +
-            " from wrong generation. curGen=" + curGeneration + "; cb gen= " + generation);
+            " from wrong generation. current generation=" + curGeneration + "; callback generation= " + generation);
         return true;
       }
       return false;
