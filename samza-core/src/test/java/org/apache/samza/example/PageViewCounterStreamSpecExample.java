@@ -50,22 +50,35 @@ public class PageViewCounterStreamSpecExample {
         .withConsumerProperties(config)
         .withProducerProperties(config);
 
-    StreamDescriptor<String, PageViewEvent> input = StreamDescriptor.<String, PageViewEvent>create("myPageViewEvent")
+    StreamDescriptor.Input<PageViewEvent> input = StreamDescriptor.<PageViewEvent>create("myPageViewEvent")
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
+        .withMsgBuilder((k,m) -> m)
         .from(kafkaSystem);
-    StreamDescriptor<String, PageViewCount> output = StreamDescriptor.<String, PageViewCount>create("pageViewEventPerMemberStream")
+    StreamDescriptor.Output<PageViewCount> output = StreamDescriptor.<PageViewCount>create("pageViewEventPerMemberStream")
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
+        .<M>withKeyExtractor( m -> m.memberId)
+        .<M>withMsgExtractor( m -> m)
         .from(kafkaSystem);
 
-    app.open(input, (k, m) -> m)
+    StreamDescriptor.Input<String, PageViewCount> output1 = StreamDescriptor.<String, PageViewCount>create("pageViewEventPerMemberStream")
+        .withKeySerde(new StringSerde("UTF-8"))
+        .withMsgSerde(new JsonSerde<>())
+        .from(new File("path"));
+
+    StreamDescriptor.Input<String, PageViewCount> output2 = StreamDescriptor.<String, PageViewCount>create("pageViewEventPerMemberStream")
+        .withKeySerde(new StringSerde("UTF-8"))
+        .withMsgSerde(new JsonSerde<>())
+        .from(new ArrayList<>(){{ }});
+
+    app.openInputStream(input, (k, m) -> m)
         .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10),
             () -> 0, (m, c) -> c + 1)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING))
         .map(PageViewCount::new)
-        .sendTo(app.open(output, m -> m.memberId, m -> m));
+        .sendTo(app.openOutputStream(output, m -> m.memberId, m -> m));
 
     app.run();
     app.waitForFinish();

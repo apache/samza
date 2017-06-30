@@ -20,6 +20,7 @@ package org.apache.samza.runtime;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamTaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.job.ApplicationStatus;
@@ -89,6 +90,8 @@ public abstract class ApplicationRunner {
    */
   public abstract void run(StreamApplication streamApp);
 
+  public abstract void run(StreamTaskApplication taskApplication);
+
   /**
    * Kill the Samza jobs represented by {@link StreamApplication}
    * It is non-blocking so it doesn't wait for the application stopping.
@@ -96,6 +99,8 @@ public abstract class ApplicationRunner {
    * @param streamApp  the user-defined {@link StreamApplication} object
    */
   public abstract void kill(StreamApplication streamApp);
+
+  public abstract void kill(StreamTaskApplication streamApp);
 
   /**
    * Get the collective status of the Samza jobs represented by {@link StreamApplication}.
@@ -106,6 +111,7 @@ public abstract class ApplicationRunner {
    */
   public abstract ApplicationStatus status(StreamApplication streamApp);
 
+  public abstract ApplicationStatus status(StreamTaskApplication streamApp);
   /**
    * Block until the application finishes
    */
