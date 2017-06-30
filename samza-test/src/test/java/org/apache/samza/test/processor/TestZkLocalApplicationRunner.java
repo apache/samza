@@ -256,7 +256,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     kafkaEventsConsumedLatch = new CountDownLatch(NUM_KAFKA_EVENTS);
     StreamApplication streamApp3 = new TestStreamApplication(inputKafkaTopic, outputKafkaTopic, null, null, kafkaEventsConsumedLatch);
     // Fail when the duplicate processor joins.
-    expectedException.expect(Exception.class);
+    expectedException.expect(SamzaException.class);
     applicationRunner3.run(streamApp3);
   }
 

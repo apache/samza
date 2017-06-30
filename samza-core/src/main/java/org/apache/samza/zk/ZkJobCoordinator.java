@@ -20,9 +20,10 @@ package org.apache.samza.zk;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -165,9 +166,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     // if list of processors is empty - it means we are called from 'onBecomeLeader'
     // TODO: Handle empty currentProcessorIds.
     List<String> currentProcessorIds = getActualProcessorIds(processors);
-    List<String> uniqueProcessorIds = currentProcessorIds.stream()
-                                                         .distinct()
-                                                         .collect(Collectors.toList());
+    Set<String> uniqueProcessorIds = new HashSet<String>(currentProcessorIds);
 
     if (currentProcessorIds.size() != uniqueProcessorIds.size()) {
       LOG.info("Processors: {} has duplicates. Not generating job model.", currentProcessorIds);

@@ -65,6 +65,6 @@ public class ProcessorData {
     if (obj == null) return false;
     if (getClass() != obj.getClass()) return false;
     final ProcessorData other = (ProcessorData) obj;
-    return processorId.equals(other.processorId) && host.equals(other.host);
+    return Objects.equals(processorId, other.processorId) && Objects.equals(host, other.host);
   }
 }

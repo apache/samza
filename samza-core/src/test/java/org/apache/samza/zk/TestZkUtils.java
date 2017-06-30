@@ -198,29 +198,8 @@ public class TestZkUtils {
     zkUtils1.connect();
     ProcessorData duplicateProcessorData = new ProcessorData(testHostName, testProcessId);
     // Registration of the duplicate processor should fail.
-    // Expect the following block to fail with IllegalStateException.
-    expectedException.expect(IllegalStateException.class);
-    zkUtils1.registerProcessorAndGetId(duplicateProcessorData);
-  }
-
-  /**
-   * Create two duplicate processors with same processorId.
-   * Second creation should fail with exception.
-   */
-  @Test
-  public void testRegisterProcessorShouldFailWhenADuplicateProcessorTriesToRegister() {
-    final String testHostName = "localhost";
-    final String testProcessId = "testProcessorId";
-    ProcessorData processorData1 = new ProcessorData(testHostName, testProcessId);
-    zkUtils.registerProcessor(processorData1);
-    ZkUtils zkUtils1 = getZkUtils();
-    zkUtils1.connect();
-    ProcessorData duplicateProcessorData = new ProcessorData(testHostName, testProcessId);
-
-    // Registration of the duplicate processor should fail.
-    // Expect the following block to fail with SamzaException.
     expectedException.expect(SamzaException.class);
-    zkUtils1.registerProcessor(duplicateProcessorData);
+    zkUtils1.registerProcessorAndGetId(duplicateProcessorData);
   }
 
   @Test
