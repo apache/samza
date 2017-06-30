@@ -262,13 +262,15 @@ public class ZkUtils {
   public abstract static class GenIZkDataListener implements IZkDataListener {
     private final int generation;
     private final ZkUtils zkUtils;
+    private final String listenerName;
 
-    public GenIZkDataListener(ZkUtils zkUtils) {
+    public GenIZkDataListener(ZkUtils zkUtils, String listenerName) {
       generation = zkUtils.getGeneration();
       this.zkUtils = zkUtils;
+      this.listenerName = listenerName;
     }
 
-    protected boolean skip(String listenerName) {
+    protected boolean notAValidEven() {
       int curGeneration = zkUtils.getGeneration();
       if (curGeneration != generation) {
         LOG.warn("SKIPPING handleDataChanged for " + listenerName +
@@ -365,8 +367,8 @@ public class ZkUtils {
       LOG.error(msg, e);
       throw new SamzaException(msg, e);
     }
-    LOG.info("published new version: " + newVersion + "; expected data version = " + (dataVersion  + 1) +
-        "(actual data version after update = " + stat.getVersion() +    ")");
+    LOG.info("published new version: " + newVersion + "; expected data version = " + (dataVersion + 1) +
+        "(actual data version after update = " + stat.getVersion() + ")");
   }
 
 

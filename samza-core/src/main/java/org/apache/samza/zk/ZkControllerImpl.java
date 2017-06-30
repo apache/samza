@@ -111,7 +111,8 @@ public class ZkControllerImpl implements ZkController {
         return;
       }
       LOG.info(
-          "ZkControllerImpl::ProcessorChangeHandler::handleChildChange - Path: " + parentPath + "  Current Children: " + currentChildren);
+          "ZkControllerImpl::ProcessorChangeHandler::handleChildChange - Path: " + parentPath +
+              "  Current Children: " + currentChildren);
       zkControllerListener.onProcessorChange(currentChildren);
 
     }
@@ -120,7 +121,7 @@ public class ZkControllerImpl implements ZkController {
   class ZkJobModelVersionChangeHandler extends ZkUtils.GenIZkDataListener {
 
     public ZkJobModelVersionChangeHandler(ZkUtils zkUtils) {
-      super(zkUtils);
+      super(zkUtils, "ZkJobModelVersionChangeHandler");
     }
     /**
      * Called when there is a change to the data in JobModel version path
@@ -128,7 +129,7 @@ public class ZkControllerImpl implements ZkController {
      */
     @Override
     public void handleDataChange(String dataPath, Object data) throws Exception {
-      if (skip("ZkJobModelVersionChangeHandler"))
+      if (notAValidEven())
         return;
 
       LOG.info("pid=" + processorIdStr + ". Got notification on version update change. path=" + dataPath + "; data="
@@ -138,7 +139,7 @@ public class ZkControllerImpl implements ZkController {
 
     @Override
     public void handleDataDeleted(String dataPath) throws Exception {
-      if (skip("ZkJobModelVersionChangeHandler"))
+      if (notAValidEven())
         return;
 
       throw new SamzaException("version update path has been deleted!");

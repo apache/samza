@@ -173,12 +173,12 @@ public class ZkLeaderElector implements LeaderElector {
   class PreviousProcessorChangeListener extends ZkUtils.GenIZkDataListener {
 
     public PreviousProcessorChangeListener(ZkUtils zkUtils) {
-      super(zkUtils);
+      super(zkUtils, "PreviousProcessorChangeListener");
     }
     @Override
     public void handleDataChange(String dataPath, Object data) throws Exception {
       LOG.debug("Data change on path: " + dataPath + " Data: " + data);
-      if (skip("PreviousProcessorChangeListener"))
+      if (notAValidEven())
         return;
     }
 
@@ -186,7 +186,7 @@ public class ZkLeaderElector implements LeaderElector {
     public void handleDataDeleted(String dataPath)
         throws Exception {
       LOG.info(zLog("Data deleted on path " + dataPath + ". Predecessor went away. So, trying to become leader again..."));
-      if (skip("PreviousProcessorChangeListener")) {
+      if (notAValidEven()) {
         return;
       }
       tryBecomeLeader();
