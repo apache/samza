@@ -222,6 +222,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     if (coordinatorListener != null) {
       coordinatorListener.onNewJobModel(processorId, jobModel);
     }
+
+    zkUtils.cleanupZK(10);
   }
 
   private String createProcessorId(Config config) {

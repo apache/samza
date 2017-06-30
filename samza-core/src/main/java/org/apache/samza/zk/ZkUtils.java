@@ -30,6 +30,7 @@ import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
@@ -396,5 +397,67 @@ public class ZkUtils {
     LOG.info("subscribing for child change at:" + keyBuilder.getProcessorsPath());
     zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
     metrics.subscriptions.inc();
+  }
+
+  /**
+   * cleanup old data from ZK
+   * @param numVersionsToLeave - number of versions to leave
+   */
+  public void cleanupZK(int numVersionsToLeave) {
+    deleteOldBarrierVersions(numVersionsToLeave);
+    deleteOldJobModels(numVersionsToLeave);
+  }
+
+  private void deleteOldJobModels(int numVersionsToLeave) {
+    // read current list of JMs
+    String path = keyBuilder.getJobModelPathPrefix();
+    LOG.info("jm_path=" + path);
+    List<String> znodeIds = zkClient.getChildren(path);
+    deleteOldVersionPath(path, znodeIds, numVersionsToLeave, new Comparator<String>() {
+      @Override
+      public int compare(String o1, String o2) {
+        // barrier's name format is barrier_<num>
+        return Integer.valueOf(o1) - Integer.valueOf(o2);
+      }
+    });
+  }
+
+  private void deleteOldBarrierVersions(int numVersionsToLeave) {
+    // read current list of barriers
+    String path = keyBuilder.getJobModelVersionBarrierPrefix();
+    LOG.info("jm path=" + path);
+    List<String> znodeIds = zkClient.getChildren(path);
+    LOG.info("ids = " + znodeIds);
+    deleteOldVersionPath(path, znodeIds, numVersionsToLeave,  new Comparator<String>() {
+      @Override
+      public int compare(String o1, String o2) {
+        // jm version name format is <num>
+        return ZkBarrierForVersionUpgrade.getVersion(o1) - ZkBarrierForVersionUpgrade.getVersion(o2);
+      }
+    });
+  }
+
+  public void deleteOldVersionPath(String path, List<String> zNodeIds, int numVersionsToLeave, Comparator<String> c) {
+    if(StringUtils.isEmpty(path) || zNodeIds == null) {
+      LOG.warn("cannot cleanup empty path or empty list in ZK");
+    }
+    LOG.info("ids = " + zNodeIds);
+    if (zNodeIds.size() > numVersionsToLeave) {
+      Collections.sort(zNodeIds, c);
+      LOG.info("sorted ids = " + zNodeIds);
+      int i = 0;
+      int size = zNodeIds.size();
+      LOG.info("starting cleaning of barrier versions. size=" + size + "; num to leave=" +  numVersionsToLeave);
+      for (String znodeId: zNodeIds) {
+        i++;
+        if (size - i < numVersionsToLeave) {
+          break;
+        }
+        LOG.info(path + "/" + znodeId);
+        zkClient.deleteRecursive(path + "/" + znodeId);
+      }
+
+    }
+
   }
 }
