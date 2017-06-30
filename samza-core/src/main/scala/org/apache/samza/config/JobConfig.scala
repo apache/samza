@@ -48,7 +48,7 @@ object JobConfig {
   val JOB_CONTAINER_SINGLE_THREAD_MODE = "job.container.single.thread.mode"
   val JOB_INTERMEDIATE_STREAM_PARTITIONS = "job.intermediate.stream.partitions"
   val JOB_DEBOUNCE_TIME_MS = "job.debounce.time.ms"
-  val DEFAULT_DEBOUNCE_TIME_MS = 2000
+  val DEFAULT_DEBOUNCE_TIME_MS = 20000
 
   val SSP_GROUPER_FACTORY = "job.systemstreampartition.grouper.factory"
 

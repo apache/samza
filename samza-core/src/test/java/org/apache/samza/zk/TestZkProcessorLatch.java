@@ -219,6 +219,7 @@ public class TestZkProcessorLatch {
     return new ZkUtils(
         KEY_BUILDER,
         zkClient,
-        CONNECTION_TIMEOUT_MS);
+        CONNECTION_TIMEOUT_MS,
+        null);
   }
 }

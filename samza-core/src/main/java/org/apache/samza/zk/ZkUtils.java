@@ -22,13 +22,15 @@ package org.apache.samza.zk;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
-import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
@@ -51,6 +53,14 @@ import org.slf4j.LoggerFactory;
  * </p>
  *
  * <p>
+ *  <b>Note on Session disconnect handling:</b>
+ *  After the session has timed out, and restored we may still get some notifications from before (from the old
+ *  session). To avoid this, we add a currentGeneration member, which starts with 0, and is increased each time
+ *  a new session is established. Current value of this member is passed to each Listener when it is created.
+ *  So if the Callback from this Listener comes with an old generation id - we ignore it.
+ * </p>
+ *
+ * <p>
  *   <b>Note on Session Management:</b>
  *   Session management, if needed, should be handled by the caller. This can be done by implementing
  *   {@link org.I0Itec.zkclient.IZkStateListener} and subscribing this listener to the current ZkClient. Note: The connection state change
@@ -65,12 +75,15 @@ public class ZkUtils {
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
+  private AtomicInteger currentGeneration;
   private ZkJobCoordinatorMetrics metrics;
 
-  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs) {
-    this.keyBuilder = zkKeyBuilder;
-    this.connectionTimeoutMs = connectionTimeoutMs;
-    this.zkClient = zkClient;
+  public void incGeneration() {
+    currentGeneration.incrementAndGet();
+  }
+
+  public int getGeneration() {
+    return currentGeneration.get();
   }
 
   public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs, ZkJobCoordinatorMetrics metrics) {
@@ -78,21 +91,23 @@ public class ZkUtils {
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkClient = zkClient;
     this.metrics = metrics;
+    currentGeneration = new AtomicInteger(0);
   }
 
   public void connect() throws ZkInterruptedException {
     boolean isConnected = zkClient.waitUntilConnected(connectionTimeoutMs, TimeUnit.MILLISECONDS);
-    if (!isConnected) {
+    if (!isConnected && metrics != null) {
       metrics.zkConnectionError.inc();
       throw new RuntimeException("Unable to connect to Zookeeper within connectionTimeout " + connectionTimeoutMs + "ms. Shutting down!");
     }
   }
 
-  public static ZkConnection createZkConnection(String zkConnectString, int sessionTimeoutMs) {
-    return new ZkConnection(zkConnectString, sessionTimeoutMs);
+  // reset all zk-session specific state
+  public void unregister() {
+    ephemeralPath = null;
   }
 
-  ZkClient getZkClient() {
+  public ZkClient getZkClient() {
     return zkClient;
   }
 
@@ -147,7 +162,9 @@ public class ZkUtils {
   String readProcessorData(String fullPath) {
     try {
       String data = zkClient.readData(fullPath, false);
-      metrics.reads.inc();
+      if (metrics != null) {
+        metrics.reads.inc();
+      }
       return data;
     } catch (Exception e) {
       throw new SamzaException(String.format("Cannot read ZK node: %s", fullPath), e);
@@ -176,7 +193,12 @@ public class ZkUtils {
         String fullPath = String.format("%s/%s", processorPath, child);
         processorIds.add(new ProcessorData(readProcessorData(fullPath)).getProcessorId());
       }
-
+      Collections.sort(processorIds, new Comparator<String>() {
+        @Override
+        public int compare(String o1, String o2) {
+          return Integer.valueOf(o1) - Integer.valueOf(o2);
+        }
+      });
       LOG.info("Found these children - " + znodeIds);
       LOG.info("Found these processorIds - " + processorIds);
     }
@@ -190,12 +212,16 @@ public class ZkUtils {
 
   public void subscribeDataChanges(String path, IZkDataListener dataListener) {
     zkClient.subscribeDataChanges(path, dataListener);
-    metrics.subscriptions.inc();
+    if (metrics != null) {
+      metrics.subscriptions.inc();
+    }
   }
 
   public void subscribeChildChanges(String path, IZkChildListener listener) {
     zkClient.subscribeChildChanges(path, listener);
-    metrics.subscriptions.inc();
+    if (metrics != null) {
+      metrics.subscriptions.inc();
+    }
   }
 
   public void unsubscribeChildChanges(String path, IZkChildListener childListener) {
@@ -204,7 +230,9 @@ public class ZkUtils {
 
   public void writeData(String path, Object object) {
     zkClient.writeData(path, object);
-    metrics.writes.inc();
+    if (metrics != null) {
+      metrics.writes.inc();
+    }
   }
 
   public boolean exists(String path) {
@@ -215,14 +243,60 @@ public class ZkUtils {
     zkClient.close();
   }
 
+  // Generation enforcing zk listener abstract class.
+  // Helps listeners, which extend it,  to skip old generation events.
+  // We cannot use 'sessionId' for this because it is not available through ZkClient (at leaste without reflection)
+  public abstract static class GenIZkChildListener implements IZkChildListener {
+    private final int generation;
+    private final ZkUtils zkUtils;
+
+    public GenIZkChildListener(ZkUtils zkUtils) {
+      generation = zkUtils.getGeneration();
+      this.zkUtils = zkUtils;
+    }
+
+    protected boolean skip(String listenerName) {
+      int curGeneration = zkUtils.getGeneration();
+      if (curGeneration != generation) {
+        LOG.warn("SKIPPING handleDataChanged for " + listenerName +
+            " from wrong generation. curGen=" + curGeneration + "; cb gen= " + generation);
+        return true;
+      }
+      return false;
+    }
+  }
+
+  public abstract static class GenIZkDataListener implements IZkDataListener {
+    private final int generation;
+    private final ZkUtils zkUtils;
+
+    public GenIZkDataListener(ZkUtils zkUtils) {
+      generation = zkUtils.getGeneration();
+      this.zkUtils = zkUtils;
+    }
+
+    protected boolean skip(String listenerName) {
+      int curGeneration = zkUtils.getGeneration();
+      if (curGeneration != generation) {
+        LOG.warn("SKIPPING handleDataChanged for " + listenerName +
+            " from wrong generation. curGen=" + curGeneration + "; cb gen= " + generation);
+        return true;
+      }
+      return false;
+    }
+
+  }
+
   /**
     * subscribe for changes of JobModel version
     * @param dataListener describe this
     */
-  public void subscribeToJobModelVersionChange(IZkDataListener dataListener) {
+  public void subscribeToJobModelVersionChange(GenIZkDataListener dataListener) {
     LOG.info(" subscribing for jm version change at:" + keyBuilder.getJobModelVersionPath());
     zkClient.subscribeDataChanges(keyBuilder.getJobModelVersionPath(), dataListener);
-    metrics.subscriptions.inc();
+    if (metrics != null) {
+      metrics.subscriptions.inc();
+    }
   }
 
   /**
@@ -323,5 +397,67 @@ public class ZkUtils {
     LOG.info("subscribing for child change at:" + keyBuilder.getProcessorsPath());
     zkClient.subscribeChildChanges(keyBuilder.getProcessorsPath(), listener);
     metrics.subscriptions.inc();
+  }
+
+  /**
+   * cleanup old data from ZK
+   * @param numVersionsToLeave - number of versions to leave
+   */
+  public void cleanupZK(int numVersionsToLeave) {
+    deleteOldBarrierVersions(numVersionsToLeave);
+    deleteOldJobModels(numVersionsToLeave);
+  }
+
+  private void deleteOldJobModels(int numVersionsToLeave) {
+    // read current list of JMs
+    String path = keyBuilder.getJobModelPathPrefix();
+    LOG.info("jm_path=" + path);
+    List<String> znodeIds = zkClient.getChildren(path);
+    deleteOldVersionPath(path, znodeIds, numVersionsToLeave, new Comparator<String>() {
+      @Override
+      public int compare(String o1, String o2) {
+        // barrier's name format is barrier_<num>
+        return Integer.valueOf(o1) - Integer.valueOf(o2);
+      }
+    });
+  }
+
+  private void deleteOldBarrierVersions(int numVersionsToLeave) {
+    // read current list of barriers
+    String path = keyBuilder.getJobModelVersionBarrierPrefix();
+    LOG.info("jm path=" + path);
+    List<String> znodeIds = zkClient.getChildren(path);
+    LOG.info("ids = " + znodeIds);
+    deleteOldVersionPath(path, znodeIds, numVersionsToLeave,  new Comparator<String>() {
+      @Override
+      public int compare(String o1, String o2) {
+        // jm version name format is <num>
+        return ZkBarrierForVersionUpgrade.getVersion(o1) - ZkBarrierForVersionUpgrade.getVersion(o2);
+      }
+    });
+  }
+
+  public void deleteOldVersionPath(String path, List<String> zNodeIds, int numVersionsToLeave, Comparator<String> c) {
+    if(StringUtils.isEmpty(path) || zNodeIds == null) {
+      LOG.warn("cannot cleanup empty path or empty list in ZK");
+    }
+    LOG.info("ids = " + zNodeIds);
+    if (zNodeIds.size() > numVersionsToLeave) {
+      Collections.sort(zNodeIds, c);
+      LOG.info("sorted ids = " + zNodeIds);
+      int i = 0;
+      int size = zNodeIds.size();
+      LOG.info("starting cleaning of barrier versions. size=" + size + "; num to leave=" +  numVersionsToLeave);
+      for (String znodeId: zNodeIds) {
+        i++;
+        if (size - i < numVersionsToLeave) {
+          break;
+        }
+        LOG.info(path + "/" + znodeId);
+        zkClient.deleteRecursive(path + "/" + znodeId);
+      }
+
+    }
+
   }
 }
