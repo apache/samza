@@ -22,6 +22,7 @@ package org.apache.samza.zk;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.I0Itec.zkclient.IZkChildListener;
@@ -365,7 +366,7 @@ public class ZkUtils {
   }
 
   public void deleteOldVersionPath(String path, List<String> zNodeIds, int numVersionsToLeave, Comparator<String> c) {
-    if(StringUtils.isEmpty(path) || zNodeIds == null) {
+    if (StringUtils.isEmpty(path) || zNodeIds == null) {
       LOG.warn("cannot cleanup empty path or empty list in ZK");
     }
     LOG.info("ids = " + zNodeIds);
