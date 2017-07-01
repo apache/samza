@@ -218,7 +218,7 @@ public class TestZkUtils {
     zkUtils.getZkClient().createPersistent(pathB, true);
 
     // Create 100 nodes
-    for (int i = 0; i < 20; i++ ) {
+    for (int i = 0; i < 20; i++) {
       String p1 = pathA + "/" + i;
       zkUtils.getZkClient().createPersistent(p1, true);
       zkUtils.getZkClient().createPersistent(p1 + "/something1", true);
@@ -261,11 +261,11 @@ public class TestZkUtils {
     }
 
     zNodeIds = zkUtils.getZkClient().getChildren(pathB);
-    zkUtils.deleteOldVersionPath(pathB, zNodeIds, 1, new Comparator<String>()
-      {
+    zkUtils.deleteOldVersionPath(pathB, zNodeIds, 1, new Comparator<String>() {
       @Override
       public int compare(String o1, String o2) {
-        return Integer.valueOf(o1.substring(o1.lastIndexOf("_") + 1)) - Integer.valueOf(o2.substring(o2.lastIndexOf("_") + 1));
+        return Integer.valueOf(o1.substring(o1.lastIndexOf("_") + 1)) - Integer
+            .valueOf(o2.substring(o2.lastIndexOf("_") + 1));
       }
     });
 
