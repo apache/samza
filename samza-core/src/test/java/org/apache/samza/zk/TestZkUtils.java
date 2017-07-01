@@ -18,6 +18,8 @@
  */
 package org.apache.samza.zk;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -94,7 +96,6 @@ public class TestZkUtils {
 
     // Calling registerProcessorId again should return the same ephemeralPath as long as the session is valid
     Assert.assertTrue(zkUtils.registerProcessorAndGetId(new ProcessorData("host", "1")).equals(assignedPath));
-
   }
 
   @Test
@@ -207,6 +208,79 @@ public class TestZkUtils {
 
     zkUtils.publishJobModel(version, jobModel);
     Assert.assertEquals(jobModel, zkUtils.getJobModel(version));
+  }
+
+  @Test
+  public void testCleanUpZk() {
+    String pathA = "/path/testA";
+    String pathB = "/path/testB";
+    zkUtils.getZkClient().createPersistent(pathA, true);
+    zkUtils.getZkClient().createPersistent(pathB, true);
+
+    // Create 100 nodes
+    for (int i = 0; i < 20; i++ ) {
+      String p1 = pathA + "/" + i;
+      zkUtils.getZkClient().createPersistent(p1, true);
+      zkUtils.getZkClient().createPersistent(p1 + "/something1", true);
+      zkUtils.getZkClient().createPersistent(p1 + "/something2", true);
+
+      String p2 = pathB + "/some_" + i;
+      zkUtils.getZkClient().createPersistent(p2, true);
+      zkUtils.getZkClient().createPersistent(p2 + "/something1", true);
+      zkUtils.getZkClient().createPersistent(p2 + "/something2", true);
+    }
+
+    List<String> zNodeIds = new ArrayList<>();
+    // empty list
+    zkUtils.deleteOldVersionPath(pathA, zNodeIds, 10, new Comparator<String>() {
+      @Override
+      public int compare(String o1, String o2) {
+        return o1.compareTo(o2);
+      }
+    });
+
+
+    zNodeIds = zkUtils.getZkClient().getChildren(pathA);
+    zkUtils.deleteOldVersionPath(pathA, zNodeIds, 10, new Comparator<String>() {
+      @Override
+      public int compare(String o1, String o2) {
+        return Integer.valueOf(o1) - Integer.valueOf(o2);
+      }
+    });
+
+    for (int i = 0; i < 10; i++) {
+      // should be gone
+      String p1 = pathA + "/" + i;
+      Assert.assertFalse("path " + p1 + " exists", zkUtils.getZkClient().exists(p1));
+    }
+
+    for (int i = 10; i < 20; i++) {
+      // should be gone
+      String p1 = pathA + "/" + i;
+      Assert.assertTrue("path " + p1 + " exists", zkUtils.getZkClient().exists(p1));
+    }
+
+    zNodeIds = zkUtils.getZkClient().getChildren(pathB);
+    zkUtils.deleteOldVersionPath(pathB, zNodeIds, 1, new Comparator<String>()
+      {
+      @Override
+      public int compare(String o1, String o2) {
+        return Integer.valueOf(o1.substring(o1.lastIndexOf("_") + 1)) - Integer.valueOf(o2.substring(o2.lastIndexOf("_") + 1));
+      }
+    });
+
+    for (int i = 0; i < 19; i++) {
+      // should be gone
+      String p1 = pathB + "/" + i;
+      Assert.assertFalse("path " + p1 + " exists", zkUtils.getZkClient().exists(p1));
+    }
+
+    for (int i = 19; i < 20; i++) {
+      // should be gone
+      String p1 = pathB + "/some_" + i;
+      Assert.assertTrue("path " + p1 + " exists", zkUtils.getZkClient().exists(p1));
+    }
+
   }
 
   public static boolean testWithDelayBackOff(BooleanSupplier cond, long startDelayMs, long maxDelayMs) {

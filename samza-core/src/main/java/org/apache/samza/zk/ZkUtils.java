@@ -300,8 +300,8 @@ public class ZkUtils {
       LOG.error(msg, e);
       throw new SamzaException(msg, e);
     }
-    LOG.info("published new version: " + newVersion + "; expected data version = " + (dataVersion  + 1) +
-        "(actual data version after update = " + stat.getVersion() +    ")");
+    LOG.info("published new version: " + newVersion + "; expected data version = " + (dataVersion + 1) +
+        "(actual data version after update = " + stat.getVersion() + ")");
   }
 
 
@@ -350,7 +350,7 @@ public class ZkUtils {
     });
   }
 
-  private void deleteOldBarrierVersions(int numVersionsToLeave) {
+  void deleteOldBarrierVersions(int numVersionsToLeave) {
     // read current list of barriers
     String path = keyBuilder.getJobModelVersionBarrierPrefix();
     LOG.info("jm path=" + path);
@@ -365,7 +365,7 @@ public class ZkUtils {
     });
   }
 
-  public void deleteOldVersionPath(String path, List<String> zNodeIds, int numVersionsToLeave, Comparator<String> c) {
+  void deleteOldVersionPath(String path, List<String> zNodeIds, int numVersionsToLeave, Comparator<String> c) {
     if (StringUtils.isEmpty(path) || zNodeIds == null) {
       LOG.warn("cannot cleanup empty path or empty list in ZK");
     }
@@ -381,11 +381,14 @@ public class ZkUtils {
         if (size - i < numVersionsToLeave) {
           break;
         }
-        LOG.info(path + "/" + znodeId);
-        zkClient.deleteRecursive(path + "/" + znodeId);
+        String pathToDelete = path + "/" + znodeId;
+        LOG.info(pathToDelete);
+        try {
+          zkClient.deleteRecursive(pathToDelete);
+        } catch (Exception e) {
+          LOG.warn("delete of node " + pathToDelete + " failed.", e);
+        }
       }
-
     }
-
   }
 }
