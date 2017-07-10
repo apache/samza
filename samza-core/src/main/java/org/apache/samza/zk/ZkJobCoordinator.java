@@ -339,7 +339,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       if (coordinatorListener != null) {
         coordinatorListener.onJobModelExpired();
       }
-      // reset all the values that might've been from the previous session (e.g ephemeral node path)
+      // reset all the values that might have been from the previous session (e.g ephemeral node path)
       zkUtils.unregister();
 
       LOG.info("register zk controller for the new session");
