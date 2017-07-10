@@ -104,6 +104,5 @@ object YarnJobUtil extends Logging {
       }
       case None => info("No staging dir exists")
     }
-
   }
 }

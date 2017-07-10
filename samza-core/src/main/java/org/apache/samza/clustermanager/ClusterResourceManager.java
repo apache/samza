@@ -147,7 +147,7 @@ public abstract class ClusterResourceManager {
      * This callback is invoked when there is an error in the ClusterResourceManager. This is
      * guaranteed to be invoked when there is an uncaught exception in any other
      * ClusterResourceManager callbacks.
-     * @param e  the underlying Throwable was thrown.
+     * @param e the underlying Throwable was thrown.
      */
     void onError(Throwable e);
   }

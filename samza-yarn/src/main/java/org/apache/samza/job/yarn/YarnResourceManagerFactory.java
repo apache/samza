@@ -38,7 +38,7 @@ public class YarnResourceManagerFactory implements ResourceManagerFactory {
     log.info("Creating an instance of a cluster resource manager for Yarn. ");
     JobModelManager jobModelManager = state.jobModelManager;
     Config config = jobModelManager.jobModel().getConfig();
-    YarnClusterResourceManager manager = new YarnClusterResourceManager(config, jobModelManager, callback, state);
+    YarnClusterResourceManager manager = new YarnClusterResourceManager(config, callback, state);
     return manager;
   }
 }

@@ -69,9 +69,7 @@ public class YarnContainerRunner {
    * @param config to instantiate the runner with
    * @param yarnConfiguration the yarn config for the cluster to connect to.
    */
-
-  public YarnContainerRunner(Config config,
-                             YarnConfiguration yarnConfiguration) {
+  public YarnContainerRunner(Config config, YarnConfiguration yarnConfiguration) {
     this.config = config;
     this.yarnConfiguration = yarnConfiguration;
 
@@ -106,14 +104,12 @@ public class YarnContainerRunner {
     log.info("In runContainer in util: fwkPath= " + fwkPath + ";cmdPath=" + cmdPath + ";jobLib=" + jobLib);
     cmdBuilder.setCommandPath(cmdPath);
 
-
     String command = cmdBuilder.buildCommand();
     log.info("Container ID {} using command {}", samzaContainerId, command);
 
     Map<String, String> env = getEscapedEnvironmentVariablesMap(cmdBuilder);
     env.put(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID(), Util.envVarEscape(container.getId().toString()));
     printContainerEnvironmentVariables(samzaContainerId, env);
-
     log.info("Samza FWK path: " + command + "; env=" + env);
 
     Path packagePath = new Path(yarnConfig.getPackagePath());
@@ -131,7 +127,6 @@ public class YarnContainerRunner {
             ApplicationConstants.STDERR)
     );
 
-
     log.info("Claimed container ID {} for container {} on node {} (http://{}/node/containerlogs/{}).",
         new Object[]{
             samzaContainerId,
@@ -141,19 +136,18 @@ public class YarnContainerRunner {
             containerIdStr}
     );
 
-      log.info("Started container ID {}", samzaContainerId);
+    log.info("Started container ID {}", samzaContainerId);
   }
 
   /**
-   *    Runs a command as a process on the container. All binaries needed by the physical process are packaged in the URL
-   *    specified by packagePath.
+   * Runs a command as a process on the container. All binaries needed by the physical process are packaged in the URL
+   * specified by packagePath.
    */
   private void startContainer(Path packagePath,
-                                Container container,
-                                Map<String, String> env,
-                                final String cmd) throws SamzaContainerLaunchException {
-    log.info("starting container {} {} {} {}",
-        new Object[]{packagePath, container, env, cmd});
+                              Container container,
+                              Map<String, String> env,
+                              String cmd) throws SamzaContainerLaunchException {
+    log.info("starting container {} {} {} {}", new Object[]{packagePath, container, env, cmd});
 
     // TODO: SAMZA-1144 remove the customized approach for package resource and use the common one.
     // But keep it now for backward compatibility.
@@ -226,7 +220,6 @@ public class YarnContainerRunner {
     }
   }
 
-
   /**
    * @param samzaContainerId  the Samza container Id for logging purposes.
    * @param env               the Map of environment variables to their respective values.
@@ -239,7 +232,6 @@ public class YarnContainerRunner {
     log.info("Container ID {} using environment variables: {}", samzaContainerId, sb.toString());
   }
 
-
   /**
    * Gets the environment variables from the specified {@link CommandBuilder} and escapes certain characters.
    *
@@ -247,14 +239,13 @@ public class YarnContainerRunner {
    * @return                  the map containing the escaped environment variables.
    */
   private Map<String, String> getEscapedEnvironmentVariablesMap(CommandBuilder cmdBuilder) {
-    Map<String, String> env = new HashMap<String, String>();
+    Map<String, String> env = new HashMap<>();
     for (Map.Entry<String, String> entry : cmdBuilder.buildEnvironment().entrySet()) {
       String escapedValue = Util.envVarEscape(entry.getValue());
       env.put(entry.getKey(), escapedValue);
     }
     return env;
   }
-
 
   private String getFormattedCommand(String logDirExpansionVar,
                                      String jobLib,
@@ -265,8 +256,7 @@ public class YarnContainerRunner {
       jobLib = "&& " + jobLib; // add job's libraries exported to an env variable
     }
 
-    return String
-        .format("export SAMZA_LOG_DIR=%s %s && ln -sfn %s logs && exec %s 1>logs/%s 2>logs/%s", logDirExpansionVar,
-            jobLib, logDirExpansionVar, command, stdOut, stdErr);
+    return String.format("export SAMZA_LOG_DIR=%s %s && ln -sfn %s logs && exec %s 1>logs/%s 2>logs/%s", logDirExpansionVar,
+        jobLib, logDirExpansionVar, command, stdOut, stdErr);
   }
 }

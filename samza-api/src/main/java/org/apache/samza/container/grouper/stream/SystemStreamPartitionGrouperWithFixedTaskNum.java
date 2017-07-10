@@ -36,6 +36,8 @@ import java.util.Set;
  * to be its own, unique group would use the SystemStreamPartition's entire description to generate
  * the TaskNames.
  */
-public interface SystemStreamPartitionGrouper {
-  Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> systemStreamPartitions);
+public interface SystemStreamPartitionGrouperWithFixedTaskNum extends SystemStreamPartitionGrouper {
+  Map<TaskName, Set<SystemStreamPartition>> group(
+      Map<SystemStreamPartition, String> previousSystemStreamPartitionToTask,
+      Set<SystemStreamPartition> systemStreamPartitions);
 }

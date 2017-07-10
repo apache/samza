@@ -22,6 +22,7 @@ import java.util
 
 import org.apache.samza.SamzaException
 import org.apache.samza.container.TaskName
+import org.apache.samza.container.grouper.stream.{GroupByPartitionFactory, GroupByPartitionWithFixedTaskNumFactory, GroupBySystemStreamPartitionFactory, GroupBySystemStreamPartitionWithFixedTaskNumFactory}
 import org.codehaus.jackson.`type`.TypeReference
 import org.codehaus.jackson.map.ObjectMapper
 
@@ -68,12 +69,8 @@ class KafkaCheckpointLogKey private (val map: Map[String, String]) {
     new TaskName(asString)
   }
 
-  def canEqual(other: Any): Boolean = other.isInstanceOf[KafkaCheckpointLogKey]
-
   override def equals(other: Any): Boolean = other match {
-    case that: KafkaCheckpointLogKey =>
-      (that canEqual this) &&
-        map == that.map
+    case that: KafkaCheckpointLogKey => map == that.map
     case _ => false
   }
 
@@ -145,14 +142,14 @@ object KafkaCheckpointLogKey {
 
       // Only checkpoint keys have ssp grouper factory keys
       if(jmap.get(CHECKPOINT_KEY_KEY).equals(CHECKPOINT_KEY_TYPE)) {
-        val sspGrouperFactory = jmap.get(SYSTEMSTREAMPARTITION_GROUPER_FACTORY_KEY)
-
-        if (sspGrouperFactory == null) {
+        val previousGrouperFactory = jmap.get(SYSTEMSTREAMPARTITION_GROUPER_FACTORY_KEY)
+        if (previousGrouperFactory == null) {
           throw new SamzaException("No SystemStreamPartition Grouper factory entry in checkpoint key: " + jmap)
         }
 
-        if (!sspGrouperFactory.equals(getSystemStreamPartitionGrouperFactoryString)) {
-          throw new DifferingSystemStreamPartitionGrouperFactoryValues(sspGrouperFactory, getSystemStreamPartitionGrouperFactoryString)
+        val currentGrouperFactory = getSystemStreamPartitionGrouperFactoryString
+        if (!Class.forName(previousGrouperFactory).isAssignableFrom(Class.forName(currentGrouperFactory))) {
+          throw new DifferingSystemStreamPartitionGrouperFactoryValues(previousGrouperFactory, currentGrouperFactory)
         }
       }
 
@@ -164,8 +161,8 @@ object KafkaCheckpointLogKey {
   }
 }
 
-class DifferingSystemStreamPartitionGrouperFactoryValues(inKey:String, inConfig:String) extends SamzaException {
-  override def getMessage() = "Checkpoint key's SystemStreamPartition Grouper factory (" + inKey +
+class DifferingSystemStreamPartitionGrouperFactoryValues(inKey: String, inConfig: String) extends SamzaException {
+  override def getMessage = "Checkpoint key's SystemStreamPartition Grouper factory (" + inKey +
     ") does not match value from current configuration (" + inConfig + ").  " +
     "This likely means the SystemStreamPartitionGrouper was changed between job runs, which is not supported."
 }

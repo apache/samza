@@ -37,33 +37,33 @@ import scala.collection.JavaConverters._
 class TestSamzaYarnAppMasterService {
 
   @Test
-  def testAppMasterDashboardShouldStart {
+  def testAppMasterDashboardShouldStart() {
     val config = getDummyConfig
     val jobModelManager = JobModelManager(config)
     val samzaState = new SamzaApplicationState(jobModelManager)
     val registry = new MetricsRegistryMap()
 
-    val state = new YarnAppState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "testHost", 1, 1);
+    val state = new YarnAppState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "testHost", 1, 1)
     val service = new SamzaYarnAppMasterService(config, samzaState, state, registry, null)
     val taskName = new TaskName("test")
 
     // start the dashboard
-    service.onInit
+    service.onInit()
     assertTrue(state.rpcUrl.getPort > 0)
     assertTrue(state.trackingUrl.getPort > 0)
     assertTrue(state.coordinatorUrl.getPort > 0)
 
     // check to see if it's running
     val url = new URL(state.rpcUrl.toString + "am")
-    val is = url.openConnection().getInputStream();
-    val reader = new BufferedReader(new InputStreamReader(is));
-    var line: String = null;
+    val is = url.openConnection().getInputStream()
+    val reader = new BufferedReader(new InputStreamReader(is))
+    var line: String = null
 
     do {
       line = reader.readLine()
     } while (line != null)
 
-    reader.close();
+    reader.close()
   }
 
   /**
@@ -71,7 +71,7 @@ class TestSamzaYarnAppMasterService {
    * is to ensure that the rendered scala code builds correctly
    */
   @Test
-  def testAppMasterDashboardWebServiceShouldStart {
+  def testAppMasterDashboardWebServiceShouldStart() {
     // Create some dummy config
     val config = getDummyConfig
     val jobModelManager = JobModelManager(config)
@@ -82,7 +82,7 @@ class TestSamzaYarnAppMasterService {
     val service = new SamzaYarnAppMasterService(config, samzaState, state, registry, null)
 
     // start the dashboard
-    service.onInit
+    service.onInit()
     assertTrue(state.rpcUrl.getPort > 0)
     assertTrue(state.trackingUrl.getPort > 0)
 
@@ -96,7 +96,7 @@ class TestSamzaYarnAppMasterService {
       line = reader.readLine()
     } while (line != null)
 
-    reader.close
+    reader.close()
   }
 
   private def getDummyConfig: Config = new MapConfig(Map[String, String](

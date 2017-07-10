@@ -44,7 +44,7 @@ public class JobModel {
   private final Map<String, ContainerModel> containers;
 
   private final LocalityManager localityManager;
-  private Map<String, String> localityMappings = new HashMap<String, String>();
+  private Map<String, String> localityMappings = new HashMap<>();
 
   public int maxChangeLogStreamPartitions;
 

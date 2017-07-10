@@ -116,8 +116,8 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
       @Override
       public void onShutdown() {
         if (mutexStop != null) {
-          synchronized (mutexStart) {
-            mutexStart.notify();
+          synchronized (mutexStop) {
+            mutexStop.notify();
           }
         }
         LOG.info("onShutdown is called for pid=" + pId);
@@ -182,7 +182,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
    * Runs the provided stream processor by starting it, waiting on the provided latch with a timeout,
    * and then stopping it.
    */
-  protected Thread runInThread(final StreamProcessor processor, CountDownLatch latch) {
+  protected Thread runInThread(final StreamProcessor processor) {
     Thread t = new Thread() {
 
       @Override

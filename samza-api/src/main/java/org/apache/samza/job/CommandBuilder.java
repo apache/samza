@@ -30,14 +30,12 @@ import org.apache.samza.config.Config;
  */
 public abstract class CommandBuilder {
   protected Config config;
-  protected String id;
+  protected String containerId;
   protected URL url;
   protected String commandPath;
 
   /**
-   * @param config
-   *          The config object to use when constructing the command and
-   *          environment.
+   * @param config The config object to use when constructing the command and environment.
    * @return self to support a builder style of use.
    */
   public CommandBuilder setConfig(Config config) {
@@ -46,9 +44,7 @@ public abstract class CommandBuilder {
   }
 
   /**
-   * @param url
-   *          The URL location of the job coordinator's HTTP server, which
-   *          serves all configuration, task/SSP assignments, etc.
+   * @param url The URL location of the job coordinator's HTTP server, which serves all configuration, task/SSP assignments, etc.
    * @return self to support a builder style of use.
    */
   public CommandBuilder setUrl(URL url) {
@@ -57,18 +53,16 @@ public abstract class CommandBuilder {
   }
 
   /**
-   * @param id
-   *          associated with a specific instantiation of a SamzaContainer.
+   * @param containerId associated with a specific instantiation of a SamzaContainer.
    * @return self to support a builder style of use.
    */
-  public CommandBuilder setId(String id) {
-    this.id = id;
+  public CommandBuilder setId(String containerId) {
+    this.containerId = containerId;
     return this;
   }
 
   /**
-   * @param path
-   * Specify path to the command (in case it needs to be adjusted)
+   * @param path Specify path to the command (in case it needs to be adjusted)
    * @return self
    */
   public CommandBuilder setCommandPath(String path) {

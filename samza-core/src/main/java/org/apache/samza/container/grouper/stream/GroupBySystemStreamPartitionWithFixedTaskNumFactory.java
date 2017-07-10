@@ -16,13 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.container.grouper.stream;
 
 import org.apache.samza.config.Config;
 
-/**
- * Return an instance a SystemStreamPartitionGrouper per the particular implementation
- */
-public interface SystemStreamPartitionGrouperFactory {
-  SystemStreamPartitionGrouper getSystemStreamPartitionGrouper(Config config);
+public class GroupBySystemStreamPartitionWithFixedTaskNumFactory extends GroupBySystemStreamPartitionFactory {
+
+  @Override
+  public SystemStreamPartitionGrouper getSystemStreamPartitionGrouper(Config config) {
+    return new GroupBySystemStreamPartitionWithFixedTaskNum(config);
+  }
 }

@@ -49,16 +49,15 @@ public class YarnAppState {
   * Modified by both the AMRMCallbackThread and the ContainerAllocator thread
   */
 
-  public Map<String, YarnContainer> runningYarnContainers = new ConcurrentHashMap<String, YarnContainer>()  ;
+  public Map<String, YarnContainer> runningYarnContainers = new ConcurrentHashMap<>()  ;
 
-  public ConcurrentMap<String, ContainerStatus> failedContainersStatus = new ConcurrentHashMap<String, ContainerStatus>();
+  public ConcurrentMap<String, ContainerStatus> failedContainersStatus = new ConcurrentHashMap<>();
 
   public YarnAppState(int taskId,
                       ContainerId amContainerId,
                       String nodeHost,
                       int nodePort,
-                      int nodeHttpPort
-                      ) {
+                      int nodeHttpPort) {
     this.taskId = taskId;
     this.amContainerId = amContainerId;
     this.nodeHost = nodeHost;
@@ -85,14 +84,13 @@ public class YarnAppState {
         '}';
   }
 
-   /* The following state variables are primarily used for reference in the AM web services   */
+  /* The following state variables are primarily used for reference in the AM web services   */
 
   /**
    * Task Id of the AM
    * Used for displaying in the AM UI. Usage found in {@link org.apache.samza.webapp.ApplicationMasterRestServlet}
    * and scalate/WEB-INF/views/index.scaml
    */
-
   public final int taskId;
   /**
    * Id of the AM container (as allocated by the RM)

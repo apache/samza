@@ -31,7 +31,7 @@ import org.apache.samza.system.SystemStreamPartition;
 
 public class GroupByPartition implements SystemStreamPartitionGrouper {
   private TaskConfigJava taskConfig = null;
-  private Set<SystemStreamPartition> broadcastStreams = new HashSet<SystemStreamPartition>();
+  protected Set<SystemStreamPartition> broadcastStreams = new HashSet<>();
 
   /**
    * default constructor
@@ -63,7 +63,7 @@ public class GroupByPartition implements SystemStreamPartitionGrouper {
 
       TaskName taskName = new TaskName("Partition " + ssp.getPartition().getPartitionId());
       if (!groupedMap.containsKey(taskName)) {
-        groupedMap.put(taskName, new HashSet<SystemStreamPartition>());
+        groupedMap.put(taskName, new HashSet<>());
       }
       groupedMap.get(taskName).add(ssp);
     }

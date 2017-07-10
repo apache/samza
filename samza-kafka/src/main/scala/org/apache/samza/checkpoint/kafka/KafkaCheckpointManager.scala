@@ -47,22 +47,21 @@ import scala.collection.mutable
  * exists.  The underlying log has a single partition into which all
  * checkpoints and TaskName to changelog partition mappings are written.
  */
-class KafkaCheckpointManager(
-                              clientId: String,
-                              checkpointTopic: String,
-                              val systemName: String,
-                              replicationFactor: Int,
-                              socketTimeout: Int,
-                              bufferSize: Int,
-                              fetchSize: Int,
-                              val metadataStore: TopicMetadataStore,
-                              connectProducer: () => Producer[Array[Byte], Array[Byte]],
-                              val connectZk: () => ZkUtils,
-                              systemStreamPartitionGrouperFactoryString: String,
-                              failOnCheckpointValidation: Boolean,
-                              val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
-                              serde: CheckpointSerde = new CheckpointSerde,
-                              checkpointTopicProperties: Properties = new Properties) extends CheckpointManager with Logging {
+class KafkaCheckpointManager(clientId: String,
+                             checkpointTopic: String,
+                             val systemName: String,
+                             replicationFactor: Int,
+                             socketTimeout: Int,
+                             bufferSize: Int,
+                             fetchSize: Int,
+                             val metadataStore: TopicMetadataStore,
+                             connectProducer: () => Producer[Array[Byte], Array[Byte]],
+                             val connectZk: () => ZkUtils,
+                             systemStreamPartitionGrouperFactoryString: String,
+                             failOnCheckpointValidation: Boolean,
+                             val retryBackoff: ExponentialSleepStrategy = new ExponentialSleepStrategy,
+                             serde: CheckpointSerde = new CheckpointSerde,
+                             checkpointTopicProperties: Properties = new Properties) extends CheckpointManager with Logging {
   import org.apache.samza.checkpoint.kafka.KafkaCheckpointManager._
 
   var taskNames = Set[TaskName]()
@@ -176,7 +175,7 @@ class KafkaCheckpointManager(
 
     def shouldHandleEntry(key: KafkaCheckpointLogKey) = key.isCheckpointKey
 
-    def handleCheckpoint(payload: ByteBuffer, checkpointKey:KafkaCheckpointLogKey): Unit = {
+    def handleCheckpoint(payload: ByteBuffer, checkpointKey: KafkaCheckpointLogKey): Unit = {
       val taskName = checkpointKey.getCheckpointTaskName
       val checkpoint = serde.fromBytes(Utils.readBytes(payload))
       debug("Adding checkpoint " + checkpoint + " for taskName " + taskName)
@@ -194,13 +193,14 @@ class KafkaCheckpointManager(
    * @param entryType What type of entry to look for within the log key's
    * @param handleEntry Code to handle an entry in the log once it's found
    */
-  private def readLog(entryType:String, shouldHandleEntry: (KafkaCheckpointLogKey) => Boolean,
+  private def readLog(entryType:String,
+                      shouldHandleEntry: (KafkaCheckpointLogKey) => Boolean,
                       handleEntry: (ByteBuffer, KafkaCheckpointLogKey) => Unit): Unit = {
     retryBackoff.run[Unit](
       loop => {
         val consumer = getConsumer()
 
-        val topicAndPartition = new TopicAndPartition(checkpointTopic, 0)
+        val topicAndPartition = TopicAndPartition(checkpointTopic, 0)
 
         try {
           var offset = startingOffset.getOrElse(getEarliestOffset(consumer, topicAndPartition))

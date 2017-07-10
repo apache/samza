@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.net.URL;
 import junit.framework.Assert;
 import org.apache.hadoop.yarn.util.ConverterUtils;
-import org.apache.samza.container.ContainerHeartbeatClient;
 import org.apache.samza.container.ContainerHeartbeatResponse;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.job.yarn.YarnAppState;

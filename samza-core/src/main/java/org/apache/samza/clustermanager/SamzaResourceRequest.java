@@ -29,7 +29,7 @@ import java.util.UUID;
  * resource request currently includes cpu cores and memory in MB. A preferred host
  * can also be specified with a request.
  *
- * When used with a ordered data structures (for example, priority queues)
+ * When used with an ordered data structures (for example, priority queues)
  * ordering between two SamzaResourceRequests is defined by their timestamp.
  *
  * //TODO: Define a SamzaResourceRequestBuilder API as specified in SAMZA-881
@@ -51,11 +51,11 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
   /**
    * A request is identified by an unique identifier.
    */
-  private final String requestID;
+  private final String requestId;
   /**
    * The ID of the StreamProcessor which this request is for.
    */
-  private final String containerID;
+  private final String containerId;
 
   /**
    * The timestamp in millis when the request was created.
@@ -66,14 +66,14 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
     this.numCores = numCores;
     this.memoryMB = memoryMB;
     this.preferredHost = preferredHost;
-    this.requestID = UUID.randomUUID().toString();
-    this.containerID = expectedContainerID;
+    this.requestId = UUID.randomUUID().toString();
+    this.containerId = expectedContainerID;
     this.requestTimestampMs = System.currentTimeMillis();
-    log.info("Resource Request created for {} on {} at {}", new Object[] {this.containerID, this.preferredHost, this.requestTimestampMs});
+    log.info("Resource Request created for {} on {} at {}", new Object[] {this.containerId, this.preferredHost, this.requestTimestampMs});
   }
 
-  public String getContainerID() {
-    return containerID;
+  public String getContainerId() {
+    return containerId;
   }
 
   public long getRequestTimestampMs() {
@@ -81,7 +81,7 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
   }
 
   public String getRequestID() {
-    return requestID;
+    return requestId;
   }
 
   public int getNumCores() {
@@ -102,8 +102,8 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
             "numCores=" + numCores +
             ", memoryMB=" + memoryMB +
             ", preferredHost='" + preferredHost + '\'' +
-            ", requestID='" + requestID + '\'' +
-            ", containerID=" + containerID +
+            ", requestID='" + requestId + '\'' +
+            ", containerID=" + containerId +
             ", requestTimestampMs=" + requestTimestampMs +
             '}';
   }

@@ -41,7 +41,6 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     }
     
     val coordinator = JobModelManager(config)
-    val containerModel = coordinator.jobModel.getContainers.get(0)
 
     val fwkPath = JobConfig.getFwkPath(config) // see if split deployment is configured
     info("Process job. using fwkPath = " + fwkPath)
@@ -63,10 +62,10 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     coordinator.start
 
     commandBuilder
-            .setConfig(config)
-            .setId("0")
-            .setUrl(coordinator.server.getUrl)
-            .setCommandPath(fwkPath)
+      .setConfig(config)
+      .setId("0")
+      .setUrl(coordinator.server.getUrl)
+      .setCommandPath(fwkPath)
 
     new ProcessJob(commandBuilder, coordinator)
   }

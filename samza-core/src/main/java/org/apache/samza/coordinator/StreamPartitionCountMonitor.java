@@ -26,6 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -48,10 +49,11 @@ public class StreamPartitionCountMonitor {
 
   private final Set<SystemStream> streamsToMonitor;
   private final StreamMetadataCache metadataCache;
-  private final MetricsRegistryMap metrics;
   private final int monitorPeriodMs;
   private final Map<SystemStream, Gauge<Integer>> gauges;
   private final Map<SystemStream, SystemStreamMetadata> initialMetadata;
+  private Map<SystemStream, SystemStreamMetadata> previousMetadata;
+  private final AtomicBoolean partitionExpanded = new AtomicBoolean(false);
 
   // Used to guard write access to state.
   private final Object lock = new Object();
@@ -89,13 +91,15 @@ public class StreamPartitionCountMonitor {
    * @param metrics           the metrics registry to which the metrics should be added.
    * @param monitorPeriodMs   the period at which the monitor will run in milliseconds.
    */
-  public StreamPartitionCountMonitor(Set<SystemStream> streamsToMonitor, StreamMetadataCache metadataCache,
-      MetricsRegistryMap metrics, int monitorPeriodMs) {
+  public StreamPartitionCountMonitor(Set<SystemStream> streamsToMonitor,
+                                     StreamMetadataCache metadataCache,
+                                     MetricsRegistryMap metrics,
+                                     int monitorPeriodMs) {
     this.streamsToMonitor = streamsToMonitor;
     this.metadataCache = metadataCache;
-    this.metrics = metrics;
     this.monitorPeriodMs = monitorPeriodMs;
     this.initialMetadata = getMetadata(streamsToMonitor, metadataCache);
+    this.previousMetadata = initialMetadata;
 
     // Pre-populate the gauges
     Map<SystemStream, Gauge<Integer>> mutableGauges = new HashMap<>();
@@ -115,20 +119,35 @@ public class StreamPartitionCountMonitor {
   void updatePartitionCountMetric() {
     try {
       Map<SystemStream, SystemStreamMetadata> currentMetadata = getMetadata(streamsToMonitor, metadataCache);
+      boolean hasPartitionExpansion = false;
 
       for (Map.Entry<SystemStream, SystemStreamMetadata> metadataEntry : initialMetadata.entrySet()) {
         SystemStream systemStream = metadataEntry.getKey();
         SystemStreamMetadata metadata = metadataEntry.getValue();
 
+        int initialPartitionCount = metadata.getSystemStreamPartitionMetadata().keySet().size();
         int currentPartitionCount = currentMetadata.get(systemStream).getSystemStreamPartitionMetadata().keySet().size();
-        int prevPartitionCount = metadata.getSystemStreamPartitionMetadata().keySet().size();
+        int previousPartitionCount = previousMetadata.get(systemStream).getSystemStreamPartitionMetadata().keySet().size();
+
+        if (currentPartitionCount > previousPartitionCount)
+          hasPartitionExpansion = true;
 
         Gauge gauge = gauges.get(systemStream);
-        gauge.set(currentPartitionCount - prevPartitionCount);
+        gauge.set(currentPartitionCount - initialPartitionCount);
       }
+
+      if (hasPartitionExpansion) {
+        partitionExpanded.set(true);
+      }
+
+      previousMetadata = currentMetadata;
     } catch (Exception e) {
       log.error("Exception while updating partition count metric.", e);
     }
+  }
+
+  public boolean compareAndResetPartitionExpanded() {
+    return partitionExpanded.compareAndSet(true, false);
   }
 
   /**

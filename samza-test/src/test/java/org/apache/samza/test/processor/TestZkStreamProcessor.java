@@ -56,7 +56,6 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
 
   // main test method for happy path with fixed number of processors
   private void testStreamProcessor(String[] processorIds) {
-
     // create a latch of the size equals to the number of messages
     TestZkStreamProcessorBase.TestStreamTask.endLatch = new CountDownLatch(messageCount);
 
@@ -75,7 +74,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     // run the processors in separate threads
     Thread[] threads = new Thread[processorIds.length];
     for (int i = 0; i < processorIds.length; i++) {
-      threads[i] = runInThread(streamProcessors[i], TestZkStreamProcessorBase.TestStreamTask.endLatch);
+      threads[i] = runInThread(streamProcessors[i]);
       threads[i].start();
       // wait until the processor reports that it has started
       try {
@@ -110,8 +109,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
   @Test
   /**
    * Similar to the previous tests, but add another processor in the middle
-   */ public void testStreamProcessorWithAdd() {
-
+   */
+  public void testStreamProcessorWithAdd() {
     // set number of events we expect to read by both processes in total:
     // p1 - reads 'messageCount' at first
     // p1 and p2 read all messageCount together, since they start from the beginning.
@@ -128,7 +127,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     produceMessages(0, inputTopic, messageCount);
 
     // start the first processor
-    Thread t1 = runInThread(sp, TestStreamTask.endLatch);
+    Thread t1 = runInThread(sp);
     t1.start();
 
     // wait until the processor reports that it has started
@@ -140,7 +139,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     // start the second processor
     Object startWait2 = new Object();
     StreamProcessor sp2 = createStreamProcessor("21", map, startWait2, null);
-    Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
+    Thread t2 = runInThread(sp2);
     t2.start();
 
     // wait until 2nd processor reports that it has started
@@ -177,8 +176,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
   @Test
   /**
    * same as other happy path messages, but with one processor removed in the middle
-   */ public void testStreamProcessorWithRemove() {
-
+   */
+  public void testStreamProcessorWithRemove() {
     // set number of events we expect to read by both processes in total:
     // p1 and p2 - both read messageCount at first and p1 is shutdown, new batch of events is generated
     // and p2 will read all of them from the beginning (+ 2 x messageCounts, total 3 x)
@@ -191,14 +190,14 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     StreamProcessor sp1 = createStreamProcessor("30", map, waitStart1, waitStop1);
 
     // start the first processor
-    Thread t1 = runInThread(sp1, TestStreamTask.endLatch);
+    Thread t1 = runInThread(sp1);
     t1.start();
 
     // start the second processor
     Object waitStart2 = new Object();
     Object waitStop2 = new Object();
     StreamProcessor sp2 = createStreamProcessor("31", map, waitStart2, waitStop2);
-    Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
+    Thread t2 = runInThread(sp2);
     t2.start();
 
     // wait until the processor reports that it has started
@@ -220,10 +219,11 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     waitForProcessorToStartStop(waitStop1);
 
     // processor1 will stop and start again. We wait for its stop to make sure we can count EXACTLY how many messages it reads.
+    // TODO: this waitStop2 wasn't actually triggered and this method doesn't guarantee it is triggered. We need to fix it.
     waitForProcessorToStartStop(waitStop2);
 
     // let the system to publish and distribute the new job model
-    TestZkUtils.sleepMs(300);
+    TestZkUtils.sleepMs(3000);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);

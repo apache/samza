@@ -33,13 +33,16 @@ import org.apache.samza.util.Logging
  * when the RM tells us to Reboot.
  */
 //This class is used in the refactored code path as called by run-jc.sh
-class SamzaYarnAppMasterLifecycle(containerMem: Int, containerCpu: Int, samzaAppState: SamzaApplicationState, state: YarnAppState, amClient: AMRMClientAsync[ContainerRequest]) extends Logging {
+class SamzaYarnAppMasterLifecycle(containerMem: Int,
+                                  containerCpu: Int,
+                                  samzaAppState: SamzaApplicationState,
+                                  state: YarnAppState,
+                                  amClient: AMRMClientAsync[ContainerRequest]) extends Logging {
   var validResourceRequest = true
   var shutdownMessage: String = null
   var webApp: SamzaYarnAppMasterService = null
   def onInit() {
-    val host = state.nodeHost
-    val response = amClient.registerApplicationMaster(host, state.rpcUrl.getPort, "%s:%d" format (host, state.trackingUrl.getPort))
+    val response = amClient.registerApplicationMaster(state.nodeHost, state.rpcUrl.getPort, "%s:%d" format (state.nodeHost, state.trackingUrl.getPort))
 
     // validate that the YARN cluster can handle our container resource requirements
     val maxCapability = response.getMaximumResourceCapability
@@ -51,7 +54,7 @@ class SamzaYarnAppMasterLifecycle(containerMem: Int, containerCpu: Int, samzaApp
       shutdownMessage = "The YARN cluster is unable to run your job due to unsatisfiable resource requirements. You asked for mem: %s, and cpu: %s." format (containerMem, containerCpu)
       error(shutdownMessage)
       validResourceRequest = false
-      samzaAppState.status = SamzaAppStatus.FAILED;
+      samzaAppState.status = SamzaAppStatus.FAILED
       samzaAppState.jobHealthy.set(false)
     }
   }
@@ -61,7 +64,7 @@ class SamzaYarnAppMasterLifecycle(containerMem: Int, containerCpu: Int, samzaApp
   }
 
   def onShutdown(samzaAppStatus: SamzaAppStatus) {
-    val yarnStatus: FinalApplicationStatus = getStatus(samzaAppStatus)
+    val yarnStatus: FinalApplicationStatus = getFinalApplicationStatus(samzaAppStatus)
     info("Shutting down SamzaAppStatus: " + samzaAppStatus + " yarn status: " + yarnStatus)
     //The value of state.status is set to either SUCCEEDED or FAILED for errors we catch and handle - like container failures
     //All other AM failures (errors in callbacks/connection failures after retries/token expirations) should not unregister the AM,
@@ -76,15 +79,14 @@ class SamzaYarnAppMasterLifecycle(containerMem: Int, containerCpu: Int, samzaApp
     }
   }
 
-  def getStatus(samzaAppStatus: SamzaAppStatus): FinalApplicationStatus = {
+  def getFinalApplicationStatus(samzaAppStatus: SamzaAppStatus): FinalApplicationStatus = {
     if (samzaAppStatus == SamzaAppStatus.FAILED)
-       return FinalApplicationStatus.FAILED
-    if(samzaAppStatus == SamzaAppStatus.SUCCEEDED)
-       return FinalApplicationStatus.SUCCEEDED
-
-   return FinalApplicationStatus.UNDEFINED
+      FinalApplicationStatus.FAILED
+    else if(samzaAppStatus == SamzaAppStatus.SUCCEEDED)
+      FinalApplicationStatus.SUCCEEDED
+    else
+      FinalApplicationStatus.UNDEFINED
   }
-
 
   def shouldShutdown = !validResourceRequest
 }

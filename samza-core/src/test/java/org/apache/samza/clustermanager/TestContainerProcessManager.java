@@ -104,7 +104,7 @@ public class TestContainerProcessManager {
     JobModel jobModel = new JobModel(getConfig(), containers, mockLocalityManager);
     JobModelManager.jobModelRef().getAndSet(jobModel);
 
-    return new JobModelManager(jobModel, this.server, null);
+    return new JobModelManager(jobModel, this.server, null, null, null);
   }
 
   @Before

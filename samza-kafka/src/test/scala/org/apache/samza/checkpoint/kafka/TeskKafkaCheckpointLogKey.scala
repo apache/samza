@@ -20,13 +20,15 @@ package org.apache.samza.checkpoint.kafka
 
 import org.apache.samza.SamzaException
 import org.apache.samza.container.TaskName
+import org.apache.samza.container.grouper.stream.GroupBySystemStreamPartition
+import org.apache.samza.container.grouper.stream.GroupByPartition
 import org.junit.Assert._
 import org.junit.{Before, Test}
 
 class TestKafkaCheckpointLogKey {
   @Before
   def setSSPGrouperFactoryString() {
-    KafkaCheckpointLogKey.setSystemStreamPartitionGrouperFactoryString("hello")
+    KafkaCheckpointLogKey.setSystemStreamPartitionGrouperFactoryString(classOf[GroupBySystemStreamPartition].getCanonicalName)
   }
 
   @Test
@@ -46,13 +48,16 @@ class TestKafkaCheckpointLogKey {
 
     val asBytes = checkpointKey.toBytes()
 
-    KafkaCheckpointLogKey.setSystemStreamPartitionGrouperFactoryString("goodbye")
+    KafkaCheckpointLogKey.setSystemStreamPartitionGrouperFactoryString(classOf[GroupByPartition].getCanonicalName)
 
     var gotException = false
     try {
       KafkaCheckpointLogKey.fromBytes(asBytes)
     } catch {
-      case se:SamzaException => assertEquals(new DifferingSystemStreamPartitionGrouperFactoryValues("hello", "goodbye").getMessage(), se.getCause.getMessage)
+      case se:SamzaException =>
+
+        assertEquals(new DifferingSystemStreamPartitionGrouperFactoryValues(
+          classOf[GroupBySystemStreamPartition].getCanonicalName, classOf[GroupByPartition].getCanonicalName).getMessage(), se.getCause.getMessage)
         gotException = true
     }
 

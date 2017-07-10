@@ -32,12 +32,12 @@ object YarnContainerUtils {
  * YARN container information plus start time and up time
  */
 class YarnContainer(container: Container) {
-  val id = container.getId()
-  val nodeId = container.getNodeId();
-  val nodeHttpAddress = container.getNodeHttpAddress();
-  val resource = container.getResource();
-  val priority = container.getPriority();
-  val containerToken = container.getContainerToken();
+  val id = container.getId
+  val nodeId = container.getNodeId
+  val nodeHttpAddress = container.getNodeHttpAddress
+  val resource = container.getResource
+  val priority = container.getPriority
+  val containerToken = container.getContainerToken
   val startTime = System.currentTimeMillis()
   def startTimeStr(dtFormatter: Option[DateTimeFormatter] = None) =
     dtFormatter.getOrElse(YarnContainerUtils.dateFormater).print(startTime)

@@ -29,6 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
 
 
 /**
@@ -106,6 +107,12 @@ public abstract class AbstractContainerAllocator implements Runnable {
   public void run() {
     while (isRunning) {
       try {
+
+        if (state.jobModelManager.compareAndResetPartitionExpanded()) {
+          state.jobModelManager.updateJobModel();
+          restartContainers();
+        }
+
         assignResourceRequests();
         // Release extra resources and update the entire system's state
         resourceRequestState.releaseExtraResources();
@@ -137,7 +144,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
    * SamzaException if there is no allocated resource in the specified host.
    */
   protected void runStreamProcessor(SamzaResourceRequest request, String preferredHost) {
-    CommandBuilder builder = getCommandBuilder(request.getContainerID());
+    CommandBuilder builder = getCommandBuilder(request.getContainerId());
     // Get the available resource
     SamzaResource resource = peekAllocatedResource(preferredHost);
     if (resource == null)
@@ -145,12 +152,11 @@ public abstract class AbstractContainerAllocator implements Runnable {
 
     // Update state
     resourceRequestState.updateStateAfterAssignment(request, preferredHost, resource);
-    String containerID = request.getContainerID();
+    String containerId = request.getContainerId();
 
     //run container on resource
-    log.info("Found available resources on {}. Assigning request for container_id {} with "
-            + "timestamp {} to resource {}",
-        new Object[]{preferredHost, String.valueOf(containerID), request.getRequestTimestampMs(), resource.getResourceID()});
+    log.info("Found available resources on {}. Assigning request for container_id {} with timestamp {} to resource {}",
+        new Object[]{preferredHost, String.valueOf(containerId), request.getRequestTimestampMs(), resource.getResourceID()});
     try {
       //launches a StreamProcessor on the resource
       clusterResourceManager.launchStreamProcessor(resource, builder);
@@ -158,12 +164,12 @@ public abstract class AbstractContainerAllocator implements Runnable {
       if (state.neededContainers.decrementAndGet() == 0) {
         state.jobHealthy.set(true);
       }
-      state.runningContainers.put(request.getContainerID(), resource);
+      state.runningContainers.put(request.getContainerId(), resource);
 
     } catch (SamzaContainerLaunchException e) {
       log.warn(String.format("Got exception while starting resource %s. Requesting a new resource on any host", resource), e);
       resourceRequestState.releaseUnstartableContainer(resource);
-      requestResource(containerID, ResourceRequestState.ANY_HOST);
+      requestResource(containerId, ResourceRequestState.ANY_HOST);
     }
   }
 
@@ -207,21 +213,29 @@ public abstract class AbstractContainerAllocator implements Runnable {
   /**
    * Method to request a resource from the cluster manager
    *
-   * @param containerID Identifier of the container that will be run when a resource is allocated for
-   *                            this request
+   * @param containerId Identifier of the container that will be run when a resource is allocated for this request
    * @param preferredHost Name of the host that you prefer to run the container on
    */
-  public final void requestResource(String containerID, String preferredHost) {
+  public final void requestResource(String containerId, String preferredHost) {
     SamzaResourceRequest request = new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb,
-        preferredHost, containerID);
+        preferredHost, containerId);
     resourceRequestState.addResourceRequest(request);
     state.containerRequests.incrementAndGet();
   }
 
+  public void restartContainers() {
+    for (ConcurrentMap.Entry<String, SamzaResource> entry: state.runningContainers.entrySet()) {
+      String containerId = entry.getKey();
+      SamzaResource samzaResource = entry.getValue();
+      clusterResourceManager.releaseResources(samzaResource);
+      requestResource(containerId, samzaResource.getHost());
+    }
+  }
+
   /**
    * Returns true if there are resources allocated on a host.
-   * @param host  the host for which a resource is needed.
-   * @return      {@code true} if there is a resource allocated for the specified host, {@code false} otherwise.
+   * @param host the host for which a resource is needed.
+   * @return {@code true} if there is a resource allocated for the specified host, {@code false} otherwise.
    */
   protected boolean hasAllocatedResource(String host) {
     return peekAllocatedResource(host) != null;
@@ -230,8 +244,8 @@ public abstract class AbstractContainerAllocator implements Runnable {
   /**
    * Retrieves, but does not remove, the first allocated resource on the specified host.
    *
-   * @param host  the host on which a resource is needed.
-   * @return      the first {@link SamzaResource} allocated for the specified host or {@code null} if there isn't one.
+   * @param host the host on which a resource is needed.
+   * @return the first {@link SamzaResource} allocated for the specified host or {@code null} if there isn't one.
    */
   protected SamzaResource peekAllocatedResource(String host) {
     return resourceRequestState.peekResource(host);

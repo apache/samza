@@ -48,11 +48,11 @@ public class ResourceRequestState {
   /**
    * Represents the queue of resource requests made by the {@link ContainerProcessManager}
    */
-  private final PriorityQueue<SamzaResourceRequest> requestsQueue = new PriorityQueue<SamzaResourceRequest>();
+  private final PriorityQueue<SamzaResourceRequest> requestsQueue = new PriorityQueue<>();
   /**
    * Maintain a map of hostname to the number of requests made for resources on this host
    * This state variable is used to look-up whether an allocated resource on a host was ever requested in the past.
-   * This map is not updated when host-affinity is not enabled
+   * This map is only updated when host-affinity is enabled
    */
   private final Map<String, AtomicInteger> requestsToCountMap = new HashMap<>();
   /**
@@ -254,13 +254,13 @@ public class ResourceRequestState {
    * @return list of host names
    */
   private List<String> getAllocatedHosts() {
-    List<String> hostKeys = new ArrayList<String>();
+    List<String> hosts = new ArrayList<>();
     for (Map.Entry<String, List<SamzaResource>> entry: allocatedResources.entrySet()) {
       if (entry.getValue().size() > 0) {
-        hostKeys.add(entry.getKey());
+        hosts.add(entry.getKey());
       }
     }
-    return hostKeys;
+    return hosts;
   }
 
   /**
@@ -325,6 +325,5 @@ public class ResourceRequestState {
   Map<String, AtomicInteger> getRequestsToCountMap() {
     return Collections.unmodifiableMap(requestsToCountMap);
   }
-
 
 }

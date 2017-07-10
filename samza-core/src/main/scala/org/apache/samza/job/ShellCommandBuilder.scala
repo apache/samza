@@ -36,7 +36,7 @@ class ShellCommandBuilder extends CommandBuilder {
 
   def buildEnvironment(): java.util.Map[String, String] = {
     val envMap = Map(
-      ShellCommandConfig.ENV_CONTAINER_ID -> id.toString,
+      ShellCommandConfig.ENV_CONTAINER_ID -> containerId,
       ShellCommandConfig.ENV_COORDINATOR_URL -> url.toString,
       ShellCommandConfig.ENV_JAVA_OPTS -> config.getTaskOpts.getOrElse(""))
 

@@ -64,7 +64,7 @@ class TaskInstance(
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
   val context = new TaskContext {
-    var userContext: Object = null;
+    var userContext: Object = null
     def getMetricsRegistry = metrics.registry
     def getSystemStreamPartitions = systemStreamPartitions.asJava
     def getStore(storeName: String) = if (storageManager != null) {

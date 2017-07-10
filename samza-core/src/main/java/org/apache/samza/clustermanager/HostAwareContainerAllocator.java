@@ -45,8 +45,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    */
   private final int requestTimeout;
 
-  public HostAwareContainerAllocator(ClusterResourceManager manager ,
-                                     int timeout, Config config, SamzaApplicationState state) {
+  public HostAwareContainerAllocator(ClusterResourceManager manager , int timeout, Config config, SamzaApplicationState state) {
     super(manager, new ResourceRequestState(true, manager), config, state);
     this.requestTimeout = timeout;
   }
@@ -62,9 +61,9 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
   public void assignResourceRequests()  {
     while (hasPendingRequest()) {
       SamzaResourceRequest request = peekPendingRequest();
-      log.info("Handling request: " + request.getContainerID() + " " + request.getRequestTimestampMs() + " " + request.getPreferredHost());
+      log.info("Handling request: " + request.getContainerId() + " " + request.getRequestTimestampMs() + " " + request.getPreferredHost());
       String preferredHost = request.getPreferredHost();
-      String containerID = request.getContainerID();
+      String containerID = request.getContainerId();
 
       if (hasAllocatedResource(preferredHost)) {
         // Found allocated container at preferredHost

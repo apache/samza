@@ -35,6 +35,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.container.grouper.stream.SystemStreamPartitionAssignmentManager;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemFactory;
@@ -51,6 +52,7 @@ import org.apache.samza.rest.proxy.job.JobInstance;
 import org.apache.samza.storage.ChangelogPartitionManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.ClassLoaderHelper;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
@@ -157,6 +159,8 @@ public class SamzaTaskProxy implements TaskProxy {
       changelogManager.start();
       LocalityManager localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer);
       localityManager.start();
+      SystemStreamPartitionAssignmentManager sspAssignmentManager = new SystemStreamPartitionAssignmentManager(coordinatorSystemProducer, coordinatorSystemConsumer);
+      sspAssignmentManager.start();
 
       String jobCoordinatorSystemName = config.get(JobConfig.JOB_COORDINATOR_SYSTEM());
 
@@ -168,7 +172,9 @@ public class SamzaTaskProxy implements TaskProxy {
       scala.collection.immutable.Map<String, SystemAdmin> systemAdmins = JobModelManager.getSystemAdmins(systemAdminConfig);
       StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
       Map<TaskName, Integer> changeLogPartitionMapping = changelogManager.readChangeLogPartitionMapping();
-      return JobModelManager.readJobModel(config, changeLogPartitionMapping, localityManager, streamMetadataCache, null);
+      Map<SystemStreamPartition, String> previousSystemStreamPartitionToTask = sspAssignmentManager.readSystemStreamPartitionToTaskAssignment();
+      return JobModelManager.readJobModel(config, changeLogPartitionMapping, previousSystemStreamPartitionToTask,
+          localityManager, streamMetadataCache, null);
     } finally {
       if (coordinatorSystemConsumer != null) {
         coordinatorSystemConsumer.stop();

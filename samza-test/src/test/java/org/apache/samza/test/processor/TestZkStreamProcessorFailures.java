@@ -86,14 +86,14 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     Object waitStop1 = new Object();
     StreamProcessor sp1 = createStreamProcessor("101", map, waitStart1, waitStop1);
     // start the first processor
-    Thread t1 = runInThread(sp1, TestStreamTask.endLatch);
+    Thread t1 = runInThread(sp1);
     t1.start();
 
     // start the second processor
     Object waitStart2 = new Object();
     Object waitStop2 = new Object();
     StreamProcessor sp2 = createStreamProcessor("102", map, waitStart2, waitStop2);
-    Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
+    Thread t2 = runInThread(sp2);
     t2.start();
 
     // wait until the 1st processor reports that it has started

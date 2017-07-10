@@ -32,12 +32,16 @@ import org.apache.samza.webapp.{ApplicationMasterRestServlet, ApplicationMasterW
 
 /**
   * Samza's application master runs a very basic HTTP/JSON service to allow
-  * dashboards to check on the status of a job. SamzaAppMasterService starts
+  * dashboards to check on the status of a job. SamzaYarnAppMasterService starts
   * up the web service when initialized.
   */
 //This class is used in the refactored code path as called by run-jc.sh
 
-class SamzaYarnAppMasterService(config: Config, samzaAppState: SamzaApplicationState, state: YarnAppState, registry: ReadableMetricsRegistry, yarnConfiguration: YarnConfiguration) extends  Logging {
+class SamzaYarnAppMasterService(config: Config,
+                                samzaAppState: SamzaApplicationState,
+                                yarnAppState: YarnAppState,
+                                registry: ReadableMetricsRegistry,
+                                yarnConfiguration: YarnConfiguration) extends  Logging {
   var rpcApp: HttpServer = null
   var webApp: HttpServer = null
   val SERVER_URL_OPT: String = "samza.autoscaling.server.url"
@@ -49,33 +53,33 @@ class SamzaYarnAppMasterService(config: Config, samzaAppState: SamzaApplicationS
 
     rpcApp = new HttpServer(resourceBasePath = "scalate")
 
-    rpcApp.addServlet("/*", new ApplicationMasterRestServlet(config, samzaAppState, state, registry))
+    rpcApp.addServlet("/*", new ApplicationMasterRestServlet(config, samzaAppState, yarnAppState, registry))
     rpcApp.start
 
     webApp = new HttpServer(resourceBasePath = "scalate")
-    webApp.addServlet("/*", new ApplicationMasterWebServlet(config, samzaAppState, state))
+    webApp.addServlet("/*", new ApplicationMasterWebServlet(config, samzaAppState, yarnAppState))
     webApp.start
 
-    samzaAppState.jobModelManager.server.addServlet("/containerHeartbeat", new YarnContainerHeartbeatServlet(state, registry))
+    samzaAppState.jobModelManager.server.addServlet("/containerHeartbeat", new YarnContainerHeartbeatServlet(yarnAppState, registry))
     samzaAppState.jobModelManager.start
-    state.rpcUrl = rpcApp.getUrl
-    state.trackingUrl = webApp.getUrl
-    state.coordinatorUrl = samzaAppState.jobModelManager.server.getUrl
+    yarnAppState.rpcUrl = rpcApp.getUrl
+    yarnAppState.trackingUrl = webApp.getUrl
+    yarnAppState.coordinatorUrl = samzaAppState.jobModelManager.server.getUrl
 
     //write server url to coordinator stream
     val coordinatorStreamWriter: CoordinatorStreamWriter = new CoordinatorStreamWriter(config)
     coordinatorStreamWriter.start()
-    coordinatorStreamWriter.sendMessage(SetConfig.TYPE, SERVER_URL_OPT, state.coordinatorUrl.toString)
+    coordinatorStreamWriter.sendMessage(SetConfig.TYPE, SERVER_URL_OPT, yarnAppState.coordinatorUrl.toString)
     coordinatorStreamWriter.stop()
-    debug("Sent server url message with value: %s " format state.coordinatorUrl.toString)
+    debug("Sent server url message with value: %s " format yarnAppState.coordinatorUrl.toString)
 
-    info("Webapp is started at (rpc %s, tracking %s, coordinator %s)" format(state.rpcUrl, state.trackingUrl, state.coordinatorUrl))
+    info("Webapp is started at (rpc %s, tracking %s, coordinator %s)" format(yarnAppState.rpcUrl, yarnAppState.trackingUrl, yarnAppState.coordinatorUrl))
 
     // start YarnSecurityManger for a secure cluster
     if (UserGroupInformation.isSecurityEnabled) {
       securityManager = Option {
         val securityManager = new SamzaAppMasterSecurityManager(config, yarnConfiguration)
-        securityManager.start
+        securityManager.start()
         securityManager
       }
     }
@@ -93,8 +97,8 @@ class SamzaYarnAppMasterService(config: Config, samzaAppState: SamzaApplicationS
 
     samzaAppState.jobModelManager.stop
 
-    securityManager.map {
-      securityManager => securityManager.stop
+    securityManager.foreach {
+      securityManager => securityManager.stop()
     }
 
   }

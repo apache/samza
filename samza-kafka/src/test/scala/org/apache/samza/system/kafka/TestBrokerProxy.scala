@@ -50,7 +50,7 @@ class TestBrokerProxy extends Logging {
     bp.addTopicPartition(tp, Option("0"))
     // Add tp2, which should never receive messages since sink disables it.
     bp.addTopicPartition(tp2, Option("0"))
-    Thread.sleep(1000)
+    Thread.sleep(3000)
     assertEquals(2, sink.receivedMessages.size)
     assertEquals(42, sink.receivedMessages(0)._2.offset)
     assertEquals(84, sink.receivedMessages(1)._2.offset)

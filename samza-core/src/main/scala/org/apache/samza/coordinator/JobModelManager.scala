@@ -22,13 +22,12 @@ package org.apache.samza.coordinator
 
 import java.util
 import java.util.concurrent.atomic.AtomicReference
-
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.Config
 import org.apache.samza.config.StorageConfig
-import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
+import org.apache.samza.container.grouper.stream.{SystemStreamPartitionAssignmentManager, SystemStreamPartitionGrouper, SystemStreamPartitionGrouperFactory, SystemStreamPartitionGrouperWithFixedTaskNum}
 import org.apache.samza.container.grouper.task.BalancingTaskNameGrouper
 import org.apache.samza.container.grouper.task.TaskNameGrouperFactory
 import org.apache.samza.container.LocalityManager
@@ -53,7 +52,6 @@ import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
-
 import scala.collection.JavaConverters._
 
 /**
@@ -76,92 +74,21 @@ object JobModelManager extends Logging {
    * c) Recomputes changelog partition mapping based on jobModel and job's configuration
    * and writes it to the coordinator stream.
    * d) Builds JobModelManager using the jobModel read from coordinator stream.
+   *
    * @param coordinatorSystemConfig A config object that contains job.name
    *                                job.id, and all system.&lt;job-coordinator-system-name&gt;.*
    *                                configuration. The method will use this config to read all configuration
    *                                from the coordinator stream, and instantiate a JobModelManager.
    */
   def apply(coordinatorSystemConfig: Config, metricsRegistryMap: MetricsRegistryMap): JobModelManager = {
-    val coordinatorStreamSystemFactory: CoordinatorStreamSystemFactory = new CoordinatorStreamSystemFactory()
-    val coordinatorSystemConsumer: CoordinatorStreamSystemConsumer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(coordinatorSystemConfig, metricsRegistryMap)
-    val coordinatorSystemProducer: CoordinatorStreamSystemProducer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(coordinatorSystemConfig, metricsRegistryMap)
-    info("Registering coordinator system stream consumer.")
-    coordinatorSystemConsumer.register
-    debug("Starting coordinator system stream consumer.")
-    coordinatorSystemConsumer.start
-    debug("Bootstrapping coordinator system stream consumer.")
-    coordinatorSystemConsumer.bootstrap
-    info("Registering coordinator system stream producer.")
-    coordinatorSystemProducer.register(SOURCE)
-
-    val config = coordinatorSystemConsumer.getConfig
-    info("Got config: %s" format config)
-    val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, SOURCE)
-    changelogManager.start()
-    val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
-    // We don't need to start() localityManager as they share the same instances with checkpoint and changelog managers.
-    // TODO: This code will go away with refactoring - SAMZA-678
-
-    localityManager.start()
-
-    // Map the name of each system to the corresponding SystemAdmin
-    val systemAdmins = getSystemAdmins(config)
-
-    val streamMetadataCache = new StreamMetadataCache(systemAdmins = systemAdmins, cacheTTLms = 0)
-    var streamPartitionCountMonitor: StreamPartitionCountMonitor = null
-    if (config.getMonitorPartitionChange) {
-      val extendedSystemAdmins = systemAdmins.filter{
-        case (systemName, systemAdmin) => systemAdmin.isInstanceOf[ExtendedSystemAdmin]
-      }
-      val inputStreamsToMonitor = config.getInputStreams.filter(systemStream => extendedSystemAdmins.contains(systemStream.getSystem))
-      if (inputStreamsToMonitor.nonEmpty) {
-        streamPartitionCountMonitor = new StreamPartitionCountMonitor(
-          inputStreamsToMonitor.asJava,
-          streamMetadataCache,
-          metricsRegistryMap,
-          config.getMonitorPartitionChangeFrequency)
-      }
-    }
-    val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
-    val jobModelManager = getJobModelManager(config, previousChangelogPartitionMapping, localityManager, streamMetadataCache, streamPartitionCountMonitor, null)
-    val jobModel = jobModelManager.jobModel
-    // Save the changelog mapping back to the ChangelogPartitionmanager
-    // newChangelogPartitionMapping is the merging of all current task:changelog
-    // assignments with whatever we had before (previousChangelogPartitionMapping).
-    // We must persist legacy changelog assignments so that
-    // maxChangelogPartitionId always has the absolute max, not the current
-    // max (in case the task with the highest changelog partition mapping
-    // disappears.
-    val newChangelogPartitionMapping = jobModel.getContainers.asScala.flatMap(_._2.getTasks.asScala).map{case (taskName,taskModel) => {
-      taskName -> Integer.valueOf(taskModel.getChangelogPartition.getPartitionId)
-    }}.toMap ++ previousChangelogPartitionMapping.asScala
-    info("Saving task-to-changelog partition mapping: %s" format newChangelogPartitionMapping)
-    changelogManager.writeChangeLogPartitionMapping(newChangelogPartitionMapping.asJava)
-
-    createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions)
-    createAccessLogStreams(config, jobModel.maxChangeLogStreamPartitions)
-
-    jobModelManager
-  }
-  def apply(coordinatorSystemConfig: Config): JobModelManager = apply(coordinatorSystemConfig, new MetricsRegistryMap())
-
-  /**
-   * Build a JobModelManager using a Samza job's configuration.
-   */
-  private def getJobModelManager(config: Config,
-                                changeLogMapping: util.Map[TaskName, Integer],
-                                localityManager: LocalityManager,
-                                streamMetadataCache: StreamMetadataCache,
-                                streamPartitionCountMonitor: StreamPartitionCountMonitor,
-                                containerIds: java.util.List[String]) = {
-    val jobModel: JobModel = readJobModel(config, changeLogMapping, localityManager, streamMetadataCache, containerIds)
-    jobModelRef.set(jobModel)
-
-    val server = new HttpServer
-    server.addServlet("/", new JobServlet(jobModelRef))
-    currentJobModelManager = new JobModelManager(jobModel, server, streamPartitionCountMonitor)
+    val jobServletServer = new HttpServer
+    jobServletServer.addServlet("/", new JobServlet(jobModelRef))
+    currentJobModelManager = new JobModelManager(null, jobServletServer, null, coordinatorSystemConfig, metricsRegistryMap)
+    currentJobModelManager.updateJobModel()
     currentJobModelManager
   }
+
+  def apply(coordinatorSystemConfig: Config): JobModelManager = apply(coordinatorSystemConfig, new MetricsRegistryMap())
 
   /**
    * For each input stream specified in config, exactly determine its
@@ -219,13 +146,21 @@ object JobModelManager extends Logging {
    */
   def readJobModel(config: Config,
                    changeLogPartitionMapping: util.Map[TaskName, Integer],
+                   previousSystemStreamPartitionToTask: util.Map[SystemStreamPartition, String],
                    localityManager: LocalityManager,
                    streamMetadataCache: StreamMetadataCache,
                    containerIds: java.util.List[String]): JobModel = {
     // Do grouping to fetch TaskName to SSP mapping
     val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache)
     val grouper = getSystemStreamPartitionGrouper(config)
-    val groups = grouper.group(allSystemStreamPartitions.asJava)
+
+    val groups = grouper match {
+      case grouperWithFixedTaskNum: SystemStreamPartitionGrouperWithFixedTaskNum =>
+        grouperWithFixedTaskNum.group(previousSystemStreamPartitionToTask, allSystemStreamPartitions.asJava)
+      case _ =>
+        grouper.group(allSystemStreamPartitions.asJava)
+    }
+
     info("SystemStreamPartitionGrouper %s has grouped the SystemStreamPartitions into %d tasks with the following taskNames: %s" format(grouper, groups.size(), groups.keySet()))
 
     // If no mappings are present(first time the job is running) we return -1, this will allow 0 to be the first change
@@ -267,6 +202,7 @@ object JobModelManager extends Logging {
 
   /**
    * Instantiates the system admins based upon the system factory class available in {@param config}.
+   *
    * @param config contains adequate information to instantiate the SystemAdmin.
    * @return a map of SystemName(String) to the instantiated SystemAdmin.
    */
@@ -339,20 +275,100 @@ object JobModelManager extends Logging {
  * server right now.</p>
  */
 class JobModelManager(
-  /**
-   * The data model that describes the Samza job's containers and tasks.
-   */
-  val jobModel: JobModel,
+  var jobModel: JobModel, // The data model that describes the Samza job's containers and tasks.
+  val server: HttpServer = null, // HTTP server used to serve a Samza job's container model to SamzaContainers when they start up.
+  var streamPartitionCountMonitor: StreamPartitionCountMonitor = null,
+  val coordinatorSystemConfig: Config = null,
+  val metricsRegistryMap: MetricsRegistryMap = null) extends Logging {
 
-  /**
-   * HTTP server used to serve a Samza job's container model to SamzaContainers when they start up.
-   */
-  val server: HttpServer = null,
-  val streamPartitionCountMonitor: StreamPartitionCountMonitor = null) extends Logging {
+  def updateJobModel() {
+    val coordinatorStreamSystemFactory: CoordinatorStreamSystemFactory = new CoordinatorStreamSystemFactory()
+    val coordinatorSystemConsumer: CoordinatorStreamSystemConsumer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(coordinatorSystemConfig, metricsRegistryMap)
+    val coordinatorSystemProducer: CoordinatorStreamSystemProducer = coordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(coordinatorSystemConfig, metricsRegistryMap)
+    info("Registering coordinator system stream consumer.")
+    coordinatorSystemConsumer.register()
+    debug("Starting coordinator system stream consumer.")
+    coordinatorSystemConsumer.start()
+    debug("Bootstrapping coordinator system stream consumer.")
+    coordinatorSystemConsumer.bootstrap()
+    info("Registering coordinator system stream producer.")
+    coordinatorSystemProducer.register(JobModelManager.SOURCE)
 
-  debug("Got job model: %s." format jobModel)
+    val config = coordinatorSystemConsumer.getConfig
+    info("Got config: %s" format config)
+    val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, JobModelManager.SOURCE)
+    changelogManager.start()
 
-  def start {
+    val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
+    // We don't need to start() localityManager as they share the same instances with checkpoint and changelog managers.
+    // TODO: This code will go away with refactoring - SAMZA-678
+    localityManager.start()
+
+    val systemStreamPartitionAssignmentManager = new SystemStreamPartitionAssignmentManager(coordinatorSystemProducer, coordinatorSystemConsumer)
+    systemStreamPartitionAssignmentManager.start()
+
+    // Map the name of each system to the corresponding SystemAdmin
+    val systemAdmins = JobModelManager.getSystemAdmins(config)
+
+    val streamMetadataCache = new StreamMetadataCache(systemAdmins = systemAdmins, cacheTTLms = 0)
+
+    val previousChangelogPartitionMapping = changelogManager.readChangeLogPartitionMapping()
+    val previousSystemStreamPartitionToTask = systemStreamPartitionAssignmentManager.readSystemStreamPartitionToTaskAssignment()
+
+    jobModel = JobModelManager.readJobModel(config, previousChangelogPartitionMapping, previousSystemStreamPartitionToTask, localityManager, streamMetadataCache, null)
+
+    // Save the changelog mapping back to the ChangelogPartitionmanager
+    // newChangelogPartitionMapping is the merging of all current task->changelog
+    // assignments with whatever we had before (previousChangelogPartitionMapping).
+    // We must persist legacy changelog assignments so that
+    // maxChangelogPartitionId always has the absolute max, not the current
+    // max (in case the task with the highest changelog partition mapping
+    // disappears.
+    val newChangelogPartitionMapping = jobModel.getContainers.asScala.flatMap(_._2.getTasks.asScala).map{case (taskName,taskModel) => {
+      taskName -> Integer.valueOf(taskModel.getChangelogPartition.getPartitionId)
+    }}.toMap ++ previousChangelogPartitionMapping.asScala
+    info("Saving task-to-changelog partition mapping: %s" format newChangelogPartitionMapping)
+    changelogManager.writeChangeLogPartitionMapping(newChangelogPartitionMapping.asJava)
+
+    val systemStreamPartitionToTask = jobModel.getContainers.asScala.values.flatMap(_.getTasks.values().asScala).flatMap(taskModel =>
+      taskModel.getSystemStreamPartitions.asScala.map(ssp => ssp -> taskModel.getTaskName.getTaskName)
+    ).toMap
+    info("Saving ssp-to-task mapping: %s" format systemStreamPartitionToTask)
+    systemStreamPartitionAssignmentManager.writeSystemStreamPartitionToTaskAssignment(systemStreamPartitionToTask.asJava)
+
+    if (config.getMonitorPartitionChange && streamPartitionCountMonitor == null) {
+      val extendedSystemAdmins = systemAdmins.filter{
+        case (systemName, systemAdmin) => systemAdmin.isInstanceOf[ExtendedSystemAdmin]
+      }
+      val inputStreamsToMonitor = config.getInputStreams.filter(systemStream => extendedSystemAdmins.contains(systemStream.getSystem))
+      if (inputStreamsToMonitor.nonEmpty) {
+        streamPartitionCountMonitor = new StreamPartitionCountMonitor(
+          inputStreamsToMonitor.asJava,
+          streamMetadataCache,
+          metricsRegistryMap,
+          config.getMonitorPartitionChangeFrequency)
+      }
+    }
+
+    JobModelManager.createChangeLogStreams(config, jobModel.maxChangeLogStreamPartitions)
+    JobModelManager.createAccessLogStreams(config, jobModel.maxChangeLogStreamPartitions)
+
+    JobModelManager.jobModelRef.set(jobModel)
+
+    coordinatorSystemProducer.stop()
+    coordinatorSystemConsumer.stop()
+    systemStreamPartitionAssignmentManager.stop()
+    localityManager.stop()
+    changelogManager.stop()
+
+    debug("Got job model: %s." format jobModel)
+  }
+
+  def compareAndResetPartitionExpanded(): Boolean = {
+    (streamPartitionCountMonitor != null) && streamPartitionCountMonitor.compareAndResetPartitionExpanded()
+  }
+
+  def start() {
     if (server != null) {
       debug("Starting HTTP server.")
       server.start
@@ -364,7 +380,7 @@ class JobModelManager(
     }
   }
 
-  def stop {
+  def stop() {
     if (server != null) {
       debug("Stopping HTTP server.")
       if (streamPartitionCountMonitor != null) {

@@ -104,7 +104,7 @@ public class TestContainerAllocator {
       containers.put(String.valueOf(i), container);
     }
     JobModel jobModel = new JobModel(getConfig(), containers);
-    return new JobModelManager(jobModel, server, null);
+    return new JobModelManager(jobModel, server, null, null, null);
   }
 
 
@@ -245,11 +245,11 @@ public class TestContainerAllocator {
             assertEquals(2, requestState.assignedRequests.size());
 
             SamzaResourceRequest request = requestState.assignedRequests.remove();
-            assertEquals("0", request.getContainerID());
+            assertEquals("0", request.getContainerId());
             assertEquals("2", request.getPreferredHost());
 
             request = requestState.assignedRequests.remove();
-            assertEquals("0", request.getContainerID());
+            assertEquals("0", request.getContainerId());
             assertEquals("ANY_HOST", request.getPreferredHost());
 
             // This routine should be called after the retry is assigned, but before it's started.
