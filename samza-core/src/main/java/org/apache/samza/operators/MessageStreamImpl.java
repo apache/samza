@@ -95,7 +95,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, V> void sendTo(OutputStream<K, V, M> outputStream) {
+  public <K, V, M> void sendTo(OutputStream<K, V, M> outputStream) {
     OutputOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec(
         (OutputStreamImpl<K, V, M>) outputStream, this.graph.getNextOpId());
     this.operatorSpec.registerNextOperatorSpec(op);

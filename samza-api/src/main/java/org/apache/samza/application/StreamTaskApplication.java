@@ -59,11 +59,11 @@ public class StreamTaskApplication {
     this.runner.waitForFinish();
   }
 
-  public StreamTaskApplication addInputs(List<StreamDescriptor> inputs) {
+  public StreamTaskApplication addInputs(List<StreamDescriptor.Input> inputs) {
     return this;
   }
 
-  public StreamTaskApplication addOutputs(List<StreamDescriptor> outputs) {
+  public StreamTaskApplication addOutputs(List<StreamDescriptor.Output> outputs) {
     return this;
   }
 

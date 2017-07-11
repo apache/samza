@@ -18,6 +18,7 @@
  */
 package org.apache.samza.example;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KafkaSystem;
@@ -43,42 +44,27 @@ public class PageViewCounterStreamSpecExample {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
 
-    StreamApplication app = StreamApplication.create(config);
-
     KafkaSystem kafkaSystem = KafkaSystem.create("kafka")
         .withBootstrapServers("localhost:9192")
         .withConsumerProperties(config)
         .withProducerProperties(config);
 
-    StreamDescriptor.Input<PageViewEvent> input = StreamDescriptor.<PageViewEvent>create("myPageViewEvent")
+    StreamDescriptor.Input<String, PageViewEvent> input = StreamDescriptor.<String, PageViewEvent>input("myPageViewEevent")
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
-        .withMsgBuilder((k,m) -> m)
         .from(kafkaSystem);
-    StreamDescriptor.Output<PageViewCount> output = StreamDescriptor.<PageViewCount>create("pageViewEventPerMemberStream")
+    StreamDescriptor.Output<String, PageViewCount> output = StreamDescriptor.<String, PageViewCount>output("pageViewEventPerMemberStream")
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
-        .<M>withKeyExtractor( m -> m.memberId)
-        .<M>withMsgExtractor( m -> m)
         .from(kafkaSystem);
 
-    StreamDescriptor.Input<String, PageViewCount> output1 = StreamDescriptor.<String, PageViewCount>create("pageViewEventPerMemberStream")
-        .withKeySerde(new StringSerde("UTF-8"))
-        .withMsgSerde(new JsonSerde<>())
-        .from(new File("path"));
-
-    StreamDescriptor.Input<String, PageViewCount> output2 = StreamDescriptor.<String, PageViewCount>create("pageViewEventPerMemberStream")
-        .withKeySerde(new StringSerde("UTF-8"))
-        .withMsgSerde(new JsonSerde<>())
-        .from(new ArrayList<>(){{ }});
-
-    app.openInputStream(input, (k, m) -> m)
-        .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10),
-            () -> 0, (m, c) -> c + 1)
+    StreamApplication app = StreamApplication.create(config);
+    app.open(input, (k, v) -> v)
+        .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), () -> 0, (m, c) -> c + 1)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING))
         .map(PageViewCount::new)
-        .sendTo(app.openOutputStream(output, m -> m.memberId, m -> m));
+        .sendTo(app.<String, PageViewCount, PageViewCount>open(output, m -> m.memberId, m -> m));
 
     app.run();
     app.waitForFinish();

@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -53,62 +54,44 @@ public class StreamGraphImpl implements StreamGraph {
   // We use a LHM for deterministic order in initializing and closing operators.
   private final Map<StreamSpec, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
   private final Map<StreamSpec, OutputStreamImpl> outputStreams = new LinkedHashMap<>();
-  private final ApplicationRunner runner;
   private final Config config;
 
+  private IOSystem defaultIntermediateSystem = null;
   private ContextManager contextManager = null;
 
-  public StreamGraphImpl(ApplicationRunner runner, Config config) {
-    // TODO: SAMZA-1118 - Move StreamSpec and ApplicationRunner out of StreamGraphImpl once Systems
-    // can use streamId to send and receive messages.
-    this.runner = runner;
+  public StreamGraphImpl(Config config) {
     this.config = config;
   }
 
   @Override
-  public <K, V, M> MessageStream<M> getInputStream(String streamId,
-      BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
-    if (msgBuilder == null) {
-      throw new IllegalArgumentException("msgBuilder can't be null for an input stream");
-    }
+  public <K, V, M> MessageStream<M> getInputStream(StreamDescriptor.Input<K, V> inputDescriptor,
+                                                   BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
 
-    if (inputOperators.containsKey(runner.getStreamSpec(streamId))) {
+    if (inputOperators.containsKey(inputDescriptor.getStreamSpec())) {
       throw new IllegalStateException("getInputStream() invoked multiple times "
-          + "with the same streamId: " + streamId);
+          + "with the same streamId: " + inputDescriptor.getStreamId());
     }
 
-    StreamSpec streamSpec = runner.getStreamSpec(streamId);
-    inputOperators.put(streamSpec,
-        new InputOperatorSpec<>(streamSpec, (BiFunction<K, V, M>) msgBuilder, this.getNextOpId()));
-    return new MessageStreamImpl<>(this, inputOperators.get(streamSpec));
+    StreamSpec streamSpec = inputDescriptor.getStreamSpec();
+    InputOperatorSpec<K, V, M> opSpec = new InputOperatorSpec<K, V, M>(streamSpec, msgBuilder, this.getNextOpId());
+    inputOperators.put(streamSpec, opSpec);
+    return new MessageStreamImpl<>(this, opSpec);
   }
 
   @Override
-  public <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId,
-      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
-    if (keyExtractor == null) {
-      throw new IllegalArgumentException("keyExtractor can't be null for an output stream.");
-    }
-
-    if (msgExtractor == null) {
-      throw new IllegalArgumentException("msgExtractor can't be null for an output stream.");
-    }
-
-    if (outputStreams.containsKey(runner.getStreamSpec(streamId))) {
-      throw new IllegalStateException("getOutputStream() invoked multiple times "
-          + "with the same streamId: " + streamId);
-    }
-
-    StreamSpec streamSpec = runner.getStreamSpec(streamId);
-    outputStreams.put(streamSpec,
-        new OutputStreamImpl<>(streamSpec, (Function<M, K>) keyExtractor, (Function<M, V>) msgExtractor));
-    return outputStreams.get(streamSpec);
+  public <K, V, M> OutputStream<K, V, M> getOutputStream(StreamDescriptor.Output<K, V> outputDescriptor,
+                                                         Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
+    return new OutputStreamImpl<K, V, M>(outputDescriptor, keyExtractor, msgExtractor);
   }
 
   @Override
-  public StreamGraph withContextManager(ContextManager contextManager) {
+  public void setContextManager(ContextManager contextManager) {
     this.contextManager = contextManager;
-    return this;
+  }
+
+  @Override
+  public void setDefaultIntermediateSystem(IOSystem defaultSystem) {
+    this.defaultIntermediateSystem = defaultSystem;
   }
 
   /**
@@ -133,22 +116,20 @@ public class StreamGraphImpl implements StreamGraph {
         config.get(JobConfig.JOB_NAME()),
         config.get(JobConfig.JOB_ID(), "1"),
         streamName);
-    if (msgBuilder == null) {
-      throw new IllegalArgumentException("msgBuilder cannot be null for an intermediate stream");
-    }
-    if (keyExtractor == null) {
-      throw new IllegalArgumentException("keyExtractor can't be null for an output stream.");
-    }
-    if (msgExtractor == null) {
-      throw new IllegalArgumentException("msgExtractor can't be null for an output stream.");
-    }
-    StreamSpec streamSpec = runner.getStreamSpec(streamId);
+
+    StreamDescriptor.Input<K, V> inStrm = StreamDescriptor.<K, V>input(streamId)
+        .from(this.defaultIntermediateSystem);
+
+    StreamDescriptor.Output<K, V> outStrm = StreamDescriptor.<K, V>output(streamId)
+        .from(this.defaultIntermediateSystem);
+
+    StreamSpec streamSpec = inStrm.getStreamSpec();
     if (inputOperators.containsKey(streamSpec) || outputStreams.containsKey(streamSpec)) {
       throw new IllegalStateException("getIntermediateStream() invoked multiple times "
           + "with the same streamId: " + streamId);
     }
-    inputOperators.put(streamSpec, new InputOperatorSpec(streamSpec, msgBuilder, this.getNextOpId()));
-    outputStreams.put(streamSpec, new OutputStreamImpl(streamSpec, keyExtractor, msgExtractor));
+    inputOperators.put(streamSpec, new InputOperatorSpec<>(streamSpec, msgBuilder, this.getNextOpId()));
+    outputStreams.put(streamSpec, new OutputStreamImpl<>(outStrm, keyExtractor, msgExtractor));
     return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamSpec), outputStreams.get(streamSpec));
   }
 

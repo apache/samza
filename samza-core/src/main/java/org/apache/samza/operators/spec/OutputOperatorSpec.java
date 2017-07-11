@@ -29,7 +29,7 @@ package org.apache.samza.operators.spec;
  */
 public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
 
-  private OutputStreamImpl<?, ?, M> outputStream;
+  private OutputStreamImpl<M> outputStream;
 
 
   /**
@@ -40,7 +40,7 @@ public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
    *               It could be {@link OpCode#SEND_TO}, or {@link OpCode#PARTITION_BY}
    * @param opId  the unique ID of this {@link SinkOperatorSpec} in the graph
    */
-  OutputOperatorSpec(OutputStreamImpl<?, ?, M> outputStream, OperatorSpec.OpCode opCode, int opId) {
+  OutputOperatorSpec(OutputStreamImpl<M> outputStream, OperatorSpec.OpCode opCode, int opId) {
     super(opCode, opId);
     this.outputStream = outputStream;
   }
@@ -49,7 +49,7 @@ public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
    * The {@link OutputStreamImpl} that this operator is sending its output to.
    * @return the {@link OutputStreamImpl} for this operator if any, else null.
    */
-  public OutputStreamImpl<?, ?, M> getOutputStream() {
+  public OutputStreamImpl<M> getOutputStream() {
     return this.outputStream;
   }
 }

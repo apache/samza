@@ -18,19 +18,19 @@
  */
 package org.apache.samza.application;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.operators.ContextManager;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamDescriptor;
+import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.operators.*;
 import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.runtime.ApplicationRunner;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.task.StreamTask;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -84,31 +84,14 @@ public class StreamApplication {
   private final ApplicationRunner runner;
 
   public static StreamApplication create(Config config) {
-    StreamGraph graph = new StreamGraph() {
-      @Override
-      public <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
-        return null;
-      }
-
-      @Override
-      public <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId, Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
-        return null;
-      }
-
-      @Override
-      public StreamGraph withContextManager(ContextManager contextManager) {
-        return null;
-      }
-    };
-
     ApplicationRunner runner = ApplicationRunner.fromConfig(config);
 
-    return new StreamApplication(graph, runner);
+    return new StreamApplication(runner);
 
   }
 
-  private StreamApplication(StreamGraph graph, ApplicationRunner runner) {
-    this.graph = graph;
+  private StreamApplication(ApplicationRunner runner) {
+    this.graph = runner.createGraph();
     this.runner = runner;
   }
 
@@ -117,21 +100,14 @@ public class StreamApplication {
    * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
-   * @param streamId the unique ID for the stream
-   * @param msgBuilder the {@link BiFunction} to convert the incoming key and message to a message
-   *                   in the input {@link MessageStream}
    * @param <K> the type of key in the incoming message
    * @param <V> the type of message in the incoming message
    * @param <M> the type of message in the input {@link MessageStream}
    * @return the input {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  public <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
-    return this.graph.getInputStream(streamId, msgBuilder);
-  }
-
-  public <K, V, M> MessageStream<M> open(StreamDescriptor<K, V> input, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
-    return this.graph.getInputStream(input.getStreamId(), msgBuilder);
+  public <K, V, M> MessageStream<M> open(StreamDescriptor.Input<K, V> input, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
+    return this.graph.getInputStream(input, msgBuilder);
   }
 
   /**
@@ -139,23 +115,19 @@ public class StreamApplication {
    * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
-   * @param streamId the unique ID for the stream
-   * @param keyExtractor the {@link Function} to extract the outgoing key from the output message
-   * @param msgExtractor the {@link Function} to extract the outgoing message from the output message
    * @param <K> the type of key in the outgoing message
    * @param <V> the type of message in the outgoing message
    * @param <M> the type of message in the {@link OutputStream}
    * @return the output {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  public <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId,
-    Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
-    return this.graph.getOutputStream(streamId, keyExtractor, msgExtractor);
+  public <K, V, M> OutputStream<K, V, M> open(StreamDescriptor.Output<K, V> output, Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
+    return this.graph.getOutputStream(output, keyExtractor, msgExtractor);
   }
 
-  public <K, V, M> OutputStream<K, V, M> open(StreamDescriptor<K, V> output, Function<? super M, ? extends K> keyExtractor,
-                                              Function<? super M, ? extends V> msgExtractor) {
-    return this.graph.getOutputStream(output.getStreamId(), keyExtractor, msgExtractor);
+  public StreamApplication withDefaultIntermediateSystem(IOSystem defaultSystem) {
+    this.graph.setDefaultIntermediateSystem(defaultSystem);
+    return this;
   }
 
   /**
@@ -166,8 +138,9 @@ public class StreamApplication {
    *
    * @param contextManager the {@link ContextManager} to use for the {@link StreamGraph}
    */
-  public void withContextManager(ContextManager contextManager) {
-    this.graph.withContextManager(contextManager);
+  public StreamApplication withContextManager(ContextManager contextManager) {
+    this.graph.setContextManager(contextManager);
+    return this;
   }
 
   /**
@@ -198,31 +171,23 @@ public class StreamApplication {
     return this.runner.status(this);
   }
 
+  /**
+   * Wait till the current runner in the local JVM finishes, when returns, the stream application in the local JVM has
+   * completed either successfully or with failure.
+   *
+   * <p>
+   * Note this method returns as the runner in the current JVM finishes. If the runner is a local runner, it means that the
+   * local stream application has finished; if the runner is a remote runner, it means that the stream application has
+   * finished submitting to the cluster manager (e.g. YARN RM).
+   * </p>
+   */
   public void waitForFinish() {
     this.runner.waitForFinish();
   }
 
-  /**
-   * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
-   *
-   * The stream configurations are read from the following properties in the config:
-   * {@code streams.{$streamId}.*}
-   * <br>
-   * All properties matching this pattern are assumed to be system-specific with two exceptions. The following two
-   * properties are Samza properties which are used to bind the stream to a system and a physical resource on that system.
-   *
-   * <ul>
-   *   <li>samza.system -         The name of the System on which this stream will be used. If this property isn't defined
-   *                              the stream will be associated with the System defined in {@code job.default.system}</li>
-   *   <li>samza.physical.name -  The system-specific name for this stream. It could be a file URN, topic name, or other identifer.
-   *                              If this property isn't defined the physical.name will be set to the streamId</li>
-   * </ul>
-   *
-   * @param streamId  The logical identifier for the stream in Samza.
-   * @return          The {@link StreamSpec} instance.
-   */
-  public StreamSpec getStreamSpec(String streamId) {
-    return this.runner.getStreamSpec(streamId);
+  public StreamApplication withMetricsReports(Map<String, MetricsReporter> reporterMap) {
+    this.runner.setMetricsReporters(reporterMap);
+    return this;
   }
 
 }

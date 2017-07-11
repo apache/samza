@@ -34,33 +34,22 @@ public interface StreamGraph {
    * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
-   * @param streamId the unique ID for the stream
-   * @param msgBuilder the {@link BiFunction} to convert the incoming key and message to a message
-   *                   in the input {@link MessageStream}
-   * @param <K> the type of key in the incoming message
-   * @param <V> the type of message in the incoming message
    * @param <M> the type of message in the input {@link MessageStream}
    * @return the input {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  <K, V, M> MessageStream<M> getInputStream(String streamId, BiFunction<? super K, ? super V, ? extends M> msgBuilder);
+  <K, V, M> MessageStream<M> getInputStream(StreamDescriptor.Input<K, V> inputDescriptor, BiFunction<? super K, ? super V, ? extends M> msgBuilder);
 
   /**
    * Gets the {@link OutputStream} corresponding to the {@code streamId}.
    * <p>
    * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
    *
-   * @param streamId the unique ID for the stream
-   * @param keyExtractor the {@link Function} to extract the outgoing key from the output message
-   * @param msgExtractor the {@link Function} to extract the outgoing message from the output message
-   * @param <K> the type of key in the outgoing message
-   * @param <V> the type of message in the outgoing message
    * @param <M> the type of message in the {@link OutputStream}
    * @return the output {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  <K, V, M> OutputStream<K, V, M> getOutputStream(String streamId,
-      Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor);
+  <K, V, M> OutputStream<K, V, M> getOutputStream(StreamDescriptor.Output<K, V> outputDescriptor, Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor);
 
   /**
    * Sets the {@link ContextManager} for this {@link StreamGraph}.
@@ -71,6 +60,12 @@ public interface StreamGraph {
    * @param contextManager the {@link ContextManager} to use for the {@link StreamGraph}
    * @return the {@link StreamGraph} with {@code contextManager} set as its {@link ContextManager}
    */
-  StreamGraph withContextManager(ContextManager contextManager);
+  void setContextManager(ContextManager contextManager);
 
+  /**
+   * Sets the dafault {@link IOSystem} for intermediate streams
+   *
+   * @param defaultSystem default system to automatically create all intermediate streams
+   */
+  void setDefaultIntermediateSystem(IOSystem defaultSystem);
 }

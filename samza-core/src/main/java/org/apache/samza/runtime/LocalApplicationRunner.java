@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamTaskApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -40,6 +41,8 @@ import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
@@ -50,6 +53,8 @@ import org.apache.samza.zk.ZkCoordinationServiceFactory;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
 
 /**
  * This class implements the {@link ApplicationRunner} that runs the applications in standalone environment
@@ -140,7 +145,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     JobConfig jobConfig = new JobConfig(this.config);
 
     // validation
-    String taskName = new TaskConfig(config).getTaskClass().getOrElse(null);
+    String taskName = new TaskConfig(config).getTaskClass().getOrElse(defaultValue(null));
     if (taskName == null) {
       throw new SamzaException("Neither APP nor task.class are defined defined");
     }
@@ -185,13 +190,28 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   @Override
+  public void run(StreamTaskApplication taskApplication) {
+
+  }
+
+  @Override
   public void kill(StreamApplication streamApp) {
     processors.forEach(StreamProcessor::stop);
   }
 
   @Override
+  public void kill(StreamTaskApplication streamApp) {
+
+  }
+
+  @Override
   public ApplicationStatus status(StreamApplication streamApp) {
     return appStatus;
+  }
+
+  @Override
+  public ApplicationStatus status(StreamTaskApplication streamApp) {
+    return null;
   }
 
   /**
@@ -204,6 +224,11 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       LOG.error("Wait is interrupted by exception", e);
       throw new SamzaException(e);
     }
+  }
+
+  @Override
+  public StreamGraph createGraph() {
+    return new StreamGraphImpl(config);
   }
 
   /**
@@ -263,10 +288,10 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     Object taskFactory = TaskFactoryUtil.createTaskFactory(config, app, this);
     if (taskFactory instanceof StreamTaskFactory) {
       return new StreamProcessor(
-          config, new HashMap<>(), (StreamTaskFactory) taskFactory, listener);
+          config, this.metricsReporters, (StreamTaskFactory) taskFactory, listener);
     } else if (taskFactory instanceof AsyncStreamTaskFactory) {
       return new StreamProcessor(
-          config, new HashMap<>(), (AsyncStreamTaskFactory) taskFactory, listener);
+          config, this.metricsReporters, (AsyncStreamTaskFactory) taskFactory, listener);
     } else {
       throw new SamzaException(String.format("%s is not a valid task factory",
           taskFactory.getClass().getCanonicalName()));

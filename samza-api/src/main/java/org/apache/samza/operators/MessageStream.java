@@ -96,7 +96,7 @@ public interface MessageStream<M> {
    * @param <K> the type of key in the outgoing message
    * @param <V> the type of message in the outgoing message
    */
-  <K, V> void sendTo(OutputStream<K, V, M> outputStream);
+  <K, V, M> void sendTo(OutputStream<K, V, M> outputStream);
 
   /**
    * Groups the messages in this {@link MessageStream} according to the provided {@link Window} semantics

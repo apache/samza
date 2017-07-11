@@ -24,9 +24,13 @@ import org.apache.samza.application.StreamTaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.system.StreamSpec;
 
 import java.lang.reflect.Constructor;
+import java.util.HashMap;
+import java.util.Map;
 
 
 /**
@@ -39,6 +43,7 @@ public abstract class ApplicationRunner {
   private static final String DEFAULT_RUNNER_CLASS = "org.apache.samza.runtime.RemoteApplicationRunner";
 
   protected final Config config;
+  protected final Map<String, MetricsReporter> metricsReporters = new HashMap<>();
 
   /**
    * Static method to load the {@link ApplicationRunner}
@@ -63,7 +68,7 @@ public abstract class ApplicationRunner {
   }
 
 
-  public ApplicationRunner(Config config) {
+  ApplicationRunner(Config config) {
     if (config == null) {
       throw new NullPointerException("Parameter 'config' cannot be null.");
     }
@@ -112,29 +117,15 @@ public abstract class ApplicationRunner {
   public abstract ApplicationStatus status(StreamApplication streamApp);
 
   public abstract ApplicationStatus status(StreamTaskApplication streamApp);
+
   /**
    * Block until the application finishes
    */
   public abstract void waitForFinish();
 
-  /**
-   * Constructs a {@link StreamSpec} from the configuration for the specified streamId.
-   *
-   * The stream configurations are read from the following properties in the config:
-   * {@code streams.{$streamId}.*}
-   * <br>
-   * All properties matching this pattern are assumed to be system-specific with two exceptions. The following two
-   * properties are Samza properties which are used to bind the stream to a system and a physical resource on that system.
-   *
-   * <ul>
-   *   <li>samza.system -         The name of the System on which this stream will be used. If this property isn't defined
-   *                              the stream will be associated with the System defined in {@code job.default.system}</li>
-   *   <li>samza.physical.name -  The system-specific name for this stream. It could be a file URN, topic name, or other identifer.
-   *                              If this property isn't defined the physical.name will be set to the streamId</li>
-   * </ul>
-   *
-   * @param streamId  The logical identifier for the stream in Samza.
-   * @return          The {@link StreamSpec} instance.
-   */
-  public abstract StreamSpec getStreamSpec(String streamId);
+  public abstract StreamGraph createGraph();
+
+  public void setMetricsReporters(Map<String,MetricsReporter> metricsReporters) {
+    this.metricsReporters.putAll(metricsReporters);
+  }
 }

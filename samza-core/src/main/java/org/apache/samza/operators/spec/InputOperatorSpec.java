@@ -34,9 +34,9 @@ import java.util.function.BiFunction;
 public class InputOperatorSpec<K, V, M> extends OperatorSpec<Pair<K, V>, M> {
 
   private final StreamSpec streamSpec;
-  private final BiFunction<K, V, M> msgBuilder;
+  private final BiFunction<? super K, ? super V, ? extends M> msgBuilder;
 
-  public InputOperatorSpec(StreamSpec streamSpec, BiFunction<K, V, M> msgBuilder, int opId) {
+  public InputOperatorSpec(StreamSpec streamSpec, BiFunction<? super K, ? super V, ? extends M> msgBuilder, int opId) {
     super(OpCode.INPUT, opId);
     this.streamSpec = streamSpec;
     this.msgBuilder = msgBuilder;
@@ -46,7 +46,7 @@ public class InputOperatorSpec<K, V, M> extends OperatorSpec<Pair<K, V>, M> {
     return this.streamSpec;
   }
 
-  public BiFunction<K, V, M> getMsgBuilder() {
+  public BiFunction<? super K, ? super V, ? extends M> getMsgBuilder() {
     return this.msgBuilder;
   }
 }

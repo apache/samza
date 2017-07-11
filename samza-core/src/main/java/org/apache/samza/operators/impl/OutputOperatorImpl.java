@@ -20,6 +20,8 @@ package org.apache.samza.operators.impl;
 
 import java.util.Collection;
 import java.util.Collections;
+
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.Config;
 import org.apache.samza.control.Watermark;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -38,9 +40,9 @@ import org.apache.samza.task.TaskCoordinator;
 class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
 
   private final OutputOperatorSpec<M> outputOpSpec;
-  private final OutputStreamImpl<?, ?, M> outputStream;
+  private final OutputStreamImpl<M> outputStream;
 
-  OutputOperatorImpl(OutputOperatorSpec<M> outputOpSpec, Config config, TaskContext context) {
+  OutputOperatorImpl(OutputOperatorSpec<M> outputOpSpec) {
     this.outputOpSpec = outputOpSpec;
     this.outputStream = outputOpSpec.getOutputStream();
   }
@@ -55,9 +57,8 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
     // TODO: SAMZA-1148 - need to find a way to directly pass in the serde class names
     SystemStream systemStream = new SystemStream(outputStream.getStreamSpec().getSystemName(),
         outputStream.getStreamSpec().getPhysicalName());
-    Object key = outputStream.getKeyExtractor().apply(message);
-    Object msg = outputStream.getMsgExtractor().apply(message);
-    collector.send(new OutgoingMessageEnvelope(systemStream, key, msg));
+    Pair<Object, Object> keyValuePair = outputStream.send(message);
+    collector.send(new OutgoingMessageEnvelope(systemStream, keyValuePair.getKey(), keyValuePair.getValue()));
     return Collections.emptyList();
   }
 

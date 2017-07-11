@@ -46,11 +46,11 @@ public class TaskApplicationExample {
         .withConsumerProperties(config)
         .withProducerProperties(config);
 
-    StreamDescriptor<String, PageViewEvent> input = StreamDescriptor.<String, PageViewEvent>create("myPageViewEvent")
+    StreamDescriptor.Input<String, PageViewEvent> input = StreamDescriptor.<String, PageViewEvent>input("myPageViewEvent")
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
-    StreamDescriptor<String, PageViewCount> output = StreamDescriptor.<String, PageViewCount>create("pageViewEventPerMemberStream")
+    StreamDescriptor.Output<String, PageViewCount> output = StreamDescriptor.<String, PageViewCount>output("pageViewEventPerMemberStream")
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
