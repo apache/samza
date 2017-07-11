@@ -32,6 +32,8 @@ import java.util.concurrent.ExecutorService;
 
 import scala.runtime.AbstractFunction0;
 
+import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
+
 /**
  * This class provides utility functions to load task factory classes based on config, and to wrap {@link StreamTaskFactory} in {@link AsyncStreamTaskFactory}
  * when running {@link StreamTask}s in multi-thread mode
@@ -162,7 +164,8 @@ public class TaskFactoryUtil {
     ApplicationConfig appConfig = new ApplicationConfig(config);
     if (appConfig.getAppClass() != null && !appConfig.getAppClass().isEmpty()) {
       TaskConfig taskConfig = new TaskConfig(config);
-      if (taskConfig.getTaskClass() != null && !taskConfig.getTaskClass().isEmpty()) {
+      String taskClassName = taskConfig.getTaskClass().getOrElse(defaultValue(null));
+      if (taskClassName != null && !taskClassName.isEmpty()) {
         throw new ConfigException("High level StreamApplication API cannot be used together with low-level API using task.class.");
       }
 
