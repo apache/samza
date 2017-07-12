@@ -20,6 +20,7 @@
 package org.apache.samza.container.grouper.task;
 
 import java.util.Arrays;
+import java.util.stream.Collectors;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
@@ -31,6 +32,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -39,6 +42,8 @@ import java.util.Set;
  * IDs as an argument. Please note - this first implementation ignores locality information.
  */
 public class GroupByContainerIds implements TaskNameGrouper {
+  private static final Logger LOGGER = LoggerFactory.getLogger(GroupByContainerIds.class);
+
   private final int startContainerCount;
   public GroupByContainerIds(int count) {
     this.startContainerCount = count;
@@ -64,8 +69,17 @@ public class GroupByContainerIds implements TaskNameGrouper {
       throw new IllegalArgumentException("cannot group an empty set. containersIds=" + Arrays
           .toString(containersIds.toArray()));
 
-    if (containersIds.size() > tasks.size())
-      throw new IllegalArgumentException("number of containers "  + containersIds.size() + " is bigger than number of tasks " + tasks.size());
+    if (containersIds.size() > tasks.size()) {
+      LOGGER.info("Number of containers: {} is greater than number of tasks: {}.",  containersIds.size(), tasks.size());
+      /**
+       * Choose lexicographically least `x` containerIds(where x = tasks.size()).
+       */
+      containersIds = containersIds.stream()
+                                   .sorted()
+                                   .limit(tasks.size())
+                                   .collect(Collectors.toList());
+      LOGGER.info("Generating containerModel with containers: {}.", containersIds);
+    }
 
     int containerCount = containersIds.size();
 

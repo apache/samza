@@ -250,10 +250,6 @@ public class StreamProcessor {
 
       @Override
       public void onNewJobModel(String processorId, JobModel jobModel) {
-        if (!jobModel.getContainers().containsKey(processorId)) {
-          LOGGER.warn("JobModel does not contain the processorId: " + processorId + ". Stopping the processor.");
-          stop();
-        } else {
           jcContainerShutdownLatch = new CountDownLatch(1);
 
           SamzaContainerListener containerListener = new SamzaContainerListener() {
@@ -307,7 +303,6 @@ public class StreamProcessor {
           executorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
               .setNameFormat("p-" + processorId + "-container-thread-%d").build());
           executorService.submit(container::run);
-        }
       }
 
       @Override
