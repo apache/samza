@@ -221,6 +221,6 @@ public class TestZkProcessorLatch {
         KEY_BUILDER,
         zkClient,
         CONNECTION_TIMEOUT_MS,
-        new ZkJobCoordinatorMetrics(new NoOpMetricsRegistry()));
+        new NoOpMetricsRegistry());
   }
 }

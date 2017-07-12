@@ -31,6 +31,7 @@ import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.zookeeper.data.Stat;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -65,13 +66,13 @@ public class ZkUtils {
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
-  private final ZkJobCoordinatorMetrics metrics;
+  private final ZkUtilsMetrics metrics;
 
-  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs, ZkJobCoordinatorMetrics metrics) {
+  public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs, MetricsRegistry metricsRegistry) {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkClient = zkClient;
-    this.metrics = metrics;
+    this.metrics = new ZkUtilsMetrics(metricsRegistry);
   }
 
   public void connect() throws ZkInterruptedException {
@@ -263,7 +264,9 @@ public class ZkUtils {
    * @return jobmodel version as a string
    */
   public String getJobModelVersion() {
-    return zkClient.<String>readData(keyBuilder.getJobModelVersionPath());
+    String jobModelVersion = zkClient.readData(keyBuilder.getJobModelVersionPath());
+    metrics.reads.inc();
+    return jobModelVersion;
   }
 
   /**

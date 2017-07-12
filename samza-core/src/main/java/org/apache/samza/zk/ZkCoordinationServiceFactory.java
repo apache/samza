@@ -40,9 +40,7 @@ public class ZkCoordinationServiceFactory implements CoordinationServiceFactory 
     ZkClient zkClient =
         createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
 
-    ZkJobCoordinatorMetrics zkJobCoordinatorMetrics = new ZkJobCoordinatorMetrics(new NoOpMetricsRegistry());
-
-    ZkUtils zkUtils = new ZkUtils(new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs(), zkJobCoordinatorMetrics);
+    ZkUtils zkUtils = new ZkUtils(new ZkKeyBuilder(groupId), zkClient, zkConfig.getZkConnectionTimeoutMs(), new NoOpMetricsRegistry());
 
     return new ZkCoordinationUtils(participantId, zkConfig, zkUtils);
   }

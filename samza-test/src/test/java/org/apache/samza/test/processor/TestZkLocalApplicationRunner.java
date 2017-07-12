@@ -54,7 +54,6 @@ import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
 import org.apache.samza.util.NoOpMetricsRegistry;
-import org.apache.samza.zk.ZkJobCoordinatorMetrics;
 import org.apache.samza.zk.ZkKeyBuilder;
 import org.apache.samza.zk.ZkUtils;
 import org.junit.Rule;
@@ -94,7 +93,6 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
   private LocalApplicationRunner applicationRunner1;
   private LocalApplicationRunner applicationRunner2;
   private LocalApplicationRunner applicationRunner3;
-  private ZkJobCoordinatorMetrics zkJobCoordinatorMetrics;
 
   // Set 90 seconds as max execution time for each test.
   @Rule
@@ -110,8 +108,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     outputKafkaTopic = String.format("test-output-topic-%s", uniqueTestId);
     ZkClient zkClient = new ZkClient(zkConnect());
     ZkKeyBuilder zkKeyBuilder = new ZkKeyBuilder(String.format("app-%s-%s", testStreamAppName, testStreamAppId));
-    zkJobCoordinatorMetrics = new ZkJobCoordinatorMetrics(new NoOpMetricsRegistry());
-    zkUtils = new ZkUtils(zkKeyBuilder, zkClient, ZK_CONNECTION_TIMEOUT_MS, zkJobCoordinatorMetrics);
+    zkUtils = new ZkUtils(zkKeyBuilder, zkClient, ZK_CONNECTION_TIMEOUT_MS, new NoOpMetricsRegistry());
     zkUtils.connect();
 
     // Set up stream application configs with different processorIds and same testStreamAppName, testStreamAppId.
