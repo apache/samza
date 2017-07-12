@@ -80,7 +80,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
             zkConfig.getZkConnect(),
             zkConfig.getZkSessionTimeoutMs(),
             zkConfig.getZkConnectionTimeoutMs()),
-        zkConfig.getZkConnectionTimeoutMs(), metrics);
+        zkConfig.getZkConnectionTimeoutMs(), metricsRegistry);
 
     this.processorId = createProcessorId(config);
     LeaderElector leaderElector = new ZkLeaderElector(processorId, zkUtils);
