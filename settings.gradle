@@ -49,6 +49,7 @@ rootProject.children.each {
 /**
  * Skips execution of all tasks for the project 'samza-test'.
  * To include `samza-test`, initiate gradle build by setting the property 'includeSamzaTest'.
+ * To build with samza-test: './gradlew clean build -PincludeSamzaTest'
  */
 def propertyName = "includeSamzaTest"
 def projectName = "samza-test"
