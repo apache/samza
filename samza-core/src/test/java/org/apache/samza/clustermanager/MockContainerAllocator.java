@@ -63,5 +63,5 @@ public class MockContainerAllocator extends ContainerAllocator {
   protected void runStreamProcessor(SamzaResourceRequest request, String preferredHost) {
     super.runStreamProcessor(request, preferredHost);
     latch.countDown();
-   }
   }
+}
