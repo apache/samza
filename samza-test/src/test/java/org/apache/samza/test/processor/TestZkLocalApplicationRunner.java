@@ -58,6 +58,7 @@ import org.apache.samza.zk.ZkKeyBuilder;
 import org.apache.samza.zk.ZkUtils;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.junit.rules.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,6 +98,9 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
   // Set 90 seconds as max execution time for each test.
   @Rule
   public Timeout testTimeOutInMillis = new Timeout(90000);
+
+  @Rule
+  public final ExpectedException expectedException = ExpectedException.none();
 
   @Override
   public void setUp() {
@@ -224,9 +228,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertEquals("2", currentJobModelVersion);
   }
 
-  // Checks enforcing property that all processors should have unique Id.
-  // Depends upon SAMZA-1302
-  // @Test(expected = Exception.class)
+  @Test
   public void shouldFailWhenNewProcessorJoinsWithSameIdAsExistingProcessor() throws InterruptedException {
     // Set up kafka topics.
     publishKafkaEvents(inputKafkaTopic, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
@@ -253,10 +255,9 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     publishKafkaEvents(inputKafkaTopic, NUM_KAFKA_EVENTS, PROCESSOR_IDS[2]);
     kafkaEventsConsumedLatch = new CountDownLatch(NUM_KAFKA_EVENTS);
     StreamApplication streamApp3 = new TestStreamApplication(inputKafkaTopic, outputKafkaTopic, null, null, kafkaEventsConsumedLatch);
+    // Fail when the duplicate processor joins.
+    expectedException.expect(SamzaException.class);
     applicationRunner3.run(streamApp3);
-
-    // The following line should throw up by handling duplicate processorId registration.
-    kafkaEventsConsumedLatch.await();
   }
 
   // Depends upon SAMZA-1302
