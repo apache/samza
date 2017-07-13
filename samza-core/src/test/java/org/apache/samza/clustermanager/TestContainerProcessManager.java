@@ -171,8 +171,7 @@ public class TestContainerProcessManager {
     MockContainerAllocator allocator = new MockContainerAllocator(
         manager,
         conf,
-        state,
-        1);
+        state);
 
     getPrivateFieldFromTaskManager("containerAllocator", taskManager).set(taskManager, allocator);
     CountDownLatch latch = new CountDownLatch(1);
