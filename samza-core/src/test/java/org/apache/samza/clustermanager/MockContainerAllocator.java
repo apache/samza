@@ -23,14 +23,27 @@ import org.apache.samza.config.Config;
 import java.lang.reflect.Field;
 
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 
 public class MockContainerAllocator extends ContainerAllocator {
   public int requestedContainers = 0;
+  private CountDownLatch latch = new CountDownLatch(1);
 
   public MockContainerAllocator(ClusterResourceManager manager,
                                 Config config,
                                 SamzaApplicationState state) {
     super(manager, config, state);
+  }
+
+  /**
+   * Causes the current thread to block until the provided number of containers have started.
+   *
+   * @param numExpectedContainers  the number of containers expected to start
+   * @throws InterruptedException  if the current thread is interrupted while waiting
+   */
+  void awaitContainersStart(int numExpectedContainers) throws InterruptedException {
+    latch = new CountDownLatch(numExpectedContainers);
+    latch.await();
   }
 
   @Override
@@ -45,4 +58,10 @@ public class MockContainerAllocator extends ContainerAllocator {
 
     return (ResourceRequestState) field.get(this);
   }
-}
+
+  @Override
+  protected void runStreamProcessor(SamzaResourceRequest request, String preferredHost) {
+    super.runStreamProcessor(request, preferredHost);
+    latch.countDown();
+   }
+  }
