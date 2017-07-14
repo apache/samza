@@ -344,7 +344,7 @@ public class ZkUtils {
     deleteOldVersionPath(path, znodeIds, numVersionsToLeave, new Comparator<String>() {
       @Override
       public int compare(String o1, String o2) {
-        // barrier's name format is barrier_<num>
+        // jm version name format is <num>
         return Integer.valueOf(o1) - Integer.valueOf(o2);
       }
     });
@@ -359,7 +359,7 @@ public class ZkUtils {
     deleteOldVersionPath(path, znodeIds, numVersionsToLeave,  new Comparator<String>() {
       @Override
       public int compare(String o1, String o2) {
-        // jm version name format is <num>
+        // barrier's name format is barrier_<num>
         return ZkBarrierForVersionUpgrade.getVersion(o1) - ZkBarrierForVersionUpgrade.getVersion(o2);
       }
     });
@@ -373,14 +373,11 @@ public class ZkUtils {
     if (zNodeIds.size() > numVersionsToLeave) {
       Collections.sort(zNodeIds, c);
       LOG.info("sorted ids = " + zNodeIds);
-      int i = 0;
+      // get the znodes to delete
       int size = zNodeIds.size();
-      LOG.info("starting cleaning of barrier versions. size=" + size + "; num to leave=" +  numVersionsToLeave);
-      for (String znodeId: zNodeIds) {
-        i++;
-        if (size - i < numVersionsToLeave) {
-          break;
-        }
+      List<String> zNodesToDelete = zNodeIds.subList(0, numVersionsToLeave);
+      LOG.info("starting cleaning of barrier versions. from size=" + size + "to size " + zNodesToDelete.size() + "; num to leave=" +  numVersionsToLeave);
+      for (String znodeId: zNodesToDelete) {
         String pathToDelete = path + "/" + znodeId;
         LOG.info(pathToDelete);
         try {

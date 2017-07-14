@@ -212,7 +212,7 @@ public class ZkBarrierForVersionUpgrade {
     }
   }
 
-  static public int getVersion(String barrierPath) {
+  public static int getVersion(String barrierPath) {
     return Integer.valueOf(barrierPath.substring(barrierPath.lastIndexOf('_') + 1));
   }
 }
