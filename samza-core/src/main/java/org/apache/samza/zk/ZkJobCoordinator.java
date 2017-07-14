@@ -81,6 +81,10 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     ZkClient zkClient = ZkCoordinationServiceFactory
         .createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
 
+    // setup a listener for a session state change
+    // we are mostly interested in "session closed" and "new session created" events
+    zkClient.subscribeStateChanges(new ZkSessionStateChangedListener());
+
     this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
     this.zkUtils = new ZkUtils(keyBuilder, zkClient, zkConfig.getZkConnectionTimeoutMs(), metrics);
 
@@ -92,10 +96,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         new ZkBarrierListenerImpl());
     this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
     this.reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), processorId);
-
-    // setup a listener for a session state change
-    // we are mostly interested in "session closed" and "new session created" events
-    zkClient.subscribeStateChanges(new ZkSessionStateChangedListener());
   }
 
   @Override
@@ -317,7 +317,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   }
 
   /// listener to handle session expiration
-  public class ZkSessionStateChangedListener implements IZkStateListener {
+  class ZkSessionStateChangedListener implements IZkStateListener {
 
     @Override
     public void handleStateChanged(Watcher.Event.KeeperState state)

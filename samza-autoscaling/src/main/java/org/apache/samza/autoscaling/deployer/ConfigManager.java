@@ -178,7 +178,7 @@ public class ConfigManager {
   }
 
   /**
-   * skip all the unread messages up to the time this function is called.
+   * notAValidEvent all the unread messages up to the time this function is called.
    * This method just reads the messages, and it does not react to them or change any configuration of the system.
    */
   private void skipUnreadMessages() {

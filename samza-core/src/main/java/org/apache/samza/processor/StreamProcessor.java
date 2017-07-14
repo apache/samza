@@ -110,6 +110,7 @@ public class StreamProcessor {
     this(config, customMetricsReporters, (Object) streamTaskFactory, processorListener, null);
   }
 
+  @Override
   public String toString() {
     return "Processor" + getCurrentJobCoordinator().getProcessorId();
   }
@@ -219,7 +220,7 @@ public class StreamProcessor {
               LOGGER.info("Shutting down container in onJobModelExpired for processor:" + pid);
               container.pause();
               shutdownComplete = jcContainerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
-              LOGGER.info("ShutdownCompete=" + shutdownComplete + ";pid=" + pid);
+              LOGGER.info("ShutdownComplete=" + shutdownComplete);
             } catch (IllegalContainerStateException icse) {
               // Ignored since container is not running
               LOGGER.info("Container was not running.", icse);

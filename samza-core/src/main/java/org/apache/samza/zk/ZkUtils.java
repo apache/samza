@@ -73,8 +73,8 @@ public class ZkUtils {
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
-  private AtomicInteger currentGeneration;
-  private ZkJobCoordinatorMetrics metrics;
+  private final AtomicInteger currentGeneration;
+  private final ZkJobCoordinatorMetrics metrics;
 
   public void incGeneration() {
     currentGeneration.incrementAndGet();
@@ -94,8 +94,10 @@ public class ZkUtils {
 
   public void connect() throws ZkInterruptedException {
     boolean isConnected = zkClient.waitUntilConnected(connectionTimeoutMs, TimeUnit.MILLISECONDS);
-    if (!isConnected && metrics != null) {
-      metrics.zkConnectionError.inc();
+    if (!isConnected) {
+      if (metrics != null) {
+        metrics.zkConnectionError.inc();
+      }
       throw new RuntimeException("Unable to connect to Zookeeper within connectionTimeout " + connectionTimeoutMs + "ms. Shutting down!");
     }
   }
@@ -235,19 +237,23 @@ public class ZkUtils {
     zkClient.close();
   }
 
-  // Generation enforcing zk listener abstract class.
-  // Helps listeners, which extend it,  to skip old generation events.
-  // We cannot use 'sessionId' for this because it is not available through ZkClient (at leaste without reflection)
+  /**
+   * Generation enforcing zk listener abstract class.
+   * It helps listeners, which extend it, to notAValidEvent old generation events.
+   * We cannot use 'sessionId' for this because it is not available through ZkClient (at leaste without reflection)
+   */
   public abstract static class GenIZkChildListener implements IZkChildListener {
     private final int generation;
     private final ZkUtils zkUtils;
+    private final String listenerName;
 
-    public GenIZkChildListener(ZkUtils zkUtils) {
+    public GenIZkChildListener(ZkUtils zkUtils, String listenerName) {
       generation = zkUtils.getGeneration();
       this.zkUtils = zkUtils;
+      this.listenerName = listenerName;
     }
 
-    protected boolean skip(String listenerName) {
+    protected boolean notAValidEvent() {
       int curGeneration = zkUtils.getGeneration();
       if (curGeneration != generation) {
         LOG.warn("SKIPPING handleDataChanged for " + listenerName +
@@ -269,7 +275,7 @@ public class ZkUtils {
       this.listenerName = listenerName;
     }
 
-    protected boolean notAValidEven() {
+    protected boolean notAValidEvent() {
       int curGeneration = zkUtils.getGeneration();
       if (curGeneration != generation) {
         LOG.warn("SKIPPING handleDataChanged for " + listenerName +

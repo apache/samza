@@ -87,7 +87,7 @@ public class ZkControllerImpl implements ZkController {
   class ProcessorChangeHandler extends ZkUtils.GenIZkChildListener {
 
     public ProcessorChangeHandler(ZkUtils zkUtils) {
-      super(zkUtils);
+      super(zkUtils, "ProcessorChangeHandler");
     }
 
     /**
@@ -100,7 +100,7 @@ public class ZkControllerImpl implements ZkController {
     @Override
     public void handleChildChange(String parentPath, List<String> currentChildren)
         throws Exception {
-      if (skip("ProcessorChangeHandler"))
+      if (notAValidEvent())
         return;
 
       if (currentChildren == null) {
@@ -129,7 +129,7 @@ public class ZkControllerImpl implements ZkController {
      */
     @Override
     public void handleDataChange(String dataPath, Object data) throws Exception {
-      if (notAValidEven())
+      if (notAValidEvent())
         return;
 
       LOG.info("pid=" + processorIdStr + ". Got notification on version update change. path=" + dataPath + "; data="
@@ -139,7 +139,7 @@ public class ZkControllerImpl implements ZkController {
 
     @Override
     public void handleDataDeleted(String dataPath) throws Exception {
-      if (notAValidEven())
+      if (notAValidEvent())
         return;
 
       throw new SamzaException("version update path has been deleted!");
