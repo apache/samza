@@ -35,7 +35,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import kafka.admin.AdminUtils;
 import kafka.utils.TestUtils;
-import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -207,10 +206,10 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     final CountDownLatch secondProcessorRegistered = new CountDownLatch(1);
 
     zkUtils.subscribeToProcessorChange((parentPath, currentChilds) -> {
-      // When streamApp2 with id: PROCESSOR_IDS[1] is registered, start processing message in streamApp1.
-      if (currentChilds.contains(PROCESSOR_IDS[1])) {
-        secondProcessorRegistered.countDown();
-      }
+        // When streamApp2 with id: PROCESSOR_IDS[1] is registered, start processing message in streamApp1.
+        if (currentChilds.contains(PROCESSOR_IDS[1])) {
+          secondProcessorRegistered.countDown();
+        }
     });
 
     // Set up stream app 2.
