@@ -273,9 +273,10 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       LOG.info("ZkJobCoordinator::onBecomeLeader - I became the leader!");
       metrics.isLeader.set(true);
       zkController.subscribeToProcessorChange();
-      debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE, debounceTimeMs, () -> {
-        // actual actions to do are the same as onProcessorChange
-        doOnProcessorChange(new ArrayList<>());
+      debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE, debounceTimeMs, () ->
+        {
+          // actual actions to do are the same as onProcessorChange
+          doOnProcessorChange(new ArrayList<>());
         });
     }
   }
