@@ -21,10 +21,12 @@ package org.apache.samza.zk;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import org.I0Itec.zkclient.IZkStateListener;
 import org.I0Itec.zkclient.ZkClient;
+import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -86,7 +88,10 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     zkClient.subscribeStateChanges(new ZkSessionStateChangedListener());
 
     this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
-    this.zkUtils = new ZkUtils(keyBuilder, zkClient, zkConfig.getZkConnectionTimeoutMs(), metrics);
+    this.zkUtils = new ZkUtils(
+        keyBuilder,
+        zkClient,
+        zkConfig.getZkConnectionTimeoutMs(), metricsRegistry);
 
     this.processorId = createProcessorId(config);
     LeaderElector leaderElector = new ZkLeaderElector(processorId, zkUtils);
@@ -166,8 +171,14 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
   void doOnProcessorChange(List<String> processors) {
     // if list of processors is empty - it means we are called from 'onBecomeLeader'
-    // TODO: Handle empty currentProcessorIds or duplicate processorIds in the list
+    // TODO: Handle empty currentProcessorIds.
     List<String> currentProcessorIds = getActualProcessorIds(processors);
+    Set<String> uniqueProcessorIds = new HashSet<String>(currentProcessorIds);
+
+    if (currentProcessorIds.size() != uniqueProcessorIds.size()) {
+      LOG.info("Processors: {} has duplicates. Not generating job model.", currentProcessorIds);
+      return;
+    }
 
     // Generate the JobModel
     JobModel jobModel = generateNewJobModel(currentProcessorIds);

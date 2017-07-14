@@ -142,6 +142,7 @@
     <li><a href="#bootstrapping-chooser-metrics">BootstrappingChooserMetrics</a></li>
     <li><a href="#hdfs-system-producer-metrics">HdfsSystemProducerMetrics</a></li>
     <li><a href="#elasticsearch-system-producer-metrics">ElasticsearchSystemProducerMetrics</a></li>
+    <li><a href="#zookeeper-client-metrics">ZookeeperClientMetrics</a></li>
     <li><a href="#zookeeper-job-coordinator-metrics">ZkJobCoordinatorMetrics</a></li>
 </ul>
 <p>Words highlighted like <span class="system">this</span> are placeholders for your own variable names defined in configuration file or system variables defined while starting the job.</p>
@@ -894,7 +895,7 @@
     </tr>
 
     <tr>
-        <th colspan="2" class="section" id="zookeeper-job-coordinator-metrics">org.apache.samza.zk.ZkJobCoordinatorMetrics</th>
+        <th colspan="2" class="section" id="zookeeper-client-metrics">org.apache.samza.zk.ZkUtilsMetrics</th>
     </tr>
     <tr>
         <td>reads</td>
@@ -909,8 +910,11 @@
         <td>Number of subscriptions to znodes in Zookeeper</td>
     </tr>
     <tr>
-        <td>zk-connection-error</td>
+        <td>zk-connection-errors</td>
         <td>Number of Zookeeper connection errors</td>
+    </tr>
+    <tr>
+        <th colspan="2" class="section" id="zookeeper-job-coordinator-metrics">org.apache.samza.zk.ZkJobCoordinatorMetrics</th>
     </tr>
     <tr>
         <td>is-leader</td>
