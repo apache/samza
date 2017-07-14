@@ -375,7 +375,7 @@ public class ZkUtils {
     LOG.info("published new version: " + newVersion + "; expected data version = " + (dataVersion + 1) +
         "(actual data version after update = " + stat.getVersion() + ")");
   }
-  
+
   /**
    * verify that given paths exist in ZK
    * @param paths - paths to verify or create
