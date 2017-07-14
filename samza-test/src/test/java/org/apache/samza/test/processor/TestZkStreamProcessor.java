@@ -149,8 +149,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     // wait until the 1st processor reports that it has stopped
     waitForProcessorToStartStop(stopWait1);
 
-    // let the system to publish and distribute the new job model
-    TestZkUtils.sleepMs(600);
+    // read again the first batch
+    waitUntilMessagesLeftN(totalEventsToGenerate - 2*messageCount);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
@@ -222,8 +222,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     // processor1 will stop and start again. We wait for its stop to make sure we can count EXACTLY how many messages it reads.
     waitForProcessorToStartStop(waitStop2);
 
-    // let the system to publish and distribute the new job model
-    TestZkUtils.sleepMs(300);
+    // read again the first batch
+    waitUntilMessagesLeftN(totalEventsToGenerate - 2*messageCount);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
