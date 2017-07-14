@@ -95,7 +95,7 @@ public class ZkUtils {
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkClient = zkClient;
     this.metrics = new ZkUtilsMetrics(metricsRegistry);
-      currentGeneration = new AtomicInteger(0);
+    this.currentGeneration = new AtomicInteger(0);
   }
 
   public void connect() throws ZkInterruptedException {
@@ -113,7 +113,7 @@ public class ZkUtils {
     ephemeralPath = null;
   }
 
-  ZkClient getZkClient() {
+  public ZkClient getZkClient() {
     return zkClient;
   }
 
