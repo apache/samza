@@ -247,19 +247,14 @@ public class TestContainerProcessManager {
     assertFalse(taskManager.shouldShutdown());
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
 
-
     SamzaResource container = new SamzaResource(1, 1024, "abc", "id0");
     taskManager.onResourceAllocated(container);
 
     // Allow container to run and update state
     allocator.awaitContainersStart(1);
-
-
     assertFalse(taskManager.shouldShutdown());
 
     taskManager.onResourceCompleted(new SamzaResourceStatus("id0", "diagnostics", SamzaResourceStatus.SUCCESS));
-
-
     assertTrue(taskManager.shouldShutdown());
   }
 
