@@ -156,6 +156,17 @@ public class TestTaskFactoryUtil {
     } catch (ConfigException ce) {
       // expected
     }
+
+
+    config = new MapConfig(new HashMap<String, String>() {
+      {
+        this.put("task.class", "");
+        this.put(ApplicationConfig.APP_CLASS, "org.apache.samza.testUtils.TestStreamApplication");
+      }
+    });
+    streamApp = TaskFactoryUtil.createStreamApplication(config);
+    assertNotNull(streamApp);
+
   }
 
   @Test

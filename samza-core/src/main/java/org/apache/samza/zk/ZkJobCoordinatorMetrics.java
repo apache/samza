@@ -31,11 +31,6 @@ public class ZkJobCoordinatorMetrics extends MetricsBase {
 
   private final MetricsRegistry metricsRegistry;
 
-  public final Counter reads;
-  public final Counter writes;
-  public final Counter subscriptions;
-  public final Counter zkConnectionError;
-
   /**
    * Denotes if the processor is a leader or not
    */
@@ -65,10 +60,6 @@ public class ZkJobCoordinatorMetrics extends MetricsBase {
   public ZkJobCoordinatorMetrics(MetricsRegistry metricsRegistry) {
     super(metricsRegistry);
     this.metricsRegistry = metricsRegistry;
-    this.reads = newCounter("reads");
-    this.writes = newCounter("writes");
-    this.subscriptions = newCounter("subscriptions");
-    this.zkConnectionError = newCounter("zk-connection-error");
     this.isLeader = newGauge("is-leader", false);
     this.barrierCreation = newCounter("barrier-creation");
     this.barrierStateChange = newCounter("barrier-state-change");

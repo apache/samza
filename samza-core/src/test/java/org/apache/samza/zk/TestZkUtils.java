@@ -39,6 +39,8 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.rules.ExpectedException;
 import org.junit.Test;
 
 public class TestZkUtils {
@@ -48,6 +50,10 @@ public class TestZkUtils {
   private static final int SESSION_TIMEOUT_MS = 20000;
   private static final int CONNECTION_TIMEOUT_MS = 10000;
   private ZkUtils zkUtils;
+
+  @Rule
+  // Declared public to honor junit contract.
+  public final ExpectedException expectedException = ExpectedException.none();
 
   @BeforeClass
   public static void setup() throws InterruptedException {
@@ -70,10 +76,7 @@ public class TestZkUtils {
       // Do nothing
     }
 
-    zkUtils = new ZkUtils(
-        KEY_BUILDER,
-        zkClient,
-        SESSION_TIMEOUT_MS, new ZkJobCoordinatorMetrics(new NoOpMetricsRegistry()));
+    zkUtils = getZkUtils();
 
     zkUtils.connect();
   }
@@ -82,6 +85,11 @@ public class TestZkUtils {
   public void testTeardown() {
     zkUtils.close();
     zkClient.close();
+  }
+
+  private ZkUtils getZkUtils() {
+    return new ZkUtils(KEY_BUILDER, zkClient,
+                       SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
   }
 
   @AfterClass
@@ -111,7 +119,7 @@ public class TestZkUtils {
     zkUtils.registerProcessorAndGetId(new ProcessorData("host1", "1"));
     List<String> l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(1, l.size());
-    new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS).registerProcessorAndGetId(new ProcessorData("host2", "2"));
+    new ZkUtils(KEY_BUILDER, zkClient, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry()).registerProcessorAndGetId(new ProcessorData("host2", "2"));
     l = zkUtils.getSortedActiveProcessorsIDs();
     Assert.assertEquals(2, l.size());
 
@@ -173,6 +181,26 @@ public class TestZkUtils {
     zkClient.writeData(keyBuilder.getProcessorsPath(), "newProcessor");
 
     Assert.assertTrue(testWithDelayBackOff(() -> "newProcessor".equals(res.getRes()), 2, 1000));
+  }
+
+  /**
+   * Create two duplicate processors with same processorId.
+   * Second creation should fail with exception.
+   */
+  @Test
+  public void testRegisterProcessorAndGetIdShouldFailForDuplicateProcessorRegistration() {
+    final String testHostName = "localhost";
+    final String testProcessId = "testProcessorId";
+    ProcessorData processorData1 = new ProcessorData(testHostName, testProcessId);
+    // Register processor 1 which is not duplicate, this registration should succeed.
+    zkUtils.registerProcessorAndGetId(processorData1);
+
+    ZkUtils zkUtils1 = getZkUtils();
+    zkUtils1.connect();
+    ProcessorData duplicateProcessorData = new ProcessorData(testHostName, testProcessId);
+    // Registration of the duplicate processor should fail.
+    expectedException.expect(SamzaException.class);
+    zkUtils1.registerProcessorAndGetId(duplicateProcessorData);
   }
 
   @Test
