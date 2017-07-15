@@ -345,6 +345,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         }
         // reset all the values that might have been from the previous session (e.g ephemeral node path)
         zkUtils.unregister();
+
       }
     }
 
@@ -352,6 +353,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     public void handleNewSession()
         throws Exception {
       LOG.info("Got new session created event for processor=" + processorId);
+
 
       LOG.info("register zk controller for the new session");
       zkController.register();

@@ -141,7 +141,7 @@ public class StreamProcessor {
     this.jobCoordinatorListener = createJobCoordinatorListener();
     this.jobCoordinator.setListener(jobCoordinatorListener);
 
-    processorId = jobCoordinator.getProcessorId();
+    processorId = this.jobCoordinator.getProcessorId();
   }
 
   /**
