@@ -336,6 +336,15 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
       if (state == Watcher.Event.KeeperState.Expired) {
         // if the session has expired it means that all the registration's ephemeral nodes are gone.
         LOG.warn("Got session expired event for processor=" + processorId);
+
+        // increase generation of the ZK connection. All the callbacks from the previous generation will be ignored.
+        zkUtils.incGeneration();
+
+        if (coordinatorListener != null) {
+          coordinatorListener.onJobModelExpired();
+        }
+        // reset all the values that might have been from the previous session (e.g ephemeral node path)
+        zkUtils.unregister();
       }
     }
 
@@ -343,15 +352,6 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     public void handleNewSession()
         throws Exception {
       LOG.info("Got new session created event for processor=" + processorId);
-
-      // increase generation of the ZK connection. All the callbacks from the previous generation will be ignored.
-      zkUtils.incGeneration();
-
-      if (coordinatorListener != null) {
-        coordinatorListener.onJobModelExpired();
-      }
-      // reset all the values that might have been from the previous session (e.g ephemeral node path)
-      zkUtils.unregister();
 
       LOG.info("register zk controller for the new session");
       zkController.register();

@@ -63,6 +63,7 @@ public class StreamProcessor {
   private final Map<String, MetricsReporter> customMetricsReporter;
   private final Config config;
   private final long taskShutdownMs;
+  private final String processorId;
 
   private ExecutorService executorService;
 
@@ -112,7 +113,7 @@ public class StreamProcessor {
 
   @Override
   public String toString() {
-    return "Processor" + getCurrentJobCoordinator().getProcessorId();
+    return "Processor:" + processorId;
   }
 
   /* package private */
@@ -125,7 +126,7 @@ public class StreamProcessor {
   }
 
   @VisibleForTesting
-  public JobCoordinator getCurrentJobCoordinator() {
+  JobCoordinator getCurrentJobCoordinator() {
     return jobCoordinator;
   }
 
@@ -139,6 +140,8 @@ public class StreamProcessor {
     this.jobCoordinator = (jobCoordinator != null) ? jobCoordinator : getJobCoordinator();
     this.jobCoordinatorListener = createJobCoordinatorListener();
     this.jobCoordinator.setListener(jobCoordinatorListener);
+
+    processorId = jobCoordinator.getProcessorId();
   }
 
   /**
