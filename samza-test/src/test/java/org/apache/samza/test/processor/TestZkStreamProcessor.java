@@ -23,7 +23,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.TestZkStreamProcessorBase;
-import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -150,7 +149,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     waitForProcessorToStartStop(stopWait1);
 
     // read again the first batch
-    waitUntilMessagesLeftN(totalEventsToGenerate - 2*messageCount);
+    waitUntilMessagesLeftN(totalEventsToGenerate - 2 * messageCount);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
@@ -223,7 +222,7 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     waitForProcessorToStartStop(waitStop2);
 
     // read again the first batch
-    waitUntilMessagesLeftN(totalEventsToGenerate - 2*messageCount);
+    waitUntilMessagesLeftN(totalEventsToGenerate - 2 * messageCount);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
