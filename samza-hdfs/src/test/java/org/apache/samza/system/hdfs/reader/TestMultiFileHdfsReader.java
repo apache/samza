@@ -88,7 +88,7 @@ public class TestMultiFileHdfsReader {
     // read until the middle of the second file
     multiReader = new MultiFileHdfsReader(HdfsReaderFactory.ReaderType.AVRO, ssp,
       Arrays.asList(descriptors), offset);
-    multiReader.readNext(); // skip one duplicate event
+    multiReader.readNext(); // notAValidEvent one duplicate event
     for (; index < NUM_EVENTS + NUM_EVENTS / 2; index++) {
       IncomingMessageEnvelope envelope = multiReader.readNext();
       GenericRecord record = (GenericRecord) envelope.getMessage();
@@ -101,7 +101,7 @@ public class TestMultiFileHdfsReader {
     // read the rest of all files
     multiReader = new MultiFileHdfsReader(HdfsReaderFactory.ReaderType.AVRO, ssp,
       Arrays.asList(descriptors), offset);
-    multiReader.readNext(); // skip one duplicate event
+    multiReader.readNext(); // notAValidEvent one duplicate event
     while (multiReader.hasNext()) {
       IncomingMessageEnvelope envelope = multiReader.readNext();
       GenericRecord record = (GenericRecord) envelope.getMessage();
@@ -116,7 +116,7 @@ public class TestMultiFileHdfsReader {
     // reopen with the offset of the last record
     multiReader = new MultiFileHdfsReader(HdfsReaderFactory.ReaderType.AVRO, ssp,
       Arrays.asList(descriptors), offset);
-    multiReader.readNext(); // skip one duplicate event
+    multiReader.readNext(); // notAValidEvent one duplicate event
     Assert.assertFalse(multiReader.hasNext());
     multiReader.close();
   }

@@ -17,15 +17,13 @@
  * under the License.
  */
 
-package org.apache.samza.test.processor;
+package org.apache.samza.processor;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.processor.StreamProcessor;
-import org.apache.samza.processor.TestZkStreamProcessorBase;
 import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
 import org.junit.Before;
@@ -82,18 +80,21 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
     TestStreamTask.endLatch = new CountDownLatch(totalEventsToBeConsumed);
     // create first processor
-    Object waitStart1 = new Object();
-    Object waitStop1 = new Object();
+    CountDownLatch waitStart1 = new CountDownLatch(1);
+    CountDownLatch waitStop1 = new CountDownLatch(1);
     StreamProcessor sp1 = createStreamProcessor("101", map, waitStart1, waitStop1);
     // start the first processor
-    Thread t1 = runInThread(sp1, TestStreamTask.endLatch);
+    CountDownLatch stopLatch1 = new CountDownLatch(1);
+    Thread t1 = runInThread(sp1, stopLatch1);
     t1.start();
 
     // start the second processor
-    Object waitStart2 = new Object();
-    Object waitStop2 = new Object();
+    CountDownLatch waitStart2 = new CountDownLatch(1);
+    CountDownLatch waitStop2 = new CountDownLatch(1);
     StreamProcessor sp2 = createStreamProcessor("102", map, waitStart2, waitStop2);
-    Thread t2 = runInThread(sp2, TestStreamTask.endLatch);
+
+    CountDownLatch stopLatch2 = new CountDownLatch(1);
+    Thread t2 = runInThread(sp2, stopLatch2);
     t2.start();
 
     // wait until the 1st processor reports that it has started
@@ -107,14 +108,17 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
     // make sure they consume all the messages
     waitUntilMessagesLeftN(totalEventsToBeConsumed - messageCount);
+    CountDownLatch containerStopped1 = sp1.jcContainerShutdownLatch;
+    CountDownLatch containerStopped2 = sp2.jcContainerShutdownLatch;
 
     // produce the bad messages
     produceMessages(BAD_MESSAGE_KEY, inputTopic, 4);
 
-    waitForProcessorToStartStop(waitStop1);
+    waitForProcessorToStartStop(
+        containerStopped1); // TODO: after container failure propagates to StreamProcessor change back
 
-    // wait until the 2nd processor reports that it has stopped
-    waitForProcessorToStartStop(waitStop2);
+    // wait until the 2nd processor reports that it has stopped its container
+    waitForProcessorToStartStop(containerStopped2);
 
     // give some extra time to let the system to publish and distribute the new job model
     TestZkUtils.sleepMs(300);
@@ -127,7 +131,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
     // shutdown p2
     try {
-      stopProcessor(t2);
+      stopProcessor(stopLatch2);
       t2.join(1000);
     } catch (InterruptedException e) {
       Assert.fail("Failed to join finished thread:" + e.getLocalizedMessage());
