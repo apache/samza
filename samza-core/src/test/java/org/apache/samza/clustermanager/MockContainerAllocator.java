@@ -36,14 +36,22 @@ public class MockContainerAllocator extends ContainerAllocator {
   }
 
   /**
-   * Causes the current thread to block until the provided number of containers have started.
+   * Causes the current thread to block until the expected number of containers have started.
+   * Use {@link #setNumExpectedContainers(int)} to set the number of expected containers.
    *
-   * @param numExpectedContainers  the number of containers expected to start
    * @throws InterruptedException  if the current thread is interrupted while waiting
    */
-  void awaitContainersStart(int numExpectedContainers) throws InterruptedException {
-    latch = new CountDownLatch(numExpectedContainers);
+  void awaitContainersStart() throws InterruptedException {
     latch.await();
+  }
+
+  /**
+   * Sets the number of containers expected to start.
+   *
+   * @param numExpectedContainers  the number of containers expected to start
+   */
+  void setNumExpectedContainers(int numExpectedContainers) {
+    latch = new CountDownLatch(numExpectedContainers);
   }
 
   @Override

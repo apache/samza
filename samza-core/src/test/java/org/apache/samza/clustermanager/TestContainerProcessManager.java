@@ -251,7 +251,8 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container);
 
     // Allow container to run and update state
-    allocator.awaitContainersStart(1);
+    allocator.setNumExpectedContainers(1);
+    allocator.awaitContainersStart();
     assertFalse(taskManager.shouldShutdown());
 
     taskManager.onResourceCompleted(new SamzaResourceStatus("id0", "diagnostics", SamzaResourceStatus.SUCCESS));
@@ -296,7 +297,8 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container);
 
     // Allow container to run and update state
-    allocator.awaitContainersStart(1);
+    allocator.setNumExpectedContainers(1);
+    allocator.awaitContainersStart();
 
     // Create first container failure
     taskManager.onResourceCompleted(new SamzaResourceStatus(container.getResourceID(), "diagnostics", 1));
@@ -314,7 +316,8 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container);
 
     // Allow container to run and update state
-    allocator.awaitContainersStart(1);
+    allocator.setNumExpectedContainers(1);
+    allocator.awaitContainersStart();
 
     assertTrue(state.jobHealthy.get());
 
@@ -364,7 +367,8 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container);
 
     // Allow container to run and update state
-    allocator.awaitContainersStart(1);
+    allocator.setNumExpectedContainers(1);
+    allocator.awaitContainersStart();
 
     // Create container failure - with ContainerExitStatus.DISKS_FAILED
     taskManager.onResourceCompleted(new SamzaResourceStatus("invalidContainerID", "Disk failure", SamzaResourceStatus.DISK_FAIL));
@@ -373,7 +377,7 @@ public class TestContainerProcessManager {
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
     assertFalse(taskManager.shouldShutdown());
     assertTrue(state.jobHealthy.get());
-    assertEquals(state.invalidNotifications.get(), 1);
+    assertEquals(state.redundantNotifications.get(), 1);
   }
 
   @Test
@@ -409,7 +413,8 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container1);
 
     // Allow container to run and update state
-    allocator.awaitContainersStart(1);
+    allocator.setNumExpectedContainers(1);
+    allocator.awaitContainersStart();
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
 
     // Create container failure - with ContainerExitStatus.DISKS_FAILED
@@ -427,13 +432,14 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container2);
 
     // Allow container to run and update state
-    allocator.awaitContainersStart(1);
+    allocator.setNumExpectedContainers(1);
+    allocator.awaitContainersStart();
     assertTrue(state.jobHealthy.get());
 
     // Simulate a duplicate notification for container 1 with a different exit code
     taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getResourceID(), "Disk failure", SamzaResourceStatus.PREEMPTED));
     // assert that a duplicate notification does not change metrics (including job health)
-    assertEquals(state.invalidNotifications.get(), 1);
+    assertEquals(state.redundantNotifications.get(), 1);
     assertEquals(2, manager.resourceRequests.size());
     assertEquals(0, manager.releasedResources.size());
     assertTrue(state.jobHealthy.get());
@@ -476,7 +482,8 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container1);
 
     // Allow container to run and update state
-    allocator.awaitContainersStart(1);
+    allocator.setNumExpectedContainers(1);
+    allocator.awaitContainersStart();
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
 
     // Create container failure - with ContainerExitStatus.DISKS_FAILED
@@ -494,7 +501,8 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container2);
 
     // Allow container to run and update state
-    allocator.awaitContainersStart(1);
+    allocator.setNumExpectedContainers(1);
+    allocator.awaitContainersStart();
 
     // Create container failure - with ContainerExitStatus.PREEMPTED
     taskManager.onResourceCompleted(new SamzaResourceStatus(container2.getResourceID(), "Preemption",  SamzaResourceStatus.PREEMPTED));
@@ -509,7 +517,8 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container3);
 
     // Allow container to run and update state
-    allocator.awaitContainersStart(1);
+    allocator.setNumExpectedContainers(1);
+    allocator.awaitContainersStart();
 
     // Create container failure - with ContainerExitStatus.ABORTED
     taskManager.onResourceCompleted(new SamzaResourceStatus(container3.getResourceID(), "Aborted", SamzaResourceStatus.ABORTED));

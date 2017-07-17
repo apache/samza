@@ -122,7 +122,7 @@ public class SamzaApplicationState {
    * A notification is "invalid" if the corresponding container is not currently managed by the
    * {@link ContainerProcessManager}
    */
-  public final AtomicInteger invalidNotifications = new AtomicInteger(0);
+  public final AtomicInteger redundantNotifications = new AtomicInteger(0);
 
   public SamzaApplicationState(JobModelManager jobModelManager) {
     this.jobModelManager = jobModelManager;

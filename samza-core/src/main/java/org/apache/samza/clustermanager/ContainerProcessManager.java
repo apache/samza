@@ -239,7 +239,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     }
     if (containerId == null) {
       log.info("No matching container id found for " + containerStatus.toString());
-      state.invalidNotifications.incrementAndGet();
+      state.redundantNotifications.incrementAndGet();
       return;
     }
     state.runningContainers.remove(containerId);
