@@ -32,6 +32,7 @@ import org.apache.samza.testUtils.MockHttpServer;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -39,10 +40,9 @@ import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -183,7 +183,10 @@ public class TestContainerProcessManager {
     });
 
     taskManager.start();
-    latch.await();
+
+    if (!latch.await(2, TimeUnit.SECONDS)) {
+      Assert.fail("timed out waiting for the latch to expire");
+    }
 
     // Verify Allocator thread has started running
     assertTrue(isRunning);
@@ -252,7 +255,10 @@ public class TestContainerProcessManager {
 
     // Allow container to run and update state
     allocator.setNumExpectedContainers(1);
-    allocator.awaitContainersStart();
+
+    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
     assertFalse(taskManager.shouldShutdown());
 
     taskManager.onResourceCompleted(new SamzaResourceStatus("id0", "diagnostics", SamzaResourceStatus.SUCCESS));
@@ -298,7 +304,9 @@ public class TestContainerProcessManager {
 
     // Allow container to run and update state
     allocator.setNumExpectedContainers(1);
-    allocator.awaitContainersStart();
+    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
 
     // Create first container failure
     taskManager.onResourceCompleted(new SamzaResourceStatus(container.getResourceID(), "diagnostics", 1));
@@ -317,7 +325,9 @@ public class TestContainerProcessManager {
 
     // Allow container to run and update state
     allocator.setNumExpectedContainers(1);
-    allocator.awaitContainersStart();
+    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
 
     assertTrue(state.jobHealthy.get());
 
@@ -368,7 +378,9 @@ public class TestContainerProcessManager {
 
     // Allow container to run and update state
     allocator.setNumExpectedContainers(1);
-    allocator.awaitContainersStart();
+    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
 
     // Create container failure - with ContainerExitStatus.DISKS_FAILED
     taskManager.onResourceCompleted(new SamzaResourceStatus("invalidContainerID", "Disk failure", SamzaResourceStatus.DISK_FAIL));
@@ -414,7 +426,9 @@ public class TestContainerProcessManager {
 
     // Allow container to run and update state
     allocator.setNumExpectedContainers(1);
-    allocator.awaitContainersStart();
+    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
 
     // Create container failure - with ContainerExitStatus.DISKS_FAILED
@@ -433,7 +447,9 @@ public class TestContainerProcessManager {
 
     // Allow container to run and update state
     allocator.setNumExpectedContainers(1);
-    allocator.awaitContainersStart();
+    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
     assertTrue(state.jobHealthy.get());
 
     // Simulate a duplicate notification for container 1 with a different exit code
@@ -483,7 +499,9 @@ public class TestContainerProcessManager {
 
     // Allow container to run and update state
     allocator.setNumExpectedContainers(1);
-    allocator.awaitContainersStart();
+    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
 
     // Create container failure - with ContainerExitStatus.DISKS_FAILED
@@ -502,7 +520,9 @@ public class TestContainerProcessManager {
 
     // Allow container to run and update state
     allocator.setNumExpectedContainers(1);
-    allocator.awaitContainersStart();
+    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
 
     // Create container failure - with ContainerExitStatus.PREEMPTED
     taskManager.onResourceCompleted(new SamzaResourceStatus(container2.getResourceID(), "Preemption",  SamzaResourceStatus.PREEMPTED));
@@ -518,7 +538,9 @@ public class TestContainerProcessManager {
 
     // Allow container to run and update state
     allocator.setNumExpectedContainers(1);
-    allocator.awaitContainersStart();
+    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
 
     // Create container failure - with ContainerExitStatus.ABORTED
     taskManager.onResourceCompleted(new SamzaResourceStatus(container3.getResourceID(), "Aborted", SamzaResourceStatus.ABORTED));

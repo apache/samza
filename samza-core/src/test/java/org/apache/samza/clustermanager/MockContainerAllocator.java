@@ -24,6 +24,7 @@ import java.lang.reflect.Field;
 
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class MockContainerAllocator extends ContainerAllocator {
   public int requestedContainers = 0;
@@ -39,10 +40,14 @@ public class MockContainerAllocator extends ContainerAllocator {
    * Causes the current thread to block until the expected number of containers have started.
    * Use {@link #setNumExpectedContainers(int)} to set the number of expected containers.
    *
+   * @param timeout the maximum time to wait
+   * @param unit the time unit of the {@code timeout} argument
+   *
+   * @return a boolean that specifies whether containers started within the timeout.
    * @throws InterruptedException  if the current thread is interrupted while waiting
    */
-  void awaitContainersStart() throws InterruptedException {
-    latch.await();
+  boolean awaitContainersStart(long timeout, TimeUnit unit) throws InterruptedException {
+    return latch.await(timeout, unit);
   }
 
   /**
