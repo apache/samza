@@ -20,7 +20,6 @@ package org.apache.samza.zk;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -43,8 +42,8 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
-import org.junit.rules.ExpectedException;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
 public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
@@ -247,7 +246,7 @@ public class TestZkUtils {
     System.out.println("root=" + root);
     zkUtils.getZkClient().createPersistent(root, true);
 
-    for (int i = 101; i < 110; i++ ) {
+    for (int i = 101; i < 110; i++) {
       zkUtils.publishJobModel(String.valueOf(i), null);
     }
 
