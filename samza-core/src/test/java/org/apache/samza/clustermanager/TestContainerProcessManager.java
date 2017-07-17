@@ -254,9 +254,8 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container);
 
     // Allow container to run and update state
-    allocator.setNumExpectedContainers(1);
 
-    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+    if (!allocator.awaitContainersStart(1,2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
     assertFalse(taskManager.shouldShutdown());
@@ -303,8 +302,7 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container);
 
     // Allow container to run and update state
-    allocator.setNumExpectedContainers(1);
-    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
 
@@ -324,8 +322,7 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container);
 
     // Allow container to run and update state
-    allocator.setNumExpectedContainers(1);
-    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
 
@@ -377,8 +374,7 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container);
 
     // Allow container to run and update state
-    allocator.setNumExpectedContainers(1);
-    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+    if (!allocator.awaitContainersStart(1,2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
 
@@ -425,8 +421,7 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container1);
 
     // Allow container to run and update state
-    allocator.setNumExpectedContainers(1);
-    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
@@ -446,8 +441,7 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container2);
 
     // Allow container to run and update state
-    allocator.setNumExpectedContainers(1);
-    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
     assertTrue(state.jobHealthy.get());
@@ -498,8 +492,7 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container1);
 
     // Allow container to run and update state
-    allocator.setNumExpectedContainers(1);
-    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
@@ -519,8 +512,7 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container2);
 
     // Allow container to run and update state
-    allocator.setNumExpectedContainers(1);
-    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
 
@@ -537,8 +529,7 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container3);
 
     // Allow container to run and update state
-    allocator.setNumExpectedContainers(1);
-    if (!allocator.awaitContainersStart(2, TimeUnit.SECONDS)) {
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
 

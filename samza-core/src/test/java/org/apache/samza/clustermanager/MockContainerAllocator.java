@@ -24,11 +24,13 @@ import java.lang.reflect.Field;
 
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 public class MockContainerAllocator extends ContainerAllocator {
   public int requestedContainers = 0;
   private CountDownLatch latch = new CountDownLatch(1);
+  private Semaphore semaphore = new Semaphore(0);
 
   public MockContainerAllocator(ClusterResourceManager manager,
                                 Config config,
@@ -38,25 +40,16 @@ public class MockContainerAllocator extends ContainerAllocator {
 
   /**
    * Causes the current thread to block until the expected number of containers have started.
-   * Use {@link #setNumExpectedContainers(int)} to set the number of expected containers.
    *
+   * @param numExpectedContainers the number of containers expected to start
    * @param timeout the maximum time to wait
    * @param unit the time unit of the {@code timeout} argument
    *
    * @return a boolean that specifies whether containers started within the timeout.
    * @throws InterruptedException  if the current thread is interrupted while waiting
    */
-  boolean awaitContainersStart(long timeout, TimeUnit unit) throws InterruptedException {
-    return latch.await(timeout, unit);
-  }
-
-  /**
-   * Sets the number of containers expected to start.
-   *
-   * @param numExpectedContainers  the number of containers expected to start
-   */
-  void setNumExpectedContainers(int numExpectedContainers) {
-    latch = new CountDownLatch(numExpectedContainers);
+  boolean awaitContainersStart(int numExpectedContainers, long timeout, TimeUnit unit) throws InterruptedException {
+    return semaphore.tryAcquire(numExpectedContainers, timeout, unit);
   }
 
   @Override
@@ -75,6 +68,6 @@ public class MockContainerAllocator extends ContainerAllocator {
   @Override
   protected void runStreamProcessor(SamzaResourceRequest request, String preferredHost) {
     super.runStreamProcessor(request, preferredHost);
-    latch.countDown();
+    semaphore.release();
   }
 }
