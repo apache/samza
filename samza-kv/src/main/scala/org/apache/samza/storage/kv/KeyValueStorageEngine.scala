@@ -96,7 +96,7 @@ class KeyValueStorageEngine[K, V](
 
   /**
    * Restore the contents of this key/value store from the change log,
-   * batching updates to underlying raw store to skip wrapping functions for efficiency.
+   * batching updates to underlying raw store to notAValidEvent wrapping functions for efficiency.
    */
   def restore(envelopes: java.util.Iterator[IncomingMessageEnvelope]) {
     val batch = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](batchSize)
