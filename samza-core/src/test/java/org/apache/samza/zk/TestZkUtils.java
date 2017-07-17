@@ -19,6 +19,9 @@
 package org.apache.samza.zk;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -236,6 +239,37 @@ public class TestZkUtils {
 
     zkUtils.publishJobModel(version, jobModel);
     Assert.assertEquals(jobModel, zkUtils.getJobModel(version));
+  }
+
+  @Test
+  public void testClenaupZkJobModels() {
+    String root = zkUtils.getKeyBuilder().getJobModelPathPrefix();
+    System.out.println("root=" + root);
+    zkUtils.getZkClient().createPersistent(root, true);
+
+    for (int i = 101; i < 110; i++ ) {
+      zkUtils.publishJobModel(String.valueOf(i), null);
+    }
+
+    List<String> zNodeIds = zkUtils.getZkClient().getChildren(root);
+
+    zkUtils.deleteOldJobModels(5);
+    Assert.assertEquals(Arrays.asList("105", "106", "107", "108", "109"), zkUtils.getZkClient().getChildren(root));
+  }
+
+  @Test
+  public void testCleanupZkBarrierVersion() {
+    String root = zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix();
+    zkUtils.getZkClient().createPersistent(root, true);
+    ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(root, zkUtils, null);
+    for (int i = 0; i < 10; i++) {
+      barrier.create(String.valueOf(i), new ArrayList<>(Arrays.asList(i + "a", i + "b", i + "c")));
+    }
+
+    zkUtils.deleteOldBarrierVersions(5);
+    List<String> zNodeIds = zkUtils.getZkClient().getChildren(root);
+    Collections.sort(zNodeIds);
+    Assert.assertEquals(zNodeIds, Arrays.asList("barrier_5", "barrier_6", "barrier_7", "barrier_8", "barrier_9"));
   }
 
   @Test

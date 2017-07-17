@@ -383,10 +383,10 @@ public class ZkUtils {
     deleteOldJobModels(numVersionsToLeave);
   }
 
-  private void deleteOldJobModels(int numVersionsToLeave) {
+  void deleteOldJobModels(int numVersionsToLeave) {
     // read current list of JMs
     String path = keyBuilder.getJobModelPathPrefix();
-    LOG.info("jm_path=" + path);
+    LOG.info("about to delete jm path=" + path);
     List<String> znodeIds = zkClient.getChildren(path);
     deleteOldVersionPath(path, znodeIds, numVersionsToLeave, new Comparator<String>() {
       @Override
@@ -400,9 +400,9 @@ public class ZkUtils {
   void deleteOldBarrierVersions(int numVersionsToLeave) {
     // read current list of barriers
     String path = keyBuilder.getJobModelVersionBarrierPrefix();
-    LOG.info("jm path=" + path);
+    LOG.info("about to delete old barrier paths from " + path);
     List<String> znodeIds = zkClient.getChildren(path);
-    LOG.info("ids = " + znodeIds);
+    LOG.info("all ids are ids = " + znodeIds);
     deleteOldVersionPath(path, znodeIds, numVersionsToLeave,  new Comparator<String>() {
       @Override
       public int compare(String o1, String o2) {
@@ -415,11 +415,10 @@ public class ZkUtils {
   void deleteOldVersionPath(String path, List<String> zNodeIds, int numVersionsToLeave, Comparator<String> c) {
     if (StringUtils.isEmpty(path) || zNodeIds == null) {
       LOG.warn("cannot cleanup empty path or empty list in ZK");
+      return;
     }
-    LOG.info("ids = " + zNodeIds);
     if (zNodeIds.size() > numVersionsToLeave) {
       Collections.sort(zNodeIds, c);
-      LOG.info("sorted ids = " + zNodeIds);
       // get the znodes to delete
       int size = zNodeIds.size();
       List<String> zNodesToDelete = zNodeIds.subList(0, numVersionsToLeave);
@@ -428,6 +427,7 @@ public class ZkUtils {
         String pathToDelete = path + "/" + znodeId;
         LOG.info(pathToDelete);
         try {
+          LOG.info("deleting " + pathToDelete);
           zkClient.deleteRecursive(pathToDelete);
         } catch (Exception e) {
           LOG.warn("delete of node " + pathToDelete + " failed.", e);
