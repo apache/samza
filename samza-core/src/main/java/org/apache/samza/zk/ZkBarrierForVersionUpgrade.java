@@ -19,8 +19,6 @@
 
 package org.apache.samza.zk;
 
-import org.I0Itec.zkclient.IZkChildListener;
-import org.I0Itec.zkclient.IZkDataListener;
 import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,7 +91,7 @@ public class ZkBarrierForVersionUpgrade {
 
     // subscribe for participant's list changes
     LOG.info("Subscribing for child changes at " + barrierParticipantsPath);
-    zkUtils.subscribeChildChanges(barrierParticipantsPath, new ZkBarrierChangeHandler(version, participants));
+    zkUtils.subscribeChildChanges(barrierParticipantsPath, new ZkBarrierChangeHandler(version, participants, zkUtils));
 
     barrierListenerOptional.ifPresent(zkBarrierListener -> zkBarrierListener.onBarrierCreated(version));
   }
@@ -106,7 +104,7 @@ public class ZkBarrierForVersionUpgrade {
    */
   public void join(String version, String participantId) {
     String barrierDonePath = keyBuilder.getBarrierStatePath(version);
-    zkUtils.subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, version));
+    zkUtils.subscribeDataChanges(barrierDonePath, new ZkBarrierReachedHandler(barrierDonePath, version, zkUtils));
 
     // TODO: Handle ZkNodeExistsException - SAMZA-1304
     zkUtils.getZkClient().createPersistent(
@@ -126,17 +124,21 @@ public class ZkBarrierForVersionUpgrade {
    * Listener for changes to the list of participants. It is meant to be subscribed only by the creator of the barrier
    * node. It checks to see when the barrier is ready to be marked as completed.
    */
-  class ZkBarrierChangeHandler implements IZkChildListener {
+  class ZkBarrierChangeHandler extends ZkUtils.GenIZkChildListener {
     private final String barrierVersion;
     private final List<String> names;
 
-    public ZkBarrierChangeHandler(String barrierVersion, List<String> names) {
+    public ZkBarrierChangeHandler(String barrierVersion, List<String> names, ZkUtils zkUtils) {
+      super(zkUtils, "ZkBarrierChangeHandler");
       this.barrierVersion = barrierVersion;
       this.names = names;
     }
 
     @Override
     public void handleChildChange(String parentPath, List<String> currentChildren) {
+      if (notAValidEvent()) {
+        return;
+      }
       if (currentChildren == null) {
         LOG.info("Got ZkBarrierChangeHandler handleChildChange with null currentChildren");
         return;
@@ -160,11 +162,12 @@ public class ZkBarrierForVersionUpgrade {
    * Barrier state values are either DONE or TIMED_OUT. It only registers to receive on valid state change notification.
    * Once a valid state change notification is received, it will un-subscribe from further notifications.
    */
-  class ZkBarrierReachedHandler implements IZkDataListener {
+  class ZkBarrierReachedHandler extends ZkUtils.GenIZkDataListener {
     private final String barrierStatePath;
     private final String barrierVersion;
 
-    public ZkBarrierReachedHandler(String barrierStatePath, String version) {
+    public ZkBarrierReachedHandler(String barrierStatePath, String version, ZkUtils zkUtils) {
+      super(zkUtils, "ZkBarrierReachedHandler");
       this.barrierStatePath = barrierStatePath;
       this.barrierVersion = version;
     }
@@ -172,6 +175,9 @@ public class ZkBarrierForVersionUpgrade {
     @Override
     public void handleDataChange(String dataPath, Object data) {
       LOG.info("got notification about barrier " + barrierStatePath + "; done=" + data);
+      if (notAValidEvent())
+        return;
+
       zkUtils.unsubscribeDataChanges(barrierStatePath, this);
       barrierListenerOptional.ifPresent(
           zkBarrierListener -> zkBarrierListener.onBarrierStateChanged(barrierVersion, (State) data));
@@ -180,7 +186,9 @@ public class ZkBarrierForVersionUpgrade {
     @Override
     public void handleDataDeleted(String dataPath)
         throws Exception {
-      LOG.warn("barrier done got deleted at " + dataPath);
+      LOG.warn("barrier done node got deleted at " + dataPath);
+      if (notAValidEvent())
+        return;
     }
   }
 

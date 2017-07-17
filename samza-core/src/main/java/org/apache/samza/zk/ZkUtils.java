@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
@@ -56,6 +57,14 @@ import org.slf4j.LoggerFactory;
  * </p>
  *
  * <p>
+ *  <b>Note on Session disconnect handling:</b>
+ *  After the session has timed out, and restored we may still get some notifications from before (from the old
+ *  session). To avoid this, we add a currentGeneration member, which starts with 0, and is increased each time
+ *  a new session is established. Current value of this member is passed to each Listener when it is created.
+ *  So if the Callback from this Listener comes with an old generation id - we ignore it.
+ * </p>
+ *
+ * <p>
  *   <b>Note on Session Management:</b>
  *   Session management, if needed, should be handled by the caller. This can be done by implementing
  *   {@link org.I0Itec.zkclient.IZkStateListener} and subscribing this listener to the current ZkClient. Note: The connection state change
@@ -70,24 +79,43 @@ public class ZkUtils {
   private volatile String ephemeralPath = null;
   private final ZkKeyBuilder keyBuilder;
   private final int connectionTimeoutMs;
+  private final AtomicInteger currentGeneration;
   private final ZkUtilsMetrics metrics;
+
+  public void incGeneration() {
+    currentGeneration.incrementAndGet();
+  }
+
+  public int getGeneration() {
+    return currentGeneration.get();
+  }
+
+
 
   public ZkUtils(ZkKeyBuilder zkKeyBuilder, ZkClient zkClient, int connectionTimeoutMs, MetricsRegistry metricsRegistry) {
     this.keyBuilder = zkKeyBuilder;
     this.connectionTimeoutMs = connectionTimeoutMs;
     this.zkClient = zkClient;
     this.metrics = new ZkUtilsMetrics(metricsRegistry);
+    this.currentGeneration = new AtomicInteger(0);
   }
 
   public void connect() throws ZkInterruptedException {
     boolean isConnected = zkClient.waitUntilConnected(connectionTimeoutMs, TimeUnit.MILLISECONDS);
     if (!isConnected) {
-      metrics.zkConnectionError.inc();
+      if (metrics != null) {
+        metrics.zkConnectionError.inc();
+      }
       throw new RuntimeException("Unable to connect to Zookeeper within connectionTimeout " + connectionTimeoutMs + "ms. Shutting down!");
     }
   }
 
-  ZkClient getZkClient() {
+  // reset all zk-session specific state
+  public void unregister() {
+    ephemeralPath = null;
+  }
+
+  public ZkClient getZkClient() {
     return zkClient;
   }
 
@@ -194,7 +222,9 @@ public class ZkUtils {
   String readProcessorData(String fullPath) {
     try {
       String data = zkClient.readData(fullPath, false);
-      metrics.reads.inc();
+      if (metrics != null) {
+        metrics.reads.inc();
+      }
       return data;
     } catch (Exception e) {
       throw new SamzaException(String.format("Cannot read ZK node: %s", fullPath), e);
@@ -218,12 +248,11 @@ public class ZkUtils {
     String processorPath = keyBuilder.getProcessorsPath();
     List<String> processorIds = new ArrayList<>(znodeIds.size());
     if (znodeIds.size() > 0) {
-
       for (String child : znodeIds) {
         String fullPath = String.format("%s/%s", processorPath, child);
         processorIds.add(new ProcessorData(readProcessorData(fullPath)).getProcessorId());
       }
-
+      Collections.sort(processorIds);
       LOG.info("Found these children - " + znodeIds);
       LOG.info("Found these processorIds - " + processorIds);
     }
@@ -237,12 +266,16 @@ public class ZkUtils {
 
   public void subscribeDataChanges(String path, IZkDataListener dataListener) {
     zkClient.subscribeDataChanges(path, dataListener);
-    metrics.subscriptions.inc();
+    if (metrics != null) {
+      metrics.subscriptions.inc();
+    }
   }
 
   public void subscribeChildChanges(String path, IZkChildListener listener) {
     zkClient.subscribeChildChanges(path, listener);
-    metrics.subscriptions.inc();
+    if (metrics != null) {
+      metrics.subscriptions.inc();
+    }
   }
 
   public void unsubscribeChildChanges(String path, IZkChildListener childListener) {
@@ -251,7 +284,9 @@ public class ZkUtils {
 
   public void writeData(String path, Object object) {
     zkClient.writeData(path, object);
-    metrics.writes.inc();
+    if (metrics != null) {
+      metrics.writes.inc();
+    }
   }
 
   public boolean exists(String path) {
@@ -263,13 +298,65 @@ public class ZkUtils {
   }
 
   /**
+   * Generation enforcing zk listener abstract class.
+   * It helps listeners, which extend it, to notAValidEvent old generation events.
+   * We cannot use 'sessionId' for this because it is not available through ZkClient (at leaste without reflection)
+   */
+  public abstract static class GenIZkChildListener implements IZkChildListener {
+    private final int generation;
+    private final ZkUtils zkUtils;
+    private final String listenerName;
+
+    public GenIZkChildListener(ZkUtils zkUtils, String listenerName) {
+      generation = zkUtils.getGeneration();
+      this.zkUtils = zkUtils;
+      this.listenerName = listenerName;
+    }
+
+    protected boolean notAValidEvent() {
+      int curGeneration = zkUtils.getGeneration();
+      if (curGeneration != generation) {
+        LOG.warn("SKIPPING handleDataChanged for " + listenerName +
+            " from wrong generation. current generation=" + curGeneration + "; callback generation= " + generation);
+        return true;
+      }
+      return false;
+    }
+  }
+
+  public abstract static class GenIZkDataListener implements IZkDataListener {
+    private final int generation;
+    private final ZkUtils zkUtils;
+    private final String listenerName;
+
+    public GenIZkDataListener(ZkUtils zkUtils, String listenerName) {
+      generation = zkUtils.getGeneration();
+      this.zkUtils = zkUtils;
+      this.listenerName = listenerName;
+    }
+
+    protected boolean notAValidEvent() {
+      int curGeneration = zkUtils.getGeneration();
+      if (curGeneration != generation) {
+        LOG.warn("SKIPPING handleDataChanged for " + listenerName +
+            " from wrong generation. curGen=" + curGeneration + "; cb gen= " + generation);
+        return true;
+      }
+      return false;
+    }
+
+  }
+
+  /**
     * subscribe for changes of JobModel version
     * @param dataListener describe this
     */
-  public void subscribeToJobModelVersionChange(IZkDataListener dataListener) {
+  public void subscribeToJobModelVersionChange(GenIZkDataListener dataListener) {
     LOG.info(" subscribing for jm version change at:" + keyBuilder.getJobModelVersionPath());
     zkClient.subscribeDataChanges(keyBuilder.getJobModelVersionPath(), dataListener);
-    metrics.subscriptions.inc();
+    if (metrics != null) {
+      metrics.subscriptions.inc();
+    }
   }
 
   /**
@@ -350,7 +437,6 @@ public class ZkUtils {
     LOG.info("published new version: " + newVersion + "; expected data version = " + (dataVersion + 1) +
         "(actual data version after update = " + stat.getVersion() + ")");
   }
-
 
   /**
    * verify that given paths exist in ZK
