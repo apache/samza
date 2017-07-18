@@ -29,7 +29,6 @@ import java.util.concurrent.TimeUnit;
 
 public class MockContainerAllocator extends ContainerAllocator {
   public int requestedContainers = 0;
-  private CountDownLatch latch = new CountDownLatch(1);
   private Semaphore semaphore = new Semaphore(0);
 
   public MockContainerAllocator(ClusterResourceManager manager,
