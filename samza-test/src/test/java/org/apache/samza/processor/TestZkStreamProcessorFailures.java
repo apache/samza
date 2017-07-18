@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
