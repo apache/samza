@@ -44,6 +44,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.JobModel;
@@ -83,6 +84,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
   private static final String TEST_JOB_COORDINATOR_FACTORY = "org.apache.samza.zk.ZkJobCoordinatorFactory";
   private static final String TEST_SYSTEM_FACTORY = "org.apache.samza.system.kafka.KafkaSystemFactory";
   private static final String TEST_JOB_NAME = "test-job";
+  private static final int TASK_SHUTDOWN_MS = 5000;
   private static final String[] PROCESSOR_IDS = new String[] {"0000000000", "0000000001", "0000000002"};
 
   private String inputKafkaTopic;
@@ -169,6 +171,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
         .put(ApplicationConfig.APP_ID, appId)
         .put(String.format("systems.%s.samza.factory", systemName), TEST_SYSTEM_FACTORY)
         .put(JobConfig.JOB_NAME(), TEST_JOB_NAME)
+        .put(TaskConfigJava.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS)
         .build();
     Map<String, String> applicationConfig = Maps.newHashMap(samzaContainerConfig);
     applicationConfig.putAll(StandaloneTestUtils.getKafkaSystemConfigs(systemName, bootstrapServers(), zkConnect(), null, StandaloneTestUtils.SerdeAlias.STRING, true));
