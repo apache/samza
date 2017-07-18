@@ -120,8 +120,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
     // read again the first batch
     waitUntilMessagesLeftN(totalEventsToBeConsumed - 2 * messageCount);
-
-
+    
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
 
