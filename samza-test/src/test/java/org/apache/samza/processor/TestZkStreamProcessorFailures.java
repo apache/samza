@@ -114,14 +114,14 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     // produce the bad messages
     produceMessages(BAD_MESSAGE_KEY, inputTopic, 4);
 
-    waitForProcessorToStartStop(
-        containerStopped1); // TODO: after container failure propagates to StreamProcessor change back
+    waitForProcessorToStartStop(containerStopped1); // TODO: after container failure propagates to StreamProcessor change back
 
     // wait until the 2nd processor reports that it has stopped its container
     waitForProcessorToStartStop(containerStopped2);
 
-    // give some extra time to let the system to publish and distribute the new job model
-    TestZkUtils.sleepMs(300);
+    // read again the first batch
+    waitUntilMessagesLeftN(totalEventsToBeConsumed - 2 * messageCount);
+
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
