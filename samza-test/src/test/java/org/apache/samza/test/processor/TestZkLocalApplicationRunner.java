@@ -32,7 +32,6 @@ import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import kafka.admin.AdminUtils;
 import kafka.utils.TestUtils;
 import org.I0Itec.zkclient.ZkClient;
@@ -200,16 +199,17 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     // Configuration, verification variables
     MapConfig testConfig = new MapConfig(ImmutableMap.of(JobConfig.SSP_GROUPER_FACTORY(), "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory", JobConfig.JOB_DEBOUNCE_TIME_MS(), "10"));
-    AtomicReference<JobModel> previousJobModel = new AtomicReference<>();
-    AtomicReference<String> previousJobModelVersion = new AtomicReference<>();
+    // Declared as final array to update it from streamApplication callback(Variable should be declared final to access in lambda block).
+    final JobModel[] previousJobModel = new JobModel[1];
+    final String[] previousJobModelVersion = new String[1];
     AtomicBoolean hasSecondProcessorJoined = new AtomicBoolean(false);
     final CountDownLatch secondProcessorRegistered = new CountDownLatch(1);
 
     zkUtils.subscribeToProcessorChange((parentPath, currentChilds) -> {
         // When streamApp2 with id: PROCESSOR_IDS[1] is registered, start processing message in streamApp1.
-        if (currentChilds.contains(PROCESSOR_IDS[1])) {
-          secondProcessorRegistered.countDown();
-        }
+          if (currentChilds.contains(PROCESSOR_IDS[1])) {
+            secondProcessorRegistered.countDown();
+          }
     });
 
     // Set up stream app 2.
@@ -220,8 +220,8 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // Callback handler for streamApp1.
     StreamApplicationCallback streamApplicationCallback = message -> {
       if (hasSecondProcessorJoined.compareAndSet(false, true)) {
-        previousJobModelVersion.set(zkUtils.getJobModelVersion());
-        previousJobModel.compareAndSet(null, zkUtils.getJobModel(previousJobModelVersion.get()));
+        previousJobModelVersion[0] = zkUtils.getJobModelVersion();
+        previousJobModel[0] = zkUtils.getJobModel(previousJobModelVersion[0]);
         localApplicationRunner2.run(streamApp2);
         try {
           // Wait for streamApp2 to register with zookeeper.
@@ -244,9 +244,10 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     JobModel updatedJobModel = zkUtils.getJobModel(currentJobModelVersion);
 
     // JobModelVersion check to verify that leader publishes new jobModel.
-    assertTrue(Integer.parseInt(previousJobModelVersion.get()) < Integer.parseInt(currentJobModelVersion));
+    assertTrue(Integer.parseInt(previousJobModelVersion[0]) < Integer.parseInt(currentJobModelVersion));
     // Job model before and after the addition of second stream processor should be the same.
-    assertEquals(previousJobModel.get(), updatedJobModel);
+    assertEquals(previousJobModel[0], updatedJobModel);
+    // TODO: After SAMZA-1364 add assertion for localApplicationRunner2.status(streamApp)
     // ProcessedMessagesLatch shouldn't have changed. Should retain it's initial value.
     assertEquals(NUM_KAFKA_EVENTS, processedMessagesLatch.getCount());
   }

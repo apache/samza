@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
  * IDs as an argument. Please note - this first implementation ignores locality information.
  */
 public class GroupByContainerIds implements TaskNameGrouper {
-  private static final Logger LOGGER = LoggerFactory.getLogger(GroupByContainerIds.class);
+  private static final Logger LOG = LoggerFactory.getLogger(GroupByContainerIds.class);
 
   private final int startContainerCount;
   public GroupByContainerIds(int count) {
@@ -70,7 +70,7 @@ public class GroupByContainerIds implements TaskNameGrouper {
           .toString(containersIds.toArray()));
 
     if (containersIds.size() > tasks.size()) {
-      LOGGER.info("Number of containers: {} is greater than number of tasks: {}.",  containersIds.size(), tasks.size());
+      LOG.info("Number of containers: {} is greater than number of tasks: {}.",  containersIds.size(), tasks.size());
       /**
        * Choose lexicographically least `x` containerIds(where x = tasks.size()).
        */
@@ -78,7 +78,7 @@ public class GroupByContainerIds implements TaskNameGrouper {
                                    .sorted()
                                    .limit(tasks.size())
                                    .collect(Collectors.toList());
-      LOGGER.info("Generating containerModel with containers: {}.", containersIds);
+      LOG.info("Generating containerModel with containers: {}.", containersIds);
     }
 
     int containerCount = containersIds.size();
