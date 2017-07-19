@@ -207,10 +207,10 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     zkUtils.subscribeToProcessorChange((parentPath, currentChilds) -> {
         // When streamApp2 with id: PROCESSOR_IDS[1] is registered, start processing message in streamApp1.
-          if (currentChilds.contains(PROCESSOR_IDS[1])) {
-            secondProcessorRegistered.countDown();
-          }
-    });
+        if (currentChilds.contains(PROCESSOR_IDS[1])) {
+          secondProcessorRegistered.countDown();
+        }
+      });
 
     // Set up stream app 2.
     CountDownLatch processedMessagesLatch = new CountDownLatch(NUM_KAFKA_EVENTS);
