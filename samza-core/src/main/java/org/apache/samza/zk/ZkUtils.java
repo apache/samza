@@ -488,7 +488,7 @@ public class ZkUtils {
     String path = keyBuilder.getJobModelVersionBarrierPrefix();
     LOG.info("about to delete old barrier paths from " + path);
     List<String> znodeIds = zkClient.getChildren(path);
-    LOG.info("all ids are ids = " + znodeIds);
+    LOG.info("List of all zkNodes: " + znodeIds);
     deleteOldVersionPath(path, znodeIds, numVersionsToLeave,  new Comparator<String>() {
       @Override
       public int compare(String o1, String o2) {
@@ -508,7 +508,7 @@ public class ZkUtils {
       // get the znodes to delete
       int size = zNodeIds.size();
       List<String> zNodesToDelete = zNodeIds.subList(0, numVersionsToLeave);
-      LOG.info("starting cleaning of barrier versions. from size=" + size + "to size " + zNodesToDelete.size() + "; num to leave=" + numVersionsToLeave);
+      LOG.info("Starting cleanup of barrier version zkNodes. From size=" + size + " to size " + zNodesToDelete.size() + "; num to leave=" + numVersionsToLeave);
       for (String znodeId : zNodesToDelete) {
         String pathToDelete = path + "/" + znodeId;
         LOG.info(pathToDelete);

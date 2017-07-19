@@ -241,7 +241,7 @@ public class TestZkUtils {
   }
 
   @Test
-  public void testClenaupZkJobModels() {
+  public void testCleanUpZkJobModels() {
     String root = zkUtils.getKeyBuilder().getJobModelPathPrefix();
     System.out.println("root=" + root);
     zkUtils.getZkClient().createPersistent(root, true);
@@ -257,7 +257,7 @@ public class TestZkUtils {
   }
 
   @Test
-  public void testCleanupZkBarrierVersion() {
+  public void testCleanUpZkBarrierVersion() {
     String root = zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix();
     zkUtils.getZkClient().createPersistent(root, true);
     ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(root, zkUtils, null);

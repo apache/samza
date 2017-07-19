@@ -60,7 +60,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   // TODO: MetadataCache timeout has to be 0 for the leader so that it can always have the latest information associated
   // with locality. Since host-affinity is not yet implemented, this can be fixed as part of SAMZA-1197
   private static final int METADATA_CACHE_TTL_MS = 5000;
-  public static final int NUM_VERSIONS_TO_LEAVE = 10;
+  private static final int NUM_VERSIONS_TO_LEAVE = 10;
 
   private final ZkUtils zkUtils;
   private final String processorId;
@@ -204,7 +204,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
 
     LOG.info("pid=" + processorId + "Published new Job Model. Version = " + nextJMVersion);
 
-    zkUtils.cleanupZK(NUM_VERSIONS_TO_LEAVE);
+    debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_ZK_CLEANUP, 0, () -> zkUtils.cleanupZK(NUM_VERSIONS_TO_LEAVE));
   }
 
   @Override
