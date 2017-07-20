@@ -43,17 +43,7 @@ public class ScriptRunner {
   private static final int DEFAULT_SCRIPT_CMD_TIMEOUT_S = 30;
   private int scriptTimeout = DEFAULT_SCRIPT_CMD_TIMEOUT_S;
 
-  // Dont pass down the current environment vars by default
-  private boolean forwardEnvironmentVars = false;
   private final Map<String, String> environment = new HashMap<>();
-
-  public ScriptRunner() {
-
-  }
-
-  public ScriptRunner(boolean forwardEnvironmentVars) {
-    this.forwardEnvironmentVars = forwardEnvironmentVars;
-  }
 
   protected long getScriptTimeoutS() {
     return scriptTimeout;
@@ -112,10 +102,7 @@ public class ScriptRunner {
     log.debug("Building process with command {}", command);
     ProcessBuilder pb =  new ProcessBuilder(command);
 
-    if (!forwardEnvironmentVars) {
-      pb.environment().clear();
-    }
-
+    pb.environment().clear();
     pb.environment().putAll(environment);
     return pb;
   }
@@ -155,28 +142,9 @@ public class ScriptRunner {
   }
 
   /**
-   * @return true if this runner will forward the current environment variables to the child process, false otherwise.
-   */
-  public boolean forwardEnvironmentVars() {
-    return forwardEnvironmentVars;
-  }
-
-  /**
-   * Set the flag indicating whether this runner will forward the current environment variables to the child process.
-   *
-   * @param forwardEnvironmentVars  true to forward the current environment to the child process,
-   *                                false to start with an empty environment.
-   */
-  public void setForwardEnvironmentVars(boolean forwardEnvironmentVars) {
-    this.forwardEnvironmentVars = forwardEnvironmentVars;
-  }
-
-  /**
    * Gets the mutable map of environment variables to add to the child process environment.
    *
-   * The structure is the same as {@link ProcessBuilder#environment()}, but these
-   * values are added to the environment. They do not replace the other vars in the
-   * environment. For that see {@link #setForwardEnvironmentVars(boolean)}.
+   * The structure is the same as {@link ProcessBuilder#environment()}, but this map starts empty.
    *
    * @return the mutable map of environment variables.
    */
