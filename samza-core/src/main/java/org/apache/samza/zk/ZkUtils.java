@@ -511,7 +511,6 @@ public class ZkUtils {
       LOG.info("Starting cleanup of barrier version zkNodes. From size=" + size + " to size " + zNodesToDelete.size() + "; num to leave=" + numVersionsToLeave);
       for (String znodeId : zNodesToDelete) {
         String pathToDelete = path + "/" + znodeId;
-        LOG.info(pathToDelete);
         try {
           LOG.info("deleting " + pathToDelete);
           zkClient.deleteRecursive(pathToDelete);
