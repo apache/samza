@@ -70,7 +70,7 @@ public class GroupByContainerIds implements TaskNameGrouper {
           .toString(containersIds.toArray()));
 
     if (containersIds.size() > tasks.size()) {
-      LOG.info("Number of containers: {} is greater than number of tasks: {}.",  containersIds.size(), tasks.size());
+      LOG.warn("Number of containers: {} is greater than number of tasks: {}.",  containersIds.size(), tasks.size());
       /**
        * Choose lexicographically least `x` containerIds(where x = tasks.size()).
        */
