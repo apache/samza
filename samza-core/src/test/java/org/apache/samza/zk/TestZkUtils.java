@@ -246,10 +246,12 @@ public class TestZkUtils {
     System.out.println("root=" + root);
     zkUtils.getZkClient().createPersistent(root, true);
 
+    // generate multiple version
     for (int i = 101; i < 110; i++) {
       zkUtils.publishJobModel(String.valueOf(i), null);
     }
-    
+
+    // clean all of the versions except 5 most recent ones
     zkUtils.deleteOldJobModels(5);
     Assert.assertEquals(Arrays.asList("105", "106", "107", "108", "109"), zkUtils.getZkClient().getChildren(root));
   }
