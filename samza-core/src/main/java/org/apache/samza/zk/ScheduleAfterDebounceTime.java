@@ -52,7 +52,7 @@ public class ScheduleAfterDebounceTime {
    *
    * cleanup process is started after every new job model generation is complete.
    * It deletes old versions of job model and the barrier.
-   * How many to delete (or to leave) is controlled by {@link org.apache.samza.zk.ZkJobCoordinator.NUM_VERSIONS_TO_LEAVE}.
+   * How many to delete (or to leave) is controlled by @see org.apache.samza.zk.ZkJobCoordinator#NUM_VERSIONS_TO_LEAVE.
    **/
   public static final String ON_ZK_CLEANUP = "OnCleanUp";
 
