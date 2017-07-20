@@ -69,6 +69,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   private final ZkBarrierForVersionUpgrade barrier;
   private final ZkJobCoordinatorMetrics metrics;
   private final Map<String, MetricsReporter> reporters;
+  private final LeaderElector leaderElector;
 
   private StreamMetadataCache streamMetadataCache = null;
   private ScheduleAfterDebounceTime debounceTimer = null;
@@ -94,7 +95,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         zkConfig.getZkConnectionTimeoutMs(), metricsRegistry);
 
     this.processorId = createProcessorId(config);
-    LeaderElector leaderElector = new ZkLeaderElector(processorId, zkUtils);
+    leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
     this.zkController = new ZkControllerImpl(processorId, zkUtils, this, leaderElector);
     this.barrier = new ZkBarrierForVersionUpgrade(keyBuilder.getJobModelVersionBarrierPrefix(), zkUtils,
@@ -310,11 +311,17 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         debounceTimer.scheduleAfterDebounceTime(barrierAction, 0, () -> onNewJobModelConfirmed(version));
       } else {
         if (ZkBarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
-          // no-op
-          // In our consensus model, if the Barrier is timed-out, then it means that one or more initial
-          // participants failed to join. That means, they should have de-registered from "processors" list
-          // and that would have triggered onProcessorChange action -> a new round of consensus.
-          LOG.info("Barrier for version " + version + " timed out.");
+          // no-op for non-leaders
+          // for leader: make sure we do not stop - so generate a new job model
+          LOG.warn("Leader: barrier for version " + version + " timed out.");
+          if (leaderElector.amILeader()) {
+            debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE, debounceTimeMs, () ->
+              {
+                // actual actions to do are the same as onProcessorChange
+                doOnProcessorChange(new ArrayList<>());
+              });
+          }
+
         }
       }
     }
