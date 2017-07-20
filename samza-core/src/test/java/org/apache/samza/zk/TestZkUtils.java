@@ -249,9 +249,7 @@ public class TestZkUtils {
     for (int i = 101; i < 110; i++) {
       zkUtils.publishJobModel(String.valueOf(i), null);
     }
-
-    List<String> zNodeIds = zkUtils.getZkClient().getChildren(root);
-
+    
     zkUtils.deleteOldJobModels(5);
     Assert.assertEquals(Arrays.asList("105", "106", "107", "108", "109"), zkUtils.getZkClient().getChildren(root));
   }
@@ -268,7 +266,8 @@ public class TestZkUtils {
     zkUtils.deleteOldBarrierVersions(5);
     List<String> zNodeIds = zkUtils.getZkClient().getChildren(root);
     Collections.sort(zNodeIds);
-    Assert.assertEquals(Arrays.asList("barrier_205", "barrier_206", "barrier_207", "barrier_208", "barrier_209"), zNodeIds);
+    Assert.assertEquals(Arrays.asList("barrier_205", "barrier_206", "barrier_207", "barrier_208", "barrier_209"),
+        zNodeIds);
   }
 
   @Test
