@@ -18,11 +18,15 @@
  */
 package org.apache.samza.rest.script;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.SamzaException;
 import org.slf4j.Logger;
@@ -38,6 +42,18 @@ public class ScriptRunner {
   private static final Logger log = LoggerFactory.getLogger(ScriptRunner.class);
   private static final int DEFAULT_SCRIPT_CMD_TIMEOUT_S = 30;
   private int scriptTimeout = DEFAULT_SCRIPT_CMD_TIMEOUT_S;
+
+  // Dont pass down the current environment vars by default
+  private boolean forwardEnvironmentVars = false;
+  private final Map<String, String> environment = new HashMap<>();
+
+  public ScriptRunner() {
+
+  }
+
+  public ScriptRunner(boolean forwardEnvironmentVars) {
+    this.forwardEnvironmentVars = forwardEnvironmentVars;
+  }
 
   protected long getScriptTimeoutS() {
     return scriptTimeout;
@@ -84,13 +100,24 @@ public class ScriptRunner {
    * @param args        the command line args to pass to the script.
    * @return            a {@link java.lang.ProcessBuilder} for the script and args.
    */
-  private ProcessBuilder getProcessBuilder(String scriptPath, String[] args) {
+  private ProcessBuilder getProcessBuilder(String scriptPath, String[] args) throws FileNotFoundException {
+    if (!new File(scriptPath).exists()) {
+      throw new FileNotFoundException("Script file does not exist: " + scriptPath);
+    }
+
     List<String> command = new ArrayList<>(args.length + 1);
     command.add(scriptPath);
     command.addAll(Arrays.asList(args));
 
     log.debug("Building process with command {}", command);
-    return new ProcessBuilder(command);
+    ProcessBuilder pb =  new ProcessBuilder(command);
+
+    if (!forwardEnvironmentVars) {
+      pb.environment().clear();
+    }
+
+    pb.environment().putAll(environment);
+    return pb;
   }
 
   /**
@@ -125,5 +152,35 @@ public class ScriptRunner {
     int exitVal = p.exitValue();
     log.debug("Exit value {}", exitVal);
     return exitVal;
+  }
+
+  /**
+   * @return true if this runner will forward the current environment variables to the child process, false otherwise.
+   */
+  public boolean forwardEnvironmentVars() {
+    return forwardEnvironmentVars;
+  }
+
+  /**
+   * Set the flag indicating whether this runner will forward the current environment variables to the child process.
+   *
+   * @param forwardEnvironmentVars  true to forward the current environment to the child process,
+   *                                false to start with an empty environment.
+   */
+  public void setForwardEnvironmentVars(boolean forwardEnvironmentVars) {
+    this.forwardEnvironmentVars = forwardEnvironmentVars;
+  }
+
+  /**
+   * Gets the mutable map of environment variables to add to the child process environment.
+   *
+   * The structure is the same as {@link ProcessBuilder#environment()}, but these
+   * values are added to the environment. They do not replace the other vars in the
+   * environment. For that see {@link #setForwardEnvironmentVars(boolean)}.
+   *
+   * @return the mutable map of environment variables.
+   */
+  public Map<String, String> environment() {
+    return environment;
   }
 }

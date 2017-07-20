@@ -51,6 +51,7 @@ public abstract class ScriptJobProxy extends AbstractJobProxy implements ScriptP
    * @return                        the full path to the script.
    * @throws FileNotFoundException  if the job installation path doesn't exist.
    */
+  @Override
   public String getScriptPath(JobInstance jobInstance, String scriptName)
       throws FileNotFoundException {
     String scriptPath;
