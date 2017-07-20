@@ -507,8 +507,8 @@ public class ZkUtils {
       Collections.sort(zNodeIds, c);
       // get the znodes to delete
       int size = zNodeIds.size();
-      List<String> zNodesToDelete = zNodeIds.subList(0, numVersionsToLeave - 1);
-      LOG.info("Starting cleanup of barrier version zkNodes. From size=" + size + " to size " + zNodesToDelete.size() + "; num to leave=" + numVersionsToLeave);
+      List<String> zNodesToDelete = zNodeIds.subList(0, numVersionsToLeave);
+      LOG.info("Starting cleanup of barrier version zkNodes. From size=" + size + " to size " + zNodesToDelete.size() + "; numberToLeave=" + numVersionsToLeave);
       for (String znodeId : zNodesToDelete) {
         String pathToDelete = path + "/" + znodeId;
         try {

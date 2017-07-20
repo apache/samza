@@ -261,14 +261,14 @@ public class TestZkUtils {
     String root = zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix();
     zkUtils.getZkClient().createPersistent(root, true);
     ZkBarrierForVersionUpgrade barrier = new ZkBarrierForVersionUpgrade(root, zkUtils, null);
-    for (int i = 0; i < 10; i++) {
+    for (int i = 200; i < 210; i++) {
       barrier.create(String.valueOf(i), new ArrayList<>(Arrays.asList(i + "a", i + "b", i + "c")));
     }
 
     zkUtils.deleteOldBarrierVersions(5);
     List<String> zNodeIds = zkUtils.getZkClient().getChildren(root);
     Collections.sort(zNodeIds);
-    Assert.assertEquals(zNodeIds, Arrays.asList("barrier_5", "barrier_6", "barrier_7", "barrier_8", "barrier_9"));
+    Assert.assertEquals(Arrays.asList("barrier_205", "barrier_206", "barrier_207", "barrier_208", "barrier_209"), zNodeIds);
   }
 
   @Test
