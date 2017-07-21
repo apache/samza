@@ -312,15 +312,15 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         if (ZkBarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
           // no-op for non-leaders
           // for leader: make sure we do not stop - so generate a new job model
-          LOG.warn("Leader: barrier for version " + version + " timed out.");
+          LOG.warn("Barrier for version " + version + " timed out.");
           if (zkController.isLeader()) {
+            LOG.info("Leader will schedule a new job model generation");
             debounceTimer.scheduleAfterDebounceTime(ScheduleAfterDebounceTime.ON_PROCESSOR_CHANGE, debounceTimeMs, () ->
               {
                 // actual actions to do are the same as onProcessorChange
                 doOnProcessorChange(new ArrayList<>());
               });
           }
-
         }
       }
     }
