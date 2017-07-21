@@ -36,7 +36,7 @@ import scala.collection.JavaConverters;
 
 public class TaskConfigJava extends MapConfig {
   // Task Configs
-  private static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
+  public static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
   public static final long DEFAULT_TASK_SHUTDOWN_MS = 30000L;
 
   // broadcast streams consumed by all tasks. e.g. kafka.foo#1

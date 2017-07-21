@@ -20,7 +20,6 @@
 package org.apache.samza.processor;
 
 import java.util.concurrent.CountDownLatch;
-import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -146,8 +145,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     LOG.info("containerStopped latch = " + containerStopped1);
     waitForProcessorToStartStop(containerStopped1);
 
-    // let the system to publish and distribute the new job model
-    TestZkUtils.sleepMs(600);
+    // read again the first batch
+    waitUntilMessagesLeftN(totalEventsToGenerate - 2 * messageCount);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
@@ -226,8 +225,8 @@ public class TestZkStreamProcessor extends TestZkStreamProcessorBase {
     LOG.info("containerStopped latch = " + containerStopped2);
     waitForProcessorToStartStop(containerStopped2);
 
-    // let the system to publish and distribute the new job model
-    TestZkUtils.sleepMs(300);
+    // read again the first batch
+    waitUntilMessagesLeftN(totalEventsToGenerate - 2 * messageCount);
 
     // produce the second batch of the messages, starting with 'messageCount'
     produceMessages(messageCount, inputTopic, messageCount);
