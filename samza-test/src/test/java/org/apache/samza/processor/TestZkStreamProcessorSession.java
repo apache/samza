@@ -112,6 +112,9 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
       waitForProcessorToStartStop(containerStopLatches[i]);
     }
 
+    // read again the first batch
+    waitUntilMessagesLeftN(totalEventsToGenerate - 2 * messageCount);
+
     produceMessages(messageCount, inputTopic, messageCount);
 
     waitUntilMessagesLeftN(0);

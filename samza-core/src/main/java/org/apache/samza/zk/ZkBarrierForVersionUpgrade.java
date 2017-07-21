@@ -117,9 +117,7 @@ public class ZkBarrierForVersionUpgrade {
    * @param version Version associated with the Barrier
    */
   public void expire(String version) {
-    zkUtils.writeData(
-        keyBuilder.getBarrierStatePath(version),
-        State.TIMED_OUT);
+    zkUtils.writeData(keyBuilder.getBarrierStatePath(version), State.TIMED_OUT);
 
   }
   /**
@@ -222,4 +220,7 @@ public class ZkBarrierForVersionUpgrade {
     }
   }
 
+  public static int getVersion(String barrierPath) {
+    return Integer.valueOf(barrierPath.substring(barrierPath.lastIndexOf('_') + 1));
+  }
 }
