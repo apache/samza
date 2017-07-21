@@ -287,7 +287,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
         System.out.println("2read all. current count = " + leftEventsCount);
         break;
       }
-      TestZkUtils.sleepMs(3000);
+      TestZkUtils.sleepMs(5000);
       attempts--;
     }
     Assert.assertTrue("Didn't read all the leftover events in " + ATTEMPTS_NUMBER + " attempts", attempts > 0);
