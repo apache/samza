@@ -85,7 +85,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
     this.zkUtils = zkUtils;
     // setup a listener for a session state change
     // we are mostly interested in "session closed" and "new session created" events
-     zkUtils.getZkClient().subscribeStateChanges(new ZkSessionStateChangedListener());
+    zkUtils.getZkClient().subscribeStateChanges(new ZkSessionStateChangedListener());
     LeaderElector leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
     this.zkController = new ZkControllerImpl(processorId, zkUtils, this, leaderElector);
