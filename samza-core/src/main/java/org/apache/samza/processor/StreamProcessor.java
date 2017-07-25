@@ -111,11 +111,6 @@ public class StreamProcessor {
     this(config, customMetricsReporters, (Object) streamTaskFactory, processorListener, null);
   }
 
-  @Override
-  public String toString() {
-    return "Processor:" + processorId;
-  }
-
   /* package private */
   JobCoordinator getJobCoordinator() {
     return Util.
@@ -210,7 +205,6 @@ public class StreamProcessor {
   }
 
   JobCoordinatorListener createJobCoordinatorListener() {
-    final String pid = this.toString();
     return new JobCoordinatorListener() {
 
       @Override
@@ -220,7 +214,7 @@ public class StreamProcessor {
           if (SamzaContainerStatus.NOT_STARTED.equals(status) || SamzaContainerStatus.STARTED.equals(status)) {
             boolean shutdownComplete = false;
             try {
-              LOGGER.info("Shutting down container in onJobModelExpired for processor:" + pid);
+              LOGGER.info("Shutting down container in onJobModelExpired for processor:" + processorId);
               container.pause();
               shutdownComplete = jcContainerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
               LOGGER.info("ShutdownComplete=" + shutdownComplete);
@@ -231,7 +225,7 @@ public class StreamProcessor {
             } catch (InterruptedException e) {
               LOGGER.warn("Container shutdown was interrupted!" + container.toString(), e);
             }
-            LOGGER.info("Shutting down container done for pid=" + pid + "; complete =" + shutdownComplete);
+            LOGGER.info("Shutting down container done for pid=" + processorId + "; complete =" + shutdownComplete);
             if (!shutdownComplete) {
               LOGGER.warn("Container " + container.toString() + " may not have shutdown successfully. " +
                   "Stopping the processor.");
