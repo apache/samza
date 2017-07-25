@@ -26,7 +26,7 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import org.apache.samza.message.EndOfStreamMessage;
 import org.apache.samza.message.WatermarkMessage;
-import org.apache.samza.message.MessageType;
+import org.apache.samza.message.IntermediateMessageType;
 import org.apache.samza.serializers.IntermediateMessageSerde;
 import org.apache.samza.serializers.Serde;
 import org.junit.Test;
@@ -96,7 +96,7 @@ public class TestIntermediateMessageSerde {
     TestUserMessage userMessage = new TestUserMessage(msg, 0, System.currentTimeMillis());
     byte[] bytes = imserde.toBytes(userMessage);
     TestUserMessage de = (TestUserMessage) imserde.fromBytes(bytes);
-    assertEquals(MessageType.of(de), MessageType.USER_MESSAGE);
+    assertEquals(IntermediateMessageType.of(de), IntermediateMessageType.USER_MESSAGE);
     assertEquals(de.getMessage(), msg);
     assertEquals(de.getOffset(), 0);
     assertTrue(de.getTimestamp() > 0);
@@ -109,7 +109,7 @@ public class TestIntermediateMessageSerde {
     WatermarkMessage watermark = new WatermarkMessage(System.currentTimeMillis(), taskName, 8);
     byte[] bytes = imserde.toBytes(watermark);
     WatermarkMessage de = (WatermarkMessage) imserde.fromBytes(bytes);
-    assertEquals(MessageType.of(de), MessageType.WATERMARK);
+    assertEquals(IntermediateMessageType.of(de), IntermediateMessageType.WATERMARK_MESSAGE);
     assertEquals(de.getTaskName(), taskName);
     assertEquals(de.getTaskCount(), 8);
     assertTrue(de.getTimestamp() > 0);
@@ -123,7 +123,7 @@ public class TestIntermediateMessageSerde {
     EndOfStreamMessage eos = new EndOfStreamMessage(taskName, 8);
     byte[] bytes = imserde.toBytes(eos);
     EndOfStreamMessage de = (EndOfStreamMessage) imserde.fromBytes(bytes);
-    assertEquals(MessageType.of(de), MessageType.END_OF_STREAM);
+    assertEquals(IntermediateMessageType.of(de), IntermediateMessageType.END_OF_STREAM_MESSAGE);
     assertEquals(de.getTaskName(), taskName);
     assertEquals(de.getTaskCount(), 8);
     assertEquals(de.getVersion(), 1);

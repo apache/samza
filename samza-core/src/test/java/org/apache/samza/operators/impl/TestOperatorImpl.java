@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -210,5 +211,22 @@ public class TestOperatorImpl {
      super(OpCode.INPUT, 1);
     }
   }
+
+  public static Set<OperatorImpl> getNextOperators(OperatorImpl op) {
+    return op.registeredOperators;
+  }
+
+  public static OperatorSpec.OpCode getOpCode(OperatorImpl op) {
+    return op.getOperatorSpec().getOpCode();
+  }
+
+  public static long getInputWatermark(OperatorImpl op) {
+    return op.getInputWatermarkTime();
+  }
+
+  public static long getOutputWatermark(OperatorImpl op) {
+    return op.getOutputWatermarkTime();
+  }
+
 }
 

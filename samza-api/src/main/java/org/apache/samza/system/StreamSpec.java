@@ -196,6 +196,10 @@ public class StreamSpec {
     return config.getOrDefault(propertyName, defaultValue);
   }
 
+  public SystemStream toSystemStream() {
+    return new SystemStream(systemName, physicalName);
+  }
+
   private void validateLogicalIdentifier(String identifierName, String identifierValue) {
     if (identifierValue == null || !identifierValue.matches("[A-Za-z0-9_-]+")) {
       throw new IllegalArgumentException(String.format("Identifier '%s' is '%s'. It must match the expression [A-Za-z0-9_-]+", identifierName, identifierValue));
