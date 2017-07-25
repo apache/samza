@@ -255,7 +255,7 @@ public class TestContainerProcessManager {
 
     // Allow container to run and update state
 
-    if (!allocator.awaitContainersStart(1,2, TimeUnit.SECONDS)) {
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
     assertFalse(taskManager.shouldShutdown());
@@ -374,7 +374,7 @@ public class TestContainerProcessManager {
     taskManager.onResourceAllocated(container);
 
     // Allow container to run and update state
-    if (!allocator.awaitContainersStart(1,2, TimeUnit.SECONDS)) {
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
 
