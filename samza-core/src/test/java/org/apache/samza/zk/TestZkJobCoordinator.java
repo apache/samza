@@ -19,6 +19,7 @@
 package org.apache.samza.zk;
 
 import java.util.HashMap;
+import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.util.NoOpMetricsRegistry;
@@ -32,10 +33,12 @@ public class TestZkJobCoordinator {
   @Test
   public void testFollowerShouldStopWhenNotPartOfGeneratedJobModel() {
     ZkKeyBuilder keyBuilder = Mockito.mock(ZkKeyBuilder.class);
+    ZkClient mockZkClient = Mockito.mock(ZkClient.class);
     Mockito.when(keyBuilder.getJobModelVersionBarrierPrefix()).thenReturn(TEST_BARRIER_ROOT);
 
     ZkUtils zkUtils = Mockito.mock(ZkUtils.class);
     Mockito.when(zkUtils.getKeyBuilder()).thenReturn(keyBuilder);
+    Mockito.when(zkUtils.getZkClient()).thenReturn(mockZkClient);
     Mockito.when(zkUtils.getJobModel(TEST_JOB_MODEL_VERSION)).thenReturn(new JobModel(new MapConfig(), new HashMap<>()));
 
     ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator(new MapConfig(), new NoOpMetricsRegistry(), zkUtils));
