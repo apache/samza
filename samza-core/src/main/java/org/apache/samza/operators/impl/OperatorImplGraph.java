@@ -179,7 +179,6 @@ public class OperatorImplGraph {
   private PartialJoinOperatorImpl createPartialJoinOperatorImpl(OperatorSpec prevOperatorSpec,
       JoinOperatorSpec joinOpSpec, Config config, TaskContext context, Clock clock) {
     Pair<PartialJoinFunction, PartialJoinFunction> partialJoinFunctions = getOrCreatePartialJoinFunctions(joinOpSpec);
-
     if (joinOpSpec.getLeftInputOpSpec().equals(prevOperatorSpec)) { // we got here from the left side of the join
       return new PartialJoinOperatorImpl(joinOpSpec, /* isLeftSide */ true,
           partialJoinFunctions.getLeft(), partialJoinFunctions.getRight(), config, context, clock);
