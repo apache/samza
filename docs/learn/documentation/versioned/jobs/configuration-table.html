@@ -1081,6 +1081,8 @@
                         <dl>
                             <dt><code>org.apache.samza.serializers.ByteSerdeFactory</code></dt>
                             <dd>A no-op serde which passes through the undecoded byte array.</dd>
+                            <dt><code>org.apache.samza.serializers.ByteBufferSerdeFactory</code></dt>
+                            <dd>Encodes <code>java.nio.ByteBuffer</code> objects.</dd>
                             <dt><code>org.apache.samza.serializers.IntegerSerdeFactory</code></dt>
                             <dd>Encodes <code>java.lang.Integer</code> objects as binary (4 bytes fixed-length big-endian encoding).</dd>
                             <dt><code>org.apache.samza.serializers.StringSerdeFactory</code></dt>
@@ -1090,7 +1092,11 @@
                             <dt><code>org.apache.samza.serializers.LongSerdeFactory</code></dt>
                             <dd>Encodes <code>java.lang.Long</code> as binary (8 bytes fixed-length big-endian encoding).</dd>
                             <dt><code>org.apache.samza.serializers.DoubleSerdeFactory</code></dt>
-                            <dd>Encodes <code>java.lang.Double</code> as binray (8 bytes double-precision float point).</dd>
+                            <dd>Encodes <code>java.lang.Double</code> as binary (8 bytes double-precision float point).</dd>
+                            <dt><code>org.apache.samza.serializers.UUIDSerdeFactory</code></dt>
+                            <dd>Encodes <code>java.util.UUID</code> objects.</dd>
+                            <dt><code>org.apache.samza.serializers.SerializableSerdeFactory</code></dt>
+                            <dd>Encodes <code>java.io.Serializable</code> objects.</dd>
                             <dt><code>org.apache.samza.serializers.MetricsSnapshotSerdeFactory</code></dt>
                             <dd>Encodes <code>org.apache.samza.metrics.reporter.MetricsSnapshot</code> objects (which are
                                 used for <a href="../container/metrics.html">reporting metrics</a>) as JSON.</dd>
