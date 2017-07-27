@@ -333,6 +333,8 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
   /// listener to handle session expiration
   class ZkSessionStateChangedListener implements IZkStateListener {
 
+    private static final String ZK_SESSION_ERROR = "ZK_SESSION_ERROR";
+
     @Override
     public void handleStateChanged(Watcher.Event.KeeperState state)
         throws Exception {
@@ -367,7 +369,7 @@ public class ZkJobCoordinator implements JobCoordinator, ZkControllerListener {
         throws Exception {
       // this means we cannot connect to zookeeper
       LOG.info("handleSessionEstablishmentError received for processor=" + processorId, error);
-      stop();
+      debounceTimer.scheduleAfterDebounceTime(ZK_SESSION_ERROR, 0, () -> stop());
     }
   }
 
