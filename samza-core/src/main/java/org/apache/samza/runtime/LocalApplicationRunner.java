@@ -29,6 +29,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.AsyncStreamTaskApplication;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamTaskApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -159,8 +161,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     processor.start();
   }
 
-  @Override
-  public void run(StreamApplication app) {
+  void runStreamApp(StreamApplication app) {
     try {
       // 1. initialize and plan
       ExecutionPlan plan = getExecutionPlan(app);
@@ -189,28 +190,35 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
-  @Override
-  public void run(StreamTaskApplication taskApplication) {
+  void runStreamTask(StreamTaskApplication taskApplication) {
 
   }
 
-  @Override
-  public void kill(StreamApplication streamApp) {
+  void runAsyncStreamTask(AsyncStreamTaskApplication taskApplication) {
+
+  }
+
+  void killStreamApp(StreamApplication streamApp) {
     processors.forEach(StreamProcessor::stop);
   }
 
-  @Override
-  public void kill(StreamTaskApplication streamApp) {
+  void killStreamTask(StreamTaskApplication streamTaskApp) {
 
   }
 
-  @Override
-  public ApplicationStatus status(StreamApplication streamApp) {
+  void killAsyncStreamTask(AsyncStreamTaskApplication asyncTaskApp) {
+
+  }
+
+  ApplicationStatus statusStreamApp(StreamApplication streamApp) {
     return appStatus;
   }
 
-  @Override
-  public ApplicationStatus status(StreamTaskApplication streamApp) {
+  ApplicationStatus statusStreamTask(StreamTaskApplication streamTaskApp) {
+    return null;
+  }
+
+  ApplicationStatus statusAsyncStreamTask(AsyncStreamTaskApplication asyncStreamTaskApplication) {
     return null;
   }
 
@@ -224,11 +232,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       LOG.error("Wait is interrupted by exception", e);
       throw new SamzaException(e);
     }
-  }
-
-  @Override
-  public StreamGraph createGraph() {
-    return new StreamGraphImpl(config);
   }
 
   /**

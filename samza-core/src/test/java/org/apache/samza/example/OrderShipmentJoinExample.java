@@ -20,11 +20,15 @@ package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KafkaSystem;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.StreamDescriptor;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -32,29 +36,41 @@ import java.time.Duration;
 /**
  * Simple 2-way stream-to-stream join example
  */
-public class OrderShipmentJoinExample implements StreamApplication {
-
-  @Override
-  public void init(StreamGraph graph, Config config) {
-    MessageStream<OrderRecord> orders = graph.getInputStream("orderStream", (k, m) -> (OrderRecord) m);
-    MessageStream<ShipmentRecord> shipments = graph.getInputStream("shipmentStream", (k, m) -> (ShipmentRecord) m);
-    OutputStream<String, FulFilledOrderRecord, FulFilledOrderRecord> joinedOrderShipmentStream =
-        graph.getOutputStream("joinedOrderShipmentStream", m -> m.orderId, m -> m);
-
-    orders
-        .join(shipments, new MyJoinFunction(), Duration.ofMinutes(1))
-        .sendTo(joinedOrderShipmentStream);
-  }
+public class OrderShipmentJoinExample {
 
   // local execution mode
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    LocalApplicationRunner localRunner = new LocalApplicationRunner(config);
-    localRunner.run(new OrderShipmentJoinExample());
+
+    KafkaSystem kafkaSystem = KafkaSystem.create("kafka")
+        .withBootstrapServers("localhost:9192")
+        .withConsumerProperties(config)
+        .withProducerProperties(config);
+
+    StreamDescriptor.Input<String, OrderRecord> orders = StreamDescriptor.<String, OrderRecord>input("orderStream")
+        .withKeySerde(new StringSerde("UTF-8"))
+        .withMsgSerde(new JsonSerde<>())
+        .from(kafkaSystem);
+    StreamDescriptor.Input<String, ShipmentRecord> shipments = StreamDescriptor.<String, ShipmentRecord>input("shipmentStream")
+        .withKeySerde(new StringSerde("UTF-8"))
+        .withMsgSerde(new JsonSerde<>())
+        .from(kafkaSystem);
+    StreamDescriptor.Output<String, FulFilledOrderRecord> fulfilledOrders = StreamDescriptor.<String, FulFilledOrderRecord>output("joinedOrderShipmentStream")
+        .withKeySerde(new StringSerde("UTF-8"))
+        .withMsgSerde(new JsonSerde<>())
+        .from(kafkaSystem);
+
+    StreamApplication app = StreamApplication.create(config);
+    app.open(orders)
+        .join(app.open(shipments), new MyJoinFunction(), Duration.ofMinutes(1))
+        .sendTo(app.open(fulfilledOrders, m -> m.orderId));
+
+    app.run();
+    app.waitForFinish();
   }
 
-  class MyJoinFunction implements JoinFunction<String, OrderRecord, ShipmentRecord, FulFilledOrderRecord> {
+  static class MyJoinFunction implements JoinFunction<String, OrderRecord, ShipmentRecord, FulFilledOrderRecord> {
     @Override
     public FulFilledOrderRecord apply(OrderRecord message, ShipmentRecord otherMessage) {
       return new FulFilledOrderRecord(message.orderId, message.orderTimeMs, otherMessage.shipTimeMs);
@@ -91,7 +107,7 @@ public class OrderShipmentJoinExample implements StreamApplication {
     }
   }
 
-  class FulFilledOrderRecord {
+  static class FulFilledOrderRecord {
     String orderId;
     long orderTimeMs;
     long shipTimeMs;

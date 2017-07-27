@@ -59,14 +59,14 @@ public class RepartitionExample {
         .from(kafkaSystem);
 
     StreamApplication app = StreamApplication.create(config).withDefaultIntermediateSystem(kafkaSystem);
-    app.open(input, (k, v) -> v)
+    app.open(input)
         .partitionBy(m->m.memberId)
         .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10),
             () -> 0, (m, c) -> c + 1)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING))
         .map(MyStreamOutput::new)
-        .sendTo(app.<String, MyStreamOutput, MyStreamOutput>open(output, m -> m.memberId, m -> m));
+        .sendTo(app.open(output, m -> m.memberId));
 
     app.run();
     app.waitForFinish();

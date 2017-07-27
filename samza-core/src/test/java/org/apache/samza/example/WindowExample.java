@@ -21,14 +21,19 @@ package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.KafkaSystem;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.StreamDescriptor;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.JsonSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
@@ -39,30 +44,37 @@ import java.util.function.Supplier;
  * Example implementation of a simple user-defined task w/ a window operator.
  *
  */
-public class WindowExample implements StreamApplication {
-
-  public void init(StreamGraph graph, Config config) {
-    Supplier<Integer> initialValue = () -> 0;
-    FoldLeftFunction<PageViewEvent, Integer> counter = (m, c) -> c == null ? 1 : c + 1;
-    MessageStream<PageViewEvent> inputStream = graph.getInputStream("inputStream", (k, m) -> (PageViewEvent) m);
-    OutputStream<String, Integer, WindowPane<Void, Integer>> outputStream = graph
-        .getOutputStream("outputStream", m -> m.getKey().getPaneId(), m -> m.getMessage());
-
-    // create a tumbling window that outputs the number of message collected every 10 minutes.
-    // also emit early results if either the number of messages collected reaches 30000, or if no new messages arrive
-    // for 1 minute.
-    inputStream
-        .window(Windows.tumblingWindow(Duration.ofMinutes(10), initialValue, counter)
-            .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))))
-        .sendTo(outputStream);
-  }
+public class WindowExample {
 
   // local execution mode
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    LocalApplicationRunner localRunner = new LocalApplicationRunner(config);
-    localRunner.run(new WindowExample());
+
+    KafkaSystem kafkaSystem = KafkaSystem.create("kafka")
+        .withBootstrapServers("localhost:9092")
+        .withProducerProperties(config)
+        .withConsumerProperties(config);
+
+    StreamDescriptor.Input<String, PageViewEvent> input = StreamDescriptor.<String, PageViewEvent>input("pageViewEvent")
+        .withKeySerde(new StringSerde("UFT-8"))
+        .withKeySerde(new JsonSerde<>())
+        .from(kafkaSystem);
+
+    StreamDescriptor.Output<String, Integer> output = StreamDescriptor.<String, Integer>output("pageViewEventWindowedCounter")
+        .withKeySerde(new StringSerde("UTF-8"))
+        .withMsgSerde(new IntegerSerde())
+        .from(kafkaSystem);
+
+    StreamApplication app = StreamApplication.create(config);
+
+    app.open(input)
+        .window(Windows.<PageViewEvent, Integer>tumblingWindow(Duration.ofMinutes(10), () -> 0, (m, c) -> c + 1)
+            .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))))
+        .sendTo(app.open(output, m -> m.getKey().getPaneId(), m -> m.getMessage()));
+
+    app.run();
+    app.waitForFinish();
   }
 
   class PageViewEvent {

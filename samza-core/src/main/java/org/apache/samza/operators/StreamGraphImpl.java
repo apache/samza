@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators;
 
-import org.apache.commons.lang3.tuple.Pair;
+import java.util.HashMap;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -26,7 +26,6 @@ import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.control.IOGraph;
-import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.StreamSpec;
 
 import java.util.Collection;
@@ -81,7 +80,15 @@ public class StreamGraphImpl implements StreamGraph {
   @Override
   public <K, V, M> OutputStream<K, V, M> getOutputStream(StreamDescriptor.Output<K, V> outputDescriptor,
                                                          Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
-    return new OutputStreamImpl<K, V, M>(outputDescriptor, keyExtractor, msgExtractor);
+    if (outputStreams.containsKey(outputDescriptor.getStreamSpec())) {
+      throw new IllegalStateException("getOutputStream() invoked multiple times "
+          + "with the same streamId: " + outputDescriptor.getStreamId());
+    }
+
+    StreamSpec streamSpec = outputDescriptor.getStreamSpec();
+    OutputStreamImpl<K, V, M> outputStrm = new OutputStreamImpl<K, V, M>(outputDescriptor, keyExtractor, msgExtractor);
+    outputStreams.put(streamSpec, outputStrm);
+    return outputStrm;
   }
 
   @Override
@@ -187,6 +194,24 @@ public class StreamGraphImpl implements StreamGraph {
 
     return windowOrJoinSpecs.size() != 0;
   }
+
+  public StreamSpec getStreamSpec(String streamId) {
+    Map<String, StreamSpec> streamIdMap = inputOperators.entrySet().stream()
+        .collect(HashMap::new, (c1, e) -> c1.put(e.getKey().getId(), e.getKey()), HashMap::putAll);
+    if (streamIdMap.containsKey(streamId)) {
+      return streamIdMap.get(streamId);
+    }
+
+    streamIdMap = outputStreams.entrySet().stream()
+        .collect(HashMap::new, (c1, e) -> c1.put(e.getKey().getId(), e.getKey()), HashMap::putAll);
+    if (streamIdMap.containsKey(streamId)) {
+      return streamIdMap.get(streamId);
+    }
+
+    return null;
+  }
+
+
 
   public IOGraph toIOGraph() {
     return IOGraph.buildIOGraph(this);

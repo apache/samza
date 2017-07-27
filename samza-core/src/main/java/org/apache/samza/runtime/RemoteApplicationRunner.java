@@ -20,7 +20,9 @@
 package org.apache.samza.runtime;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.AsyncStreamTaskApplication;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamTaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.execution.ExecutionPlan;
@@ -41,17 +43,21 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     super(config);
   }
 
-  @Override
+  @Deprecated
   public void runTask() {
     throw new UnsupportedOperationException("Running StreamTask is not implemented for RemoteReplicationRunner");
+  }
+
+  @Override
+  public void waitForFinish() {
+    // TODO: add life cycle listner and the corresponding wait listner for local process to shutdown
   }
 
   /**
    * Run the {@link StreamApplication} on the remote cluster
    * @param app a StreamApplication
    */
-  @Override
-  public void run(StreamApplication app) {
+  void runStreamApp(StreamApplication app) {
     try {
       // 1. initialize and plan
       ExecutionPlan plan = getExecutionPlan(app);
@@ -72,7 +78,16 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   }
 
   @Override
-  public void kill(StreamApplication app) {
+  void runStreamTask(StreamTaskApplication app) {
+    // TODO: implement remote job runner to submit the task-based Samza job
+  }
+
+  @Override
+  void runAsyncStreamTask(AsyncStreamTaskApplication app) {
+    // TODO: implement remote job runner to submit the task-based Samza job
+  }
+
+  void killStreamApp(StreamApplication app) {
     try {
       ExecutionPlan plan = getExecutionPlan(app);
 
@@ -86,8 +101,15 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     }
   }
 
-  @Override
-  public ApplicationStatus status(StreamApplication app) {
+  void killStreamTask(StreamTaskApplication app) {
+    // TODO: implement kill with remote job runner to stop the task-based Samza job
+  }
+
+  void killAsyncStreamTask(AsyncStreamTaskApplication app) {
+    // TODO: implement kill with remote job runner to stop the task-based Samza job
+  }
+
+  ApplicationStatus statusStreamApp(StreamApplication app) {
     try {
       boolean hasNewJobs = false;
       boolean hasRunningJobs = false;
@@ -132,5 +154,15 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     } catch (Throwable t) {
       throw new SamzaException("Failed to get status for application", t);
     }
+  }
+
+  ApplicationStatus statusStreamTask(StreamTaskApplication app) {
+    // TODO: implement status command to acquire the task-based Samza job status
+    return null;
+  }
+
+  ApplicationStatus statusAsyncStreamTask(AsyncStreamTaskApplication app) {
+    // TODO: implement status command to acquire the task-based Samza job status
+    return null;
   }
 }

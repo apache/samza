@@ -19,6 +19,8 @@
 package org.apache.samza.runtime;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.application.ApplicationBase;
+import org.apache.samza.application.AsyncStreamTaskApplication;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamTaskApplication;
 import org.apache.samza.config.Config;
@@ -83,6 +85,7 @@ public abstract class ApplicationRunner {
    *
    * NOTE. this interface will most likely change in the future.
    */
+  @Deprecated
   @InterfaceStability.Evolving
   public abstract void runTask();
 
@@ -93,9 +96,7 @@ public abstract class ApplicationRunner {
    *
    * @param streamApp  the user-defined {@link StreamApplication} object
    */
-  public abstract void run(StreamApplication streamApp);
-
-  public abstract void run(StreamTaskApplication taskApplication);
+  public abstract void run(ApplicationBase streamApp);
 
   /**
    * Kill the Samza jobs represented by {@link StreamApplication}
@@ -103,9 +104,7 @@ public abstract class ApplicationRunner {
    *
    * @param streamApp  the user-defined {@link StreamApplication} object
    */
-  public abstract void kill(StreamApplication streamApp);
-
-  public abstract void kill(StreamTaskApplication streamApp);
+  public abstract void kill(ApplicationBase streamApp);
 
   /**
    * Get the collective status of the Samza jobs represented by {@link StreamApplication}.
@@ -114,12 +113,10 @@ public abstract class ApplicationRunner {
    * @param streamApp  the user-defined {@link StreamApplication} object
    * @return the status of the application
    */
-  public abstract ApplicationStatus status(StreamApplication streamApp);
-
-  public abstract ApplicationStatus status(StreamTaskApplication streamApp);
+  public abstract ApplicationStatus status(ApplicationBase streamApp);
 
   /**
-   * Block until the application finishes
+   * Block until the local process for the application finishes
    */
   public abstract void waitForFinish();
 

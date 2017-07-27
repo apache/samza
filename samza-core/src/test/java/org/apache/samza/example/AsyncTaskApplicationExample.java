@@ -1,31 +1,27 @@
 package org.apache.samza.example;
 
-import org.apache.samza.application.StreamTaskApplication;
+import java.util.Collections;
+import org.apache.samza.application.AsyncStreamTaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KafkaSystem;
 import org.apache.samza.operators.StreamDescriptor;
-import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.task.AsyncStreamTask;
+import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.util.CommandLine;
 
-import java.util.Collections;
 
 /**
- * Created by yipan on 6/21/17.
+ * Created by yipan on 7/24/17.
  */
-public class TaskApplicationExample {
-
-  static class MyStreamTaskFactory implements StreamTaskFactory {
+public class AsyncTaskApplicationExample {
+  static class MyStreamTaskFactory implements AsyncStreamTaskFactory {
 
     @Override
-    public StreamTask createInstance() {
-      return (envelope, collector, coordinator) -> {
+    public AsyncStreamTask createInstance() {
+      return (envelope, collector, coordinator, callback) -> {
+        callback.complete();
         return;
       };
     }
@@ -36,7 +32,7 @@ public class TaskApplicationExample {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
 
-    StreamTaskApplication app = StreamTaskApplication.create(config, new MyStreamTaskFactory());
+    AsyncStreamTaskApplication app = AsyncStreamTaskApplication.create(config, new MyStreamTaskFactory());
 
     KafkaSystem kafkaSystem = KafkaSystem.create("kafka")
         .withBootstrapServers("localhost:9192")

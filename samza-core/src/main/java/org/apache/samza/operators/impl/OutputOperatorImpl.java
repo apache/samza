@@ -40,7 +40,7 @@ import org.apache.samza.task.TaskCoordinator;
 class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
 
   private final OutputOperatorSpec<M> outputOpSpec;
-  private final OutputStreamImpl<M> outputStream;
+  private final OutputStreamImpl<?, ?, M> outputStream;
 
   OutputOperatorImpl(OutputOperatorSpec<M> outputOpSpec) {
     this.outputOpSpec = outputOpSpec;
@@ -57,8 +57,10 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
     // TODO: SAMZA-1148 - need to find a way to directly pass in the serde class names
     SystemStream systemStream = new SystemStream(outputStream.getStreamSpec().getSystemName(),
         outputStream.getStreamSpec().getPhysicalName());
-    Pair<Object, Object> keyValuePair = outputStream.send(message);
-    collector.send(new OutgoingMessageEnvelope(systemStream, keyValuePair.getKey(), keyValuePair.getValue()));
+    collector.send(
+        new OutgoingMessageEnvelope(systemStream,
+        outputStream.getKeyExtractor().apply(message),
+        outputStream.getMsgExtractor().apply(message)));
     return Collections.emptyList();
   }
 

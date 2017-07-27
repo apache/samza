@@ -18,7 +18,6 @@
  */
 package org.apache.samza.application;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.ApplicationStatus;
@@ -28,8 +27,6 @@ import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.task.StreamTask;
 
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -78,21 +75,33 @@ import java.util.function.Function;
  * See {@link InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
  */
 @InterfaceStability.Unstable
-public class StreamApplication {
+public class StreamApplication extends ApplicationBase {
 
-  private final StreamGraph graph;
-  private final ApplicationRunner runner;
+  /*package private*/
+  final StreamGraph graph;
 
   public static StreamApplication create(Config config) {
     ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-
     return new StreamApplication(runner);
-
   }
 
   private StreamApplication(ApplicationRunner runner) {
+    super(runner);
     this.graph = runner.createGraph();
-    this.runner = runner;
+  }
+
+  /**
+   * Gets the input {@link MessageStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param <K> the type of key in the incoming message
+   * @param <V> the type of message in the incoming message
+   * @return the input {@link MessageStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   */
+  public <K, V> MessageStream<V> open(StreamDescriptor.Input<K, V> input) {
+    return this.graph.getInputStream(input, (k, v) -> v);
   }
 
   /**
@@ -125,6 +134,20 @@ public class StreamApplication {
     return this.graph.getOutputStream(output, keyExtractor, msgExtractor);
   }
 
+  /**
+   * Gets the {@link OutputStream} corresponding to the {@code streamId}.
+   * <p>
+   * Multiple invocations of this method with the same {@code streamId} will throw an {@link IllegalStateException}.
+   *
+   * @param <K> the type of key in the outgoing message
+   * @param <V> the type of message in the outgoing message
+   * @return the output {@link MessageStream}
+   * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
+   */
+  public <K, V> OutputStream<K, V, V> open(StreamDescriptor.Output<K, V> output, Function<? super V, ? extends K> keyExtractor) {
+    return this.graph.getOutputStream(output, keyExtractor, Function.identity());
+  }
+
   public StreamApplication withDefaultIntermediateSystem(IOSystem defaultSystem) {
     this.graph.setDefaultIntermediateSystem(defaultSystem);
     return this;
@@ -141,48 +164,6 @@ public class StreamApplication {
   public StreamApplication withContextManager(ContextManager contextManager) {
     this.graph.setContextManager(contextManager);
     return this;
-  }
-
-  /**
-   * Deploy and run the Samza jobs to execute {@link StreamApplication}.
-   * It is non-blocking so it doesn't wait for the application running.
-   *
-   */
-  public void run() {
-    this.runner.run(this);
-  }
-
-  /**
-   * Kill the Samza jobs represented by {@link StreamApplication}
-   * It is non-blocking so it doesn't wait for the application stopping.
-   *
-   */
-  public void kill() {
-    this.runner.kill(this);
-  }
-
-  /**
-   * Get the collective status of the Samza jobs represented by {@link StreamApplication}.
-   * Returns {@link ApplicationRunner} running if all jobs are running.
-   *
-   * @return the status of the application
-   */
-  public ApplicationStatus status() {
-    return this.runner.status(this);
-  }
-
-  /**
-   * Wait till the current runner in the local JVM finishes, when returns, the stream application in the local JVM has
-   * completed either successfully or with failure.
-   *
-   * <p>
-   * Note this method returns as the runner in the current JVM finishes. If the runner is a local runner, it means that the
-   * local stream application has finished; if the runner is a remote runner, it means that the stream application has
-   * finished submitting to the cluster manager (e.g. YARN RM).
-   * </p>
-   */
-  public void waitForFinish() {
-    this.runner.waitForFinish();
   }
 
   public StreamApplication withMetricsReports(Map<String, MetricsReporter> reporterMap) {
