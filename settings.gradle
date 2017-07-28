@@ -47,18 +47,18 @@ rootProject.children.each {
 }
 
 /**
- * Skips execution of all tasks for the project 'samza-test'.
- * To include `samza-test`, initiate gradle build by setting the property 'includeSamzaTest'.
- * To build with samza-test: './gradlew clean build -PincludeSamzaTest'
+ * Skips execution of all integration tests in project 'samza-test'.
+ * To run integration tests in samza-test: './gradlew clean build -PrunIntegrationTests'
  */
-def propertyName = "includeSamzaTest"
-def projectName = "samza-test"
 gradle.taskGraph.whenReady { taskGraph ->
   taskGraph.getAllTasks().each { task ->
     def project = task.getProject()
     task.onlyIf {
-      // Closure, returns false for samza-test(will get filtered) and true for all other modules(will remain unfiltered).
-      project.hasProperty(propertyName) || !project.getName().contains(projectName)
+      /**
+       * Behaves as pass through filter for all tasks when `runIntegrationTests` property is turned on.
+       * Filters 'test' task of 'samza-test' project otherwise.
+       */
+      project.hasProperty("runIntegrationTests") || !(project.getName().contains("samza-test") && task.getName() == "test")
     }
   }
 }
