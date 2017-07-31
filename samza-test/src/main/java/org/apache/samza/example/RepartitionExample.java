@@ -16,35 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.KafkaSystem;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamDescriptor;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.functions.FoldLeftFunction;
+import org.apache.samza.operators.*;
 import org.apache.samza.operators.triggers.Triggers;
+import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.runtime.LocalApplicationRunner;
-import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
-import java.util.function.Supplier;
 
 
 /**
- * Example implementation of a simple user-defined task w/ a window operator.
- *
+ * Example {@link StreamApplication} code to test the API methods with re-partition operator
  */
-public class WindowExample {
+public class RepartitionExample {
 
   // local execution mode
   public static void main(String[] args) throws Exception {
@@ -52,38 +44,54 @@ public class WindowExample {
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
 
     KafkaSystem kafkaSystem = KafkaSystem.create("kafka")
-        .withBootstrapServers("localhost:9092")
-        .withProducerProperties(config)
-        .withConsumerProperties(config);
+        .withBootstrapServers("localhost:9192")
+        .withConsumerProperties(config)
+        .withProducerProperties(config);
 
-    StreamDescriptor.Input<String, PageViewEvent> input = StreamDescriptor.<String, PageViewEvent>input("pageViewEvent")
-        .withKeySerde(new StringSerde("UFT-8"))
-        .withKeySerde(new JsonSerde<>())
-        .from(kafkaSystem);
-
-    StreamDescriptor.Output<String, Integer> output = StreamDescriptor.<String, Integer>output("pageViewEventWindowedCounter")
+    StreamDescriptor.Input<String, PageViewEvent> input = StreamDescriptor.<String, PageViewEvent>input("myPageViewEevent")
         .withKeySerde(new StringSerde("UTF-8"))
-        .withMsgSerde(new IntegerSerde())
+        .withMsgSerde(new JsonSerde<>())
+        .from(kafkaSystem);
+    StreamDescriptor.Output<String, MyStreamOutput> output = StreamDescriptor.<String, MyStreamOutput>output("pageViewEventPerMemberStream")
+        .withKeySerde(new StringSerde("UTF-8"))
+        .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
 
-    StreamApplication app = StreamApplication.create(config);
-
+    StreamApplication app = StreamApplication.create(config).withDefaultIntermediateSystem(kafkaSystem);
     app.open(input)
-        .window(Windows.<PageViewEvent, Integer>tumblingWindow(Duration.ofMinutes(10), () -> 0, (m, c) -> c + 1)
-            .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))))
-        .sendTo(app.open(output, m -> m.getKey().getPaneId(), m -> m.getMessage()));
+        .partitionBy(m->m.memberId)
+        .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10),
+            () -> 0, (m, c) -> c + 1)
+            .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
+            .setAccumulationMode(AccumulationMode.DISCARDING))
+        .map(MyStreamOutput::new)
+        .sendTo(app.open(output, m -> m.memberId));
 
     app.run();
     app.waitForFinish();
   }
 
   class PageViewEvent {
-    String key;
+    String pageId;
+    String memberId;
     long timestamp;
 
-    public PageViewEvent(String key, long timestamp) {
-      this.key = key;
+    PageViewEvent(String pageId, String memberId, long timestamp) {
+      this.pageId = pageId;
+      this.memberId = memberId;
       this.timestamp = timestamp;
+    }
+  }
+
+  static class MyStreamOutput {
+    String memberId;
+    long timestamp;
+    int count;
+
+    MyStreamOutput(WindowPane<String, Integer> m) {
+      this.memberId = m.getKey().getKey();
+      this.timestamp = Long.valueOf(m.getKey().getPaneId());
+      this.count = m.getMessage();
     }
   }
 }

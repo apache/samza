@@ -19,16 +19,11 @@
 package org.apache.samza.example;
 
 
-import com.google.common.collect.ImmutableList;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.KafkaSystem;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
+import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.StreamDescriptor;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.FlatMapFunction;
-import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.KeyValueStore;
@@ -60,7 +55,7 @@ public class KeyValueStoreExample {
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
-    StreamDescriptor.Output<String, StatsOutput> statsStream = StreamDescriptor.<String, StatsOutput>output("pageViewEventStream")
+    StreamDescriptor.Output<String, StatsOutput> statsStream = StreamDescriptor.<String, StatsOutput>output("pageViewEventStatsStream")
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
@@ -92,6 +87,9 @@ public class KeyValueStoreExample {
       long wndTimestamp = (long) Math.floor(TimeUnit.MILLISECONDS.toMinutes(message.timestamp) / 5) * 5;
       String wndKey = String.format("%s-%d", message.memberId, wndTimestamp);
       StatsWindowState curState = this.statsStore.get(wndKey);
+      if (curState == null) {
+        curState = new StatsWindowState();
+      }
       curState.newCount++;
       long curTimeMs = System.currentTimeMillis();
       if (curState.newCount > 0 && curState.timeAtLastOutput + timeoutMs < curTimeMs) {

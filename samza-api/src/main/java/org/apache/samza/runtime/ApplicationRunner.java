@@ -107,6 +107,8 @@ public abstract class ApplicationRunner {
     return this.getAppRunnerInternal(streamApp).status();
   }
 
+  public abstract void waitForFinish();
+
   /**
    * Create an empty {@link StreamGraph} object to instantiate the user defined operator DAG.
    *

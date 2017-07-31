@@ -18,9 +18,11 @@
  */
 package org.apache.samza.example;
 
+import java.time.Duration;
+import java.util.HashMap;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.KafkaSystem;
+import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.StreamDescriptor;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
@@ -30,13 +32,11 @@ import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
-import java.time.Duration;
-
 
 /**
  * Example code to implement window-based counter
  */
-public class PageViewCounterExample {
+public class AppWithGlobalConfigExample {
 
   // local execution mode
   public static void main(String[] args) {
@@ -57,7 +57,7 @@ public class PageViewCounterExample {
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
 
-    StreamApplication app = StreamApplication.create(config);
+    StreamApplication app = StreamApplication.create(config).withMetricsReporters(new HashMap<>());
     app.open(input)
         .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), () -> 0, (m, c) -> c + 1)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))

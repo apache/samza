@@ -20,4 +20,5 @@ package org.apache.samza.operators;
 
 
 public interface IOSystem {
+  String getSystemName();
 }

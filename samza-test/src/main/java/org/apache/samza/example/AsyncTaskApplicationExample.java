@@ -21,7 +21,7 @@ package org.apache.samza.example;
 import java.util.Collections;
 import org.apache.samza.application.AsyncStreamTaskApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.KafkaSystem;
+import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.StreamDescriptor;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;

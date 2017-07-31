@@ -18,28 +18,24 @@
  */
 package org.apache.samza.example;
 
-import com.sun.org.glassfish.external.statistics.Stats;
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpStatus;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.BasicHttpEntity;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
-import org.apache.samza.operators.KafkaSystem;
+import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.StreamDescriptor;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.serializers.JsonSerde;
@@ -52,6 +48,9 @@ import org.apache.samza.util.CommandLine;
  * Example code using {@link KeyValueStore} to implement event-time window
  */
 public class AppWithGlobalContextExample {
+
+  // global variable to be used by the user-defined operators later
+  private static CloseableHttpClient client = HttpClientBuilder.create().build();
 
   // local execution mode
   public static void main(String[] args) throws Exception {
@@ -67,29 +66,12 @@ public class AppWithGlobalContextExample {
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
-    StreamDescriptor.Output<String, StatsOutput> statsStream = StreamDescriptor.<String, StatsOutput>output("pageViewEventStream")
+    StreamDescriptor.Output<String, StatsOutput> statsStream = StreamDescriptor.<String, StatsOutput>output("pageViewEventStatsStream")
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
 
-    CloseableHttpClient client = HttpClientBuilder.create().build();
-
-    StreamApplication app = StreamApplication.create(config).withContextManager(new ContextManager() {
-
-      @Override
-      public void init(Config config, TaskContext context) {
-        context.setUserContext(client);
-      }
-
-      @Override
-      public void close() {
-        try {
-          client.close();
-        } catch (IOException e) {
-          throw new RuntimeException("HttpClient IOException.", e);
-        }
-      }
-    });
+    StreamApplication app = StreamApplication.create(config);
 
     app.open(pageViewEventInput)
         .partitionBy(m -> m.memberId)
@@ -102,7 +84,6 @@ public class AppWithGlobalContextExample {
 
   static class MyStatsCounter implements FlatMapFunction<PageViewEvent, StatsOutput> {
     private final int timeoutMs = 10 * 60 * 1000;
-    private CloseableHttpClient storeClient;
 
     class StatsWindowState {
       int lastCount = 0;
@@ -113,9 +94,15 @@ public class AppWithGlobalContextExample {
     StatsWindowState getWindowState(String wndKey) {
       try {
         HttpGet getWndState = new HttpGet(String.format("http://remote-store/%s", wndKey));
-        CloseableHttpResponse response = this.storeClient.execute(getWndState);
-        BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
+        CloseableHttpResponse response = client.execute(getWndState);
+        if (response.getStatusLine().getStatusCode() == HttpStatus.SC_NOT_FOUND) {
+          return null;
+        }
+        if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+          throw new RuntimeException("Error in getting window state. Status code: " + response.getStatusLine().getStatusCode());
+        }
 
+        BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
         StringBuffer result = new StringBuffer();
         String line = "";
         while ((line = rd.readLine()) != null) {
@@ -132,7 +119,7 @@ public class AppWithGlobalContextExample {
         HttpPost postWndState = new HttpPost(String.format("http://remote-store/%s", wndKey));
         postWndState.setEntity(new ByteArrayEntity(new JsonSerde<StatsWindowState>().toBytes(state)));
 
-        CloseableHttpResponse response = this.storeClient.execute(postWndState);
+        CloseableHttpResponse response = client.execute(postWndState);
         if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
           throw new RuntimeException("Error in posting window state. Status code: " + response.getStatusLine().getStatusCode());
         }
@@ -147,6 +134,9 @@ public class AppWithGlobalContextExample {
       long wndTimestamp = (long) Math.floor(TimeUnit.MILLISECONDS.toMinutes(message.timestamp) / 5) * 5;
       String wndKey = String.format("%s-%d", message.memberId, wndTimestamp);
       StatsWindowState curState = getWindowState(wndKey);
+      if (curState == null) {
+        curState = new StatsWindowState();
+      }
       curState.newCount++;
       long curTimeMs = System.currentTimeMillis();
       if (curState.newCount > 0 && curState.timeAtLastOutput + timeoutMs < curTimeMs) {
@@ -158,11 +148,6 @@ public class AppWithGlobalContextExample {
       // update counter w/o generating output
       putWindowState(wndKey, curState);
       return outputStats;
-    }
-
-    @Override
-    public void init(Config config, TaskContext context) {
-      this.storeClient = (CloseableHttpClient) context.getUserContext();
     }
   }
 

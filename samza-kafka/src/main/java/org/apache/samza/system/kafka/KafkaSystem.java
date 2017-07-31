@@ -16,22 +16,30 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.system.kafka;
 
 import org.apache.samza.config.Config;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.samza.operators.IOSystem;
 
 
 public class KafkaSystem implements IOSystem {
+
   private static Map<String, KafkaSystem> kafkaSystems = new HashMap<>();
+
+  private final String systemName;
+
+  private KafkaSystem(String systemName) {
+    this.systemName = systemName;
+  }
 
   public static KafkaSystem create(String systemId) {
     if (kafkaSystems.containsKey(systemId)) {
       return kafkaSystems.get(systemId);
     }
-    KafkaSystem system = new KafkaSystem();
+    KafkaSystem system = new KafkaSystem(systemId);
     kafkaSystems.putIfAbsent(systemId, system);
     return kafkaSystems.get(systemId);
   }
@@ -46,5 +54,10 @@ public class KafkaSystem implements IOSystem {
 
   public KafkaSystem withProducerProperties(Config producerConfig) {
     return this;
+  }
+
+  @Override
+  public String getSystemName() {
+    return this.systemName;
   }
 }

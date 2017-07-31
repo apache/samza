@@ -20,27 +20,26 @@ package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.*;
+import org.apache.samza.system.kafka.KafkaSystem;
+import org.apache.samza.operators.StreamDescriptor;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
 import java.time.Duration;
-import java.util.function.Supplier;
 
 
 /**
- * Example {@link StreamApplication} code to test the API methods with re-partition operator
+ * Example code to implement window-based counter
  */
-public class RepartitionExample {
+public class PageViewCounterExample {
 
   // local execution mode
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
 
@@ -53,19 +52,17 @@ public class RepartitionExample {
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
-    StreamDescriptor.Output<String, MyStreamOutput> output = StreamDescriptor.<String, MyStreamOutput>output("pageViewEventPerMemberStream")
+    StreamDescriptor.Output<String, PageViewCount> output = StreamDescriptor.<String, PageViewCount>output("pageViewEventPerMemberStream")
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
 
-    StreamApplication app = StreamApplication.create(config).withDefaultIntermediateSystem(kafkaSystem);
+    StreamApplication app = StreamApplication.create(config);
     app.open(input)
-        .partitionBy(m->m.memberId)
-        .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10),
-            () -> 0, (m, c) -> c + 1)
+        .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), () -> 0, (m, c) -> c + 1)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING))
-        .map(MyStreamOutput::new)
+        .map(PageViewCount::new)
         .sendTo(app.open(output, m -> m.memberId));
 
     app.run();
@@ -84,12 +81,12 @@ public class RepartitionExample {
     }
   }
 
-  static class MyStreamOutput {
+  static class PageViewCount {
     String memberId;
     long timestamp;
     int count;
 
-    MyStreamOutput(WindowPane<String, Integer> m) {
+    PageViewCount(WindowPane<String, Integer> m) {
       this.memberId = m.getKey().getKey();
       this.timestamp = Long.valueOf(m.getKey().getPaneId());
       this.count = m.getMessage();

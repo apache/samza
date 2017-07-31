@@ -19,20 +19,25 @@
 
 package org.apache.samza.example;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.KafkaSystem;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
+import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.StreamDescriptor;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.operators.triggers.Triggers;
+import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.util.CommandLine;
 
-public class MergeExample {
+import java.time.Duration;
+
+
+/**
+ * Example implementation of a simple user-defined task w/ a window operator.
+ *
+ */
+public class WindowExample {
 
   // local execution mode
   public static void main(String[] args) throws Exception {
@@ -41,36 +46,37 @@ public class MergeExample {
 
     KafkaSystem kafkaSystem = KafkaSystem.create("kafka")
         .withBootstrapServers("localhost:9092")
-        .withConsumerProperties(config)
-        .withProducerProperties(config);
+        .withProducerProperties(config)
+        .withConsumerProperties(config);
 
-    StreamDescriptor.Input<String, PageViewEvent> input1 = StreamDescriptor.<String, PageViewEvent>input("viewStream1")
-        .withKeySerde(new StringSerde("UTF-8"))
-        .withMsgSerde(new JsonSerde<>())
+    StreamDescriptor.Input<String, PageViewEvent> input = StreamDescriptor.<String, PageViewEvent>input("pageViewEvent")
+        .withKeySerde(new StringSerde("UFT-8"))
+        .withKeySerde(new JsonSerde<>())
         .from(kafkaSystem);
-    StreamDescriptor.Input<String, PageViewEvent> input2 = StreamDescriptor.<String, PageViewEvent>input("viewStream2")
+
+    StreamDescriptor.Output<String, Integer> output = StreamDescriptor.<String, Integer>output("pageViewEventWindowedCounter")
         .withKeySerde(new StringSerde("UTF-8"))
-        .withMsgSerde(new JsonSerde<>())
-        .from(kafkaSystem);
-    StreamDescriptor.Input<String, PageViewEvent> input3 = StreamDescriptor.<String, PageViewEvent>input("viewStream3")
-        .withKeySerde(new StringSerde("UTF-8"))
-        .withMsgSerde(new JsonSerde<>())
-        .from(kafkaSystem);
-    StreamDescriptor.Output<String, PageViewEvent> output = StreamDescriptor.<String, PageViewEvent>output("mergedStream")
-        .withKeySerde(new StringSerde("UTF-8"))
-        .withMsgSerde(new JsonSerde<>())
+        .withMsgSerde(new IntegerSerde())
         .from(kafkaSystem);
 
     StreamApplication app = StreamApplication.create(config);
-    MessageStream.mergeAll(ImmutableList.of(app.open(input1), app.open(input2), app.open(input3)))
-        .sendTo(app.open(output, m -> m.pageId));
+
+    app.open(input)
+        .window(Windows.<PageViewEvent, Integer>tumblingWindow(Duration.ofMinutes(10), () -> 0, (m, c) -> c + 1)
+            .setLateTrigger(Triggers.any(Triggers.count(30000), Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))))
+        .sendTo(app.open(output, m -> m.getKey().getPaneId(), m -> m.getMessage()));
 
     app.run();
     app.waitForFinish();
   }
 
   class PageViewEvent {
-    String pageId;
-    long viewTimestamp;
+    String key;
+    long timestamp;
+
+    public PageViewEvent(String key, long timestamp) {
+      this.key = key;
+      this.timestamp = timestamp;
+    }
   }
 }

@@ -119,7 +119,9 @@ public class StreamApplication extends ApplicationBase {
    * @return the input {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  public <K, V, M> MessageStream<M> open(StreamDescriptor.Input<K, V> input, BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
+  public <K, V, M> MessageStream<M> open(
+      StreamDescriptor.Input<K, V> input,
+      BiFunction<? super K, ? super V, ? extends M> msgBuilder) {
     return this.graph.getInputStream(input, msgBuilder);
   }
 
@@ -134,7 +136,10 @@ public class StreamApplication extends ApplicationBase {
    * @return the output {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  public <K, V, M> OutputStream<K, V, M> open(StreamDescriptor.Output<K, V> output, Function<? super M, ? extends K> keyExtractor, Function<? super M, ? extends V> msgExtractor) {
+  public <K, V, M> OutputStream<K, V, M> open(
+      StreamDescriptor.Output<K, V> output,
+      Function<? super M, ? extends K> keyExtractor,
+      Function<? super M, ? extends V> msgExtractor) {
     return this.graph.getOutputStream(output, keyExtractor, msgExtractor);
   }
 
@@ -148,7 +153,9 @@ public class StreamApplication extends ApplicationBase {
    * @return the output {@link MessageStream}
    * @throws IllegalStateException when invoked multiple times with the same {@code streamId}
    */
-  public <K, V> OutputStream<K, V, V> open(StreamDescriptor.Output<K, V> output, Function<? super V, ? extends K> keyExtractor) {
+  public <K, V> OutputStream<K, V, V> open(
+      StreamDescriptor.Output<K, V> output,
+      Function<? super V, ? extends K> keyExtractor) {
     return this.graph.getOutputStream(output, keyExtractor, Function.identity());
   }
 

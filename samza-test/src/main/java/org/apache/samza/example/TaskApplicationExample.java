@@ -20,16 +20,12 @@ package org.apache.samza.example;
 
 import org.apache.samza.application.StreamTaskApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.KafkaSystem;
+import org.apache.samza.system.kafka.KafkaSystem;
 import org.apache.samza.operators.StreamDescriptor;
-import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.util.CommandLine;
 
 import java.util.Collections;
