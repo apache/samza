@@ -19,7 +19,6 @@
 
 package org.apache.samza.runtime;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -31,8 +30,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.AsyncStreamTaskApplication;
+import org.apache.samza.application.AsyncStreamTaskApplicationInternal;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.application.StreamTaskApplication;
+import org.apache.samza.application.StreamTaskApplicationInternal;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -43,8 +45,6 @@ import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.StreamGraphImpl;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
 import org.apache.samza.system.StreamSpec;
@@ -143,83 +143,148 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
   }
 
   @Override
+  @Deprecated
   public void runTask() {
-    JobConfig jobConfig = new JobConfig(this.config);
 
-    // validation
-    String taskName = new TaskConfig(config).getTaskClass().getOrElse(defaultValue(null));
-    if (taskName == null) {
-      throw new SamzaException("Neither APP nor task.class are defined defined");
-    }
-    LOG.info("LocalApplicationRunner will run " + taskName);
-    LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
-
-    StreamProcessor processor = createStreamProcessor(jobConfig, null, listener);
-
-    numProcessorsToStart.set(1);
-    listener.setProcessor(processor);
-    processor.start();
   }
 
-  void runStreamApp(StreamApplication app) {
-    try {
-      // 1. initialize and plan
-      ExecutionPlan plan = getExecutionPlan(app);
-      writePlanJsonFile(plan.getPlanAsJson());
+  private class StreamTaskAppRunner implements ApplicationRunnerInternal {
+    private final StreamTaskApplication app;
 
-      // 2. create the necessary streams
-      createStreams(plan.getIntermediateStreams());
+    StreamTaskAppRunner(StreamTaskApplication app) {
+      this.app = app;
+    }
 
-      // 3. create the StreamProcessors
-      if (plan.getJobConfigs().isEmpty()) {
-        throw new SamzaException("No jobs to run.");
+    @Override
+    public void run() {
+      JobConfig jobConfig = new JobConfig(config);
+
+      // validation
+      String taskName = new TaskConfig(config).getTaskClass().getOrElse(defaultValue(null));
+      if (taskName == null) {
+        throw new SamzaException("Neither APP nor task.class are defined defined");
       }
-      plan.getJobConfigs().forEach(jobConfig -> {
+      LOG.info("LocalApplicationRunner will run " + taskName);
+      LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
+
+      StreamProcessor processor = createStreamProcessor(jobConfig, new StreamTaskApplicationInternal(app).getTaskFactory(), listener);
+
+      numProcessorsToStart.set(1);
+      listener.setProcessor(processor);
+      processor.start();
+    }
+
+    @Override
+    public void kill() {
+      processors.forEach(StreamProcessor::stop);
+    }
+
+    @Override
+    public ApplicationStatus status() {
+      return appStatus;
+    }
+  }
+
+  private class AsyncStreamTaskAppRunner implements ApplicationRunnerInternal {
+    private final AsyncStreamTaskApplication app;
+
+    AsyncStreamTaskAppRunner(AsyncStreamTaskApplication app) {
+      this.app = app;
+    }
+
+    @Override
+    public void run() {
+      JobConfig jobConfig = new JobConfig(config);
+
+      // validation
+      String taskName = new TaskConfig(config).getTaskClass().getOrElse(defaultValue(null));
+      if (taskName == null) {
+        throw new SamzaException("Neither APP nor task.class are defined defined");
+      }
+      LOG.info("LocalApplicationRunner will run " + taskName);
+      LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
+
+      StreamProcessor processor = createStreamProcessor(jobConfig, new AsyncStreamTaskApplicationInternal(app).getTaskFactory(), listener);
+
+      numProcessorsToStart.set(1);
+      listener.setProcessor(processor);
+      processor.start();
+    }
+
+    @Override
+    public void kill() {
+      processors.forEach(StreamProcessor::stop);
+    }
+
+    @Override
+    public ApplicationStatus status() {
+      return appStatus;
+    }
+  }
+
+  private class StreamAppRunner implements ApplicationRunnerInternal {
+    private final StreamApplication app;
+
+    StreamAppRunner(StreamApplication app) {
+      this.app = app;
+    }
+
+    @Override
+    public void run() {
+      try {
+        // 1. initialize and plan
+        ExecutionPlan plan = getExecutionPlan(this.app);
+        writePlanJsonFile(plan.getPlanAsJson());
+
+        // 2. create the necessary streams
+        createStreams(plan.getIntermediateStreams());
+
+        // 3. create the StreamProcessors
+        if (plan.getJobConfigs().isEmpty()) {
+          throw new SamzaException("No jobs to run.");
+        }
+        plan.getJobConfigs().forEach(jobConfig -> {
           LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
           LocalStreamProcessorLifeCycleListener listener = new LocalStreamProcessorLifeCycleListener();
-          StreamProcessor processor = createStreamProcessor(jobConfig, app, listener);
+          StreamProcessor processor = createStreamProcessor(jobConfig, this.app, listener);
           listener.setProcessor(processor);
           processors.add(processor);
         });
-      numProcessorsToStart.set(processors.size());
+        numProcessorsToStart.set(processors.size());
 
-      // 4. start the StreamProcessors
-      processors.forEach(StreamProcessor::start);
-    } catch (Exception e) {
-      throw new SamzaException("Failed to start application", e);
+        // 4. start the StreamProcessors
+        processors.forEach(StreamProcessor::start);
+      } catch (Exception e) {
+        throw new SamzaException("Failed to start application", e);
+      }
+    }
+
+    @Override
+    public void kill() {
+      processors.forEach(StreamProcessor::stop);
+    }
+
+    @Override
+    public ApplicationStatus status() {
+      return appStatus;
     }
   }
 
-  void runStreamTask(StreamTaskApplication taskApplication) {
+  @Override
+  protected ApplicationRunnerInternal getAppRunnerInternal(ApplicationBase streamApp) {
+    if (streamApp instanceof StreamApplication) {
+      return new StreamAppRunner((StreamApplication) streamApp);
+    }
 
-  }
+    if (streamApp instanceof StreamTaskApplication) {
+      return new StreamTaskAppRunner((StreamTaskApplication) streamApp);
+    }
 
-  void runAsyncStreamTask(AsyncStreamTaskApplication taskApplication) {
+    if (streamApp instanceof AsyncStreamTaskApplication) {
+      return new AsyncStreamTaskAppRunner((AsyncStreamTaskApplication) streamApp);
+    }
 
-  }
-
-  void killStreamApp(StreamApplication streamApp) {
-    processors.forEach(StreamProcessor::stop);
-  }
-
-  void killStreamTask(StreamTaskApplication streamTaskApp) {
-
-  }
-
-  void killAsyncStreamTask(AsyncStreamTaskApplication asyncTaskApp) {
-
-  }
-
-  ApplicationStatus statusStreamApp(StreamApplication streamApp) {
-    return appStatus;
-  }
-
-  ApplicationStatus statusStreamTask(StreamTaskApplication streamTaskApp) {
-    return null;
-  }
-
-  ApplicationStatus statusAsyncStreamTask(AsyncStreamTaskApplication asyncStreamTaskApplication) {
-    return null;
+    throw new IllegalArgumentException("Application type " + streamApp.getClass().getCanonicalName() + " is not supported by LocalApplicationRunner");
   }
 
   /**
@@ -289,6 +354,13 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       StreamApplication app,
       StreamProcessorLifecycleListener listener) {
     Object taskFactory = TaskFactoryUtil.createTaskFactory(config, app, this);
+    return createStreamProcessor(config, taskFactory, listener);
+  }
+
+  StreamProcessor createStreamProcessor(
+      Config config,
+      Object taskFactory,
+      StreamProcessorLifecycleListener listener) {
     if (taskFactory instanceof StreamTaskFactory) {
       return new StreamProcessor(
           config, this.metricsReporters, (StreamTaskFactory) taskFactory, listener);

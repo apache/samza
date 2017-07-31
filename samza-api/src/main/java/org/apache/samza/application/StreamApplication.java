@@ -20,9 +20,13 @@ package org.apache.samza.application;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
-import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
-import org.apache.samza.operators.*;
+import org.apache.samza.operators.ContextManager;
+import org.apache.samza.operators.IOSystem;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.StreamDescriptor;
+import org.apache.samza.operators.StreamGraph;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.task.StreamTask;
@@ -166,9 +170,8 @@ public class StreamApplication extends ApplicationBase {
     return this;
   }
 
-  public StreamApplication withMetricsReports(Map<String, MetricsReporter> reporterMap) {
-    this.runner.setMetricsReporters(reporterMap);
+  public StreamApplication withMetricsReporters(Map<String, MetricsReporter> metrics) {
+    this.withMetricsReports(metrics);
     return this;
   }
-
 }

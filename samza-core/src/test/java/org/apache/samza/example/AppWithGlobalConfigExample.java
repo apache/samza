@@ -18,43 +18,39 @@
  */
 package org.apache.samza.example;
 
-import java.util.Collections;
-import org.apache.samza.application.AsyncStreamTaskApplication;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.KafkaSystem;
 import org.apache.samza.operators.StreamDescriptor;
+import org.apache.samza.operators.triggers.Triggers;
+import org.apache.samza.operators.windows.AccumulationMode;
+import org.apache.samza.operators.windows.WindowPane;
+import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.task.AsyncStreamTask;
-import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.util.CommandLine;
 
 
-public class AsyncTaskApplicationExample {
-  static class MyStreamTaskFactory implements AsyncStreamTaskFactory {
-
-    @Override
-    public AsyncStreamTask createInstance() {
-      return (envelope, collector, coordinator, callback) -> {
-        callback.complete();
-        return;
-      };
-    }
-  }
+/**
+ * Example code to implement window-based counter
+ */
+public class AppWithGlobalConfigExample {
 
   // local execution mode
   public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
 
-    AsyncStreamTaskApplication app = AsyncStreamTaskApplication.create(config, new MyStreamTaskFactory());
-
     KafkaSystem kafkaSystem = KafkaSystem.create("kafka")
         .withBootstrapServers("localhost:9192")
         .withConsumerProperties(config)
         .withProducerProperties(config);
 
-    StreamDescriptor.Input<String, PageViewEvent> input = StreamDescriptor.<String, PageViewEvent>input("myPageViewEvent")
+    StreamDescriptor.Input<String, PageViewEvent> input = StreamDescriptor.<String, PageViewEvent>input("myPageViewEevent")
         .withKeySerde(new StringSerde("UTF-8"))
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
@@ -63,7 +59,15 @@ public class AsyncTaskApplicationExample {
         .withMsgSerde(new JsonSerde<>())
         .from(kafkaSystem);
 
-    app.addInputs(Collections.singletonList(input)).addOutputs(Collections.singletonList(output)).run();
+    StreamApplication app = StreamApplication.create(config).withMetricsReporters(new HashMap<>());
+    app.open(input)
+        .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), () -> 0, (m, c) -> c + 1)
+            .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
+            .setAccumulationMode(AccumulationMode.DISCARDING))
+        .map(PageViewCount::new)
+        .sendTo(app.open(output, m -> m.memberId));
+
+    app.run();
     app.waitForFinish();
   }
 
@@ -84,11 +88,10 @@ public class AsyncTaskApplicationExample {
     long timestamp;
     int count;
 
-    PageViewCount(String memberId, long timestamp, int count) {
-      this.memberId = memberId;
-      this.timestamp = timestamp;
-      this.count = count;
+    PageViewCount(WindowPane<String, Integer> m) {
+      this.memberId = m.getKey().getKey();
+      this.timestamp = Long.valueOf(m.getKey().getPaneId());
+      this.count = m.getMessage();
     }
   }
-
 }

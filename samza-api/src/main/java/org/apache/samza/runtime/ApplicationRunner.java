@@ -20,15 +20,12 @@ package org.apache.samza.runtime;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.ApplicationBase;
-import org.apache.samza.application.AsyncStreamTaskApplication;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamTaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.system.StreamSpec;
 
 import java.lang.reflect.Constructor;
 import java.util.HashMap;
@@ -90,39 +87,39 @@ public abstract class ApplicationRunner {
   public abstract void runTask();
 
 
+  protected abstract ApplicationRunnerInternal getAppRunnerInternal(ApplicationBase streamApp);
+
+  interface ApplicationRunnerInternal {
+    void run();
+    void kill();
+    ApplicationStatus status();
+  }
+
+  public final void run(ApplicationBase streamApp) {
+    this.getAppRunnerInternal(streamApp).run();
+  }
+
+  public final void kill(ApplicationBase streamApp) {
+    this.getAppRunnerInternal(streamApp).kill();
+  }
+
+  public final ApplicationStatus status(ApplicationBase streamApp) {
+    return this.getAppRunnerInternal(streamApp).status();
+  }
+
   /**
-   * Deploy and run the Samza jobs to execute {@link StreamApplication}.
-   * It is non-blocking so it doesn't wait for the application running.
+   * Create an empty {@link StreamGraph} object to instantiate the user defined operator DAG.
    *
-   * @param streamApp  the user-defined {@link StreamApplication} object
+   * @return the empty {@link StreamGraph} object to be instantiated
    */
-  public abstract void run(ApplicationBase streamApp);
-
-  /**
-   * Kill the Samza jobs represented by {@link StreamApplication}
-   * It is non-blocking so it doesn't wait for the application stopping.
-   *
-   * @param streamApp  the user-defined {@link StreamApplication} object
-   */
-  public abstract void kill(ApplicationBase streamApp);
-
-  /**
-   * Get the collective status of the Samza jobs represented by {@link StreamApplication}.
-   * Returns {@link ApplicationRunner} running if all jobs are running.
-   *
-   * @param streamApp  the user-defined {@link StreamApplication} object
-   * @return the status of the application
-   */
-  public abstract ApplicationStatus status(ApplicationBase streamApp);
-
-  /**
-   * Block until the local process for the application finishes
-   */
-  public abstract void waitForFinish();
-
   public abstract StreamGraph createGraph();
 
-  public void setMetricsReporters(Map<String,MetricsReporter> metricsReporters) {
+  /**
+   * Method to add a set of customized {@link MetricsReporter}s in the application
+   *
+   * @param metricsReporters the map of customized {@link MetricsReporter}s objects to be used
+   */
+  public void addMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
     this.metricsReporters.putAll(metricsReporters);
   }
 }

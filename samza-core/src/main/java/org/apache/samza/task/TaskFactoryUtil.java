@@ -19,6 +19,7 @@
 package org.apache.samza.task;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
@@ -54,7 +55,7 @@ public class TaskFactoryUtil {
   }
 
   private static StreamTaskFactory createStreamOperatorTaskFactory(StreamApplication streamApp, ApplicationRunner runner) {
-    return () -> new StreamOperatorTask(streamApp, runner);
+    return () -> new StreamOperatorTask(streamApp);
   }
 
   /**

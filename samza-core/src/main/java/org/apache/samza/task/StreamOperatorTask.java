@@ -20,6 +20,7 @@ package org.apache.samza.task;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.config.Config;
 import org.apache.samza.control.ControlMessageListenerTask;
 import org.apache.samza.control.Watermark;
@@ -41,8 +42,7 @@ import org.apache.samza.util.SystemClock;
  */
 public final class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask, ControlMessageListenerTask {
 
-  private final StreamApplication streamApplication;
-  private final ApplicationRunner runner;
+  private final StreamApplicationInternal streamApplication;
   private final Clock clock;
 
   private OperatorImplGraph operatorImplGraph;
@@ -52,17 +52,15 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
   /**
    * Constructs an adaptor task to run the user-implemented {@link StreamApplication}.
    * @param streamApplication the user-implemented {@link StreamApplication} that creates the logical DAG
-   * @param runner the {@link ApplicationRunner} to get the mapping between logical and physical streams
    * @param clock the {@link Clock} to use for time-keeping
    */
-  public StreamOperatorTask(StreamApplication streamApplication, ApplicationRunner runner, Clock clock) {
-    this.streamApplication = streamApplication;
-    this.runner = runner;
+  public StreamOperatorTask(StreamApplication streamApplication, Clock clock) {
+    this.streamApplication = new StreamApplicationInternal(streamApplication);
     this.clock = clock;
   }
 
-  public StreamOperatorTask(StreamApplication application, ApplicationRunner runner) {
-    this(application, runner, SystemClock.instance());
+  public StreamOperatorTask(StreamApplication application) {
+    this(application, SystemClock.instance());
   }
 
   /**
@@ -79,9 +77,10 @@ public final class StreamOperatorTask implements StreamTask, InitableTask, Windo
    */
   @Override
   public final void init(Config config, TaskContext context) throws Exception {
-    StreamGraphImpl streamGraph = new StreamGraphImpl(runner, config);
+    // TODO: getStreamGraphImpl() need to return a new instance of StreamGraphImpl per task, not a shared instance
+    StreamGraphImpl streamGraph = this.streamApplication.getStreamGraphImpl();
     // initialize the user-implemented stream application.
-    this.streamApplication.init(streamGraph, config);
+    // this.streamApplication.init(streamGraph, config);
 
     // get the user-implemented context manager and initialize it
     this.contextManager = streamGraph.getContextManager();
