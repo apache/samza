@@ -344,7 +344,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     applicationRunner3.run(streamApp3);
   }
 
-   @Test
+  @Test
   public void testRollingUpgradeOfStreamApplicationsShouldGenerateSameJobModel() throws Exception {
     // Set up kafka topics.
     publishKafkaEvents(inputKafkaTopic, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
