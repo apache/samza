@@ -93,8 +93,6 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
   private String inputKafkaTopic;
   private String outputKafkaTopic;
-  private String testStreamAppName;
-  private String testStreamAppId;
   private ZkUtils zkUtils;
   private ApplicationConfig applicationConfig1;
   private ApplicationConfig applicationConfig2;
