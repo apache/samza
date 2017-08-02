@@ -24,7 +24,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
 
-
 /**
  * Config class for reading all user defined parameters for Azure driven coordination services.
  */
