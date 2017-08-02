@@ -466,7 +466,7 @@ public class ZkUtils {
       } catch (ZkBadVersionException e) {
         // if the write failed with ZkBadVersionException it means someone else already wrote a version, so we can ignore it.
       }
-      // read the updated version
+      // re-read the updated version
       version = (String) zkClient.readData(rootPath);
     }
     LOG.info("Current version for zk root node: " + rootPath + " is " + version + ", expected version is " + ZK_PROTOCOL_VERSION);
