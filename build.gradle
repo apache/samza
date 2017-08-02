@@ -134,7 +134,6 @@ project(':samza-api') {
   }
 }
 
-
 project(":samza-core_$scalaVersion") {
   apply plugin: 'scala'
   apply plugin: 'checkstyle'
