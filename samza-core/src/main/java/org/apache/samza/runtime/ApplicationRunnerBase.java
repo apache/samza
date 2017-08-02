@@ -20,57 +20,51 @@ package org.apache.samza.runtime;
 
 import java.io.File;
 import java.io.PrintWriter;
+import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.application.ApplicationBase;
-import org.apache.samza.application.AsyncStreamTaskApplication;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationInternal;
-import org.apache.samza.application.StreamTaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.ShellCommandConfig;
-import org.apache.samza.config.StreamConfig;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.ExecutionPlanner;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.StreamGraphImpl;
-import org.apache.samza.system.StreamSpec;
-import org.apache.samza.task.StreamTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.App;
 
 
 /**
  * Defines common, core behavior for implementations of the {@link ApplicationRunner} API
  */
-public abstract class AbstractApplicationRunner extends ApplicationRunner {
-  private static final Logger log = LoggerFactory.getLogger(AbstractApplicationRunner.class);
+public abstract class ApplicationRunnerBase implements ApplicationRunner {
+  private static final Logger log = LoggerFactory.getLogger(ApplicationRunnerBase.class);
 
-  private final StreamManager streamManager;
-  private final ExecutionPlanner planner;
+  protected final Config config;
+  protected final Map<String, MetricsReporter> metricsReporters = new HashMap<>();
 
-  public AbstractApplicationRunner(Config config) {
-    super(config);
-    this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
-    this.planner = new ExecutionPlanner(config, streamManager);
-  }
-
-  final ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
-    // create the physical execution plan
-    return planner.plan(new StreamApplicationInternal(app).getStreamGraphImpl());
-  }
-
-  final StreamManager getStreamManager() {
-    return streamManager;
+  public ApplicationRunnerBase(Config config) {
+    this.config = config;
   }
 
   @Override
   public final StreamGraph createGraph() {
     return new StreamGraphImpl(config);
   }
+
+  interface ApplicationRuntimeInstance {
+    void run();
+    void kill();
+    ApplicationStatus status();
+    void waitForFinish();
+  }
+
+  abstract ApplicationRuntimeInstance getRuntimeInstance(ApplicationBase app);
 
   /**
    * Write the execution plan JSON to a file
@@ -92,4 +86,30 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
       log.warn("Failed to write execution plan json to file", e);
     }
   }
+
+  @Override
+  public final void run(ApplicationBase app) {
+    this.getRuntimeInstance(app).run();
+  }
+
+  @Override
+  public final void kill(ApplicationBase app) {
+    this.getRuntimeInstance(app).kill();
+  }
+
+  @Override
+  public final ApplicationStatus status(ApplicationBase app) {
+    return this.getRuntimeInstance(app).status();
+  }
+
+  @Override
+  public final void waitForFinish(ApplicationBase app) {
+    this.getRuntimeInstance(app).waitForFinish();
+  }
+
+  @Override
+  public final void addMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
+    this.metricsReporters.putAll(metricsReporters);
+  }
+
 }

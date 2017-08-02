@@ -23,10 +23,14 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationBase;
 import org.apache.samza.application.AsyncStreamTaskApplication;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationInternal;
 import org.apache.samza.application.StreamTaskApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.execution.ExecutionPlan;
+import org.apache.samza.execution.ExecutionPlanner;
+import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
 import org.slf4j.Logger;
@@ -36,7 +40,7 @@ import org.slf4j.LoggerFactory;
 /**
  * This class implements the {@link ApplicationRunner} that runs the applications in a remote cluster
  */
-public class RemoteApplicationRunner extends AbstractApplicationRunner {
+public class RemoteApplicationRunner extends ApplicationRunnerBase {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
 
@@ -50,7 +54,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
   }
 
   @Override
-  protected ApplicationRunnerInternal getAppRunnerInternal(ApplicationBase streamApp) {
+  protected ApplicationRuntimeInstance getRuntimeInstance(ApplicationBase streamApp) {
     if (streamApp instanceof StreamApplication) {
       return new StreamAppRunner((StreamApplication) streamApp);
     }
@@ -70,7 +74,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     // TODO: add life cycle listner and the corresponding wait listner for local process to shutdown
   }
 
-  private class StreamTaskAppRunner implements ApplicationRunnerInternal {
+  private class StreamTaskAppRunner implements ApplicationRuntimeInstance {
     private final StreamTaskApplication app;
 
     StreamTaskAppRunner(StreamTaskApplication app) {
@@ -91,9 +95,14 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     public ApplicationStatus status() {
       return null;
     }
+
+    @Override
+    public void waitForFinish() {
+
+    }
   }
 
-  private class AsyncStreamTaskAppRunner implements ApplicationRunnerInternal {
+  private class AsyncStreamTaskAppRunner implements ApplicationRuntimeInstance {
     private final AsyncStreamTaskApplication app;
 
     AsyncStreamTaskAppRunner(AsyncStreamTaskApplication app) {
@@ -114,13 +123,22 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
     public ApplicationStatus status() {
       return null;
     }
+
+    @Override
+    public void waitForFinish() {
+
+    }
   }
 
-  private class StreamAppRunner implements ApplicationRunnerInternal {
+  private class StreamAppRunner implements ApplicationRuntimeInstance {
     private final StreamApplication app;
+    private final StreamManager streamManager;
+    private final ExecutionPlanner planner;
 
     StreamAppRunner(StreamApplication app) {
       this.app = app;
+      this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
+      this.planner = new ExecutionPlanner(config, streamManager);
     }
 
     @Override
@@ -131,7 +149,7 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
         writePlanJsonFile(plan.getPlanAsJson());
 
         // 2. create the necessary streams
-        getStreamManager().createStreams(plan.getIntermediateStreams());
+        this.streamManager.createStreams(plan.getIntermediateStreams());
 
         // 3. submit jobs for remote execution
         plan.getJobConfigs().forEach(jobConfig -> {
@@ -142,6 +160,10 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       } catch (Throwable t) {
         throw new SamzaException("Failed to run application", t);
       }
+    }
+
+    private ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
+      return this.planner.plan(new StreamApplicationInternal(app).getStreamGraphImpl());
     }
 
     @Override
@@ -205,6 +227,11 @@ public class RemoteApplicationRunner extends AbstractApplicationRunner {
       } catch (Throwable t) {
         throw new SamzaException("Failed to get status for application", t);
       }
+    }
+
+    @Override
+    public void waitForFinish() {
+
     }
   }
 }

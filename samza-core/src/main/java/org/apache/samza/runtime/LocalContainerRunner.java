@@ -24,9 +24,7 @@ import java.util.Random;
 import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationBase;
-import org.apache.samza.application.AsyncStreamTaskApplication;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamTaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
@@ -54,7 +52,7 @@ import org.slf4j.LoggerFactory;
  * Since we don't have the {@link org.apache.samza.coordinator.JobCoordinator} implementation in Yarn, the components (jobModel and containerId)
  * are directly inside the runner.
  */
-public class LocalContainerRunner extends AbstractApplicationRunner {
+public class LocalContainerRunner extends ApplicationRunnerBase {
   private static final Logger log = LoggerFactory.getLogger(LocalContainerRunner.class);
   private final JobModel jobModel;
   private final String containerId;
@@ -74,7 +72,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
   }
 
   @Override
-  protected ApplicationRunnerInternal getAppRunnerInternal(ApplicationBase streamApp) {
+  ApplicationRuntimeInstance getRuntimeInstance(ApplicationBase streamApp) {
     if (streamApp instanceof StreamApplication) {
       return new StreamAppRunner((StreamApplication) streamApp);
     }
@@ -82,7 +80,7 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     throw new IllegalArgumentException("Application type " + streamApp.getClass().getCanonicalName() + " is not supported by LocalContainerRunner");
   }
 
-  private class StreamAppRunner implements ApplicationRunnerInternal {
+  private class StreamAppRunner implements ApplicationRuntimeInstance {
     private final StreamApplication app;
 
     StreamAppRunner(StreamApplication streamApp) {
@@ -136,6 +134,11 @@ public class LocalContainerRunner extends AbstractApplicationRunner {
     public ApplicationStatus status() {
       // Ultimately this class probably won't end up extending ApplicationRunner, so this will be deleted
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void waitForFinish() {
+
     }
   }
 

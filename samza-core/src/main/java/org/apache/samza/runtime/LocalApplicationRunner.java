@@ -37,6 +37,7 @@ import org.apache.samza.application.StreamTaskApplication;
 import org.apache.samza.application.StreamTaskApplicationInternal;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
@@ -44,6 +45,8 @@ import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.execution.ExecutionPlan;
+import org.apache.samza.execution.ExecutionPlanner;
+import org.apache.samza.execution.StreamManager;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.processor.StreamProcessorLifecycleListener;
@@ -61,7 +64,7 @@ import static org.apache.samza.util.ScalaToJavaUtils.defaultValue;
 /**
  * This class implements the {@link ApplicationRunner} that runs the applications in standalone environment
  */
-public class LocalApplicationRunner extends AbstractApplicationRunner {
+public class LocalApplicationRunner extends ApplicationRunnerBase {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalApplicationRunner.class);
   // Latch id that's used for awaiting the init of application before creating the StreamProcessors
@@ -148,7 +151,7 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
 
   }
 
-  private class StreamTaskAppRunner implements ApplicationRunnerInternal {
+  private class StreamTaskAppRunner implements ApplicationRuntimeInstance {
     private final StreamTaskApplication app;
 
     StreamTaskAppRunner(StreamTaskApplication app) {
@@ -183,9 +186,14 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     public ApplicationStatus status() {
       return appStatus;
     }
+
+    @Override
+    public void waitForFinish() {
+      LocalApplicationRunner.this.waitForFinish();
+    }
   }
 
-  private class AsyncStreamTaskAppRunner implements ApplicationRunnerInternal {
+  private class AsyncStreamTaskAppRunner implements ApplicationRuntimeInstance {
     private final AsyncStreamTaskApplication app;
 
     AsyncStreamTaskAppRunner(AsyncStreamTaskApplication app) {
@@ -220,13 +228,22 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     public ApplicationStatus status() {
       return appStatus;
     }
+
+    @Override
+    public void waitForFinish() {
+      LocalApplicationRunner.this.waitForFinish();
+    }
   }
 
-  private class StreamAppRunner implements ApplicationRunnerInternal {
+  private class StreamAppRunner implements ApplicationRuntimeInstance {
     private final StreamApplication app;
+    private final StreamManager streamManager;
+    private final ExecutionPlanner planner;
 
     StreamAppRunner(StreamApplication app) {
       this.app = app;
+      this.streamManager = new StreamManager(new JavaSystemConfig(config).getSystemAdmins());
+      this.planner = new ExecutionPlanner(config, streamManager);
     }
 
     @Override
@@ -259,6 +276,37 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       }
     }
 
+    private ExecutionPlan getExecutionPlan(StreamApplication app) throws Exception {
+      return this.planner.plan(new StreamApplicationInternal(app).getStreamGraphImpl());
+    }
+
+    /**
+     * Create intermediate streams using {@link org.apache.samza.execution.StreamManager}.
+     * If {@link CoordinationUtils} is provided, this function will first invoke leader election, and the leader
+     * will create the streams. All the runner processes will wait on the latch that is released after the leader finishes
+     * stream creation.
+     * @param intStreams list of intermediate {@link StreamSpec}s
+     * @throws Exception exception for latch timeout
+     */
+  /* package private */ void createStreams(List<StreamSpec> intStreams) throws Exception {
+      if (!intStreams.isEmpty()) {
+        if (coordinationUtils != null) {
+          Latch initLatch = coordinationUtils.getLatch(1, INIT_LATCH_ID);
+          LeaderElector leaderElector = coordinationUtils.getLeaderElector();
+          leaderElector.setLeaderElectorListener(() -> {
+            this.streamManager.createStreams(intStreams);
+            initLatch.countDown();
+          });
+          leaderElector.tryBecomeLeader();
+          initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+        } else {
+          // each application process will try creating the streams, which
+          // requires stream creation to be idempotent
+          this.streamManager.createStreams(intStreams);
+        }
+      }
+    }
+
     @Override
     public void kill() {
       processors.forEach(StreamProcessor::stop);
@@ -268,23 +316,28 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
     public ApplicationStatus status() {
       return appStatus;
     }
+
+    @Override
+    public void waitForFinish() {
+      LocalApplicationRunner.this.waitForFinish();
+    }
   }
 
   @Override
-  protected ApplicationRunnerInternal getAppRunnerInternal(ApplicationBase streamApp) {
-    if (streamApp instanceof StreamApplication) {
-      return new StreamAppRunner((StreamApplication) streamApp);
+  ApplicationRuntimeInstance getRuntimeInstance(ApplicationBase app) {
+    if (app instanceof StreamApplication) {
+      return new StreamAppRunner((StreamApplication) app);
     }
 
-    if (streamApp instanceof StreamTaskApplication) {
-      return new StreamTaskAppRunner((StreamTaskApplication) streamApp);
+    if (app instanceof StreamTaskApplication) {
+      return new StreamTaskAppRunner((StreamTaskApplication) app);
     }
 
-    if (streamApp instanceof AsyncStreamTaskApplication) {
-      return new AsyncStreamTaskAppRunner((AsyncStreamTaskApplication) streamApp);
+    if (app instanceof AsyncStreamTaskApplication) {
+      return new AsyncStreamTaskAppRunner((AsyncStreamTaskApplication) app);
     }
 
-    throw new IllegalArgumentException("Application type " + streamApp.getClass().getCanonicalName() + " is not supported by LocalApplicationRunner");
+    throw new IllegalArgumentException("Application type " + app.getClass().getCanonicalName() + " is not supported by LocalApplicationRunner");
   }
 
   /**
@@ -312,33 +365,6 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       return new ZkCoordinationServiceFactory().getCoordinationService(appConfig.getGlobalAppId(), uid, config);
     } else {
       return null;
-    }
-  }
-
-  /**
-   * Create intermediate streams using {@link org.apache.samza.execution.StreamManager}.
-   * If {@link CoordinationUtils} is provided, this function will first invoke leader election, and the leader
-   * will create the streams. All the runner processes will wait on the latch that is released after the leader finishes
-   * stream creation.
-   * @param intStreams list of intermediate {@link StreamSpec}s
-   * @throws Exception exception for latch timeout
-   */
-  /* package private */ void createStreams(List<StreamSpec> intStreams) throws Exception {
-    if (!intStreams.isEmpty()) {
-      if (coordinationUtils != null) {
-        Latch initLatch = coordinationUtils.getLatch(1, INIT_LATCH_ID);
-        LeaderElector leaderElector = coordinationUtils.getLeaderElector();
-        leaderElector.setLeaderElectorListener(() -> {
-            getStreamManager().createStreams(intStreams);
-            initLatch.countDown();
-          });
-        leaderElector.tryBecomeLeader();
-        initLatch.await(LATCH_TIMEOUT_MINUTES, TimeUnit.MINUTES);
-      } else {
-        // each application process will try creating the streams, which
-        // requires stream creation to be idempotent
-        getStreamManager().createStreams(intStreams);
-      }
     }
   }
 

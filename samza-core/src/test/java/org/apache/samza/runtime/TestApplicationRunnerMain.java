@@ -77,7 +77,7 @@ public class TestApplicationRunnerMain {
     assertEquals(1, TestApplicationRunnerInvocationCounts.statusCount);
   }
 
-  public static class TestApplicationRunnerInvocationCounts extends AbstractApplicationRunner {
+  public static class TestApplicationRunnerInvocationCounts extends ApplicationRunnerBase {
     protected static int runCount = 0;
     protected static int killCount = 0;
     protected static int statusCount = 0;

@@ -30,17 +30,19 @@ import org.apache.samza.task.AsyncStreamTaskFactory;
 
 public class AsyncStreamTaskApplication extends ApplicationBase {
   final AsyncStreamTaskFactory taskFactory;
+  final Config config;
   private final List<StreamDescriptor.Input> taskInputs = new ArrayList<>();
   private final List<StreamDescriptor.Output> taskOutputs = new ArrayList<>();
 
-  private AsyncStreamTaskApplication(AsyncStreamTaskFactory taskFactory, ApplicationRunner runner) {
+  private AsyncStreamTaskApplication(AsyncStreamTaskFactory taskFactory, ApplicationRunner runner, Config config) {
     super(runner);
     this.taskFactory = taskFactory;
+    this.config = config;
   }
 
   public static AsyncStreamTaskApplication create(Config config, AsyncStreamTaskFactory taskFactory) {
     ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-    return new AsyncStreamTaskApplication(taskFactory, runner);
+    return new AsyncStreamTaskApplication(taskFactory, runner, config);
   }
 
   public AsyncStreamTaskApplication addInputs(List<StreamDescriptor.Input> inputs) {

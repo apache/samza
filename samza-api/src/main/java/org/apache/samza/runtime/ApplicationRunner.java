@@ -20,7 +20,6 @@ package org.apache.samza.runtime;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.ApplicationBase;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.job.ApplicationStatus;
@@ -28,21 +27,28 @@ import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.operators.StreamGraph;
 
 import java.lang.reflect.Constructor;
-import java.util.HashMap;
 import java.util.Map;
-
 
 /**
  * The primary means of managing execution of the {@link org.apache.samza.application.StreamApplication} at runtime.
  */
 @InterfaceStability.Unstable
-public abstract class ApplicationRunner {
+public interface ApplicationRunner {
 
-  private static final String RUNNER_CONFIG = "app.runner.class";
-  private static final String DEFAULT_RUNNER_CLASS = "org.apache.samza.runtime.RemoteApplicationRunner";
+  class AppConfig {
+    private static final String RUNNER_CONFIG = "app.runner.class";
+    private static final String DEFAULT_RUNNER_CLASS = "org.apache.samza.runtime.RemoteApplicationRunner";
 
-  protected final Config config;
-  protected final Map<String, MetricsReporter> metricsReporters = new HashMap<>();
+    private final Config config;
+
+    AppConfig(Config config) {
+      this.config = config;
+    }
+
+    String getApplicationRunnerClass() {
+      return config.get(RUNNER_CONFIG, DEFAULT_RUNNER_CLASS);
+    }
+  }
 
   /**
    * Static method to load the {@link ApplicationRunner}
@@ -50,29 +56,21 @@ public abstract class ApplicationRunner {
    * @param config  configuration passed in to initialize the Samza processes
    * @return  the configure-driven {@link ApplicationRunner} to run the user-defined stream applications
    */
-  public static ApplicationRunner fromConfig(Config config) {
+  static ApplicationRunner fromConfig(Config config) {
+    AppConfig appCfg = new AppConfig(config);
     try {
-      Class<?> runnerClass = Class.forName(config.get(RUNNER_CONFIG, DEFAULT_RUNNER_CLASS));
+      Class<?> runnerClass = Class.forName(appCfg.getApplicationRunnerClass());
       if (ApplicationRunner.class.isAssignableFrom(runnerClass)) {
         Constructor<?> constructor = runnerClass.getConstructor(Config.class); // *sigh*
         return (ApplicationRunner) constructor.newInstance(config);
       }
     } catch (Exception e) {
-      throw new ConfigException(String.format("Problem in loading ApplicationRunner class %s", config.get(
-          RUNNER_CONFIG)), e);
+      throw new ConfigException(String.format("Problem in loading ApplicationRunner class %s",
+          appCfg.getApplicationRunnerClass()), e);
     }
     throw new ConfigException(String.format(
         "Class %s does not extend ApplicationRunner properly",
-        config.get(RUNNER_CONFIG)));
-  }
-
-
-  ApplicationRunner(Config config) {
-    if (config == null) {
-      throw new NullPointerException("Parameter 'config' cannot be null.");
-    }
-
-    this.config = config;
+        appCfg.getApplicationRunnerClass()));
   }
 
   /**
@@ -83,45 +81,27 @@ public abstract class ApplicationRunner {
    * NOTE. this interface will most likely change in the future.
    */
   @Deprecated
-  @InterfaceStability.Evolving
-  public abstract void runTask();
+  void runTask();
 
+  void run(ApplicationBase app);
 
-  protected abstract ApplicationRunnerInternal getAppRunnerInternal(ApplicationBase streamApp);
+  void kill(ApplicationBase app);
 
-  interface ApplicationRunnerInternal {
-    void run();
-    void kill();
-    ApplicationStatus status();
-  }
+  ApplicationStatus status(ApplicationBase app);
 
-  public final void run(ApplicationBase streamApp) {
-    this.getAppRunnerInternal(streamApp).run();
-  }
-
-  public final void kill(ApplicationBase streamApp) {
-    this.getAppRunnerInternal(streamApp).kill();
-  }
-
-  public final ApplicationStatus status(ApplicationBase streamApp) {
-    return this.getAppRunnerInternal(streamApp).status();
-  }
-
-  public abstract void waitForFinish();
+  void waitForFinish(ApplicationBase app);
 
   /**
    * Create an empty {@link StreamGraph} object to instantiate the user defined operator DAG.
    *
    * @return the empty {@link StreamGraph} object to be instantiated
    */
-  public abstract StreamGraph createGraph();
+  StreamGraph createGraph();
 
   /**
    * Method to add a set of customized {@link MetricsReporter}s in the application
    *
    * @param metricsReporters the map of customized {@link MetricsReporter}s objects to be used
    */
-  public void addMetricsReporters(Map<String, MetricsReporter> metricsReporters) {
-    this.metricsReporters.putAll(metricsReporters);
-  }
+  void addMetricsReporters(Map<String, MetricsReporter> metricsReporters);
 }

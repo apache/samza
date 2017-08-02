@@ -68,7 +68,7 @@ public class ApplicationBase {
    * Method to wait for the runner in the current JVM process to finish.
    */
   public final void waitForFinish() {
-    this.runner.waitForFinish();
+    this.runner.waitForFinish(this);
   }
 
 }

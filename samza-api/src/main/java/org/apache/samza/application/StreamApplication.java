@@ -164,19 +164,6 @@ public class StreamApplication extends ApplicationBase {
     return this;
   }
 
-  /**
-   * Sets the {@link ContextManager} for this {@link StreamGraph}.
-   * <p>
-   * The provided {@link ContextManager} can be used to setup shared context between the operator functions
-   * within a task instance
-   *
-   * @param contextManager the {@link ContextManager} to use for the {@link StreamGraph}
-   */
-  public StreamApplication withContextManager(ContextManager contextManager) {
-    this.graph.setContextManager(contextManager);
-    return this;
-  }
-
   public StreamApplication withMetricsReporters(Map<String, MetricsReporter> metrics) {
     this.withMetricsReports(metrics);
     return this;

@@ -31,17 +31,19 @@ import java.util.List;
 public class StreamTaskApplication extends ApplicationBase {
 
   final StreamTaskFactory taskFactory;
+  final Config config;
   private final List<StreamDescriptor.Input> taskInputs = new ArrayList<>();
   private final List<StreamDescriptor.Output> taskOutputs = new ArrayList<>();
 
-  private StreamTaskApplication(StreamTaskFactory taskFactory, ApplicationRunner runner) {
+  private StreamTaskApplication(StreamTaskFactory taskFactory, ApplicationRunner runner, Config config) {
     super(runner);
     this.taskFactory = taskFactory;
+    this.config = config;
   }
 
   public static StreamTaskApplication create(Config config, StreamTaskFactory taskFactory) {
     ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-    return new StreamTaskApplication(taskFactory, runner);
+    return new StreamTaskApplication(taskFactory, runner, config);
   }
 
   public StreamTaskApplication addInputs(List<StreamDescriptor.Input> inputs) {
