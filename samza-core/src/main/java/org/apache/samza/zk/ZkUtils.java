@@ -458,7 +458,7 @@ public class ZkUtils {
     }
     // if exists, verify the version
     Stat stat = new Stat();
-    String version = (String)zkClient.readData(rootPath, stat);
+    String version = (String) zkClient.readData(rootPath, stat);
     if (version == null) {
       // for backward compatibility, if no value - assume 1.0
       try {
@@ -467,7 +467,7 @@ public class ZkUtils {
         // if the write failed with ZkBadVersionException it means someone else already wrote a version, so we can ignore it.
       }
       // read the updated version
-      version = (String)zkClient.readData(rootPath);
+      version = (String) zkClient.readData(rootPath);
     }
     LOG.info("Current version for zk root node: " + rootPath + " is " + version + ", expected version is " + ZK_PROTOCOL_VERSION);
     if (!version.equals(ZK_PROTOCOL_VERSION)) {
