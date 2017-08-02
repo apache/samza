@@ -19,6 +19,7 @@
 
 package org.apache.samza;
 
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
@@ -26,20 +27,23 @@ import org.apache.samza.config.MapConfig;
 
 public class AzureConfig extends MapConfig {
 
-  // Connection string for Azure Storage Account, format: "DefaultEndpointsProtocol=<https>;AccountName=<>;AccountKey=<>;"
-  public static final String AZURE_STORAGE_CONNECT = "job.coordinator.azure.storage.connect";
-  public static final String AZURE_CONTAINER_NAME = "job.coordinator.azure.container.name";
-  public static final String AZURE_BLOB_NAME = "job.coordinator.azure.blob.name";
-  public static final String AZURE_TABLE_NAME = "job.coordinator.azure.table.name";
+  // Connection string for Azure Storage Account, format: "DefaultEndpointsProtocol=<https>;AccountName=<>;AccountKey=<>"
+  public static final String AZURE_STORAGE_CONNECT = "azure.storage.connect";
   public static final String AZURE_PAGEBLOB_LENGTH = "job.coordinator.azure.blob.length";
 
-  public static final String DEFAULT_AZURE_CONTAINER_NAME = "samzacontainer";
-  public static final String DEFAULT_AZURE_BLOB_NAME = "samzablob";
-  public static final String DEFAULT_AZURE_TABLE_NAME = "samzatable";
+  private static String containerName;
+  private static String blobName;
+  private static String tableName;
   public static final long DEFAULT_AZURE_PAGEBLOB_LENGTH = 5120000;
 
   public AzureConfig(Config config) {
     super(config);
+    ApplicationConfig appConfig = new ApplicationConfig(config);
+    //Remove all non-alphanumeric characters from id as table name does not allow them.
+    String id = appConfig.getGlobalAppId().replaceAll("[^A-Za-z0-9]", "");
+    containerName = "samzacontainer" + id;
+    blobName = "samzablob" + id;
+    tableName = "samzatable" + id;
   }
 
   public String getAzureConnect() {
@@ -50,18 +54,18 @@ public class AzureConfig extends MapConfig {
   }
 
   public String getAzureContainerName() {
-    return get(AZURE_CONTAINER_NAME, DEFAULT_AZURE_CONTAINER_NAME);
+    return containerName;
   }
 
   public String getAzureBlobName() {
-    return get(AZURE_BLOB_NAME, DEFAULT_AZURE_BLOB_NAME);
+    return blobName;
   }
   public long getAzureBlobLength() {
     return getLong(AZURE_PAGEBLOB_LENGTH, DEFAULT_AZURE_PAGEBLOB_LENGTH);
   }
 
   public String getAzureTableName() {
-    return get(AZURE_TABLE_NAME, DEFAULT_AZURE_TABLE_NAME);
+    return tableName;
   }
 
 }
