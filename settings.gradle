@@ -22,7 +22,8 @@ include \
   'samza-elasticsearch',
   'samza-log4j',
   'samza-rest',
-  'samza-shell'
+  'samza-shell',
+  'samza-azure'
 
 def scalaModules = [
         'samza-core',
