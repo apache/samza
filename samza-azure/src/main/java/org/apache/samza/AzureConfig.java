@@ -71,5 +71,4 @@ public class AzureConfig extends MapConfig {
   public String getAzureTableName() {
     return tableName;
   }
-
 }
