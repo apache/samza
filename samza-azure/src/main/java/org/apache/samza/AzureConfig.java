@@ -32,6 +32,13 @@ public class AzureConfig extends MapConfig {
   // Connection string for Azure Storage Account, format: "DefaultEndpointsProtocol=<https>;AccountName=<>;AccountKey=<>"
   public static final String AZURE_STORAGE_CONNECT = "azure.storage.connect";
   public static final String AZURE_PAGEBLOB_LENGTH = "job.coordinator.azure.blob.length";
+<<<<<<< HEAD
+=======
+
+  private static String containerName;
+  private static String blobName;
+  private static String tableName;
+>>>>>>> Update configuration-table
   public static final long DEFAULT_AZURE_PAGEBLOB_LENGTH = 5120000;
 
   private static String containerName;
