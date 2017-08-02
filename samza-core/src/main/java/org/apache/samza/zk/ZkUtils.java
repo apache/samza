@@ -32,7 +32,9 @@ import java.util.stream.Collectors;
 import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.exception.ZkBadVersionException;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
+import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.job.model.JobModel;
@@ -74,6 +76,8 @@ import org.slf4j.LoggerFactory;
  */
 public class ZkUtils {
   private static final Logger LOG = LoggerFactory.getLogger(ZkUtils.class);
+  /* package private */static final String ZK_PROTOCOL_VERSION = "1.0";
+
 
   private final ZkClient zkClient;
   private volatile String ephemeralPath = null;
@@ -438,11 +442,48 @@ public class ZkUtils {
         "(actual data version after update = " + stat.getVersion() + ")");
   }
 
+  // validate Zk protocol currently used is the same as in this participant
+  private void validateZkVersion() {
+    String rootPath = keyBuilder.getRootPath();
+    if (!zkClient.exists(rootPath)) {
+      try {
+        // attempt to create the root with the correct version
+        zkClient.createPersistent(rootPath, ZK_PROTOCOL_VERSION);
+        LOG.info("Created zk root node: " + rootPath + " with zk version " + ZK_PROTOCOL_VERSION);
+        return;
+      } catch (ZkNodeExistsException e) {
+        // ignoring
+        LOG.warn("root path " + rootPath + " already exists.");
+      }
+    }
+    // if exists, verify the version
+    Stat stat = new Stat();
+    String version = (String)zkClient.readData(rootPath, stat);
+    if (version == null) {
+      // for backward compatibility, if no value - assume 1.0
+      try {
+        zkClient.writeData(rootPath, "1.0", stat.getVersion());
+      } catch (ZkBadVersionException e) {
+        // if the write failed with ZkBadVersionException it means someone else already wrote a version, so we can ignore it.
+      }
+      // read the updated version
+      version = (String)zkClient.readData(rootPath);
+    }
+    LOG.info("Current version for zk root node: " + rootPath + " is " + version + ", expected version is " + ZK_PROTOCOL_VERSION);
+    if (!version.equals(ZK_PROTOCOL_VERSION)) {
+      throw new SamzaException("ZK Protocol mismatch. Expected " + ZK_PROTOCOL_VERSION + "; found " + version);
+    }
+  }
+
   /**
    * verify that given paths exist in ZK
    * @param paths - paths to verify or create
    */
-  public void makeSurePersistentPathsExists(String[] paths) {
+  public void validatePaths(String[] paths) {
+
+    // validate the version of ZK protocol
+    validateZkVersion();
+
     for (String path : paths) {
       if (!zkClient.exists(path)) {
         zkClient.createPersistent(path, true);

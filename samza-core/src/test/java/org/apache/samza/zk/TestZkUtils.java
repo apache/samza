@@ -18,6 +18,8 @@
  */
 package org.apache.samza.zk;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -30,6 +32,7 @@ import org.I0Itec.zkclient.IZkDataListener;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.model.ContainerModel;
@@ -44,6 +47,8 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.scalatest.Fact;
+
 
 public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
@@ -116,6 +121,46 @@ public class TestZkUtils {
   }
 
   @Test
+  public void testZKProtocolVersion() {
+    // first time connect, version should be set to ZkUtils.ZK_PROTOCOL_VERSION
+    ZkControllerImpl zkController = new ZkControllerImpl("1", zkUtils, null, null);
+    String root = zkUtils.getKeyBuilder().getRootPath();
+    String ver = (String) zkUtils.getZkClient().readData(root);
+    Assert.assertEquals(ZkUtils.ZK_PROTOCOL_VERSION, ver);
+
+    // do it again (in case original value was null
+    zkController = new ZkControllerImpl("1", zkUtils, null, null);
+    ver = (String) zkUtils.getZkClient().readData(root);
+    Assert.assertEquals(ZkUtils.ZK_PROTOCOL_VERSION, ver);
+
+    // now negative case
+    zkUtils.getZkClient().writeData(root, "2.0");
+    try {
+      zkController = new ZkControllerImpl("1", zkUtils, null, null);
+      Assert.fail("Expected to fail because of version mismatch 2.0 vs 1.0");
+    } catch (SamzaException e) {
+      // expected
+    }
+
+    // validate future values, let's say that current version should be 3.0
+    try {
+      Field f = zkUtils.getClass().getDeclaredField("ZK_PROTOCOL_VERSION");
+      FieldUtils.removeFinalModifier(f);
+      f.set(null, "3.0");
+    } catch (Exception e) {
+      System.out.println(e);
+      Assert.fail();
+    }
+
+    try {
+      zkController = new ZkControllerImpl("1", zkUtils, null, null);
+      Assert.fail("Expected to fail because of version mismatch 2.0 vs 3.0");
+    } catch (SamzaException e) {
+      // expected
+    }
+  }
+
+  @Test
   public void testGetProcessorsIDs() {
     Assert.assertEquals(0, zkUtils.getSortedActiveProcessorsIDs().size());
     zkUtils.registerProcessorAndGetId(new ProcessorData("host1", "1"));
@@ -149,7 +194,7 @@ public class TestZkUtils {
     Assert.assertFalse(zkUtils.exists(root));
 
     // create the paths
-    zkUtils.makeSurePersistentPathsExists(
+    zkUtils.validatePaths(
         new String[]{root, keyBuilder.getJobModelVersionPath(), keyBuilder.getProcessorsPath()});
     Assert.assertTrue(zkUtils.exists(root));
     Assert.assertTrue(zkUtils.exists(keyBuilder.getJobModelVersionPath()));
@@ -213,7 +258,7 @@ public class TestZkUtils {
     String version = "1";
     String oldVersion = "0";
 
-    zkUtils.makeSurePersistentPathsExists(
+    zkUtils.validatePaths(
         new String[]{root, keyBuilder.getJobModelPathPrefix(), keyBuilder.getJobModelVersionPath()});
 
     zkUtils.publishJobModelVersion(oldVersion, version);

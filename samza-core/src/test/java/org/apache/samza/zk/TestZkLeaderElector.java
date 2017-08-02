@@ -100,7 +100,7 @@ public class TestZkLeaderElector {
     when(mockZkUtils.registerProcessorAndGetId(any())).
         thenReturn(KEY_BUILDER.getProcessorsPath() + "/0000000000");
     when(mockZkUtils.getSortedActiveProcessorsZnodes()).thenReturn(activeProcessors);
-    Mockito.doNothing().when(mockZkUtils).makeSurePersistentPathsExists(any(String[].class));
+    Mockito.doNothing().when(mockZkUtils).validatePaths(any(String[].class));
 
     ZkKeyBuilder kb = mock(ZkKeyBuilder.class);
     when(kb.getProcessorsPath()).thenReturn("");
@@ -119,7 +119,7 @@ public class TestZkLeaderElector {
     String processorId = "1";
     ZkUtils mockZkUtils = mock(ZkUtils.class);
     when(mockZkUtils.getSortedActiveProcessorsZnodes()).thenReturn(new ArrayList<String>());
-    Mockito.doNothing().when(mockZkUtils).makeSurePersistentPathsExists(any(String[].class));
+    Mockito.doNothing().when(mockZkUtils).validatePaths(any(String[].class));
 
     ZkKeyBuilder kb = mock(ZkKeyBuilder.class);
     when(kb.getProcessorsPath()).thenReturn("");
