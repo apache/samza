@@ -38,7 +38,7 @@ public class AzureClient {
   private final CloudTableClient tableClient;
   private final CloudBlobClient blobClient;
 
-  AzureClient(String storageConnectionString) {
+  AzureClient(String storageConnectionString) throws URISyntaxException, InvalidKeyException {
     try {
       account = CloudStorageAccount.parse(storageConnectionString);
       blobClient = account.createCloudBlobClient();
@@ -46,11 +46,11 @@ public class AzureClient {
     } catch (IllegalArgumentException | URISyntaxException e) {
       LOG.error("\nConnection string {} specifies an invalid URI.", storageConnectionString);
       LOG.error("Please confirm the connection string is in the Azure connection string format.");
-      throw new SamzaException(e);
+      throw e;
     } catch (InvalidKeyException e) {
       LOG.error("\nConnection string {} specifies an invalid key.", storageConnectionString);
       LOG.error("Please confirm the AccountName and AccountKey in the connection string are valid.");
-      throw new SamzaException(e);
+      throw e;
     }
   }
 

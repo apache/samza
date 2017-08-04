@@ -56,7 +56,7 @@ public class LeaseBlobManager {
       if (httpStatusCode == HttpStatus.CONFLICT_409) {
         LOG.info("The blob you're trying to acquire is leased already.");
       } else {
-        LOG.error("Error acquiring lease!", new SamzaException(storageException));
+        LOG.error("Error acquiring lease!", storageException);
       }
     }
     return null;
@@ -71,8 +71,8 @@ public class LeaseBlobManager {
     try {
       leaseBlob.renewLease(AccessCondition.generateLeaseCondition(leaseId));
       return true;
-    } catch (StorageException e) {
-      LOG.error("Wasn't able to renew lease.", new SamzaException(e));
+    } catch (StorageException storageException) {
+      LOG.error("Wasn't able to renew lease.", storageException);
       return false;
     }
   }
@@ -86,8 +86,8 @@ public class LeaseBlobManager {
     try {
       leaseBlob.releaseLease(AccessCondition.generateLeaseCondition(leaseId));
       return true;
-    } catch (StorageException e) {
-      LOG.error("Wasn't able to release lease.", new SamzaException(e));
+    } catch (StorageException storageException) {
+      LOG.error("Wasn't able to release lease.", storageException);
       return false;
     }
   }
