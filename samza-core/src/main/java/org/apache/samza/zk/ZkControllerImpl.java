@@ -46,6 +46,10 @@ public class ZkControllerImpl implements ZkController {
 
   private void init() {
     ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
+
+    // make sure we are conection to a job that uses the same ZK communication protocol version.
+    zkUtils.validateZkVersion();
+
     zkUtils.validatePaths(
         new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
             .getJobModelPathPrefix()});

@@ -442,8 +442,10 @@ public class ZkUtils {
         "(actual data version after update = " + stat.getVersion() + ")");
   }
 
-  // validate Zk protocol currently used is the same as in this participant
-  private void validateZkVersion() {
+  // validate that Zk protocol currently used by the job is the same as in this participant
+  public void validateZkVersion() {
+
+    // Version of the protocol is written into root znode. If root does not exist yet we need to create one.
     String rootPath = keyBuilder.getRootPath();
     if (!zkClient.exists(rootPath)) {
       try {
@@ -480,10 +482,6 @@ public class ZkUtils {
    * @param paths - paths to verify or create
    */
   public void validatePaths(String[] paths) {
-
-    // validate the version of ZK protocol
-    validateZkVersion();
-
     for (String path : paths) {
       if (!zkClient.exists(path)) {
         zkClient.createPersistent(path, true);
