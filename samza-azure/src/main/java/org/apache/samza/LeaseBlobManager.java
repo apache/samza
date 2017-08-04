@@ -44,7 +44,7 @@ public class LeaseBlobManager {
    * If the blob does not exist, throws an exception.
    * @param leaseTimeInSec The time in seconds you want to acquire the lease for.
    * @param leaseId Proposed ID you want to acquire the lease with, null if not proposed.
-   * @return String that represents lease ID. Null if lease is not acquired.
+   * @return String that represents lease ID. Null initially.
    */
   public String acquireLease(int leaseTimeInSec, String leaseId) {
     try {
