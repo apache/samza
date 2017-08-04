@@ -24,7 +24,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.coordinator.CoordinationUtils;
+import org.apache.samza.coordinator.StandAloneCoordinationUtils;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
 import org.apache.samza.coordinator.LeaderElectorListener;
@@ -152,7 +152,7 @@ public class TestLocalApplicationRunner {
 
     LocalApplicationRunner spy = spy(runner);
 
-    CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
+    StandAloneCoordinationUtils coordinationUtils = mock(StandAloneCoordinationUtils.class);
     LeaderElector leaderElector = new LeaderElector() {
       private LeaderElectorListener leaderElectorListener;
 
@@ -173,6 +173,9 @@ public class TestLocalApplicationRunner {
       public boolean amILeader() {
         return false;
       }
+
+      @Override
+      public void close() { }
     };
 
     Latch latch = new Latch() {
@@ -188,10 +191,13 @@ public class TestLocalApplicationRunner {
       public void countDown() {
         done = true;
       }
+
+      @Override
+      public void close() { }
     };
     when(coordinationUtils.getLeaderElector()).thenReturn(leaderElector);
     when(coordinationUtils.getLatch(anyInt(), anyString())).thenReturn(latch);
-    doReturn(coordinationUtils).when(spy).createCoordinationUtils();
+    //doReturn(coordinationUtils).when(spy).createCoordinationUtils();
 
     try {
       spy.run(app);
