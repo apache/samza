@@ -66,7 +66,7 @@ public class ZkProcessorLatch implements Latch {
 
   @Override
   public void close() {
-    if(zkUtils != null)
+    if (zkUtils != null)
       zkUtils.close();
   }
 }

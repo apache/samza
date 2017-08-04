@@ -171,7 +171,7 @@ public class ZkLeaderElector implements LeaderElector {
 
   @Override
   public void close() {
-    if(zkUtils != null)
+    if (zkUtils != null)
       zkUtils.close();
   }
 
