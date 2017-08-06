@@ -38,7 +38,15 @@ public class AzureClient {
   private final CloudTableClient tableClient;
   private final CloudBlobClient blobClient;
 
-  AzureClient(String storageConnectionString) throws URISyntaxException, InvalidKeyException {
+  /**
+   * Creates a reference to the Azure Storage account according to the connection string that the client passes.
+   * Also creates references to Azure Blob Storage and Azure Table Storage.
+   * @param storageConnectionString Connection string to conenct to Azure Storage Account, format: "DefaultEndpointsProtocol=<https>;AccountName=<>;AccountKey=<>"
+   * @throws URISyntaxException
+   * @throws InvalidKeyException
+   * @throws IllegalArgumentException
+   */
+  AzureClient(String storageConnectionString) throws URISyntaxException, InvalidKeyException, IllegalArgumentException {
     try {
       account = CloudStorageAccount.parse(storageConnectionString);
       blobClient = account.createCloudBlobClient();

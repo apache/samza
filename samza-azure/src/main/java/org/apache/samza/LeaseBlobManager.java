@@ -46,7 +46,7 @@ public class LeaseBlobManager {
    * @param leaseId Proposed ID you want to acquire the lease with, null if not proposed.
    * @return String that represents lease ID. Null initially.
    */
-  public String acquireLease(int leaseTimeInSec, String leaseId) {
+  public String acquireLease(int leaseTimeInSec, String leaseId) throws StorageException {
     try {
       String id = leaseBlob.acquireLease(leaseTimeInSec, leaseId);
       LOG.info("Acquired lease with lease id = " + id);
@@ -57,6 +57,7 @@ public class LeaseBlobManager {
         LOG.info("The blob you're trying to acquire is leased already.");
       } else {
         LOG.error("Error acquiring lease!", storageException);
+        throw storageException;
       }
     }
     return null;
@@ -72,7 +73,7 @@ public class LeaseBlobManager {
       leaseBlob.renewLease(AccessCondition.generateLeaseCondition(leaseId));
       return true;
     } catch (StorageException storageException) {
-      LOG.error("Wasn't able to renew lease.", storageException);
+      LOG.error("Wasn't able to renew lease with lease id: " + leaseId, storageException);
       return false;
     }
   }
@@ -87,7 +88,7 @@ public class LeaseBlobManager {
       leaseBlob.releaseLease(AccessCondition.generateLeaseCondition(leaseId));
       return true;
     } catch (StorageException storageException) {
-      LOG.error("Wasn't able to release lease.", storageException);
+      LOG.error("Wasn't able to release lease with lease id: " + leaseId, storageException);
       return false;
     }
   }

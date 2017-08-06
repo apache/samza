@@ -29,3 +29,4 @@ out/
 *.patch
 **.pyc
 samza-shell/src/main/visualizer/plan.json
+samza-azure/src/test/java/org/apache/samza/MyTestExample.java
