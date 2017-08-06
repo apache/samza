@@ -28,4 +28,7 @@ docs/learn/documentation/*/rest/javadocs
 out/
 *.patch
 **.pyc
+<<<<<<< HEAD
+samza-shell/src/main/visualizer/plan.json
+=======
 samza-shell/src/main/visualizer/plan.json
