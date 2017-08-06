@@ -42,6 +42,7 @@ public class AzureClient {
    * Creates a reference to the Azure Storage account according to the connection string that the client passes.
    * Also creates references to Azure Blob Storage and Azure Table Storage.
    * @param storageConnectionString Connection string to conenct to Azure Storage Account, format: "DefaultEndpointsProtocol=<https>;AccountName=<>;AccountKey=<>"
+   * @throws AzureException If an Azure storage service error occurred, or when the storageConnectionString is invalid.
    */
   AzureClient(String storageConnectionString) {
     try {

@@ -45,6 +45,7 @@ public class LeaseBlobManager {
    * @param leaseTimeInSec The time in seconds you want to acquire the lease for.
    * @param leaseId Proposed ID you want to acquire the lease with, null if not proposed.
    * @return String that represents lease ID. Null initially.
+   * @throws AzureException If a 'Blob Not Found' error occurred for Azure Storage.
    */
   public String acquireLease(int leaseTimeInSec, String leaseId) {
     try {
@@ -56,7 +57,8 @@ public class LeaseBlobManager {
       if (httpStatusCode == HttpStatus.CONFLICT_409) {
         LOG.info("The blob you're trying to acquire is leased already.");
       } else if (httpStatusCode == HttpStatus.NOT_FOUND_404) {
-        throw new AzureException("The blob you're trying to lease does not exist.", storageException);
+        LOG.error("The blob you're trying to lease does not exist.", storageException);
+        throw new AzureException(storageException);
       } else {
         LOG.error("Error acquiring lease!", storageException);
       }
