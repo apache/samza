@@ -19,6 +19,9 @@
 
 package org.apache.samza;
 
+/**
+ * Unchecked exception that Azure throws when something goes wrong .
+ */
 public class AzureException extends RuntimeException {
 
   public AzureException() {

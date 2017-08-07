@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
  */
 public class LeaseBlobManager {
 
-  public static final Logger LOG = LoggerFactory.getLogger(LeaseBlobManager.class);
+  private static final Logger LOG = LoggerFactory.getLogger(LeaseBlobManager.class);
   private CloudPageBlob leaseBlob;
 
   public LeaseBlobManager(CloudPageBlob leaseBlob) {
@@ -55,7 +55,7 @@ public class LeaseBlobManager {
     } catch (StorageException storageException) {
       int httpStatusCode = storageException.getHttpStatusCode();
       if (httpStatusCode == HttpStatus.CONFLICT_409) {
-        LOG.info("The blob you're trying to acquire is leased already.");
+        LOG.info("The blob you're trying to acquire is leased already.", storageException);
       } else if (httpStatusCode == HttpStatus.NOT_FOUND_404) {
         LOG.error("The blob you're trying to lease does not exist.", storageException);
         throw new AzureException(storageException);
