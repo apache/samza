@@ -68,11 +68,8 @@ public class BlobUtils {
       if (!blob.exists()) {
         blob.create(length);
       }
-    } catch (URISyntaxException e) {
-      LOG.error("Container name: " + containerName + " or blob name: " + blobName + " invalid.", e);
-      throw new AzureException(e);
-    } catch (StorageException e) {
-      LOG.error("Azure Storage Exception!", e);
+    } catch (URISyntaxException | StorageException e) {
+      LOG.error("Azure Exception!", e);
       throw new AzureException(e);
     }
   }
@@ -86,19 +83,23 @@ public class BlobUtils {
    * @param prevJMV Previous job model version that the processor was operating on.
    * @param currJMV Current job model version that the processor is operating on.
    * @param leaseId LeaseID of the lease that the processor holds on the blob. Null if there is no lease.
-   * @throws AzureException If an Azure storage service error or IO exception occurred.
+   * @return true if write to the blob is successful, false if leaseID is null or an Azure storage service error or IO exception occurred.
    */
-  public void publishJobModel(JobModel prevJM, JobModel currJM, String prevJMV, String currJMV, String leaseId) {
+  public boolean publishJobModel(JobModel prevJM, JobModel currJM, String prevJMV, String currJMV, String leaseId) {
     try {
+      if (leaseId == null) {
+        return false;
+      }
       JobModelBundle bundle = new JobModelBundle(prevJM, currJM, prevJMV, currJMV);
       byte[] data = SamzaObjectMapper.getObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsBytes(bundle);
       byte[] pageData = Arrays.copyOf(data, (int) JOB_MODEL_BLOCK_SIZE);
       InputStream is = new ByteArrayInputStream(pageData);
       blob.uploadPages(is, 0, JOB_MODEL_BLOCK_SIZE, AccessCondition.generateLeaseCondition(leaseId), null, null);
       LOG.info("Uploaded {} jobModel to blob", bundle.getCurrJobModel());
+      return true;
     } catch (StorageException | IOException e) {
       LOG.error("JobModel publish failed for version = " + currJMV, e);
-      throw new AzureException(e);
+      return false;
     }
   }
 
@@ -142,18 +143,24 @@ public class BlobUtils {
    * Called only by the leader.
    * @param state Barrier state to be published to the blob.
    * @param leaseId LeaseID of the valid lease that the processor holds on the blob. Null if there is no lease.
-   * @throws AzureException If an Azure storage service error or IO exception occurred.
+   * @return true if write to the blob is successful, false if leaseID is null or an Azure storage service error or IO exception occurred.
    */
-  public void publishBarrierState(String state, String leaseId) {
+  public boolean publishBarrierState(String state, String leaseId) {
     try {
+      if (leaseId == null) {
+        return false;
+      }
       byte[] data = SamzaObjectMapper.getObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsBytes(state);
       byte[] pageData = Arrays.copyOf(data, (int) BARRIER_STATE_BLOCK_SIZE);
       InputStream is = new ByteArrayInputStream(pageData);
+
+      //uploadPages is only successful when the AccessCondition provided has an active and valid lease ID. It fails otherwise.
       blob.uploadPages(is, JOB_MODEL_BLOCK_SIZE, BARRIER_STATE_BLOCK_SIZE, AccessCondition.generateLeaseCondition(leaseId), null, null);
       LOG.info("Uploaded barrier state {} to blob", state);
+      return true;
     } catch (StorageException | IOException e) {
       LOG.error("Barrier state " + state + " publish failed", e);
-      throw new AzureException(e);
+      return false;
     }
   }
 
@@ -188,18 +195,22 @@ public class BlobUtils {
    * Called only by the leader.
    * @param processors List of live processors to be published on the blob.
    * @param leaseId LeaseID of the valid lease that the processor holds on the blob. Null if there is no lease.
-   * @throws AzureException If an Azure storage service error or IO exception occurred.
+   * @return true if write to the blob is successful, false if leaseID is null or an Azure storage service error or IO exception occurred.
    */
-  public void publishLiveProcessorList(List<String> processors, String leaseId) {
+  public boolean publishLiveProcessorList(List<String> processors, String leaseId) {
     try {
+      if (leaseId == null) {
+        return false;
+      }
       byte[] data = SamzaObjectMapper.getObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsBytes(processors);
       byte[] pageData = Arrays.copyOf(data, (int) BARRIER_STATE_BLOCK_SIZE);
       InputStream is = new ByteArrayInputStream(pageData);
       blob.uploadPages(is, JOB_MODEL_BLOCK_SIZE + BARRIER_STATE_BLOCK_SIZE, PROCESSOR_LIST_BLOCK_SIZE, AccessCondition.generateLeaseCondition(leaseId), null, null);
       LOG.info("Uploaded list of live processors to blob.");
+      return true;
     } catch (StorageException | IOException e) {
       LOG.error("Processor list: " + processors + "publish failed", e);
-      throw new AzureException(e);
+      return false;
     }
   }
 

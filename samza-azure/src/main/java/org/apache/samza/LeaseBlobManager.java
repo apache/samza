@@ -46,7 +46,7 @@ public class LeaseBlobManager {
    * @return String that represents lease ID.  Null if acquireLease is unsuccessful because the blob is leased already.
    * @throws AzureException If a Azure storage service error occurred. This includes the case where the blob you're trying to lease does not exist.
    */
-  public String acquireLease(int leaseTimeInSec, String leaseId) throws StorageException {
+  public String acquireLease(int leaseTimeInSec, String leaseId) {
     try {
       String id = leaseBlob.acquireLease(leaseTimeInSec, leaseId);
       LOG.info("Acquired lease with lease id = " + id);
