@@ -38,19 +38,25 @@ public class AzureClient {
   private final CloudTableClient tableClient;
   private final CloudBlobClient blobClient;
 
+  /**
+   * Creates a reference to the Azure Storage account according to the connection string that the client passes.
+   * Also creates references to Azure Blob Storage and Azure Table Storage.
+   * @param storageConnectionString Connection string to conenct to Azure Storage Account, format: "DefaultEndpointsProtocol=<https>;AccountName=<>;AccountKey=<>"
+   * @throws AzureException If an Azure storage service error occurred, or when the storageConnectionString is invalid.
+   */
   AzureClient(String storageConnectionString) {
     try {
       account = CloudStorageAccount.parse(storageConnectionString);
       blobClient = account.createCloudBlobClient();
       tableClient = account.createCloudTableClient();
     } catch (IllegalArgumentException | URISyntaxException e) {
-      LOG.error("\nConnection string {} specifies an invalid URI.", storageConnectionString);
+      LOG.error("Connection string {} specifies an invalid URI.", storageConnectionString);
       LOG.error("Please confirm the connection string is in the Azure connection string format.");
-      throw new SamzaException(e);
+      throw new AzureException(e);
     } catch (InvalidKeyException e) {
-      LOG.error("\nConnection string {} specifies an invalid key.", storageConnectionString);
+      LOG.error("Connection string {} specifies an invalid key.", storageConnectionString);
       LOG.error("Please confirm the AccountName and AccountKey in the connection string are valid.");
-      throw new SamzaException(e);
+      throw new AzureException(e);
     }
   }
 
