@@ -59,7 +59,8 @@ public class AzureLeaderElector implements LeaderElector {
   }
 
   /**
-   * Tries to acquire a lease on the blob.
+   * Tries to become the leader by acquiring a lease on the blob.
+   * Invokes the listener on becoming the leader.
    */
   @Override
   public void tryBecomeLeader() {
@@ -72,7 +73,7 @@ public class AzureLeaderElector implements LeaderElector {
   }
 
   /**
-   * Releases the lease.
+   * Releases the lease in order to resign leadership. It also stops all schedulers scheduled by the leader.
    */
   @Override
   public void resignLeadership() {
